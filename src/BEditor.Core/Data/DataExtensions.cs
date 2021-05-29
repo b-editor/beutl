@@ -1,4 +1,11 @@
-﻿using System;
+﻿// DataExtensions.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System;
 using System.Collections.Generic;
 using System.Diagnostics.Contracts;
 
@@ -35,8 +42,9 @@ namespace BEditor.Data
         /// </summary>
         /// <typeparam name="T">Type of the parent element to retrieve.</typeparam>
         /// <param name="self">The child element of the parent element to retrieve.</param>
+        /// <returns>Returns the parent element.</returns>
         [Pure]
-        public static T GetParentRequired<T>(this IChild<object> self)
+        public static T GetRequiredParent<T>(this IChild<object> self)
         {
             var parent = GetParent<T>(self);
             if (parent is null) throw new DataException();
@@ -49,6 +57,7 @@ namespace BEditor.Data
         /// </summary>
         /// <typeparam name="T">Type of the parent element to retrieve.</typeparam>
         /// <param name="self">The child element of the parent element to retrieve.</param>
+        /// <returns>Returns the parent element.</returns>
         [Pure]
         public static T? GetParent<T>(this IChild<object> self)
         {
@@ -73,6 +82,7 @@ namespace BEditor.Data
         /// Gets the root element.
         /// </summary>
         /// <param name="self">The child element of the parent element to retrieve.</param>
+        /// <returns>Returns the root element.</returns>
         [Pure]
         public static object? GetRoot(this IChild<object> self)
         {
@@ -139,11 +149,11 @@ namespace BEditor.Data
         }
 
         /// <summary>
-        ///
+        /// Enumerates the objects of a given type within a given object.
         /// </summary>
-        /// <typeparam name="TResult"></typeparam>
-        /// <param name="self"></param>
-        /// <returns></returns>
+        /// <typeparam name="TResult">The type of the object to enumerate.</typeparam>
+        /// <param name="self">An instance of <see cref="IParent{T}"/> that contains the object to be enumerated.</param>
+        /// <returns>Returns the objects of a given type within a given object.</returns>
         [Pure]
         public static IEnumerable<TResult> GetAllChildren<TResult>(this IParent<object> self)
         {
@@ -166,7 +176,9 @@ namespace BEditor.Data
         /// </summary>
         /// <typeparam name="TValue">The type of the property value.</typeparam>
         /// <param name="options">The options to be specified.</param>
-        public static EditingPropertyOptions<TValue> Serialize<TValue>(this EditingPropertyOptions<TValue> options) where TValue : IJsonObject
+        /// <returns>An <see cref="EditingPropertyOptions{TValue}"/> instance.</returns>
+        public static EditingPropertyOptions<TValue> Serialize<TValue>(this EditingPropertyOptions<TValue> options)
+            where TValue : IJsonObject
         {
             return options.Serialize(Internals.PropertyJsonSerializer<TValue>.Current);
         }

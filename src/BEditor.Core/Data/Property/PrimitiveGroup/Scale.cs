@@ -1,8 +1,13 @@
-﻿using System;
+﻿// Scale.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
-
-using BEditor.Data;
 
 using BEditor.Resources;
 
@@ -20,7 +25,7 @@ namespace BEditor.Data.Property.PrimitiveGroup
             nameof(Scale1),
             owner => owner.Scale1,
             (owner, obj) => owner.Scale1 = obj,
-            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Scale, 100, UseOptional: true)).Serialize());
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Scale, 100, useOptional: true)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="ScaleX"/> property.
@@ -29,7 +34,7 @@ namespace BEditor.Data.Property.PrimitiveGroup
             nameof(ScaleX),
             owner => owner.ScaleX,
             (owner, obj) => owner.ScaleX = obj,
-            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.X, 100, UseOptional: true)).Serialize());
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.X, 100, useOptional: true)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="ScaleY"/> property.
@@ -38,7 +43,7 @@ namespace BEditor.Data.Property.PrimitiveGroup
             nameof(ScaleY),
             owner => owner.ScaleY,
             (owner, obj) => owner.ScaleY = obj,
-            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Y, 100, UseOptional: true)).Serialize());
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Y, 100, useOptional: true)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="ScaleZ"/> property.
@@ -47,17 +52,17 @@ namespace BEditor.Data.Property.PrimitiveGroup
             nameof(ScaleZ),
             owner => owner.ScaleZ,
             (owner, obj) => owner.ScaleZ = obj,
-            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Z, 100, UseOptional: true)).Serialize());
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Z, 100, useOptional: true)).Serialize());
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="Coordinate"/> class.
+        /// Initializes a new instance of the <see cref="Scale"/> class.
         /// </summary>
         /// <param name="metadata">Metadata of this property.</param>
         /// <exception cref="ArgumentNullException"><paramref name="metadata"/> is <see langword="null"/>.</exception>
-        public Scale(ScaleMetadata metadata) : base(metadata)
+        public Scale(ScaleMetadata metadata)
+            : base(metadata)
         {
         }
-
 
         /// <summary>
         /// Gets the EaseProperty representing the scale.

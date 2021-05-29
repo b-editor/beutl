@@ -1,32 +1,16 @@
-﻿using System;
+﻿// DirectEditingProperty.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System;
 
 using BEditor.Resources;
 
 namespace BEditor.Data
 {
-    internal interface IDirectProperty : IEditingProperty
-    {
-        public object Get(IEditingObject owner);
-        public void Set(IEditingObject owner, object value);
-    }
-
-    internal interface IDirectProperty<TValue> : IDirectProperty, IEditingProperty<TValue>
-    {
-        object IDirectProperty.Get(IEditingObject owner)
-        {
-            return Get(owner)!;
-        }
-
-        void IDirectProperty.Set(IEditingObject owner, object value)
-        {
-            Set(owner, (TValue)value);
-        }
-
-        public new TValue Get(IEditingObject owner);
-
-        public void Set(IEditingObject owner, TValue value);
-    }
-
     /// <summary>
     /// A direct editing property.
     /// </summary>
@@ -41,7 +25,8 @@ namespace BEditor.Data
         /// <param name="getter">Gets the current value of the property.</param>
         /// <param name="setter">Sets the value of the property.</param>
         /// <param name="key">The registry key.</param>
-        public DirectEditingProperty(Func<TOwner, TValue> getter, Action<TOwner, TValue> setter, EditingPropertyRegistryKey key) : base(key)
+        public DirectEditingProperty(Func<TOwner, TValue> getter, Action<TOwner, TValue> setter, EditingPropertyRegistryKey key)
+            : base(key)
         {
             (Getter, Setter) = (getter, setter);
         }
@@ -56,11 +41,13 @@ namespace BEditor.Data
         /// </summary>
         public Action<TOwner, TValue> Setter { get; }
 
+        /// <inheritdoc/>
         TValue IDirectProperty<TValue>.Get(IEditingObject owner)
         {
             return Getter((TOwner)owner)!;
         }
 
+        /// <inheritdoc/>
         void IDirectProperty<TValue>.Set(IEditingObject owner, TValue value)
         {
             Setter((TOwner)owner, value);
@@ -74,6 +61,7 @@ namespace BEditor.Data
         /// <param name="setter">Sets the value of the property.</param>
         /// <param name="initializer">The <see cref="IEditingPropertyInitializer{T}"/> that initializes the local value of a property.</param>
         /// <param name="serializer">To serialize this property, specify the serializer.</param>
+        /// <returns>Returns an instance of the editing property registered by this method.</returns>
         public DirectEditingProperty<TNewOwner, TValue> WithOwner<TNewOwner>(
             Func<TNewOwner, TValue> getter,
             Action<TNewOwner, TValue> setter,

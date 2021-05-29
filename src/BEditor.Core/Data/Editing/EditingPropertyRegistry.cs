@@ -1,4 +1,11 @@
-﻿using System;
+﻿// EditingPropertyRegistry.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -31,11 +38,6 @@ namespace BEditor.Data
 
                 _registered.Add(key, property);
             }
-        }
-
-        internal static void RegisterUnChecked(EditingPropertyRegistryKey key, EditingProperty property)
-        {
-            _registered.Add(key, property);
         }
 
         /// <summary>
@@ -129,6 +131,11 @@ namespace BEditor.Data
             {
                 return _registered.ContainsKey(key);
             }
+        }
+
+        internal static void RegisterUnChecked(EditingPropertyRegistryKey key, EditingProperty property)
+        {
+            _registered.Add(key, property);
         }
     }
 }

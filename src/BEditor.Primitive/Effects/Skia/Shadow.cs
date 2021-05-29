@@ -47,7 +47,7 @@ namespace BEditor.Primitive.Effects
             nameof(Blur),
             owner => owner.Blur,
             (owner, obj) => owner.Blur = obj,
-            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Blur, 10, Min: 0)).Serialize());
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Blur, 10, min: 0)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="Opacity"/> property.

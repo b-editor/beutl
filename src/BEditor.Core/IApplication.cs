@@ -1,4 +1,11 @@
-﻿using System;
+﻿// IApplication.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System;
 using System.Threading;
 
 using BEditor.Data;
@@ -8,12 +15,16 @@ using Microsoft.Extensions.Logging;
 
 namespace BEditor
 {
-
     /// <summary>
     /// Represents an application.
     /// </summary>
     public interface IApplication : IParentSingle<Project?>
     {
+        /// <summary>
+        /// Occurs when the project is opened.
+        /// </summary>
+        public event EventHandler<ProjectOpenedEventArgs>? ProjectOpened;
+
         /// <summary>
         /// Gets or sets the status of an application.
         /// </summary>
@@ -33,11 +44,6 @@ namespace BEditor
         /// Gets the <see cref="SynchronizationContext"/>.
         /// </summary>
         public SynchronizationContext UIThread { get; }
-
-        /// <summary>
-        /// Occurs when the project is opened.
-        /// </summary>
-        public event EventHandler<ProjectOpenedEventArgs>? ProjectOpened;
 
         /// <summary>
         /// Restore the application configuration.

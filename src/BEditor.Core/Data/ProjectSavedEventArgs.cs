@@ -1,4 +1,11 @@
-﻿using System;
+﻿// ProjectSavedEventArgs.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System;
 
 namespace BEditor.Data
 {
@@ -8,9 +15,13 @@ namespace BEditor.Data
     public class ProjectSavedEventArgs : EventArgs
     {
         /// <summary>
-        /// <see cref="ProjectSavedEventArgs"/> Initialize a new instance of the class.
+        /// Initializes a new instance of the <see cref="ProjectSavedEventArgs"/> class.
         /// </summary>
-        public ProjectSavedEventArgs(SaveType type) => Type = type;
+        /// <param name="type">The save type.</param>
+        public ProjectSavedEventArgs(SaveType type)
+        {
+            Type = type;
+        }
 
         /// <summary>
         /// Gets the save type.

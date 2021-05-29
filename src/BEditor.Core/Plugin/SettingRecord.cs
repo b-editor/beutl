@@ -1,4 +1,11 @@
-﻿using System.Runtime.Serialization;
+﻿// SettingRecord.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System.Runtime.Serialization;
 
 namespace BEditor.Plugin
 {
@@ -8,7 +15,7 @@ namespace BEditor.Plugin
     /// <example>
     /// public record CustomSetting(string value) : SettingRecord;
     ///
-    /// public SettingRecord Settings { get; set; } = new CustomSetting("Sample text");
+    /// public SettingRecord Settings { get; set; } = new CustomSetting("Sample text");.
     /// </example>
     [DataContract]
     public record SettingRecord()

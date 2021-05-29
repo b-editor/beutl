@@ -73,7 +73,7 @@ namespace BEditor.Primitive.Objects
             nameof(Width),
             owner => owner.Width,
             (owner, obj) => owner.Width = obj,
-            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Width, 100, Min: 0)).Serialize());
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Width, 100, min: 0)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="Height"/> property.
@@ -82,7 +82,7 @@ namespace BEditor.Primitive.Objects
             nameof(Height),
             owner => owner.Height,
             (owner, obj) => owner.Height = obj,
-            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Height, 100, Min: 0)).Serialize());
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Height, 100, min: 0)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="Depth"/> property.
@@ -91,7 +91,7 @@ namespace BEditor.Primitive.Objects
             nameof(Depth),
             owner => owner.Depth,
             (owner, obj) => owner.Depth = obj,
-            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Depth, 100, Min: 0)).Serialize());
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Depth, 100, min: 0)).Serialize());
 
         /// <summary>
         /// Initializes a new instance of the <see cref="GL3DObject"/> class.

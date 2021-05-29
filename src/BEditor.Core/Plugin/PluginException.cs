@@ -1,4 +1,11 @@
-﻿using System;
+﻿// PluginException.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System;
 
 namespace BEditor.Plugin
 {
@@ -49,7 +56,7 @@ namespace BEditor.Plugin
         }
 
         /// <summary>
-        /// Gets the plugin name.
+        /// Gets or sets the plugin name.
         /// </summary>
         public string PluginName { get; set; } = string.Empty;
     }

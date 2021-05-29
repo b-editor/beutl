@@ -1,11 +1,17 @@
-﻿using System;
+﻿// EditingProperty.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System;
 
 using BEditor.Data.Internals;
 using BEditor.Resources;
 
 namespace BEditor.Data
 {
-
     /// <summary>
     /// Represents the properties of the edited data.
     /// </summary>
@@ -15,7 +21,7 @@ namespace BEditor.Data
         /// Initializes a new instance of the <see cref="EditingProperty"/> class.
         /// </summary>
         /// <param name="value">The type of the local value.</param>
-        /// <param name="key">The registry key</param>
+        /// <param name="key">The registry key.</param>
         protected EditingProperty(Type value, EditingPropertyRegistryKey key)
         {
             ValueType = value;
@@ -83,7 +89,7 @@ namespace BEditor.Data
         }
 
         /// <summary>
-        /// Registers a direct <see cref="EditingProperty"/>
+        /// Registers a direct <see cref="EditingProperty"/>.
         /// </summary>
         /// <typeparam name="TValue">The type of the property.</typeparam>
         /// <typeparam name="TOwner">The type of the owner.</typeparam>

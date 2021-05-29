@@ -1,4 +1,11 @@
-﻿using System;
+﻿// EditingObject.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
@@ -167,13 +174,9 @@ namespace BEditor.Data
         public void SetValue(EditingProperty property, object? value)
         {
             if (value is not null && CheckValueType(property, value))
-            {
                 throw new DataException(string.Format(Strings.TheValueWasNotTypeButType, property.ValueType, value.GetType()));
-            }
-            if (CheckOwnerType(this, property))
-            {
-                throw new DataException(Strings.TheOwnerTypeDoesNotMatch);
-            }
+
+            if (CheckOwnerType(this, property)) throw new DataException(Strings.TheOwnerTypeDoesNotMatch);
 
             if (property is IDirectProperty directProp)
             {

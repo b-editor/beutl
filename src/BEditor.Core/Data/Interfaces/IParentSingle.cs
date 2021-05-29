@@ -1,4 +1,11 @@
-﻿using System.Collections.Generic;
+﻿// IParentSingle.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System.Collections.Generic;
 
 namespace BEditor.Data
 {
@@ -8,9 +15,12 @@ namespace BEditor.Data
     /// <typeparam name="T">Type of the child element.</typeparam>
     public interface IParentSingle<out T> : IParent<T>
     {
-        // こう書けない
-        // IEnumerable<T> IParent<T>.Children => yeied return Child;
+        /// <summary>
+        /// Gets the child element.
+        /// </summary>
+        public T Child { get; }
 
+        /// <inheritdoc/>
         IEnumerable<T> IParent<T>.Children
         {
             get
@@ -18,10 +28,5 @@ namespace BEditor.Data
                 yield return Child;
             }
         }
-
-        /// <summary>
-        /// Gets the child element.
-        /// </summary>
-        public T Child { get; }
     }
 }

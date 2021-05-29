@@ -112,7 +112,6 @@ namespace BEditor
 
                 return _items[index];
             }
-
             set
             {
                 if ((uint)index >= (uint)_size) throw new IndexOutOfRangeException();

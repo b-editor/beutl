@@ -1,9 +1,15 @@
-﻿using System;
+﻿// EffectElement.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics.Contracts;
 using System.Linq;
-using System.Runtime.Serialization;
 using System.Text.Json;
 
 using BEditor.Command;
@@ -17,14 +23,12 @@ namespace BEditor.Data
     /// </summary>
     public abstract class EffectElement : EditingObject, IChild<ClipElement>, IParent<PropertyElement>, ICloneable
     {
-        #region Fields
         private static readonly PropertyChangedEventArgs _isEnabledArgs = new(nameof(IsEnabled));
         private static readonly PropertyChangedEventArgs _isExpandedArgs = new(nameof(IsExpanded));
         private bool _isEnabled = true;
         private bool _isExpanded = true;
         private ClipElement? _parent;
         private IEnumerable<PropertyElement>? _cachedList;
-        #endregion
 
         /// <inheritdoc/>
         public IEnumerable<PropertyElement> Children => _cachedList ??= GetProperties().ToArray();
@@ -69,11 +73,10 @@ namespace BEditor.Data
             }
         }
 
-        #region Methods
-
         /// <summary>
         /// Gets the <see cref="PropertyElement"/> to display on the GUI.
         /// </summary>
+        /// <returns>Returns the <see cref="PropertyElement"/> to display on the GUI.</returns>
         public abstract IEnumerable<PropertyElement> GetProperties();
 
         /// <inheritdoc/>
@@ -99,6 +102,7 @@ namespace BEditor.Data
         /// <summary>
         /// Create a command to change whether the <see cref="EffectElement"/> is enabled.
         /// </summary>
+        /// <param name="value">New value for <see cref="IsEnabled"/>.</param>
         /// <returns>Created <see cref="IRecordCommand"/>.</returns>
         [Pure]
         public IRecordCommand ChangeIsEnabled(bool value) => new CheckCommand(this, value);
@@ -132,8 +136,6 @@ namespace BEditor.Data
             IsEnabled = element.GetProperty(nameof(IsEnabled)).GetBoolean();
             IsExpanded = element.GetProperty(nameof(IsExpanded)).GetBoolean();
         }
-
-        #endregion
 
         /// <summary>
         /// クリップからエフェクトを削除するコマンドを表します.

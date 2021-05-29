@@ -1,4 +1,11 @@
-﻿using System;
+﻿// PluginManager.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -20,17 +27,11 @@ namespace BEditor.Plugin
         /// </summary>
         public static readonly PluginManager Default = new();
 
-        /// <summary>
-        /// The loaded plugins.
-        /// </summary>
-        internal readonly List<PluginObject> _loaded = new();
-
-        /// <summary>
-        /// The plugin menus.
-        /// </summary>
         internal readonly List<(string, IEnumerable<ICustomMenu>)> _menus = new();
 
         internal readonly List<(PluginObject, List<Func<IProgress<int>, ValueTask>>)> _tasks = new();
+
+        internal readonly List<PluginObject> _loaded = new();
 
         /// <summary>
         /// Initializes a new instance of the <see cref="PluginManager"/> class.
@@ -85,7 +86,7 @@ namespace BEditor.Plugin
                     var name = asm.GetName().Name ?? string.Empty;
                     exceptions.Add(new PluginException(string.Format(Strings.FailedToLoad, name), e)
                     {
-                        PluginName = name
+                        PluginName = name,
                     });
                 }
             }

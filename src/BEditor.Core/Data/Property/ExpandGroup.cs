@@ -1,4 +1,11 @@
-﻿using System;
+﻿// ExpandGroup.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -14,14 +21,12 @@ namespace BEditor.Data.Property
     [DebuggerDisplay("IsExpanded = {IsExpanded}")]
     public abstract class ExpandGroup : Group, IBindable<bool>
     {
-        #region Fields
         private static readonly PropertyChangedEventArgs _isExpandedArgs = new(nameof(IsExpanded));
         private bool _isOpen;
         private List<IObserver<bool>>? _list;
         private IDisposable? _bindDispose;
         private IBindable<bool>? _bindable;
         private Guid? _targetID;
-        #endregion
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ExpandGroup"/> class.
@@ -66,8 +71,6 @@ namespace BEditor.Data.Property
         bool IBindable<bool>.Value => IsExpanded;
 
         private List<IObserver<bool>> Collection => _list ??= new();
-
-        #region Methods
 
         /// <inheritdoc/>
         public override void GetObjectData(Utf8JsonWriter writer)
@@ -123,7 +126,5 @@ namespace BEditor.Data.Property
         {
             this.AutoLoad(ref _targetID);
         }
-
-        #endregion
     }
 }

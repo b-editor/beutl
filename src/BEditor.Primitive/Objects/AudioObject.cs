@@ -184,13 +184,13 @@ namespace BEditor.Primitive.Objects
                 Decoder = MediaFile.Open(file, new()
                 {
                     StreamsToLoad = MediaMode.Audio,
-                    SampleRate = this.GetParentRequired<Project>().Samplingrate
+                    SampleRate = this.GetRequiredParent<Project>().Samplingrate
                 });
             });
 
             _disposable2 = SetLength.Where(_ => Loaded is not null).Subscribe(_ =>
             {
-                var length = Frame.FromTimeSpan(Loaded!.Duration, this.GetParentRequired<Project>().Framerate);
+                var length = Frame.FromTimeSpan(Loaded!.Duration, this.GetRequiredParent<Project>().Framerate);
 
                 Parent.ChangeLength(Parent.Start, Parent.Start + length).Execute();
             });

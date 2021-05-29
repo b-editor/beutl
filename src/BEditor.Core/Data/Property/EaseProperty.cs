@@ -1,4 +1,11 @@
-﻿using System;
+﻿// EaseProperty.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -21,11 +28,9 @@ namespace BEditor.Data.Property
     [DebuggerDisplay("Count = {Value.Count}, Easing = {EasingData.Name}")]
     public class EaseProperty : PropertyElement<EasePropertyMetadata>, IKeyframeProperty
     {
-        #region Fields
         private static readonly PropertyChangedEventArgs _easingDataArgs = new(nameof(EasingData));
         private EasingFunc? _easingTypeProperty;
         private EasingMetadata? _easingData;
-        #endregion
 
         /// <summary>
         /// Initializes a new instance of the <see cref="EaseProperty"/> class.
@@ -119,8 +124,6 @@ namespace BEditor.Data.Property
         /// <param name="frame">The frame of the value to get.</param>
         public float this[Frame frame] => GetValue(frame);
 
-        #region Methods
-
         /// <summary>
         /// Gets an eased value.
         /// </summary>
@@ -158,6 +161,7 @@ namespace BEditor.Data.Property
 
                 throw new Exception();
             }
+
             static (float, float) GetValues(EaseProperty property, int frame)
             {
                 if (property.Value.Count == 2)
@@ -345,7 +349,10 @@ namespace BEditor.Data.Property
         /// <param name="value">New Value.</param>
         /// <returns>Created <see cref="IRecordCommand"/>.</returns>
         [Pure]
-        public IRecordCommand ChangeValue(int index, float value) => new ChangeValueCommand(this, index, value);
+        public IRecordCommand ChangeValue(int index, float value)
+        {
+            return new ChangeValueCommand(this, index, value);
+        }
 
         /// <summary>
         /// Create a command to change the easing function.
@@ -353,7 +360,10 @@ namespace BEditor.Data.Property
         /// <param name="metadata">New easing function metadata.</param>
         /// <returns>Created <see cref="IRecordCommand"/>.</returns>
         [Pure]
-        public IRecordCommand ChangeEase(EasingMetadata metadata) => new ChangeEaseCommand(this, metadata);
+        public IRecordCommand ChangeEase(EasingMetadata metadata)
+        {
+            return new ChangeEaseCommand(this, metadata);
+        }
 
         /// <summary>
         /// Create a command to add a keyframe.
@@ -361,7 +371,10 @@ namespace BEditor.Data.Property
         /// <param name="frame">Frame to be added.</param>
         /// <returns>Created <see cref="IRecordCommand"/>.</returns>
         [Pure]
-        public IRecordCommand AddFrame(Frame frame) => new AddCommand(this, frame);
+        public IRecordCommand AddFrame(Frame frame)
+        {
+            return new AddCommand(this, frame);
+        }
 
         /// <summary>
         /// Create a command to remove a keyframe.
@@ -369,7 +382,10 @@ namespace BEditor.Data.Property
         /// <param name="frame">Frame to be removed.</param>
         /// <returns>Created <see cref="IRecordCommand"/>.</returns>
         [Pure]
-        public IRecordCommand RemoveFrame(Frame frame) => new RemoveCommand(this, frame);
+        public IRecordCommand RemoveFrame(Frame frame)
+        {
+            return new RemoveCommand(this, frame);
+        }
 
         /// <summary>
         /// Create a command to move a keyframe.
@@ -378,7 +394,10 @@ namespace BEditor.Data.Property
         /// <param name="toFrame">Destination frame.</param>
         /// <returns>Created <see cref="IRecordCommand"/>.</returns>
         [Pure]
-        public IRecordCommand MoveFrame(int fromIndex, Frame toFrame) => new MoveCommand(this, fromIndex, toFrame);
+        public IRecordCommand MoveFrame(int fromIndex, Frame toFrame)
+        {
+            return new MoveCommand(this, fromIndex, toFrame);
+        }
 
         /// <inheritdoc/>
         protected override void OnLoad()
@@ -393,10 +412,6 @@ namespace BEditor.Data.Property
         {
             EasingType.Unload();
         }
-
-        #endregion
-
-        #region Commands
 
         private sealed class ChangeValueCommand : IRecordCommand
         {
@@ -623,7 +638,5 @@ namespace BEditor.Data.Property
                 }
             }
         }
-
-        #endregion
     }
 }

@@ -1,4 +1,11 @@
-﻿using System;
+﻿// EditingPropertyOptions{TValue}.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System;
 using System.Text.Json;
 
 namespace BEditor.Data
@@ -30,6 +37,7 @@ namespace BEditor.Data
         /// <param name="initializer">The <see cref="IEditingPropertyInitializer{T}"/> that initializes the local value of a property.</param>
         /// <param name="serializer">The <see cref="IEditingPropertySerializer{T}"/> to serialize this property.</param>
         /// <param name="isDisposable">The value of whether to delete with <see cref="EditingObject.ClearDisposable"/>.</param>
+        /// <returns>An <see cref="EditingPropertyOptions{TValue}"/> instance.</returns>
         public static EditingPropertyOptions<TValue> Create(
             IEditingPropertyInitializer<TValue>? initializer = null,
             IEditingPropertySerializer<TValue>? serializer = null,
@@ -39,14 +47,15 @@ namespace BEditor.Data
             {
                 Initializer = initializer,
                 Serializer = serializer,
-                IsDisposable = isDisposable
+                IsDisposable = isDisposable,
             };
         }
 
         /// <summary>
         /// Sets the <see cref="IEditingPropertyInitializer{T}"/> that initializes the value of a property.
         /// </summary>
-        /// <param name="initializer">The value of <see cref="Initializer"/></param>
+        /// <param name="initializer">The value of <see cref="Initializer"/>.</param>
+        /// <returns>An <see cref="EditingPropertyOptions{TValue}"/> instance.</returns>
         public EditingPropertyOptions<TValue> Initialize(IEditingPropertyInitializer<TValue>? initializer)
         {
             Initializer = initializer;
@@ -57,6 +66,7 @@ namespace BEditor.Data
         /// Sets the <see cref="IEditingPropertySerializer{T}"/> to serialize this property.
         /// </summary>
         /// <param name="serializer">The value of <see cref="Serializer"/>.</param>
+        /// <returns>An <see cref="EditingPropertyOptions{TValue}"/> instance.</returns>
         public EditingPropertyOptions<TValue> Serialize(IEditingPropertySerializer<TValue> serializer)
         {
             Serializer = serializer;
@@ -67,6 +77,7 @@ namespace BEditor.Data
         /// Sets the <see cref="IEditingPropertyInitializer{T}"/> that initializes the value of a property.
         /// </summary>
         /// <param name="initialize">Create a new instance.</param>
+        /// <returns>An <see cref="EditingPropertyOptions{TValue}"/> instance.</returns>
         public EditingPropertyOptions<TValue> Initialize(Func<TValue> initialize)
         {
             Initializer = new EditingPropertyInitializer<TValue>(initialize);
@@ -78,6 +89,7 @@ namespace BEditor.Data
         /// </summary>
         /// <param name="write">Writes the value to <see cref="Utf8JsonWriter"/>.</param>
         /// <param name="read">Reads the value from <see cref="JsonElement"/>.</param>
+        /// <returns>An <see cref="EditingPropertyOptions{TValue}"/> instance.</returns>
         public EditingPropertyOptions<TValue> Serialize(Action<Utf8JsonWriter, TValue> write, Func<JsonElement, TValue> read)
         {
             Serializer = new EditingPropertySerializer<TValue>(write, read);
@@ -88,6 +100,7 @@ namespace BEditor.Data
         /// Sets the value of whether to delete with <see cref="EditingObject.ClearDisposable"/>.
         /// </summary>
         /// <param name="value">The value of <see cref="IsDisposable"/>.</param>
+        /// <returns>An <see cref="EditingPropertyOptions{TValue}"/> instance.</returns>
         public EditingPropertyOptions<TValue> Disposable(bool value)
         {
             IsDisposable = value;

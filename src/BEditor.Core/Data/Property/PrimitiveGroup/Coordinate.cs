@@ -1,8 +1,13 @@
-﻿using System;
+﻿// Coordinate.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
-
-using BEditor.Data;
 
 using BEditor.Resources;
 
@@ -72,7 +77,8 @@ namespace BEditor.Data.Property.PrimitiveGroup
         /// </summary>
         /// <param name="metadata">Metadata of this property.</param>
         /// <exception cref="ArgumentNullException"><paramref name="metadata"/> is <see langword="null"/>.</exception>
-        public Coordinate(CoordinateMetadata metadata) : base(metadata)
+        public Coordinate(CoordinateMetadata metadata)
+            : base(metadata)
         {
         }
 

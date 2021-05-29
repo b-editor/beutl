@@ -1,4 +1,11 @@
-﻿namespace BEditor.Data
+﻿// IChild.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+namespace BEditor.Data
 {
     /// <summary>
     /// Represents that this object has a parent element of type <typeparamref name="T"/>.

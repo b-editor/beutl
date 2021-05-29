@@ -1,9 +1,13 @@
-﻿using System;
+﻿// Group.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Runtime.Serialization;
-using System.Text.Json;
-using System.Threading.Tasks;
 
 using BEditor.Command;
 using BEditor.Data.Property.Easing;
@@ -62,11 +66,12 @@ namespace BEditor.Data.Property
             {
                 base.Parent = value;
 
-                Parallel.ForEach(Children, item => item.Parent = value);
+                foreach (var item in Children)
+                {
+                    item.Parent = value;
+                }
             }
         }
-
-        #region IkeyframeProperty
 
         /// <inheritdoc/>
         EasingFunc? IKeyframeProperty.EasingType => null;
@@ -91,11 +96,11 @@ namespace BEditor.Data.Property
         {
             return RecordCommand.Empty;
         }
-        #endregion
 
         /// <summary>
         /// Gets the <see cref="PropertyElement"/> to display on the GUI.
         /// </summary>
+        /// <returns>Returns the <see cref="PropertyElement"/> to display on the GUI.</returns>
         public abstract IEnumerable<PropertyElement> GetProperties();
     }
 }

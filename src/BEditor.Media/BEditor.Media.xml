@@ -1049,6 +1049,7 @@
             Returns the value with the specified data appended to this data.
             </summary>
             <param name="s">Data to be added.</param>
+            <returns>Returns the sum of this audio data and <paramref name="s"/>.</returns>
         </member>
         <member name="T:BEditor.Media.PCM.IPCMConvertable`1">
             <summary>
@@ -1080,9 +1081,21 @@
         </member>
         <member name="M:BEditor.Media.PCM.PCM16.#ctor(System.Int16)">
             <summary>
-            Initializes a new instance of the <see cref="T:BEditor.Media.PCM.PCM16"/> class.
+            Initializes a new instance of the <see cref="T:BEditor.Media.PCM.PCM16"/> struct.
             </summary>
             <param name="value">The audio data.</param>
+        </member>
+        <member name="M:BEditor.Media.PCM.PCM16.op_Implicit(BEditor.Media.PCM.PCM16)~System.Int16">
+            <summary>
+            Converts the <see cref="T:BEditor.Media.PCM.PCMFloat"/> to a 16-bit signed integer.
+            </summary>
+            <param name="value">The Pcm data.</param>
+        </member>
+        <member name="M:BEditor.Media.PCM.PCM16.op_Implicit(System.Int16)~BEditor.Media.PCM.PCM16">
+            <summary>
+            Converts the 16-bit signed integer to a <see cref="T:BEditor.Media.PCM.PCM16"/>.
+            </summary>
+            <param name="value">The 16-bit signed integer.</param>
         </member>
         <member name="M:BEditor.Media.PCM.PCM16.Add(BEditor.Media.PCM.PCM16)">
             <inheritdoc/>
@@ -1102,18 +1115,6 @@
         <member name="M:BEditor.Media.PCM.PCM16.ToString">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Media.PCM.PCM16.op_Implicit(BEditor.Media.PCM.PCM16)~System.Int16">
-            <summary>
-            Converts the <see cref="T:BEditor.Media.PCM.PCMFloat"/> to a 16-bit signed integer.
-            </summary>
-            <param name="value">The Pcm data.</param>
-        </member>
-        <member name="M:BEditor.Media.PCM.PCM16.op_Implicit(System.Int16)~BEditor.Media.PCM.PCM16">
-            <summary>
-            Converts the 16-bit signed integer to a <see cref="T:BEditor.Media.PCM.PCM16"/>.
-            </summary>
-            <param name="value">The 16-bit signed integer.</param>
-        </member>
         <member name="T:BEditor.Media.PCM.PCM32">
             <summary>
             Represents the audio data in 32-bit float format.
@@ -1126,9 +1127,21 @@
         </member>
         <member name="M:BEditor.Media.PCM.PCM32.#ctor(System.Int32)">
             <summary>
-            Initializes a new instance of the <see cref="T:BEditor.Media.PCM.PCM32"/> class.
+            Initializes a new instance of the <see cref="T:BEditor.Media.PCM.PCM32"/> struct.
             </summary>
             <param name="value">The audio data.</param>
+        </member>
+        <member name="M:BEditor.Media.PCM.PCM32.op_Implicit(BEditor.Media.PCM.PCM32)~System.Int32">
+            <summary>
+            Converts the <see cref="T:BEditor.Media.PCM.PCM32"/> to a 32-bit signed integer.
+            </summary>
+            <param name="value">The Pcm data.</param>
+        </member>
+        <member name="M:BEditor.Media.PCM.PCM32.op_Implicit(System.Int32)~BEditor.Media.PCM.PCM32">
+            <summary>
+            Converts the 32-bit signed integer to a <see cref="T:BEditor.Media.PCM.PCM32"/>.
+            </summary>
+            <param name="value">The 32-bit signed integer.</param>
         </member>
         <member name="M:BEditor.Media.PCM.PCM32.Add(BEditor.Media.PCM.PCM32)">
             <inheritdoc/>
@@ -1145,18 +1158,6 @@
         <member name="M:BEditor.Media.PCM.PCM32.ConvertTo(BEditor.Media.PCM.PCMFloat@)">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Media.PCM.PCM32.op_Implicit(BEditor.Media.PCM.PCM32)~System.Int32">
-            <summary>
-            Converts the <see cref="T:BEditor.Media.PCM.PCM32"/> to a 32-bit signed integer.
-            </summary>
-            <param name="value">The Pcm data.</param>
-        </member>
-        <member name="M:BEditor.Media.PCM.PCM32.op_Implicit(System.Int32)~BEditor.Media.PCM.PCM32">
-            <summary>
-            Converts the 32-bit signed integer to a <see cref="T:BEditor.Media.PCM.PCM32"/>.
-            </summary>
-            <param name="value">The 32-bit signed integer.</param>
-        </member>
         <member name="T:BEditor.Media.PCM.PCMFloat">
             <summary>
             Represents the audio data in 32-bit float format.
@@ -1169,9 +1170,21 @@
         </member>
         <member name="M:BEditor.Media.PCM.PCMFloat.#ctor(System.Single)">
             <summary>
-            Initializes a new instance of the <see cref="T:BEditor.Media.PCM.PCMFloat"/> class.
+            Initializes a new instance of the <see cref="T:BEditor.Media.PCM.PCMFloat"/> struct.
             </summary>
             <param name="value">The audio data.</param>
+        </member>
+        <member name="M:BEditor.Media.PCM.PCMFloat.op_Implicit(BEditor.Media.PCM.PCMFloat)~System.Single">
+            <summary>
+            Converts the <see cref="T:BEditor.Media.PCM.PCMFloat"/> to a 32-bit float.
+            </summary>
+            <param name="value">The Pcm data.</param>
+        </member>
+        <member name="M:BEditor.Media.PCM.PCMFloat.op_Implicit(System.Single)~BEditor.Media.PCM.PCMFloat">
+            <summary>
+            Converts the 32-bit float to a <see cref="T:BEditor.Media.PCM.PCMFloat"/>.
+            </summary>
+            <param name="value">The 32-bit float.</param>
         </member>
         <member name="M:BEditor.Media.PCM.PCMFloat.Add(BEditor.Media.PCM.PCMFloat)">
             <inheritdoc/>
@@ -1187,18 +1200,6 @@
         </member>
         <member name="M:BEditor.Media.PCM.PCMFloat.ConvertTo(BEditor.Media.PCM.PCM32@)">
             <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Media.PCM.PCMFloat.op_Implicit(BEditor.Media.PCM.PCMFloat)~System.Single">
-            <summary>
-            Converts the <see cref="T:BEditor.Media.PCM.PCMFloat"/> to a 32-bit float.
-            </summary>
-            <param name="value">The Pcm data.</param>
-        </member>
-        <member name="M:BEditor.Media.PCM.PCMFloat.op_Implicit(System.Single)~BEditor.Media.PCM.PCMFloat">
-            <summary>
-            Converts the 32-bit float to a <see cref="T:BEditor.Media.PCM.PCMFloat"/>.
-            </summary>
-            <param name="value">The 32-bit float.</param>
         </member>
         <member name="T:BEditor.Media.PCM.StereoPCM16">
             <summary>
@@ -1217,7 +1218,7 @@
         </member>
         <member name="M:BEditor.Media.PCM.StereoPCM16.#ctor(System.Int16,System.Int16)">
             <summary>
-            Initializes a new instance of the <see cref="T:BEditor.Media.PCM.StereoPCM16"/> class.
+            Initializes a new instance of the <see cref="T:BEditor.Media.PCM.StereoPCM16"/> struct.
             </summary>
             <param name="left">The audio data of the left channel.</param>
             <param name="right">The audio data of the right channel.</param>
@@ -1257,7 +1258,7 @@
         </member>
         <member name="M:BEditor.Media.PCM.StereoPCM32.#ctor(System.Int32,System.Int32)">
             <summary>
-            Initializes a new instance of the <see cref="T:BEditor.Media.PCM.StereoPCM32"/> class.
+            Initializes a new instance of the <see cref="T:BEditor.Media.PCM.StereoPCM32"/> struct.
             </summary>
             <param name="left">The audio data of the left channel.</param>
             <param name="right">The audio data of the right channel.</param>
@@ -1294,7 +1295,7 @@
         </member>
         <member name="M:BEditor.Media.PCM.StereoPCMFloat.#ctor(System.Single,System.Single)">
             <summary>
-            Initializes a new instance of the <see cref="T:BEditor.Media.PCM.StereoPCMFloat"/> class.
+            Initializes a new instance of the <see cref="T:BEditor.Media.PCM.StereoPCMFloat"/> struct.
             </summary>
             <param name="left">The audio data of the left channel.</param>
             <param name="right">The audio data of the right channel.</param>
@@ -1379,7 +1380,7 @@
         </member>
         <member name="M:BEditor.Media.Sound`1.Finalize">
             <summary>
-            Discards the reference to the target that is represented by the current <see cref="T:BEditor.Media.Sound`1"/> object.
+            Finalizes an instance of the <see cref="T:BEditor.Media.Sound`1"/> class.
             </summary>
         </member>
         <member name="P:BEditor.Media.Sound`1.Data">
@@ -1404,12 +1405,12 @@
         </member>
         <member name="P:BEditor.Media.Sound`1.DataSize">
             <summary>
-            Get the data size of <see cref="T:BEditor.Media.Sound`1"/>.
+            Gets the data size of <see cref="T:BEditor.Media.Sound`1"/>.
             </summary>
         </member>
         <member name="P:BEditor.Media.Sound`1.IsDisposed">
             <summary>
-            Get whether an object has been disposed
+            Gets a value indicating whether this instance has been disposed.
             </summary>
         </member>
         <member name="M:BEditor.Media.Sound`1.Convert``1">
@@ -1417,6 +1418,7 @@
             Converts the data in this <see cref="T:BEditor.Media.Sound`1"/> to the specified type.
             </summary>
             <typeparam name="TConvert">The type of audio data to convert to.</typeparam>
+            <returns>Returns the converted sound.</returns>
         </member>
         <member name="M:BEditor.Media.Sound`1.ThrowIfDisposed">
             <summary>
@@ -1434,6 +1436,7 @@
             Forms a slice of the current <see cref="T:BEditor.Media.Sound`1"/>, starting at the specified time.
             </summary>
             <param name="start">The time at which to begin the slice.</param>
+            <returns>A sound that consists of all elements of the current sound from start to the end of the sound.</returns>
         </member>
         <member name="M:BEditor.Media.Sound`1.Slice(System.TimeSpan,System.TimeSpan)">
             <summary>
@@ -1441,6 +1444,7 @@
             </summary>
             <param name="start">The time at which to begin this slice.</param>
             <param name="length">The desired length for the slice.</param>
+            <returns>A sound that consists of length elements from the current sound starting at start.</returns>
         </member>
         <member name="M:BEditor.Media.Sound`1.Add(BEditor.Media.Sound{`0})">
             <summary>
@@ -1453,11 +1457,13 @@
             Resamples the <see cref="T:BEditor.Media.Sound`1"/>.
             </summary>
             <param name="frequency">The new sampling frequency.</param>
+            <returns>Returns a sound that has been resampled to the specified frequency.</returns>
         </member>
         <member name="M:BEditor.Media.Sound`1.System#ICloneable#Clone">
             <inheritdoc/>
         </member>
         <member name="T:BEditor.Media.Sound">
+            <inheritdoc cref="T:BEditor.Media.Sound"/>
             <summary>
             Provides extended methods for <see cref="T:BEditor.Media.Sound`1"/>.
             </summary>
@@ -1469,6 +1475,7 @@
             <typeparam name="TConvert">The type of audio data to convert to.</typeparam>
             <typeparam name="TSource">The type of audio data from which to convert.</typeparam>
             <param name="sound">The Sound to convert.</param>
+            <returns>Returns the converted sound.</returns>
         </member>
         <member name="M:BEditor.Media.Sound.SetChannelData(BEditor.Media.Sound{BEditor.Media.PCM.StereoPCMFloat},System.Int32,System.Span{System.Single})">
             <summary>
@@ -1492,6 +1499,7 @@
             Extracts the channel data into multiple arrays.
             </summary>
             <param name="sound">The <see cref="T:BEditor.Media.Sound`1"/> that expands the channel data.</param>
+            <returns>Returns an array with the left channel data in the first and the right channel data in the second.</returns>
         </member>
         <member name="M:BEditor.Media.Sound.Resamples(BEditor.Media.Sound{BEditor.Media.PCM.StereoPCMFloat},System.Int32)">
             <summary>
@@ -1499,13 +1507,14 @@
             </summary>
             <param name="sound">The sound to resamples.</param>
             <param name="frequency">The new sampling frequency.</param>
+            <returns>Returns a sound that has been resampled to the specified frequency.</returns>
         </member>
         <member name="M:BEditor.Media.Sound.Gain(BEditor.Media.Sound{BEditor.Media.PCM.StereoPCMFloat},System.Single)">
-             <summary>
-            
-             </summary>
-             <param name="sound"></param>
-             <param name="gain"></param>
+            <summary>
+            Adjusts the gain of the sound.
+            </summary>
+            <param name="sound">The sound to adjust the gain.</param>
+            <param name="gain">The gain.</param>
         </member>
     </members>
 </doc>

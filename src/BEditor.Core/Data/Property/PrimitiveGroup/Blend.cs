@@ -1,8 +1,14 @@
-﻿using System;
+﻿// Blend.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 
-using BEditor.Data;
 using BEditor.Drawing;
 using BEditor.Resources;
 
@@ -22,7 +28,7 @@ namespace BEditor.Data.Property.PrimitiveGroup
             nameof(Opacity),
             owner => owner.Opacity,
             (owner, obj) => owner.Opacity = obj,
-            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Opacity, 100, 100, 0, UseOptional: true)).Serialize());
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Opacity, 100, 100, 0, useOptional: true)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="Color"/> property.
@@ -74,7 +80,8 @@ namespace BEditor.Data.Property.PrimitiveGroup
         /// </summary>
         /// <param name="metadata">Metadata of this property.</param>
         /// <exception cref="ArgumentNullException"><paramref name="metadata"/> is <see langword="null"/>.</exception>
-        public Blend(BlendMetadata metadata) : base(metadata)
+        public Blend(BlendMetadata metadata)
+            : base(metadata)
         {
         }
 

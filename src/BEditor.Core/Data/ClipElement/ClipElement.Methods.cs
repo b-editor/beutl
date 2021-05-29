@@ -1,4 +1,11 @@
-﻿using System;
+﻿// ClipElement.Methods.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System;
 using System.Diagnostics.Contracts;
 using System.Linq;
 using System.Runtime.Serialization;
@@ -14,14 +21,6 @@ namespace BEditor.Data
     /// </summary>
     public partial class ClipElement : ICloneable, IJsonObject, IElementObject
     {
-        #region ICloneable
-
-        /// <inheritdoc/>
-        object ICloneable.Clone()
-        {
-            return Clone();
-        }
-
         /// <inheritdoc cref="ICloneable.Clone"/>
         public ClipElement Clone()
         {
@@ -32,9 +31,6 @@ namespace BEditor.Data
 
             return clip;
         }
-        #endregion
-
-        #region IJsonObject
 
         /// <inheritdoc/>
         public override void GetObjectData(Utf8JsonWriter writer)
@@ -44,19 +40,19 @@ namespace BEditor.Data
             writer.WriteNumber(nameof(End), End);
             writer.WriteNumber(nameof(Layer), Layer);
             writer.WriteString("Text", LabelText);
+
             writer.WriteStartArray("Effects");
+            foreach (var effect in Effect)
             {
-                foreach (var effect in Effect)
-                {
-                    writer.WriteStartObject();
-                    {
-                        var type = effect.GetType();
-                        writer.WriteString("_type", type.FullName + ", " + type.Assembly.GetName().Name);
-                        effect.GetObjectData(writer);
-                    }
-                    writer.WriteEndObject();
-                }
+                writer.WriteStartObject();
+
+                var type = effect.GetType();
+                writer.WriteString("_type", type.FullName + ", " + type.Assembly.GetName().Name);
+                effect.GetObjectData(writer);
+
+                writer.WriteEndObject();
             }
+
             writer.WriteEndArray();
         }
 
@@ -84,9 +80,6 @@ namespace BEditor.Data
 
             Metadata = ObjectMetadata.LoadedObjects.First(i => i.Name == Effect[0].Name);
         }
-        #endregion
-
-        #region Commands
 
         /// <summary>
         /// Create a command to add an <see cref="EffectElement"/> to this <see cref="ClipElement"/>.
@@ -145,22 +138,18 @@ namespace BEditor.Data
         /// <summary>
         /// Create a command to split this clip at the specified frame.
         /// </summary>
+        /// <param name="frame">The frame to be split.</param>
         /// <returns>Created <see cref="IRecordCommand"/>.</returns>
         [Pure]
         public IRecordCommand Split(Frame frame)
         {
             return new SplitCommand(this, frame);
         }
-        #endregion
-
-        internal void SetID(Guid id)
-        {
-            Id = id;
-        }
 
         /// <summary>
         /// Render this <see cref="ClipElement"/>.
         /// </summary>
+        /// <param name="args">The data used to render the clip.</param>
         /// <exception cref="RenderingException">Faileds to rendering.</exception>
         public void Render(ClipRenderArgs args)
         {
@@ -184,6 +173,7 @@ namespace BEditor.Data
         /// <summary>
         /// Prepare this <see cref="ClipElement"/> for rendering.
         /// </summary>
+        /// <param name="args">The data used to render the clip.</param>
         /// <exception cref="RenderingException">Faileds to rendering.</exception>
         public void PreviewRender(ClipRenderArgs args)
         {
@@ -201,6 +191,17 @@ namespace BEditor.Data
             {
                 throw new RenderingException("Faileds to rendering.", e);
             }
+        }
+
+        /// <inheritdoc/>
+        object ICloneable.Clone()
+        {
+            return Clone();
+        }
+
+        internal void SetID(Guid id)
+        {
+            Id = id;
         }
 
         /// <summary>

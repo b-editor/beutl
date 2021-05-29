@@ -1,4 +1,11 @@
-﻿using System;
+﻿// IPlayer.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System;
 
 using BEditor.Media;
 
@@ -36,12 +43,12 @@ namespace BEditor.Data
         public event EventHandler? Stopped;
 
         /// <summary>
-        /// Get the status of this <see cref="IPlayer"/>.
+        /// Gets the status of this <see cref="IPlayer"/>.
         /// </summary>
         public PlayerState State { get; }
 
         /// <summary>
-        /// Get the current frame in this <see cref="IPlayer"/>.
+        /// Gets the current frame in this <see cref="IPlayer"/>.
         /// </summary>
         public Frame CurrentFrame { get; }
 

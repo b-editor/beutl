@@ -1,4 +1,11 @@
-﻿using System;
+﻿// ICustomMenu.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System;
 
 namespace BEditor.Plugin
 {
@@ -24,12 +31,12 @@ namespace BEditor.Plugin
         /// <summary>
         /// Initializes a new instance of the <see cref="CustomMenu" /> class.
         /// </summary>
-        /// <param name="Name">The string to be displayed in the UI.</param>
-        /// <param name="Execute">Execute when the menu is clicked.</param>
-        public CustomMenu(string Name, Action Execute)
+        /// <param name="name">The string to be displayed in the UI.</param>
+        /// <param name="execute">Execute when the menu is clicked.</param>
+        public CustomMenu(string name, Action execute)
         {
-            this.Name = Name;
-            this.Execute = Execute;
+            Name = name;
+            Execute = execute;
         }
 
         /// <inheritdoc/>

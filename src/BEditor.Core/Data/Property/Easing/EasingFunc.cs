@@ -1,4 +1,11 @@
-﻿using System;
+﻿// EasingFunc.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.Serialization;
@@ -13,10 +20,8 @@ namespace BEditor.Data.Property.Easing
     /// </summary>
     public abstract class EasingFunc : EditingObject, IChild<PropertyElement>, IParent<IEasingProperty>
     {
-        #region Fields
         private PropertyElement? _parent;
         private IEnumerable<IEasingProperty>? _cachedList;
-        #endregion
 
         /// <inheritdoc/>
         public IEnumerable<IEasingProperty> Children => _cachedList ??= GetProperties().ToArray();
@@ -28,10 +33,9 @@ namespace BEditor.Data.Property.Easing
             set
             {
                 _parent = value;
-
                 foreach (var prop in Children)
                 {
-                    prop.Parent = (Parent?.Parent)!;
+                    prop.Parent = Parent?.Parent!;
                 }
             }
         }
@@ -39,6 +43,7 @@ namespace BEditor.Data.Property.Easing
         /// <summary>
         /// Gets the <see cref="PropertyElement"/> to display on the GUI.
         /// </summary>
+        /// <returns>Returns the <see cref="PropertyElement"/> to display on the GUI.</returns>
         public abstract IEnumerable<IEasingProperty> GetProperties();
 
         /// <summary>

@@ -153,7 +153,7 @@
         </member>
         <member name="M:BEditor.Graphics.DepthBuffer.Finalize">
             <summary>
-            Discards the reference to the target that is represented by the current <see cref="T:BEditor.Graphics.DepthBuffer"/> object.
+            Finalizes an instance of the <see cref="T:BEditor.Graphics.DepthBuffer"/> class.
             </summary>
         </member>
         <member name="P:BEditor.Graphics.DepthBuffer.Width">
@@ -173,7 +173,7 @@
         </member>
         <member name="P:BEditor.Graphics.DepthBuffer.IsDisposed">
             <summary>
-            Get whether an object has been disposed.
+            Gets a value indicating whether this instance has been disposed.
             </summary>
         </member>
         <member name="M:BEditor.Graphics.DepthBuffer.Bind">
@@ -198,7 +198,7 @@
         </member>
         <member name="M:BEditor.Graphics.FrameBuffer.Finalize">
             <summary>
-            Discards the reference to the target that is represented by the current <see cref="T:BEditor.Graphics.FrameBuffer"/> object.
+            Finalizes an instance of the <see cref="T:BEditor.Graphics.FrameBuffer"/> class.
             </summary>
         </member>
         <member name="P:BEditor.Graphics.FrameBuffer.ColorObject">
@@ -218,7 +218,7 @@
         </member>
         <member name="P:BEditor.Graphics.FrameBuffer.IsDisposed">
             <summary>
-            Get whether an object has been disposed.
+            Gets a value indicating whether this instance has been disposed.
             </summary>
         </member>
         <member name="M:BEditor.Graphics.FrameBuffer.Bind">
@@ -230,6 +230,7 @@
             <summary>
             Bind this framebuffer by specifying the target.
             </summary>
+            <param name="target">The frame buffer target.</param>
         </member>
         <member name="M:BEditor.Graphics.FrameBuffer.Dispose">
             <inheritdoc/>
@@ -251,7 +252,7 @@
         </member>
         <member name="M:BEditor.Graphics.PixelBuffer.Finalize">
             <summary>
-            Discards the reference to the target that is represented by the current <see cref="T:BEditor.Graphics.PixelBuffer"/> object.
+            Finalizes an instance of the <see cref="T:BEditor.Graphics.PixelBuffer"/> class.
             </summary>
         </member>
         <member name="P:BEditor.Graphics.PixelBuffer.Width">
@@ -291,7 +292,7 @@
         </member>
         <member name="P:BEditor.Graphics.PixelBuffer.IsDisposed">
             <summary>
-            Get whether an object has been disposed.
+            Gets a value indicating whether this instance has been disposed.
             </summary>
         </member>
         <member name="M:BEditor.Graphics.PixelBuffer.ReadPixelsFromTexture(BEditor.Graphics.GraphicsHandle,System.IntPtr)">
@@ -313,7 +314,7 @@
         </member>
         <member name="T:BEditor.Graphics.Camera">
             <summary>
-            Represents an OpenGL camera
+            Represents an OpenGL camera.
             </summary>
         </member>
         <member name="M:BEditor.Graphics.Camera.#ctor(System.Numerics.Vector3)">
@@ -334,28 +335,30 @@
         </member>
         <member name="P:BEditor.Graphics.Camera.Fov">
             <summary>
-            Sets or gets the Degrees representing the Fov of this <see cref="T:BEditor.Graphics.Camera"/>.
+            Gets or sets the Degrees representing the Fov of this <see cref="T:BEditor.Graphics.Camera"/>.
             </summary>
         </member>
         <member name="P:BEditor.Graphics.Camera.Near">
             <summary>
-            Sets or gets the range to be drawn by this <see cref="T:BEditor.Graphics.Camera"/>.
+            Gets or sets the range to be drawn by this <see cref="T:BEditor.Graphics.Camera"/>.
             </summary>
         </member>
         <member name="P:BEditor.Graphics.Camera.Far">
             <summary>
-            Sets or gets the range to be drawn by this <see cref="T:BEditor.Graphics.Camera"/>.
+            Gets or sets the range to be drawn by this <see cref="T:BEditor.Graphics.Camera"/>.
             </summary>
         </member>
         <member name="M:BEditor.Graphics.Camera.GetViewMatrix">
             <summary>
-            Get ViewMatrix.
+            Gets the ViewMatrix.
             </summary>
+            <returns>Returns the view matrix.</returns>
         </member>
         <member name="M:BEditor.Graphics.Camera.GetProjectionMatrix">
             <summary>
-            Get ProjectionMatrix.
+            Gets ProjectionMatrix.
             </summary>
+            <returns>Returns the projection matrix.</returns>
         </member>
         <member name="T:BEditor.Graphics.Cube">
             <summary>
@@ -443,7 +446,7 @@
         </member>
         <member name="M:BEditor.Graphics.GraphicsContext.Finalize">
             <summary>
-            Discards the reference to the target that is represented by the current <see cref="T:BEditor.Graphics.GraphicsContext"/> object.
+            Finalizes an instance of the <see cref="T:BEditor.Graphics.GraphicsContext"/> class.
             </summary>
         </member>
         <member name="P:BEditor.Graphics.GraphicsContext.PixelBufferObject">
@@ -483,22 +486,22 @@
         </member>
         <member name="P:BEditor.Graphics.GraphicsContext.IsCurrent">
             <summary>
-            Gets whether or not this graphics context is set to current.
+            Gets a value indicating whether or not this graphics context is set to current.
             </summary>
         </member>
         <member name="P:BEditor.Graphics.GraphicsContext.IsDisposed">
             <summary>
-            Get whether an object has been disposed
+            Gets a value indicating whether this instance has been disposed.
             </summary>
         </member>
         <member name="P:BEditor.Graphics.GraphicsContext.Camera">
             <summary>
-            Gets the camera.
+            Gets or sets the camera.
             </summary>
         </member>
         <member name="P:BEditor.Graphics.GraphicsContext.Light">
             <summary>
-            Gets the light.
+            Gets or sets the light.
             </summary>
         </member>
         <member name="M:BEditor.Graphics.GraphicsContext.SetSize(BEditor.Drawing.Size)">
@@ -509,12 +512,12 @@
         </member>
         <member name="M:BEditor.Graphics.GraphicsContext.Clear">
             <summary>
-            Clear the framebuffer.
+            Clears the framebuffer.
             </summary>
         </member>
         <member name="M:BEditor.Graphics.GraphicsContext.MakeCurrent">
             <summary>
-            Set this graphics context to current
+            Sets this graphics context to current.
             </summary>
         </member>
         <member name="M:BEditor.Graphics.GraphicsContext.MakeCurrentAndBindFbo">
@@ -611,7 +614,7 @@
         </member>
         <member name="M:BEditor.Graphics.GraphicsHandle.#ctor(System.Int32)">
             <summary>
-            Initializes a new instance of the <see cref="T:BEditor.Graphics.GraphicsHandle"/> class.
+            Initializes a new instance of the <see cref="T:BEditor.Graphics.GraphicsHandle"/> struct.
             </summary>
             <param name="handle">The value of the handle.</param>
         </member>
@@ -620,14 +623,17 @@
             Gets the value of this handle.
             </summary>
         </member>
-        <member name="M:BEditor.Graphics.GraphicsHandle.Equals(System.Object)">
-            <inheritdoc/>
+        <member name="M:BEditor.Graphics.GraphicsHandle.op_Implicit(BEditor.Graphics.GraphicsHandle)~System.Int32">
+            <summary>
+            Converts the <see cref="T:BEditor.Graphics.GraphicsHandle"/> to a 32-bit signed integer.
+            </summary>
+            <param name="handle">A graphics handle.</param>
         </member>
-        <member name="M:BEditor.Graphics.GraphicsHandle.Equals(BEditor.Graphics.GraphicsHandle)">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Graphics.GraphicsHandle.GetHashCode">
-            <inheritdoc/>
+        <member name="M:BEditor.Graphics.GraphicsHandle.op_Implicit(System.Int32)~BEditor.Graphics.GraphicsHandle">
+            <summary>
+            Converts the 32-bit signed integer to a <see cref="T:BEditor.Graphics.GraphicsHandle"/>.
+            </summary>
+            <param name="handle">A 32-bit signed integer.</param>
         </member>
         <member name="M:BEditor.Graphics.GraphicsHandle.op_Equality(BEditor.Graphics.GraphicsHandle,BEditor.Graphics.GraphicsHandle)">
             <summary>
@@ -645,17 +651,14 @@
             <param name="right">The second time interval to compare.</param>
             <returns>true if the values of <paramref name="left"/> and <paramref name="right"/> are not equal; otherwise, false.</returns>
         </member>
-        <member name="M:BEditor.Graphics.GraphicsHandle.op_Implicit(BEditor.Graphics.GraphicsHandle)~System.Int32">
-            <summary>
-            Converts the <see cref="T:BEditor.Graphics.GraphicsHandle"/> to a 32-bit signed integer.
-            </summary>
-            <param name="handle">A graphics handle.</param>
+        <member name="M:BEditor.Graphics.GraphicsHandle.Equals(System.Object)">
+            <inheritdoc/>
         </member>
-        <member name="M:BEditor.Graphics.GraphicsHandle.op_Implicit(System.Int32)~BEditor.Graphics.GraphicsHandle">
-            <summary>
-            Converts the 32-bit signed integer to a <see cref="T:BEditor.Graphics.GraphicsHandle"/>.
-            </summary>
-            <param name="handle">A 32-bit signed integer.</param>
+        <member name="M:BEditor.Graphics.GraphicsHandle.Equals(BEditor.Graphics.GraphicsHandle)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Graphics.GraphicsHandle.GetHashCode">
+            <inheritdoc/>
         </member>
         <member name="T:BEditor.Graphics.GraphicsObject">
             <summary>
@@ -714,36 +717,34 @@
             <inheritdoc cref="M:System.IDisposable.Dispose"/>
         </member>
         <member name="T:BEditor.Graphics.ImageInfo">
-             <summary>
-            
-             </summary>
+            <summary>
+            A pair of an image and a transformation matrix.
+            </summary>
         </member>
         <member name="M:BEditor.Graphics.ImageInfo.#ctor(BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32},System.Func{BEditor.Graphics.ImageInfo,BEditor.Graphics.Transform})">
-             <summary>
-            
-             </summary>
-             <param name="image"></param>
-             <param name="transform"></param>
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Graphics.ImageInfo"/> class.
+            </summary>
+            <param name="image">The image.</param>
+            <param name="transform">Gets the tramsform.</param>
         </member>
         <member name="P:BEditor.Graphics.ImageInfo.Source">
-             <summary>
-            
-             </summary>
+            <summary>
+            Gets or sets the image.
+            </summary>
         </member>
         <member name="P:BEditor.Graphics.ImageInfo.Transform">
-             <summary>
-            
-             </summary>
+            <summary>
+            Gets the <see cref="T:BEditor.Graphics.Transform"/> structure.
+            </summary>
         </member>
         <member name="P:BEditor.Graphics.ImageInfo.IsDisposed">
-             <summary>
-            
-             </summary>
+            <summary>
+            Gets a value indicating whether this instance has been disposed.
+            </summary>
         </member>
         <member name="M:BEditor.Graphics.ImageInfo.Dispose">
-             <summary>
-            
-             </summary>
+            <inheritdoc/>
         </member>
         <member name="T:BEditor.Graphics.Light">
             <summary>
@@ -761,22 +762,22 @@
         </member>
         <member name="P:BEditor.Graphics.Light.Ambient">
             <summary>
-            Gets the ambient color of this <see cref="T:BEditor.Graphics.Light"/>.
+            Gets or sets the ambient color of this <see cref="T:BEditor.Graphics.Light"/>.
             </summary>
         </member>
         <member name="P:BEditor.Graphics.Light.Diffuse">
             <summary>
-            Gets the diffuse color of this <see cref="T:BEditor.Graphics.Light"/>.
+            Gets or sets the diffuse color of this <see cref="T:BEditor.Graphics.Light"/>.
             </summary>
         </member>
         <member name="P:BEditor.Graphics.Light.Specular">
             <summary>
-            Gets the specular color of this <see cref="T:BEditor.Graphics.Light"/>.
+            Gets or sets the specular color of this <see cref="T:BEditor.Graphics.Light"/>.
             </summary>
         </member>
         <member name="P:BEditor.Graphics.Light.Position">
             <summary>
-            Gets the position of this <see cref="T:BEditor.Graphics.Light"/>.
+            Gets or sets the position of this <see cref="T:BEditor.Graphics.Light"/>.
             </summary>
         </member>
         <member name="T:BEditor.Graphics.Line">
@@ -834,7 +835,7 @@
         </member>
         <member name="M:BEditor.Graphics.Material.#ctor(BEditor.Drawing.Color,BEditor.Drawing.Color,BEditor.Drawing.Color,System.Single)">
             <summary>
-            Initializes a new instance of the <see cref="T:BEditor.Graphics.Material"/> class.
+            Initializes a new instance of the <see cref="T:BEditor.Graphics.Material"/> struct.
             </summary>
             <param name="ambient">The ambient color.</param>
             <param name="diffuse">The diffuse color.</param>
@@ -876,12 +877,12 @@
         </member>
         <member name="P:BEditor.Graphics.OrthographicCamera.Width">
             <summary>
-            Gets the width of the view volume.
+            Gets or sets the width of the view volume.
             </summary>
         </member>
         <member name="P:BEditor.Graphics.OrthographicCamera.Height">
             <summary>
-            Gets the height of the view volume.
+            Gets or sets the height of the view volume.
             </summary>
         </member>
         <member name="M:BEditor.Graphics.OrthographicCamera.GetProjectionMatrix">
@@ -901,7 +902,7 @@
         </member>
         <member name="P:BEditor.Graphics.PerspectiveCamera.AspectRatio">
             <summary>
-            Gets the aspect ratio of the camera's viewport.
+            Gets or sets the aspect ratio of the camera's viewport.
             </summary>
         </member>
         <member name="M:BEditor.Graphics.PerspectiveCamera.GetProjectionMatrix">
@@ -981,11 +982,13 @@
             <param name="fragSource">The source of the fragment shader.</param>
         </member>
         <member name="M:BEditor.Graphics.Shader.Finalize">
-            <inheritdoc/>
+            <summary>
+            Finalizes an instance of the <see cref="T:BEditor.Graphics.Shader"/> class.
+            </summary>
         </member>
         <member name="P:BEditor.Graphics.Shader.IsDisposed">
             <summary>
-            Get whether an object has been disposed.
+            Gets a value indicating whether this instance has been disposed.
             </summary>
         </member>
         <member name="M:BEditor.Graphics.Shader.FromFile(System.String,System.String)">
@@ -1006,31 +1009,42 @@
             Returns the location of an attribute variable.
             </summary>
             <param name="attribName">Points to a null terminated string containing the name of the attribute variable whose location is to be queried.</param>
+            <returns>Returns the location of an attribute variable.</returns>
         </member>
         <member name="M:BEditor.Graphics.Shader.SetInt(System.String,System.Int32)">
             <summary>
             Specify the value of a uniform variable for the current program object.
             </summary>
+            <param name="name">The name of the uniform variable.</param>
+            <param name="data">The value of the uniform variable to set.</param>
         </member>
         <member name="M:BEditor.Graphics.Shader.SetFloat(System.String,System.Single)">
             <summary>
             Specify the value of a uniform variable for the current program object.
             </summary>
+            <param name="name">The name of the uniform variable.</param>
+            <param name="data">The value of the uniform variable to set.</param>
         </member>
         <member name="M:BEditor.Graphics.Shader.SetMatrix4(System.String,System.Numerics.Matrix4x4)">
             <summary>
             Specify the value of a uniform variable for the current program object.
             </summary>
+            <param name="name">The name of the uniform variable.</param>
+            <param name="data">The value of the uniform variable to set.</param>
         </member>
         <member name="M:BEditor.Graphics.Shader.SetVector3(System.String,System.Numerics.Vector3)">
             <summary>
             Specify the value of a uniform variable for the current program object.
             </summary>
+            <param name="name">The name of the uniform variable.</param>
+            <param name="data">The value of the uniform variable to set.</param>
         </member>
         <member name="M:BEditor.Graphics.Shader.SetVector4(System.String,System.Numerics.Vector4)">
             <summary>
             Specify the value of a uniform variable for the current program object.
             </summary>
+            <param name="name">The name of the uniform variable.</param>
+            <param name="data">The value of the uniform variable to set.</param>
         </member>
         <member name="M:BEditor.Graphics.Shader.Dispose">
             <inheritdoc/>
@@ -1041,34 +1055,35 @@
             </summary>
         </member>
         <member name="F:BEditor.Graphics.ShaderFactory.Texture">
-             <summary>
-            
-             </summary>
+            <summary>
+            Represents the shader used to draw the texture.
+            </summary>
         </member>
         <member name="F:BEditor.Graphics.ShaderFactory.Lighting">
-             <summary>
-            
-             </summary>
+            <summary>
+            Represents the shader used to draw the cube or ball when the light is enabled.
+            </summary>
         </member>
         <member name="F:BEditor.Graphics.ShaderFactory.TextureLighting">
-             <summary>
-            
-             </summary>
+            <summary>
+            Represents the shader used to draw the texture when the light is enabled.
+            </summary>
         </member>
         <member name="F:BEditor.Graphics.ShaderFactory.Line">
-             <summary>
-            
-             </summary>
+            <summary>
+            Represents the shader used to draw the line.
+            </summary>
         </member>
         <member name="F:BEditor.Graphics.ShaderFactory.Default">
-             <summary>
-            
-             </summary>
+            <summary>
+            Represents the default shader.
+            </summary>
         </member>
         <member name="M:BEditor.Graphics.ShaderFactory.Create">
             <summary>
             Create a shader.
             </summary>
+            <returns>Returns the shaders created by this method.</returns>
         </member>
         <member name="T:BEditor.Graphics.Texture">
             <summary>
@@ -1104,7 +1119,7 @@
         </member>
         <member name="P:BEditor.Graphics.Texture.Handle">
             <summary>
-            Gets the handle of this <see cref="T:BEditor.Graphics.Texture"/>
+            Gets the handle of this <see cref="T:BEditor.Graphics.Texture"/>.
             </summary>
         </member>
         <member name="P:BEditor.Graphics.Texture.ElementBufferObject">
@@ -1126,21 +1141,31 @@
             <summary>
             Create a texture from an image file.
             </summary>
+            <param name="path">The image files for creating textures.</param>
+            <param name="vertices">The vertices.</param>
+            <returns>Returns the texture created by this method.</returns>
         </member>
         <member name="M:BEditor.Graphics.Texture.FromImage(BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGR24},System.Single[])">
             <summary>
             Create a texture from an <see cref="T:BEditor.Drawing.Image`1"/>.
             </summary>
+            <param name="image">The image to create texture.</param>
+            <param name="vertices">The vertices.</param>
+            <returns>Returns the texture created by this method.</returns>
         </member>
         <member name="M:BEditor.Graphics.Texture.FromImage(BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32},System.Single[])">
             <summary>
             Create a texture from an <see cref="T:BEditor.Drawing.Image`1"/>.
             </summary>
+            <param name="image">The image to create texture.</param>
+            <param name="vertices">The vertices.</param>
+            <returns>Returns the texture created by this method.</returns>
         </member>
         <member name="M:BEditor.Graphics.Texture.Use(OpenTK.Graphics.OpenGL4.TextureUnit)">
             <summary>
             Use this texture.
             </summary>
+            <param name="unit">The texure unit.</param>
         </member>
         <member name="M:BEditor.Graphics.Texture.Draw(OpenTK.Graphics.OpenGL4.TextureUnit)">
             <inheritdoc cref="M:BEditor.Graphics.GraphicsObject.Draw"/>
@@ -1168,7 +1193,7 @@
         </member>
         <member name="M:BEditor.Graphics.Transform.#ctor(System.Numerics.Vector3,System.Numerics.Vector3,System.Numerics.Vector3,System.Numerics.Vector3)">
             <summary>
-            Initializes a new instance of the <see cref="T:BEditor.Graphics.Transform"/> class.
+            Initializes a new instance of the <see cref="T:BEditor.Graphics.Transform"/> struct.
             </summary>
             <param name="coord">The coordinates.</param>
             <param name="center">The center coordinates.</param>

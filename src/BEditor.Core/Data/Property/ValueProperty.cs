@@ -1,4 +1,11 @@
-﻿using System;
+﻿// ValueProperty.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -17,14 +24,12 @@ namespace BEditor.Data.Property
     [DebuggerDisplay("Value = {Value}")]
     public class ValueProperty : PropertyElement<ValuePropertyMetadata>, IBindable<float>, IEasingProperty
     {
-        #region Fields
         private static readonly PropertyChangedEventArgs _valueArgs = new(nameof(Value));
         private float _value;
         private List<IObserver<float>>? _list;
         private IDisposable? _bindDispose;
         private IBindable<float>? _bindable;
         private Guid? _targetID;
-        #endregion
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ValueProperty"/> class.
@@ -65,8 +70,6 @@ namespace BEditor.Data.Property
         }
 
         private List<IObserver<float>> Collection => _list ??= new();
-
-        #region Methods
 
         /// <inheritdoc/>
         public void Bind(IBindable<float>? bindable)
@@ -152,8 +155,6 @@ namespace BEditor.Data.Property
         {
             this.AutoLoad(ref _targetID);
         }
-
-        #endregion
 
         private sealed class ChangeValueCommand : IRecordCommand
         {

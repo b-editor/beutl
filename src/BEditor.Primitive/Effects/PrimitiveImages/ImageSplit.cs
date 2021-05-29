@@ -26,7 +26,7 @@ namespace BEditor.Primitive.Effects
             nameof(HSplit),
             owner => owner.HSplit,
             (owner, obj) => owner.HSplit = obj,
-            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.NumberOfHorizontalDivisions, 2, Min: 1)).Serialize());
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.NumberOfHorizontalDivisions, 2, min: 1)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="VSplit"/> property.
@@ -35,7 +35,7 @@ namespace BEditor.Primitive.Effects
             nameof(VSplit),
             owner => owner.VSplit,
             (owner, obj) => owner.VSplit = obj,
-            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.NumberOfVerticalDivisions, 2, Min: 1)).Serialize());
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.NumberOfVerticalDivisions, 2, min: 1)).Serialize());
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ImageSplit"/> class.

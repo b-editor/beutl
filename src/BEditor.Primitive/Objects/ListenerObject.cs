@@ -63,7 +63,7 @@ namespace BEditor.Primitive.Objects
             nameof(Gain),
             owner => owner.Gain,
             (owner, obj) => owner.Gain = obj,
-            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata("Gain", 100, Min: 0)).Serialize());
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata("Gain", 100, min: 0)).Serialize());
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ListenerObject"/> class.

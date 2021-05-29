@@ -1,4 +1,11 @@
-﻿using System;
+﻿// CommandManager.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -13,17 +20,17 @@ namespace BEditor.Command
     public enum CommandType
     {
         /// <summary>
-        /// Do
+        /// Do.
         /// </summary>
         Do,
 
         /// <summary>
-        /// Undo
+        /// Undo.
         /// </summary>
         Undo,
 
         /// <summary>
-        /// Redo
+        /// Redo.
         /// </summary>
         Redo,
     }

@@ -22,7 +22,7 @@ namespace BEditor.Primitive.Effects.OpenCv
             nameof(Size),
             owner => owner.Size,
             (owner, obj) => owner.Size = obj,
-            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Size, 20, Min: 0)).Serialize());
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Size, 20, min: 0)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="Resize"/> property.

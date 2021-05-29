@@ -1,4 +1,11 @@
-﻿using System.Text.Json;
+﻿// IJsonObject.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System.Text.Json;
 
 namespace BEditor.Data
 {
@@ -8,7 +15,7 @@ namespace BEditor.Data
     public interface IJsonObject
     {
         /// <summary>
-        /// 
+        /// Get the Object data from json.
         /// </summary>
         /// <param name="writer">Write the data of this object <see cref="Utf8JsonWriter"/>.</param>
         public void GetObjectData(Utf8JsonWriter writer);

@@ -1,4 +1,11 @@
-﻿using System.Collections.Generic;
+﻿// DirectoryManager.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System.Collections.Generic;
 using System.IO;
 using System.Timers;
 
@@ -18,14 +25,15 @@ namespace BEditor
         /// <summary>
         /// Initializes a new instance of the <see cref="DirectoryManager"/> class.
         /// </summary>
-        public DirectoryManager() : this(new())
+        public DirectoryManager()
+            : this(new())
         {
         }
 
         /// <summary>
         /// Initializes a new instance of the <see cref="DirectoryManager"/> class.
         /// </summary>
-        /// <param name="directories">The directories to manage</param>
+        /// <param name="directories">The directories to manage.</param>
         public DirectoryManager(List<string> directories)
         {
             Directories = directories;

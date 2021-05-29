@@ -1,4 +1,11 @@
-﻿using System;
+﻿// EasingMetadata.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System;
 using System.Collections.Generic;
 using System.Linq.Expressions;
 
@@ -13,11 +20,12 @@ namespace BEditor.Data.Property.Easing
     public record EasingMetadata(string Name, Func<EasingFunc> CreateFunc, Type Type)
     {
         /// <summary>
-        /// The metadata of <see cref="EasingFunc"/>.
+        /// Initializes a new instance of the <see cref="EasingMetadata"/> class.
         /// </summary>
-        /// <param name="Name">The name of the easing function.</param>
-        /// <param name="Create">This <see cref="Func{TResult}"/> gets a new instance of the <see cref="EasingFunc"/> object.</param>
-        public EasingMetadata(string Name, Expression<Func<EasingFunc>> Create) : this(Name, Create.Compile(), ((NewExpression)Create.Body).Type)
+        /// <param name="name">The name of the easing function.</param>
+        /// <param name="create">This <see cref="Func{TResult}"/> gets a new instance of the <see cref="EasingFunc"/> object.</param>
+        public EasingMetadata(string name, Expression<Func<EasingFunc>> create)
+            : this(name, create.Compile(), ((NewExpression)create.Body).Type)
         {
         }
 
@@ -33,11 +41,12 @@ namespace BEditor.Data.Property.Easing
         /// Create the <see cref="EasingMetadata"/>.
         /// </summary>
         /// <typeparam name="T">The type of object that inherits from EasingFunc.</typeparam>
-        /// <param name="Name">The name of the easing function.</param>
+        /// <param name="name">The name of the easing function.</param>
         /// <returns>A new instance of <see cref="EasingMetadata"/>.</returns>
-        public static EasingMetadata Create<T>(string Name) where T : EasingFunc, new()
+        public static EasingMetadata Create<T>(string name)
+            where T : EasingFunc, new()
         {
-            return new(Name, () => new T(), typeof(T));
+            return new(name, () => new T(), typeof(T));
         }
     }
 }

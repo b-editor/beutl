@@ -1,4 +1,11 @@
-﻿using System;
+﻿// PrimitiveEasing.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 
@@ -13,6 +20,15 @@ namespace BEditor.Data.Property.Easing
     /// </summary>
     public sealed class PrimitiveEasing : EasingFunc
     {
+        /// <summary>
+        /// Defines the <see cref="EasingType"/> property.
+        /// </summary>
+        public static readonly DirectEditingProperty<PrimitiveEasing, SelectorProperty> EasingTypeProperty = EditingProperty.RegisterDirect<SelectorProperty, PrimitiveEasing>(
+            nameof(EasingType),
+            owner => owner.EasingType,
+            (owner, obj) => owner.EasingType = obj,
+            EditingPropertyOptions<SelectorProperty>.Create(EasingTypeMetadata).Serialize());
+
         private static readonly SelectorPropertyMetadata EasingTypeMetadata = new("EasingType", new[]
         {
             "None",
@@ -28,15 +44,6 @@ namespace BEditor.Data.Property.Easing
             "ElasticIn", "ElasticOut", "ElasticInOut",
             "BounceIn",  "BounceOut",  "BounceInOut",
         });
-
-        /// <summary>
-        /// Defines the <see cref="EasingType"/> property.
-        /// </summary>
-        public static readonly DirectEditingProperty<PrimitiveEasing, SelectorProperty> EasingTypeProperty = EditingProperty.RegisterDirect<SelectorProperty, PrimitiveEasing>(
-            nameof(EasingType),
-            owner => owner.EasingType,
-            (owner, obj) => owner.EasingType = obj,
-            EditingPropertyOptions<SelectorProperty>.Create(EasingTypeMetadata).Serialize());
 
         private static readonly Func<float, float, float, float, float>[] DefaultEase =
         {
@@ -66,6 +73,7 @@ namespace BEditor.Data.Property.Easing
         };
 
         private Func<float, float, float, float, float> _currentFunc = Easing.Instance.None;
+
         private IDisposable? _disposable;
 
         /// <summary>
@@ -86,6 +94,12 @@ namespace BEditor.Data.Property.Easing
             _currentFunc?.Invoke(frame, totalframe, min, max) ?? 0;
 
         /// <inheritdoc/>
+        public override IEnumerable<IEasingProperty> GetProperties()
+        {
+            yield return EasingType;
+        }
+
+        /// <inheritdoc/>
         protected override void OnLoad()
         {
             _currentFunc = DefaultEase[EasingType.Index];
@@ -97,12 +111,6 @@ namespace BEditor.Data.Property.Easing
         protected override void OnUnload()
         {
             _disposable?.Dispose();
-        }
-
-        /// <inheritdoc/>
-        public override IEnumerable<IEasingProperty> GetProperties()
-        {
-            yield return EasingType;
         }
 
 #pragma warning disable RCS1176, RCS1010, RCS0056, RCS1163, RCS1089, CA1822, IDE0060

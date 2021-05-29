@@ -1,4 +1,11 @@
-﻿using System;
+﻿// SelectorProperty{T}.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -21,17 +28,15 @@ namespace BEditor.Data.Property
     public class SelectorProperty<T> : PropertyElement<SelectorPropertyMetadata<T>>, IEasingProperty, IBindable<T?>
         where T : IJsonObject, IEquatable<T>
     {
-        #region Fields
         private static readonly PropertyChangedEventArgs _selectItemArgs = new(nameof(SelectItem));
         private T? _selectItem;
         private List<IObserver<T?>>? _list;
         private IDisposable? _bindDispose;
         private IBindable<T?>? _bindable;
         private Guid? _targetID;
-        #endregion
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="SelectorProperty"/> class.
+        /// Initializes a new instance of the <see cref="SelectorProperty{T}"/> class.
         /// </summary>
         /// <param name="metadata">Metadata of this property.</param>
         /// <exception cref="ArgumentNullException"><paramref name="metadata"/> is <see langword="null"/>.</exception>
@@ -91,8 +96,6 @@ namespace BEditor.Data.Property
 
         private List<IObserver<T?>> Collection => _list ??= new();
 
-        #region Methods
-
         /// <inheritdoc/>
         public override void GetObjectData(Utf8JsonWriter writer)
         {
@@ -123,8 +126,12 @@ namespace BEditor.Data.Property
         /// <param name="index">New value for <see cref="Index"/>.</param>
         /// <returns>Created <see cref="IRecordCommand"/>.</returns>
         [Pure]
-        public IRecordCommand ChangeSelect(int index) => new ChangeSelectCommand(
-            this, PropertyMetadata is null ? default : PropertyMetadata.ItemSource.ElementAtOrDefault(index));
+        public IRecordCommand ChangeSelect(int index)
+        {
+            return new ChangeSelectCommand(
+                this,
+                PropertyMetadata is null ? default : PropertyMetadata.ItemSource.ElementAtOrDefault(index));
+        }
 
         /// <summary>
         /// Create a command to change the selected item.
@@ -132,7 +139,10 @@ namespace BEditor.Data.Property
         /// <param name="value">New value for <see cref="SelectItem"/>.</param>
         /// <returns>Created <see cref="IRecordCommand"/>.</returns>
         [Pure]
-        public IRecordCommand ChangeSelect(T? value) => new ChangeSelectCommand(this, value);
+        public IRecordCommand ChangeSelect(T? value)
+        {
+            return new ChangeSelectCommand(this, value);
+        }
 
         /// <inheritdoc/>
         public IDisposable Subscribe(IObserver<T?> observer)
@@ -168,10 +178,6 @@ namespace BEditor.Data.Property
             this.AutoLoad(ref _targetID);
         }
 
-        #endregion
-
-        #region Commands
-
         /// <summary>
         /// 選択されているアイテムを変更するコマンド.
         /// </summary>
@@ -182,7 +188,7 @@ namespace BEditor.Data.Property
             private readonly T? _old;
 
             /// <summary>
-            /// <see cref="ChangeSelectCommand"/> クラスの新しいインスタンスを初期化します.
+            /// Initializes a new instance of the <see cref="ChangeSelectCommand"/> class.
             /// </summary>
             /// <param name="property">対象の <see cref="SelectorProperty"/>.</param>
             /// <param name="select">新しいインデックス.</param>
@@ -220,7 +226,5 @@ namespace BEditor.Data.Property
                 }
             }
         }
-
-        #endregion
     }
 }

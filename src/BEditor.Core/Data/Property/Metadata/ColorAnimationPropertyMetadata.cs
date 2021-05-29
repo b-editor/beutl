@@ -1,4 +1,11 @@
-﻿using BEditor.Data.Property.Easing;
+﻿// ColorAnimationPropertyMetadata.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using BEditor.Data.Property.Easing;
 using BEditor.Drawing;
 
 namespace BEditor.Data.Property
@@ -14,22 +21,22 @@ namespace BEditor.Data.Property
         : PropertyElementMetadata(Name), IEditingPropertyInitializer<ColorAnimationProperty>
     {
         /// <summary>
-        /// The metadata of <see cref="ColorAnimationProperty"/>.
+        /// Initializes a new instance of the <see cref="ColorAnimationPropertyMetadata"/> class.
         /// </summary>
-        /// <param name="Name">The string displayed in the property header.</param>
-        public ColorAnimationPropertyMetadata(string Name)
-            : this(Name, default, EasingMetadata.LoadedEasingFunc[0])
+        /// <param name="name">The string displayed in the property header.</param>
+        public ColorAnimationPropertyMetadata(string name)
+            : this(name, default, EasingMetadata.LoadedEasingFunc[0])
         {
         }
 
         /// <summary>
-        /// The metadata of <see cref="ColorAnimationProperty"/>.
+        /// Initializes a new instance of the <see cref="ColorAnimationPropertyMetadata"/> class.
         /// </summary>
-        /// <param name="Name">The string displayed in the property header.</param>
-        /// <param name="DefaultColor">The default color.</param>
-        /// <param name="UseAlpha">The value of whether to use alpha components or not.</param>
-        public ColorAnimationPropertyMetadata(string Name, Color DefaultColor, bool UseAlpha = false)
-            : this(Name, DefaultColor, EasingMetadata.LoadedEasingFunc[0], UseAlpha)
+        /// <param name="name">The string displayed in the property header.</param>
+        /// <param name="defaultColor">The default color.</param>
+        /// <param name="useAlpha">The value of whether to use alpha components or not.</param>
+        public ColorAnimationPropertyMetadata(string name, Color defaultColor, bool useAlpha = false)
+            : this(name, defaultColor, EasingMetadata.LoadedEasingFunc[0], useAlpha)
         {
         }
 

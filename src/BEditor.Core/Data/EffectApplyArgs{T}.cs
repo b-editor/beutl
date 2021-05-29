@@ -1,4 +1,11 @@
-﻿using BEditor.Media;
+﻿// EffectApplyArgs{T}.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using BEditor.Media;
 
 namespace BEditor.Data
 {
@@ -9,9 +16,13 @@ namespace BEditor.Data
     public class EffectApplyArgs<T> : EffectApplyArgs
     {
         /// <summary>
-        /// Initializes a new instance of the <see cref="EffectApplyArgs"/> class.
+        /// Initializes a new instance of the <see cref="EffectApplyArgs{T}"/> class.
         /// </summary>
-        public EffectApplyArgs(Frame frame, T value, RenderType type = RenderType.Preview) : base(frame, type)
+        /// <param name="frame">The frame to render.</param>
+        /// <param name="value">The value used to apply the effect.</param>
+        /// <param name="type">The rendering type.</param>
+        public EffectApplyArgs(Frame frame, T value, RenderType type = RenderType.Preview)
+            : base(frame, type)
         {
             Value = value;
         }

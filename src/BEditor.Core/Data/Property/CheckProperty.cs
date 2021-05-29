@@ -1,4 +1,11 @@
-﻿using System;
+﻿// CheckProperty.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.Contracts;
@@ -16,16 +23,14 @@ namespace BEditor.Data.Property
     [DebuggerDisplay("IsChecked = {Value}")]
     public class CheckProperty : PropertyElement<CheckPropertyMetadata>, IEasingProperty, IBindable<bool>
     {
-        #region Fields
         private bool _value;
         private List<IObserver<bool>>? _list;
         private IDisposable? _bindDispose;
         private IBindable<bool>? _bindable;
         private Guid? _targetID;
-        #endregion
 
         /// <summary>
-        /// Initializes new instance of the <see cref="CheckProperty"/> class.
+        /// Initializes a new instance of the <see cref="CheckProperty"/> class.
         /// </summary>
         /// <param name="metadata">Metadata of this property.</param>
         /// <exception cref="ArgumentNullException"><paramref name="metadata"/> is <see langword="null"/>.</exception>
@@ -65,8 +70,6 @@ namespace BEditor.Data.Property
         }
 
         private List<IObserver<bool>> Collection => _list ??= new();
-
-        #region Methods
 
         /// <inheritdoc/>
         public void OnCompleted()
@@ -123,15 +126,16 @@ namespace BEditor.Data.Property
         /// <param name="value">New value for IsChecked.</param>
         /// <returns>Created <see cref="IRecordCommand"/>.</returns>
         [Pure]
-        public IRecordCommand ChangeIsChecked(bool value) => new ChangeCheckedCommand(this, value);
+        public IRecordCommand ChangeIsChecked(bool value)
+        {
+            return new ChangeCheckedCommand(this, value);
+        }
 
         /// <inheritdoc/>
         protected override void OnLoad()
         {
             this.AutoLoad(ref _targetID);
         }
-
-        #endregion
 
         private sealed class ChangeCheckedCommand : IRecordCommand
         {

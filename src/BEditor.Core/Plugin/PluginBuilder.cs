@@ -1,4 +1,11 @@
-﻿using System;
+﻿// PluginBuilder.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
@@ -79,9 +86,9 @@ namespace BEditor.Plugin
         }
 
         /// <summary>
-        /// Configure the options for the services to be provided.
+        /// Add an encoding.
         /// </summary>
-        /// <param name="decoding"></param>
+        /// <param name="decoding">The decoding to be added.</param>
         /// <returns>The same instance of the <see cref="PluginBuilder"/> for chaining.</returns>
         public PluginBuilder With(IRegisterdDecoding decoding)
         {
@@ -91,9 +98,9 @@ namespace BEditor.Plugin
         }
 
         /// <summary>
-        /// Configure the options for the services to be provided.
+        /// Add an encoding.
         /// </summary>
-        /// <param name="encoding"></param>
+        /// <param name="encoding">The encoding to be added.</param>
         /// <returns>The same instance of the <see cref="PluginBuilder"/> for chaining.</returns>
         public PluginBuilder With(IRegisterdEncoding encoding)
         {
@@ -103,9 +110,10 @@ namespace BEditor.Plugin
         }
 
         /// <summary>
-        ///
+        /// Add a task to be executed when the application is launched.
         /// </summary>
-        /// <param name="func"></param>
+        /// <param name="func">The task to be executed.</param>
+        /// <returns>The same instance of the <see cref="PluginBuilder"/> for chaining.</returns>
         public PluginBuilder Task(Func<IProgress<int>, ValueTask> func)
         {
             if (!_task.Contains(func))
@@ -175,6 +183,7 @@ namespace BEditor.Plugin
             {
                 manager._tasks.Add((instance, _task));
             }
+
             manager._loaded.Add(instance);
         }
 

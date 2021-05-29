@@ -1,4 +1,11 @@
-﻿using System;
+﻿// Scene.Methods.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System;
 using System.Buffers;
 using System.Collections.ObjectModel;
 using System.Diagnostics.CodeAnalysis;
@@ -26,8 +33,6 @@ namespace BEditor.Data
     /// </summary>
     public partial class Scene : IElementObject, IJsonObject
     {
-        #region IJsonObject
-
         /// <inheritdoc/>
         public override void GetObjectData(Utf8JsonWriter writer)
         {
@@ -37,24 +42,22 @@ namespace BEditor.Data
             writer.WriteString(nameof(SceneName), SceneName);
             writer.WriteNumber(nameof(TotalFrame), TotalFrame);
             writer.WriteStartArray(nameof(HideLayer));
+
+            foreach (var layer in HideLayer)
             {
-                foreach (var layer in HideLayer)
-                {
-                    writer.WriteNumberValue(layer);
-                }
+                writer.WriteNumberValue(layer);
             }
+
             writer.WriteEndArray();
+
             writer.WriteStartArray("Clips");
+            foreach (var clip in Datas)
             {
-                foreach (var clip in Datas)
-                {
-                    writer.WriteStartObject();
-                    {
-                        clip.GetObjectData(writer);
-                    }
-                    writer.WriteEndObject();
-                }
+                writer.WriteStartObject();
+                clip.GetObjectData(writer);
+                writer.WriteEndObject();
             }
+
             writer.WriteEndArray();
         }
 
@@ -75,9 +78,6 @@ namespace BEditor.Data
                 return clip;
             }));
         }
-        #endregion
-
-        #region Render
 
         /// <summary>
         /// Render this <see cref="Scene"/>.
@@ -166,7 +166,6 @@ namespace BEditor.Data
         {
             Render(image, PreviewFrame, renderType);
         }
-        #endregion
 
         /// <summary>
         /// Get and sort the clips on the specified frame.
@@ -241,8 +240,6 @@ namespace BEditor.Data
             }
         }
 
-        #region Commands
-
         /// <summary>
         /// Create a command to add a <see cref="ClipElement"/> to this <see cref="Scene"/>.
         /// </summary>
@@ -302,8 +299,9 @@ namespace BEditor.Data
         /// <param name="clip"><see cref="ClipElement"/> to be removed.</param>
         /// <returns>Created <see cref="IRecordCommand"/>.</returns>
         [Pure]
-        [SuppressMessage("Performance", "CA1822")]
+#pragma warning disable CA1822 // Mark members as static
         public IRecordCommand RemoveClip(ClipElement clip)
+#pragma warning restore CA1822 // Mark members as static
         {
             return new ClipElement.RemoveCommand(clip);
         }
@@ -318,9 +316,6 @@ namespace BEditor.Data
         {
             return new RemoveLayerCommand(this, layer);
         }
-        #endregion
-
-        #region IElementObject
 
         /// <inheritdoc/>
         protected override void OnLoad()
@@ -354,6 +349,5 @@ namespace BEditor.Data
                 scene.AudioContext?.Dispose();
             }, this);
         }
-        #endregion
     }
 }

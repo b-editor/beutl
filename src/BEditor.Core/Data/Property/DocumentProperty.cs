@@ -1,4 +1,11 @@
-﻿using System;
+﻿// DocumentProperty.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -17,8 +24,6 @@ namespace BEditor.Data.Property
     [DebuggerDisplay("Text = {Value}")]
     public class DocumentProperty : PropertyElement<DocumentPropertyMetadata>, IBindable<string>
     {
-        #region Fields
-
         /// <summary>
         /// <see cref="IBindable{T}.Value"/> のプロパティの変更を通知するイベントの引数.
         /// </summary>
@@ -28,7 +33,6 @@ namespace BEditor.Data.Property
         private IDisposable? _bindDispose;
         private IBindable<string>? _bindable;
         private Guid? _targetID;
-        #endregion
 
         /// <summary>
         /// Initializes a new instance of the <see cref="DocumentProperty"/> class.
@@ -71,8 +75,6 @@ namespace BEditor.Data.Property
         }
 
         private List<IObserver<string>> Collection => _list ??= new();
-
-        #region Methods
 
         /// <inheritdoc/>
         public void OnCompleted()
@@ -128,17 +130,16 @@ namespace BEditor.Data.Property
         /// <param name="newtext">New value for <see cref="Value"/>.</param>
         /// <returns>Created <see cref="IRecordCommand"/>.</returns>
         [Pure]
-        public IRecordCommand ChangeText(string newtext) => new TextChangeCommand(this, newtext);
+        public IRecordCommand ChangeText(string newtext)
+        {
+            return new TextChangeCommand(this, newtext);
+        }
 
         /// <inheritdoc/>
         protected override void OnLoad()
         {
             this.AutoLoad(ref _targetID);
         }
-
-        #endregion
-
-        #region Commands
 
         private sealed class TextChangeCommand : IRecordCommand
         {
@@ -162,10 +163,12 @@ namespace BEditor.Data.Property
                     target.Value = _new;
                 }
             }
+
             public void Redo()
             {
                 Do();
             }
+
             public void Undo()
             {
                 if (_property.TryGetTarget(out var target))
@@ -174,7 +177,5 @@ namespace BEditor.Data.Property
                 }
             }
         }
-
-        #endregion
     }
 }

@@ -1,4 +1,11 @@
-﻿using System;
+﻿// IKeyFrameProperty.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System;
 using System.Collections.Generic;
 
 using BEditor.Command;
@@ -12,8 +19,6 @@ namespace BEditor.Data.Property
     /// </summary>
     public interface IKeyframeProperty : IPropertyElement, IParentSingle<EasingFunc?>
     {
-        EasingFunc? IParentSingle<EasingFunc?>.Child => EasingType;
-
         /// <summary>
         /// Occurs when a keyframe is added.
         /// <para>arg1: The added frame, arg2: The Index of the values.</para>
@@ -41,6 +46,9 @@ namespace BEditor.Data.Property
         /// Gets the <see cref="List{Frame}"/> of the frame number corresponding to value.
         /// </summary>
         public List<Frame> Frames { get; }
+
+        /// <inheritdoc/>
+        EasingFunc? IParentSingle<EasingFunc?>.Child => EasingType;
 
         /// <summary>
         /// Create a command to add a keyframe.

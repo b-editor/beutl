@@ -260,30 +260,7 @@ namespace BEditor.Data
         {
             if (Name is null || DirectoryName is null)
             {
-                var dialog = ServiceProvider?.GetService<IFileDialogService>();
-                if (dialog is null)
-                {
-                    return false;
-                }
-
-                var record = new SaveFileRecord
-                {
-                    DefaultFileName = "新しいプロジェクト.bedit",
-                    Filters =
-                    {
-                        new(Strings.ProjectFile, new FileExtension[] { new("bedit") }),
-                    },
-                };
-
-                // ダイアログを表示する
-                if (dialog.ShowSaveFileDialog(record))
-                {
-                    return Save(record.FileName);
-                }
-                else
-                {
-                    return false;
-                }
+                return false;
             }
 
             return Save(Path.Combine(DirectoryName, Name + ".bedit"));
@@ -298,30 +275,7 @@ namespace BEditor.Data
         {
             if (Name is null || DirectoryName is null)
             {
-                var dialog = ServiceProvider?.GetService<IFileDialogService>();
-                if (dialog is null)
-                {
-                    return false;
-                }
-
-                var record = new SaveFileRecord
-                {
-                    DefaultFileName = "新しいプロジェクト.bedit",
-                    Filters =
-                    {
-                        new(Strings.ProjectFile, new FileExtension[] { new("bedit") }),
-                    },
-                };
-
-                // ダイアログを表示する
-                if (dialog.ShowSaveFileDialog(record))
-                {
-                    return await SaveAsync(record.FileName);
-                }
-                else
-                {
-                    return false;
-                }
+                return false;
             }
 
             return await SaveAsync(Path.Combine(DirectoryName, Name + ".bedit"));

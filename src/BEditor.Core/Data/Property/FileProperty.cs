@@ -1,4 +1,11 @@
-﻿using System;
+﻿// FileProperty.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -18,14 +25,12 @@ namespace BEditor.Data.Property
     [DebuggerDisplay("File = {Value}")]
     public class FileProperty : PropertyElement<FilePropertyMetadata>, IEasingProperty, IBindable<string>
     {
-        #region Fields
         private static readonly PropertyChangedEventArgs _modeArgs = new(nameof(Mode));
         private List<IObserver<string>>? _list;
         private IDisposable? _bindDispose;
         private IBindable<string>? _bindable;
         private Guid? _targetID;
         private FilePathType _mode;
-        #endregion
 
         /// <summary>
         /// Initializes a new instance of the <see cref="FileProperty"/> class.
@@ -95,8 +100,6 @@ namespace BEditor.Data.Property
 
         private List<IObserver<string>> Collection => _list ??= new();
 
-        #region Methods
-
         /// <inheritdoc/>
         public override void GetObjectData(Utf8JsonWriter writer)
         {
@@ -126,7 +129,10 @@ namespace BEditor.Data.Property
         /// <param name="path">New value for <see cref="File"/>.</param>
         /// <returns>Created <see cref="IRecordCommand"/>.</returns>
         [Pure]
-        public IRecordCommand ChangeFile(string path) => new ChangeFileCommand(this, path);
+        public IRecordCommand ChangeFile(string path)
+        {
+            return new ChangeFileCommand(this, path);
+        }
 
         /// <inheritdoc/>
         public void OnCompleted()
@@ -204,10 +210,6 @@ namespace BEditor.Data.Property
             }
         }
 
-        #endregion
-
-        #region Commands
-
         /// <summary>
         /// ファイルの名前を変更するコマンド.
         /// </summary>
@@ -218,7 +220,7 @@ namespace BEditor.Data.Property
             private readonly string _old;
 
             /// <summary>
-            /// <see cref="ChangeFileCommand"/> クラスの新しいインスタンスを初期化します.
+            /// Initializes a new instance of the <see cref="ChangeFileCommand"/> class.
             /// </summary>
             /// <param name="property">対象の <see cref="FileProperty"/>.</param>
             /// <param name="path">新しい値.</param>
@@ -256,7 +258,5 @@ namespace BEditor.Data.Property
                 }
             }
         }
-
-        #endregion
     }
 }

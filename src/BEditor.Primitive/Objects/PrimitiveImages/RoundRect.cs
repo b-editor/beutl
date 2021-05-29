@@ -36,7 +36,7 @@ namespace BEditor.Primitive.Objects
             nameof(TopLeftRadius),
             owner => owner.TopLeftRadius,
             (owner, obj) => owner.TopLeftRadius = obj,
-            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata($"{Strings.TopLeft} ({Strings.Radius})", 20, Min: 0)).Serialize());
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata($"{Strings.TopLeft} ({Strings.Radius})", 20, min: 0)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="TopRightRadius"/> property.
@@ -45,7 +45,7 @@ namespace BEditor.Primitive.Objects
             nameof(TopRightRadius),
             owner => owner.TopRightRadius,
             (owner, obj) => owner.TopRightRadius = obj,
-            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata($"{Strings.TopRight} ({Strings.Radius})", 20, Min: 0)).Serialize());
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata($"{Strings.TopRight} ({Strings.Radius})", 20, min: 0)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="BottomLeftRadius"/> property.
@@ -54,7 +54,7 @@ namespace BEditor.Primitive.Objects
             nameof(BottomLeftRadius),
             owner => owner.BottomLeftRadius,
             (owner, obj) => owner.BottomLeftRadius = obj,
-            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata($"{Strings.BottomLeft} ({Strings.Radius})", 20, Min: 0)).Serialize());
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata($"{Strings.BottomLeft} ({Strings.Radius})", 20, min: 0)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="BottomRightRadius"/> property.
@@ -63,7 +63,7 @@ namespace BEditor.Primitive.Objects
             nameof(BottomRightRadius),
             owner => owner.BottomRightRadius,
             (owner, obj) => owner.BottomRightRadius = obj,
-            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata($"{Strings.BottomRight} ({Strings.Radius})", 20, Min: 0)).Serialize());
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata($"{Strings.BottomRight} ({Strings.Radius})", 20, min: 0)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="Line"/> property.

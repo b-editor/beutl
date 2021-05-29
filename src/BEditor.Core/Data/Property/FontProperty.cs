@@ -1,4 +1,11 @@
-﻿using System;
+﻿// FontProperty.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.Contracts;
@@ -18,13 +25,11 @@ namespace BEditor.Data.Property
     [DebuggerDisplay("Select = {Value}")]
     public class FontProperty : PropertyElement<FontPropertyMetadata>, IEasingProperty, IBindable<Font>
     {
-        #region Fields
         private Font _selectItem;
         private List<IObserver<Font>>? _list;
         private IDisposable? _bindDispose;
         private IBindable<Font>? _bindable;
         private Guid? _targetID;
-        #endregion
 
         /// <summary>
         /// Initializes a new instance of the <see cref="FontProperty"/> class.
@@ -68,8 +73,6 @@ namespace BEditor.Data.Property
 
         private List<IObserver<Font>> Collection => _list ??= new();
 
-        #region Methods
-
         /// <inheritdoc/>
         public override void GetObjectData(Utf8JsonWriter writer)
         {
@@ -105,7 +108,10 @@ namespace BEditor.Data.Property
         /// <param name="font">New value for <see cref="Value"/>.</param>
         /// <returns>Created <see cref="IRecordCommand"/>.</returns>
         [Pure]
-        public IRecordCommand ChangeFont(Font font) => new ChangeSelectCommand(this, font);
+        public IRecordCommand ChangeFont(Font font)
+        {
+            return new ChangeSelectCommand(this, font);
+        }
 
         /// <inheritdoc/>
         public IDisposable Subscribe(IObserver<Font> observer)
@@ -141,10 +147,6 @@ namespace BEditor.Data.Property
             this.AutoLoad(ref _targetID);
         }
 
-        #endregion
-
-        #region Commands
-
         /// <summary>
         /// フォントを変更するコマンド.
         /// </summary>
@@ -155,7 +157,7 @@ namespace BEditor.Data.Property
             private readonly Font _old;
 
             /// <summary>
-            /// <see cref="ChangeSelectCommand"/> クラスの新しいインスタンスを初期化します.
+            /// Initializes a new instance of the <see cref="ChangeSelectCommand"/> class.
             /// </summary>
             /// <param name="property">対象の <see cref="FontProperty"/>.</param>
             /// <param name="select">新しい値.</param>
@@ -193,7 +195,5 @@ namespace BEditor.Data.Property
                 }
             }
         }
-
-        #endregion
     }
 }

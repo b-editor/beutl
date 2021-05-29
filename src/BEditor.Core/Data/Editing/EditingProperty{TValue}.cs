@@ -1,4 +1,11 @@
-﻿namespace BEditor.Data
+﻿// EditingProperty{TValue}.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+namespace BEditor.Data
 {
     /// <summary>
     /// Represents the properties of the edited data.
@@ -10,7 +17,8 @@
         /// Initializes a new instance of the <see cref="EditingProperty{TValue}"/> class.
         /// </summary>
         /// <param name="key">The registry key..</param>
-        public EditingProperty(EditingPropertyRegistryKey key) : base(typeof(TValue), key)
+        public EditingProperty(EditingPropertyRegistryKey key)
+            : base(typeof(TValue), key)
         {
         }
 

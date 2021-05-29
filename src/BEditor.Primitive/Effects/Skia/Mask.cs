@@ -51,7 +51,7 @@ namespace BEditor.Primitive.Effects
             nameof(Width),
             owner => owner.Width,
             (owner, obj) => owner.Width = obj,
-            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Width + " (%)", 100, Min: 0)).Serialize());
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Width + " (%)", 100, min: 0)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="Height"/> property.
@@ -60,7 +60,7 @@ namespace BEditor.Primitive.Effects
             nameof(Height),
             owner => owner.Height,
             (owner, obj) => owner.Height = obj,
-            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Height + " (%)", 100, Min: 0)).Serialize());
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Height + " (%)", 100, min: 0)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="Image"/> property.

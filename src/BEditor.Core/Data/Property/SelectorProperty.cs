@@ -1,4 +1,11 @@
-﻿using System;
+﻿// SelectorProperty.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -17,14 +24,12 @@ namespace BEditor.Data.Property
     [DebuggerDisplay("Index = {Index}, Item = {SelectItem}")]
     public class SelectorProperty : PropertyElement<SelectorPropertyMetadata>, IEasingProperty, IBindable<int>
     {
-        #region Fields
         internal static readonly PropertyChangedEventArgs _indexArgs = new(nameof(Index));
         private int _selectIndex;
         private List<IObserver<int>>? _list;
         private IDisposable? _bindDispose;
         private IBindable<int>? _bindable;
         private Guid? _targetID;
-        #endregion
 
         /// <summary>
         /// Initializes a new instance of the <see cref="SelectorProperty"/> class.
@@ -80,8 +85,6 @@ namespace BEditor.Data.Property
 
         private List<IObserver<int>> Collection => _list ??= new();
 
-        #region Methods
-
         /// <inheritdoc/>
         public override void GetObjectData(Utf8JsonWriter writer)
         {
@@ -108,7 +111,10 @@ namespace BEditor.Data.Property
         /// <param name="index">New value for <see cref="Index"/>.</param>
         /// <returns>Created <see cref="IRecordCommand"/>.</returns>
         [Pure]
-        public IRecordCommand ChangeSelect(int index) => new ChangeSelectCommand(this, index);
+        public IRecordCommand ChangeSelect(int index)
+        {
+            return new ChangeSelectCommand(this, index);
+        }
 
         /// <inheritdoc/>
         public IDisposable Subscribe(IObserver<int> observer)
@@ -144,10 +150,6 @@ namespace BEditor.Data.Property
             this.AutoLoad(ref _targetID);
         }
 
-        #endregion
-
-        #region Commands
-
         /// <summary>
         /// 選択されているアイテムを変更するコマンド.
         /// </summary>
@@ -158,7 +160,7 @@ namespace BEditor.Data.Property
             private readonly int _old;
 
             /// <summary>
-            /// <see cref="ChangeSelectCommand"/> クラスの新しいインスタンスを初期化します.
+            /// Initializes a new instance of the <see cref="ChangeSelectCommand"/> class.
             /// </summary>
             /// <param name="property">対象の <see cref="SelectorProperty"/>.</param>
             /// <param name="select">新しいインデックス.</param>
@@ -196,7 +198,5 @@ namespace BEditor.Data.Property
                 }
             }
         }
-
-        #endregion
     }
 }

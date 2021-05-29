@@ -1,4 +1,11 @@
-﻿using System;
+﻿// ColorProperty.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.Contracts;
@@ -17,13 +24,11 @@ namespace BEditor.Data.Property
     [DebuggerDisplay("Color = {_color:#argb}")]
     public class ColorProperty : PropertyElement<ColorPropertyMetadata>, IEasingProperty, IBindable<Color>
     {
-        #region Fields
         private Color _value;
         private List<IObserver<Color>>? _list;
         private IDisposable? _bindDispose;
         private IBindable<Color>? _bindable;
         private Guid? _targetID;
-        #endregion
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ColorProperty"/> class.
@@ -67,8 +72,6 @@ namespace BEditor.Data.Property
 
         private List<IObserver<Color>> Collection => _list ??= new();
 
-        #region Methods
-
         /// <inheritdoc/>
         public override void GetObjectData(Utf8JsonWriter writer)
         {
@@ -95,7 +98,10 @@ namespace BEditor.Data.Property
         /// <param name="color">New Color.</param>
         /// <returns>Created <see cref="IRecordCommand"/>.</returns>
         [Pure]
-        public IRecordCommand ChangeColor(Color color) => new ChangeColorCommand(this, color);
+        public IRecordCommand ChangeColor(Color color)
+        {
+            return new ChangeColorCommand(this, color);
+        }
 
         /// <inheritdoc/>
         public void Bind(IBindable<Color>? bindable)
@@ -131,8 +137,6 @@ namespace BEditor.Data.Property
             this.AutoLoad(ref _targetID);
         }
 
-        #endregion
-
         /// <summary>
         /// 色を変更するコマンド.
         /// </summary>
@@ -143,7 +147,7 @@ namespace BEditor.Data.Property
             private readonly Color _old;
 
             /// <summary>
-            /// <see cref="ChangeColorCommand"/> クラスの新しいインスタンスを初期化します.
+            /// Initializes a new instance of the <see cref="ChangeColorCommand"/> class.
             /// </summary>
             /// <param name="property">対象の <see cref="ColorProperty"/>.</param>
             /// <param name="color"><see cref="ColorProperty.Value"/> の新しい値.</param>

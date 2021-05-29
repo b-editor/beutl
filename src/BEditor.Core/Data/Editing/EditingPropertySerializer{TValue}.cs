@@ -1,4 +1,11 @@
-﻿using System;
+﻿// EditingPropertySerializer{TValue}.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System;
 using System.Text.Json;
 
 namespace BEditor.Data
@@ -6,6 +13,7 @@ namespace BEditor.Data
     /// <summary>
     /// Represents the serializer of <see cref="IEditingProperty"/>.
     /// </summary>
+    /// <typeparam name="TValue">The type of the local value.</typeparam>
     public class EditingPropertySerializer<TValue> : IEditingPropertySerializer<TValue>
     {
         private readonly Action<Utf8JsonWriter, TValue> _write;

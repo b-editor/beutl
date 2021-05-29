@@ -1,4 +1,11 @@
-﻿using System;
+﻿// ColorAnimationProperty.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -23,12 +30,10 @@ namespace BEditor.Data.Property
     [DebuggerDisplay("Count = {Value.Count}, Easing = {EasingData.Name}")]
     public class ColorAnimationProperty : PropertyElement<ColorAnimationPropertyMetadata>, IKeyframeProperty
     {
-        #region Fields
         private static readonly PropertyChangedEventArgs _easingFuncArgs = new(nameof(EasingType));
         private static readonly PropertyChangedEventArgs _easingDataArgs = new(nameof(EasingData));
         private EasingFunc? _easingTypeProperty;
         private EasingMetadata? _easingData;
-        #endregion
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ColorAnimationProperty"/> class.
@@ -118,8 +123,6 @@ namespace BEditor.Data.Property
         /// <param name="frame">The frame of the value to get.</param>
         public Color this[Frame frame] => GetValue(frame);
 
-        #region Methods
-
         /// <summary>
         /// Gets an eased value.
         /// </summary>
@@ -157,6 +160,7 @@ namespace BEditor.Data.Property
 
                 throw new Exception();
             }
+
             static (Color, Color) GetValues(ColorAnimationProperty property, Frame frame)
             {
                 if (property.Value.Count == 2)
@@ -369,10 +373,6 @@ namespace BEditor.Data.Property
         {
             EasingType.Unload();
         }
-
-        #endregion
-
-        #region Commands
 
         private sealed class ChangeColorCommand : IRecordCommand
         {
@@ -599,7 +599,5 @@ namespace BEditor.Data.Property
                 }
             }
         }
-
-        #endregion
     }
 }

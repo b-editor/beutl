@@ -1,4 +1,12 @@
-﻿using System;
+﻿// Bindings.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System;
+using System.Diagnostics.CodeAnalysis;
 
 using BEditor.Command;
 using BEditor.Resources;
@@ -13,9 +21,12 @@ namespace BEditor.Data.Bindings
         /// <summary>
         /// Get <see cref="IBindable{T}"/> from <see cref="IEditingObject.Id"/>.
         /// </summary>
+        /// <param name="bindable">The object used to get the target <see cref="IBindable{T}"/>.</param>
+        /// <param name="id">The Id of the <see cref="IBindable{T}"/> to be retrieved.</param>
+        /// <param name="result">The instance of the <see cref="IBindable{T}"/> that was retrieved.</param>
         /// <typeparam name="T">Type of object to bind.</typeparam>
         /// <returns>Returns a <see cref="bool"/> indicating whether it was retrieved or not, <see langword="true"/> on success, <see langword="false"/> on failure.</returns>
-        public static bool GetBindable<T>(this IBindable<T> bindable, Guid? id, out IBindable<T>? result)
+        public static bool GetBindable<T>(this IBindable<T> bindable, Guid? id, [NotNullWhen(true)] out IBindable<T>? result)
         {
             if (id is null)
             {
