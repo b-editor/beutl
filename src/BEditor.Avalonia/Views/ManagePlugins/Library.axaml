@@ -15,12 +15,18 @@
     <Grid ColumnDefinitions="2*,*">
 
         <!--Right-->
-        <DockPanel Grid.Column="1" Margin="8">
-            <StackPanel Spacing="8" Orientation="Vertical" DockPanel.Dock="Top">
+        <Grid
+            RowDefinitions="Auto,*,Auto,Auto,Auto"
+            Grid.Column="1"
+            Margin="8">
+            <StackPanel
+                Spacing="8"
+                Orientation="Vertical"
+                Grid.Row="0">
                 <TextBox
-                    Text="{CompiledBinding SearchText.Value, Mode=TwoWay}"
-                    UseFloatingWatermark="True"
-                    Watermark="{x:Static props:Strings.Search}">
+                        Text="{CompiledBinding SearchText.Value, Mode=TwoWay}"
+                        UseFloatingWatermark="True"
+                        Watermark="{x:Static props:Strings.Search}">
                     <TextBox.InnerRightContent>
                         <Button IsDefault="True" Command="{CompiledBinding Search, Mode=OneTime}">
                             <PathIcon Data="{StaticResource Search16Regular}" Width="16" />
@@ -38,33 +44,58 @@
                         </DataTemplate>
                     </ComboBox.ItemTemplate>
                 </ComboBox>
+            </StackPanel>
 
-                <StackPanel Orientation="Horizontal" MaxWidth="{Binding $parent.Bounds.Width}">
+            <ScrollViewer Grid.Row="1" Margin="0,8">
+                <StackPanel Spacing="8" Orientation="Vertical">
+                    <StackPanel.Styles>
+                        <Style Selector="TextBlock.content">
+                            <Setter Property="ToolTip.Tip" Value="{TemplateBinding Text}" />
+                            <Setter Property="TextWrapping" Value="Wrap" />
+                            <Setter Property="Margin" Value="8,0,0,0" />
+                        </Style>
+                    </StackPanel.Styles>
+                    
                     <TextBlock Text="{Binding Source={x:Static props:Strings.Name}, StringFormat='{}{0}: '}" />
-                    <TextBlock Text="{CompiledBinding SelectedItem.Value.Name}" />
-                </StackPanel>
-                
-                <StackPanel Orientation="Horizontal" MaxWidth="{Binding $parent.Bounds.Width}">
+                    <TextBlock Classes="content" Text="{CompiledBinding SelectedItem.Value.Name}" />
+
                     <TextBlock Text="{Binding Source={x:Static props:Strings.Author}, StringFormat='{}{0}: '}" />
-                    <TextBlock Text="{CompiledBinding SelectedItem.Value.Author}" />
-                </StackPanel>
-                
-                <StackPanel Orientation="Horizontal" MaxWidth="{Binding $parent.Bounds.Width}">
+                    <TextBlock Classes="content" Text="{CompiledBinding SelectedItem.Value.Author}" />
+
                     <TextBlock Text="{Binding Source={x:Static props:Strings.Tag}, StringFormat='{}{0}: '}" />
-                    <TextBlock Text="{CompiledBinding SelectedItem.Value.Tag}" ToolTip.Tip="{Binding $self.Text}" />
-                </StackPanel>
-                
-                <StackPanel Orientation="Horizontal">
+                    <TextBlock Classes="content" Text="{CompiledBinding SelectedItem.Value.Tag}" />
+
                     <TextBlock Text="{Binding Source={x:Static props:Strings.Version}, StringFormat='{}{0}: '}" />
                     <TextBlock Text="{Binding SelectedItem.Value.Versions[0].Version}" />
+
+                    <TextBlock Text="{Binding Source={x:Static props:Strings.Description}, StringFormat='{}{0}: '}" />
+                    <TextBlock Classes="content" Text="{CompiledBinding SelectedItem.Value.Description}" />
+
+                    <ctrs:HyperLink Text="{x:Static props:Strings.WebSite}" Command="{CompiledBinding OpenHomePage, Mode=OneTime}" />
+
                 </StackPanel>
-
-                <ctrs:HyperLink Text="{x:Static props:Strings.WebSite}" Command="{CompiledBinding OpenHomePage, Mode=OneTime}" />
-
-            </StackPanel>
+            </ScrollViewer>
             
+            <Button
+                Grid.Row="2"
+                VerticalAlignment="Bottom"
+                Content="{x:Static props:Strings.Install}"
+                IsVisible="{CompiledBinding InstallIsVisible.Value, Mode=OneWay}"
+                Command="{CompiledBinding Install, Mode=OneTime}"
+                HorizontalAlignment="Stretch"
+                HorizontalContentAlignment="Center" />
+
+            <Button
+                Grid.Row="3"
+                VerticalAlignment="Bottom"
+                Content="{x:Static props:Strings.Cancel}"
+                IsVisible="{CompiledBinding CancelIsVisible.Value, Mode=OneWay}"
+                Command="{CompiledBinding CancelChange, Mode=OneTime}"
+                HorizontalAlignment="Stretch"
+                HorizontalContentAlignment="Center" />
+
             <StackPanel
-                DockPanel.Dock="Bottom"
+                Grid.Row="4"
                 HorizontalAlignment="Center"
                 Orientation="Horizontal">
                 <Button Command="{CompiledBinding PrevPage, Mode=OneTime}" IsEnabled="{CompiledBinding ExistPrevPage.Value, Mode=OneWay}">
@@ -75,25 +106,7 @@
                     <PathIcon Data="{StaticResource ArrowRight20Regular}"/>
                 </Button>
             </StackPanel>
-
-            <Button
-                DockPanel.Dock="Bottom"
-                VerticalAlignment="Bottom"
-                Content="{x:Static props:Strings.Cancel}"
-                IsVisible="{CompiledBinding CancelIsVisible.Value, Mode=OneWay}"
-                Command="{CompiledBinding CancelChange, Mode=OneTime}"
-                HorizontalAlignment="Stretch"
-                HorizontalContentAlignment="Center" />
-            
-            <Button
-                VerticalAlignment="Bottom"
-                Content="{x:Static props:Strings.Install}"
-                IsVisible="{CompiledBinding InstallIsVisible.Value, Mode=OneWay}"
-                Command="{CompiledBinding Install, Mode=OneTime}"
-                HorizontalAlignment="Stretch"
-                HorizontalContentAlignment="Center" />
-            
-        </DockPanel>
+        </Grid>
 
         <!--Left-->
         <ListBox
@@ -106,15 +119,23 @@
                         <StackPanel Orientation="Horizontal">
                             <TextBlock FontSize="16" Text="{Binding Name}" />
 
-                            <TextBlock FontSize="12" VerticalAlignment="Center" Margin="16,0,0,0" Text="{Binding Versions[0].Version}"/>
+                            <TextBlock
+                                FontSize="12"
+                                VerticalAlignment="Center"
+                                Margin="16,0,0,0"
+                                Text="{Binding Versions[0].Version}"/>
                         </StackPanel>
 
-                        <TextBlock FontSize="12" Margin="0,10,0,0" Text="{Binding Description}" Grid.Row="1" />
+                        <TextBlock
+                            FontSize="12"
+                            Margin="0,10,0,0"
+                            Text="{Binding DescriptionShort}"
+                            Grid.Row="1" />
                     </Grid>
                 </DataTemplate>
             </ListBox.ItemTemplate>
         </ListBox>
-        
+
         <TextBlock
             Margin="8,0,0,16"
             Text="{x:Static props:Strings.WhenYouCloseTheApplicationTheChangesWillBegin}"

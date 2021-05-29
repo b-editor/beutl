@@ -18,7 +18,7 @@ namespace BEditor.Packaging
         /// <summary>
         /// Gets or sets the assembly name of the plugin.
         /// </summary>
-        [JsonPropertyName("main-assembly")]
+        [JsonPropertyName("main_assembly")]
         public string MainAssembly { get; set; } = string.Empty;
 
         /// <summary>
@@ -38,6 +38,12 @@ namespace BEditor.Packaging
         /// </summary>
         [JsonPropertyName("homepage")]
         public string HomePage { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Gets or sets the short description of the package.
+        /// </summary>
+        [JsonPropertyName("description_short")]
+        public string DescriptionShort { get; set; } = string.Empty;
 
         /// <summary>
         /// Gets or sets the description of the package.

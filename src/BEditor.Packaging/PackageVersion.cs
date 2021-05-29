@@ -23,7 +23,19 @@ namespace BEditor.Packaging
         /// <summary>
         /// Gets or sets the download url of the package.
         /// </summary>
-        [JsonPropertyName("download")]
-        public string Download { get; set; } = string.Empty;
+        [JsonPropertyName("download_url")]
+        public string DownloadUrl { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Gets or sets the update note.
+        /// </summary>
+        [JsonPropertyName("update_note")]
+        public string UpdateNote { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Gets or sets the short update note.
+        /// </summary>
+        [JsonPropertyName("update_note_short")]
+        public string UpdateNoteShort { get; set; } = string.Empty;
     }
 }

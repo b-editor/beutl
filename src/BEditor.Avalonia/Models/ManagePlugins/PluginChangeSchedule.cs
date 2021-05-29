@@ -41,7 +41,7 @@ namespace BEditor.Models.ManagePlugins
                 writer.WriteString("type", item.Type is PluginChangeType.Install ? "install" : "update");
                 writer.WriteString("id", item.Target.Id);
                 writer.WriteString("license", item.Target.License);
-                writer.WriteString("url", item.Target.Versions[0].Download);
+                writer.WriteString("url", item.Target.Versions[0].DownloadUrl);
                 writer.WriteEndObject();
             }
 
