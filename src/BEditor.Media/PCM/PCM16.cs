@@ -1,4 +1,11 @@
-﻿using System;
+﻿// PCM16.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System;
 using System.Runtime.InteropServices;
 
 namespace BEditor.Media.PCM
@@ -16,12 +23,30 @@ namespace BEditor.Media.PCM
         public short Value;
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="PCM16"/> class.
+        /// Initializes a new instance of the <see cref="PCM16"/> struct.
         /// </summary>
         /// <param name="value">The audio data.</param>
         public PCM16(short value)
         {
             Value = value;
+        }
+
+        /// <summary>
+        /// Converts the <see cref="PCMFloat"/> to a 16-bit signed integer.
+        /// </summary>
+        /// <param name="value">The Pcm data.</param>
+        public static implicit operator short(PCM16 value)
+        {
+            return value.Value;
+        }
+
+        /// <summary>
+        /// Converts the 16-bit signed integer to a <see cref="PCM16"/>.
+        /// </summary>
+        /// <param name="value">The 16-bit signed integer.</param>
+        public static implicit operator PCM16(short value)
+        {
+            return new(value);
         }
 
         /// <inheritdoc/>
@@ -58,24 +83,6 @@ namespace BEditor.Media.PCM
         public override string ToString()
         {
             return Value.ToString();
-        }
-
-        /// <summary>
-        /// Converts the <see cref="PCMFloat"/> to a 16-bit signed integer.
-        /// </summary>
-        /// <param name="value">The Pcm data.</param>
-        public static implicit operator short(PCM16 value)
-        {
-            return value.Value;
-        }
-
-        /// <summary>
-        /// Converts the 16-bit signed integer to a <see cref="PCM16"/>.
-        /// </summary>
-        /// <param name="value">The 16-bit signed integer.</param>
-        public static implicit operator PCM16(short value)
-        {
-            return new(value);
         }
     }
 }

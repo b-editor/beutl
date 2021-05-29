@@ -1,4 +1,11 @@
-﻿using System;
+﻿// VideoStreamInfo.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System;
 
 using BEditor.Drawing;
 
@@ -16,8 +23,9 @@ namespace BEditor.Media.Decoding
         /// <param name="type">The media type of the stream.</param>
         /// <param name="duration">The duration of the stream.</param>
         /// <param name="framesize">The video frame dimensions.</param>
-        /// <param name="framenum">The number of frames</param>
-        public VideoStreamInfo(string codecName, MediaType type, TimeSpan duration, Size framesize, int framenum) : base(codecName, type, duration)
+        /// <param name="framenum">The number of frames.</param>
+        public VideoStreamInfo(string codecName, MediaType type, TimeSpan duration, Size framesize, int framenum)
+            : base(codecName, type, duration)
         {
             NumberOfFrames = framenum;
             FrameSize = framesize;

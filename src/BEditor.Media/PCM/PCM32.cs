@@ -1,4 +1,11 @@
-﻿using System;
+﻿// PCM32.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System;
 using System.Runtime.InteropServices;
 
 namespace BEditor.Media.PCM
@@ -16,12 +23,30 @@ namespace BEditor.Media.PCM
         public int Value;
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="PCM32"/> class.
+        /// Initializes a new instance of the <see cref="PCM32"/> struct.
         /// </summary>
         /// <param name="value">The audio data.</param>
         public PCM32(int value)
         {
             Value = value;
+        }
+
+        /// <summary>
+        /// Converts the <see cref="PCM32"/> to a 32-bit signed integer.
+        /// </summary>
+        /// <param name="value">The Pcm data.</param>
+        public static implicit operator int(PCM32 value)
+        {
+            return value.Value;
+        }
+
+        /// <summary>
+        /// Converts the 32-bit signed integer to a <see cref="PCM32"/>.
+        /// </summary>
+        /// <param name="value">The 32-bit signed integer.</param>
+        public static implicit operator PCM32(int value)
+        {
+            return new(value);
         }
 
         /// <inheritdoc/>
@@ -52,24 +77,6 @@ namespace BEditor.Media.PCM
         public void ConvertTo(out PCMFloat dst)
         {
             dst = new((float)Value / int.MaxValue);
-        }
-
-        /// <summary>
-        /// Converts the <see cref="PCM32"/> to a 32-bit signed integer.
-        /// </summary>
-        /// <param name="value">The Pcm data.</param>
-        public static implicit operator int(PCM32 value)
-        {
-            return value.Value;
-        }
-
-        /// <summary>
-        /// Converts the 32-bit signed integer to a <see cref="PCM32"/>.
-        /// </summary>
-        /// <param name="value">The 32-bit signed integer.</param>
-        public static implicit operator PCM32(int value)
-        {
-            return new(value);
         }
     }
 }

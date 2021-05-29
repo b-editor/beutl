@@ -73,6 +73,7 @@
             <summary>
             Enumerate the registered decodings.
             </summary>
+            <returns>Returns the registered decodings.</returns>
         </member>
         <member name="M:BEditor.Media.DecodingRegistory.Open(System.String,BEditor.Media.Decoding.MediaOptions)">
             <summary>
@@ -80,12 +81,14 @@
             </summary>
             <param name="file">The media file to be opened.</param>
             <param name="options">The option used to open the media file.</param>
+            <returns>Returns the input container opened by this method.</returns>
         </member>
         <member name="M:BEditor.Media.DecodingRegistory.GuessDecodings(System.String)">
             <summary>
             Guess decoding from file name.
             </summary>
             <param name="file">The file name to guess.</param>
+            <returns>Returns the guessed decodings.</returns>
         </member>
         <member name="M:BEditor.Media.DecodingRegistory.Register(BEditor.Media.IRegisterdDecoding)">
             <summary>
@@ -127,6 +130,9 @@
             <summary>
             Gets informations about this stream.
             </summary>
+        </member>
+        <member name="P:BEditor.Media.Decoding.IAudioStream.BEditor#Media#Decoding#IMediaStream#Info">
+            <inheritdoc/>
         </member>
         <member name="M:BEditor.Media.Decoding.IAudioStream.GetNextFrame">
             <summary>
@@ -216,6 +222,9 @@
             Gets informations about this stream.
             </summary>
         </member>
+        <member name="P:BEditor.Media.Decoding.IVideoStream.BEditor#Media#Decoding#IMediaStream#Info">
+            <inheritdoc/>
+        </member>
         <member name="M:BEditor.Media.Decoding.IVideoStream.GetNextFrame">
             <summary>
             Reads the next frame from the video stream.
@@ -257,7 +266,7 @@
             <summary>
             Initializes a new instance of the <see cref="T:BEditor.Media.Decoding.MediaFile"/> class.
             </summary>
-            <param name="container"></param>
+            <param name="container">The input container.</param>
         </member>
         <member name="P:BEditor.Media.Decoding.MediaFile.VideoStreams">
             <summary>
@@ -447,7 +456,7 @@
             <param name="type">The media type of the stream.</param>
             <param name="duration">The duration of the stream.</param>
             <param name="framesize">The video frame dimensions.</param>
-            <param name="framenum">The number of frames</param>
+            <param name="framenum">The number of frames.</param>
         </member>
         <member name="P:BEditor.Media.Decoding.VideoStreamInfo.NumberOfFrames">
             <summary>
@@ -468,18 +477,21 @@
             <summary>
             Enumerate the registered encoding.
             </summary>
+            <returns>Returns the registered encodings.</returns>
         </member>
         <member name="M:BEditor.Media.EncodingRegistory.Create(System.String)">
             <summary>
             Create a container from the name of the file to be output.
             </summary>
             <param name="file">The file name to output.</param>
+            <returns>Returns the output container created by this method.</returns>
         </member>
         <member name="M:BEditor.Media.EncodingRegistory.GuessEncodings(System.String)">
             <summary>
             Guess encoding from file name.
             </summary>
             <param name="file">The file name to guess.</param>
+            <returns>Returns the guessed encodings.</returns>
         </member>
         <member name="M:BEditor.Media.EncodingRegistory.Register(BEditor.Media.IRegisterdEncoding)">
             <summary>
@@ -577,11 +589,13 @@
             <summary>
             Gets the default settings for video encoder.
             </summary>
+            <returns>Returns the default encoder setting.</returns>
         </member>
         <member name="M:BEditor.Media.Encoding.IOutputContainer.GetDefaultAudioSettings">
             <summary>
             Gets the default settings for audio encoder.
             </summary>
+            <returns>Returns the default encoder setting.</returns>
         </member>
         <member name="M:BEditor.Media.Encoding.IOutputContainer.Create">
             <summary>
@@ -959,17 +973,20 @@
             </summary>
             <param name="file">File name of the media file.</param>
             <param name="options">The decoder settings.</param>
+            <returns>Returns the input container opened by this method.</returns>
         </member>
         <member name="M:BEditor.Media.IRegisterdDecoding.IsSupported(System.String)">
             <summary>
             Gets the value if the specified media file is supported.
             </summary>
             <param name="file">File name of the media file.</param>
+            <returns>Returns a value if the specified media file is supported.</returns>
         </member>
         <member name="M:BEditor.Media.IRegisterdDecoding.SupportExtensions">
             <summary>
             Gets the supported extensions.
             </summary>
+            <returns>Returns the supported extensions.</returns>
         </member>
         <member name="T:BEditor.Media.IRegisterdEncoding">
             <summary>
@@ -985,17 +1002,21 @@
             <summary>
             Create the media file.
             </summary>
+            <param name="file">The file name to output.</param>
+            <returns>Returns the output container created by this method.</returns>
         </member>
         <member name="M:BEditor.Media.IRegisterdEncoding.IsSupported(System.String)">
             <summary>
             Gets the value if the specified media file is supported.
             </summary>
             <param name="file">File name of the media file.</param>
+            <returns>Returns a value if the specified media file is supported.</returns>
         </member>
         <member name="M:BEditor.Media.IRegisterdEncoding.SupportExtensions">
             <summary>
             Gets the supported extensions.
             </summary>
+            <returns>Returns the supported extensions.</returns>
         </member>
         <member name="T:BEditor.Media.MediaType">
             <summary>

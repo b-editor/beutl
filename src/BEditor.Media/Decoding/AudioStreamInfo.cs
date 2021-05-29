@@ -1,4 +1,11 @@
-﻿using System;
+﻿// AudioStreamInfo.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System;
 
 namespace BEditor.Media.Decoding
 {
@@ -15,7 +22,8 @@ namespace BEditor.Media.Decoding
         /// <param name="duration">The duration of the stream.</param>
         /// <param name="samplerate">The number of samples per second of the audio stream.</param>
         /// <param name="numchannels">The number of audio channels stored in the stream.</param>
-        public AudioStreamInfo(string codecName, MediaType type, TimeSpan duration, int samplerate, int numchannels) : base(codecName, type, duration)
+        public AudioStreamInfo(string codecName, MediaType type, TimeSpan duration, int samplerate, int numchannels)
+            : base(codecName, type, duration)
         {
             SampleRate = samplerate;
             NumChannels = numchannels;

@@ -1,8 +1,12 @@
-﻿using System;
+﻿// IOutputContainer.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace BEditor.Media.Encoding
 {
@@ -42,11 +46,13 @@ namespace BEditor.Media.Encoding
         /// <summary>
         /// Gets the default settings for video encoder.
         /// </summary>
+        /// <returns>Returns the default encoder setting.</returns>
         public VideoEncoderSettings GetDefaultVideoSettings();
 
         /// <summary>
         /// Gets the default settings for audio encoder.
         /// </summary>
+        /// <returns>Returns the default encoder setting.</returns>
         public AudioEncoderSettings GetDefaultAudioSettings();
 
         /// <summary>

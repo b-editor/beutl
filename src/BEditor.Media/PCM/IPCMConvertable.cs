@@ -1,10 +1,18 @@
-﻿namespace BEditor.Media.PCM
+﻿// IPCMConvertable.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+namespace BEditor.Media.PCM
 {
     /// <summary>
     /// Provides the ability to convert this audio data to specified data.
     /// </summary>
     /// <typeparam name="T">The type of data that can be converted.</typeparam>
-    public interface IPCMConvertable<T> where T : unmanaged, IPCM<T>
+    public interface IPCMConvertable<T>
+        where T : unmanaged, IPCM<T>
     {
         /// <summary>
         /// Converts to the specified type.

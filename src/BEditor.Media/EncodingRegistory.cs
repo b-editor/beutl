@@ -1,4 +1,11 @@
-﻿using System.Collections.Generic;
+﻿// EncodingRegistory.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 
@@ -16,6 +23,7 @@ namespace BEditor.Media
         /// <summary>
         /// Enumerate the registered encoding.
         /// </summary>
+        /// <returns>Returns the registered encodings.</returns>
         public static IEnumerable<IRegisterdEncoding> EnumerateEncodings()
         {
             return _registerd;
@@ -25,6 +33,7 @@ namespace BEditor.Media
         /// Create a container from the name of the file to be output.
         /// </summary>
         /// <param name="file">The file name to output.</param>
+        /// <returns>Returns the output container created by this method.</returns>
         public static IOutputContainer? Create(string file)
         {
             return GuessEncodings(file).FirstOrDefault()?.Create(file);
@@ -34,6 +43,7 @@ namespace BEditor.Media
         /// Guess encoding from file name.
         /// </summary>
         /// <param name="file">The file name to guess.</param>
+        /// <returns>Returns the guessed encodings.</returns>
         public static IRegisterdEncoding[] GuessEncodings(string file)
         {
             return _registerd.Where(i => i.IsSupported(file)).ToArray();

@@ -1,4 +1,11 @@
-﻿using System;
+﻿// MediaFile.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System;
 using System.IO;
 using System.Linq;
 
@@ -15,7 +22,7 @@ namespace BEditor.Media.Decoding
         /// <summary>
         /// Initializes a new instance of the <see cref="MediaFile"/> class.
         /// </summary>
-        /// <param name="container"></param>
+        /// <param name="container">The input container.</param>
         public MediaFile(IInputContainer container)
         {
             _container = container;

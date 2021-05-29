@@ -1,4 +1,11 @@
-﻿using System;
+﻿// Sound.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
@@ -11,7 +18,8 @@ namespace BEditor.Media
     /// Represents the audio.
     /// </summary>
     /// <typeparam name="T">The type of audio data.</typeparam>
-    public unsafe partial class Sound<T> : IDisposable, ICloneable where T : unmanaged, IPCM<T>
+    public unsafe partial class Sound<T> : IDisposable, ICloneable
+        where T : unmanaged, IPCM<T>
     {
         private readonly bool _requireDispose = true;
         private T* _pointer;
@@ -91,7 +99,7 @@ namespace BEditor.Media
         }
 
         /// <summary>
-        /// Discards the reference to the target that is represented by the current <see cref="Sound{T}"/> object.
+        /// Finalizes an instance of the <see cref="Sound{T}"/> class.
         /// </summary>
         ~Sound()
         {
@@ -127,12 +135,12 @@ namespace BEditor.Media
         public TimeSpan Duration => TimeSpan.FromSeconds(NumSamples / (double)SampleRate);
 
         /// <summary>
-        /// Get the data size of <see cref="Sound{T}"/>.
+        /// Gets the data size of <see cref="Sound{T}"/>.
         /// </summary>
         public int DataSize => NumSamples * sizeof(T);
 
         /// <summary>
-        /// Get whether an object has been disposed
+        /// Gets a value indicating whether this instance has been disposed.
         /// </summary>
         public bool IsDisposed { get; private set; }
 
@@ -140,7 +148,9 @@ namespace BEditor.Media
         /// Converts the data in this <see cref="Sound{T}"/> to the specified type.
         /// </summary>
         /// <typeparam name="TConvert">The type of audio data to convert to.</typeparam>
-        public Sound<TConvert> Convert<TConvert>() where TConvert : unmanaged, IPCM<TConvert>, IPCMConvertable<T>
+        /// <returns>Returns the converted sound.</returns>
+        public Sound<TConvert> Convert<TConvert>()
+            where TConvert : unmanaged, IPCM<TConvert>, IPCMConvertable<T>
         {
             var result = new Sound<TConvert>(SampleRate, NumSamples);
 
@@ -168,6 +178,7 @@ namespace BEditor.Media
                 _pointer = null;
                 _array = null;
             }
+
             IsDisposed = true;
             GC.SuppressFinalize(this);
         }
@@ -187,6 +198,7 @@ namespace BEditor.Media
         /// Forms a slice of the current <see cref="Sound{T}"/>, starting at the specified time.
         /// </summary>
         /// <param name="start">The time at which to begin the slice.</param>
+        /// <returns>A sound that consists of all elements of the current sound from start to the end of the sound.</returns>
         public Sound<T> Slice(TimeSpan start)
         {
             var data = Data[(int)(start.TotalSeconds * SampleRate)..];
@@ -202,6 +214,7 @@ namespace BEditor.Media
         /// </summary>
         /// <param name="start">The time at which to begin this slice.</param>
         /// <param name="length">The desired length for the slice.</param>
+        /// <returns>A sound that consists of length elements from the current sound starting at start.</returns>
         public Sound<T> Slice(TimeSpan start, TimeSpan length)
         {
             var data = Data.Slice((int)(start.TotalSeconds * SampleRate), (int)(length.TotalSeconds * SampleRate));
@@ -228,12 +241,14 @@ namespace BEditor.Media
         /// Resamples the <see cref="Sound{T}"/>.
         /// </summary>
         /// <param name="frequency">The new sampling frequency.</param>
+        /// <returns>Returns a sound that has been resampled to the specified frequency.</returns>
         public Sound<T> Resamples(int frequency)
         {
             if (SampleRate == frequency) return Clone();
 
             // 比率
             var ratio = SampleRate / (float)frequency;
+
             // 1チャンネルのサイズ
             var size = frequency * Duration.TotalSeconds;
 

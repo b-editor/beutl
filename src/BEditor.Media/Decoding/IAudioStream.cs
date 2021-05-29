@@ -1,4 +1,11 @@
-﻿using System;
+﻿// IAudioStream.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
@@ -14,12 +21,13 @@ namespace BEditor.Media.Decoding
     /// </summary>
     public interface IAudioStream : IMediaStream
     {
-        StreamInfo IMediaStream.Info => Info;
-
         /// <summary>
         /// Gets informations about this stream.
         /// </summary>
         public new AudioStreamInfo Info { get; }
+
+        /// <inheritdoc/>
+        StreamInfo IMediaStream.Info => Info;
 
         /// <summary>
         /// Reads the next frame from the audio stream.
