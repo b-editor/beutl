@@ -1,4 +1,11 @@
-﻿using System.Collections.Generic;
+﻿// Dilate.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 
 using BEditor.Data;
@@ -62,8 +69,8 @@ namespace BEditor.Primitive.Effects
             var size = (int)Radius.GetValue(args.Frame);
             if (Resize.Value)
             {
-                int nwidth = img.Width + (size + 5) * 2;
-                int nheight = img.Height + (size + 5) * 2;
+                int nwidth = img.Width + ((size + 5) * 2);
+                int nheight = img.Height + ((size + 5) * 2);
 
                 args.Value = img.MakeBorder(nwidth, nheight);
                 args.Value.Dilate(size);

@@ -1,4 +1,11 @@
-﻿using System.Collections.Generic;
+﻿// GL3DObject.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 
 using BEditor.Data;
@@ -63,7 +70,7 @@ namespace BEditor.Primitive.Objects
             EditingPropertyOptions<SelectorProperty>.Create(new SelectorPropertyMetadata(Strings.Type, new[]
             {
                 Strings.Cube,
-                Strings.Ball
+                Strings.Ball,
             })).Serialize());
 
         /// <summary>
@@ -163,7 +170,6 @@ namespace BEditor.Primitive.Objects
             int frame = args.Frame;
             var color = Blend.Color[frame];
             color.A = (byte)(color.A * (Blend.Opacity[frame] / 100));
-
 
             float scale = (float)(Scale.Scale1[frame] / 100);
             float scalex = (float)(Scale.ScaleX[frame] / 100) * scale;

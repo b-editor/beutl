@@ -1,4 +1,11 @@
-﻿using System.Collections.Generic;
+﻿// DepthTest.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics.CodeAnalysis;
 
@@ -40,7 +47,7 @@ namespace BEditor.Primitive.Effects
                 "Greater",
                 "Notequal",
                 "Gequal",
-                "Always"
+                "Always",
             }, 1)).Serialize());
 
         /// <summary>
@@ -79,7 +86,7 @@ namespace BEditor.Primitive.Effects
             DepthFunction.Greater,
             DepthFunction.Notequal,
             DepthFunction.Gequal,
-            DepthFunction.Always
+            DepthFunction.Always,
         });
 
         /// <summary>

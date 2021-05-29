@@ -21,7 +21,7 @@ namespace BEditor.Primitive
     /// <summary>
     /// Standard clip types.
     /// </summary>
-    public class PrimitiveTypes
+    public static class PrimitiveTypes
     {
         /// <summary>
         /// <see cref="Type"/> of <see cref="VideoFile"/> class.

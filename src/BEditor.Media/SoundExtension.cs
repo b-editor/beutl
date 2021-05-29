@@ -66,9 +66,7 @@ namespace BEditor.Media
         /// <param name="data">The channel data to be set.</param>
         public static void SetChannelData(this Sound<StereoPCMFloat> sound, int start, int channel, Span<float> data)
         {
-#pragma warning disable RCS1176
             fixed (StereoPCMFloat* dst = &sound.Data[start])
-#pragma warning restore RCS1176
             {
                 var dataf = (float*)dst;
                 var soundlength = (sound.NumSamples - start) * 2;

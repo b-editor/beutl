@@ -1,4 +1,11 @@
-﻿using System.Collections.Generic;
+﻿// MultipleControls.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 
@@ -49,7 +56,7 @@ namespace BEditor.Primitive.Effects
             EditingPropertyOptions<ValueProperty>.Create(new ValuePropertyMetadata("index", 0, Min: 0)).Serialize());
 
         /// <summary>
-        /// INitializes a new instance of the <see cref="MultipleControls"/> class.
+        /// Initializes a new instance of the <see cref="MultipleControls"/> class.
         /// </summary>
         public MultipleControls()
         {
@@ -97,9 +104,9 @@ namespace BEditor.Primitive.Effects
                         {
                             var f = args.Frame;
                             var s = Scale.Scale1[f] / 100;
-                            var sx = Scale.ScaleX[f] / 100 * s - 1;
-                            var sy = Scale.ScaleY[f] / 100 * s - 1;
-                            var sz = Scale.ScaleZ[f] / 100 * s - 1;
+                            var sx = (Scale.ScaleX[f] / 100 * s) - 1;
+                            var sy = (Scale.ScaleY[f] / 100 * s) - 1;
+                            var sz = (Scale.ScaleZ[f] / 100 * s) - 1;
 
                             return img.Transform + new Transform(
                                 new(Coordinate.X[f], Coordinate.Y[f], Coordinate.Z[f]),
@@ -116,7 +123,6 @@ namespace BEditor.Primitive.Effects
         /// <inheritdoc/>
         public override void Apply(EffectApplyArgs<Image<BGRA32>> args)
         {
-
         }
 
         /// <inheritdoc/>

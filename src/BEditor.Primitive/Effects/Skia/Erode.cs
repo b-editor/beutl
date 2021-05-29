@@ -1,4 +1,11 @@
-﻿using System.Collections.Generic;
+﻿// Erode.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 
 using BEditor.Data;
@@ -59,11 +66,7 @@ namespace BEditor.Primitive.Effects
 
             if (Resize.Value)
             {
-                //Todo: 画像をリサイズ
-                //int nwidth = img.Width - (size + 5) * 2;
-                //int nheight = img.Height - (size + 5) * 2;
-
-                //args.Value = img.MakeBorder(nwidth, nheight);
+                // Todo: 画像をリサイズ
                 args.Value.Erode(size);
 
                 img.Dispose();

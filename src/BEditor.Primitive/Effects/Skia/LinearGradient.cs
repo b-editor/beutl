@@ -1,4 +1,11 @@
-﻿using System.Collections.Generic;
+﻿// LinearGradient.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Reactive.Linq;
@@ -82,7 +89,7 @@ namespace BEditor.Primitive.Effects
             (owner, obj) => owner.Mode = obj,
             EditingPropertyOptions<SelectorProperty>.Create(new SelectorPropertyMetadata(Strings.Mode, new string[] { Strings.Clamp, Strings.Repeat, Strings.Mirror, Strings.Decal }, 1)).Serialize());
 
-        internal static readonly ShaderTileMode[] tiles =
+        internal static readonly ShaderTileMode[] _tiles =
         {
             ShaderTileMode.Clamp,
             ShaderTileMode.Repeat,
@@ -157,7 +164,8 @@ namespace BEditor.Primitive.Effects
             var colors = ColorsProp.Value;
             var points = PointsProp.Value;
 
-            // 非推奨
+            // 色とアンカーの長さが合わない場合
+            // どちらかに長さを合わせる
             while (colors.Length != points.Length)
             {
                 if (colors.Length < points.Length)
@@ -175,7 +183,7 @@ namespace BEditor.Primitive.Effects
                 new PointF(EndX[f], EndY[f]),
                 colors,
                 points,
-                tiles[Mode.Index]);
+                _tiles[Mode.Index]);
         }
 
         /// <inheritdoc/>
@@ -195,7 +203,7 @@ namespace BEditor.Primitive.Effects
         {
             _colorsProp = Colors
                 .Select(str =>
-                    str.Replace(" ", "")
+                    str.Replace(" ", string.Empty)
                         .Split(',')
                         .Select(s => Color.FromHTML(s))
                         .ToArray())
@@ -203,7 +211,7 @@ namespace BEditor.Primitive.Effects
 
             _pointsProp = Anchors
                 .Select(str =>
-                    str.Replace(" ", "")
+                    str.Replace(" ", string.Empty)
                         .Split(',')
                         .Where(s => float.TryParse(s, out _))
                         .Select(s => float.Parse(s))

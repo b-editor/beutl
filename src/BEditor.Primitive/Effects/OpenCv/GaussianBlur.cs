@@ -1,4 +1,11 @@
-﻿using System.Collections.Generic;
+﻿// GaussianBlur.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 
 using BEditor.Data;
@@ -11,7 +18,7 @@ using BEditor.Primitive.Resources;
 namespace BEditor.Primitive.Effects.OpenCv
 {
     /// <summary>
-    /// 
+    /// Represents the <see cref="ImageEffect"/> that blurs the image.
     /// </summary>
     public sealed class GaussianBlur : ImageEffect
     {

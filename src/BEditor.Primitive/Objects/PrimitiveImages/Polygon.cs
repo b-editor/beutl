@@ -1,4 +1,11 @@
-﻿using System.Collections.Generic;
+﻿// Polygon.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 
 using BEditor.Data;
@@ -47,7 +54,7 @@ namespace BEditor.Primitive.Objects
             (owner, obj) => owner.Color = obj);
 
         /// <summary>
-        /// Iniitializes a new instance of the <see cref="Polygon"/> class.
+        /// Initializes a new instance of the <see cref="Polygon"/> class.
         /// </summary>
         public Polygon()
         {

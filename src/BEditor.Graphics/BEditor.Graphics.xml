@@ -93,7 +93,7 @@
         </member>
         <member name="M:BEditor.Graphics.ColorBuffer.Finalize">
             <summary>
-            Discards the reference to the target that is represented by the current <see cref="T:BEditor.Graphics.ColorBuffer"/> object.
+            Finalizes an instance of the <see cref="T:BEditor.Graphics.ColorBuffer"/> class.
             </summary>
         </member>
         <member name="P:BEditor.Graphics.ColorBuffer.Width">

@@ -1,4 +1,11 @@
-﻿using System;
+﻿// ImageSplit.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
@@ -62,7 +69,7 @@ namespace BEditor.Primitive.Effects
         /// <inheritdoc/>
         public override void Apply(EffectApplyArgs<IEnumerable<ImageInfo>> args)
         {
-            //forに使う変数はキャプチャされないのでこれで対策
+            // forに使う変数はキャプチャされないのでこれで対策
             Func<ImageInfo, Transform> GetTransform(float x, float y, float hsplit, float vsplit)
             {
                 return img =>
@@ -70,8 +77,8 @@ namespace BEditor.Primitive.Effects
                     var x_ = img.Source.Width * x;
                     var y_ = -img.Source.Height * y;
 
-                    x_ -= ((hsplit / 2) * img.Source.Width) - img.Source.Width / 2;
-                    y_ += ((vsplit / 2) * img.Source.Height) - img.Source.Height / 2;
+                    x_ -= ((hsplit / 2) * img.Source.Width) - (img.Source.Width / 2);
+                    y_ += ((vsplit / 2) * img.Source.Height) - (img.Source.Height / 2);
 
                     var trans = new Transform(
                         new Vector3(x_, y_, 0),

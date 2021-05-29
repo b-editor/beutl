@@ -1,4 +1,11 @@
-﻿using System.Collections.Generic;
+﻿// PointLightDiffuse.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 
 using BEditor.Data;
@@ -11,7 +18,9 @@ using BEditor.Primitive.Resources;
 
 namespace BEditor.Primitive.Effects
 {
-#pragma warning disable CS1591
+    /// <summary>
+    /// Point light diffusion effect.
+    /// </summary>
     public class PointLightDiffuse : ImageEffect
     {
         /// <summary>
@@ -62,30 +71,53 @@ namespace BEditor.Primitive.Effects
             (owner, obj) => owner.LightConstant = obj,
             EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata("Light constant", 100, 100, 0)).Serialize());
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="PointLightDiffuse"/> class.
+        /// </summary>
         public PointLightDiffuse()
         {
         }
 
+        /// <inheritdoc/>
         public override string Name => Strings.PointLightDiffuse;
 
+        /// <summary>
+        /// Gets the X coordinate.
+        /// </summary>
         [AllowNull]
         public EaseProperty X { get; private set; }
 
+        /// <summary>
+        /// Gets the Y coordinate.
+        /// </summary>
         [AllowNull]
         public EaseProperty Y { get; private set; }
 
+        /// <summary>
+        /// Gets the Z coordinate.
+        /// </summary>
         [AllowNull]
         public EaseProperty Z { get; private set; }
 
+        /// <summary>
+        /// Gets the color of light.
+        /// </summary>
         [AllowNull]
         public ColorProperty LightColor { get; private set; }
 
+        /// <summary>
+        /// Gets the scale factor to transform from alpha values to physical height.
+        /// </summary>
         [AllowNull]
         public EaseProperty SurfaceScale { get; private set; }
 
+        /// <summary>
+        /// Gets the diffuse reflectance coefficient.
+        /// </summary>
         [AllowNull]
         public EaseProperty LightConstant { get; private set; }
 
+        /// <inheritdoc/>
         public override void Apply(EffectApplyArgs<Image<BGRA32>> args)
         {
             var f = args.Frame;
@@ -96,6 +128,7 @@ namespace BEditor.Primitive.Effects
                 LightConstant[f] / 100);
         }
 
+        /// <inheritdoc/>
         public override IEnumerable<PropertyElement> GetProperties()
         {
             yield return X;
@@ -106,5 +139,4 @@ namespace BEditor.Primitive.Effects
             yield return LightConstant;
         }
     }
-#pragma warning restore CS1591
 }

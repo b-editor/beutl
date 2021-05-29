@@ -1,4 +1,11 @@
-﻿using System;
+﻿// WarpPolar.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
@@ -19,7 +26,7 @@ using OpenCvSharp;
 namespace BEditor.Primitive.Effects.OpenCv
 {
     /// <summary>
-    /// 
+    /// Represents an effect that transforms an image into polar coordinates.
     /// </summary>
     public sealed class WarpPolar : ImageEffect
     {
@@ -70,7 +77,7 @@ namespace BEditor.Primitive.Effects.OpenCv
                 "極座標への線形変換",
                 "極座標からの逆変換",
                 "対数極座標への線形変換",
-                "極座標からの逆変換"
+                "極座標からの逆変換",
             })).Serialize());
 
         /// <summary>
@@ -136,7 +143,7 @@ namespace BEditor.Primitive.Effects.OpenCv
                     src,
                     dst,
                     new(dst.Width, dst.Height),
-                    new(CenterX[f] + dst.Width / 2, CenterY[f] + dst.Height / 2),
+                    new(CenterX[f] + (dst.Width / 2), CenterY[f] + (dst.Height / 2)),
                     Radius[f],
                     interpolation,
                     polarMode);
@@ -170,7 +177,7 @@ namespace BEditor.Primitive.Effects.OpenCv
                 1 => InterpolationFlags.Cubic | InterpolationFlags.WarpFillOutliers | InterpolationFlags.WarpInverseMap,
                 2 => InterpolationFlags.Cubic | InterpolationFlags.WarpFillOutliers,
                 3 => InterpolationFlags.Cubic | InterpolationFlags.WarpFillOutliers | InterpolationFlags.WarpInverseMap,
-                _ => default
+                _ => default,
             };
         }
 
@@ -182,7 +189,7 @@ namespace BEditor.Primitive.Effects.OpenCv
                 1 => WarpPolarMode.Linear,
                 2 => WarpPolarMode.Log,
                 3 => WarpPolarMode.Log,
-                _ => default
+                _ => default,
             };
         }
     }

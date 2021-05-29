@@ -1,4 +1,11 @@
-﻿using System.Collections.Generic;
+﻿// AreaExpansion.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 
 using BEditor.Data;
@@ -61,31 +68,31 @@ namespace BEditor.Primitive.Effects
         public override string Name => Strings.AreaExpansion;
 
         /// <summary>
-        /// Get an <see cref="EaseProperty"/> that represents the number of pixels to add
+        /// Gets the number of pixels to add.
         /// </summary>
         [AllowNull]
         public EaseProperty Top { get; private set; }
 
         /// <summary>
-        /// Get an <see cref="EaseProperty"/> that represents the number of pixels to add
+        /// Gets the number of pixels to add.
         /// </summary>
         [AllowNull]
         public EaseProperty Bottom { get; private set; }
 
         /// <summary>
-        /// Get an <see cref="EaseProperty"/> that represents the number of pixels to add
+        /// Gets the number of pixels to add.
         /// </summary>
         [AllowNull]
         public EaseProperty Left { get; private set; }
 
         /// <summary>
-        /// Get an <see cref="EaseProperty"/> that represents the number of pixels to add
+        /// Gets the number of pixels to add.
         /// </summary>
         [AllowNull]
         public EaseProperty Right { get; private set; }
 
         /// <summary>
-        /// Get the <see cref="CheckProperty"/> to adjust the coordinates.
+        /// Gets the <see cref="CheckProperty"/> to adjust the coordinates.
         /// </summary>
         [AllowNull]
         public CheckProperty AdjustCoordinates { get; private set; }

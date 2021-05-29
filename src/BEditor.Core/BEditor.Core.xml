@@ -11,17 +11,17 @@
         </member>
         <member name="F:BEditor.Command.CommandType.Do">
             <summary>
-            Do
+            Do.
             </summary>
         </member>
         <member name="F:BEditor.Command.CommandType.Undo">
             <summary>
-            Undo
+            Undo.
             </summary>
         </member>
         <member name="F:BEditor.Command.CommandType.Redo">
             <summary>
-            Redo
+            Redo.
             </summary>
         </member>
         <member name="T:BEditor.Command.CommandManager">
@@ -307,6 +307,9 @@
             <summary>
             Get <see cref="T:BEditor.Data.Bindings.IBindable`1"/> from <see cref="P:BEditor.Data.IEditingObject.Id"/>.
             </summary>
+            <param name="bindable">The object used to get the target <see cref="T:BEditor.Data.Bindings.IBindable`1"/>.</param>
+            <param name="id">The Id of the <see cref="T:BEditor.Data.Bindings.IBindable`1"/> to be retrieved.</param>
+            <param name="result">The instance of the <see cref="T:BEditor.Data.Bindings.IBindable`1"/> that was retrieved.</param>
             <typeparam name="T">Type of object to bind.</typeparam>
             <returns>Returns a <see cref="T:System.Boolean"/> indicating whether it was retrieved or not, <see langword="true"/> on success, <see langword="false"/> on failure.</returns>
         </member>
@@ -554,9 +557,6 @@
         <member name="P:BEditor.Data.ClipElement.Children">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Data.ClipElement.System#ICloneable#Clone">
-            <inheritdoc/>
-        </member>
         <member name="M:BEditor.Data.ClipElement.Clone">
             <inheritdoc cref="M:System.ICloneable.Clone"/>
         </member>
@@ -604,19 +604,25 @@
             <summary>
             Create a command to split this clip at the specified frame.
             </summary>
+            <param name="frame">The frame to be split.</param>
             <returns>Created <see cref="T:BEditor.Command.IRecordCommand"/>.</returns>
         </member>
         <member name="M:BEditor.Data.ClipElement.Render(BEditor.Data.ClipRenderArgs)">
             <summary>
             Render this <see cref="T:BEditor.Data.ClipElement"/>.
             </summary>
+            <param name="args">The data used to render the clip.</param>
             <exception cref="T:BEditor.Data.RenderingException">Faileds to rendering.</exception>
         </member>
         <member name="M:BEditor.Data.ClipElement.PreviewRender(BEditor.Data.ClipRenderArgs)">
             <summary>
             Prepare this <see cref="T:BEditor.Data.ClipElement"/> for rendering.
             </summary>
+            <param name="args">The data used to render the clip.</param>
             <exception cref="T:BEditor.Data.RenderingException">Faileds to rendering.</exception>
+        </member>
+        <member name="M:BEditor.Data.ClipElement.System#ICloneable#Clone">
+            <inheritdoc/>
         </member>
         <member name="M:BEditor.Data.ClipElement.MoveTo(BEditor.Media.Frame)">
             <summary>
@@ -633,6 +639,8 @@
             <summary>
             Initializes a new instance of the <see cref="T:BEditor.Data.ClipRenderArgs"/> class.
             </summary>
+            <param name="frame">The frame to render.</param>
+            <param name="type">The rendering type.</param>
         </member>
         <member name="P:BEditor.Data.ClipRenderArgs.Frame">
             <summary>
@@ -641,12 +649,12 @@
         </member>
         <member name="P:BEditor.Data.ClipRenderArgs.Handled">
             <summary>
-            Gets or sets a value that indicates the current state of the process.
+            Gets or sets a value indicating whether the process has been executed or not.
             </summary>
         </member>
         <member name="P:BEditor.Data.ClipRenderArgs.Type">
             <summary>
-            Get the rendering type.
+            Gets the rendering type.
             </summary>
         </member>
         <member name="T:BEditor.Data.DataException">
@@ -699,12 +707,13 @@
             <param name="command">The command to execute.</param>
             <param name="manager">The command manager for executing commands.</param>
         </member>
-        <member name="M:BEditor.Data.DataExtensions.GetParentRequired``1(BEditor.Data.IChild{System.Object})">
+        <member name="M:BEditor.Data.DataExtensions.GetRequiredParent``1(BEditor.Data.IChild{System.Object})">
             <summary>
             Gets the parent element.
             </summary>
             <typeparam name="T">Type of the parent element to retrieve.</typeparam>
             <param name="self">The child element of the parent element to retrieve.</param>
+            <returns>Returns the parent element.</returns>
         </member>
         <member name="M:BEditor.Data.DataExtensions.GetParent``1(BEditor.Data.IChild{System.Object})">
             <summary>
@@ -712,12 +721,14 @@
             </summary>
             <typeparam name="T">Type of the parent element to retrieve.</typeparam>
             <param name="self">The child element of the parent element to retrieve.</param>
+            <returns>Returns the parent element.</returns>
         </member>
         <member name="M:BEditor.Data.DataExtensions.GetRoot(BEditor.Data.IChild{System.Object})">
             <summary>
             Gets the root element.
             </summary>
             <param name="self">The child element of the parent element to retrieve.</param>
+            <returns>Returns the root element.</returns>
         </member>
         <member name="M:BEditor.Data.DataExtensions.Find``1(BEditor.Data.IParent{``0},System.Guid)">
             <summary>
@@ -738,12 +749,12 @@
             <returns>The element if found, otherwise the default value of type <typeparamref name="T"/>.</returns>
         </member>
         <member name="M:BEditor.Data.DataExtensions.GetAllChildren``1(BEditor.Data.IParent{System.Object})">
-             <summary>
-            
-             </summary>
-             <typeparam name="TResult"></typeparam>
-             <param name="self"></param>
-             <returns></returns>
+            <summary>
+            Enumerates the objects of a given type within a given object.
+            </summary>
+            <typeparam name="TResult">The type of the object to enumerate.</typeparam>
+            <param name="self">An instance of <see cref="T:BEditor.Data.IParent`1"/> that contains the object to be enumerated.</param>
+            <returns>Returns the objects of a given type within a given object.</returns>
         </member>
         <member name="M:BEditor.Data.DataExtensions.Serialize``1(BEditor.Data.EditingPropertyOptions{``0})">
             <summary>
@@ -751,6 +762,7 @@
             </summary>
             <typeparam name="TValue">The type of the property value.</typeparam>
             <param name="options">The options to be specified.</param>
+            <returns>An <see cref="T:BEditor.Data.EditingPropertyOptions`1"/> instance.</returns>
         </member>
         <member name="T:BEditor.Data.DirectEditingProperty`2">
             <summary>
@@ -777,6 +789,12 @@
             Gets the setter function.
             </summary>
         </member>
+        <member name="M:BEditor.Data.DirectEditingProperty`2.BEditor#Data#IDirectProperty{TValue}#Get(BEditor.Data.IEditingObject)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Data.DirectEditingProperty`2.BEditor#Data#IDirectProperty{TValue}#Set(BEditor.Data.IEditingObject,`1)">
+            <inheritdoc/>
+        </member>
         <member name="M:BEditor.Data.DirectEditingProperty`2.WithOwner``1(System.Func{``0,`1},System.Action{``0,`1},BEditor.Data.IEditingPropertyInitializer{`1},BEditor.Data.IEditingPropertySerializer{`1})">
             <summary>
             Registers the direct property on another type.
@@ -786,6 +804,7 @@
             <param name="setter">Sets the value of the property.</param>
             <param name="initializer">The <see cref="T:BEditor.Data.IEditingPropertyInitializer`1"/> that initializes the local value of a property.</param>
             <param name="serializer">To serialize this property, specify the serializer.</param>
+            <returns>Returns an instance of the editing property registered by this method.</returns>
         </member>
         <member name="T:BEditor.Data.EditingObject">
             <summary>
@@ -857,7 +876,7 @@
             Initializes a new instance of the <see cref="T:BEditor.Data.EditingProperty"/> class.
             </summary>
             <param name="value">The type of the local value.</param>
-            <param name="key">The registry key</param>
+            <param name="key">The registry key.</param>
         </member>
         <member name="P:BEditor.Data.EditingProperty.IsDisposable">
             <inheritdoc/>
@@ -902,7 +921,7 @@
         </member>
         <member name="M:BEditor.Data.EditingProperty.RegisterDirect``2(System.String,System.Func{``1,``0},System.Action{``1,``0},BEditor.Data.EditingPropertyOptions{``0})">
             <summary>
-            Registers a direct <see cref="T:BEditor.Data.EditingProperty"/>
+            Registers a direct <see cref="T:BEditor.Data.EditingProperty"/>.
             </summary>
             <typeparam name="TValue">The type of the property.</typeparam>
             <typeparam name="TOwner">The type of the owner.</typeparam>
@@ -958,24 +977,28 @@
             <param name="initializer">The <see cref="T:BEditor.Data.IEditingPropertyInitializer`1"/> that initializes the local value of a property.</param>
             <param name="serializer">The <see cref="T:BEditor.Data.IEditingPropertySerializer`1"/> to serialize this property.</param>
             <param name="isDisposable">The value of whether to delete with <see cref="M:BEditor.Data.EditingObject.ClearDisposable"/>.</param>
+            <returns>An <see cref="T:BEditor.Data.EditingPropertyOptions`1"/> instance.</returns>
         </member>
         <member name="M:BEditor.Data.EditingPropertyOptions`1.Initialize(BEditor.Data.IEditingPropertyInitializer{`0})">
             <summary>
             Sets the <see cref="T:BEditor.Data.IEditingPropertyInitializer`1"/> that initializes the value of a property.
             </summary>
-            <param name="initializer">The value of <see cref="P:BEditor.Data.EditingPropertyOptions`1.Initializer"/></param>
+            <param name="initializer">The value of <see cref="P:BEditor.Data.EditingPropertyOptions`1.Initializer"/>.</param>
+            <returns>An <see cref="T:BEditor.Data.EditingPropertyOptions`1"/> instance.</returns>
         </member>
         <member name="M:BEditor.Data.EditingPropertyOptions`1.Serialize(BEditor.Data.IEditingPropertySerializer{`0})">
             <summary>
             Sets the <see cref="T:BEditor.Data.IEditingPropertySerializer`1"/> to serialize this property.
             </summary>
             <param name="serializer">The value of <see cref="P:BEditor.Data.EditingPropertyOptions`1.Serializer"/>.</param>
+            <returns>An <see cref="T:BEditor.Data.EditingPropertyOptions`1"/> instance.</returns>
         </member>
         <member name="M:BEditor.Data.EditingPropertyOptions`1.Initialize(System.Func{`0})">
             <summary>
             Sets the <see cref="T:BEditor.Data.IEditingPropertyInitializer`1"/> that initializes the value of a property.
             </summary>
             <param name="initialize">Create a new instance.</param>
+            <returns>An <see cref="T:BEditor.Data.EditingPropertyOptions`1"/> instance.</returns>
         </member>
         <member name="M:BEditor.Data.EditingPropertyOptions`1.Serialize(System.Action{System.Text.Json.Utf8JsonWriter,`0},System.Func{System.Text.Json.JsonElement,`0})">
             <summary>
@@ -983,12 +1006,14 @@
             </summary>
             <param name="write">Writes the value to <see cref="T:System.Text.Json.Utf8JsonWriter"/>.</param>
             <param name="read">Reads the value from <see cref="T:System.Text.Json.JsonElement"/>.</param>
+            <returns>An <see cref="T:BEditor.Data.EditingPropertyOptions`1"/> instance.</returns>
         </member>
         <member name="M:BEditor.Data.EditingPropertyOptions`1.Disposable(System.Boolean)">
             <summary>
             Sets the value of whether to delete with <see cref="M:BEditor.Data.EditingObject.ClearDisposable"/>.
             </summary>
             <param name="value">The value of <see cref="P:BEditor.Data.EditingPropertyOptions`1.IsDisposable"/>.</param>
+            <returns>An <see cref="T:BEditor.Data.EditingPropertyOptions`1"/> instance.</returns>
         </member>
         <member name="T:BEditor.Data.EditingPropertyRegistry">
             <summary>
@@ -1053,9 +1078,9 @@
             <returns>Returns <see langword="true"/> if already registered, <see langword="false"/> otherwise.</returns>
         </member>
         <member name="T:BEditor.Data.EditingPropertyRegistryKey">
-             <summary>
-            
-             </summary>
+            <summary>
+            Represents the key used in <see cref="T:BEditor.Data.EditingPropertyRegistry"/>.
+            </summary>
         </member>
         <member name="M:BEditor.Data.EditingPropertyRegistryKey.#ctor(System.String,System.Type,System.Boolean)">
             <summary>
@@ -1080,6 +1105,22 @@
             Gets the value of whether to delete with <see cref="M:BEditor.Data.EditingObject.ClearDisposable"/>.
             </summary>
         </member>
+        <member name="M:BEditor.Data.EditingPropertyRegistryKey.op_Equality(BEditor.Data.EditingPropertyRegistryKey,BEditor.Data.EditingPropertyRegistryKey)">
+            <summary>
+            Compares two <see cref="T:BEditor.Data.EditingPropertyRegistryKey"/>. The result specifies whether the values of the two <see cref="T:BEditor.Data.EditingPropertyRegistryKey"/> are equal.
+            </summary>
+            <param name="left">A <see cref="T:BEditor.Data.EditingPropertyRegistryKey"/> to compare.</param>
+            <param name="right">A <see cref="T:BEditor.Data.EditingPropertyRegistryKey"/> to compare.</param>
+            <returns>true if the left and right <see cref="T:BEditor.Data.EditingPropertyRegistryKey"/> are equal; otherwise, false.</returns>
+        </member>
+        <member name="M:BEditor.Data.EditingPropertyRegistryKey.op_Inequality(BEditor.Data.EditingPropertyRegistryKey,BEditor.Data.EditingPropertyRegistryKey)">
+            <summary>
+            Determines whether the coordinates of the specified points are not equal.
+            </summary>
+            <param name="left">A <see cref="T:BEditor.Data.EditingPropertyRegistryKey"/> to compare.</param>
+            <param name="right">A <see cref="T:BEditor.Data.EditingPropertyRegistryKey"/> to compare.</param>
+            <returns>true if the left and right <see cref="T:BEditor.Data.EditingPropertyRegistryKey"/> differ; otherwise, false.</returns>
+        </member>
         <member name="M:BEditor.Data.EditingPropertyRegistryKey.Equals(System.Object)">
             <inheritdoc/>
         </member>
@@ -1089,16 +1130,11 @@
         <member name="M:BEditor.Data.EditingPropertyRegistryKey.GetHashCode">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Data.EditingPropertyRegistryKey.op_Equality(BEditor.Data.EditingPropertyRegistryKey,BEditor.Data.EditingPropertyRegistryKey)">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Data.EditingPropertyRegistryKey.op_Inequality(BEditor.Data.EditingPropertyRegistryKey,BEditor.Data.EditingPropertyRegistryKey)">
-            <inheritdoc/>
-        </member>
         <member name="T:BEditor.Data.EditingPropertySerializer`1">
             <summary>
             Represents the serializer of <see cref="T:BEditor.Data.IEditingProperty"/>.
             </summary>
+            <typeparam name="TValue">The type of the local value.</typeparam>
         </member>
         <member name="M:BEditor.Data.EditingPropertySerializer`1.#ctor(System.Action{System.Text.Json.Utf8JsonWriter,`0},System.Func{System.Text.Json.JsonElement,`0})">
             <summary>
@@ -1275,17 +1311,25 @@
             Reads the value from <see cref="T:System.Text.Json.JsonElement"/>.
             </summary>
             <param name="element">The <see cref="T:System.Text.Json.JsonElement"/> that reads the value.</param>
+            <returns>Returns the data of an object recovered from Json.</returns>
         </member>
         <member name="T:BEditor.Data.IEditingPropertySerializer`1">
             <summary>
             Represents the serializer of <see cref="T:BEditor.Data.IEditingProperty"/>.
             </summary>
+            <typeparam name="TValue">The type of the local value.</typeparam>
         </member>
         <member name="M:BEditor.Data.IEditingPropertySerializer`1.Write(System.Text.Json.Utf8JsonWriter,`0)">
             <inheritdoc cref="M:BEditor.Data.IEditingPropertySerializer.Write(System.Text.Json.Utf8JsonWriter,System.Object)"/>
         </member>
         <member name="M:BEditor.Data.IEditingPropertySerializer`1.Read(System.Text.Json.JsonElement)">
             <inheritdoc cref="M:BEditor.Data.IEditingPropertySerializer.Read(System.Text.Json.JsonElement)"/>
+        </member>
+        <member name="M:BEditor.Data.IEditingPropertySerializer`1.BEditor#Data#IEditingPropertySerializer#Write(System.Text.Json.Utf8JsonWriter,System.Object)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Data.IEditingPropertySerializer`1.BEditor#Data#IEditingPropertySerializer#Read(System.Text.Json.JsonElement)">
+            <inheritdoc/>
         </member>
         <member name="T:BEditor.Data.IEditingProperty`1">
             <summary>
@@ -1303,6 +1347,12 @@
             Gets the <see cref="T:BEditor.Data.IEditingPropertySerializer`1"/> that serializes the local value of this <see cref="T:BEditor.Data.IEditingProperty`1"/>.
             </summary>
         </member>
+        <member name="P:BEditor.Data.IEditingProperty`1.BEditor#Data#IEditingProperty#Initializer">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Data.IEditingProperty`1.BEditor#Data#IEditingProperty#Serializer">
+            <inheritdoc/>
+        </member>
         <member name="T:BEditor.Data.EffectApplyArgs">
             <summary>
             Represents data that is passed to <see cref="T:BEditor.Data.EffectElement"/> when it is applied.
@@ -1312,6 +1362,8 @@
             <summary>
             Initializes a new instance of the <see cref="T:BEditor.Data.EffectApplyArgs"/> class.
             </summary>
+            <param name="frame">The frame to render.</param>
+            <param name="type">The rendering type.</param>
         </member>
         <member name="P:BEditor.Data.EffectApplyArgs.Frame">
             <summary>
@@ -1320,7 +1372,7 @@
         </member>
         <member name="P:BEditor.Data.EffectApplyArgs.Handled">
             <summary>
-            Gets or sets a value that indicates the current state of the process.
+            Gets or sets a value indicating whether the process has been executed or not.
             </summary>
         </member>
         <member name="P:BEditor.Data.EffectApplyArgs.Type">
@@ -1336,8 +1388,11 @@
         </member>
         <member name="M:BEditor.Data.EffectApplyArgs`1.#ctor(BEditor.Media.Frame,`0,BEditor.Data.RenderType)">
             <summary>
-            Initializes a new instance of the <see cref="T:BEditor.Data.EffectApplyArgs"/> class.
+            Initializes a new instance of the <see cref="T:BEditor.Data.EffectApplyArgs`1"/> class.
             </summary>
+            <param name="frame">The frame to render.</param>
+            <param name="value">The value used to apply the effect.</param>
+            <param name="type">The rendering type.</param>
         </member>
         <member name="P:BEditor.Data.EffectApplyArgs`1.Value">
             <summary>
@@ -1376,6 +1431,7 @@
             <summary>
             Gets the <see cref="T:BEditor.Data.Property.PropertyElement"/> to display on the GUI.
             </summary>
+            <returns>Returns the <see cref="T:BEditor.Data.Property.PropertyElement"/> to display on the GUI.</returns>
         </member>
         <member name="M:BEditor.Data.EffectElement.Clone">
             <inheritdoc/>
@@ -1396,6 +1452,7 @@
             <summary>
             Create a command to change whether the <see cref="T:BEditor.Data.EffectElement"/> is enabled.
             </summary>
+            <param name="value">New value for <see cref="P:BEditor.Data.EffectElement.IsEnabled"/>.</param>
             <returns>Created <see cref="T:BEditor.Command.IRecordCommand"/>.</returns>
         </member>
         <member name="M:BEditor.Data.EffectElement.BringForward">
@@ -1496,16 +1553,16 @@
         </member>
         <member name="M:BEditor.Data.EffectMetadata.#ctor(System.String)">
             <summary>
-            The metadata of <see cref="T:BEditor.Data.EffectElement"/>.
+            Initializes a new instance of the <see cref="T:BEditor.Data.EffectMetadata"/> class.
             </summary>
-            <param name="Name">The name of the <see cref="T:BEditor.Data.EffectElement"/>.</param>
+            <param name="name">The name of the <see cref="T:BEditor.Data.EffectElement"/>.</param>
         </member>
         <member name="M:BEditor.Data.EffectMetadata.#ctor(System.String,System.Linq.Expressions.Expression{System.Func{BEditor.Data.EffectElement}})">
             <summary>
-            The metadata of <see cref="T:BEditor.Data.EffectElement"/>.
+            Initializes a new instance of the <see cref="T:BEditor.Data.EffectMetadata"/> class.
             </summary>
-            <param name="Name">The name of the <see cref="T:BEditor.Data.EffectElement"/>.</param>
-            <param name="Create">This <see cref="T:System.Func`1"/> gets a new instance of the <see cref="T:BEditor.Data.EffectElement"/> object.</param>
+            <param name="name">The name of the <see cref="T:BEditor.Data.EffectElement"/>.</param>
+            <param name="create">This <see cref="T:System.Func`1"/> gets a new instance of the <see cref="T:BEditor.Data.EffectElement"/> object.</param>
         </member>
         <member name="P:BEditor.Data.EffectMetadata.Children">
             <summary>
@@ -1522,7 +1579,7 @@
             Create the <see cref="T:BEditor.Data.EffectMetadata"/>.
             </summary>
             <typeparam name="T">The type of object that inherits from <see cref="T:BEditor.Data.EffectElement"/>.</typeparam>
-            <param name="Name">The name of the effect element.</param>
+            <param name="name">The name of the effect element.</param>
             <returns>A new instance of <see cref="T:BEditor.Data.EffectMetadata"/>.</returns>
         </member>
         <member name="T:BEditor.Data.IChild`1">
@@ -1563,7 +1620,7 @@
         </member>
         <member name="M:BEditor.Data.IJsonObject.GetObjectData(System.Text.Json.Utf8JsonWriter)">
             <summary>
-            
+            Get the Object data from json.
             </summary>
             <param name="writer">Write the data of this object <see cref="T:System.Text.Json.Utf8JsonWriter"/>.</param>
         </member>
@@ -1594,6 +1651,9 @@
             <summary>
             Gets the child element.
             </summary>
+        </member>
+        <member name="P:BEditor.Data.IParentSingle`1.BEditor#Data#IParent{T}#Children">
+            <inheritdoc/>
         </member>
         <member name="T:BEditor.Data.PlayerState">
             <summary>
@@ -1627,12 +1687,12 @@
         </member>
         <member name="P:BEditor.Data.IPlayer.State">
             <summary>
-            Get the status of this <see cref="T:BEditor.Data.IPlayer"/>.
+            Gets the status of this <see cref="T:BEditor.Data.IPlayer"/>.
             </summary>
         </member>
         <member name="P:BEditor.Data.IPlayer.CurrentFrame">
             <summary>
-            Get the current frame in this <see cref="T:BEditor.Data.IPlayer"/>.
+            Gets the current frame in this <see cref="T:BEditor.Data.IPlayer"/>.
             </summary>
         </member>
         <member name="M:BEditor.Data.IPlayer.Play">
@@ -1707,6 +1767,8 @@
             <summary>
             Filter a effect.
             </summary>
+            <param name="effect">The effect to see if they should be added.</param>
+            <returns>Returns <see langword="true"/> if this effect is to be added, <see langword="false"/> if not.</returns>
         </member>
         <member name="T:BEditor.Data.ObjectMetadata">
             <summary>
@@ -1726,10 +1788,10 @@
         </member>
         <member name="M:BEditor.Data.ObjectMetadata.#ctor(System.String,System.Linq.Expressions.Expression{System.Func{BEditor.Data.ObjectElement}})">
             <summary>
-            The metadata of <see cref="T:BEditor.Data.ObjectElement"/>.
+            Initializes a new instance of the <see cref="T:BEditor.Data.ObjectMetadata"/> class.
             </summary>
-            <param name="Name">The name of the object element.</param>
-            <param name="Create">This <see cref="T:System.Func`1"/> gets a new instance of the <see cref="T:BEditor.Data.ObjectElement"/> object.</param>
+            <param name="name">The name of the object element.</param>
+            <param name="create">This <see cref="T:System.Func`1"/> gets a new instance of the <see cref="T:BEditor.Data.ObjectElement"/> object.</param>
         </member>
         <member name="P:BEditor.Data.ObjectMetadata.AccentColor">
             <summary>
@@ -1751,7 +1813,7 @@
             Create the <see cref="T:BEditor.Data.ObjectMetadata"/>.
             </summary>
             <typeparam name="T">The type of object that inherits from <see cref="T:BEditor.Data.ObjectElement"/>.</typeparam>
-            <param name="Name">The name of the object element.</param>
+            <param name="name">The name of the object element.</param>
             <returns>A new instance of <see cref="T:BEditor.Data.ObjectMetadata"/>.</returns>
         </member>
         <member name="T:BEditor.Data.Primitive.ImageEffect">
@@ -2001,8 +2063,9 @@
         </member>
         <member name="M:BEditor.Data.ProjectSavedEventArgs.#ctor(BEditor.Data.SaveType)">
             <summary>
-            <see cref="T:BEditor.Data.ProjectSavedEventArgs"/> Initialize a new instance of the class.
+            Initializes a new instance of the <see cref="T:BEditor.Data.ProjectSavedEventArgs"/> class.
             </summary>
+            <param name="type">The save type.</param>
         </member>
         <member name="P:BEditor.Data.ProjectSavedEventArgs.Type">
             <summary>
@@ -2036,7 +2099,7 @@
         </member>
         <member name="M:BEditor.Data.Property.CheckProperty.#ctor(BEditor.Data.Property.CheckPropertyMetadata)">
             <summary>
-            Initializes new instance of the <see cref="T:BEditor.Data.Property.CheckProperty"/> class.
+            Initializes a new instance of the <see cref="T:BEditor.Data.Property.CheckProperty"/> class.
             </summary>
             <param name="metadata">Metadata of this property.</param>
             <exception cref="T:System.ArgumentNullException"><paramref name="metadata"/> is <see langword="null"/>.</exception>
@@ -2268,7 +2331,7 @@
         </member>
         <member name="M:BEditor.Data.Property.ColorProperty.ChangeColorCommand.#ctor(BEditor.Data.Property.ColorProperty,BEditor.Drawing.Color)">
             <summary>
-            <see cref="T:BEditor.Data.Property.ColorProperty.ChangeColorCommand"/> クラスの新しいインスタンスを初期化します.
+            Initializes a new instance of the <see cref="T:BEditor.Data.Property.ColorProperty.ChangeColorCommand"/> class.
             </summary>
             <param name="property">対象の <see cref="T:BEditor.Data.Property.ColorProperty"/>.</param>
             <param name="color"><see cref="P:BEditor.Data.Property.ColorProperty.Value"/> の新しい値.</param>
@@ -2513,6 +2576,7 @@
             <summary>
             Gets the <see cref="T:BEditor.Data.Property.PropertyElement"/> to display on the GUI.
             </summary>
+            <returns>Returns the <see cref="T:BEditor.Data.Property.PropertyElement"/> to display on the GUI.</returns>
         </member>
         <member name="M:BEditor.Data.Property.Easing.EasingFunc.EaseFunc(BEditor.Media.Frame,BEditor.Media.Frame,System.Single,System.Single)">
             <summary>
@@ -2548,10 +2612,10 @@
         </member>
         <member name="M:BEditor.Data.Property.Easing.EasingMetadata.#ctor(System.String,System.Linq.Expressions.Expression{System.Func{BEditor.Data.Property.Easing.EasingFunc}})">
             <summary>
-            The metadata of <see cref="T:BEditor.Data.Property.Easing.EasingFunc"/>.
+            Initializes a new instance of the <see cref="T:BEditor.Data.Property.Easing.EasingMetadata"/> class.
             </summary>
-            <param name="Name">The name of the easing function.</param>
-            <param name="Create">This <see cref="T:System.Func`1"/> gets a new instance of the <see cref="T:BEditor.Data.Property.Easing.EasingFunc"/> object.</param>
+            <param name="name">The name of the easing function.</param>
+            <param name="create">This <see cref="T:System.Func`1"/> gets a new instance of the <see cref="T:BEditor.Data.Property.Easing.EasingFunc"/> object.</param>
         </member>
         <member name="P:BEditor.Data.Property.Easing.EasingMetadata.LoadedEasingFunc">
             <summary>
@@ -2563,7 +2627,7 @@
             Create the <see cref="T:BEditor.Data.Property.Easing.EasingMetadata"/>.
             </summary>
             <typeparam name="T">The type of object that inherits from EasingFunc.</typeparam>
-            <param name="Name">The name of the easing function.</param>
+            <param name="name">The name of the easing function.</param>
             <returns>A new instance of <see cref="T:BEditor.Data.Property.Easing.EasingMetadata"/>.</returns>
         </member>
         <member name="T:BEditor.Data.Property.Easing.PrimitiveEasing">
@@ -2589,13 +2653,13 @@
         <member name="M:BEditor.Data.Property.Easing.PrimitiveEasing.EaseFunc(BEditor.Media.Frame,BEditor.Media.Frame,System.Single,System.Single)">
             <inheritdoc/>
         </member>
+        <member name="M:BEditor.Data.Property.Easing.PrimitiveEasing.GetProperties">
+            <inheritdoc/>
+        </member>
         <member name="M:BEditor.Data.Property.Easing.PrimitiveEasing.OnLoad">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Data.Property.Easing.PrimitiveEasing.OnUnload">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Data.Property.Easing.PrimitiveEasing.GetProperties">
             <inheritdoc/>
         </member>
         <member name="T:BEditor.Data.Property.ExpandGroup">
@@ -2728,7 +2792,7 @@
         </member>
         <member name="M:BEditor.Data.Property.FileProperty.ChangeFileCommand.#ctor(BEditor.Data.Property.FileProperty,System.String)">
             <summary>
-            <see cref="T:BEditor.Data.Property.FileProperty.ChangeFileCommand"/> クラスの新しいインスタンスを初期化します.
+            Initializes a new instance of the <see cref="T:BEditor.Data.Property.FileProperty.ChangeFileCommand"/> class.
             </summary>
             <param name="property">対象の <see cref="T:BEditor.Data.Property.FileProperty"/>.</param>
             <param name="path">新しい値.</param>
@@ -2811,7 +2875,7 @@
         </member>
         <member name="M:BEditor.Data.Property.FolderProperty.ChangeFolderCommand.#ctor(BEditor.Data.Property.FolderProperty,System.String)">
             <summary>
-            <see cref="T:BEditor.Data.Property.FolderProperty.ChangeFolderCommand"/> クラスの新しいインスタンスを初期化します.
+            Initializes a new instance of the <see cref="T:BEditor.Data.Property.FolderProperty.ChangeFolderCommand"/> class.
             </summary>
             <param name="property">対象の <see cref="T:BEditor.Data.Property.FolderProperty"/>.</param>
             <param name="path">新しい値.</param>
@@ -2884,7 +2948,7 @@
         </member>
         <member name="M:BEditor.Data.Property.FontProperty.ChangeSelectCommand.#ctor(BEditor.Data.Property.FontProperty,BEditor.Drawing.Font)">
             <summary>
-            <see cref="T:BEditor.Data.Property.FontProperty.ChangeSelectCommand"/> クラスの新しいインスタンスを初期化します.
+            Initializes a new instance of the <see cref="T:BEditor.Data.Property.FontProperty.ChangeSelectCommand"/> class.
             </summary>
             <param name="property">対象の <see cref="T:BEditor.Data.Property.FontProperty"/>.</param>
             <param name="select">新しい値.</param>
@@ -2938,6 +3002,7 @@
             <summary>
             Gets the <see cref="T:BEditor.Data.Property.PropertyElement"/> to display on the GUI.
             </summary>
+            <returns>Returns the <see cref="T:BEditor.Data.Property.PropertyElement"/> to display on the GUI.</returns>
         </member>
         <member name="T:BEditor.Data.Property.IEasingProperty">
             <summary>
@@ -2979,6 +3044,9 @@
             <summary>
             Gets the <see cref="T:System.Collections.Generic.List`1"/> of the frame number corresponding to value.
             </summary>
+        </member>
+        <member name="P:BEditor.Data.Property.IKeyframeProperty.BEditor#Data#IParentSingle{BEditor#Data#Property#Easing#EasingFunc}#Child">
+            <inheritdoc/>
         </member>
         <member name="M:BEditor.Data.Property.IKeyframeProperty.AddFrame(BEditor.Media.Frame)">
             <summary>
@@ -3092,17 +3160,17 @@
         </member>
         <member name="M:BEditor.Data.Property.ColorAnimationPropertyMetadata.#ctor(System.String)">
             <summary>
-            The metadata of <see cref="T:BEditor.Data.Property.ColorAnimationProperty"/>.
+            Initializes a new instance of the <see cref="T:BEditor.Data.Property.ColorAnimationPropertyMetadata"/> class.
             </summary>
-            <param name="Name">The string displayed in the property header.</param>
+            <param name="name">The string displayed in the property header.</param>
         </member>
         <member name="M:BEditor.Data.Property.ColorAnimationPropertyMetadata.#ctor(System.String,BEditor.Drawing.Color,System.Boolean)">
             <summary>
-            The metadata of <see cref="T:BEditor.Data.Property.ColorAnimationProperty"/>.
+            Initializes a new instance of the <see cref="T:BEditor.Data.Property.ColorAnimationPropertyMetadata"/> class.
             </summary>
-            <param name="Name">The string displayed in the property header.</param>
-            <param name="DefaultColor">The default color.</param>
-            <param name="UseAlpha">The value of whether to use alpha components or not.</param>
+            <param name="name">The string displayed in the property header.</param>
+            <param name="defaultColor">The default color.</param>
+            <param name="useAlpha">The value of whether to use alpha components or not.</param>
         </member>
         <member name="M:BEditor.Data.Property.ColorAnimationPropertyMetadata.Create">
             <inheritdoc/>
@@ -3165,13 +3233,13 @@
         </member>
         <member name="M:BEditor.Data.Property.EasePropertyMetadata.#ctor(System.String,System.Single,System.Single,System.Single,System.Boolean)">
             <summary>
-            The metadata of <see cref="T:BEditor.Data.Property.EaseProperty"/>.
+            Initializes a new instance of the <see cref="T:BEditor.Data.Property.EasePropertyMetadata"/> class.
             </summary>
-            <param name="Name">The string displayed in the property header.</param>
-            <param name="DefaultValue">The default value.</param>
-            <param name="Max">The maximum value.</param>
-            <param name="Min">The minimum value.</param>
-            <param name="UseOptional">The bool of whether to use the Optional value.</param>
+            <param name="name">The string displayed in the property header.</param>
+            <param name="defaultValue">The default value.</param>
+            <param name="max">The maximum value.</param>
+            <param name="min">The minimum value.</param>
+            <param name="useOptional">The bool of whether to use the Optional value.</param>
         </member>
         <member name="M:BEditor.Data.Property.EasePropertyMetadata.Create">
             <inheritdoc/>
@@ -3181,7 +3249,7 @@
             The metadata of <see cref="T:BEditor.Data.Property.FileProperty"/>.
             </summary>
             <param name="Name">The string displayed in the property header.</param>
-            <param name="DefaultFile">The default value of <see cref="P:BEditor.Data.Property.FileProperty.Value"/></param>
+            <param name="DefaultFile">The default value of <see cref="P:BEditor.Data.Property.FileProperty.Value"/>.</param>
             <param name="Filter">The filter for the file to be selected.</param>
         </member>
         <member name="M:BEditor.Data.Property.FilePropertyMetadata.#ctor(System.String,System.String,BEditor.FileFilter)">
@@ -3189,7 +3257,7 @@
             The metadata of <see cref="T:BEditor.Data.Property.FileProperty"/>.
             </summary>
             <param name="Name">The string displayed in the property header.</param>
-            <param name="DefaultFile">The default value of <see cref="P:BEditor.Data.Property.FileProperty.Value"/></param>
+            <param name="DefaultFile">The default value of <see cref="P:BEditor.Data.Property.FileProperty.Value"/>.</param>
             <param name="Filter">The filter for the file to be selected.</param>
         </member>
         <member name="M:BEditor.Data.Property.FilePropertyMetadata.Create">
@@ -3219,7 +3287,7 @@
         </member>
         <member name="M:BEditor.Data.Property.FontPropertyMetadata.#ctor">
             <summary>
-            The metadata of <see cref="T:BEditor.Data.Property.FontProperty"/>.
+            Initializes a new instance of the <see cref="T:BEditor.Data.Property.FontPropertyMetadata"/> class.
             </summary>
         </member>
         <member name="P:BEditor.Data.Property.FontPropertyMetadata.SelectItem">
@@ -3260,16 +3328,16 @@
             The metadata of <see cref="T:BEditor.Data.Property.SelectorProperty"/>.
             </summary>
             <param name="Name">The string displayed in the property header.</param>
-            <param name="ItemSource">The source of the item to be selected</param>
-            <param name="DefaultIndex">The default value for <see cref="P:BEditor.Data.Property.SelectorProperty.Index"/></param>
+            <param name="ItemSource">The source of the item to be selected.</param>
+            <param name="DefaultIndex">The default value for <see cref="P:BEditor.Data.Property.SelectorProperty.Index"/>.</param>
         </member>
         <member name="M:BEditor.Data.Property.SelectorPropertyMetadata.#ctor(System.String,System.Collections.Generic.IList{System.String},System.Int32)">
             <summary>
             The metadata of <see cref="T:BEditor.Data.Property.SelectorProperty"/>.
             </summary>
             <param name="Name">The string displayed in the property header.</param>
-            <param name="ItemSource">The source of the item to be selected</param>
-            <param name="DefaultIndex">The default value for <see cref="P:BEditor.Data.Property.SelectorProperty.Index"/></param>
+            <param name="ItemSource">The source of the item to be selected.</param>
+            <param name="DefaultIndex">The default value for <see cref="P:BEditor.Data.Property.SelectorProperty.Index"/>.</param>
         </member>
         <member name="M:BEditor.Data.Property.SelectorPropertyMetadata.Create">
             <inheritdoc/>
@@ -3278,19 +3346,21 @@
             <summary>
             The metadata of <see cref="T:BEditor.Data.Property.SelectorProperty`1"/>.
             </summary>
+            <typeparam name="T">The type of element.</typeparam>
             <param name="Name">The string displayed in the property header.</param>
             <param name="ItemSource">The source of the item to be selected.</param>
             <param name="Selector">A function to get a string from an item.</param>
-            <param name="DefaultIndex">The default value for <see cref="P:BEditor.Data.Property.SelectorProperty`1.Index"/></param>
+            <param name="DefaultIndex">The default value for <see cref="P:BEditor.Data.Property.SelectorProperty`1.Index"/>.</param>
         </member>
         <member name="M:BEditor.Data.Property.SelectorPropertyMetadata`1.#ctor(System.String,System.Collections.Generic.IList{`0},System.Func{`0,System.String},System.Int32)">
             <summary>
             The metadata of <see cref="T:BEditor.Data.Property.SelectorProperty`1"/>.
             </summary>
+            <typeparam name="T">The type of element.</typeparam>
             <param name="Name">The string displayed in the property header.</param>
             <param name="ItemSource">The source of the item to be selected.</param>
             <param name="Selector">A function to get a string from an item.</param>
-            <param name="DefaultIndex">The default value for <see cref="P:BEditor.Data.Property.SelectorProperty`1.Index"/></param>
+            <param name="DefaultIndex">The default value for <see cref="P:BEditor.Data.Property.SelectorProperty`1.Index"/>.</param>
         </member>
         <member name="P:BEditor.Data.Property.SelectorPropertyMetadata`1.DisplayStrings">
             <summary>
@@ -3665,7 +3735,7 @@
         </member>
         <member name="M:BEditor.Data.Property.PrimitiveGroup.Scale.#ctor(BEditor.Data.Property.PrimitiveGroup.ScaleMetadata)">
             <summary>
-            Initializes a new instance of the <see cref="T:BEditor.Data.Property.PrimitiveGroup.Coordinate"/> class.
+            Initializes a new instance of the <see cref="T:BEditor.Data.Property.PrimitiveGroup.Scale"/> class.
             </summary>
             <param name="metadata">Metadata of this property.</param>
             <exception cref="T:System.ArgumentNullException"><paramref name="metadata"/> is <see langword="null"/>.</exception>
@@ -3799,7 +3869,7 @@
         </member>
         <member name="M:BEditor.Data.Property.SelectorProperty.ChangeSelectCommand.#ctor(BEditor.Data.Property.SelectorProperty,System.Int32)">
             <summary>
-            <see cref="T:BEditor.Data.Property.SelectorProperty.ChangeSelectCommand"/> クラスの新しいインスタンスを初期化します.
+            Initializes a new instance of the <see cref="T:BEditor.Data.Property.SelectorProperty.ChangeSelectCommand"/> class.
             </summary>
             <param name="property">対象の <see cref="T:BEditor.Data.Property.SelectorProperty"/>.</param>
             <param name="select">新しいインデックス.</param>
@@ -3822,7 +3892,7 @@
         </member>
         <member name="M:BEditor.Data.Property.SelectorProperty`1.#ctor(BEditor.Data.Property.SelectorPropertyMetadata{`0})">
             <summary>
-            Initializes a new instance of the <see cref="T:BEditor.Data.Property.SelectorProperty"/> class.
+            Initializes a new instance of the <see cref="T:BEditor.Data.Property.SelectorProperty`1"/> class.
             </summary>
             <param name="metadata">Metadata of this property.</param>
             <exception cref="T:System.ArgumentNullException"><paramref name="metadata"/> is <see langword="null"/>.</exception>
@@ -3888,7 +3958,7 @@
         </member>
         <member name="M:BEditor.Data.Property.SelectorProperty`1.ChangeSelectCommand.#ctor(BEditor.Data.Property.SelectorProperty{`0},`0)">
             <summary>
-            <see cref="T:BEditor.Data.Property.SelectorProperty`1.ChangeSelectCommand"/> クラスの新しいインスタンスを初期化します.
+            Initializes a new instance of the <see cref="T:BEditor.Data.Property.SelectorProperty`1.ChangeSelectCommand"/> class.
             </summary>
             <param name="property">対象の <see cref="T:BEditor.Data.Property.SelectorProperty"/>.</param>
             <param name="select">新しいインデックス.</param>
@@ -4341,7 +4411,7 @@
             <summary>
             Initializes a new instance of the <see cref="T:BEditor.DirectoryManager"/> class.
             </summary>
-            <param name="directories">The directories to manage</param>
+            <param name="directories">The directories to manage.</param>
         </member>
         <member name="P:BEditor.DirectoryManager.Directories">
             <summary>
@@ -4368,25 +4438,19 @@
             Represents a service in a file dialog.
             </summary>
         </member>
-        <member name="M:BEditor.IFileDialogService.ShowSaveFileDialog(BEditor.SaveFileRecord)">
-            <summary>
-            Show the Save File dialog.
-            </summary>
-        </member>
         <member name="M:BEditor.IFileDialogService.ShowSaveFileDialogAsync(BEditor.SaveFileRecord)">
             <summary>
             Show the Save File dialog.
             </summary>
-        </member>
-        <member name="M:BEditor.IFileDialogService.ShowOpenFileDialog(BEditor.OpenFileRecord)">
-            <summary>
-            Show the Open File dialog.
-            </summary>
+            <param name="record">A record that sets the name of the selected file.</param>
+            <returns>Returns true if the save button is clicked, false otherwise.</returns>
         </member>
         <member name="M:BEditor.IFileDialogService.ShowOpenFileDialogAsync(BEditor.OpenFileRecord)">
             <summary>
             Show the Open File dialog.
             </summary>
+            <param name="record">A record that sets the name of the selected file.</param>
+            <returns>Returns true if the open button is clicked, false otherwise.</returns>
         </member>
         <member name="T:BEditor.SaveFileRecord">
             <summary>
@@ -4438,7 +4502,7 @@
             <summary>
             Initializes a new instance of the <see cref="T:BEditor.FileExtension"/> class.
             </summary>
-            <param name="Value">The file extension.</param>
+            <param name="value">The file extension.</param>
         </member>
         <member name="P:BEditor.FileExtension.Value">
             <summary>
@@ -4454,8 +4518,8 @@
             <summary>
             Initializes a new instance of the <see cref="T:BEditor.FileFilter"/> class.
             </summary>
-            <param name="Name">The filter name.</param>
-            <param name="Extensions">The filter extensions.</param>
+            <param name="name">The filter name.</param>
+            <param name="extensions">The filter extensions.</param>
         </member>
         <member name="P:BEditor.FileFilter.Name">
             <summary>
@@ -4476,7 +4540,7 @@
             <summary>
             Initializes a new instance of the <see cref="T:BEditor.FileDialogRecord"/> class.
             </summary>
-            <param name="Filters">The filter for the file dialog.</param>
+            <param name="filters">The filter for the file dialog.</param>
         </member>
         <member name="P:BEditor.FileDialogRecord.Filters">
             <summary>
@@ -4486,6 +4550,11 @@
         <member name="T:BEditor.IApplication">
             <summary>
             Represents an application.
+            </summary>
+        </member>
+        <member name="E:BEditor.IApplication.ProjectOpened">
+            <summary>
+            Occurs when the project is opened.
             </summary>
         </member>
         <member name="P:BEditor.IApplication.AppStatus">
@@ -4506,11 +4575,6 @@
         <member name="P:BEditor.IApplication.UIThread">
             <summary>
             Gets the <see cref="T:System.Threading.SynchronizationContext"/>.
-            </summary>
-        </member>
-        <member name="E:BEditor.IApplication.ProjectOpened">
-            <summary>
-            Occurs when the project is opened.
             </summary>
         </member>
         <member name="M:BEditor.IApplication.RestoreAppConfig(BEditor.Data.Project,System.String)">
@@ -4559,43 +4623,48 @@
         </member>
         <member name="F:BEditor.IMessage.ButtonType.Ok">
             <summary>
-            Ok
+            Ok.
             </summary>
         </member>
         <member name="F:BEditor.IMessage.ButtonType.Yes">
             <summary>
-            Yes
+            Yes.
             </summary>
         </member>
         <member name="F:BEditor.IMessage.ButtonType.No">
             <summary>
-            No
+            No.
             </summary>
         </member>
         <member name="F:BEditor.IMessage.ButtonType.Cancel">
             <summary>
-            Cancel
+            Cancel.
             </summary>
         </member>
         <member name="F:BEditor.IMessage.ButtonType.Retry">
             <summary>
-            Retry
+            Retry.
             </summary>
         </member>
         <member name="F:BEditor.IMessage.ButtonType.Close">
             <summary>
-            Close
+            Close.
             </summary>
         </member>
         <member name="M:BEditor.IMessage.DialogAsync(System.String,BEditor.IMessage.IconType,BEditor.IMessage.ButtonType[])">
             <summary>
             Show the dialog.
             </summary>
+            <param name="text">The string to display.</param>
+            <param name="icon">The icon to display.</param>
+            <param name="types">The type of button to display.</param>
+            <returns>A <see cref="T:System.Threading.Tasks.ValueTask"/> representing the asynchronous operation.</returns>
         </member>
         <member name="M:BEditor.IMessage.Snackbar(System.String)">
             <summary>
             Show the snackbar.
             </summary>
+            <param name="text">The string to display.</param>
         </member>
         <member name="T:BEditor.Plugin.ICustomMenu">
             <summary>
@@ -4619,8 +4688,8 @@
             <summary>
             Initializes a new instance of the <see cref="T:BEditor.Plugin.CustomMenu" /> class.
             </summary>
-            <param name="Name">The string to be displayed in the UI.</param>
-            <param name="Execute">Execute when the menu is clicked.</param>
+            <param name="name">The string to be displayed in the UI.</param>
+            <param name="execute">Execute when the menu is clicked.</param>
         </member>
         <member name="P:BEditor.Plugin.CustomMenu.Name">
             <inheritdoc/>
@@ -4673,23 +4742,24 @@
         </member>
         <member name="M:BEditor.Plugin.PluginBuilder.With(BEditor.Media.IRegisterdDecoding)">
             <summary>
-            Configure the options for the services to be provided.
+            Add an encoding.
             </summary>
-            <param name="decoding"></param>
+            <param name="decoding">The decoding to be added.</param>
             <returns>The same instance of the <see cref="T:BEditor.Plugin.PluginBuilder"/> for chaining.</returns>
         </member>
         <member name="M:BEditor.Plugin.PluginBuilder.With(BEditor.Media.IRegisterdEncoding)">
             <summary>
-            Configure the options for the services to be provided.
+            Add an encoding.
             </summary>
-            <param name="encoding"></param>
+            <param name="encoding">The encoding to be added.</param>
             <returns>The same instance of the <see cref="T:BEditor.Plugin.PluginBuilder"/> for chaining.</returns>
         </member>
         <member name="M:BEditor.Plugin.PluginBuilder.Task(System.Func{System.IProgress{System.Int32},System.Threading.Tasks.ValueTask})">
-             <summary>
-            
-             </summary>
-             <param name="func"></param>
+            <summary>
+            Add a task to be executed when the application is launched.
+            </summary>
+            <param name="func">The task to be executed.</param>
+            <returns>The same instance of the <see cref="T:BEditor.Plugin.PluginBuilder"/> for chaining.</returns>
         </member>
         <member name="M:BEditor.Plugin.PluginBuilder.SetCustomMenu(System.String,System.Collections.Generic.IEnumerable{BEditor.Plugin.ICustomMenu})">
             <summary>
@@ -4724,12 +4794,13 @@
         </member>
         <member name="M:BEditor.Plugin.PluginConfig.#ctor(BEditor.IApplication)">
             <summary>
-            Iniitializes a new instance of the <see cref="T:BEditor.Plugin.PluginConfig"/> class.
+            Initializes a new instance of the <see cref="T:BEditor.Plugin.PluginConfig"/> class.
             </summary>
+            <param name="app">The application.</param>
         </member>
         <member name="P:BEditor.Plugin.PluginConfig.Application">
             <summary>
-            Gets the ServiceProvider.
+            Gets the application.
             </summary>
         </member>
         <member name="T:BEditor.Plugin.PluginException">
@@ -4766,7 +4837,7 @@
         </member>
         <member name="P:BEditor.Plugin.PluginException.PluginName">
             <summary>
-            Gets the plugin name.
+            Gets or sets the plugin name.
             </summary>
         </member>
         <member name="T:BEditor.Plugin.PluginManager">
@@ -4777,16 +4848,6 @@
         <member name="F:BEditor.Plugin.PluginManager.Default">
             <summary>
             Gets a default <see cref="T:BEditor.Plugin.PluginManager"/> instance.
-            </summary>
-        </member>
-        <member name="F:BEditor.Plugin.PluginManager._loaded">
-            <summary>
-            The loaded plugins.
-            </summary>
-        </member>
-        <member name="F:BEditor.Plugin.PluginManager._menus">
-            <summary>
-            The plugin menus.
             </summary>
         </member>
         <member name="M:BEditor.Plugin.PluginManager.#ctor">
@@ -4865,7 +4926,7 @@
              <example>
              public record CustomSetting(string value) : SettingRecord;
             
-             public SettingRecord Settings { get; set; } = new CustomSetting("Sample text");
+             public SettingRecord Settings { get; set; } = new CustomSetting("Sample text");.
              </example>
         </member>
         <member name="M:BEditor.Plugin.SettingRecord.#ctor">
@@ -4875,7 +4936,7 @@
              <example>
              public record CustomSetting(string value) : SettingRecord;
             
-             public SettingRecord Settings { get; set; } = new CustomSetting("Sample text");
+             public SettingRecord Settings { get; set; } = new CustomSetting("Sample text");.
              </example>
         </member>
         <member name="T:BEditor.ProjectOpenedEventArgs">
@@ -4885,13 +4946,13 @@
         </member>
         <member name="M:BEditor.ProjectOpenedEventArgs.#ctor(BEditor.Data.Project)">
             <summary>
-            Initializes a new instance of the <see cref="T:BEditor.ProjectOpenedEventArgs"/>
+            Initializes a new instance of the <see cref="T:BEditor.ProjectOpenedEventArgs"/> class.
             </summary>
             <param name="project">The opened project.</param>
         </member>
         <member name="P:BEditor.ProjectOpenedEventArgs.Project">
             <summary>
-            Gets the <see cref="P:BEditor.ProjectOpenedEventArgs.Project" />
+            Gets the <see cref="P:BEditor.ProjectOpenedEventArgs.Project"/>.
             </summary>
         </member>
         <member name="T:BEditor.Resources.Strings">

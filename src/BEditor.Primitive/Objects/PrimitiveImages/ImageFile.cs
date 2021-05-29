@@ -1,4 +1,11 @@
-﻿using System.Collections.Generic;
+﻿// ImageFile.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Reactive.Linq;
@@ -26,7 +33,7 @@ namespace BEditor.Primitive.Objects
             nameof(File),
             owner => owner.File,
             (owner, obj) => owner.File = obj,
-            EditingPropertyOptions<FileProperty>.Create(new FilePropertyMetadata(Strings.File, "", new(Strings.ImageFile, new FileExtension[]
+            EditingPropertyOptions<FileProperty>.Create(new FilePropertyMetadata(Strings.File, string.Empty, new(Strings.ImageFile, new FileExtension[]
             {
                 new("png"),
                 new("jpeg"),
@@ -83,7 +90,6 @@ namespace BEditor.Primitive.Objects
                     return Image.Decode(stream);
                 })
                 .ToReactiveProperty();
-
         }
 
         /// <inheritdoc/>

@@ -1,4 +1,11 @@
-﻿using System;
+﻿// ListenerObject.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 
@@ -112,7 +119,7 @@ namespace BEditor.Primitive.Objects
         public EaseProperty TargetZ { get; private set; }
 
         /// <summary>
-        /// 
+        /// Gets the gain.
         /// </summary>
         [AllowNull]
         public EaseProperty Gain { get; private set; }

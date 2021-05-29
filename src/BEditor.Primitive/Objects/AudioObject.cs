@@ -1,4 +1,11 @@
-﻿using System;
+﻿// AudioObject.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
@@ -56,7 +63,7 @@ namespace BEditor.Primitive.Objects
             nameof(File),
             owner => owner.File,
             (owner, obj) => owner.File = obj,
-            EditingPropertyOptions<FileProperty>.Create(new FilePropertyMetadata(Strings.File, Filter: new("", new FileExtension[] { new("mp3"), new("wav") }))).Serialize());
+            EditingPropertyOptions<FileProperty>.Create(new FilePropertyMetadata(Strings.File, Filter: new(string.Empty, new FileExtension[] { new("mp3"), new("wav") }))).Serialize());
 
         /// <summary>
         /// Defines the <see cref="SetLength"/> property.
@@ -74,7 +81,7 @@ namespace BEditor.Primitive.Objects
         private IDisposable? _disposable2;
 
         /// <summary>
-        /// Initializes a new instance of <see cref="AudioObject"/> class.
+        /// Initializes a new instance of the <see cref="AudioObject"/> class.
         /// </summary>
         public AudioObject()
         {
@@ -108,12 +115,12 @@ namespace BEditor.Primitive.Objects
         public FileProperty File { get; private set; }
 
         /// <summary>
-        /// 
+        /// Gets the command to set the length of the clip.
         /// </summary>
         public ButtonComponent SetLength => GetValue(SetLengthProperty);
 
         /// <summary>
-        /// 
+        /// Gets the opened decoder.
         /// </summary>
         public MediaFile? Decoder
         {
@@ -136,7 +143,7 @@ namespace BEditor.Primitive.Objects
         }
 
         /// <summary>
-        ///
+        /// Gets the loaded audio data.
         /// </summary>
         public Sound<StereoPCMFloat>? Loaded { get; private set; }
 
@@ -184,7 +191,7 @@ namespace BEditor.Primitive.Objects
                 Decoder = MediaFile.Open(file, new()
                 {
                     StreamsToLoad = MediaMode.Audio,
-                    SampleRate = this.GetRequiredParent<Project>().Samplingrate
+                    SampleRate = this.GetRequiredParent<Project>().Samplingrate,
                 });
             });
 

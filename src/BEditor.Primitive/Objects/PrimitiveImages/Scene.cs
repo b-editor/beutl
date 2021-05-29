@@ -1,4 +1,11 @@
-﻿using System.Collections.Generic;
+﻿// Scene.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 
@@ -29,7 +36,7 @@ namespace BEditor.Primitive.Objects
         public SceneObject()
         {
             // この時点で親要素を取得できないので適当なデータを渡す
-            SelectScene = new(new SelectorPropertyMetadata("", new string[1]));
+            SelectScene = new(new SelectorPropertyMetadata(string.Empty, new string[1]));
         }
 
         /// <inheritdoc/>
@@ -91,7 +98,8 @@ namespace BEditor.Primitive.Objects
 
         internal record ScenesSelectorMetadata : SelectorPropertyMetadata
         {
-            internal ScenesSelectorMetadata(SceneObject scene) : base(Strings.Scenes, scene.GetParent<Project>()!.SceneList.Select(i => i.SceneName).ToArray())
+            internal ScenesSelectorMetadata(SceneObject scene)
+                : base(Strings.Scenes, scene.GetParent<Project>()!.SceneList.Select(i => i.SceneName).ToArray())
             {
             }
         }

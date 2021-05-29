@@ -1,4 +1,11 @@
-﻿using System.Collections.Generic;
+﻿// CameraObject.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 
@@ -32,9 +39,9 @@ namespace BEditor.Primitive.Objects
             (owner, obj) => owner.Y = obj,
             EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Y, 0, useOptional: true)).Serialize());
 
-        /// <summarZ>
+        /// <summary>
         /// Defines the <see cref="Z"/> property.
-        /// </summarZ>
+        /// </summary>
         public static readonly DirectEditingProperty<CameraObject, EaseProperty> ZProperty = EditingProperty.RegisterDirect<EaseProperty, CameraObject>(
             nameof(Z),
             owner => owner.Z,
@@ -59,9 +66,9 @@ namespace BEditor.Primitive.Objects
             (owner, obj) => owner.TargetY = obj,
             EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.TargetY, 0, useOptional: true)).Serialize());
 
-        /// <summarZ>
+        /// <summary>
         /// Defines the <see cref="TargetZ"/> property.
-        /// </summarZ>
+        /// </summary>
         public static readonly DirectEditingProperty<CameraObject, EaseProperty> TargetZProperty = EditingProperty.RegisterDirect<EaseProperty, CameraObject>(
             nameof(TargetZ),
             owner => owner.TargetZ,
@@ -77,36 +84,36 @@ namespace BEditor.Primitive.Objects
             (owner, obj) => owner.ZNear = obj,
             EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.ZNear, 0.1F, min: 0.1F, useOptional: true)).Serialize());
 
-        /// <summarZ>
+        /// <summary>
         /// Defines the <see cref="ZFar"/> property.
-        /// </summarZ>
+        /// </summary>
         public static readonly DirectEditingProperty<CameraObject, EaseProperty> ZFarProperty = EditingProperty.RegisterDirect<EaseProperty, CameraObject>(
             nameof(ZFar),
             owner => owner.ZFar,
             (owner, obj) => owner.ZFar = obj,
             EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.ZFar, 20000, useOptional: true)).Serialize());
 
-        /// <summarZ>
+        /// <summary>
         /// Defines the <see cref="Angle"/> property.
-        /// </summarZ>
+        /// </summary>
         public static readonly DirectEditingProperty<CameraObject, EaseProperty> AngleProperty = EditingProperty.RegisterDirect<EaseProperty, CameraObject>(
             nameof(Angle),
             owner => owner.Angle,
             (owner, obj) => owner.Angle = obj,
             EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Angle, 0, useOptional: true)).Serialize());
 
-        /// <summarZ>
+        /// <summary>
         /// Defines the <see cref="Fov"/> property.
-        /// </summarZ>
+        /// </summary>
         public static readonly DirectEditingProperty<CameraObject, EaseProperty> FovProperty = EditingProperty.RegisterDirect<EaseProperty, CameraObject>(
             nameof(Fov),
             owner => owner.Fov,
             (owner, obj) => owner.Fov = obj,
             EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Fov, 45, 179, 1, useOptional: true)).Serialize());
 
-        /// <summarZ>
+        /// <summary>
         /// Defines the <see cref="Mode"/> property.
-        /// </summarZ>
+        /// </summary>
         public static readonly DirectEditingProperty<CameraObject, CheckProperty> ModeProperty = EditingProperty.RegisterDirect<CheckProperty, CameraObject>(
             nameof(Mode),
             owner => owner.Mode,
@@ -114,7 +121,7 @@ namespace BEditor.Primitive.Objects
             EditingPropertyOptions<CheckProperty>.Create(new CheckPropertyMetadata(Strings.Perspective, true)).Serialize());
 
         /// <summary>
-        /// Initializes a new instance <see cref="CameraObject"/> class.
+        /// Initializes a new instance of the <see cref="CameraObject"/> class.
         /// </summary>
         public CameraObject()
         {
@@ -203,7 +210,7 @@ namespace BEditor.Primitive.Objects
                         Far = ZFar[frame],
                         Near = ZNear[frame],
                         Fov = Fov[frame],
-                        Target = new(TargetX[frame], TargetY[frame], TargetZ[frame])
+                        Target = new(TargetX[frame], TargetY[frame], TargetZ[frame]),
                     };
             }
             else
@@ -214,7 +221,7 @@ namespace BEditor.Primitive.Objects
                         Far = ZFar[frame],
                         Near = ZNear[frame],
                         Fov = Fov[frame],
-                        Target = new(TargetX[frame], TargetY[frame], TargetZ[frame])
+                        Target = new(TargetX[frame], TargetY[frame], TargetZ[frame]),
                     };
             }
 

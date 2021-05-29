@@ -1,4 +1,11 @@
-﻿using System.Collections.Generic;
+﻿// Noise.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 
 using BEditor.Data;
@@ -10,7 +17,9 @@ using BEditor.Primitive.Resources;
 
 namespace BEditor.Primitive.Effects
 {
-#pragma warning disable CS1591
+    /// <summary>
+    /// Noise effect.
+    /// </summary>
     public sealed class Noise : ImageEffect
     {
         /// <summary>
@@ -22,24 +31,32 @@ namespace BEditor.Primitive.Effects
             (owner, obj) => owner.Value = obj,
             EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.ThresholdValue, 30, 255, 0)).Serialize());
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="Noise"/> class.
+        /// </summary>
         public Noise()
         {
         }
 
+        /// <inheritdoc/>
         public override string Name => Strings.Noise;
 
+        /// <summary>
+        /// Gets the threshold value.
+        /// </summary>
         [AllowNull]
         public EaseProperty Value { get; set; }
 
+        /// <inheritdoc/>
         public override void Apply(EffectApplyArgs<Image<BGRA32>> args)
         {
             args.Value.Noise((byte)Value[args.Frame]);
         }
 
+        /// <inheritdoc/>
         public override IEnumerable<PropertyElement> GetProperties()
         {
             yield return Value;
         }
     }
-#pragma warning restore CS1591
 }

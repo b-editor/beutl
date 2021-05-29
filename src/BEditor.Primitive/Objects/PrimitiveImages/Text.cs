@@ -1,18 +1,19 @@
-﻿using System;
+﻿// Text.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
-using System.Linq;
-using System.Numerics;
 
 using BEditor.Data;
 using BEditor.Data.Primitive;
 using BEditor.Data.Property;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
-using BEditor.Graphics;
 using BEditor.Primitive.Resources;
-
-using SkiaSharp;
 
 namespace BEditor.Primitive.Objects
 {
@@ -68,7 +69,7 @@ namespace BEditor.Primitive.Objects
             {
                 Strings.Left,
                 Strings.Center,
-                Strings.Right
+                Strings.Right,
             })).Serialize());
 
         /// <summary>
@@ -82,7 +83,7 @@ namespace BEditor.Primitive.Objects
             {
                 Strings.Top,
                 Strings.Center,
-                Strings.Bottom
+                Strings.Bottom,
             })).Serialize());
 
         /// <summary>

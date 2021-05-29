@@ -1,4 +1,11 @@
-﻿using System.Collections.Generic;
+﻿// Shape.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 
 using BEditor.Data;
@@ -55,7 +62,7 @@ namespace BEditor.Primitive.Objects
             EditingPropertyOptions<SelectorProperty>.Create(new SelectorPropertyMetadata(Strings.Type, new string[]
             {
                 Strings.Ellipse,
-                Strings.Rectangle
+                Strings.Rectangle,
             })).Serialize());
 
         /// <summary>

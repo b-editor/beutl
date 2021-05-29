@@ -1,4 +1,11 @@
-﻿using System.Collections.Generic;
+﻿// RGBColor.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 
 using BEditor.Data;
@@ -10,7 +17,9 @@ using BEditor.Primitive.Resources;
 
 namespace BEditor.Primitive.Effects
 {
-#pragma warning disable CS1591
+    /// <summary>
+    /// Represents an effect that corrects the RGB color tone of an image.
+    /// </summary>
     public sealed class RGBColor : ImageEffect
     {
         /// <summary>
@@ -40,21 +49,35 @@ namespace BEditor.Primitive.Effects
             (owner, obj) => owner.Blue = obj,
             EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Blue, 0, 255, -255)).Serialize());
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="RGBColor"/> class.
+        /// </summary>
         public RGBColor()
         {
         }
 
+        /// <inheritdoc/>
         public override string Name => Strings.RGBColorCorrection;
 
+        /// <summary>
+        /// Gets the red threshold value.
+        /// </summary>
         [AllowNull]
         public EaseProperty Red { get; set; }
 
+        /// <summary>
+        /// Gets the green threshold value.
+        /// </summary>
         [AllowNull]
         public EaseProperty Green { get; set; }
 
+        /// <summary>
+        /// Gets the blue threshold value.
+        /// </summary>
         [AllowNull]
         public EaseProperty Blue { get; set; }
 
+        /// <inheritdoc/>
         public override void Apply(EffectApplyArgs<Image<BGRA32>> args)
         {
             args.Value.RGBColor(
@@ -64,6 +87,7 @@ namespace BEditor.Primitive.Effects
                 Parent.Parent.DrawingContext);
         }
 
+        /// <inheritdoc/>
         public override IEnumerable<PropertyElement> GetProperties()
         {
             yield return Red;
@@ -71,5 +95,4 @@ namespace BEditor.Primitive.Effects
             yield return Blue;
         }
     }
-#pragma warning restore CS1591
 }

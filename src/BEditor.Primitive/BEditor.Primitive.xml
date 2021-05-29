@@ -75,7 +75,7 @@
         </member>
         <member name="T:BEditor.Primitive.Effects.OpenCv.Blur">
             <summary>
-            
+            Represents the <see cref="T:BEditor.Data.Primitive.ImageEffect"/> that blurs the image.
             </summary>
         </member>
         <member name="F:BEditor.Primitive.Effects.OpenCv.Blur.SizeProperty">
@@ -114,7 +114,7 @@
         </member>
         <member name="T:BEditor.Primitive.Effects.OpenCv.GaussianBlur">
             <summary>
-            
+            Represents the <see cref="T:BEditor.Data.Primitive.ImageEffect"/> that blurs the image.
             </summary>
         </member>
         <member name="F:BEditor.Primitive.Effects.OpenCv.GaussianBlur.SizeProperty">
@@ -153,7 +153,7 @@
         </member>
         <member name="T:BEditor.Primitive.Effects.OpenCv.MedianBlur">
             <summary>
-            
+            Represents the <see cref="T:BEditor.Data.Primitive.ImageEffect"/> that blurs the image.
             </summary>
         </member>
         <member name="F:BEditor.Primitive.Effects.OpenCv.MedianBlur.SizeProperty">
@@ -192,7 +192,7 @@
         </member>
         <member name="T:BEditor.Primitive.Effects.OpenCv.WarpPolar">
             <summary>
-            
+            Represents an effect that transforms an image into polar coordinates.
             </summary>
         </member>
         <member name="F:BEditor.Primitive.Effects.OpenCv.WarpPolar.CenterXProperty">
@@ -388,27 +388,27 @@
         </member>
         <member name="P:BEditor.Primitive.Effects.AreaExpansion.Top">
             <summary>
-            Get an <see cref="T:BEditor.Data.Property.EaseProperty"/> that represents the number of pixels to add
+            Gets the number of pixels to add.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Effects.AreaExpansion.Bottom">
             <summary>
-            Get an <see cref="T:BEditor.Data.Property.EaseProperty"/> that represents the number of pixels to add
+            Gets the number of pixels to add.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Effects.AreaExpansion.Left">
             <summary>
-            Get an <see cref="T:BEditor.Data.Property.EaseProperty"/> that represents the number of pixels to add
+            Gets the number of pixels to add.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Effects.AreaExpansion.Right">
             <summary>
-            Get an <see cref="T:BEditor.Data.Property.EaseProperty"/> that represents the number of pixels to add
+            Gets the number of pixels to add.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Effects.AreaExpansion.AdjustCoordinates">
             <summary>
-            Get the <see cref="T:BEditor.Data.Property.CheckProperty"/> to adjust the coordinates.
+            Gets the <see cref="T:BEditor.Data.Property.CheckProperty"/> to adjust the coordinates.
             </summary>
         </member>
         <member name="M:BEditor.Primitive.Effects.AreaExpansion.GetProperties">
@@ -643,7 +643,7 @@
         </member>
         <member name="T:BEditor.Primitive.Effects.Diffusion">
             <summary>
-            
+            Represents an effect that diffuses an image.
             </summary>
         </member>
         <member name="F:BEditor.Primitive.Effects.Diffusion.ValueProperty">
@@ -851,7 +851,7 @@
         </member>
         <member name="M:BEditor.Primitive.Effects.MultipleControls.#ctor">
             <summary>
-            INitializes a new instance of the <see cref="T:BEditor.Primitive.Effects.MultipleControls"/> class.
+            Initializes a new instance of the <see cref="T:BEditor.Primitive.Effects.MultipleControls"/> class.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Effects.MultipleControls.Name">
@@ -888,7 +888,7 @@
         </member>
         <member name="T:BEditor.Primitive.Effects.Negaposi">
             <summary>
-            
+            Represents the effect of flipping an image negative-positive.
             </summary>
         </member>
         <member name="F:BEditor.Primitive.Effects.Negaposi.RedProperty">
@@ -935,10 +935,34 @@
         <member name="M:BEditor.Primitive.Effects.Negaposi.GetProperties">
             <inheritdoc/>
         </member>
+        <member name="T:BEditor.Primitive.Effects.Noise">
+            <summary>
+            Noise effect.
+            </summary>
+        </member>
         <member name="F:BEditor.Primitive.Effects.Noise.ValueProperty">
             <summary>
             Defines the <see cref="P:BEditor.Primitive.Effects.Noise.Value"/> property.
             </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.Noise.#ctor">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Primitive.Effects.Noise"/> class.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.Noise.Name">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.Noise.Value">
+            <summary>
+            Gets the threshold value.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.Noise.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.Noise.GetProperties">
+            <inheritdoc/>
         </member>
         <member name="T:BEditor.Primitive.Effects.ReverseOpacity">
             <summary>
@@ -954,6 +978,11 @@
         <member name="M:BEditor.Primitive.Effects.ReverseOpacity.GetProperties">
             <inheritdoc/>
         </member>
+        <member name="T:BEditor.Primitive.Effects.RGBColor">
+            <summary>
+            Represents an effect that corrects the RGB color tone of an image.
+            </summary>
+        </member>
         <member name="F:BEditor.Primitive.Effects.RGBColor.RedProperty">
             <summary>
             Defines the <see cref="P:BEditor.Primitive.Effects.RGBColor.Red"/> property.
@@ -968,6 +997,54 @@
             <summary>
             Defines the <see cref="P:BEditor.Primitive.Effects.RGBColor.Blue"/> property.
             </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.RGBColor.#ctor">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Primitive.Effects.RGBColor"/> class.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.RGBColor.Name">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.RGBColor.Red">
+            <summary>
+            Gets the red threshold value.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.RGBColor.Green">
+            <summary>
+            Gets the green threshold value.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.RGBColor.Blue">
+            <summary>
+            Gets the blue threshold value.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.RGBColor.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.RGBColor.GetProperties">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Primitive.Effects.Sepia">
+            <summary>
+            Represents an effect that turns an image into a sepia tone.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.Sepia.#ctor">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Primitive.Effects.Sepia"/> class.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.Sepia.Name">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.Sepia.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.Sepia.GetProperties">
+            <inheritdoc/>
         </member>
         <member name="T:BEditor.Primitive.Effects.SetAlignment">
             <summary>
@@ -1030,6 +1107,25 @@
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Primitive.Effects.SetColor.GetProperties">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Primitive.Effects.Xor">
+            <summary>
+            Represents an <see cref="T:BEditor.Data.Primitive.ImageEffect"/> that transforms an image into XOR colors.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.Xor.#ctor">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Primitive.Effects.Xor"/> class.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.Xor.Name">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.Xor.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.Xor.GetProperties">
             <inheritdoc/>
         </member>
         <member name="T:BEditor.Primitive.Effects.Blur">
@@ -1460,6 +1556,11 @@
         <member name="M:BEditor.Primitive.Effects.Mask.OnLoad">
             <inheritdoc/>
         </member>
+        <member name="T:BEditor.Primitive.Effects.PointLightDiffuse">
+            <summary>
+            Point light diffusion effect.
+            </summary>
+        </member>
         <member name="F:BEditor.Primitive.Effects.PointLightDiffuse.XProperty">
             <summary>
             Defines the <see cref="P:BEditor.Primitive.Effects.PointLightDiffuse.X"/> property.
@@ -1489,6 +1590,50 @@
             <summary>
             Defines the <see cref="P:BEditor.Primitive.Effects.PointLightDiffuse.LightConstant"/> property.
             </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.PointLightDiffuse.#ctor">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Primitive.Effects.PointLightDiffuse"/> class.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.PointLightDiffuse.Name">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.PointLightDiffuse.X">
+            <summary>
+            Gets the X coordinate.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.PointLightDiffuse.Y">
+            <summary>
+            Gets the Y coordinate.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.PointLightDiffuse.Z">
+            <summary>
+            Gets the Z coordinate.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.PointLightDiffuse.LightColor">
+            <summary>
+            Gets the color of light.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.PointLightDiffuse.SurfaceScale">
+            <summary>
+            Gets the scale factor to transform from alpha values to physical height.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.PointLightDiffuse.LightConstant">
+            <summary>
+            Gets the diffuse reflectance coefficient.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.PointLightDiffuse.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.PointLightDiffuse.GetProperties">
+            <inheritdoc/>
         </member>
         <member name="T:BEditor.Primitive.Effects.Shadow">
             <summary>
@@ -1660,7 +1805,7 @@
         </member>
         <member name="M:BEditor.Primitive.Objects.AudioObject.#ctor">
             <summary>
-            Initializes a new instance of <see cref="T:BEditor.Primitive.Objects.AudioObject"/> class.
+            Initializes a new instance of the <see cref="T:BEditor.Primitive.Objects.AudioObject"/> class.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Objects.AudioObject.Name">
@@ -1688,18 +1833,18 @@
         </member>
         <member name="P:BEditor.Primitive.Objects.AudioObject.SetLength">
             <summary>
-            
+            Gets the command to set the length of the clip.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Objects.AudioObject.Decoder">
             <summary>
-            
+            Gets the opened decoder.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Objects.AudioObject.Loaded">
-             <summary>
-            
-             </summary>
+            <summary>
+            Gets the loaded audio data.
+            </summary>
         </member>
         <member name="M:BEditor.Primitive.Objects.AudioObject.Apply(BEditor.Data.EffectApplyArgs)">
             <inheritdoc/>
@@ -1729,9 +1874,9 @@
             </summary>
         </member>
         <member name="F:BEditor.Primitive.Objects.CameraObject.ZProperty">
-            <summarZ>
+            <summary>
             Defines the <see cref="P:BEditor.Primitive.Objects.CameraObject.Z"/> property.
-            </summarZ>
+            </summary>
         </member>
         <member name="F:BEditor.Primitive.Objects.CameraObject.TargetXProperty">
             <summary>
@@ -1744,9 +1889,9 @@
             </summary>
         </member>
         <member name="F:BEditor.Primitive.Objects.CameraObject.TargetZProperty">
-            <summarZ>
+            <summary>
             Defines the <see cref="P:BEditor.Primitive.Objects.CameraObject.TargetZ"/> property.
-            </summarZ>
+            </summary>
         </member>
         <member name="F:BEditor.Primitive.Objects.CameraObject.ZNearProperty">
             <summary>
@@ -1754,28 +1899,28 @@
             </summary>
         </member>
         <member name="F:BEditor.Primitive.Objects.CameraObject.ZFarProperty">
-            <summarZ>
+            <summary>
             Defines the <see cref="P:BEditor.Primitive.Objects.CameraObject.ZFar"/> property.
-            </summarZ>
+            </summary>
         </member>
         <member name="F:BEditor.Primitive.Objects.CameraObject.AngleProperty">
-            <summarZ>
+            <summary>
             Defines the <see cref="P:BEditor.Primitive.Objects.CameraObject.Angle"/> property.
-            </summarZ>
+            </summary>
         </member>
         <member name="F:BEditor.Primitive.Objects.CameraObject.FovProperty">
-            <summarZ>
+            <summary>
             Defines the <see cref="P:BEditor.Primitive.Objects.CameraObject.Fov"/> property.
-            </summarZ>
+            </summary>
         </member>
         <member name="F:BEditor.Primitive.Objects.CameraObject.ModeProperty">
-            <summarZ>
+            <summary>
             Defines the <see cref="P:BEditor.Primitive.Objects.CameraObject.Mode"/> property.
-            </summarZ>
+            </summary>
         </member>
         <member name="M:BEditor.Primitive.Objects.CameraObject.#ctor">
             <summary>
-            Initializes a new instance <see cref="T:BEditor.Primitive.Objects.CameraObject"/> class.
+            Initializes a new instance of the <see cref="T:BEditor.Primitive.Objects.CameraObject"/> class.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Objects.CameraObject.Name">
@@ -2031,7 +2176,7 @@
         </member>
         <member name="P:BEditor.Primitive.Objects.ListenerObject.Gain">
             <summary>
-            
+            Gets the gain.
             </summary>
         </member>
         <member name="M:BEditor.Primitive.Objects.ListenerObject.Apply(BEditor.Data.EffectApplyArgs)">
@@ -2042,7 +2187,7 @@
         </member>
         <member name="T:BEditor.Primitive.Objects.Framebuffer">
             <summary>
-            
+            Represents an image object that draws a frame buffer.
             </summary>
         </member>
         <member name="F:BEditor.Primitive.Objects.Framebuffer.BufferClearProperty">
@@ -2131,7 +2276,7 @@
         </member>
         <member name="M:BEditor.Primitive.Objects.Polygon.#ctor">
             <summary>
-            Iniitializes a new instance of the <see cref="T:BEditor.Primitive.Objects.Polygon"/> class.
+            Initializes a new instance of the <see cref="T:BEditor.Primitive.Objects.Polygon"/> class.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Objects.Polygon.Name">
@@ -2510,7 +2655,7 @@
         </member>
         <member name="P:BEditor.Primitive.Objects.VideoFile.SetLength">
             <summary>
-            
+            Gets the command to set the length of the clip.
             </summary>
         </member>
         <member name="M:BEditor.Primitive.Objects.VideoFile.GetProperties">

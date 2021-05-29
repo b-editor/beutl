@@ -1,4 +1,11 @@
-﻿using System;
+﻿// VideoFile.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Reactive.Linq;
@@ -46,12 +53,12 @@ namespace BEditor.Primitive.Objects
             nameof(File),
             owner => owner.File,
             (owner, obj) => owner.File = obj,
-            EditingPropertyOptions<FileProperty>.Create(new FilePropertyMetadata(Strings.File, "", new(Strings.VideoFile, new FileExtension[]
+            EditingPropertyOptions<FileProperty>.Create(new FilePropertyMetadata(Strings.File, string.Empty, new(Strings.VideoFile, new FileExtension[]
             {
                 new("mp4"),
                 new("avi"),
                 new("wmv"),
-                new("mov")
+                new("mov"),
             }))).Serialize());
 
         /// <summary>
@@ -96,7 +103,7 @@ namespace BEditor.Primitive.Objects
         public FileProperty File { get; private set; }
 
         /// <summary>
-        /// 
+        /// Gets the command to set the length of the clip.
         /// </summary>
         [AllowNull]
         public ButtonComponent SetLength => GetValue(SetLengthProperty);
