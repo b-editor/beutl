@@ -1,4 +1,11 @@
-﻿using System;
+﻿// GraphicsHandle.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System;
 
 namespace BEditor.Graphics
 {
@@ -8,7 +15,7 @@ namespace BEditor.Graphics
     public readonly struct GraphicsHandle : IEquatable<GraphicsHandle>
     {
         /// <summary>
-        /// Initializes a new instance of the <see cref="GraphicsHandle"/> class.
+        /// Initializes a new instance of the <see cref="GraphicsHandle"/> struct.
         /// </summary>
         /// <param name="handle">The value of the handle.</param>
         public GraphicsHandle(int handle)
@@ -21,22 +28,22 @@ namespace BEditor.Graphics
         /// </summary>
         public int Handle { get; }
 
-        /// <inheritdoc/>
-        public override bool Equals(object? obj)
+        /// <summary>
+        /// Converts the <see cref="GraphicsHandle"/> to a 32-bit signed integer.
+        /// </summary>
+        /// <param name="handle">A graphics handle.</param>
+        public static implicit operator int(GraphicsHandle handle)
         {
-            return obj is GraphicsHandle handle && Equals(handle);
+            return handle.Handle;
         }
 
-        /// <inheritdoc/>
-        public bool Equals(GraphicsHandle other)
+        /// <summary>
+        /// Converts the 32-bit signed integer to a <see cref="GraphicsHandle"/>.
+        /// </summary>
+        /// <param name="handle">A 32-bit signed integer.</param>
+        public static implicit operator GraphicsHandle(int handle)
         {
-            return Handle == other.Handle;
-        }
-
-        /// <inheritdoc/>
-        public override int GetHashCode()
-        {
-            return HashCode.Combine(Handle);
+            return new(handle);
         }
 
         /// <summary>
@@ -61,22 +68,22 @@ namespace BEditor.Graphics
             return !(left == right);
         }
 
-        /// <summary>
-        /// Converts the <see cref="GraphicsHandle"/> to a 32-bit signed integer.
-        /// </summary>
-        /// <param name="handle">A graphics handle.</param>
-        public static implicit operator int(GraphicsHandle handle)
+        /// <inheritdoc/>
+        public override bool Equals(object? obj)
         {
-            return handle.Handle;
+            return obj is GraphicsHandle handle && Equals(handle);
         }
 
-        /// <summary>
-        /// Converts the 32-bit signed integer to a <see cref="GraphicsHandle"/>.
-        /// </summary>
-        /// <param name="handle">A 32-bit signed integer.</param>
-        public static implicit operator GraphicsHandle(int handle)
+        /// <inheritdoc/>
+        public bool Equals(GraphicsHandle other)
         {
-            return new(handle);
+            return Handle == other.Handle;
+        }
+
+        /// <inheritdoc/>
+        public override int GetHashCode()
+        {
+            return HashCode.Combine(Handle);
         }
     }
 }

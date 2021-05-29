@@ -1,6 +1,12 @@
-﻿using System;
+﻿// GraphicsContext.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System;
 using System.ComponentModel;
-using System.Diagnostics.CodeAnalysis;
 using System.Numerics;
 using System.Threading;
 
@@ -82,7 +88,7 @@ namespace BEditor.Graphics
         }
 
         /// <summary>
-        /// Discards the reference to the target that is represented by the current <see cref="GraphicsContext"/> object.
+        /// Finalizes an instance of the <see cref="GraphicsContext"/> class.
         /// </summary>
         ~GraphicsContext()
         {
@@ -125,22 +131,22 @@ namespace BEditor.Graphics
         public float Aspect => Width / ((float)Height);
 
         /// <summary>
-        /// Gets whether or not this graphics context is set to current.
+        /// Gets a value indicating whether or not this graphics context is set to current.
         /// </summary>
         public bool IsCurrent => GLFW.GetCurrentContext() == _window;
 
         /// <summary>
-        /// Get whether an object has been disposed
+        /// Gets a value indicating whether this instance has been disposed.
         /// </summary>
         public bool IsDisposed { get; private set; }
 
         /// <summary>
-        /// Gets the camera.
+        /// Gets or sets the camera.
         /// </summary>
         public Camera Camera { get; set; }
 
         /// <summary>
-        /// Gets the light.
+        /// Gets or sets the light.
         /// </summary>
         public Light? Light { get; set; }
 
@@ -188,7 +194,7 @@ namespace BEditor.Graphics
         }
 
         /// <summary>
-        /// Clear the framebuffer.
+        /// Clears the framebuffer.
         /// </summary>
         public void Clear()
         {
@@ -226,7 +232,7 @@ namespace BEditor.Graphics
         }
 
         /// <summary>
-        /// Set this graphics context to current
+        /// Sets this graphics context to current.
         /// </summary>
         public void MakeCurrent()
         {
@@ -427,7 +433,7 @@ namespace BEditor.Graphics
             using var line = new Line(start, end, width)
             {
                 Transform = transform,
-                Color = color
+                Color = color,
             };
 
             DrawLine(line);
@@ -540,9 +546,8 @@ namespace BEditor.Graphics
 
             blend();
 
-            //InvalidEnum
-            //GL.Enable(EnableCap.Texture2D);
-
+            // InvalidEnum
+            // GL.Enable(EnableCap.Texture2D);
             _texLightShader.SetMatrix4("model", texture.Transform.Matrix);
             _texLightShader.SetMatrix4("view", Camera.GetViewMatrix());
             _texLightShader.SetMatrix4("projection", Camera.GetProjectionMatrix());

@@ -1,4 +1,11 @@
-﻿using System;
+﻿// DepthBuffer.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System;
 using System.ComponentModel;
 using System.Threading;
 
@@ -30,7 +37,7 @@ namespace BEditor.Graphics
         }
 
         /// <summary>
-        /// Discards the reference to the target that is represented by the current <see cref="DepthBuffer"/> object.
+        /// Finalizes an instance of the <see cref="DepthBuffer"/> class.
         /// </summary>
         ~DepthBuffer()
         {
@@ -53,7 +60,7 @@ namespace BEditor.Graphics
         public GraphicsHandle Handle { get; }
 
         /// <summary>
-        /// Get whether an object has been disposed.
+        /// Gets a value indicating whether this instance has been disposed.
         /// </summary>
         public bool IsDisposed { get; private set; }
 

@@ -1,4 +1,11 @@
-﻿using System;
+﻿// Texture.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System;
 
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
@@ -16,7 +23,7 @@ namespace BEditor.Graphics
         private readonly uint[] _indices =
         {
             0, 1, 3,
-            1, 2, 3
+            1, 2, 3,
         };
 
         /// <summary>
@@ -35,13 +42,15 @@ namespace BEditor.Graphics
             var h = width / 2f;
             var v = height / 2f;
 
+#pragma warning disable SA1137 // Elements should have the same indentation
             _vertices = vertices ?? new float[]
             {
-                h, -v, 0.0f,  1.0f, 1.0f,
+                 h, -v, 0.0f,  1.0f, 1.0f,
                  h,  v, 0.0f,  1.0f, 0.0f,
                 -h,  v, 0.0f,  0.0f, 0.0f,
                 -h, -v, 0.0f,  0.0f, 1.0f,
             };
+#pragma warning restore SA1137 // Elements should have the same indentation
 
             VertexArrayObject = GL.GenVertexArray();
             GL.BindVertexArray(VertexArrayObject);
@@ -74,7 +83,7 @@ namespace BEditor.Graphics
         public int Height { get; }
 
         /// <summary>
-        /// Gets the handle of this <see cref="Texture"/>
+        /// Gets the handle of this <see cref="Texture"/>.
         /// </summary>
         public GraphicsHandle Handle { get; }
 
@@ -96,7 +105,10 @@ namespace BEditor.Graphics
         /// <summary>
         /// Create a texture from an image file.
         /// </summary>
-        public unsafe static Texture FromFile(string path, float[]? vertices = null)
+        /// <param name="path">The image files for creating textures.</param>
+        /// <param name="vertices">The vertices.</param>
+        /// <returns>Returns the texture created by this method.</returns>
+        public static unsafe Texture FromFile(string path, float[]? vertices = null)
         {
             using var image = Image.Decode(path);
 
@@ -106,7 +118,10 @@ namespace BEditor.Graphics
         /// <summary>
         /// Create a texture from an <see cref="Image{BGR24}"/>.
         /// </summary>
-        public unsafe static Texture FromImage(Image<BGR24> image, float[]? vertices = null)
+        /// <param name="image">The image to create texture.</param>
+        /// <param name="vertices">The vertices.</param>
+        /// <returns>Returns the texture created by this method.</returns>
+        public static unsafe Texture FromImage(Image<BGR24> image, float[]? vertices = null)
         {
             var handle = GL.GenTexture();
 
@@ -140,7 +155,10 @@ namespace BEditor.Graphics
         /// <summary>
         /// Create a texture from an <see cref="Image{BGRA32}"/>.
         /// </summary>
-        public unsafe static Texture FromImage(Image<BGRA32> image, float[]? vertices = null)
+        /// <param name="image">The image to create texture.</param>
+        /// <param name="vertices">The vertices.</param>
+        /// <returns>Returns the texture created by this method.</returns>
+        public static unsafe Texture FromImage(Image<BGRA32> image, float[]? vertices = null)
         {
             var handle = GL.GenTexture();
 
@@ -174,6 +192,7 @@ namespace BEditor.Graphics
         /// <summary>
         /// Use this texture.
         /// </summary>
+        /// <param name="unit">The texure unit.</param>
         public void Use(TextureUnit unit)
         {
             GL.ActiveTexture(unit);

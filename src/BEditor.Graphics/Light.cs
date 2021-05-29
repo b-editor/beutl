@@ -1,4 +1,11 @@
-﻿using System.Numerics;
+﻿// Light.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System.Numerics;
 
 using BEditor.Drawing;
 
@@ -25,22 +32,22 @@ namespace BEditor.Graphics
         }
 
         /// <summary>
-        /// Gets the ambient color of this <see cref="Light"/>.
+        /// Gets or sets the ambient color of this <see cref="Light"/>.
         /// </summary>
         public Color Ambient { get; set; }
 
         /// <summary>
-        /// Gets the diffuse color of this <see cref="Light"/>.
+        /// Gets or sets the diffuse color of this <see cref="Light"/>.
         /// </summary>
         public Color Diffuse { get; set; }
 
         /// <summary>
-        /// Gets the specular color of this <see cref="Light"/>.
+        /// Gets or sets the specular color of this <see cref="Light"/>.
         /// </summary>
         public Color Specular { get; set; }
 
         /// <summary>
-        /// Gets the position of this <see cref="Light"/>.
+        /// Gets or sets the position of this <see cref="Light"/>.
         /// </summary>
         public Vector3 Position { get; set; }
     }

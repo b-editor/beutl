@@ -1,4 +1,10 @@
-﻿
+﻿// Transform.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
 using OpenTK.Mathematics;
 
 using Matrix4 = System.Numerics.Matrix4x4;
@@ -22,7 +28,7 @@ namespace BEditor.Graphics
         public static readonly Transform Default = new(new(0, 0, 0), new(0, 0, 0), new(0, 0, 0), new(1, 1, 1));
 
         /// <summary>
-        /// Initializes a new instance of the <see cref="Transform"/> class.
+        /// Initializes a new instance of the <see cref="Transform"/> struct.
         /// </summary>
         /// <param name="coord">The coordinates.</param>
         /// <param name="center">The center coordinates.</param>

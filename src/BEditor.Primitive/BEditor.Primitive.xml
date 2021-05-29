@@ -2585,11 +2585,6 @@
             <see cref="T:System.Type"/> of <see cref="F:BEditor.Primitive.PrimitiveTypes.Framebuffer"/> class.
             </summary>
         </member>
-        <member name="F:BEditor.Primitive.PrimitiveTypes.Listener">
-            <summary>
-            <see cref="T:System.Type"/> of <see cref="T:BEditor.Primitive.Objects.ListenerObject"/> class.
-            </summary>
-        </member>
         <member name="F:BEditor.Primitive.PrimitiveTypes.VideoMetadata">
             <summary>
             Metadata of <see cref="T:BEditor.Primitive.Objects.VideoFile"/> class.
@@ -2649,13 +2644,13 @@
             <summary>
             Enumerate all objects.
             </summary>
-            <returns></returns>
+            <returns>Returns the object metadata contained in BEditor.Primitive.</returns>
         </member>
         <member name="M:BEditor.Primitive.PrimitiveTypes.EnumerateAllEffectMetadata">
             <summary>
             Enumerate all effects.
             </summary>
-            <returns></returns>
+            <returns>Returns the effect metadata contained in BEditor.Primitive.</returns>
         </member>
         <member name="T:BEditor.Primitive.Resources.Strings">
             <summary>

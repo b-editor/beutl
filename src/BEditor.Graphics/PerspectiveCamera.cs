@@ -1,4 +1,11 @@
-﻿using System.Numerics;
+﻿// PerspectiveCamera.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System.Numerics;
 
 using MathHelper = OpenTK.Mathematics.MathHelper;
 
@@ -14,13 +21,14 @@ namespace BEditor.Graphics
         /// </summary>
         /// <param name="position">The position of the camera.</param>
         /// <param name="aspectRatio">The aspect ratio of the camera's viewport.</param>
-        public PerspectiveCamera(Vector3 position, float aspectRatio) : base(position)
+        public PerspectiveCamera(Vector3 position, float aspectRatio)
+            : base(position)
         {
             AspectRatio = aspectRatio;
         }
 
         /// <summary>
-        /// Gets the aspect ratio of the camera's viewport.
+        /// Gets or sets the aspect ratio of the camera's viewport.
         /// </summary>
         public float AspectRatio { get; set; }
 

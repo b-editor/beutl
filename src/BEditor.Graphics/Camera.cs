@@ -1,4 +1,11 @@
-﻿using System.Numerics;
+﻿// Camera.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System.Numerics;
 
 using MathHelper = OpenTK.Mathematics.MathHelper;
 using Matrix4 = OpenTK.Mathematics.Matrix4;
@@ -6,12 +13,12 @@ using Matrix4 = OpenTK.Mathematics.Matrix4;
 namespace BEditor.Graphics
 {
     /// <summary>
-    /// Represents an OpenGL camera
+    /// Represents an OpenGL camera.
     /// </summary>
     public abstract class Camera
     {
         private float _fov = MathHelper.PiOver2;
-        private Vector3 position;
+        private Vector3 _position;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Camera"/> class.
@@ -25,7 +32,7 @@ namespace BEditor.Graphics
         /// <summary>
         /// Gets or sets the position of this <see cref="Camera"/>.
         /// </summary>
-        public Vector3 Position { get => position; set => position = value; }
+        public Vector3 Position { get => _position; set => _position = value; }
 
         /// <summary>
         /// Gets or sets the target position of this <see cref="Camera"/>.
@@ -33,7 +40,7 @@ namespace BEditor.Graphics
         public Vector3 Target { get; set; }
 
         /// <summary>
-        /// Sets or gets the Degrees representing the Fov of this <see cref="Camera"/>.
+        /// Gets or sets the Degrees representing the Fov of this <see cref="Camera"/>.
         /// </summary>
         public float Fov
         {
@@ -46,26 +53,28 @@ namespace BEditor.Graphics
         }
 
         /// <summary>
-        /// Sets or gets the range to be drawn by this <see cref="Camera"/>.
+        /// Gets or sets the range to be drawn by this <see cref="Camera"/>.
         /// </summary>
         public float Near { get; set; } = 0.1f;
 
         /// <summary>
-        /// Sets or gets the range to be drawn by this <see cref="Camera"/>.
+        /// Gets or sets the range to be drawn by this <see cref="Camera"/>.
         /// </summary>
         public float Far { get; set; } = 20000;
 
         /// <summary>
-        /// Get ViewMatrix.
+        /// Gets the ViewMatrix.
         /// </summary>
+        /// <returns>Returns the view matrix.</returns>
         public Matrix4x4 GetViewMatrix()
         {
             return Matrix4.LookAt(Position.ToOpenTK(), Target.ToOpenTK(), OpenTK.Mathematics.Vector3.UnitY).ToNumerics();
         }
 
         /// <summary>
-        /// Get ProjectionMatrix.
+        /// Gets ProjectionMatrix.
         /// </summary>
+        /// <returns>Returns the projection matrix.</returns>
         public abstract Matrix4x4 GetProjectionMatrix();
     }
 }

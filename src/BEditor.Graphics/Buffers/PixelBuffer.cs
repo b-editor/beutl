@@ -1,4 +1,11 @@
-﻿using System;
+﻿// PixelBuffer.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System;
 using System.ComponentModel;
 using System.Threading;
 
@@ -35,7 +42,7 @@ namespace BEditor.Graphics
         }
 
         /// <summary>
-        /// Discards the reference to the target that is represented by the current <see cref="PixelBuffer"/> object.
+        /// Finalizes an instance of the <see cref="PixelBuffer"/> class.
         /// </summary>
         ~PixelBuffer()
         {
@@ -78,7 +85,7 @@ namespace BEditor.Graphics
         public PixelType Type { get; }
 
         /// <summary>
-        /// Get whether an object has been disposed.
+        /// Gets a value indicating whether this instance has been disposed.
         /// </summary>
         public bool IsDisposed { get; private set; }
 
@@ -156,7 +163,7 @@ namespace BEditor.Graphics
                 PixelType.Int => sizeof(int),
                 PixelType.UnsignedInt => sizeof(uint),
                 PixelType.HalfFloat => sizeof(float) / 2,
-                _ => sizeof(int)
+                _ => sizeof(int),
             };
         }
     }

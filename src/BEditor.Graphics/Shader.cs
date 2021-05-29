@@ -1,4 +1,11 @@
-﻿using System;
+﻿// Shader.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -69,14 +76,16 @@ namespace BEditor.Graphics
             }
         }
 
-        /// <inheritdoc/>
+        /// <summary>
+        /// Finalizes an instance of the <see cref="Shader"/> class.
+        /// </summary>
         ~Shader()
         {
             if (!IsDisposed) Dispose();
         }
 
         /// <summary>
-        /// Get whether an object has been disposed.
+        /// Gets a value indicating whether this instance has been disposed.
         /// </summary>
         public bool IsDisposed { get; private set; }
 
@@ -104,6 +113,7 @@ namespace BEditor.Graphics
         /// Returns the location of an attribute variable.
         /// </summary>
         /// <param name="attribName">Points to a null terminated string containing the name of the attribute variable whose location is to be queried.</param>
+        /// <returns>Returns the location of an attribute variable.</returns>
         public int GetAttribLocation(string attribName)
         {
             return GL.GetAttribLocation(_handle, attribName);
@@ -112,6 +122,8 @@ namespace BEditor.Graphics
         /// <summary>
         /// Specify the value of a uniform variable for the current program object.
         /// </summary>
+        /// <param name="name">The name of the uniform variable.</param>
+        /// <param name="data">The value of the uniform variable to set.</param>
         public void SetInt(string name, int data)
         {
             GL.UseProgram(_handle);
@@ -124,6 +136,8 @@ namespace BEditor.Graphics
         /// <summary>
         /// Specify the value of a uniform variable for the current program object.
         /// </summary>
+        /// <param name="name">The name of the uniform variable.</param>
+        /// <param name="data">The value of the uniform variable to set.</param>
         public void SetFloat(string name, float data)
         {
             GL.UseProgram(_handle);
@@ -136,6 +150,8 @@ namespace BEditor.Graphics
         /// <summary>
         /// Specify the value of a uniform variable for the current program object.
         /// </summary>
+        /// <param name="name">The name of the uniform variable.</param>
+        /// <param name="data">The value of the uniform variable to set.</param>
         public void SetMatrix4(string name, Matrix4x4 data)
         {
             var mat = data.ToOpenTK();
@@ -149,6 +165,8 @@ namespace BEditor.Graphics
         /// <summary>
         /// Specify the value of a uniform variable for the current program object.
         /// </summary>
+        /// <param name="name">The name of the uniform variable.</param>
+        /// <param name="data">The value of the uniform variable to set.</param>
         public void SetVector3(string name, Vector3 data)
         {
             var vec = data.ToOpenTK();
@@ -163,6 +181,8 @@ namespace BEditor.Graphics
         /// <summary>
         /// Specify the value of a uniform variable for the current program object.
         /// </summary>
+        /// <param name="name">The name of the uniform variable.</param>
+        /// <param name="data">The value of the uniform variable to set.</param>
         public void SetVector4(string name, Vector4 data)
         {
             var vec = data.ToOpenTK();

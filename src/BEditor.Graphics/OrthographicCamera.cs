@@ -1,4 +1,10 @@
-﻿
+﻿// OrthographicCamera.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
 using System.Numerics;
 
 namespace BEditor.Graphics
@@ -14,19 +20,20 @@ namespace BEditor.Graphics
         /// <param name="position">The position of the camera.</param>
         /// <param name="width">The width of the view volume.</param>
         /// <param name="height">The height of the view volume.</param>
-        public OrthographicCamera(Vector3 position, float width, float height) : base(position)
+        public OrthographicCamera(Vector3 position, float width, float height)
+            : base(position)
         {
             Width = width;
             Height = height;
         }
 
         /// <summary>
-        /// Gets the width of the view volume.
+        /// Gets or sets the width of the view volume.
         /// </summary>
         public float Width { get; set; }
 
         /// <summary>
-        /// Gets the height of the view volume.
+        /// Gets or sets the height of the view volume.
         /// </summary>
         public float Height { get; set; }
 

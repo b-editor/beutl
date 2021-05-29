@@ -1,4 +1,10 @@
-﻿
+﻿// Material.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
 using BEditor.Drawing;
 
 namespace BEditor.Graphics
@@ -9,7 +15,7 @@ namespace BEditor.Graphics
     public struct Material
     {
         /// <summary>
-        /// Initializes a new instance of the <see cref="Material"/> class.
+        /// Initializes a new instance of the <see cref="Material"/> struct.
         /// </summary>
         /// <param name="ambient">The ambient color.</param>
         /// <param name="diffuse">The diffuse color.</param>
