@@ -24,9 +24,9 @@
                 Orientation="Vertical"
                 Grid.Row="0">
                 <TextBox
-                        Text="{CompiledBinding SearchText.Value, Mode=TwoWay}"
-                        UseFloatingWatermark="True"
-                        Watermark="{x:Static props:Strings.Search}">
+                    Text="{CompiledBinding SearchText.Value, Mode=TwoWay}"
+                    UseFloatingWatermark="True"
+                    Watermark="{x:Static props:Strings.Search}">
                     <TextBox.InnerRightContent>
                         <Button IsDefault="True" Command="{CompiledBinding Search, Mode=OneTime}">
                             <PathIcon Data="{StaticResource Search16Regular}" Width="16" />

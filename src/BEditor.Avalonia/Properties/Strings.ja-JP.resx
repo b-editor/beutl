@@ -672,4 +672,7 @@ IdにはGUID, UUIDが使えます。</value>
   <data name="NotSupportedFormats" xml:space="preserve">
     <value>対応していないフォーマットです。</value>
   </data>
+  <data name="AlreadyCancelled" xml:space="preserve">
+    <value>すでにキャンセルされています。</value>
+  </data>
 </root>

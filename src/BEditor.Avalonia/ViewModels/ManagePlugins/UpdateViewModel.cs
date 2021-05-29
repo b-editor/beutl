@@ -24,6 +24,8 @@ namespace BEditor.ViewModels.ManagePlugins
             public string OldVersion => GetVersion(Plugin)!.ToString(3);
 
             public string NewVersion => Package.Versions.First().Version;
+
+            public PackageVersion NewerVersion => Package.Versions.First();
         }
 
         public UpdateViewModel()
@@ -31,10 +33,29 @@ namespace BEditor.ViewModels.ManagePlugins
             IsSelected = SelectedItem.Select(i => i is not null)
                 .ToReadOnlyReactivePropertySlim();
 
+            IsScheduled = SelectedItem.Select(p => PluginChangeSchedule.UpdateOrInstall.Any(i => i.Target == p.Package))
+                .ToReadOnlyReactivePropertySlim();
+
+            Cancel.Subscribe(async () =>
+            {
+                if (IsScheduled.Value &&
+                    PluginChangeSchedule.UpdateOrInstall.FirstOrDefault(i => i.Target == SelectedItem.Value.Package) is var item &&
+                    item is not null)
+                {
+                    PluginChangeSchedule.UpdateOrInstall.Remove(item);
+                }
+                else
+                {
+                    await AppModel.Current.Message.DialogAsync(Strings.AlreadyCancelled);
+                }
+
+                SelectedItem.ForceNotify();
+            });
+
             Update.Where(_ => IsSelected.Value)
                 .Subscribe(async _ =>
                 {
-                    if (!PluginChangeSchedule.UpdateOrInstall.Any(i => i.Target == SelectedItem.Value.Package))
+                    if (!IsScheduled.Value)
                     {
                         PluginChangeSchedule.UpdateOrInstall.Add(new(SelectedItem.Value.Package, PluginChangeType.Update));
                     }
@@ -42,6 +63,8 @@ namespace BEditor.ViewModels.ManagePlugins
                     {
                         await AppModel.Current.Message.DialogAsync(Strings.ThisNameAlreadyExists);
                     }
+
+                    SelectedItem.ForceNotify();
                 });
         }
 
@@ -55,6 +78,10 @@ namespace BEditor.ViewModels.ManagePlugins
         public ReactiveCollection<UpdateTarget> Items { get; } = new();
 
         public ReactiveCommand Update { get; } = new();
+
+        public ReactiveCommand Cancel { get; } = new();
+
+        public ReadOnlyReactivePropertySlim<bool> IsScheduled { get; }
 
         public void Initialize(LibraryViewModel library)
         {

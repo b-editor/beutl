@@ -672,4 +672,10 @@ GUID and UUID can be used for Id.</value>
   <data name="NotSupportedFormats" xml:space="preserve">
     <value>Not supported formats.</value>
   </data>
+  <data name="UpdateNote" xml:space="preserve">
+    <value>Update Notes</value>
+  </data>
+  <data name="AlreadyCancelled" xml:space="preserve">
+    <value>Already cancelled.</value>
+  </data>
 </root>

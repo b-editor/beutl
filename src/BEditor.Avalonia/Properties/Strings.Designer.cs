@@ -115,6 +115,15 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Already cancelled..
+        /// </summary>
+        public static string AlreadyCancelled {
+            get {
+                return ResourceManager.GetString("AlreadyCancelled", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to An exception was thrown during rendering,
         ///so playback was stopped..
         /// </summary>
@@ -1584,6 +1593,15 @@ namespace BEditor.Properties {
         public static string Update {
             get {
                 return ResourceManager.GetString("Update", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Update Notes.
+        /// </summary>
+        public static string UpdateNote {
+            get {
+                return ResourceManager.GetString("UpdateNote", resourceCulture);
             }
         }
         
