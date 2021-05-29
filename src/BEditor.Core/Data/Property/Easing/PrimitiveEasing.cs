@@ -23,11 +23,7 @@ namespace BEditor.Data.Property.Easing
         /// <summary>
         /// Defines the <see cref="EasingType"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<PrimitiveEasing, SelectorProperty> EasingTypeProperty = EditingProperty.RegisterDirect<SelectorProperty, PrimitiveEasing>(
-            nameof(EasingType),
-            owner => owner.EasingType,
-            (owner, obj) => owner.EasingType = obj,
-            EditingPropertyOptions<SelectorProperty>.Create(EasingTypeMetadata).Serialize());
+        public static readonly DirectEditingProperty<PrimitiveEasing, SelectorProperty> EasingTypeProperty;
 
         private static readonly SelectorPropertyMetadata EasingTypeMetadata = new("EasingType", new[]
         {
@@ -75,6 +71,15 @@ namespace BEditor.Data.Property.Easing
         private Func<float, float, float, float, float> _currentFunc = Easing.Instance.None;
 
         private IDisposable? _disposable;
+
+        static PrimitiveEasing()
+        {
+            EasingTypeProperty = EditingProperty.RegisterDirect<SelectorProperty, PrimitiveEasing>(
+                nameof(EasingType),
+                owner => owner.EasingType,
+                (owner, obj) => owner.EasingType = obj,
+                EditingPropertyOptions<SelectorProperty>.Create(EasingTypeMetadata).Serialize());
+        }
 
         /// <summary>
         /// Initializes a new instance of the <see cref="PrimitiveEasing"/> class.
