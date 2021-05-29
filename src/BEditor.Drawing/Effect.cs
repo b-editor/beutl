@@ -13,6 +13,8 @@ using BEditor.Compute.Runtime;
 using BEditor.Drawing.Pixel;
 using BEditor.Drawing.PixelOperation;
 
+using SkiaSharp;
+
 namespace BEditor.Drawing
 {
     /// <inheritdoc cref="Image"/>
@@ -259,6 +261,54 @@ namespace BEditor.Drawing
             kernel.NDRange(context.CommandQueue, new long[] { image.Width, image.Height }, buf, arg1, arg2, arg3);
             context.CommandQueue.WaitFinish();
             buf.Read(context.CommandQueue, true, image.Data, 0, dataSize).Wait();
+        }
+
+        /// <summary>
+        /// Makes the specified image a mask for the original image.
+        /// </summary>
+        /// <param name="self">The image to apply the effect to.</param>
+        /// <param name="mask">The image to use as mask.</param>
+        /// <param name="point">The position of the mask.</param>
+        /// <param name="rotate">The rotation angle of the mask.</param>
+        /// <param name="invert">The value of whether to invert the mask.</param>
+        /// <param name="context">When processing using Gpu, specify a valid DrawingContext.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="self"/> or <paramref name="mask"/> is <see langword="null"/>.</exception>
+        /// <exception cref="ObjectDisposedException">Cannot access a disposed object.</exception>
+        public static void Mask(this Image<BGRA32> self, Image<BGRA32> mask, PointF point, float rotate, bool invert, DrawingContext? context = null)
+        {
+            static SKBitmap MakeMask(Size size, Image<BGRA32> mask, PointF point, float rotate)
+            {
+                using var paint = new SKPaint();
+                var bmp = new SKBitmap(new SKImageInfo(size.Width, size.Height, SKColorType.Bgra8888));
+                using var canvas = new SKCanvas(bmp);
+                using var m = mask.ToSKBitmap();
+
+                canvas.Translate(size.Width / 2, size.Height / 2);
+                canvas.RotateDegrees(rotate);
+                canvas.DrawBitmap(
+                    m,
+                    new SKPoint(
+                        point.X - (mask.Width / 2F),
+                        point.Y - (mask.Height / 2F)),
+                    paint);
+
+                return bmp;
+            }
+
+            if (self is null) throw new ArgumentNullException(nameof(self));
+            if (mask is null) throw new ArgumentNullException(nameof(mask));
+            self.ThrowIfDisposed();
+            mask.ThrowIfDisposed();
+
+            // 回転した画像
+            using var m = MakeMask(self.Size, mask, point, rotate);
+            using var routed = m.ToImage32();
+            if (!invert)
+            {
+                routed.ReverseOpacity(context);
+            }
+
+            self.AlphaSubtract(routed, context);
         }
 
         /// <summary>

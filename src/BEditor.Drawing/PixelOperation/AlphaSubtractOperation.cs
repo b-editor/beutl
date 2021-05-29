@@ -22,8 +22,7 @@ namespace BEditor.Drawing
         /// <param name="image">The image to be processed.</param>
         /// <param name="mask">The mask image.</param>
         /// <param name="context">When processing using Gpu, specify a valid DrawingContext.</param>
-        /// <exception cref="ArgumentNullException"><paramref name="image"/> is <see langword="null"/>.</exception>
-        /// <exception cref="ArgumentNullException"><paramref name="mask"/> is <see langword="null"/>.</exception>
+        /// <exception cref="ArgumentNullException"><paramref name="image"/> or <paramref name="mask"/> is <see langword="null"/>.</exception>
         /// <exception cref="ObjectDisposedException">Cannot access a disposed object.</exception>
         public static void AlphaSubtract(this Image<BGRA32> image, Image<BGRA32> mask, DrawingContext? context = null)
         {
