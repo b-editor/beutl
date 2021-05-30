@@ -31,6 +31,7 @@ namespace BEditor.Packaging
         private static readonly string[] _ignoreDlls =
         {
             "BEditor.Audio",
+            "BEditor.Base",
             "BEditor.Compute",
             "BEditor.Core",
             "BEditor.Drawing",

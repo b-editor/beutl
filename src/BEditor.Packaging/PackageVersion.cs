@@ -5,6 +5,7 @@
 // This software may be modified and distributed under the terms
 // of the MIT license. See the LICENSE file for details.
 
+using System;
 using System.Text.Json.Serialization;
 
 namespace BEditor.Packaging
@@ -37,5 +38,11 @@ namespace BEditor.Packaging
         /// </summary>
         [JsonPropertyName("update_note_short")]
         public string UpdateNoteShort { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Gets or sets the date time of the release.
+        /// </summary>
+        [JsonPropertyName("release_datetime")]
+        public DateTime ReleaseDateTime { get; set; }
     }
 }
