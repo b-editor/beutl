@@ -11,7 +11,6 @@ namespace BEditor.Views.Timelines
     {
         public static readonly StyledProperty<float> ScaleProperty = AvaloniaProperty.Register<TimelineScale, float>(nameof(Scale), 150);
         public static readonly StyledProperty<int> RateProperty = AvaloniaProperty.Register<TimelineScale, int>(nameof(Rate), 30);
-        public static readonly StyledProperty<int> MaxProperty = AvaloniaProperty.Register<TimelineScale, int>(nameof(Max), 1500);
         private static readonly Typeface _typeface = new(FontFamily.Default, FontStyle.Normal, FontWeight.Medium);
         private readonly Pen _pen = new()
         {
@@ -33,12 +32,6 @@ namespace BEditor.Views.Timelines
         {
             get => GetValue(RateProperty);
             set => SetValue(RateProperty, value);
-        }
-
-        public int Max
-        {
-            get => GetValue(MaxProperty);
-            set => SetValue(MaxProperty, value);
         }
 
         public override void Render(DrawingContext context)
@@ -111,6 +104,8 @@ namespace BEditor.Views.Timelines
                         var xx = ToPixel(frame * value) + x;
                         if (!viewport.Contains(new Point(xx, Bounds.Height))) continue;
 
+                        if (Width < xx) return;
+
                         context.DrawLine(_pen, new(xx, top), new(xx, height));
                     }
                 }
@@ -146,6 +141,8 @@ namespace BEditor.Views.Timelines
                     {
                         var xx = SecToPixel(s * value) + x;
                         if (!viewport.Contains(new Point(xx, Bounds.Height))) continue;
+
+                        if (Width < xx) return;
 
                         context.DrawLine(_pen, new(xx, top), new(xx, height));
 

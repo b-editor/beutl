@@ -64,7 +64,6 @@
                 <view:TimelineScale
                     x:Name="scale"
                     Scale="{CompiledBinding Scene.TimeLineZoom, Mode=OneWay}"
-                    Max="{CompiledBinding Scene.TotalFrame.Value, Mode=OneWay}"
                     Rate="{CompiledBinding Scene.Parent.Framerate, Mode=OneWay}"
                     Width="{CompiledBinding TrackWidth.Value, Mode=OneWay}"
                     Height="32"
