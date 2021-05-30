@@ -295,6 +295,20 @@ namespace BEditor.Data
             }
         }
 
+        /// <inheritdoc/>
+        public void UpdateId()
+        {
+            Id = Guid.NewGuid();
+
+            if (this is IParent<IEditingObject> obj)
+            {
+                foreach (var item in obj.Children)
+                {
+                    item.UpdateId();
+                }
+            }
+        }
+
         /// <inheritdoc cref="IElementObject.Load"/>
         protected virtual void OnLoad()
         {

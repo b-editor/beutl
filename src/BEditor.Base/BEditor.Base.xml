@@ -230,6 +230,9 @@
         <member name="M:BEditor.Data.EditingObject.SetObjectData(System.Text.Json.JsonElement)">
             <inheritdoc/>
         </member>
+        <member name="M:BEditor.Data.EditingObject.UpdateId">
+            <inheritdoc/>
+        </member>
         <member name="M:BEditor.Data.EditingObject.OnLoad">
             <inheritdoc cref="M:BEditor.Data.IElementObject.Load"/>
         </member>
@@ -607,6 +610,11 @@
         <member name="M:BEditor.Data.IEditingObject.ClearDisposable">
             <summary>
             Removes all local values from this <see cref="T:BEditor.Data.EditingObject"/>.
+            </summary>
+        </member>
+        <member name="M:BEditor.Data.IEditingObject.UpdateId">
+            <summary>
+            Update the Id of all child elements that contain this object.
             </summary>
         </member>
         <member name="T:BEditor.Data.IEditingProperty">

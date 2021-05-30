@@ -301,9 +301,9 @@ namespace BEditor.Data
                 Before.Load();
 
                 new RemoveCommand(_source).Do();
-                After.SetID(Guid.NewGuid());
+                After.UpdateId();
                 _scene.Add(After);
-                Before.SetID(Guid.NewGuid());
+                Before.UpdateId();
                 _scene.Add(Before);
             }
 

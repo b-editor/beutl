@@ -199,11 +199,6 @@ namespace BEditor.Data
             return Clone();
         }
 
-        internal void SetID(Guid id)
-        {
-            Id = id;
-        }
-
         /// <summary>
         /// 指定した開始フレームにクリップを移動します.
         /// </summary>

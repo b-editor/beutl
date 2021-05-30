@@ -66,5 +66,10 @@ namespace BEditor.Data
         /// Removes all local values from this <see cref="EditingObject"/>.
         /// </summary>
         public void ClearDisposable();
+
+        /// <summary>
+        /// Update the Id of all child elements that contain this object.
+        /// </summary>
+        public void UpdateId();
     }
 }

@@ -250,7 +250,7 @@ namespace BEditor.Data
         {
             // オブジェクトの情報
             clip.Parent = this;
-            clip.SetID(Guid.NewGuid());
+            clip.UpdateId();
 
             return RecordCommand.Create(
                 clip,
