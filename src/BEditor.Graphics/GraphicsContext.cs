@@ -500,7 +500,7 @@ namespace BEditor.Graphics
         /// Reads an image from the frame buffer.
         /// </summary>
         /// <param name="image">The image to write the frame buffer pixels.</param>
-        public void ReadImage(Image<BGRA32> image)
+        public void ReadFromFramebuffer(Image<BGRA32> image)
         {
             if (image is null) throw new ArgumentNullException(nameof(image));
             image.ThrowIfDisposed();
@@ -514,6 +514,26 @@ namespace BEditor.Graphics
             image.Flip(FlipMode.X);
 
             Tool.ThrowGLError();
+        }
+
+        /// <summary>
+        /// Reads an image.
+        /// </summary>
+        /// <param name="image">The image to write the frame buffer pixels.</param>
+        public void ReadImage(Image<BGRA32> image)
+        {
+            if (image is null) throw new ArgumentNullException(nameof(image));
+            image.ThrowIfDisposed();
+            MakeCurrentAndBindFbo();
+
+            GL.ReadBuffer(ReadBufferMode.ColorAttachment0);
+
+            fixed (BGRA32* data = image.Data)
+            {
+                GL.ReadPixels(0, 0, image.Width, image.Height, PixelFormat.Bgra, PixelType.UnsignedByte, (IntPtr)data);
+            }
+
+            image.Flip(FlipMode.X);
         }
 
         private void DrawTextureWithLight(Texture texture, Action blend)

@@ -569,9 +569,15 @@
         <member name="M:BEditor.Graphics.GraphicsContext.Dispose">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Graphics.GraphicsContext.ReadImage(BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32})">
+        <member name="M:BEditor.Graphics.GraphicsContext.ReadFromFramebuffer(BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32})">
             <summary>
             Reads an image from the frame buffer.
+            </summary>
+            <param name="image">The image to write the frame buffer pixels.</param>
+        </member>
+        <member name="M:BEditor.Graphics.GraphicsContext.ReadImage(BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32})">
+            <summary>
+            Reads an image.
             </summary>
             <param name="image">The image to write the frame buffer pixels.</param>
         </member>
