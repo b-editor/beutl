@@ -3,7 +3,7 @@
         <TargetFrameworks>net5.0</TargetFrameworks>
         <LangVersion>latest</LangVersion>
         <Authors>b-editor</Authors>
-        <Version>0.1.2</Version>
+        <Version>0.1.3</Version>
         <Nullable>enable</Nullable>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
         <Deterministic>true</Deterministic>
