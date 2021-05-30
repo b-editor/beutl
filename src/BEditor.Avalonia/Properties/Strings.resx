@@ -678,4 +678,10 @@ GUID and UUID can be used for Id.</value>
   <data name="AlreadyCancelled" xml:space="preserve">
     <value>Already cancelled.</value>
   </data>
+  <data name="ShortDescription" xml:space="preserve">
+    <value>Short Description</value>
+  </data>
+  <data name="ShortUpdateNote" xml:space="preserve">
+    <value>Short Update Notes</value>
+  </data>
 </root>

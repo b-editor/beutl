@@ -1408,6 +1408,24 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Short Description.
+        /// </summary>
+        public static string ShortDescription {
+            get {
+                return ResourceManager.GetString("ShortDescription", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Short Update Notes.
+        /// </summary>
+        public static string ShortUpdateNote {
+            get {
+                return ResourceManager.GetString("ShortUpdateNote", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Show.
         /// </summary>
         public static string Show {

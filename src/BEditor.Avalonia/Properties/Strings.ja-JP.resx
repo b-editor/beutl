@@ -678,4 +678,10 @@ IdにはGUID, UUIDが使えます。</value>
   <data name="UpdateNote" xml:space="preserve">
     <value>更新ノート</value>
   </data>
+  <data name="ShortDescription" xml:space="preserve">
+    <value>短い説明</value>
+  </data>
+  <data name="ShortUpdateNote" xml:space="preserve">
+    <value>短い更新ノート</value>
+  </data>
 </root>

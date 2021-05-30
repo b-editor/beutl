@@ -1,9 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using System.Runtime.Loader;
 
 using Avalonia.Controls;
 
@@ -66,6 +63,8 @@ namespace BEditor.ViewModels.ManagePlugins
 
                 _ = progress.ShowDialog(App.GetMainWindow());
                 var mainAsm = Path.GetFileName(AssemblyFile.Value);
+                var asmName = AssemblyLoadContext.GetAssemblyName(AssemblyFile.Value);
+                var ver = asmName.Version?.ToString(3) ?? "0.0.0";
 
                 await PackageFile.CreatePackageAsync(
                     AssemblyFile.Value,
@@ -76,9 +75,21 @@ namespace BEditor.ViewModels.ManagePlugins
                         Name = Name.Value,
                         Author = Author.Value,
                         HomePage = WebSite.Value,
+                        DescriptionShort = DescriptionShort.Value,
                         Description = Description.Value,
+                        Tag = Tag.Value,
                         Id = id,
-                        License = License.Value
+                        License = License.Value,
+                        Versions = new PackageVersion[]
+                        {
+                            new()
+                            {
+                                Version = ver,
+                                UpdateNote = UpdateNote.Value,
+                                UpdateNoteShort = UpdateNoteShort.Value,
+                                ReleaseDateTime = DateTime.Now,
+                            }
+                        }
                     },
                     progress);
 
@@ -91,23 +102,34 @@ namespace BEditor.ViewModels.ManagePlugins
             });
         }
 
-        public ReactivePropertySlim<string> Name { get; } = new();
+        // Infomation
+        public ReactivePropertySlim<string> Name { get; } = new(string.Empty);
 
-        public ReactivePropertySlim<string> Author { get; } = new();
+        public ReactivePropertySlim<string> Author { get; } = new(string.Empty);
 
-        public ReactivePropertySlim<string> WebSite { get; } = new();
+        public ReactivePropertySlim<string> WebSite { get; } = new(string.Empty);
 
-        public ReactivePropertySlim<string> Description { get; } = new();
+        public ReactivePropertySlim<string> DescriptionShort { get; } = new(string.Empty);
 
-        public ReactivePropertySlim<string> Id { get; } = new();
+        public ReactivePropertySlim<string> Description { get; } = new(string.Empty);
 
-        public ReactivePropertySlim<string> License { get; } = new();
+        public ReactivePropertySlim<string> Tag { get; } = new(string.Empty);
 
-        public ReactivePropertySlim<string> OutputDirectory { get; } = new();
+        public ReactivePropertySlim<string> Id { get; } = new(string.Empty);
+
+        public ReactivePropertySlim<string> License { get; } = new(string.Empty);
+
+        // Version
+        public ReactivePropertySlim<string> UpdateNote { get; } = new(string.Empty);
+
+        public ReactivePropertySlim<string> UpdateNoteShort { get; } = new(string.Empty);
+
+        // Output
+        public ReactivePropertySlim<string> OutputDirectory { get; } = new(string.Empty);
 
         public ReactiveCommand PickDirectory { get; } = new();
 
-        public ReactivePropertySlim<string> AssemblyFile { get; } = new();
+        public ReactivePropertySlim<string> AssemblyFile { get; } = new(string.Empty);
 
         public ReactiveCommand PickAssemblyFile { get; } = new();
 

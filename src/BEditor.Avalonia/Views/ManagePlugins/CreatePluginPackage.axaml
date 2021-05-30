@@ -8,76 +8,133 @@
     x:DataType="vm:CreatePluginPackageViewModel"
     mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
     x:Class="BEditor.Views.ManagePlugins.CreatePluginPackage">
+    <UserControl.Styles>
+        <Style Selector="TabItem">
+            <Setter Property="FontSize" Value="16" />
+            <Setter Property="Padding" Value="8" />
+        </Style>
+        <Style Selector="ComboBox.SettingsComboBox">
+            <Setter Property="Margin" Value="0" />
+        </Style>
+        <Style Selector="TextBox.SettingsTextBox">
+            <Setter Property="Margin" Value="0" />
+        </Style>
+        <Style Selector="NumericUpDown.SettingsNumericUpDown">
+            <Setter Property="Margin" Value="0" />
+        </Style>
+        <Style Selector="Label.SettingsItemHeader">
+            <Setter Property="Margin" Value="0" />
+        </Style>
+    </UserControl.Styles>
     <UserControl.DataContext>
         <vm:CreatePluginPackageViewModel/>
     </UserControl.DataContext>
     <ScrollViewer>
-        <StackPanel Orientation="Vertical" Spacing="0">
-            <TextBlock Text="{x:Static props:Strings.CreatePluginPackage}" Classes="SettingsHeader" />
+        <TabControl>
+            <TabItem Header="{x:Static props:Strings.Infomation}">
+                <StackPanel Orientation="Vertical" Spacing="0">
+                    <Label Content="{x:Static props:Strings.Name}" Classes="SettingsItemHeader" />
 
-            <Label Content="{x:Static props:Strings.Name}" Classes="SettingsItemHeader" />
+                    <TextBox Classes="SettingsTextBox" Text="{CompiledBinding Name.Value}" />
 
-            <TextBox Classes="SettingsTextBox" Text="{CompiledBinding Name.Value}" />
+                    <Separator Height="16" />
 
-            <Separator Height="16" />
+                    <Label Content="{x:Static props:Strings.Author}" Classes="SettingsItemHeader" />
 
-            <Label Content="{x:Static props:Strings.Author}" Classes="SettingsItemHeader" />
+                    <TextBox Classes="SettingsTextBox" Text="{CompiledBinding Author.Value}" />
 
-            <TextBox Classes="SettingsTextBox" Text="{CompiledBinding Author.Value}" />
+                    <Separator Height="16" />
 
-            <Separator Height="16" />
+                    <Label Content="{x:Static props:Strings.WebSite}" Classes="SettingsItemHeader" />
 
-            <Label Content="{x:Static props:Strings.WebSite}" Classes="SettingsItemHeader" />
+                    <TextBox Classes="SettingsTextBox" Text="{CompiledBinding WebSite.Value}" />
 
-            <TextBox Classes="SettingsTextBox" Text="{CompiledBinding WebSite.Value}" />
+                    <Separator Height="16" />
 
-            <Separator Height="16" />
+                    <Label Content="{x:Static props:Strings.ShortDescription}" Classes="SettingsItemHeader" />
 
-            <Label Content="{x:Static props:Strings.Description}" Classes="SettingsItemHeader" />
+                    <TextBox Classes="SettingsTextBox" Text="{CompiledBinding DescriptionShort.Value}" />
 
-            <TextBox Classes="SettingsTextBox" Text="{CompiledBinding Description.Value}" />
+                    <Separator Height="16" />
 
-            <Separator Height="16" />
+                    <Label Content="{x:Static props:Strings.Description}" Classes="SettingsItemHeader" />
 
-            <Label Content="Id" Classes="SettingsItemHeader" />
+                    <TextBox
+                        Classes="SettingsTextBox"
+                        Width="450"
+                        Height="80"
+                        Text="{CompiledBinding Description.Value}" />
 
-            <TextBox Classes="SettingsTextBox" Text="{CompiledBinding Id.Value}" />
+                    <Separator Height="16" />
 
-            <Separator Height="16" />
+                    <Label Content="{x:Static props:Strings.Tag}" Classes="SettingsItemHeader" />
 
-            <Label Content="{x:Static props:Strings.License}" Classes="SettingsItemHeader" />
+                    <TextBox Classes="SettingsTextBox" Text="{CompiledBinding Tag.Value}" />
 
-            <TextBox Classes="SettingsTextBox" Text="{CompiledBinding License.Value}" />
+                    <Separator Height="16" />
 
-            <Separator Height="16" />
+                    <Label Content="Id" Classes="SettingsItemHeader" />
 
-            <Label Content="{x:Static props:Strings.OutputDirectory}" Classes="SettingsItemHeader" />
+                    <TextBox Classes="SettingsTextBox" Text="{CompiledBinding Id.Value}" />
 
-            <StackPanel Orientation="Horizontal">
-                <TextBox Text="{CompiledBinding OutputDirectory.Value, Mode=TwoWay}" Classes="SettingsTextBox" />
+                    <Separator Height="16" />
 
-                <Button Command="{CompiledBinding PickDirectory, Mode=OneTime}">
-                    <PathIcon Data="{StaticResource FolderOpen16Regular}" />
-                </Button>
-            </StackPanel>
+                    <Label Content="{x:Static props:Strings.License}" Classes="SettingsItemHeader" />
 
-            <Separator Height="16" />
+                    <TextBox Classes="SettingsTextBox" Text="{CompiledBinding License.Value}" />
 
-            <Label Content="{x:Static props:Strings.AssemblyFile}" Classes="SettingsItemHeader" />
+                    <Separator Height="16" />
 
-            <StackPanel Orientation="Horizontal">
-                <TextBox Text="{CompiledBinding AssemblyFile.Value, Mode=TwoWay}" Classes="SettingsTextBox" />
+                </StackPanel>
+            </TabItem>
+            <TabItem Header="{x:Static props:Strings.Version}">
+                <StackPanel Orientation="Vertical" Spacing="0">
+                    <Label Content="{x:Static props:Strings.ShortUpdateNote}" Classes="SettingsItemHeader" />
 
-                <Button Command="{CompiledBinding PickAssemblyFile, Mode=OneTime}">
-                    <PathIcon Data="{StaticResource FolderOpen16Regular}" />
-                </Button>
-            </StackPanel>
+                    <TextBox Classes="SettingsTextBox" Text="{CompiledBinding UpdateNoteShort.Value}" />
 
-            <Button
-                Margin="16"
-                Command="{CompiledBinding Create, Mode=OneTime}"
-                Content="{x:Static props:Strings.Create}" />
+                    <Separator Height="16" />
 
-        </StackPanel>
+                    <Label Content="{x:Static props:Strings.UpdateNote}" Classes="SettingsItemHeader" />
+
+                    <TextBox
+                        Classes="SettingsTextBox"
+                        Width="450"
+                        Height="80"
+                        Text="{CompiledBinding UpdateNote.Value}" />
+                </StackPanel>
+            </TabItem>
+            <TabItem Header="{x:Static props:Strings.Output}">
+                <StackPanel Orientation="Vertical" Spacing="0">
+                    <Label Content="{x:Static props:Strings.OutputDirectory}" Classes="SettingsItemHeader" />
+
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBox Text="{CompiledBinding OutputDirectory.Value, Mode=TwoWay}" Classes="SettingsTextBox" />
+
+                        <Button Command="{CompiledBinding PickDirectory, Mode=OneTime}">
+                            <PathIcon Data="{StaticResource FolderOpen16Regular}" />
+                        </Button>
+                    </StackPanel>
+
+                    <Separator Height="16" />
+
+                    <Label Content="{x:Static props:Strings.AssemblyFile}" Classes="SettingsItemHeader" />
+
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBox Text="{CompiledBinding AssemblyFile.Value, Mode=TwoWay}" Classes="SettingsTextBox" />
+
+                        <Button Command="{CompiledBinding PickAssemblyFile, Mode=OneTime}">
+                            <PathIcon Data="{StaticResource FolderOpen16Regular}" />
+                        </Button>
+                    </StackPanel>
+
+                    <Button
+                        Margin="0,16"
+                        Command="{CompiledBinding Create, Mode=OneTime}"
+                        Content="{x:Static props:Strings.Create}" />
+                </StackPanel>
+            </TabItem>
+        </TabControl>
+
     </ScrollViewer>
 </UserControl>
