@@ -15,7 +15,8 @@ namespace BEditor.Extensions.FFmpeg.Decoder
             {
                 _media = FFMediaToolkit.Decoding.MediaFile.Open(file, new()
                 {
-                    StreamsToLoad = FFMediaToolkit.Decoding.MediaMode.Video
+                    StreamsToLoad = FFMediaToolkit.Decoding.MediaMode.Video,
+                    VideoPixelFormat = FFMediaToolkit.Graphics.ImagePixelFormat.Bgra32
                 });
 
                 Video = _media.VideoStreams.Select(i => new VideoStream(i)).ToArray();

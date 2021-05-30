@@ -20,6 +20,7 @@ using BEditor.Media.Decoding;
 using BEditor.Primitive.Resources;
 
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace BEditor.Primitive.Objects
 {
@@ -67,6 +68,11 @@ namespace BEditor.Primitive.Objects
         public static readonly EditingProperty<ButtonComponent> SetLengthProperty = EditingProperty.Register<ButtonComponent, VideoFile>(
             nameof(SetLength),
             EditingPropertyOptions<ButtonComponent>.Create(new ButtonComponentMetadata(Strings.ClipLengthAsVideoLength)).Serialize());
+
+        private static readonly MediaOptions _options = new()
+        {
+            StreamsToLoad = MediaMode.Video,
+        };
 
         private MediaFile? _mediaFile;
 
@@ -139,29 +145,36 @@ namespace BEditor.Primitive.Objects
         {
             base.OnLoad();
 
-            if (System.IO.File.Exists(File.Value))
-            {
-                _mediaFile = MediaFile.Open(File.Value);
-            }
-
             _disposable1 = File.Subscribe(filename =>
             {
                 _mediaFile?.Dispose();
 
-                try
+                if (System.IO.File.Exists(File.Value))
                 {
-                    _mediaFile = MediaFile.Open(filename);
+                    try
+                    {
+                        _mediaFile = MediaFile.Open(filename, _options);
+                    }
+                    catch (Exception e)
+                    {
+                        var mes = ServiceProvider?.GetService<IMessage>();
+                        var msg = string.Format(Strings.FailedToLoad, filename);
+                        mes?.Snackbar(msg);
+                        LogManager.Logger?.LogError(e, msg);
+                    }
                 }
-                catch (Exception)
+                else
                 {
-                    var mes = ServiceProvider?.GetService<IMessage>();
-                    mes?.Snackbar(string.Format(Strings.FailedToLoad, filename));
+                    _mediaFile = null;
                 }
             });
 
             _disposable2 = SetLength.Subscribe(_ =>
             {
-                Parent.ChangeLength(Parent.Start, Parent.Start + _mediaFile!.Video!.Info.NumberOfFrames).Execute();
+                if (_mediaFile?.Video is not null)
+                {
+                    Parent.ChangeLength(Parent.Start, Parent.Start + _mediaFile.Video.Info.NumberOfFrames).Execute();
+                }
             });
         }
 
