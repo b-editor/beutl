@@ -10,6 +10,7 @@ using Avalonia.Media;
 
 using BEditor.Data;
 using BEditor.Extensions;
+using BEditor.Media;
 using BEditor.Models;
 
 using Reactive.Bindings;
@@ -196,8 +197,8 @@ namespace BEditor.ViewModels.Timelines
 
             if (timelinevm.ClipTimeChange)
             {
-                var frame = selectedClip.Parent.ToFrame(selectedClip.GetCreateClipViewModel().MarginLeft);
-                var layer = selectedClip.GetCreateClipViewModel().Row;
+                var frame = Math.Clamp(selectedClip.Parent.ToFrame(selectedClip.GetCreateClipViewModel().MarginLeft), 0, Scene.TotalFrame);
+                var layer = Math.Clamp(selectedClip.GetCreateClipViewModel().Row, 1, 100);
 
                 selectedClip.MoveFrameLayer(frame, layer).Execute();
 

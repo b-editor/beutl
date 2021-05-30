@@ -121,17 +121,11 @@ namespace BEditor.ViewModels.Timelines
                         return;
                     }
 
-                    Thickness thickness;
-                    if (newframe < 0)
-                    {
-                        thickness = new(0, 0, 0, 0);
-                    }
-                    else
-                    {
-                        thickness = new Thickness(Scene.ToPixel(newframe), ToLayerPixel(newlayer), 0, 0);
-                        selectviewmodel.Row = newlayer;
-                    }
+                    newlayer = Math.Clamp(newlayer, 1, 100);
+                    newframe = Math.Clamp(newframe, 0, Scene.TotalFrame);
+                    var thickness = new Thickness(Scene.ToPixel(newframe), ToLayerPixel(newlayer), 0, 0);
 
+                    selectviewmodel.Row = newlayer;
                     selectviewmodel.MarginProperty.Value = thickness;
 
                     ClipStart = point;
@@ -206,13 +200,11 @@ namespace BEditor.ViewModels.Timelines
             if (ClipTimeChange && SelectedClip is not null)
             {
                 var clip = SelectedClip;
-                var clipVm = clip.GetCreateClipViewModel();
-                var toframe = Scene.ToFrame(clipVm.MarginLeft);
+                var vm = clip.GetCreateClipViewModel();
+                var newlayer = Math.Clamp(vm.Row, 1, 100);
+                var newframe = Math.Clamp(Scene.ToFrame(vm.MarginLeft), 0, Scene.TotalFrame);
 
-                if (Frame.Zero > toframe)
-                {
-                    clip.MoveFrameLayer(toframe, clipVm.Row).Execute();
-                }
+                clip.MoveFrameLayer(newframe, newlayer).Execute();
 
                 ClipTimeChange = false;
             }
