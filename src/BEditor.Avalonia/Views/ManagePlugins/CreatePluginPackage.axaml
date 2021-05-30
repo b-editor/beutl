@@ -60,6 +60,7 @@
                     <Label Content="{x:Static props:Strings.Description}" Classes="SettingsItemHeader" />
 
                     <TextBox
+                        AcceptsReturn="True"
                         Classes="SettingsTextBox"
                         Width="450"
                         Height="80"
@@ -98,6 +99,7 @@
                     <Label Content="{x:Static props:Strings.UpdateNote}" Classes="SettingsItemHeader" />
 
                     <TextBox
+                        AcceptsReturn="True"
                         Classes="SettingsTextBox"
                         Width="450"
                         Height="80"

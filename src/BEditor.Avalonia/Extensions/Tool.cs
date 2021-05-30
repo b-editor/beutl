@@ -13,6 +13,8 @@ using BEditor.Properties;
 using BEditor.ViewModels;
 using BEditor.Views;
 
+using Microsoft.Extensions.Logging;
+
 namespace BEditor.Extensions
 {
     public static class Tool
@@ -73,9 +75,10 @@ namespace BEditor.Extensions
 
                     PreviewIsEnabled = true;
                 }
-                catch
+                catch(Exception e)
                 {
                     var app = AppModel.Current;
+                    App.Logger.LogError(e, "Failed to rendering.");
 
                     if (app.AppStatus is Status.Playing)
                     {
