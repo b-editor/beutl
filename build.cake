@@ -3,6 +3,7 @@
 var target = Argument("target", "Default");
 var configuration = Argument("configuration", "Release");
 var publishDir = DirectoryPath.FromString("./publish");
+CreateDirectory(publishDir);
 
 //////////////////////////////////////////////////////////////////////
 // TASKS
@@ -72,6 +73,7 @@ Task("NugetPublish")
     var libraries = new string[]
     {
         "BEditor.Audio",
+        "BEditor.Base",
         "BEditor.Compute",
         "BEditor.Core",
         "BEditor.Drawing",

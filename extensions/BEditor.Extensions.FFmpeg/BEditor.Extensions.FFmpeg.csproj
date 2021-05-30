@@ -3,7 +3,7 @@
     <PropertyGroup>
         <OutputPath>..\..\src\BEditor.Avalonia\bin\$(Configuration)\net5.0\user\plugins\BEditor.Extensions.FFmpeg</OutputPath>
         <Company>b-editor</Company>
-        <Copyright>MIT License</Copyright>
+        <Copyright>GNU General Public License (GPL) version 2</Copyright>
         <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
     </PropertyGroup>
 
