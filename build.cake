@@ -39,7 +39,7 @@ Task("AvaloniaExePublish")
             CreateDirectory(binaryPath);
             CleanDirectory(binaryPath);
 
-            DotNetCorePublish("./src/BEditor.Avalonia/BEditor.Avalonia.csproj", new DotNetCorePublishSettings
+            DotNetCorePublish("./src/BEditor.PackageInstaller/BEditor.PackageInstaller.csproj", new DotNetCorePublishSettings
             {
                 Configuration = configuration,
                 SelfContained = true,
@@ -48,7 +48,7 @@ Task("AvaloniaExePublish")
                 OutputDirectory = binaryPath
             });
 
-            DotNetCorePublish("./src/BEditor.PackageInstaller/BEditor.PackageInstaller.csproj", new DotNetCorePublishSettings
+            DotNetCorePublish("./src/BEditor.Avalonia/BEditor.Avalonia.csproj", new DotNetCorePublishSettings
             {
                 Configuration = configuration,
                 SelfContained = true,

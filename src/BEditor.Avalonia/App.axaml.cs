@@ -130,7 +130,10 @@ namespace BEditor
 
                 if (OperatingSystem.IsWindows())
                 {
-                    Process.Start("cmd.exe", new string[] { "/c", "start", Path.Combine(AppContext.BaseDirectory, "BEditor.PackageInstaller.exe"), jsonfile });
+                    Process.Start(new ProcessStartInfo(Path.Combine(AppContext.BaseDirectory, "BEditor.PackageInstaller.exe"), jsonfile)
+                    {
+                        UseShellExecute = true
+                    });
                 }
                 else if (OperatingSystem.IsLinux())
                 {
