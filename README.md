@@ -23,12 +23,12 @@ Windows, Linux, macOSで動作する動画編集ソフトウェアです。
 * クロスプラットフォーム (0.1.0から)
 * キーフレーム機能
 * 100個のレイヤー
-* [多数の対応フォーマット](https://ja.wikipedia.org/wiki/FFmpeg#サポートしているファイル形式)
-* [編集データの値を同期](https://beditor.net/Document?page=how_to_use/DataBinding)
-* [シーン機能](https://beditor.net/Document?page=keywords/Scene)
+* プラグイン機能
+* [編集データの値を同期](https://beditor.net/Document?page=how-to-use/data-binding)
+* [シーン機能](https://beditor.net/Document?page=keywords/scene)
 * [30種類以上のエフェクト](https://beditor.net/Document?page=effects/overview)
 * 12種類のオブジェクト
-    * フレームバッファ, 画像ファイル, 多角形, 角丸四角形, シーン, 図形, テキスト, 動画ファイル, カメラ, 3Dオブジェクト, リスナー
+    * フレームバッファ, 画像ファイル, 多角形, 角丸四角形, シーン, 図形, テキスト, 動画ファイル, カメラ, 3Dオブジェクト
 
 ## Requirements
 * [OpenAL](https://www.openal.org/)

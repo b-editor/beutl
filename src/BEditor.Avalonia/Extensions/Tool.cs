@@ -75,7 +75,7 @@ namespace BEditor.Extensions
 
                     PreviewIsEnabled = true;
                 }
-                catch(Exception e)
+                catch (Exception e)
                 {
                     var app = AppModel.Current;
                     App.Logger.LogError(e, "Failed to rendering.");
