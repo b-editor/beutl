@@ -8,7 +8,7 @@
 
     <ItemGroup>
         <PackageReference Include="OpenTK.Graphics" Version="4.6.4" />
-        <PackageReference Include="OpenTK.Windowing.GraphicsLibraryFramework" Version="4.6.3" />
+        <PackageReference Include="OpenTK.Windowing.GraphicsLibraryFramework" Version="4.6.4" />
     </ItemGroup>
 
     <ItemGroup>
