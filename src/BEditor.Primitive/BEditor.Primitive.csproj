@@ -10,7 +10,7 @@
     <Import Project="..\Shared\Shared.projitems" Label="Shared" />
 
     <ItemGroup>
-        <PackageReference Include="ReactiveProperty" Version="7.10.0" />
+        <PackageReference Include="ReactiveProperty" Version="7.11.0" />
     </ItemGroup>
 
     <ItemGroup>
