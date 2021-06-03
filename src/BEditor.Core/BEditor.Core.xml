@@ -4120,6 +4120,11 @@
             Gets the name of the assembly for this plugin.
             </summary>
         </member>
+        <member name="P:BEditor.Plugin.PluginObject.BaseDirectory">
+            <summary>
+            Gets the base directory.
+            </summary>
+        </member>
         <member name="P:BEditor.Plugin.PluginObject.Settings">
             <summary>
             Gets or sets the settings for this plugin.
@@ -4144,6 +4149,36 @@
             
              public SettingRecord Settings { get; set; } = new CustomSetting("Sample text");.
              </example>
+        </member>
+        <member name="M:BEditor.Plugin.SettingRecord.Save(System.String)">
+            <summary>
+            Saves this configuration to the specified file.
+            </summary>
+            <param name="filename">The file to save.</param>
+            <returns>Returns <see langword="true"/> if the save was successful, <see langword="false"/> otherwise.</returns>
+        </member>
+        <member name="M:BEditor.Plugin.SettingRecord.SaveAsync(System.String)">
+            <summary>
+            Saves this configuration to the specified file.
+            </summary>
+            <param name="filename">The file to save.</param>
+            <returns>Returns <see langword="true"/> if the save was successful, <see langword="false"/> otherwise.</returns>
+        </member>
+        <member name="M:BEditor.Plugin.SettingRecord.LoadFrom``1(System.String)">
+            <summary>
+            Loads the settings from a file.
+            </summary>
+            <typeparam name="T">Type of the object to be loaded.</typeparam>
+            <param name="filename">The name of the file to load.</param>
+            <returns>Returns the restored object on success, <see langword="null"/> otherwise.</returns>
+        </member>
+        <member name="M:BEditor.Plugin.SettingRecord.LoadFromAsync``1(System.String)">
+            <summary>
+            Loads the settings from a file.
+            </summary>
+            <typeparam name="T">Type of the object to be loaded.</typeparam>
+            <param name="filename">The name of the file to load.</param>
+            <returns>Returns the restored object on success, <see langword="null"/> otherwise.</returns>
         </member>
         <member name="T:BEditor.ProjectOpenedEventArgs">
             <summary>

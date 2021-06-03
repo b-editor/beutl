@@ -24,7 +24,7 @@ namespace BEditor
     /// </summary>
     public static class Serialize
     {
-        private static readonly JsonWriterOptions _options = new()
+        internal static readonly JsonWriterOptions _options = new()
         {
             Indented = true,
             Encoder = JavaScriptEncoder.Create(UnicodeRanges.All),
