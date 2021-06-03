@@ -43,7 +43,7 @@ namespace BEditor.Extensions.AviUtl
                 for (int i = 0; i < array.Length - 1; i++)
                 {
                     var (line, index) = array[i];
-                    var code = string.Join('\n', lines.AsSpan(index + 1, array[i + 1].index - index).ToArray());
+                    var code = string.Join('\n', lines.AsSpan(index + 1, array[i + 1].index - index - 1).ToArray());
 
                     yield return LoadEntry(line, code, file, name);
                 }

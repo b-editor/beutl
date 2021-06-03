@@ -376,7 +376,7 @@ namespace BEditor.Extensions.AviUtl
 
         public static void Register()
         {
-            var dir = Path.Combine(Directory.GetParent(Assembly.GetExecutingAssembly().Location)!.FullName, "script");
+            var dir = LuaScript.ScriptRoot;
             if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
             _loader = new(dir);
             var items = _loader.Load();

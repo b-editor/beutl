@@ -1,5 +1,7 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text.Json;
 
 using BEditor.Data;
@@ -7,23 +9,27 @@ using BEditor.Data.Primitive;
 using BEditor.Data.Property;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
+using BEditor.Media;
+
+using OpenCvSharp;
+
+using static BEditor.Extensions.AviUtl.LuaScript;
 
 namespace BEditor.Extensions.AviUtl
 {
     public class AnimationEffect : ImageEffect
     {
-        public static readonly DirectEditingProperty<AnimationEffect, (string script, string? group)> ScriptProperty = EditingProperty.RegisterDirect<(string script, string? group), AnimationEffect>(
-            "Script",
-            owner => (owner.ScriptName, owner.GroupName),
-            (owner, obj) => (owner.ScriptName, owner.GroupName) = obj,
-            EditingPropertyOptions<(string script, string? group)>.Create()
-            .Serialize(
-                (writer, obj) =>
-                {
-                    writer.WriteString(nameof(ScriptName), obj.script);
-                    writer.WriteString(nameof(GroupName), obj.group);
-                },
-                element => (element.GetProperty(nameof(ScriptName)).GetString()!, element.GetProperty(nameof(GroupName)).GetString())));
+        public static readonly DirectEditingProperty<AnimationEffect, string> ScriptNameProperty = EditingProperty.RegisterDirect<string, AnimationEffect>(
+            nameof(ScriptName),
+            owner => owner.ScriptName,
+            (owner, obj) => owner.ScriptName = obj,
+            EditingPropertyOptions<string>.Create()!.Serialize()!);
+        
+        public static readonly DirectEditingProperty<AnimationEffect, string?> GroupNameProperty = EditingProperty.RegisterDirect<string?, AnimationEffect>(
+            nameof(GroupName),
+            owner => owner.GroupName,
+            (owner, obj) => owner.GroupName = obj,
+            EditingPropertyOptions<string?>.Create().Serialize());
 
         public AnimationEffect(ScriptEntry entry)
         {
@@ -49,7 +55,24 @@ namespace BEditor.Extensions.AviUtl
 
         public override void Apply(EffectApplyArgs<Image<BGRA32>> args)
         {
+            if (Parent.Effect[0] is ImageObject obj)
+            {
+                var lua = LuaGlobal;
+                var table = new ObjectTable(args, obj);
+                SetPropertyValue(table, args.Frame);
+                lua.SetValue("obj", table);
+                lua.SetValue("rand", new ObjectTable.RandomDelegate(table.rand));
 
+                try
+                {
+                    var result = LuaGlobal.DoChunk(Entry.Code, Entry.File);
+                }
+                catch
+                {
+                    //Debug.Fail(string.Empty);
+                }
+            }
+            Parent.Parent.GraphicsContext!.MakeCurrentAndBindFbo();
         }
 
         public override IEnumerable<PropertyElement> GetProperties()
@@ -85,6 +108,39 @@ namespace BEditor.Extensions.AviUtl
             else
             {
                 dictionary.Add(key, value);
+            }
+        }
+
+        private void SetPropertyValue(ObjectTable table, Frame frame)
+        {
+            if (Properties.TryGetValue("track0", out var prop) && prop is EaseProperty track0)
+            {
+                table.track0 = track0[frame];
+            }
+            if (Properties.TryGetValue("track1", out prop) && prop is EaseProperty track1)
+            {
+                table.track1 = track1[frame];
+            }
+            if (Properties.TryGetValue("track2", out prop) && prop is EaseProperty track2)
+            {
+                table.track2 = track2[frame];
+            }
+            if (Properties.TryGetValue("track3", out prop) && prop is EaseProperty track3)
+            {
+                table.track3 = track3[frame];
+            }
+            if (Properties.TryGetValue("check0", out prop) && prop is CheckProperty check0)
+            {
+                table.check0 = check0.Value;
+            }
+            if (Properties.TryGetValue("color", out prop) && prop is ColorProperty color)
+            {
+                var value = (BGRA32)color.Value;
+                table.color = Unsafe.As<BGRA32, int>(ref value);
+            }
+            if (Properties.TryGetValue("file", out prop) && prop is FileProperty file)
+            {
+                LuaGlobal.SetValue("file", file.Value);
             }
         }
     }
