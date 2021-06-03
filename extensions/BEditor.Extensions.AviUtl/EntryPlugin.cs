@@ -360,10 +360,14 @@ namespace BEditor.Extensions.AviUtl
     public class Plugin : PluginObject
     {
         [AllowNull]
-        internal static ScriptLoader _loader;
+        internal static ScriptLoader Loader;
+
+        [AllowNull]
+        internal static Plugin Default;
 
         public Plugin(PluginConfig config) : base(config)
         {
+            Default = this;
         }
 
         public override string PluginName => "BEditor.Extensions.AviUtl";
@@ -376,15 +380,15 @@ namespace BEditor.Extensions.AviUtl
 
         public static void Register()
         {
-            var dir = LuaScript.ScriptRoot;
+            var dir = Path.Combine(Directory.GetParent(Assembly.GetExecutingAssembly().Location)!.FullName, "script");
             if (!Directory.Exists(dir)) Directory.CreateDirectory(dir);
-            _loader = new(dir);
-            var items = _loader.Load();
+            Loader = new(dir);
+            var items = Loader.Load();
 
             PluginBuilder.Configure<Plugin>()
                 .ConfigureServices(s => s
-                    .AddSingleton(_ => LuaScript.LuaGlobal)
-                    .AddSingleton(_ => _loader))
+                    .AddSingleton(_ => Loader.Global)
+                    .AddSingleton(_ => Loader))
                 .With(CreateEffectMetadata(items.Where(i => i.Type is ScriptType.Animation)))
                 .Register();
         }
@@ -428,6 +432,6 @@ namespace BEditor.Extensions.AviUtl
     }
 
     public record CustomSettings(
-        [property: DisplayName("Y軸の値を反転する")]
+        [property: DisplayName("Y軸の値を反転する (左手座標系を使用)")]
         bool ReverseYAsis = true) : SettingRecord;
 }

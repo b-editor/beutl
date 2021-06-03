@@ -5,6 +5,8 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 
+using Neo.IronLua;
+
 namespace BEditor.Extensions.AviUtl
 {
     public class ScriptLoader
@@ -12,13 +14,19 @@ namespace BEditor.Extensions.AviUtl
         private static readonly Regex _scriptName = new(@"^\@(?<name>.*?)$", RegexOptions.Multiline);
         private static readonly Encoding shift_jis = CodePagesEncodingProvider.Instance.GetEncoding("shift-jis")!;
 
-
         public ScriptLoader(string baseDir)
         {
             BaseDirectory = baseDir;
+            Engine = new();
+            Global = Engine.CreateEnvironment();
         }
 
+        public Lua Engine { get; }
+
+        public LuaGlobal Global { get; }
+
         public string BaseDirectory { get; }
+
         public ScriptEntry[]? Loaded { get; private set; }
 
         public ScriptEntry[] Load()

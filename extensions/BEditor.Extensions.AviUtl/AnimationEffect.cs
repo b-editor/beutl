@@ -9,11 +9,11 @@ using BEditor.Data.Primitive;
 using BEditor.Data.Property;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
+using BEditor.Extensions.AviUtl.Resources;
 using BEditor.Media;
 
-using OpenCvSharp;
-
-using static BEditor.Extensions.AviUtl.LuaScript;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace BEditor.Extensions.AviUtl
 {
@@ -24,7 +24,7 @@ namespace BEditor.Extensions.AviUtl
             owner => owner.ScriptName,
             (owner, obj) => owner.ScriptName = obj,
             EditingPropertyOptions<string>.Create()!.Serialize()!);
-        
+
         public static readonly DirectEditingProperty<AnimationEffect, string?> GroupNameProperty = EditingProperty.RegisterDirect<string?, AnimationEffect>(
             nameof(GroupName),
             owner => owner.GroupName,
@@ -57,7 +57,7 @@ namespace BEditor.Extensions.AviUtl
         {
             if (Parent.Effect[0] is ImageObject obj)
             {
-                var lua = LuaGlobal;
+                var lua = Plugin.Loader.Global;
                 var table = new ObjectTable(args, obj);
                 SetPropertyValue(table, args.Frame);
                 lua.SetValue("obj", table);
@@ -65,11 +65,12 @@ namespace BEditor.Extensions.AviUtl
 
                 try
                 {
-                    var result = LuaGlobal.DoChunk(Entry.Code, Entry.File);
+                    var result = lua.DoChunk(Entry.Code, Entry.File);
                 }
-                catch
+                catch (Exception e)
                 {
-                    //Debug.Fail(string.Empty);
+                    LogManager.Logger.LogError(e, Strings.FailedToExecuteScript);
+                    ServiceProvider?.GetService<IMessage>()?.Snackbar(Strings.FailedToExecuteScript);
                 }
             }
             Parent.Parent.GraphicsContext!.MakeCurrentAndBindFbo();
@@ -84,7 +85,7 @@ namespace BEditor.Extensions.AviUtl
         {
             base.SetObjectData(element);
             Properties = new();
-            Entry = Plugin._loader.Loaded!.First(i => i.Name == ScriptName && i.GroupName == GroupName);
+            Entry = Plugin.Loader.Loaded!.First(i => i.Name == ScriptName && i.GroupName == GroupName);
 
             foreach (var item in Entry.Settings)
             {
@@ -140,7 +141,7 @@ namespace BEditor.Extensions.AviUtl
             }
             if (Properties.TryGetValue("file", out prop) && prop is FileProperty file)
             {
-                LuaGlobal.SetValue("file", file.Value);
+                Plugin.Loader.Global.SetValue("file", file.Value);
             }
         }
     }
