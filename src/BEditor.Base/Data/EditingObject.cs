@@ -30,7 +30,7 @@ namespace BEditor.Data
             owner => owner.Id,
             (owner, obj) => owner.Id = obj,
             EditingPropertyOptions<Guid>.Create()
-                .Serialize((writer, obj) => writer.WriteStringValue(obj), element => element.GetGuid())
+                .Serialize()
                 .Initialize(() => Guid.NewGuid()));
 
         private Dictionary<EditingPropertyRegistryKey, object?>? _values = new();

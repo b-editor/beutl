@@ -134,6 +134,83 @@
             <param name="options">The options to be specified.</param>
             <returns>An <see cref="T:BEditor.Data.EditingPropertyOptions`1"/> instance.</returns>
         </member>
+        <member name="M:BEditor.Data.DataExtensions.Serialize(BEditor.Data.EditingPropertyOptions{System.String})">
+            <summary>
+            Specifies the serializer for the property.
+            </summary>
+            <param name="options">The options to be specified.</param>
+            <returns>An <see cref="T:BEditor.Data.EditingPropertyOptions`1"/> instance.</returns>
+        </member>
+        <member name="M:BEditor.Data.DataExtensions.Serialize(BEditor.Data.EditingPropertyOptions{System.Int32})">
+            <summary>
+            Specifies the serializer for the property.
+            </summary>
+            <param name="options">The options to be specified.</param>
+            <returns>An <see cref="T:BEditor.Data.EditingPropertyOptions`1"/> instance.</returns>
+        </member>
+        <member name="M:BEditor.Data.DataExtensions.Serialize(BEditor.Data.EditingPropertyOptions{System.Int64})">
+            <summary>
+            Specifies the serializer for the property.
+            </summary>
+            <param name="options">The options to be specified.</param>
+            <returns>An <see cref="T:BEditor.Data.EditingPropertyOptions`1"/> instance.</returns>
+        </member>
+        <member name="M:BEditor.Data.DataExtensions.Serialize(BEditor.Data.EditingPropertyOptions{System.UInt32})">
+            <summary>
+            Specifies the serializer for the property.
+            </summary>
+            <param name="options">The options to be specified.</param>
+            <returns>An <see cref="T:BEditor.Data.EditingPropertyOptions`1"/> instance.</returns>
+        </member>
+        <member name="M:BEditor.Data.DataExtensions.Serialize(BEditor.Data.EditingPropertyOptions{System.UInt64})">
+            <summary>
+            Specifies the serializer for the property.
+            </summary>
+            <param name="options">The options to be specified.</param>
+            <returns>An <see cref="T:BEditor.Data.EditingPropertyOptions`1"/> instance.</returns>
+        </member>
+        <member name="M:BEditor.Data.DataExtensions.Serialize(BEditor.Data.EditingPropertyOptions{System.Single})">
+            <summary>
+            Specifies the serializer for the property.
+            </summary>
+            <param name="options">The options to be specified.</param>
+            <returns>An <see cref="T:BEditor.Data.EditingPropertyOptions`1"/> instance.</returns>
+        </member>
+        <member name="M:BEditor.Data.DataExtensions.Serialize(BEditor.Data.EditingPropertyOptions{System.Double})">
+            <summary>
+            Specifies the serializer for the property.
+            </summary>
+            <param name="options">The options to be specified.</param>
+            <returns>An <see cref="T:BEditor.Data.EditingPropertyOptions`1"/> instance.</returns>
+        </member>
+        <member name="M:BEditor.Data.DataExtensions.Serialize(BEditor.Data.EditingPropertyOptions{System.Decimal})">
+            <summary>
+            Specifies the serializer for the property.
+            </summary>
+            <param name="options">The options to be specified.</param>
+            <returns>An <see cref="T:BEditor.Data.EditingPropertyOptions`1"/> instance.</returns>
+        </member>
+        <member name="M:BEditor.Data.DataExtensions.Serialize(BEditor.Data.EditingPropertyOptions{System.Guid})">
+            <summary>
+            Specifies the serializer for the property.
+            </summary>
+            <param name="options">The options to be specified.</param>
+            <returns>An <see cref="T:BEditor.Data.EditingPropertyOptions`1"/> instance.</returns>
+        </member>
+        <member name="M:BEditor.Data.DataExtensions.Serialize(BEditor.Data.EditingPropertyOptions{System.DateTime})">
+            <summary>
+            Specifies the serializer for the property.
+            </summary>
+            <param name="options">The options to be specified.</param>
+            <returns>An <see cref="T:BEditor.Data.EditingPropertyOptions`1"/> instance.</returns>
+        </member>
+        <member name="M:BEditor.Data.DataExtensions.Serialize(BEditor.Data.EditingPropertyOptions{System.DateTimeOffset})">
+            <summary>
+            Specifies the serializer for the property.
+            </summary>
+            <param name="options">The options to be specified.</param>
+            <returns>An <see cref="T:BEditor.Data.EditingPropertyOptions`1"/> instance.</returns>
+        </member>
         <member name="T:BEditor.Data.DirectEditingProperty`2">
             <summary>
             A direct editing property.

@@ -161,5 +161,137 @@ namespace BEditor.Data
         {
             return options.Serialize(Internals.PropertyJsonSerializer<TValue>.Current);
         }
+
+        /// <summary>
+        /// Specifies the serializer for the property.
+        /// </summary>
+        /// <param name="options">The options to be specified.</param>
+        /// <returns>An <see cref="EditingPropertyOptions{TValue}"/> instance.</returns>
+        public static EditingPropertyOptions<string?> Serialize(this EditingPropertyOptions<string?> options)
+        {
+            return options.Serialize(
+                (writer, value) => writer.WriteStringValue(value),
+                element => element.GetString() ?? string.Empty);
+        }
+
+        /// <summary>
+        /// Specifies the serializer for the property.
+        /// </summary>
+        /// <param name="options">The options to be specified.</param>
+        /// <returns>An <see cref="EditingPropertyOptions{TValue}"/> instance.</returns>
+        public static EditingPropertyOptions<int> Serialize(this EditingPropertyOptions<int> options)
+        {
+            return options.Serialize(
+                (writer, value) => writer.WriteNumberValue(value),
+                element => element.GetInt32());
+        }
+
+        /// <summary>
+        /// Specifies the serializer for the property.
+        /// </summary>
+        /// <param name="options">The options to be specified.</param>
+        /// <returns>An <see cref="EditingPropertyOptions{TValue}"/> instance.</returns>
+        public static EditingPropertyOptions<long> Serialize(this EditingPropertyOptions<long> options)
+        {
+            return options.Serialize(
+                (writer, value) => writer.WriteNumberValue(value),
+                element => element.GetInt64());
+        }
+
+        /// <summary>
+        /// Specifies the serializer for the property.
+        /// </summary>
+        /// <param name="options">The options to be specified.</param>
+        /// <returns>An <see cref="EditingPropertyOptions{TValue}"/> instance.</returns>
+        public static EditingPropertyOptions<uint> Serialize(this EditingPropertyOptions<uint> options)
+        {
+            return options.Serialize(
+                (writer, value) => writer.WriteNumberValue(value),
+                element => element.GetUInt32());
+        }
+
+        /// <summary>
+        /// Specifies the serializer for the property.
+        /// </summary>
+        /// <param name="options">The options to be specified.</param>
+        /// <returns>An <see cref="EditingPropertyOptions{TValue}"/> instance.</returns>
+        public static EditingPropertyOptions<ulong> Serialize(this EditingPropertyOptions<ulong> options)
+        {
+            return options.Serialize(
+                (writer, value) => writer.WriteNumberValue(value),
+                element => element.GetUInt64());
+        }
+
+        /// <summary>
+        /// Specifies the serializer for the property.
+        /// </summary>
+        /// <param name="options">The options to be specified.</param>
+        /// <returns>An <see cref="EditingPropertyOptions{TValue}"/> instance.</returns>
+        public static EditingPropertyOptions<float> Serialize(this EditingPropertyOptions<float> options)
+        {
+            return options.Serialize(
+                (writer, value) => writer.WriteNumberValue(value),
+                element => element.GetSingle());
+        }
+
+        /// <summary>
+        /// Specifies the serializer for the property.
+        /// </summary>
+        /// <param name="options">The options to be specified.</param>
+        /// <returns>An <see cref="EditingPropertyOptions{TValue}"/> instance.</returns>
+        public static EditingPropertyOptions<double> Serialize(this EditingPropertyOptions<double> options)
+        {
+            return options.Serialize(
+                (writer, value) => writer.WriteNumberValue(value),
+                element => element.GetDouble());
+        }
+
+        /// <summary>
+        /// Specifies the serializer for the property.
+        /// </summary>
+        /// <param name="options">The options to be specified.</param>
+        /// <returns>An <see cref="EditingPropertyOptions{TValue}"/> instance.</returns>
+        public static EditingPropertyOptions<decimal> Serialize(this EditingPropertyOptions<decimal> options)
+        {
+            return options.Serialize(
+                (writer, value) => writer.WriteNumberValue(value),
+                element => element.GetDecimal());
+        }
+
+        /// <summary>
+        /// Specifies the serializer for the property.
+        /// </summary>
+        /// <param name="options">The options to be specified.</param>
+        /// <returns>An <see cref="EditingPropertyOptions{TValue}"/> instance.</returns>
+        public static EditingPropertyOptions<Guid> Serialize(this EditingPropertyOptions<Guid> options)
+        {
+            return options.Serialize(
+                (writer, value) => writer.WriteStringValue(value),
+                element => element.GetGuid());
+        }
+
+        /// <summary>
+        /// Specifies the serializer for the property.
+        /// </summary>
+        /// <param name="options">The options to be specified.</param>
+        /// <returns>An <see cref="EditingPropertyOptions{TValue}"/> instance.</returns>
+        public static EditingPropertyOptions<DateTime> Serialize(this EditingPropertyOptions<DateTime> options)
+        {
+            return options.Serialize(
+                (writer, value) => writer.WriteStringValue(value),
+                element => element.GetDateTime());
+        }
+
+        /// <summary>
+        /// Specifies the serializer for the property.
+        /// </summary>
+        /// <param name="options">The options to be specified.</param>
+        /// <returns>An <see cref="EditingPropertyOptions{TValue}"/> instance.</returns>
+        public static EditingPropertyOptions<DateTimeOffset> Serialize(this EditingPropertyOptions<DateTimeOffset> options)
+        {
+            return options.Serialize(
+                (writer, value) => writer.WriteStringValue(value),
+                element => element.GetDateTimeOffset());
+        }
     }
 }
