@@ -6,6 +6,7 @@
 // of the MIT license. See the LICENSE file for details.
 
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 
@@ -36,7 +37,23 @@ namespace BEditor.Media
         /// <returns>Returns the output container created by this method.</returns>
         public static IOutputContainer? Create(string file)
         {
-            return GuessEncodings(file).FirstOrDefault()?.Create(file);
+            var encoding = GuessEncodings(file).FirstOrDefault();
+            return encoding?.Create(file);
+        }
+
+        /// <summary>
+        /// Create a container from the name of the file to be output.
+        /// </summary>
+        /// <param name="file">The file name to output.</param>
+        /// <param name="container">Returns the output container created by this method.</param>
+        /// <param name="encoding">The encoding.</param>
+        public static void Create(
+            string file,
+            [NotNullIfNotNull("encoding")] out IOutputContainer? container,
+            [NotNullIfNotNull("container")] out IRegisterdEncoding? encoding)
+        {
+            encoding = GuessEncodings(file).FirstOrDefault()!;
+            container = encoding?.Create(file);
         }
 
         /// <summary>

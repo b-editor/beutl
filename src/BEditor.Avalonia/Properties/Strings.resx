@@ -684,4 +684,17 @@ GUID and UUID can be used for Id.</value>
   <data name="ShortUpdateNote" xml:space="preserve">
     <value>Short Update Notes</value>
   </data>
+  <data name="EncoderNotFound" xml:space="preserve">
+    <value>Encoder not found.</value>
+  </data>
+  <data name="Encoder" xml:space="preserve">
+    <value>Encoder</value>
+  </data>
+  <data name="EncoderSettings" xml:space="preserve">
+    <value>Encoder settings</value>
+  </data>
+  <data name="EncoderIsNotSet" xml:space="preserve">
+    <value>The encoder is not set.
+After the encoder is set, the detailed settings will be displayed.</value>
+  </data>
 </root>

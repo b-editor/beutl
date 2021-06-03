@@ -550,6 +550,43 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Encoder.
+        /// </summary>
+        public static string Encoder {
+            get {
+                return ResourceManager.GetString("Encoder", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The encoder is not set.
+        ///After the encoder is set, the detailed settings will be displayed..
+        /// </summary>
+        public static string EncoderIsNotSet {
+            get {
+                return ResourceManager.GetString("EncoderIsNotSet", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Encoder not found..
+        /// </summary>
+        public static string EncoderNotFound {
+            get {
+                return ResourceManager.GetString("EncoderNotFound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Encoder settings.
+        /// </summary>
+        public static string EncoderSettings {
+            get {
+                return ResourceManager.GetString("EncoderSettings", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Select a {0} or its child elements.
         /// </summary>
         public static string ErrorObjectViewer1 {

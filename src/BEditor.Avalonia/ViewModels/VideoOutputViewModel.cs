@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reactive.Linq;
 using System.Threading.Tasks;
@@ -39,6 +40,7 @@ namespace BEditor.ViewModels
             {
                 var record = new SaveFileRecord
                 {
+                    DefaultFileName = File.Value,
                     Filters =
                     {
                         new(Strings.VideoFile, EncodingRegistory.EnumerateEncodings()
@@ -52,8 +54,30 @@ namespace BEditor.ViewModels
                 if (await AppModel.Current.FileDialog.ShowSaveFileDialogAsync(record))
                 {
                     File.Value = record.FileName;
+
+                    var array = EncodingRegistory.GuessEncodings(File.Value);
+                    Encoders.Clear();
+                    if (array.Length is 0)
+                    {
+                        await AppModel.Current.Message.DialogAsync(Strings.EncoderNotFound, IconType.Error);
+                        SelectedEncoder.Value = null;
+                    }
+                    else
+                    {
+                        Encoders.AddRangeOnScheduler(array);
+                        SelectedEncoder.Value = array[0];
+                    }
                 }
             });
+
+            OutputIsEnabled = SelectedEncoder.Select(i => i is not null)
+                .ToReadOnlyReactivePropertySlim();
+
+            AudioEncoderSettings = SelectedEncoder.Select(i => i?.GetDefaultAudioSettings()?.CodecOptions)
+                .ToReadOnlyReactivePropertySlim();
+
+            VideoEncoderSettings = SelectedEncoder.Select(i => i?.GetDefaultVideoSettings()?.CodecOptions)
+                .ToReadOnlyReactivePropertySlim();
 
             Output.Subscribe(async () =>
             {
@@ -71,6 +95,8 @@ namespace BEditor.ViewModels
                     {
                         var scene = SelectedScene.Value;
                         var proj = Project;
+                        var videoSettings = await (GetVideoSettings?.Invoke() ?? Task.FromResult<Dictionary<string, object>?>(null));
+                        var audioSettings = await (GetAudioSettings?.Invoke() ?? Task.FromResult<Dictionary<string, object>?>(null));
 
                         var output = MediaBuilder.CreateContainer(File.Value)
                             .WithVideo(config =>
@@ -80,12 +106,20 @@ namespace BEditor.ViewModels
                                 config.Framerate = Project.Framerate;
                                 config.Bitrate = VideoBitrate.Value;
                                 config.KeyframeRate = KeyframeRate.Value;
+                                if (videoSettings is not null)
+                                {
+                                    config.CodecOptions = videoSettings;
+                                }
                             })
                             .WithAudio(config =>
                             {
                                 config.Bitrate = AudioBitrate.Value;
                                 config.Channels = 2;
                                 config.SampleRate = Project.Samplingrate;
+                                if (audioSettings is not null)
+                                {
+                                    config.CodecOptions = audioSettings;
+                                }
                             })
                             .UseMetadata(new()
                             {
@@ -180,10 +214,12 @@ namespace BEditor.ViewModels
         #region Video
         public ReactivePropertySlim<int> VideoBitrate { get; } = new(5_000_000);
         public ReactivePropertySlim<int> KeyframeRate { get; } = new(12);
+        public ReadOnlyReactivePropertySlim<Dictionary<string, object>?> VideoEncoderSettings { get; }
         #endregion
 
         #region Audio
         public ReactivePropertySlim<int> AudioBitrate { get; } = new(128_000);
+        public ReadOnlyReactivePropertySlim<Dictionary<string, object>?> AudioEncoderSettings { get; }
         #endregion
 
         #region Metadata
@@ -204,8 +240,13 @@ namespace BEditor.ViewModels
         public ReactivePropertySlim<int> LengthFrame { get; } = new();
         public ReadOnlyReactivePropertySlim<TimeSpan> StartTime { get; }
         public ReadOnlyReactivePropertySlim<TimeSpan> LengthTime { get; }
+        public ReactiveCollection<IRegisterdEncoding> Encoders { get; } = new();
+        public ReactiveProperty<IRegisterdEncoding?> SelectedEncoder { get; } = new();
         public ReactiveCommand SaveFileDialog { get; } = new();
         public ReactiveCommand Output { get; } = new();
+        public ReadOnlyReactivePropertySlim<bool> OutputIsEnabled { get; }
+        public Func<Task<Dictionary<string, object>?>>? GetAudioSettings { get; set; }
+        public Func<Task<Dictionary<string, object>?>>? GetVideoSettings { get; set; }
 
         public record EnumTupple<T>(string Name, T Value);
     }

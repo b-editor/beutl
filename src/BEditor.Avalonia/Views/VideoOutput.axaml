@@ -148,6 +148,15 @@
                         ShowButtonSpinner="True"
                         Classes="SettingsNumericUpDown"/>
 
+                    <Separator Height="16" />
+
+                    <TextBlock
+                        Margin="16,0"
+                        Text="{x:Static prop:Strings.EncoderIsNotSet}"
+                        IsVisible="{CompiledBinding !OutputIsEnabled.Value}" />
+
+                    <ContentPresenter x:Name="VideoEncoderSettings" />
+
                 </VirtualizingStackPanel>
             </TabItem>
             <TabItem>
@@ -169,6 +178,15 @@
                         Value="{CompiledBinding AudioBitrate.Value, Mode=TwoWay}"
                         ShowButtonSpinner="True"
                         Classes="SettingsNumericUpDown"/>
+
+                    <Separator Height="16" />
+
+                    <TextBlock
+                        Margin="16,0"
+                        Text="{x:Static prop:Strings.EncoderIsNotSet}"
+                        IsVisible="{CompiledBinding !OutputIsEnabled.Value}" />
+
+                    <ContentPresenter x:Name="AudioEncoderSettings" />
 
                 </VirtualizingStackPanel>
             </TabItem>
@@ -291,7 +309,10 @@
                     <Label Content="{x:Static prop:Strings.File}" Classes="SettingsItemHeader"/>
 
                     <VirtualizingStackPanel Orientation="Horizontal">
-                        <TextBox Text="{CompiledBinding File.Value, Mode=TwoWay}" Classes="SettingsTextBox" />
+                        <TextBox
+                            Text="{CompiledBinding File.Value, Mode=TwoWay}"
+                            Classes="SettingsTextBox"
+                            IsReadOnly="True" />
 
                         <Button Command="{CompiledBinding SaveFileDialog, Mode=OneTime}">
                             <PathIcon Data="{StaticResource FolderOpen16Regular}" />
@@ -332,8 +353,28 @@
 
                     <Separator Height="16" />
 
+                    <!--エンコーダー-->
+                    <Label Content="{x:Static prop:Strings.Encoder}" Classes="SettingsItemHeader"/>
+
+                    <ComboBox
+                        Items="{CompiledBinding Encoders, Mode=OneTime}"
+                        SelectedItem="{CompiledBinding SelectedEncoder.Value, Mode=TwoWay}"
+                        Classes="SettingsComboBox">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding Name}" />
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+
+                    <Separator Height="16" />
+
                     <!--出力-->
-                    <Button Content="{x:Static prop:Strings.Output}" Command="{CompiledBinding Output, Mode=OneTime}" Margin="16" />
+                    <Button
+                        Content="{x:Static prop:Strings.Output}"
+                        Command="{CompiledBinding Output, Mode=OneTime}"
+                        IsEnabled="{CompiledBinding OutputIsEnabled.Value, Mode=OneWay}"
+                        Margin="16" />
                 </VirtualizingStackPanel>
             </TabItem>
         </TabControl>

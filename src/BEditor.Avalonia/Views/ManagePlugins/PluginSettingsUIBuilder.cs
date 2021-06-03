@@ -42,6 +42,8 @@ namespace BEditor.Views.ManagePlugins
             {
                 return new StackPanel
                 {
+                    Spacing = 0,
+                    Orientation = Orientation.Vertical,
                     Children =
                     {
                         new Label
@@ -76,6 +78,8 @@ namespace BEditor.Views.ManagePlugins
             {
                 return new StackPanel
                 {
+                    Spacing = 0,
+                    Orientation = Orientation.Vertical,
                     Children =
                     {
                         new Label
@@ -110,6 +114,8 @@ namespace BEditor.Views.ManagePlugins
             {
                 return new StackPanel
                 {
+                    Spacing = 0,
+                    Orientation = Orientation.Vertical,
                     Children =
                     {
                         new Label
@@ -144,6 +150,8 @@ namespace BEditor.Views.ManagePlugins
             {
                 return new StackPanel
                 {
+                    Spacing = 0,
+                    Orientation = Orientation.Vertical,
                     Children =
                     {
                         new Label
@@ -178,6 +186,8 @@ namespace BEditor.Views.ManagePlugins
             {
                 return new StackPanel
                 {
+                    Spacing = 0,
+                    Orientation = Orientation.Vertical,
                     Children =
                     {
                         new Label
@@ -212,6 +222,8 @@ namespace BEditor.Views.ManagePlugins
             {
                 return new StackPanel
                 {
+                    Spacing = 0,
+                    Orientation = Orientation.Vertical,
                     Children =
                     {
                         new Label
@@ -246,6 +258,8 @@ namespace BEditor.Views.ManagePlugins
             {
                 return new StackPanel
                 {
+                    Spacing = 0,
+                    Orientation = Orientation.Vertical,
                     Children =
                     {
                         new Label
@@ -280,6 +294,8 @@ namespace BEditor.Views.ManagePlugins
             {
                 return new StackPanel
                 {
+                    Spacing = 0,
+                    Orientation = Orientation.Vertical,
                     Children =
                     {
                         new Label
@@ -314,6 +330,8 @@ namespace BEditor.Views.ManagePlugins
             {
                 return new StackPanel
                 {
+                    Spacing = 0,
+                    Orientation = Orientation.Vertical,
                     Children =
                     {
                         new Label
@@ -347,6 +365,8 @@ namespace BEditor.Views.ManagePlugins
             {
                 return new StackPanel
                 {
+                    Spacing = 0,
+                    Orientation = Orientation.Vertical,
                     Children =
                     {
                         new Label
@@ -379,6 +399,8 @@ namespace BEditor.Views.ManagePlugins
             {
                 return new StackPanel
                 {
+                    Spacing = 0,
+                    Orientation = Orientation.Vertical,
                     Children =
                     {
                         new Label
@@ -413,6 +435,8 @@ namespace BEditor.Views.ManagePlugins
             {
                 return new StackPanel
                 {
+                    Spacing = 0,
+                    Orientation = Orientation.Vertical,
                     Children =
                     {
                         new Label
@@ -439,6 +463,8 @@ namespace BEditor.Views.ManagePlugins
             {
                 return new StackPanel
                 {
+                    Spacing = 0,
+                    Orientation = Orientation.Vertical,
                     Children =
                     {
                         new Label
@@ -465,6 +491,8 @@ namespace BEditor.Views.ManagePlugins
             {
                 return new StackPanel
                 {
+                    Spacing = 0,
+                    Orientation = Orientation.Vertical,
                     Children =
                     {
                         new Label
@@ -497,6 +525,8 @@ namespace BEditor.Views.ManagePlugins
             {
                 return new StackPanel
                 {
+                    Spacing = 0,
+                    Orientation = Orientation.Vertical,
                     Children =
                     {
                         new Label
@@ -529,6 +559,8 @@ namespace BEditor.Views.ManagePlugins
             {
                 return new StackPanel
                 {
+                    Spacing = 0,
+                    Orientation = Orientation.Vertical,
                     Children =
                     {
                         new Label
@@ -561,6 +593,7 @@ namespace BEditor.Views.ManagePlugins
         {
             var stack = new StackPanel
             {
+                Spacing = 0,
                 Orientation = Orientation.Vertical
             };
             var type = record.GetType();
@@ -600,6 +633,7 @@ namespace BEditor.Views.ManagePlugins
         {
             var stack = new StackPanel
             {
+                Spacing = 0,
                 Orientation = Orientation.Vertical
             };
 
@@ -646,6 +680,7 @@ namespace BEditor.Views.ManagePlugins
                 result.Add(key, item.getValue((Control)stack.Children[count], type));
                 count++;
             }
+            dictonary = result;
         }
 
         private static (Func<string, Type, Control> create, Func<Control, Type, object> getValue, Action<Control, object> setValue, Type type) Find(Type type)

@@ -486,6 +486,14 @@
             <param name="file">The file name to output.</param>
             <returns>Returns the output container created by this method.</returns>
         </member>
+        <member name="M:BEditor.Media.EncodingRegistory.Create(System.String,BEditor.Media.Encoding.IOutputContainer@,BEditor.Media.IRegisterdEncoding@)">
+            <summary>
+            Create a container from the name of the file to be output.
+            </summary>
+            <param name="file">The file name to output.</param>
+            <param name="container">Returns the output container created by this method.</param>
+            <param name="encoding">The encoding.</param>
+        </member>
         <member name="M:BEditor.Media.EncodingRegistory.GuessEncodings(System.String)">
             <summary>
             Guess encoding from file name.
@@ -634,6 +642,15 @@
             Sets up a multimedia container with the format guessed from the file extension.
             </summary>
             <param name="path">A path to create the output file.</param>
+            <exception cref="T:System.NotSupportedException">Not supported format.</exception>
+            <returns>The <see cref="T:BEditor.Media.Encoding.MediaBuilder"/> instance.</returns>
+        </member>
+        <member name="M:BEditor.Media.Encoding.MediaBuilder.CreateContainer(System.String,BEditor.Media.IRegisterdEncoding)">
+            <summary>
+            Sets the multimedia container from an instance of <see cref="T:BEditor.Media.IRegisterdEncoding"/>.
+            </summary>
+            <param name="path">A path to create the output file.</param>
+            <param name="encoding">The encoding.</param>
             <exception cref="T:System.NotSupportedException">Not supported format.</exception>
             <returns>The <see cref="T:BEditor.Media.Encoding.MediaBuilder"/> instance.</returns>
         </member>
@@ -1017,6 +1034,18 @@
             Gets the supported extensions.
             </summary>
             <returns>Returns the supported extensions.</returns>
+        </member>
+        <member name="M:BEditor.Media.IRegisterdEncoding.GetDefaultVideoSettings">
+            <summary>
+            Gets the default settings for video encoder.
+            </summary>
+            <returns>Returns the default encoder setting.</returns>
+        </member>
+        <member name="M:BEditor.Media.IRegisterdEncoding.GetDefaultAudioSettings">
+            <summary>
+            Gets the default settings for audio encoder.
+            </summary>
+            <returns>Returns the default encoder setting.</returns>
         </member>
         <member name="T:BEditor.Media.MediaType">
             <summary>
