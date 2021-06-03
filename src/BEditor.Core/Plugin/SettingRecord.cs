@@ -7,6 +7,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -203,6 +204,7 @@ namespace BEditor.Plugin
             else if (obj is DateTime dateTime) writer.WriteString(name, dateTime);
             else if (obj is DateTimeOffset dateTimeOffset) writer.WriteString(name, dateTimeOffset);
             else if (obj is Guid guid) writer.WriteString(name, guid);
+            else if (obj is Enum @enum) writer.WriteNumber(name, ((IConvertible)@enum).ToInt32(CultureInfo.InvariantCulture));
         }
 
         private static object ReadSerializable(JsonElement element, Type type)
@@ -223,6 +225,7 @@ namespace BEditor.Plugin
             else if (type == typeof(DateTime)) return element.GetDateTime();
             else if (type == typeof(DateTimeOffset)) return element.GetDateTimeOffset();
             else if (type == typeof(Guid)) return element.GetGuid();
+            else if (type.IsEnum) return Enum.ToObject(type, element.GetInt32());
             else throw new NotSupportedException();
         }
 
@@ -244,6 +247,7 @@ namespace BEditor.Plugin
             else if (type == typeof(DateTime)) return DateTime.Now;
             else if (type == typeof(DateTimeOffset)) return DateTimeOffset.Now;
             else if (type == typeof(Guid)) return Guid.Empty;
+            else if (type.IsEnum) return type.GetEnumValues().GetValue(0)!;
             else throw new NotSupportedException();
         }
 
@@ -265,6 +269,7 @@ namespace BEditor.Plugin
             else if (type == typeof(DateTime)) return true;
             else if (type == typeof(DateTimeOffset)) return true;
             else if (type == typeof(Guid)) return true;
+            else if (type.IsEnum) return true;
             else return false;
         }
     }
