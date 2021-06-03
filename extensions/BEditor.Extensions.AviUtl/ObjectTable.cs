@@ -12,10 +12,14 @@ using BEditor.Media.Decoding;
 
 using Microsoft.Extensions.DependencyInjection;
 
+using Neo.IronLua;
+
 namespace BEditor.Extensions.AviUtl
 {
     public class ObjectTable
     {
+        internal delegate int RandomDelegate(int st_num, int ed_num, int? seed = null, int? frame = null);
+
         [AllowNull]
         internal static GraphicsContext _sharedGraphics;
         private readonly ImageObject _imageobj;
@@ -173,6 +177,18 @@ namespace BEditor.Extensions.AviUtl
         public int index => 0;
 
         public int num => 1;
+
+        public float track0 { get; set; }
+
+        public float track1 { get; set; }
+
+        public float track2 { get; set; }
+
+        public float track3 { get; set; }
+
+        public bool check0 { get; set; }
+
+        public int color { get; set; }
         #endregion
 
         #region Methods
@@ -392,9 +408,27 @@ namespace BEditor.Extensions.AviUtl
 
         }
 
-        public int rand(int st_num, int ed_num, int seed = -1, int frame = -1)
+        public int rand(int st_num, int ed_num, int? seed = null, int? frame = null)
         {
-            throw new NotImplementedException();
+            seed ??= _imageobj.Id.GetHashCode();
+            frame ??= this.frame;
+
+            if (seed < 0)
+            {
+                throw new NotImplementedException();
+            }
+            else
+            {
+                var rand = new RandomStruct((int)seed);
+                var value = 0;
+
+                for (var i = 0; i < frame; i++)
+                {
+                    value = rand.Next(st_num, ed_num);
+                }
+
+                return value;
+            }
         }
 
         public void setoption(string name, params dynamic[] value)
@@ -427,9 +461,54 @@ namespace BEditor.Extensions.AviUtl
         //{
 
         //}
+
+        public LuaResult interpolation(
+            float time,
+            float x0, float y0, float z0,
+            float x1, float y1, float z1,
+            float x2, float y2, float z2,
+            float x3, float y3, float z3)
+        {
+            var result = InterpolationPrivate(time, x0, y0, z0, x1, y1, z1, x2, y2, z2, x3, y3, z3);
+            return new(result.x, result.y, result.z);
+        }
+
+        public LuaResult interpolation(
+            float time,
+            float x0, float y0,
+            float x1, float y1,
+            float x2, float y2,
+            float x3, float y3)
+        {
+            var result = InterpolationPrivate(time, x0, y0, 0, x1, y1, 0, x2, y2, 0, x3, y3, 0);
+            return new(result.x, result.y);
+        }
+
+        public LuaResult interpolation(float time, float x0, float x1, float x2, float x3)
+        {
+            var result = InterpolationPrivate(time, x0, 0, 0, x1, 0, 0, x2, 0, 0, x3, 0, 0);
+            return new(result.x);
+        }
         #endregion
 
 #pragma warning restore IDE1006, CA1822, IDE0060
+
+        private static (float x, float y, float z) InterpolationPrivate(
+            float time,
+            float x0, float y0, float z0,
+            float x1, float y1, float z1,
+            float x2, float y2, float z2,
+            float x3, float y3, float z3)
+        {
+            var curve = new BezierCurveCubic(
+                new(x0, y0, z0),
+                new(x3, y3, z3),
+                new(x1, y1, z1),
+                new(x2, y2, z2));
+
+            var result = curve.CalculatePoint(time);
+            return (result.X, result.Y, result.Z);
+        }
 
         private static dynamic? GetArgValue(dynamic[] args, int index, dynamic? @default)
         {
