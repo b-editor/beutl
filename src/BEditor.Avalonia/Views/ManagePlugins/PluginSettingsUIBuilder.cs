@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
 using System.Reflection;
@@ -11,43 +12,33 @@ namespace BEditor.Views.ManagePlugins
 {
     public static class PluginSettingsUIBuilder
     {
-        private static readonly (Func<string, Control> create, Func<Control, object> getValue, Action<Control, object> setValue, Type type)[] TypeTo =
+        private static readonly (Func<string, Type, Control> create, Func<Control, Type, object> getValue, Action<Control, object> setValue, Type type)[] TypeTo =
         {
-            #region Float
+            #region Boolean
 
-            (header =>
+            ((header, _) => new Panel
             {
-                return new StackPanel
+                Children =
                 {
-                    Children =
+                    new CheckBox
                     {
-                        new Label
+                        Content = header,
+                        Classes =
                         {
-                            Content = header,
-                            Classes =
-                            {
-                                "SettingsItemHeader"
-                            }
-                        },
-                        new NumericUpDown
-                        {
-                            Classes =
-                            {
-                                "SettingsNumericUpDown"
-                            }
+                            "SettingsCheckBox"
                         }
                     }
-                };
+                }
             },
-            ui => (float)((ui as StackPanel)!.Children[1] as NumericUpDown)!.Value,
-            (ui, value) => ((ui as StackPanel)!.Children[1] as NumericUpDown)!.Value = (float)value,
-            typeof(float)),
+            (ui, _) => ((ui as Panel)!.Children[0] as CheckBox)!.IsChecked!,
+            (ui, value) => ((ui as Panel)!.Children[0] as CheckBox)!.IsChecked = (bool?)value,
+            typeof(bool)),
 
             #endregion
-    
-            #region Int
 
-            (header =>
+            #region Byte
+
+            ((header, _) =>
             {
                 return new StackPanel
                 {
@@ -63,6 +54,8 @@ namespace BEditor.Views.ManagePlugins
                         },
                         new NumericUpDown
                         {
+                            Maximum = byte.MaxValue,
+                            Minimum = byte.MinValue,
                             Classes =
                             {
                                 "SettingsNumericUpDown"
@@ -71,15 +64,404 @@ namespace BEditor.Views.ManagePlugins
                     }
                 };
             },
-            ui => (int)((ui as StackPanel)!.Children[1] as NumericUpDown)!.Value,
+            (ui, _) => (byte)((ui as StackPanel)!.Children[1] as NumericUpDown)!.Value,
+            (ui, value) => ((ui as StackPanel)!.Children[1] as NumericUpDown)!.Value = (byte)value,
+            typeof(byte)),
+
+            #endregion
+
+            #region SByte
+
+            ((header, _) =>
+            {
+                return new StackPanel
+                {
+                    Children =
+                    {
+                        new Label
+                        {
+                            Content = header,
+                            Classes =
+                            {
+                                "SettingsItemHeader"
+                            }
+                        },
+                        new NumericUpDown
+                        {
+                            Maximum = sbyte.MaxValue,
+                            Minimum = sbyte.MinValue,
+                            Classes =
+                            {
+                                "SettingsNumericUpDown"
+                            }
+                        }
+                    }
+                };
+            },
+            (ui, _) => (sbyte)((ui as StackPanel)!.Children[1] as NumericUpDown)!.Value,
+            (ui, value) => ((ui as StackPanel)!.Children[1] as NumericUpDown)!.Value = (sbyte)value,
+            typeof(sbyte)),
+
+            #endregion
+
+            #region Int16
+
+            ((header, _) =>
+            {
+                return new StackPanel
+                {
+                    Children =
+                    {
+                        new Label
+                        {
+                            Content = header,
+                            Classes =
+                            {
+                                "SettingsItemHeader"
+                            }
+                        },
+                        new NumericUpDown
+                        {
+                            Maximum = short.MaxValue,
+                            Minimum = short.MinValue,
+                            Classes =
+                            {
+                                "SettingsNumericUpDown"
+                            }
+                        }
+                    }
+                };
+            },
+            (ui, _) => (short)((ui as StackPanel)!.Children[1] as NumericUpDown)!.Value,
+            (ui, value) => ((ui as StackPanel)!.Children[1] as NumericUpDown)!.Value = (short)value,
+            typeof(short)),
+
+            #endregion
+
+            #region UInt16
+
+            ((header, _) =>
+            {
+                return new StackPanel
+                {
+                    Children =
+                    {
+                        new Label
+                        {
+                            Content = header,
+                            Classes =
+                            {
+                                "SettingsItemHeader"
+                            }
+                        },
+                        new NumericUpDown
+                        {
+                            Maximum = ushort.MaxValue,
+                            Minimum = ushort.MinValue,
+                            Classes =
+                            {
+                                "SettingsNumericUpDown"
+                            }
+                        }
+                    }
+                };
+            },
+            (ui, _) => (ushort)((ui as StackPanel)!.Children[1] as NumericUpDown)!.Value,
+            (ui, value) => ((ui as StackPanel)!.Children[1] as NumericUpDown)!.Value = (ushort)value,
+            typeof(ushort)),
+
+            #endregion
+
+            #region Int32
+
+            ((header, _) =>
+            {
+                return new StackPanel
+                {
+                    Children =
+                    {
+                        new Label
+                        {
+                            Content = header,
+                            Classes =
+                            {
+                                "SettingsItemHeader"
+                            }
+                        },
+                        new NumericUpDown
+                        {
+                            Maximum = int.MaxValue,
+                            Minimum = int.MinValue,
+                            Classes =
+                            {
+                                "SettingsNumericUpDown"
+                            }
+                        }
+                    }
+                };
+            },
+            (ui, _) => (int)((ui as StackPanel)!.Children[1] as NumericUpDown)!.Value,
             (ui, value) => ((ui as StackPanel)!.Children[1] as NumericUpDown)!.Value = (int)value,
             typeof(int)),
 
             #endregion
 
-            #region String
+            #region UInt32
 
-            (header =>
+            ((header, _) =>
+            {
+                return new StackPanel
+                {
+                    Children =
+                    {
+                        new Label
+                        {
+                            Content = header,
+                            Classes =
+                            {
+                                "SettingsItemHeader"
+                            }
+                        },
+                        new NumericUpDown
+                        {
+                            Maximum = uint.MaxValue,
+                            Minimum = uint.MinValue,
+                            Classes =
+                            {
+                                "SettingsNumericUpDown"
+                            }
+                        }
+                    }
+                };
+            },
+            (ui, _) => (uint)((ui as StackPanel)!.Children[1] as NumericUpDown)!.Value,
+            (ui, value) => ((ui as StackPanel)!.Children[1] as NumericUpDown)!.Value = (uint)value,
+            typeof(uint)),
+
+            #endregion
+
+            #region Int64
+
+            ((header, _) =>
+            {
+                return new StackPanel
+                {
+                    Children =
+                    {
+                        new Label
+                        {
+                            Content = header,
+                            Classes =
+                            {
+                                "SettingsItemHeader"
+                            }
+                        },
+                        new NumericUpDown
+                        {
+                            Maximum = long.MaxValue,
+                            Minimum = long.MinValue,
+                            Classes =
+                            {
+                                "SettingsNumericUpDown"
+                            }
+                        }
+                    }
+                };
+            },
+            (ui, _) => (long)((ui as StackPanel)!.Children[1] as NumericUpDown)!.Value,
+            (ui, value) => ((ui as StackPanel)!.Children[1] as NumericUpDown)!.Value = (long)value,
+            typeof(long)),
+
+            #endregion
+
+            #region UInt64
+
+            ((header, _) =>
+            {
+                return new StackPanel
+                {
+                    Children =
+                    {
+                        new Label
+                        {
+                            Content = header,
+                            Classes =
+                            {
+                                "SettingsItemHeader"
+                            }
+                        },
+                        new NumericUpDown
+                        {
+                            Maximum = ulong.MaxValue,
+                            Minimum = ulong.MinValue,
+                            Classes =
+                            {
+                                "SettingsNumericUpDown"
+                            }
+                        }
+                    }
+                };
+            },
+            (ui, _) => (ulong)((ui as StackPanel)!.Children[1] as NumericUpDown)!.Value,
+            (ui, value) => ((ui as StackPanel)!.Children[1] as NumericUpDown)!.Value = (ulong)value,
+            typeof(ulong)),
+
+            #endregion
+
+            #region Char
+
+            ((header, _) =>
+            {
+                return new StackPanel
+                {
+                    Children =
+                    {
+                        new Label
+                        {
+                            Content = header,
+                            Classes =
+                            {
+                                "SettingsItemHeader"
+                            }
+                        },
+                        new TextBox
+                        {
+                            MaxLength = 1,
+                            Classes =
+                            {
+                                "SettingsTextBox"
+                            }
+                        }
+                    }
+                };
+            },
+            (ui, _) => ((ui as StackPanel)!.Children[1] as TextBox)!.Text[0],
+            (ui, value) => ((ui as StackPanel)!.Children[1] as TextBox)!.Text = value.ToString(),
+            typeof(char)),
+
+            #endregion
+
+            #region Double
+
+            ((header, _) =>
+            {
+                return new StackPanel
+                {
+                    Children =
+                    {
+                        new Label
+                        {
+                            Content = header,
+                            Classes =
+                            {
+                                "SettingsItemHeader"
+                            }
+                        },
+                        new NumericUpDown
+                        {
+                            Classes =
+                            {
+                                "SettingsNumericUpDown"
+                            }
+                        }
+                    }
+                };
+            },
+            (ui, _) => (double)((ui as StackPanel)!.Children[1] as NumericUpDown)!.Value,
+            (ui, value) => ((ui as StackPanel)!.Children[1] as NumericUpDown)!.Value = (double)value,
+            typeof(double)),
+
+            #endregion
+
+            #region Single
+
+            ((header, _) =>
+            {
+                return new StackPanel
+                {
+                    Children =
+                    {
+                        new Label
+                        {
+                            Content = header,
+                            Classes =
+                            {
+                                "SettingsItemHeader"
+                            }
+                        },
+                        new NumericUpDown
+                        {
+                            Maximum = float.MaxValue,
+                            Minimum = float.MinValue,
+                            Classes =
+                            {
+                                "SettingsNumericUpDown"
+                            }
+                        }
+                    }
+                };
+            },
+            (ui, _) => (float)((ui as StackPanel)!.Children[1] as NumericUpDown)!.Value,
+            (ui, value) => ((ui as StackPanel)!.Children[1] as NumericUpDown)!.Value = (float)value,
+            typeof(float)),
+
+            #endregion
+
+            #region DateTime
+
+            ((header, _) =>
+            {
+                return new StackPanel
+                {
+                    Children =
+                    {
+                        new Label
+                        {
+                            Content = header,
+                            Classes =
+                            {
+                                "SettingsItemHeader"
+                            }
+                        },
+                        new DatePicker()
+                    }
+                };
+            },
+            (ui, _) => ((DateTimeOffset)((ui as StackPanel)!.Children[1] as DatePicker)!.SelectedDate!).DateTime,
+            (ui, value) => ((ui as StackPanel)!.Children[1] as DatePicker)!.SelectedDate = new DateTimeOffset((DateTime)value),
+            typeof(DateTime)),
+
+            #endregion
+
+            #region DateTimeOffset
+
+            ((header, _) =>
+            {
+                return new StackPanel
+                {
+                    Children =
+                    {
+                        new Label
+                        {
+                            Content = header,
+                            Classes =
+                            {
+                                "SettingsItemHeader"
+                            }
+                        },
+                        new DatePicker()
+                    }
+                };
+            },
+            (ui, _) => (DateTimeOffset)((ui as StackPanel)!.Children[1] as DatePicker)!.SelectedDate!,
+            (ui, value) => ((ui as StackPanel)!.Children[1] as DatePicker)!.SelectedDate = (DateTimeOffset?)value,
+            typeof(DateTimeOffset)),
+
+            #endregion
+
+            #region Guid
+
+            ((header, _) =>
             {
                 return new StackPanel
                 {
@@ -103,33 +485,76 @@ namespace BEditor.Views.ManagePlugins
                     }
                 };
             },
-            ui => ((ui as StackPanel)!.Children[1] as TextBox)!.Text,
+            (ui, _) => Guid.TryParse(((ui as StackPanel)!.Children[1] as TextBox)!.Text, out var result) ? result : Guid.Empty,
+            (ui, value) => ((ui as StackPanel)!.Children[1] as TextBox)!.Text = value.ToString(),
+            typeof(Guid)),
+
+            #endregion
+
+            #region String
+
+            ((header, _) =>
+            {
+                return new StackPanel
+                {
+                    Children =
+                    {
+                        new Label
+                        {
+                            Content = header,
+                            Classes =
+                            {
+                                "SettingsItemHeader"
+                            }
+                        },
+                        new TextBox
+                        {
+                            Classes =
+                            {
+                                "SettingsTextBox"
+                            }
+                        }
+                    }
+                };
+            },
+            (ui, _) => ((ui as StackPanel)!.Children[1] as TextBox)!.Text,
             (ui, value) => ((ui as StackPanel)!.Children[1] as TextBox)!.Text = (string)value,
             typeof(string)),
 
             #endregion
 
-            #region Boolean
+            #region Enum
 
-            (header => new Panel
+            ((header, type) =>
             {
-                Children =
+                return new StackPanel
                 {
-                    new CheckBox
+                    Children =
                     {
-                        Content = header,
-                        Classes =
+                        new Label
                         {
-                            "SettingsCheckBox"
+                            Content = header,
+                            Classes =
+                            {
+                                "SettingsItemHeader"
+                            }
+                        },
+                        new ComboBox
+                        {
+                            Classes =
+                            {
+                                "SettingsComboBox"
+                            },
+                            Items = Enum.GetValues(type)
                         }
                     }
-                }
+                };
             },
-            ui => ((ui as Panel)!.Children[0] as CheckBox)!.IsChecked!,
-            (ui, value) => ((ui as Panel)!.Children[0] as CheckBox)!.IsChecked = (bool?)value,
-            typeof(bool)),
+            (ui, _) => ((ui as StackPanel)!.Children[1] as ComboBox)!.SelectedItem!,
+            (ui, value) => ((ui as StackPanel)!.Children[1] as ComboBox)!.SelectedItem = value,
+            typeof(Enum)),
 
-            #endregion
+        	#endregion
         };
 
         public static StackPanel Create(object record)
@@ -159,7 +584,7 @@ namespace BEditor.Views.ManagePlugins
                         description = dattribute.Description;
                     }
 
-                    var ui = item.create(name);
+                    var ui = item.create(name, param.ParameterType);
                     ToolTip.SetTip(ui, description);
                     ui.Margin = new(ui.Margin.Left, ui.Margin.Top, ui.Margin.Right, 16);
 
@@ -167,6 +592,28 @@ namespace BEditor.Views.ManagePlugins
 
                     stack.Children.Add(ui);
                 }
+            }
+
+            return stack;
+        }
+        public static StackPanel Create(Dictionary<string, object> dictonary)
+        {
+            var stack = new StackPanel
+            {
+                Orientation = Orientation.Vertical
+            };
+
+            foreach (var (key, value) in dictonary)
+            {
+                var type = value.GetType();
+                var item = Find(value.GetType());
+
+                var ui = item.create(key, type);
+                ui.Margin = new(ui.Margin.Left, ui.Margin.Top, ui.Margin.Right, 16);
+
+                item.setValue(ui, value);
+
+                stack.Children.Add(ui);
             }
 
             return stack;
@@ -182,19 +629,32 @@ namespace BEditor.Views.ManagePlugins
                 var param = paramerters[i];
                 var item = Find(param.ParameterType);
 
-                args[i] = item.getValue((Control)stack.Children[i]);
+                args[i] = item.getValue((Control)stack.Children[i], param.ParameterType);
             }
 
             return Activator.CreateInstance(type, BindingFlags.CreateInstance, null, args, null)!;
         }
-
-        private static (Func<string, Control> create, Func<Control, object> getValue, Action<Control, object> setValue, Type type) Find(Type type)
+        public static void GetValue(StackPanel stack, ref Dictionary<string, object> dictonary)
         {
-            (Func<string, Control> create, Func<Control, object> getValue, Action<Control, object> setValue, Type type) result = default;
+            var result = new Dictionary<string, object>();
+            var count = 0;
+            foreach (var (key, value) in dictonary)
+            {
+                var type = value.GetType();
+                var item = Find(type);
+
+                result.Add(key, item.getValue((Control)stack.Children[count], type));
+                count++;
+            }
+        }
+
+        private static (Func<string, Type, Control> create, Func<Control, Type, object> getValue, Action<Control, object> setValue, Type type) Find(Type type)
+        {
+            (Func<string, Type, Control> create, Func<Control, Type, object> getValue, Action<Control, object> setValue, Type type) result = default;
 
             Parallel.ForEach(TypeTo, v =>
             {
-                if (v.type == type) result = v;
+                if (type.IsAssignableTo(v.type)) result = v;
             });
 
             return result;
