@@ -98,7 +98,7 @@ namespace BEditor.ViewModels
                         var videoSettings = await (GetVideoSettings?.Invoke() ?? Task.FromResult<Dictionary<string, object>?>(null));
                         var audioSettings = await (GetAudioSettings?.Invoke() ?? Task.FromResult<Dictionary<string, object>?>(null));
 
-                        var output = MediaBuilder.CreateContainer(File.Value)
+                        var output = MediaBuilder.CreateContainer(File.Value, SelectedEncoder.Value!)
                             .WithVideo(config =>
                             {
                                 config.VideoWidth = SelectedScene.Value.Width;
