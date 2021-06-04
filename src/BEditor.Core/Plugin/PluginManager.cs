@@ -29,7 +29,7 @@ namespace BEditor.Plugin
 
         internal readonly List<(string, IEnumerable<ICustomMenu>)> _menus = new();
 
-        internal readonly List<(PluginObject, List<Func<IProgress<int>, ValueTask>>)> _tasks = new();
+        internal readonly List<(PluginObject, List<PluginTask>)> _tasks = new();
 
         internal readonly List<PluginObject> _loaded = new();
 

@@ -19,7 +19,7 @@ namespace BEditor.Views
 
         public async void TabChanged(object s, SelectionChangedEventArgs e)
         {
-            if (_tabControl is not null && _tabControl.SelectedItem is TabItem item)
+            if (_tabControl?.SelectedItem is TabItem item)
             {
                 if (item.Tag is "Settings")
                 {

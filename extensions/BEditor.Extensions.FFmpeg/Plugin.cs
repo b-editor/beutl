@@ -41,7 +41,7 @@ namespace BEditor.Extensions.FFmpeg
                 Directory.CreateDirectory(dir);
                 if (!installer.IsInstalled())
                 {
-                    builder.Task(InstallFFmpeg(dir, installer));
+                    builder.Task(InstallFFmpeg(dir, installer), "Install FFmpeg");
                 }
                 else
                 {
@@ -66,7 +66,7 @@ namespace BEditor.Extensions.FFmpeg
                 .Register();
         }
 
-        private static Func<IProgress<int>, ValueTask> InstallFFmpeg(string dir, FFmpegInstaller installer)
+        private static Func<IProgressDialog, ValueTask> InstallFFmpeg(string dir, FFmpegInstaller installer)
         {
             return async progress =>
             {

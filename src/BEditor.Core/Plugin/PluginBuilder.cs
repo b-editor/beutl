@@ -7,6 +7,8 @@
 
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
+using System.Linq;
 using System.Threading.Tasks;
 
 using BEditor.Data;
@@ -25,12 +27,12 @@ namespace BEditor.Plugin
         /// <summary>
         /// The plugin config.
         /// </summary>
-        internal static PluginConfig? Config = null;
+        internal static PluginConfig? Config;
         private readonly Func<PluginObject> _plugin;
         private readonly List<EffectMetadata> _effects = new();
         private readonly List<ObjectMetadata> _objects = new();
         private readonly List<EasingMetadata> _eases = new();
-        private readonly List<Func<IProgress<int>, ValueTask>> _task = new();
+        private readonly List<PluginTask> _task = new();
         private (string?, IEnumerable<ICustomMenu>?) _menus;
 
         private PluginBuilder(Func<PluginObject> create)
@@ -112,13 +114,46 @@ namespace BEditor.Plugin
         /// <summary>
         /// Add a task to be executed when the application is launched.
         /// </summary>
-        /// <param name="func">The task to be executed.</param>
+        /// <param name="task">The background task to run.</param>
         /// <returns>The same instance of the <see cref="PluginBuilder"/> for chaining.</returns>
+        public PluginBuilder Task(PluginTask task)
+        {
+            if (!_task.Contains(task))
+            {
+                _task.Add(task);
+            }
+
+            return this;
+        }
+
+        /// <summary>
+        /// Add a task to be executed when the application is launched.
+        /// </summary>
+        /// <param name="func">The function to run.</param>
+        /// <param name="name">The name of the <see cref="PluginTask"/>.</param>
+        /// <returns>The same instance of the <see cref="PluginBuilder"/> for chaining.</returns>
+        public PluginBuilder Task(Func<IProgressDialog, ValueTask> func, string name)
+        {
+            var task = new PluginTask(func, name);
+            if (!_task.Contains(task))
+            {
+                _task.Add(task);
+            }
+
+            return this;
+        }
+
+        /// <summary>
+        /// Add a task to be executed when the application is launched.
+        /// </summary>
+        /// <param name="func">The function to run.</param>
+        /// <returns>The same instance of the <see cref="PluginBuilder"/> for chaining.</returns>
+        [Obsolete("Use PluginBuilder.Task(Func{IProgressDialog, ValueTask}, BackgroundTaskCompleteType, string)")]
         public PluginBuilder Task(Func<IProgress<int>, ValueTask> func)
         {
-            if (!_task.Contains(func))
+            if (!_task.Any(i => i._task == func))
             {
-                _task.Add(func);
+                _task.Add(new(func, (_task.Count + 1).ToString()));
             }
 
             return this;

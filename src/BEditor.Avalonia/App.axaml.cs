@@ -252,10 +252,10 @@ namespace BEditor
                 {
                     for (var i = 0; i < tasks.Count; i++)
                     {
-                        dialog.Text.Value = string.Format(Strings.IsLoading, plugin.PluginName) + $"  :{i + 1}";
-
                         var task = tasks[i];
-                        await task(dialog);
+                        dialog.Text.Value = string.Format(Strings.IsLoading, plugin.PluginName) + $"  :{task.Name}";
+
+                        await task.RunTask(dialog);
                         dialog.Report(0);
                     }
                 }

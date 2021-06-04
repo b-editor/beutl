@@ -25,6 +25,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		LICENSE = LICENSE
 		LICENSES.md = LICENSES.md
 		README.md = README.md
+		roslynator.ruleset = roslynator.ruleset
 		SECURITY.md = SECURITY.md
 		stylecop.json = stylecop.json
 	EndProjectSection
@@ -79,7 +80,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SourceGenerator", "generato
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SourceGenerator.Tests", "generator\SourceGenerator.Tests\SourceGenerator.Tests.csproj", "{EFC5B786-7C75-41DA-921D-0D91FA53A4CB}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BEditor.Base", "src\BEditor.Base\BEditor.Base.csproj", "{DE7E5BA5-FD1A-4AC4-A8C7-2646C2064188}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BEditor.Base", "src\BEditor.Base\BEditor.Base.csproj", "{DE7E5BA5-FD1A-4AC4-A8C7-2646C2064188}"
 EndProject
 Global
 	GlobalSection(SharedMSBuildProjectFiles) = preSolution

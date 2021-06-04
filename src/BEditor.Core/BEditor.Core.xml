@@ -4,6 +4,61 @@
         <name>BEditor.Core</name>
     </assembly>
     <members>
+        <member name="T:BEditor.BackgroundTask">
+            <summary>
+            Represents a task to be executed in the background.
+            </summary>
+        </member>
+        <member name="M:BEditor.BackgroundTask.#ctor(System.Func{BEditor.IProgressDialog,System.Threading.Tasks.ValueTask},System.String)">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.BackgroundTask"/> struct.
+            </summary>
+            <param name="task">The function to run.</param>
+            <param name="name">The name of the <see cref="T:BEditor.BackgroundTask"/>.</param>
+            <exception cref="T:System.ArgumentNullException"><paramref name="task"/> or <paramref name="name"/> is <see langword="null"/>.</exception>
+        </member>
+        <member name="P:BEditor.BackgroundTask.Name">
+            <summary>
+            Gets the name of this <see cref="T:BEditor.BackgroundTask"/>.
+            </summary>
+        </member>
+        <member name="P:BEditor.BackgroundTask.IsExecuted">
+            <summary>
+            Gets the value of whether the task has been executed.
+            </summary>
+        </member>
+        <member name="M:BEditor.BackgroundTask.op_Equality(BEditor.BackgroundTask,BEditor.BackgroundTask)">
+            <summary>
+            Compares two <see cref="T:BEditor.BackgroundTask"/> structures. The result specifies whether the two <see cref="T:BEditor.BackgroundTask"/> structures are equal.
+            </summary>
+            <param name="left">A <see cref="T:BEditor.BackgroundTask"/> to compare.</param>
+            <param name="right">A <see cref="T:BEditor.BackgroundTask"/> to compare.</param>
+            <returns>true if the left and right <see cref="T:BEditor.BackgroundTask"/> structures are equal; otherwise, false.</returns>
+        </member>
+        <member name="M:BEditor.BackgroundTask.op_Inequality(BEditor.BackgroundTask,BEditor.BackgroundTask)">
+            <summary>
+            Determines whether the coordinates of the specified points are not equal.
+            </summary>
+            <param name="left">A <see cref="T:BEditor.BackgroundTask"/> to compare.</param>
+            <param name="right">A <see cref="T:BEditor.BackgroundTask"/> to compare.</param>
+            <returns>true if the left and right <see cref="T:BEditor.BackgroundTask"/> structures differ; otherwise, false.</returns>
+        </member>
+        <member name="M:BEditor.BackgroundTask.Equals(System.Object)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.BackgroundTask.Equals(BEditor.BackgroundTask)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.BackgroundTask.GetHashCode">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.BackgroundTask.RunTask(BEditor.IProgressDialog)">
+            <summary>
+            Run the task.
+            </summary>
+            <param name="progress">The progress of this <see cref="T:BEditor.BackgroundTask"/>.</param>
+            <returns>A <see cref="T:System.Threading.Tasks.ValueTask"/> representing the result of the asynchronous operation.</returns>
+        </member>
         <member name="T:BEditor.CommandExtensions">
             <summary>
             Represents a class that provides an extension method.
@@ -3773,6 +3828,11 @@
             Occurs when the project is opened.
             </summary>
         </member>
+        <member name="E:BEditor.IApplication.Exit">
+            <summary>
+            Occurs when the application is exiting.
+            </summary>
+        </member>
         <member name="P:BEditor.IApplication.AppStatus">
             <summary>
             Gets or sets the status of an application.
@@ -3872,6 +3932,36 @@
             </summary>
             <param name="text">The string to display.</param>
         </member>
+        <member name="T:BEditor.IProgressDialog">
+            <summary>
+            Represents a progress dialog.
+            </summary>
+        </member>
+        <member name="P:BEditor.IProgressDialog.Maximum">
+            <summary>
+            Gets or sets the maximum value of the progress bar.
+            </summary>
+        </member>
+        <member name="P:BEditor.IProgressDialog.Minimum">
+            <summary>
+            Gets or sets the minimum value of the progress bar.
+            </summary>
+        </member>
+        <member name="P:BEditor.IProgressDialog.Value">
+            <summary>
+            Gets or sets the current value of the progress bar.
+            </summary>
+        </member>
+        <member name="P:BEditor.IProgressDialog.Text">
+            <summary>
+            Gets or sets the string to be displayed in the dialog.
+            </summary>
+        </member>
+        <member name="P:BEditor.IProgressDialog.IsIndeterminate">
+            <summary>
+            Gets or sets whether the progress bar shows actual values or generic, continuous progress feedback.
+            </summary>
+        </member>
         <member name="T:BEditor.Plugin.ICustomMenu">
             <summary>
             Represents a menu.
@@ -3960,11 +4050,26 @@
             <param name="encoding">The encoding to be added.</param>
             <returns>The same instance of the <see cref="T:BEditor.Plugin.PluginBuilder"/> for chaining.</returns>
         </member>
+        <member name="M:BEditor.Plugin.PluginBuilder.Task(BEditor.BackgroundTask)">
+            <summary>
+            Add a task to be executed when the application is launched.
+            </summary>
+            <param name="task">The background task to run.</param>
+            <returns>The same instance of the <see cref="T:BEditor.Plugin.PluginBuilder"/> for chaining.</returns>
+        </member>
+        <member name="M:BEditor.Plugin.PluginBuilder.Task(System.Func{BEditor.IProgressDialog,System.Threading.Tasks.ValueTask},System.String)">
+            <summary>
+            Add a task to be executed when the application is launched.
+            </summary>
+            <param name="func">The function to run.</param>
+            <param name="name">The name of the <see cref="T:BEditor.BackgroundTask"/>.</param>
+            <returns>The same instance of the <see cref="T:BEditor.Plugin.PluginBuilder"/> for chaining.</returns>
+        </member>
         <member name="M:BEditor.Plugin.PluginBuilder.Task(System.Func{System.IProgress{System.Int32},System.Threading.Tasks.ValueTask})">
             <summary>
             Add a task to be executed when the application is launched.
             </summary>
-            <param name="func">The task to be executed.</param>
+            <param name="func">The function to run.</param>
             <returns>The same instance of the <see cref="T:BEditor.Plugin.PluginBuilder"/> for chaining.</returns>
         </member>
         <member name="M:BEditor.Plugin.PluginBuilder.SetCustomMenu(System.String,System.Collections.Generic.IEnumerable{BEditor.Plugin.ICustomMenu})">
