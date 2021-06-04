@@ -23,6 +23,11 @@ namespace BEditor
         public event EventHandler<ProjectOpenedEventArgs>? ProjectOpened;
 
         /// <summary>
+        /// Occurs when the application is exiting.
+        /// </summary>
+        public event EventHandler? Exit;
+
+        /// <summary>
         /// Gets or sets the status of an application.
         /// </summary>
         public Status AppStatus { get; set; }

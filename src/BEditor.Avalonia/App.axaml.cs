@@ -118,6 +118,7 @@ namespace BEditor
 
             var app = AppModel.Current;
 
+            app.RaiseExit();
             app.ServiceProvider.GetService<HttpClient>()?.Dispose();
 
             app.Project?.Unload();

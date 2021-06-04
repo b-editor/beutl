@@ -100,6 +100,12 @@ namespace BEditor.Models
         Project IParentSingle<Project>.Child => Project;
 
         public event EventHandler<ProjectOpenedEventArgs> ProjectOpened;
+        public event EventHandler Exit;
+
+        public void RaiseExit()
+        {
+            Exit?.Invoke(this, EventArgs.Empty);
+        }
 
         public void RaiseProjectOpened(Project project)
         {
