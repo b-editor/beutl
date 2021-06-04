@@ -11,8 +11,8 @@ using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
 using BEditor.Extensions.AviUtl.Resources;
 
-using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace BEditor.Extensions.AviUtl
 {
