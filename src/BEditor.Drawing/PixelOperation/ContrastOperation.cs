@@ -5,39 +5,58 @@
 // This software may be modified and distributed under the terms
 // of the MIT license. See the LICENSE file for details.
 
+using System;
+
 using BEditor.Drawing.Pixel;
+
+namespace BEditor.Drawing
+{
+    /// <inheritdoc cref="Image"/>
+    public static unsafe partial class Image
+    {
+        /// <summary>
+        /// Adjusts the contrast of the image.
+        /// </summary>
+        /// <param name="image">The image to apply the effect to.</param>
+        /// <param name="contrast">The contrast [range: -255-255].</param>
+        /// <exception cref="ArgumentNullException"><paramref name="image"/> is <see langword="null"/>.</exception>
+        /// <exception cref="ObjectDisposedException">Cannot access a disposed object.</exception>
+        public static void Contrast(this Image<BGRA32> image, short contrast)
+        {
+            if (image is null) throw new ArgumentNullException(nameof(image));
+            image.ThrowIfDisposed();
+
+            using var lut = LookupTable.Contrast(contrast);
+            ApplyLookupTable(image, lut);
+        }
+    }
+}
 
 namespace BEditor.Drawing.PixelOperation
 {
     /// <summary>
-    /// Adjusts the contrast of the pixels.
+    /// Creates a lookup table to adjust the contrast.
     /// </summary>
     public readonly unsafe struct ContrastOperation : IPixelOperation
     {
-        private readonly BGRA32* _src;
-        private readonly BGRA32* _dst;
+        private readonly short _contrast;
         private readonly byte* _lut;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ContrastOperation"/> struct.
         /// </summary>
-        /// <param name="src">The source image data.</param>
-        /// <param name="dst">The destination image data.</param>
-        /// <param name="lut">The look up table.</param>
-        public ContrastOperation(BGRA32* src, BGRA32* dst, byte* lut)
+        /// <param name="contrast">The contrast [range: -255-255].</param>
+        /// <param name="lut">The lookup table.</param>
+        public ContrastOperation(short contrast, byte* lut)
         {
-            _src = src;
-            _dst = dst;
+            _contrast = contrast;
             _lut = lut;
         }
 
         /// <inheritdoc/>
         public readonly void Invoke(int pos)
         {
-            _dst[pos].B = _lut[_src[pos].B];
-            _dst[pos].G = _lut[_src[pos].G];
-            _dst[pos].R = _lut[_src[pos].R];
-            _dst[pos].A = _src[pos].A;
+            _lut[pos] = (byte)Image.Set255Round(((1d + (_contrast / 255d)) * (pos - 128d)) + 128d);
         }
     }
 }

@@ -50,7 +50,7 @@ namespace BEditor.Primitive.Effects
         /// <inheritdoc/>
         public override void Apply(EffectApplyArgs<Image<BGRA32>> args)
         {
-            args.Value.Gamma(Gamma[args.Frame] / 100, Parent.Parent.DrawingContext);
+            args.Value.Gamma(Gamma[args.Frame] / 100);
         }
 
         /// <inheritdoc/>

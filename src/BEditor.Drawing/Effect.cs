@@ -393,31 +393,6 @@ namespace BEditor.Drawing
         }
 
         /// <summary>
-        /// Adjusts the contrast of the image.
-        /// </summary>
-        /// <param name="image">The image to apply the effect to.</param>
-        /// <param name="contrast">The contrast [range: -255-255].</param>
-        /// <exception cref="ArgumentNullException"><paramref name="image"/> is <see langword="null"/>.</exception>
-        /// <exception cref="ObjectDisposedException">Cannot access a disposed object.</exception>
-        public static void Contrast(this Image<BGRA32> image, short contrast)
-        {
-            if (image is null) throw new ArgumentNullException(nameof(image));
-            image.ThrowIfDisposed();
-            contrast = Math.Clamp(contrast, (short)-255, (short)255);
-
-            using var lut = new UnmanagedArray<byte>(256);
-            for (var i = 0; i < 256; i++)
-            {
-                lut[i] = (byte)Set255Round(((1d + (contrast / 255d)) * (i - 128d)) + 128d);
-            }
-
-            fixed (BGRA32* data = image.Data)
-            {
-                PixelOperate(image.Data.Length, new ContrastOperation(data, data, (byte*)lut.Pointer));
-            }
-        }
-
-        /// <summary>
         /// Normalize the histogram.
         /// </summary>
         /// <param name="image">The image to normalize.</param>

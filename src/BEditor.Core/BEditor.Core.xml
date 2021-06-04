@@ -4,61 +4,6 @@
         <name>BEditor.Core</name>
     </assembly>
     <members>
-        <member name="T:BEditor.BackgroundTask">
-            <summary>
-            Represents a task to be executed in the background.
-            </summary>
-        </member>
-        <member name="M:BEditor.BackgroundTask.#ctor(System.Func{BEditor.IProgressDialog,System.Threading.Tasks.ValueTask},System.String)">
-            <summary>
-            Initializes a new instance of the <see cref="T:BEditor.BackgroundTask"/> struct.
-            </summary>
-            <param name="task">The function to run.</param>
-            <param name="name">The name of the <see cref="T:BEditor.BackgroundTask"/>.</param>
-            <exception cref="T:System.ArgumentNullException"><paramref name="task"/> or <paramref name="name"/> is <see langword="null"/>.</exception>
-        </member>
-        <member name="P:BEditor.BackgroundTask.Name">
-            <summary>
-            Gets the name of this <see cref="T:BEditor.BackgroundTask"/>.
-            </summary>
-        </member>
-        <member name="P:BEditor.BackgroundTask.IsExecuted">
-            <summary>
-            Gets the value of whether the task has been executed.
-            </summary>
-        </member>
-        <member name="M:BEditor.BackgroundTask.op_Equality(BEditor.BackgroundTask,BEditor.BackgroundTask)">
-            <summary>
-            Compares two <see cref="T:BEditor.BackgroundTask"/> structures. The result specifies whether the two <see cref="T:BEditor.BackgroundTask"/> structures are equal.
-            </summary>
-            <param name="left">A <see cref="T:BEditor.BackgroundTask"/> to compare.</param>
-            <param name="right">A <see cref="T:BEditor.BackgroundTask"/> to compare.</param>
-            <returns>true if the left and right <see cref="T:BEditor.BackgroundTask"/> structures are equal; otherwise, false.</returns>
-        </member>
-        <member name="M:BEditor.BackgroundTask.op_Inequality(BEditor.BackgroundTask,BEditor.BackgroundTask)">
-            <summary>
-            Determines whether the coordinates of the specified points are not equal.
-            </summary>
-            <param name="left">A <see cref="T:BEditor.BackgroundTask"/> to compare.</param>
-            <param name="right">A <see cref="T:BEditor.BackgroundTask"/> to compare.</param>
-            <returns>true if the left and right <see cref="T:BEditor.BackgroundTask"/> structures differ; otherwise, false.</returns>
-        </member>
-        <member name="M:BEditor.BackgroundTask.Equals(System.Object)">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.BackgroundTask.Equals(BEditor.BackgroundTask)">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.BackgroundTask.GetHashCode">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.BackgroundTask.RunTask(BEditor.IProgressDialog)">
-            <summary>
-            Run the task.
-            </summary>
-            <param name="progress">The progress of this <see cref="T:BEditor.BackgroundTask"/>.</param>
-            <returns>A <see cref="T:System.Threading.Tasks.ValueTask"/> representing the result of the asynchronous operation.</returns>
-        </member>
         <member name="T:BEditor.CommandExtensions">
             <summary>
             Represents a class that provides an extension method.
@@ -3962,6 +3907,61 @@
             Gets or sets whether the progress bar shows actual values or generic, continuous progress feedback.
             </summary>
         </member>
+        <member name="T:BEditor.PluginTask">
+            <summary>
+            Represents the task to be executed after the plugin is loaded.
+            </summary>
+        </member>
+        <member name="M:BEditor.PluginTask.#ctor(System.Func{BEditor.IProgressDialog,System.Threading.Tasks.ValueTask},System.String)">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.PluginTask"/> struct.
+            </summary>
+            <param name="task">The function to run.</param>
+            <param name="name">The name of the <see cref="T:BEditor.PluginTask"/>.</param>
+            <exception cref="T:System.ArgumentNullException"><paramref name="task"/> or <paramref name="name"/> is <see langword="null"/>.</exception>
+        </member>
+        <member name="P:BEditor.PluginTask.Name">
+            <summary>
+            Gets the name of this <see cref="T:BEditor.PluginTask"/>.
+            </summary>
+        </member>
+        <member name="P:BEditor.PluginTask.IsExecuted">
+            <summary>
+            Gets the value of whether the task has been executed.
+            </summary>
+        </member>
+        <member name="M:BEditor.PluginTask.op_Equality(BEditor.PluginTask,BEditor.PluginTask)">
+            <summary>
+            Compares two <see cref="T:BEditor.PluginTask"/> structures. The result specifies whether the two <see cref="T:BEditor.PluginTask"/> structures are equal.
+            </summary>
+            <param name="left">A <see cref="T:BEditor.PluginTask"/> to compare.</param>
+            <param name="right">A <see cref="T:BEditor.PluginTask"/> to compare.</param>
+            <returns>true if the left and right <see cref="T:BEditor.PluginTask"/> structures are equal; otherwise, false.</returns>
+        </member>
+        <member name="M:BEditor.PluginTask.op_Inequality(BEditor.PluginTask,BEditor.PluginTask)">
+            <summary>
+            Determines whether the coordinates of the specified points are not equal.
+            </summary>
+            <param name="left">A <see cref="T:BEditor.PluginTask"/> to compare.</param>
+            <param name="right">A <see cref="T:BEditor.PluginTask"/> to compare.</param>
+            <returns>true if the left and right <see cref="T:BEditor.PluginTask"/> structures differ; otherwise, false.</returns>
+        </member>
+        <member name="M:BEditor.PluginTask.Equals(System.Object)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.PluginTask.Equals(BEditor.PluginTask)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.PluginTask.GetHashCode">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.PluginTask.RunTask(BEditor.IProgressDialog)">
+            <summary>
+            Run the task.
+            </summary>
+            <param name="progress">The progress of this <see cref="T:BEditor.PluginTask"/>.</param>
+            <returns>A <see cref="T:System.Threading.Tasks.ValueTask"/> representing the result of the asynchronous operation.</returns>
+        </member>
         <member name="T:BEditor.Plugin.ICustomMenu">
             <summary>
             Represents a menu.
@@ -4050,7 +4050,7 @@
             <param name="encoding">The encoding to be added.</param>
             <returns>The same instance of the <see cref="T:BEditor.Plugin.PluginBuilder"/> for chaining.</returns>
         </member>
-        <member name="M:BEditor.Plugin.PluginBuilder.Task(BEditor.BackgroundTask)">
+        <member name="M:BEditor.Plugin.PluginBuilder.Task(BEditor.PluginTask)">
             <summary>
             Add a task to be executed when the application is launched.
             </summary>
@@ -4062,7 +4062,7 @@
             Add a task to be executed when the application is launched.
             </summary>
             <param name="func">The function to run.</param>
-            <param name="name">The name of the <see cref="T:BEditor.BackgroundTask"/>.</param>
+            <param name="name">The name of the <see cref="T:BEditor.PluginTask"/>.</param>
             <returns>The same instance of the <see cref="T:BEditor.Plugin.PluginBuilder"/> for chaining.</returns>
         </member>
         <member name="M:BEditor.Plugin.PluginBuilder.Task(System.Func{System.IProgress{System.Int32},System.Threading.Tasks.ValueTask})">
