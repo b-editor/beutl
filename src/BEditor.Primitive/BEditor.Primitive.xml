@@ -824,6 +824,46 @@
         <member name="M:BEditor.Primitive.Effects.InnerShadow.GetProperties">
             <inheritdoc/>
         </member>
+        <member name="T:BEditor.Primitive.Effects.LookupTable">
+            <summary>
+            Represents the effect to which the Lookup Table is applied.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.LookupTable.StrengthProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.LookupTable.Strength"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.LookupTable.LUTFileProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.LookupTable.LUTFile"/> property.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.LookupTable.Name">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.LookupTable.Strength">
+            <summary>
+            Gets the strength.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.LookupTable.LUTFile">
+            <summary>
+            Gets the LUT file to use.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.LookupTable.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.LookupTable.GetProperties">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.LookupTable.OnLoad">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.LookupTable.OnUnload">
+            <inheritdoc/>
+        </member>
         <member name="T:BEditor.Primitive.Effects.MultipleControls">
             <summary>
             Represents a <see cref="T:BEditor.Data.Primitive.ImageEffect"/> that provides the ability to edit multiple objects by specifying their indices.
