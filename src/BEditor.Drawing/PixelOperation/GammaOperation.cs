@@ -42,14 +42,14 @@ namespace BEditor.Drawing.PixelOperation
     public readonly unsafe struct GammaOperation : IPixelOperation
     {
         private readonly float _gamma;
-        private readonly byte* _lut;
+        private readonly float* _lut;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="GammaOperation"/> struct.
         /// </summary>
         /// <param name="gamma">The gamma. [range: 0.01-3.0].</param>
         /// <param name="lut">The lookup table.</param>
-        public GammaOperation(float gamma, byte* lut)
+        public GammaOperation(float gamma, float* lut)
         {
             _gamma = gamma;
             _lut = lut;
@@ -58,7 +58,7 @@ namespace BEditor.Drawing.PixelOperation
         /// <inheritdoc/>
         public readonly void Invoke(int pos)
         {
-            _lut[pos] = (byte)Image.Set255Round(Math.Pow(pos / 255.0, 1.0 / _gamma) * 255);
+            _lut[pos] = Image.Set255Round(MathF.Pow(pos / 255f, 1f / _gamma));
         }
     }
 }

@@ -40,14 +40,14 @@ namespace BEditor.Drawing.PixelOperation
     public readonly unsafe struct ContrastOperation : IPixelOperation
     {
         private readonly short _contrast;
-        private readonly byte* _lut;
+        private readonly float* _lut;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ContrastOperation"/> struct.
         /// </summary>
         /// <param name="contrast">The contrast [range: -255-255].</param>
         /// <param name="lut">The lookup table.</param>
-        public ContrastOperation(short contrast, byte* lut)
+        public ContrastOperation(short contrast, float* lut)
         {
             _contrast = contrast;
             _lut = lut;
@@ -56,7 +56,7 @@ namespace BEditor.Drawing.PixelOperation
         /// <inheritdoc/>
         public readonly void Invoke(int pos)
         {
-            _lut[pos] = (byte)Image.Set255Round(((1d + (_contrast / 255d)) * (pos - 128d)) + 128d);
+            _lut[pos] = Image.Set255Round(((1f + (_contrast / 255f)) * (pos - 128f)) + 128f) / 255f;
         }
     }
 }
