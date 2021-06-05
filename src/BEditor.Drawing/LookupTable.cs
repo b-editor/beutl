@@ -258,17 +258,5 @@ namespace BEditor.Drawing
 
             reader.BaseStream.Position = 0;
         }
-
-        internal struct Float3
-        {
-            public float R;
-            public float G;
-            public float B;
-
-            public Float3(float r, float g, float b)
-            {
-                (R, G, B) = (r, g, b);
-            }
-        }
     }
 }
