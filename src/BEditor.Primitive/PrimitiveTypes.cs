@@ -214,6 +214,7 @@ namespace BEditor.Primitive
                     EffectMetadata.Create<Effects.LookupTables.ContrastCorrection>(Strings.ContrastCorrection),
                     EffectMetadata.Create<Effects.LookupTables.GammaCorrection>(Strings.GammaCorrection),
                     EffectMetadata.Create<Effects.LookupTables.Negaposi>(Strings.Negaposi),
+                    EffectMetadata.Create<Effects.LookupTables.Solarisation>(Strings.Solarisation),
                     EffectMetadata.Create<Effects.LookupTables.LookupTable>(Strings.ApplyLookupTable),
                 },
             };

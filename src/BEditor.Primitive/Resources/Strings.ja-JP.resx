@@ -636,4 +636,10 @@
   <data name="LookupTable" xml:space="preserve">
     <value>Lookup table</value>
   </data>
+  <data name="Solarisation" xml:space="preserve">
+    <value>ソラリゼーション</value>
+  </data>
+  <data name="Cycle" xml:space="preserve">
+    <value>周期</value>
+  </data>
 </root>

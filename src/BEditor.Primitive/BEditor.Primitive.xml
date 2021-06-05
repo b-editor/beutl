@@ -225,6 +225,35 @@
         <member name="M:BEditor.Primitive.Effects.LookupTables.Negaposi.GetProperties">
             <inheritdoc/>
         </member>
+        <member name="T:BEditor.Primitive.Effects.LookupTables.Solarisation">
+            <summary>
+            Represents the <see cref="T:BEditor.Data.Primitive.ImageEffect"/> that do the solarization process.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.LookupTables.Solarisation.CycleProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.LookupTables.Solarisation.Cycle"/> property.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.LookupTables.Solarisation.#ctor">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Primitive.Effects.LookupTables.Solarisation"/> class.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.LookupTables.Solarisation.Name">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.LookupTables.Solarisation.Cycle">
+            <summary>
+            Gets the cycle.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.LookupTables.Solarisation.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.LookupTables.Solarisation.GetProperties">
+            <inheritdoc/>
+        </member>
         <member name="T:BEditor.Primitive.Effects.OpenCv.Blur">
             <summary>
             Represents the <see cref="T:BEditor.Data.Primitive.ImageEffect"/> that blurs the image.
@@ -3082,6 +3111,11 @@
               Looks up a localized string similar to Cube file.
             </summary>
         </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Cycle">
+            <summary>
+              Looks up a localized string similar to Cycle.
+            </summary>
+        </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Decal">
             <summary>
               Looks up a localized string similar to Decal.
@@ -3435,6 +3469,11 @@
         <member name="P:BEditor.Primitive.Resources.Strings.Size">
             <summary>
               Looks up a localized string similar to Size.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Solarisation">
+            <summary>
+              Looks up a localized string similar to Solarisation.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Speed">

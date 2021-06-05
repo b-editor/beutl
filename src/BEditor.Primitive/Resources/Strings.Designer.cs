@@ -376,6 +376,15 @@ namespace BEditor.Primitive.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Cycle.
+        /// </summary>
+        internal static string Cycle {
+            get {
+                return ResourceManager.GetString("Cycle", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Decal.
         /// </summary>
         internal static string Decal {
@@ -1011,6 +1020,15 @@ namespace BEditor.Primitive.Resources {
         internal static string Size {
             get {
                 return ResourceManager.GetString("Size", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Solarisation.
+        /// </summary>
+        internal static string Solarisation {
+            get {
+                return ResourceManager.GetString("Solarisation", resourceCulture);
             }
         }
         

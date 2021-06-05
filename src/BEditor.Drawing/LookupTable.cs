@@ -7,10 +7,13 @@
 
 using System;
 using System.IO;
+using System.Linq;
 using System.Numerics;
 using System.Text.RegularExpressions;
 
 using BEditor.Drawing.LookupTables;
+
+using OpenCvSharp;
 
 namespace BEditor.Drawing
 {
@@ -81,6 +84,23 @@ namespace BEditor.Drawing
         /// Gets a value indicating whether this instance has been disposed.
         /// </summary>
         public bool IsDisposed { get; private set; }
+
+        /// <summary>
+        /// Creates a lookup table to do the solarization process.
+        /// </summary>
+        /// <param name="cycle">The cycle.</param>
+        /// <returns>Returns the lookup table created by this method.</returns>
+        public static LookupTable Solarisation(int cycle = 2)
+        {
+            var table = new LookupTable();
+            var data = (float*)table.GetPointer();
+            for (var i = 0; i < 256; i++)
+            {
+                data[i] = (float)((Math.Sin(i * cycle * Math.PI / 255) + 1) / 2);
+            }
+
+            return table;
+        }
 
         /// <summary>
         /// Creates a lookup table to flip the image negative-positive.
