@@ -44,7 +44,7 @@ namespace BEditor.Drawing
         private static readonly Regex _titleReg = new("^TITLE \"(?<text>.*?)\"$");
         private static readonly Regex _domainMinReg = new("^DOMAIN_MIN (?<red>.*?) (?<green>.*?) (?<blue>.*?)$");
         private static readonly Regex _domainMaxReg = new("^DOMAIN_MAX (?<red>.*?) (?<green>.*?) (?<blue>.*?)$");
-        private readonly UnmanagedArray<float> _array;
+        private readonly UnmanagedArray<float>[] _arrays;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="LookupTable"/> class.
@@ -53,7 +53,13 @@ namespace BEditor.Drawing
         /// <param name="dim">The dimension of the <see cref="LookupTable"/>.</param>
         public LookupTable(int size = 256, LookupTableDimension dim = LookupTableDimension.OneDimension)
         {
-            _array = new((int)Math.Pow(size, (int)dim) * (int)dim);
+            _arrays = new UnmanagedArray<float>[(int)dim];
+
+            for (var i = 0; i < _arrays.Length; i++)
+            {
+                _arrays[i] = new((int)Math.Pow(size, (int)dim));
+            }
+
             Size = size;
             Dimension = dim;
         }
@@ -124,7 +130,9 @@ namespace BEditor.Drawing
 
             var table = new LookupTable(size, dim);
             var length = (int)Math.Pow(size, (int)dim);
-            var data = (Float3*)table.GetPointer();
+            var rData = (float*)table.GetPointer(0);
+            var gData = (float*)table.GetPointer(1);
+            var bData = (float*)table.GetPointer(2);
 
             while (i < length)
             {
@@ -138,9 +146,9 @@ namespace BEditor.Drawing
                         float.TryParse(values[1], out var g) &&
                         float.TryParse(values[2], out var b))
                     {
-                        data[i].R = r;
-                        data[i].G = g;
-                        data[i].B = b;
+                        rData[i] = r;
+                        gData[i] = g;
+                        bData[i] = b;
                         i++;
                     }
                 }
@@ -164,19 +172,21 @@ namespace BEditor.Drawing
         /// <summary>
         /// Creates a new span over a lookup table.
         /// </summary>
+        /// <param name="dimension">The dimension of the table.</param>
         /// <returns> The span representation of the lookup table.</returns>
-        public Span<float> AsSpan()
+        public Span<float> AsSpan(int dimension = 0)
         {
-            return _array.AsSpan();
+            return _arrays[dimension].AsSpan();
         }
 
         /// <summary>
         /// Gets the pointer.
         /// </summary>
+        /// <param name="dimension">The dimension of the table.</param>
         /// <returns>Returns the pointer.</returns>
-        public IntPtr GetPointer()
+        public IntPtr GetPointer(int dimension = 0)
         {
-            return _array.Pointer;
+            return _arrays[dimension].Pointer;
         }
 
         /// <inheritdoc/>
@@ -184,7 +194,11 @@ namespace BEditor.Drawing
         {
             if (!IsDisposed)
             {
-                _array.Dispose();
+                foreach (var item in _arrays)
+                {
+                    item.Dispose();
+                }
+
                 GC.SuppressFinalize(this);
                 IsDisposed = true;
             }
@@ -250,6 +264,11 @@ namespace BEditor.Drawing
             public float R;
             public float G;
             public float B;
+
+            public Float3(float r, float g, float b)
+            {
+                (R, G, B) = (r, g, b);
+            }
         }
     }
 }

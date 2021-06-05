@@ -839,6 +839,11 @@
             Defines the <see cref="P:BEditor.Primitive.Effects.LookupTable.LUTFile"/> property.
             </summary>
         </member>
+        <member name="M:BEditor.Primitive.Effects.LookupTable.#ctor">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Primitive.Effects.LookupTable"/> class.
+            </summary>
+        </member>
         <member name="P:BEditor.Primitive.Effects.LookupTable.Name">
             <inheritdoc/>
         </member>
@@ -2868,6 +2873,11 @@
               Looks up a localized string similar to Angle.
             </summary>
         </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.ApplyLookupTable">
+            <summary>
+              Looks up a localized string similar to Apply Lookup table.
+            </summary>
+        </member>
         <member name="P:BEditor.Primitive.Resources.Strings.AreaExpansion">
             <summary>
               Looks up a localized string similar to Area expansion.
@@ -3016,6 +3026,11 @@
         <member name="P:BEditor.Primitive.Resources.Strings.Cube">
             <summary>
               Looks up a localized string similar to Cube.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.CubeFile">
+            <summary>
+              Looks up a localized string similar to Cube file.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Decal">
@@ -3381,6 +3396,11 @@
         <member name="P:BEditor.Primitive.Resources.Strings.StartPoint">
             <summary>
               Looks up a localized string similar to Start point.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Strength">
+            <summary>
+              Looks up a localized string similar to Strength.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.TargetX">
