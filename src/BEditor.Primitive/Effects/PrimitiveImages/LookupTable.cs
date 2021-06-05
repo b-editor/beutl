@@ -9,15 +9,13 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 using BEditor.Data;
 using BEditor.Data.Primitive;
 using BEditor.Data.Property;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
+using BEditor.Primitive.Resources;
 
 namespace BEditor.Primitive.Effects
 {
@@ -33,7 +31,7 @@ namespace BEditor.Primitive.Effects
             nameof(Strength),
             owner => owner.Strength,
             (owner, obj) => owner.Strength = obj,
-            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata("強さ", 100)).Serialize());
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Strength, 100, 100, 0)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="LUTFile"/> property.
@@ -43,15 +41,22 @@ namespace BEditor.Primitive.Effects
             owner => owner.LUTFile,
             (owner, obj) => owner.LUTFile = obj,
             EditingPropertyOptions<FileProperty>.Create(
-                new FilePropertyMetadata("Cubeファイル", Filter: new("Cubeファイル", new FileExtension[] { new("CUBE"), new("cube") })))
+                new FilePropertyMetadata(Strings.CubeFile, Filter: new(Strings.CubeFile, new FileExtension[] { new("cube"), new("dat"), new("3dl"), new("m3d") })))
             .Serialize());
 
         private Drawing.LookupTable? _lut;
 
         private IDisposable? _disposable;
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="LookupTable"/> class.
+        /// </summary>
+        public LookupTable()
+        {
+        }
+
         /// <inheritdoc/>
-        public override string Name => "Apply Lookup Table";
+        public override string Name => Strings.ApplyLookupTable;
 
         /// <summary>
         /// Gets the strength.
@@ -87,11 +92,8 @@ namespace BEditor.Primitive.Effects
             base.OnLoad();
             _disposable = LUTFile.Subscribe(f =>
             {
-                if (!File.Exists(f))
-                {
-                    _lut?.Dispose();
-                }
-                else
+                _lut?.Dispose();
+                if (File.Exists(f))
                 {
                     _lut = Drawing.LookupTable.FromCube(f);
                 }

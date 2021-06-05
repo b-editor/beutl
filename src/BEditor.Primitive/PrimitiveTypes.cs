@@ -206,7 +206,7 @@ namespace BEditor.Primitive
                     EffectMetadata.Create<Effects.InnerShadow>(Strings.InnerShadow),
                     EffectMetadata.Create<Effects.SetAlignment>(Strings.SetAlignment),
                     EffectMetadata.Create<Effects.Mask>(Strings.Mask),
-                    EffectMetadata.Create<Effects.LookupTable>("Apply Lookup Table"),
+                    EffectMetadata.Create<Effects.LookupTable>(Strings.ApplyLookupTable),
                 },
             };
 
