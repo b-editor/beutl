@@ -27,7 +27,7 @@ namespace BEditor.Drawing
         /// <param name="strength">The strength.</param>
         /// <exception cref="ArgumentNullException"><paramref name="image"/> or <paramref name="lut"/> is <see langword="null"/>.</exception>
         /// <exception cref="ObjectDisposedException">Cannot access a disposed object.</exception>
-        public static void ApplyLookupTable(this Image<BGRA32> image, LookupTable lut, float strength = 1)
+        public static void Apply(this Image<BGRA32> image, LookupTable lut, float strength = 1)
         {
             if (image is null) throw new ArgumentNullException(nameof(image));
             if (lut is null) throw new ArgumentNullException(nameof(lut));

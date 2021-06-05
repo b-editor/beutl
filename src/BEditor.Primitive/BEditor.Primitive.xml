@@ -73,6 +73,158 @@
         <member name="M:BEditor.Primitive.Effects.DepthTest.GetProperties">
             <inheritdoc/>
         </member>
+        <member name="T:BEditor.Primitive.Effects.LookupTables.ContrastCorrection">
+            <summary>
+            Represents the <see cref="T:BEditor.Data.Primitive.ImageEffect"/> that corrects the contrast of an image.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.LookupTables.ContrastCorrection.ContrastProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.LookupTables.ContrastCorrection.Contrast"/> property.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.LookupTables.ContrastCorrection.#ctor">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Primitive.Effects.LookupTables.ContrastCorrection"/> class.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.LookupTables.ContrastCorrection.Name">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.LookupTables.ContrastCorrection.Contrast">
+            <summary>
+            Gets the contrast.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.LookupTables.ContrastCorrection.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.LookupTables.ContrastCorrection.GetProperties">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Primitive.Effects.LookupTables.GammaCorrection">
+            <summary>
+            Represents the <see cref="T:BEditor.Data.Primitive.ImageEffect"/> that corrects the gamma of an image.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.LookupTables.GammaCorrection.GammaProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.LookupTables.GammaCorrection.Gamma"/> property.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.LookupTables.GammaCorrection.#ctor">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Primitive.Effects.LookupTables.GammaCorrection"/> class.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.LookupTables.GammaCorrection.Name">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.LookupTables.GammaCorrection.Gamma">
+            <summary>
+            Gets the gamma.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.LookupTables.GammaCorrection.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.LookupTables.GammaCorrection.GetProperties">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Primitive.Effects.LookupTables.LookupTable">
+            <summary>
+            Represents the effect to which the Lookup Table is applied.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.LookupTables.LookupTable.StrengthProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.LookupTables.LookupTable.Strength"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.LookupTables.LookupTable.LUTFileProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.LookupTables.LookupTable.LUTFile"/> property.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.LookupTables.LookupTable.#ctor">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Primitive.Effects.LookupTables.LookupTable"/> class.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.LookupTables.LookupTable.Name">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.LookupTables.LookupTable.Strength">
+            <summary>
+            Gets the strength.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.LookupTables.LookupTable.LUTFile">
+            <summary>
+            Gets the LUT file to use.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.LookupTables.LookupTable.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.LookupTables.LookupTable.GetProperties">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.LookupTables.LookupTable.OnLoad">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.LookupTables.LookupTable.OnUnload">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Primitive.Effects.LookupTables.Negaposi">
+            <summary>
+            Represents the effect of flipping an image negative-positive.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.LookupTables.Negaposi.RedProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.LookupTables.Negaposi.Red"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.LookupTables.Negaposi.GreenProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.LookupTables.Negaposi.Green"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.LookupTables.Negaposi.BlueProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.LookupTables.Negaposi.Blue"/> property.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.LookupTables.Negaposi.#ctor">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Primitive.Effects.LookupTables.Negaposi"/> class.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.LookupTables.Negaposi.Name">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.LookupTables.Negaposi.Red">
+            <summary>
+            Gets the red.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.LookupTables.Negaposi.Green">
+            <summary>
+            Gets the green.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.LookupTables.Negaposi.Blue">
+            <summary>
+            Gets the blue.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.LookupTables.Negaposi.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.LookupTables.Negaposi.GetProperties">
+            <inheritdoc/>
+        </member>
         <member name="T:BEditor.Primitive.Effects.OpenCv.Blur">
             <summary>
             Represents the <see cref="T:BEditor.Data.Primitive.ImageEffect"/> that blurs the image.
@@ -612,35 +764,6 @@
         <member name="M:BEditor.Primitive.Effects.ColorKey.GetProperties">
             <inheritdoc/>
         </member>
-        <member name="T:BEditor.Primitive.Effects.ContrastCorrection">
-            <summary>
-            Represents the <see cref="T:BEditor.Data.Primitive.ImageEffect"/> that corrects the contrast of an image.
-            </summary>
-        </member>
-        <member name="F:BEditor.Primitive.Effects.ContrastCorrection.ContrastProperty">
-            <summary>
-            Defines the <see cref="P:BEditor.Primitive.Effects.ContrastCorrection.Contrast"/> property.
-            </summary>
-        </member>
-        <member name="M:BEditor.Primitive.Effects.ContrastCorrection.#ctor">
-            <summary>
-            Initializes a new instance of the <see cref="T:BEditor.Primitive.Effects.ContrastCorrection"/> class.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Effects.ContrastCorrection.Name">
-            <inheritdoc/>
-        </member>
-        <member name="P:BEditor.Primitive.Effects.ContrastCorrection.Contrast">
-            <summary>
-            Gets the contrast.
-            </summary>
-        </member>
-        <member name="M:BEditor.Primitive.Effects.ContrastCorrection.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Primitive.Effects.ContrastCorrection.GetProperties">
-            <inheritdoc/>
-        </member>
         <member name="T:BEditor.Primitive.Effects.Diffusion">
             <summary>
             Represents an effect that diffuses an image.
@@ -668,35 +791,6 @@
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Primitive.Effects.Diffusion.GetProperties">
-            <inheritdoc/>
-        </member>
-        <member name="T:BEditor.Primitive.Effects.GammaCorrection">
-            <summary>
-            Represents the <see cref="T:BEditor.Data.Primitive.ImageEffect"/> that corrects the gamma of an image.
-            </summary>
-        </member>
-        <member name="F:BEditor.Primitive.Effects.GammaCorrection.GammaProperty">
-            <summary>
-            Defines the <see cref="P:BEditor.Primitive.Effects.GammaCorrection.Gamma"/> property.
-            </summary>
-        </member>
-        <member name="M:BEditor.Primitive.Effects.GammaCorrection.#ctor">
-            <summary>
-            Initializes a new instance of the <see cref="T:BEditor.Primitive.Effects.GammaCorrection"/> class.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Effects.GammaCorrection.Name">
-            <inheritdoc/>
-        </member>
-        <member name="P:BEditor.Primitive.Effects.GammaCorrection.Gamma">
-            <summary>
-            Gets the gamma.
-            </summary>
-        </member>
-        <member name="M:BEditor.Primitive.Effects.GammaCorrection.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Primitive.Effects.GammaCorrection.GetProperties">
             <inheritdoc/>
         </member>
         <member name="T:BEditor.Primitive.Effects.Grayscale">
@@ -822,51 +916,6 @@
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Primitive.Effects.InnerShadow.GetProperties">
-            <inheritdoc/>
-        </member>
-        <member name="T:BEditor.Primitive.Effects.LookupTable">
-            <summary>
-            Represents the effect to which the Lookup Table is applied.
-            </summary>
-        </member>
-        <member name="F:BEditor.Primitive.Effects.LookupTable.StrengthProperty">
-            <summary>
-            Defines the <see cref="P:BEditor.Primitive.Effects.LookupTable.Strength"/> property.
-            </summary>
-        </member>
-        <member name="F:BEditor.Primitive.Effects.LookupTable.LUTFileProperty">
-            <summary>
-            Defines the <see cref="P:BEditor.Primitive.Effects.LookupTable.LUTFile"/> property.
-            </summary>
-        </member>
-        <member name="M:BEditor.Primitive.Effects.LookupTable.#ctor">
-            <summary>
-            Initializes a new instance of the <see cref="T:BEditor.Primitive.Effects.LookupTable"/> class.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Effects.LookupTable.Name">
-            <inheritdoc/>
-        </member>
-        <member name="P:BEditor.Primitive.Effects.LookupTable.Strength">
-            <summary>
-            Gets the strength.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Effects.LookupTable.LUTFile">
-            <summary>
-            Gets the LUT file to use.
-            </summary>
-        </member>
-        <member name="M:BEditor.Primitive.Effects.LookupTable.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Primitive.Effects.LookupTable.GetProperties">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Primitive.Effects.LookupTable.OnLoad">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Primitive.Effects.LookupTable.OnUnload">
             <inheritdoc/>
         </member>
         <member name="T:BEditor.Primitive.Effects.MultipleControls">
@@ -3216,6 +3265,11 @@
         <member name="P:BEditor.Primitive.Resources.Strings.Listener">
             <summary>
               Looks up a localized string similar to Listener.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.LookupTable">
+            <summary>
+              Looks up a localized string similar to Lookup table.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Mask">

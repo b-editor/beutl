@@ -709,6 +709,15 @@ namespace BEditor.Primitive.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Lookup table.
+        /// </summary>
+        internal static string LookupTable {
+            get {
+                return ResourceManager.GetString("LookupTable", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Mask.
         /// </summary>
         internal static string Mask {

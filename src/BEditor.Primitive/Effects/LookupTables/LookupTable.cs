@@ -17,7 +17,7 @@ using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
 using BEditor.Primitive.Resources;
 
-namespace BEditor.Primitive.Effects
+namespace BEditor.Primitive.Effects.LookupTables
 {
     /// <summary>
     /// Represents the effect to which the Lookup Table is applied.
@@ -75,7 +75,7 @@ namespace BEditor.Primitive.Effects
         {
             if (_lut is not null)
             {
-                args.Value.ApplyLookupTable(_lut, Strength[args.Frame] / 100);
+                args.Value.Apply(_lut, Strength[args.Frame] / 100);
             }
         }
 

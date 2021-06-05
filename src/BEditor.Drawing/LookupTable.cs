@@ -6,16 +6,11 @@
 // of the MIT license. See the LICENSE file for details.
 
 using System;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Numerics;
-using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 
-using BEditor.Drawing.Pixel;
-using BEditor.Drawing.PixelOperation;
+using BEditor.Drawing.LookupTables;
 
 namespace BEditor.Drawing
 {
@@ -57,7 +52,7 @@ namespace BEditor.Drawing
 
             for (var i = 0; i < _arrays.Length; i++)
             {
-                _arrays[i] = new((int)Math.Pow(size, (int)dim));
+                _arrays[i] = new(size);
             }
 
             Size = size;
@@ -86,6 +81,39 @@ namespace BEditor.Drawing
         /// Gets a value indicating whether this instance has been disposed.
         /// </summary>
         public bool IsDisposed { get; private set; }
+
+        /// <summary>
+        /// Creates a lookup table to flip the image negative-positive.
+        /// </summary>
+        /// <param name="value">The threshold value.</param>
+        /// <returns>Returns the lookup table created by this method.</returns>
+        public static LookupTable Negaposi(byte value = 255)
+        {
+            var table = new LookupTable();
+            var data = (float*)table.GetPointer();
+            Image.PixelOperate(256, new Negaposi1DOperation(value, data));
+            return table;
+        }
+
+        /// <summary>
+        /// Creates a lookup table to flip the image negative-positive.
+        /// </summary>
+        /// <param name="red">The red threshold value.</param>
+        /// <param name="green">The green threshold value.</param>
+        /// <param name="blue">The blue threshold value.</param>
+        /// <returns>Returns the lookup table created by this method.</returns>
+        public static LookupTable Negaposi(byte red = 255, byte green = 255, byte blue = 255)
+        {
+            if (red == green && green == blue) return Negaposi(red);
+
+            var table = new LookupTable(256, LookupTableDimension.ThreeDimension);
+            var rData = (float*)table.GetPointer(0);
+            var gData = (float*)table.GetPointer(1);
+            var bData = (float*)table.GetPointer(2);
+            Image.PixelOperate(256, new Negaposi3DOperation(red, green, blue, rData, gData, bData));
+
+            return table;
+        }
 
         /// <summary>
         /// Creates a lookup table to adjust the contrast.
@@ -128,8 +156,8 @@ namespace BEditor.Drawing
             var i = 0;
             ReadInfo(reader, out _, out var dim, out var size, out _, out _);
 
-            var table = new LookupTable(size, dim);
             var length = (int)Math.Pow(size, (int)dim);
+            var table = new LookupTable(length, dim);
             var rData = (float*)table.GetPointer(0);
             var gData = (float*)table.GetPointer(1);
             var bData = (float*)table.GetPointer(2);

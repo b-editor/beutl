@@ -15,7 +15,7 @@ using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
 using BEditor.Primitive.Resources;
 
-namespace BEditor.Primitive.Effects
+namespace BEditor.Primitive.Effects.LookupTables
 {
     /// <summary>
     /// Represents the <see cref="ImageEffect"/> that corrects the contrast of an image.
@@ -50,7 +50,8 @@ namespace BEditor.Primitive.Effects
         /// <inheritdoc/>
         public override void Apply(EffectApplyArgs<Image<BGRA32>> args)
         {
-            args.Value.Contrast((short)Contrast[args.Frame]);
+            using var lut = Drawing.LookupTable.Contrast((short)Contrast[args.Frame]);
+            args.Value.Apply(lut);
         }
 
         /// <inheritdoc/>

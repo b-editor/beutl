@@ -633,4 +633,7 @@
   <data name="ApplyLookupTable" xml:space="preserve">
     <value>Lookup tableを適用</value>
   </data>
+  <data name="LookupTable" xml:space="preserve">
+    <value>Lookup table</value>
+  </data>
 </root>

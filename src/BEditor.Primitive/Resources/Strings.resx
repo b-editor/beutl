@@ -633,4 +633,7 @@
   <data name="ApplyLookupTable" xml:space="preserve">
     <value>Apply Lookup table</value>
   </data>
+  <data name="LookupTable" xml:space="preserve">
+    <value>Lookup table</value>
+  </data>
 </root>
