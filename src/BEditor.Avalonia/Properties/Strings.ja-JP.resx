@@ -587,9 +587,6 @@
   <data name="CreateScene" xml:space="preserve">
     <value>シーンを作成</value>
   </data>
-  <data name="Repositories" xml:space="preserve">
-    <value>リポジトリ</value>
-  </data>
   <data name="PleaseEnter" xml:space="preserve">
     <value>{0}を入力してください。</value>
   </data>
@@ -696,5 +693,14 @@ IdにはGUID, UUIDが使えます。</value>
   <data name="EncoderIsNotSet" xml:space="preserve">
     <value>エンコーダが設定されていません。
 エンコーダが設定されると、詳細設定が表示されます。</value>
+  </data>
+  <data name="Key" xml:space="preserve">
+    <value>キー</value>
+  </data>
+  <data name="KeyBindings" xml:space="preserve">
+    <value>キーバインディング</value>
+  </data>
+  <data name="PackageSource" xml:space="preserve">
+    <value>パッケージソース</value>
   </data>
 </root>

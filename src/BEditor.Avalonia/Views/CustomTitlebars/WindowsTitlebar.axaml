@@ -32,7 +32,7 @@
                     <MenuItem
                         Classes="iconheader"
                         Header="{x:Static prop:Strings.CreateProject}"
-                        Click="CreateProjectClick">
+                        Command="{CompiledBinding New, Mode=OneTime}">
                         <MenuItem.Icon>
                             <PathIcon Data="{StaticResource DocumentAdd24Regular}" />
                         </MenuItem.Icon>

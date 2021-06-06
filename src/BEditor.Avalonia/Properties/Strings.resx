@@ -587,9 +587,6 @@ Please select the plugin you want to load</value>
   <data name="CreateScene" xml:space="preserve">
     <value>Create a scene</value>
   </data>
-  <data name="Repositories" xml:space="preserve">
-    <value>Repositories</value>
-  </data>
   <data name="PleaseEnter" xml:space="preserve">
     <value>Please enter {0}.</value>
   </data>
@@ -696,5 +693,14 @@ GUID and UUID can be used for Id.</value>
   <data name="EncoderIsNotSet" xml:space="preserve">
     <value>The encoder is not set.
 After the encoder is set, the detailed settings will be displayed.</value>
+  </data>
+  <data name="Key" xml:space="preserve">
+    <value>Key</value>
+  </data>
+  <data name="KeyBindings" xml:space="preserve">
+    <value>Key bindings</value>
+  </data>
+  <data name="PackageSource" xml:space="preserve">
+    <value>Package source</value>
   </data>
 </root>
