@@ -6,6 +6,7 @@
 // of the MIT license. See the LICENSE file for details.
 
 using System;
+using System.Drawing.Printing;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
@@ -62,6 +63,7 @@ namespace BEditor.Drawing.PixelOperation
         private readonly float* _bData;
         private readonly int _lutSize;
         private readonly float _strength;
+        private readonly float _scale;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Apply3DLookupTableOperation"/> struct.
@@ -79,15 +81,16 @@ namespace BEditor.Drawing.PixelOperation
             _bData = (float*)lut.GetPointer(2);
             _lutSize = lut.Size;
             _strength = strength;
+            _scale = _lutSize / 256f;
         }
 
         /// <inheritdoc/>
         public readonly void Invoke(int pos)
         {
             var color = _src[pos];
-            var r = color.R * _lutSize / 256f;
-            var g = color.G * _lutSize / 256f;
-            var b = color.B * _lutSize / 256f;
+            var r = color.R * _scale;
+            var g = color.G * _scale;
+            var b = color.B * _scale;
             var vec = new Vector3(_rData[Near(r)], _gData[Near(g)], _bData[Near(b)]);
 
             color.R = (byte)((((vec.X * 255) + 0.5) * _strength) + (color.R * (1 - _strength)));
@@ -151,6 +154,20 @@ namespace BEditor.Drawing.PixelOperation
         private int Near(float x)
         {
             return Math.Min((int)(x + 0.5), _lutSize - 1);
+        }
+    }
+
+    internal struct Float3
+    {
+        public float B;
+        public float G;
+        public float R;
+
+        public Float3(float r, float g, float b)
+        {
+            B = b;
+            G = g;
+            R = r;
         }
     }
 }

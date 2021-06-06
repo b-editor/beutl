@@ -47,18 +47,20 @@ namespace BEditor.Drawing
         /// <summary>
         /// Initializes a new instance of the <see cref="LookupTable"/> class.
         /// </summary>
-        /// <param name="size">The size of the <see cref="LookupTable"/>.</param>
+        /// <param name="length">The length of the <see cref="LookupTable"/>.</param>
+        /// <param name="lutsize">The size of the <see cref="LookupTable"/>.</param>
         /// <param name="dim">The dimension of the <see cref="LookupTable"/>.</param>
-        public LookupTable(int size = 256, LookupTableDimension dim = LookupTableDimension.OneDimension)
+        public LookupTable(int length = 256, int lutsize = 256, LookupTableDimension dim = LookupTableDimension.OneDimension)
         {
             _arrays = new UnmanagedArray<float>[(int)dim];
 
             for (var i = 0; i < _arrays.Length; i++)
             {
-                _arrays[i] = new(size);
+                _arrays[i] = new(length);
             }
 
-            Size = size;
+            Size = lutsize;
+            Length = length;
             Dimension = dim;
         }
 
@@ -69,6 +71,11 @@ namespace BEditor.Drawing
         {
             Dispose();
         }
+
+        /// <summary>
+        /// Gets the length of this <see cref="LookupTable"/>.
+        /// </summary>
+        public int Length { get; }
 
         /// <summary>
         /// Gets the size of this <see cref="LookupTable"/>.
@@ -126,7 +133,7 @@ namespace BEditor.Drawing
         {
             if (red == green && green == blue) return Negaposi(red);
 
-            var table = new LookupTable(256, LookupTableDimension.ThreeDimension);
+            var table = new LookupTable(256, 256, LookupTableDimension.ThreeDimension);
             var rData = (float*)table.GetPointer(0);
             var gData = (float*)table.GetPointer(1);
             var bData = (float*)table.GetPointer(2);
@@ -177,7 +184,7 @@ namespace BEditor.Drawing
             ReadInfo(reader, out _, out var dim, out var size, out _, out _);
 
             var length = (int)Math.Pow(size, (int)dim);
-            var table = new LookupTable(length, dim);
+            var table = new LookupTable(length, size, dim);
             var rData = (float*)table.GetPointer(0);
             var gData = (float*)table.GetPointer(1);
             var bData = (float*)table.GetPointer(2);
