@@ -196,8 +196,6 @@ namespace BEditor.Primitive
                     EffectMetadata.Create<Effects.Negaposi>(Strings.Negaposi),
                     EffectMetadata.Create<Effects.Xor>(Strings.Xor),
                     EffectMetadata.Create<Effects.BrightnessCorrection>(Strings.BrightnessCorrection),
-                    EffectMetadata.Create<Effects.ContrastCorrection>(Strings.ContrastCorrection),
-                    EffectMetadata.Create<Effects.GammaCorrection>(Strings.GammaCorrection),
                     EffectMetadata.Create<Effects.RGBColor>(Strings.RGBColorCorrection),
                     EffectMetadata.Create<Effects.Binarization>(Strings.Binarization),
                     EffectMetadata.Create<Effects.Noise>(Strings.Noise),
@@ -206,6 +204,18 @@ namespace BEditor.Primitive
                     EffectMetadata.Create<Effects.InnerShadow>(Strings.InnerShadow),
                     EffectMetadata.Create<Effects.SetAlignment>(Strings.SetAlignment),
                     EffectMetadata.Create<Effects.Mask>(Strings.Mask),
+                },
+            };
+
+            yield return new(Strings.LookupTable)
+            {
+                Children = new[]
+                {
+                    EffectMetadata.Create<Effects.LookupTables.ContrastCorrection>(Strings.ContrastCorrection),
+                    EffectMetadata.Create<Effects.LookupTables.GammaCorrection>(Strings.GammaCorrection),
+                    EffectMetadata.Create<Effects.LookupTables.Negaposi>(Strings.Negaposi),
+                    EffectMetadata.Create<Effects.LookupTables.Solarisation>(Strings.Solarisation),
+                    EffectMetadata.Create<Effects.LookupTables.LookupTable>(Strings.ApplyLookupTable),
                 },
             };
 

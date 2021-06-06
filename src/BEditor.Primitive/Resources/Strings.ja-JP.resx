@@ -60,45 +60,45 @@
             : and then encoded with base64 encoding.
     -->
   <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
-    <xsd:import namespace="http://www.w3.org/XML/1998/namespace"/>
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
     <xsd:element name="root" msdata:IsDataSet="true">
       <xsd:complexType>
         <xsd:choice maxOccurs="unbounded">
           <xsd:element name="metadata">
             <xsd:complexType>
               <xsd:sequence>
-                <xsd:element name="value" type="xsd:string" minOccurs="0"/>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
               </xsd:sequence>
-              <xsd:attribute name="name" use="required" type="xsd:string"/>
-              <xsd:attribute name="type" type="xsd:string"/>
-              <xsd:attribute name="mimetype" type="xsd:string"/>
-              <xsd:attribute ref="xml:space"/>
+              <xsd:attribute name="name" use="required" type="xsd:string" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+              <xsd:attribute ref="xml:space" />
             </xsd:complexType>
           </xsd:element>
           <xsd:element name="assembly">
             <xsd:complexType>
-              <xsd:attribute name="alias" type="xsd:string"/>
-              <xsd:attribute name="name" type="xsd:string"/>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
             </xsd:complexType>
           </xsd:element>
           <xsd:element name="data">
             <xsd:complexType>
               <xsd:sequence>
-                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1"/>
-                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2"/>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
               </xsd:sequence>
-              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1"/>
-              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3"/>
-              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4"/>
-              <xsd:attribute ref="xml:space"/>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
             </xsd:complexType>
           </xsd:element>
           <xsd:element name="resheader">
             <xsd:complexType>
               <xsd:sequence>
-                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1"/>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
               </xsd:sequence>
-              <xsd:attribute name="name" type="xsd:string" use="required"/>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
             </xsd:complexType>
           </xsd:element>
         </xsd:choice>
@@ -119,509 +119,527 @@
   </resheader>
   <data name="AdjustCoordinates" xml:space="preserve">
     <value>座標の調整</value>
-    <comment/>
+    <comment />
   </data>
   <data name="Anchors" xml:space="preserve">
     <value>アンカー</value>
-    <comment/>
+    <comment />
   </data>
   <data name="Angle" xml:space="preserve">
     <value>角度</value>
-    <comment/>
+    <comment />
   </data>
   <data name="AreaExpansion" xml:space="preserve">
     <value>領域拡張</value>
-    <comment/>
+    <comment />
   </data>
   <data name="Audio" xml:space="preserve">
     <value>音声</value>
-    <comment/>
+    <comment />
   </data>
   <data name="Ball" xml:space="preserve">
     <value>ボール</value>
-    <comment/>
+    <comment />
   </data>
   <data name="Blur" xml:space="preserve">
     <value>ぼかし</value>
-    <comment/>
+    <comment />
   </data>
   <data name="Border" xml:space="preserve">
     <value>縁取り</value>
-    <comment/>
+    <comment />
   </data>
   <data name="Bottom" xml:space="preserve">
     <value>下</value>
-    <comment/>
+    <comment />
   </data>
   <data name="Camera" xml:space="preserve">
     <value>カメラ</value>
-    <comment/>
+    <comment />
   </data>
   <data name="CenterX" xml:space="preserve">
     <value>中心X</value>
-    <comment/>
+    <comment />
   </data>
   <data name="CenterY" xml:space="preserve">
     <value>中心Y</value>
-    <comment/>
+    <comment />
   </data>
   <data name="ChromaKey" xml:space="preserve">
     <value>クロマキー</value>
-    <comment/>
+    <comment />
   </data>
   <data name="CircularGradient" xml:space="preserve">
     <value>円形グラデーション</value>
-    <comment/>
+    <comment />
   </data>
   <data name="Clamp" xml:space="preserve">
     <value>Clamp</value>
-    <comment/>
+    <comment />
   </data>
   <data name="ClearFramebuffer" xml:space="preserve">
     <value>フレームバッファをクリア</value>
-    <comment/>
+    <comment />
   </data>
   <data name="Clipping" xml:space="preserve">
     <value>クリッピング</value>
-    <comment/>
+    <comment />
   </data>
   <data name="Color" xml:space="preserve">
     <value>色</value>
-    <comment/>
+    <comment />
   </data>
   <data name="ColorKey" xml:space="preserve">
     <value>カラーキー</value>
-    <comment/>
+    <comment />
   </data>
   <data name="Colors" xml:space="preserve">
     <value>色</value>
-    <comment/>
+    <comment />
   </data>
   <data name="Cube" xml:space="preserve">
     <value>キューブ</value>
-    <comment/>
+    <comment />
   </data>
   <data name="Decal" xml:space="preserve">
     <value>Decal</value>
-    <comment/>
+    <comment />
   </data>
   <data name="Depth" xml:space="preserve">
     <value>深度</value>
-    <comment/>
+    <comment />
   </data>
   <data name="DepthFunction" xml:space="preserve">
     <value>Depth function</value>
-    <comment/>
+    <comment />
   </data>
   <data name="DepthTest" xml:space="preserve">
     <value>深度テスト</value>
-    <comment/>
+    <comment />
   </data>
   <data name="DepthTestEnable" xml:space="preserve">
     <value>深度テストを有効にする</value>
-    <comment/>
+    <comment />
   </data>
   <data name="Dilate" xml:space="preserve">
     <value>膨張</value>
-    <comment/>
+    <comment />
   </data>
   <data name="DropShadow" xml:space="preserve">
     <value>ドロップシャドウ</value>
-    <comment/>
+    <comment />
   </data>
   <data name="Ellipse" xml:space="preserve">
     <value>楕円形</value>
-    <comment/>
+    <comment />
   </data>
   <data name="EnableMultipleObjects" xml:space="preserve">
     <value>多重オブジェクトを有効にする</value>
-    <comment/>
+    <comment />
   </data>
   <data name="EndPoint" xml:space="preserve">
     <value>終了位置</value>
-    <comment/>
+    <comment />
   </data>
   <data name="Erode" xml:space="preserve">
     <value>収縮</value>
-    <comment/>
+    <comment />
   </data>
   <data name="FailedToLoad" xml:space="preserve">
     <value>{0} の読み込みに失敗しました。</value>
-    <comment/>
+    <comment />
   </data>
   <data name="File" xml:space="preserve">
     <value>ファイル</value>
-    <comment/>
+    <comment />
   </data>
   <data name="FitToOriginalSize" xml:space="preserve">
     <value>元のサイズに合わせる</value>
-    <comment/>
+    <comment />
   </data>
   <data name="Fov" xml:space="preserve">
     <value>視野角</value>
-    <comment/>
+    <comment />
   </data>
   <data name="Framebuffer" xml:space="preserve">
     <value>フレームバッファ</value>
-    <comment/>
+    <comment />
   </data>
   <data name="Frequency" xml:space="preserve">
     <value>回数</value>
-    <comment/>
+    <comment />
   </data>
   <data name="GL3DObject" xml:space="preserve">
     <value>立体オブジェクト</value>
-    <comment/>
+    <comment />
   </data>
   <data name="Height" xml:space="preserve">
     <value>高さ</value>
-    <comment/>
+    <comment />
   </data>
   <data name="Image" xml:space="preserve">
     <value>画像</value>
-    <comment/>
+    <comment />
   </data>
   <data name="ImageFile" xml:space="preserve">
     <value>画像ファイル</value>
-    <comment/>
+    <comment />
   </data>
   <data name="ImageSplit" xml:space="preserve">
     <value>画像分割</value>
-    <comment/>
+    <comment />
   </data>
   <data name="InvertMask" xml:space="preserve">
     <value>マスクの反転</value>
-    <comment/>
+    <comment />
   </data>
   <data name="Left" xml:space="preserve">
     <value>左</value>
-    <comment/>
+    <comment />
   </data>
   <data name="LinearGradient" xml:space="preserve">
     <value>線形グラデーション</value>
-    <comment/>
+    <comment />
   </data>
   <data name="LineWidth" xml:space="preserve">
     <value>ライン幅</value>
-    <comment/>
+    <comment />
   </data>
   <data name="Listener" xml:space="preserve">
     <value>リスナー</value>
-    <comment/>
+    <comment />
   </data>
   <data name="Mask" xml:space="preserve">
     <value>マスク</value>
-    <comment/>
+    <comment />
   </data>
   <data name="Mirror" xml:space="preserve">
     <value>Mirror</value>
-    <comment/>
+    <comment />
   </data>
   <data name="Mode" xml:space="preserve">
     <value>モード</value>
-    <comment/>
+    <comment />
   </data>
   <data name="Monoc" xml:space="preserve">
     <value>単色化</value>
-    <comment/>
+    <comment />
   </data>
   <data name="MultipleImageControls" xml:space="preserve">
     <value>多重画像コントロール</value>
-    <comment/>
+    <comment />
   </data>
   <data name="NumberOfHorizontalDivisions" xml:space="preserve">
     <value>横分割数</value>
-    <comment/>
+    <comment />
   </data>
   <data name="NumberOfVerticalDivisions" xml:space="preserve">
     <value>縦分割数</value>
-    <comment/>
+    <comment />
   </data>
   <data name="Opacity" xml:space="preserve">
     <value>不透明度</value>
-    <comment/>
+    <comment />
   </data>
   <data name="PathToImageObject" xml:space="preserve">
     <value>画像オブジェクトへのパス</value>
-    <comment/>
+    <comment />
   </data>
   <data name="Perspective" xml:space="preserve">
     <value>遠近法</value>
-    <comment/>
+    <comment />
   </data>
   <data name="Pitch" xml:space="preserve">
     <value>ピッチ</value>
-    <comment/>
+    <comment />
   </data>
   <data name="PointLightDiffuse" xml:space="preserve">
     <value>ポイントライト拡散</value>
-    <comment/>
+    <comment />
   </data>
   <data name="PointLightSource" xml:space="preserve">
     <value>点光源</value>
-    <comment/>
+    <comment />
   </data>
   <data name="Polygon" xml:space="preserve">
     <value>多角形</value>
-    <comment/>
+    <comment />
   </data>
   <data name="Radius" xml:space="preserve">
     <value>半径</value>
-    <comment/>
+    <comment />
   </data>
   <data name="Rectangle" xml:space="preserve">
     <value>矩形</value>
-    <comment/>
+    <comment />
   </data>
   <data name="Repeat" xml:space="preserve">
     <value>リピート</value>
-    <comment/>
+    <comment />
   </data>
   <data name="Resize" xml:space="preserve">
     <value>リサイズ</value>
-    <comment/>
+    <comment />
   </data>
   <data name="Right" xml:space="preserve">
     <value>右</value>
-    <comment/>
+    <comment />
   </data>
   <data name="Rotate" xml:space="preserve">
     <value>回転</value>
-    <comment/>
+    <comment />
   </data>
   <data name="RoundRect" xml:space="preserve">
     <value>角丸矩形</value>
-    <comment/>
+    <comment />
   </data>
   <data name="Scene" xml:space="preserve">
     <value>シーン</value>
-    <comment/>
+    <comment />
   </data>
   <data name="Scenes" xml:space="preserve">
     <value>シーン</value>
-    <comment/>
+    <comment />
   </data>
   <data name="Shape" xml:space="preserve">
     <value>図形</value>
-    <comment/>
+    <comment />
   </data>
   <data name="Size" xml:space="preserve">
     <value>サイズ</value>
-    <comment/>
+    <comment />
   </data>
   <data name="Speed" xml:space="preserve">
     <value>速度</value>
-    <comment/>
+    <comment />
   </data>
   <data name="Start" xml:space="preserve">
     <value>開始フレーム</value>
-    <comment/>
+    <comment />
   </data>
   <data name="StartPoint" xml:space="preserve">
     <value>開始位置</value>
-    <comment/>
+    <comment />
   </data>
   <data name="TargetX" xml:space="preserve">
     <value>目標X</value>
-    <comment/>
+    <comment />
   </data>
   <data name="TargetY" xml:space="preserve">
     <value>目標Y</value>
-    <comment/>
+    <comment />
   </data>
   <data name="TargetZ" xml:space="preserve">
     <value>目標Z</value>
-    <comment/>
+    <comment />
   </data>
   <data name="Text" xml:space="preserve">
     <value>テキスト</value>
-    <comment/>
+    <comment />
   </data>
   <data name="ThresholdValue" xml:space="preserve">
     <value>閾値</value>
-    <comment/>
+    <comment />
   </data>
   <data name="Top" xml:space="preserve">
     <value>上</value>
-    <comment/>
+    <comment />
   </data>
   <data name="Type" xml:space="preserve">
     <value>種類</value>
-    <comment/>
+    <comment />
   </data>
   <data name="Video" xml:space="preserve">
     <value>動画</value>
-    <comment/>
+    <comment />
   </data>
   <data name="VideoFile" xml:space="preserve">
     <value>動画ファイル</value>
-    <comment/>
+    <comment />
   </data>
   <data name="Volume" xml:space="preserve">
     <value>音量</value>
-    <comment/>
+    <comment />
   </data>
   <data name="Width" xml:space="preserve">
     <value>幅</value>
-    <comment/>
+    <comment />
   </data>
   <data name="X" xml:space="preserve">
     <value>X</value>
-    <comment/>
+    <comment />
   </data>
   <data name="Y" xml:space="preserve">
     <value>Y</value>
-    <comment/>
+    <comment />
   </data>
   <data name="Z" xml:space="preserve">
     <value>Z</value>
-    <comment/>
+    <comment />
   </data>
   <data name="ZFar" xml:space="preserve">
     <value>ZFar</value>
-    <comment/>
+    <comment />
   </data>
   <data name="ImageEffects" xml:space="preserve">
     <value>画像エフェクト</value>
-    <comment/>
+    <comment />
   </data>
   <data name="ZNear" xml:space="preserve">
     <value>ZNear</value>
-    <comment/>
+    <comment />
   </data>
   <data name="Grayscale" xml:space="preserve">
     <value>グレースケール</value>
-    <comment/>
+    <comment />
   </data>
   <data name="Sepia" xml:space="preserve">
     <value>セピア</value>
-    <comment/>
+    <comment />
   </data>
   <data name="Negaposi" xml:space="preserve">
     <value>ネガポジ</value>
-    <comment/>
+    <comment />
   </data>
   <data name="Xor" xml:space="preserve">
     <value>Xor</value>
-    <comment/>
+    <comment />
   </data>
   <data name="Red" xml:space="preserve">
     <value>赤</value>
-    <comment/>
+    <comment />
   </data>
   <data name="Green" xml:space="preserve">
     <value>緑</value>
-    <comment/>
+    <comment />
   </data>
   <data name="Blue" xml:space="preserve">
     <value>青</value>
-    <comment/>
+    <comment />
   </data>
   <data name="BrightnessCorrection" xml:space="preserve">
     <value>明るさ補正</value>
-    <comment/>
+    <comment />
   </data>
   <data name="Brightness" xml:space="preserve">
     <value>明るさ</value>
-    <comment/>
+    <comment />
   </data>
   <data name="ContrastCorrection" xml:space="preserve">
     <value>コントラスト補正</value>
-    <comment/>
+    <comment />
   </data>
   <data name="Contrast" xml:space="preserve">
     <value>コントラスト</value>
-    <comment/>
+    <comment />
   </data>
   <data name="GammaCorrection" xml:space="preserve">
     <value>ガンマ補正</value>
-    <comment/>
+    <comment />
   </data>
   <data name="Gamma" xml:space="preserve">
     <value>ガンマ</value>
-    <comment/>
+    <comment />
   </data>
   <data name="RGBColorCorrection" xml:space="preserve">
     <value>RGB調整</value>
-    <comment/>
+    <comment />
   </data>
   <data name="Binarization" xml:space="preserve">
     <value>二階調化</value>
-    <comment/>
+    <comment />
   </data>
   <data name="Noise" xml:space="preserve">
     <value>ノイズ</value>
-    <comment/>
+    <comment />
   </data>
   <data name="Diffusion" xml:space="preserve">
     <value>拡散</value>
-    <comment/>
+    <comment />
   </data>
   <data name="HorizontalAlignment" xml:space="preserve">
     <value>水平方向のアライメント</value>
-    <comment/>
+    <comment />
   </data>
   <data name="VerticalAlignment" xml:space="preserve">
     <value>垂直方向のアライメント</value>
-    <comment/>
+    <comment />
   </data>
   <data name="Center" xml:space="preserve">
     <value>中心</value>
-    <comment/>
+    <comment />
   </data>
   <data name="LineSpacing" xml:space="preserve">
     <value>行間</value>
-    <comment/>
+    <comment />
   </data>
   <data name="Coordinate" xml:space="preserve">
     <value>座標</value>
-    <comment/>
+    <comment />
   </data>
   <data name="TopLeft" xml:space="preserve">
     <value>左上</value>
-    <comment/>
+    <comment />
   </data>
   <data name="TopRight" xml:space="preserve">
     <value>右上</value>
-    <comment/>
+    <comment />
   </data>
   <data name="BottomLeft" xml:space="preserve">
     <value>左下</value>
-    <comment/>
+    <comment />
   </data>
   <data name="BottomRight" xml:space="preserve">
     <value>右下</value>
-    <comment/>
+    <comment />
   </data>
   <data name="ReverseOpacity" xml:space="preserve">
     <value>不透明度を反転</value>
-    <comment/>
+    <comment />
   </data>
   <data name="GaussianBlur" xml:space="preserve">
     <value>ガウスぼかし</value>
-    <comment/>
+    <comment />
   </data>
   <data name="MedianBlur" xml:space="preserve">
     <value>メディアンぼかし</value>
-    <comment/>
+    <comment />
   </data>
   <data name="InnerShadow" xml:space="preserve">
     <value>内側シャドウ</value>
-    <comment/>
+    <comment />
   </data>
   <data name="ClipLengthAsAudioLength" xml:space="preserve">
     <value>クリップ長さを音声の長さと同じにする。</value>
-    <comment/>
+    <comment />
   </data>
   <data name="ClipLengthAsVideoLength" xml:space="preserve">
     <value>クリップ長さを動画の長さと同じにする。</value>
-    <comment/>
+    <comment />
   </data>
   <data name="SetAlignment" xml:space="preserve">
     <value>アライメントを設定</value>
-    <comment/>
+    <comment />
   </data>
   <data name="WarpPolar" xml:space="preserve">
     <value>極座標変換</value>
+  </data>
+  <data name="CubeFile" xml:space="preserve">
+    <value>Cubeファイル</value>
+  </data>
+  <data name="Strength" xml:space="preserve">
+    <value>強さ</value>
+  </data>
+  <data name="ApplyLookupTable" xml:space="preserve">
+    <value>Lookup tableを適用</value>
+  </data>
+  <data name="LookupTable" xml:space="preserve">
+    <value>Lookup table</value>
+  </data>
+  <data name="Solarisation" xml:space="preserve">
+    <value>ソラリゼーション</value>
+  </data>
+  <data name="Cycle" xml:space="preserve">
+    <value>周期</value>
   </data>
 </root>

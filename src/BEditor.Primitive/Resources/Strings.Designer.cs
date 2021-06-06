@@ -88,6 +88,15 @@ namespace BEditor.Primitive.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Apply Lookup table.
+        /// </summary>
+        internal static string ApplyLookupTable {
+            get {
+                return ResourceManager.GetString("ApplyLookupTable", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Area expansion.
         /// </summary>
         internal static string AreaExpansion {
@@ -354,6 +363,24 @@ namespace BEditor.Primitive.Resources {
         internal static string Cube {
             get {
                 return ResourceManager.GetString("Cube", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Cube file.
+        /// </summary>
+        internal static string CubeFile {
+            get {
+                return ResourceManager.GetString("CubeFile", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Cycle.
+        /// </summary>
+        internal static string Cycle {
+            get {
+                return ResourceManager.GetString("Cycle", resourceCulture);
             }
         }
         
@@ -691,6 +718,15 @@ namespace BEditor.Primitive.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Lookup table.
+        /// </summary>
+        internal static string LookupTable {
+            get {
+                return ResourceManager.GetString("LookupTable", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Mask.
         /// </summary>
         internal static string Mask {
@@ -988,6 +1024,15 @@ namespace BEditor.Primitive.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Solarisation.
+        /// </summary>
+        internal static string Solarisation {
+            get {
+                return ResourceManager.GetString("Solarisation", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Speed.
         /// </summary>
         internal static string Speed {
@@ -1011,6 +1056,15 @@ namespace BEditor.Primitive.Resources {
         internal static string StartPoint {
             get {
                 return ResourceManager.GetString("StartPoint", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Strength.
+        /// </summary>
+        internal static string Strength {
+            get {
+                return ResourceManager.GetString("Strength", resourceCulture);
             }
         }
         
