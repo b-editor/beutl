@@ -40,18 +40,13 @@
                             HorizontalContentAlignment="Right"
                             Content="{TemplateBinding Tag}"
                             DockPanel.Dock="Bottom" />
-                        <ScrollViewer
-                            Background="Transparent"
-                            HorizontalScrollBarVisibility="{Binding RelativeSource={RelativeSource TemplatedParent}, Path=SelectedItem.(ScrollViewer.HorizontalScrollBarVisibility)}"
-                            VerticalScrollBarVisibility="{Binding RelativeSource={RelativeSource TemplatedParent}, Path=SelectedItem.(ScrollViewer.VerticalScrollBarVisibility)}">
-                            <ContentPresenter
-                                Name="PART_SelectedContentHost"
-                                Margin="{TemplateBinding Padding}"
-                                HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
-                                Content="{TemplateBinding SelectedContent}"
-                                ContentTemplate="{TemplateBinding SelectedContentTemplate}" />
-                        </ScrollViewer>
+                        <ContentPresenter
+                            Name="PART_SelectedContentHost"
+                            Margin="{TemplateBinding Padding}"
+                            HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                            VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
+                            Content="{TemplateBinding SelectedContent}"
+                            ContentTemplate="{TemplateBinding SelectedContentTemplate}" />
                     </DockPanel>
                 </Border>
             </ControlTemplate>
@@ -76,7 +71,7 @@
                     BorderBrush="{TemplateBinding BorderBrush}"
                     BorderThickness="0">
                     <Grid ColumnDefinitions="16,*">
-                        
+
                         <ContentPresenter
                             Grid.Column="1"
                             Name="PART_ContentPresenter"

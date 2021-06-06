@@ -6,25 +6,27 @@
              xmlns:resource="using:BEditor.Properties"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="BEditor.Views.Settings.Project">
-    <VirtualizingStackPanel>
+    <ScrollViewer>
+        <VirtualizingStackPanel>
 
-        <TextBlock Text="{x:Static resource:Strings.Project}" Classes="SettingsHeader"/>
-        
-        <Label Content="{x:Static resource:Strings.UseAutoBackup}" Classes="SettingsItemHeader"/>
+            <TextBlock Text="{x:Static resource:Strings.Project}" Classes="SettingsHeader"/>
 
-        <ToggleSwitch IsChecked="{Binding AutoBackUp, Source={x:Static data:Settings.Default}, Mode=TwoWay}" Classes="SettingsToggleSwitch"/>
+            <Label Content="{x:Static resource:Strings.UseAutoBackup}" Classes="SettingsItemHeader"/>
 
-        <Separator Height="16" />
+            <ToggleSwitch IsChecked="{Binding AutoBackUp, Source={x:Static data:Settings.Default}, Mode=TwoWay}" Classes="SettingsToggleSwitch"/>
 
-        <Label Content="{x:Static resource:Strings.UsingGPUForImageProcessing}" Classes="SettingsItemHeader"/>
+            <Separator Height="16" />
 
-        <ToggleSwitch IsChecked="{Binding PrioritizeGPU, Source={x:Static data:Settings.Default}, Mode=TwoWay}" Classes="SettingsToggleSwitch"/>
+            <Label Content="{x:Static resource:Strings.UsingGPUForImageProcessing}" Classes="SettingsItemHeader"/>
 
-        <Separator Height="16" />
+            <ToggleSwitch IsChecked="{Binding PrioritizeGPU, Source={x:Static data:Settings.Default}, Mode=TwoWay}" Classes="SettingsToggleSwitch"/>
 
-        <Label Content="{x:Static resource:Strings.BackupInterval}" Classes="SettingsItemHeader"/>
+            <Separator Height="16" />
 
-        <NumericUpDown Value="{Binding BackUpInterval, Mode=TwoWay, Source={x:Static data:Settings.Default}}" Classes="SettingsNumericUpDown"/>
+            <Label Content="{x:Static resource:Strings.BackupInterval}" Classes="SettingsItemHeader"/>
 
-    </VirtualizingStackPanel>
+            <NumericUpDown Value="{Binding BackUpInterval, Mode=TwoWay, Source={x:Static data:Settings.Default}}" Classes="SettingsNumericUpDown"/>
+
+        </VirtualizingStackPanel>
+    </ScrollViewer>
 </UserControl>
