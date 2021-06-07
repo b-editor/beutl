@@ -4,6 +4,7 @@ using System.Collections.ObjectModel;
 using System.IO;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Threading.Tasks;
 using System.Windows.Input;
 
 using Avalonia.Input;
@@ -81,10 +82,23 @@ namespace BEditor.Models
             var json = JsonSerializer.Serialize(Bindings, Packaging.PackageFile._serializerOptions);
             reader.Write(json);
         }
+        
+        public static async Task SaveAsync()
+        {
+            await using var stream = new FileStream(Path.Combine(AppContext.BaseDirectory, "user", "keybindings.json"), FileMode.Create);
+            await JsonSerializer.SerializeAsync(stream, Bindings, Packaging.PackageFile._serializerOptions);
+        }
 
         public KeyGesture ToKeyGesture()
         {
-            return _keyGesture ??= KeyGesture.Parse(Key);
+            if (_keyGesture is not null && _keyGesture.ToString() == Key)
+            {
+                return _keyGesture;
+            }
+            else
+            {
+                return _keyGesture = KeyGesture.Parse(Key);
+            }
         }
 
         private static IEnumerable<KeyBindingModel> CreateDefault()

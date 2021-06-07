@@ -44,7 +44,7 @@
                 Classes="accent" />
         </StackPanel>
 
-        <ScrollViewer Grid.Row="1" IsVisible="False">
+        <ScrollViewer Grid.Row="1">
             <ItemsControl
                 IsVisible="{CompiledBinding !IsEmpty.Value, Mode=OneWay}"
                 Items="{CompiledBinding Projects, Mode=OneTime}">

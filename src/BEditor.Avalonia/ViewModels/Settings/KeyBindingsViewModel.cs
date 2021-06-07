@@ -24,11 +24,12 @@ namespace BEditor.ViewModels.Settings
             Key = SelectedBinding.Select(i => i?.Key).ToReactiveProperty();
 
             Apply.Where(_ => SelectedBinding.Value is not null)
-                .Subscribe(_ =>
+                .Subscribe(async _ =>
                 {
                     if (Key.Value is not null)
                     {
                         SelectedBinding.Value!.Key = Key.Value;
+                        await KeyBindingModel.SaveAsync();
                     }
                 });
         }

@@ -30,7 +30,7 @@
                 Margin="8"
                 UseFloatingWatermark="True"
                 Watermark="{x:Static props:Strings.Key}"
-                Text="{CompiledBinding SelectedBinding.Value.Key, Mode=TwoWay}" />
+                Text="{CompiledBinding Key.Value, Mode=TwoWay}" />
 
             <Button
                 Margin="8"
