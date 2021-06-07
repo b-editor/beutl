@@ -15,12 +15,15 @@ namespace BEditor.Views.Settings
 
         public async void AddClick(object sender, RoutedEventArgs e)
         {
-            var dialog = new OpenFolderDialog();
-            var dir = await dialog.ShowAsync((Window)VisualRoot);
-
-            if (Directory.Exists(dir))
+            if (VisualRoot is Window window)
             {
-                BEditor.Settings.Default.IncludeFontDir.Add(dir);
+                var dialog = new OpenFolderDialog();
+                var dir = await dialog.ShowAsync(window);
+
+                if (Directory.Exists(dir))
+                {
+                    BEditor.Settings.Default.IncludeFontDir.Add(dir);
+                }
             }
         }
 

@@ -132,106 +132,120 @@ namespace BEditor.Views.CustomTitlebars
 
         public async void ManagePlugins_Click(object s, RoutedEventArgs e)
         {
-            await new ManagePluginsWindow().ShowDialog((Window)VisualRoot);
+            if (VisualRoot is Window window)
+            {
+                await new ManagePluginsWindow().ShowDialog(window);
+            }
         }
 
         public async void ShowInfomation(object s, RoutedEventArgs e)
         {
-            await new Infomation().ShowDialog((Window)VisualRoot);
+            if (VisualRoot is Window window)
+            {
+                await new Infomation().ShowDialog(window);
+            }
         }
 
         public async void ShowSettings(object s, RoutedEventArgs e)
         {
-            await new SettingsWindow().ShowDialog((Window)VisualRoot);
+            if (VisualRoot is Window window)
+            {
+                await new SettingsWindow().ShowDialog(window);
+            }
         }
 
         public async void CreateScene(object s, RoutedEventArgs e)
         {
-            var dialog = new CreateScene
+            if (VisualRoot is Window window)
             {
-                DataContext = new CreateSceneViewModel()
-            };
-
-            await dialog.ShowDialog((Window)VisualRoot);
+                var dialog = new CreateScene { DataContext = new CreateSceneViewModel() };
+                await dialog.ShowDialog(window);
+            }
         }
 
         public async void CreateClip(object s, RoutedEventArgs e)
         {
-            var dialog = new CreateClip
+            if (VisualRoot is Window window)
             {
-                DataContext = new CreateClipViewModel()
-            };
-
-            await dialog.ShowDialog((Window)VisualRoot);
+                var dialog = new CreateClip { DataContext = new CreateClipViewModel() };
+                await dialog.ShowDialog(window);
+            }
         }
 
         public async void AddEffect(object s, RoutedEventArgs e)
         {
-            var dialog = new AddEffect
+            if (VisualRoot is Window window)
             {
-                DataContext = new AddEffectViewModel()
-            };
-
-            await dialog.ShowDialog((Window)VisualRoot);
+                var dialog = new AddEffect { DataContext = new AddEffectViewModel() };
+                await dialog.ShowDialog(window);
+            }
         }
 
         public void WindowsTitlebar_PointerPressed(object? sender, Avalonia.Input.PointerPressedEventArgs e)
         {
-            var hostWindow = (Window)VisualRoot;
-            hostWindow.BeginMoveDrag(e);
+            if (VisualRoot is Window window)
+            {
+                window.BeginMoveDrag(e);
+            }
         }
 
         private void CloseWindow(object? sender, RoutedEventArgs e)
         {
-            var hostWindow = (Window)VisualRoot;
-            hostWindow.Close();
+            if (VisualRoot is Window window)
+            {
+                window.Close();
+            }
         }
 
         private void MaximizeWindow(object? sender, RoutedEventArgs e)
         {
-            var hostWindow = (Window)VisualRoot;
-
-            if (hostWindow.WindowState is WindowState.Normal)
+            if (VisualRoot is Window window)
             {
-                hostWindow.WindowState = WindowState.Maximized;
-            }
-            else
-            {
-                hostWindow.WindowState = WindowState.Normal;
+                if (window.WindowState is WindowState.Normal)
+                {
+                    window.WindowState = WindowState.Maximized;
+                }
+                else
+                {
+                    window.WindowState = WindowState.Normal;
+                }
             }
         }
 
         private void MinimizeWindow(object? sender, RoutedEventArgs e)
         {
-            var hostWindow = (Window)VisualRoot;
-            hostWindow.WindowState = WindowState.Minimized;
+            if (VisualRoot is Window window)
+            {
+                window.WindowState = WindowState.Minimized;
+            }
         }
 
         private async void SubscribeToWindowState()
         {
-            var hostWindow = (Window)VisualRoot;
-
-            while (hostWindow is null)
+            if (VisualRoot is Window window)
             {
-                hostWindow = (Window)VisualRoot;
-                await Task.Delay(50);
+                while (window is null)
+                {
+                    window = (Window)VisualRoot;
+                    await Task.Delay(50);
+                }
+
+                window.GetObservable(Window.WindowStateProperty).Subscribe(s =>
+                {
+                    if (s is not WindowState.Maximized)
+                    {
+                        _maximizeIcon.Data = Avalonia.Media.Geometry.Parse("M2048 2048v-2048h-2048v2048h2048zM1843 1843h-1638v-1638h1638v1638z");
+                        window.Padding = new Thickness(0, 0, 0, 0);
+                        _maximizeToolTip.Content = "Maximize";
+                    }
+                    if (s is WindowState.Maximized)
+                    {
+                        _maximizeIcon.Data = Avalonia.Media.Geometry.Parse("M2048 1638h-410v410h-1638v-1638h410v-410h1638v1638zm-614-1024h-1229v1229h1229v-1229zm409-409h-1229v205h1024v1024h205v-1229z");
+                        window.Padding = new Thickness(7, 7, 7, 7);
+                        _maximizeToolTip.Content = "Restore Down";
+                    }
+                });
             }
-
-            hostWindow.GetObservable(Window.WindowStateProperty).Subscribe(s =>
-            {
-                if (s is not WindowState.Maximized)
-                {
-                    _maximizeIcon.Data = Avalonia.Media.Geometry.Parse("M2048 2048v-2048h-2048v2048h2048zM1843 1843h-1638v-1638h1638v1638z");
-                    hostWindow.Padding = new Thickness(0, 0, 0, 0);
-                    _maximizeToolTip.Content = "Maximize";
-                }
-                if (s is WindowState.Maximized)
-                {
-                    _maximizeIcon.Data = Avalonia.Media.Geometry.Parse("M2048 1638h-410v410h-1638v-1638h410v-410h1638v1638zm-614-1024h-1229v1229h1229v-1229zm409-409h-1229v205h1024v1024h205v-1229z");
-                    hostWindow.Padding = new Thickness(7, 7, 7, 7);
-                    _maximizeToolTip.Content = "Restore Down";
-                }
-            });
         }
 
         private void InitializeComponent()

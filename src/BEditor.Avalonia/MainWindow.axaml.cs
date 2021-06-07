@@ -85,13 +85,12 @@ namespace BEditor
 
         public async void CreateProjectClick(object s)
         {
-            var viewmodel = new CreateProjectViewModel();
-            var dialog = new CreateProject
+            if (VisualRoot is Window window)
             {
-                DataContext = viewmodel
-            };
-
-            await dialog.ShowDialog((Window)VisualRoot);
+                var viewmodel = new CreateProjectViewModel();
+                var dialog = new CreateProject { DataContext = viewmodel };
+                await dialog.ShowDialog(window);
+            }
         }
 
         protected override async void OnOpened(EventArgs e)

@@ -8,7 +8,6 @@ using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 
 using BEditor.Data;
-using BEditor.Extensions;
 using BEditor.Models;
 using BEditor.Properties;
 using BEditor.ViewModels.DialogContent;
@@ -118,40 +117,37 @@ namespace BEditor.Views
 
         public async void CreateScene(object s, RoutedEventArgs e)
         {
-            var dialog = new CreateScene
+            if (VisualRoot is Window window)
             {
-                DataContext = new CreateSceneViewModel()
-            };
-
-            await dialog.ShowDialog((Window)VisualRoot);
+                var dialog = new CreateScene { DataContext = new CreateSceneViewModel() };
+                await dialog.ShowDialog(window);
+            }
         }
 
         public async void CreateClip(object s, RoutedEventArgs e)
         {
-            var vm = new CreateClipViewModel();
-            var guess = GetScene();
-            if (guess is not null) vm.Scene.Value = guess;
-
-            var dialog = new CreateClip
+            if (VisualRoot is Window window)
             {
-                DataContext = vm
-            };
+                var vm = new CreateClipViewModel();
+                var guess = GetScene();
+                if (guess is not null) vm.Scene.Value = guess;
 
-            await dialog.ShowDialog((Window)VisualRoot);
+                var dialog = new CreateClip { DataContext = vm };
+                await dialog.ShowDialog(window);
+            }
         }
 
         public async void AddEffect(object s, RoutedEventArgs e)
         {
-            var vm = new AddEffectViewModel();
-            var guess = GetClip();
-            if (guess is not null) vm.ClipId.Value = guess.Id.ToString();
-
-            var dialog = new AddEffect
+            if (VisualRoot is Window window)
             {
-                DataContext = vm
-            };
+                var vm = new AddEffectViewModel();
+                var guess = GetClip();
+                if (guess is not null) vm.ClipId.Value = guess.Id.ToString();
 
-            await dialog.ShowDialog((Window)VisualRoot);
+                var dialog = new AddEffect { DataContext = vm };
+                await dialog.ShowDialog(window);
+            }
         }
 
         private void InitializeComponent()

@@ -42,7 +42,7 @@ namespace BEditor.ViewModels
                         new(Strings.BackupFile, new FileExtension[] { new("backup") }),
                     }
                 };
-                var service = AppModel.Current.FileDialog;
+                var service = App.FileDialog;
 
                 if (await service.ShowOpenFileDialogAsync(dialog))
                 {
@@ -62,7 +62,7 @@ namespace BEditor.ViewModels
                         Debug.Fail(string.Empty);
 
                         var msg = string.Format(Strings.FailedToLoad, Strings.Project);
-                        //AppData.Current.Message.Snackbar(msg);
+                        App.Message.Snackbar(msg);
 
                         BEditor.App.Logger?.LogError(e, msg);
                     }
@@ -308,7 +308,7 @@ namespace BEditor.ViewModels
         public ReactiveCommand Copy { get; } = new();
 
         public ReactiveCommand Paste { get; } = new();
-        
+
         public ReactiveCommand New { get; } = new();
 
         public ReactiveCommand ImageOutput { get; } = new();

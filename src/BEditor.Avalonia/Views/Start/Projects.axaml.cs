@@ -1,8 +1,5 @@
-using System;
 using System.ComponentModel;
-using System.Threading.Tasks;
 
-using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
@@ -37,16 +34,15 @@ namespace BEditor.Views.Start
 
         public void CreateNew(object s, RoutedEventArgs e)
         {
-            var parent = (Window)VisualRoot;
-            var dialog = new CreateProject
+            if (VisualRoot is Window parent)
             {
-                DataContext = new CreateProjectViewModel()
-            };
-            App.SetMainWindow(dialog);
-            dialog.Show();
-            parent.Close();
+                var dialog = new CreateProject { DataContext = new CreateProjectViewModel() };
+                App.SetMainWindow(dialog);
+                dialog.Show();
+                parent.Close();
 
-            dialog.Closing += Dialog_Closing;
+                dialog.Closing += Dialog_Closing;
+            }
         }
 
         private void Dialog_Closing(object? sender, CancelEventArgs e)
