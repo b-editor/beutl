@@ -18,7 +18,7 @@
     <ItemGroup>
         <PackageReference Include="Avalonia" Version="0.10.6" />
         <PackageReference Include="Avalonia.Desktop" Version="0.10.6" />
-        <PackageReference Include="Avalonia.Diagnostics" Version="0.10.5" />
+        <PackageReference Include="Avalonia.Diagnostics" Version="0.10.6" />
         <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="5.0.0" />
         <PackageReference Include="ReactiveProperty" Version="7.11.0" />
         <PackageReference Include="Serilog.Extensions.Logging" Version="3.0.1" />

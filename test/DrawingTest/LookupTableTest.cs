@@ -2,14 +2,13 @@ using System.Reflection;
 
 using BEditor.Drawing;
 
-using Microsoft.VisualStudio.TestTools.UnitTesting;
+using NUnit.Framework;
 
 namespace DrawingTest
 {
-    [TestClass]
     public class LookupTableTest
     {
-        [TestMethod]
+        [Test]
         public void FromStream()
         {
             using var stream = Assembly.GetExecutingAssembly().GetManifestResourceStream("DrawingTest.Resources.PB_Basin.CUBE");
