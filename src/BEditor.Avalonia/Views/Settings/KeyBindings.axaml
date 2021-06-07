@@ -1,0 +1,43 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:vm="using:BEditor.ViewModels.Settings"
+    xmlns:props="using:BEditor.Properties"
+    mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+    x:DataType="vm:KeyBindingsViewModel"
+    x:Class="BEditor.Views.Settings.KeyBindings">
+    <UserControl.DataContext>
+        <vm:KeyBindingsViewModel />
+    </UserControl.DataContext>
+    <Grid RowDefinitions="*,Auto">
+
+        <ListBox
+            Background="Transparent"
+            Items="{CompiledBinding Commands, Mode=OneTime}"
+            SelectedItem="{CompiledBinding SelectedCommand.Value, Mode=TwoWay}">
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <TextBlock Text="{Binding CommandName}" />
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+
+        <Grid Grid.Row="1" ColumnDefinitions="*,Auto">
+
+            <TextBox
+                Margin="8"
+                UseFloatingWatermark="True"
+                Watermark="{x:Static props:Strings.Key}"
+                Text="{CompiledBinding Key.Value, Mode=TwoWay}" />
+
+            <Button
+                Margin="8"
+                Grid.Column="1"
+                Background="Transparent"
+                Content="{x:Static props:Strings.Apply}"
+                Command="{CompiledBinding Apply, Mode=OneTime}" />
+        </Grid>
+    </Grid>
+</UserControl>

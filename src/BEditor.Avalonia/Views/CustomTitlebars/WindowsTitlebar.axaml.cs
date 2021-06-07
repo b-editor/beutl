@@ -175,17 +175,6 @@ namespace BEditor.Views.CustomTitlebars
             await dialog.ShowDialog((Window)VisualRoot);
         }
 
-        public async void CreateProjectClick(object s, RoutedEventArgs e)
-        {
-            var viewmodel = new CreateProjectViewModel();
-            var dialog = new CreateProject
-            {
-                DataContext = viewmodel
-            };
-
-            await dialog.ShowDialog((Window)VisualRoot);
-        }
-
         public void WindowsTitlebar_PointerPressed(object? sender, Avalonia.Input.PointerPressedEventArgs e)
         {
             var hostWindow = (Window)VisualRoot;

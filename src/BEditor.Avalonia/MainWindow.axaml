@@ -22,17 +22,8 @@
     Background="Transparent"
     Icon="/Assets/Images/icon.ico"
     DataContext="{x:Static vm:MainWindowViewModel.Current}"
+    Focusable="True"
     x:Class="BEditor.MainWindow">
-    <Window.KeyBindings>
-        <KeyBinding Gesture="Ctrl+O" Command="{CompiledBinding Open, Mode=OneTime}" />
-        <KeyBinding Gesture="Ctrl+S" Command="{CompiledBinding Save, Mode=OneTime}" />
-        <KeyBinding Gesture="Ctrl+Z" Command="{CompiledBinding Undo, Mode=OneTime}" />
-        <KeyBinding Gesture="Ctrl+Y" Command="{CompiledBinding Redo, Mode=OneTime}" />
-        <KeyBinding Gesture="Delete" Command="{CompiledBinding Remove, Mode=OneTime}" />
-        <KeyBinding Gesture="Ctrl+C" Command="{CompiledBinding Copy, Mode=OneTime}" />
-        <KeyBinding Gesture="Ctrl+X" Command="{CompiledBinding Cut, Mode=OneTime}" />
-        <KeyBinding Gesture="Ctrl+V" Command="{CompiledBinding Paste, Mode=OneTime}" />
-    </Window.KeyBindings>
     <Grid RowDefinitions="Auto,Auto,*,Auto,*,Auto" ColumnDefinitions="425,Auto,*,Auto,2*">
 
         <ExperimentalAcrylicBorder Grid.ColumnSpan="5" Grid.RowSpan="6" IsHitTestVisible="False">
@@ -107,7 +98,7 @@
                 </Style>
             </StackPanel.Styles>
 
-            <Button Click="CreateProjectClick" ToolTip.Tip="{x:Static prop:Strings.New}">
+            <Button Command="{CompiledBinding New, Mode=OneTime}" ToolTip.Tip="{x:Static prop:Strings.New}">
                 <PathIcon Data="{StaticResource DocumentAdd48Regular}"/>
             </Button>
 
@@ -311,7 +302,7 @@
 
         <GridSplitter Background="Transparent" Grid.Row="3" Grid.Column="2" Grid.ColumnSpan="3"/>
 
-        <!--—áŠO‚ªƒXƒ[‚³‚ê‚é-->
+        <!--ä¾‹å¤–ãŒã‚¹ãƒ­ãƒ¼ã•ã‚Œã‚‹-->
         <views:Previewer
             x:Name="previewer"
             DataContext="{CompiledBinding Previewer, Mode=OneTime}"

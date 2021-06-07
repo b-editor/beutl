@@ -111,6 +111,7 @@ namespace BEditor
         private void Desktop_Exit(object? sender, ControlledApplicationLifetimeExitEventArgs e)
         {
             Settings.Default.Save();
+            KeyBindingModel.Save();
 
             DirectoryManager.Default.Stop();
 

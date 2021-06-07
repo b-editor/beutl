@@ -81,10 +81,19 @@
                 <TabItem.Header>
                     <StackPanel>
                         <PathIcon Data="{StaticResource BookDatabase24Regular}"/>
-                        <TextBlock Text="{x:Static prop:Strings.Repositories}" />
+                        <TextBlock Text="{x:Static prop:Strings.PackageSource}" />
                     </StackPanel>
                 </TabItem.Header>
                 <ctr:PackageSource/>
+            </TabItem>
+            <TabItem>
+                <TabItem.Header>
+                    <StackPanel>
+                        <PathIcon Data="{StaticResource Keyboard24Regular}"/>
+                        <TextBlock Text="{x:Static prop:Strings.KeyBindings}" />
+                    </StackPanel>
+                </TabItem.Header>
+                <ctr:KeyBindings/>
             </TabItem>
             <TabItem>
                 <TabItem.Header>

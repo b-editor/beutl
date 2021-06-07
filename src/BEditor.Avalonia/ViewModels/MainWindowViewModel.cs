@@ -253,7 +253,7 @@ namespace BEditor.ViewModels
                 }
             });
 
-            ImageOutput.Subscribe(async () =>
+            ImageOutput.Where(_ => App.Project is not null).Subscribe(async _ =>
             {
                 var scene = AppModel.Current.Project.PreviewScene!;
 
@@ -278,7 +278,7 @@ namespace BEditor.ViewModels
                 }
             });
 
-            VideoOutput.Subscribe(async () =>
+            VideoOutput.Where(_ => App.Project is not null).Subscribe(async _ =>
             {
                 var dialog = new VideoOutput();
                 await dialog.ShowDialog(BEditor.App.GetMainWindow());
@@ -308,6 +308,8 @@ namespace BEditor.ViewModels
         public ReactiveCommand Copy { get; } = new();
 
         public ReactiveCommand Paste { get; } = new();
+        
+        public ReactiveCommand New { get; } = new();
 
         public ReactiveCommand ImageOutput { get; } = new();
 

@@ -822,6 +822,24 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Key.
+        /// </summary>
+        public static string Key {
+            get {
+                return ResourceManager.GetString("Key", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Key bindings.
+        /// </summary>
+        public static string KeyBindings {
+            get {
+                return ResourceManager.GetString("KeyBindings", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Language.
         /// </summary>
         public static string Language {
@@ -1129,6 +1147,15 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Package source.
+        /// </summary>
+        public static string PackageSource {
+            get {
+                return ResourceManager.GetString("PackageSource", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Paste.
         /// </summary>
         public static string Paste {
@@ -1288,15 +1315,6 @@ namespace BEditor.Properties {
         public static string Remove {
             get {
                 return ResourceManager.GetString("Remove", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Repositories.
-        /// </summary>
-        public static string Repositories {
-            get {
-                return ResourceManager.GetString("Repositories", resourceCulture);
             }
         }
         

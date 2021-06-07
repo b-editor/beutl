@@ -29,7 +29,7 @@
             <Setter Property="HorizontalAlignment" Value="Center" />
         </Style>
     </UserControl.Styles>
-    <DockPanel>
+    <Grid RowDefinitions="Auto,*">
         <StackPanel
             Spacing="8"
             DockPanel.Dock="Top"
@@ -44,64 +44,66 @@
                 Classes="accent" />
         </StackPanel>
 
-        <ItemsControl
-            IsVisible="{CompiledBinding !IsEmpty.Value, Mode=OneWay}"
-            Items="{CompiledBinding Projects, Mode=OneTime}">
-            <ItemsControl.ItemTemplate>
-                <DataTemplate x:DataType="model:ProjectModel">
-                    <Button
-                        CommandParameter="{CompiledBinding}"
-                        Command="{Binding #root.DataContext.OpenItem, Mode=OneTime}"
-                        Background="{StaticResource ButtonBackgroundPointerOver}"
-                        Width="180"
-                        Height="200"
-                        Margin="8"
-                        Padding="0">
-                        <Button.ContextMenu>
-                            <ContextMenu>
-                                <MenuItem
-                                    CommandParameter="{CompiledBinding}"
-                                    Command="{Binding #root.DataContext.RemoveItem, Mode=OneTime}"
-                                    InputGesture="Delete"
-                                    Header="{x:Static props:Strings.Remove}">
-                                    <MenuItem.Icon>
-                                        <PathIcon Data="{StaticResource Delete20Regular}" />
-                                    </MenuItem.Icon>
-                                </MenuItem>
-                            </ContextMenu>
-                        </Button.ContextMenu>
-                        <Grid RowDefinitions="5,2*,Auto">
-                            <ProgressBar
-                                BorderThickness="0"
-                                IsIndeterminate="{CompiledBinding IsLoading.Value, Mode=OneWay}" />
+        <ScrollViewer Grid.Row="1">
+            <ItemsControl
+                IsVisible="{CompiledBinding !IsEmpty.Value, Mode=OneWay}"
+                Items="{CompiledBinding Projects, Mode=OneTime}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="model:ProjectModel">
+                        <Button
+                            CommandParameter="{CompiledBinding}"
+                            Command="{Binding #root.DataContext.OpenItem, Mode=OneTime}"
+                            Background="{StaticResource ButtonBackgroundPointerOver}"
+                            Width="180"
+                            Height="200"
+                            Margin="8"
+                            Padding="0">
+                            <Button.ContextMenu>
+                                <ContextMenu>
+                                    <MenuItem
+                                        CommandParameter="{CompiledBinding}"
+                                        Command="{Binding #root.DataContext.RemoveItem, Mode=OneTime}"
+                                        InputGesture="Delete"
+                                        Header="{x:Static props:Strings.Remove}">
+                                        <MenuItem.Icon>
+                                            <PathIcon Data="{StaticResource Delete20Regular}" />
+                                        </MenuItem.Icon>
+                                    </MenuItem>
+                                </ContextMenu>
+                            </Button.ContextMenu>
+                            <Grid RowDefinitions="5,2*,Auto">
+                                <ProgressBar
+                                    BorderThickness="0"
+                                    IsIndeterminate="{CompiledBinding IsLoading.Value, Mode=OneWay}" />
 
-                            <Label Background="{StaticResource ButtonBackgroundDisabled}" Grid.Row="1" Padding="0">
-                                <Image
-                                    HorizontalAlignment="Center"
-                                    VerticalAlignment="Center"
-                                    Source="{CompiledBinding Thumbnail, Converter={StaticResource PathToImageSourceConverter}}"
-                                    Stretch="UniformToFill" />
-                            </Label>
+                                <Label Background="{StaticResource ButtonBackgroundDisabled}" Grid.Row="1" Padding="0">
+                                    <Image
+                                        HorizontalAlignment="Center"
+                                        VerticalAlignment="Center"
+                                        Source="{CompiledBinding Thumbnail, Converter={StaticResource PathToImageSourceConverter}}"
+                                        Stretch="UniformToFill" />
+                                </Label>
 
-                            <StackPanel Grid.Row="2" Margin="8">
-                                <TextBlock FontSize="24" Text="{CompiledBinding Name, Mode=OneTime}" />
-                                <TextBlock
-                                    Margin="0,8"
-                                    Text="{CompiledBinding FileName, Mode=OneTime}"
-                                    ToolTip.Tip="{CompiledBinding FileName, Mode=OneTime}" />
-                            </StackPanel>
-                        </Grid>
-                    </Button>
-                </DataTemplate>
-            </ItemsControl.ItemTemplate>
-            <ItemsControl.ItemsPanel>
-                <ItemsPanelTemplate>
-                    <WrapPanel Orientation="Horizontal" />
-                </ItemsPanelTemplate>
-            </ItemsControl.ItemsPanel>
-        </ItemsControl>
+                                <StackPanel Grid.Row="2" Margin="8">
+                                    <TextBlock FontSize="24" Text="{CompiledBinding Name, Mode=OneTime}" />
+                                    <TextBlock
+                                        Margin="0,8"
+                                        Text="{CompiledBinding FileName, Mode=OneTime}"
+                                        ToolTip.Tip="{CompiledBinding FileName, Mode=OneTime}" />
+                                </StackPanel>
+                            </Grid>
+                        </Button>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <WrapPanel Orientation="Horizontal" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+            </ItemsControl>
+        </ScrollViewer>
 
-        <StackPanel IsVisible="{CompiledBinding IsEmpty.Value, Mode=OneWay}" Classes="center">
+        <StackPanel Grid.Row="1" IsVisible="{CompiledBinding IsEmpty.Value, Mode=OneWay}" Classes="center">
             <TextBlock
                 Classes="center"
                 FontSize="40"
@@ -117,5 +119,5 @@
                 FontSize="14"
                 Text="{x:Static props:Strings.ToCreateProjectClickNew}" />
         </StackPanel>
-    </DockPanel>
+    </Grid>
 </UserControl>

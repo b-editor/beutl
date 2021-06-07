@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Reactive.Linq;
 using System.Threading.Tasks;
 
@@ -10,6 +11,7 @@ using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
 
+using BEditor.Command;
 using BEditor.Data;
 using BEditor.Models;
 using BEditor.Properties;
@@ -25,8 +27,11 @@ namespace BEditor
     {
         public MainWindow()
         {
-            InitializeComponent();
+            var vm = MainWindowViewModel.Current;
+            AddHandler(KeyDownEvent, Window_KeyDown, RoutingStrategies.Tunnel);
+            vm.New.Subscribe(CreateProjectClick);
 
+            InitializeComponent();
             // Windowsä¬ã´ÇæÇ∆ï\é¶Ç™ÉoÉOÇÈÇÃÇ≈ëŒçÙ
             MainWindowViewModel.Current.IsOpened
                 .ObserveOn(AvaloniaScheduler.Instance)
@@ -48,6 +53,20 @@ namespace BEditor
 #endif
         }
 
+        private void Window_KeyDown(object? sender, KeyEventArgs e)
+        {
+            if (e.Source != this) return;
+
+            for (var i = 0; i < KeyBindingModel.Bindings.Count; i++)
+            {
+                var kb = KeyBindingModel.Bindings[i];
+                if (kb.ToKeyGesture().Matches(e))
+                {
+                    kb.Command?.Command.Execute(null);
+                }
+            }
+        }
+
         public void ObjectsPopupOpen(object s, RoutedEventArgs e)
         {
             this.FindControl<Popup>("ObjectsPopup").Open();
@@ -64,7 +83,7 @@ namespace BEditor
             }
         }
 
-        public async void CreateProjectClick(object s, RoutedEventArgs e)
+        public async void CreateProjectClick(object s)
         {
             var viewmodel = new CreateProjectViewModel();
             var dialog = new CreateProject
