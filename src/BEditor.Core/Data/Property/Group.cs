@@ -7,6 +7,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Linq;
 
 using BEditor.Command;
@@ -23,7 +24,7 @@ namespace BEditor.Data.Property
         private IEnumerable<PropertyElement>? _cachedList;
 
         /// <inheritdoc/>
-        event Action<Frame, int>? IKeyframeProperty.Added
+        event Action<float, int>? IKeyframeProperty.Added
         {
             add
             {
@@ -77,22 +78,19 @@ namespace BEditor.Data.Property
         EasingFunc? IKeyframeProperty.EasingType => null;
 
         /// <inheritdoc/>
-        List<Frame> IKeyframeProperty.Frames => new(0);
-
-        /// <inheritdoc/>
-        IRecordCommand IKeyframeProperty.AddFrame(Frame frame)
+        IRecordCommand IKeyframeProperty.AddFrame(float frame)
         {
             return RecordCommand.Empty;
         }
 
         /// <inheritdoc/>
-        IRecordCommand IKeyframeProperty.MoveFrame(int fromIndex, Frame toFrame)
+        IRecordCommand IKeyframeProperty.MoveFrame(int fromIndex, float toFrame)
         {
             return RecordCommand.Empty;
         }
 
         /// <inheritdoc/>
-        IRecordCommand IKeyframeProperty.RemoveFrame(Frame frame)
+        IRecordCommand IKeyframeProperty.RemoveFrame(float frame)
         {
             return RecordCommand.Empty;
         }

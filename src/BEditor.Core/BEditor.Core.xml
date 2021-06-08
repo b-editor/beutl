@@ -1378,15 +1378,8 @@
         <member name="E:BEditor.Data.Property.ColorAnimationProperty.Moved">
             <inheritdoc/>
         </member>
-        <member name="P:BEditor.Data.Property.ColorAnimationProperty.Value">
-            <summary>
-            Gets the <see cref="T:System.Collections.ObjectModel.ObservableCollection`1"/> of the <see cref="T:BEditor.Drawing.Color"/> type value corresponding to <see cref="P:BEditor.Data.Property.ColorAnimationProperty.Frames"/>.
-            </summary>
-        </member>
-        <member name="P:BEditor.Data.Property.ColorAnimationProperty.Frames">
-            <summary>
-            Gets the <see cref="T:System.Collections.Generic.List`1"/> of the frame number corresponding to <see cref="P:BEditor.Data.Property.ColorAnimationProperty.Value"/>.
-            </summary>
+        <member name="P:BEditor.Data.Property.ColorAnimationProperty.Pairs">
+            <inheritdoc/>
         </member>
         <member name="P:BEditor.Data.Property.ColorAnimationProperty.EasingType">
             <summary>
@@ -1419,22 +1412,22 @@
             <param name="frame">The frame of the value to get.</param>
             <returns>Returns an eased value.</returns>
         </member>
-        <member name="M:BEditor.Data.Property.ColorAnimationProperty.InsertKeyframe(BEditor.Media.Frame,BEditor.Drawing.Color)">
+        <member name="M:BEditor.Data.Property.ColorAnimationProperty.InsertKeyframe(System.Single,BEditor.Drawing.Color)">
             <summary>
             Insert a keyframe at a specific frame.
             </summary>
             <param name="frame">Frame to be added.</param>
             <param name="value">Value to be added.</param>
-            <returns>Index of the added <see cref="P:BEditor.Data.Property.ColorAnimationProperty.Value"/>.</returns>
+            <returns>Index of the added <see cref="P:BEditor.Data.Property.ColorAnimationProperty.Pairs"/>.</returns>
             <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="frame"/> is outside the scope of the parent element.</exception>
         </member>
-        <member name="M:BEditor.Data.Property.ColorAnimationProperty.RemoveKeyframe(BEditor.Media.Frame,BEditor.Drawing.Color@)">
+        <member name="M:BEditor.Data.Property.ColorAnimationProperty.RemoveKeyframe(System.Single,BEditor.Drawing.Color@)">
             <summary>
             Remove a keyframe of a specific frame.
             </summary>
             <param name="frame">Frame to be removed.</param>
             <param name="value">Removed value.</param>
-            <returns>Index of the removed <see cref="P:BEditor.Data.Property.ColorAnimationProperty.Value"/>.</returns>
+            <returns>Index of the removed <see cref="P:BEditor.Data.Property.ColorAnimationProperty.Pairs"/>.</returns>
             <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="frame"/> is outside the scope of the parent element.</exception>
         </member>
         <member name="M:BEditor.Data.Property.ColorAnimationProperty.GetObjectData(System.Text.Json.Utf8JsonWriter)">
@@ -1445,7 +1438,7 @@
         </member>
         <member name="M:BEditor.Data.Property.ColorAnimationProperty.ChangeColor(System.Int32,BEditor.Drawing.Color)">
             <summary>
-            Create a command to change the color of this <see cref="P:BEditor.Data.Property.ColorAnimationProperty.Value"/>.
+            Create a command to change the color of this <see cref="P:BEditor.Data.Property.ColorAnimationProperty.Pairs"/>.
             </summary>
             <param name="index">Index of colors to be changed.</param>
             <param name="color">New Color.</param>
@@ -1458,27 +1451,14 @@
             <param name="metadata">New easing function metadata.</param>
             <returns>Created <see cref="T:BEditor.Command.IRecordCommand"/>.</returns>
         </member>
-        <member name="M:BEditor.Data.Property.ColorAnimationProperty.AddFrame(BEditor.Media.Frame)">
-            <summary>
-            Create a command to add a keyframe.
-            </summary>
-            <param name="frame">Frame to be added.</param>
-            <returns>Created <see cref="T:BEditor.Command.IRecordCommand"/>.</returns>
+        <member name="M:BEditor.Data.Property.ColorAnimationProperty.AddFrame(System.Single)">
+            <inheritdoc/>
         </member>
-        <member name="M:BEditor.Data.Property.ColorAnimationProperty.RemoveFrame(BEditor.Media.Frame)">
-            <summary>
-            Create a command to remove a keyframe.
-            </summary>
-            <param name="frame">Frame to be removed.</param>
-            <returns>Created <see cref="T:BEditor.Command.IRecordCommand"/>.</returns>
+        <member name="M:BEditor.Data.Property.ColorAnimationProperty.RemoveFrame(System.Single)">
+            <inheritdoc/>
         </member>
-        <member name="M:BEditor.Data.Property.ColorAnimationProperty.MoveFrame(System.Int32,BEditor.Media.Frame)">
-            <summary>
-            Create a command to move a keyframe.
-            </summary>
-            <param name="fromIndex">Index of the frame to be moved from.</param>
-            <param name="toFrame">Destination frame.</param>
-            <returns>Created <see cref="T:BEditor.Command.IRecordCommand"/>.</returns>
+        <member name="M:BEditor.Data.Property.ColorAnimationProperty.MoveFrame(System.Int32,System.Single)">
+            <inheritdoc/>
         </member>
         <member name="M:BEditor.Data.Property.ColorAnimationProperty.OnLoad">
             <inheritdoc/>
@@ -1654,20 +1634,11 @@
         <member name="E:BEditor.Data.Property.EaseProperty.Moved">
             <inheritdoc/>
         </member>
-        <member name="P:BEditor.Data.Property.EaseProperty.Value">
-            <summary>
-            Gets the <see cref="T:System.Collections.ObjectModel.ObservableCollection`1"/> of the <see cref="T:System.Single"/> type value corresponding to <see cref="T:BEditor.Media.Frame"/>.
-            </summary>
-        </member>
-        <member name="P:BEditor.Data.Property.EaseProperty.Frames">
-            <summary>
-            Gets the <see cref="T:System.Collections.Generic.List`1"/> of the frame number corresponding to <see cref="P:BEditor.Data.Property.EaseProperty.Value"/>.
-            </summary>
+        <member name="P:BEditor.Data.Property.EaseProperty.Pairs">
+            <inheritdoc/>
         </member>
         <member name="P:BEditor.Data.Property.EaseProperty.EasingType">
-            <summary>
-            Gets or sets the current <see cref="T:BEditor.Data.Property.Easing.EasingFunc"/>.
-            </summary>
+            <inheritdoc/>
         </member>
         <member name="P:BEditor.Data.Property.EaseProperty.Optional">
             <summary>
@@ -1707,22 +1678,22 @@
             <param name="value">The value to be clamped.</param>
             <returns>value if min ≤ value ≤ max. -or- min if value &lt; min. -or- max if max &lt; value.</returns>
         </member>
-        <member name="M:BEditor.Data.Property.EaseProperty.InsertKeyframe(BEditor.Media.Frame,System.Single)">
+        <member name="M:BEditor.Data.Property.EaseProperty.InsertKeyframe(System.Single,System.Single)">
             <summary>
             Insert a keyframe at a specific frame.
             </summary>
             <param name="frame">Frame to be added.</param>
             <param name="value">Value to be added.</param>
-            <returns>Index of the added <see cref="P:BEditor.Data.Property.EaseProperty.Value"/>.</returns>
+            <returns>Index of the added <see cref="P:BEditor.Data.Property.EaseProperty.Pairs"/>.</returns>
             <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="frame"/> is outside the scope of the parent element.</exception>
         </member>
-        <member name="M:BEditor.Data.Property.EaseProperty.RemoveKeyframe(BEditor.Media.Frame,System.Single@)">
+        <member name="M:BEditor.Data.Property.EaseProperty.RemoveKeyframe(System.Single,System.Single@)">
             <summary>
             Remove a keyframe of a specific frame.
             </summary>
             <param name="frame">Frame to be removed.</param>
             <param name="value">Removed value.</param>
-            <returns>Index of the removed <see cref="P:BEditor.Data.Property.EaseProperty.Value"/>.</returns>
+            <returns>Index of the removed <see cref="P:BEditor.Data.Property.EaseProperty.Pairs"/>.</returns>
             <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="frame"/> is outside the scope of the parent element.</exception>
         </member>
         <member name="M:BEditor.Data.Property.EaseProperty.GetObjectData(System.Text.Json.Utf8JsonWriter)">
@@ -1733,7 +1704,7 @@
         </member>
         <member name="M:BEditor.Data.Property.EaseProperty.ChangeValue(System.Int32,System.Single)">
             <summary>
-            Create a command to change the color of this <see cref="P:BEditor.Data.Property.EaseProperty.Value"/>.
+            Create a command to change the color of this <see cref="P:BEditor.Data.Property.EaseProperty.Pairs"/>.
             </summary>
             <param name="index">Index of colors to be changed.</param>
             <param name="value">New Value.</param>
@@ -1746,27 +1717,14 @@
             <param name="metadata">New easing function metadata.</param>
             <returns>Created <see cref="T:BEditor.Command.IRecordCommand"/>.</returns>
         </member>
-        <member name="M:BEditor.Data.Property.EaseProperty.AddFrame(BEditor.Media.Frame)">
-            <summary>
-            Create a command to add a keyframe.
-            </summary>
-            <param name="frame">Frame to be added.</param>
-            <returns>Created <see cref="T:BEditor.Command.IRecordCommand"/>.</returns>
+        <member name="M:BEditor.Data.Property.EaseProperty.AddFrame(System.Single)">
+            <inheritdoc/>
         </member>
-        <member name="M:BEditor.Data.Property.EaseProperty.RemoveFrame(BEditor.Media.Frame)">
-            <summary>
-            Create a command to remove a keyframe.
-            </summary>
-            <param name="frame">Frame to be removed.</param>
-            <returns>Created <see cref="T:BEditor.Command.IRecordCommand"/>.</returns>
+        <member name="M:BEditor.Data.Property.EaseProperty.RemoveFrame(System.Single)">
+            <inheritdoc/>
         </member>
-        <member name="M:BEditor.Data.Property.EaseProperty.MoveFrame(System.Int32,BEditor.Media.Frame)">
-            <summary>
-            Create a command to move a keyframe.
-            </summary>
-            <param name="fromIndex">Index of the frame to be moved from.</param>
-            <param name="toFrame">Destination frame.</param>
-            <returns>Created <see cref="T:BEditor.Command.IRecordCommand"/>.</returns>
+        <member name="M:BEditor.Data.Property.EaseProperty.MoveFrame(System.Int32,System.Single)">
+            <inheritdoc/>
         </member>
         <member name="M:BEditor.Data.Property.EaseProperty.OnLoad">
             <inheritdoc/>
@@ -2199,16 +2157,13 @@
         <member name="P:BEditor.Data.Property.Group.BEditor#Data#Property#IKeyframeProperty#EasingType">
             <inheritdoc/>
         </member>
-        <member name="P:BEditor.Data.Property.Group.BEditor#Data#Property#IKeyframeProperty#Frames">
+        <member name="M:BEditor.Data.Property.Group.BEditor#Data#Property#IKeyframeProperty#AddFrame(System.Single)">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Data.Property.Group.BEditor#Data#Property#IKeyframeProperty#AddFrame(BEditor.Media.Frame)">
+        <member name="M:BEditor.Data.Property.Group.BEditor#Data#Property#IKeyframeProperty#MoveFrame(System.Int32,System.Single)">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Data.Property.Group.BEditor#Data#Property#IKeyframeProperty#MoveFrame(System.Int32,BEditor.Media.Frame)">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Data.Property.Group.BEditor#Data#Property#IKeyframeProperty#RemoveFrame(BEditor.Media.Frame)">
+        <member name="M:BEditor.Data.Property.Group.BEditor#Data#Property#IKeyframeProperty#RemoveFrame(System.Single)">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Data.Property.Group.GetProperties">
@@ -2253,35 +2208,41 @@
             Gets the current <see cref="T:BEditor.Data.Property.Easing.EasingFunc"/>.
             </summary>
         </member>
-        <member name="P:BEditor.Data.Property.IKeyframeProperty.Frames">
-            <summary>
-            Gets the <see cref="T:System.Collections.Generic.List`1"/> of the frame number corresponding to value.
-            </summary>
-        </member>
         <member name="P:BEditor.Data.Property.IKeyframeProperty.BEditor#Data#IParentSingle{BEditor#Data#Property#Easing#EasingFunc}#Child">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Data.Property.IKeyframeProperty.AddFrame(BEditor.Media.Frame)">
+        <member name="M:BEditor.Data.Property.IKeyframeProperty.AddFrame(System.Single)">
             <summary>
             Create a command to add a keyframe.
             </summary>
             <param name="frame">Frame to be added.</param>
             <returns>Created <see cref="T:BEditor.Command.IRecordCommand"/>.</returns>
         </member>
-        <member name="M:BEditor.Data.Property.IKeyframeProperty.RemoveFrame(BEditor.Media.Frame)">
+        <member name="M:BEditor.Data.Property.IKeyframeProperty.RemoveFrame(System.Single)">
             <summary>
             Create a command to remove a keyframe.
             </summary>
             <param name="frame">Frame to be removed.</param>
             <returns>Created <see cref="T:BEditor.Command.IRecordCommand"/>.</returns>
         </member>
-        <member name="M:BEditor.Data.Property.IKeyframeProperty.MoveFrame(System.Int32,BEditor.Media.Frame)">
+        <member name="M:BEditor.Data.Property.IKeyframeProperty.MoveFrame(System.Int32,System.Single)">
             <summary>
             Create a command to move a keyframe.
             </summary>
             <param name="fromIndex">Index of the frame to be moved from.</param>
             <param name="toFrame">Destination frame.</param>
             <returns>Created <see cref="T:BEditor.Command.IRecordCommand"/>.</returns>
+        </member>
+        <member name="T:BEditor.Data.Property.IKeyframeProperty`1">
+            <summary>
+            Represents a property that has an editing window on the timeline.
+            </summary>
+            <typeparam name="T">The type of value.</typeparam>
+        </member>
+        <member name="P:BEditor.Data.Property.IKeyframeProperty`1.Pairs">
+            <summary>
+            Gets the <see cref="T:System.Collections.Generic.List`1"/> of the frame number corresponding to value.
+            </summary>
         </member>
         <member name="T:BEditor.Data.Property.IPropertyElement">
             <summary>

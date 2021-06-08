@@ -7,6 +7,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 
 using BEditor.Command;
 using BEditor.Data.Property.Easing;
@@ -23,7 +24,7 @@ namespace BEditor.Data.Property
         /// Occurs when a keyframe is added.
         /// <para>arg1: The added frame, arg2: The Index of the values.</para>
         /// </summary>
-        public event Action<Frame, int>? Added;
+        public event Action<float, int>? Added;
 
         /// <summary>
         /// Occurs when a keyframe is removed.
@@ -42,11 +43,6 @@ namespace BEditor.Data.Property
         /// </summary>
         public EasingFunc? EasingType { get; }
 
-        /// <summary>
-        /// Gets the <see cref="List{Frame}"/> of the frame number corresponding to value.
-        /// </summary>
-        public List<Frame> Frames { get; }
-
         /// <inheritdoc/>
         EasingFunc? IParentSingle<EasingFunc?>.Child => EasingType;
 
@@ -55,14 +51,14 @@ namespace BEditor.Data.Property
         /// </summary>
         /// <param name="frame">Frame to be added.</param>
         /// <returns>Created <see cref="IRecordCommand"/>.</returns>
-        public IRecordCommand AddFrame(Frame frame);
+        public IRecordCommand AddFrame(float frame);
 
         /// <summary>
         /// Create a command to remove a keyframe.
         /// </summary>
         /// <param name="frame">Frame to be removed.</param>
         /// <returns>Created <see cref="IRecordCommand"/>.</returns>
-        public IRecordCommand RemoveFrame(Frame frame);
+        public IRecordCommand RemoveFrame(float frame);
 
         /// <summary>
         /// Create a command to move a keyframe.
@@ -70,6 +66,18 @@ namespace BEditor.Data.Property
         /// <param name="fromIndex">Index of the frame to be moved from.</param>
         /// <param name="toFrame">Destination frame.</param>
         /// <returns>Created <see cref="IRecordCommand"/>.</returns>
-        public IRecordCommand MoveFrame(int fromIndex, Frame toFrame);
+        public IRecordCommand MoveFrame(int fromIndex, float toFrame);
+    }
+
+    /// <summary>
+    /// Represents a property that has an editing window on the timeline.
+    /// </summary>
+    /// <typeparam name="T">The type of value.</typeparam>
+    public interface IKeyframeProperty<T> : IKeyframeProperty
+    {
+        /// <summary>
+        /// Gets the <see cref="List{Frame}"/> of the frame number corresponding to value.
+        /// </summary>
+        public ObservableCollection<KeyValuePair<float, T>> Pairs { get; }
     }
 }

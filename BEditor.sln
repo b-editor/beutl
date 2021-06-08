@@ -82,7 +82,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SourceGenerator.Tests", "ge
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BEditor.Base", "src\BEditor.Base\BEditor.Base.csproj", "{DE7E5BA5-FD1A-4AC4-A8C7-2646C2064188}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DrawingTest", "test\DrawingTest\DrawingTest.csproj", "{7D841191-13FF-4970-936E-17CF92F2247A}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DrawingTest", "test\DrawingTest\DrawingTest.csproj", "{7D841191-13FF-4970-936E-17CF92F2247A}"
 EndProject
 Global
 	GlobalSection(SharedMSBuildProjectFiles) = preSolution
