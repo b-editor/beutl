@@ -82,7 +82,7 @@ namespace BEditor.Models
             var json = JsonSerializer.Serialize(Bindings, Packaging.PackageFile._serializerOptions);
             reader.Write(json);
         }
-        
+
         public static async Task SaveAsync()
         {
             await using var stream = new FileStream(Path.Combine(AppContext.BaseDirectory, "user", "keybindings.json"), FileMode.Create);
