@@ -80,7 +80,9 @@ namespace BEditor.Views.Timelines
             {
                 Dispatcher.UIThread.InvokeAsync(() =>
                 {
-                    var x = Scene.ToPixel(frame);
+                    index--;
+                    var length = Property.GetRequiredParent<ClipElement>().Length;
+                    var x = Scene.ToPixel((Media.Frame)(frame * length));
                     var icon = new Rectangle
                     {
                         HorizontalAlignment = HorizontalAlignment.Left,
@@ -102,11 +104,13 @@ namespace BEditor.Views.Timelines
                     _grid.Children.Insert(index, icon);
                 });
             };
-            viewmodel.RemoveKeyFrameIcon = (index) => Dispatcher.UIThread.InvokeAsync(() => _grid.Children.RemoveAt(index));
+            viewmodel.RemoveKeyFrameIcon = (index) => Dispatcher.UIThread.InvokeAsync(() => _grid.Children.RemoveAt(index - 1));
             viewmodel.MoveKeyFrameIcon = (from, to) =>
             {
                 Dispatcher.UIThread.InvokeAsync(() =>
                 {
+                    from--;
+                    to--;
                     var icon = _grid.Children[from];
                     _grid.Children.RemoveAt(from);
                     _grid.Children.Insert(to, icon);
@@ -115,9 +119,19 @@ namespace BEditor.Views.Timelines
 
             _grid.Children.Clear();
 
-            for (var index = 0; index < Property.Frames.Count; index++)
+            if (Property is IKeyframeProperty<float> f)
             {
-                viewmodel.AddKeyFrameIcon(Property.Frames[index], index);
+                for (var index = 1; index < f.Pairs.Count - 1; index++)
+                {
+                    viewmodel.AddKeyFrameIcon(f.Pairs[index].Key, index);
+                }
+            }
+            else if (Property is IKeyframeProperty<Color> c)
+            {
+                for (var index = 1; index < c.Pairs.Count - 1; index++)
+                {
+                    viewmodel.AddKeyFrameIcon(c.Pairs[index].Key, index);
+                }
             }
 
             var tmp = Scene.ToPixel(Property.GetParent<ClipElement>()!.Length);
@@ -174,29 +188,55 @@ namespace BEditor.Views.Timelines
         // タイムラインのスケール変更
         private void ZoomChange()
         {
-            for (var frame = 0; frame < Property.Frames.Count; frame++)
+            if (Property is IKeyframeProperty<float> f)
             {
-                if (_grid.Children.Count <= frame) break;
-
-                if (_grid.Children[frame] is Shape icon)
+                var length = Property.GetRequiredParent<ClipElement>().Length;
+                for (var frame = 0; frame < f.Pairs.Count - 2; frame++)
                 {
-                    icon.Margin = new Thickness(Scene.ToPixel(Property.Frames[frame]), 0, 0, 0);
-                }
-            }
+                    if (_grid.Children.Count <= frame) break;
 
-            Width = Scene.ToPixel(Property.GetParent<ClipElement>()!.Length);
+                    if (_grid.Children[frame] is Shape icon)
+                    {
+                        icon.Margin = new Thickness(Scene.ToPixel((Media.Frame)(f.Pairs[frame + 1].Key * length)), 0, 0, 0);
+                    }
+                }
+
+                Width = Scene.ToPixel(length);
+            }
+            else if (Property is IKeyframeProperty<Color> c)
+            {
+                var length = Property.GetRequiredParent<ClipElement>().Length;
+                for (var frame = 0; frame < c.Pairs.Count - 2; frame++)
+                {
+                    if (_grid.Children.Count <= frame) break;
+
+                    if (_grid.Children[frame] is Shape icon)
+                    {
+                        icon.Margin = new Thickness(Scene.ToPixel((Media.Frame)(c.Pairs[frame + 1].Key * length)), 0, 0, 0);
+                    }
+                }
+
+                Width = Scene.ToPixel(length);
+            }
         }
 
         // キーフレームを追加
         public void Add_Frame(object sender, RoutedEventArgs e)
         {
-            ViewModel.AddKeyFrameCommand.Execute(_startpos);
+            ViewModel.AddKeyFrameCommand.Execute(_startpos / (float)Property.GetRequiredParent<ClipElement>().Length);
         }
 
         // キーフレームを削除
         private void Remove_Click(object? sender, RoutedEventArgs e)
         {
-            ViewModel.RemoveKeyFrameCommand.Execute(Property.Frames[_grid.Children.IndexOf(_select)]);
+            if (Property is IKeyframeProperty<float> f)
+            {
+                ViewModel.RemoveKeyFrameCommand.Execute(f.Pairs[_grid.Children.IndexOf(_select) + 1].Key);
+            }
+            else if (Property is IKeyframeProperty<Color> c)
+            {
+                ViewModel.RemoveKeyFrameCommand.Execute(c.Pairs[_grid.Children.IndexOf(_select) + 1].Key);
+            }
         }
 
         // IconのPointerPressedイベント
@@ -283,9 +323,12 @@ namespace BEditor.Views.Timelines
                 // インデックス
                 var idx = _grid.Children.IndexOf(_select);
                 // クリップからのフレーム
-                var frame = Scene.ToFrame(_select.Margin.Left);
+                var frame = Scene.ToFrame(_select.Margin.Left) / (float)Property.GetRequiredParent<ClipElement>().Length;
 
-                ViewModel.MoveKeyFrameCommand.Execute((idx, frame));
+                if (frame > 0 && frame < 1)
+                {
+                    ViewModel.MoveKeyFrameCommand.Execute((idx + 1, frame));
+                }
             }
         }
 
@@ -300,9 +343,11 @@ namespace BEditor.Views.Timelines
                 // クリップからのフレーム
                 var a = now - _startpos + Scene.ToFrame(_select.Margin.Left);
 
-                _select.Margin = new Thickness(Scene.ToPixel(a), 0, 0, 0);
-
-                _startpos = now;
+                if (a > 0 && a < Property.GetRequiredParent<ClipElement>().Length)
+                {
+                    _select.Margin = new Thickness(Scene.ToPixel(a), 0, 0, 0);
+                    _startpos = now;
+                }
             }
         }
 

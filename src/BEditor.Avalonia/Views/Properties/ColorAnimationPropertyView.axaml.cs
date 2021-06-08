@@ -14,7 +14,6 @@ using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 
-using BEditor.Data;
 using BEditor.Data.Property;
 using BEditor.Extensions;
 using BEditor.ViewModels.Properties;
@@ -58,10 +57,10 @@ namespace BEditor.Views.Properties
 
             _stackPanel = this.FindControl<StackPanel>("stackPanel");
             _property = property;
-            property.Value.CollectionChanged += Value_CollectionChanged;
+            property.Pairs.CollectionChanged += Pairs_CollectionChanged;
 
             // StackPanel‚ÉBorder‚ð’Ç‰Á
-            _stackPanel.Children.AddRange(property.Value.Select((_, i) => CreateBorder(i)));
+            _stackPanel.Children.AddRange(property.Pairs.Select((_, i) => CreateBorder(i)));
 
             _opencloseAnim.Children[1].Setters.Add(_heightSetter);
         }
@@ -78,7 +77,7 @@ namespace BEditor.Views.Properties
                 [AttachmentProperty.IntProperty] = index,
                 Height = 24,
                 Margin = new Thickness(8),
-                Background = new SolidColorBrush(_property.Value[index].ToAvalonia()),
+                Background = new SolidColorBrush(_property.Pairs[index].Value.ToAvalonia()),
             };
 
             border.PointerPressed += Border_PointerPressed;
@@ -95,10 +94,11 @@ namespace BEditor.Views.Properties
                 var color = _property;
                 var dialog = new ColorDialog(color);
 
-                dialog.col.Red = color.Value[index].R;
-                dialog.col.Green = color.Value[index].G;
-                dialog.col.Blue = color.Value[index].B;
-                dialog.col.Alpha = color.Value[index].A;
+                var pair = color.Pairs[index];
+                dialog.col.Red = pair.Value.R;
+                dialog.col.Green = pair.Value.G;
+                dialog.col.Blue = pair.Value.B;
+                dialog.col.Alpha = pair.Value.A;
 
                 dialog.Command = (d) => _property.ChangeColor(index, Drawing.Color.FromARGB(d.col.Alpha, d.col.Red, d.col.Green, d.col.Blue)).Execute();
 
@@ -117,11 +117,11 @@ namespace BEditor.Views.Properties
             }
         }
 
-        private void Value_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+        private void Pairs_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
         {
             if (e.Action is NotifyCollectionChangedAction.Add)
             {
-                _stackPanel.Children.Add(CreateBorder(e.NewStartingIndex));
+                _stackPanel.Children.Insert(e.NewStartingIndex, CreateBorder(e.NewStartingIndex));
                 ResetIndex();
             }
             else if (e.Action is NotifyCollectionChangedAction.Remove)
@@ -132,7 +132,7 @@ namespace BEditor.Views.Properties
             else if (e.Action is NotifyCollectionChangedAction.Replace)
             {
                 var num = (Border)_stackPanel.Children[e.NewStartingIndex];
-                num.Background = new SolidColorBrush(_property.Value[e.NewStartingIndex].ToAvalonia());
+                num.Background = new SolidColorBrush(_property.Pairs[e.NewStartingIndex].Value.ToAvalonia());
             }
         }
 
@@ -155,7 +155,7 @@ namespace BEditor.Views.Properties
             //ŠJ‚­
             if (!togglebutton.IsChecked ?? false)
             {
-                _heightSetter.Value = _property.Value.Count * 40d;
+                _heightSetter.Value = _property.Pairs.Count * 40d;
 
                 _opencloseAnim.PlaybackDirection = PlaybackDirection.Reverse;
                 await _opencloseAnim.RunAsync(this);
@@ -164,7 +164,7 @@ namespace BEditor.Views.Properties
             }
             else
             {
-                var height = _property.Value.Count * 40d;
+                var height = _property.Pairs.Count * 40d;
                 _heightSetter.Value = height;
 
                 _opencloseAnim.PlaybackDirection = PlaybackDirection.Normal;

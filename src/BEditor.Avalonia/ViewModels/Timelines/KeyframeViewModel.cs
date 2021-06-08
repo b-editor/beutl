@@ -40,7 +40,7 @@ namespace BEditor.ViewModels.Timelines
             Dispose();
         }
 
-        public Action<int, int>? AddKeyFrameIcon { get; set; }
+        public Action<float, int>? AddKeyFrameIcon { get; set; }
 
         public Action<int>? RemoveKeyFrameIcon { get; set; }
 
@@ -48,13 +48,13 @@ namespace BEditor.ViewModels.Timelines
 
         public IKeyframeProperty Property { get; }
 
-        public ReactiveCommand<Frame> AddKeyFrameCommand { get; } = new();
+        public ReactiveCommand<float> AddKeyFrameCommand { get; } = new();
 
-        public ReactiveCommand<Frame> RemoveKeyFrameCommand { get; } = new();
+        public ReactiveCommand<float> RemoveKeyFrameCommand { get; } = new();
 
-        public ReactiveCommand<(int, int)> MoveKeyFrameCommand { get; } = new();
+        public ReactiveCommand<(int, float)> MoveKeyFrameCommand { get; } = new();
 
-        private void Property_Added(Frame arg1, int arg2)
+        private void Property_Added(float arg1, int arg2)
         {
             AddKeyFrameIcon?.Invoke(arg1, arg2);
         }

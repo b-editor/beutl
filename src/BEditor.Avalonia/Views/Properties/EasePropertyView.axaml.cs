@@ -60,10 +60,10 @@ namespace BEditor.Views.Properties
 
             _stackPanel = this.FindControl<StackPanel>("stackPanel");
             _property = property;
-            property.Value.CollectionChanged += Value_CollectionChanged;
+            property.Pairs.CollectionChanged += Pairs_CollectionChanged;
 
             // StackPanel‚ÉNumeric‚ð’Ç‰Á
-            _stackPanel.Children.AddRange(property.Value.Select((_, i) => CreateNumeric(i)));
+            _stackPanel.Children.AddRange(property.Pairs.Select((_, i) => CreateNumeric(i)));
 
             _opencloseAnim.Children[1].Setters.Add(_heightSetter);
         }
@@ -83,7 +83,7 @@ namespace BEditor.Views.Properties
                 Margin = new Thickness(8, 4),
                 HorizontalAlignment = HorizontalAlignment.Stretch,
                 VerticalAlignment = VerticalAlignment.Stretch,
-                Value = _property.Value[index],
+                Value = _property.Pairs[index].Value,
                 Increment = 10
             };
 
@@ -117,11 +117,11 @@ namespace BEditor.Views.Properties
             }
         }
 
-        private void Value_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+        private void Pairs_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
         {
             if (e.Action is NotifyCollectionChangedAction.Add)
             {
-                _stackPanel.Children.Add(CreateNumeric(e.NewStartingIndex));
+                _stackPanel.Children.Insert(e.NewStartingIndex, CreateNumeric(e.NewStartingIndex));
                 ResetIndex();
             }
             else if (e.Action is NotifyCollectionChangedAction.Remove)
@@ -132,7 +132,7 @@ namespace BEditor.Views.Properties
             else if (e.Action is NotifyCollectionChangedAction.Replace)
             {
                 var num = (NumericUpDown)_stackPanel.Children[e.NewStartingIndex];
-                num.Value = _property.Value[e.NewStartingIndex];
+                num.Value = _property.Pairs[e.NewStartingIndex].Value;
             }
         }
 
@@ -155,7 +155,7 @@ namespace BEditor.Views.Properties
             //ŠJ‚­
             if (!togglebutton.IsChecked ?? false)
             {
-                _heightSetter.Value = _property.Value.Count * 40d;
+                _heightSetter.Value = _property.Pairs.Count * 40d;
 
                 _opencloseAnim.PlaybackDirection = PlaybackDirection.Reverse;
                 await _opencloseAnim.RunAsync(this);
@@ -164,7 +164,7 @@ namespace BEditor.Views.Properties
             }
             else
             {
-                var height = _property.Value.Count * 40d;
+                var height = _property.Pairs.Count * 40d;
                 _heightSetter.Value = height;
 
                 _opencloseAnim.PlaybackDirection = PlaybackDirection.Normal;
@@ -180,7 +180,7 @@ namespace BEditor.Views.Properties
 
             var index = num.GetValue(AttachmentProperty.IntProperty);
 
-            _oldvalue = _property.Value[index];
+            _oldvalue = _property.Pairs[index].Value;
         }
 
         public void NumericUpDown_LostFocus(object? sender, RoutedEventArgs e)
@@ -189,7 +189,7 @@ namespace BEditor.Views.Properties
             var index = num.GetValue(AttachmentProperty.IntProperty);
             var newValue = num.Value;
 
-            _property.Value[index] = _oldvalue;
+            _property.Pairs[index] = new(_property.Pairs[index].Key, _oldvalue);
 
             _property.ChangeValue(index, (float)newValue).Execute();
         }
@@ -199,7 +199,7 @@ namespace BEditor.Views.Properties
             var num = (NumericUpDown)sender!;
             var index = num.GetValue(AttachmentProperty.IntProperty);
 
-            _property.Value[index] = _property.Clamp((float)e.NewValue);
+            _property.Pairs[index] = new(_property.Pairs[index].Key, _property.Clamp((float)e.NewValue));
 
             (AppModel.Current.Project!).PreviewUpdate(_property.GetParent<ClipElement>()!);
         }
