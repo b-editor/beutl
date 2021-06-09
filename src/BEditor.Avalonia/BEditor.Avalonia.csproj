@@ -6,10 +6,7 @@
         <ApplicationIcon>Assets\Images\icon.ico</ApplicationIcon>
         <AssemblyName>beditor</AssemblyName>
         <CodeAnalysisRuleSet>$(SolutionDir)\roslynator.ruleset</CodeAnalysisRuleSet>
-    </PropertyGroup>
-
-    <PropertyGroup Condition="'$(DefineConstants.Contains(GITHUB_ACTIONS))'=='false'">
-        <TargetFrameworks>net5.0;net5.0-windows</TargetFrameworks>
+        <RuntimeIdentifiers>win-x64;linux-x64;osx-x64</RuntimeIdentifiers>
     </PropertyGroup>
 
     <ItemGroup>
@@ -36,15 +33,6 @@
     <ItemGroup Condition="'$(Configuration)'=='Debug'">
         <ProjectReference Include="..\BEditor.PackageInstaller\BEditor.PackageInstaller.csproj" />
     </ItemGroup>
-
-    <PropertyGroup Condition="'$(TargetFramework)'=='net5.0-windows'">
-        <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
-        <UseWPF>true</UseWPF>
-    </PropertyGroup>
-
-    <PropertyGroup Condition="'$(TargetFramework)'=='net5.0'">
-        <RuntimeIdentifiers>win-x64;linux-x64;osx-x64</RuntimeIdentifiers>
-    </PropertyGroup>
 
     <ItemGroup>
         <Compile Update="Properties\CommandName.Designer.cs">

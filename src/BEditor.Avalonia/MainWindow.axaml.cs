@@ -21,10 +21,6 @@ using BEditor.Views.DialogContent;
 
 using OpenTK.Audio.OpenAL;
 
-#if WINDOWS
-using System.Windows.Shell;
-#endif
-
 namespace BEditor
 {
     public class MainWindow : Window
@@ -102,44 +98,7 @@ namespace BEditor
             base.OnOpened(e);
 
             await ArgumentsContext.ExecuteAsync();
-            SetJumpList();
             await CheckOpenALAsync();
-        }
-
-        private static void SetJumpList()
-        {
-#if WINDOWS
-            var list = new JumpList();
-
-            foreach (var item in Settings.Default.RecentFiles.Where(i => File.Exists(i)).Take(20))
-            {
-                list.JumpItems.Add(new JumpTask
-                {
-                    Title = Path.GetFileName(item),
-                    Description = item,
-                    Arguments = $@"""{item}""",
-                    CustomCategory = Strings.RecentFiles,
-                });
-            }
-
-            list.JumpItems.Add(new JumpTask
-            {
-                Title = Strings.Settings,
-                Description = Strings.Settings,
-                Arguments = "settings",
-                IconResourceIndex = -1,
-            });
-
-            list.JumpItems.Add(new JumpTask
-            {
-                Title = Strings.New,
-                Description = Strings.New,
-                Arguments = "new",
-                IconResourceIndex = -1,
-            });
-
-            list.Apply();
-#endif
         }
 
         private void InitializeComponent()

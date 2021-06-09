@@ -31,7 +31,7 @@ void Publish(string rid)
         Configuration = configuration,
         SelfContained = true,
         Runtime = rid,
-        Framework = rid == "win-x64" ? "net5.0-windows" : "net5.0",
+        Framework = "net5.0",
         OutputDirectory = binaryPath
     });
 
