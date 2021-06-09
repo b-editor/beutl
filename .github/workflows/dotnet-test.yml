@@ -22,8 +22,6 @@ jobs:
       uses: actions/setup-dotnet@v1
       with:
         dotnet-version: 5.0.x
-    - name: Restore dependencies
-      run: dotnet restore BEditor.sln
     - name: Build
       run: dotnet msbuild BEditor.sln -property:DefineConstants=GITHUB_ACTIONS;TargetFramework=net5.0
     - name: Test
