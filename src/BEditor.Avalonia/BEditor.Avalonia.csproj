@@ -1,7 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFrameworks>net5.0;net5.0-windows</TargetFrameworks>
         <OutputType>WinExe</OutputType>
         <RootNamespace>BEditor</RootNamespace>
         <ApplicationIcon>Assets\Images\icon.ico</ApplicationIcon>
@@ -9,12 +8,15 @@
         <CodeAnalysisRuleSet>$(SolutionDir)\roslynator.ruleset</CodeAnalysisRuleSet>
     </PropertyGroup>
 
+    <PropertyGroup Condition="'$(DefineConstants.Contains(GITHUB_ACTIONS))'=='false'">
+        <TargetFrameworks>net5.0;net5.0-windows</TargetFrameworks>
+    </PropertyGroup>
+
     <ItemGroup>
         <EmbeddedResource Include="Assets\Fonts\*.otf" />
         <AvaloniaResource Include="Assets\**" />
     </ItemGroup>
 
-    <!--PackageReferences-->
     <ItemGroup>
         <PackageReference Include="Avalonia" Version="0.10.6" />
         <PackageReference Include="Avalonia.Desktop" Version="0.10.6" />
@@ -26,7 +28,6 @@
         <PackageReference Include="Roslynator.Analyzers" Version="3.2.0-rc" PrivateAssets="all" />
     </ItemGroup>
 
-    <!--ProjectReferences-->
     <ItemGroup>
         <ProjectReference Include="..\BEditor.Core\BEditor.Core.csproj" />
         <ProjectReference Include="..\BEditor.Primitive\BEditor.Primitive.csproj" />
