@@ -1,6 +1,10 @@
+using System;
+
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
+
+using BEditor.Models;
 
 namespace BEditor.Views
 {
@@ -36,6 +40,12 @@ namespace BEditor.Views
                     Close();
                 }
             }
+        }
+
+        protected override async void OnOpened(EventArgs e)
+        {
+            base.OnOpened(e);
+            await ArgumentsContext.ExecuteAsync();
         }
 
         private void InitializeComponent()

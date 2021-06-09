@@ -1,9 +1,9 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
+        <TargetFrameworks>net5.0;net5.0-windows</TargetFrameworks>
         <OutputType>WinExe</OutputType>
         <RootNamespace>BEditor</RootNamespace>
-        <RuntimeIdentifiers>win-x64;linux-x64;osx-x64</RuntimeIdentifiers>
         <ApplicationIcon>Assets\Images\icon.ico</ApplicationIcon>
         <AssemblyName>beditor</AssemblyName>
         <CodeAnalysisRuleSet>$(SolutionDir)\roslynator.ruleset</CodeAnalysisRuleSet>
@@ -36,11 +36,20 @@
         <ProjectReference Include="..\BEditor.PackageInstaller\BEditor.PackageInstaller.csproj" />
     </ItemGroup>
 
+    <PropertyGroup Condition="'$(TargetFramework)'=='net5.0-windows'">
+        <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
+        <UseWPF>true</UseWPF>
+    </PropertyGroup>
+
+    <PropertyGroup Condition="'$(TargetFramework)'=='net5.0'">
+        <RuntimeIdentifiers>win-x64;linux-x64;osx-x64</RuntimeIdentifiers>
+    </PropertyGroup>
+
     <ItemGroup>
         <Compile Update="Properties\CommandName.Designer.cs">
-          <DesignTime>True</DesignTime>
-          <AutoGen>True</AutoGen>
-          <DependentUpon>CommandName.resx</DependentUpon>
+            <DesignTime>True</DesignTime>
+            <AutoGen>True</AutoGen>
+            <DependentUpon>CommandName.resx</DependentUpon>
         </Compile>
         <Compile Update="Properties\Strings.Designer.cs">
             <DesignTime>True</DesignTime>
@@ -51,8 +60,8 @@
 
     <ItemGroup>
         <EmbeddedResource Update="Properties\CommandName.resx">
-          <Generator>ResXFileCodeGenerator</Generator>
-          <LastGenOutput>CommandName.Designer.cs</LastGenOutput>
+            <Generator>ResXFileCodeGenerator</Generator>
+            <LastGenOutput>CommandName.Designer.cs</LastGenOutput>
         </EmbeddedResource>
         <EmbeddedResource Update="Properties\Strings.resx">
             <Generator>PublicResXFileCodeGenerator</Generator>

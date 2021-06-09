@@ -37,8 +37,6 @@ namespace BEditor
         {
             Interval = TimeSpan.FromMinutes(Settings.Default.BackUpInterval)
         };
-        private static readonly string colorsDir = Path.Combine(AppContext.BaseDirectory, "user", "colors");
-        private static readonly string backupDir = Path.Combine(AppContext.BaseDirectory, "user", "backup");
         private static readonly string pluginsDir = Path.Combine(AppContext.BaseDirectory, "user", "plugins");
 
         public static void Shutdown(int exitCode)
@@ -156,8 +154,6 @@ namespace BEditor
 
         private static void CreateDirectory()
         {
-            DirectoryManager.Default.Directories.Add(colorsDir);
-            DirectoryManager.Default.Directories.Add(backupDir);
             DirectoryManager.Default.Directories.Add(pluginsDir);
 
             DirectoryManager.Default.Run();
