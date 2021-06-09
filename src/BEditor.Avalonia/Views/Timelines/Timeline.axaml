@@ -76,6 +76,12 @@
                     Margin="{CompiledBinding SeekbarMargin.Value, Mode=OneWay}"
                     HorizontalAlignment="Left"
                     Background="Red" />
+
+                <Border
+                    ZIndex="2"
+                    Width="1.25"
+                    HorizontalAlignment="Right"
+                    Background="Blue" />
             </Grid>
         </ScrollViewer>
         <ScrollViewer

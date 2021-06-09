@@ -128,7 +128,7 @@ namespace BEditor.Data
         public Frame PreviewFrame
         {
             get => _previewframe;
-            set => SetValue(value, ref _previewframe, _PrevireFrameArgs);
+            set => SetValue(Math.Clamp(value, 0, TotalFrame), ref _previewframe, _PrevireFrameArgs);
         }
 
         /// <summary>
