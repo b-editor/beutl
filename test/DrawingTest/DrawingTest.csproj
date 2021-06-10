@@ -17,7 +17,7 @@
     </ItemGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\..\src\BEditor.Drawing\BEditor.Drawing.csproj" />
+        <ProjectReference Include="..\..\src\libraries\BEditor.Drawing\BEditor.Drawing.csproj" />
     </ItemGroup>
 
 </Project>

@@ -1,21 +1,15 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <AssemblyName>BEditor.Core</AssemblyName>
-        <DocumentationFile>BEditor.Core.xml</DocumentationFile>
-        <RootNamespace>BEditor</RootNamespace>
+        <DocumentationFile>BEditor.Media.xml</DocumentationFile>
     </PropertyGroup>
 
-    <Import Project="..\..\props\analyzer.props" />
-
     <ItemGroup>
-        <ProjectReference Include="..\BEditor.Base\BEditor.Base.csproj" />
-        <ProjectReference Include="..\BEditor.Graphics\BEditor.Graphics.csproj" />
         <ProjectReference Include="..\BEditor.Drawing\BEditor.Drawing.csproj" />
-        <ProjectReference Include="..\BEditor.Media\BEditor.Media.csproj" />
-        <ProjectReference Include="..\BEditor.Audio\BEditor.Audio.csproj" />
-        <ProjectReference Include="..\BEditor.Settings\BEditor.Settings.csproj" />
     </ItemGroup>
+
+    <Import Project="$(SolutionDir)\props\analyzer.props" />
+    <Import Project="..\Shared\Shared.projitems" Label="Shared" />
 
     <ItemGroup>
         <Compile Update="Resources\Strings.Designer.cs">
@@ -31,4 +25,5 @@
             <LastGenOutput>Strings.Designer.cs</LastGenOutput>
         </EmbeddedResource>
     </ItemGroup>
+
 </Project>

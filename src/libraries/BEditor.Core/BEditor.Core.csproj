@@ -1,0 +1,34 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <AssemblyName>BEditor.Core</AssemblyName>
+        <DocumentationFile>BEditor.Core.xml</DocumentationFile>
+        <RootNamespace>BEditor</RootNamespace>
+    </PropertyGroup>
+
+    <Import Project="$(SolutionDir)\props\analyzer.props" />
+
+    <ItemGroup>
+        <ProjectReference Include="..\BEditor.Base\BEditor.Base.csproj" />
+        <ProjectReference Include="..\BEditor.Graphics\BEditor.Graphics.csproj" />
+        <ProjectReference Include="..\BEditor.Drawing\BEditor.Drawing.csproj" />
+        <ProjectReference Include="..\BEditor.Media\BEditor.Media.csproj" />
+        <ProjectReference Include="..\BEditor.Audio\BEditor.Audio.csproj" />
+        <ProjectReference Include="..\BEditor.Settings\BEditor.Settings.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <Compile Update="Resources\Strings.Designer.cs">
+            <DesignTime>True</DesignTime>
+            <AutoGen>True</AutoGen>
+            <DependentUpon>Strings.resx</DependentUpon>
+        </Compile>
+    </ItemGroup>
+
+    <ItemGroup>
+        <EmbeddedResource Update="Resources\Strings.resx">
+            <Generator>ResXFileCodeGenerator</Generator>
+            <LastGenOutput>Strings.Designer.cs</LastGenOutput>
+        </EmbeddedResource>
+    </ItemGroup>
+</Project>

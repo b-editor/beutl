@@ -10,7 +10,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\BEditor.Primitive\BEditor.Primitive.csproj" />
+    <ProjectReference Include="..\..\src\libraries\BEditor.Primitive\BEditor.Primitive.csproj" />
   </ItemGroup>
 
 </Project>

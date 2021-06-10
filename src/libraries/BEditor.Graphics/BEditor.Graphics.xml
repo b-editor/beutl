@@ -916,63 +916,63 @@
         </member>
         <member name="T:BEditor.Graphics.Resources.Strings">
             <summary>
-              ローカライズされた文字列などを検索するための、厳密に型指定されたリソース クラスです。
+              A strongly-typed resource class, for looking up localized strings, etc.
             </summary>
         </member>
         <member name="P:BEditor.Graphics.Resources.Strings.ResourceManager">
             <summary>
-              このクラスで使用されているキャッシュされた ResourceManager インスタンスを返します。
+              Returns the cached ResourceManager instance used by this class.
             </summary>
         </member>
         <member name="P:BEditor.Graphics.Resources.Strings.Culture">
             <summary>
-              すべてについて、現在のスレッドの CurrentUICulture プロパティをオーバーライドします
-              現在のスレッドの CurrentUICulture プロパティをオーバーライドします。
+              Overrides the current thread's CurrentUICulture property for all
+              resource lookups using this strongly typed resource class.
             </summary>
         </member>
         <member name="P:BEditor.Graphics.Resources.Strings.ErrorOccurredWhilistCompilingShader">
             <summary>
-              Error occurred whilst compiling Shader({0}).\n\n{1} に類似しているローカライズされた文字列を検索します。
+              Looks up a localized string similar to Error occurred whilst compiling Shader({0}).\n\n{1}.
             </summary>
         </member>
         <member name="P:BEditor.Graphics.Resources.Strings.ErrorOccurredWhilstLinkingProgram">
             <summary>
-              Error occurred whilst linking Program({0}). に類似しているローカライズされた文字列を検索します。
+              Looks up a localized string similar to Error occurred whilst linking Program({0})..
             </summary>
         </member>
         <member name="P:BEditor.Graphics.Resources.Strings.InvalidEnum">
             <summary>
-              An unacceptable value is specified for an enumerated argument. に類似しているローカライズされた文字列を検索します。
+              Looks up a localized string similar to An unacceptable value is specified for an enumerated argument..
             </summary>
         </member>
         <member name="P:BEditor.Graphics.Resources.Strings.InvalidOperation">
             <summary>
-              The specified operation is not allowed in the current state. に類似しているローカライズされた文字列を検索します。
+              Looks up a localized string similar to The specified operation is not allowed in the current state..
             </summary>
         </member>
         <member name="P:BEditor.Graphics.Resources.Strings.InvalidValue">
             <summary>
-              A numeric argument is out of range. に類似しているローカライズされた文字列を検索します。
+              Looks up a localized string similar to A numeric argument is out of range..
             </summary>
         </member>
         <member name="P:BEditor.Graphics.Resources.Strings.InvalildFramebufferOperation">
             <summary>
-              The framebuffer object is not complete. に類似しているローカライズされた文字列を検索します。
+              Looks up a localized string similar to The framebuffer object is not complete..
             </summary>
         </member>
         <member name="P:BEditor.Graphics.Resources.Strings.OutOfMemory">
             <summary>
-              There is not enough memory left to execute the command. に類似しているローカライズされた文字列を検索します。
+              Looks up a localized string similar to There is not enough memory left to execute the command..
             </summary>
         </member>
         <member name="P:BEditor.Graphics.Resources.Strings.SynchronizationContextIsNull">
             <summary>
-              The SynchronizationContext of the current thread was null. に類似しているローカライズされた文字列を検索します。
+              Looks up a localized string similar to The SynchronizationContext of the current thread was null..
             </summary>
         </member>
         <member name="P:BEditor.Graphics.Resources.Strings.TableTooLarge">
             <summary>
-              The specified table exceeds the implementation&apos;s maximum supported table size. に類似しているローカライズされた文字列を検索します。
+              Looks up a localized string similar to The specified table exceeds the implementation&apos;s maximum supported table size..
             </summary>
         </member>
         <member name="T:BEditor.Graphics.Shader">

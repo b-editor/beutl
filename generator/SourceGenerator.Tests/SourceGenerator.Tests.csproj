@@ -6,7 +6,7 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\..\src\BEditor.Core\BEditor.Core.csproj" />
+        <ProjectReference Include="..\..\src\libraries\BEditor.Core\BEditor.Core.csproj" />
         <ProjectReference Include="..\SourceGenerator\SourceGenerator.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
     </ItemGroup>
 

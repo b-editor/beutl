@@ -17,7 +17,7 @@
     </ItemGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\BEditor.Packaging\BEditor.Packaging.csproj" />
+        <ProjectReference Include="..\..\libraries\BEditor.Packaging\BEditor.Packaging.csproj" />
     </ItemGroup>
 
     <ItemGroup>

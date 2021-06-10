@@ -1,18 +1,20 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <DocumentationFile>BEditor.Graphics.xml</DocumentationFile>
+        <AssemblyName>BEditor.Primitive</AssemblyName>
+        <DocumentationFile>BEditor.Primitive.xml</DocumentationFile>
+        <RootNamespace>BEditor.Primitive</RootNamespace>
     </PropertyGroup>
 
-    <Import Project="..\..\props\analyzer.props" />
+    <Import Project="$(SolutionDir)\props\analyzer.props" />
+    <Import Project="..\Shared\Shared.projitems" Label="Shared" />
 
     <ItemGroup>
-        <PackageReference Include="OpenTK.Graphics" Version="4.6.4" />
-        <PackageReference Include="OpenTK.Windowing.GraphicsLibraryFramework" Version="4.6.4" />
+        <PackageReference Include="ReactiveProperty" Version="7.11.0" />
     </ItemGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\BEditor.Drawing\BEditor.Drawing.csproj" />
+        <ProjectReference Include="..\BEditor.Core\BEditor.Core.csproj" />
     </ItemGroup>
 
     <ItemGroup>

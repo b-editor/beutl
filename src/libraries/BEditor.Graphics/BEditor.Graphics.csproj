@@ -1,15 +1,19 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <DocumentationFile>BEditor.Media.xml</DocumentationFile>
+        <DocumentationFile>BEditor.Graphics.xml</DocumentationFile>
     </PropertyGroup>
+
+    <Import Project="$(SolutionDir)\props\analyzer.props" />
+
+    <ItemGroup>
+        <PackageReference Include="OpenTK.Graphics" Version="4.6.4" />
+        <PackageReference Include="OpenTK.Windowing.GraphicsLibraryFramework" Version="4.6.4" />
+    </ItemGroup>
 
     <ItemGroup>
         <ProjectReference Include="..\BEditor.Drawing\BEditor.Drawing.csproj" />
     </ItemGroup>
-
-    <Import Project="..\..\props\analyzer.props" />
-    <Import Project="..\Shared\Shared.projitems" Label="Shared" />
 
     <ItemGroup>
         <Compile Update="Resources\Strings.Designer.cs">

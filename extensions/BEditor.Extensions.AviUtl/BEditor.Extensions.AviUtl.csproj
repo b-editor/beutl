@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <OutputPath>..\..\src\BEditor.Avalonia\bin\$(Configuration)\net5.0\user\plugins\BEditor.Extensions.AviUtl</OutputPath>
+        <OutputPath>..\..\src\executable\BEditor.Avalonia\bin\$(Configuration)\net5.0\user\plugins\BEditor.Extensions.AviUtl</OutputPath>
         <Company>b-editor</Company>
         <Copyright>MIT License</Copyright>
         <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
@@ -16,7 +16,7 @@
     </ItemGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\..\src\BEditor.Primitive\BEditor.Primitive.csproj" />
+        <ProjectReference Include="..\..\src\libraries\BEditor.Primitive\BEditor.Primitive.csproj" />
     </ItemGroup>
 
     <ItemGroup>

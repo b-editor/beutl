@@ -17,7 +17,7 @@ void Publish(string rid)
     CreateDirectory(binaryPath);
     CleanDirectory(binaryPath);
 
-    DotNetCorePublish("./src/BEditor.PackageInstaller/BEditor.PackageInstaller.csproj", new DotNetCorePublishSettings
+    DotNetCorePublish("./src/executable/BEditor.PackageInstaller/BEditor.PackageInstaller.csproj", new DotNetCorePublishSettings
     {
         Configuration = configuration,
         SelfContained = true,
@@ -26,7 +26,7 @@ void Publish(string rid)
         OutputDirectory = binaryPath
     });
 
-    DotNetCorePublish("./src/BEditor.Avalonia/BEditor.Avalonia.csproj", new DotNetCorePublishSettings
+    DotNetCorePublish("./src/executable/BEditor.Avalonia/BEditor.Avalonia.csproj", new DotNetCorePublishSettings
     {
         Configuration = configuration,
         SelfContained = true,
@@ -87,7 +87,7 @@ Task("NugetPublish")
 
     foreach (var item in libraries)
     {
-        DotNetCorePack($"./src/{item}/{item}.csproj", new DotNetCorePackSettings
+        DotNetCorePack($"./src/libraries/{item}/{item}.csproj", new DotNetCorePackSettings
         {
             Configuration = configuration,
             OutputDirectory = publishDir.Combine("nuget")
