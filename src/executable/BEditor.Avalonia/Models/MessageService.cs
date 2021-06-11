@@ -29,10 +29,11 @@ namespace BEditor.Models
         {
             Dispatcher.UIThread.InvokeAsync(() =>
             {
-                App.GetMainWindow().FindControl<StackPanel>("NotifyStack").Children.Add(new NotifyBar
+                var window = App.GetMainWindow();
+                if (window is MainWindow main)
                 {
-                    Content = text
-                });
+                    main.NotificationManager.Show(text);
+                }
             });
         }
     }

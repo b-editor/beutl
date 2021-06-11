@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Notifications;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -31,6 +32,11 @@ namespace BEditor
             AddHandler(KeyDownEvent, Window_KeyDown, RoutingStrategies.Tunnel);
             vm.New.Subscribe(CreateProjectClick);
 
+            NotificationManager = new(this)
+            {
+                Position = NotificationPosition.BottomLeft,
+            };
+
             InitializeComponent();
             // Windowsä¬ã´ÇæÇ∆ï\é¶Ç™ÉoÉOÇÈÇÃÇ≈ëŒçÙ
             MainWindowViewModel.Current.IsOpened
@@ -52,6 +58,8 @@ namespace BEditor
             this.AttachDevTools();
 #endif
         }
+
+        public WindowNotificationManager NotificationManager { get; }
 
         private void Window_KeyDown(object? sender, KeyEventArgs e)
         {
