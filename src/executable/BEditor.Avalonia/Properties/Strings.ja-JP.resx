@@ -703,4 +703,25 @@ IdにはGUID, UUIDが使えます。</value>
   <data name="PackageSource" xml:space="preserve">
     <value>パッケージソース</value>
   </data>
+  <data name="UserName" xml:space="preserve">
+    <value>ユーザー名</value>
+  </data>
+  <data name="Password" xml:space="preserve">
+    <value>パスワード</value>
+  </data>
+  <data name="Signin" xml:space="preserve">
+    <value>サインイン</value>
+  </data>
+  <data name="Signup" xml:space="preserve">
+    <value>サインアップ</value>
+  </data>
+  <data name="ForgotYourPassword" xml:space="preserve">
+    <value>パスワードをお忘れですか?</value>
+  </data>
+  <data name="User" xml:space="preserve">
+    <value>ユーザー</value>
+  </data>
+  <data name="Email" xml:space="preserve">
+    <value>メールアドレス</value>
+  </data>
 </root>

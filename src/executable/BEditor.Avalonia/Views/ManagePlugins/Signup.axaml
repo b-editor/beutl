@@ -1,0 +1,55 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+    xmlns:props="using:BEditor.Properties"
+    xmlns:vm="using:BEditor.ViewModels.ManagePlugins"
+    x:DataType="vm:SignupViewModel"
+    x:Class="BEditor.Views.ManagePlugins.Signup">
+    <StackPanel
+        Margin="16"
+        Spacing="8"
+        Orientation="Vertical"
+        MaxWidth="360"
+        VerticalAlignment="Center">
+        <TextBlock
+            Text="{x:Static props:Strings.Signup}"
+            FontSize="24"
+            Margin="0,8" />
+
+        <Separator Height="16" />
+
+        <TextBlock Text="{x:Static props:Strings.Email}" />
+
+        <TextBox Margin="0,0,0,16" Text="{CompiledBinding Email.Value, Mode=TwoWay}" />
+
+        <TextBlock Text="{x:Static props:Strings.Password}" />
+
+        <TextBox Text="{CompiledBinding Password.Value, Mode=TwoWay}" />
+
+        <TextBlock
+            Margin="0,16"
+            Foreground="Red"
+            Text="{CompiledBinding Message.Value}" />
+
+        <ProgressBar IsIndeterminate="{CompiledBinding IsLoading.Value}" IsVisible="{CompiledBinding IsLoading.Value}" />
+        
+        <Grid ColumnDefinitions="*,Auto,Auto">
+
+            <Button
+                Click="Signin"
+                Margin="0,0,8,0"
+                Grid.Column="1"
+                Content="{x:Static props:Strings.Signin}" />
+
+            <Button
+                Command="{CompiledBinding Signup, Mode=OneTime}"
+                Margin="8,0,0,0"
+                Grid.Column="2"
+                Classes="accent"
+                Content="{x:Static props:Strings.Signup}" />
+        </Grid>
+    </StackPanel>
+</UserControl>

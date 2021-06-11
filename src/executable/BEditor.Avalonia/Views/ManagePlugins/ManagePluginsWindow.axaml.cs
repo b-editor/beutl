@@ -6,6 +6,8 @@ using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
 using Avalonia.Rendering;
 
+using BEditor.Models;
+
 namespace BEditor.Views.ManagePlugins
 {
     public partial class ManagePluginsWindow : Window

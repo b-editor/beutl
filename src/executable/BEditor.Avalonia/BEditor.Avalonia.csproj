@@ -45,6 +45,9 @@
             <AutoGen>True</AutoGen>
             <DependentUpon>Strings.resx</DependentUpon>
         </Compile>
+        <Compile Update="Views\ManagePlugins\Signin.axaml.cs">
+          <DependentUpon>Signin.axaml</DependentUpon>
+        </Compile>
     </ItemGroup>
 
     <ItemGroup>

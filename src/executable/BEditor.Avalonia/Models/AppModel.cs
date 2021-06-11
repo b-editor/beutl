@@ -9,6 +9,7 @@ using System.Threading;
 using BEditor.Command;
 using BEditor.Data;
 using BEditor.Extensions;
+using BEditor.Models.Authentication;
 using BEditor.Packaging;
 
 using Microsoft.Extensions.DependencyInjection;
@@ -53,6 +54,10 @@ namespace BEditor.Models
 
             // DIの設定
             Services = new ServiceCollection()
+#if DEBUG
+                .AddSingleton<IAuthenticationProvider, MockAuthenticationProvider>()
+                .AddSingleton<IPackageUploader, MockPackageUploader>()
+#endif
                 .AddSingleton(_ => FileDialog)
                 .AddSingleton(_ => Message)
                 .AddSingleton(_ => LoggingFactory)
@@ -94,6 +99,8 @@ namespace BEditor.Models
         public IFileDialogService FileDialog { get; } = new FileDialogService();
 
         public ILoggerFactory LoggingFactory { get; }
+
+        public User User { get; set; }
 
         public SynchronizationContext UIThread { get; set; }
 

@@ -1,0 +1,54 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:props="using:BEditor.Properties"
+    xmlns:vm="using:BEditor.ViewModels.ManagePlugins"
+    x:DataType="vm:SigninViewModel"
+    mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+    x:Class="BEditor.Views.ManagePlugins.Signin">
+    <StackPanel
+        Margin="16"
+        Spacing="8"
+        Orientation="Vertical"
+        MaxWidth="360"
+        VerticalAlignment="Center">
+        <TextBlock
+            Text="{x:Static props:Strings.Signin}"
+            FontSize="24"
+            Margin="0,8" />
+
+        <Separator Height="16" />
+
+        <TextBlock Text="{x:Static props:Strings.Email}" />
+
+        <TextBox Margin="0,0,0,16" />
+
+        <TextBlock Text="{x:Static props:Strings.Password}" />
+
+        <TextBox />
+
+        <TextBlock
+            Margin="0,16"
+            Foreground="Red"
+            Text="{CompiledBinding Message.Value}" />
+
+        <Grid ColumnDefinitions="*,Auto,Auto">
+            <Button
+                Content="{x:Static props:Strings.ForgotYourPassword}" />
+
+            <Button
+                Click="Signup"
+                Margin="0,0,8,0"
+                Grid.Column="1"
+                Content="{x:Static props:Strings.Signup}" />
+
+            <Button
+                Margin="8,0,0,0"
+                Grid.Column="2"
+                Classes="accent"
+                Content="{x:Static props:Strings.Signin}" />
+        </Grid>
+    </StackPanel>
+</UserControl>
