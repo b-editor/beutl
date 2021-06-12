@@ -23,16 +23,21 @@
 
         <TextBlock Text="{x:Static props:Strings.Email}" />
 
-        <TextBox Margin="0,0,0,16" />
+        <TextBox Margin="0,0,0,16" Text="{CompiledBinding Email.Value, Mode=TwoWay}" />
 
         <TextBlock Text="{x:Static props:Strings.Password}" />
 
-        <TextBox />
+        <TextBox
+            PasswordChar="*"
+            Classes="revealPasswordButton"
+            Text="{CompiledBinding Password.Value, Mode=TwoWay}" />
 
         <TextBlock
             Margin="0,16"
             Foreground="Red"
             Text="{CompiledBinding Message.Value}" />
+
+        <ProgressBar IsIndeterminate="{CompiledBinding IsLoading.Value}" IsVisible="{CompiledBinding IsLoading.Value}" />
 
         <Grid ColumnDefinitions="*,Auto,Auto">
             <Button
@@ -45,6 +50,7 @@
                 Content="{x:Static props:Strings.Signup}" />
 
             <Button
+                Command="{CompiledBinding Signin, Mode=OneTime}"
                 Margin="8,0,0,0"
                 Grid.Column="2"
                 Classes="accent"
