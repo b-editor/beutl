@@ -16,7 +16,7 @@ namespace BEditor.Views.ManagePlugins
 
         protected override void OnAttachedToLogicalTree(LogicalTreeAttachmentEventArgs e)
         {
-            if(AppModel.Current.User is null&&Parent is TabItem item&&item.Parent is TabControl tab)
+            if (AppModel.Current.User is null && Parent is TabItem item && item.Parent is TabControl tab)
             {
                 item.Content = new Signin();
                 tab.SelectedItem = null;
