@@ -1,9 +1,6 @@
-using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Controls.Primitives;
 using Avalonia.LogicalTree;
 using Avalonia.Markup.Xaml;
-using Avalonia.Remote.Protocol.Viewport;
 
 using BEditor.Models;
 using BEditor.ViewModels.ManagePlugins;
@@ -14,9 +11,9 @@ namespace BEditor.Views.ManagePlugins
     {
         public User()
         {
-            if(AppModel.Current.User is not null)
+            if (AppModel.Current.User is not null)
             {
-                DataContext = new UserViewModel(AppModel.Current.User, AppModel.Current.ServiceProvider);
+                DataContext = new UserViewModel(AppModel.Current.User);
             }
             InitializeComponent();
         }

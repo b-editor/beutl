@@ -1,10 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Net;
+﻿using System.IO;
 using System.Net.Http;
-using System.Text;
 using System.Threading.Tasks;
 
 using BEditor.Packaging;
@@ -20,53 +15,84 @@ namespace BEditor.Models.Authentication
             _client = client;
         }
 
-        public async ValueTask<PackageUploadResult> UploadAsync(User user, Stream stream)
+        public async ValueTask UploadAsync(Packaging.Authentication user, Stream stream)
         {
             await Task.Delay(3000);
-            return new(true, string.Empty);
         }
     }
 
     public class MockAuthenticationProvider : IAuthenticationProvider
     {
-        public async ValueTask<(AuthenticationResponse Response, User? User)> GetAsync(string token)
+        private AuthenticationLink? _instance;
+
+        public async ValueTask<AuthenticationLink> ChangeUserEmailAsync(string token, string newEmail)
         {
-            var response = new AuthenticationResponse(true, string.Empty);
-            var user = new User
-            {
-                AccessToken = token,
-                UserName = "Mock"
-            };
             await Task.Delay(3000);
-            return (Response: response, User: user);
+            _instance!.User!.Email = newEmail;
+            return _instance;
         }
 
-        public async ValueTask<(AuthenticationResponse Response, User? User)> SigninAsync(string email, string password)
+        public async ValueTask<AuthenticationLink> ChangeUserPasswordAsync(string token, string password)
         {
-            var response = new AuthenticationResponse(true, string.Empty);
-            var user = new User
-            {
-                UserName = "Mock"
-            };
             await Task.Delay(3000);
-            return (Response: response, User: user);
+            return _instance!;
         }
 
-        public async ValueTask<(AuthenticationResponse Response, User? User)> SignupAsync(string email, string password)
+        public async ValueTask<AuthenticationLink> CreateUserAsync(string email, string password, string displayName = "")
         {
-            var response = new AuthenticationResponse(true, string.Empty);
-            var user = new User
-            {
-                UserName = "Mock"
-            };
+            _instance = new(
+                new()
+                {
+                    User = new()
+                    {
+                        Email = email,
+                        DisplayName = displayName
+                    }
+                },
+                this);
+
             await Task.Delay(3000);
-            return (Response: response, User: user);
+
+            return _instance;
         }
 
-        public async ValueTask<AuthenticationResponse> UpdateAsync(User user)
+        public async ValueTask DeleteUserAsync(string token)
         {
             await Task.Delay(3000);
-            return new AuthenticationResponse(true, string.Empty);
+        }
+
+        public async ValueTask<User> GetUserAsync(string token)
+        {
+            await Task.Delay(3000);
+            return _instance!.User!;
+        }
+
+        public async ValueTask SendPasswordResetEmailAsync(string token, string email)
+        {
+            await Task.Delay(3000);
+        }
+
+        public async ValueTask<AuthenticationLink> SignInAsync(string email, string password)
+        {
+            _instance = new(
+                new()
+                {
+                    User = new() { Email = email }
+                },
+                this);
+
+            await Task.Delay(3000);
+
+            return _instance;
+        }
+
+        public async ValueTask<AuthenticationLink> UpdateProfileAsync(string token, string displayName)
+        {
+            _instance!.User!.DisplayName = displayName;
+
+            await Task.Delay(3000);
+
+            return _instance;
         }
     }
 }

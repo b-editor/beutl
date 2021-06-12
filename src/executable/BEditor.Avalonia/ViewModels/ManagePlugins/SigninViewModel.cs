@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 
 using BEditor.Models;
 using BEditor.Packaging;
+using BEditor.Properties;
 
 using Microsoft.Extensions.DependencyInjection;
 
@@ -23,17 +24,19 @@ namespace BEditor.ViewModels.ManagePlugins
 
             Signin.Subscribe(async () =>
             {
-                IsLoading.Value = true;
-                var (response, user) = await _provider.SigninAsync(Email.Value, Password.Value);
-                IsLoading.Value = false;
-                if (user is not null && response.Complete)
+                try
                 {
-                    AppModel.Current.User = user;
+                    IsLoading.Value = true;
+                    AppModel.Current.User = (AuthenticationLink?)await _provider.SignInAsync(Email.Value, Password.Value);
                     await SuccessSignin.ExecuteAsync();
                 }
-                else
+                catch
                 {
-                    Message.Value = response.Message;
+                    Message.Value = string.Format(Strings.FailedTo, Strings.Signin);
+                }
+                finally
+                {
+                    IsLoading.Value = false;
                 }
             });
         }
@@ -45,7 +48,7 @@ namespace BEditor.ViewModels.ManagePlugins
         public ReactiveProperty<string> Password { get; } = new();
 
         public AsyncReactiveCommand Signin { get; } = new();
-        
+
         public AsyncReactiveCommand SuccessSignin { get; } = new();
 
         public ReactivePropertySlim<string> Message { get; } = new(string.Empty);

@@ -27,6 +27,9 @@
                 Text="{CompiledBinding Email.Value, Mode=TwoWay}" />
 
             <ProgressBar
+                Width="240"
+                HorizontalAlignment="Left"
+                Margin="16,8"
                 IsIndeterminate="{CompiledBinding IsLoading.Value, Mode=OneWay}"
                 IsVisible="{CompiledBinding IsLoading.Value, Mode=OneWay}" />
             

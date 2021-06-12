@@ -3,6 +3,7 @@ using System;
 
 using BEditor.Models;
 using BEditor.Packaging;
+using BEditor.Properties;
 
 using Microsoft.Extensions.DependencyInjection;
 
@@ -20,17 +21,19 @@ namespace BEditor.ViewModels.ManagePlugins
 
             Signup.Subscribe(async () =>
             {
-                IsLoading.Value = true;
-                var (response, user) = await _provider.SignupAsync(Email.Value, Password.Value);
-                IsLoading.Value = false;
-                if (user is not null && response.Complete)
+                try
                 {
-                    AppModel.Current.User = user;
+                    IsLoading.Value = true;
+                    AppModel.Current.User = (AuthenticationLink?)await _provider.CreateUserAsync(Email.Value, Password.Value);
                     await SuccessSignup.ExecuteAsync();
                 }
-                else
+                catch
                 {
-                    Message.Value = response.Message;
+                    Message.Value = Message.Value = string.Format(Strings.FailedTo, Strings.Signup); ;
+                }
+                finally
+                {
+                    IsLoading.Value = false;
                 }
             });
         }

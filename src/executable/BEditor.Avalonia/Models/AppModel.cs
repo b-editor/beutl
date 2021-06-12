@@ -100,7 +100,7 @@ namespace BEditor.Models
 
         public ILoggerFactory LoggingFactory { get; }
 
-        public User User { get; set; }
+        public AuthenticationLink User { get; set; }
 
         public SynchronizationContext UIThread { get; set; }
 
