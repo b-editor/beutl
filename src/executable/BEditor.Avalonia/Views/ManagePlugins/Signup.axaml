@@ -27,7 +27,10 @@
 
         <TextBlock Text="{x:Static props:Strings.Password}" />
 
-        <TextBox Text="{CompiledBinding Password.Value, Mode=TwoWay}" />
+        <TextBox
+            PasswordChar="*"
+            Classes="revealPasswordButton"
+            Text="{CompiledBinding Password.Value, Mode=TwoWay}" />
 
         <TextBlock
             Margin="0,16"

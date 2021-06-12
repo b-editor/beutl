@@ -130,7 +130,7 @@
                 </TabItem.Header>
                 <local:CreatePluginPackage/>
             </TabItem>
-            <TabItem Tag="User">
+            <TabItem>
                 <TabItem.Header>
                     <StackPanel>
                         <PathIcon Data="{StaticResource Person24Regular}"/>

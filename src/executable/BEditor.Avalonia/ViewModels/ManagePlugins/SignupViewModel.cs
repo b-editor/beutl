@@ -42,7 +42,7 @@ namespace BEditor.ViewModels.ManagePlugins
         public ReactiveProperty<string> Password { get; } = new(string.Empty);
 
         public AsyncReactiveCommand Signup { get; } = new();
-        
+
         public AsyncReactiveCommand SuccessSignup { get; } = new();
 
         public ReactivePropertySlim<string> Message { get; } = new(string.Empty);

@@ -7,6 +7,8 @@ using System.Reactive.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
+using Avalonia.Dialogs;
+
 using BEditor.Models;
 using BEditor.Models.ManagePlugins;
 using BEditor.Packaging;
@@ -114,21 +116,7 @@ namespace BEditor.ViewModels.ManagePlugins
                 .ToReadOnlyReactivePropertySlim();
 
             OpenHomePage.Where(_ => IsSelected.Value)
-                .Subscribe(_ =>
-                {
-                    if (OperatingSystem.IsWindows())
-                    {
-                        Process.Start(new ProcessStartInfo("cmd", $"/c start {SelectedItem.Value!.HomePage}") { CreateNoWindow = true });
-                    }
-                    else if (OperatingSystem.IsLinux())
-                    {
-                        Process.Start(new ProcessStartInfo("xdg-open", SelectedItem.Value!.HomePage) { CreateNoWindow = true });
-                    }
-                    else if (OperatingSystem.IsMacOS())
-                    {
-                        Process.Start(new ProcessStartInfo("open", SelectedItem.Value!.HomePage) { CreateNoWindow = true });
-                    }
-                });
+                .Subscribe(_ => AboutAvaloniaDialog.OpenBrowser(SelectedItem.Value!.HomePage));
 
             LoadTask = Task.Run(async () =>
               {
