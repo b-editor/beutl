@@ -124,9 +124,16 @@ namespace BEditor.Extensions
                     Token = token,
                 },
                 provider);
-            await auth.RefreshAuthAsync();
+            try
+            {
+                await auth.RefreshAuthAsync();
 
-            return auth;
+                return auth;
+            }
+            catch
+            {
+                return null;
+            }
         }
 
         public static void Save(this Authentication auth, string filename)

@@ -39,6 +39,7 @@ namespace BEditor
         {
             Interval = TimeSpan.FromMinutes(Settings.Default.BackUpInterval)
         };
+        public static ValueTask StartupTask;
         private static readonly string pluginsDir = Path.Combine(AppContext.BaseDirectory, "user", "plugins");
 
         public static void Shutdown(int exitCode)
@@ -85,7 +86,7 @@ namespace BEditor
             Styles.Insert(0, style);
         }
 
-        public override async void OnFrameworkInitializationCompleted()
+        public override void OnFrameworkInitializationCompleted()
         {
             if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
             {
@@ -96,12 +97,14 @@ namespace BEditor
 
                 CreateDirectory();
 
-                await InitialPluginsAsync();
+                StartupTask = new(Task.Run(async () =>
+                {
+                    await InitialPluginsAsync();
 
-                AppModel.Current.User = await Tool.LoadFromAsync(
-                    Path.Combine(AppContext.BaseDirectory, "user", "token"),
-                    AppModel.Current.ServiceProvider.GetRequiredService<IAuthenticationProvider>());
-
+                    AppModel.Current.User = await Tool.LoadFromAsync(
+                        Path.Combine(AppContext.BaseDirectory, "user", "token"),
+                        AppModel.Current.ServiceProvider.GetRequiredService<IAuthenticationProvider>());
+                }));
                 AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
 
                 RunBackup();

@@ -733,4 +733,22 @@ After the encoder is set, the detailed settings will be displayed.</value>
   <data name="Publish" xml:space="preserve">
     <value>Publish</value>
   </data>
+  <data name="Signout" xml:space="preserve">
+    <value>Signout</value>
+  </data>
+  <data name="ChangePassword" xml:space="preserve">
+    <value>Change password</value>
+  </data>
+  <data name="NewPassword" xml:space="preserve">
+    <value>New password</value>
+  </data>
+  <data name="ConfirmNewPassword" xml:space="preserve">
+    <value>Confirm new password</value>
+  </data>
+  <data name="UpdatePassword" xml:space="preserve">
+    <value>Update password</value>
+  </data>
+  <data name="PasswordAreNotMatching" xml:space="preserve">
+    <value>Password are not matching</value>
+  </data>
 </root>

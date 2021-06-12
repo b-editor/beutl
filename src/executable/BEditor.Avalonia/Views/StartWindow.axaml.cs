@@ -45,6 +45,9 @@ namespace BEditor.Views
         protected override async void OnOpened(EventArgs e)
         {
             base.OnOpened(e);
+            await App.StartupTask;
+            App.StartupTask = default;
+            await MainWindow.CheckOpenALAsync();
             await ArgumentsContext.ExecuteAsync();
         }
 

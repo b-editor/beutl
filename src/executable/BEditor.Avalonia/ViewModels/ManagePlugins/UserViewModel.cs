@@ -57,7 +57,34 @@ namespace BEditor.ViewModels.ManagePlugins
                         EditMessage.Value = string.Empty;
                     }
                 });
+
+            UpdatePassword.Subscribe(async () =>
+            {
+                if (NewPassword.Value != ConfirmNewPassword.Value)
+                {
+                    ChangePasswordMessage.Value = Strings.PasswordAreNotMatching;
+                }
+                else
+                {
+                    try
+                    {
+                        IsLoading.Value = true;
+                        await Auth.ChangeUserPassword(NewPassword.Value);
+                        ChangePasswordMessage.Value = Strings.ChangeSucceeded;
+                    }
+                    catch
+                    {
+                        ChangePasswordMessage.Value = Strings.ChangeFailed;
+                    }
+                    finally
+                    {
+                        IsLoading.Value = false;
+                    }
+                }
+            });
         }
+
+        public ReactivePropertySlim<bool> IsLoading { get; } = new(false);
 
         public ReactivePropertySlim<string> UserName { get; } = new(string.Empty);
 
@@ -65,9 +92,16 @@ namespace BEditor.ViewModels.ManagePlugins
 
         public ReactivePropertySlim<bool> CanEdit { get; } = new(false);
 
-        public ReactivePropertySlim<bool> IsLoading { get; } = new(false);
-
         public ReactivePropertySlim<string> EditMessage { get; } = new(string.Empty);
+
+        // Change passwrod
+        public ReactivePropertySlim<string> NewPassword { get; } = new(string.Empty);
+
+        public ReactivePropertySlim<string> ConfirmNewPassword { get; } = new(string.Empty);
+
+        public ReactiveCommand UpdatePassword { get; } = new();
+
+        public ReactivePropertySlim<string> ChangePasswordMessage { get; } = new(string.Empty);
 
         public AuthenticationLink Auth { get; }
     }

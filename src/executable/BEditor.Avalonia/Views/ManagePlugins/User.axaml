@@ -8,67 +8,90 @@
     x:DataType="vm:UserViewModel"
     mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
     x:Class="BEditor.Views.ManagePlugins.User">
-    <ScrollViewer>
-        <StackPanel Spacing="0" Orientation="Vertical">
-            <TextBlock Classes="SettingsHeader" Text="{x:Static props:Strings.User}"/>
+    <Grid RowDefinitions="4,*">
 
-            <Label Classes="SettingsItemHeader" Content="{x:Static props:Strings.UserName}" />
+        <ProgressBar
+            IsIndeterminate="{CompiledBinding IsLoading.Value, Mode=OneWay}"
+            IsVisible="{CompiledBinding IsLoading.Value, Mode=OneWay}" />
 
-            <TextBox
-                IsReadOnly="{CompiledBinding !CanEdit.Value, Mode=OneWay}"
-                Classes="SettingsTextBox"
-                Text="{CompiledBinding UserName.Value, Mode=TwoWay}" />
-            
-            <Label Classes="SettingsItemHeader" Content="{x:Static props:Strings.Email}" />
+        <ScrollViewer Grid.Row="1">
+            <StackPanel Spacing="0" Orientation="Vertical">
+                <TextBlock Classes="SettingsHeader" Text="{x:Static props:Strings.User}"/>
 
-            <TextBox
-                IsReadOnly="{CompiledBinding !CanEdit.Value, Mode=OneWay}"
-                Classes="SettingsTextBox"
-                Text="{CompiledBinding Email.Value, Mode=TwoWay}" />
+                <Label Classes="SettingsItemHeader" Content="{x:Static props:Strings.UserName}" />
 
-            <ProgressBar
-                Width="240"
-                HorizontalAlignment="Left"
-                Margin="16,8"
-                IsIndeterminate="{CompiledBinding IsLoading.Value, Mode=OneWay}"
-                IsVisible="{CompiledBinding IsLoading.Value, Mode=OneWay}" />
-            
-            <StackPanel Spacing="16" Margin="16" Orientation="Horizontal">
-                <ToggleButton
-                    Content=""
-                    IsChecked="{CompiledBinding CanEdit.Value, Mode=TwoWay}" >
-                    <ToggleButton.Styles>
-                        <Style Selector="ToggleButton:checked">
-                            <Setter Property="Background" Value="Transparent" />
-                            <Setter Property="ContentTemplate">
-                                <DataTemplate>
-                                    <PathIcon Data="{StaticResource Edit24Regular}" />
-                                </DataTemplate>
-                            </Setter>
-                        </Style>
+                <TextBox
+                    IsReadOnly="{CompiledBinding !CanEdit.Value, Mode=OneWay}"
+                    Classes="SettingsTextBox"
+                    Text="{CompiledBinding UserName.Value, Mode=TwoWay}" />
 
-                        <Style Selector="ToggleButton:unchecked">
-                            <Setter Property="Background" Value="Transparent" />
-                            <Setter Property="ContentTemplate">
-                                <DataTemplate>
-                                    <PathIcon Data="{StaticResource EditOff24Regular}" />
-                                </DataTemplate>
-                            </Setter>
-                        </Style>
+                <Label Classes="SettingsItemHeader" Content="{x:Static props:Strings.Email}" />
 
-                        <Style Selector="ToggleButton:indeterminate">
-                            <Setter Property="Background" Value="Transparent" />
-                            <Setter Property="ContentTemplate">
-                                <DataTemplate>
-                                    <PathIcon Data="{StaticResource EditOff24Regular}" />
-                                </DataTemplate>
-                            </Setter>
-                        </Style>
-                    </ToggleButton.Styles>
-                </ToggleButton>
-                
-                <TextBlock Text="{CompiledBinding EditMessage.Value, Mode=OneWay}" VerticalAlignment="Center" />
+                <TextBox
+                    IsReadOnly="{CompiledBinding !CanEdit.Value, Mode=OneWay}"
+                    Classes="SettingsTextBox"
+                    Text="{CompiledBinding Email.Value, Mode=TwoWay}" />
+
+                <StackPanel Spacing="16" Margin="16" Orientation="Horizontal">
+                    <ToggleButton
+                        Content=""
+                        IsChecked="{CompiledBinding CanEdit.Value, Mode=TwoWay}" >
+                        <ToggleButton.Styles>
+                            <Style Selector="ToggleButton:checked">
+                                <Setter Property="Background" Value="Transparent" />
+                                <Setter Property="ContentTemplate">
+                                    <DataTemplate>
+                                        <PathIcon Data="{StaticResource Edit24Regular}" />
+                                    </DataTemplate>
+                                </Setter>
+                            </Style>
+
+                            <Style Selector="ToggleButton:unchecked">
+                                <Setter Property="Background" Value="Transparent" />
+                                <Setter Property="ContentTemplate">
+                                    <DataTemplate>
+                                        <PathIcon Data="{StaticResource EditOff24Regular}" />
+                                    </DataTemplate>
+                                </Setter>
+                            </Style>
+
+                            <Style Selector="ToggleButton:indeterminate">
+                                <Setter Property="Background" Value="Transparent" />
+                                <Setter Property="ContentTemplate">
+                                    <DataTemplate>
+                                        <PathIcon Data="{StaticResource EditOff24Regular}" />
+                                    </DataTemplate>
+                                </Setter>
+                            </Style>
+                        </ToggleButton.Styles>
+                    </ToggleButton>
+
+                    <TextBlock Text="{CompiledBinding EditMessage.Value, Mode=OneWay}" VerticalAlignment="Center" />
+                </StackPanel>
+
+                <Label Classes="SettingsItemHeader" Content="{x:Static props:Strings.ChangePassword}" />
+
+                <TextBox
+                    Text="{CompiledBinding NewPassword.Value, Mode=TwoWay}"
+                    Margin="16,0,16,16"
+                    Watermark="{x:Static props:Strings.NewPassword}"
+                    Classes="SettingsTextBox revealPasswordButton" />
+
+                <TextBox
+                    Text="{CompiledBinding ConfirmNewPassword.Value, Mode=TwoWay}"
+                    Margin="16,0,16,16"
+                    Watermark="{x:Static props:Strings.ConfirmNewPassword}"
+                    Classes="SettingsTextBox revealPasswordButton" />
+
+                <StackPanel Spacing="16" Margin="16,0,16,16" Orientation="Horizontal">
+                    <Button Content="{x:Static props:Strings.UpdatePassword}" Command="{CompiledBinding UpdatePassword, Mode=OneTime}" />
+
+                    <TextBlock Text="{CompiledBinding ChangePasswordMessage.Value, Mode=OneWay}" VerticalAlignment="Center" />
+                </StackPanel>
+
+
+                <Button Content="{x:Static props:Strings.Signout}" Margin="16,0" />
             </StackPanel>
-        </StackPanel>
-    </ScrollViewer>
+        </ScrollViewer>
+    </Grid>
 </UserControl>

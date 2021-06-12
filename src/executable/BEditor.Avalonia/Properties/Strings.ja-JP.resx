@@ -733,4 +733,22 @@ IdにはGUID, UUIDが使えます。</value>
   <data name="Publish" xml:space="preserve">
     <value>公開</value>
   </data>
+  <data name="Signout" xml:space="preserve">
+    <value>サインアウト</value>
+  </data>
+  <data name="ChangePassword" xml:space="preserve">
+    <value>パスワードを変更</value>
+  </data>
+  <data name="NewPassword" xml:space="preserve">
+    <value>新しいパスワード</value>
+  </data>
+  <data name="ConfirmNewPassword" xml:space="preserve">
+    <value>新しいパスワードの確認</value>
+  </data>
+  <data name="UpdatePassword" xml:space="preserve">
+    <value>パスワードを更新</value>
+  </data>
+  <data name="PasswordAreNotMatching" xml:space="preserve">
+    <value>パスワードが一致しません</value>
+  </data>
 </root>

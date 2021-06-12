@@ -105,8 +105,10 @@ namespace BEditor
         {
             base.OnOpened(e);
 
-            await ArgumentsContext.ExecuteAsync();
+            await App.StartupTask;
+            App.StartupTask = default;
             await CheckOpenALAsync();
+            await ArgumentsContext.ExecuteAsync();
         }
 
         private void InitializeComponent()
@@ -114,7 +116,7 @@ namespace BEditor
             AvaloniaXamlLoader.Load(this);
         }
 
-        private static async Task CheckOpenALAsync()
+        internal static async Task CheckOpenALAsync()
         {
             try
             {
