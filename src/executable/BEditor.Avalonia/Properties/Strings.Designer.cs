@@ -261,11 +261,29 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Change failed..
+        /// </summary>
+        public static string ChangeFailed {
+            get {
+                return ResourceManager.GetString("ChangeFailed", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Changes.
         /// </summary>
         public static string Changes {
             get {
                 return ResourceManager.GetString("Changes", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Change succeeded..
+        /// </summary>
+        public static string ChangeSucceeded {
+            get {
+                return ResourceManager.GetString("ChangeSucceeded", resourceCulture);
             }
         }
         

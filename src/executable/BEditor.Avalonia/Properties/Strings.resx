@@ -724,4 +724,10 @@ After the encoder is set, the detailed settings will be displayed.</value>
   <data name="Email" xml:space="preserve">
     <value>Email</value>
   </data>
+  <data name="ChangeSucceeded" xml:space="preserve">
+    <value>Change succeeded.</value>
+  </data>
+  <data name="ChangeFailed" xml:space="preserve">
+    <value>Change failed.</value>
+  </data>
 </root>

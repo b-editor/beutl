@@ -29,10 +29,25 @@ namespace BEditor.Models.Authentication
 
     public class MockAuthenticationProvider : IAuthenticationProvider
     {
+        public async ValueTask<(AuthenticationResponse Response, User? User)> GetAsync(string token)
+        {
+            var response = new AuthenticationResponse(true, string.Empty);
+            var user = new User
+            {
+                AccessToken = token,
+                UserName = "Mock"
+            };
+            await Task.Delay(3000);
+            return (Response: response, User: user);
+        }
+
         public async ValueTask<(AuthenticationResponse Response, User? User)> SigninAsync(string email, string password)
         {
             var response = new AuthenticationResponse(true, string.Empty);
-            var user = new User(string.Empty);
+            var user = new User
+            {
+                UserName = "Mock"
+            };
             await Task.Delay(3000);
             return (Response: response, User: user);
         }
@@ -40,9 +55,18 @@ namespace BEditor.Models.Authentication
         public async ValueTask<(AuthenticationResponse Response, User? User)> SignupAsync(string email, string password)
         {
             var response = new AuthenticationResponse(true, string.Empty);
-            var user = new User(string.Empty);
+            var user = new User
+            {
+                UserName = "Mock"
+            };
             await Task.Delay(3000);
             return (Response: response, User: user);
+        }
+
+        public async ValueTask<AuthenticationResponse> UpdateAsync(User user)
+        {
+            await Task.Delay(3000);
+            return new AuthenticationResponse(true, string.Empty);
         }
     }
 }

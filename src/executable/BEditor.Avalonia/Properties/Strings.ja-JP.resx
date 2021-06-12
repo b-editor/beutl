@@ -724,4 +724,10 @@ IdにはGUID, UUIDが使えます。</value>
   <data name="Email" xml:space="preserve">
     <value>メールアドレス</value>
   </data>
+  <data name="ChangeSucceeded" xml:space="preserve">
+    <value>変更しました。</value>
+  </data>
+  <data name="ChangeFailed" xml:space="preserve">
+    <value>変更できませんでした。</value>
+  </data>
 </root>

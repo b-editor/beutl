@@ -3,6 +3,69 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:props="using:BEditor.Properties"
+    xmlns:vm="using:BEditor.ViewModels.ManagePlugins"
+    x:DataType="vm:UserViewModel"
     mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
     x:Class="BEditor.Views.ManagePlugins.User">
+    <ScrollViewer>
+        <StackPanel Spacing="0" Orientation="Vertical">
+            <TextBlock Classes="SettingsHeader" Text="{x:Static props:Strings.User}"/>
+
+            <Label Classes="SettingsItemHeader" Content="{x:Static props:Strings.UserName}" />
+
+            <TextBox
+                IsReadOnly="{CompiledBinding !CanEdit.Value, Mode=OneWay}"
+                Classes="SettingsTextBox"
+                Text="{CompiledBinding UserName.Value, Mode=TwoWay}" />
+            
+            <Label Classes="SettingsItemHeader" Content="{x:Static props:Strings.Email}" />
+
+            <TextBox
+                IsReadOnly="{CompiledBinding !CanEdit.Value, Mode=OneWay}"
+                Classes="SettingsTextBox"
+                Text="{CompiledBinding Email.Value, Mode=TwoWay}" />
+
+            <ProgressBar
+                IsIndeterminate="{CompiledBinding IsLoading.Value, Mode=OneWay}"
+                IsVisible="{CompiledBinding IsLoading.Value, Mode=OneWay}" />
+            
+            <StackPanel Spacing="16" Margin="16" Orientation="Horizontal">
+                <ToggleButton
+                    Content=""
+                    IsChecked="{CompiledBinding CanEdit.Value, Mode=TwoWay}" >
+                    <ToggleButton.Styles>
+                        <Style Selector="ToggleButton:checked">
+                            <Setter Property="Background" Value="Transparent" />
+                            <Setter Property="ContentTemplate">
+                                <DataTemplate>
+                                    <PathIcon Data="{StaticResource Edit24Regular}" />
+                                </DataTemplate>
+                            </Setter>
+                        </Style>
+
+                        <Style Selector="ToggleButton:unchecked">
+                            <Setter Property="Background" Value="Transparent" />
+                            <Setter Property="ContentTemplate">
+                                <DataTemplate>
+                                    <PathIcon Data="{StaticResource EditOff24Regular}" />
+                                </DataTemplate>
+                            </Setter>
+                        </Style>
+
+                        <Style Selector="ToggleButton:indeterminate">
+                            <Setter Property="Background" Value="Transparent" />
+                            <Setter Property="ContentTemplate">
+                                <DataTemplate>
+                                    <PathIcon Data="{StaticResource EditOff24Regular}" />
+                                </DataTemplate>
+                            </Setter>
+                        </Style>
+                    </ToggleButton.Styles>
+                </ToggleButton>
+                
+                <TextBlock Text="{CompiledBinding EditMessage.Value, Mode=OneWay}" VerticalAlignment="Center" />
+            </StackPanel>
+        </StackPanel>
+    </ScrollViewer>
 </UserControl>
