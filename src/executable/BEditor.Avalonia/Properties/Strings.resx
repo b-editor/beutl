@@ -730,4 +730,7 @@ After the encoder is set, the detailed settings will be displayed.</value>
   <data name="ChangeFailed" xml:space="preserve">
     <value>Change failed.</value>
   </data>
+  <data name="Publish" xml:space="preserve">
+    <value>Publish</value>
+  </data>
 </root>

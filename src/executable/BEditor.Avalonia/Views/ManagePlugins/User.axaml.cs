@@ -1,3 +1,4 @@
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.LogicalTree;
 using Avalonia.Markup.Xaml;
@@ -18,7 +19,7 @@ namespace BEditor.Views.ManagePlugins
             InitializeComponent();
         }
 
-        protected override void OnAttachedToLogicalTree(LogicalTreeAttachmentEventArgs e)
+        protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
         {
             if (AppModel.Current.User is null && Parent is TabItem item && item.Parent is TabControl tab)
             {
@@ -27,7 +28,7 @@ namespace BEditor.Views.ManagePlugins
                 tab.SelectedItem = item;
             }
 
-            base.OnAttachedToLogicalTree(e);
+            base.OnAttachedToVisualTree(e);
         }
 
         private void InitializeComponent()

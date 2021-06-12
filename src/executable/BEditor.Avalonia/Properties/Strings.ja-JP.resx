@@ -730,4 +730,7 @@ IdにはGUID, UUIDが使えます。</value>
   <data name="ChangeFailed" xml:space="preserve">
     <value>変更できませんでした。</value>
   </data>
+  <data name="Publish" xml:space="preserve">
+    <value>公開</value>
+  </data>
 </root>

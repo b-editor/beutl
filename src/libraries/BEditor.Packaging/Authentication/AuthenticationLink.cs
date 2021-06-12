@@ -72,10 +72,21 @@ namespace BEditor.Packaging
         /// <returns>A <see cref="ValueTask"/> representing the asynchronous operation.</returns>
         public async ValueTask RefreshUserDetails()
         {
-            if (AuthProvider != null && !string.IsNullOrEmpty(Token))
+            if (!string.IsNullOrEmpty(Token))
             {
                 User = await AuthProvider.GetUserAsync(Token);
             }
+        }
+
+        /// <summary>
+        /// Refresh the <see cref="AuthenticationLink"/>.
+        /// </summary>
+        /// <returns>A <see cref="ValueTask"/> representing the asynchronous operation.</returns>
+        public async ValueTask RefreshAuthAsync()
+        {
+            var auth = await AuthProvider.RefreshAuthAsync(this);
+
+            CopyPropertiesLocally(auth.AuthProvider, auth);
         }
 
         private void CopyPropertiesLocally(IAuthenticationProvider provider, Authentication auth)

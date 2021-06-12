@@ -17,8 +17,10 @@ using Avalonia.Styling;
 using Avalonia.Threading;
 
 using BEditor.Data;
+using BEditor.Extensions;
 using BEditor.Models;
 using BEditor.Models.ManagePlugins;
+using BEditor.Packaging;
 using BEditor.Plugin;
 using BEditor.Primitive;
 using BEditor.Properties;
@@ -96,6 +98,10 @@ namespace BEditor
 
                 await InitialPluginsAsync();
 
+                AppModel.Current.User = await Tool.LoadFromAsync(
+                    Path.Combine(AppContext.BaseDirectory, "user", "token"),
+                    AppModel.Current.ServiceProvider.GetRequiredService<IAuthenticationProvider>());
+
                 AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
 
                 RunBackup();
@@ -122,6 +128,7 @@ namespace BEditor
 
             app.Project?.Unload();
             app.Project = null;
+            AppModel.Current.User?.Save(Path.Combine(AppContext.BaseDirectory, "user", "token"));
 
             if (PluginChangeSchedule.Uninstall.Count is not 0 || PluginChangeSchedule.UpdateOrInstall.Count is not 0)
             {
@@ -149,6 +156,7 @@ namespace BEditor
         {
             AppModel.Current.Message.Snackbar(string.Format(Strings.ExceptionWasThrown, e.ExceptionObject.ToString()));
 
+            AppModel.Current.User?.Save(Path.Combine(AppContext.BaseDirectory, "user", "token"));
             Logger?.LogError(e.ExceptionObject as Exception, "UnhandledException was thrown.");
         }
 

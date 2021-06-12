@@ -27,10 +27,12 @@ namespace BEditor.Models
         private static readonly PropertyChangedEventArgs _ProjectArgs = new(nameof(Project));
         private static readonly PropertyChangedEventArgs _StatusArgs = new(nameof(AppStatus));
         private static readonly PropertyChangedEventArgs _IsPlayingArgs = new(nameof(IsNotPlaying));
+        private static readonly PropertyChangedEventArgs _userArgs = new(nameof(User));
         private Project _project;
         private Status _status;
         private bool _isplaying = true;
         private IServiceProvider _serviceProvider;
+        private AuthenticationLink _user;
 
         private AppModel()
         {
@@ -56,7 +58,7 @@ namespace BEditor.Models
             Services = new ServiceCollection()
 #if DEBUG
                 .AddSingleton<IAuthenticationProvider, MockAuthenticationProvider>()
-                .AddSingleton<IPackageUploader, MockPackageUploader>()
+                .AddSingleton<IRemotePackageProvider, MockPackageUploader>()
 #endif
                 .AddSingleton(_ => FileDialog)
                 .AddSingleton(_ => Message)
@@ -100,7 +102,11 @@ namespace BEditor.Models
 
         public ILoggerFactory LoggingFactory { get; }
 
-        public AuthenticationLink User { get; set; }
+        public AuthenticationLink User
+        {
+            get => _user;
+            set => SetValue(value, ref _user, _userArgs);
+        }
 
         public SynchronizationContext UIThread { get; set; }
 

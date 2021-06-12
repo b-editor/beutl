@@ -27,6 +27,8 @@ namespace BEditor.Packaging
         [JsonPropertyName("refresh_token")]
         public string RefreshToken { get; set; } = string.Empty;
 
+        // 何秒間使えるか
+
         /// <summary>
         /// Gets or sets the numbers of seconds since <see cref="Created"/> when the token expires.
         /// </summary>

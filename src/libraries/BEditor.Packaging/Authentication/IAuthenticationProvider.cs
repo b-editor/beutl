@@ -15,6 +15,13 @@ namespace BEditor.Packaging
     public interface IAuthenticationProvider
     {
         /// <summary>
+        /// Refresh the <see cref="AuthenticationLink"/>.
+        /// </summary>
+        /// <param name="auth">The <see cref="AuthenticationLink"/>.</param>
+        /// <returns>A <see cref="ValueTask"/> representing the asynchronous operation.</returns>
+        public ValueTask<AuthenticationLink> RefreshAuthAsync(AuthenticationLink auth);
+
+        /// <summary>
         /// Using the provided email and password, get the firebase auth with token and basic user credentials.
         /// </summary>
         /// <param name="email">The email.</param>

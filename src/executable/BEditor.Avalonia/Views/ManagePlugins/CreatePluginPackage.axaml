@@ -39,12 +39,6 @@
 
                     <Separator Height="16" />
 
-                    <Label Content="{x:Static props:Strings.Author}" Classes="SettingsItemHeader" />
-
-                    <TextBox Classes="SettingsTextBox" Text="{CompiledBinding Author.Value}" />
-
-                    <Separator Height="16" />
-
                     <Label Content="{x:Static props:Strings.WebSite}" Classes="SettingsItemHeader" />
 
                     <TextBox Classes="SettingsTextBox" Text="{CompiledBinding WebSite.Value}" />
@@ -134,6 +128,11 @@
                         Margin="0,16"
                         Command="{CompiledBinding Create, Mode=OneTime}"
                         Content="{x:Static props:Strings.Create}" />
+
+                    <Button
+                        Command="{CompiledBinding Publish, Mode=OneTime}"
+                        IsEnabled="{CompiledBinding PublishIsEnabled.Value, Mode=OneWay}"
+                        Content="{x:Static props:Strings.Publish}" />
                 </StackPanel>
             </TabItem>
         </TabControl>

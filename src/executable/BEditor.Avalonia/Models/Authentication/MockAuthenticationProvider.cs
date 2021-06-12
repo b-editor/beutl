@@ -1,4 +1,7 @@
-﻿using System.IO;
+﻿using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
 
@@ -6,13 +9,19 @@ using BEditor.Packaging;
 
 namespace BEditor.Models.Authentication
 {
-    public class MockPackageUploader : IPackageUploader
+    public class MockPackageUploader : IRemotePackageProvider
     {
         private readonly HttpClient _client;
 
         public MockPackageUploader(HttpClient client)
         {
             _client = client;
+        }
+
+        public async ValueTask<IEnumerable<Package>> GetPackagesAsync(Packaging.Authentication auth)
+        {
+            await Task.Delay(3000);
+            return Enumerable.Empty<Package>();
         }
 
         public async ValueTask UploadAsync(Packaging.Authentication user, Stream stream)
@@ -43,6 +52,7 @@ namespace BEditor.Models.Authentication
             _instance = new(
                 new()
                 {
+                    ExpiresIn = 604_800,
                     User = new()
                     {
                         Email = email,
@@ -63,8 +73,25 @@ namespace BEditor.Models.Authentication
 
         public async ValueTask<User> GetUserAsync(string token)
         {
+            _instance ??= new(
+                new()
+                {
+                    ExpiresIn = 604_800,
+                    User = new()
+                },
+                this);
+
             await Task.Delay(3000);
-            return _instance!.User!;
+            return _instance.User!;
+        }
+
+        public async ValueTask<AuthenticationLink> RefreshAuthAsync(AuthenticationLink auth)
+        {
+            await Task.Delay(3000);
+            auth.Created = DateTime.Now;
+            auth.ExpiresIn = 604_800;
+            auth.User = new();
+            return _instance = auth;
         }
 
         public async ValueTask SendPasswordResetEmailAsync(string token, string email)
@@ -77,6 +104,7 @@ namespace BEditor.Models.Authentication
             _instance = new(
                 new()
                 {
+                    ExpiresIn = 604_800,
                     User = new() { Email = email }
                 },
                 this);

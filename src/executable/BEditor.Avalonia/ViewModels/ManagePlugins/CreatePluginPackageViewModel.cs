@@ -1,6 +1,8 @@
 ﻿using System;
 using System.IO;
+using System.Reactive.Linq;
 using System.Runtime.Loader;
+using System.Threading.Tasks;
 
 using Avalonia.Controls;
 
@@ -9,9 +11,11 @@ using BEditor.Packaging;
 using BEditor.Properties;
 using BEditor.Views.DialogContent;
 
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 using Reactive.Bindings;
+using Reactive.Bindings.Extensions;
 
 namespace BEditor.ViewModels.ManagePlugins
 {
@@ -19,6 +23,10 @@ namespace BEditor.ViewModels.ManagePlugins
     {
         public CreatePluginPackageViewModel()
         {
+            PublishIsEnabled = AppModel.Current.ObserveProperty(i => i.User)
+                .Select(i => i is not null)
+                .ToReadOnlyReactivePropertySlim();
+
             PickDirectory.Subscribe(async () =>
             {
                 var dialog = new OpenFolderDialog();
@@ -49,50 +57,9 @@ namespace BEditor.ViewModels.ManagePlugins
 
             Create.Subscribe(async _ =>
             {
-                if (!File.Exists(AssemblyFile.Value))
-                {
-                    await AppModel.Current.Message.DialogAsync(Strings.FileNotFound + $"\n{AssemblyFile.Value}");
-                    return;
-                }
-                if (!Guid.TryParse(Id.Value, out var id))
-                {
-                    await AppModel.Current.Message.DialogAsync(Strings.InvalidIdCanUseGUIDAndUUID);
-                    return;
-                }
                 var progress = new ProgressDialog();
-
-                _ = progress.ShowDialog(App.GetMainWindow());
                 var mainAsm = Path.GetFileName(AssemblyFile.Value);
-                var asmName = AssemblyLoadContext.GetAssemblyName(AssemblyFile.Value);
-                var ver = asmName.Version?.ToString(3) ?? "0.0.0";
-
-                await PackageFile.CreatePackageAsync(
-                    AssemblyFile.Value,
-                    Path.Combine(OutputDirectory.Value, Path.ChangeExtension(mainAsm, ".bepkg")),
-                    new()
-                    {
-                        MainAssembly = mainAsm,
-                        Name = Name.Value,
-                        Author = Author.Value,
-                        HomePage = WebSite.Value,
-                        DescriptionShort = DescriptionShort.Value,
-                        Description = Description.Value,
-                        Tag = Tag.Value,
-                        Id = id,
-                        License = License.Value,
-                        Versions = new PackageVersion[]
-                        {
-                            new()
-                            {
-                                Version = ver,
-                                UpdateNote = UpdateNote.Value,
-                                UpdateNoteShort = UpdateNoteShort.Value,
-                                ReleaseDateTime = DateTime.Now,
-                            }
-                        }
-                    },
-                    progress);
-
+                await OutputAsync(Path.Combine(OutputDirectory.Value, Path.ChangeExtension(mainAsm, ".bepkg")), progress);
                 progress.Close();
             },
             async e =>
@@ -100,12 +67,28 @@ namespace BEditor.ViewModels.ManagePlugins
                 App.Logger.LogError(e, Strings.CouldNotCreatePackage);
                 await AppModel.Current.Message.DialogAsync(Strings.CouldNotCreatePackage + $"\nmessage: {e.Message}");
             });
+
+            Publish.Where(_ => PublishIsEnabled.Value)
+                .Subscribe(async _ =>
+                {
+                    var auth = AppModel.Current.User;
+                    if (auth.IsExpired()) await auth.RefreshAuthAsync();
+
+                    var tmp = Path.GetTempFileName();
+                    var progress = new ProgressDialog();
+                    var service = AppModel.Current.ServiceProvider.GetRequiredService<IRemotePackageProvider>();
+
+                    await OutputAsync(tmp, progress);
+
+                    progress.IsIndeterminate.Value = true;
+                    await service.UploadAsync(auth, tmp);
+
+                    progress.Close();
+                });
         }
 
         // Infomation
         public ReactivePropertySlim<string> Name { get; } = new(string.Empty);
-
-        public ReactivePropertySlim<string> Author { get; } = new(string.Empty);
 
         public ReactivePropertySlim<string> WebSite { get; } = new(string.Empty);
 
@@ -134,5 +117,56 @@ namespace BEditor.ViewModels.ManagePlugins
         public ReactiveCommand PickAssemblyFile { get; } = new();
 
         public ReactiveCommand Create { get; } = new();
+
+        // Publish
+        public ReadOnlyReactivePropertySlim<bool> PublishIsEnabled { get; }
+
+        public ReactiveCommand Publish { get; } = new();
+
+        private async Task OutputAsync(string filename, ProgressDialog progress)
+        {
+            if (!File.Exists(AssemblyFile.Value))
+            {
+                await AppModel.Current.Message.DialogAsync(Strings.FileNotFound + $"\n{AssemblyFile.Value}");
+                return;
+            }
+            if (!Guid.TryParse(Id.Value, out var id))
+            {
+                await AppModel.Current.Message.DialogAsync(Strings.InvalidIdCanUseGUIDAndUUID);
+                return;
+            }
+
+            _ = progress.ShowDialog(App.GetMainWindow());
+            var mainAsm = Path.GetFileName(AssemblyFile.Value);
+            var asmName = AssemblyLoadContext.GetAssemblyName(AssemblyFile.Value);
+            var ver = asmName.Version?.ToString(3) ?? "0.0.0";
+
+            await PackageFile.CreatePackageAsync(
+                AssemblyFile.Value,
+                filename,
+                new()
+                {
+                    MainAssembly = mainAsm,
+                    Name = Name.Value,
+                    Author = AppModel.Current.User?.User?.DisplayName ?? string.Empty,
+                    HomePage = WebSite.Value,
+                    DescriptionShort = DescriptionShort.Value,
+                    Description = Description.Value,
+                    Tag = Tag.Value,
+                    Id = id,
+                    License = License.Value,
+                    Versions = new PackageVersion[]
+                    {
+                            new()
+                            {
+                                Version = ver,
+                                UpdateNote = UpdateNote.Value,
+                                UpdateNoteShort = UpdateNoteShort.Value,
+                                ReleaseDateTime = DateTime.Now,
+                            }
+                    }
+                },
+                progress);
+        }
     }
 }

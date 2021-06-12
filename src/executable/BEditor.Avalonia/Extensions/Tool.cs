@@ -1,4 +1,5 @@
 ﻿using System;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -9,6 +10,7 @@ using Avalonia.Threading;
 using BEditor.Data;
 using BEditor.Media;
 using BEditor.Models;
+using BEditor.Packaging;
 using BEditor.Properties;
 using BEditor.ViewModels;
 using BEditor.Views;
@@ -105,6 +107,35 @@ namespace BEditor.Extensions
                     }
                 }
             });
+        }
+
+        public static async ValueTask<AuthenticationLink?> LoadFromAsync(string filename, IAuthenticationProvider provider)
+        {
+            if (!File.Exists(filename)) return null;
+            using var reader = new StreamReader(filename);
+            var token = reader.ReadLine();
+            var reftoken = reader.ReadLine();
+
+            if (token is null || reftoken is null) return null;
+            var auth = new AuthenticationLink(
+                new()
+                {
+                    RefreshToken = reftoken,
+                    Token = token,
+                },
+                provider);
+            await auth.RefreshAuthAsync();
+
+            return auth;
+        }
+
+        public static void Save(this Authentication auth, string filename)
+        {
+            using var stream = new FileStream(filename, FileMode.Create);
+            using var writer = new StreamWriter(stream);
+
+            writer.WriteLine(auth.Token);
+            writer.WriteLine(auth.RefreshToken);
         }
 
         public static double ToPixel(this Scene scene, Frame frame)

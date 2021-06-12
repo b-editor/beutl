@@ -29,6 +29,8 @@ namespace BEditor.ViewModels.ManagePlugins
                     var (oldName, oldMail) = (auth.User!.DisplayName, auth.User!.Email);
                     try
                     {
+                        if (Auth.IsExpired()) await Auth.RefreshAuthAsync();
+
                         IsLoading.Value = true;
                         if (nameIsChanged)
                         {
