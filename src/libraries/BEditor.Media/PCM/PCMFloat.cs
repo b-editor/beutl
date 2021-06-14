@@ -50,7 +50,7 @@ namespace BEditor.Media.PCM
         }
 
         /// <inheritdoc/>
-        public PCMFloat Add(PCMFloat s)
+        public PCMFloat Combine(PCMFloat s)
         {
             return new(Value + s.Value);
         }

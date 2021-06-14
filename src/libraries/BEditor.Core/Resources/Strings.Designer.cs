@@ -376,6 +376,15 @@ namespace BEditor.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Pitch.
+        /// </summary>
+        internal static string Pitch {
+            get {
+                return ResourceManager.GetString("Pitch", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Project file.
         /// </summary>
         internal static string ProjectFile {
@@ -493,6 +502,15 @@ namespace BEditor.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Start.
+        /// </summary>
+        internal static string Start {
+            get {
+                return ResourceManager.GetString("Start", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to The type of the owner of the property does not match the type of this object..
         /// </summary>
         internal static string TheOwnerTypeDoesNotMatch {
@@ -525,6 +543,15 @@ namespace BEditor.Resources {
         internal static string UpEffect {
             get {
                 return ResourceManager.GetString("UpEffect", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Volume.
+        /// </summary>
+        internal static string Volume {
+            get {
+                return ResourceManager.GetString("Volume", resourceCulture);
             }
         }
         

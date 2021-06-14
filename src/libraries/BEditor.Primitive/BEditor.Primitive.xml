@@ -1896,89 +1896,69 @@
         <member name="M:BEditor.Primitive.Effects.StrokeText.GetProperties">
             <inheritdoc/>
         </member>
-        <member name="T:BEditor.Primitive.Objects.AudioObject">
+        <member name="T:BEditor.Primitive.Objects.AudioFile">
             <summary>
             Represents an <see cref="T:BEditor.Data.ObjectElement"/> that references an audio file.
             </summary>
         </member>
-        <member name="F:BEditor.Primitive.Objects.AudioObject.VolumeProperty">
+        <member name="F:BEditor.Primitive.Objects.AudioFile.StartProperty">
             <summary>
-            Defines the <see cref="P:BEditor.Primitive.Objects.AudioObject.Volume"/> property.
+            Defines the <see cref="P:BEditor.Primitive.Objects.AudioFile.Start"/> property.
             </summary>
         </member>
-        <member name="F:BEditor.Primitive.Objects.AudioObject.PitchProperty">
+        <member name="F:BEditor.Primitive.Objects.AudioFile.FileProperty">
             <summary>
-            Defines the <see cref="P:BEditor.Primitive.Objects.AudioObject.Pitch"/> property.
+            Defines the <see cref="P:BEditor.Primitive.Objects.AudioFile.File"/> property.
             </summary>
         </member>
-        <member name="F:BEditor.Primitive.Objects.AudioObject.StartProperty">
+        <member name="F:BEditor.Primitive.Objects.AudioFile.SetLengthProperty">
             <summary>
-            Defines the <see cref="P:BEditor.Primitive.Objects.AudioObject.Start"/> property.
+            Defines the <see cref="P:BEditor.Primitive.Objects.AudioFile.SetLength"/> property.
             </summary>
         </member>
-        <member name="F:BEditor.Primitive.Objects.AudioObject.FileProperty">
+        <member name="M:BEditor.Primitive.Objects.AudioFile.#ctor">
             <summary>
-            Defines the <see cref="P:BEditor.Primitive.Objects.AudioObject.File"/> property.
+            Initializes a new instance of the <see cref="T:BEditor.Primitive.Objects.AudioFile"/> class.
             </summary>
         </member>
-        <member name="F:BEditor.Primitive.Objects.AudioObject.SetLengthProperty">
-            <summary>
-            Defines the <see cref="P:BEditor.Primitive.Objects.AudioObject.SetLength"/> property.
-            </summary>
-        </member>
-        <member name="M:BEditor.Primitive.Objects.AudioObject.#ctor">
-            <summary>
-            Initializes a new instance of the <see cref="T:BEditor.Primitive.Objects.AudioObject"/> class.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Objects.AudioObject.Name">
+        <member name="P:BEditor.Primitive.Objects.AudioFile.Name">
             <inheritdoc/>
         </member>
-        <member name="P:BEditor.Primitive.Objects.AudioObject.Volume">
-            <summary>
-            Get the <see cref="T:BEditor.Data.Property.EaseProperty"/> representing the volume.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Objects.AudioObject.Pitch">
-            <summary>
-            Get the <see cref="T:BEditor.Data.Property.EaseProperty"/> representing the pitch.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Objects.AudioObject.Start">
+        <member name="P:BEditor.Primitive.Objects.AudioFile.Start">
             <summary>
             Get the <see cref="T:BEditor.Data.Property.EaseProperty"/> that represents the start position.
             </summary>
         </member>
-        <member name="P:BEditor.Primitive.Objects.AudioObject.File">
+        <member name="P:BEditor.Primitive.Objects.AudioFile.File">
             <summary>
-            Get the <see cref="F:BEditor.Primitive.Objects.AudioObject.FileProperty"/> to select the file to reference.
+            Get the <see cref="F:BEditor.Primitive.Objects.AudioFile.FileProperty"/> to select the file to reference.
             </summary>
         </member>
-        <member name="P:BEditor.Primitive.Objects.AudioObject.SetLength">
+        <member name="P:BEditor.Primitive.Objects.AudioFile.SetLength">
             <summary>
             Gets the command to set the length of the clip.
             </summary>
         </member>
-        <member name="P:BEditor.Primitive.Objects.AudioObject.Decoder">
+        <member name="P:BEditor.Primitive.Objects.AudioFile.Decoder">
             <summary>
             Gets the opened decoder.
             </summary>
         </member>
-        <member name="P:BEditor.Primitive.Objects.AudioObject.Loaded">
+        <member name="P:BEditor.Primitive.Objects.AudioFile.Loaded">
             <summary>
             Gets the loaded audio data.
             </summary>
         </member>
-        <member name="M:BEditor.Primitive.Objects.AudioObject.Apply(BEditor.Data.EffectApplyArgs)">
+        <member name="M:BEditor.Primitive.Objects.AudioFile.GetProperties">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Primitive.Objects.AudioObject.GetProperties">
+        <member name="M:BEditor.Primitive.Objects.AudioFile.OnLoad">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Primitive.Objects.AudioObject.OnLoad">
+        <member name="M:BEditor.Primitive.Objects.AudioFile.OnUnload">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Primitive.Objects.AudioObject.OnUnload">
+        <member name="M:BEditor.Primitive.Objects.AudioFile.OnSample(BEditor.Data.EffectApplyArgs)">
             <inheritdoc/>
         </member>
         <member name="T:BEditor.Primitive.Objects.CameraObject">
@@ -2805,7 +2785,7 @@
         </member>
         <member name="F:BEditor.Primitive.PrimitiveTypes.Audio">
             <summary>
-            <see cref="T:System.Type"/> of <see cref="T:BEditor.Primitive.Objects.AudioObject"/> class.
+            <see cref="T:System.Type"/> of <see cref="T:BEditor.Primitive.Objects.AudioFile"/> class.
             </summary>
         </member>
         <member name="F:BEditor.Primitive.PrimitiveTypes.Image">
@@ -2860,7 +2840,7 @@
         </member>
         <member name="F:BEditor.Primitive.PrimitiveTypes.AudioMetadata">
             <summary>
-            Metadata of <see cref="T:BEditor.Primitive.Objects.AudioObject"/> class.
+            Metadata of <see cref="T:BEditor.Primitive.Objects.AudioFile"/> class.
             </summary>
         </member>
         <member name="F:BEditor.Primitive.PrimitiveTypes.ImageMetadata">

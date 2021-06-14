@@ -21,7 +21,7 @@ namespace BEditor.Data
         /// <param name="frame">The frame to render.</param>
         /// <param name="value">The value used to apply the effect.</param>
         /// <param name="type">The rendering type.</param>
-        public EffectApplyArgs(Frame frame, T value, RenderType type = RenderType.Preview)
+        public EffectApplyArgs(Frame frame, T value, ApplyType type = ApplyType.Edit)
             : base(frame, type)
         {
             Value = value;

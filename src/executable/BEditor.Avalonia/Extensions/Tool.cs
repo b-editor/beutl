@@ -25,7 +25,7 @@ namespace BEditor.Extensions
 
         public static bool PreviewIsEnabled { get; set; } = true;
 
-        public static void PreviewUpdate(this Project project, ClipElement clipData, RenderType type = RenderType.Preview)
+        public static void PreviewUpdate(this Project project, ClipElement clipData, ApplyType type = ApplyType.Edit)
         {
             if (project is null) return;
             var now = project.PreviewScene.PreviewFrame;
@@ -35,7 +35,7 @@ namespace BEditor.Extensions
             }
         }
 
-        public static void PreviewUpdate(this Project project, RenderType type = RenderType.Preview)
+        public static void PreviewUpdate(this Project project, ApplyType type = ApplyType.Edit)
         {
             if (project is null || project.PreviewScene.GraphicsContext is null || !PreviewIsEnabled) return;
 

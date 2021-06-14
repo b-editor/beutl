@@ -6,6 +6,7 @@ using System.Net.Http;
 using System.Text.Json;
 using System.Threading;
 
+using BEditor.Audio;
 using BEditor.Command;
 using BEditor.Data;
 using BEditor.Extensions;
@@ -38,7 +39,7 @@ namespace BEditor.Models
         {
             CommandManager.Default.Executed += (_, _) =>
             {
-                Project?.PreviewUpdate(RenderType.Preview);
+                Project?.PreviewUpdate(ApplyType.Edit);
                 AppStatus = Status.Edit;
             };
 
@@ -111,6 +112,8 @@ namespace BEditor.Models
         public SynchronizationContext UIThread { get; set; }
 
         Project IParentSingle<Project>.Child => Project;
+
+        public AudioContext AudioContext { get; set; }
 
         public event EventHandler<ProjectOpenedEventArgs> ProjectOpened;
         public event EventHandler Exit;

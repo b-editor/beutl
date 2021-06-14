@@ -8,6 +8,7 @@
 using System;
 using System.Threading;
 
+using BEditor.Audio;
 using BEditor.Data;
 
 namespace BEditor
@@ -36,6 +37,11 @@ namespace BEditor
         /// Gets the <see cref="SynchronizationContext"/>.
         /// </summary>
         public SynchronizationContext UIThread { get; }
+
+        /// <summary>
+        /// Gets audio context.
+        /// </summary>
+        public AudioContext? AudioContext { get; }
 
         /// <summary>
         /// Restore the application configuration.

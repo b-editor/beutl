@@ -119,6 +119,26 @@ namespace BEditor.Audio
             }
         }
 
+        public void BufferData(Sound<PCM16> sound)
+        {
+            Tool.BufferData(Handle, ALFormat.Mono16, sound.Data, sound.SampleRate);
+        }
+        public void BufferData(Sound<StereoPCM16> sound)
+        {
+            Tool.BufferData(Handle, ALFormat.Stereo16, sound.Data, sound.SampleRate);
+        }
+        public void BufferData(Sound<PCMFloat> sound)
+        {
+            using var converted = sound.Convert<PCM16>();
+
+            Tool.BufferData(Handle, ALFormat.Mono16, converted.Data, converted.SampleRate);
+        }
+        public void BufferData(Sound<StereoPCMFloat> sound)
+        {
+            using var converted = sound.Convert<StereoPCM16>();
+
+            Tool.BufferData(Handle, ALFormat.Stereo16, converted.Data, converted.SampleRate);
+        }
         public override bool Equals(object? obj)
         {
             return Equals(obj as AudioBuffer);

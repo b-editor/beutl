@@ -9,30 +9,6 @@ namespace BEditor.Audio
 {
     public partial class AudioSource
     {
-        private AudioBuffer? _buffer;
-
-        /// <summary>
-        /// Gets or sets the buffer that will serve the sound sample.
-        /// </summary>
-        /// <exception cref="ObjectDisposedException">This object has been discarded.</exception>
-        /// <exception cref="AudioException">An error has occurred in OpenAL.</exception>
-        /// <exception cref="ArgumentNullException">value is null.</exception>
-        public AudioBuffer? Buffer
-        {
-            get
-            {
-                ThrowIfDisposed();
-
-                return _buffer;
-            }
-            set
-            {
-                if (value is null) throw new ArgumentNullException(nameof(value));
-                ThrowIfDisposed();
-                SetInt(ALSourcei.Buffer, value.Handle);
-                _buffer = value;
-            }
-        }
         /// <summary>
         /// Gets the status of this AudioSource.
         /// </summary>
@@ -310,6 +286,24 @@ namespace BEditor.Audio
         {
             get => GetInt(ALGetSourcei.SampleOffset);
             set => SetInt(ALSourcei.SampleOffset, value);
+        }
+        /// <summary>
+        /// Gets the number of buffers queued on this source.
+        /// </summary>
+        /// <exception cref="ObjectDisposedException">This object has been discarded.</exception>
+        /// <exception cref="AudioException">An error has occurred in OpenAL.</exception>
+        public int BuffersQueued
+        {
+            get => GetInt(ALGetSourcei.BuffersQueued);
+        }
+        /// <summary>
+        /// Gets the number of buffers in the queue that have been processed.
+        /// </summary>
+        /// <exception cref="ObjectDisposedException">This object has been discarded.</exception>
+        /// <exception cref="AudioException">An error has occurred in OpenAL.</exception>
+        public int BuffersProcessed
+        {
+            get => GetInt(ALGetSourcei.BuffersProcessed);
         }
         /// <summary>
         /// Gets or sets the playback position as bytes.

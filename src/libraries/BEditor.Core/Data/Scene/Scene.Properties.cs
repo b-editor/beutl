@@ -112,9 +112,9 @@ namespace BEditor.Data
         public DrawingContext? DrawingContext { get; private set; }
 
         /// <summary>
-        /// Gets audio context.
+        /// Gets sampling context.
         /// </summary>
-        public AudioContext? AudioContext { get; private set; }
+        public SamplingContext? SamplingContext { get; private set; }
 
         /// <summary>
         /// Gets a player to play this <see cref="Scene"/>.

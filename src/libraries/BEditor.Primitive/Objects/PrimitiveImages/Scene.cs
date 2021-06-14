@@ -75,7 +75,7 @@ namespace BEditor.Primitive.Objects
             // Clipの相対的なフレーム
             var frame = args.Frame - Parent!.Start;
 
-            var img = scene.Render(frame + (int)Start[args.Frame], RenderType.ImageOutput);
+            var img = scene.Render(frame + (int)Start[args.Frame], ApplyType.Image);
             Parent.Parent.GraphicsContext!.MakeCurrentAndBindFbo();
 
             return img;

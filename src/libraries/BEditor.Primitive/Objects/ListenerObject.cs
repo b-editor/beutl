@@ -127,12 +127,6 @@ namespace BEditor.Primitive.Objects
         /// <inheritdoc/>
         public override void Apply(EffectApplyArgs args)
         {
-            var context = Parent.Parent.AudioContext;
-            var f = args.Frame;
-
-            context!.Position = new(X[f], Y[f], Z[f]);
-            context.Target = new(TargetX[f], TargetY[f], TargetZ[f]);
-            context.Gain = Gain[f] / 100f;
         }
 
         /// <inheritdoc/>

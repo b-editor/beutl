@@ -262,4 +262,13 @@
   <data name="TheOwnerTypeDoesNotMatch" xml:space="preserve">
     <value>The type of the owner of the property does not match the type of this object.</value>
   </data>
+  <data name="Volume" xml:space="preserve">
+    <value>Volume</value>
+  </data>
+  <data name="Pitch" xml:space="preserve">
+    <value>Pitch</value>
+  </data>
+  <data name="Start" xml:space="preserve">
+    <value>Start</value>
+  </data>
 </root>

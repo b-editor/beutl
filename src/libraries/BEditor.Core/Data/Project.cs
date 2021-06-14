@@ -15,6 +15,7 @@ using System.Runtime.Serialization;
 using System.Text.Json;
 using System.Threading.Tasks;
 
+using BEditor.Audio;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
 using BEditor.Resources;
@@ -319,7 +320,7 @@ namespace BEditor.Data
                             using var img = new Image<BGRA32>(p.PreviewScene.Width, p.PreviewScene.Height);
 
                             var thumbnail = Path.Combine(p.DirectoryName, "thumbnail.png");
-                            p.PreviewScene.Render(img, RenderType.ImageOutput);
+                            p.PreviewScene.Render(img, ApplyType.Image);
 
                             img.Encode(thumbnail);
                         }
@@ -385,7 +386,7 @@ namespace BEditor.Data
                             using var img = new Image<BGRA32>(p.PreviewScene.Width, p.PreviewScene.Height);
 
                             var thumbnail = Path.Combine(p.DirectoryName, "thumbnail.png");
-                            p.PreviewScene.Render(img, RenderType.ImageOutput);
+                            p.PreviewScene.Render(img, ApplyType.Image);
 
                             img.Encode(thumbnail);
                         }

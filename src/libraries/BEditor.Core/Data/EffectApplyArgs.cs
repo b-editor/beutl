@@ -19,7 +19,7 @@ namespace BEditor.Data
         /// </summary>
         /// <param name="frame">The frame to render.</param>
         /// <param name="type">The rendering type.</param>
-        public EffectApplyArgs(Frame frame, RenderType type = RenderType.Preview)
+        public EffectApplyArgs(Frame frame, ApplyType type = ApplyType.Edit)
         {
             Frame = frame;
             Type = type;
@@ -38,6 +38,6 @@ namespace BEditor.Data
         /// <summary>
         /// Gets the rendering type.
         /// </summary>
-        public RenderType Type { get; }
+        public ApplyType Type { get; }
     }
 }

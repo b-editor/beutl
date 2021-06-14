@@ -1,4 +1,4 @@
-﻿// RenderType.cs
+﻿// ApplyType.cs
 //
 // Copyright (C) BEditor
 //
@@ -10,26 +10,26 @@ namespace BEditor.Data
     /// <summary>
     /// Represents the type of rendering request.
     /// </summary>
-    public enum RenderType
+    public enum ApplyType
     {
         /// <summary>
         /// Represents the preview rendering during editing.
         /// </summary>
-        Preview,
-
-        /// <summary>
-        /// Represents the rendering during playing.
-        /// </summary>
-        VideoPreview,
+        Edit,
 
         /// <summary>
         /// Represents the rendering in the image output.
         /// </summary>
-        ImageOutput,
+        Image,
 
         /// <summary>
         /// Represents the rendering in the video output.
         /// </summary>
-        VideoOutput,
+        Video,
+
+        /// <summary>
+        /// Represents the rendering in the audio output.
+        /// </summary>
+        Audio,
     }
 }

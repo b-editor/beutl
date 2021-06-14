@@ -29,9 +29,9 @@ namespace BEditor.Primitive
         public static readonly Type Video = typeof(VideoFile);
 
         /// <summary>
-        /// <see cref="Type"/> of <see cref="AudioObject"/> class.
+        /// <see cref="Type"/> of <see cref="AudioFile"/> class.
         /// </summary>
-        public static readonly Type Audio = typeof(AudioObject);
+        public static readonly Type Audio = typeof(AudioFile);
 
         /// <summary>
         /// <see cref="Type"/> of <see cref="ImageFile"/> class.
@@ -84,9 +84,9 @@ namespace BEditor.Primitive
         public static readonly ObjectMetadata VideoMetadata = ObjectMetadata.Create<VideoFile>(Strings.Video);
 
         /// <summary>
-        /// Metadata of <see cref="AudioObject"/> class.
+        /// Metadata of <see cref="AudioFile"/> class.
         /// </summary>
-        public static readonly ObjectMetadata AudioMetadata = ObjectMetadata.Create<AudioObject>(Strings.Audio);
+        public static readonly ObjectMetadata AudioMetadata = ObjectMetadata.Create<AudioFile>(Strings.Audio);
 
         /// <summary>
         /// Metadata of <see cref="ImageFile"/> class.

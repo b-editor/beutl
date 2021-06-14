@@ -1073,7 +1073,7 @@
             </summary>
             <typeparam name="T">The type of the PCM class itself.</typeparam>
         </member>
-        <member name="M:BEditor.Media.PCM.IPCM`1.Add(`0)">
+        <member name="M:BEditor.Media.PCM.IPCM`1.Combine(`0)">
             <summary>
             Returns the value with the specified data appended to this data.
             </summary>
@@ -1126,7 +1126,7 @@
             </summary>
             <param name="value">The 16-bit signed integer.</param>
         </member>
-        <member name="M:BEditor.Media.PCM.PCM16.Add(BEditor.Media.PCM.PCM16)">
+        <member name="M:BEditor.Media.PCM.PCM16.Combine(BEditor.Media.PCM.PCM16)">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Media.PCM.PCM16.ConvertFrom(BEditor.Media.PCM.PCM32)">
@@ -1172,7 +1172,7 @@
             </summary>
             <param name="value">The 32-bit signed integer.</param>
         </member>
-        <member name="M:BEditor.Media.PCM.PCM32.Add(BEditor.Media.PCM.PCM32)">
+        <member name="M:BEditor.Media.PCM.PCM32.Combine(BEditor.Media.PCM.PCM32)">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Media.PCM.PCM32.ConvertFrom(BEditor.Media.PCM.PCM16)">
@@ -1215,7 +1215,7 @@
             </summary>
             <param name="value">The 32-bit float.</param>
         </member>
-        <member name="M:BEditor.Media.PCM.PCMFloat.Add(BEditor.Media.PCM.PCMFloat)">
+        <member name="M:BEditor.Media.PCM.PCMFloat.Combine(BEditor.Media.PCM.PCMFloat)">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Media.PCM.PCMFloat.ConvertFrom(BEditor.Media.PCM.PCM16)">
@@ -1252,7 +1252,7 @@
             <param name="left">The audio data of the left channel.</param>
             <param name="right">The audio data of the right channel.</param>
         </member>
-        <member name="M:BEditor.Media.PCM.StereoPCM16.Add(BEditor.Media.PCM.StereoPCM16)">
+        <member name="M:BEditor.Media.PCM.StereoPCM16.Combine(BEditor.Media.PCM.StereoPCM16)">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Media.PCM.StereoPCM16.ConvertFrom(BEditor.Media.PCM.StereoPCM32)">
@@ -1292,7 +1292,7 @@
             <param name="left">The audio data of the left channel.</param>
             <param name="right">The audio data of the right channel.</param>
         </member>
-        <member name="M:BEditor.Media.PCM.StereoPCM32.Add(BEditor.Media.PCM.StereoPCM32)">
+        <member name="M:BEditor.Media.PCM.StereoPCM32.Combine(BEditor.Media.PCM.StereoPCM32)">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Media.PCM.StereoPCM32.ConvertFrom(BEditor.Media.PCM.StereoPCM16)">
@@ -1329,7 +1329,7 @@
             <param name="left">The audio data of the left channel.</param>
             <param name="right">The audio data of the right channel.</param>
         </member>
-        <member name="M:BEditor.Media.PCM.StereoPCMFloat.Add(BEditor.Media.PCM.StereoPCMFloat)">
+        <member name="M:BEditor.Media.PCM.StereoPCMFloat.Combine(BEditor.Media.PCM.StereoPCMFloat)">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Media.PCM.StereoPCMFloat.ConvertFrom(BEditor.Media.PCM.StereoPCM32)">
@@ -1475,11 +1475,11 @@
             <param name="length">The desired length for the slice.</param>
             <returns>A sound that consists of length elements from the current sound starting at start.</returns>
         </member>
-        <member name="M:BEditor.Media.Sound`1.Add(BEditor.Media.Sound{`0})">
+        <member name="M:BEditor.Media.Sound`1.Combine(BEditor.Media.Sound{`0})">
             <summary>
-            Add the specified <see cref="T:BEditor.Media.Sound`1"/> to this <see cref="T:BEditor.Media.Sound`1"/>.
+            Combine the specified <see cref="T:BEditor.Media.Sound`1"/> to this <see cref="T:BEditor.Media.Sound`1"/>.
             </summary>
-            <param name="sound">The sound to add.</param>
+            <param name="sound">The sound to combine.</param>
         </member>
         <member name="M:BEditor.Media.Sound`1.Resamples(System.Int32)">
             <summary>

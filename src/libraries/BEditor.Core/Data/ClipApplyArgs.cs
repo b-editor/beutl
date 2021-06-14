@@ -1,4 +1,4 @@
-﻿// ClipRenderArgs.cs
+﻿// ClipApplyArgs.cs
 //
 // Copyright (C) BEditor
 //
@@ -10,16 +10,16 @@ using BEditor.Media;
 namespace BEditor.Data
 {
     /// <summary>
-    /// Represents a data to be passed to the <see cref="ClipElement"/> at rendering time.
+    /// Represents a data to be passed to the <see cref="ClipElement"/> at applying time.
     /// </summary>
-    public class ClipRenderArgs
+    public class ClipApplyArgs
     {
         /// <summary>
-        /// Initializes a new instance of the <see cref="ClipRenderArgs"/> class.
+        /// Initializes a new instance of the <see cref="ClipApplyArgs"/> class.
         /// </summary>
-        /// <param name="frame">The frame to render.</param>
-        /// <param name="type">The rendering type.</param>
-        public ClipRenderArgs(Frame frame, RenderType type = RenderType.Preview)
+        /// <param name="frame">The frame to apply.</param>
+        /// <param name="type">The apply type.</param>
+        public ClipApplyArgs(Frame frame, ApplyType type = ApplyType.Edit)
         {
             Frame = frame;
             Type = type;
@@ -38,6 +38,6 @@ namespace BEditor.Data
         /// <summary>
         /// Gets the rendering type.
         /// </summary>
-        public RenderType Type { get; }
+        public ApplyType Type { get; }
     }
 }

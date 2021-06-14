@@ -147,11 +147,11 @@ namespace BEditor.Data
         }
 
         /// <summary>
-        /// Render this <see cref="ClipElement"/>.
+        /// Apply this <see cref="ClipElement"/>.
         /// </summary>
-        /// <param name="args">The data used to render the clip.</param>
+        /// <param name="args">The data used to apply the clip.</param>
         /// <exception cref="RenderingException">Faileds to rendering.</exception>
-        public void Render(ClipRenderArgs args)
+        public void Apply(ClipApplyArgs args)
         {
             try
             {
@@ -171,11 +171,11 @@ namespace BEditor.Data
         }
 
         /// <summary>
-        /// Prepare this <see cref="ClipElement"/> for rendering.
+        /// Prepare this <see cref="ClipElement"/> for applying.
         /// </summary>
-        /// <param name="args">The data used to render the clip.</param>
+        /// <param name="args">The data used to applying the clip.</param>
         /// <exception cref="RenderingException">Faileds to rendering.</exception>
-        public void PreviewRender(ClipRenderArgs args)
+        public void PreviewApply(ClipApplyArgs args)
         {
             try
             {
@@ -184,7 +184,7 @@ namespace BEditor.Data
 
                 foreach (var item in enableEffects)
                 {
-                    item.PreviewRender(loadargs);
+                    item.PreviewApply(loadargs);
                 }
             }
             catch (Exception e)

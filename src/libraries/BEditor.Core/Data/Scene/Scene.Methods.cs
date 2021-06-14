@@ -86,7 +86,7 @@ namespace BEditor.Data
         /// <param name="renderType">The type of rendering.</param>
         /// <returns>Returns the result of rendering.</returns>
         /// <exception cref="RenderingException">Faileds to rendering.</exception>
-        public Image<BGRA32> Render(Frame frame, RenderType renderType = RenderType.Preview)
+        public Image<BGRA32> Render(Frame frame, ApplyType renderType = ApplyType.Edit)
         {
             if (!IsLoaded)
             {
@@ -97,15 +97,14 @@ namespace BEditor.Data
 
             GraphicsContext!.Camera = new OrthographicCamera(new(0, 0, 1024), Width, Height);
             GraphicsContext!.Light = null;
-            AudioContext!.MakeCurrent();
             GraphicsContext!.Clear();
 
-            var args = new ClipRenderArgs(frame, renderType);
+            var args = new ClipApplyArgs(frame, renderType);
 
             // Preview
-            for (var i = 0; i < layer.Length; i++) layer[i].PreviewRender(args);
+            for (var i = 0; i < layer.Length; i++) layer[i].PreviewApply(args);
 
-            for (var i = 0; i < layer.Length; i++) layer[i].Render(args);
+            for (var i = 0; i < layer.Length; i++) layer[i].Apply(args);
 
             var img = new Image<BGRA32>(Width, Height);
             GraphicsContext.ReadImage(img);
@@ -119,7 +118,7 @@ namespace BEditor.Data
         /// <param name="renderType">The type of rendering.</param>
         /// <returns>Returns the result of rendering.</returns>
         /// <exception cref="RenderingException">Faileds to rendering.</exception>
-        public Image<BGRA32> Render(RenderType renderType = RenderType.Preview)
+        public Image<BGRA32> Render(ApplyType renderType = ApplyType.Edit)
         {
             return Render(PreviewFrame, renderType);
         }
@@ -131,7 +130,7 @@ namespace BEditor.Data
         /// <param name="frame">The frame to render.</param>
         /// <param name="renderType">The type of rendering.</param>
         /// <exception cref="RenderingException">Faileds to rendering.</exception>
-        public void Render(Image<BGRA32> image, Frame frame, RenderType renderType = RenderType.Preview)
+        public void Render(Image<BGRA32> image, Frame frame, ApplyType renderType = ApplyType.Edit)
         {
             if (!IsLoaded) return;
 
@@ -143,15 +142,14 @@ namespace BEditor.Data
 
             GraphicsContext!.Camera = new OrthographicCamera(new(0, 0, 1024), Width, Height);
             GraphicsContext!.Light = null;
-            AudioContext!.MakeCurrent();
             GraphicsContext!.Clear();
 
-            var args = new ClipRenderArgs(frame, renderType);
+            var args = new ClipApplyArgs(frame, renderType);
 
             // Preview
-            for (var i = 0; i < layer.Length; i++) layer[i].PreviewRender(args);
+            for (var i = 0; i < layer.Length; i++) layer[i].PreviewApply(args);
 
-            for (var i = 0; i < layer.Length; i++) layer[i].Render(args);
+            for (var i = 0; i < layer.Length; i++) layer[i].Apply(args);
 
             GraphicsContext!.ReadImage(image);
         }
@@ -162,9 +160,46 @@ namespace BEditor.Data
         /// <param name="image">The image to be drawn.</param>
         /// <param name="renderType">The type of rendering.</param>
         /// <exception cref="RenderingException">Faileds to rendering.</exception>
-        public void Render(Image<BGRA32> image, RenderType renderType = RenderType.Preview)
+        public void Render(Image<BGRA32> image, ApplyType renderType = ApplyType.Edit)
         {
             Render(image, PreviewFrame, renderType);
+        }
+
+        /// <summary>
+        /// Samples this <see cref="Scene"/>.
+        /// </summary>
+        /// <param name="frame">The frame to sample.</param>
+        /// <param name="applyType">The type of applying.</param>
+        /// <returns>Returns the result of sampling.</returns>
+        public Sound<StereoPCMFloat> Sample(Frame frame, ApplyType applyType = ApplyType.Audio)
+        {
+            if (!IsLoaded)
+            {
+                return new(Width, Height);
+            }
+
+            SamplingContext!.Clear();
+            var layer = GetFrame(frame);
+
+            var args = new ClipApplyArgs(frame, applyType);
+
+            // Preview
+            for (var i = 0; i < layer.Length; i++) layer[i].PreviewApply(args);
+
+            for (var i = 0; i < layer.Length; i++) layer[i].Apply(args);
+
+            return SamplingContext.ReadSamples();
+        }
+
+        /// <summary>
+        /// Sample a frame of <see cref="PreviewFrame"/>.
+        /// </summary>
+        /// <param name="applyType">The type of applying.</param>
+        /// <returns>Returns the result of applying.</returns>
+        /// <exception cref="RenderingException">Faileds to rendering.</exception>
+        public Sound<StereoPCMFloat> Sample(ApplyType applyType = ApplyType.Audio)
+        {
+            return Sample(PreviewFrame, applyType);
         }
 
         /// <summary>
@@ -324,7 +359,7 @@ namespace BEditor.Data
             {
                 var scene = (Scene)s!;
                 scene.GraphicsContext = new GraphicsContext(scene.Width, scene.Height);
-                scene.AudioContext = new AudioContext();
+                scene.SamplingContext = new SamplingContext(scene.Parent.Samplingrate, scene.Parent.Framerate);
 
                 if (BEditor.Settings.Default.PrioritizeGPU)
                 {
@@ -346,7 +381,7 @@ namespace BEditor.Data
                 var scene = (Scene)s!;
                 scene.GraphicsContext?.Dispose();
                 scene.DrawingContext?.Dispose();
-                scene.AudioContext?.Dispose();
+                scene.SamplingContext?.Dispose();
             }, this);
         }
     }

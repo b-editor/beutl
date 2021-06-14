@@ -92,10 +92,10 @@ namespace BEditor.Data
         public abstract void Apply(EffectApplyArgs args);
 
         /// <summary>
-        /// It will be called before rendering.
+        /// It will be called before applying.
         /// </summary>
         /// <param name="args">The data used to apply the effect.</param>
-        public virtual void PreviewRender(EffectApplyArgs args)
+        public virtual void PreviewApply(EffectApplyArgs args)
         {
         }
 

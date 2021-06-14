@@ -44,7 +44,7 @@ namespace BEditor.ViewModels.Timelines
                 {
                     SeekbarMargin.Value = new Thickness(Scene.ToPixel(f), 0, 0, 0);
 
-                    var type = AppModel.Current.AppStatus is Status.Playing ? RenderType.VideoPreview : RenderType.Preview;
+                    var type = AppModel.Current.AppStatus is Status.Playing ? ApplyType.Video : ApplyType.Edit;
 
                     Scene.Parent.PreviewUpdate(type);
                 });

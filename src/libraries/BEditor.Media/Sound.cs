@@ -226,15 +226,15 @@ namespace BEditor.Media
         }
 
         /// <summary>
-        /// Add the specified <see cref="Sound{T}"/> to this <see cref="Sound{T}"/>.
+        /// Combine the specified <see cref="Sound{T}"/> to this <see cref="Sound{T}"/>.
         /// </summary>
-        /// <param name="sound">The sound to add.</param>
-        public void Add(Sound<T> sound)
+        /// <param name="sound">The sound to combine.</param>
+        public void Combine(Sound<T> sound)
         {
             // Todo : Add message
             if (sound.SampleRate != SampleRate) throw new Exception();
 
-            Parallel.For(0, Math.Min(sound.NumSamples, NumSamples), i => Data[i] = Data[i].Add(sound.Data[i]));
+            Parallel.For(0, Math.Min(sound.NumSamples, NumSamples), i => Data[i] = Data[i].Combine(sound.Data[i]));
         }
 
         /// <summary>

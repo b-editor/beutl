@@ -246,6 +246,31 @@
         <member name="M:BEditor.Command.RecordCommand`1.Undo">
             <inheritdoc/>
         </member>
+        <member name="T:BEditor.Data.ApplyType">
+            <summary>
+            Represents the type of rendering request.
+            </summary>
+        </member>
+        <member name="F:BEditor.Data.ApplyType.Edit">
+            <summary>
+            Represents the preview rendering during editing.
+            </summary>
+        </member>
+        <member name="F:BEditor.Data.ApplyType.Image">
+            <summary>
+            Represents the rendering in the image output.
+            </summary>
+        </member>
+        <member name="F:BEditor.Data.ApplyType.Video">
+            <summary>
+            Represents the rendering in the video output.
+            </summary>
+        </member>
+        <member name="F:BEditor.Data.ApplyType.Audio">
+            <summary>
+            Represents the rendering in the audio output.
+            </summary>
+        </member>
         <member name="T:BEditor.Data.Bindings.BindingHelper">
             <summary>
             バインディング関係の内部メソッドを提供します.
@@ -333,6 +358,33 @@
             Bind this object to <paramref name="bindable"/>.
             </summary>
             <param name="bindable">The object to bind.</param>
+        </member>
+        <member name="T:BEditor.Data.ClipApplyArgs">
+            <summary>
+            Represents a data to be passed to the <see cref="T:BEditor.Data.ClipElement"/> at applying time.
+            </summary>
+        </member>
+        <member name="M:BEditor.Data.ClipApplyArgs.#ctor(BEditor.Media.Frame,BEditor.Data.ApplyType)">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Data.ClipApplyArgs"/> class.
+            </summary>
+            <param name="frame">The frame to apply.</param>
+            <param name="type">The apply type.</param>
+        </member>
+        <member name="P:BEditor.Data.ClipApplyArgs.Frame">
+            <summary>
+            Gets the frame to render.
+            </summary>
+        </member>
+        <member name="P:BEditor.Data.ClipApplyArgs.Handled">
+            <summary>
+            Gets or sets a value indicating whether the process has been executed or not.
+            </summary>
+        </member>
+        <member name="P:BEditor.Data.ClipApplyArgs.Type">
+            <summary>
+            Gets the rendering type.
+            </summary>
         </member>
         <member name="T:BEditor.Data.ClipElement">
             <summary>
@@ -589,18 +641,18 @@
             <param name="frame">The frame to be split.</param>
             <returns>Created <see cref="T:BEditor.Command.IRecordCommand"/>.</returns>
         </member>
-        <member name="M:BEditor.Data.ClipElement.Render(BEditor.Data.ClipRenderArgs)">
+        <member name="M:BEditor.Data.ClipElement.Apply(BEditor.Data.ClipApplyArgs)">
             <summary>
-            Render this <see cref="T:BEditor.Data.ClipElement"/>.
+            Apply this <see cref="T:BEditor.Data.ClipElement"/>.
             </summary>
-            <param name="args">The data used to render the clip.</param>
+            <param name="args">The data used to apply the clip.</param>
             <exception cref="T:BEditor.Data.RenderingException">Faileds to rendering.</exception>
         </member>
-        <member name="M:BEditor.Data.ClipElement.PreviewRender(BEditor.Data.ClipRenderArgs)">
+        <member name="M:BEditor.Data.ClipElement.PreviewApply(BEditor.Data.ClipApplyArgs)">
             <summary>
-            Prepare this <see cref="T:BEditor.Data.ClipElement"/> for rendering.
+            Prepare this <see cref="T:BEditor.Data.ClipElement"/> for applying.
             </summary>
-            <param name="args">The data used to render the clip.</param>
+            <param name="args">The data used to applying the clip.</param>
             <exception cref="T:BEditor.Data.RenderingException">Faileds to rendering.</exception>
         </member>
         <member name="M:BEditor.Data.ClipElement.System#ICloneable#Clone">
@@ -612,39 +664,12 @@
             </summary>
             <param name="start">開始フレームです.</param>
         </member>
-        <member name="T:BEditor.Data.ClipRenderArgs">
-            <summary>
-            Represents a data to be passed to the <see cref="T:BEditor.Data.ClipElement"/> at rendering time.
-            </summary>
-        </member>
-        <member name="M:BEditor.Data.ClipRenderArgs.#ctor(BEditor.Media.Frame,BEditor.Data.RenderType)">
-            <summary>
-            Initializes a new instance of the <see cref="T:BEditor.Data.ClipRenderArgs"/> class.
-            </summary>
-            <param name="frame">The frame to render.</param>
-            <param name="type">The rendering type.</param>
-        </member>
-        <member name="P:BEditor.Data.ClipRenderArgs.Frame">
-            <summary>
-            Gets the frame to render.
-            </summary>
-        </member>
-        <member name="P:BEditor.Data.ClipRenderArgs.Handled">
-            <summary>
-            Gets or sets a value indicating whether the process has been executed or not.
-            </summary>
-        </member>
-        <member name="P:BEditor.Data.ClipRenderArgs.Type">
-            <summary>
-            Gets the rendering type.
-            </summary>
-        </member>
         <member name="T:BEditor.Data.EffectApplyArgs">
             <summary>
             Represents data that is passed to <see cref="T:BEditor.Data.EffectElement"/> when it is applied.
             </summary>
         </member>
-        <member name="M:BEditor.Data.EffectApplyArgs.#ctor(BEditor.Media.Frame,BEditor.Data.RenderType)">
+        <member name="M:BEditor.Data.EffectApplyArgs.#ctor(BEditor.Media.Frame,BEditor.Data.ApplyType)">
             <summary>
             Initializes a new instance of the <see cref="T:BEditor.Data.EffectApplyArgs"/> class.
             </summary>
@@ -672,7 +697,7 @@
             </summary>
             <typeparam name="T">The type of value to pass to the <see cref="M:BEditor.Data.EffectElement.Apply(BEditor.Data.EffectApplyArgs)"/> method.</typeparam>
         </member>
-        <member name="M:BEditor.Data.EffectApplyArgs`1.#ctor(BEditor.Media.Frame,`0,BEditor.Data.RenderType)">
+        <member name="M:BEditor.Data.EffectApplyArgs`1.#ctor(BEditor.Media.Frame,`0,BEditor.Data.ApplyType)">
             <summary>
             Initializes a new instance of the <see cref="T:BEditor.Data.EffectApplyArgs`1"/> class.
             </summary>
@@ -728,9 +753,9 @@
             </summary>
             <param name="args">The data used to apply the effect.</param>
         </member>
-        <member name="M:BEditor.Data.EffectElement.PreviewRender(BEditor.Data.EffectApplyArgs)">
+        <member name="M:BEditor.Data.EffectElement.PreviewApply(BEditor.Data.EffectApplyArgs)">
             <summary>
-            It will be called before rendering.
+            It will be called before applying.
             </summary>
             <param name="args">The data used to apply the effect.</param>
         </member>
@@ -1028,6 +1053,32 @@
             <typeparam name="T">The type of object that inherits from <see cref="T:BEditor.Data.ObjectElement"/>.</typeparam>
             <param name="name">The name of the object element.</param>
             <returns>A new instance of <see cref="T:BEditor.Data.ObjectMetadata"/>.</returns>
+        </member>
+        <member name="F:BEditor.Data.Primitive.AudioObject.VolumeProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Data.Primitive.AudioObject.Volume"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Data.Primitive.AudioObject.PitchProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Data.Primitive.AudioObject.Pitch"/> property.
+            </summary>
+        </member>
+        <member name="P:BEditor.Data.Primitive.AudioObject.Volume">
+            <summary>
+            Get the volume.
+            </summary>
+        </member>
+        <member name="P:BEditor.Data.Primitive.AudioObject.Pitch">
+            <summary>
+            Get the pitch.
+            </summary>
+        </member>
+        <member name="M:BEditor.Data.Primitive.AudioObject.Apply(BEditor.Data.EffectApplyArgs)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Data.Primitive.AudioObject.OnSample(BEditor.Data.EffectApplyArgs)">
+            <inheritdoc cref="M:BEditor.Data.Primitive.AudioObject.Apply(BEditor.Data.EffectApplyArgs)"/>
         </member>
         <member name="T:BEditor.Data.Primitive.ImageEffect">
             <summary>
@@ -3287,31 +3338,6 @@
             <exception cref="T:System.ArgumentNullException"><paramref name="info"/> is null.</exception>
             <exception cref="T:System.Runtime.Serialization.SerializationException">The class name is null or <see cref="P:System.Exception.HResult"/> is zero (0).</exception>
         </member>
-        <member name="T:BEditor.Data.RenderType">
-            <summary>
-            Represents the type of rendering request.
-            </summary>
-        </member>
-        <member name="F:BEditor.Data.RenderType.Preview">
-            <summary>
-            Represents the preview rendering during editing.
-            </summary>
-        </member>
-        <member name="F:BEditor.Data.RenderType.VideoPreview">
-            <summary>
-            Represents the rendering during playing.
-            </summary>
-        </member>
-        <member name="F:BEditor.Data.RenderType.ImageOutput">
-            <summary>
-            Represents the rendering in the image output.
-            </summary>
-        </member>
-        <member name="F:BEditor.Data.RenderType.VideoOutput">
-            <summary>
-            Represents the rendering in the video output.
-            </summary>
-        </member>
         <member name="T:BEditor.Data.Scene">
             <summary>
             Represents a scene to be included in the <see cref="T:BEditor.Data.Project"/>.
@@ -3342,7 +3368,7 @@
         <member name="M:BEditor.Data.Scene.SetObjectData(System.Text.Json.JsonElement)">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Data.Scene.Render(BEditor.Media.Frame,BEditor.Data.RenderType)">
+        <member name="M:BEditor.Data.Scene.Render(BEditor.Media.Frame,BEditor.Data.ApplyType)">
             <summary>
             Render this <see cref="T:BEditor.Data.Scene"/>.
             </summary>
@@ -3351,7 +3377,7 @@
             <returns>Returns the result of rendering.</returns>
             <exception cref="T:BEditor.Data.RenderingException">Faileds to rendering.</exception>
         </member>
-        <member name="M:BEditor.Data.Scene.Render(BEditor.Data.RenderType)">
+        <member name="M:BEditor.Data.Scene.Render(BEditor.Data.ApplyType)">
             <summary>
             Render a frame of <see cref="P:BEditor.Data.Scene.PreviewFrame"/>.
             </summary>
@@ -3359,7 +3385,7 @@
             <returns>Returns the result of rendering.</returns>
             <exception cref="T:BEditor.Data.RenderingException">Faileds to rendering.</exception>
         </member>
-        <member name="M:BEditor.Data.Scene.Render(BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32},BEditor.Media.Frame,BEditor.Data.RenderType)">
+        <member name="M:BEditor.Data.Scene.Render(BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32},BEditor.Media.Frame,BEditor.Data.ApplyType)">
             <summary>
             Render this <see cref="T:BEditor.Data.Scene"/>.
             </summary>
@@ -3368,12 +3394,28 @@
             <param name="renderType">The type of rendering.</param>
             <exception cref="T:BEditor.Data.RenderingException">Faileds to rendering.</exception>
         </member>
-        <member name="M:BEditor.Data.Scene.Render(BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32},BEditor.Data.RenderType)">
+        <member name="M:BEditor.Data.Scene.Render(BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32},BEditor.Data.ApplyType)">
             <summary>
             Render a frame of <see cref="P:BEditor.Data.Scene.PreviewFrame"/>.
             </summary>
             <param name="image">The image to be drawn.</param>
             <param name="renderType">The type of rendering.</param>
+            <exception cref="T:BEditor.Data.RenderingException">Faileds to rendering.</exception>
+        </member>
+        <member name="M:BEditor.Data.Scene.Sample(BEditor.Media.Frame,BEditor.Data.ApplyType)">
+            <summary>
+            Samples this <see cref="T:BEditor.Data.Scene"/>.
+            </summary>
+            <param name="frame">The frame to sample.</param>
+            <param name="applyType">The type of applying.</param>
+            <returns>Returns the result of sampling.</returns>
+        </member>
+        <member name="M:BEditor.Data.Scene.Sample(BEditor.Data.ApplyType)">
+            <summary>
+            Sample a frame of <see cref="P:BEditor.Data.Scene.PreviewFrame"/>.
+            </summary>
+            <param name="applyType">The type of applying.</param>
+            <returns>Returns the result of applying.</returns>
             <exception cref="T:BEditor.Data.RenderingException">Faileds to rendering.</exception>
         </member>
         <member name="M:BEditor.Data.Scene.GetFrame(BEditor.Media.Frame)">
@@ -3500,9 +3542,9 @@
             Gets drawing context.
             </summary>
         </member>
-        <member name="P:BEditor.Data.Scene.AudioContext">
+        <member name="P:BEditor.Data.Scene.SamplingContext">
             <summary>
-            Gets audio context.
+            Gets sampling context.
             </summary>
         </member>
         <member name="P:BEditor.Data.Scene.Player">
@@ -3749,6 +3791,11 @@
             Gets the <see cref="T:System.Threading.SynchronizationContext"/>.
             </summary>
         </member>
+        <member name="P:BEditor.IApplication.AudioContext">
+            <summary>
+            Gets audio context.
+            </summary>
+        </member>
         <member name="M:BEditor.IApplication.RestoreAppConfig(BEditor.Data.Project,System.String)">
             <summary>
             Restore the application configuration.
@@ -3916,7 +3963,7 @@
         <member name="M:BEditor.PluginTask.GetHashCode">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.PluginTask.RunTask(BEditor.IProgressDialog)">
+        <member name="M:BEditor.PluginTask.RunTaskAsync(BEditor.IProgressDialog)">
             <summary>
             Run the task.
             </summary>
@@ -4453,6 +4500,11 @@
               Looks up a localized string similar to Parent element not found..
             </summary>
         </member>
+        <member name="P:BEditor.Resources.Strings.Pitch">
+            <summary>
+              Looks up a localized string similar to Pitch.
+            </summary>
+        </member>
         <member name="P:BEditor.Resources.Strings.ProjectFile">
             <summary>
               Looks up a localized string similar to Project file.
@@ -4518,6 +4570,11 @@
               Looks up a localized string similar to Split a clip.
             </summary>
         </member>
+        <member name="P:BEditor.Resources.Strings.Start">
+            <summary>
+              Looks up a localized string similar to Start.
+            </summary>
+        </member>
         <member name="P:BEditor.Resources.Strings.TheOwnerTypeDoesNotMatch">
             <summary>
               Looks up a localized string similar to The type of the owner of the property does not match the type of this object..
@@ -4536,6 +4593,11 @@
         <member name="P:BEditor.Resources.Strings.UpEffect">
             <summary>
               Looks up a localized string similar to Change the order of the effects (top).
+            </summary>
+        </member>
+        <member name="P:BEditor.Resources.Strings.Volume">
+            <summary>
+              Looks up a localized string similar to Volume.
             </summary>
         </member>
         <member name="P:BEditor.Resources.Strings.X">

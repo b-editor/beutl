@@ -39,7 +39,7 @@ namespace BEditor.Media.PCM
         }
 
         /// <inheritdoc/>
-        public StereoPCMFloat Add(StereoPCMFloat s)
+        public StereoPCMFloat Combine(StereoPCMFloat s)
         {
             return new(Left + s.Left, Right + s.Right);
         }

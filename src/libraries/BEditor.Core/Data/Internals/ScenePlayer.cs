@@ -6,9 +6,14 @@
 // of the MIT license. See the LICENSE file for details.
 
 using System;
+using System.Threading.Tasks;
 using System.Timers;
 
+using BEditor.Audio;
 using BEditor.Media;
+using BEditor.Media.PCM;
+
+using OpenTK.Audio.OpenAL;
 
 using Timer = System.Timers.Timer;
 
@@ -71,6 +76,41 @@ namespace BEditor.Data.Internals
             _timer.Start();
 
             Playing?.Invoke(this, new(_startframe));
+
+            Task.Run(() =>
+            {
+                Scene.GetRequiredParent<IApplication>().AudioContext?.MakeCurrent();
+                var context = Scene.SamplingContext!;
+                context.Clear();
+                int f = Scene.PreviewFrame;
+                var sound = new Sound<StereoPCMFloat>(Scene.Parent.Samplingrate, Scene.Parent.Samplingrate);
+                using var buffer = new AudioBuffer();
+                using var source = new AudioSource();
+                source.QueueBuffer(buffer);
+                source.Play();
+                var state = 0;
+
+                while (f < Scene.TotalFrame)
+                {
+                    if (State is PlayerState.Stop) break;
+                    state = source.BuffersProcessed;
+
+                    if (state == 1)
+                    {
+                        var bid = source.UnqueueBuffer();
+                        FillAudioData(sound, f);
+
+                        buffer.BufferData(sound);
+                        source.QueueBuffer(buffer);
+                        source.Play();
+
+                        f += Scene.Parent.Framerate;
+                    }
+                }
+            })
+                .ContinueWith(task =>
+                {
+                });
         }
 
         /// <inheritdoc/>
@@ -90,6 +130,17 @@ namespace BEditor.Data.Internals
             _timer.Dispose();
 
             GC.SuppressFinalize(this);
+        }
+
+        private void FillAudioData(Sound<StereoPCMFloat> sound, Frame f)
+        {
+            var context = Scene.SamplingContext!;
+            var spf = context.SamplePerFrame;
+            for (var i = 0; i < Scene.Parent.Framerate; i++)
+            {
+                using var tmp = Scene.Sample(f + i);
+                tmp.Data.CopyTo(sound.Data.Slice(i * spf, spf));
+            }
         }
 
         private void Timer_Elapsed(object sender, ElapsedEventArgs e)

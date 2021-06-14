@@ -19,6 +19,6 @@ namespace BEditor.Media.PCM
         /// </summary>
         /// <param name="s">Data to be added.</param>
         /// <returns>Returns the sum of this audio data and <paramref name="s"/>.</returns>
-        public T Add(T s);
+        public T Combine(T s);
     }
 }

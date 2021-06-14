@@ -148,36 +148,25 @@ namespace BEditor.ViewModels
                             dialog.NowValue.Value = frame;
 
                             // UIスレッドだけでレンダリングできる
-                            var img = await Dispatcher.UIThread.InvokeAsync(() => scene.Render(frame, RenderType.VideoOutput));
+                            var img = await Dispatcher.UIThread.InvokeAsync(() => scene.Render(frame, ApplyType.Video));
                             output.Video?.AddFrame(img);
                             img.Dispose();
                         }
 
                         // Audio
-                        // Sample per frame
-                        var spf = proj.Samplingrate / proj.Framerate;
-                        var spf_time = TimeSpan.FromSeconds(spf / (double)proj.Samplingrate);
                         for (Frame frame = StartFrame.Value; frame < LengthFrame.Value; frame++)
                         {
-                            using var buffer = new Sound<StereoPCMFloat>(proj.Samplingrate, spf);
-
-                            foreach (var item in scene.GetFrame(frame).Select(i => i.Effect[0]).OfType<AudioObject>())
+                            if (t)
                             {
-                                var rel_start = new Frame(frame - item.Parent.Start).ToTimeSpan(proj.Framerate);
-
-                                if (item.Loaded is null) continue;
-
-                                if (item.Loaded.Duration >= rel_start + spf_time)
-                                {
-                                    using var sliced = item.Loaded.Slice(rel_start, spf_time);
-                                    sliced.Gain(item.Volume[frame] / 100);
-                                    using var resampled = sliced.Resamples(proj.Samplingrate);
-
-                                    buffer.Add(resampled);
-                                }
+                                output.Dispose();
+                                return;
                             }
 
-                            output.Audio?.AddFrame(buffer);
+                            dialog.NowValue.Value = frame;
+
+                            using var sound = scene.Sample(frame);
+                            output.Audio?.AddFrame(sound);
+                            sound.Dispose();
                         }
 
                         output.Dispose();

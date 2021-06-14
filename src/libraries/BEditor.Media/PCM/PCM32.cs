@@ -50,7 +50,7 @@ namespace BEditor.Media.PCM
         }
 
         /// <inheritdoc/>
-        public PCM32 Add(PCM32 s)
+        public PCM32 Combine(PCM32 s)
         {
             return new(Value + s.Value);
         }

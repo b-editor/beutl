@@ -113,6 +113,8 @@ namespace BEditor.Data.Primitive
         /// <inheritdoc/>
         public override void Apply(EffectApplyArgs args)
         {
+            if (args.Type is ApplyType.Audio) return;
+
             var imgs_args = new EffectApplyArgs<IEnumerable<ImageInfo>>(args.Frame, Enumerable.Empty<ImageInfo>(), args.Type);
             OnRender(imgs_args);
 
@@ -309,7 +311,7 @@ namespace BEditor.Data.Primitive
             var trans = GetTransform(frame) + image.Transform;
             var context = Parent!.Parent.GraphicsContext!;
 
-            if (args.Type is RenderType.Preview && Parent.Parent.SelectItem == Parent)
+            if (args.Type is ApplyType.Edit && Parent.Parent.SelectItem == Parent)
             {
                 var wHalf = (image.Source.Width / 2f) + 10;
                 var hHalf = (image.Source.Height / 2f) + 10;

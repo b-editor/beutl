@@ -39,7 +39,7 @@ namespace BEditor.Media.PCM
         }
 
         /// <inheritdoc/>
-        public StereoPCM32 Add(StereoPCM32 s)
+        public StereoPCM32 Combine(StereoPCM32 s)
         {
             return new(Left + s.Left, Right + s.Right);
         }

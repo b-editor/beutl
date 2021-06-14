@@ -231,7 +231,7 @@ namespace BEditor.ViewModels
                         {
                             image.File.Value = text;
                         }
-                        else if (obj is AudioObject audio)
+                        else if (obj is AudioFile audio)
                         {
                             audio.File.Value = text;
                         }
@@ -272,7 +272,7 @@ namespace BEditor.ViewModels
 
                 if (await AppModel.Current.FileDialog.ShowSaveFileDialogAsync(record))
                 {
-                    using var img = scene.Render(RenderType.ImageOutput);
+                    using var img = scene.Render(ApplyType.Image);
 
                     img.Encode(record.FileName);
                 }
