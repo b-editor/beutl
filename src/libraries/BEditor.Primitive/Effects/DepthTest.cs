@@ -77,7 +77,7 @@ namespace BEditor.Primitive.Effects
             (owner, obj) => owner.Far = obj,
             EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata("Far", 100, 100, 0)).Serialize());
 
-        private static readonly ReadOnlyCollection<DepthFunction> DepthFunctions = new(new DepthFunction[]
+        private static readonly ReadOnlyCollection<DepthFunction> _depthFunctions = new(new DepthFunction[]
         {
             DepthFunction.Never,
             DepthFunction.Less,
@@ -135,7 +135,7 @@ namespace BEditor.Primitive.Effects
             if (Enabled.Value) GL.Enable(EnableCap.DepthTest);
             else GL.Disable(EnableCap.DepthTest);
 
-            GL.DepthFunc(DepthFunctions[Function.Index]);
+            GL.DepthFunc(_depthFunctions[Function.Index]);
 
             GL.DepthMask(Mask.Value);
 

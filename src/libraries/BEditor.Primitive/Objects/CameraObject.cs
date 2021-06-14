@@ -226,7 +226,7 @@ namespace BEditor.Primitive.Objects
             }
 
             var list = Parent.Effect.Where(e => e.IsEnabled).ToArray();
-            for (int i = 1; i < list.Length; i++)
+            for (var i = 1; i < list.Length; i++)
             {
                 var effect = list[i];
 

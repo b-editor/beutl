@@ -35,7 +35,7 @@ namespace BEditor.Packaging
         /// </summary>
         /// <param name="password">The new password.</param>
         /// <returns>A <see cref="ValueTask"/> representing the asynchronous operation.</returns>
-        public async ValueTask ChangeUserPassword(string password)
+        public async ValueTask ChangeUserPasswordAsync(string password)
         {
             var auth = await AuthProvider.ChangeUserEmailAsync(Token, password);
 
@@ -47,7 +47,7 @@ namespace BEditor.Packaging
         /// </summary>
         /// <param name="newEmail">The new email.</param>
         /// <returns>A <see cref="ValueTask"/> representing the asynchronous operation.</returns>
-        public async ValueTask ChangeUserEmail(string newEmail)
+        public async ValueTask ChangeUserEmailAsync(string newEmail)
         {
             var auth = await AuthProvider.ChangeUserEmailAsync(Token, newEmail);
 
@@ -70,7 +70,7 @@ namespace BEditor.Packaging
         /// Refresh the user details.
         /// </summary>
         /// <returns>A <see cref="ValueTask"/> representing the asynchronous operation.</returns>
-        public async ValueTask RefreshUserDetails()
+        public async ValueTask RefreshUserDetailsAsync()
         {
             if (!string.IsNullOrEmpty(Token))
             {

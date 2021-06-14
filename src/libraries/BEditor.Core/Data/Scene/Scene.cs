@@ -23,13 +23,13 @@ namespace BEditor.Data
     /// </summary>
     public partial class Scene : EditingObject
     {
-        private static readonly PropertyChangedEventArgs _SelectItemArgs = new(nameof(SelectItem));
-        private static readonly PropertyChangedEventArgs _PrevireFrameArgs = new(nameof(PreviewFrame));
-        private static readonly PropertyChangedEventArgs _TotalFrameArgs = new(nameof(TotalFrame));
-        private static readonly PropertyChangedEventArgs _ZoomArgs = new(nameof(TimeLineZoom));
-        private static readonly PropertyChangedEventArgs _HoffsetArgs = new(nameof(TimeLineHorizonOffset));
-        private static readonly PropertyChangedEventArgs _VoffsetArgs = new(nameof(TimeLineVerticalOffset));
-        private static readonly PropertyChangedEventArgs _SceneNameArgs = new(nameof(SceneName));
+        private static readonly PropertyChangedEventArgs _selectItemArgs = new(nameof(SelectItem));
+        private static readonly PropertyChangedEventArgs _previreFrameArgs = new(nameof(PreviewFrame));
+        private static readonly PropertyChangedEventArgs _totalFrameArgs = new(nameof(TotalFrame));
+        private static readonly PropertyChangedEventArgs _zoomArgs = new(nameof(TimeLineZoom));
+        private static readonly PropertyChangedEventArgs _hoffsetArgs = new(nameof(TimeLineHorizonOffset));
+        private static readonly PropertyChangedEventArgs _voffsetArgs = new(nameof(TimeLineVerticalOffset));
+        private static readonly PropertyChangedEventArgs _sceneNameArgs = new(nameof(SceneName));
         private ClipElement? _selectItem;
         private ObservableCollection<ClipElement>? _selectItems;
         private Frame _previewframe;

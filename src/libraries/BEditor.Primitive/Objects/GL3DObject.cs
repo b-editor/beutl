@@ -171,10 +171,10 @@ namespace BEditor.Primitive.Objects
             var color = Blend.Color[frame];
             color.A = (byte)(color.A * (Blend.Opacity[frame] / 100));
 
-            float scale = (float)(Scale.Scale1[frame] / 100);
-            float scalex = (float)(Scale.ScaleX[frame] / 100) * scale;
-            float scaley = (float)(Scale.ScaleY[frame] / 100) * scale;
-            float scalez = (float)(Scale.ScaleZ[frame] / 100) * scale;
+            var scale = (float)(Scale.Scale1[frame] / 100);
+            var scalex = (float)(Scale.ScaleX[frame] / 100) * scale;
+            var scaley = (float)(Scale.ScaleY[frame] / 100) * scale;
+            var scalez = (float)(Scale.ScaleZ[frame] / 100) * scale;
 
             var material = new Graphics.Material(Material.Ambient[frame], Material.Diffuse[frame], Material.Specular[frame], Material.Shininess[frame]);
             var trans = new Transform(

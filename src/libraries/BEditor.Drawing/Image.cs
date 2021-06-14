@@ -31,7 +31,7 @@ namespace BEditor.Drawing
         where T : unmanaged, IPixel<T>
     {
         // 同じImage<T>型のみで共有される
-        private static readonly PixelFormatAttribute FormatAttribute;
+        private static readonly PixelFormatAttribute _formatAttribute;
         private readonly int _width;
         private readonly int _height;
         private readonly bool _requireDispose = true;
@@ -42,7 +42,7 @@ namespace BEditor.Drawing
         {
             if (Attribute.GetCustomAttribute(typeof(T), typeof(PixelFormatAttribute)) is PixelFormatAttribute attribute)
             {
-                FormatAttribute = attribute;
+                _formatAttribute = attribute;
             }
             else
             {

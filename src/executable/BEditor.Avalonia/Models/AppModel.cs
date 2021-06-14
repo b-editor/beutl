@@ -24,9 +24,9 @@ namespace BEditor.Models
 {
     public sealed class AppModel : BasePropertyChanged, IApplication
     {
-        private static readonly PropertyChangedEventArgs _ProjectArgs = new(nameof(Project));
-        private static readonly PropertyChangedEventArgs _StatusArgs = new(nameof(AppStatus));
-        private static readonly PropertyChangedEventArgs _IsPlayingArgs = new(nameof(IsNotPlaying));
+        private static readonly PropertyChangedEventArgs _projectArgs = new(nameof(Project));
+        private static readonly PropertyChangedEventArgs _statusArgs = new(nameof(AppStatus));
+        private static readonly PropertyChangedEventArgs _isPlayingArgs = new(nameof(IsNotPlaying));
         private static readonly PropertyChangedEventArgs _userArgs = new(nameof(User));
         private Project _project;
         private Status _status;
@@ -73,19 +73,19 @@ namespace BEditor.Models
         public Project Project
         {
             get => _project;
-            set => SetValue(value, ref _project, _ProjectArgs);
+            set => SetValue(value, ref _project, _projectArgs);
         }
 
         public Status AppStatus
         {
             get => _status;
-            set => SetValue(value, ref _status, _StatusArgs);
+            set => SetValue(value, ref _status, _statusArgs);
         }
 
         public bool IsNotPlaying
         {
             get => _isplaying;
-            set => SetValue(value, ref _isplaying, _IsPlayingArgs);
+            set => SetValue(value, ref _isplaying, _isPlayingArgs);
         }
 
         public IServiceCollection Services { get; }

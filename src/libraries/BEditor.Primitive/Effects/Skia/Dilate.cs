@@ -69,8 +69,8 @@ namespace BEditor.Primitive.Effects
             var size = (int)Radius.GetValue(args.Frame);
             if (Resize.Value)
             {
-                int nwidth = img.Width + ((size + 5) * 2);
-                int nheight = img.Height + ((size + 5) * 2);
+                var nwidth = img.Width + ((size + 5) * 2);
+                var nheight = img.Height + ((size + 5) * 2);
 
                 args.Value = img.MakeBorder(nwidth, nheight);
                 args.Value.Dilate(size);

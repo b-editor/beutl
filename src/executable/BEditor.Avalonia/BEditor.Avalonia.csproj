@@ -5,7 +5,6 @@
         <RootNamespace>BEditor</RootNamespace>
         <ApplicationIcon>Assets\Images\icon.ico</ApplicationIcon>
         <AssemblyName>beditor</AssemblyName>
-        <CodeAnalysisRuleSet>$(SolutionDir)\roslynator.ruleset</CodeAnalysisRuleSet>
         <RuntimeIdentifiers>win-x64;linux-x64;osx-x64</RuntimeIdentifiers>
     </PropertyGroup>
 

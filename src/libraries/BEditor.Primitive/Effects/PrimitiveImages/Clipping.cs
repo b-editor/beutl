@@ -129,10 +129,10 @@ namespace BEditor.Primitive.Effects
                 return;
             }
 
-            int width = img.Width - left - right;
-            int height = img.Height - top - bottom;
-            int x = left;
-            int y = top;
+            var width = img.Width - left - right;
+            var height = img.Height - top - bottom;
+            var x = left;
+            var y = top;
 
             var img1 = img[new Rectangle(x, y, width, height)];
             img.Dispose();

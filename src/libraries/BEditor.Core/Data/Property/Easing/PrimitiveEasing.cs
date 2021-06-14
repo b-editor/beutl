@@ -25,7 +25,7 @@ namespace BEditor.Data.Property.Easing
         /// </summary>
         public static readonly DirectEditingProperty<PrimitiveEasing, SelectorProperty> EasingTypeProperty;
 
-        private static readonly SelectorPropertyMetadata EasingTypeMetadata = new("EasingType", new[]
+        private static readonly SelectorPropertyMetadata _easingTypeMetadata = new("EasingType", new[]
         {
             "None",
             "Linear",
@@ -41,7 +41,7 @@ namespace BEditor.Data.Property.Easing
             "BounceIn",  "BounceOut",  "BounceInOut",
         });
 
-        private static readonly Func<float, float, float, float, float>[] DefaultEase =
+        private static readonly Func<float, float, float, float, float>[] _defaultEase =
         {
             Easing.Instance.None,
 
@@ -78,7 +78,7 @@ namespace BEditor.Data.Property.Easing
                 nameof(EasingType),
                 owner => owner.EasingType,
                 (owner, obj) => owner.EasingType = obj,
-                EditingPropertyOptions<SelectorProperty>.Create(EasingTypeMetadata).Serialize());
+                EditingPropertyOptions<SelectorProperty>.Create(_easingTypeMetadata).Serialize());
         }
 
         /// <summary>
@@ -107,9 +107,9 @@ namespace BEditor.Data.Property.Easing
         /// <inheritdoc/>
         protected override void OnLoad()
         {
-            _currentFunc = DefaultEase[EasingType.Index];
+            _currentFunc = _defaultEase[EasingType.Index];
 
-            _disposable = EasingType.Subscribe(index => _currentFunc = DefaultEase[index]);
+            _disposable = EasingType.Subscribe(index => _currentFunc = _defaultEase[index]);
         }
 
         /// <inheritdoc/>

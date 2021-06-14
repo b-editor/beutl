@@ -39,7 +39,7 @@ namespace BEditor.Data
         public virtual string SceneName
         {
             get => _sceneName;
-            set => SetValue(value, ref _sceneName, _SceneNameArgs);
+            set => SetValue(value, ref _sceneName, _sceneNameArgs);
         }
 
         /// <summary>
@@ -48,7 +48,7 @@ namespace BEditor.Data
         public Frame TotalFrame
         {
             get => _totalframe;
-            set => SetValue(value, ref _totalframe, _TotalFrameArgs);
+            set => SetValue(value, ref _totalframe, _totalFrameArgs);
         }
 
         /// <summary>
@@ -70,7 +70,7 @@ namespace BEditor.Data
             set
             {
                 _selectItem = value;
-                RaisePropertyChanged(_SelectItemArgs);
+                RaisePropertyChanged(_selectItemArgs);
             }
         }
 
@@ -128,7 +128,7 @@ namespace BEditor.Data
         public Frame PreviewFrame
         {
             get => _previewframe;
-            set => SetValue(Math.Clamp(value, 0, TotalFrame), ref _previewframe, _PrevireFrameArgs);
+            set => SetValue(Math.Clamp(value, 0, TotalFrame), ref _previewframe, _previreFrameArgs);
         }
 
         /// <summary>
@@ -137,7 +137,7 @@ namespace BEditor.Data
         public float TimeLineZoom
         {
             get => _timeLineZoom;
-            set => SetValue(Math.Clamp(value, 1, 200), ref _timeLineZoom, _ZoomArgs);
+            set => SetValue(Math.Clamp(value, 1, 200), ref _timeLineZoom, _zoomArgs);
         }
 
         /// <summary>
@@ -146,7 +146,7 @@ namespace BEditor.Data
         public double TimeLineHorizonOffset
         {
             get => _timeLineHorizonOffset;
-            set => SetValue(value, ref _timeLineHorizonOffset, _HoffsetArgs);
+            set => SetValue(value, ref _timeLineHorizonOffset, _hoffsetArgs);
         }
 
         /// <summary>
@@ -155,7 +155,7 @@ namespace BEditor.Data
         public double TimeLineVerticalOffset
         {
             get => _timeLineVerticalOffset;
-            set => SetValue(value, ref _timeLineVerticalOffset, _VoffsetArgs);
+            set => SetValue(value, ref _timeLineVerticalOffset, _voffsetArgs);
         }
 
         /// <inheritdoc/>

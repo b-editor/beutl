@@ -14,13 +14,13 @@ namespace BEditor.Views.Properties
 {
     public sealed class DialogPropertyView : UserControl
     {
-        private static readonly ViewBuilder.PropertyViewBuilder builder;
+        private static readonly ViewBuilder.PropertyViewBuilder _builder;
         public static readonly EditingProperty<Control> DialogProperty = EditingProperty.Register<Control, DialogProperty>("GetDialog");
         private readonly DialogProperty _property;
 
         static DialogPropertyView()
         {
-            builder = ViewBuilder.PropertyViewBuilders.Find(builder => builder.PropertyType == typeof(Group))!;
+            _builder = ViewBuilder.PropertyViewBuilders.Find(builder => builder.PropertyType == typeof(Group))!;
         }
 
 #pragma warning disable CS8618
@@ -44,7 +44,7 @@ namespace BEditor.Views.Properties
             {
                 if (property[DialogProperty] is null)
                 {
-                    var child = builder.CreateFunc(property);
+                    var child = _builder.CreateFunc(property);
                     Grid.SetRow(child, 1);
 
                     property[DialogProperty] = new Grid

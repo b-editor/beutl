@@ -89,7 +89,7 @@ namespace BEditor.Extensions
                 {
                     Mode = BindingMode.OneWay,
                     Source = expander,
-                    Converter = ExpanderWidthConverter
+                    Converter = _expanderWidthConverter
                 };
                 var isExpandedbind = new Binding("IsExpanded") { Mode = BindingMode.TwoWay, Source = p };
 
@@ -154,7 +154,7 @@ namespace BEditor.Extensions
                 {
                     Mode = BindingMode.OneWay,
                     Source = expander,
-                    Converter = ExpanderWidthConverter
+                    Converter = _expanderWidthConverter
                 };
                 var isExpandedbind = new Binding("IsExpanded") { Mode = BindingMode.TwoWay, Source = p };
 
@@ -390,7 +390,7 @@ namespace BEditor.Extensions
                     {
                         Mode = BindingMode.OneWay,
                         Source = header,
-                        Converter = ExpanderWidthConverter
+                        Converter = _expanderWidthConverter
                     });
                     header.Bind(ContentControl.ContentProperty, new Binding("Name") { Mode = BindingMode.OneTime, Source = effect });
                     keyFrame.Bind(Expander.IsExpandedProperty, new Binding("IsExpanded") { Mode = BindingMode.TwoWay, Source = effect });
@@ -405,7 +405,7 @@ namespace BEditor.Extensions
             return ctr;
         }
 
-        private static readonly IValueConverter ExpanderWidthConverter = new FuncValueConverter<double, double>(i => i - 38);
+        private static readonly IValueConverter _expanderWidthConverter = new FuncValueConverter<double, double>(i => i - 38);
 
         public static (Expander, StackPanel) CreateObjectExpander(ObjectElement obj)
         {
@@ -453,7 +453,7 @@ namespace BEditor.Extensions
                 {
                     Mode = BindingMode.OneWay,
                     Source = header,
-                    Converter = ExpanderWidthConverter
+                    Converter = _expanderWidthConverter
                 };
                 var isEnablebind = new Binding("IsEnabled")
                 {
@@ -579,7 +579,7 @@ namespace BEditor.Extensions
                 {
                     Mode = BindingMode.OneWay,
                     Source = header,
-                    Converter = ExpanderWidthConverter
+                    Converter = _expanderWidthConverter
                 };
                 var isEnablebind = new Binding("IsEnabled")
                 {

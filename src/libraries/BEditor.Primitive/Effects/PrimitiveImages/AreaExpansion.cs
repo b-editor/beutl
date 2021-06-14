@@ -110,10 +110,10 @@ namespace BEditor.Primitive.Effects
         /// <inheritdoc/>
         public override void Apply(EffectApplyArgs<Image<BGRA32>> args)
         {
-            int top = (int)Top.GetValue(args.Frame);
-            int bottom = (int)Bottom.GetValue(args.Frame);
-            int left = (int)Left.GetValue(args.Frame);
-            int right = (int)Right.GetValue(args.Frame);
+            var top = (int)Top.GetValue(args.Frame);
+            var bottom = (int)Bottom.GetValue(args.Frame);
+            var left = (int)Left.GetValue(args.Frame);
+            var right = (int)Right.GetValue(args.Frame);
 
             if (AdjustCoordinates.Value && Parent!.Effect[0] is ImageObject image)
             {

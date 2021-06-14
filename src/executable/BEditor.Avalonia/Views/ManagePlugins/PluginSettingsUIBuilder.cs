@@ -12,7 +12,7 @@ namespace BEditor.Views.ManagePlugins
 {
     public static class PluginSettingsUIBuilder
     {
-        private static readonly (Func<string, Type, Control> create, Func<Control, Type, object> getValue, Action<Control, object> setValue, Type type)[] TypeTo =
+        private static readonly (Func<string, Type, Control> create, Func<Control, Type, object> getValue, Action<Control, object> setValue, Type type)[] _typeTo =
         {
             #region Boolean
 
@@ -687,7 +687,7 @@ namespace BEditor.Views.ManagePlugins
         {
             (Func<string, Type, Control> create, Func<Control, Type, object> getValue, Action<Control, object> setValue, Type type) result = default;
 
-            Parallel.ForEach(TypeTo, v =>
+            Parallel.ForEach(_typeTo, v =>
             {
                 if (type.IsAssignableTo(v.type)) result = v;
             });

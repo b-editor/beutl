@@ -23,7 +23,7 @@ namespace BEditor.Drawing
     /// </summary>
     public static unsafe partial class Image
     {
-        private static readonly Dictionary<string, EncodedImageFormat> ExtensionToFormat = new()
+        private static readonly Dictionary<string, EncodedImageFormat> _extensionToFormat = new()
         {
             { ".bmp", EncodedImageFormat.Bmp },
             { ".gif", EncodedImageFormat.Gif },
@@ -518,7 +518,7 @@ namespace BEditor.Drawing
 
             if (string.IsNullOrEmpty(filename)) throw new IOException(Strings.FileExtension);
 
-            return ExtensionToFormat[ex];
+            return _extensionToFormat[ex];
         }
     }
 }

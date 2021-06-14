@@ -99,9 +99,9 @@ namespace BEditor.Primitive.Effects
                 var result = new ImageInfo[(int)(hsplt * vsplt)];
                 var count = 0;
 
-                for (int v = 0; v < vsplt; v++)
+                for (var v = 0; v < vsplt; v++)
                 {
-                    for (int h = 0; h < hsplt; h++, count++)
+                    for (var h = 0; h < hsplt; h++, count++)
                     {
                         result[count] = new(
                             img.Source[new Rectangle((int)(sw * h), (int)(sh * v), (int)sw, (int)sh)],

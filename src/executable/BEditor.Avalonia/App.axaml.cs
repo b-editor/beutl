@@ -39,8 +39,9 @@ namespace BEditor
         {
             Interval = TimeSpan.FromMinutes(Settings.Default.BackUpInterval)
         };
-        public static ValueTask StartupTask;
-        private static readonly string pluginsDir = Path.Combine(AppContext.BaseDirectory, "user", "plugins");
+        private static readonly string _pluginsDir = Path.Combine(AppContext.BaseDirectory, "user", "plugins");
+
+        public static ValueTask StartupTask { get; set; }
 
         public static void Shutdown(int exitCode)
         {
@@ -165,7 +166,7 @@ namespace BEditor
 
         private static void CreateDirectory()
         {
-            DirectoryManager.Default.Directories.Add(pluginsDir);
+            DirectoryManager.Default.Directories.Add(_pluginsDir);
 
             DirectoryManager.Default.Run();
         }
@@ -253,22 +254,25 @@ namespace BEditor
 
             if (PluginManager.Default._tasks.Count is not 0)
             {
-                var dialog = new ProgressDialog();
-                dialog.Maximum.Value = 100;
-                _ = dialog.ShowDialog(GetMainWindow());
-                foreach (var (plugin, tasks) in PluginManager.Default._tasks)
+                await Dispatcher.UIThread.InvokeAsync(async () =>
                 {
-                    for (var i = 0; i < tasks.Count; i++)
+                    var dialog = new ProgressDialog();
+                    dialog.Maximum.Value = 100;
+                    _ = dialog.ShowDialog(GetMainWindow());
+                    foreach (var (plugin, tasks) in PluginManager.Default._tasks)
                     {
-                        var task = tasks[i];
-                        dialog.Text.Value = string.Format(Strings.IsLoading, plugin.PluginName) + $"  :{task.Name}";
+                        for (var i = 0; i < tasks.Count; i++)
+                        {
+                            var task = tasks[i];
+                            dialog.Text.Value = string.Format(Strings.IsLoading, plugin.PluginName) + $"  :{task.Name}";
 
-                        await task.RunTask(dialog);
-                        dialog.Report(0);
+                            await task.RunTaskAsync(dialog);
+                            dialog.Report(0);
+                        }
                     }
-                }
 
-                dialog.Close();
+                    dialog.Close();
+                });
             }
             app.ServiceProvider = app.Services.BuildServiceProvider();
         }

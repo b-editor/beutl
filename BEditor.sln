@@ -44,7 +44,6 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "root", "root", "{65A7968B-1
 		NuGet.Config = NuGet.Config
 		README.md = README.md
 		RELEASE_NOTES.md = RELEASE_NOTES.md
-		roslynator.ruleset = roslynator.ruleset
 		SECURITY.md = SECURITY.md
 		stylecop.json = stylecop.json
 	EndProjectSection

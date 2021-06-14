@@ -38,7 +38,7 @@ namespace BEditor.ViewModels.ManagePlugins
                         }
                         if (mailIsChanged)
                         {
-                            await auth.ChangeUserEmail(Email.Value);
+                            await auth.ChangeUserEmailAsync(Email.Value);
                         }
 
                         IsLoading.Value = false;
@@ -69,7 +69,7 @@ namespace BEditor.ViewModels.ManagePlugins
                     try
                     {
                         IsLoading.Value = true;
-                        await Auth.ChangeUserPassword(NewPassword.Value);
+                        await Auth.ChangeUserPasswordAsync(NewPassword.Value);
                         ChangePasswordMessage.Value = Strings.ChangeSucceeded;
                     }
                     catch

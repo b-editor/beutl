@@ -173,8 +173,8 @@ namespace BEditor.Primitive.Effects
 
             if (img is null) return;
 
-            int w = (int)(Width[f] * 0.01 * img.Width);
-            int h = (int)(Height[f] * 0.01 * img.Height);
+            var w = (int)(Width[f] * 0.01 * img.Width);
+            var h = (int)(Height[f] * 0.01 * img.Height);
 
             if (FitSize.Value)
             {

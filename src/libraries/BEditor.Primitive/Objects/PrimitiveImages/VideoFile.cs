@@ -133,7 +133,7 @@ namespace BEditor.Primitive.Objects
         {
             if (_mediaFile?.Video is null) return null;
 
-            float speed = Speed[args.Frame] / 100;
+            var speed = Speed[args.Frame] / 100;
             var start = (int)Start[args.Frame];
             var time = new Frame((int)((start + args.Frame - Parent!.Start) * speed)).ToTimeSpan(Parent.Parent.Parent!.Framerate);
 

@@ -87,7 +87,7 @@ namespace BEditor
         /// </summary>
         /// <param name="progress">The progress of this <see cref="PluginTask"/>.</param>
         /// <returns>A <see cref="ValueTask"/> representing the result of the asynchronous operation.</returns>
-        public async ValueTask RunTask(IProgressDialog progress)
+        public async ValueTask RunTaskAsync(IProgressDialog progress)
         {
             if (!IsExecuted && _task is not null)
             {
