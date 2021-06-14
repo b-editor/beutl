@@ -16,7 +16,7 @@
 
         <!--Right-->
         <Grid
-            RowDefinitions="Auto,*,Auto,Auto,Auto"
+            RowDefinitions="Auto,*,Auto,Auto,Auto,Auto"
             Grid.Column="1"
             Margin="8">
             <StackPanel
@@ -75,9 +75,23 @@
 
                 </StackPanel>
             </ScrollViewer>
+
+            <ComboBox
+                Grid.Row="2"
+                PlaceholderText="{x:Static props:Strings.LatestVersion}"
+                HorizontalAlignment="Stretch"
+                IsVisible="{CompiledBinding InstallIsVisible.Value, Mode=OneWay}"
+                Items="{CompiledBinding SelectedItem.Value.Versions, Mode=OneWay}"
+                SelectedItem="{CompiledBinding SelectedVersion.Value, Mode=TwoWay}">
+                <ComboBox.ItemTemplate>
+                    <DataTemplate>
+                        <TextBlock Text="{Binding Version}" />
+                    </DataTemplate>
+                </ComboBox.ItemTemplate>
+            </ComboBox>
             
             <Button
-                Grid.Row="2"
+                Grid.Row="3"
                 VerticalAlignment="Bottom"
                 Content="{x:Static props:Strings.Install}"
                 IsVisible="{CompiledBinding InstallIsVisible.Value, Mode=OneWay}"
@@ -86,7 +100,7 @@
                 HorizontalContentAlignment="Center" />
 
             <Button
-                Grid.Row="3"
+                Grid.Row="4"
                 VerticalAlignment="Bottom"
                 Content="{x:Static props:Strings.Cancel}"
                 IsVisible="{CompiledBinding CancelIsVisible.Value, Mode=OneWay}"
@@ -95,7 +109,7 @@
                 HorizontalContentAlignment="Center" />
 
             <StackPanel
-                Grid.Row="4"
+                Grid.Row="5"
                 HorizontalAlignment="Center"
                 Orientation="Horizontal">
                 <Button Command="{CompiledBinding PrevPage, Mode=OneTime}" IsEnabled="{CompiledBinding ExistPrevPage.Value, Mode=OneWay}">

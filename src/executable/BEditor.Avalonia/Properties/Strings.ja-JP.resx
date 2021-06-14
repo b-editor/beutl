@@ -751,4 +751,7 @@ IdにはGUID, UUIDが使えます。</value>
   <data name="PasswordAreNotMatching" xml:space="preserve">
     <value>パスワードが一致しません</value>
   </data>
+  <data name="LatestVersion" xml:space="preserve">
+    <value>最新バージョン</value>
+  </data>
 </root>

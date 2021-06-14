@@ -14,15 +14,30 @@
     <Grid ColumnDefinitions="2*,Auto,*">
 
         <!--Right-->
-        <Grid RowDefinitions="Auto,*" Grid.Column="2">
+        <Grid RowDefinitions="Auto,Auto,*" Grid.Column="2">
+            <ComboBox
+                HorizontalAlignment="Stretch"
+                PlaceholderText="{x:Static props:Strings.LatestVersion}"
+                IsVisible="{CompiledBinding !IsScheduled.Value, Mode=OneWay}"
+                Items="{CompiledBinding SelectedItem.Value.Package.Versions, Mode=OneWay}"
+                SelectedItem="{CompiledBinding SelectedVersion.Value, Mode=TwoWay}">
+                <ComboBox.ItemTemplate>
+                    <DataTemplate>
+                        <TextBlock Text="{Binding Version}" />
+                    </DataTemplate>
+                </ComboBox.ItemTemplate>
+            </ComboBox>
+
             <Button
+                Grid.Row="1"
                 HorizontalAlignment="Stretch"
                 HorizontalContentAlignment="Center"
-                Background="Transparent"
                 IsVisible="{CompiledBinding !IsScheduled.Value, Mode=OneWay}"
+                Background="Transparent"
                 Content="{x:Static props:Strings.Update}"
                 Command="{CompiledBinding Update, Mode=OneTime}"/>
             <Button
+                Grid.Row="1"
                 HorizontalAlignment="Stretch"
                 HorizontalContentAlignment="Center"
                 Background="Transparent"
@@ -30,7 +45,7 @@
                 Content="{x:Static props:Strings.Cancel}"
                 Command="{CompiledBinding Cancel, Mode=OneTime}"/>
 
-            <ScrollViewer Grid.Row="1">
+            <ScrollViewer Grid.Row="2">
                 <StackPanel Orientation="Vertical" Spacing="8">
     
                     <TextBlock Text="{Binding Source={x:Static props:Strings.UpdateNote}, StringFormat='{}{0}: '}" />

@@ -36,6 +36,8 @@ namespace BEditor.ViewModels.ManagePlugins
             IsScheduled = SelectedItem.Select(p => PluginChangeSchedule.UpdateOrInstall.Any(i => i.Target == p.Package))
                 .ToReadOnlyReactivePropertySlim();
 
+            SelectedVersion = SelectedItem.Select(i => i?.Package?.Versions?[0]).ToReactiveProperty()!;
+
             Cancel.Subscribe(async () =>
             {
                 if (IsScheduled.Value &&
@@ -57,7 +59,7 @@ namespace BEditor.ViewModels.ManagePlugins
                 {
                     if (!IsScheduled.Value)
                     {
-                        PluginChangeSchedule.UpdateOrInstall.Add(new(SelectedItem.Value.Package, PluginChangeType.Update));
+                        PluginChangeSchedule.UpdateOrInstall.Add(new(SelectedItem.Value.Package, SelectedVersion.Value, PluginChangeType.Update));
                     }
                     else
                     {
@@ -76,6 +78,8 @@ namespace BEditor.ViewModels.ManagePlugins
         public ReactivePropertySlim<UpdateTarget> SelectedItem { get; } = new();
 
         public ReactiveCollection<UpdateTarget> Items { get; } = new();
+
+        public ReactiveProperty<PackageVersion> SelectedVersion { get; } = new();
 
         public ReactiveCommand Update { get; } = new();
 

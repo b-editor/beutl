@@ -119,24 +119,26 @@ namespace BEditor.ViewModels.ManagePlugins
                 .Subscribe(_ => AboutAvaloniaDialog.OpenBrowser(SelectedItem.Value!.HomePage));
 
             LoadTask = Task.Run(async () =>
-              {
-                  foreach (var item in Setting.Default.PackageSources)
-                  {
-                      var repos = await item.ToRepositoryAsync(_client);
-                      if (repos is null) continue;
-                      PackageSources.Add(repos);
-                  }
+            {
+                foreach (var item in Setting.Default.PackageSources)
+                {
+                    var repos = await item.ToRepositoryAsync(_client);
+                    if (repos is null) continue;
+                    PackageSources.Add(repos);
+                }
 
-                  SelectedSource.Value = PackageSources.FirstOrDefault();
-                  IsLoaded.Value = false;
-              });
+                SelectedSource.Value = PackageSources.FirstOrDefault();
+                IsLoaded.Value = false;
+            });
+
+            SelectedVersion = SelectedItem.Select(i => i?.Versions?[0]).ToReactiveProperty();
 
             Install.Where(_ => InstallIsVisible.Value)
                 .Subscribe(_ =>
-            {
-                PluginChangeSchedule.UpdateOrInstall.Add(new(SelectedItem.Value!, PluginChangeType.Install));
-                SelectedItem.ForceNotify();
-            });
+                {
+                    PluginChangeSchedule.UpdateOrInstall.Add(new(SelectedItem.Value!, SelectedVersion.Value!, PluginChangeType.Install));
+                    SelectedItem.ForceNotify();
+                });
 
             CancelChange.Where(_ => CancelIsVisible.Value)
                 .Subscribe(_ =>
@@ -181,6 +183,8 @@ namespace BEditor.ViewModels.ManagePlugins
         public ObservableCollection<Package> Items { get; } = new();
 
         public ReactiveCommand OpenHomePage { get; } = new();
+
+        public ReactiveProperty<PackageVersion?> SelectedVersion { get; }
 
         public ReactiveCommand Install { get; } = new();
 

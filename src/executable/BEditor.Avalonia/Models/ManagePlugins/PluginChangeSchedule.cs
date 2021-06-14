@@ -33,15 +33,17 @@ namespace BEditor.Models.ManagePlugins
             writer.WriteStartArray();
             foreach (var item in UpdateOrInstall)
             {
+                var version = item.Version ?? item.Target.Versions[0];
+
                 writer.WriteStartObject();
                 writer.WriteString("main-assembly", item.Target.MainAssembly);
                 writer.WriteString("name", item.Target.Name);
                 writer.WriteString("author", item.Target.Author);
-                writer.WriteString("version", item.Target.Versions[0].Version);
+                writer.WriteString("version", version.Version);
                 writer.WriteString("type", item.Type is PluginChangeType.Install ? "install" : "update");
                 writer.WriteString("id", item.Target.Id);
                 writer.WriteString("license", item.Target.License);
-                writer.WriteString("url", item.Target.Versions[0].DownloadUrl);
+                writer.WriteString("url", version.DownloadUrl);
                 writer.WriteEndObject();
             }
 

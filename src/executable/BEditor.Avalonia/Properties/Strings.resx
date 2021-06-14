@@ -751,4 +751,7 @@ After the encoder is set, the detailed settings will be displayed.</value>
   <data name="PasswordAreNotMatching" xml:space="preserve">
     <value>Password are not matching</value>
   </data>
+  <data name="LatestVersion" xml:space="preserve">
+    <value>Latest version</value>
+  </data>
 </root>
