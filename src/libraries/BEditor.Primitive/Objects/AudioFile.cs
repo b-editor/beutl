@@ -1,4 +1,4 @@
-﻿// AudioObject.cs
+﻿// AudioFile.cs
 //
 // Copyright (C) BEditor
 //
@@ -162,7 +162,7 @@ namespace BEditor.Primitive.Objects
             var context = Parent.Parent.SamplingContext!;
             var start = (args.Frame - Parent.Start).ToTimeSpan(proj.Framerate);
             var length = TimeSpan.FromSeconds(context.SamplePerFrame / (double)proj.Samplingrate);
-            return Loaded.Slice(start, length);
+            return Loaded.Slice(start, length).Clone();
         }
 
         private static Sound<StereoPCMFloat> GetAllFrame(IAudioStream stream)

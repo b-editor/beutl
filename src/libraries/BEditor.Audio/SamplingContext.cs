@@ -13,7 +13,7 @@ namespace BEditor.Audio
 {
     public class SamplingContext : IDisposable
     {
-        private Sound<StereoPCMFloat> _buffer;
+        private readonly Sound<StereoPCMFloat> _buffer;
 
         public SamplingContext(int samplerate, int framerate)
         {

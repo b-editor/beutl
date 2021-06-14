@@ -107,10 +107,7 @@ namespace BEditor.Data.Internals
                         f += Scene.Parent.Framerate;
                     }
                 }
-            })
-                .ContinueWith(task =>
-                {
-                });
+            });
         }
 
         /// <inheritdoc/>

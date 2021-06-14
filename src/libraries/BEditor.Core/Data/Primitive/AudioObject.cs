@@ -5,14 +5,8 @@
 // This software may be modified and distributed under the terms
 // of the MIT license. See the LICENSE file for details.
 
-using System;
-using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
-using BEditor.Audio;
 using BEditor.Data.Property;
 using BEditor.Media;
 using BEditor.Media.PCM;
@@ -20,6 +14,9 @@ using BEditor.Resources;
 
 namespace BEditor.Data.Primitive
 {
+    /// <summary>
+    /// Represents the base class of the object that samples the audio.
+    /// </summary>
     public abstract class AudioObject : ObjectElement
     {
         /// <summary>
