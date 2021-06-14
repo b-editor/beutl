@@ -1054,6 +1054,22 @@
             <param name="name">The name of the object element.</param>
             <returns>A new instance of <see cref="T:BEditor.Data.ObjectMetadata"/>.</returns>
         </member>
+        <member name="T:BEditor.Data.Primitive.AudioEffect">
+            <summary>
+            Represents an effect that can be added to an <see cref="T:BEditor.Data.Primitive.AudioObject"/>.
+            </summary>
+        </member>
+        <member name="M:BEditor.Data.Primitive.AudioEffect.Apply(BEditor.Data.EffectApplyArgs{BEditor.Media.Sound{BEditor.Media.PCM.StereoPCMFloat}})">
+            <inheritdoc cref="M:BEditor.Data.Primitive.AudioEffect.Apply(BEditor.Data.EffectApplyArgs{BEditor.Media.Sound{BEditor.Media.PCM.StereoPCMFloat}})"/>
+        </member>
+        <member name="M:BEditor.Data.Primitive.AudioEffect.Apply(BEditor.Data.EffectApplyArgs)">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Data.Primitive.AudioObject">
+            <summary>
+            Represents the base class of the object that samples the audio.
+            </summary>
+        </member>
         <member name="F:BEditor.Data.Primitive.AudioObject.VolumeProperty">
             <summary>
             Defines the <see cref="P:BEditor.Data.Primitive.AudioObject.Volume"/> property.

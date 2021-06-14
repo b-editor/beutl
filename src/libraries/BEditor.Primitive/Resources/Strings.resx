@@ -642,4 +642,10 @@
   <data name="Cycle" xml:space="preserve">
     <value>Cycle</value>
   </data>
+  <data name="AudioEffect" xml:space="preserve">
+    <value>Audio effect</value>
+  </data>
+  <data name="Delay" xml:space="preserve">
+    <value>Delay</value>
+  </data>
 </root>

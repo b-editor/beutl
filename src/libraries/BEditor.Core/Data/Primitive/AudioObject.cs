@@ -6,6 +6,7 @@
 // of the MIT license. See the LICENSE file for details.
 
 using System.Diagnostics.CodeAnalysis;
+using System.Linq;
 
 using BEditor.Data.Property;
 using BEditor.Media;
@@ -60,7 +61,23 @@ namespace BEditor.Data.Primitive
             if (sound is not null)
             {
                 sound.Gain(Volume[f] / 100);
-                context.Combine(sound);
+
+                var args2 = new EffectApplyArgs<Sound<StereoPCMFloat>>(f, sound, args.Type);
+                foreach (var item in Parent.Effect.Skip(1).Where(i => i.IsEnabled))
+                {
+                    if (item is AudioEffect audioEffect)
+                    {
+                        audioEffect.Apply(args2);
+                    }
+                }
+
+                if (!args2.Value.IsDisposed)
+                {
+                    context.Combine(args2.Value);
+                }
+
+                args2.Value.Dispose();
+                sound.Dispose();
             }
         }
 
