@@ -10,7 +10,7 @@
     <Import Project="..\..\props\plugin.props" />
 
     <ItemGroup>
-        <PackageReference Include="FFMediaToolkit" Version="4.1.0" />
+        <PackageReference Include="FFMediaToolkit" Version="4.1.1" />
     </ItemGroup>
 
     <ItemGroup>
