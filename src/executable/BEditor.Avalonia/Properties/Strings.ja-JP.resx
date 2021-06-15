@@ -754,4 +754,7 @@ IdにはGUID, UUIDが使えます。</value>
   <data name="LatestVersion" xml:space="preserve">
     <value>最新バージョン</value>
   </data>
+  <data name="AdjustLengthOfClip" xml:space="preserve">
+    <value>長さを調整</value>
+  </data>
 </root>

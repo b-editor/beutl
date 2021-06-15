@@ -115,6 +115,15 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Adjust the length.
+        /// </summary>
+        public static string AdjustLengthOfClip {
+            get {
+                return ResourceManager.GetString("AdjustLengthOfClip", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Already cancelled..
         /// </summary>
         public static string AlreadyCancelled {

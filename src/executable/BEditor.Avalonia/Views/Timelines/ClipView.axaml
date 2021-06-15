@@ -39,6 +39,11 @@
                             <PathIcon Data="{StaticResource Copy24Regular}" />
                         </MenuItem.Icon>
                     </MenuItem>
+                    <MenuItem
+                        IsEnabled="{CompiledBinding IsMediaObject.Value, Mode=OneTime}"
+                        Command="{CompiledBinding AdjustLength, Mode=OneTime}"
+                        Header="{x:Static properties:Strings.AdjustLengthOfClip}">
+                    </MenuItem>
                     <Separator />
                     <MenuItem
                         Command="{CompiledBinding Split, Mode=OneTime}"

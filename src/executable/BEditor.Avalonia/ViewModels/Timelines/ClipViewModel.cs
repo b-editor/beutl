@@ -9,6 +9,7 @@ using Avalonia.Input;
 using Avalonia.Media;
 
 using BEditor.Data;
+using BEditor.Data.Primitive;
 using BEditor.Extensions;
 using BEditor.Media;
 using BEditor.Models;
@@ -28,6 +29,7 @@ namespace BEditor.ViewModels.Timelines
             WidthProperty.Value = Scene.ToPixel(ClipElement.Length);
             MarginProperty.Value = new Thickness(Scene.ToPixel(ClipElement.Start), TimelineViewModel.ToLayerPixel(clip.Layer), 0, 0);
             Row = clip.Layer;
+            IsMediaObject = new(clip.Effect[0] is IMediaObject);
 
             var color = clip.Metadata.AccentColor;
             ClipColor.Value = new SolidColorBrush(new Color(255, color.R, color.G, color.B));
@@ -92,6 +94,19 @@ namespace BEditor.ViewModels.Timelines
             });
 
             CopyID.Subscribe(async () => await Application.Current.Clipboard.SetTextAsync(ClipElement.Id.ToString()));
+
+            if (IsMediaObject.Value)
+            {
+                AdjustLength.Subscribe(() =>
+                {
+                    if (ClipElement.Effect[0] is IMediaObject obj && obj.Length is not null)
+                    {
+                        var length = Frame.FromTimeSpan((TimeSpan)obj.Length, Scene.Parent.Framerate);
+
+                        ClipElement.ChangeLength(ClipElement.Start, ClipElement.Start + length).Execute();
+                    }
+                });
+            }
         }
 
         ~ClipViewModel()
@@ -150,6 +165,10 @@ namespace BEditor.ViewModels.Timelines
         public ReactiveCommand Split { get; } = new();
 
         public ReactiveCommand CopyID { get; } = new();
+
+        public ReactivePropertySlim<bool> IsMediaObject { get; }
+
+        public ReactiveCommand AdjustLength { get; } = new();
 
         public void PointerLeftPressed(PointerEventArgs e)
         {

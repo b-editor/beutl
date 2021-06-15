@@ -28,7 +28,7 @@ namespace BEditor.Primitive.Objects
     /// <summary>
     /// Represents an <see cref="ObjectElement"/> that references an audio file.
     /// </summary>
-    public sealed class AudioFile : AudioObject
+    public sealed class AudioFile : AudioObject, IMediaObject
     {
         /// <summary>
         /// Defines the <see cref="Start"/> property.
@@ -48,18 +48,9 @@ namespace BEditor.Primitive.Objects
             (owner, obj) => owner.File = obj,
             EditingPropertyOptions<FileProperty>.Create(new FilePropertyMetadata(Strings.File, Filter: new(string.Empty, new FileExtension[] { new("mp3"), new("wav") }))).Serialize());
 
-        /// <summary>
-        /// Defines the <see cref="SetLength"/> property.
-        /// </summary>
-        public static readonly EditingProperty<ButtonComponent> SetLengthProperty = EditingProperty.Register<ButtonComponent, AudioFile>(
-            nameof(SetLength),
-            EditingPropertyOptions<ButtonComponent>.Create(new ButtonComponentMetadata(Strings.ClipLengthAsAudioLength)));
-
         private MediaFile? _mediaFile;
 
         private IDisposable? _disposable1;
-
-        private IDisposable? _disposable2;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="AudioFile"/> class.
@@ -82,11 +73,6 @@ namespace BEditor.Primitive.Objects
         /// </summary>
         [AllowNull]
         public FileProperty File { get; private set; }
-
-        /// <summary>
-        /// Gets the command to set the length of the clip.
-        /// </summary>
-        public ButtonComponent SetLength => GetValue(SetLengthProperty);
 
         /// <summary>
         /// Gets the opened decoder.
@@ -113,13 +99,15 @@ namespace BEditor.Primitive.Objects
         public Sound<StereoPCMFloat>? Loaded { get; private set; }
 
         /// <inheritdoc/>
+        public TimeSpan? Length => Loaded?.Duration;
+
+        /// <inheritdoc/>
         public override IEnumerable<PropertyElement> GetProperties()
         {
             yield return Volume;
             yield return Pitch;
             yield return Start;
             yield return File;
-            yield return SetLength;
         }
 
         /// <inheritdoc/>
@@ -133,20 +121,12 @@ namespace BEditor.Primitive.Objects
                     SampleRate = this.GetRequiredParent<Project>().Samplingrate,
                 });
             });
-
-            _disposable2 = SetLength.Where(_ => Loaded is not null).Subscribe(_ =>
-            {
-                var length = Frame.FromTimeSpan(Loaded!.Duration, this.GetRequiredParent<Project>().Framerate);
-
-                Parent.ChangeLength(Parent.Start, Parent.Start + length).Execute();
-            });
         }
 
         /// <inheritdoc/>
         protected override void OnUnload()
         {
             _disposable1?.Dispose();
-            _disposable2?.Dispose();
             _mediaFile?.Dispose();
             _mediaFile = null;
             Loaded?.Dispose();

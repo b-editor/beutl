@@ -27,7 +27,7 @@ namespace BEditor.Primitive.Objects
     /// <summary>
     /// Represents an <see cref="ImageObject"/> that references an video file.
     /// </summary>
-    public sealed class VideoFile : ImageObject
+    public sealed class VideoFile : ImageObject, IMediaObject
     {
         /// <summary>
         /// Defines the <see cref="Speed"/> property.
@@ -62,13 +62,6 @@ namespace BEditor.Primitive.Objects
                 new("mov"),
             }))).Serialize());
 
-        /// <summary>
-        /// Defines the <see cref="SetLength"/> property.
-        /// </summary>
-        public static readonly EditingProperty<ButtonComponent> SetLengthProperty = EditingProperty.Register<ButtonComponent, VideoFile>(
-            nameof(SetLength),
-            EditingPropertyOptions<ButtonComponent>.Create(new ButtonComponentMetadata(Strings.ClipLengthAsVideoLength)).Serialize());
-
         private static readonly MediaOptions _options = new()
         {
             StreamsToLoad = MediaMode.Video,
@@ -77,8 +70,6 @@ namespace BEditor.Primitive.Objects
         private MediaFile? _mediaFile;
 
         private IDisposable? _disposable1;
-
-        private IDisposable? _disposable2;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="VideoFile"/> class.
@@ -108,11 +99,8 @@ namespace BEditor.Primitive.Objects
         [AllowNull]
         public FileProperty File { get; private set; }
 
-        /// <summary>
-        /// Gets the command to set the length of the clip.
-        /// </summary>
-        [AllowNull]
-        public ButtonComponent SetLength => GetValue(SetLengthProperty);
+        /// <inheritdoc/>
+        public TimeSpan? Length => _mediaFile?.Video?.Info?.Duration;
 
         /// <inheritdoc/>
         public override IEnumerable<PropertyElement> GetProperties()
@@ -125,7 +113,6 @@ namespace BEditor.Primitive.Objects
             yield return Speed;
             yield return Start;
             yield return File;
-            yield return SetLength;
         }
 
         /// <inheritdoc/>
@@ -168,14 +155,6 @@ namespace BEditor.Primitive.Objects
                     _mediaFile = null;
                 }
             });
-
-            _disposable2 = SetLength.Subscribe(_ =>
-            {
-                if (_mediaFile?.Video is not null)
-                {
-                    Parent.ChangeLength(Parent.Start, Parent.Start + _mediaFile.Video.Info.NumberOfFrames).Execute();
-                }
-            });
         }
 
         /// <inheritdoc/>
@@ -185,7 +164,6 @@ namespace BEditor.Primitive.Objects
 
             _mediaFile?.Dispose();
             _disposable1?.Dispose();
-            _disposable2?.Dispose();
         }
     }
 }

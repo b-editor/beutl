@@ -1054,6 +1054,11 @@
             <param name="name">The name of the object element.</param>
             <returns>A new instance of <see cref="T:BEditor.Data.ObjectMetadata"/>.</returns>
         </member>
+        <member name="T:BEditor.Data.Primitive.AudioObject">
+            <summary>
+            Represents the base class of the object that samples the audio.
+            </summary>
+        </member>
         <member name="F:BEditor.Data.Primitive.AudioObject.VolumeProperty">
             <summary>
             Defines the <see cref="P:BEditor.Data.Primitive.AudioObject.Volume"/> property.
@@ -1182,6 +1187,16 @@
         </member>
         <member name="M:BEditor.Data.Primitive.ImageObject.OnRender(BEditor.Data.EffectApplyArgs{System.Collections.Generic.IEnumerable{BEditor.Graphics.ImageInfo}})">
             <inheritdoc cref="M:BEditor.Data.Primitive.ImageObject.Apply(BEditor.Data.EffectApplyArgs)"/>
+        </member>
+        <member name="T:BEditor.Data.Primitive.IMediaObject">
+            <summary>
+            Abstraction of media objects.
+            </summary>
+        </member>
+        <member name="P:BEditor.Data.Primitive.IMediaObject.Length">
+            <summary>
+            Gets the length.
+            </summary>
         </member>
         <member name="T:BEditor.Data.SaveType">
             <summary>

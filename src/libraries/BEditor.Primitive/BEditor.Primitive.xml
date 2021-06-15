@@ -1911,11 +1911,6 @@
             Defines the <see cref="P:BEditor.Primitive.Objects.AudioFile.File"/> property.
             </summary>
         </member>
-        <member name="F:BEditor.Primitive.Objects.AudioFile.SetLengthProperty">
-            <summary>
-            Defines the <see cref="P:BEditor.Primitive.Objects.AudioFile.SetLength"/> property.
-            </summary>
-        </member>
         <member name="M:BEditor.Primitive.Objects.AudioFile.#ctor">
             <summary>
             Initializes a new instance of the <see cref="T:BEditor.Primitive.Objects.AudioFile"/> class.
@@ -1934,11 +1929,6 @@
             Get the <see cref="F:BEditor.Primitive.Objects.AudioFile.FileProperty"/> to select the file to reference.
             </summary>
         </member>
-        <member name="P:BEditor.Primitive.Objects.AudioFile.SetLength">
-            <summary>
-            Gets the command to set the length of the clip.
-            </summary>
-        </member>
         <member name="P:BEditor.Primitive.Objects.AudioFile.Decoder">
             <summary>
             Gets the opened decoder.
@@ -1948,6 +1938,9 @@
             <summary>
             Gets the loaded audio data.
             </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Objects.AudioFile.Length">
+            <inheritdoc/>
         </member>
         <member name="M:BEditor.Primitive.Objects.AudioFile.GetProperties">
             <inheritdoc/>
@@ -2728,11 +2721,6 @@
             Defines the <see cref="P:BEditor.Primitive.Objects.VideoFile.File"/> property.
             </summary>
         </member>
-        <member name="F:BEditor.Primitive.Objects.VideoFile.SetLengthProperty">
-            <summary>
-            Defines the <see cref="P:BEditor.Primitive.Objects.VideoFile.SetLength"/> property.
-            </summary>
-        </member>
         <member name="M:BEditor.Primitive.Objects.VideoFile.#ctor">
             <summary>
             Initializes a new instance of the <see cref="T:BEditor.Primitive.Objects.VideoFile"/> class.
@@ -2756,10 +2744,8 @@
             Gets the video file to reference.
             </summary>
         </member>
-        <member name="P:BEditor.Primitive.Objects.VideoFile.SetLength">
-            <summary>
-            Gets the command to set the length of the clip.
-            </summary>
+        <member name="P:BEditor.Primitive.Objects.VideoFile.Length">
+            <inheritdoc/>
         </member>
         <member name="M:BEditor.Primitive.Objects.VideoFile.GetProperties">
             <inheritdoc/>
@@ -3034,16 +3020,6 @@
         <member name="P:BEditor.Primitive.Resources.Strings.ClearFramebuffer">
             <summary>
               Looks up a localized string similar to Clear the frame buffer.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Resources.Strings.ClipLengthAsAudioLength">
-            <summary>
-              Looks up a localized string similar to Set the clip length to the same as the audio length..
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Resources.Strings.ClipLengthAsVideoLength">
-            <summary>
-              Looks up a localized string similar to Set the clip length to the same as the video length..
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Clipping">

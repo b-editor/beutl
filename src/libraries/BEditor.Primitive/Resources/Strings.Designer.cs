@@ -277,24 +277,6 @@ namespace BEditor.Primitive.Resources {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Set the clip length to the same as the audio length..
-        /// </summary>
-        internal static string ClipLengthAsAudioLength {
-            get {
-                return ResourceManager.GetString("ClipLengthAsAudioLength", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Set the clip length to the same as the video length..
-        /// </summary>
-        internal static string ClipLengthAsVideoLength {
-            get {
-                return ResourceManager.GetString("ClipLengthAsVideoLength", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to Clipping.
         /// </summary>
         internal static string Clipping {

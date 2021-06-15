@@ -609,14 +609,6 @@
     <value>Inner Shadow</value>
     <comment />
   </data>
-  <data name="ClipLengthAsAudioLength" xml:space="preserve">
-    <value>Set the clip length to the same as the audio length.</value>
-    <comment />
-  </data>
-  <data name="ClipLengthAsVideoLength" xml:space="preserve">
-    <value>Set the clip length to the same as the video length.</value>
-    <comment />
-  </data>
   <data name="SetAlignment" xml:space="preserve">
     <value>Set alignment</value>
     <comment />
