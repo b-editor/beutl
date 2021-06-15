@@ -225,7 +225,7 @@ namespace BEditor.ViewModels.Timelines
             }
 
             // SelectItemに設定
-            Scene.SetCurrentClip(ClipElement);
+            Scene.SelectItem = ClipElement;
 
             timelinevm.ClipLeftRight = 0;
             timelinevm.LayerCursor.Value = StandardCursorType.Arrow;

@@ -66,38 +66,11 @@ namespace BEditor.Data
         /// </summary>
         public ClipElement? SelectItem
         {
-            get => _selectItem ??= SelectItems.FirstOrDefault();
+            get => _selectItem;
             set
             {
                 _selectItem = value;
                 RaisePropertyChanged(_selectItemArgs);
-            }
-        }
-
-        /// <summary>
-        /// Gets the selected <see cref="ClipElement"/>.
-        /// </summary>
-        public ObservableCollection<ClipElement> SelectItems
-        {
-            get
-            {
-                if (_selectItems is null)
-                {
-                    _selectItems = new();
-
-                    _selectItems.CollectionChanged += (s, e) =>
-                    {
-                        if (e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Remove)
-                        {
-                            if (SelectItems.Count == 0)
-                            {
-                                SelectItem = null;
-                            }
-                        }
-                    };
-                }
-
-                return _selectItems;
             }
         }
 

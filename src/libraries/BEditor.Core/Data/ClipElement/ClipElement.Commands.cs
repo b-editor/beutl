@@ -11,6 +11,8 @@ using BEditor.Command;
 using BEditor.Media;
 using BEditor.Resources;
 
+using Microsoft.Extensions.DependencyInjection;
+
 namespace BEditor.Data
 {
     /// <summary>
@@ -46,7 +48,7 @@ namespace BEditor.Data
             /// <summary>
             /// Gets the clip to add.
             /// </summary>
-            public ClipElement Clip { get; private set; }
+            public ClipElement Clip { get; }
 
             /// <inheritdoc/>
             public string Name => Strings.AddClip;
@@ -56,7 +58,7 @@ namespace BEditor.Data
             {
                 Clip.Load();
                 _scene.Add(Clip);
-                _scene.SetCurrentClip(Clip);
+                _scene.SelectItem = Clip;
             }
 
             /// <inheritdoc/>
@@ -71,15 +73,9 @@ namespace BEditor.Data
                 _scene.Remove(Clip);
                 Clip.Unload();
 
-                // 存在する場合
-                if (_scene.SelectItems.Contains(Clip))
+                if (_scene.SelectItem == Clip)
                 {
-                    _scene.SelectItems.Remove(Clip);
-
-                    if (_scene.SelectItem == Clip)
-                    {
-                        _scene.SelectItem = null;
-                    }
+                    _scene.SelectItem = null;
                 }
             }
         }
@@ -108,28 +104,16 @@ namespace BEditor.Data
             {
                 if (!_clip.Parent.Remove(_clip))
                 {
-                    // Message.Snackbar("削除できませんでした");
+                    _clip.ServiceProvider?.GetService<IMessage>()?.Snackbar(Strings.FailedToRemove);
                 }
                 else
                 {
                     _clip.Unload();
 
                     // 存在する場合
-                    if (_clip.Parent.SelectItems.Contains(_clip))
+                    if (_clip.Parent.SelectItem == _clip)
                     {
-                        _clip.Parent.SelectItems.Remove(_clip);
-
-                        if (_clip.Parent.SelectItem == _clip)
-                        {
-                            if (_clip.Parent.SelectItems.Count == 0)
-                            {
-                                _clip.Parent.SelectItem = null;
-                            }
-                            else
-                            {
-                                _clip.Parent.SelectItem = _clip.Parent.SelectItems[0];
-                            }
-                        }
+                        _clip.Parent.SelectItem = null;
                     }
                 }
             }

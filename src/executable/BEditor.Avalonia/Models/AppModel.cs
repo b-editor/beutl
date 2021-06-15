@@ -149,7 +149,7 @@ namespace BEditor.Models
                 foreach (var scene in project.SceneList)
                 {
                     var sceneCache = Path.Combine(sceneCacheDir, scene.SceneName + ".cache");
-                    var cacheObj = new SceneCache(scene.SelectItems.Select(i => i.Name).ToArray())
+                    var cacheObj = new SceneCache
                     {
                         Select = scene.SelectItem?.Name,
                         PreviewFrame = scene.PreviewFrame,
@@ -206,11 +206,6 @@ namespace BEditor.Models
                             scene.TimeLineZoom = cacheObj.TimelineScale;
                             scene.TimeLineHorizonOffset = cacheObj.TimelineHorizonOffset;
                             scene.TimeLineVerticalOffset = cacheObj.TimelineVerticalOffset;
-
-                            foreach (var select in cacheObj.Selects.Select(i => scene[i]).Where(i => i is not null))
-                            {
-                                scene.SelectItems.Add(select!);
-                            }
                         }
                     }
                     finally
