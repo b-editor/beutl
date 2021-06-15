@@ -243,7 +243,10 @@ namespace BEditor.Data
                     }
                 }
 
-                Parallel.ForEach(obj2.Children, i => i.Load());
+                foreach (var item in obj2.Children)
+                {
+                    item.Load();
+                }
             }
 
             IsLoaded = true;
@@ -258,7 +261,10 @@ namespace BEditor.Data
 
             if (this is IParent<IEditingObject> obj)
             {
-                Parallel.ForEach(obj.Children, i => i.Unload());
+                foreach (var item in obj.Children)
+                {
+                    item.Unload();
+                }
             }
 
             IsLoaded = false;

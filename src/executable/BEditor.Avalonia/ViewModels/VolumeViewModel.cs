@@ -1,11 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Collections.ObjectModel;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-using Avalonia.Media;
 
 using BEditor.Media;
 using BEditor.Media.PCM;
@@ -21,43 +14,23 @@ namespace BEditor.ViewModels
             Sound = property;
             property.Subscribe(sound =>
             {
-                Left.Clear();
-                Right.Clear();
-                if (sound is null) return;
+                if (sound is null)
+                {
+                    Left.Value = 0;
+                    Right.Value = 0;
+                    return;
+                }
                 var (left, right) = sound.RMS();
 
-                if (double.IsFinite(left))
-                {
-                    for (var i = 0; i < -(left / 5); i++)
-                    {
-                        Left.Add(new()
-                        {
-                            Brush = Brushes.White
-                        });
-                    }
-                }
-                if (double.IsFinite(right))
-                {
-                    for (var i = 0; i < -(right / 5); i++)
-                    {
-                        Right.Add(new()
-                        {
-                            Brush = Brushes.White
-                        });
-                    }
-                }
+                Left.Value = left;
+                Right.Value = right;
             });
         }
 
         public ReactiveProperty<Sound<StereoPCMFloat>?> Sound { get; }
 
-        public ObservableCollection<Item> Left { get; } = new();
+        public ReactiveProperty<double> Left { get; } = new();
 
-        public ObservableCollection<Item> Right { get; } = new();
-
-        public struct Item
-        {
-            public IBrush Brush { get; set; }
-        }
+        public ReactiveProperty<double> Right { get; } = new();
     }
 }

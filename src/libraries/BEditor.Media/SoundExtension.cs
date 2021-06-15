@@ -165,7 +165,7 @@ namespace BEditor.Media
             right = Math.Sqrt(right / data.Length);
             var leftRms = 20 * Math.Log10(left);
             var rightRms = 20 * Math.Log10(right);
-            return (leftRms, rightRms);
+            return (double.IsFinite(leftRms) ? leftRms : -90, double.IsFinite(rightRms) ? rightRms : -90);
         }
     }
 }
