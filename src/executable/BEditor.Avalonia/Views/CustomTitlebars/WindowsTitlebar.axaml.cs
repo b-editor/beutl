@@ -75,14 +75,25 @@ namespace BEditor.Views.CustomTitlebars
         {
             static async Task ProjectOpenCommand(string name)
             {
+                ProgressDialog? dialog = null;
                 try
                 {
+                    dialog = new ProgressDialog
+                    {
+                        IsIndeterminate = { Value = true }
+                    };
+                    dialog.Show(App.GetMainWindow());
+
                     await MainWindowViewModel.DirectOpenAsync(name);
                 }
                 catch
                 {
                     Debug.Fail(string.Empty);
                     AppModel.Current.Message.Snackbar(string.Format(Strings.FailedToLoad, Strings.ProjectFile));
+                }
+                finally
+                {
+                    dialog?.Close();
                 }
             }
 

@@ -4,6 +4,8 @@ using System.Reactive.Linq;
 
 using Avalonia.Media.Imaging;
 
+using BEditor.Media;
+using BEditor.Media.PCM;
 using BEditor.Models;
 
 using Reactive.Bindings;
@@ -15,7 +17,11 @@ namespace BEditor.ViewModels
         public PreviewerViewModel(IReadOnlyReactiveProperty<bool> isopened)
         {
             IsOpened = isopened;
-            isopened.Subscribe(_ => PreviewImage.Value = null);
+            isopened.Subscribe(_ =>
+            {
+                PreviewImage.Value = null;
+                PreviewAudio.Value = null;
+            });
 
             MoveToTop.Select(_ => AppModel.Current.Project?.PreviewScene)
                 .Where(s => s is not null)
@@ -53,6 +59,8 @@ namespace BEditor.ViewModels
         }
 
         public ReactiveProperty<WriteableBitmap?> PreviewImage { get; } = new();
+        
+        public ReactiveProperty<Sound<StereoPCMFloat>?> PreviewAudio { get; } = new();
 
         public IReadOnlyReactiveProperty<bool> IsOpened { get; }
 

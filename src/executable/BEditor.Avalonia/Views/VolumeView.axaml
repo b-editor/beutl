@@ -1,0 +1,51 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d"
+    Design.Height="400"
+    xmlns:vm="using:BEditor.ViewModels"
+    x:DataType="vm:VolumeViewModel"
+    x:Class="BEditor.Views.VolumeView">
+    <StackPanel Orientation="Horizontal" Spacing="8">
+        <Grid RowDefinitions="*,Auto,Auto">
+            <Border x:Name="LeftBorder">
+                <Border.Background>
+                    <LinearGradientBrush>
+                        <GradientStop Offset="0" Color="Red" />
+                        <GradientStop Offset="0.5" Color="Yellow" />
+                        <GradientStop Offset="1" Color="Green" />
+                    </LinearGradientBrush>
+                </Border.Background>
+            </Border>
+            
+            <TextBlock x:Name="LeftText" ToolTip.Tip="RMS" Width="24" />
+
+            <TextBlock
+                Margin="4"
+                HorizontalAlignment="Center"
+                Grid.Row="2"
+                Text="L"/>
+        </Grid>
+        <Grid RowDefinitions="*,Auto">
+            <Border x:Name="RightBorder">
+                <Border.Background>
+                    <LinearGradientBrush>
+                        <GradientStop Offset="0" Color="Red" />
+                        <GradientStop Offset="0.5" Color="Yellow" />
+                        <GradientStop Offset="1" Color="Green" />
+                    </LinearGradientBrush>
+                </Border.Background>
+            </Border>
+
+            <TextBlock x:Name="RightText" ToolTip.Tip="RMS" Width="24" />
+
+            <TextBlock
+                Margin="4"
+                HorizontalAlignment="Center"
+                Grid.Row="2"
+                Text="R"/>
+        </Grid>
+    </StackPanel>
+</UserControl>

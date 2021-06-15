@@ -289,7 +289,6 @@ namespace BEditor.Views.Timelines
             }
             else if (e.Data.GetFileNames() is var files && (files?.Any() ?? false))
             {
-
             }
         }
 

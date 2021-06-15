@@ -4,6 +4,7 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:ctr="using:BEditor.Controls"
+    xmlns:view="using:BEditor.Views"
     xmlns:props="using:BEditor.Properties"
     xmlns:convert="using:BEditor.Converters"
     xmlns:vm="using:BEditor.ViewModels"

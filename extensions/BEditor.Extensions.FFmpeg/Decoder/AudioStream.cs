@@ -28,7 +28,7 @@ namespace BEditor.Extensions.FFmpeg.Decoder
 
             _media = FFMediaToolkit.Decoding.MediaFile.Open(_tmpfile, new() { StreamsToLoad = FFMediaToolkit.Decoding.MediaMode.Audio });
             _stream = _media.Audio;
-            Info = new(_stream.Info.CodecName, MediaType.Audio, _stream.Info.Duration, _stream.Info.SampleRate, _stream.Info.NumChannels);
+            Info = new(_stream.Info.CodecName, MediaType.Audio, _stream.Info.Duration - _stream.Info.StartTime ?? default, _stream.Info.SampleRate, _stream.Info.NumChannels);
         }
 
         public AudioStreamInfo Info { get; }

@@ -2976,6 +2976,11 @@
               Looks up a localized string similar to Audio.
             </summary>
         </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.AudioFile">
+            <summary>
+              Looks up a localized string similar to Audio file.
+            </summary>
+        </member>
         <member name="P:BEditor.Primitive.Resources.Strings.AudioEffect">
             <summary>
               Looks up a localized string similar to Audio effect.

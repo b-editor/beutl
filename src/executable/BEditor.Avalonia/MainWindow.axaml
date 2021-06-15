@@ -289,15 +289,20 @@
             Grid.Row="4"
             Grid.Column="2"
             Grid.ColumnSpan="4"
-            Padding="0"
-            Child="{Binding App.Project.PreviewScene, Converter={StaticResource SceneToTimelineConverter}, Mode=OneWay}"
-            IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}">
+            Padding="0">
             <ExperimentalAcrylicBorder.Material>
                 <ExperimentalAcrylicMaterial
                     TintColor="Black"
                     TintOpacity="{StaticResource AcrylicTintOpacity2}"
                     MaterialOpacity="{StaticResource AcrylicMaterialOpacity2}" />
             </ExperimentalAcrylicBorder.Material>
+            <Grid ColumnDefinitions="*,Auto">
+                <ContentControl
+                    Content="{Binding App.Project.PreviewScene, Converter={StaticResource SceneToTimelineConverter}, Mode=OneWay}"
+                    IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}"/>
+
+                <views:VolumeView Grid.Column="1" />
+            </Grid>
         </ExperimentalAcrylicBorder>
 
         <GridSplitter Background="Transparent" Grid.Row="3" Grid.Column="2" Grid.ColumnSpan="3"/>

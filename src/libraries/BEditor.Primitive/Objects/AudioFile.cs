@@ -46,7 +46,15 @@ namespace BEditor.Primitive.Objects
             nameof(File),
             owner => owner.File,
             (owner, obj) => owner.File = obj,
-            EditingPropertyOptions<FileProperty>.Create(new FilePropertyMetadata(Strings.File, Filter: new(string.Empty, new FileExtension[] { new("mp3"), new("wav") }))).Serialize());
+            EditingPropertyOptions<FileProperty>.Create(
+                new FilePropertyMetadata(
+                    Strings.File,
+                    Filter: new(Strings.AudioFile, DecodingRegistory.EnumerateDecodings()
+                        .SelectMany(i => i.SupportExtensions())
+                        .Distinct()
+                        .Select(i => new FileExtension(i.Trim('.')))
+                        .ToArray())))
+            .Serialize());
 
         private MediaFile? _mediaFile;
 

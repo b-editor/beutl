@@ -143,5 +143,29 @@ namespace BEditor.Media
                 sound.Data[i].Right *= gain;
             });
         }
+
+        /// <summary>
+        /// Calculates the RMS of a sound.
+        /// </summary>
+        /// <param name="sound">The sound to calculate RMS.</param>
+        /// <returns>Returns the RMS.</returns>
+        public static (double Left, double Right) RMS(this Sound<StereoPCMFloat> sound)
+        {
+            var left = 0.0;
+            var right = 0.0;
+            var data = sound.Data;
+            for (var i = 0; i < data.Length; i++)
+            {
+                var normalized = data[i];
+                left += normalized.Left * normalized.Left;
+                right += normalized.Right * normalized.Right;
+            }
+
+            left = Math.Sqrt(left / data.Length);
+            right = Math.Sqrt(right / data.Length);
+            var leftRms = 20 * Math.Log10(left);
+            var rightRms = 20 * Math.Log10(right);
+            return (double.IsFinite(leftRms) ? leftRms : -90, double.IsFinite(rightRms) ? rightRms : -90);
+        }
     }
 }

@@ -1545,5 +1545,12 @@
             <param name="sound">The sound to adjust the gain.</param>
             <param name="gain">The gain.</param>
         </member>
+        <member name="M:BEditor.Media.Sound.RMS(BEditor.Media.Sound{BEditor.Media.PCM.StereoPCMFloat})">
+            <summary>
+            Calculates the RMS of a sound.
+            </summary>
+            <param name="sound">The sound to calculate RMS.</param>
+            <returns>Returns the RMS.</returns>
+        </member>
     </members>
 </doc>

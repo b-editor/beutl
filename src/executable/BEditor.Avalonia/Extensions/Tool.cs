@@ -47,6 +47,7 @@ namespace BEditor.Extensions
                 try
                 {
                     using var img = project.PreviewScene.Render(type);
+                    var snd = project.PreviewScene.Sample();
                     var viewmodel = MainWindowViewModel.Current.Previewer;
 
                     if (viewmodel.PreviewImage.Value is null
@@ -74,6 +75,9 @@ namespace BEditor.Extensions
 
                     // 再描画
                     _image.InvalidateVisual();
+
+                    viewmodel.PreviewAudio.Value?.Dispose();
+                    viewmodel.PreviewAudio.Value = snd;
 
                     PreviewIsEnabled = true;
                 }
