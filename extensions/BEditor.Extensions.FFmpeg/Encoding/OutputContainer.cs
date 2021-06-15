@@ -1,7 +1,9 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 
 using BEditor.Media;
+using BEditor.Media.Decoding;
 using BEditor.Media.Encoding;
 
 using AudioCodec = FFMediaToolkit.Encoding.AudioCodec;
@@ -16,13 +18,12 @@ namespace BEditor.Extensions.FFmpeg.Encoding
     {
         private readonly List<VideoEncoderSettings> _videoConfig = new();
         private readonly List<AudioEncoderSettings> _audioConfig = new();
-        private readonly FFMediaToolkit.Encoding.MediaBuilder _builder;
+        private FFMediaToolkit.Encoding.MediaBuilder? _builder;
         private FFMediaToolkit.Encoding.MediaOutput? _output;
 
         public OutputContainer(string file)
         {
             File = file;
-            _builder = FFMediaToolkit.Encoding.MediaBuilder.CreateContainer(File);
         }
 
         public string File { get; }
@@ -30,6 +31,8 @@ namespace BEditor.Extensions.FFmpeg.Encoding
         public IEnumerable<IVideoOutputStream> Video { get; private set; } = Enumerable.Empty<IVideoOutputStream>();
 
         public IEnumerable<IAudioOutputStream> Audio { get; private set; } = Enumerable.Empty<IAudioOutputStream>();
+
+        private FFMediaToolkit.Encoding.MediaBuilder MediaBuilder => _builder ??= FFMediaToolkit.Encoding.MediaBuilder.CreateContainer(File);
 
         public void AddAudioStream(AudioEncoderSettings config)
         {
@@ -39,7 +42,7 @@ namespace BEditor.Extensions.FFmpeg.Encoding
         public void AddVideoStream(VideoEncoderSettings config)
         {
             _videoConfig.Add(config);
-            _builder.WithVideo(new(config.VideoWidth, config.VideoHeight, config.Framerate)
+            MediaBuilder.WithVideo(new(config.VideoWidth, config.VideoHeight, config.Framerate)
             {
                 Bitrate = config.Bitrate,
                 KeyframeRate = config.KeyframeRate,
@@ -51,10 +54,12 @@ namespace BEditor.Extensions.FFmpeg.Encoding
 
         public MediaOutput Create()
         {
-            _output = _builder.Create();
-
-            Video = _output.VideoStreams.Zip(_videoConfig).Select(i => new VideoOutputStream(i.First, i.Second)).ToArray();
-            Audio = _audioConfig.Select(i => new AudioOutputStream(i, File)).ToArray();
+            Audio = _audioConfig.Select(i => new AudioOutputStream(i, File, _videoConfig.Count is not 0)).ToArray();
+            if (_builder is not null)
+            {
+                _output = _builder.Create();
+                Video = _output.VideoStreams.Zip(_videoConfig).Select(i => new VideoOutputStream(i.First, i.Second)).ToArray();
+            }
 
             return new(this);
         }
@@ -101,7 +106,7 @@ namespace BEditor.Extensions.FFmpeg.Encoding
 
         public void SetMetadata(ContainerMetadata metadata)
         {
-            _builder.UseMetadata(new()
+            _builder?.UseMetadata(new()
             {
                 Title = metadata.Title,
                 Author = metadata.Author,

@@ -91,6 +91,30 @@ namespace BEditor.Media.Encoding
         }
 
         /// <summary>
+        /// Adds a new video stream to the file.
+        /// </summary>
+        /// <returns>This <see cref="MediaBuilder"/> object.</returns>
+        public MediaBuilder WithVideo()
+        {
+            var config = _encoding.GetDefaultVideoSettings();
+
+            _container.AddVideoStream(config);
+            return this;
+        }
+
+        /// <summary>
+        /// Adds a new audio stream to the file.
+        /// </summary>
+        /// <returns>This <see cref="MediaBuilder"/> object.</returns>
+        public MediaBuilder WithAudio()
+        {
+            var config = _encoding.GetDefaultAudioSettings();
+
+            _container.AddAudioStream(config);
+            return this;
+        }
+
+        /// <summary>
         /// Creates a multimedia file.
         /// </summary>
         /// <returns>A new <see cref="MediaOutput"/>.</returns>
