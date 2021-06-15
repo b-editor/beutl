@@ -261,18 +261,14 @@ namespace BEditor.Data
         }
 
         /// <summary>
-        /// Set the selected <see cref="ClipElement"/> and add the name to <see cref="SelectItems"/> if it does not exist.
+        /// Set the selected <see cref="ClipElement"/>.
         /// </summary>
         /// <param name="clip"><see cref="ClipElement"/> to be set to current.</param>
         /// <exception cref="ArgumentNullException"><paramref name="clip"/> is <see langword="null"/>.</exception>
+        [Obsolete("Use Scene.SelectItem.Set")]
         public void SetCurrentClip(ClipElement clip)
         {
             SelectItem = clip ?? throw new ArgumentNullException(nameof(clip));
-
-            if (!SelectItems.Contains(clip))
-            {
-                SelectItems.Add(clip);
-            }
         }
 
         /// <summary>
@@ -294,7 +290,7 @@ namespace BEditor.Data
                     var scene = clip.Parent;
                     clip.Load();
                     scene.Add(clip);
-                    scene.SetCurrentClip(clip);
+                    scene.SelectItem = clip;
                 },
                 clip =>
                 {
@@ -303,7 +299,7 @@ namespace BEditor.Data
                     clip.Unload();
 
                     // 存在する場合
-                    if (scene.SelectItems.Remove(clip) && scene.SelectItem == clip)
+                    if (scene.SelectItem == clip)
                     {
                         scene.SelectItem = null;
                     }

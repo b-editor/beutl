@@ -34,6 +34,26 @@
             <param name="args">Arguments used for the <see cref="E:BEditor.Data.BasePropertyChanged.PropertyChanged"/> event.</param>
             <param name="action"><paramref name="action"/> to be executed after the <see cref="E:BEditor.Data.BasePropertyChanged.PropertyChanged"/> event occurs.</param>
         </member>
+        <member name="M:BEditor.Data.BasePropertyChanged.SetAndRaise``1(``0,``0@,System.ComponentModel.PropertyChangedEventArgs)">
+            <summary>
+            Set the value.
+            </summary>
+            <typeparam name="T">Type of the value to set.</typeparam>
+            <param name="src">source value.</param>
+            <param name="dst">destination value.</param>
+            <param name="args">Arguments used for the <see cref="E:BEditor.Data.BasePropertyChanged.PropertyChanged"/> event.</param>
+            <returns>Returns true if the value has been changed, false otherwise.</returns>
+        </member>
+        <member name="M:BEditor.Data.BasePropertyChanged.SetAndRaise``1(``0,``0@,System.String)">
+            <summary>
+            Set the value.
+            </summary>
+            <typeparam name="T">Type of the value to set.</typeparam>
+            <param name="src">source value.</param>
+            <param name="dst">destination value.</param>
+            <param name="name">The name of property.</param>
+            <returns>Returns true if the value has been changed, false otherwise.</returns>
+        </member>
         <member name="M:BEditor.Data.BasePropertyChanged.RaisePropertyChanged(System.ComponentModel.PropertyChangedEventArgs)">
             <summary>
             Raise the <see cref="E:BEditor.Data.BasePropertyChanged.PropertyChanged"/> event.

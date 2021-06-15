@@ -271,4 +271,7 @@
   <data name="Start" xml:space="preserve">
     <value>開始フレーム</value>
   </data>
+  <data name="FailedToRemove" xml:space="preserve">
+    <value>削除に失敗しました。</value>
+  </data>
 </root>

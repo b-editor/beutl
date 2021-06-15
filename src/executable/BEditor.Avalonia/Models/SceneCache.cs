@@ -2,14 +2,7 @@
 {
     public sealed class SceneCache
     {
-        public SceneCache(string[] selects)
-        {
-            Selects = selects;
-        }
-
         public string? Select { get; set; }
-
-        public string[] Selects { get; set; }
 
         public int PreviewFrame { get; set; }
 

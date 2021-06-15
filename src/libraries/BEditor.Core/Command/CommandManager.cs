@@ -81,7 +81,7 @@ namespace BEditor.Command
         public bool CanUndo
         {
             get => _canUndo;
-            private set => SetValue(value, ref _canUndo, _canUndoArgs);
+            private set => SetAndRaise(value, ref _canUndo, _canUndoArgs);
         }
 
         /// <summary>
@@ -90,7 +90,7 @@ namespace BEditor.Command
         public bool CanRedo
         {
             get => _canRedo;
-            private set => SetValue(value, ref _canRedo, _canRedoArgs);
+            private set => SetAndRaise(value, ref _canRedo, _canRedoArgs);
         }
 
         /// <summary>

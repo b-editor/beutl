@@ -78,7 +78,7 @@ namespace BEditor.Data.Property
             }
             set
             {
-                SetValue(value, ref _easingTypeProperty, _easingFuncArgs);
+                SetAndRaise(value, ref _easingTypeProperty, _easingFuncArgs);
 
                 EasingData = EasingMetadata.LoadedEasingFunc.Find(x => x.Type == value.GetType())!;
             }
@@ -90,7 +90,7 @@ namespace BEditor.Data.Property
         public EasingMetadata EasingData
         {
             get => _easingData ?? EasingMetadata.LoadedEasingFunc[0];
-            set => SetValue(value, ref _easingData, _easingDataArgs);
+            set => SetAndRaise(value, ref _easingData, _easingDataArgs);
         }
 
         /// <inheritdoc/>

@@ -44,20 +44,23 @@ namespace BEditor.Data.Property
         public bool IsExpanded
         {
             get => _isOpen;
-            set => SetValue(value, ref _isOpen, _isExpandedArgs, this, state =>
+            set
             {
-                foreach (var observer in state.Collection)
+                if (SetAndRaise(value, ref _isOpen, _isExpandedArgs))
                 {
-                    try
+                    foreach (var observer in Collection)
                     {
-                        observer.OnNext(state._isOpen);
-                    }
-                    catch (Exception ex)
-                    {
-                        observer.OnError(ex);
+                        try
+                        {
+                            observer.OnNext(_isOpen);
+                        }
+                        catch (Exception ex)
+                        {
+                            observer.OnError(ex);
+                        }
                     }
                 }
-            });
+            }
         }
 
         /// <inheritdoc/>

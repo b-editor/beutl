@@ -271,4 +271,7 @@
   <data name="Start" xml:space="preserve">
     <value>Start</value>
   </data>
+  <data name="FailedToRemove" xml:space="preserve">
+    <value>Failed to remove.</value>
+  </data>
 </root>

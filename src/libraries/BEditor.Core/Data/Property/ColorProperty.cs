@@ -47,20 +47,23 @@ namespace BEditor.Data.Property
         public Color Value
         {
             get => _value;
-            set => SetValue(value, ref _value, DocumentProperty._valueArgs, this, state =>
+            set
             {
-                foreach (var observer in state.Collection)
+                if (SetAndRaise(value, ref _value, DocumentProperty._valueArgs))
                 {
-                    try
+                    foreach (var observer in Collection)
                     {
-                        observer.OnNext(state._value);
-                    }
-                    catch (Exception ex)
-                    {
-                        observer.OnError(ex);
+                        try
+                        {
+                            observer.OnNext(_value);
+                        }
+                        catch (Exception ex)
+                        {
+                            observer.OnError(ex);
+                        }
                     }
                 }
-            });
+            }
         }
 
         /// <inheritdoc/>

@@ -73,8 +73,6 @@ namespace BEditor.ViewModels.Timelines
 
         public ReactiveCommand Paste { get; } = new();
 
-        public ReactiveCommand ShowSettings { get; } = new();
-
         public ReactiveProperty<StandardCursorType> LayerCursor { get; } = new();
 
         public ReactiveProperty<double> TrackWidth { get; } = new();

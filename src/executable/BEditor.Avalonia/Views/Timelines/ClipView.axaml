@@ -39,6 +39,11 @@
                             <PathIcon Data="{StaticResource Copy24Regular}" />
                         </MenuItem.Icon>
                     </MenuItem>
+                    <MenuItem
+                        IsEnabled="{CompiledBinding IsMediaObject.Value, Mode=OneTime}"
+                        Command="{CompiledBinding AdjustLength, Mode=OneTime}"
+                        Header="{x:Static properties:Strings.AdjustLengthOfClip}">
+                    </MenuItem>
                     <Separator />
                     <MenuItem
                         Command="{CompiledBinding Split, Mode=OneTime}"
@@ -62,14 +67,6 @@
                         Header="{x:Static properties:Strings.Copy}">
                         <MenuItem.Icon>
                             <PathIcon Data="{StaticResource Copy20Regular}" />
-                        </MenuItem.Icon>
-                    </MenuItem>
-                    <MenuItem
-                        InputGesture="{x:Static TextBox.PasteGesture}"
-                        IsEnabled="False"
-                        Header="{x:Static properties:Strings.Paste}">
-                        <MenuItem.Icon>
-                            <PathIcon Data="{StaticResource ClipboardPaste20Regular}" />
                         </MenuItem.Icon>
                     </MenuItem>
                     <Separator />

@@ -115,6 +115,15 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Adjust length.
+        /// </summary>
+        public static string AdjustLengthOfClip {
+            get {
+                return ResourceManager.GetString("AdjustLengthOfClip", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Already cancelled..
         /// </summary>
         public static string AlreadyCancelled {
@@ -1544,6 +1553,15 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Set maximum frame.
+        /// </summary>
+        public static string SetMaximumFrame {
+            get {
+                return ResourceManager.GetString("SetMaximumFrame", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Settings.
         /// </summary>
         public static string Settings {
@@ -1819,6 +1837,15 @@ namespace BEditor.Properties {
         public static string UseAutoBackup {
             get {
                 return ResourceManager.GetString("UseAutoBackup", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Use current frame.
+        /// </summary>
+        public static string UseCurrentFrame {
+            get {
+                return ResourceManager.GetString("UseCurrentFrame", resourceCulture);
             }
         }
         

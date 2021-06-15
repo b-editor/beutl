@@ -4,7 +4,9 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:vm="using:BEditor.ViewModels.Timelines"
+    xmlns:vmroot="using:BEditor.ViewModels"
     xmlns:view="using:BEditor.Views.Timelines"
+    xmlns:command="clr-namespace:BEditor.Command;assembly=BEditor.Core"
     mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
     xmlns:properties="clr-namespace:BEditor.Properties"
     x:DataType="vm:TimelineViewModel"
@@ -27,19 +29,21 @@
                 <Grid.ContextMenu>
                     <ContextMenu x:Name="TimelineMenu">
                         <MenuItem
-                            IsEnabled="False"
-                            Header="{x:Static properties:Strings.Cut}"
-                            InputGesture="Ctrl+X">
+                            Command="{CompiledBinding Undo, Mode=OneTime, Source={x:Static vmroot:MainWindowViewModel.Current}}"
+                            Header="{x:Static properties:Strings.Undo}"
+                            InputGesture="Ctrl+Z"
+                            IsEnabled="{CompiledBinding CanUndo, Mode=OneWay, Source={x:Static command:CommandManager.Default}}">
                             <MenuItem.Icon>
-                                <PathIcon Data="{StaticResource Cut20Regular}" />
+                                <PathIcon Data="{StaticResource ArrowUndo24Regular}" />
                             </MenuItem.Icon>
                         </MenuItem>
                         <MenuItem
-                            IsEnabled="False"
-                            Header="{x:Static properties:Strings.Copy}"
-                            InputGesture="Ctrl+C">
+                            Command="{CompiledBinding Redo, Mode=OneTime, Source={x:Static vmroot:MainWindowViewModel.Current}}"
+                            Header="{x:Static properties:Strings.Redo}"
+                            InputGesture="Ctrl+Y"
+                            IsEnabled="{CompiledBinding CanRedo, Mode=OneWay, Source={x:Static command:CommandManager.Default}}">
                             <MenuItem.Icon>
-                                <PathIcon Data="{StaticResource Copy20Regular}" />
+                                <PathIcon Data="{StaticResource ArrowRedo24Regular}" />
                             </MenuItem.Icon>
                         </MenuItem>
                         <MenuItem
@@ -52,7 +56,11 @@
                         </MenuItem>
                         <Separator />
                         <MenuItem
-                            Command="{CompiledBinding ShowSettings, Mode=OneTime}"
+                            Click="SetMaxFrame"
+                            Header="{x:Static properties:Strings.SetMaximumFrame}">
+                        </MenuItem>
+                        <MenuItem
+                            Click="SceneSettings"
                             Header="{x:Static properties:Strings.Settings}">
                             <MenuItem.Icon>
                                 <PathIcon Data="{StaticResource Settings20Regular}" />

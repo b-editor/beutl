@@ -754,4 +754,13 @@ After the encoder is set, the detailed settings will be displayed.</value>
   <data name="LatestVersion" xml:space="preserve">
     <value>Latest version</value>
   </data>
+  <data name="AdjustLengthOfClip" xml:space="preserve">
+    <value>Adjust length</value>
+  </data>
+  <data name="SetMaximumFrame" xml:space="preserve">
+    <value>Set maximum frame</value>
+  </data>
+  <data name="UseCurrentFrame" xml:space="preserve">
+    <value>Use current frame</value>
+  </data>
 </root>

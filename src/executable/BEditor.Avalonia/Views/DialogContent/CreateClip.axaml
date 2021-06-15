@@ -8,7 +8,7 @@
     xmlns:vm="using:BEditor.ViewModels"
     xmlns:model="using:BEditor.Models"
     xmlns:dialogvm="using:BEditor.ViewModels.DialogContent"
-    mc:Ignorable="d"  Width="1000" Height="595"
+    mc:Ignorable="d" Height="450" Width="800"
     ExtendClientAreaToDecorationsHint="True"
     ExtendClientAreaChromeHints="NoChrome"
     ExtendClientAreaTitleBarHeightHint="-1"

@@ -76,7 +76,7 @@ namespace BEditor.Audio
             }
             else
             {
-                dst.Slice(0, src.Length).CopyTo(src);
+                src.CopyTo(dst.Slice(0, src.Length));
             }
         }
 

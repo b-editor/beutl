@@ -31,7 +31,6 @@ namespace BEditor.Data
         private static readonly PropertyChangedEventArgs _voffsetArgs = new(nameof(TimeLineVerticalOffset));
         private static readonly PropertyChangedEventArgs _sceneNameArgs = new(nameof(SceneName));
         private ClipElement? _selectItem;
-        private ObservableCollection<ClipElement>? _selectItems;
         private Frame _previewframe;
         private Frame _totalframe = 1000;
         private float _timeLineZoom = 150;

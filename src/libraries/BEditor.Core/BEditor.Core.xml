@@ -1199,6 +1199,16 @@
         <member name="M:BEditor.Data.Primitive.ImageObject.OnRender(BEditor.Data.EffectApplyArgs{System.Collections.Generic.IEnumerable{BEditor.Graphics.ImageInfo}})">
             <inheritdoc cref="M:BEditor.Data.Primitive.ImageObject.Apply(BEditor.Data.EffectApplyArgs)"/>
         </member>
+        <member name="T:BEditor.Data.Primitive.IMediaObject">
+            <summary>
+            Abstraction of media objects.
+            </summary>
+        </member>
+        <member name="P:BEditor.Data.Primitive.IMediaObject.Length">
+            <summary>
+            Gets the length.
+            </summary>
+        </member>
         <member name="T:BEditor.Data.SaveType">
             <summary>
             Represents the type of save used in <see cref="T:BEditor.Data.ProjectSavedEventArgs"/>.
@@ -3466,7 +3476,7 @@
         </member>
         <member name="M:BEditor.Data.Scene.SetCurrentClip(BEditor.Data.ClipElement)">
             <summary>
-            Set the selected <see cref="T:BEditor.Data.ClipElement"/> and add the name to <see cref="P:BEditor.Data.Scene.SelectItems"/> if it does not exist.
+            Set the selected <see cref="T:BEditor.Data.ClipElement"/>.
             </summary>
             <param name="clip"><see cref="T:BEditor.Data.ClipElement"/> to be set to current.</param>
             <exception cref="T:System.ArgumentNullException"><paramref name="clip"/> is <see langword="null"/>.</exception>
@@ -3541,11 +3551,6 @@
         <member name="P:BEditor.Data.Scene.SelectItem">
             <summary>
             Gets or sets the selected <see cref="T:BEditor.Data.ClipElement"/>.
-            </summary>
-        </member>
-        <member name="P:BEditor.Data.Scene.SelectItems">
-            <summary>
-            Gets the selected <see cref="T:BEditor.Data.ClipElement"/>.
             </summary>
         </member>
         <member name="P:BEditor.Data.Scene.GraphicsContext">
@@ -4479,6 +4484,11 @@
         <member name="P:BEditor.Resources.Strings.FailedToLoad">
             <summary>
               Looks up a localized string similar to {0} failed to load..
+            </summary>
+        </member>
+        <member name="P:BEditor.Resources.Strings.FailedToRemove">
+            <summary>
+              Looks up a localized string similar to Failed to remove..
             </summary>
         </member>
         <member name="P:BEditor.Resources.Strings.Font">

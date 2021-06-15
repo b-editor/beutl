@@ -48,20 +48,23 @@ namespace BEditor.Data.Property
         public Font Value
         {
             get => _selectItem;
-            set => SetValue(value, ref _selectItem, DocumentProperty._valueArgs, this, state =>
+            set
             {
-                foreach (var observer in state.Collection)
+                if (SetAndRaise(value, ref _selectItem, DocumentProperty._valueArgs))
                 {
-                    try
+                    foreach (var observer in Collection)
                     {
-                        observer.OnNext(state._selectItem);
-                    }
-                    catch (Exception ex)
-                    {
-                        observer.OnError(ex);
+                        try
+                        {
+                            observer.OnNext(_selectItem);
+                        }
+                        catch (Exception ex)
+                        {
+                            observer.OnError(ex);
+                        }
                     }
                 }
-            });
+            }
         }
 
         /// <inheritdoc/>
