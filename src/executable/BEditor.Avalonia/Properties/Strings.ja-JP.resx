@@ -757,4 +757,10 @@ IdにはGUID, UUIDが使えます。</value>
   <data name="AdjustLengthOfClip" xml:space="preserve">
     <value>長さを調整</value>
   </data>
+  <data name="SetMaximumFrame" xml:space="preserve">
+    <value>最大フレームを設定</value>
+  </data>
+  <data name="UseCurrentFrame" xml:space="preserve">
+    <value>現在のフレームを使用</value>
+  </data>
 </root>

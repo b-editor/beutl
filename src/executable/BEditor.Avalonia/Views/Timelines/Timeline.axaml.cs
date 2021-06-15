@@ -19,6 +19,7 @@ using BEditor.Extensions;
 using BEditor.Models;
 using BEditor.Properties;
 using BEditor.ViewModels.Timelines;
+using BEditor.Views.DialogContent;
 
 using Reactive.Bindings.Extensions;
 
@@ -329,6 +330,13 @@ namespace BEditor.Views.Timelines
                     }
                 }
             });
+        }
+
+        public async void SetMaxFrame(object s, RoutedEventArgs e)
+        {
+            var ctr = new SetMaxFrame(Scene);
+            var dialog = new EmptyDialog(ctr);
+            await dialog.ShowDialog(App.GetMainWindow());
         }
 
         public void ScrollLine_PointerWheel(object? sender, PointerWheelEventArgs e)

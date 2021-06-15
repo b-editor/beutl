@@ -59,6 +59,11 @@ namespace BEditor.Data
                 Clip.Load();
                 _scene.Add(Clip);
                 _scene.SelectItem = Clip;
+
+                if (_scene.TotalFrame < Clip.End)
+                {
+                    _scene.TotalFrame = Clip.End;
+                }
             }
 
             /// <inheritdoc/>
@@ -127,8 +132,14 @@ namespace BEditor.Data
             /// <inheritdoc/>
             public void Undo()
             {
+                var scene = _clip.Parent;
                 _clip.Load();
-                _clip.Parent.Add(_clip);
+                scene.Add(_clip);
+
+                if (scene.TotalFrame < _clip.End)
+                {
+                    scene.TotalFrame = _clip.End;
+                }
             }
         }
 
@@ -170,7 +181,7 @@ namespace BEditor.Data
 
                 _clip.Layer = _newLayer;
 
-                if (_clip.End > Scene.TotalFrame)
+                if (Scene.TotalFrame < _clip.End)
                 {
                     Scene.TotalFrame = _clip.End;
                 }
@@ -188,6 +199,11 @@ namespace BEditor.Data
                 _clip.MoveTo(_oldFrame);
 
                 _clip.Layer = _oldLayer;
+
+                if (Scene.TotalFrame < _clip.End)
+                {
+                    Scene.TotalFrame = _clip.End;
+                }
             }
         }
 
@@ -223,8 +239,14 @@ namespace BEditor.Data
             /// <inheritdoc/>
             public void Do()
             {
+                var scene = _clip.Parent;
                 _clip.Start = _newStart;
                 _clip.End = _newEnd;
+
+                if (scene.TotalFrame < _clip.End)
+                {
+                    scene.TotalFrame = _clip.End;
+                }
             }
 
             /// <inheritdoc/>
@@ -236,8 +258,14 @@ namespace BEditor.Data
             /// <inheritdoc/>
             public void Undo()
             {
+                var scene = _clip.Parent;
                 _clip.Start = _oldStart;
                 _clip.End = _oldEnd;
+
+                if (scene.TotalFrame < _clip.End)
+                {
+                    scene.TotalFrame = _clip.End;
+                }
             }
         }
 
