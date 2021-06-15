@@ -109,7 +109,7 @@ namespace BEditor.Data
             get => _previewScene ??= SceneList[PreviewSceneIndex];
             set
             {
-                SetValue(value, ref _previewScene, _previewSceneArgs);
+                SetAndRaise(value, ref _previewScene, _previewSceneArgs);
                 PreviewSceneIndex = SceneList.IndexOf(value);
             }
         }
@@ -138,7 +138,7 @@ namespace BEditor.Data
         public string Name
         {
             get => _filename;
-            set => SetValue(value, ref _filename, _nameArgs);
+            set => SetAndRaise(value, ref _filename, _nameArgs);
         }
 
         /// <summary>
@@ -147,7 +147,7 @@ namespace BEditor.Data
         public string DirectoryName
         {
             get => _dirname;
-            set => SetValue(value, ref _dirname, _dirnameArgs);
+            set => SetAndRaise(value, ref _dirname, _dirnameArgs);
         }
 
         /// <summary>

@@ -39,7 +39,7 @@ namespace BEditor.Data
         public virtual string SceneName
         {
             get => _sceneName;
-            set => SetValue(value, ref _sceneName, _sceneNameArgs);
+            set => SetAndRaise(value, ref _sceneName, _sceneNameArgs);
         }
 
         /// <summary>
@@ -48,7 +48,7 @@ namespace BEditor.Data
         public Frame TotalFrame
         {
             get => _totalframe;
-            set => SetValue(value, ref _totalframe, _totalFrameArgs);
+            set => SetAndRaise(value, ref _totalframe, _totalFrameArgs);
         }
 
         /// <summary>
@@ -101,7 +101,7 @@ namespace BEditor.Data
         public Frame PreviewFrame
         {
             get => _previewframe;
-            set => SetValue(Math.Clamp(value, 0, TotalFrame), ref _previewframe, _previreFrameArgs);
+            set => SetAndRaise(Math.Clamp(value, 0, TotalFrame), ref _previewframe, _previreFrameArgs);
         }
 
         /// <summary>
@@ -110,7 +110,7 @@ namespace BEditor.Data
         public float TimeLineZoom
         {
             get => _timeLineZoom;
-            set => SetValue(Math.Clamp(value, 1, 200), ref _timeLineZoom, _zoomArgs);
+            set => SetAndRaise(Math.Clamp(value, 1, 200), ref _timeLineZoom, _zoomArgs);
         }
 
         /// <summary>
@@ -119,7 +119,7 @@ namespace BEditor.Data
         public double TimeLineHorizonOffset
         {
             get => _timeLineHorizonOffset;
-            set => SetValue(value, ref _timeLineHorizonOffset, _hoffsetArgs);
+            set => SetAndRaise(value, ref _timeLineHorizonOffset, _hoffsetArgs);
         }
 
         /// <summary>
@@ -128,7 +128,7 @@ namespace BEditor.Data
         public double TimeLineVerticalOffset
         {
             get => _timeLineVerticalOffset;
-            set => SetValue(value, ref _timeLineVerticalOffset, _voffsetArgs);
+            set => SetAndRaise(value, ref _timeLineVerticalOffset, _voffsetArgs);
         }
 
         /// <inheritdoc/>

@@ -54,21 +54,24 @@ namespace BEditor.Data.Property
         public T? SelectItem
         {
             get => _selectItem;
-            set => SetValue(value, ref _selectItem, _selectItemArgs, this, state =>
+            set
             {
-                state.RaisePropertyChanged(SelectorProperty._indexArgs);
-                foreach (var observer in state.Collection)
+                if (SetAndRaise(value, ref _selectItem, _selectItemArgs))
                 {
-                    try
+                    RaisePropertyChanged(SelectorProperty._indexArgs);
+                    foreach (var observer in Collection)
                     {
-                        observer.OnNext(state._selectItem);
-                    }
-                    catch (Exception ex)
-                    {
-                        observer.OnError(ex);
+                        try
+                        {
+                            observer.OnNext(_selectItem);
+                        }
+                        catch (Exception ex)
+                        {
+                            observer.OnError(ex);
+                        }
                     }
                 }
-            });
+            }
         }
 
         /// <summary>

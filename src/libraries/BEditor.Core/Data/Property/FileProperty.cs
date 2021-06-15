@@ -95,7 +95,13 @@ namespace BEditor.Data.Property
         public FilePathType Mode
         {
             get => _mode;
-            set => SetValue(value, ref _mode, _modeArgs, this, state => state.RawValue = state.GetPath());
+            set
+            {
+                if (SetAndRaise(value, ref _mode, _modeArgs))
+                {
+                    RawValue = GetPath();
+                }
+            }
         }
 
         private List<IObserver<string>> Collection => _list ??= new();

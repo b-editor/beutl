@@ -30,20 +30,23 @@ namespace BEditor.Data.Property
         public string Text
         {
             get => _text;
-            set => SetValue(value, ref _text, _textArgs, this, state =>
+            set
             {
-                foreach (var observer in state.Collection)
+                if (SetAndRaise(value, ref _text, _textArgs))
                 {
-                    try
+                    foreach (var observer in Collection)
                     {
-                        observer.OnNext(state._text);
-                    }
-                    catch (Exception ex)
-                    {
-                        observer.OnError(ex);
+                        try
+                        {
+                            observer.OnNext(_text);
+                        }
+                        catch (Exception ex)
+                        {
+                            observer.OnError(ex);
+                        }
                     }
                 }
-            });
+            }
         }
 
         private List<IObserver<string>> Collection => _list ??= new();

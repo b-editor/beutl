@@ -74,19 +74,19 @@ namespace BEditor.Models
         public Project Project
         {
             get => _project;
-            set => SetValue(value, ref _project, _projectArgs);
+            set => SetAndRaise(value, ref _project, _projectArgs);
         }
 
         public Status AppStatus
         {
             get => _status;
-            set => SetValue(value, ref _status, _statusArgs);
+            set => SetAndRaise(value, ref _status, _statusArgs);
         }
 
         public bool IsNotPlaying
         {
             get => _isplaying;
-            set => SetValue(value, ref _isplaying, _isPlayingArgs);
+            set => SetAndRaise(value, ref _isplaying, _isPlayingArgs);
         }
 
         public IServiceCollection Services { get; }
@@ -106,7 +106,7 @@ namespace BEditor.Models
         public AuthenticationLink User
         {
             get => _user;
-            set => SetValue(value, ref _user, _userArgs);
+            set => SetAndRaise(value, ref _user, _userArgs);
         }
 
         public SynchronizationContext UIThread { get; set; }

@@ -60,7 +60,7 @@ namespace BEditor.Data
         public Frame Start
         {
             get => _start;
-            set => SetValue(value, ref _start, _startArgs);
+            set => SetAndRaise(value, ref _start, _startArgs);
         }
 
         /// <summary>
@@ -69,7 +69,7 @@ namespace BEditor.Data
         public Frame End
         {
             get => _end;
-            set => SetValue(value, ref _end, _endArgs);
+            set => SetAndRaise(value, ref _end, _endArgs);
         }
 
         /// <summary>
@@ -86,7 +86,7 @@ namespace BEditor.Data
             set
             {
                 if (value == 0) return;
-                SetValue(value, ref _layer, _layerArgs);
+                SetAndRaise(value, ref _layer, _layerArgs);
             }
         }
 
@@ -96,7 +96,7 @@ namespace BEditor.Data
         public string LabelText
         {
             get => _labelText;
-            set => SetValue(value, ref _labelText, _textArgs);
+            set => SetAndRaise(value, ref _labelText, _textArgs);
         }
 
         /// <inheritdoc/>

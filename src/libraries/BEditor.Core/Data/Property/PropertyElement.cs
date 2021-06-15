@@ -28,7 +28,7 @@ namespace BEditor.Data.Property
         public PropertyElementMetadata? PropertyMetadata
         {
             get => _propertyMetadata;
-            set => SetValue(value, ref _propertyMetadata, _metadataArgs);
+            set => SetAndRaise(value, ref _propertyMetadata, _metadataArgs);
         }
 
         /// <inheritdoc/>

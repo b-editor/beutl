@@ -57,20 +57,23 @@ namespace BEditor.Data.Property
         public int Index
         {
             get => _selectIndex;
-            set => SetValue(value, ref _selectIndex, _indexArgs, this, state =>
+            set
             {
-                foreach (var observer in state.Collection)
+                if (SetAndRaise(value, ref _selectIndex, _indexArgs))
                 {
-                    try
+                    foreach (var observer in Collection)
                     {
-                        observer.OnNext(state._selectIndex);
-                    }
-                    catch (Exception ex)
-                    {
-                        observer.OnError(ex);
+                        try
+                        {
+                            observer.OnNext(_selectIndex);
+                        }
+                        catch (Exception ex)
+                        {
+                            observer.OnError(ex);
+                        }
                     }
                 }
-            });
+            }
         }
 
         /// <inheritdoc/>
