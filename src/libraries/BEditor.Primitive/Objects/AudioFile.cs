@@ -84,22 +84,11 @@ namespace BEditor.Primitive.Objects
             {
                 _mediaFile?.Dispose();
                 _mediaFile = value;
-
-                if (_mediaFile is not null)
-                {
-                    Loaded?.Dispose();
-                    Loaded = GetAllFrame(_mediaFile.Audio!);
-                }
             }
         }
 
-        /// <summary>
-        /// Gets the loaded audio data.
-        /// </summary>
-        public Sound<StereoPCMFloat>? Loaded { get; private set; }
-
         /// <inheritdoc/>
-        public TimeSpan? Length => Loaded?.Duration;
+        public TimeSpan? Length => Decoder?.Audio?.Info?.Duration;
 
         /// <inheritdoc/>
         public override IEnumerable<PropertyElement> GetProperties()
@@ -129,25 +118,18 @@ namespace BEditor.Primitive.Objects
             _disposable1?.Dispose();
             _mediaFile?.Dispose();
             _mediaFile = null;
-            Loaded?.Dispose();
-            Loaded = null;
         }
 
         /// <inheritdoc/>
         protected override Sound<StereoPCMFloat>? OnSample(EffectApplyArgs args)
         {
-            if (Loaded is null) return null;
+            if (Decoder is null) return null;
 
             var proj = Parent.Parent.Parent;
             var context = Parent.Parent.SamplingContext!;
             var start = (args.Frame - Parent.Start).ToTimeSpan(proj.Framerate);
             var length = TimeSpan.FromSeconds(context.SamplePerFrame / (double)proj.Samplingrate);
-            return Loaded.Slice(start, length).Clone();
-        }
-
-        private static Sound<StereoPCMFloat> GetAllFrame(IAudioStream stream)
-        {
-            return stream.GetFrame(TimeSpan.Zero, stream.Info.Duration);
+            return Decoder.Audio?.GetFrame(start, length);
         }
     }
 }

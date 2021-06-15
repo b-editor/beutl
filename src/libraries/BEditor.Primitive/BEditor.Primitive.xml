@@ -1934,11 +1934,6 @@
             Gets the opened decoder.
             </summary>
         </member>
-        <member name="P:BEditor.Primitive.Objects.AudioFile.Loaded">
-            <summary>
-            Gets the loaded audio data.
-            </summary>
-        </member>
         <member name="P:BEditor.Primitive.Objects.AudioFile.Length">
             <inheritdoc/>
         </member>
