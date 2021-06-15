@@ -1934,6 +1934,11 @@
             Gets the opened decoder.
             </summary>
         </member>
+        <member name="P:BEditor.Primitive.Objects.AudioFile.Loaded">
+            <summary>
+            Gets the loaded audio data.
+            </summary>
+        </member>
         <member name="P:BEditor.Primitive.Objects.AudioFile.Length">
             <inheritdoc/>
         </member>
@@ -2925,6 +2930,11 @@
         <member name="P:BEditor.Primitive.Resources.Strings.Audio">
             <summary>
               Looks up a localized string similar to Audio.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.AudioFile">
+            <summary>
+              Looks up a localized string similar to Audio file.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Ball">

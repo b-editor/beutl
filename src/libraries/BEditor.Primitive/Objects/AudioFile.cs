@@ -46,7 +46,15 @@ namespace BEditor.Primitive.Objects
             nameof(File),
             owner => owner.File,
             (owner, obj) => owner.File = obj,
-            EditingPropertyOptions<FileProperty>.Create(new FilePropertyMetadata(Strings.File, Filter: new(string.Empty, new FileExtension[] { new("mp3"), new("wav") }))).Serialize());
+            EditingPropertyOptions<FileProperty>.Create(
+                new FilePropertyMetadata(
+                    Strings.File,
+                    Filter: new(Strings.AudioFile, DecodingRegistory.EnumerateDecodings()
+                        .SelectMany(i => i.SupportExtensions())
+                        .Distinct()
+                        .Select(i => new FileExtension(i.Trim('.')))
+                        .ToArray())))
+            .Serialize());
 
         private MediaFile? _mediaFile;
 
@@ -84,11 +92,22 @@ namespace BEditor.Primitive.Objects
             {
                 _mediaFile?.Dispose();
                 _mediaFile = value;
+
+                if (_mediaFile is not null)
+                {
+                    Loaded?.Dispose();
+                    Loaded = GetAllFrame(_mediaFile.Audio!);
+                }
             }
         }
 
+        /// <summary>
+        /// Gets the loaded audio data.
+        /// </summary>
+        public Sound<StereoPCMFloat>? Loaded { get; private set; }
+
         /// <inheritdoc/>
-        public TimeSpan? Length => Decoder?.Audio?.Info?.Duration;
+        public TimeSpan? Length => Loaded?.Duration;
 
         /// <inheritdoc/>
         public override IEnumerable<PropertyElement> GetProperties()
@@ -118,18 +137,25 @@ namespace BEditor.Primitive.Objects
             _disposable1?.Dispose();
             _mediaFile?.Dispose();
             _mediaFile = null;
+            Loaded?.Dispose();
+            Loaded = null;
         }
 
         /// <inheritdoc/>
         protected override Sound<StereoPCMFloat>? OnSample(EffectApplyArgs args)
         {
-            if (Decoder is null) return null;
+            if (Loaded is null) return null;
 
             var proj = Parent.Parent.Parent;
             var context = Parent.Parent.SamplingContext!;
             var start = (args.Frame - Parent.Start).ToTimeSpan(proj.Framerate);
             var length = TimeSpan.FromSeconds(context.SamplePerFrame / (double)proj.Samplingrate);
-            return Decoder.Audio?.GetFrame(start, length);
+            return Loaded.Slice(start, length).Clone();
+        }
+
+        private static Sound<StereoPCMFloat> GetAllFrame(IAudioStream stream)
+        {
+            return stream.GetFrame(TimeSpan.Zero, stream.Info.Duration);
         }
     }
 }

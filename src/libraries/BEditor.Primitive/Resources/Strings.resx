@@ -634,4 +634,7 @@
   <data name="Cycle" xml:space="preserve">
     <value>Cycle</value>
   </data>
+  <data name="AudioFile" xml:space="preserve">
+    <value>Audio file</value>
+  </data>
 </root>

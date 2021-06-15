@@ -115,6 +115,15 @@ namespace BEditor.Primitive.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Audio file.
+        /// </summary>
+        internal static string AudioFile {
+            get {
+                return ResourceManager.GetString("AudioFile", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Ball.
         /// </summary>
         internal static string Ball {

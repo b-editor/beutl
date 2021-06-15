@@ -8,6 +8,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.Linq;
 using System.Reactive.Linq;
 
 using BEditor.Data;
@@ -54,13 +55,11 @@ namespace BEditor.Primitive.Objects
             nameof(File),
             owner => owner.File,
             (owner, obj) => owner.File = obj,
-            EditingPropertyOptions<FileProperty>.Create(new FilePropertyMetadata(Strings.File, string.Empty, new(Strings.VideoFile, new FileExtension[]
-            {
-                new("mp4"),
-                new("avi"),
-                new("wmv"),
-                new("mov"),
-            }))).Serialize());
+            EditingPropertyOptions<FileProperty>.Create(new FilePropertyMetadata(Strings.File, string.Empty, new(Strings.VideoFile, DecodingRegistory.EnumerateDecodings()
+                .SelectMany(i => i.SupportExtensions())
+                .Distinct()
+                .Select(i => new FileExtension(i.Trim('.')))
+                .ToArray()))).Serialize());
 
         private static readonly MediaOptions _options = new()
         {
@@ -124,7 +123,14 @@ namespace BEditor.Primitive.Objects
             var start = (int)Start[args.Frame];
             var time = new Frame((int)((start + args.Frame - Parent!.Start) * speed)).ToTimeSpan(Parent.Parent.Parent!.Framerate);
 
-            return _mediaFile.Video.GetFrame(time);
+            try
+            {
+                return time < Length ? _mediaFile.Video.GetFrame(time) : null;
+            }
+            catch
+            {
+                return null;
+            }
         }
 
         /// <inheritdoc/>
