@@ -9,7 +9,7 @@
     xmlns:model="using:BEditor.Models"
     xmlns:dialogvm="using:BEditor.ViewModels.DialogContent"
     xmlns:data="clr-namespace:BEditor.Data;assembly=BEditor.Core"
-    mc:Ignorable="d"  Width="1000" Height="595"
+    mc:Ignorable="d" Width="800" Height="450"
     ExtendClientAreaToDecorationsHint="True"
     ExtendClientAreaChromeHints="NoChrome"
     ExtendClientAreaTitleBarHeightHint="-1"

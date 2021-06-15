@@ -332,6 +332,13 @@ namespace BEditor.Views.Timelines
             });
         }
 
+        public async void SceneSettings(object s, RoutedEventArgs e)
+        {
+            var vm = new SceneSettingsViewModel(Scene);
+            var dialog = new SceneSettings { DataContext = vm };
+            await dialog.ShowDialog(App.GetMainWindow());
+        }
+
         public async void SetMaxFrame(object s, RoutedEventArgs e)
         {
             var ctr = new SetMaxFrame(Scene);

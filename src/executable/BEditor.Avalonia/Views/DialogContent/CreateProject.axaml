@@ -6,7 +6,7 @@
     xmlns:props="using:BEditor.Properties"
     xmlns:titlebar="using:BEditor.Views.CustomTitlebars"
     xmlns:vm="using:BEditor.ViewModels"
-    mc:Ignorable="d" Width="1000" SizeToContent="Height"
+    mc:Ignorable="d" Width="800" Height="450"
     ExtendClientAreaToDecorationsHint="True"
     ExtendClientAreaChromeHints="NoChrome"
     ExtendClientAreaTitleBarHeightHint="-1"
@@ -22,16 +22,17 @@
                 TintOpacity="{StaticResource AcrylicTintOpacity1}"
                 MaterialOpacity="{StaticResource AcrylicMaterialOpacity1}" />
         </ExperimentalAcrylicBorder.Material>
-        <Grid RowDefinitions="Auto,*">
+        <Grid RowDefinitions="Auto,Auto,*">
 
             <titlebar:WindowsTitlebarButtons CanResize="False"/>
 
-            <VirtualizingStackPanel Grid.Row="1" Margin="8">
-                <TextBlock
-                    Margin="0,0,0,16"
-                    FontSize="24"
-                    Text="{x:Static props:Strings.CreateProject}" />
+            <TextBlock
+                Grid.Row="1"
+                Margin="8,8,8,24"
+                FontSize="24"
+                Text="{x:Static props:Strings.CreateProject}" />
 
+            <WrapPanel Orientation="Vertical" Grid.Row="2" Margin="8">
                 <!--  Width  -->
                 <VirtualizingStackPanel Margin="8">
                     <TextBlock
@@ -87,7 +88,7 @@
 
 
                 <!--  Name  -->
-                <VirtualizingStackPanel Margin="8,24,8,8">
+                <VirtualizingStackPanel Margin="8">
                     <TextBlock
                         FontSize="14"
                         Text="{x:Static props:Strings.Name}" />
@@ -122,10 +123,10 @@
                     </Grid>
                 </VirtualizingStackPanel>
 
-            </VirtualizingStackPanel>
+            </WrapPanel>
 
             <VirtualizingStackPanel
-                Grid.Row="1"
+                Grid.Row="2"
                 Margin="8"
                 VerticalAlignment="Bottom"
                 HorizontalAlignment="Right"

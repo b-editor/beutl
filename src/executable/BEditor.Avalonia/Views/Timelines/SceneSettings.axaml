@@ -5,23 +5,23 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:props="using:BEditor.Properties"
     xmlns:titlebar="using:BEditor.Views.CustomTitlebars"
-    xmlns:dialogvm="using:BEditor.ViewModels.DialogContent"
-    mc:Ignorable="d" Width="800" Height="450"
+    xmlns:vm="using:BEditor.ViewModels.Timelines"
+    mc:Ignorable="d" Height="450" Width="800"
+    x:Class="BEditor.Views.Timelines.SceneSettings"
     ExtendClientAreaToDecorationsHint="True"
     ExtendClientAreaChromeHints="NoChrome"
     ExtendClientAreaTitleBarHeightHint="-1"
     TransparencyLevelHint="AcrylicBlur"
     Background="Transparent"
     WindowStartupLocation="CenterScreen"
-    x:Class="BEditor.Views.DialogContent.CreateScene"
-    x:DataType="dialogvm:CreateSceneViewModel"
-    Title="CreateScene">
+    x:DataType="vm:SceneSettingsViewModel"
+    Title="SceneSettings">
     <ExperimentalAcrylicBorder>
         <ExperimentalAcrylicBorder.Material>
             <ExperimentalAcrylicMaterial
-                TintColor="#222222"
-                TintOpacity="{StaticResource AcrylicTintOpacity1}"
-                MaterialOpacity="{StaticResource AcrylicMaterialOpacity1}" />
+              TintColor="#222222"
+              TintOpacity="{StaticResource AcrylicTintOpacity1}"
+              MaterialOpacity="{StaticResource AcrylicMaterialOpacity1}" />
         </ExperimentalAcrylicBorder.Material>
         <Grid RowDefinitions="Auto,*">
 
@@ -31,7 +31,7 @@
                 <TextBlock
                     Margin="0,0,0,16"
                     FontSize="24"
-                    Text="{x:Static props:Strings.CreateScene}" />
+                    Text="{x:Static props:Strings.Settings}" />
 
                 <!--  Width  -->
                 <VirtualizingStackPanel Margin="8">
@@ -91,8 +91,8 @@
                 <Button
                     Click="CloseClick"
                     HorizontalAlignment="Left"
-                    Command="{CompiledBinding Create, Mode=OneTime}"
-                    Content="{x:Static props:Strings.Create}"
+                    Command="{CompiledBinding Apply, Mode=OneTime}"
+                    Content="{x:Static props:Strings.Apply}"
                     Cursor="Arrow"
                     Background="Transparent"
                     IsDefault="True"/>

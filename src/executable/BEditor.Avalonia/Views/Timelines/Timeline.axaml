@@ -60,7 +60,7 @@
                             Header="{x:Static properties:Strings.SetMaximumFrame}">
                         </MenuItem>
                         <MenuItem
-                            Command="{CompiledBinding ShowSettings, Mode=OneTime}"
+                            Click="SceneSettings"
                             Header="{x:Static properties:Strings.Settings}">
                             <MenuItem.Icon>
                                 <PathIcon Data="{StaticResource Settings20Regular}" />
