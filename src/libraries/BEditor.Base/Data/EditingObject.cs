@@ -9,6 +9,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
+using System.Threading.Tasks;
 
 using BEditor.Data.Internals;
 using BEditor.Resources;
@@ -242,10 +243,7 @@ namespace BEditor.Data
                     }
                 }
 
-                foreach (var item in obj2.Children)
-                {
-                    item.Load();
-                }
+                Parallel.ForEach(obj2.Children, i => i.Load());
             }
 
             IsLoaded = true;
@@ -260,10 +258,7 @@ namespace BEditor.Data
 
             if (this is IParent<IEditingObject> obj)
             {
-                foreach (var item in obj.Children)
-                {
-                    item.Unload();
-                }
+                Parallel.ForEach(obj.Children, i => i.Unload());
             }
 
             IsLoaded = false;
