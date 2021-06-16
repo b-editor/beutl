@@ -14,6 +14,8 @@ using BEditor.Drawing;
 using BEditor.Primitive.Objects;
 using BEditor.Primitive.Resources;
 
+using OpenTK.Graphics.OpenGL;
+
 [assembly: InternalsVisibleTo("NUnitTestProject1")]
 
 namespace BEditor.Primitive
@@ -206,17 +208,6 @@ namespace BEditor.Primitive
                     EffectMetadata.Create<Effects.Mask>(Strings.Mask),
                 },
             };
-<<<<<<< Updated upstream
-=======
-
-            yield return new(Strings.AudioEffect)
-            {
-                Children = new[]
-                {
-                    EffectMetadata.Create<Effects.Delay>(Strings.Delay),
-                },
-            };
->>>>>>> Stashed changes
 
             yield return new(Strings.LookupTable)
             {

@@ -1564,14 +1564,5 @@
             <param name="sound">The sound to calculate RMS.</param>
             <returns>Returns the RMS.</returns>
         </member>
-        <member name="M:BEditor.Media.Sound.Delay(BEditor.Media.Sound{BEditor.Media.PCM.StereoPCMFloat},System.Single,System.Single,System.Int32)">
-            <summary>
-            Applies the delay effect.
-            </summary>
-            <param name="sound">The sound to apply effect.</param>
-            <param name="amp">The attenuation rate.</param>
-            <param name="delay">The delay time.</param>
-            <param name="repeat">The number of repetitions.</param>
-        </member>
     </members>
 </doc>
