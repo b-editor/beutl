@@ -402,6 +402,7 @@ namespace BEditor.Extensions.AviUtl
         private static EffectMetadata CreateEffectMetadata(IEnumerable<ScriptEntry> anm)
         {
             var list = new List<EffectMetadata> { EffectMetadata.Create<LuaScript>("スクリプト制御") };
+
             var metadata = new EffectMetadata("AviUtl")
             {
                 Children = list

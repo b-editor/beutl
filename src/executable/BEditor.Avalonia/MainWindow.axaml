@@ -340,7 +340,7 @@
                 Header="{x:Static prop:Strings.Library}"
                 FontSize="16"
                 Padding="8" >
-                <views:Library />
+                <views:Library x:Name="Library" />
             </TabItem>
             <TabItem
                 Header="{x:Static prop:Strings.Objects}"

@@ -1,5 +1,8 @@
+using System.Collections;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 
+using Avalonia.Collections;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -17,11 +20,59 @@ namespace BEditor.Views
         {
             InitializeComponent();
 
-            _tree = this.FindControl<TreeView>("TreeView");
+            _tree = new()
+            {
+                SelectionMode = SelectionMode.Single,
+            };
             _tree.AddHandler(PointerPressedEvent, TreeViewPointerPressed, RoutingStrategies.Tunnel);
         }
 
-        private async void TreeViewPointerPressed(object? s, Avalonia.Input.PointerPressedEventArgs e)
+        public void InitializeTreeView()
+        {
+            var alist = new AvaloniaList<TreeViewItem>();
+            _tree.Items = alist;
+            foreach (var item in EffectMetadata.LoadedEffects)
+            {
+                var treeitem = new TreeViewItem
+                {
+                    Header = item.Name,
+                    DataContext = item,
+                };
+                alist.Add(treeitem);
+
+                if (item.Children is not null)
+                {
+                    Add(treeitem, item.Children);
+                }
+            }
+
+            Content = new ScrollViewer
+            {
+                Content = _tree,
+            };
+        }
+
+        private void Add(TreeViewItem treeitem, IEnumerable<EffectMetadata> list)
+        {
+            var alist = new AvaloniaList<TreeViewItem>();
+            treeitem.Items = alist;
+            foreach (var item in list)
+            {
+                var treeitem2 = new TreeViewItem
+                {
+                    Header = item.Name,
+                    DataContext = item,
+                };
+                alist.Add(treeitem2);
+
+                if (item.Children is not null)
+                {
+                    Add(treeitem2, item.Children);
+                }
+            }
+        }
+
+        private async void TreeViewPointerPressed(object? s, PointerPressedEventArgs e)
         {
             if (e.GetCurrentPoint(_tree).Properties.IsLeftButtonPressed)
             {

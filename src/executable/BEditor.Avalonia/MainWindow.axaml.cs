@@ -18,6 +18,7 @@ using BEditor.Models;
 using BEditor.Properties;
 using BEditor.ViewModels;
 using BEditor.ViewModels.DialogContent;
+using BEditor.Views;
 using BEditor.Views.DialogContent;
 
 using OpenTK.Audio.OpenAL;
@@ -109,6 +110,8 @@ namespace BEditor
             App.StartupTask = default;
             await CheckOpenALAsync();
             await ArgumentsContext.ExecuteAsync();
+
+            this.FindControl<Library>("Library").InitializeTreeView();
         }
 
         private void InitializeComponent()
