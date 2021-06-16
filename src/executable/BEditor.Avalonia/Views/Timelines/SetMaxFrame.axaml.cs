@@ -18,7 +18,7 @@ namespace BEditor.Views.Timelines
         {
             InitializeComponent();
         }
-        
+
         public SetMaxFrame(Scene scene)
         {
             _scene = scene;
