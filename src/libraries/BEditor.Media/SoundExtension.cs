@@ -167,5 +167,35 @@ namespace BEditor.Media
             var rightRms = 20 * Math.Log10(right);
             return (double.IsFinite(leftRms) ? leftRms : -90, double.IsFinite(rightRms) ? rightRms : -90);
         }
+
+        /// <summary>
+        /// Applies the delay effect.
+        /// </summary>
+        /// <param name="sound">The sound to apply effect.</param>
+        /// <param name="amp">The attenuation rate.</param>
+        /// <param name="delay">The delay time.</param>
+        /// <param name="repeat">The number of repetitions.</param>
+        public static void Delay(this Sound<StereoPCMFloat> sound, float amp, float delay, int repeat)
+        {
+            using var src_ = sound.Clone();
+            var src = src_.Data;
+            var dst = sound.Data;
+            var d = sound.SampleRate * delay;
+
+            for (var n = 0; n < sound.NumSamples; n++)
+            {
+                for (var i = 1; i <= repeat; i++)
+                {
+                    var m = (int)(n - (i * d));
+
+                    if (m >= 0)
+                    {
+                        var value = MathF.Pow(amp, i);
+                        dst[n].Left += value * src[m].Left;
+                        dst[n].Right += value * src[m].Right;
+                    }
+                }
+            }
+        }
     }
 }

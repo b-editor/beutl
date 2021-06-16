@@ -124,6 +124,15 @@ namespace BEditor.Primitive.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Audio effect.
+        /// </summary>
+        internal static string AudioEffect {
+            get {
+                return ResourceManager.GetString("AudioEffect", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Ball.
         /// </summary>
         internal static string Ball {
@@ -381,6 +390,15 @@ namespace BEditor.Primitive.Resources {
         internal static string Decal {
             get {
                 return ResourceManager.GetString("Decal", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Delay.
+        /// </summary>
+        internal static string Delay {
+            get {
+                return ResourceManager.GetString("Delay", resourceCulture);
             }
         }
         

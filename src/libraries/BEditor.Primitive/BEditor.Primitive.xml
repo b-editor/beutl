@@ -529,6 +529,50 @@
         <member name="M:BEditor.Primitive.Effects.PointLightSource.GetProperties">
             <inheritdoc/>
         </member>
+        <member name="T:BEditor.Primitive.Effects.Delay">
+            <summary>
+            Represents an effect that delays audio.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.Delay.AttenuationProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.Delay.Attenuation"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.Delay.DelayTimeProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.Delay.DelayTime"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.Delay.RepeatProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.Delay.Repeat"/> property.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.Delay.Name">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.Delay.Attenuation">
+            <summary>
+            Gets the attenuation rate.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.Delay.DelayTime">
+            <summary>
+            Gets the delay time.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.Delay.Repeat">
+            <summary>
+            Gets the number of repetitions.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.Delay.Apply(BEditor.Data.EffectApplyArgs{BEditor.Media.Sound{BEditor.Media.PCM.StereoPCMFloat}})">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.Delay.GetProperties">
+            <inheritdoc/>
+        </member>
         <member name="T:BEditor.Primitive.Effects.AreaExpansion">
             <summary>
             Represents the <see cref="T:BEditor.Data.Primitive.ImageEffect"/> that expands the area of an image.
@@ -2937,6 +2981,11 @@
               Looks up a localized string similar to Audio file.
             </summary>
         </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.AudioEffect">
+            <summary>
+              Looks up a localized string similar to Audio effect.
+            </summary>
+        </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Ball">
             <summary>
               Looks up a localized string similar to Ball.
@@ -3080,6 +3129,11 @@
         <member name="P:BEditor.Primitive.Resources.Strings.Decal">
             <summary>
               Looks up a localized string similar to Decal.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Delay">
+            <summary>
+              Looks up a localized string similar to Delay.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Depth">

@@ -637,4 +637,10 @@
   <data name="AudioFile" xml:space="preserve">
     <value>音声ファイル</value>
   </data>
+  <data name="AudioEffect" xml:space="preserve">
+    <value>音声エフェクト</value>
+  </data>
+  <data name="Delay" xml:space="preserve">
+    <value>ディレイ</value>
+  </data>
 </root>

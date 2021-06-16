@@ -208,6 +208,14 @@ namespace BEditor.Primitive
                     EffectMetadata.Create<Effects.Mask>(Strings.Mask),
                 },
             };
+            
+            yield return new(Strings.AudioEffect)
+            {
+                Children = new[]
+                {
+                    EffectMetadata.Create<Effects.Delay>(Strings.Delay),
+                },
+            };
 
             yield return new(Strings.LookupTable)
             {
