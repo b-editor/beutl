@@ -77,28 +77,10 @@ namespace BEditor.Primitive.Effects
         /// <inheritdoc/>
         public override void Apply(EffectApplyArgs<Sound<StereoPCMFloat>> args)
         {
-            var sound = args.Value;
-            using var src_ = sound.Clone();
-            var src = src_.Data;
-            var dst = sound.Data;
-            var a = Attenuation[args.Frame] / 100; /* 減衰率 */
-            var d = sound.SampleRate * DelayTime[args.Frame] / 100; /* 遅延時間 */
-            var repeat = (int)Repeat[args.Frame]; /* 繰り返し回数 */
-
-            for (var n = 0; n < sound.NumSamples; n++)
-            {
-                for (var i = 1; i <= repeat; i++)
-                {
-                    var m = (int)(n - (i * d));
-
-                    if (m >= 0)
-                    {
-                        var value = MathF.Pow(a, i);
-                        dst[n].Left += value * src[m].Left;
-                        dst[n].Right += value * src[m].Right;
-                    }
-                }
-            }
+            args.Value.Delay(
+                Attenuation[args.Frame] / 100,
+                DelayTime[args.Frame] / 100,
+                (int)Repeat[args.Frame]);
         }
 
         /// <inheritdoc/>
