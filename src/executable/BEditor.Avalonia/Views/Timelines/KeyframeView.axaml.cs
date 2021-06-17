@@ -340,12 +340,10 @@ namespace BEditor.Views.Timelines
             {
                 // 現在のマウスの位置 (frame)
                 var now = Scene.ToFrame(e.GetPosition(_grid).X);
-                // クリップからのフレーム
-                var a = now - _startpos + Scene.ToFrame(_select.Margin.Left);
 
-                if (a > 0 && a < Property.GetRequiredParent<ClipElement>().Length)
+                if (now > 0 && now < Property.GetRequiredParent<ClipElement>().Length)
                 {
-                    _select.Margin = new Thickness(Scene.ToPixel(a), 0, 0, 0);
+                    _select.Margin = new Thickness(Scene.ToPixel(now), 0, 0, 0);
                     _startpos = now;
                 }
             }

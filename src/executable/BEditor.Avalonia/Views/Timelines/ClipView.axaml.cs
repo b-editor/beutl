@@ -23,6 +23,7 @@ namespace BEditor.Views.Timelines
         private readonly AudioObject _audio;
         private readonly ClipView _view;
         private readonly IBrush _brush = ConstantSettings.UseDarkMode ? Brushes.White : Brushes.Black;
+        private readonly IBrush _background = (IBrush)Application.Current.FindResource("SystemControlBackgroundChromeBlackLowBrush")!;
 
         public ClipVolumeView(AudioObject audio, ClipView view)
         {
@@ -33,8 +34,9 @@ namespace BEditor.Views.Timelines
 
         public override void Render(DrawingContext context)
         {
-            if (!double.IsNaN(_view.Height)) return;
             var bounds = Bounds;
+            context.FillRectangle(_background, new(0, 0, bounds.Width, bounds.Height));
+            if (!double.IsNaN(_view.Height)) return;
             var length = (int)_audio.Parent.Length;
 
             for (var i = 0; i < length; i++)
