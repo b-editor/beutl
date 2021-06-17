@@ -31,16 +31,6 @@ namespace BEditor.Data.Primitive
                 EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Volume, 50, float.NaN, 0)).Serialize());
 
         /// <summary>
-        /// Defines the <see cref="Pitch"/> property.
-        /// </summary>
-        public static readonly DirectEditingProperty<AudioObject, EaseProperty> PitchProperty =
-            EditingProperty.RegisterDirect<EaseProperty, AudioObject>(
-                nameof(Pitch),
-                owner => owner.Pitch,
-                (owner, obj) => owner.Pitch = obj,
-                EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Pitch, 100, 200, 50)).Serialize());
-
-        /// <summary>
         /// Initializes a new instance of the <see cref="AudioObject"/> class.
         /// </summary>
         protected AudioObject()
@@ -52,12 +42,6 @@ namespace BEditor.Data.Primitive
         /// </summary>
         [AllowNull]
         public EaseProperty Volume { get; private set; }
-
-        /// <summary>
-        /// Get the pitch.
-        /// </summary>
-        [AllowNull]
-        public EaseProperty Pitch { get; private set; }
 
         /// <inheritdoc/>
         public override void Apply(EffectApplyArgs args)

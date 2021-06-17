@@ -1520,9 +1520,18 @@
         </member>
         <member name="T:BEditor.Media.Sound">
             <inheritdoc cref="T:BEditor.Media.Sound"/>
+            <inheritdoc cref="T:BEditor.Media.Sound"/>
             <summary>
             Provides extended methods for <see cref="T:BEditor.Media.Sound`1"/>.
             </summary>
+        </member>
+        <member name="M:BEditor.Media.Sound.PitchShift(BEditor.Media.Sound{BEditor.Media.PCM.StereoPCMFloat},System.Single,System.Single)">
+            <summary>
+            
+            </summary>
+            <param name="sound"></param>
+            <param name="pitch">どれだけ音を高く(低く)するか。-12～12程度</param>
+            <param name="mix">ピッチシフターの効き具合。0.0～1.0の間</param>
         </member>
         <member name="M:BEditor.Media.Sound.Convert``2(BEditor.Media.Sound{``1})">
             <summary>

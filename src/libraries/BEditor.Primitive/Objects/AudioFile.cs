@@ -113,9 +113,20 @@ namespace BEditor.Primitive.Objects
         public override IEnumerable<PropertyElement> GetProperties()
         {
             yield return Volume;
-            yield return Pitch;
             yield return Start;
             yield return File;
+        }
+
+        /// <inheritdoc/>
+        public override Sound<StereoPCMFloat>? OnSample(EffectApplyArgs args)
+        {
+            if (Loaded is null) return null;
+
+            var proj = Parent.Parent.Parent;
+            var context = Parent.Parent.SamplingContext!;
+            var start = (args.Frame - Parent.Start).ToTimeSpan(proj.Framerate);
+            var length = TimeSpan.FromSeconds(context.SamplePerFrame / (double)proj.Samplingrate);
+            return Loaded.Slice(start, length).Clone();
         }
 
         /// <inheritdoc/>
@@ -141,18 +152,6 @@ namespace BEditor.Primitive.Objects
             _mediaFile = null;
             Loaded?.Dispose();
             Loaded = null;
-        }
-
-        /// <inheritdoc/>
-        public override Sound<StereoPCMFloat>? OnSample(EffectApplyArgs args)
-        {
-            if (Loaded is null) return null;
-
-            var proj = Parent.Parent.Parent;
-            var context = Parent.Parent.SamplingContext!;
-            var start = (args.Frame - Parent.Start).ToTimeSpan(proj.Framerate);
-            var length = TimeSpan.FromSeconds(context.SamplePerFrame / (double)proj.Samplingrate);
-            return Loaded.Slice(start, length).Clone();
         }
 
         private static Sound<StereoPCMFloat> GetAllFrame(IAudioStream stream)
