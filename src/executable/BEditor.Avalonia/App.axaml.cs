@@ -77,7 +77,7 @@ namespace BEditor
 
             if (Settings.Default.GraphicsProfile is "Skia")
             {
-
+                IPlatform.Current = new Graphics.Skia.SkiaPlatform();
             }
             else
             {

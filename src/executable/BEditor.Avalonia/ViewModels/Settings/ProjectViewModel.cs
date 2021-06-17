@@ -10,7 +10,8 @@ namespace BEditor.ViewModels.Settings
     {
         public string[] Profiles { get; } = new[]
         {
-            "OpenGL"
+            "OpenGL",
+            "Skia",
         };
     }
 }

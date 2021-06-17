@@ -481,6 +481,12 @@ namespace BEditor.Graphics.OpenGL
             image.Flip(FlipMode.X);
         }
 
+        /// <inheritdoc/>
+        void IGraphicsContextImpl.MakeCurrent()
+        {
+            MakeCurrentAndBindFbo();
+        }
+
         private static void SetBlend(BlendMode blend)
         {
             if (blend is BlendMode.Default)
@@ -627,12 +633,6 @@ namespace BEditor.Graphics.OpenGL
             ball.Draw();
 
             Tool.ThrowGLError();
-        }
-
-        /// <inheritdoc/>
-        void IGraphicsContextImpl.MakeCurrent()
-        {
-            MakeCurrentAndBindFbo();
         }
     }
 }
