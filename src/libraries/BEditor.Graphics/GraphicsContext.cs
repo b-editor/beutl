@@ -8,6 +8,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Numerics;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -22,6 +23,17 @@ namespace BEditor.Graphics
     /// </summary>
     public sealed class GraphicsContext : IDisposable
     {
+        /// <summary>
+        /// Initializes a new instance of the <see cref="GraphicsContext"/> class.
+        /// </summary>
+        /// <param name="width">The width of the graphics context.</param>
+        /// <param name="height">The height of the graphics context.</param>
+        /// <exception cref="GraphicsException">Platform is not set.</exception>
+        public GraphicsContext(int width, int height)
+            : this(IPlatform.Current.CreateContext(width, height))
+        {
+        }
+
         /// <summary>
         /// Initializes a new instance of the <see cref="GraphicsContext"/> class.
         /// </summary>
@@ -111,6 +123,25 @@ namespace BEditor.Graphics
         public void DrawBall(Ball ball)
         {
             PlatformImpl.DrawBall(ball);
+        }
+
+        /// <summary>
+        /// Draws the line into the frame buffer.
+        /// </summary>
+        /// <param name="start">The starting coordinates of the line.</param>
+        /// <param name="end">The ending coordinates of the line.</param>
+        /// <param name="width">The width of the line.</param>
+        /// <param name="transform">The transformation matrix for drawing the line.</param>
+        /// <param name="color">The color of the line.</param>
+        /// <exception cref="GraphicsException">Platform is not set.</exception>
+        public void DrawLine(Vector3 start, Vector3 end, float width, Transform transform, Color color)
+        {
+            using var line = new Line(start, end, width)
+            {
+                Transform = transform,
+                Color = color,
+            };
+            DrawLine(line);
         }
 
         /// <summary>

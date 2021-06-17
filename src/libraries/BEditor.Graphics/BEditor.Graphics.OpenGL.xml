@@ -1,0 +1,965 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>BEditor.Graphics</name>
+    </assembly>
+    <members>
+        <member name="T:BEditor.Graphics.Ball">
+            <summary>
+            Represents an ball.
+            </summary>
+        </member>
+        <member name="M:BEditor.Graphics.Ball.#ctor(System.Single,System.Single,System.Single)">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Graphics.Ball"/> class.
+            </summary>
+            <param name="radiusX">The radius of the ball in the X-axis direction.</param>
+            <param name="radiusY">The radius of the ball in the Y-axis direction.</param>
+            <param name="radiusZ">The radius of the ball in the Z-axis direction.</param>
+            <exception cref="T:BEditor.Graphics.GraphicsException">Platform is not set.</exception>
+        </member>
+        <member name="M:BEditor.Graphics.Ball.#ctor(BEditor.Graphics.Platform.IBallImpl)">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Graphics.Ball"/> class.
+            </summary>
+            <param name="impl">The ball implementation.</param>
+        </member>
+        <member name="P:BEditor.Graphics.Ball.RadiusX">
+            <summary>
+            Gets the radius of this <see cref="T:BEditor.Graphics.Ball"/> in the X-axis direction.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.Ball.RadiusY">
+            <summary>
+            Gets the radius of this <see cref="T:BEditor.Graphics.Ball"/> in the Y-axis direction.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.Ball.RadiusZ">
+            <summary>
+            Gets the radius of this <see cref="T:BEditor.Graphics.Ball"/> in the Z-axis direction.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.Ball.Vertices">
+            <summary>
+            Gets the vertices of this <see cref="T:BEditor.Graphics.Ball"/>.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.Ball.PlatformImpl">
+            <summary>
+            Gets the ball implementation.
+            </summary>
+        </member>
+        <member name="T:BEditor.Graphics.BlendMode">
+            <summary>
+            Defines the mode of the blend.
+            </summary>
+        </member>
+        <member name="F:BEditor.Graphics.BlendMode.Default">
+            <summary>
+            The default.
+            </summary>
+        </member>
+        <member name="F:BEditor.Graphics.BlendMode.Add">
+            <summary>
+            The add.
+            </summary>
+        </member>
+        <member name="F:BEditor.Graphics.BlendMode.Suntract">
+            <summary>
+            The subtract.
+            </summary>
+        </member>
+        <member name="F:BEditor.Graphics.BlendMode.Multiplication">
+            <summary>
+            The multiplication.
+            </summary>
+        </member>
+        <member name="T:BEditor.Graphics.Camera">
+            <summary>
+            Represents an OpenGL camera.
+            </summary>
+        </member>
+        <member name="M:BEditor.Graphics.Camera.#ctor(System.Numerics.Vector3)">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Graphics.Camera"/> class.
+            </summary>
+            <param name="position">The position of the camera.</param>
+        </member>
+        <member name="P:BEditor.Graphics.Camera.Position">
+            <summary>
+            Gets or sets the position of this <see cref="T:BEditor.Graphics.Camera"/>.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.Camera.Target">
+            <summary>
+            Gets or sets the target position of this <see cref="T:BEditor.Graphics.Camera"/>.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.Camera.Fov">
+            <summary>
+            Gets or sets the Degrees representing the Fov of this <see cref="T:BEditor.Graphics.Camera"/>.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.Camera.Near">
+            <summary>
+            Gets or sets the range to be drawn by this <see cref="T:BEditor.Graphics.Camera"/>.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.Camera.Far">
+            <summary>
+            Gets or sets the range to be drawn by this <see cref="T:BEditor.Graphics.Camera"/>.
+            </summary>
+        </member>
+        <member name="M:BEditor.Graphics.Camera.GetViewMatrix">
+            <summary>
+            Gets the ViewMatrix.
+            </summary>
+            <returns>Returns the view matrix.</returns>
+        </member>
+        <member name="M:BEditor.Graphics.Camera.GetProjectionMatrix">
+            <summary>
+            Gets ProjectionMatrix.
+            </summary>
+            <returns>Returns the projection matrix.</returns>
+        </member>
+        <member name="T:BEditor.Graphics.Cube">
+            <summary>
+            Represents an cube.
+            </summary>
+        </member>
+        <member name="M:BEditor.Graphics.Cube.#ctor(System.Single,System.Single,System.Single)">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Graphics.Cube"/> class.
+            </summary>
+            <param name="width">The width of the cube.</param>
+            <param name="height">The height of the cube.</param>
+            <param name="depth">The depth of the cube.</param>
+            <exception cref="T:BEditor.Graphics.GraphicsException">Platform is not set.</exception>
+        </member>
+        <member name="M:BEditor.Graphics.Cube.#ctor(BEditor.Graphics.Platform.ICubeImpl)">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Graphics.Cube"/> class.
+            </summary>
+            <param name="impl">The cube implementation.</param>
+        </member>
+        <member name="P:BEditor.Graphics.Cube.Width">
+            <summary>
+            Gets the width of this <see cref="T:BEditor.Graphics.Cube"/>.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.Cube.Height">
+            <summary>
+            Gets the height of this <see cref="T:BEditor.Graphics.Cube"/>.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.Cube.Depth">
+            <summary>
+            Gets the depth of this <see cref="T:BEditor.Graphics.Cube"/>.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.Cube.Vertices">
+            <summary>
+            Gets the vertices of this <see cref="T:BEditor.Graphics.Cube"/>.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.Cube.PlatformImpl">
+            <summary>
+            Gets the cube implementation.
+            </summary>
+        </member>
+        <member name="T:BEditor.Graphics.Drawable">
+            <summary>
+            Represents the base class of drawable objects.
+            </summary>
+        </member>
+        <member name="M:BEditor.Graphics.Drawable.#ctor(BEditor.Graphics.Platform.IDrawableImpl)">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Graphics.Drawable"/> class.
+            </summary>
+            <param name="impl">The drawable object implementation.</param>
+        </member>
+        <member name="M:BEditor.Graphics.Drawable.Finalize">
+            <summary>
+            Finalizes an instance of the <see cref="T:BEditor.Graphics.Drawable"/> class.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.Drawable.Color">
+            <summary>
+            Gets or sets the color of this <see cref="T:BEditor.Graphics.Drawable"/>.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.Drawable.Material">
+            <summary>
+            Gets or sets the material of this <see cref="T:BEditor.Graphics.Drawable"/>.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.Drawable.Transform">
+            <summary>
+            Gets or sets the transform of this <see cref="T:BEditor.Graphics.Drawable"/>.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.Drawable.BlendMode">
+            <summary>
+            Gets or sets the blend mode of this <see cref="T:BEditor.Graphics.Drawable"/>.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.Drawable.PlatformImpl">
+            <summary>
+            Gets the drawable object implementation.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.Drawable.IsDisposed">
+            <summary>
+            Gets a value indicating whether this instance has been disposed.
+            </summary>
+        </member>
+        <member name="M:BEditor.Graphics.Drawable.Dispose">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Graphics.GraphicsContext">
+            <summary>
+            Represents the graphics context.
+            </summary>
+        </member>
+        <member name="M:BEditor.Graphics.GraphicsContext.#ctor(System.Int32,System.Int32)">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Graphics.GraphicsContext"/> class.
+            </summary>
+            <param name="width">The width of the graphics context.</param>
+            <param name="height">The height of the graphics context.</param>
+            <exception cref="T:BEditor.Graphics.GraphicsException">Platform is not set.</exception>
+        </member>
+        <member name="M:BEditor.Graphics.GraphicsContext.#ctor(BEditor.Graphics.Platform.IGraphicsContextImpl)">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Graphics.GraphicsContext"/> class.
+            </summary>
+            <param name="impl">The graphics context implementation.</param>
+        </member>
+        <member name="P:BEditor.Graphics.GraphicsContext.Width">
+            <summary>
+            Gets the width of the frame buffer.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.GraphicsContext.Height">
+            <summary>
+            Gets the height of the frame buffer.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.GraphicsContext.IsDisposed">
+            <summary>
+            Gets a value indicating whether this instance has been disposed.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.GraphicsContext.Camera">
+            <summary>
+            Gets or sets the camera.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.GraphicsContext.Light">
+            <summary>
+            Gets or sets the light.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.GraphicsContext.PlatformImpl">
+            <summary>
+            Gets the graphics context implementation.
+            </summary>
+        </member>
+        <member name="M:BEditor.Graphics.GraphicsContext.SetSize(BEditor.Drawing.Size)">
+            <summary>
+            Sets the framebuffer size.
+            </summary>
+            <param name="size">The framebuffer size.</param>
+        </member>
+        <member name="M:BEditor.Graphics.GraphicsContext.Clear">
+            <summary>
+            Clears the framebuffer.
+            </summary>
+        </member>
+        <member name="M:BEditor.Graphics.GraphicsContext.DrawTexture(BEditor.Graphics.Texture)">
+            <summary>
+            Draws the texture into the frame buffer.
+            </summary>
+            <param name="texture">The texture to be drawn.</param>
+        </member>
+        <member name="M:BEditor.Graphics.GraphicsContext.DrawCube(BEditor.Graphics.Cube)">
+            <summary>
+            Draws the cube into the frame buffer.
+            </summary>
+            <param name="cube">The cube to be drawn.</param>
+        </member>
+        <member name="M:BEditor.Graphics.GraphicsContext.DrawBall(BEditor.Graphics.Ball)">
+            <summary>
+            Draws the ball into the frame buffer.
+            </summary>
+            <param name="ball">The ball to be drawn.</param>
+        </member>
+        <member name="M:BEditor.Graphics.GraphicsContext.DrawLine(System.Numerics.Vector3,System.Numerics.Vector3,System.Single,BEditor.Graphics.Transform,BEditor.Drawing.Color)">
+            <summary>
+            Draws the line into the frame buffer.
+            </summary>
+            <param name="start">The starting coordinates of the line.</param>
+            <param name="end">The ending coordinates of the line.</param>
+            <param name="width">The width of the line.</param>
+            <param name="transform">The transformation matrix for drawing the line.</param>
+            <param name="color">The color of the line.</param>
+            <exception cref="T:BEditor.Graphics.GraphicsException">Platform is not set.</exception>
+        </member>
+        <member name="M:BEditor.Graphics.GraphicsContext.DrawLine(BEditor.Graphics.Line)">
+            <summary>
+            Draws the line into the frame buffer.
+            </summary>
+            <param name="line">The line to be drawn.</param>
+        </member>
+        <member name="M:BEditor.Graphics.GraphicsContext.ReadImage(BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32})">
+            <summary>
+            Reads an image.
+            </summary>
+            <param name="image">The image to write the frame buffer pixels.</param>
+        </member>
+        <member name="M:BEditor.Graphics.GraphicsContext.Dispose">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Graphics.GraphicsException">
+            <summary>
+            Represents an exception that is raised when an error occurs using OpenGL.
+            </summary>
+        </member>
+        <member name="M:BEditor.Graphics.GraphicsException.#ctor">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Graphics.GraphicsException"/> class.
+            </summary>
+        </member>
+        <member name="M:BEditor.Graphics.GraphicsException.#ctor(System.String)">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Graphics.GraphicsException"/> class with a specified error message.
+            </summary>
+            <param name="message">The message that describes the error.</param>
+        </member>
+        <member name="M:BEditor.Graphics.GraphicsException.#ctor(System.String,System.Exception)">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Graphics.GraphicsException"/> class with a specified error message and a reference to the inner exception that is the cause of this exception.
+            </summary>
+            <param name="message">The error message that explains the reason for the exception.</param>
+            <param name="inner">The exception that is the cause of the current exception, or a null reference (Nothing in Visual Basic) if no inner exception is specified.</param>
+        </member>
+        <member name="M:BEditor.Graphics.GraphicsException.#ctor(System.Runtime.Serialization.SerializationInfo,System.Runtime.Serialization.StreamingContext)">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Graphics.GraphicsException"/> class with serialized data.
+            </summary>
+            <param name="info">The <see cref="T:System.Runtime.Serialization.SerializationInfo"/> that holds the serialized object data about the exception being thrown.</param>
+            <param name="context">The <see cref="T:System.Runtime.Serialization.StreamingContext"/> that contains contextual information about the source or destination.</param>
+            <exception cref="T:System.ArgumentNullException"><paramref name="info"/> is <see langword="null"/>.</exception>
+            <exception cref="T:System.Runtime.Serialization.SerializationException">The class name is <see langword="null"/> or <see cref="P:System.Exception.HResult"/> is zero (0).</exception>
+        </member>
+        <member name="T:BEditor.Graphics.ImageInfo">
+            <summary>
+            A pair of an image and a transformation matrix.
+            </summary>
+        </member>
+        <member name="M:BEditor.Graphics.ImageInfo.#ctor(BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32},System.Func{BEditor.Graphics.ImageInfo,BEditor.Graphics.Transform})">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Graphics.ImageInfo"/> class.
+            </summary>
+            <param name="image">The image.</param>
+            <param name="transform">Gets the tramsform.</param>
+        </member>
+        <member name="P:BEditor.Graphics.ImageInfo.Source">
+            <summary>
+            Gets or sets the image.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.ImageInfo.Transform">
+            <summary>
+            Gets the <see cref="T:BEditor.Graphics.Transform"/> structure.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.ImageInfo.IsDisposed">
+            <summary>
+            Gets a value indicating whether this instance has been disposed.
+            </summary>
+        </member>
+        <member name="M:BEditor.Graphics.ImageInfo.Dispose">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Graphics.Light">
+            <summary>
+            Represents an OpenGL light.
+            </summary>
+        </member>
+        <member name="M:BEditor.Graphics.Light.#ctor(System.Numerics.Vector3,BEditor.Drawing.Color,BEditor.Drawing.Color,BEditor.Drawing.Color)">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Graphics.Light"/> class.
+            </summary>
+            <param name="pos">The position of the lights.</param>
+            <param name="ambient">The ambient color.</param>
+            <param name="diffuse">The diffuse color.</param>
+            <param name="specular">The specular color.</param>
+        </member>
+        <member name="P:BEditor.Graphics.Light.Ambient">
+            <summary>
+            Gets or sets the ambient color of this <see cref="T:BEditor.Graphics.Light"/>.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.Light.Diffuse">
+            <summary>
+            Gets or sets the diffuse color of this <see cref="T:BEditor.Graphics.Light"/>.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.Light.Specular">
+            <summary>
+            Gets or sets the specular color of this <see cref="T:BEditor.Graphics.Light"/>.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.Light.Position">
+            <summary>
+            Gets or sets the position of this <see cref="T:BEditor.Graphics.Light"/>.
+            </summary>
+        </member>
+        <member name="T:BEditor.Graphics.Line">
+            <summary>
+            Represents an line.
+            </summary>
+        </member>
+        <member name="M:BEditor.Graphics.Line.#ctor(System.Numerics.Vector3,System.Numerics.Vector3,System.Single)">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Graphics.Line"/> class.
+            </summary>
+            <param name="start">The start position of the line.</param>
+            <param name="end">The end position of the line.</param>
+            <param name="width">The width of the line.</param>
+            <exception cref="T:BEditor.Graphics.GraphicsException">Platform is not set.</exception>
+        </member>
+        <member name="M:BEditor.Graphics.Line.#ctor(BEditor.Graphics.Platform.ILineImpl)">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Graphics.Line"/> class.
+            </summary>
+            <param name="impl">The line implementation.</param>
+        </member>
+        <member name="P:BEditor.Graphics.Line.Vertices">
+            <summary>
+            Gets the vertices of this <see cref="T:BEditor.Graphics.Line"/>.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.Line.Start">
+            <summary>
+            Gets the start position of this <see cref="T:BEditor.Graphics.Line"/>.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.Line.End">
+            <summary>
+            Gets the end position of this <see cref="T:BEditor.Graphics.Line"/>.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.Line.Width">
+            <summary>
+            Gets the width of this <see cref="T:BEditor.Graphics.Line"/>.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.Line.PlatformImpl">
+            <summary>
+            Gets the line implementation.
+            </summary>
+        </member>
+        <member name="T:BEditor.Graphics.Material">
+            <summary>
+            Represents a <see cref="T:BEditor.Graphics.Drawable"/> material structure.
+            </summary>
+        </member>
+        <member name="M:BEditor.Graphics.Material.#ctor(BEditor.Drawing.Color,BEditor.Drawing.Color,BEditor.Drawing.Color,System.Single)">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Graphics.Material"/> struct.
+            </summary>
+            <param name="ambient">The ambient color.</param>
+            <param name="diffuse">The diffuse color.</param>
+            <param name="specular">The specular color.</param>
+            <param name="shininess">The shininess.</param>
+        </member>
+        <member name="P:BEditor.Graphics.Material.Ambient">
+            <summary>
+            Gets the ambient color.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.Material.Diffuse">
+            <summary>
+            Gets the diffuse color.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.Material.Specular">
+            <summary>
+            Gets the specular color.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.Material.Shininess">
+            <summary>
+            Gets the shininess.
+            </summary>
+        </member>
+        <member name="T:BEditor.Graphics.OrthographicCamera">
+            <summary>
+            Represents an orthographic camera.
+            </summary>
+        </member>
+        <member name="M:BEditor.Graphics.OrthographicCamera.#ctor(System.Numerics.Vector3,System.Single,System.Single)">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Graphics.OrthographicCamera"/> class.
+            </summary>
+            <param name="position">The position of the camera.</param>
+            <param name="width">The width of the view volume.</param>
+            <param name="height">The height of the view volume.</param>
+        </member>
+        <member name="P:BEditor.Graphics.OrthographicCamera.Width">
+            <summary>
+            Gets or sets the width of the view volume.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.OrthographicCamera.Height">
+            <summary>
+            Gets or sets the height of the view volume.
+            </summary>
+        </member>
+        <member name="M:BEditor.Graphics.OrthographicCamera.GetProjectionMatrix">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Graphics.PerspectiveCamera">
+            <summary>
+            Represents the perspective camera.
+            </summary>
+        </member>
+        <member name="M:BEditor.Graphics.PerspectiveCamera.#ctor(System.Numerics.Vector3,System.Single)">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Graphics.PerspectiveCamera"/> class.
+            </summary>
+            <param name="position">The position of the camera.</param>
+            <param name="aspectRatio">The aspect ratio of the camera's viewport.</param>
+        </member>
+        <member name="P:BEditor.Graphics.PerspectiveCamera.AspectRatio">
+            <summary>
+            Gets or sets the aspect ratio of the camera's viewport.
+            </summary>
+        </member>
+        <member name="M:BEditor.Graphics.PerspectiveCamera.GetProjectionMatrix">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Graphics.Platform.IBallImpl">
+            <summary>
+            Defines a ball implementation.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.Platform.IBallImpl.RadiusX">
+            <summary>
+            Gets the radius of this <see cref="T:BEditor.Graphics.Platform.IBallImpl"/> in the X-axis direction.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.Platform.IBallImpl.RadiusY">
+            <summary>
+            Gets the radius of this <see cref="T:BEditor.Graphics.Platform.IBallImpl"/> in the Y-axis direction.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.Platform.IBallImpl.RadiusZ">
+            <summary>
+            Gets the radius of this <see cref="T:BEditor.Graphics.Platform.IBallImpl"/> in the Z-axis direction.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.Platform.IBallImpl.Vertices">
+            <summary>
+            Gets the vertices of this <see cref="T:BEditor.Graphics.Platform.IBallImpl"/>.
+            </summary>
+        </member>
+        <member name="T:BEditor.Graphics.Platform.ICubeImpl">
+            <summary>
+            Defines a cube implementation.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.Platform.ICubeImpl.Width">
+            <summary>
+            Gets the width of this <see cref="T:BEditor.Graphics.Platform.ICubeImpl"/>.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.Platform.ICubeImpl.Height">
+            <summary>
+            Gets the height of this <see cref="T:BEditor.Graphics.Platform.ICubeImpl"/>.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.Platform.ICubeImpl.Depth">
+            <summary>
+            Gets the depth of this <see cref="T:BEditor.Graphics.Platform.ICubeImpl"/>.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.Platform.ICubeImpl.Vertices">
+            <summary>
+            Gets the vertices of this <see cref="T:BEditor.Graphics.Platform.ICubeImpl"/>.
+            </summary>
+        </member>
+        <member name="T:BEditor.Graphics.Platform.IDrawableImpl">
+            <summary>
+            Defines a drawable object implementation.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.Platform.IDrawableImpl.Color">
+            <summary>
+            Gets or sets the color of this <see cref="T:BEditor.Graphics.Platform.IDrawableImpl"/>.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.Platform.IDrawableImpl.BlendMode">
+            <summary>
+            Gets or sets the blend mode of this <see cref="T:BEditor.Graphics.Platform.IDrawableImpl"/>.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.Platform.IDrawableImpl.Material">
+            <summary>
+            Gets or sets the material of this <see cref="T:BEditor.Graphics.Platform.IDrawableImpl"/>.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.Platform.IDrawableImpl.Transform">
+            <summary>
+            Gets or sets the transform of this <see cref="T:BEditor.Graphics.Platform.IDrawableImpl"/>.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.Platform.IDrawableImpl.IsDisposed">
+            <summary>
+            Gets a value indicating whether this instance has been disposed.
+            </summary>
+        </member>
+        <member name="T:BEditor.Graphics.Platform.IGraphicsContextImpl">
+            <summary>
+            Defines a graphics context implementation.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.Platform.IGraphicsContextImpl.Width">
+            <summary>
+            Gets the width of the frame buffer.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.Platform.IGraphicsContextImpl.Height">
+            <summary>
+            Gets the height of the frame buffer.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.Platform.IGraphicsContextImpl.IsDisposed">
+            <summary>
+            Gets a value indicating whether this instance has been disposed.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.Platform.IGraphicsContextImpl.Camera">
+            <summary>
+            Gets or sets the camera.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.Platform.IGraphicsContextImpl.Light">
+            <summary>
+            Gets or sets the light.
+            </summary>
+        </member>
+        <member name="M:BEditor.Graphics.Platform.IGraphicsContextImpl.MakeCurrent">
+            <summary>
+            Makes current.
+            </summary>
+        </member>
+        <member name="M:BEditor.Graphics.Platform.IGraphicsContextImpl.SetSize(BEditor.Drawing.Size)">
+            <summary>
+            Sets the framebuffer size.
+            </summary>
+            <param name="size">The framebuffer size.</param>
+        </member>
+        <member name="M:BEditor.Graphics.Platform.IGraphicsContextImpl.Clear">
+            <summary>
+            Clears the framebuffer.
+            </summary>
+        </member>
+        <member name="M:BEditor.Graphics.Platform.IGraphicsContextImpl.DrawTexture(BEditor.Graphics.Texture)">
+            <summary>
+            Draws the texture into the frame buffer.
+            </summary>
+            <param name="texture">The texture to be drawn.</param>
+        </member>
+        <member name="M:BEditor.Graphics.Platform.IGraphicsContextImpl.DrawCube(BEditor.Graphics.Cube)">
+            <summary>
+            Draws the cube into the frame buffer.
+            </summary>
+            <param name="cube">The cube to be drawn.</param>
+        </member>
+        <member name="M:BEditor.Graphics.Platform.IGraphicsContextImpl.DrawBall(BEditor.Graphics.Ball)">
+            <summary>
+            Draws the ball into the frame buffer.
+            </summary>
+            <param name="ball">The ball to be drawn.</param>
+        </member>
+        <member name="M:BEditor.Graphics.Platform.IGraphicsContextImpl.DrawLine(BEditor.Graphics.Line)">
+            <summary>
+            Draws the line into the frame buffer.
+            </summary>
+            <param name="line">The line to be drawn.</param>
+        </member>
+        <member name="M:BEditor.Graphics.Platform.IGraphicsContextImpl.ReadImage(BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32})">
+            <summary>
+            Reads an image.
+            </summary>
+            <param name="image">The image to write the frame buffer pixels.</param>
+        </member>
+        <member name="T:BEditor.Graphics.Platform.ILineImpl">
+            <summary>
+            Defines a line implementation.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.Platform.ILineImpl.Vertices">
+            <summary>
+            Gets the vertices of this <see cref="T:BEditor.Graphics.Platform.ILineImpl"/>.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.Platform.ILineImpl.Start">
+            <summary>
+            Gets the start position of this <see cref="T:BEditor.Graphics.Platform.ILineImpl"/>.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.Platform.ILineImpl.End">
+            <summary>
+            Gets the end position of this <see cref="T:BEditor.Graphics.Platform.ILineImpl"/>.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.Platform.ILineImpl.Width">
+            <summary>
+            Gets the width of this <see cref="T:BEditor.Graphics.Platform.ILineImpl"/>.
+            </summary>
+        </member>
+        <member name="T:BEditor.Graphics.Platform.IPlatform">
+            <summary>
+            Represents the platform.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.Platform.IPlatform.Current">
+            <summary>
+            Gets or sets the current platform.
+            </summary>
+        </member>
+        <member name="M:BEditor.Graphics.Platform.IPlatform.CreateContext(System.Int32,System.Int32)">
+            <summary>
+            Creates the graphics context.
+            </summary>
+            <param name="width">The width of the graphics context.</param>
+            <param name="height">The height of the graphics context.</param>
+            <returns>Returns the implementation created by this method.</returns>
+        </member>
+        <member name="M:BEditor.Graphics.Platform.IPlatform.CreateBall(System.Single,System.Single,System.Single)">
+            <summary>
+            Creates the ball.
+            </summary>
+            <param name="radiusX">The radius of the ball in the X-axis direction.</param>
+            <param name="radiusY">The radius of the ball in the Y-axis direction.</param>
+            <param name="radiusZ">The radius of the ball in the Z-axis direction.</param>
+            <returns>Returns the implementation created by this method.</returns>
+        </member>
+        <member name="M:BEditor.Graphics.Platform.IPlatform.CreateCube(System.Single,System.Single,System.Single)">
+            <summary>
+            Creates the cube.
+            </summary>
+            <param name="width">The width of the cube.</param>
+            <param name="height">The height of the cube.</param>
+            <param name="depth">The depth of the cube.</param>
+            <returns>Returns the implementation created by this method.</returns>
+        </member>
+        <member name="M:BEditor.Graphics.Platform.IPlatform.CreateLine(System.Numerics.Vector3,System.Numerics.Vector3,System.Single)">
+            <summary>
+            Creates the line.
+            </summary>
+            <param name="start">The start position of the line.</param>
+            <param name="end">The end position of the line.</param>
+            <param name="width">The width of the line.</param>
+            <returns>Returns the implementation created by this method.</returns>
+        </member>
+        <member name="M:BEditor.Graphics.Platform.IPlatform.CreateTexture(BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32},System.Numerics.Vector3[],System.Numerics.Vector2[])">
+            <summary>
+            Creates the texture.
+            </summary>
+            <param name="image">The image to create texture.</param>
+            <param name="vertices">The vertices.</param>
+            <param name="uv">The uv coordinates.</param>
+            <returns>Returns the implementation created by this method.</returns>
+        </member>
+        <member name="T:BEditor.Graphics.Platform.ITextureImpl">
+            <summary>
+            Defines a texture implementation.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.Platform.ITextureImpl.Width">
+            <summary>
+            Gets the width of this <see cref="T:BEditor.Graphics.Platform.ITextureImpl"/>.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.Platform.ITextureImpl.Height">
+            <summary>
+            Gets the height of this <see cref="T:BEditor.Graphics.Platform.ITextureImpl"/>.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.Platform.ITextureImpl.Vertices">
+            <summary>
+            Gets the vertices of this <see cref="T:BEditor.Graphics.Platform.ITextureImpl"/>.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.Platform.ITextureImpl.Uv">
+            <summary>
+            Gets the uv vertices of this <see cref="T:BEditor.Graphics.Platform.ITextureImpl"/>.
+            </summary>
+        </member>
+        <member name="M:BEditor.Graphics.Platform.ITextureImpl.ToImage">
+            <summary>
+            Converts this texture to an image.
+            </summary>
+            <returns>Returns the image.</returns>
+        </member>
+        <member name="T:BEditor.Graphics.Resources.Strings">
+            <summary>
+              A strongly-typed resource class, for looking up localized strings, etc.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.Resources.Strings.ResourceManager">
+            <summary>
+              Returns the cached ResourceManager instance used by this class.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.Resources.Strings.Culture">
+            <summary>
+              Overrides the current thread's CurrentUICulture property for all
+              resource lookups using this strongly typed resource class.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.Resources.Strings.PlatformIsNotSet">
+            <summary>
+              Looks up a localized string similar to Platform is not set..
+            </summary>
+        </member>
+        <member name="T:BEditor.Graphics.Texture">
+            <summary>
+            Represents an texture.
+            </summary>
+        </member>
+        <member name="M:BEditor.Graphics.Texture.#ctor(BEditor.Graphics.Platform.ITextureImpl)">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Graphics.Texture"/> class.
+            </summary>
+            <param name="impl">The texture implementaion.</param>
+        </member>
+        <member name="P:BEditor.Graphics.Texture.Width">
+            <summary>
+            Gets the width of this <see cref="T:BEditor.Graphics.Texture"/>.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.Texture.Height">
+            <summary>
+            Gets the height of this <see cref="T:BEditor.Graphics.Texture"/>.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.Texture.Vertices">
+            <summary>
+            Gets the vertices of this <see cref="T:BEditor.Graphics.Platform.ITextureImpl"/>.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.Texture.Uv">
+            <summary>
+            Gets the uv vertices of this <see cref="T:BEditor.Graphics.Platform.ITextureImpl"/>.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.Texture.PlatformImpl">
+            <summary>
+            Gets the texture implementation.
+            </summary>
+        </member>
+        <member name="M:BEditor.Graphics.Texture.FromImage(BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32},System.Numerics.Vector3[],System.Numerics.Vector2[])">
+            <summary>
+            Create a texture from an <see cref="T:BEditor.Drawing.Image`1"/>.
+            </summary>
+            <param name="image">The image to create texture.</param>
+            <param name="vertices">The vertices.</param>
+            <param name="uv">The uv coordinates.</param>
+            <exception cref="T:BEditor.Graphics.GraphicsException">Platform is not set.</exception>
+            <returns>Returns the texture created by this method.</returns>
+        </member>
+        <member name="M:BEditor.Graphics.Texture.ToImage">
+            <summary>
+            Converts this texture to an image.
+            </summary>
+            <returns>Returns the image.</returns>
+        </member>
+        <member name="T:BEditor.Graphics.Transform">
+            <summary>
+            Represents the transformation matrix.
+            </summary>
+        </member>
+        <member name="F:BEditor.Graphics.Transform.Zero">
+            <summary>
+            Represents the zero-filled value of <see cref="T:BEditor.Graphics.Transform"/>.
+            </summary>
+        </member>
+        <member name="F:BEditor.Graphics.Transform.Default">
+            <summary>
+            Represents the default value of <see cref="T:BEditor.Graphics.Transform"/>.
+            </summary>
+        </member>
+        <member name="M:BEditor.Graphics.Transform.#ctor(System.Numerics.Vector3,System.Numerics.Vector3,System.Numerics.Vector3,System.Numerics.Vector3)">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Graphics.Transform"/> struct.
+            </summary>
+            <param name="coord">The coordinates.</param>
+            <param name="center">The center coordinates.</param>
+            <param name="rotate">The rotation.</param>
+            <param name="scale">The scale.</param>
+        </member>
+        <member name="P:BEditor.Graphics.Transform.Coordinate">
+            <summary>
+            Gets or sets the coordinates.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.Transform.Center">
+            <summary>
+            Gets or sets the center coordinates.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.Transform.Rotate">
+            <summary>
+            Gets or sets the rotation.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.Transform.Scale">
+            <summary>
+            Gets or sets the scale.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.Transform.Matrix">
+            <summary>
+            Gets the matrix.
+            </summary>
+        </member>
+        <member name="M:BEditor.Graphics.Transform.op_Addition(BEditor.Graphics.Transform,BEditor.Graphics.Transform)">
+            <summary>
+            Adds two specified <see cref="T:BEditor.Graphics.Transform"/> instances.
+            </summary>
+            <param name="left">The first time interval to add.</param>
+            <param name="right">The second time interval to add.</param>
+            <returns>An object whose value is the sum of the values of <paramref name="left"/> and <paramref name="right"/>.</returns>
+        </member>
+        <member name="M:BEditor.Graphics.Transform.op_Subtraction(BEditor.Graphics.Transform,BEditor.Graphics.Transform)">
+            <summary>
+            Subtracts a specified <see cref="T:BEditor.Graphics.Transform"/> from another specified <see cref="T:BEditor.Graphics.Transform"/>.
+            </summary>
+            <param name="left">The minuend.</param>
+            <param name="right">The subtrahend.</param>
+            <returns>An object whose value is the result of the value of <paramref name="left"/> minus the value of <paramref name="right"/>.</returns>
+        </member>
+        <member name="M:BEditor.Graphics.Transform.op_Multiply(BEditor.Graphics.Transform,BEditor.Graphics.Transform)">
+            <summary>
+            Returns a new <see cref="T:BEditor.Graphics.Transform"/> object whose value is the result of multiplying the specified <see cref="T:BEditor.Graphics.Transform"/> instance and the specified factor.
+            </summary>
+            <param name="left">The value to be multiplied.</param>
+            <param name="right">The value to be multiplied by.</param>
+            <returns>A new object that represents the value of the specified <see cref="T:BEditor.Graphics.Transform"/> instance multiplied by the value of the specified factor.</returns>
+        </member>
+        <member name="M:BEditor.Graphics.Transform.op_Division(BEditor.Graphics.Transform,BEditor.Graphics.Transform)">
+            <summary>
+            Returns a new <see cref="T:BEditor.Graphics.Transform"/> value which is the result of division of <paramref name="left"/> instance and the specified <paramref name="right"/>.
+            </summary>
+            <param name="left">Divident or the value to be divided.</param>
+            <param name="right">The value to be divided by.</param>
+            <returns>A new value that represents result of division of <paramref name="left"/> instance by the value of the <paramref name="right"/>.</returns>
+        </member>
+    </members>
+</doc>

@@ -628,5 +628,11 @@ namespace BEditor.Graphics.OpenGL
 
             Tool.ThrowGLError();
         }
+
+        /// <inheritdoc/>
+        void IGraphicsContextImpl.MakeCurrent()
+        {
+            MakeCurrentAndBindFbo();
+        }
     }
 }

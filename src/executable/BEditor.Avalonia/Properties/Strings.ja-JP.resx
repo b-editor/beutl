@@ -763,4 +763,7 @@ IdにはGUID, UUIDが使えます。</value>
   <data name="UseCurrentFrame" xml:space="preserve">
     <value>現在のフレームを使用</value>
   </data>
+  <data name="GraphicsProfile" xml:space="preserve">
+    <value>グラフィックプロファイル</value>
+  </data>
 </root>

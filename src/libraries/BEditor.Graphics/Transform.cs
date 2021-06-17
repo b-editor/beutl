@@ -5,10 +5,7 @@
 // This software may be modified and distributed under the terms
 // of the MIT license. See the LICENSE file for details.
 
-using OpenTK.Mathematics;
-
-using Matrix4 = System.Numerics.Matrix4x4;
-using Vector3 = System.Numerics.Vector3;
+using System.Numerics;
 
 namespace BEditor.Graphics
 {
@@ -65,17 +62,17 @@ namespace BEditor.Graphics
         /// <summary>
         /// Gets the matrix.
         /// </summary>
-        public Matrix4 Matrix
+        public Matrix4x4 Matrix
         {
             get
             {
-                return Matrix4.Identity
-                    * Matrix4.CreateTranslation(Center)
-                        * Matrix4.CreateRotationX(MathHelper.DegreesToRadians(Rotate.X))
-                        * Matrix4.CreateRotationY(MathHelper.DegreesToRadians(Rotate.Y))
-                        * Matrix4.CreateRotationZ(MathHelper.DegreesToRadians(Rotate.Z))
-                            * Matrix4.CreateScale(Scale)
-                                * Matrix4.CreateTranslation(Coordinate);
+                return Matrix4x4.Identity
+                    * Matrix4x4.CreateTranslation(Center)
+                        * Matrix4x4.CreateRotationX(Camera.ToRadians(Rotate.X))
+                        * Matrix4x4.CreateRotationY(Camera.ToRadians(Rotate.Y))
+                        * Matrix4x4.CreateRotationZ(Camera.ToRadians(Rotate.Z))
+                            * Matrix4x4.CreateScale(Scale)
+                                * Matrix4x4.CreateTranslation(Coordinate);
             }
         }
 

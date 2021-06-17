@@ -18,6 +18,8 @@ using Avalonia.Threading;
 
 using BEditor.Data;
 using BEditor.Extensions;
+using BEditor.Graphics.OpenGL;
+using BEditor.Graphics.Platform;
 using BEditor.Models;
 using BEditor.Models.ManagePlugins;
 using BEditor.Packaging;
@@ -72,6 +74,16 @@ namespace BEditor
             {
                 AvaloniaLocator.CurrentMutable.Bind<IFontManagerImpl>().ToConstant(new CustomFontManagerImpl());
             }
+
+            if (Settings.Default.GraphicsProfile is "Skia")
+            {
+
+            }
+            else
+            {
+                IPlatform.Current = new OpenGLPlatform();
+            }
+
             base.RegisterServices();
         }
 

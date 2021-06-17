@@ -54,10 +54,10 @@ namespace BEditor.Graphics.OpenGL
             var halfW = image.Width / 2;
             vertices ??= new Vector3[]
             {
-                new(halfH, -halfW, 0),
-                new(halfH, halfW, 0),
-                new(-halfH, halfW, 0),
-                new(-halfH, -halfW, 0),
+                new(halfW, -halfH, 0),
+                new(halfW, halfH, 0),
+                new(-halfW, halfH, 0),
+                new(-halfW, -halfH, 0),
             };
             uv ??= new Vector2[]
             {

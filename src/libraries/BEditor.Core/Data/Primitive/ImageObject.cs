@@ -16,8 +16,6 @@ using BEditor.Graphics;
 using BEditor.Media;
 using BEditor.Resources;
 
-using OpenTK.Graphics.OpenGL4;
-
 namespace BEditor.Data.Primitive
 {
     /// <summary>
@@ -322,20 +320,9 @@ namespace BEditor.Data.Primitive
             texture.Material = new(ambient, diffuse, specular, shininess);
             texture.Transform = trans;
             texture.Color = color;
+            texture.BlendMode = (BlendMode)Blend.BlendType.Index;
 
-            GL.Enable(EnableCap.Blend);
-
-            context.DrawTexture(texture, () =>
-            {
-                var blendFunc = Blend.BlentFunc[Blend.BlendType.Index];
-
-                blendFunc?.Invoke();
-                if (blendFunc is null)
-                {
-                    GL.BlendFuncSeparate(BlendingFactorSrc.SrcAlpha, BlendingFactorDest.OneMinusSrcAlpha, BlendingFactorSrc.One, BlendingFactorDest.OneMinusSrcAlpha);
-                    GL.BlendEquation(BlendEquationMode.FuncAdd);
-                }
-            });
+            context.DrawTexture(texture);
         }
     }
 }

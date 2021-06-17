@@ -11,6 +11,8 @@ using System.Diagnostics.CodeAnalysis;
 
 using BEditor.Data;
 using BEditor.Data.Property;
+using BEditor.Graphics.OpenGL;
+using BEditor.Graphics.Platform;
 using BEditor.Primitive.Resources;
 
 using OpenTK.Graphics.OpenGL4;
@@ -132,6 +134,8 @@ namespace BEditor.Primitive.Effects
         /// <inheritdoc/>
         public override void Apply(EffectApplyArgs args)
         {
+            if (IPlatform.Current is not OpenGLPlatform) return;
+
             if (Enabled.Value) GL.Enable(EnableCap.DepthTest);
             else GL.Disable(EnableCap.DepthTest);
 

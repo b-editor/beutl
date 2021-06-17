@@ -48,7 +48,7 @@ namespace BEditor.Extensions.AviUtl
                     ServiceProvider?.GetService<IMessage>()?.Snackbar(Strings.FailedToExecuteScript);
                 }
             }
-            Parent.Parent.GraphicsContext!.MakeCurrentAndBindFbo();
+            Parent.Parent.GraphicsContext!.PlatformImpl.MakeCurrent();
         }
 
         public override IEnumerable<PropertyElement> GetProperties()

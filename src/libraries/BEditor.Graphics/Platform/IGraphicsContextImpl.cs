@@ -47,6 +47,11 @@ namespace BEditor.Graphics.Platform
         public Light? Light { get; set; }
 
         /// <summary>
+        /// Makes current.
+        /// </summary>
+        public void MakeCurrent();
+
+        /// <summary>
         /// Sets the framebuffer size.
         /// </summary>
         /// <param name="size">The framebuffer size.</param>

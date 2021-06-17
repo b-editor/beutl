@@ -2971,19 +2971,24 @@
               Looks up a localized string similar to Area expansion.
             </summary>
         </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.AttenuationRate">
+            <summary>
+              Looks up a localized string similar to Attenuation rate.
+            </summary>
+        </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Audio">
             <summary>
               Looks up a localized string similar to Audio.
             </summary>
         </member>
-        <member name="P:BEditor.Primitive.Resources.Strings.AudioFile">
-            <summary>
-              Looks up a localized string similar to Audio file.
-            </summary>
-        </member>
         <member name="P:BEditor.Primitive.Resources.Strings.AudioEffect">
             <summary>
               Looks up a localized string similar to Audio effect.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.AudioFile">
+            <summary>
+              Looks up a localized string similar to Audio file.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Ball">
@@ -3134,6 +3139,11 @@
         <member name="P:BEditor.Primitive.Resources.Strings.Delay">
             <summary>
               Looks up a localized string similar to Delay.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.DelayTime">
+            <summary>
+              Looks up a localized string similar to Delay time.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Depth">
@@ -3364,6 +3374,11 @@
         <member name="P:BEditor.Primitive.Resources.Strings.NumberOfHorizontalDivisions">
             <summary>
               Looks up a localized string similar to Number of horizontal divisions.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.NumberOfRepetitions">
+            <summary>
+              Looks up a localized string similar to Number of repetitions.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.NumberOfVerticalDivisions">

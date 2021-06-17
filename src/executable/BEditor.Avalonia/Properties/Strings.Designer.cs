@@ -794,6 +794,15 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to graphics profile.
+        /// </summary>
+        public static string GraphicsProfile {
+            get {
+                return ResourceManager.GetString("GraphicsProfile", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Height.
         /// </summary>
         public static string Height {
