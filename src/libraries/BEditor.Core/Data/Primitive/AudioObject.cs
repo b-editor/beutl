@@ -23,20 +23,29 @@ namespace BEditor.Data.Primitive
         /// <summary>
         /// Defines the <see cref="Volume"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<AudioObject, EaseProperty> VolumeProperty = EditingProperty.RegisterDirect<EaseProperty, AudioObject>(
-            nameof(Volume),
-            owner => owner.Volume,
-            (owner, obj) => owner.Volume = obj,
-            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Volume, 50, float.NaN, 0)).Serialize());
+        public static readonly DirectEditingProperty<AudioObject, EaseProperty> VolumeProperty =
+            EditingProperty.RegisterDirect<EaseProperty, AudioObject>(
+                nameof(Volume),
+                owner => owner.Volume,
+                (owner, obj) => owner.Volume = obj,
+                EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Volume, 50, float.NaN, 0)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="Pitch"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<AudioObject, EaseProperty> PitchProperty = EditingProperty.RegisterDirect<EaseProperty, AudioObject>(
-            nameof(Pitch),
-            owner => owner.Pitch,
-            (owner, obj) => owner.Pitch = obj,
-            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Pitch, 100, 200, 50)).Serialize());
+        public static readonly DirectEditingProperty<AudioObject, EaseProperty> PitchProperty =
+            EditingProperty.RegisterDirect<EaseProperty, AudioObject>(
+                nameof(Pitch),
+                owner => owner.Pitch,
+                (owner, obj) => owner.Pitch = obj,
+                EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Pitch, 100, 200, 50)).Serialize());
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="AudioObject"/> class.
+        /// </summary>
+        protected AudioObject()
+        {
+        }
 
         /// <summary>
         /// Get the volume.

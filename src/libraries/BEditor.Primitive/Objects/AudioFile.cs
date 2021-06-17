@@ -121,6 +121,7 @@ namespace BEditor.Primitive.Objects
         /// <inheritdoc/>
         protected override void OnLoad()
         {
+            base.OnLoad();
             _disposable1 = File.Where(file => System.IO.File.Exists(file)).Subscribe(file =>
             {
                 Decoder = MediaFile.Open(file, new()
@@ -134,6 +135,7 @@ namespace BEditor.Primitive.Objects
         /// <inheritdoc/>
         protected override void OnUnload()
         {
+            base.OnUnload();
             _disposable1?.Dispose();
             _mediaFile?.Dispose();
             _mediaFile = null;

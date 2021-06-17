@@ -170,13 +170,13 @@ namespace BEditor.ViewModels.Timelines
 
         public ReactiveCommand AdjustLength { get; } = new();
 
-        public void PointerLeftPressed(PointerEventArgs e)
+        public void PointerLeftPressed(PointerEventArgs e, Point point)
         {
             var timeline = TimelineViewModel;
-            var scene = ClipElement.Parent;
             timeline.ClipMouseDown = true;
 
-            timeline.ClipStart = timeline.GetLayerMousePosition?.Invoke(e) ?? throw new Exception();
+            timeline.ClipStartAbs = timeline.GetLayerMousePosition?.Invoke(e) ?? throw new Exception();
+            timeline.ClipStartRel = point;
 
             timeline.SelectedClip = ClipElement;
 

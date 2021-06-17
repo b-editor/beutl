@@ -63,7 +63,7 @@ namespace BEditor.Views.Timelines
             var point = e.GetCurrentPoint((IVisual)s);
             if (point.Properties.IsLeftButtonPressed)
             {
-                ViewModel.PointerLeftPressed(e);
+                ViewModel.PointerLeftPressed(e, point.Position);
             }
             else if (point.Properties.IsRightButtonPressed)
             {

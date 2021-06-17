@@ -1487,6 +1487,21 @@
             <param name="length">The desired length for the slice.</param>
             <returns>A sound that consists of length elements from the current sound starting at start.</returns>
         </member>
+        <member name="M:BEditor.Media.Sound`1.Slice(System.Int32)">
+            <summary>
+            Forms a slice of the current <see cref="T:BEditor.Media.Sound`1"/>, starting at the specified index.
+            </summary>
+            <param name="start">The index at which to begin the slice.</param>
+            <returns>A sound that consists of all elements of the current sound from start to the end of the sound.</returns>
+        </member>
+        <member name="M:BEditor.Media.Sound`1.Slice(System.Int32,System.Int32)">
+            <summary>
+            Forms a slice out of the current <see cref="T:BEditor.Media.Sound`1"/> starting at a specified index for a specified length.
+            </summary>
+            <param name="start">The index at which to begin this slice.</param>
+            <param name="length">The desired length for the slice.</param>
+            <returns>A sound that consists of length elements from the current sound starting at start.</returns>
+        </member>
         <member name="M:BEditor.Media.Sound`1.Combine(BEditor.Media.Sound{`0})">
             <summary>
             Combine the specified <see cref="T:BEditor.Media.Sound`1"/> to this <see cref="T:BEditor.Media.Sound`1"/>.
@@ -1563,6 +1578,15 @@
             </summary>
             <param name="sound">The sound to calculate RMS.</param>
             <returns>Returns the RMS.</returns>
+        </member>
+        <member name="M:BEditor.Media.Sound.Delay(BEditor.Media.Sound{BEditor.Media.PCM.StereoPCMFloat},System.Single,System.Single,System.Int32)">
+            <summary>
+            Applies the delay effect.
+            </summary>
+            <param name="sound">The sound to apply effect.</param>
+            <param name="amp">The attenuation rate.</param>
+            <param name="delay">The delay time.</param>
+            <param name="repeat">The number of repetitions.</param>
         </member>
     </members>
 </doc>

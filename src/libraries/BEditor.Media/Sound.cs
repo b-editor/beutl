@@ -226,6 +226,37 @@ namespace BEditor.Media
         }
 
         /// <summary>
+        /// Forms a slice of the current <see cref="Sound{T}"/>, starting at the specified index.
+        /// </summary>
+        /// <param name="start">The index at which to begin the slice.</param>
+        /// <returns>A sound that consists of all elements of the current sound from start to the end of the sound.</returns>
+        public Sound<T> Slice(int start)
+        {
+            var data = Data[start..];
+
+            fixed (T* dataPtr = data)
+            {
+                return new(SampleRate, data.Length, dataPtr);
+            }
+        }
+
+        /// <summary>
+        /// Forms a slice out of the current <see cref="Sound{T}"/> starting at a specified index for a specified length.
+        /// </summary>
+        /// <param name="start">The index at which to begin this slice.</param>
+        /// <param name="length">The desired length for the slice.</param>
+        /// <returns>A sound that consists of length elements from the current sound starting at start.</returns>
+        public Sound<T> Slice(int start, int length)
+        {
+            var data = Data.Slice(start, length);
+
+            fixed (T* dataPtr = data)
+            {
+                return new(SampleRate, data.Length, dataPtr);
+            }
+        }
+
+        /// <summary>
         /// Combine the specified <see cref="Sound{T}"/> to this <see cref="Sound{T}"/>.
         /// </summary>
         /// <param name="sound">The sound to combine.</param>

@@ -1080,6 +1080,11 @@
             Defines the <see cref="P:BEditor.Data.Primitive.AudioObject.Pitch"/> property.
             </summary>
         </member>
+        <member name="M:BEditor.Data.Primitive.AudioObject.#ctor">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Data.Primitive.AudioObject"/> class.
+            </summary>
+        </member>
         <member name="P:BEditor.Data.Primitive.AudioObject.Volume">
             <summary>
             Get the volume.

@@ -76,12 +76,14 @@ namespace BEditor.Views
         {
             if (e.GetCurrentPoint(_tree).Properties.IsLeftButtonPressed)
             {
-                if (_tree.SelectedItem is not EffectMetadata select || select.Type == null) return;
+                if (_tree.SelectedItem is not TreeViewItem select ||
+                    select.DataContext is not EffectMetadata metadata ||
+                    metadata.Type == null) return;
 
                 await Task.Delay(10);
 
                 var dataObject = new DataObject();
-                dataObject.Set("EffectMetadata", select);
+                dataObject.Set("EffectMetadata", metadata);
 
                 // ドラッグ開始
                 await DragDrop.DoDragDrop(e, dataObject, DragDropEffects.Copy);
