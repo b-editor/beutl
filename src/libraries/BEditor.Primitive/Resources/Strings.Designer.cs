@@ -106,6 +106,15 @@ namespace BEditor.Primitive.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Attenuation rate.
+        /// </summary>
+        internal static string AttenuationRate {
+            get {
+                return ResourceManager.GetString("AttenuationRate", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Audio.
         /// </summary>
         internal static string Audio {
@@ -115,20 +124,20 @@ namespace BEditor.Primitive.Resources {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Audio file.
-        /// </summary>
-        internal static string AudioFile {
-            get {
-                return ResourceManager.GetString("AudioFile", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to Audio effect.
         /// </summary>
         internal static string AudioEffect {
             get {
                 return ResourceManager.GetString("AudioEffect", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Audio file.
+        /// </summary>
+        internal static string AudioFile {
+            get {
+                return ResourceManager.GetString("AudioFile", resourceCulture);
             }
         }
         
@@ -399,6 +408,15 @@ namespace BEditor.Primitive.Resources {
         internal static string Delay {
             get {
                 return ResourceManager.GetString("Delay", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Delay time.
+        /// </summary>
+        internal static string DelayTime {
+            get {
+                return ResourceManager.GetString("DelayTime", resourceCulture);
             }
         }
         
@@ -813,6 +831,15 @@ namespace BEditor.Primitive.Resources {
         internal static string NumberOfHorizontalDivisions {
             get {
                 return ResourceManager.GetString("NumberOfHorizontalDivisions", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Number of repetitions.
+        /// </summary>
+        internal static string NumberOfRepetitions {
+            get {
+                return ResourceManager.GetString("NumberOfRepetitions", resourceCulture);
             }
         }
         

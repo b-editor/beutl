@@ -643,4 +643,13 @@
   <data name="Delay" xml:space="preserve">
     <value>ディレイ</value>
   </data>
+  <data name="AttenuationRate" xml:space="preserve">
+    <value>減衰率</value>
+  </data>
+  <data name="DelayTime" xml:space="preserve">
+    <value>遅延時間</value>
+  </data>
+  <data name="NumberOfRepetitions" xml:space="preserve">
+    <value>繰り返し回数</value>
+  </data>
 </root>

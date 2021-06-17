@@ -5,12 +5,8 @@
 // This software may be modified and distributed under the terms
 // of the MIT license. See the LICENSE file for details.
 
-using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 using BEditor.Data;
 using BEditor.Data.Primitive;
@@ -33,7 +29,7 @@ namespace BEditor.Primitive.Effects
             nameof(Attenuation),
             o => o.Attenuation,
             (o, v) => o.Attenuation = v,
-            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata("減衰率", 50, 100, 0)).Serialize());
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.AttenuationRate, 50, 100, 0)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="DelayTime"/> property.
@@ -42,7 +38,7 @@ namespace BEditor.Primitive.Effects
             nameof(DelayTime),
             o => o.DelayTime,
             (o, v) => o.DelayTime = v,
-            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata("遅延時間", 37, 100, 0)).Serialize());
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.DelayTime, 37, 100, 0)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="Repeat"/> property.
@@ -51,7 +47,7 @@ namespace BEditor.Primitive.Effects
             nameof(Repeat),
             o => o.Repeat,
             (o, v) => o.Repeat = v,
-            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata("繰り返し回数", 5, 0, 10)).Serialize());
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.NumberOfRepetitions, 5, min: 0)).Serialize());
 
         /// <inheritdoc/>
         public override string Name => Strings.Delay;

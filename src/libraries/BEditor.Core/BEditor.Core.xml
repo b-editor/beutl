@@ -1075,11 +1075,6 @@
             Defines the <see cref="P:BEditor.Data.Primitive.AudioObject.Volume"/> property.
             </summary>
         </member>
-        <member name="F:BEditor.Data.Primitive.AudioObject.PitchProperty">
-            <summary>
-            Defines the <see cref="P:BEditor.Data.Primitive.AudioObject.Pitch"/> property.
-            </summary>
-        </member>
         <member name="M:BEditor.Data.Primitive.AudioObject.#ctor">
             <summary>
             Initializes a new instance of the <see cref="T:BEditor.Data.Primitive.AudioObject"/> class.
@@ -1088,11 +1083,6 @@
         <member name="P:BEditor.Data.Primitive.AudioObject.Volume">
             <summary>
             Get the volume.
-            </summary>
-        </member>
-        <member name="P:BEditor.Data.Primitive.AudioObject.Pitch">
-            <summary>
-            Get the pitch.
             </summary>
         </member>
         <member name="M:BEditor.Data.Primitive.AudioObject.Apply(BEditor.Data.EffectApplyArgs)">

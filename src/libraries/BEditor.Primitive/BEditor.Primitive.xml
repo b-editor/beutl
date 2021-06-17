@@ -1989,13 +1989,13 @@
         <member name="M:BEditor.Primitive.Objects.AudioFile.GetProperties">
             <inheritdoc/>
         </member>
+        <member name="M:BEditor.Primitive.Objects.AudioFile.OnSample(BEditor.Data.EffectApplyArgs)">
+            <inheritdoc/>
+        </member>
         <member name="M:BEditor.Primitive.Objects.AudioFile.OnLoad">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Primitive.Objects.AudioFile.OnUnload">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Primitive.Objects.AudioFile.OnSample(BEditor.Data.EffectApplyArgs)">
             <inheritdoc/>
         </member>
         <member name="T:BEditor.Primitive.Objects.CameraObject">
