@@ -1,19 +1,59 @@
 using System;
 
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
+using Avalonia.Media;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 
 using BEditor.Data;
+using BEditor.Data.Primitive;
 using BEditor.Extensions;
+using BEditor.Media;
 using BEditor.Models;
 using BEditor.ViewModels.Timelines;
 
 namespace BEditor.Views.Timelines
 {
+    public class ClipVolumeView : Control
+    {
+        private readonly AudioObject _audio;
+        private readonly ClipView _view;
+        private readonly IBrush _brush = ConstantSettings.UseDarkMode ? Brushes.White : Brushes.Black;
+
+        public ClipVolumeView(AudioObject audio, ClipView view)
+        {
+            _audio = audio;
+            _view = view;
+            Height = ConstantSettings.ClipHeight;
+        }
+
+        public override void Render(DrawingContext context)
+        {
+            if (!double.IsNaN(_view.Height)) return;
+            var bounds = Bounds;
+            var length = (int)_audio.Parent.Length;
+
+            for (var i = 0; i < length; i++)
+            {
+                var abs = i + _audio.Parent.Start;
+                var sound = _audio.OnSample(new(abs, ApplyType.Audio));
+                if (sound is null) continue;
+                var (Left, Right) = sound.RMS();
+                sound.Dispose();
+                var value = (Left + Right) / 2 / -90;
+
+                var height = Math.Clamp(bounds.Height * value, 0, bounds.Height);
+                context.FillRectangle(
+                    _brush,
+                    new Rect(_audio.Parent.Parent.ToPixel(i), height, ConstantSettings.WidthOf1Frame, bounds.Height - height));
+            }
+        }
+    }
+
     public class ClipView : UserControl, IDisposable
     {
         public ClipView()
@@ -30,6 +70,11 @@ namespace BEditor.Views.Timelines
 
             this.FindControl<Border>("border").Height = ConstantSettings.ClipHeight;
             Height = ConstantSettings.ClipHeight;
+
+            if (clip.Effect[0] is AudioObject audio && Content is StackPanel stack)
+            {
+                stack.Children.Insert(1, new ClipVolumeView(audio, this));
+            }
         }
 
         ~ClipView()

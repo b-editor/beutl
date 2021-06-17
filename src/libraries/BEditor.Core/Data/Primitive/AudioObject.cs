@@ -91,6 +91,6 @@ namespace BEditor.Data.Primitive
         }
 
         /// <inheritdoc cref="Apply(EffectApplyArgs)"/>
-        protected abstract Sound<StereoPCMFloat>? OnSample(EffectApplyArgs args);
+        public abstract Sound<StereoPCMFloat>? OnSample(EffectApplyArgs args);
     }
 }

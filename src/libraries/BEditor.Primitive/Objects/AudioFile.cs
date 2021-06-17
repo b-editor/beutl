@@ -144,7 +144,7 @@ namespace BEditor.Primitive.Objects
         }
 
         /// <inheritdoc/>
-        protected override Sound<StereoPCMFloat>? OnSample(EffectApplyArgs args)
+        public override Sound<StereoPCMFloat>? OnSample(EffectApplyArgs args)
         {
             if (Loaded is null) return null;
 
