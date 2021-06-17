@@ -208,7 +208,7 @@ namespace BEditor.Primitive
                     EffectMetadata.Create<Effects.Mask>(Strings.Mask),
                 },
             };
-            
+
             yield return new(Strings.AudioEffect)
             {
                 Children = new[]
