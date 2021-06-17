@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Linq;
 
@@ -84,6 +85,7 @@ namespace BEditor.Views.Timelines
             _layerLabel = this.FindControl<StackPanel>("LayerLabel");
             _timelineGrid = this.FindControl<Grid>("timelinegrid");
             _timelineMenu = this.FindControl<ContextMenu>("TimelineMenu");
+            AddAllClip(scene.Datas);
 
             InitializeContextMenu();
 
@@ -162,14 +164,6 @@ namespace BEditor.Views.Timelines
         {
             base.OnInitialized();
 
-            // ƒNƒŠƒbƒv‚ð’Ç‰Á
-            for (var i = 0; i < Scene.Datas.Count; i++)
-            {
-                var clip = Scene.Datas[i];
-
-                _timelineGrid.Children.Add(clip.GetCreateClipView());
-            }
-
             Scene.ObserveProperty(s => s.TimeLineZoom)
                 .Subscribe(_ =>
                 {
@@ -193,11 +187,11 @@ namespace BEditor.Views.Timelines
 
                     for (var index = 0; index < scene.Datas.Count; index++)
                     {
-                        var info = scene.Datas[index];
-                        var start = scene.ToPixel(info.Start);
-                        var length = scene.ToPixel(info.Length);
+                        var clip = scene.Datas[index];
+                        var start = scene.ToPixel(clip.Start);
+                        var length = scene.ToPixel(clip.Length);
 
-                        var vm = info.GetCreateClipViewModelSafe();
+                        var vm = clip.GetCreateClipViewModelSafe();
                         vm.MarginLeft = start;
                         vm.WidthProperty.Value = length;
                     }
@@ -329,6 +323,16 @@ namespace BEditor.Views.Timelines
                     }
                 }
             });
+        }
+
+        private void AddAllClip(IList<ClipElement> clips)
+        {
+            for (var i = 0; i < clips.Count; i++)
+            {
+                var clip = clips[i];
+
+                _timelineGrid.Children.Add(clip.GetCreateClipView());
+            }
         }
 
         public async void SceneSettings(object s, RoutedEventArgs e)
