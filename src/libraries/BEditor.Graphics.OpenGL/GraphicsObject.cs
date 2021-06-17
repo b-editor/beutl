@@ -10,14 +10,15 @@ using System.ComponentModel;
 using System.Threading;
 
 using BEditor.Drawing;
-using BEditor.Graphics.Resources;
+using BEditor.Graphics.OpenGL.Resources;
+using BEditor.Graphics.Platform;
 
-namespace BEditor.Graphics
+namespace BEditor.Graphics.OpenGL
 {
     /// <summary>
     /// Represents the OpenGL object.
     /// </summary>
-    public abstract class GraphicsObject : IDisposable
+    public abstract class GraphicsObject : IDrawableImpl
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="GraphicsObject"/> class.
@@ -43,24 +44,19 @@ namespace BEditor.Graphics
         /// </summary>
         public abstract ReadOnlyMemory<float> Vertices { get; }
 
-        /// <summary>
-        /// Gets a value indicating whether this instance has been disposed.
-        /// </summary>
+        /// <inheritdoc/>
         public bool IsDisposed { get; private set; }
 
-        /// <summary>
-        /// Gets or sets the color of this <see cref="GraphicsObject"/>.
-        /// </summary>
+        /// <inheritdoc/>
         public Color Color { get; set; } = Colors.White;
 
-        /// <summary>
-        /// Gets or sets the material of this <see cref="GraphicsObject"/>.
-        /// </summary>
+        /// <inheritdoc/>
         public Material Material { get; set; } = new(Colors.White, Colors.White, Colors.White, 16);
 
-        /// <summary>
-        /// Gets or sets the transform of this <see cref="GraphicsObject"/>.
-        /// </summary>
+        /// <inheritdoc/>
+        public BlendMode BlendMode { get; set; }
+
+        /// <inheritdoc/>
         public Transform Transform { get; set; } = Transform.Default;
 
         /// <summary>

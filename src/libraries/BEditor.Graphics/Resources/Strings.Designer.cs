@@ -61,83 +61,11 @@ namespace BEditor.Graphics.Resources {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Error occurred whilst compiling Shader({0}).\n\n{1}.
+        ///   Looks up a localized string similar to Platform is not set..
         /// </summary>
-        internal static string ErrorOccurredWhilistCompilingShader {
+        internal static string PlatformIsNotSet {
             get {
-                return ResourceManager.GetString("ErrorOccurredWhilistCompilingShader", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Error occurred whilst linking Program({0})..
-        /// </summary>
-        internal static string ErrorOccurredWhilstLinkingProgram {
-            get {
-                return ResourceManager.GetString("ErrorOccurredWhilstLinkingProgram", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to An unacceptable value is specified for an enumerated argument..
-        /// </summary>
-        internal static string InvalidEnum {
-            get {
-                return ResourceManager.GetString("InvalidEnum", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to The specified operation is not allowed in the current state..
-        /// </summary>
-        internal static string InvalidOperation {
-            get {
-                return ResourceManager.GetString("InvalidOperation", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to A numeric argument is out of range..
-        /// </summary>
-        internal static string InvalidValue {
-            get {
-                return ResourceManager.GetString("InvalidValue", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to The framebuffer object is not complete..
-        /// </summary>
-        internal static string InvalildFramebufferOperation {
-            get {
-                return ResourceManager.GetString("InvalildFramebufferOperation", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to There is not enough memory left to execute the command..
-        /// </summary>
-        internal static string OutOfMemory {
-            get {
-                return ResourceManager.GetString("OutOfMemory", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to The SynchronizationContext of the current thread was null..
-        /// </summary>
-        internal static string SynchronizationContextIsNull {
-            get {
-                return ResourceManager.GetString("SynchronizationContextIsNull", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to The specified table exceeds the implementation&apos;s maximum supported table size..
-        /// </summary>
-        internal static string TableTooLarge {
-            get {
-                return ResourceManager.GetString("TableTooLarge", resourceCulture);
+                return ResourceManager.GetString("PlatformIsNotSet", resourceCulture);
             }
         }
     }

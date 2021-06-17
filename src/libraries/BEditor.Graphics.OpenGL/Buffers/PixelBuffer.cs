@@ -11,7 +11,7 @@ using System.Threading;
 
 using OpenTK.Graphics.OpenGL4;
 
-namespace BEditor.Graphics
+namespace BEditor.Graphics.OpenGL
 {
     /// <summary>
     /// Represents the OpenGL pixel buffer.

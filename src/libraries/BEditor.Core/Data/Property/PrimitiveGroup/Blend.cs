@@ -12,8 +12,6 @@ using System.Diagnostics.CodeAnalysis;
 using BEditor.Drawing;
 using BEditor.Resources;
 
-using OpenTK.Graphics.OpenGL4;
-
 namespace BEditor.Data.Property.PrimitiveGroup
 {
     /// <summary>
@@ -47,33 +45,6 @@ namespace BEditor.Data.Property.PrimitiveGroup
             owner => owner.BlendType,
             (owner, obj) => owner.BlendType = obj,
             EditingPropertyOptions<SelectorProperty>.Create(new SelectorPropertyMetadata(Strings.Blend, new[] { "通常", "加算", "減算", "乗算" })).Serialize());
-
-        /// <summary>
-        /// OpenGLの合成方法を設定する <see cref="Action"/> です.
-        /// </summary>
-        internal static readonly Action[] BlentFunc = new Action[]
-        {
-            () =>
-            {
-                GL.BlendFuncSeparate(BlendingFactorSrc.SrcAlpha, BlendingFactorDest.OneMinusSrcAlpha, BlendingFactorSrc.One, BlendingFactorDest.OneMinusSrcAlpha);
-                GL.BlendEquation(BlendEquationMode.FuncAdd);
-            },
-            () =>
-            {
-                GL.BlendEquationSeparate(BlendEquationMode.FuncAdd, BlendEquationMode.FuncAdd);
-                GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.One);
-            },
-            () =>
-            {
-                GL.BlendEquationSeparate(BlendEquationMode.FuncReverseSubtract, BlendEquationMode.FuncReverseSubtract);
-                GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.One);
-            },
-            () =>
-            {
-                GL.BlendEquationSeparate(BlendEquationMode.FuncAdd, BlendEquationMode.FuncAdd);
-                GL.BlendFunc(BlendingFactor.Zero, BlendingFactor.SrcColor);
-            },
-        };
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Blend"/> class.
