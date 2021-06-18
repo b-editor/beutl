@@ -16,15 +16,16 @@
 
             <TextBlock Text="{x:Static resources:Strings.General}" Classes="SettingsHeader"/>
 
-
             <CheckBox
+                ToolTip.Tip="{x:Static resources:Strings.TheChangesWillBeAppliedAfterRestarting}"
                 Content="{x:Static resources:Strings.UseDarkMode}"
                 IsChecked="{CompiledBinding UseDarkMode, Source={x:Static root:Settings.Default}, Mode=TwoWay}"
-                Classes="SettingsCheckBox"/>
+                Classes="SettingsCheckBox" />
 
             <Separator Height="16" />
 
             <CheckBox
+                ToolTip.Tip="{x:Static resources:Strings.TheChangesWillBeAppliedAfterRestarting}"
                 Content="{x:Static resources:Strings.ShowStartWindow}"
                 IsChecked="{CompiledBinding ShowStartWindow, Source={x:Static root:Settings.Default}, Mode=TwoWay}"
                 Classes="SettingsCheckBox"/>
@@ -35,19 +36,26 @@
 
             <Label Content="{x:Static resources:Strings.ClipHeight}" Classes="SettingsItemHeader"/>
 
-            <NumericUpDown Value="{CompiledBinding ClipHeight, Source={x:Static root:Settings.Default}, Mode=TwoWay}" Classes="SettingsNumericUpDown"/>
+            <NumericUpDown
+                ToolTip.Tip="{x:Static resources:Strings.TheChangesWillBeAppliedAfterRestarting}"
+                Value="{CompiledBinding ClipHeight, Source={x:Static root:Settings.Default}, Mode=TwoWay}"
+                Classes="SettingsNumericUpDown"/>
 
             <Separator Height="16" />
 
             <Label Content="{x:Static resources:Strings.WidthOf1Frame}" Classes="SettingsItemHeader"/>
 
-            <NumericUpDown Value="{CompiledBinding WidthOf1Frame, Source={x:Static root:Settings.Default}, Mode=TwoWay}" Classes="SettingsNumericUpDown"/>
+            <NumericUpDown
+                ToolTip.Tip="{x:Static resources:Strings.TheChangesWillBeAppliedAfterRestarting}"
+                Value="{CompiledBinding WidthOf1Frame, Source={x:Static root:Settings.Default}, Mode=TwoWay}"
+                Classes="SettingsNumericUpDown"/>
 
             <Separator Height="16" />
 
             <Label Content="{x:Static resources:Strings.Language}" Classes="SettingsItemHeader"/>
 
             <ComboBox
+                ToolTip.Tip="{x:Static resources:Strings.TheChangesWillBeAppliedAfterRestarting}"
                 Items="{CompiledBinding Langs, Mode=OneTime}"
                 SelectedItem="{CompiledBinding Language, Source={x:Static root:Settings.Default}, Mode=TwoWay}"
                 Classes="SettingsComboBox"/>

@@ -794,11 +794,26 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to graphics profile.
+        ///   Looks up a localized string similar to Graphics profile.
         /// </summary>
         public static string GraphicsProfile {
             get {
                 return ResourceManager.GetString("GraphicsProfile", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to OpenGL: 
+        ///* Renders using &quot;OpenGL&quot;.
+        ///* There is a problem with the alpha blend.
+        ///
+        ///Skia:
+        ///* Renders using &quot;Skia&quot;.
+        ///* 3D drawing is not supported..
+        /// </summary>
+        public static string GraphicsProfileDescription {
+            get {
+                return ResourceManager.GetString("GraphicsProfileDescription", resourceCulture);
             }
         }
         
@@ -1083,15 +1098,6 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to A new version is available!.
-        /// </summary>
-        public static string NewVersionIsAvailable {
-            get {
-                return ResourceManager.GetString("NewVersionIsAvailable", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to No.
         /// </summary>
         public static string No {
@@ -1152,24 +1158,6 @@ namespace BEditor.Properties {
         public static string OpenALNotFound {
             get {
                 return ResourceManager.GetString("OpenALNotFound", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Open the directory where this project file is located.
-        /// </summary>
-        public static string OpenProjectDirectory {
-            get {
-                return ResourceManager.GetString("OpenProjectDirectory", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Open the repository for this software.
-        /// </summary>
-        public static string OpenThisRepository {
-            get {
-                return ResourceManager.GetString("OpenThisRepository", resourceCulture);
             }
         }
         
@@ -1323,16 +1311,6 @@ namespace BEditor.Properties {
         public static string Plugins {
             get {
                 return ResourceManager.GetString("Plugins", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to {0} plugins have been added.
-        ///Please select the plugin you want to load.
-        /// </summary>
-        public static string PluginsAddedMessage {
-            get {
-                return ResourceManager.GetString("PluginsAddedMessage", resourceCulture);
             }
         }
         
@@ -1544,15 +1522,6 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Send feedback(Open an Issue on GitHub).
-        /// </summary>
-        public static string SendFeedback {
-            get {
-                return ResourceManager.GetString("SendFeedback", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to Separate.
         /// </summary>
         public static string Separate {
@@ -1576,15 +1545,6 @@ namespace BEditor.Properties {
         public static string Settings {
             get {
                 return ResourceManager.GetString("Settings", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Setup is complete..
-        /// </summary>
-        public static string SetupComplete {
-            get {
-                return ResourceManager.GetString("SetupComplete", resourceCulture);
             }
         }
         
@@ -1715,6 +1675,15 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The changes will be applied after restarting..
+        /// </summary>
+        public static string TheChangesWillBeAppliedAfterRestarting {
+            get {
+                return ResourceManager.GetString("TheChangesWillBeAppliedAfterRestarting", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to There is no project..
         /// </summary>
         public static string ThereIsNoProject {
@@ -1738,15 +1707,6 @@ namespace BEditor.Properties {
         public static string ThisNameAlreadyExists {
             get {
                 return ResourceManager.GetString("ThisNameAlreadyExists", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to This software is latest..
-        /// </summary>
-        public static string ThisSoftwareIsLatest {
-            get {
-                return ResourceManager.GetString("ThisSoftwareIsLatest", resourceCulture);
             }
         }
         

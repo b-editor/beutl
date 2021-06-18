@@ -24,18 +24,24 @@
 
             <Label Content="{x:Static resource:Strings.UsingGPUForImageProcessing}" Classes="SettingsItemHeader"/>
 
-            <ToggleSwitch IsChecked="{Binding PrioritizeGPU, Source={x:Static data:Settings.Default}, Mode=TwoWay}" Classes="SettingsToggleSwitch"/>
+            <ToggleSwitch
+                ToolTip.Tip="{x:Static resource:Strings.TheChangesWillBeAppliedAfterRestarting}"
+                IsChecked="{Binding PrioritizeGPU, Source={x:Static data:Settings.Default}, Mode=TwoWay}"
+                Classes="SettingsToggleSwitch"/>
 
             <Separator Height="16" />
 
             <Label Content="{x:Static resource:Strings.GraphicsProfile}" Classes="SettingsItemHeader"/>
 
             <ComboBox
+                ToolTip.Tip="{x:Static resource:Strings.TheChangesWillBeAppliedAfterRestarting}"
                 Items="{CompiledBinding Profiles, Mode=OneTime}"
                 SelectedItem="{CompiledBinding GraphicsProfile, Source={x:Static data:Settings.Default}, Mode=TwoWay}"
                 Classes="SettingsComboBox"/>
             
-            <Separator Height="16" />
+            <TextBlock
+                Text="{x:Static resource:Strings.GraphicsProfileDescription}"
+                Margin="32,16" />
 
             <Label Content="{x:Static resource:Strings.BackupInterval}" Classes="SettingsItemHeader"/>
 
