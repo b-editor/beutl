@@ -10,9 +10,9 @@
             "request": "launch",
             "preLaunchTask": "build",
             // If you have changed target frameworks, make sure to update the program path.
-            "program": "${workspaceFolder}/src/BEditor.Avalonia/bin/Debug/net5.0/beditor.dll",
+            "program": "${workspaceFolder}/src/executable/BEditor.Avalonia/bin/Debug/net5.0/beditor.dll",
             "args": [],
-            "cwd": "${workspaceFolder}/src/BEditor.Avalonia",
+            "cwd": "${workspaceFolder}/src/executable/BEditor.Avalonia",
             // For more information about the 'console' field, see https://aka.ms/VSCode-CS-LaunchJson-Console
             "console": "internalConsole",
             "stopAtEntry": false
