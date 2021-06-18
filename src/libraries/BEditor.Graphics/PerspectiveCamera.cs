@@ -7,8 +7,6 @@
 
 using System.Numerics;
 
-using MathHelper = OpenTK.Mathematics.MathHelper;
-
 namespace BEditor.Graphics
 {
     /// <summary>
@@ -35,7 +33,7 @@ namespace BEditor.Graphics
         /// <inheritdoc/>
         public override Matrix4x4 GetProjectionMatrix()
         {
-            return Matrix4x4.CreatePerspectiveFieldOfView(MathHelper.DegreesToRadians(Fov), AspectRatio, Near, Far);
+            return Matrix4x4.CreatePerspectiveFieldOfView(ToRadians(Fov), AspectRatio, Near, Far);
         }
     }
 }

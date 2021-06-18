@@ -38,8 +38,8 @@ namespace BEditor.ViewModels
                 {
                     Filters =
                     {
-                        new(Strings.ProjectFile, new FileExtension[] { new("bedit") }),
-                        new(Strings.BackupFile, new FileExtension[] { new("backup") }),
+                        new(Strings.ProjectFile, new[] { "bedit" }),
+                        new(Strings.BackupFile, new[] { "backup" }),
                     }
                 };
                 var service = App.FileDialog;
@@ -86,7 +86,7 @@ namespace BEditor.ViewModels
                         DefaultFileName = (p!.Name is not null) ? p.Name + ".bedit" : "新しいプロジェクト.bedit",
                         Filters =
                         {
-                            new(Strings.ProjectFile, new FileExtension[] { new("bedit") }),
+                            new(Strings.ProjectFile, new[] { "bedit" }),
                         }
                     };
 
@@ -261,11 +261,11 @@ namespace BEditor.ViewModels
                 {
                     Filters =
                     {
-                        new(Strings.ImageFile, new FileExtension[]
+                        new(Strings.ImageFile, new[]
                         {
-                            new("png"),
-                            new("jpg"),
-                            new("jpeg")
+                            "png",
+                            "jpg",
+                            "jpeg",
                         })
                     }
                 };

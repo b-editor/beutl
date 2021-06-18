@@ -93,21 +93,8 @@ namespace BEditor.Data
                 return new(Width, Height);
             }
 
-            var layer = GetFrame(frame);
-
-            GraphicsContext!.Camera = new OrthographicCamera(new(0, 0, 1024), Width, Height);
-            GraphicsContext!.Light = null;
-            GraphicsContext!.Clear();
-
-            var args = new ClipApplyArgs(frame, renderType);
-
-            // Preview
-            for (var i = 0; i < layer.Length; i++) layer[i].PreviewApply(args);
-
-            for (var i = 0; i < layer.Length; i++) layer[i].Apply(args);
-
             var img = new Image<BGRA32>(Width, Height);
-            GraphicsContext.ReadImage(img);
+            Render(img, frame, renderType);
 
             return img;
         }
@@ -140,9 +127,23 @@ namespace BEditor.Data
 
             var layer = GetFrame(frame);
 
-            GraphicsContext!.Camera = new OrthographicCamera(new(0, 0, 1024), Width, Height);
-            GraphicsContext!.Light = null;
-            GraphicsContext!.Clear();
+            if (GraphicsContext!.Camera is OrthographicCamera orthographic)
+            {
+                orthographic.Width = Width;
+                orthographic.Height = Height;
+                orthographic.Near = 0.1f;
+                orthographic.Far = 20000;
+                orthographic.Fov = MathF.PI / 2;
+                orthographic.Target = default;
+                orthographic.Position = new(0, 0, 1024);
+            }
+            else
+            {
+                GraphicsContext.Camera = new OrthographicCamera(new(0, 0, 1024), Width, Height);
+            }
+
+            GraphicsContext.Light = null;
+            GraphicsContext.Clear();
 
             var args = new ClipApplyArgs(frame, renderType);
 
@@ -151,7 +152,7 @@ namespace BEditor.Data
 
             for (var i = 0; i < layer.Length; i++) layer[i].Apply(args);
 
-            GraphicsContext!.ReadImage(image);
+            GraphicsContext.ReadImage(image);
         }
 
         /// <summary>

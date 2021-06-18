@@ -68,9 +68,9 @@ namespace BEditor.ViewModels.Start
                 {
                     Filters =
                     {
-                        new(Strings.ProjectFile, new FileExtension[]
+                        new(Strings.ProjectFile, new[]
                         {
-                            new("bedit")
+                            "bedit"
                         })
                     }
                 };

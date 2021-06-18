@@ -10,7 +10,7 @@ using BEditor.Drawing;
 namespace BEditor.Graphics
 {
     /// <summary>
-    /// Represents a <see cref="GraphicsObject"/> material structure.
+    /// Represents a <see cref="Drawable"/> material structure.
     /// </summary>
     public struct Material
     {

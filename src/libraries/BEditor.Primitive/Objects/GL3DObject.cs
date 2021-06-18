@@ -185,25 +185,23 @@ namespace BEditor.Primitive.Objects
 
             if (Type.Index == 0)
             {
-                using var cube = new Cube(
-                    Width[frame],
-                    Height[frame],
-                    Depth[frame],
-                    color,
-                    material,
-                    trans);
+                using var cube = new Cube(Width[frame], Height[frame], Depth[frame])
+                {
+                    Color = color,
+                    Material = material,
+                    Transform = trans,
+                };
 
                 Parent.Parent.GraphicsContext!.DrawCube(cube);
             }
             else
             {
-                using var ball = new Ball(
-                    Width[frame] * 0.5f,
-                    Height[frame] * 0.5f,
-                    Depth[frame] * 0.5f,
-                    color,
-                    material,
-                    trans);
+                using var ball = new Ball(Width[frame] * 0.5f, Height[frame] * 0.5f, Depth[frame] * 0.5f)
+                {
+                    Color = color,
+                    Material = material,
+                    Transform = trans,
+                };
 
                 Parent.Parent.GraphicsContext!.DrawBall(ball);
             }

@@ -5,7 +5,7 @@
 // This software may be modified and distributed under the terms
 // of the MIT license. See the LICENSE file for details.
 
-using BEditor.Graphics.Resources;
+using BEditor.Graphics.OpenGL.Resources;
 
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
@@ -15,7 +15,7 @@ using Color = BEditor.Drawing.Color;
 using GLColor = OpenTK.Mathematics.Color4;
 using Matrix4x4 = System.Numerics.Matrix4x4;
 
-namespace BEditor.Graphics
+namespace BEditor.Graphics.OpenGL
 {
     internal static class Tool
     {

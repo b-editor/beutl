@@ -2,10 +2,15 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:BEditor.ViewModels.Settings"
              xmlns:data="clr-namespace:BEditor;assembly=BEditor.Settings"
              xmlns:resource="using:BEditor.Properties"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:DataType="vm:ProjectViewModel"
              x:Class="BEditor.Views.Settings.Project">
+    <UserControl.DataContext>
+        <vm:ProjectViewModel/>
+    </UserControl.DataContext>
     <ScrollViewer>
         <VirtualizingStackPanel>
 
@@ -19,9 +24,24 @@
 
             <Label Content="{x:Static resource:Strings.UsingGPUForImageProcessing}" Classes="SettingsItemHeader"/>
 
-            <ToggleSwitch IsChecked="{Binding PrioritizeGPU, Source={x:Static data:Settings.Default}, Mode=TwoWay}" Classes="SettingsToggleSwitch"/>
+            <ToggleSwitch
+                ToolTip.Tip="{x:Static resource:Strings.TheChangesWillBeAppliedAfterRestarting}"
+                IsChecked="{Binding PrioritizeGPU, Source={x:Static data:Settings.Default}, Mode=TwoWay}"
+                Classes="SettingsToggleSwitch"/>
 
             <Separator Height="16" />
+
+            <Label Content="{x:Static resource:Strings.GraphicsProfile}" Classes="SettingsItemHeader"/>
+
+            <ComboBox
+                ToolTip.Tip="{x:Static resource:Strings.TheChangesWillBeAppliedAfterRestarting}"
+                Items="{CompiledBinding Profiles, Mode=OneTime}"
+                SelectedItem="{CompiledBinding GraphicsProfile, Source={x:Static data:Settings.Default}, Mode=TwoWay}"
+                Classes="SettingsComboBox"/>
+            
+            <TextBlock
+                Text="{x:Static resource:Strings.GraphicsProfileDescription}"
+                Margin="32,16" />
 
             <Label Content="{x:Static resource:Strings.BackupInterval}" Classes="SettingsItemHeader"/>
 

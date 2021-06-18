@@ -2674,11 +2674,6 @@
             Defines the <see cref="P:BEditor.Data.Property.PrimitiveGroup.Blend.BlendType"/> property.
             </summary>
         </member>
-        <member name="F:BEditor.Data.Property.PrimitiveGroup.Blend.BlentFunc">
-            <summary>
-            OpenGLの合成方法を設定する <see cref="T:System.Action"/> です.
-            </summary>
-        </member>
         <member name="M:BEditor.Data.Property.PrimitiveGroup.Blend.#ctor(BEditor.Data.Property.PrimitiveGroup.BlendMetadata)">
             <summary>
             Initializes a new instance of the <see cref="T:BEditor.Data.Property.PrimitiveGroup.Blend"/> class.
@@ -3728,28 +3723,12 @@
             Gets or sets the file name.
             </summary>
         </member>
-        <member name="T:BEditor.FileExtension">
-            <summary>
-            Represents the extension of the file.
-            </summary>
-        </member>
-        <member name="M:BEditor.FileExtension.#ctor(System.String)">
-            <summary>
-            Initializes a new instance of the <see cref="T:BEditor.FileExtension"/> class.
-            </summary>
-            <param name="value">The file extension.</param>
-        </member>
-        <member name="P:BEditor.FileExtension.Value">
-            <summary>
-            Gets the file extension.
-            </summary>
-        </member>
         <member name="T:BEditor.FileFilter">
             <summary>
             Represents the filter of the file dialog.
             </summary>
         </member>
-        <member name="M:BEditor.FileFilter.#ctor(System.String,System.Collections.Generic.IEnumerable{BEditor.FileExtension})">
+        <member name="M:BEditor.FileFilter.#ctor(System.String,System.Collections.Generic.IEnumerable{System.String})">
             <summary>
             Initializes a new instance of the <see cref="T:BEditor.FileFilter"/> class.
             </summary>

@@ -7,7 +7,7 @@
 
 using System;
 
-namespace BEditor.Graphics
+namespace BEditor.Graphics.OpenGL
 {
     /// <summary>
     /// Represents the handle of an OpenGL object.

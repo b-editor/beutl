@@ -139,12 +139,6 @@
   <data name="IsChecking" xml:space="preserve">
     <value>{0}を確認中。</value>
   </data>
-  <data name="ThisSoftwareIsLatest" xml:space="preserve">
-    <value>このソフトは最新のものです。</value>
-  </data>
-  <data name="NewVersionIsAvailable" xml:space="preserve">
-    <value>新バージョンが登場!</value>
-  </data>
   <data name="Download" xml:space="preserve">
     <value>ダウンロード</value>
   </data>
@@ -355,12 +349,6 @@
   <data name="Open" xml:space="preserve">
     <value>開く</value>
   </data>
-  <data name="OpenProjectDirectory" xml:space="preserve">
-    <value>このプロジェクトファイルがあるディレクトリを開く</value>
-  </data>
-  <data name="OpenThisRepository" xml:space="preserve">
-    <value>このソフトウェアのリポジトリを開く</value>
-  </data>
   <data name="Optimization" xml:space="preserve">
     <value>最適化</value>
   </data>
@@ -381,10 +369,6 @@
   </data>
   <data name="Plugins" xml:space="preserve">
     <value>プラグイン</value>
-  </data>
-  <data name="PluginsAddedMessage" xml:space="preserve">
-    <value>{0} 個のプラグインが追加されています。
-読み込むプラグインを選択してください</value>
   </data>
   <data name="Project" xml:space="preserve">
     <value>プロジェクト</value>
@@ -430,9 +414,6 @@
   </data>
   <data name="Search" xml:space="preserve">
     <value>検索</value>
-  </data>
-  <data name="SendFeedback" xml:space="preserve">
-    <value>フィードバックを送信(GitHubのIssueを開きます)</value>
   </data>
   <data name="Separate" xml:space="preserve">
     <value>分割</value>
@@ -499,9 +480,6 @@
   </data>
   <data name="WidthOf1Frame" xml:space="preserve">
     <value>1フレームあたりの横幅</value>
-  </data>
-  <data name="SetupComplete" xml:space="preserve">
-    <value>セットアップが完了しました。</value>
   </data>
   <data name="RunFollowingCommandToInstallFFmpeg" xml:space="preserve">
     <value>以下のコマンドを実行してFFmpegをインストールしてください。</value>
@@ -762,5 +740,20 @@ IdにはGUID, UUIDが使えます。</value>
   </data>
   <data name="UseCurrentFrame" xml:space="preserve">
     <value>現在のフレームを使用</value>
+  </data>
+  <data name="GraphicsProfile" xml:space="preserve">
+    <value>グラフィックプロファイル</value>
+  </data>
+  <data name="TheChangesWillBeAppliedAfterRestarting" xml:space="preserve">
+    <value>変更内容は、再起動後に適用されます。</value>
+  </data>
+  <data name="GraphicsProfileDescription" xml:space="preserve">
+    <value>OpenGL: 
+* "OpenGL" を利用してレンダリングします。
+* アルファブレンドに問題があります。
+
+Skia:
+* "Skia" を利用してレンダリングします。
+* 3D描画には対応していません。</value>
   </data>
 </root>

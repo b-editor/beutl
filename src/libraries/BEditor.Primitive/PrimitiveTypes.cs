@@ -14,8 +14,6 @@ using BEditor.Drawing;
 using BEditor.Primitive.Objects;
 using BEditor.Primitive.Resources;
 
-using OpenTK.Graphics.OpenGL;
-
 [assembly: InternalsVisibleTo("NUnitTestProject1")]
 
 namespace BEditor.Primitive

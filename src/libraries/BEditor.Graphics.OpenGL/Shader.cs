@@ -13,11 +13,11 @@ using System.IO;
 using System.Numerics;
 using System.Threading;
 
-using BEditor.Graphics.Resources;
+using BEditor.Graphics.OpenGL.Resources;
 
 using OpenTK.Graphics.OpenGL4;
 
-namespace BEditor.Graphics
+namespace BEditor.Graphics.OpenGL
 {
     /// <summary>
     /// Represents an OpenGL shader.

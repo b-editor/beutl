@@ -41,7 +41,7 @@ namespace BEditor.Primitive.Effects.LookupTables
             owner => owner.LUTFile,
             (owner, obj) => owner.LUTFile = obj,
             EditingPropertyOptions<FileProperty>.Create(
-                new FilePropertyMetadata(Strings.CubeFile, Filter: new(Strings.CubeFile, new FileExtension[] { new("cube"), new("dat"), new("3dl"), new("m3d") })))
+                new FilePropertyMetadata(Strings.CubeFile, Filter: new(Strings.CubeFile, new[] { "cube" })))
             .Serialize());
 
         private Drawing.LookupTable? _lut;

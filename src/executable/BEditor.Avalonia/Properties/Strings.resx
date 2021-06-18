@@ -139,12 +139,6 @@ Please install it.</value>
   <data name="IsChecking" xml:space="preserve">
     <value>{0} is checking.</value>
   </data>
-  <data name="ThisSoftwareIsLatest" xml:space="preserve">
-    <value>This software is latest.</value>
-  </data>
-  <data name="NewVersionIsAvailable" xml:space="preserve">
-    <value>A new version is available!</value>
-  </data>
   <data name="Download" xml:space="preserve">
     <value>Download</value>
   </data>
@@ -219,9 +213,6 @@ and will be released after 5 seconds.</value>
   <data name="Outputs" xml:space="preserve">
     <value>Outputs</value>
   </data>
-  <data name="OpenThisRepository" xml:space="preserve">
-    <value>Open the repository for this software</value>
-  </data>
   <data name="ErrorObjectViewer1" xml:space="preserve">
     <value>Select a {0} or its child elements</value>
   </data>
@@ -258,10 +249,6 @@ Do you want to perform the operation?</value>
   </data>
   <data name="License" xml:space="preserve">
     <value>License</value>
-  </data>
-  <data name="PluginsAddedMessage" xml:space="preserve">
-    <value>{0} plugins have been added.
-Please select the plugin you want to load</value>
   </data>
   <data name="RangeAbove" xml:space="preserve">
     <value>Enter a value of {0} or greater.</value>
@@ -416,9 +403,6 @@ Please select the plugin you want to load</value>
   <data name="Help" xml:space="preserve">
     <value>Help</value>
   </data>
-  <data name="SendFeedback" xml:space="preserve">
-    <value>Send feedback(Open an Issue on GitHub)</value>
-  </data>
   <data name="Save" xml:space="preserve">
     <value>Save</value>
   </data>
@@ -430,9 +414,6 @@ Please select the plugin you want to load</value>
   </data>
   <data name="ConvertJson" xml:space="preserve">
     <value>Convert to json format</value>
-  </data>
-  <data name="OpenProjectDirectory" xml:space="preserve">
-    <value>Open the directory where this project file is located</value>
   </data>
   <data name="Disconnect" xml:space="preserve">
     <value>Disconnect</value>
@@ -499,9 +480,6 @@ Please select the plugin you want to load</value>
   </data>
   <data name="Delete" xml:space="preserve">
     <value>Delete</value>
-  </data>
-  <data name="SetupComplete" xml:space="preserve">
-    <value>Setup is complete.</value>
   </data>
   <data name="RunFollowingCommandToInstallFFmpeg" xml:space="preserve">
     <value>Run the following command to install FFmpeg.</value>
@@ -762,5 +740,20 @@ After the encoder is set, the detailed settings will be displayed.</value>
   </data>
   <data name="UseCurrentFrame" xml:space="preserve">
     <value>Use current frame</value>
+  </data>
+  <data name="GraphicsProfile" xml:space="preserve">
+    <value>Graphics profile</value>
+  </data>
+  <data name="TheChangesWillBeAppliedAfterRestarting" xml:space="preserve">
+    <value>The changes will be applied after restarting.</value>
+  </data>
+  <data name="GraphicsProfileDescription" xml:space="preserve">
+    <value>OpenGL: 
+* Renders using "OpenGL".
+* There is a problem with the alpha blend.
+
+Skia:
+* Renders using "Skia".
+* 3D drawing is not supported.</value>
   </data>
 </root>

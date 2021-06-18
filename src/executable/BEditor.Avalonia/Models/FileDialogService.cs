@@ -11,11 +11,6 @@ namespace BEditor.Models
 {
     public sealed class FileDialogService : IFileDialogService
     {
-        public bool ShowOpenFileDialog(OpenFileRecord record)
-        {
-            throw new PlatformNotSupportedException();
-        }
-
         public async ValueTask<bool> ShowOpenFileDialogAsync(OpenFileRecord record)
         {
             if (Application.Current.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
@@ -24,7 +19,7 @@ namespace BEditor.Models
                 {
                     Filters = record.Filters.ConvertAll(i => new FileDialogFilter
                     {
-                        Extensions = i.Extensions.Select(i => i.Value).ToList(),
+                        Extensions = i.Extensions.Select(i => i.StartsWith('.') ? i : "." + i).ToList(),
                         Name = i.Name
                     }),
                     InitialFileName = record.DefaultFileName,
@@ -44,11 +39,6 @@ namespace BEditor.Models
             return false;
         }
 
-        public bool ShowSaveFileDialog(SaveFileRecord record)
-        {
-            throw new PlatformNotSupportedException();
-        }
-
         public async ValueTask<bool> ShowSaveFileDialogAsync(SaveFileRecord record)
         {
             if (Application.Current.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
@@ -57,7 +47,7 @@ namespace BEditor.Models
                 {
                     Filters = record.Filters.ConvertAll(i => new FileDialogFilter
                     {
-                        Extensions = i.Extensions.Select(i => i.Value).ToList(),
+                        Extensions = i.Extensions.Select(i => i.StartsWith('.') ? i : "." + i).ToList(),
                         Name = i.Name
                     }),
                     InitialFileName = record.DefaultFileName,

@@ -97,31 +97,7 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.3500.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
-  <data name="ErrorOccurredWhilistCompilingShader" xml:space="preserve">
-    <value>Shader({0}) のコンパイル中にエラーが発生しました。\n\n{1}</value>
-  </data>
-  <data name="ErrorOccurredWhilstLinkingProgram" xml:space="preserve">
-    <value>Program({0}) のリンク中にエラーが発生しました。</value>
-  </data>
-  <data name="SynchronizationContextIsNull" xml:space="preserve">
-    <value>現在のスレッドのSynchronizationContextがnullでした。</value>
-  </data>
-  <data name="InvalidEnum" xml:space="preserve">
-    <value>列挙された引数に許容できない値が指定されています。</value>
-  </data>
-  <data name="InvalidValue" xml:space="preserve">
-    <value>数値の引数が範囲外です。</value>
-  </data>
-  <data name="InvalidOperation" xml:space="preserve">
-    <value>指定された操作は、現在の状態では許可されていません。</value>
-  </data>
-  <data name="OutOfMemory" xml:space="preserve">
-    <value>コマンドを実行するのに十分なメモリが残っていません。</value>
-  </data>
-  <data name="InvalildFramebufferOperation" xml:space="preserve">
-    <value>フレームバッファ・オブジェクトは完全ではありません。</value>
-  </data>
-  <data name="TableTooLarge" xml:space="preserve">
-    <value>指定されたテーブルが、実装でサポートされているテーブルの最大サイズを超えています。</value>
+  <data name="PlatformIsNotSet" xml:space="preserve">
+    <value>プラットフォームが設定されていません。</value>
   </data>
 </root>

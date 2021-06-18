@@ -97,31 +97,7 @@
   <resheader name="writer">
     <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.3500.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
-  <data name="ErrorOccurredWhilistCompilingShader" xml:space="preserve">
-    <value>Error occurred whilst compiling Shader({0}).\n\n{1}</value>
-  </data>
-  <data name="ErrorOccurredWhilstLinkingProgram" xml:space="preserve">
-    <value>Error occurred whilst linking Program({0}).</value>
-  </data>
-  <data name="SynchronizationContextIsNull" xml:space="preserve">
-    <value>The SynchronizationContext of the current thread was null.</value>
-  </data>
-  <data name="InvalidEnum" xml:space="preserve">
-    <value>An unacceptable value is specified for an enumerated argument.</value>
-  </data>
-  <data name="InvalidValue" xml:space="preserve">
-    <value>A numeric argument is out of range.</value>
-  </data>
-  <data name="InvalidOperation" xml:space="preserve">
-    <value>The specified operation is not allowed in the current state.</value>
-  </data>
-  <data name="OutOfMemory" xml:space="preserve">
-    <value>There is not enough memory left to execute the command.</value>
-  </data>
-  <data name="InvalildFramebufferOperation" xml:space="preserve">
-    <value>The framebuffer object is not complete.</value>
-  </data>
-  <data name="TableTooLarge" xml:space="preserve">
-    <value>The specified table exceeds the implementation's maximum supported table size.</value>
+  <data name="PlatformIsNotSet" xml:space="preserve">
+    <value>Platform is not set.</value>
   </data>
 </root>

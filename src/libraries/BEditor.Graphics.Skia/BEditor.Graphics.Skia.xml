@@ -1,0 +1,201 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>BEditor.Graphics.Skia</name>
+    </assembly>
+    <members>
+        <member name="T:BEditor.Graphics.Skia.DrawableImpl">
+            <summary>
+            The drawable implementation.
+            </summary>
+        </member>
+        <member name="M:BEditor.Graphics.Skia.DrawableImpl.Finalize">
+            <summary>
+            Finalizes an instance of the <see cref="T:BEditor.Graphics.Skia.DrawableImpl"/> class.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.Skia.DrawableImpl.IsDisposed">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Graphics.Skia.DrawableImpl.Color">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Graphics.Skia.DrawableImpl.Material">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Graphics.Skia.DrawableImpl.BlendMode">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Graphics.Skia.DrawableImpl.Transform">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Graphics.Skia.DrawableImpl.Dispose">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Graphics.Skia.DrawableImpl.Dispose(System.Boolean)">
+            <inheritdoc cref="M:System.IDisposable.Dispose"/>
+        </member>
+        <member name="T:BEditor.Graphics.Skia.GraphicsContextImpl">
+            <summary>
+            Represents the graphics context.
+            </summary>
+        </member>
+        <member name="M:BEditor.Graphics.Skia.GraphicsContextImpl.#ctor(System.Int32,System.Int32)">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Graphics.Skia.GraphicsContextImpl"/> class.
+            </summary>
+            <param name="width">The width of the graphics context.</param>
+            <param name="height">The height of the graphics context.</param>
+        </member>
+        <member name="P:BEditor.Graphics.Skia.GraphicsContextImpl.Width">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Graphics.Skia.GraphicsContextImpl.Height">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Graphics.Skia.GraphicsContextImpl.IsDisposed">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Graphics.Skia.GraphicsContextImpl.Camera">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Graphics.Skia.GraphicsContextImpl.Light">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Graphics.Skia.GraphicsContextImpl.Clear">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Graphics.Skia.GraphicsContextImpl.Dispose">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Graphics.Skia.GraphicsContextImpl.DrawBall(BEditor.Graphics.Ball)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Graphics.Skia.GraphicsContextImpl.DrawCube(BEditor.Graphics.Cube)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Graphics.Skia.GraphicsContextImpl.DrawLine(BEditor.Graphics.Line)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Graphics.Skia.GraphicsContextImpl.DrawTexture(BEditor.Graphics.Texture)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Graphics.Skia.GraphicsContextImpl.MakeCurrent">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Graphics.Skia.GraphicsContextImpl.ReadImage(BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32})">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Graphics.Skia.GraphicsContextImpl.SetSize(BEditor.Drawing.Size)">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Graphics.Skia.LineImpl">
+            <summary>
+            The line implementation.
+            </summary>
+        </member>
+        <member name="M:BEditor.Graphics.Skia.LineImpl.#ctor(System.Numerics.Vector3,System.Numerics.Vector3,System.Single)">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Graphics.Skia.LineImpl"/> class.
+            </summary>
+            <param name="start">The start position of the line.</param>
+            <param name="end">The end position of the line.</param>
+            <param name="width">The width of the line.</param>
+        </member>
+        <member name="P:BEditor.Graphics.Skia.LineImpl.Vertices">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Graphics.Skia.LineImpl.Start">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Graphics.Skia.LineImpl.End">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Graphics.Skia.LineImpl.Width">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Graphics.Skia.MockBallImpl">
+            <summary>
+            The ball implementation.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.Skia.MockBallImpl.RadiusX">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Graphics.Skia.MockBallImpl.RadiusY">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Graphics.Skia.MockBallImpl.RadiusZ">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Graphics.Skia.MockBallImpl.Vertices">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Graphics.Skia.MockCubeImpl">
+            <summary>
+            The cube implementation.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.Skia.MockCubeImpl.Width">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Graphics.Skia.MockCubeImpl.Height">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Graphics.Skia.MockCubeImpl.Depth">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Graphics.Skia.MockCubeImpl.Vertices">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Graphics.Skia.SkiaPlatform">
+            <summary>
+            Represents the skia platform.
+            </summary>
+        </member>
+        <member name="M:BEditor.Graphics.Skia.SkiaPlatform.CreateBall(System.Single,System.Single,System.Single)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Graphics.Skia.SkiaPlatform.CreateContext(System.Int32,System.Int32)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Graphics.Skia.SkiaPlatform.CreateCube(System.Single,System.Single,System.Single)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Graphics.Skia.SkiaPlatform.CreateLine(System.Numerics.Vector3,System.Numerics.Vector3,System.Single)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Graphics.Skia.SkiaPlatform.CreateTexture(BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32},System.Numerics.Vector3[],System.Numerics.Vector2[])">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Graphics.Skia.TextureImpl">
+            <summary>
+            The texture implementation.
+            </summary>
+        </member>
+        <member name="M:BEditor.Graphics.Skia.TextureImpl.#ctor(BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32})">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Graphics.Skia.TextureImpl"/> class.
+            </summary>
+            <param name="image">The image.</param>
+        </member>
+        <member name="P:BEditor.Graphics.Skia.TextureImpl.Width">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Graphics.Skia.TextureImpl.Height">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Graphics.Skia.TextureImpl.Vertices">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Graphics.Skia.TextureImpl.Uv">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Graphics.Skia.TextureImpl.ToImage">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Graphics.Skia.TextureImpl.Dispose(System.Boolean)">
+            <inheritdoc/>
+        </member>
+    </members>
+</doc>

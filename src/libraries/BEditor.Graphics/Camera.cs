@@ -5,10 +5,8 @@
 // This software may be modified and distributed under the terms
 // of the MIT license. See the LICENSE file for details.
 
+using System;
 using System.Numerics;
-
-using MathHelper = OpenTK.Mathematics.MathHelper;
-using Matrix4 = OpenTK.Mathematics.Matrix4;
 
 namespace BEditor.Graphics
 {
@@ -17,8 +15,7 @@ namespace BEditor.Graphics
     /// </summary>
     public abstract class Camera
     {
-        private float _fov = MathHelper.PiOver2;
-        private Vector3 _position;
+        private float _fov = MathF.PI / 2;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Camera"/> class.
@@ -32,7 +29,7 @@ namespace BEditor.Graphics
         /// <summary>
         /// Gets or sets the position of this <see cref="Camera"/>.
         /// </summary>
-        public Vector3 Position { get => _position; set => _position = value; }
+        public Vector3 Position { get; set; }
 
         /// <summary>
         /// Gets or sets the target position of this <see cref="Camera"/>.
@@ -44,11 +41,11 @@ namespace BEditor.Graphics
         /// </summary>
         public float Fov
         {
-            get => MathHelper.RadiansToDegrees(_fov);
+            get => ToDegrees(_fov);
             set
             {
-                var angle = MathHelper.Clamp(value, 1f, 179f);
-                _fov = MathHelper.DegreesToRadians(angle);
+                var angle = Math.Clamp(value, 1f, 179f);
+                _fov = ToRadians(angle);
             }
         }
 
@@ -68,7 +65,7 @@ namespace BEditor.Graphics
         /// <returns>Returns the view matrix.</returns>
         public Matrix4x4 GetViewMatrix()
         {
-            return Matrix4.LookAt(Position.ToOpenTK(), Target.ToOpenTK(), OpenTK.Mathematics.Vector3.UnitY).ToNumerics();
+            return Matrix4x4.CreateLookAt(Position, Target, Vector3.UnitY);
         }
 
         /// <summary>
@@ -76,5 +73,17 @@ namespace BEditor.Graphics
         /// </summary>
         /// <returns>Returns the projection matrix.</returns>
         public abstract Matrix4x4 GetProjectionMatrix();
+
+        internal static float ToDegrees(float radians)
+        {
+            const float radToDeg = 180.0f / MathF.PI;
+            return radians * radToDeg;
+        }
+
+        internal static float ToRadians(float degrees)
+        {
+            const float degToRad = MathF.PI / 180.0f;
+            return degrees * degToRad;
+        }
     }
 }
