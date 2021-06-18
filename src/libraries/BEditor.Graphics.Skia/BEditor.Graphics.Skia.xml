@@ -114,6 +114,40 @@
         <member name="P:BEditor.Graphics.Skia.LineImpl.Width">
             <inheritdoc/>
         </member>
+        <member name="T:BEditor.Graphics.Skia.MockBallImpl">
+            <summary>
+            The ball implementation.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.Skia.MockBallImpl.RadiusX">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Graphics.Skia.MockBallImpl.RadiusY">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Graphics.Skia.MockBallImpl.RadiusZ">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Graphics.Skia.MockBallImpl.Vertices">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Graphics.Skia.MockCubeImpl">
+            <summary>
+            The cube implementation.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.Skia.MockCubeImpl.Width">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Graphics.Skia.MockCubeImpl.Height">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Graphics.Skia.MockCubeImpl.Depth">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Graphics.Skia.MockCubeImpl.Vertices">
+            <inheritdoc/>
+        </member>
         <member name="T:BEditor.Graphics.Skia.SkiaPlatform">
             <summary>
             Represents the skia platform.

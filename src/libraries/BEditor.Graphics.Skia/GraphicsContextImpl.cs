@@ -25,7 +25,8 @@ namespace BEditor.Graphics.Skia
     public sealed class GraphicsContextImpl : IGraphicsContextImpl
     {
         private readonly SKPaint _paint;
-        private SKSurface _surface;
+        private SKCanvas _canvas;
+        private SKBitmap _bmp;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="GraphicsContextImpl"/> class.
@@ -38,9 +39,10 @@ namespace BEditor.Graphics.Skia
             Height = height;
 
             Camera = new OrthographicCamera(new(0, 0, 1024), width, height);
-            _surface = SKSurface.Create(new SKImageInfo(width, height, SKColorType.Bgra8888));
+            _bmp = new(new SKImageInfo(width, height, SKColorType.Bgra8888));
+            _canvas = new(_bmp);
             _paint = new();
-            _surface.Canvas.Translate(width / 2, height / 2);
+            _canvas.Translate(width / 2, height / 2);
         }
 
         /// <inheritdoc/>
@@ -61,7 +63,7 @@ namespace BEditor.Graphics.Skia
         /// <inheritdoc/>
         public void Clear()
         {
-            _surface.Canvas.Clear();
+            _canvas.Clear();
         }
 
         /// <inheritdoc/>
@@ -69,7 +71,7 @@ namespace BEditor.Graphics.Skia
         {
             if (IsDisposed) return;
 
-            _surface.Dispose();
+            _canvas.Dispose();
 
             GC.SuppressFinalize(this);
 
@@ -79,13 +81,11 @@ namespace BEditor.Graphics.Skia
         /// <inheritdoc/>
         public void DrawBall(Ball ball)
         {
-            throw new NotImplementedException();
         }
 
         /// <inheritdoc/>
         public void DrawCube(Cube cube)
         {
-            throw new NotImplementedException();
         }
 
         /// <inheritdoc/>
@@ -94,7 +94,7 @@ namespace BEditor.Graphics.Skia
             _paint.StrokeWidth = line.Width;
             SetTransform(line);
 
-            _surface.Canvas.DrawLine(
+            _canvas.DrawLine(
                 new SKPoint(line.Start.X, line.Start.Y),
                 new SKPoint(line.End.X, line.End.Y),
                 _paint);
@@ -109,7 +109,7 @@ namespace BEditor.Graphics.Skia
             using var bmp = image.ToSKBitmap();
             SetTransform(texture);
 
-            _surface.Canvas.DrawBitmap(bmp, -texture.Width / 2, -texture.Height / 2, _paint);
+            _canvas.DrawBitmap(bmp, -texture.Width / 2, -texture.Height / 2, _paint);
 
             ResetTransform();
         }
@@ -122,41 +122,26 @@ namespace BEditor.Graphics.Skia
         /// <inheritdoc/>
         public unsafe void ReadImage(Image<BGRA32> image)
         {
-            fixed (BGRA32* ptr = image.Data)
+            fixed (BGRA32* dst = image.Data)
             {
-                using var src = _surface.Snapshot();
-                src.ReadPixels(new SKImageInfo(image.Width, image.Height, SKColorType.Bgra8888), (IntPtr)ptr);
+                var size = image.DataSize;
+                Buffer.MemoryCopy((void*)_bmp.GetPixels(), dst, size, size);
             }
         }
 
         /// <inheritdoc/>
         public void SetSize(Size size)
         {
-            _surface.Dispose();
-            _surface = SKSurface.Create(new SKImageInfo(size.Width, size.Height, SKColorType.Bgra8888));
+            _canvas.Dispose();
+            _bmp.Dispose();
+            _bmp = new(new SKImageInfo(size.Width, size.Height, SKColorType.Bgra8888));
+            _canvas = new(_bmp);
             Width = size.Width;
             Height = size.Height;
             ResetTransform();
         }
 
-        private void SetTransform(Drawable drawable)
-        {
-            _paint.Color = new(drawable.Color.R, drawable.Color.G, drawable.Color.B, drawable.Color.A);
-            _paint.BlendMode = ToSkBlendMode(drawable.BlendMode);
-
-            _surface.Canvas.Translate(drawable.Transform.Coordinate.X, drawable.Transform.Coordinate.Y);
-            _surface.Canvas.RotateDegrees(drawable.Transform.Rotate.Z);
-            _surface.Canvas.Scale(drawable.Transform.Scale.X, drawable.Transform.Scale.Y);
-            _surface.Canvas.Translate(drawable.Transform.Center.X, drawable.Transform.Center.Y);
-        }
-
-        private void ResetTransform()
-        {
-            _surface.Canvas.ResetMatrix();
-            _surface.Canvas.Translate(Width / 2, Height / 2);
-        }
-
-        private SKBlendMode ToSkBlendMode(BlendMode mode)
+        private static SKBlendMode ToSkBlendMode(BlendMode mode)
         {
             if (mode is BlendMode.Default) return SKBlendMode.SrcOver;
             else if (mode is BlendMode.Add) return SKBlendMode.Plus;
@@ -164,6 +149,23 @@ namespace BEditor.Graphics.Skia
             else if (mode is BlendMode.Multiplication) return SKBlendMode.Multiply;
 
             return SKBlendMode.SrcOver;
+        }
+
+        private void SetTransform(Drawable drawable)
+        {
+            _paint.Color = new(drawable.Color.R, drawable.Color.G, drawable.Color.B, drawable.Color.A);
+            _paint.BlendMode = ToSkBlendMode(drawable.BlendMode);
+
+            _canvas.Translate(drawable.Transform.Coordinate.X, -drawable.Transform.Coordinate.Y);
+            _canvas.RotateDegrees(drawable.Transform.Rotate.Z);
+            _canvas.Scale(drawable.Transform.Scale.X, drawable.Transform.Scale.Y);
+            _canvas.Translate(drawable.Transform.Center.X, -drawable.Transform.Center.Y);
+        }
+
+        private void ResetTransform()
+        {
+            _canvas.ResetMatrix();
+            _canvas.Translate(Width / 2, Height / 2);
         }
     }
 }

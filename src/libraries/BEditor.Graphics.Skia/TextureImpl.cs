@@ -41,10 +41,10 @@ namespace BEditor.Graphics.Skia
         public int Height => _image.Height;
 
         /// <inheritdoc/>
-        public ReadOnlyMemory<Vector3> Vertices => throw new NotImplementedException();
+        public ReadOnlyMemory<Vector3> Vertices => throw new PlatformNotSupportedException();
 
         /// <inheritdoc/>
-        public ReadOnlyMemory<Vector2> Uv => throw new NotImplementedException();
+        public ReadOnlyMemory<Vector2> Uv => throw new PlatformNotSupportedException();
 
         /// <inheritdoc/>
         public Image<BGRA32> ToImage()

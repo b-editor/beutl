@@ -52,7 +52,7 @@ namespace BEditor.Primitive.Objects
                     Filter: new(Strings.AudioFile, DecodingRegistory.EnumerateDecodings()
                         .SelectMany(i => i.SupportExtensions())
                         .Distinct()
-                        .Select(i => new FileExtension(i.Trim('.')))
+                        .Select(i => i.Trim('.'))
                         .ToArray())))
             .Serialize());
 

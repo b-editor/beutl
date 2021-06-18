@@ -1,4 +1,4 @@
-﻿// Class1.cs
+﻿// SkiaPlatform.cs
 //
 // Copyright (C) BEditor
 //
@@ -22,7 +22,7 @@ namespace BEditor.Graphics.Skia
         /// <inheritdoc/>
         public IBallImpl CreateBall(float radiusX, float radiusY, float radiusZ)
         {
-            throw new NotImplementedException();
+            return new MockBallImpl();
         }
 
         /// <inheritdoc/>
@@ -34,7 +34,7 @@ namespace BEditor.Graphics.Skia
         /// <inheritdoc/>
         public ICubeImpl CreateCube(float width, float height, float depth)
         {
-            throw new NotImplementedException();
+            return new MockCubeImpl();
         }
 
         /// <inheritdoc/>

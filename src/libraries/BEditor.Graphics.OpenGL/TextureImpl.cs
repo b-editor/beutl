@@ -250,7 +250,7 @@ namespace BEditor.Graphics.OpenGL
         /// <inheritdoc/>
         public Image<BGRA32> ToImage()
         {
-            throw new NotImplementedException();
+            throw new GraphicsException();
         }
 
         /// <inheritdoc/>
