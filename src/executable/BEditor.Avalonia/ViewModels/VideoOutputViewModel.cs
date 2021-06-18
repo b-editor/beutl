@@ -46,7 +46,7 @@ namespace BEditor.ViewModels
                         new(Strings.VideoFile, EncodingRegistory.EnumerateEncodings()
                             .SelectMany(i => i.SupportExtensions())
                             .Distinct()
-                            .Select(i => new FileExtension(i.Trim('.')))
+                            .Select(i => i.Trim('.'))
                             .ToArray())
                     }
                 };

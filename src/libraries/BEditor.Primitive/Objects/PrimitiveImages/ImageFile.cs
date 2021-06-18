@@ -33,12 +33,12 @@ namespace BEditor.Primitive.Objects
             nameof(File),
             owner => owner.File,
             (owner, obj) => owner.File = obj,
-            EditingPropertyOptions<FileProperty>.Create(new FilePropertyMetadata(Strings.File, string.Empty, new(Strings.ImageFile, new FileExtension[]
+            EditingPropertyOptions<FileProperty>.Create(new FilePropertyMetadata(Strings.File, string.Empty, new(Strings.ImageFile, new[]
             {
-                new("png"),
-                new("jpeg"),
-                new("jpg"),
-                new("bmp"),
+                "png",
+                "jpeg",
+                "jpg",
+                "bmp",
             }))).Serialize());
 
         /// <summary>

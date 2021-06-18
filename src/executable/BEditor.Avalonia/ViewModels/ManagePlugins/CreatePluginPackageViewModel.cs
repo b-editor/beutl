@@ -42,9 +42,9 @@ namespace BEditor.ViewModels.ManagePlugins
                 {
                     Filters =
                     {
-                        new(Strings.AssemblyFile, new FileExtension[]
+                        new(Strings.AssemblyFile, new[]
                         {
-                            new("dll")
+                            "dll"
                         })
                     }
                 };

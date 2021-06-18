@@ -58,7 +58,7 @@ namespace BEditor.Primitive.Objects
             EditingPropertyOptions<FileProperty>.Create(new FilePropertyMetadata(Strings.File, string.Empty, new(Strings.VideoFile, DecodingRegistory.EnumerateDecodings()
                 .SelectMany(i => i.SupportExtensions())
                 .Distinct()
-                .Select(i => new FileExtension(i.Trim('.')))
+                .Select(i => i.Trim('.'))
                 .ToArray()))).Serialize());
 
         private static readonly MediaOptions _options = new()

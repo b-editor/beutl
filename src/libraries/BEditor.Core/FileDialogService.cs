@@ -81,26 +81,6 @@ namespace BEditor
     }
 
     /// <summary>
-    /// Represents the extension of the file.
-    /// </summary>
-    public record FileExtension
-    {
-        /// <summary>
-        /// Initializes a new instance of the <see cref="FileExtension"/> class.
-        /// </summary>
-        /// <param name="value">The file extension.</param>
-        public FileExtension(string value)
-        {
-            Value = value;
-        }
-
-        /// <summary>
-        /// Gets the file extension.
-        /// </summary>
-        public string Value { get; init; }
-    }
-
-    /// <summary>
     /// Represents the filter of the file dialog.
     /// </summary>
     public record FileFilter
@@ -110,7 +90,7 @@ namespace BEditor
         /// </summary>
         /// <param name="name">The filter name.</param>
         /// <param name="extensions">The filter extensions.</param>
-        public FileFilter(string name, IEnumerable<FileExtension> extensions)
+        public FileFilter(string name, IEnumerable<string> extensions)
         {
             Name = name;
             Extensions = extensions;
@@ -124,7 +104,7 @@ namespace BEditor
         /// <summary>
         /// Gets the filter extensions.
         /// </summary>
-        public IEnumerable<FileExtension> Extensions { get; init; }
+        public IEnumerable<string> Extensions { get; init; }
     }
 
     /// <summary>

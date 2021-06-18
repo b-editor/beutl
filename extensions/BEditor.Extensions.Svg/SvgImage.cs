@@ -37,9 +37,9 @@ namespace BEditor.Extensions.Svg
             nameof(File),
             owner => owner.File,
             (owner, obj) => owner.File = obj,
-            EditingPropertyOptions<FileProperty>.Create(new FilePropertyMetadata("画像ファイル", "", new("画像ファイル", new FileExtension[]
+            EditingPropertyOptions<FileProperty>.Create(new FilePropertyMetadata("画像ファイル", "", new("画像ファイル", new[]
             {
-                new("svg")
+                "svg"
             }))).Serialize());
 
         private SKSvg? _source;
