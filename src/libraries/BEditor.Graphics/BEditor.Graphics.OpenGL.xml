@@ -767,13 +767,12 @@
             <param name="width">The width of the line.</param>
             <returns>Returns the implementation created by this method.</returns>
         </member>
-        <member name="M:BEditor.Graphics.Platform.IPlatform.CreateTexture(BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32},System.Numerics.Vector3[],System.Numerics.Vector2[])">
+        <member name="M:BEditor.Graphics.Platform.IPlatform.CreateTexture(BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32},BEditor.Graphics.VertexPositionTexture[])">
             <summary>
             Creates the texture.
             </summary>
             <param name="image">The image to create texture.</param>
             <param name="vertices">The vertices.</param>
-            <param name="uv">The uv coordinates.</param>
             <returns>Returns the implementation created by this method.</returns>
         </member>
         <member name="T:BEditor.Graphics.Platform.ITextureImpl">
@@ -794,11 +793,6 @@
         <member name="P:BEditor.Graphics.Platform.ITextureImpl.Vertices">
             <summary>
             Gets the vertices of this <see cref="T:BEditor.Graphics.Platform.ITextureImpl"/>.
-            </summary>
-        </member>
-        <member name="P:BEditor.Graphics.Platform.ITextureImpl.Uv">
-            <summary>
-            Gets the uv vertices of this <see cref="T:BEditor.Graphics.Platform.ITextureImpl"/>.
             </summary>
         </member>
         <member name="M:BEditor.Graphics.Platform.ITextureImpl.ToImage">
@@ -854,23 +848,17 @@
             Gets the vertices of this <see cref="T:BEditor.Graphics.Platform.ITextureImpl"/>.
             </summary>
         </member>
-        <member name="P:BEditor.Graphics.Texture.Uv">
-            <summary>
-            Gets the uv vertices of this <see cref="T:BEditor.Graphics.Platform.ITextureImpl"/>.
-            </summary>
-        </member>
         <member name="P:BEditor.Graphics.Texture.PlatformImpl">
             <summary>
             Gets the texture implementation.
             </summary>
         </member>
-        <member name="M:BEditor.Graphics.Texture.FromImage(BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32},System.Numerics.Vector3[],System.Numerics.Vector2[])">
+        <member name="M:BEditor.Graphics.Texture.FromImage(BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32},BEditor.Graphics.VertexPositionTexture[])">
             <summary>
             Create a texture from an <see cref="T:BEditor.Drawing.Image`1"/>.
             </summary>
             <param name="image">The image to create texture.</param>
             <param name="vertices">The vertices.</param>
-            <param name="uv">The uv coordinates.</param>
             <exception cref="T:BEditor.Graphics.GraphicsException">Platform is not set.</exception>
             <returns>Returns the texture created by this method.</returns>
         </member>
@@ -960,6 +948,49 @@
             <param name="left">Divident or the value to be divided.</param>
             <param name="right">The value to be divided by.</param>
             <returns>A new value that represents result of division of <paramref name="left"/> instance by the value of the <paramref name="right"/>.</returns>
+        </member>
+        <member name="T:BEditor.Graphics.VertexPositionTexture">
+            <summary>
+            Represents the vertex position of the texture.
+            </summary>
+        </member>
+        <member name="F:BEditor.Graphics.VertexPositionTexture.PosX">
+            <summary>
+            The x coordinate position.
+            </summary>
+        </member>
+        <member name="F:BEditor.Graphics.VertexPositionTexture.PosY">
+            <summary>
+            The y coordinate position.
+            </summary>
+        </member>
+        <member name="F:BEditor.Graphics.VertexPositionTexture.PosZ">
+            <summary>
+            The z coordinate position.
+            </summary>
+        </member>
+        <member name="F:BEditor.Graphics.VertexPositionTexture.TexU">
+            <summary>
+            The x coordinate position of the texture.
+            </summary>
+        </member>
+        <member name="F:BEditor.Graphics.VertexPositionTexture.TexV">
+            <summary>
+            The y coordinate position of the texture.
+            </summary>
+        </member>
+        <member name="M:BEditor.Graphics.VertexPositionTexture.#ctor(System.Numerics.Vector3,System.Numerics.Vector2)">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Graphics.VertexPositionTexture"/> struct.
+            </summary>
+            <param name="pos">The coordinate.</param>
+            <param name="uv">The uv coordinate.</param>
+        </member>
+        <member name="M:BEditor.Graphics.VertexPositionTexture.Enumerate">
+            <summary>
+            Enumerates the fields of this structure.
+            </summary>
+            <returns>Returns the fields.</returns>
         </member>
     </members>
 </doc>

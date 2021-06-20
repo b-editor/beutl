@@ -622,7 +622,7 @@
         <member name="M:BEditor.Graphics.OpenGL.OpenGLPlatform.CreateLine(System.Numerics.Vector3,System.Numerics.Vector3,System.Single)">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Graphics.OpenGL.OpenGLPlatform.CreateTexture(BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32},System.Numerics.Vector3[],System.Numerics.Vector2[])">
+        <member name="M:BEditor.Graphics.OpenGL.OpenGLPlatform.CreateTexture(BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32},BEditor.Graphics.VertexPositionTexture[])">
             <inheritdoc/>
         </member>
         <member name="T:BEditor.Graphics.OpenGL.Resources.Strings">
@@ -807,7 +807,7 @@
             Represents an OpenGL texture.
             </summary>
         </member>
-        <member name="M:BEditor.Graphics.OpenGL.TextureImpl.#ctor(System.Int32,System.Int32,System.Int32,System.Single[])">
+        <member name="M:BEditor.Graphics.OpenGL.TextureImpl.#ctor(System.Int32,System.Int32,System.Int32,BEditor.Graphics.VertexPositionTexture[])">
             <summary>
             Initializes a new instance of the <see cref="T:BEditor.Graphics.OpenGL.TextureImpl"/> class.
             </summary>
@@ -853,10 +853,7 @@
         <member name="P:BEditor.Graphics.OpenGL.TextureImpl.BEditor#Graphics#Platform#ITextureImpl#Vertices">
             <inheritdoc/>
         </member>
-        <member name="P:BEditor.Graphics.OpenGL.TextureImpl.BEditor#Graphics#Platform#ITextureImpl#Uv">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Graphics.OpenGL.TextureImpl.FromFile(System.String,System.Single[])">
+        <member name="M:BEditor.Graphics.OpenGL.TextureImpl.FromFile(System.String,BEditor.Graphics.VertexPositionTexture[])">
             <summary>
             Create a texture from an image file.
             </summary>
@@ -864,7 +861,7 @@
             <param name="vertices">The vertices.</param>
             <returns>Returns the texture created by this method.</returns>
         </member>
-        <member name="M:BEditor.Graphics.OpenGL.TextureImpl.FromImage(BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGR24},System.Single[])">
+        <member name="M:BEditor.Graphics.OpenGL.TextureImpl.FromImage(BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGR24},BEditor.Graphics.VertexPositionTexture[])">
             <summary>
             Create a texture from an <see cref="T:BEditor.Drawing.Image`1"/>.
             </summary>
@@ -872,7 +869,7 @@
             <param name="vertices">The vertices.</param>
             <returns>Returns the texture created by this method.</returns>
         </member>
-        <member name="M:BEditor.Graphics.OpenGL.TextureImpl.FromImage(BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32},System.Single[])">
+        <member name="M:BEditor.Graphics.OpenGL.TextureImpl.FromImage(BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32},BEditor.Graphics.VertexPositionTexture[])">
             <summary>
             Create a texture from an <see cref="T:BEditor.Drawing.Image`1"/>.
             </summary>

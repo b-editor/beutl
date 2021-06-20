@@ -27,6 +27,7 @@
     <ItemGroup>
         <ProjectReference Include="..\..\libraries\BEditor.Core\BEditor.Core.csproj" />
         <ProjectReference Include="..\..\libraries\BEditor.Primitive\BEditor.Primitive.csproj" />
+        <ProjectReference Include="..\..\libraries\BEditor.Graphics.Veldrid\BEditor.Graphics.Veldrid.csproj" />
     </ItemGroup>
 
     <ItemGroup Condition="'$(Configuration)'=='Debug'">

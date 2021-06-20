@@ -45,12 +45,7 @@ namespace BEditor.Graphics
         /// <summary>
         /// Gets the vertices of this <see cref="ITextureImpl"/>.
         /// </summary>
-        public ReadOnlyMemory<Vector3> Vertices => PlatformImpl.Vertices;
-
-        /// <summary>
-        /// Gets the uv vertices of this <see cref="ITextureImpl"/>.
-        /// </summary>
-        public ReadOnlyMemory<Vector2> Uv => PlatformImpl.Uv;
+        public ReadOnlyMemory<VertexPositionTexture> Vertices => PlatformImpl.Vertices;
 
         /// <summary>
         /// Gets the texture implementation.
@@ -62,12 +57,11 @@ namespace BEditor.Graphics
         /// </summary>
         /// <param name="image">The image to create texture.</param>
         /// <param name="vertices">The vertices.</param>
-        /// <param name="uv">The uv coordinates.</param>
         /// <exception cref="GraphicsException">Platform is not set.</exception>
         /// <returns>Returns the texture created by this method.</returns>
-        public static Texture FromImage(Image<BGRA32> image, Vector3[]? vertices = null, Vector2[]? uv = null)
+        public static Texture FromImage(Image<BGRA32> image, VertexPositionTexture[]? vertices = null)
         {
-            return new Texture(IPlatform.Current.CreateTexture(image, vertices, uv));
+            return new Texture(IPlatform.Current.CreateTexture(image, vertices));
         }
 
         /// <summary>

@@ -98,7 +98,11 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BEditor.Graphics", "src\lib
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BEditor.Graphics.OpenGL", "src\libraries\BEditor.Graphics.OpenGL\BEditor.Graphics.OpenGL.csproj", "{A9A06B48-9E26-4094-AF1D-057A9D225A39}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BEditor.Graphics.Skia", "src\libraries\BEditor.Graphics.Skia\BEditor.Graphics.Skia.csproj", "{C9AB399C-CA41-4F78-BA14-D4695451DD35}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BEditor.Graphics.Skia", "src\libraries\BEditor.Graphics.Skia\BEditor.Graphics.Skia.csproj", "{C9AB399C-CA41-4F78-BA14-D4695451DD35}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BEditor.Graphics.Veldrid", "src\libraries\BEditor.Graphics.Veldrid\BEditor.Graphics.Veldrid.csproj", "{BB2E2B01-5EBD-44F7-97CD-614C08A6AF01}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BEditor.Graphics.Mock", "src\libraries\BEditor.Graphics.Mock\BEditor.Graphics.Mock.csproj", "{37C7AA5F-01F6-4BB5-83AE-636A85A2E0DC}"
 EndProject
 Global
 	GlobalSection(SharedMSBuildProjectFiles) = preSolution
@@ -204,6 +208,14 @@ Global
 		{C9AB399C-CA41-4F78-BA14-D4695451DD35}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C9AB399C-CA41-4F78-BA14-D4695451DD35}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{C9AB399C-CA41-4F78-BA14-D4695451DD35}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BB2E2B01-5EBD-44F7-97CD-614C08A6AF01}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BB2E2B01-5EBD-44F7-97CD-614C08A6AF01}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BB2E2B01-5EBD-44F7-97CD-614C08A6AF01}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BB2E2B01-5EBD-44F7-97CD-614C08A6AF01}.Release|Any CPU.Build.0 = Release|Any CPU
+		{37C7AA5F-01F6-4BB5-83AE-636A85A2E0DC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{37C7AA5F-01F6-4BB5-83AE-636A85A2E0DC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{37C7AA5F-01F6-4BB5-83AE-636A85A2E0DC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{37C7AA5F-01F6-4BB5-83AE-636A85A2E0DC}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -235,6 +247,8 @@ Global
 		{339FD8A4-79C6-4773-A7E3-85D2AADCDD74} = {C8421BCD-75F3-47F8-85C8-FD47D2807F9C}
 		{A9A06B48-9E26-4094-AF1D-057A9D225A39} = {C8421BCD-75F3-47F8-85C8-FD47D2807F9C}
 		{C9AB399C-CA41-4F78-BA14-D4695451DD35} = {C8421BCD-75F3-47F8-85C8-FD47D2807F9C}
+		{BB2E2B01-5EBD-44F7-97CD-614C08A6AF01} = {C8421BCD-75F3-47F8-85C8-FD47D2807F9C}
+		{37C7AA5F-01F6-4BB5-83AE-636A85A2E0DC} = {C8421BCD-75F3-47F8-85C8-FD47D2807F9C}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {3B52C4A6-734E-450D-8986-22485F07D198}

@@ -1,11 +1,4 @@
-﻿// OpenGLPlatform.cs
-//
-// Copyright (C) BEditor
-//
-// This software may be modified and distributed under the terms
-// of the MIT license. See the LICENSE file for details.
-
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
@@ -14,40 +7,33 @@ using System.Threading.Tasks;
 
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
+using BEditor.Graphics.Mock;
 using BEditor.Graphics.Platform;
 
-namespace BEditor.Graphics.OpenGL
+namespace BEditor.Graphics.Veldrid
 {
-    /// <summary>
-    /// Represents the OpenGL platform.
-    /// </summary>
-    public class OpenGLPlatform : IPlatform
+    public class VeldridPlatform : IPlatform
     {
-        /// <inheritdoc/>
         public IBallImpl CreateBall(float radiusX, float radiusY, float radiusZ)
         {
-            return new BallImpl(radiusX, radiusY, radiusZ);
+            throw new NotImplementedException();
         }
 
-        /// <inheritdoc/>
         public IGraphicsContextImpl CreateContext(int width, int height)
         {
             return new GraphicsContextImpl(width, height);
         }
 
-        /// <inheritdoc/>
         public ICubeImpl CreateCube(float width, float height, float depth)
         {
-            return new CubeImpl(width, height, depth);
+            throw new NotImplementedException();
         }
 
-        /// <inheritdoc/>
         public ILineImpl CreateLine(Vector3 start, Vector3 end, float width)
         {
-            return new LineImpl(start, end, width);
+            return new MockLineImpl();
         }
 
-        /// <inheritdoc/>
         public ITextureImpl CreateTexture(Image<BGRA32> image, VertexPositionTexture[]? vertices = null)
         {
             var halfH = image.Height / 2;
@@ -60,7 +46,7 @@ namespace BEditor.Graphics.OpenGL
                 new(new(-halfW, -halfH, 0), new(0, 1)),
             };
 
-            return TextureImpl.FromImage(image, vertices);
+            return new TextureImpl(image, vertices);
         }
     }
 }

@@ -75,14 +75,15 @@ namespace BEditor
                 AvaloniaLocator.CurrentMutable.Bind<IFontManagerImpl>().ToConstant(new CustomFontManagerImpl());
             }
 
-            if (Settings.Default.GraphicsProfile is "Skia")
-            {
-                IPlatform.Current = new Graphics.Skia.SkiaPlatform();
-            }
-            else
-            {
-                IPlatform.Current = new OpenGLPlatform();
-            }
+            IPlatform.Current = new Graphics.Veldrid.VeldridPlatform();
+            //if (Settings.Default.GraphicsProfile is "Skia")
+            //{
+            //    IPlatform.Current = new Graphics.Skia.SkiaPlatform();
+            //}
+            //else
+            //{
+            //    IPlatform.Current = new OpenGLPlatform();
+            //}
 
             base.RegisterServices();
         }

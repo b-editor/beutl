@@ -44,7 +44,7 @@ namespace BEditor.Graphics.Skia
         }
 
         /// <inheritdoc/>
-        public ITextureImpl CreateTexture(Image<BGRA32> image, Vector3[]? vertices = null, Vector2[]? uv = null)
+        public ITextureImpl CreateTexture(Image<BGRA32> image, VertexPositionTexture[]? vertices = null)
         {
             return new TextureImpl(image);
         }

@@ -35,12 +35,7 @@ namespace BEditor.Graphics.Platform
         /// <summary>
         /// Gets the vertices of this <see cref="ITextureImpl"/>.
         /// </summary>
-        public ReadOnlyMemory<Vector3> Vertices { get; }
-
-        /// <summary>
-        /// Gets the uv vertices of this <see cref="ITextureImpl"/>.
-        /// </summary>
-        public ReadOnlyMemory<Vector2> Uv { get; }
+        public ReadOnlyMemory<VertexPositionTexture> Vertices { get; }
 
         /// <summary>
         /// Converts this texture to an image.
