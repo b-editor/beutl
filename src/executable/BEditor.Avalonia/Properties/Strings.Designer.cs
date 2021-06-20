@@ -804,12 +804,14 @@ namespace BEditor.Properties {
         
         /// <summary>
         ///   Looks up a localized string similar to OpenGL: 
-        ///* Renders using &quot;OpenGL&quot;.
-        ///* There is a problem with the alpha blend.
+        ///- Renders using &quot;OpenGL&quot;.
+        ///- There is a problem with the alpha blend.
         ///
         ///Skia:
-        ///* Renders using &quot;Skia&quot;.
-        ///* 3D drawing is not supported..
+        ///- Renders using &quot;Skia&quot;.
+        ///- It is more stable than &quot;OpenGL.&quot;
+        ///- 3D drawing is not supported.
+        ///- Materials, lights, and cameras are not available..
         /// </summary>
         public static string GraphicsProfileDescription {
             get {

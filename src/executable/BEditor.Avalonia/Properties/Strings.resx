@@ -749,11 +749,13 @@ After the encoder is set, the detailed settings will be displayed.</value>
   </data>
   <data name="GraphicsProfileDescription" xml:space="preserve">
     <value>OpenGL: 
-* Renders using "OpenGL".
-* There is a problem with the alpha blend.
+- Renders using "OpenGL".
+- There is a problem with the alpha blend.
 
 Skia:
-* Renders using "Skia".
-* 3D drawing is not supported.</value>
+- Renders using "Skia".
+- It is more stable than "OpenGL."
+- 3D drawing is not supported.
+- Materials, lights, and cameras are not available.</value>
   </data>
 </root>

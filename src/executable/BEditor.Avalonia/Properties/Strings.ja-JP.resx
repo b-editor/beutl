@@ -749,11 +749,13 @@ IdにはGUID, UUIDが使えます。</value>
   </data>
   <data name="GraphicsProfileDescription" xml:space="preserve">
     <value>OpenGL: 
-* "OpenGL" を利用してレンダリングします。
-* アルファブレンドに問題があります。
+- "OpenGL" を利用してレンダリングします。
+- アルファブレンドに問題があります。
 
 Skia:
-* "Skia" を利用してレンダリングします。
-* 3D描画には対応していません。</value>
+- "Skia" を利用してレンダリングします。
+- "OpenGL" と比べて安定しています。
+- 3D描画には対応していません。
+- マテリアル、ライト、カメラは使えません。</value>
   </data>
 </root>
