@@ -33,6 +33,10 @@ Windows, Linux, macOSで動作する動画編集ソフトウェアです。
 ## Requirements
 * [OpenAL](https://www.openal.org/)
 
+## Contributers
+* [indigo-san](https://twitter.com/indigo_san_)
+* [Yobibyte](https://twitter.com/PC_YiB)
+
 ## License
 
 * [MIT License](https://github.com/b-editor/BEditor/blob/main/LICENSE)
