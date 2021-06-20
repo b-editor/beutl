@@ -34,8 +34,10 @@ Windows, Linux, macOSで動作する動画編集ソフトウェアです。
 * [OpenAL](https://www.openal.org/)
 
 ## Contributers
-* [indigo-san](https://twitter.com/indigo_san_)
-* [Yobibyte](https://twitter.com/PC_YiB)
+
+|      |      |
+| ---- | ---- |
+|  <a href="https://twitter.com/indigo_san_"><img src="https://github.com/indigo-san.png" width="75" height="75"></img></a>  |  <a href="https://twitter.com/PC_YiB"><img src="https://github.com/YiB-PC.png" width="75" height="75"></img></a>  |
 
 ## License
 
