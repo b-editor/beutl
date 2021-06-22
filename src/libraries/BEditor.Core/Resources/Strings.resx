@@ -274,4 +274,16 @@
   <data name="FailedToRemove" xml:space="preserve">
     <value>Failed to remove.</value>
   </data>
+  <data name="AlphaBlend" xml:space="preserve">
+    <value>Alpha blend</value>
+  </data>
+  <data name="Additive" xml:space="preserve">
+    <value>Additive</value>
+  </data>
+  <data name="Subtract" xml:space="preserve">
+    <value>Subtract</value>
+  </data>
+  <data name="Multiplication" xml:space="preserve">
+    <value>Multiplication</value>
+  </data>
 </root>

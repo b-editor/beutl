@@ -79,11 +79,29 @@ namespace BEditor.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Additive.
+        /// </summary>
+        internal static string Additive {
+            get {
+                return ResourceManager.GetString("Additive", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Add a keyframe.
         /// </summary>
         internal static string AddKeyframe {
             get {
                 return ResourceManager.GetString("AddKeyframe", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Alpha blend.
+        /// </summary>
+        internal static string AlphaBlend {
+            get {
+                return ResourceManager.GetString("AlphaBlend", resourceCulture);
             }
         }
         
@@ -367,6 +385,15 @@ namespace BEditor.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Multiplication.
+        /// </summary>
+        internal static string Multiplication {
+            get {
+                return ResourceManager.GetString("Multiplication", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Opacity.
         /// </summary>
         internal static string Opacity {
@@ -516,6 +543,15 @@ namespace BEditor.Resources {
         internal static string Start {
             get {
                 return ResourceManager.GetString("Start", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Subtract.
+        /// </summary>
+        internal static string Subtract {
+            get {
+                return ResourceManager.GetString("Subtract", resourceCulture);
             }
         }
         
