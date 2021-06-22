@@ -1,16 +1,16 @@
 ﻿#version 450
 
-layout(location = 0) out vec4 outputColor;
-layout(location = 1) in vec2 texCoord;
+layout(location = 0) in vec2 fsin_texCoords;
+layout(location = 0) out vec4 fsout_color;
 
-layout(set = 0, binding = 1) uniform texture2D  texture0;
-layout(set = 0, binding = 2) uniform sampler Sampler;
-layout(set = 0, binding = 3) uniform ColorBuffer
+layout(set = 1, binding = 1) uniform texture2D SurfaceTexture;
+layout(set = 1, binding = 2) uniform sampler SurfaceSampler;
+layout(set = 1, binding = 3) uniform ColorBufer
 {
-	vec4 color;
+    vec4 Color;
 };
 
 void main()
 {
-	outputColor = texture(sampler2D(texture0, Sampler), texCoord) * color;
+    fsout_color =  texture(sampler2D(SurfaceTexture, SurfaceSampler), fsin_texCoords) * Color;
 }

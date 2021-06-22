@@ -38,5 +38,74 @@ namespace BEditor.Graphics.Veldrid
                 item.Dispose();
             }
         }
+
+        public static global::Veldrid.ComparisonKind ToVeldrid(this ComparisonKind kind)
+        {
+            return kind switch
+            {
+                ComparisonKind.Never => global::Veldrid.ComparisonKind.Never,
+                ComparisonKind.Less => global::Veldrid.ComparisonKind.Less,
+                ComparisonKind.Equal => global::Veldrid.ComparisonKind.Equal,
+                ComparisonKind.LessEqual => global::Veldrid.ComparisonKind.LessEqual,
+                ComparisonKind.Greater => global::Veldrid.ComparisonKind.Greater,
+                ComparisonKind.NotEqual => global::Veldrid.ComparisonKind.NotEqual,
+                ComparisonKind.GreaterEqual => global::Veldrid.ComparisonKind.GreaterEqual,
+                ComparisonKind.Always => global::Veldrid.ComparisonKind.Always,
+                _ => global::Veldrid.ComparisonKind.Less,
+            };
+        }
+
+        public static DepthStencilStateDescription ToDepthStencilStateDescription(this DepthTestState state)
+        {
+            return new(state.Enabled, state.WriteEnabled, ToVeldrid(state.Comparison));
+        }
+
+        public static BlendStateDescription ToBlendStateDescription(this BlendMode mode)
+        {
+            return mode switch
+            {
+                BlendMode.AlphaBlend => new(default,
+                new BlendAttachmentDescription(
+                    true,
+                    sourceColorFactor: BlendFactor.SourceAlpha,
+                    destinationColorFactor: BlendFactor.InverseSourceAlpha,
+                    colorFunction: BlendFunction.Add,
+                    sourceAlphaFactor: BlendFactor.One,
+                    destinationAlphaFactor: BlendFactor.InverseSourceAlpha,
+                    alphaFunction: BlendFunction.Add)),
+
+                BlendMode.Additive => new(default,
+                new BlendAttachmentDescription(
+                    true,
+                    sourceColorFactor: BlendFactor.SourceAlpha,
+                    destinationColorFactor: BlendFactor.One,
+                    colorFunction: BlendFunction.Add,
+                    sourceAlphaFactor: BlendFactor.SourceAlpha,
+                    destinationAlphaFactor: BlendFactor.One,
+                    alphaFunction: BlendFunction.Add)),
+
+                BlendMode.Subtract => new(default,
+                new BlendAttachmentDescription(
+                    true,
+                    sourceColorFactor: BlendFactor.SourceAlpha,
+                    destinationColorFactor: BlendFactor.One,
+                    colorFunction: BlendFunction.ReverseSubtract,
+                    sourceAlphaFactor: BlendFactor.SourceAlpha,
+                    destinationAlphaFactor: BlendFactor.One,
+                    alphaFunction: BlendFunction.ReverseSubtract)),
+
+                BlendMode.Multiplication => new(default,
+                new BlendAttachmentDescription(
+                    true,
+                    sourceColorFactor: BlendFactor.Zero,
+                    destinationColorFactor: BlendFactor.SourceColor,
+                    colorFunction: BlendFunction.Add,
+                    sourceAlphaFactor: BlendFactor.Zero,
+                    destinationAlphaFactor: BlendFactor.SourceAlpha,
+                    alphaFunction: BlendFunction.Add)),
+
+                _ => BlendStateDescription.SingleAlphaBlend,
+            };
+        }
     }
 }

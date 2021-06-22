@@ -20,7 +20,7 @@ namespace BEditor.Graphics.Veldrid
 
             Vertices = vertices ?? new VertexPositionTexture[]
             {
-                 new(new(halfW, -halfH, 0), new(1, 1)),
+                new(new(halfW, -halfH, 0), new(1, 1)),
                 new(new(halfW, halfH, 0), new(1, 0)),
                 new(new(-halfW, halfH, 0), new(0, 0)),
                 new(new(-halfW, -halfH, 0), new(0, 1)),

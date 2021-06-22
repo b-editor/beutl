@@ -30,33 +30,6 @@ namespace BEditor.Graphics.Veldrid
         private readonly Shader[] _texLightShader;
         private readonly Shader[] _lineShader;
 
-        private readonly Shader[] _shaders;
-
-        private const string VertexCode = @"
-#version 450
-
-layout(location = 0) in vec2 Position;
-layout(location = 1) in vec4 Color;
-
-layout(location = 0) out vec4 fsin_Color;
-
-void main()
-{
-    gl_Position = vec4(Position, 0, 1);
-    fsin_Color = Color;
-}";
-
-        private const string FragmentCode = @"
-#version 450
-
-layout(location = 0) in vec4 fsin_Color;
-layout(location = 0) out vec4 fsout_Color;
-
-void main()
-{
-    fsout_Color = fsin_Color;
-}";
-
         // オフスクリーン
         private TextureVeldrid _stage;
         private TextureVeldrid _offscreenColor;
@@ -65,7 +38,9 @@ void main()
         private Framebuffer _offscreenFB;
 
         // buffers
-        private DeviceBuffer _mvpBuffer;
+        private DeviceBuffer _projectionBuffer;
+        private DeviceBuffer _viewBuffer;
+        private DeviceBuffer _worldBuffer;
 
         public GraphicsContextImpl(int width, int height)
         {
@@ -97,19 +72,6 @@ void main()
             _shader = ReadShader("shader");
             _textureShader = ReadShader("texture");
 
-
-            var vertexShaderDesc = new ShaderDescription(
-                ShaderStages.Vertex,
-                Encoding.UTF8.GetBytes(VertexCode),
-                "main");
-            var fragmentShaderDesc = new ShaderDescription(
-                ShaderStages.Fragment,
-                Encoding.UTF8.GetBytes(FragmentCode),
-                "main");
-
-            _shaders = factory.CreateFromSpirv(vertexShaderDesc, fragmentShaderDesc);
-
-
             // コマンドリスト作成
             _commandList = factory.CreateCommandList();
 
@@ -133,7 +95,11 @@ void main()
 
             _offscreenFB = factory.CreateFramebuffer(new FramebufferDescription(_offscreenDepth, _offscreenColor));
 
-            _mvpBuffer = factory.CreateBuffer(new BufferDescription((uint)sizeof(ModelViewProjection), BufferUsage.UniformBuffer));
+            //_mvpBuffer = factory.CreateBuffer(new BufferDescription((uint)sizeof(ModelViewProjection), BufferUsage.UniformBuffer));
+
+            _projectionBuffer = factory.CreateBuffer(new BufferDescription(64, BufferUsage.UniformBuffer));
+            _viewBuffer = factory.CreateBuffer(new BufferDescription(64, BufferUsage.UniformBuffer));
+            _worldBuffer = factory.CreateBuffer(new BufferDescription(64, BufferUsage.UniformBuffer));
 
             _commandList.Begin();
             Clear();
@@ -149,11 +115,14 @@ void main()
 
         public Light? Light { get; set; }
 
+        public DepthTestState DepthTestState { get; set; }
+
         public void Clear()
         {
             _commandList.SetFramebuffer(_offscreenFB);
-            _commandList.ClearColorTarget(0, RgbaFloat.Black);
+            _commandList.ClearColorTarget(0, default);
             _commandList.ClearDepthStencil(1f);
+            DepthTestState = new(false, false, ComparisonKind.Less);
         }
 
         public void Dispose()
@@ -174,7 +143,7 @@ void main()
                 _texLightShader.Dispose();
                 _lineShader.Dispose();
 
-                _mvpBuffer.Dispose();
+                //_mvpBuffer.Dispose();
 
                 _commandList.Dispose();
                 _graphicsDevice.Dispose();
@@ -198,7 +167,7 @@ void main()
         {
         }
 
-        public unsafe void DrawTexture(Texture texture)
+        public void DrawTexture(Texture texture)
         {
             if (texture.PlatformImpl is TextureImpl impl)
             {
@@ -207,83 +176,145 @@ void main()
                 var view = factory.CreateTextureView(tex);
 
                 // VertexBuffer
-                var vertexBuffer = factory.CreateBuffer(new BufferDescription((uint)(sizeof(VertexPositionTexture) * 4), BufferUsage.VertexBuffer));
-                _graphicsDevice.UpdateBuffer(vertexBuffer, 0, impl.Vertices.ToArray());
+                var vertex = ToVertexTextureArray(texture.Vertices);
+                var vertexBuffer = factory.CreateBuffer(new BufferDescription((uint)(sizeof(VertexPositionTexture) * /*impl.Vertices.Length*/vertex.Length), BufferUsage.VertexBuffer));
+                _graphicsDevice.UpdateBuffer(vertexBuffer, 0, /*impl.Vertices.ToArray()*/vertex);
 
                 // IndexBuffer
-                uint[] indices =
+                ushort[] indices =
                 {
-                    0, 1, 3,
-                    1, 2, 3,
+                    0, 1, 2,
+                    0, 2, 3,
                 };
-                var indexBuffer = factory.CreateBuffer(new BufferDescription(sizeof(uint) * (uint)indices.Length, BufferUsage.IndexBuffer));
+                var indexBuffer = factory.CreateBuffer(new BufferDescription(sizeof(ushort) * (uint)indices.Length, BufferUsage.IndexBuffer));
                 _graphicsDevice.UpdateBuffer(indexBuffer, 0, indices);
 
+                // ColorBuffer
+                var colorBuffer = factory.CreateBuffer(new BufferDescription((uint)sizeof(RgbaFloat), BufferUsage.UniformBuffer));
+                _graphicsDevice.UpdateBuffer(colorBuffer, 0, texture.Color.ToFloat());
+
+                // ShaderSet
                 var shaderSet = new ShaderSetDescription(
                     new[]
                     {
                         new VertexLayoutDescription(
-                            new VertexElementDescription("aPosition", VertexElementSemantic.TextureCoordinate, VertexElementFormat.Float3),
-                            new VertexElementDescription("aTexCoord", VertexElementSemantic.TextureCoordinate, VertexElementFormat.Float2))
+                            new VertexElementDescription("Position", VertexElementSemantic.TextureCoordinate, VertexElementFormat.Float3),
+                            new VertexElementDescription("TexCoords", VertexElementSemantic.TextureCoordinate, VertexElementFormat.Float2))
                     },
                     _textureShader);
 
-                var layout = factory.CreateResourceLayout(new ResourceLayoutDescription(
-                    new ResourceLayoutElementDescription("MVP", ResourceKind.UniformBuffer, ShaderStages.Vertex),
-                new ResourceLayoutElementDescription("Texture0", ResourceKind.TextureReadOnly, ShaderStages.Fragment),
-                new ResourceLayoutElementDescription("Sampler", ResourceKind.Sampler, ShaderStages.Fragment),
-                    new ResourceLayoutElementDescription("ColorBuffer", ResourceKind.UniformBuffer, ShaderStages.Fragment)));
+                // Layout
+                var projViewLayout = factory.CreateResourceLayout(
+                    new ResourceLayoutDescription(
+                        new ResourceLayoutElementDescription("ProjectionBuffer", ResourceKind.UniformBuffer, ShaderStages.Vertex),
+                        new ResourceLayoutElementDescription("ViewBuffer", ResourceKind.UniformBuffer, ShaderStages.Vertex)));
 
-                // MVP
-                UpdateBuffer(Camera, texture.Transform);
+                var worldTextureLayout = factory.CreateResourceLayout(
+                    new ResourceLayoutDescription(
+                        new ResourceLayoutElementDescription("WorldBuffer", ResourceKind.UniformBuffer, ShaderStages.Vertex),
+                        new ResourceLayoutElementDescription("SurfaceTexture", ResourceKind.TextureReadOnly, ShaderStages.Fragment),
+                        new ResourceLayoutElementDescription("SurfaceSampler", ResourceKind.Sampler, ShaderStages.Fragment),
+                        new ResourceLayoutElementDescription("ColorBuffer", ResourceKind.UniformBuffer, ShaderStages.Fragment)));
 
-                // ColorBuffer
-                var colorBuffer = factory.CreateBuffer(new BufferDescription((uint)sizeof(Vector4), BufferUsage.UniformBuffer));
-                _graphicsDevice.UpdateBuffer(
-                    colorBuffer, 0,
-                    texture.Color.ToFloat());
-
-                var resourceSet = factory.CreateResourceSet(
-                    new ResourceSetDescription(layout, _mvpBuffer, view, _graphicsDevice.PointSampler, colorBuffer));
-
+                // Pipeline
                 var pipeline = factory.CreateGraphicsPipeline(new GraphicsPipelineDescription(
-                    BlendStateDescription.SingleOverrideBlend,
-                    new DepthStencilStateDescription(
-                        true,
-                        true,
-                        ComparisonKind.LessEqual),
-                    new RasterizerStateDescription(
-                        FaceCullMode.Back,
-                        PolygonFillMode.Solid,
-                        FrontFace.Clockwise,
-                        true,
-                        false),
-                    PrimitiveTopology.TriangleStrip,
+                    texture.BlendMode.ToBlendStateDescription(),
+                    DepthTestState.ToDepthStencilStateDescription(),
+                    RasterizerStateDescription.Default,
+                    PrimitiveTopology.TriangleList,
                     shaderSet,
-                    layout,
+                    new[] { projViewLayout, worldTextureLayout },
                     _offscreenFB.OutputDescription));
 
-                _commandList.SetVertexBuffer(0, vertexBuffer);
-                _commandList.SetIndexBuffer(indexBuffer, IndexFormat.UInt32);
-                _commandList.SetPipeline(pipeline);
-                _commandList.SetGraphicsResourceSet(0, resourceSet);
-                _commandList.Draw(4, 1, 0, 0);
-                //var (pipeline, vertex, index) = CreatePipeline();
-                //_commandList.SetVertexBuffer(0, vertex);
-                //_commandList.SetIndexBuffer(index, IndexFormat.UInt16);
-                //_commandList.SetPipeline(pipeline);
-                //_commandList.DrawIndexed(
-                //    indexCount: 4,
-                //    instanceCount: 1,
-                //    indexStart: 0,
-                //    vertexOffset: 0,
-                //    instanceStart: 0);
+                // ResourceSet
+                var projViewSet = factory.CreateResourceSet(new ResourceSetDescription(
+                    projViewLayout,
+                    _projectionBuffer,
+                    _viewBuffer));
 
-                //index.Dispose();
-                //vertex.Dispose();
-                //pipeline.Dispose();
+                var worldTextureSet = factory.CreateResourceSet(new ResourceSetDescription(
+                    worldTextureLayout,
+                    _worldBuffer,
+                    view,
+                    _graphicsDevice.Aniso4xSampler,
+                    colorBuffer));
+
+                UpdateBuffer(Camera, impl.Transform);
+
+                // Draw
+                _commandList.SetPipeline(pipeline);
+                _commandList.SetVertexBuffer(0, vertexBuffer);
+                _commandList.SetIndexBuffer(indexBuffer, IndexFormat.UInt16);
+                _commandList.SetGraphicsResourceSet(0, projViewSet);
+                _commandList.SetGraphicsResourceSet(1, worldTextureSet);
+                _commandList.DrawIndexed((uint)indices.Length, 1, 0, 0, 0);
             }
         }
+        
+        //public unsafe void DrawTexture(Texture texture)
+        //{
+        //    if (texture.PlatformImpl is TextureImpl impl)
+        //    {
+        //        var factory = _graphicsDevice.ResourceFactory;
+        //        var tex = ToTexture(impl);
+        //        var view = factory.CreateTextureView(tex);
+
+        //        // VertexBuffer
+        //        var vertexBuffer = factory.CreateBuffer(new BufferDescription((uint)(sizeof(VertexPositionTexture) * 4), BufferUsage.VertexBuffer));
+        //        _graphicsDevice.UpdateBuffer(vertexBuffer, 0, impl.Vertices.ToArray());
+
+        //        // IndexBuffer
+        //        uint[] indices =
+        //        {
+        //            0, 1, 3,
+        //            1, 2, 3,
+        //        };
+        //        var indexBuffer = factory.CreateBuffer(new BufferDescription(sizeof(uint) * (uint)indices.Length, BufferUsage.IndexBuffer));
+        //        _graphicsDevice.UpdateBuffer(indexBuffer, 0, indices);
+
+        //        var shaderSet = new ShaderSetDescription(
+        //            new[]
+        //            {
+        //                new VertexLayoutDescription(
+        //                    new VertexElementDescription("aPosition", VertexElementSemantic.TextureCoordinate, VertexElementFormat.Float3),
+        //                    new VertexElementDescription("aTexCoord", VertexElementSemantic.TextureCoordinate, VertexElementFormat.Float2))
+        //            },
+        //            _textureShader);
+
+        //        var layout = factory.CreateResourceLayout(new ResourceLayoutDescription(
+        //            new ResourceLayoutElementDescription("MVP", ResourceKind.UniformBuffer, ShaderStages.Vertex),
+        //        new ResourceLayoutElementDescription("Texture0", ResourceKind.TextureReadOnly, ShaderStages.Fragment),
+        //        new ResourceLayoutElementDescription("Sampler", ResourceKind.Sampler, ShaderStages.Fragment),
+        //            new ResourceLayoutElementDescription("ColorBuffer", ResourceKind.UniformBuffer, ShaderStages.Fragment)));
+
+        //        // MVP
+        //        UpdateBuffer(Camera, texture.Transform);
+
+        //        // ColorBuffer
+        //        var colorBuffer = factory.CreateBuffer(new BufferDescription((uint)sizeof(Vector4), BufferUsage.UniformBuffer));
+        //        _graphicsDevice.UpdateBuffer(
+        //            colorBuffer, 0,
+        //            texture.Color.ToFloat());
+
+        //        var resourceSet = factory.CreateResourceSet(
+        //            new ResourceSetDescription(layout, _mvpBuffer, view, _graphicsDevice.Aniso4xSampler, colorBuffer));
+
+        //        var pipeline = factory.CreateGraphicsPipeline(new GraphicsPipelineDescription(
+        //            BlendStateDescription.SingleOverrideBlend,
+        //            DepthStencilStateDescription.DepthOnlyLessEqual,
+        //            RasterizerStateDescription.Default,
+        //            PrimitiveTopology.TriangleList,
+        //            shaderSet,
+        //            layout,
+        //            _offscreenFB.OutputDescription));
+
+        //        _commandList.SetVertexBuffer(0, vertexBuffer);
+        //        _commandList.SetIndexBuffer(indexBuffer, IndexFormat.UInt32);
+        //        _commandList.SetPipeline(pipeline);
+        //        _commandList.SetGraphicsResourceSet(0, resourceSet);
+        //        _commandList.DrawIndexed(6, 1, 0, 0, 0);
+        //    }
+        //}
 
         public void MakeCurrent()
         {
@@ -299,9 +330,8 @@ void main()
             _commandList.End();
 
             _graphicsDevice.SubmitCommands(_commandList);
-
+            _graphicsDevice.SwapBuffers();
             _graphicsDevice.WaitForIdle();
-            //_graphicsDevice.SwapBuffers();
 
             var buf = _graphicsDevice.Map(_stage, MapMode.Read);
             fixed (BGRA32* dst = image.Data)
@@ -309,6 +339,8 @@ void main()
                 var size = image.DataSize;
                 Buffer.MemoryCopy((void*)buf.Data, dst, size, size);
             }
+
+            _graphicsDevice.Unmap(_stage);
 
             _commandList.Begin();
         }
@@ -348,66 +380,16 @@ void main()
             _offscreenFB = factory.CreateFramebuffer(new FramebufferDescription(_offscreenDepth, _offscreenColor));
         }
 
-        struct VertexPositionColor
+        private static VertexPositionTexture[] ToVertexTextureArray(ReadOnlyMemory<VertexPositionTexture> memory)
         {
-            public Vector2 Position; // This is the position, in normalized device coordinates.
-            public RgbaFloat Color; // This is the color of the vertex.
-            public VertexPositionColor(Vector2 position, RgbaFloat color)
+            var span = memory.Span;
+            return new VertexPositionTexture[]
             {
-                Position = position;
-                Color = color;
-            }
-            public const uint SizeInBytes = 24;
-        }
-
-        private (Pipeline pipeline, DeviceBuffer vertex, DeviceBuffer index) CreatePipeline()
-        {
-            var factory = _graphicsDevice.ResourceFactory;
-
-            VertexPositionColor[] quadVertices =
-            {
-                new VertexPositionColor(new Vector2(-0.75f, 0.75f), RgbaFloat.Red),
-                new VertexPositionColor(new Vector2(0.75f, 0.75f), RgbaFloat.Green),
-                new VertexPositionColor(new Vector2(-0.75f, -0.75f), RgbaFloat.Blue),
-                new VertexPositionColor(new Vector2(0.75f, -0.75f), RgbaFloat.Yellow)
+                span[2],
+                span[1],
+                span[0],
+                span[3],
             };
-
-            ushort[] quadIndices = { 0, 1, 2, 3 };
-
-            var vertexBuffer = factory.CreateBuffer(new BufferDescription(4 * VertexPositionColor.SizeInBytes, BufferUsage.VertexBuffer));
-            var indexBuffer = factory.CreateBuffer(new BufferDescription(4 * sizeof(ushort), BufferUsage.IndexBuffer));
-
-            _graphicsDevice.UpdateBuffer(vertexBuffer, 0, quadVertices);
-            _graphicsDevice.UpdateBuffer(indexBuffer, 0, quadIndices);
-
-            var pipelineDescription = new GraphicsPipelineDescription();
-            pipelineDescription.BlendState = BlendStateDescription.SingleOverrideBlend;
-
-            pipelineDescription.DepthStencilState = new DepthStencilStateDescription(
-                true,
-                true,
-                comparisonKind: ComparisonKind.LessEqual);
-
-            pipelineDescription.RasterizerState = new RasterizerStateDescription(
-                cullMode: FaceCullMode.Back,
-                fillMode: PolygonFillMode.Solid,
-                frontFace: FrontFace.Clockwise,
-                true,
-                false);
-
-            pipelineDescription.PrimitiveTopology = PrimitiveTopology.TriangleStrip;
-            pipelineDescription.ResourceLayouts = System.Array.Empty<ResourceLayout>();
-
-            var vertexLayout = new VertexLayoutDescription(
-                new VertexElementDescription("Position", VertexElementSemantic.TextureCoordinate, VertexElementFormat.Float2),
-                new VertexElementDescription("Color", VertexElementSemantic.TextureCoordinate, VertexElementFormat.Float4));
-
-            pipelineDescription.ShaderSet = new ShaderSetDescription(
-                vertexLayouts: new VertexLayoutDescription[] { vertexLayout },
-                shaders: _shaders);
-
-            pipelineDescription.Outputs = _offscreenFB.OutputDescription;
-            return (_graphicsDevice.ResourceFactory.CreateGraphicsPipeline(pipelineDescription), vertexBuffer, indexBuffer);
         }
 
         private unsafe TextureVeldrid ToTexture(TextureImpl impl)
@@ -426,11 +408,18 @@ void main()
 
         private void UpdateBuffer(Camera camera, Transform transform)
         {
-            _graphicsDevice.UpdateBuffer(
-                _mvpBuffer,
-                0,
-                new ModelViewProjection(transform.Matrix, camera.GetViewMatrix(), camera.GetProjectionMatrix()));
+            _graphicsDevice.UpdateBuffer(_projectionBuffer, 0, camera.GetProjectionMatrix());
+            _graphicsDevice.UpdateBuffer(_viewBuffer, 0, camera.GetViewMatrix());
+            _graphicsDevice.UpdateBuffer(_worldBuffer, 0, transform.Matrix);
         }
+        
+        //private void UpdateBuffer(Camera camera, Transform transform)
+        //{
+        //    _graphicsDevice.UpdateBuffer(
+        //        _mvpBuffer,
+        //        0,
+        //        new ModelViewProjection(transform.Matrix, camera.GetViewMatrix(), camera.GetProjectionMatrix()));
+        //}
 
         private Shader[] ReadShader(string name)
         {
