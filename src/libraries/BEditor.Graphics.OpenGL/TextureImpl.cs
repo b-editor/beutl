@@ -20,7 +20,7 @@ namespace BEditor.Graphics.OpenGL
     /// <summary>
     /// Represents an OpenGL texture.
     /// </summary>
-    public sealed class TextureImpl : GraphicsObject, ITextureImpl
+    public sealed unsafe class TextureImpl : GraphicsObject, ITextureImpl
     {
         private readonly VertexPositionTexture[] _vertices;
         private readonly uint[] _indices =
@@ -59,7 +59,7 @@ namespace BEditor.Graphics.OpenGL
 
             VertexBufferObject = GL.GenBuffer();
             GL.BindBuffer(BufferTarget.ArrayBuffer, VertexBufferObject);
-            GL.BufferData(BufferTarget.ArrayBuffer, _vertices.Length * sizeof(float), _vertices, BufferUsageHint.StaticDraw);
+            GL.BufferData(BufferTarget.ArrayBuffer, _vertices.Length * sizeof(VertexPositionTexture), _vertices, BufferUsageHint.StaticDraw);
 
             ElementBufferObject = GL.GenBuffer();
             GL.BindBuffer(BufferTarget.ElementArrayBuffer, ElementBufferObject);
@@ -109,7 +109,7 @@ namespace BEditor.Graphics.OpenGL
         /// <param name="path">The image files for creating textures.</param>
         /// <param name="vertices">The vertices.</param>
         /// <returns>Returns the texture created by this method.</returns>
-        public static unsafe TextureImpl FromFile(string path, VertexPositionTexture[]? vertices = null)
+        public static TextureImpl FromFile(string path, VertexPositionTexture[]? vertices = null)
         {
             using var image = Image.Decode(path);
 
@@ -122,7 +122,7 @@ namespace BEditor.Graphics.OpenGL
         /// <param name="image">The image to create texture.</param>
         /// <param name="vertices">The vertices.</param>
         /// <returns>Returns the texture created by this method.</returns>
-        public static unsafe TextureImpl FromImage(Image<BGR24> image, VertexPositionTexture[]? vertices = null)
+        public static TextureImpl FromImage(Image<BGR24> image, VertexPositionTexture[]? vertices = null)
         {
             var handle = GL.GenTexture();
 
@@ -159,7 +159,7 @@ namespace BEditor.Graphics.OpenGL
         /// <param name="image">The image to create texture.</param>
         /// <param name="vertices">The vertices.</param>
         /// <returns>Returns the texture created by this method.</returns>
-        public static unsafe TextureImpl FromImage(Image<BGRA32> image, VertexPositionTexture[]? vertices = null)
+        public static TextureImpl FromImage(Image<BGRA32> image, VertexPositionTexture[]? vertices = null)
         {
             var handle = GL.GenTexture();
 

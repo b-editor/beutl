@@ -203,6 +203,7 @@ namespace BEditor.Graphics.OpenGL
         public void Clear()
         {
             MakeCurrent();
+            DepthTestState = new(false, false, ComparisonKind.Less);
 
             GL.Viewport(0, 0, Width, Height);
             Tool.ThrowGLError();
