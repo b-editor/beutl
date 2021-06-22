@@ -758,4 +758,10 @@ Skia:
 - 3D drawing is not supported.
 - Materials, lights, and cameras are not available.</value>
   </data>
+  <data name="EffectFile" xml:space="preserve">
+    <value>Effect file</value>
+  </data>
+  <data name="ObjectFile" xml:space="preserve">
+    <value>Object file</value>
+  </data>
 </root>

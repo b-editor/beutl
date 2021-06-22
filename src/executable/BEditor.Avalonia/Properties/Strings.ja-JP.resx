@@ -758,4 +758,10 @@ Skia:
 - 3D描画には対応していません。
 - マテリアル、ライト、カメラは使えません。</value>
   </data>
+  <data name="EffectFile" xml:space="preserve">
+    <value>エフェクトファイル</value>
+  </data>
+  <data name="ObjectFile" xml:space="preserve">
+    <value>オブジェクトファイル</value>
+  </data>
 </root>

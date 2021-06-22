@@ -187,32 +187,49 @@ namespace BEditor.ViewModels
                         var start = timeline.ClickedFrame;
                         var end = timeline.ClickedFrame + 180;
                         var layer = timeline.ClickedLayer;
+                        var ext = Path.GetExtension(text);
 
                         if (!timeline.Scene.InRange(start, end, layer))
                         {
                             mes?.Snackbar(Strings.ClipExistsInTheSpecifiedLocation);
-
                             return;
                         }
-                        var supportedObjects = ObjectMetadata.LoadedObjects
-                            .Where(i => i.IsSupported is not null && i.CreateFromFile is not null && i.IsSupported(text))
-                            .ToArray();
-                        var result = supportedObjects.FirstOrDefault();
 
-                        if (supportedObjects.Length > 1)
+                        if (ext is ".bobj")
                         {
-                            var dialog = new SelectObjectMetadata
+                            var efct = await Serialize.LoadFromFileAsync<EffectWrapper>(text);
+                            if(efct?.Effect is not ObjectElement obj)
                             {
-                                Metadatas = supportedObjects,
-                                Selected = result,
-                            };
+                                mes?.Snackbar(Strings.FailedToLoad);
+                                return;
+                            }
 
-                            result = await dialog.ShowDialog<ObjectMetadata?>(BEditor.App.GetMainWindow());
+                            obj.Load();
+                            obj.UpdateId();
+                            timeline.Scene.AddClip(start, layer, obj, out _).Execute();
                         }
-
-                        if (result is not null)
+                        else
                         {
-                            timeline.Scene.AddClip(start, layer, result.CreateFromFile!.Invoke(text), out _).Execute();
+                            var supportedObjects = ObjectMetadata.LoadedObjects
+                                .Where(i => i.IsSupported is not null && i.CreateFromFile is not null && i.IsSupported(text))
+                                .ToArray();
+                            var result = supportedObjects.FirstOrDefault();
+
+                            if (supportedObjects.Length > 1)
+                            {
+                                var dialog = new SelectObjectMetadata
+                                {
+                                    Metadatas = supportedObjects,
+                                    Selected = result,
+                                };
+
+                                result = await dialog.ShowDialog<ObjectMetadata?>(BEditor.App.GetMainWindow());
+                            }
+
+                            if (result is not null)
+                            {
+                                timeline.Scene.AddClip(start, layer, result.CreateFromFile!.Invoke(text), out _).Execute();
+                            }
                         }
                     }
                 });
@@ -235,12 +252,7 @@ namespace BEditor.ViewModels
                 {
                     Filters =
                     {
-                        new(Strings.ImageFile, new[]
-                        {
-                            "png",
-                            "jpg",
-                            "jpeg",
-                        })
+                        new(Strings.ImageFile, ImageFile.SupportExtensions)
                     }
                 };
 

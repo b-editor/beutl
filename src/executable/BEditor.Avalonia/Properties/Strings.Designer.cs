@@ -595,6 +595,15 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Effect file.
+        /// </summary>
+        public static string EffectFile {
+            get {
+                return ResourceManager.GetString("EffectFile", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Email.
         /// </summary>
         public static string Email {
@@ -1123,6 +1132,15 @@ namespace BEditor.Properties {
         public static string NotSupportedFormats {
             get {
                 return ResourceManager.GetString("NotSupportedFormats", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Object file.
+        /// </summary>
+        public static string ObjectFile {
+            get {
+                return ResourceManager.GetString("ObjectFile", resourceCulture);
             }
         }
         

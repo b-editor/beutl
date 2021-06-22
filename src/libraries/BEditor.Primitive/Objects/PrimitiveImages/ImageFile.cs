@@ -32,7 +32,10 @@ namespace BEditor.Primitive.Objects
         /// </summary>
         public static readonly DirectEditingProperty<ImageFile, FileProperty> FileProperty;
 
-        private static readonly string[] _extensions =
+        /// <summary>
+        /// The extension of the supported image files.
+        /// </summary>
+        public static readonly string[] SupportExtensions =
         {
             "png",
             "jpeg",
@@ -55,7 +58,7 @@ namespace BEditor.Primitive.Objects
                 nameof(File),
                 owner => owner.File,
                 (owner, obj) => owner.File = obj,
-                EditingPropertyOptions<FileProperty>.Create(new FilePropertyMetadata(Strings.File, string.Empty, new(Strings.ImageFile, _extensions))).Serialize());
+                EditingPropertyOptions<FileProperty>.Create(new FilePropertyMetadata(Strings.File, string.Empty, new(Strings.ImageFile, SupportExtensions))).Serialize());
         }
 
         /// <summary>
@@ -84,7 +87,7 @@ namespace BEditor.Primitive.Objects
         public static bool IsSupported(string file)
         {
             var ext = Path.GetExtension(file).Trim('.');
-            return _extensions.Contains(ext);
+            return SupportExtensions.Contains(ext);
         }
 
         /// <summary>

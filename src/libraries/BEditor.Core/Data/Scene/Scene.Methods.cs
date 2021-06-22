@@ -282,7 +282,6 @@ namespace BEditor.Data
         {
             // オブジェクトの情報
             clip.Parent = this;
-            clip.UpdateId();
 
             return RecordCommand.Create(
                 clip,
@@ -290,6 +289,7 @@ namespace BEditor.Data
                 {
                     var scene = clip.Parent;
                     clip.Load();
+                    clip.UpdateId();
                     scene.Add(clip);
                     scene.SelectItem = clip;
                 },
@@ -304,6 +304,13 @@ namespace BEditor.Data
                     {
                         scene.SelectItem = null;
                     }
+                },
+                clip =>
+                {
+                    var scene = clip.Parent;
+                    clip.Load();
+                    scene.Add(clip);
+                    scene.SelectItem = clip;
                 },
                 _ => Strings.AddClip);
         }

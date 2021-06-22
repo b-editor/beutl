@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
+using System.IO;
 using System.Linq;
 
 using Avalonia;
@@ -286,32 +287,49 @@ namespace BEditor.Views.Timelines
             }
             else if (e.Data.GetFileNames() is var files && (files?.Any() ?? false))
             {
+                var mes = AppModel.Current.Message;
                 var file = files.First();
+                var ext = Path.GetExtension(file);
                 if (!Scene.InRange(vm.ClickedFrame, vm.ClickedFrame + 180, vm.ClickedLayer))
                 {
-                    Scene.ServiceProvider?.GetService<IMessage>()?.Snackbar(Strings.ClipExistsInTheSpecifiedLocation);
-
+                    mes.Snackbar(Strings.ClipExistsInTheSpecifiedLocation);
                     return;
                 }
-                var supportedObjects = ObjectMetadata.LoadedObjects
-                    .Where(i => i.IsSupported is not null && i.CreateFromFile is not null && i.IsSupported(file))
-                    .ToArray();
-                var result = supportedObjects.FirstOrDefault();
 
-                if (supportedObjects.Length > 1)
+                if (ext is ".bobj")
                 {
-                    var dialog = new SelectObjectMetadata
+                    var efct = await Serialize.LoadFromFileAsync<EffectWrapper>(file);
+                    if (efct?.Effect is not ObjectElement obj)
                     {
-                        Metadatas = supportedObjects,
-                        Selected = result,
-                    };
-
-                    result = await dialog.ShowDialog<ObjectMetadata?>((Window)VisualRoot!);
+                        mes?.Snackbar(Strings.FailedToLoad);
+                        return;
+                    }
+                    obj.Load();
+                    obj.UpdateId();
+                    Scene.AddClip(vm.ClickedFrame, vm.ClickedLayer, obj, out _).Execute();
                 }
-
-                if (result is not null)
+                else
                 {
-                    Scene.AddClip(vm.ClickedFrame, vm.ClickedLayer, result.CreateFromFile!.Invoke(file), out _).Execute();
+                    var supportedObjects = ObjectMetadata.LoadedObjects
+                        .Where(i => i.IsSupported is not null && i.CreateFromFile is not null && i.IsSupported(file))
+                        .ToArray();
+                    var result = supportedObjects.FirstOrDefault();
+
+                    if (supportedObjects.Length > 1)
+                    {
+                        var dialog = new SelectObjectMetadata
+                        {
+                            Metadatas = supportedObjects,
+                            Selected = result,
+                        };
+
+                        result = await dialog.ShowDialog<ObjectMetadata?>((Window)VisualRoot!);
+                    }
+
+                    if (result is not null)
+                    {
+                        Scene.AddClip(vm.ClickedFrame, vm.ClickedLayer, result.CreateFromFile!.Invoke(file), out _).Execute();
+                    }
                 }
             }
         }

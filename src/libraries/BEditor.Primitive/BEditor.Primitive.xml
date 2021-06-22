@@ -2358,6 +2358,11 @@
             Defines the <see cref="P:BEditor.Primitive.Objects.ImageFile.File"/> property.
             </summary>
         </member>
+        <member name="F:BEditor.Primitive.Objects.ImageFile.SupportExtensions">
+            <summary>
+            The extension of the supported image files.
+            </summary>
+        </member>
         <member name="M:BEditor.Primitive.Objects.ImageFile.#ctor">
             <summary>
             Initializes a new instance of the <see cref="T:BEditor.Primitive.Objects.ImageFile"/> class.
