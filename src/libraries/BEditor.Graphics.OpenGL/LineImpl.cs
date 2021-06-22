@@ -57,7 +57,7 @@ namespace BEditor.Graphics.OpenGL
         }
 
         /// <inheritdoc/>
-        public override ReadOnlyMemory<float> Vertices => _vertices;
+        public override float[] Vertices => _vertices;
 
         /// <inheritdoc/>
         public Vector3 Start { get; }

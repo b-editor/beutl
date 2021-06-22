@@ -274,19 +274,12 @@ namespace BEditor.Extensions.AviUtl
             {
                 texture = Texture.FromImage(
                     _img,
-                    new Vector3[]
+                    new VertexPositionTexture[]
                     {
-                        new(x0, -y0, -z0),
-                        new(x1, -y1, -z1),
-                        new(x2, -y2, -z2),
-                        new(x3, -y3, -z3),
-                    },
-                    new Vector2[]
-                    {
-                        new(0, 0),
-                        new(1, 0),
-                        new(1, 1),
-                        new(0, 1),
+                        new(new(x0, -y0, -z0), new(0, 0)),
+                        new(new(x1, -y1, -z1), new(1, 0)),
+                        new(new(x2, -y2, -z2), new(1, 1)),
+                        new(new(x3, -y3, -z3), new(0, 1)),
                     });
                 texture.Transform = _drawTarget is DrawTarget.FrameBuffer ?
                     new(new(x, -y, -z), default, new(rx, ry, rz), new(zoom, zoom, zoom)) :
@@ -296,19 +289,12 @@ namespace BEditor.Extensions.AviUtl
             {
                 texture = Texture.FromImage(
                     _img,
-                    new Vector3[]
+                    new VertexPositionTexture[]
                     {
-                        new(x0, y0, z0),
-                        new(x1, y1, z1),
-                        new(x2, y2, z2),
-                        new(x3, y3, z3),
-                    },
-                    new Vector2[]
-                    {
-                        new(0, 0),
-                        new(1, 0),
-                        new(1, 1),
-                        new(0, 1),
+                        new(new(x0, y0, z0), new(0, 0)),
+                        new(new(x1, y1, z1), new(1, 0)),
+                        new(new(x2, y2, z2), new(1, 1)),
+                        new(new(x3, y3, z3), new(0, 1)),
                     });
                 texture.Transform = _drawTarget is DrawTarget.FrameBuffer ?
                     new(new(x, y, z), default, new(rx, ry, rz), new(zoom, zoom, zoom)) :
@@ -364,19 +350,12 @@ namespace BEditor.Extensions.AviUtl
             {
                 texture = Texture.FromImage(
                     _img,
-                    new Vector3[]
+                    new VertexPositionTexture[]
                     {
-                        new(x0, -y0, -z0),
-                        new(x1, -y1, -z1),
-                        new(x2, -y2, -z2),
-                        new(x3, -y3, -z3),
-                    },
-                    new Vector2[]
-                    {
-                        new(u0 / w, v0 / h),
-                        new(u1 / w, v1 / h),
-                        new(u2 / w, v2 / h),
-                        new(u3 / w, v3 / h),
+                        new(new(x0, -y0, -z0), new(u0 / w, v0 / h)),
+                        new(new(x1, -y1, -z1), new(u1 / w, v1 / h)),
+                        new(new(x2, -y2, -z2), new(u2 / w, v2 / h)),
+                        new(new(x3, -y3, -z3), new(u3 / w, v3 / h)),
                     });
                 texture.Transform = _drawTarget is DrawTarget.FrameBuffer ?
                     new(new(x, -y, -z), default, new(rx, ry, rz), new(zoom, zoom, zoom)) :
@@ -386,19 +365,12 @@ namespace BEditor.Extensions.AviUtl
             {
                 texture = Texture.FromImage(
                     _img,
-                    new Vector3[]
+                    new VertexPositionTexture[]
                     {
-                        new(x0, y0, z0),
-                        new(x1, y1, z1),
-                        new(x2, y2, z2),
-                        new(x3, y3, z3),
-                    },
-                    new Vector2[]
-                    {
-                        new(u0 / w, v0 / h),
-                        new(u1 / w, v1 / h),
-                        new(u2 / w, v2 / h),
-                        new(u3 / w, v3 / h),
+                        new(new(x0, y0, z0), new(u0 / w, v0 / h)),
+                        new(new(x1, y1, z1), new(u1 / w, v1 / h)),
+                        new(new(x2, y2, z2), new(u2 / w, v2 / h)),
+                        new(new(x3, y3, z3), new(u3 / w, v3 / h)),
                     });
                 texture.Transform = _drawTarget is DrawTarget.FrameBuffer ?
                     new(new(x, y, z), default, new(rx, ry, rz), new(zoom, zoom, zoom)) :

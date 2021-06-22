@@ -62,6 +62,9 @@
         <member name="P:BEditor.Graphics.Skia.GraphicsContextImpl.Light">
             <inheritdoc/>
         </member>
+        <member name="P:BEditor.Graphics.Skia.GraphicsContextImpl.DepthTestState">
+            <inheritdoc/>
+        </member>
         <member name="M:BEditor.Graphics.Skia.GraphicsContextImpl.Clear">
             <inheritdoc/>
         </member>
@@ -165,7 +168,7 @@
         <member name="M:BEditor.Graphics.Skia.SkiaPlatform.CreateLine(System.Numerics.Vector3,System.Numerics.Vector3,System.Single)">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Graphics.Skia.SkiaPlatform.CreateTexture(BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32},System.Numerics.Vector3[],System.Numerics.Vector2[])">
+        <member name="M:BEditor.Graphics.Skia.SkiaPlatform.CreateTexture(BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32},BEditor.Graphics.VertexPositionTexture[])">
             <inheritdoc/>
         </member>
         <member name="T:BEditor.Graphics.Skia.TextureImpl">
@@ -186,9 +189,6 @@
             <inheritdoc/>
         </member>
         <member name="P:BEditor.Graphics.Skia.TextureImpl.Vertices">
-            <inheritdoc/>
-        </member>
-        <member name="P:BEditor.Graphics.Skia.TextureImpl.Uv">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Graphics.Skia.TextureImpl.ToImage">

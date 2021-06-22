@@ -44,7 +44,7 @@ namespace BEditor.Data.Property.PrimitiveGroup
             nameof(BlendType),
             owner => owner.BlendType,
             (owner, obj) => owner.BlendType = obj,
-            EditingPropertyOptions<SelectorProperty>.Create(new SelectorPropertyMetadata(Strings.Blend, new[] { "通常", "加算", "減算", "乗算" })).Serialize());
+            EditingPropertyOptions<SelectorProperty>.Create(new SelectorPropertyMetadata(Strings.Blend, new[] { Strings.AlphaBlend, Strings.Additive, Strings.Subtract, Strings.Multiplication })).Serialize());
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Blend"/> class.

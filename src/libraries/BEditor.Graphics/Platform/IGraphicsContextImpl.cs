@@ -47,6 +47,11 @@ namespace BEditor.Graphics.Platform
         public Light? Light { get; set; }
 
         /// <summary>
+        /// Gets or sets the depth test state.
+        /// </summary>
+        public DepthTestState DepthTestState { get; set; }
+
+        /// <summary>
         /// Makes current.
         /// </summary>
         public void MakeCurrent();

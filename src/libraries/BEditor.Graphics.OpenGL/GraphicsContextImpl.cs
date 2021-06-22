@@ -151,6 +151,9 @@ namespace BEditor.Graphics.OpenGL
         /// </summary>
         public Light? Light { get; set; }
 
+        /// <inheritdoc/>
+        public DepthTestState DepthTestState { get; set; }
+
         /// <summary>
         /// Sets the framebuffer size.
         /// </summary>
@@ -284,6 +287,7 @@ namespace BEditor.Graphics.OpenGL
 
                 _textureShader.SetInt("texture0", 0);
 
+                ApplyDepthTest(DepthTestState);
                 GL.Enable(EnableCap.Blend);
                 SetBlend(texture.BlendMode);
                 Tool.ThrowGLError();
@@ -323,6 +327,7 @@ namespace BEditor.Graphics.OpenGL
                 GL.EnableVertexAttribArray(vertexLocation);
                 GL.VertexAttribPointer(vertexLocation, 3, VertexAttribPointerType.Float, false, 6 * sizeof(float), 0);
 
+                ApplyDepthTest(DepthTestState);
                 GL.Enable(EnableCap.Blend);
                 SetBlend(cube.BlendMode);
                 Tool.ThrowGLError();
@@ -364,6 +369,7 @@ namespace BEditor.Graphics.OpenGL
 
                 GL.BindVertexArray(impl.VertexArrayObject);
 
+                ApplyDepthTest(DepthTestState);
                 GL.Enable(EnableCap.Blend);
                 SetBlend(ball.BlendMode);
                 Tool.ThrowGLError();
@@ -396,6 +402,7 @@ namespace BEditor.Graphics.OpenGL
 
             _lineShader.Use();
 
+            ApplyDepthTest(DepthTestState);
             GL.Enable(EnableCap.Blend);
 
             GL.BlendEquationSeparate(BlendEquationMode.FuncAdd, BlendEquationMode.FuncAdd);
@@ -487,19 +494,42 @@ namespace BEditor.Graphics.OpenGL
             MakeCurrentAndBindFbo();
         }
 
+        private static void ApplyDepthTest(DepthTestState state)
+        {
+            if (state.Enabled) GL.Enable(EnableCap.DepthTest);
+            else GL.Disable(EnableCap.DepthTest);
+
+            GL.DepthMask(state.WriteEnabled);
+
+            var func = state.Comparison switch
+            {
+                ComparisonKind.Never => DepthFunction.Never,
+                ComparisonKind.Less => DepthFunction.Less,
+                ComparisonKind.Equal => DepthFunction.Equal,
+                ComparisonKind.LessEqual => DepthFunction.Lequal,
+                ComparisonKind.Greater => DepthFunction.Greater,
+                ComparisonKind.NotEqual => DepthFunction.Notequal,
+                ComparisonKind.GreaterEqual => DepthFunction.Gequal,
+                ComparisonKind.Always => DepthFunction.Always,
+                _ => DepthFunction.Less,
+            };
+
+            GL.DepthFunc(func);
+        }
+
         private static void SetBlend(BlendMode blend)
         {
-            if (blend is BlendMode.Default)
+            if (blend is BlendMode.AlphaBlend)
             {
                 GL.BlendFuncSeparate(BlendingFactorSrc.SrcAlpha, BlendingFactorDest.OneMinusSrcAlpha, BlendingFactorSrc.One, BlendingFactorDest.OneMinusSrcAlpha);
                 GL.BlendEquation(BlendEquationMode.FuncAdd);
             }
-            else if (blend is BlendMode.Add)
+            else if (blend is BlendMode.Additive)
             {
                 GL.BlendEquationSeparate(BlendEquationMode.FuncAdd, BlendEquationMode.FuncAdd);
                 GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.One);
             }
-            else if (blend is BlendMode.Suntract)
+            else if (blend is BlendMode.Subtract)
             {
                 GL.BlendEquationSeparate(BlendEquationMode.FuncReverseSubtract, BlendEquationMode.FuncReverseSubtract);
                 GL.BlendFunc(BlendingFactor.SrcAlpha, BlendingFactor.One);

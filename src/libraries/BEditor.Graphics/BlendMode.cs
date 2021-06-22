@@ -21,17 +21,17 @@ namespace BEditor.Graphics
         /// <summary>
         /// The default.
         /// </summary>
-        Default = 0,
+        AlphaBlend = 0,
 
         /// <summary>
-        /// The add.
+        /// The additive.
         /// </summary>
-        Add = 1,
+        Additive = 1,
 
         /// <summary>
         /// The subtract.
         /// </summary>
-        Suntract = 2,
+        Subtract = 2,
 
         /// <summary>
         /// The multiplication.

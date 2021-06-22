@@ -48,34 +48,19 @@ namespace BEditor.Graphics.OpenGL
         }
 
         /// <inheritdoc/>
-        public ITextureImpl CreateTexture(Image<BGRA32> image, Vector3[]? vertices = null, Vector2[]? uv = null)
+        public ITextureImpl CreateTexture(Image<BGRA32> image, VertexPositionTexture[]? vertices = null)
         {
             var halfH = image.Height / 2;
             var halfW = image.Width / 2;
-            vertices ??= new Vector3[]
+            vertices ??= new VertexPositionTexture[]
             {
-                new(halfW, -halfH, 0),
-                new(halfW, halfH, 0),
-                new(-halfW, halfH, 0),
-                new(-halfW, -halfH, 0),
-            };
-            uv ??= new Vector2[]
-            {
-                new(1, 1),
-                new(1, 0),
-                new(0, 0),
-                new(0, 1),
+                new(new(halfW, -halfH, 0), new(1, 1)),
+                new(new(halfW, halfH, 0), new(1, 0)),
+                new(new(-halfW, halfH, 0), new(0, 0)),
+                new(new(-halfW, -halfH, 0), new(0, 1)),
             };
 
-            var ver = new float[]
-            {
-                vertices[0].X, vertices[0].Y, vertices[0].Z, uv[0].X, uv[0].Y,
-                vertices[1].X, vertices[1].Y, vertices[1].Z, uv[1].X, uv[1].Y,
-                vertices[2].X, vertices[2].Y, vertices[2].Z, uv[2].X, uv[2].Y,
-                vertices[3].X, vertices[3].Y, vertices[3].Z, uv[3].X, uv[3].Y,
-            };
-
-            return TextureImpl.FromImage(image, ver);
+            return TextureImpl.FromImage(image, vertices);
         }
     }
 }

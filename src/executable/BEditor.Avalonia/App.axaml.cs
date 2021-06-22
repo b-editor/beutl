@@ -79,6 +79,10 @@ namespace BEditor
             {
                 IPlatform.Current = new Graphics.Skia.SkiaPlatform();
             }
+            else if (Settings.Default.GraphicsProfile is "Veldrid")
+            {
+                IPlatform.Current = new Graphics.Veldrid.VeldridPlatform();
+            }
             else
             {
                 IPlatform.Current = new OpenGLPlatform();

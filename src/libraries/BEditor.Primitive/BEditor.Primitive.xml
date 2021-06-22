@@ -24,16 +24,6 @@
             Defines the <see cref="P:BEditor.Primitive.Effects.DepthTest.Mask"/> property.
             </summary>
         </member>
-        <member name="F:BEditor.Primitive.Effects.DepthTest.NearProperty">
-            <summary>
-            Defines the <see cref="P:BEditor.Primitive.Effects.DepthTest.Near"/> property.
-            </summary>
-        </member>
-        <member name="F:BEditor.Primitive.Effects.DepthTest.FarProperty">
-            <summary>
-            Defines the <see cref="P:BEditor.Primitive.Effects.DepthTest.Far"/> property.
-            </summary>
-        </member>
         <member name="M:BEditor.Primitive.Effects.DepthTest.#ctor">
             <summary>
             Initializes a new instance of the <see cref="T:BEditor.Primitive.Effects.DepthTest"/> class.
@@ -55,16 +45,6 @@
         <member name="P:BEditor.Primitive.Effects.DepthTest.Mask">
             <summary>
             Gets whether the depth mask is enabled.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Effects.DepthTest.Near">
-            <summary>
-            Gets the depth range.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Effects.DepthTest.Far">
-            <summary>
-            Gets the depth range.
             </summary>
         </member>
         <member name="M:BEditor.Primitive.Effects.DepthTest.Apply(BEditor.Data.EffectApplyArgs)">

@@ -30,6 +30,6 @@ namespace BEditor.Graphics.Skia
         public float Depth { get; }
 
         /// <inheritdoc/>
-        public ReadOnlyMemory<float> Vertices { get; }
+        public float[] Vertices { get; }
     }
 }

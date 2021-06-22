@@ -11,11 +11,8 @@ using System.Diagnostics.CodeAnalysis;
 
 using BEditor.Data;
 using BEditor.Data.Property;
-using BEditor.Graphics.OpenGL;
-using BEditor.Graphics.Platform;
+using BEditor.Graphics;
 using BEditor.Primitive.Resources;
-
-using OpenTK.Graphics.OpenGL4;
 
 namespace BEditor.Primitive.Effects
 {
@@ -45,10 +42,10 @@ namespace BEditor.Primitive.Effects
                 "Never",
                 "Less",
                 "Equal",
-                "Lequal",
+                "LessEqual",
                 "Greater",
-                "Notequal",
-                "Gequal",
+                "NotEqual",
+                "GreaterEqual",
                 "Always",
             }, 1)).Serialize());
 
@@ -61,34 +58,16 @@ namespace BEditor.Primitive.Effects
             (owner, obj) => owner.Mask = obj,
             EditingPropertyOptions<CheckProperty>.Create(new CheckPropertyMetadata("Mask", true)).Serialize());
 
-        /// <summary>
-        /// Defines the <see cref="Near"/> property.
-        /// </summary>
-        public static readonly DirectEditingProperty<DepthTest, EaseProperty> NearProperty = EditingProperty.RegisterDirect<EaseProperty, DepthTest>(
-            nameof(Near),
-            owner => owner.Near,
-            (owner, obj) => owner.Near = obj,
-            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata("Near", 0, 100, 0)).Serialize());
-
-        /// <summary>
-        /// Defines the <see cref="Far"/> property.
-        /// </summary>
-        public static readonly DirectEditingProperty<DepthTest, EaseProperty> FarProperty = EditingProperty.RegisterDirect<EaseProperty, DepthTest>(
-            nameof(Far),
-            owner => owner.Far,
-            (owner, obj) => owner.Far = obj,
-            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata("Far", 100, 100, 0)).Serialize());
-
-        private static readonly ReadOnlyCollection<DepthFunction> _depthFunctions = new(new DepthFunction[]
+        private static readonly ReadOnlyCollection<ComparisonKind> _depthFunctions = new(new ComparisonKind[]
         {
-            DepthFunction.Never,
-            DepthFunction.Less,
-            DepthFunction.Equal,
-            DepthFunction.Lequal,
-            DepthFunction.Greater,
-            DepthFunction.Notequal,
-            DepthFunction.Gequal,
-            DepthFunction.Always,
+            ComparisonKind.Never,
+            ComparisonKind.Less,
+            ComparisonKind.Equal,
+            ComparisonKind.LessEqual,
+            ComparisonKind.Greater,
+            ComparisonKind.NotEqual,
+            ComparisonKind.GreaterEqual,
+            ComparisonKind.Always,
         });
 
         /// <summary>
@@ -119,31 +98,10 @@ namespace BEditor.Primitive.Effects
         [AllowNull]
         public CheckProperty Mask { get; private set; }
 
-        /// <summary>
-        /// Gets the depth range.
-        /// </summary>
-        [AllowNull]
-        public EaseProperty Near { get; private set; }
-
-        /// <summary>
-        /// Gets the depth range.
-        /// </summary>
-        [AllowNull]
-        public EaseProperty Far { get; private set; }
-
         /// <inheritdoc/>
         public override void Apply(EffectApplyArgs args)
         {
-            if (IPlatform.Current is not OpenGLPlatform) return;
-
-            if (Enabled.Value) GL.Enable(EnableCap.DepthTest);
-            else GL.Disable(EnableCap.DepthTest);
-
-            GL.DepthFunc(_depthFunctions[Function.Index]);
-
-            GL.DepthMask(Mask.Value);
-
-            GL.DepthRange(Near.GetValue(args.Frame) / 100, Far.GetValue(args.Frame) / 100);
+            Parent.Parent.GraphicsContext!.DepthTestState = new(Enabled.Value, Mask.Value, _depthFunctions[Function.Index]);
         }
 
         /// <inheritdoc/>
@@ -152,8 +110,6 @@ namespace BEditor.Primitive.Effects
             yield return Enabled;
             yield return Function;
             yield return Mask;
-            yield return Near;
-            yield return Far;
         }
     }
 }

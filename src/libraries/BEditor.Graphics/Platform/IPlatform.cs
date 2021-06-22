@@ -74,8 +74,7 @@ namespace BEditor.Graphics.Platform
         /// </summary>
         /// <param name="image">The image to create texture.</param>
         /// <param name="vertices">The vertices.</param>
-        /// <param name="uv">The uv coordinates.</param>
         /// <returns>Returns the implementation created by this method.</returns>
-        public ITextureImpl CreateTexture(Image<BGRA32> image, Vector3[]? vertices = null, Vector2[]? uv = null);
+        public ITextureImpl CreateTexture(Image<BGRA32> image, VertexPositionTexture[]? vertices = null);
     }
 }

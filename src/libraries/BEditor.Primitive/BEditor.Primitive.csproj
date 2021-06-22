@@ -15,8 +15,7 @@
 
     <ItemGroup>
         <ProjectReference Include="..\BEditor.Core\BEditor.Core.csproj" />
-        <ProjectReference Include="..\BEditor.Graphics.OpenGL\BEditor.Graphics.OpenGL.csproj" />
-        <ProjectReference Include="..\BEditor.Graphics.Skia\BEditor.Graphics.Skia.csproj" />
+        <ProjectReference Include="..\BEditor.Graphics\BEditor.Graphics.csproj" />
     </ItemGroup>
 
     <ItemGroup>

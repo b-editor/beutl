@@ -54,17 +54,17 @@
             Defines the mode of the blend.
             </summary>
         </member>
-        <member name="F:BEditor.Graphics.BlendMode.Default">
+        <member name="F:BEditor.Graphics.BlendMode.AlphaBlend">
             <summary>
             The default.
             </summary>
         </member>
-        <member name="F:BEditor.Graphics.BlendMode.Add">
+        <member name="F:BEditor.Graphics.BlendMode.Additive">
             <summary>
-            The add.
+            The additive.
             </summary>
         </member>
-        <member name="F:BEditor.Graphics.BlendMode.Suntract">
+        <member name="F:BEditor.Graphics.BlendMode.Subtract">
             <summary>
             The subtract.
             </summary>
@@ -122,6 +122,51 @@
             </summary>
             <returns>Returns the projection matrix.</returns>
         </member>
+        <member name="T:BEditor.Graphics.ComparisonKind">
+            <summary>
+            Describes how new values are compared with existing values in a depth or stencil comparison.
+            </summary>
+        </member>
+        <member name="F:BEditor.Graphics.ComparisonKind.Never">
+            <summary>
+            The comparison never succeeds.
+            </summary>
+        </member>
+        <member name="F:BEditor.Graphics.ComparisonKind.Less">
+            <summary>
+            The comparison succeeds when the new value is less than the existing value.
+            </summary>
+        </member>
+        <member name="F:BEditor.Graphics.ComparisonKind.Equal">
+            <summary>
+            The comparison succeeds when the new value is equal to the existing value.
+            </summary>
+        </member>
+        <member name="F:BEditor.Graphics.ComparisonKind.LessEqual">
+            <summary>
+            The comparison succeeds when the new value is less than or equal to the existing value.
+            </summary>
+        </member>
+        <member name="F:BEditor.Graphics.ComparisonKind.Greater">
+            <summary>
+            The comparison succeeds when the new value is greater than the existing value.
+            </summary>
+        </member>
+        <member name="F:BEditor.Graphics.ComparisonKind.NotEqual">
+            <summary>
+            The comparison succeeds when the new value is not equal to the existing value.
+            </summary>
+        </member>
+        <member name="F:BEditor.Graphics.ComparisonKind.GreaterEqual">
+            <summary>
+            The comparison succeeds when the new value is greater than or equal to the existing value.
+            </summary>
+        </member>
+        <member name="F:BEditor.Graphics.ComparisonKind.Always">
+            <summary>
+            The comparison always succeeds.
+            </summary>
+        </member>
         <member name="T:BEditor.Graphics.Cube">
             <summary>
             Represents an cube.
@@ -165,6 +210,34 @@
         <member name="P:BEditor.Graphics.Cube.PlatformImpl">
             <summary>
             Gets the cube implementation.
+            </summary>
+        </member>
+        <member name="T:BEditor.Graphics.DepthTestState">
+            <summary>
+            A <see cref="T:BEditor.Graphics.GraphicsContext"/> component describing the properties of the depth state.
+            </summary>
+        </member>
+        <member name="M:BEditor.Graphics.DepthTestState.#ctor(System.Boolean,System.Boolean,BEditor.Graphics.ComparisonKind)">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Graphics.DepthTestState"/> struct.
+            </summary>
+            <param name="depthTestEnabled">Whether depth testing is enabled.</param>
+            <param name="depthWriteEnabled">Whether new depth values are written to the depth buffer.</param>
+            <param name="comparisonKind">The <see cref="T:BEditor.Graphics.ComparisonKind"/> used when considering new depth values.</param>
+        </member>
+        <member name="P:BEditor.Graphics.DepthTestState.Enabled">
+            <summary>
+            Gets whether depth testing is enabled.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.DepthTestState.WriteEnabled">
+            <summary>
+            Gets whether new depth values are written to the depth buffer.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.DepthTestState.Comparison">
+            <summary>
+            Gets the <see cref="T:BEditor.Graphics.ComparisonKind"/> used when considering new depth values.
             </summary>
         </member>
         <member name="T:BEditor.Graphics.Drawable">
@@ -258,6 +331,11 @@
         <member name="P:BEditor.Graphics.GraphicsContext.Light">
             <summary>
             Gets or sets the light.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.GraphicsContext.DepthTestState">
+            <summary>
+            Gets or sets the depth test state.
             </summary>
         </member>
         <member name="P:BEditor.Graphics.GraphicsContext.PlatformImpl">
@@ -651,6 +729,11 @@
             Gets or sets the light.
             </summary>
         </member>
+        <member name="P:BEditor.Graphics.Platform.IGraphicsContextImpl.DepthTestState">
+            <summary>
+            Gets or sets the depth test state.
+            </summary>
+        </member>
         <member name="M:BEditor.Graphics.Platform.IGraphicsContextImpl.MakeCurrent">
             <summary>
             Makes current.
@@ -767,13 +850,12 @@
             <param name="width">The width of the line.</param>
             <returns>Returns the implementation created by this method.</returns>
         </member>
-        <member name="M:BEditor.Graphics.Platform.IPlatform.CreateTexture(BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32},System.Numerics.Vector3[],System.Numerics.Vector2[])">
+        <member name="M:BEditor.Graphics.Platform.IPlatform.CreateTexture(BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32},BEditor.Graphics.VertexPositionTexture[])">
             <summary>
             Creates the texture.
             </summary>
             <param name="image">The image to create texture.</param>
             <param name="vertices">The vertices.</param>
-            <param name="uv">The uv coordinates.</param>
             <returns>Returns the implementation created by this method.</returns>
         </member>
         <member name="T:BEditor.Graphics.Platform.ITextureImpl">
@@ -794,11 +876,6 @@
         <member name="P:BEditor.Graphics.Platform.ITextureImpl.Vertices">
             <summary>
             Gets the vertices of this <see cref="T:BEditor.Graphics.Platform.ITextureImpl"/>.
-            </summary>
-        </member>
-        <member name="P:BEditor.Graphics.Platform.ITextureImpl.Uv">
-            <summary>
-            Gets the uv vertices of this <see cref="T:BEditor.Graphics.Platform.ITextureImpl"/>.
             </summary>
         </member>
         <member name="M:BEditor.Graphics.Platform.ITextureImpl.ToImage">
@@ -854,23 +931,17 @@
             Gets the vertices of this <see cref="T:BEditor.Graphics.Platform.ITextureImpl"/>.
             </summary>
         </member>
-        <member name="P:BEditor.Graphics.Texture.Uv">
-            <summary>
-            Gets the uv vertices of this <see cref="T:BEditor.Graphics.Platform.ITextureImpl"/>.
-            </summary>
-        </member>
         <member name="P:BEditor.Graphics.Texture.PlatformImpl">
             <summary>
             Gets the texture implementation.
             </summary>
         </member>
-        <member name="M:BEditor.Graphics.Texture.FromImage(BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32},System.Numerics.Vector3[],System.Numerics.Vector2[])">
+        <member name="M:BEditor.Graphics.Texture.FromImage(BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32},BEditor.Graphics.VertexPositionTexture[])">
             <summary>
             Create a texture from an <see cref="T:BEditor.Drawing.Image`1"/>.
             </summary>
             <param name="image">The image to create texture.</param>
             <param name="vertices">The vertices.</param>
-            <param name="uv">The uv coordinates.</param>
             <exception cref="T:BEditor.Graphics.GraphicsException">Platform is not set.</exception>
             <returns>Returns the texture created by this method.</returns>
         </member>
@@ -960,6 +1031,49 @@
             <param name="left">Divident or the value to be divided.</param>
             <param name="right">The value to be divided by.</param>
             <returns>A new value that represents result of division of <paramref name="left"/> instance by the value of the <paramref name="right"/>.</returns>
+        </member>
+        <member name="T:BEditor.Graphics.VertexPositionTexture">
+            <summary>
+            Represents the vertex position of the texture.
+            </summary>
+        </member>
+        <member name="F:BEditor.Graphics.VertexPositionTexture.PosX">
+            <summary>
+            The x coordinate position.
+            </summary>
+        </member>
+        <member name="F:BEditor.Graphics.VertexPositionTexture.PosY">
+            <summary>
+            The y coordinate position.
+            </summary>
+        </member>
+        <member name="F:BEditor.Graphics.VertexPositionTexture.PosZ">
+            <summary>
+            The z coordinate position.
+            </summary>
+        </member>
+        <member name="F:BEditor.Graphics.VertexPositionTexture.TexU">
+            <summary>
+            The x coordinate position of the texture.
+            </summary>
+        </member>
+        <member name="F:BEditor.Graphics.VertexPositionTexture.TexV">
+            <summary>
+            The y coordinate position of the texture.
+            </summary>
+        </member>
+        <member name="M:BEditor.Graphics.VertexPositionTexture.#ctor(System.Numerics.Vector3,System.Numerics.Vector2)">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Graphics.VertexPositionTexture"/> struct.
+            </summary>
+            <param name="pos">The coordinate.</param>
+            <param name="uv">The uv coordinate.</param>
+        </member>
+        <member name="M:BEditor.Graphics.VertexPositionTexture.Enumerate">
+            <summary>
+            Enumerates the fields of this structure.
+            </summary>
+            <returns>Returns the fields.</returns>
         </member>
     </members>
 </doc>

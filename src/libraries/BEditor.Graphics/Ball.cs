@@ -59,7 +59,7 @@ namespace BEditor.Graphics
         /// <summary>
         /// Gets the vertices of this <see cref="Ball"/>.
         /// </summary>
-        public ReadOnlyMemory<float> Vertices => PlatformImpl.Vertices;
+        public float[] Vertices => PlatformImpl.Vertices;
 
         /// <summary>
         /// Gets the ball implementation.
