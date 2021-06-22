@@ -28,6 +28,8 @@
         <ProjectReference Include="..\..\libraries\BEditor.Core\BEditor.Core.csproj" />
         <ProjectReference Include="..\..\libraries\BEditor.Primitive\BEditor.Primitive.csproj" />
         <ProjectReference Include="..\..\libraries\BEditor.Graphics.Veldrid\BEditor.Graphics.Veldrid.csproj" />
+        <ProjectReference Include="..\..\libraries\BEditor.Graphics.OpenGL\BEditor.Graphics.OpenGL.csproj" />
+        <ProjectReference Include="..\..\libraries\BEditor.Graphics.Skia\BEditor.Graphics.Skia.csproj" />
     </ItemGroup>
 
     <ItemGroup Condition="'$(Configuration)'=='Debug'">

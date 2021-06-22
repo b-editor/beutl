@@ -12,6 +12,7 @@ namespace BEditor.ViewModels.Settings
         {
             "OpenGL",
             "Skia",
+            "Veldrid",
         };
     }
 }
