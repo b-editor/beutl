@@ -250,71 +250,6 @@ namespace BEditor.Graphics.Veldrid
                 _commandList.DrawIndexed((uint)indices.Length, 1, 0, 0, 0);
             }
         }
-        
-        //public unsafe void DrawTexture(Texture texture)
-        //{
-        //    if (texture.PlatformImpl is TextureImpl impl)
-        //    {
-        //        var factory = _graphicsDevice.ResourceFactory;
-        //        var tex = ToTexture(impl);
-        //        var view = factory.CreateTextureView(tex);
-
-        //        // VertexBuffer
-        //        var vertexBuffer = factory.CreateBuffer(new BufferDescription((uint)(sizeof(VertexPositionTexture) * 4), BufferUsage.VertexBuffer));
-        //        _graphicsDevice.UpdateBuffer(vertexBuffer, 0, impl.Vertices.ToArray());
-
-        //        // IndexBuffer
-        //        uint[] indices =
-        //        {
-        //            0, 1, 3,
-        //            1, 2, 3,
-        //        };
-        //        var indexBuffer = factory.CreateBuffer(new BufferDescription(sizeof(uint) * (uint)indices.Length, BufferUsage.IndexBuffer));
-        //        _graphicsDevice.UpdateBuffer(indexBuffer, 0, indices);
-
-        //        var shaderSet = new ShaderSetDescription(
-        //            new[]
-        //            {
-        //                new VertexLayoutDescription(
-        //                    new VertexElementDescription("aPosition", VertexElementSemantic.TextureCoordinate, VertexElementFormat.Float3),
-        //                    new VertexElementDescription("aTexCoord", VertexElementSemantic.TextureCoordinate, VertexElementFormat.Float2))
-        //            },
-        //            _textureShader);
-
-        //        var layout = factory.CreateResourceLayout(new ResourceLayoutDescription(
-        //            new ResourceLayoutElementDescription("MVP", ResourceKind.UniformBuffer, ShaderStages.Vertex),
-        //        new ResourceLayoutElementDescription("Texture0", ResourceKind.TextureReadOnly, ShaderStages.Fragment),
-        //        new ResourceLayoutElementDescription("Sampler", ResourceKind.Sampler, ShaderStages.Fragment),
-        //            new ResourceLayoutElementDescription("ColorBuffer", ResourceKind.UniformBuffer, ShaderStages.Fragment)));
-
-        //        // MVP
-        //        UpdateBuffer(Camera, texture.Transform);
-
-        //        // ColorBuffer
-        //        var colorBuffer = factory.CreateBuffer(new BufferDescription((uint)sizeof(Vector4), BufferUsage.UniformBuffer));
-        //        _graphicsDevice.UpdateBuffer(
-        //            colorBuffer, 0,
-        //            texture.Color.ToFloat());
-
-        //        var resourceSet = factory.CreateResourceSet(
-        //            new ResourceSetDescription(layout, _mvpBuffer, view, _graphicsDevice.Aniso4xSampler, colorBuffer));
-
-        //        var pipeline = factory.CreateGraphicsPipeline(new GraphicsPipelineDescription(
-        //            BlendStateDescription.SingleOverrideBlend,
-        //            DepthStencilStateDescription.DepthOnlyLessEqual,
-        //            RasterizerStateDescription.Default,
-        //            PrimitiveTopology.TriangleList,
-        //            shaderSet,
-        //            layout,
-        //            _offscreenFB.OutputDescription));
-
-        //        _commandList.SetVertexBuffer(0, vertexBuffer);
-        //        _commandList.SetIndexBuffer(indexBuffer, IndexFormat.UInt32);
-        //        _commandList.SetPipeline(pipeline);
-        //        _commandList.SetGraphicsResourceSet(0, resourceSet);
-        //        _commandList.DrawIndexed(6, 1, 0, 0, 0);
-        //    }
-        //}
 
         public void MakeCurrent()
         {
@@ -412,14 +347,6 @@ namespace BEditor.Graphics.Veldrid
             _graphicsDevice.UpdateBuffer(_viewBuffer, 0, camera.GetViewMatrix());
             _graphicsDevice.UpdateBuffer(_worldBuffer, 0, transform.Matrix);
         }
-        
-        //private void UpdateBuffer(Camera camera, Transform transform)
-        //{
-        //    _graphicsDevice.UpdateBuffer(
-        //        _mvpBuffer,
-        //        0,
-        //        new ModelViewProjection(transform.Matrix, camera.GetViewMatrix(), camera.GetProjectionMatrix()));
-        //}
 
         private Shader[] ReadShader(string name)
         {
@@ -447,21 +374,6 @@ namespace BEditor.Graphics.Veldrid
                 "main");
 
             return _graphicsDevice.ResourceFactory.CreateFromSpirv(vertexShaderDesc, fragmentShaderDesc);
-        }
-    }
-
-    [StructLayout(LayoutKind.Sequential)]
-    public struct ModelViewProjection
-    {
-        public Matrix4x4 Model;
-        public Matrix4x4 View;
-        public Matrix4x4 Projection;
-
-        public ModelViewProjection(Matrix4x4 model, Matrix4x4 view, Matrix4x4 projection)
-        {
-            Model = model;
-            View = view;
-            Projection = projection;
         }
     }
 }
