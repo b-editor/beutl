@@ -58,7 +58,18 @@ namespace BEditor.Graphics.Skia
         public Camera Camera { get; set; }
 
         /// <inheritdoc/>
-        public Light? Light { get; set; }
+        public Light? Light
+        {
+            get => default;
+            set { }
+        }
+
+        /// <inheritdoc/>
+        public DepthTestState DepthTestState
+        {
+            get => default;
+            set { }
+        }
 
         /// <inheritdoc/>
         public void Clear()
@@ -143,9 +154,9 @@ namespace BEditor.Graphics.Skia
 
         private static SKBlendMode ToSkBlendMode(BlendMode mode)
         {
-            if (mode is BlendMode.Default) return SKBlendMode.SrcOver;
-            else if (mode is BlendMode.Add) return SKBlendMode.Plus;
-            else if (mode is BlendMode.Suntract) return SKBlendMode.Difference;
+            if (mode is BlendMode.AlphaBlend) return SKBlendMode.SrcOver;
+            else if (mode is BlendMode.Additive) return SKBlendMode.Plus;
+            else if (mode is BlendMode.Subtract) return SKBlendMode.Difference;
             else if (mode is BlendMode.Multiplication) return SKBlendMode.Multiply;
 
             return SKBlendMode.SrcOver;

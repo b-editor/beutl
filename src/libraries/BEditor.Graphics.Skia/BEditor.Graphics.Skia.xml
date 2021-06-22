@@ -62,6 +62,9 @@
         <member name="P:BEditor.Graphics.Skia.GraphicsContextImpl.Light">
             <inheritdoc/>
         </member>
+        <member name="P:BEditor.Graphics.Skia.GraphicsContextImpl.DepthTestState">
+            <inheritdoc/>
+        </member>
         <member name="M:BEditor.Graphics.Skia.GraphicsContextImpl.Clear">
             <inheritdoc/>
         </member>

@@ -396,6 +396,9 @@
             Gets or sets the light.
             </summary>
         </member>
+        <member name="P:BEditor.Graphics.OpenGL.GraphicsContextImpl.DepthTestState">
+            <inheritdoc/>
+        </member>
         <member name="M:BEditor.Graphics.OpenGL.GraphicsContextImpl.SetSize(BEditor.Drawing.Size)">
             <summary>
             Sets the framebuffer size.
