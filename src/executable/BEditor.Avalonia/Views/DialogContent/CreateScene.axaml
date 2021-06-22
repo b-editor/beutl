@@ -7,97 +7,82 @@
     xmlns:titlebar="using:BEditor.Views.CustomTitlebars"
     xmlns:dialogvm="using:BEditor.ViewModels.DialogContent"
     mc:Ignorable="d" Width="800" Height="450"
-    ExtendClientAreaToDecorationsHint="True"
-    ExtendClientAreaChromeHints="NoChrome"
-    ExtendClientAreaTitleBarHeightHint="-1"
-    TransparencyLevelHint="AcrylicBlur"
-    Background="Transparent"
     WindowStartupLocation="CenterScreen"
     x:Class="BEditor.Views.DialogContent.CreateScene"
     x:DataType="dialogvm:CreateSceneViewModel"
+    Classes="fluent"
     Title="CreateScene">
-    <ExperimentalAcrylicBorder>
-        <ExperimentalAcrylicBorder.Material>
-            <ExperimentalAcrylicMaterial
-                TintColor="#222222"
-                TintOpacity="{StaticResource AcrylicTintOpacity1}"
-                MaterialOpacity="{StaticResource AcrylicMaterialOpacity1}" />
-        </ExperimentalAcrylicBorder.Material>
-        <Grid RowDefinitions="Auto,*">
+    <Grid>
 
-            <titlebar:WindowsTitlebarButtons CanResize="False"/>
+        <VirtualizingStackPanel Margin="8">
+            <TextBlock
+                Margin="0,0,0,16"
+                FontSize="24"
+                Text="{x:Static props:Strings.CreateScene}" />
 
-            <VirtualizingStackPanel Grid.Row="1" Margin="8">
+            <!--  Width  -->
+            <VirtualizingStackPanel Margin="8">
                 <TextBlock
-                    Margin="0,0,0,16"
-                    FontSize="24"
-                    Text="{x:Static props:Strings.CreateScene}" />
+                    FontSize="14"
+                    Text="{x:Static props:Strings.Width}" />
 
-                <!--  Width  -->
-                <VirtualizingStackPanel Margin="8">
-                    <TextBlock
-                        FontSize="14"
-                        Text="{x:Static props:Strings.Width}" />
-
-                    <NumericUpDown
-                        HorizontalAlignment="Left"
-                        MinWidth="240"
-                        Margin="0,8"
-                        Value="{CompiledBinding Width.Value, Mode=TwoWay}" />
-                </VirtualizingStackPanel>
-
-                <!--  Height  -->
-                <VirtualizingStackPanel Margin="8">
-                    <TextBlock
-                        FontSize="14"
-                        Text="{x:Static props:Strings.Height}" />
-
-                    <NumericUpDown
-                        HorizontalAlignment="Left"
-                        MinWidth="240"
-                        Margin="0,8"
-                        Value="{CompiledBinding Height.Value, Mode=TwoWay}" />
-                </VirtualizingStackPanel>
-
-                <!--  Name  -->
-                <VirtualizingStackPanel Margin="8,24,8,8">
-                    <TextBlock
-                        FontSize="14"
-                        Text="{x:Static props:Strings.Name}" />
-
-                    <TextBox
-                        HorizontalAlignment="Left"
-                        MinWidth="240"
-                        Margin="0,8"
-                        Text="{CompiledBinding Name.Value, Mode=TwoWay}" />
-                </VirtualizingStackPanel>
-
+                <NumericUpDown
+                    HorizontalAlignment="Left"
+                    MinWidth="240"
+                    Margin="0,8"
+                    Value="{CompiledBinding Width.Value, Mode=TwoWay}" />
             </VirtualizingStackPanel>
 
-            <VirtualizingStackPanel
-                Grid.Row="1"
-                Margin="8"
-                VerticalAlignment="Bottom"
-                HorizontalAlignment="Right"
-                Orientation="Horizontal">
-                <Button
-                    Click="CloseClick"
+            <!--  Height  -->
+            <VirtualizingStackPanel Margin="8">
+                <TextBlock
+                    FontSize="14"
+                    Text="{x:Static props:Strings.Height}" />
+
+                <NumericUpDown
                     HorizontalAlignment="Left"
-                    Content="{x:Static props:Strings.Cancel}"
-                    Background="Transparent"
-                    Cursor="Arrow"
-                    Foreground="Red"
-                    IsCancel="True"/>
-                <Button
-                    Click="CloseClick"
-                    HorizontalAlignment="Left"
-                    Command="{CompiledBinding Create, Mode=OneTime}"
-                    Content="{x:Static props:Strings.Create}"
-                    Cursor="Arrow"
-                    Background="Transparent"
-                    IsDefault="True"/>
+                    MinWidth="240"
+                    Margin="0,8"
+                    Value="{CompiledBinding Height.Value, Mode=TwoWay}" />
             </VirtualizingStackPanel>
 
-        </Grid>
-    </ExperimentalAcrylicBorder>
+            <!--  Name  -->
+            <VirtualizingStackPanel Margin="8,24,8,8">
+                <TextBlock
+                    FontSize="14"
+                    Text="{x:Static props:Strings.Name}" />
+
+                <TextBox
+                    HorizontalAlignment="Left"
+                    MinWidth="240"
+                    Margin="0,8"
+                    Text="{CompiledBinding Name.Value, Mode=TwoWay}" />
+            </VirtualizingStackPanel>
+
+        </VirtualizingStackPanel>
+
+        <VirtualizingStackPanel
+            Margin="8"
+            VerticalAlignment="Bottom"
+            HorizontalAlignment="Right"
+            Orientation="Horizontal">
+            <Button
+                Click="CloseClick"
+                HorizontalAlignment="Left"
+                Content="{x:Static props:Strings.Cancel}"
+                Background="Transparent"
+                Cursor="Arrow"
+                Foreground="Red"
+                IsCancel="True"/>
+            <Button
+                Click="CloseClick"
+                HorizontalAlignment="Left"
+                Command="{CompiledBinding Create, Mode=OneTime}"
+                Content="{x:Static props:Strings.Create}"
+                Cursor="Arrow"
+                Background="Transparent"
+                IsDefault="True"/>
+        </VirtualizingStackPanel>
+
+    </Grid>
 </Window>
