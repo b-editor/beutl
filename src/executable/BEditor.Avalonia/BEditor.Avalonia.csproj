@@ -20,7 +20,7 @@
         <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="5.0.0" />
         <PackageReference Include="ReactiveProperty" Version="7.11.0" />
         <PackageReference Include="Serilog.Extensions.Logging" Version="3.0.1" />
-        <PackageReference Include="Serilog.Sinks.File" Version="5.0.0-dev-00920" />
+        <PackageReference Include="Serilog.Sinks.File" Version="5.0.0-dev-00940" />
         <PackageReference Include="Roslynator.Analyzers" Version="3.2.0" PrivateAssets="all" />
     </ItemGroup>
 
