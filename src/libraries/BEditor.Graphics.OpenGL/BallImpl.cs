@@ -85,7 +85,7 @@ namespace BEditor.Graphics.OpenGL
         public float RadiusZ { get; }
 
         /// <inheritdoc/>
-        public override ReadOnlyMemory<float> Vertices => _vertices;
+        public override float[] Vertices => _vertices;
 
         /// <summary>
         /// Gets the VertexArray of this <see cref="BallImpl"/>.

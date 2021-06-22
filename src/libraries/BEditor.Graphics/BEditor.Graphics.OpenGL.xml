@@ -54,7 +54,7 @@
             Defines the mode of the blend.
             </summary>
         </member>
-        <member name="F:BEditor.Graphics.BlendMode.Default">
+        <member name="F:BEditor.Graphics.BlendMode.AlphaBlend">
             <summary>
             The default.
             </summary>

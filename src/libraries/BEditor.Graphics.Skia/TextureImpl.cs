@@ -41,7 +41,7 @@ namespace BEditor.Graphics.Skia
         public int Height => _image.Height;
 
         /// <inheritdoc/>
-        public ReadOnlyMemory<VertexPositionTexture> Vertices => throw new PlatformNotSupportedException();
+        public VertexPositionTexture[] Vertices => throw new PlatformNotSupportedException();
 
         /// <inheritdoc/>
         public Image<BGRA32> ToImage()

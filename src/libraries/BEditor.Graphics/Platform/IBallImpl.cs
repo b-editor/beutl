@@ -36,6 +36,6 @@ namespace BEditor.Graphics.Platform
         /// <summary>
         /// Gets the vertices of this <see cref="IBallImpl"/>.
         /// </summary>
-        public ReadOnlyMemory<float> Vertices { get; }
+        public float[] Vertices { get; }
     }
 }

@@ -31,7 +31,7 @@ namespace BEditor.Graphics.Veldrid
 
         public int Height => _image.Height;
 
-        public ReadOnlyMemory<VertexPositionTexture> Vertices { get; }
+        public VertexPositionTexture[] Vertices { get; }
 
         public Image<BGRA32> ToImage()
         {

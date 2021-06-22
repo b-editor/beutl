@@ -45,7 +45,7 @@ namespace BEditor.Graphics
         /// <summary>
         /// Gets the vertices of this <see cref="ITextureImpl"/>.
         /// </summary>
-        public ReadOnlyMemory<VertexPositionTexture> Vertices => PlatformImpl.Vertices;
+        public VertexPositionTexture[] Vertices => PlatformImpl.Vertices;
 
         /// <summary>
         /// Gets the texture implementation.

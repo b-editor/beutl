@@ -67,7 +67,7 @@ namespace BEditor.Graphics.OpenGL
         }
 
         /// <inheritdoc/>
-        public override ReadOnlyMemory<float> Vertices => _vertices.SelectMany(i => i.Enumerate()).ToArray();
+        public override float[] Vertices => _vertices.SelectMany(i => i.Enumerate()).ToArray();
 
         /// <summary>
         /// Gets the indeces of this <see cref="TextureImpl"/>.
@@ -101,7 +101,7 @@ namespace BEditor.Graphics.OpenGL
         public GraphicsHandle VertexArrayObject { get; }
 
         /// <inheritdoc/>
-        ReadOnlyMemory<VertexPositionTexture> ITextureImpl.Vertices => _vertices;
+        VertexPositionTexture[] ITextureImpl.Vertices => _vertices;
 
         /// <summary>
         /// Create a texture from an image file.

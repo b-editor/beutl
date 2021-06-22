@@ -1,13 +1,13 @@
 ﻿#version 440
 
-layout(location = 0) out vec4 FragColor;
+layout(location = 0) out vec4 fsout_color;
 
-layout(set = 0, binding = 1) uniform ColorBuffer
+layout(set = 0, binding = 2) uniform ColorBuffer
 {
-	vec4 color;
+    vec4 Color;
 };
 
 void main()
 {
-	FragColor = color;
+    fsout_color = Color;
 }

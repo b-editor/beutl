@@ -45,7 +45,7 @@ namespace BEditor.Graphics
         /// <summary>
         /// Gets the vertices of this <see cref="Line"/>.
         /// </summary>
-        public ReadOnlyMemory<float> Vertices => PlatformImpl.Vertices;
+        public float[] Vertices => PlatformImpl.Vertices;
 
         /// <summary>
         /// Gets the start position of this <see cref="Line"/>.

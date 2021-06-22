@@ -9,9 +9,11 @@ using BEditor.Drawing.Pixel;
 using BEditor.Graphics.Platform;
 
 using Veldrid;
+using Veldrid.OpenGLBinding;
 using Veldrid.Sdl2;
 using Veldrid.SPIRV;
 using Veldrid.StartupUtilities;
+using Veldrid.Utilities;
 
 using TextureVeldrid = Veldrid.Texture;
 
@@ -21,6 +23,8 @@ namespace BEditor.Graphics.Veldrid
     {
         private readonly Sdl2Window _window;
         private readonly GraphicsDevice _graphicsDevice;
+        private readonly DisposeCollectorResourceFactory _factory;
+        private readonly DisposeCollectorResourceFactory _swapchainfactory;
         private readonly CommandList _commandList;
 
         // シェーダー
@@ -63,7 +67,10 @@ namespace BEditor.Graphics.Veldrid
             };
 
             _graphicsDevice = VeldridStartup.CreateGraphicsDevice(_window, options, GraphicsBackend.Vulkan);
-            var factory = _graphicsDevice.ResourceFactory;
+
+            _factory = new DisposeCollectorResourceFactory(_graphicsDevice.ResourceFactory);
+
+            _swapchainfactory = new DisposeCollectorResourceFactory(_graphicsDevice.ResourceFactory);
 
             // シェーダーを作成
             _lightShader = ReadShader("lighting");
@@ -73,10 +80,10 @@ namespace BEditor.Graphics.Veldrid
             _textureShader = ReadShader("texture");
 
             // コマンドリスト作成
-            _commandList = factory.CreateCommandList();
+            _commandList = _factory.CreateCommandList();
 
             // オフスクリーン設定
-            _stage = factory.CreateTexture(TextureDescription.Texture2D(
+            _stage = _factory.CreateTexture(TextureDescription.Texture2D(
                 (uint)width,
                 (uint)height,
                 1,
@@ -84,22 +91,20 @@ namespace BEditor.Graphics.Veldrid
                 PixelFormat.B8_G8_R8_A8_UNorm,
                 TextureUsage.Staging));
 
-            _offscreenColor = factory.CreateTexture(TextureDescription.Texture2D(
+            _offscreenColor = _factory.CreateTexture(TextureDescription.Texture2D(
                 (uint)width, (uint)height, 1, 1,
                  PixelFormat.B8_G8_R8_A8_UNorm, TextureUsage.RenderTarget | TextureUsage.Sampled));
 
-            _offscreenView = factory.CreateTextureView(_offscreenColor);
+            _offscreenView = _factory.CreateTextureView(_offscreenColor);
 
-            _offscreenDepth = factory.CreateTexture(TextureDescription.Texture2D(
+            _offscreenDepth = _factory.CreateTexture(TextureDescription.Texture2D(
                 (uint)width, (uint)height, 1, 1, PixelFormat.R16_UNorm, TextureUsage.DepthStencil));
 
-            _offscreenFB = factory.CreateFramebuffer(new FramebufferDescription(_offscreenDepth, _offscreenColor));
+            _offscreenFB = _factory.CreateFramebuffer(new FramebufferDescription(_offscreenDepth, _offscreenColor));
 
-            //_mvpBuffer = factory.CreateBuffer(new BufferDescription((uint)sizeof(ModelViewProjection), BufferUsage.UniformBuffer));
-
-            _projectionBuffer = factory.CreateBuffer(new BufferDescription(64, BufferUsage.UniformBuffer));
-            _viewBuffer = factory.CreateBuffer(new BufferDescription(64, BufferUsage.UniformBuffer));
-            _worldBuffer = factory.CreateBuffer(new BufferDescription(64, BufferUsage.UniformBuffer));
+            _projectionBuffer = _factory.CreateBuffer(new BufferDescription(64, BufferUsage.UniformBuffer));
+            _viewBuffer = _factory.CreateBuffer(new BufferDescription(64, BufferUsage.UniformBuffer));
+            _worldBuffer = _factory.CreateBuffer(new BufferDescription(64, BufferUsage.UniformBuffer));
 
             _commandList.Begin();
             Clear();
@@ -129,25 +134,7 @@ namespace BEditor.Graphics.Veldrid
         {
             if (!IsDisposed)
             {
-                // フレームバッファ
-                _stage.Dispose();
-                _offscreenColor.Dispose();
-                _offscreenView.Dispose();
-                _offscreenDepth.Dispose();
-                _offscreenFB.Dispose();
-
-                // シェーダー
-                _textureShader.Dispose();
-                _shader.Dispose();
-                _lightShader.Dispose();
-                _texLightShader.Dispose();
-                _lineShader.Dispose();
-
-                //_mvpBuffer.Dispose();
-
-                _commandList.Dispose();
-                _graphicsDevice.Dispose();
-
+                _factory.DisposeCollector.DisposeAll();
                 IsDisposed = true;
                 GC.SuppressFinalize(this);
             }
@@ -165,32 +152,91 @@ namespace BEditor.Graphics.Veldrid
 
         public void DrawLine(Line line)
         {
+            // VertexBuffer
+            var vertex = line.Vertices;
+            var vertexBuffer = _swapchainfactory.CreateBuffer(new BufferDescription((uint)(sizeof(float) * vertex.Length), BufferUsage.VertexBuffer));
+            _graphicsDevice.UpdateBuffer(vertexBuffer, 0, vertex);
+
+            // ColorBuffer
+            var colorBuffer = _swapchainfactory.CreateBuffer(new BufferDescription((uint)sizeof(RgbaFloat), BufferUsage.UniformBuffer));
+            _graphicsDevice.UpdateBuffer(colorBuffer, 0, line.Color.ToFloat());
+
+            // ShaderSet
+            var shaderSet = new ShaderSetDescription(
+                new[]
+                {
+                    new VertexLayoutDescription(
+                        new VertexElementDescription("Position", VertexElementSemantic.TextureCoordinate, VertexElementFormat.Float3))
+                },
+                _lineShader);
+
+            // Layout
+            var projViewLayout = _swapchainfactory.CreateResourceLayout(
+                new ResourceLayoutDescription(
+                    new ResourceLayoutElementDescription("ProjectionBuffer", ResourceKind.UniformBuffer, ShaderStages.Vertex),
+                    new ResourceLayoutElementDescription("ViewBuffer", ResourceKind.UniformBuffer, ShaderStages.Vertex)));
+
+            var worldTextureLayout = _swapchainfactory.CreateResourceLayout(
+                new ResourceLayoutDescription(
+                    new ResourceLayoutElementDescription("WorldBuffer", ResourceKind.UniformBuffer, ShaderStages.Vertex),
+                    new ResourceLayoutElementDescription("ColorBuffer", ResourceKind.UniformBuffer, ShaderStages.Fragment)));
+
+            // Pipeline
+            var pipeline = _swapchainfactory.CreateGraphicsPipeline(new GraphicsPipelineDescription(
+                line.BlendMode.ToBlendStateDescription(),
+                DepthTestState.ToDepthStencilStateDescription(),
+                RasterizerStateDescription.Default,
+                PrimitiveTopology.LineList,
+                shaderSet,
+                new[] { projViewLayout, worldTextureLayout },
+                _offscreenFB.OutputDescription));
+
+            // ResourceSet
+            var projViewSet = _swapchainfactory.CreateResourceSet(new ResourceSetDescription(
+                projViewLayout,
+                _projectionBuffer,
+                _viewBuffer));
+
+            var worldTextureSet = _swapchainfactory.CreateResourceSet(new ResourceSetDescription(
+                worldTextureLayout,
+                _worldBuffer,
+                colorBuffer));
+
+            UpdateBuffer(Camera, line.Transform);
+
+            // Draw
+            _commandList.SetPipeline(pipeline);
+            _commandList.SetVertexBuffer(0, vertexBuffer);
+            _commandList.SetGraphicsResourceSet(0, projViewSet);
+            _commandList.SetGraphicsResourceSet(1, worldTextureSet);
+            _commandList.Draw(2, 1, 0, 0);
         }
 
         public void DrawTexture(Texture texture)
         {
             if (texture.PlatformImpl is TextureImpl impl)
             {
-                var factory = _graphicsDevice.ResourceFactory;
                 var tex = ToTexture(impl);
-                var view = factory.CreateTextureView(tex);
+                var view = _swapchainfactory.CreateTextureView(tex);
 
                 // VertexBuffer
-                var vertex = ToVertexTextureArray(texture.Vertices);
-                var vertexBuffer = factory.CreateBuffer(new BufferDescription((uint)(sizeof(VertexPositionTexture) * /*impl.Vertices.Length*/vertex.Length), BufferUsage.VertexBuffer));
-                _graphicsDevice.UpdateBuffer(vertexBuffer, 0, /*impl.Vertices.ToArray()*/vertex);
+                using var vertex = ToVertexTextureArray(texture.Vertices);
+                var vertexSize = (uint)(sizeof(VertexPositionTexture) * vertex.Length);
+                var vertexBuffer = _swapchainfactory.CreateBuffer(new BufferDescription(vertexSize, BufferUsage.VertexBuffer));
+                _graphicsDevice.UpdateBuffer(vertexBuffer, 0, vertex.Pointer, vertexSize);
 
                 // IndexBuffer
-                ushort[] indices =
+                using var indices = new UnmanagedArray<ushort>(6)
                 {
-                    0, 1, 2,
-                    0, 2, 3,
+                    [0] = 0, [1] = 1, [2] = 2,
+                    [3] = 0, [4] = 2, [5] = 3,
                 };
-                var indexBuffer = factory.CreateBuffer(new BufferDescription(sizeof(ushort) * (uint)indices.Length, BufferUsage.IndexBuffer));
-                _graphicsDevice.UpdateBuffer(indexBuffer, 0, indices);
+                var indicesSize = sizeof(ushort) * (uint)indices.Length;
+                var indexBuffer = _swapchainfactory.CreateBuffer(new BufferDescription(indicesSize, BufferUsage.IndexBuffer));
+                _graphicsDevice.UpdateBuffer(indexBuffer, 0, indices.Pointer, indicesSize);
 
                 // ColorBuffer
-                var colorBuffer = factory.CreateBuffer(new BufferDescription((uint)sizeof(RgbaFloat), BufferUsage.UniformBuffer));
+                var colorBuffer = _swapchainfactory.CreateBuffer(new BufferDescription((uint)sizeof(RgbaFloat), BufferUsage.UniformBuffer));
                 _graphicsDevice.UpdateBuffer(colorBuffer, 0, texture.Color.ToFloat());
 
                 // ShaderSet
@@ -204,12 +250,12 @@ namespace BEditor.Graphics.Veldrid
                     _textureShader);
 
                 // Layout
-                var projViewLayout = factory.CreateResourceLayout(
+                var projViewLayout = _swapchainfactory.CreateResourceLayout(
                     new ResourceLayoutDescription(
                         new ResourceLayoutElementDescription("ProjectionBuffer", ResourceKind.UniformBuffer, ShaderStages.Vertex),
                         new ResourceLayoutElementDescription("ViewBuffer", ResourceKind.UniformBuffer, ShaderStages.Vertex)));
 
-                var worldTextureLayout = factory.CreateResourceLayout(
+                var worldTextureLayout = _swapchainfactory.CreateResourceLayout(
                     new ResourceLayoutDescription(
                         new ResourceLayoutElementDescription("WorldBuffer", ResourceKind.UniformBuffer, ShaderStages.Vertex),
                         new ResourceLayoutElementDescription("SurfaceTexture", ResourceKind.TextureReadOnly, ShaderStages.Fragment),
@@ -217,7 +263,7 @@ namespace BEditor.Graphics.Veldrid
                         new ResourceLayoutElementDescription("ColorBuffer", ResourceKind.UniformBuffer, ShaderStages.Fragment)));
 
                 // Pipeline
-                var pipeline = factory.CreateGraphicsPipeline(new GraphicsPipelineDescription(
+                var pipeline = _swapchainfactory.CreateGraphicsPipeline(new GraphicsPipelineDescription(
                     texture.BlendMode.ToBlendStateDescription(),
                     DepthTestState.ToDepthStencilStateDescription(),
                     RasterizerStateDescription.Default,
@@ -227,12 +273,12 @@ namespace BEditor.Graphics.Veldrid
                     _offscreenFB.OutputDescription));
 
                 // ResourceSet
-                var projViewSet = factory.CreateResourceSet(new ResourceSetDescription(
+                var projViewSet = _swapchainfactory.CreateResourceSet(new ResourceSetDescription(
                     projViewLayout,
                     _projectionBuffer,
                     _viewBuffer));
 
-                var worldTextureSet = factory.CreateResourceSet(new ResourceSetDescription(
+                var worldTextureSet = _swapchainfactory.CreateResourceSet(new ResourceSetDescription(
                     worldTextureLayout,
                     _worldBuffer,
                     view,
@@ -257,15 +303,11 @@ namespace BEditor.Graphics.Veldrid
 
         public unsafe void ReadImage(Image<BGRA32> image)
         {
-            _commandList.CopyTexture(
-                _offscreenFB.ColorTargets[0].Target, 0, 0, 0, 0, 0,
-                _stage, 0, 0, 0, 0, 0,
-                _stage.Width, _stage.Height, 1, 1);
+            _commandList.CopyTexture(_offscreenFB.ColorTargets[0].Target, _stage);
 
             _commandList.End();
 
             _graphicsDevice.SubmitCommands(_commandList);
-            _graphicsDevice.SwapBuffers();
             _graphicsDevice.WaitForIdle();
 
             var buf = _graphicsDevice.Map(_stage, MapMode.Read);
@@ -277,25 +319,31 @@ namespace BEditor.Graphics.Veldrid
 
             _graphicsDevice.Unmap(_stage);
 
+            _swapchainfactory.DisposeCollector.DisposeAll();
+
             _commandList.Begin();
         }
 
         public void SetSize(Size size)
         {
-            var factory = _graphicsDevice.ResourceFactory;
-
             _window.Width = Width = size.Width;
             _window.Height = Height = size.Height;
 
             // Dispose
+            var collector = _factory.DisposeCollector;
             _stage.Dispose();
             _offscreenColor.Dispose();
             _offscreenView.Dispose();
             _offscreenDepth.Dispose();
             _offscreenFB.Dispose();
+            collector.Remove(_stage);
+            collector.Remove(_offscreenColor);
+            collector.Remove(_offscreenView);
+            collector.Remove(_offscreenDepth);
+            collector.Remove(_offscreenFB);
 
             // オフスクリーン設定
-            _stage = factory.CreateTexture(TextureDescription.Texture2D(
+            _stage = _factory.CreateTexture(TextureDescription.Texture2D(
                 (uint)Width,
                 (uint)Height,
                 1,
@@ -303,34 +351,32 @@ namespace BEditor.Graphics.Veldrid
                 PixelFormat.B8_G8_R8_A8_UNorm,
                 TextureUsage.Staging));
 
-            _offscreenColor = factory.CreateTexture(TextureDescription.Texture2D(
+            _offscreenColor = _factory.CreateTexture(TextureDescription.Texture2D(
                 (uint)Width, (uint)Height, 1, 1,
                  PixelFormat.B8_G8_R8_A8_UNorm, TextureUsage.RenderTarget | TextureUsage.Sampled));
 
-            _offscreenView = factory.CreateTextureView(_offscreenColor);
+            _offscreenView = _factory.CreateTextureView(_offscreenColor);
 
-            _offscreenDepth = factory.CreateTexture(TextureDescription.Texture2D(
+            _offscreenDepth = _factory.CreateTexture(TextureDescription.Texture2D(
                 (uint)Width, (uint)Height, 1, 1, PixelFormat.R16_UNorm, TextureUsage.DepthStencil));
 
-            _offscreenFB = factory.CreateFramebuffer(new FramebufferDescription(_offscreenDepth, _offscreenColor));
+            _offscreenFB = _factory.CreateFramebuffer(new FramebufferDescription(_offscreenDepth, _offscreenColor));
         }
 
-        private static VertexPositionTexture[] ToVertexTextureArray(ReadOnlyMemory<VertexPositionTexture> memory)
+        private static UnmanagedArray<VertexPositionTexture> ToVertexTextureArray(VertexPositionTexture[] array)
         {
-            var span = memory.Span;
-            return new VertexPositionTexture[]
+            return new UnmanagedArray<VertexPositionTexture>(4)
             {
-                span[2],
-                span[1],
-                span[0],
-                span[3],
+                [0] = array[2],
+                [1] = array[1],
+                [2] = array[0],
+                [3] = array[3],
             };
         }
 
         private unsafe TextureVeldrid ToTexture(TextureImpl impl)
         {
-            var factory = _graphicsDevice.ResourceFactory;
-            var tex = factory.CreateTexture(impl.ToTextureDescription());
+            var tex = _swapchainfactory.CreateTexture(impl.ToTextureDescription());
             using var image = impl.ToImage();
 
             fixed (BGRA32* src = image.Data)
@@ -373,7 +419,7 @@ namespace BEditor.Graphics.Veldrid
                 Encoding.UTF8.GetBytes(frag),
                 "main");
 
-            return _graphicsDevice.ResourceFactory.CreateFromSpirv(vertexShaderDesc, fragmentShaderDesc);
+            return _factory.CreateFromSpirv(vertexShaderDesc, fragmentShaderDesc);
         }
     }
 }

@@ -42,7 +42,7 @@ namespace BEditor.Graphics.OpenGL
         /// <summary>
         /// Gets the vertices of this <see cref="GraphicsObject"/>.
         /// </summary>
-        public abstract ReadOnlyMemory<float> Vertices { get; }
+        public abstract float[] Vertices { get; }
 
         /// <inheritdoc/>
         public bool IsDisposed { get; private set; }

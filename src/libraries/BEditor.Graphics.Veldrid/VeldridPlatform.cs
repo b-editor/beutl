@@ -31,7 +31,7 @@ namespace BEditor.Graphics.Veldrid
 
         public ILineImpl CreateLine(Vector3 start, Vector3 end, float width)
         {
-            return new MockLineImpl();
+            return new LineImpl(start, end, width);
         }
 
         public ITextureImpl CreateTexture(Image<BGRA32> image, VertexPositionTexture[]? vertices = null)

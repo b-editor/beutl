@@ -4,6 +4,8 @@
         <TargetFramework>net5.0</TargetFramework>
     </PropertyGroup>
 
+    <Import Project="..\Shared\Shared.projitems" Label="Shared" />
+
     <ItemGroup>
         <EmbeddedResource Include="Resources\*.frag" />
         <EmbeddedResource Include="Resources\*.vert" />
@@ -13,6 +15,7 @@
         <PackageReference Include="Veldrid" Version="4.8.0" />
         <PackageReference Include="Veldrid.SPIRV" Version="1.0.14" />
         <PackageReference Include="Veldrid.StartupUtilities" Version="4.8.0" />
+        <PackageReference Include="Veldrid.Utilities" Version="4.8.0" />
     </ItemGroup>
 
     <ItemGroup>

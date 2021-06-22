@@ -4330,9 +4330,19 @@
               Looks up a localized string similar to Add a new effect.
             </summary>
         </member>
+        <member name="P:BEditor.Resources.Strings.Additive">
+            <summary>
+              Looks up a localized string similar to Additive.
+            </summary>
+        </member>
         <member name="P:BEditor.Resources.Strings.AddKeyframe">
             <summary>
               Looks up a localized string similar to Add a keyframe.
+            </summary>
+        </member>
+        <member name="P:BEditor.Resources.Strings.AlphaBlend">
+            <summary>
+              Looks up a localized string similar to Alpha blend.
             </summary>
         </member>
         <member name="P:BEditor.Resources.Strings.Ambient">
@@ -4490,6 +4500,11 @@
               Looks up a localized string similar to Move keyframe.
             </summary>
         </member>
+        <member name="P:BEditor.Resources.Strings.Multiplication">
+            <summary>
+              Looks up a localized string similar to Multiplication.
+            </summary>
+        </member>
         <member name="P:BEditor.Resources.Strings.Opacity">
             <summary>
               Looks up a localized string similar to Opacity.
@@ -4573,6 +4588,11 @@
         <member name="P:BEditor.Resources.Strings.Start">
             <summary>
               Looks up a localized string similar to Start.
+            </summary>
+        </member>
+        <member name="P:BEditor.Resources.Strings.Subtract">
+            <summary>
+              Looks up a localized string similar to Subtract.
             </summary>
         </member>
         <member name="P:BEditor.Resources.Strings.TheOwnerTypeDoesNotMatch">

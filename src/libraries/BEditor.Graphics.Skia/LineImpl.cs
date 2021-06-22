@@ -35,7 +35,7 @@ namespace BEditor.Graphics.Skia
         }
 
         /// <inheritdoc/>
-        public ReadOnlyMemory<float> Vertices => throw new NotImplementedException();
+        public float[] Vertices => throw new NotImplementedException();
 
         /// <inheritdoc/>
         public Vector3 Start { get; }

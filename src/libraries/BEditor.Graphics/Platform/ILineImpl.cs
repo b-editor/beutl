@@ -22,7 +22,7 @@ namespace BEditor.Graphics.Platform
         /// <summary>
         /// Gets the vertices of this <see cref="ILineImpl"/>.
         /// </summary>
-        public ReadOnlyMemory<float> Vertices { get; }
+        public float[] Vertices { get; }
 
         /// <summary>
         /// Gets the start position of this <see cref="ILineImpl"/>.
