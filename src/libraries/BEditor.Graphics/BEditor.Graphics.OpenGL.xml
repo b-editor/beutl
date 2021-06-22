@@ -59,12 +59,12 @@
             The default.
             </summary>
         </member>
-        <member name="F:BEditor.Graphics.BlendMode.Add">
+        <member name="F:BEditor.Graphics.BlendMode.Additive">
             <summary>
-            The add.
+            The additive.
             </summary>
         </member>
-        <member name="F:BEditor.Graphics.BlendMode.Suntract">
+        <member name="F:BEditor.Graphics.BlendMode.Subtract">
             <summary>
             The subtract.
             </summary>
@@ -122,6 +122,51 @@
             </summary>
             <returns>Returns the projection matrix.</returns>
         </member>
+        <member name="T:BEditor.Graphics.ComparisonKind">
+            <summary>
+            Describes how new values are compared with existing values in a depth or stencil comparison.
+            </summary>
+        </member>
+        <member name="F:BEditor.Graphics.ComparisonKind.Never">
+            <summary>
+            The comparison never succeeds.
+            </summary>
+        </member>
+        <member name="F:BEditor.Graphics.ComparisonKind.Less">
+            <summary>
+            The comparison succeeds when the new value is less than the existing value.
+            </summary>
+        </member>
+        <member name="F:BEditor.Graphics.ComparisonKind.Equal">
+            <summary>
+            The comparison succeeds when the new value is equal to the existing value.
+            </summary>
+        </member>
+        <member name="F:BEditor.Graphics.ComparisonKind.LessEqual">
+            <summary>
+            The comparison succeeds when the new value is less than or equal to the existing value.
+            </summary>
+        </member>
+        <member name="F:BEditor.Graphics.ComparisonKind.Greater">
+            <summary>
+            The comparison succeeds when the new value is greater than the existing value.
+            </summary>
+        </member>
+        <member name="F:BEditor.Graphics.ComparisonKind.NotEqual">
+            <summary>
+            The comparison succeeds when the new value is not equal to the existing value.
+            </summary>
+        </member>
+        <member name="F:BEditor.Graphics.ComparisonKind.GreaterEqual">
+            <summary>
+            The comparison succeeds when the new value is greater than or equal to the existing value.
+            </summary>
+        </member>
+        <member name="F:BEditor.Graphics.ComparisonKind.Always">
+            <summary>
+            The comparison always succeeds.
+            </summary>
+        </member>
         <member name="T:BEditor.Graphics.Cube">
             <summary>
             Represents an cube.
@@ -165,6 +210,34 @@
         <member name="P:BEditor.Graphics.Cube.PlatformImpl">
             <summary>
             Gets the cube implementation.
+            </summary>
+        </member>
+        <member name="T:BEditor.Graphics.DepthTestState">
+            <summary>
+            A <see cref="T:BEditor.Graphics.GraphicsContext"/> component describing the properties of the depth state.
+            </summary>
+        </member>
+        <member name="M:BEditor.Graphics.DepthTestState.#ctor(System.Boolean,System.Boolean,BEditor.Graphics.ComparisonKind)">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Graphics.DepthTestState"/> struct.
+            </summary>
+            <param name="depthTestEnabled">Whether depth testing is enabled.</param>
+            <param name="depthWriteEnabled">Whether new depth values are written to the depth buffer.</param>
+            <param name="comparisonKind">The <see cref="T:BEditor.Graphics.ComparisonKind"/> used when considering new depth values.</param>
+        </member>
+        <member name="P:BEditor.Graphics.DepthTestState.Enabled">
+            <summary>
+            Gets whether depth testing is enabled.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.DepthTestState.WriteEnabled">
+            <summary>
+            Gets whether new depth values are written to the depth buffer.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.DepthTestState.Comparison">
+            <summary>
+            Gets the <see cref="T:BEditor.Graphics.ComparisonKind"/> used when considering new depth values.
             </summary>
         </member>
         <member name="T:BEditor.Graphics.Drawable">
@@ -258,6 +331,11 @@
         <member name="P:BEditor.Graphics.GraphicsContext.Light">
             <summary>
             Gets or sets the light.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.GraphicsContext.DepthTestState">
+            <summary>
+            Gets or sets the depth test state.
             </summary>
         </member>
         <member name="P:BEditor.Graphics.GraphicsContext.PlatformImpl">
@@ -649,6 +727,11 @@
         <member name="P:BEditor.Graphics.Platform.IGraphicsContextImpl.Light">
             <summary>
             Gets or sets the light.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.Platform.IGraphicsContextImpl.DepthTestState">
+            <summary>
+            Gets or sets the depth test state.
             </summary>
         </member>
         <member name="M:BEditor.Graphics.Platform.IGraphicsContextImpl.MakeCurrent">

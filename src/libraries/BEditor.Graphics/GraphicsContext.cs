@@ -77,6 +77,15 @@ namespace BEditor.Graphics
         }
 
         /// <summary>
+        /// Gets or sets the depth test state.
+        /// </summary>
+        public DepthTestState DepthTestState
+        {
+            get => PlatformImpl.DepthTestState;
+            set => PlatformImpl.DepthTestState = value;
+        }
+
+        /// <summary>
         /// Gets the graphics context implementation.
         /// </summary>
         public IGraphicsContextImpl PlatformImpl { get; }
