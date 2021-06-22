@@ -1966,6 +1966,20 @@
         <member name="P:BEditor.Primitive.Objects.AudioFile.Length">
             <inheritdoc/>
         </member>
+        <member name="M:BEditor.Primitive.Objects.AudioFile.IsSupported(System.String)">
+            <summary>
+            Gets whether the file name is supported.
+            </summary>
+            <param name="file">The name of the file to check if it is supported.</param>
+            <returns>Returns true if supported, false otherwise.</returns>
+        </member>
+        <member name="M:BEditor.Primitive.Objects.AudioFile.FromFile(System.String)">
+            <summary>
+            Creates an instance from a file name.
+            </summary>
+            <param name="file">The file name.</param>
+            <returns>A new instance of <see cref="T:BEditor.Primitive.Objects.AudioFile"/>.</returns>
+        </member>
         <member name="M:BEditor.Primitive.Objects.AudioFile.GetProperties">
             <inheritdoc/>
         </member>
@@ -2356,6 +2370,20 @@
             <summary>
             Get the <see cref="F:BEditor.Primitive.Objects.ImageFile.FileProperty"/> to select the image file to reference.
             </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Objects.ImageFile.IsSupported(System.String)">
+            <summary>
+            Gets whether the file name is supported.
+            </summary>
+            <param name="file">The name of the file to check if it is supported.</param>
+            <returns>Returns true if supported, false otherwise.</returns>
+        </member>
+        <member name="M:BEditor.Primitive.Objects.ImageFile.FromFile(System.String)">
+            <summary>
+            Creates an instance from a file name.
+            </summary>
+            <param name="file">The file name.</param>
+            <returns>A new instance of <see cref="T:BEditor.Primitive.Objects.ImageFile"/>.</returns>
         </member>
         <member name="M:BEditor.Primitive.Objects.ImageFile.GetProperties">
             <inheritdoc/>
@@ -2770,6 +2798,20 @@
         </member>
         <member name="P:BEditor.Primitive.Objects.VideoFile.Length">
             <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Objects.VideoFile.IsSupported(System.String)">
+            <summary>
+            Gets whether the file name is supported.
+            </summary>
+            <param name="file">The name of the file to check if it is supported.</param>
+            <returns>Returns true if supported, false otherwise.</returns>
+        </member>
+        <member name="M:BEditor.Primitive.Objects.VideoFile.FromFile(System.String)">
+            <summary>
+            Creates an instance from a file name.
+            </summary>
+            <param name="file">The file name.</param>
+            <returns>A new instance of <see cref="T:BEditor.Primitive.Objects.VideoFile"/>.</returns>
         </member>
         <member name="M:BEditor.Primitive.Objects.VideoFile.GetProperties">
             <inheritdoc/>

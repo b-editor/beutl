@@ -22,6 +22,8 @@ using BEditor.Properties;
 using BEditor.ViewModels.Timelines;
 using BEditor.Views.DialogContent;
 
+using Microsoft.Extensions.DependencyInjection;
+
 using Reactive.Bindings.Extensions;
 
 namespace BEditor.Views.Timelines
@@ -268,21 +270,49 @@ namespace BEditor.Views.Timelines
             e.DragEffects = e.Data.Contains("ObjectMetadata") || (e.Data.GetFileNames()?.Any() ?? false) ? DragDropEffects.Copy : DragDropEffects.None;
         }
 
-        private void TimelineGrid_Drop(object? sender, DragEventArgs e)
+        private async void TimelineGrid_Drop(object? sender, DragEventArgs e)
         {
             ViewModel.LayerCursor.Value = StandardCursorType.Arrow;
+            var vm = ViewModel;
+
+            var pt = e.GetPosition((IVisual)sender!);
+
+            vm.ClickedFrame = Scene.ToFrame(pt.X);
+            vm.ClickedLayer = TimelineViewModel.ToLayer(pt.Y);
+
             if (e.Data.Get("ObjectMetadata") is ObjectMetadata metadata)
             {
-                var vm = ViewModel;
-                var pt = e.GetPosition((IVisual)sender!);
-
-                vm.ClickedFrame = Scene.ToFrame(pt.X);
-                vm.ClickedLayer = TimelineViewModel.ToLayer(pt.Y);
-
                 vm.AddClip.Execute(metadata);
             }
             else if (e.Data.GetFileNames() is var files && (files?.Any() ?? false))
             {
+                var file = files.First();
+                if (!Scene.InRange(vm.ClickedFrame, vm.ClickedFrame + 180, vm.ClickedLayer))
+                {
+                    Scene.ServiceProvider?.GetService<IMessage>()?.Snackbar(Strings.ClipExistsInTheSpecifiedLocation);
+
+                    return;
+                }
+                var supportedObjects = ObjectMetadata.LoadedObjects
+                    .Where(i => i.IsSupported is not null && i.CreateFromFile is not null && i.IsSupported(file))
+                    .ToArray();
+                var result = supportedObjects.FirstOrDefault();
+
+                if (supportedObjects.Length > 1)
+                {
+                    var dialog = new SelectObjectMetadata
+                    {
+                        Metadatas = supportedObjects,
+                        Selected = result,
+                    };
+
+                    result = await dialog.ShowDialog<ObjectMetadata?>((Window)VisualRoot!);
+                }
+
+                if (result is not null)
+                {
+                    Scene.AddClip(vm.ClickedFrame, vm.ClickedLayer, result.CreateFromFile!.Invoke(file), out _).Execute();
+                }
             }
         }
 

@@ -8,6 +8,7 @@
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
+using System.Linq;
 using System.Reactive.Linq;
 
 using BEditor.Data;
@@ -29,17 +30,33 @@ namespace BEditor.Primitive.Objects
         /// <summary>
         /// Defines the <see cref="File"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<ImageFile, FileProperty> FileProperty = EditingProperty.RegisterDirect<FileProperty, ImageFile>(
-            nameof(File),
-            owner => owner.File,
-            (owner, obj) => owner.File = obj,
-            EditingPropertyOptions<FileProperty>.Create(new FilePropertyMetadata(Strings.File, string.Empty, new(Strings.ImageFile, new[]
-            {
-                "png",
-                "jpeg",
-                "jpg",
-                "bmp",
-            }))).Serialize());
+        public static readonly DirectEditingProperty<ImageFile, FileProperty> FileProperty;
+
+        private static readonly string[] _extensions =
+        {
+            "png",
+            "jpeg",
+            "jpg",
+            "bmp",
+            "gif",
+            "ico",
+            "wbmp",
+            "webp",
+            "pkm",
+            "ktx",
+            "astc",
+            "dng",
+            "heif",
+        };
+
+        static ImageFile()
+        {
+            FileProperty = EditingProperty.RegisterDirect<FileProperty, ImageFile>(
+                nameof(File),
+                owner => owner.File,
+                (owner, obj) => owner.File = obj,
+                EditingPropertyOptions<FileProperty>.Create(new FilePropertyMetadata(Strings.File, string.Empty, new(Strings.ImageFile, _extensions))).Serialize());
+        }
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ImageFile"/> class.
@@ -58,6 +75,33 @@ namespace BEditor.Primitive.Objects
         public FileProperty File { get; private set; }
 
         private ReactiveProperty<Image<BGRA32>?>? Source { get; set; }
+
+        /// <summary>
+        /// Gets whether the file name is supported.
+        /// </summary>
+        /// <param name="file">The name of the file to check if it is supported.</param>
+        /// <returns>Returns true if supported, false otherwise.</returns>
+        public static bool IsSupported(string file)
+        {
+            var ext = Path.GetExtension(file).Trim('.');
+            return _extensions.Contains(ext);
+        }
+
+        /// <summary>
+        /// Creates an instance from a file name.
+        /// </summary>
+        /// <param name="file">The file name.</param>
+        /// <returns>A new instance of <see cref="ImageFile"/>.</returns>
+        public static ImageFile FromFile(string file)
+        {
+            return new ImageFile
+            {
+                File =
+                {
+                    Value = file,
+                },
+            };
+        }
 
         /// <inheritdoc/>
         public override IEnumerable<PropertyElement> GetProperties()

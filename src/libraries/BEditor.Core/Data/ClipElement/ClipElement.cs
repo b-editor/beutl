@@ -8,6 +8,7 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Linq;
 
 using BEditor.Media;
 
@@ -45,6 +46,25 @@ namespace BEditor.Data
             _layer = layer;
             _effect = new() { metadata.CreateFunc() };
             Metadata = metadata;
+            Parent = _parent = scene;
+            LabelText = Name;
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="ClipElement"/> class.
+        /// </summary>
+        /// <param name="start">The starting frame of the clip.</param>
+        /// <param name="end">The ending frame of the clip.</param>
+        /// <param name="layer">The layer number of the clip.</param>
+        /// <param name="scene">The scene where this clip will be placed.</param>
+        /// <param name="obj">The <see cref="ObjectElement"/> contained in this clip.</param>
+        public ClipElement(Frame start, Frame end, int layer, Scene scene, ObjectElement obj)
+        {
+            _start = start;
+            _end = end;
+            _layer = layer;
+            _effect = new() { obj };
+            Metadata = ObjectMetadata.LoadedObjects.First(i => i.Type == Effect[0].GetType());
             Parent = _parent = scene;
             LabelText = Name;
         }

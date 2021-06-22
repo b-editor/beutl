@@ -411,6 +411,15 @@
             <param name="layer">新しいクリップの配置レイヤーです.</param>
             <param name="metadata">新しいクリップのオブジェクトのメタデータです.</param>
         </member>
+        <member name="M:BEditor.Data.ClipElement.AddCommand.#ctor(BEditor.Data.Scene,BEditor.Media.Frame,System.Int32,BEditor.Data.ObjectElement)">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Data.ClipElement.AddCommand"/> class.
+            </summary>
+            <param name="scene">新しいクリップを追加するシーンです.</param>
+            <param name="startFrame">新しいクリップの開始フレームです.</param>
+            <param name="layer">新しいクリップの配置レイヤーです.</param>
+            <param name="obj">新しいクリップのオブジェクトです.</param>
+        </member>
         <member name="P:BEditor.Data.ClipElement.AddCommand.Clip">
             <summary>
             Gets the clip to add.
@@ -544,6 +553,16 @@
             <param name="layer">The layer number of the clip.</param>
             <param name="scene">The scene where this clip will be placed.</param>
             <param name="metadata">The metadata for the <see cref="T:BEditor.Data.ObjectElement"/> contained in this clip.</param>
+        </member>
+        <member name="M:BEditor.Data.ClipElement.#ctor(BEditor.Media.Frame,BEditor.Media.Frame,System.Int32,BEditor.Data.Scene,BEditor.Data.ObjectElement)">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Data.ClipElement"/> class.
+            </summary>
+            <param name="start">The starting frame of the clip.</param>
+            <param name="end">The ending frame of the clip.</param>
+            <param name="layer">The layer number of the clip.</param>
+            <param name="scene">The scene where this clip will be placed.</param>
+            <param name="obj">The <see cref="T:BEditor.Data.ObjectElement"/> contained in this clip.</param>
         </member>
         <member name="P:BEditor.Data.ClipElement.Name">
             <summary>
@@ -1041,6 +1060,16 @@
             Gets or sets the path data of an icon.
             </summary>
         </member>
+        <member name="P:BEditor.Data.ObjectMetadata.CreateFromFile">
+            <summary>
+            Creates an instance from a file name.
+            </summary>
+        </member>
+        <member name="P:BEditor.Data.ObjectMetadata.IsSupported">
+            <summary>
+            Check to see if the file name is supported.
+            </summary>
+        </member>
         <member name="P:BEditor.Data.ObjectMetadata.LoadedObjects">
             <summary>
             Gets the loaded <see cref="T:BEditor.Data.ObjectMetadata"/>.
@@ -1052,6 +1081,18 @@
             </summary>
             <typeparam name="T">The type of object that inherits from <see cref="T:BEditor.Data.ObjectElement"/>.</typeparam>
             <param name="name">The name of the object element.</param>
+            <returns>A new instance of <see cref="T:BEditor.Data.ObjectMetadata"/>.</returns>
+        </member>
+        <member name="M:BEditor.Data.ObjectMetadata.Create``1(System.String,System.Nullable{BEditor.Drawing.Color},System.String,System.Func{System.String,``0},System.Func{System.String,System.Boolean})">
+            <summary>
+            Create the <see cref="T:BEditor.Data.ObjectMetadata"/>.
+            </summary>
+            <typeparam name="T">The type of object that inherits from <see cref="T:BEditor.Data.ObjectElement"/>.</typeparam>
+            <param name="name">The name of the object element.</param>
+            <param name="accentColor">The accent color.</param>
+            <param name="pathIcon">The path data of an icon.</param>
+            <param name="createFromFile">Creates an instance from a file name.</param>
+            <param name="isSupported">Check to see if the file name is supported.</param>
             <returns>A new instance of <see cref="T:BEditor.Data.ObjectMetadata"/>.</returns>
         </member>
         <member name="T:BEditor.Data.Primitive.AudioEffect">
@@ -3485,6 +3526,16 @@
             <param name="frame">Frame to add a clip.</param>
             <param name="layer">Layer to add a clip.</param>
             <param name="metadata">Clip metadata to be added.</param>
+            <param name="generatedClip">Generated <see cref="T:BEditor.Data.ClipElement"/>.</param>
+            <returns>Created <see cref="T:BEditor.Command.IRecordCommand"/>.</returns>
+        </member>
+        <member name="M:BEditor.Data.Scene.AddClip(BEditor.Media.Frame,System.Int32,BEditor.Data.ObjectElement,BEditor.Data.ClipElement@)">
+            <summary>
+            Create a command to add a <see cref="T:BEditor.Data.ClipElement"/> to this <see cref="T:BEditor.Data.Scene"/>.
+            </summary>
+            <param name="frame">Frame to add a clip.</param>
+            <param name="layer">Layer to add a clip.</param>
+            <param name="obj">Object to be added.</param>
             <param name="generatedClip">Generated <see cref="T:BEditor.Data.ClipElement"/>.</param>
             <returns>Created <see cref="T:BEditor.Command.IRecordCommand"/>.</returns>
         </member>

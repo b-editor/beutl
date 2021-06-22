@@ -158,29 +158,6 @@ namespace BEditor.ViewModels
                 .Select(_ => App.Project!.PreviewScene.GetCreateTimelineViewModel())
                 .Subscribe(async timeline =>
                 {
-                    static ObjectMetadata FileTypeConvert(string file)
-                    {
-                        var ex = Path.GetExtension(file);
-                        if (ex is ".avi" or ".mp4")
-                        {
-                            return PrimitiveTypes.VideoMetadata;
-                        }
-                        else if (ex is ".jpg" or ".jpeg" or ".png" or ".bmp")
-                        {
-                            return PrimitiveTypes.ImageMetadata;
-                        }
-                        else if (ex is ".mp3" or ".wav")
-                        {
-                            return PrimitiveTypes.AudioMetadata;
-                        }
-                        else if (ex is ".txt")
-                        {
-                            return PrimitiveTypes.TextMetadata;
-                        }
-
-                        return PrimitiveTypes.ShapeMetadata;
-                    }
-
                     var mes = AppModel.Current.Message;
                     var clipboard = Application.Current.Clipboard;
                     var text = await clipboard.GetTextAsync();
@@ -214,31 +191,28 @@ namespace BEditor.ViewModels
                         if (!timeline.Scene.InRange(start, end, layer))
                         {
                             mes?.Snackbar(Strings.ClipExistsInTheSpecifiedLocation);
-                            BEditor.App.Logger.LogInformation("{0} Start: {0} End: {1} Layer: {2}", Strings.ClipExistsInTheSpecifiedLocation, start, end, layer);
 
                             return;
                         }
+                        var supportedObjects = ObjectMetadata.LoadedObjects
+                            .Where(i => i.IsSupported is not null && i.CreateFromFile is not null && i.IsSupported(text))
+                            .ToArray();
+                        var result = supportedObjects.FirstOrDefault();
 
-                        var meta = FileTypeConvert(text);
-                        timeline.Scene.AddClip(start, layer, meta, out var c).Execute();
+                        if (supportedObjects.Length > 1)
+                        {
+                            var dialog = new SelectObjectMetadata
+                            {
+                                Metadatas = supportedObjects,
+                                Selected = result,
+                            };
 
-                        var obj = c.Effect[0];
-                        if (obj is VideoFile video)
-                        {
-                            video.File.Value = text;
+                            result = await dialog.ShowDialog<ObjectMetadata?>(BEditor.App.GetMainWindow());
                         }
-                        else if (obj is ImageFile image)
+
+                        if (result is not null)
                         {
-                            image.File.Value = text;
-                        }
-                        else if (obj is AudioFile audio)
-                        {
-                            audio.File.Value = text;
-                        }
-                        else if (obj is Text txt)
-                        {
-                            using var reader = new StreamReader(text);
-                            txt.Document.Value = await reader.ReadToEndAsync();
+                            timeline.Scene.AddClip(start, layer, result.CreateFromFile!.Invoke(text), out _).Execute();
                         }
                     }
                 });

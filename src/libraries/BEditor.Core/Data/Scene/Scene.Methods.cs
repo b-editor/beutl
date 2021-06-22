@@ -326,6 +326,23 @@ namespace BEditor.Data
         }
 
         /// <summary>
+        /// Create a command to add a <see cref="ClipElement"/> to this <see cref="Scene"/>.
+        /// </summary>
+        /// <param name="frame">Frame to add a clip.</param>
+        /// <param name="layer">Layer to add a clip.</param>
+        /// <param name="obj">Object to be added.</param>
+        /// <param name="generatedClip">Generated <see cref="ClipElement"/>.</param>
+        /// <returns>Created <see cref="IRecordCommand"/>.</returns>
+        [Pure]
+        public IRecordCommand AddClip(Frame frame, int layer, ObjectElement obj, out ClipElement generatedClip)
+        {
+            var command = new ClipElement.AddCommand(this, frame, layer, obj);
+            generatedClip = command.Clip;
+
+            return command;
+        }
+
+        /// <summary>
         /// Create a command to remove <see cref="ClipElement"/> from this <see cref="Scene"/>.
         /// </summary>
         /// <param name="clip"><see cref="ClipElement"/> to be removed.</param>

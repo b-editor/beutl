@@ -8,6 +8,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.IO;
 using System.Linq;
 using System.Reactive.Linq;
 
@@ -100,6 +101,35 @@ namespace BEditor.Primitive.Objects
 
         /// <inheritdoc/>
         public TimeSpan? Length => _mediaFile?.Video?.Info?.Duration;
+
+        /// <summary>
+        /// Gets whether the file name is supported.
+        /// </summary>
+        /// <param name="file">The name of the file to check if it is supported.</param>
+        /// <returns>Returns true if supported, false otherwise.</returns>
+        public static bool IsSupported(string file)
+        {
+            var ext = Path.GetExtension(file);
+            return DecodingRegistory.EnumerateDecodings()
+                .SelectMany(i => i.SupportExtensions())
+                .Contains(ext);
+        }
+
+        /// <summary>
+        /// Creates an instance from a file name.
+        /// </summary>
+        /// <param name="file">The file name.</param>
+        /// <returns>A new instance of <see cref="VideoFile"/>.</returns>
+        public static VideoFile FromFile(string file)
+        {
+            return new VideoFile
+            {
+                File =
+                {
+                    Value = file,
+                },
+            };
+        }
 
         /// <inheritdoc/>
         public override IEnumerable<PropertyElement> GetProperties()

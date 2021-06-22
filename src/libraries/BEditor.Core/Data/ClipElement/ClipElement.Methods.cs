@@ -78,7 +78,7 @@ namespace BEditor.Data
                 }
             }
 
-            Metadata = ObjectMetadata.LoadedObjects.First(i => i.Name == Effect[0].Name);
+            Metadata = ObjectMetadata.LoadedObjects.First(i => i.Type == Effect[0].GetType());
         }
 
         /// <summary>
