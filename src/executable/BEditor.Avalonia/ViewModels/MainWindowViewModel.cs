@@ -198,7 +198,7 @@ namespace BEditor.ViewModels
                         if (ext is ".bobj")
                         {
                             var efct = await Serialize.LoadFromFileAsync<EffectWrapper>(text);
-                            if(efct?.Effect is not ObjectElement obj)
+                            if (efct?.Effect is not ObjectElement obj)
                             {
                                 mes?.Snackbar(Strings.FailedToLoad);
                                 return;
