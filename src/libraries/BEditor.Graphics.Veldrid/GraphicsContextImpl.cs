@@ -228,8 +228,12 @@ namespace BEditor.Graphics.Veldrid
                 // IndexBuffer
                 using var indices = new UnmanagedArray<ushort>(6)
                 {
-                    [0] = 0, [1] = 1, [2] = 2,
-                    [3] = 0, [4] = 2, [5] = 3,
+                    [0] = 0,
+                    [1] = 1,
+                    [2] = 2,
+                    [3] = 0,
+                    [4] = 2,
+                    [5] = 3,
                 };
                 var indicesSize = sizeof(ushort) * (uint)indices.Length;
                 var indexBuffer = _swapchainfactory.CreateBuffer(new BufferDescription(indicesSize, BufferUsage.IndexBuffer));
