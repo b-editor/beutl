@@ -32,6 +32,8 @@ using BEditor.Views.DialogContent;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
+using Reactive.Bindings;
+
 namespace BEditor
 {
     public class App : Application
@@ -94,6 +96,7 @@ namespace BEditor
         public override void Initialize()
         {
             AvaloniaXamlLoader.Load(this);
+            UIDispatcherScheduler.Initialize();
             var baseuri = new Uri("avares://beditor/App.axaml");
             var style = new StyleInclude(baseuri)
             {

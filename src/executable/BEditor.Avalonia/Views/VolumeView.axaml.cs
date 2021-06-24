@@ -8,6 +8,8 @@ using Avalonia.Media;
 
 using BEditor.ViewModels;
 
+using Reactive.Bindings.Extensions;
+
 namespace BEditor.Views
 {
     public partial class VolumeView : UserControl
@@ -27,7 +29,7 @@ namespace BEditor.Views
             _leftText = this.FindControl<TextBlock>("LeftText");
             _rightText = this.FindControl<TextBlock>("RightText");
 
-            vm.Left.Subscribe(r =>
+            vm.Left.ObserveOnUIDispatcher().Subscribe(r =>
             {
                 var border = _leftBorder;
                 var p = r / -90;
@@ -40,7 +42,7 @@ namespace BEditor.Views
                 _leftText.Margin = new(0, (rect.Y > border.Bounds.Y || rect.Y < 0) ? 0 : rect.Y, 0, 0);
             });
 
-            vm.Right.Subscribe(r =>
+            vm.Right.ObserveOnUIDispatcher().Subscribe(r =>
             {
                 var border = _rightBorder;
                 var p = r / -90;

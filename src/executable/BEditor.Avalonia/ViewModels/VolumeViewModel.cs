@@ -16,8 +16,8 @@ namespace BEditor.ViewModels
             {
                 if (sound is null)
                 {
-                    Left.Value = 0;
-                    Right.Value = 0;
+                    Left.Value = -90;
+                    Right.Value = -90;
                     return;
                 }
                 var (left, right) = sound.RMS();
