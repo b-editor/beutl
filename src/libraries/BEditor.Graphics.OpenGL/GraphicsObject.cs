@@ -57,6 +57,9 @@ namespace BEditor.Graphics.OpenGL
         public BlendMode BlendMode { get; set; }
 
         /// <inheritdoc/>
+        public RasterizerState RasterizerState { get; set; } = RasterizerState.CullNone;
+
+        /// <inheritdoc/>
         public Transform Transform { get; set; } = Transform.Default;
 
         /// <summary>

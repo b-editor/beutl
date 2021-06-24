@@ -26,6 +26,12 @@
         <member name="P:BEditor.Graphics.Skia.DrawableImpl.BlendMode">
             <inheritdoc/>
         </member>
+        <member name="P:BEditor.Graphics.Skia.DrawableImpl.RasterizerState">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Graphics.Skia.DrawableImpl.DepthStencilState">
+            <inheritdoc/>
+        </member>
         <member name="P:BEditor.Graphics.Skia.DrawableImpl.Transform">
             <inheritdoc/>
         </member>
@@ -60,9 +66,6 @@
             <inheritdoc/>
         </member>
         <member name="P:BEditor.Graphics.Skia.GraphicsContextImpl.Light">
-            <inheritdoc/>
-        </member>
-        <member name="P:BEditor.Graphics.Skia.GraphicsContextImpl.DepthTestState">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Graphics.Skia.GraphicsContextImpl.Clear">

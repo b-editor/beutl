@@ -1,14 +1,26 @@
-﻿#version 440
-layout(location = 0) in vec3 aPos;
+﻿#version 450
 
-layout(set = 0, binding = 0) uniform MVP
+layout(set = 0, binding = 0) uniform ProjectionBuffer
 {
     mat4 Projection;
-    mat4 View;
-    mat4 Model;
 };
+
+layout(set = 0, binding = 1) uniform ViewBuffer
+{
+    mat4 View;
+};
+
+layout(set = 1, binding = 0) uniform WorldBuffer
+{
+    mat4 World;
+};
+
+layout(location = 0) in vec3 Position;
 
 void main()
 {
-	gl_Position = vec4(aPos, 1.0) * Model * View * Projection;
+	vec4 worldPosition = World * vec4(Position, 1);
+    vec4 viewPosition = View * worldPosition;
+    vec4 clipPosition = Projection * viewPosition;
+    gl_Position = clipPosition;
 }

@@ -101,7 +101,7 @@ namespace BEditor.Primitive.Effects
         /// <inheritdoc/>
         public override void Apply(EffectApplyArgs args)
         {
-            Parent.Parent.GraphicsContext!.DepthTestState = new(Enabled.Value, Mask.Value, _depthFunctions[Function.Index]);
+            Parent.Parent.GraphicsContext!.DepthStencilState.WithDepth(Enabled.Value, Mask.Value, _depthFunctions[Function.Index]);
         }
 
         /// <inheritdoc/>

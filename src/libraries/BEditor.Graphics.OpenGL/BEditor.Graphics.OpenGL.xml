@@ -396,9 +396,6 @@
             Gets or sets the light.
             </summary>
         </member>
-        <member name="P:BEditor.Graphics.OpenGL.GraphicsContextImpl.DepthTestState">
-            <inheritdoc/>
-        </member>
         <member name="M:BEditor.Graphics.OpenGL.GraphicsContextImpl.SetSize(BEditor.Drawing.Size)">
             <summary>
             Sets the framebuffer size.
@@ -545,6 +542,12 @@
             <inheritdoc/>
         </member>
         <member name="P:BEditor.Graphics.OpenGL.GraphicsObject.BlendMode">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Graphics.OpenGL.GraphicsObject.RasterizerState">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Graphics.OpenGL.GraphicsObject.DepthStencilState">
             <inheritdoc/>
         </member>
         <member name="P:BEditor.Graphics.OpenGL.GraphicsObject.Transform">

@@ -46,11 +46,6 @@ namespace BEditor.Graphics.Platform
         public RasterizerState RasterizerState { get; set; }
 
         /// <summary>
-        /// Gets or sets the depth stencil state.
-        /// </summary>
-        public DepthStencilState DepthStencilState { get; set; }
-
-        /// <summary>
         /// Gets a value indicating whether this instance has been disposed.
         /// </summary>
         public bool IsDisposed { get; }

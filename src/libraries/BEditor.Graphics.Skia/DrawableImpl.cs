@@ -45,6 +45,12 @@ namespace BEditor.Graphics.Skia
         public BlendMode BlendMode { get; set; }
 
         /// <inheritdoc/>
+        public RasterizerState RasterizerState { get; set; } = RasterizerState.CullNone;
+
+        /// <inheritdoc/>
+        public DepthStencilState DepthStencilState { get; set; } = DepthStencilState.Disabled;
+
+        /// <inheritdoc/>
         public Transform Transform { get; set; } = Transform.Default;
 
         /// <inheritdoc/>

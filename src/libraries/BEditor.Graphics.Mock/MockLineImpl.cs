@@ -11,7 +11,7 @@ namespace BEditor.Graphics.Mock
 {
     public sealed class MockLineImpl : MockDrawableImpl, ILineImpl
     {
-        public float[] Vertices { get; }
+        public float[] Vertices { get; } = Array.Empty<float>();
 
         public Vector3 Start { get; }
 

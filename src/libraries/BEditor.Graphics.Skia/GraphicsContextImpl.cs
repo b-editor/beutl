@@ -65,11 +65,7 @@ namespace BEditor.Graphics.Skia
         }
 
         /// <inheritdoc/>
-        public DepthTestState DepthTestState
-        {
-            get => default;
-            set { }
-        }
+        public DepthStencilState DepthStencilState { get; set; } = DepthStencilState.Disabled;
 
         /// <inheritdoc/>
         public void Clear()

@@ -26,7 +26,7 @@ namespace BEditor.Graphics.Veldrid
 
         public ICubeImpl CreateCube(float width, float height, float depth)
         {
-            throw new NotImplementedException();
+            return new CubeImpl(width, height, depth);
         }
 
         public ILineImpl CreateLine(Vector3 start, Vector3 end, float width)

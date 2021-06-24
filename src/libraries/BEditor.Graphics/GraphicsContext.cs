@@ -77,12 +77,12 @@ namespace BEditor.Graphics
         }
 
         /// <summary>
-        /// Gets or sets the depth test state.
+        /// Gets or sets the depth stencil state.
         /// </summary>
-        public DepthStencilState DepthTestState
+        public DepthStencilState DepthStencilState
         {
-            get => PlatformImpl.DepthTestState;
-            set => PlatformImpl.DepthTestState = value;
+            get => PlatformImpl.DepthStencilState;
+            set => PlatformImpl.DepthStencilState = value;
         }
 
         /// <summary>

@@ -47,6 +47,11 @@ namespace BEditor.Graphics.Platform
         public Light? Light { get; set; }
 
         /// <summary>
+        /// Gets or sets the depth stencil state.
+        /// </summary>
+        public DepthStencilState DepthStencilState { get; set; }
+
+        /// <summary>
         /// Makes current.
         /// </summary>
         public void MakeCurrent();

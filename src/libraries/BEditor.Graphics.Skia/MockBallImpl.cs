@@ -30,6 +30,6 @@ namespace BEditor.Graphics.Skia
         public float RadiusZ { get; }
 
         /// <inheritdoc/>
-        public float[] Vertices { get; }
+        public float[] Vertices { get; } = Array.Empty<float>();
     }
 }

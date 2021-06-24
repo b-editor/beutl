@@ -219,5 +219,36 @@ namespace BEditor.Graphics
             hash.Add(StencilReadMask);
             return hash.ToHashCode();
         }
+
+        /// <summary>
+        /// Sets the depth test.
+        /// </summary>
+        /// <param name="depthTestEnabled">Whether depth testing is enabled.</param>
+        /// <param name="depthWriteEnabled">Whether new depth values are written to the depth buffer.</param>
+        /// <param name="comparisonKind">The <see cref="ComparisonKind"/> used when considering new depth values.</param>
+        /// <returns>A new instance created by this method.</returns>
+        public DepthStencilState WithDepth(bool depthTestEnabled, bool depthWriteEnabled, ComparisonKind comparisonKind)
+        {
+            return new(
+                depthTestEnabled, depthWriteEnabled, comparisonKind,
+                StencilTestEnabled, StencilFront, StencilBack, StencilReadMask, StencilWriteMask, StencilReference);
+        }
+
+        /// <summary>
+        /// Sets the stencil test.
+        /// </summary>
+        /// <param name="stencilTestEnabled">Whether the stencil test is enabled.</param>
+        /// <param name="stencilFront">How stencil tests are handled for pixels whose surface faces towards the camera.</param>
+        /// <param name="stencilBack">How stencil tests are handled for pixels whose surface faces away from the camera.</param>
+        /// <param name="stencilReadMask">The portion of the stencil buffer used for reading.</param>
+        /// <param name="stencilWriteMask">The portion of the stencil buffer used for writing.</param>
+        /// <param name="stencilReference">The reference value to use when doing a stencil test.</param>
+        /// <returns>A new instance created by this method.</returns>
+        public DepthStencilState WithStencil(bool stencilTestEnabled, StencilBehavior stencilFront, StencilBehavior stencilBack, byte stencilReadMask, byte stencilWriteMask, uint stencilReference)
+        {
+            return new(
+                DepthTestEnabled, DepthWriteEnabled, DepthComparison,
+                stencilTestEnabled, stencilFront, stencilBack, stencilReadMask, stencilWriteMask, stencilReference);
+        }
     }
 }

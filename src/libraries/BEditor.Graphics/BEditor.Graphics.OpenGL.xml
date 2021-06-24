@@ -49,31 +49,6 @@
             Gets the ball implementation.
             </summary>
         </member>
-        <member name="T:BEditor.Graphics.BlendMode">
-            <summary>
-            Defines the mode of the blend.
-            </summary>
-        </member>
-        <member name="F:BEditor.Graphics.BlendMode.AlphaBlend">
-            <summary>
-            The default.
-            </summary>
-        </member>
-        <member name="F:BEditor.Graphics.BlendMode.Additive">
-            <summary>
-            The additive.
-            </summary>
-        </member>
-        <member name="F:BEditor.Graphics.BlendMode.Subtract">
-            <summary>
-            The subtract.
-            </summary>
-        </member>
-        <member name="F:BEditor.Graphics.BlendMode.Multiplication">
-            <summary>
-            The multiplication.
-            </summary>
-        </member>
         <member name="T:BEditor.Graphics.Camera">
             <summary>
             Represents an OpenGL camera.
@@ -122,51 +97,6 @@
             </summary>
             <returns>Returns the projection matrix.</returns>
         </member>
-        <member name="T:BEditor.Graphics.ComparisonKind">
-            <summary>
-            Describes how new values are compared with existing values in a depth or stencil comparison.
-            </summary>
-        </member>
-        <member name="F:BEditor.Graphics.ComparisonKind.Never">
-            <summary>
-            The comparison never succeeds.
-            </summary>
-        </member>
-        <member name="F:BEditor.Graphics.ComparisonKind.Less">
-            <summary>
-            The comparison succeeds when the new value is less than the existing value.
-            </summary>
-        </member>
-        <member name="F:BEditor.Graphics.ComparisonKind.Equal">
-            <summary>
-            The comparison succeeds when the new value is equal to the existing value.
-            </summary>
-        </member>
-        <member name="F:BEditor.Graphics.ComparisonKind.LessEqual">
-            <summary>
-            The comparison succeeds when the new value is less than or equal to the existing value.
-            </summary>
-        </member>
-        <member name="F:BEditor.Graphics.ComparisonKind.Greater">
-            <summary>
-            The comparison succeeds when the new value is greater than the existing value.
-            </summary>
-        </member>
-        <member name="F:BEditor.Graphics.ComparisonKind.NotEqual">
-            <summary>
-            The comparison succeeds when the new value is not equal to the existing value.
-            </summary>
-        </member>
-        <member name="F:BEditor.Graphics.ComparisonKind.GreaterEqual">
-            <summary>
-            The comparison succeeds when the new value is greater than or equal to the existing value.
-            </summary>
-        </member>
-        <member name="F:BEditor.Graphics.ComparisonKind.Always">
-            <summary>
-            The comparison always succeeds.
-            </summary>
-        </member>
         <member name="T:BEditor.Graphics.Cube">
             <summary>
             Represents an cube.
@@ -212,34 +142,6 @@
             Gets the cube implementation.
             </summary>
         </member>
-        <member name="T:BEditor.Graphics.DepthTestState">
-            <summary>
-            A <see cref="T:BEditor.Graphics.GraphicsContext"/> component describing the properties of the depth state.
-            </summary>
-        </member>
-        <member name="M:BEditor.Graphics.DepthTestState.#ctor(System.Boolean,System.Boolean,BEditor.Graphics.ComparisonKind)">
-            <summary>
-            Initializes a new instance of the <see cref="T:BEditor.Graphics.DepthTestState"/> struct.
-            </summary>
-            <param name="depthTestEnabled">Whether depth testing is enabled.</param>
-            <param name="depthWriteEnabled">Whether new depth values are written to the depth buffer.</param>
-            <param name="comparisonKind">The <see cref="T:BEditor.Graphics.ComparisonKind"/> used when considering new depth values.</param>
-        </member>
-        <member name="P:BEditor.Graphics.DepthTestState.Enabled">
-            <summary>
-            Gets whether depth testing is enabled.
-            </summary>
-        </member>
-        <member name="P:BEditor.Graphics.DepthTestState.WriteEnabled">
-            <summary>
-            Gets whether new depth values are written to the depth buffer.
-            </summary>
-        </member>
-        <member name="P:BEditor.Graphics.DepthTestState.Comparison">
-            <summary>
-            Gets the <see cref="T:BEditor.Graphics.ComparisonKind"/> used when considering new depth values.
-            </summary>
-        </member>
         <member name="T:BEditor.Graphics.Drawable">
             <summary>
             Represents the base class of drawable objects.
@@ -271,6 +173,11 @@
             Gets or sets the transform of this <see cref="T:BEditor.Graphics.Drawable"/>.
             </summary>
         </member>
+        <member name="P:BEditor.Graphics.Drawable.RasterizerState">
+            <summary>
+            Gets or sets the rasterizer state.
+            </summary>
+        </member>
         <member name="P:BEditor.Graphics.Drawable.BlendMode">
             <summary>
             Gets or sets the blend mode of this <see cref="T:BEditor.Graphics.Drawable"/>.
@@ -288,6 +195,171 @@
         </member>
         <member name="M:BEditor.Graphics.Drawable.Dispose">
             <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Graphics.BlendMode">
+            <summary>
+            Defines the mode of the blend.
+            </summary>
+        </member>
+        <member name="F:BEditor.Graphics.BlendMode.AlphaBlend">
+            <summary>
+            The default.
+            </summary>
+        </member>
+        <member name="F:BEditor.Graphics.BlendMode.Additive">
+            <summary>
+            The additive.
+            </summary>
+        </member>
+        <member name="F:BEditor.Graphics.BlendMode.Subtract">
+            <summary>
+            The subtract.
+            </summary>
+        </member>
+        <member name="F:BEditor.Graphics.BlendMode.Multiplication">
+            <summary>
+            The multiplication.
+            </summary>
+        </member>
+        <member name="T:BEditor.Graphics.ComparisonKind">
+            <summary>
+            Describes how new values are compared with existing values in a depth or stencil comparison.
+            </summary>
+        </member>
+        <member name="F:BEditor.Graphics.ComparisonKind.Never">
+            <summary>
+            The comparison never succeeds.
+            </summary>
+        </member>
+        <member name="F:BEditor.Graphics.ComparisonKind.Less">
+            <summary>
+            The comparison succeeds when the new value is less than the existing value.
+            </summary>
+        </member>
+        <member name="F:BEditor.Graphics.ComparisonKind.Equal">
+            <summary>
+            The comparison succeeds when the new value is equal to the existing value.
+            </summary>
+        </member>
+        <member name="F:BEditor.Graphics.ComparisonKind.LessEqual">
+            <summary>
+            The comparison succeeds when the new value is less than or equal to the existing value.
+            </summary>
+        </member>
+        <member name="F:BEditor.Graphics.ComparisonKind.Greater">
+            <summary>
+            The comparison succeeds when the new value is greater than the existing value.
+            </summary>
+        </member>
+        <member name="F:BEditor.Graphics.ComparisonKind.NotEqual">
+            <summary>
+            The comparison succeeds when the new value is not equal to the existing value.
+            </summary>
+        </member>
+        <member name="F:BEditor.Graphics.ComparisonKind.GreaterEqual">
+            <summary>
+            The comparison succeeds when the new value is greater than or equal to the existing value.
+            </summary>
+        </member>
+        <member name="F:BEditor.Graphics.ComparisonKind.Always">
+            <summary>
+            The comparison always succeeds.
+            </summary>
+        </member>
+        <member name="T:BEditor.Graphics.FaceCullMode">
+            <summary>
+            Indicates which face will be culled.
+            </summary>
+        </member>
+        <member name="F:BEditor.Graphics.FaceCullMode.Back">
+            <summary>
+            The back face.
+            </summary>
+        </member>
+        <member name="F:BEditor.Graphics.FaceCullMode.Front">
+            <summary>
+            The front face.
+            </summary>
+        </member>
+        <member name="F:BEditor.Graphics.FaceCullMode.None">
+            <summary>
+            No face culling.
+            </summary>
+        </member>
+        <member name="T:BEditor.Graphics.FrontFace">
+            <summary>
+            The winding order used to determine the front face of a primitive.
+            </summary>
+        </member>
+        <member name="F:BEditor.Graphics.FrontFace.Clockwise">
+            <summary>
+            Clockwise winding order.
+            </summary>
+        </member>
+        <member name="F:BEditor.Graphics.FrontFace.CounterClockwise">
+            <summary>
+            Counter-clockwise winding order.
+            </summary>
+        </member>
+        <member name="T:BEditor.Graphics.PolygonFillMode">
+            <summary>
+            Indicates how the rasterizer will fill polygons.
+            </summary>
+        </member>
+        <member name="F:BEditor.Graphics.PolygonFillMode.Solid">
+            <summary>
+            Polygons are filled completely.
+            </summary>
+        </member>
+        <member name="F:BEditor.Graphics.PolygonFillMode.Wireframe">
+            <summary>
+            Polygons are outlined in a "wireframe" style.
+            </summary>
+        </member>
+        <member name="T:BEditor.Graphics.StencilOperation">
+            <summary>
+            Identifies an action taken on samples that pass or fail the stencil test.
+            </summary>
+        </member>
+        <member name="F:BEditor.Graphics.StencilOperation.Keep">
+            <summary>
+            Keep the existing value.
+            </summary>
+        </member>
+        <member name="F:BEditor.Graphics.StencilOperation.Zero">
+            <summary>
+            Sets the value to 0.
+            </summary>
+        </member>
+        <member name="F:BEditor.Graphics.StencilOperation.Replace">
+            <summary>
+            Replaces the existing value with <see cref="P:BEditor.Graphics.DepthStencilState.StencilReference"/>.
+            </summary>
+        </member>
+        <member name="F:BEditor.Graphics.StencilOperation.IncrementAndClamp">
+            <summary>
+            Increments the existing value and clamps it to the maximum representable unsigned value.
+            </summary>
+        </member>
+        <member name="F:BEditor.Graphics.StencilOperation.DecrementAndClamp">
+            <summary>
+            Decrements the existing value and clamps it to 0.
+            </summary>
+        </member>
+        <member name="F:BEditor.Graphics.StencilOperation.Invert">
+            <summary>
+            Bitwise-inverts the existing value.
+            </summary>
+        </member>
+        <member name="F:BEditor.Graphics.StencilOperation.IncrementAndWrap">
+            <summary>
+            Increments the existing value and wraps it to 0 when it exceeds the maximum representable unsigned value.
+            </summary>
+        </member>
+        <member name="F:BEditor.Graphics.StencilOperation.DecrementAndWrap">
+            <summary>
+            Decrements the existing value and wraps it to the maximum representable unsigned value if it would be reduced below 0.
+            </summary>
         </member>
         <member name="T:BEditor.Graphics.GraphicsContext">
             <summary>
@@ -333,9 +405,9 @@
             Gets or sets the light.
             </summary>
         </member>
-        <member name="P:BEditor.Graphics.GraphicsContext.DepthTestState">
+        <member name="P:BEditor.Graphics.GraphicsContext.DepthStencilState">
             <summary>
-            Gets or sets the depth test state.
+            Gets or sets the depth stencil state.
             </summary>
         </member>
         <member name="P:BEditor.Graphics.GraphicsContext.PlatformImpl">
@@ -539,40 +611,6 @@
             Gets the line implementation.
             </summary>
         </member>
-        <member name="T:BEditor.Graphics.Material">
-            <summary>
-            Represents a <see cref="T:BEditor.Graphics.Drawable"/> material structure.
-            </summary>
-        </member>
-        <member name="M:BEditor.Graphics.Material.#ctor(BEditor.Drawing.Color,BEditor.Drawing.Color,BEditor.Drawing.Color,System.Single)">
-            <summary>
-            Initializes a new instance of the <see cref="T:BEditor.Graphics.Material"/> struct.
-            </summary>
-            <param name="ambient">The ambient color.</param>
-            <param name="diffuse">The diffuse color.</param>
-            <param name="specular">The specular color.</param>
-            <param name="shininess">The shininess.</param>
-        </member>
-        <member name="P:BEditor.Graphics.Material.Ambient">
-            <summary>
-            Gets the ambient color.
-            </summary>
-        </member>
-        <member name="P:BEditor.Graphics.Material.Diffuse">
-            <summary>
-            Gets the diffuse color.
-            </summary>
-        </member>
-        <member name="P:BEditor.Graphics.Material.Specular">
-            <summary>
-            Gets the specular color.
-            </summary>
-        </member>
-        <member name="P:BEditor.Graphics.Material.Shininess">
-            <summary>
-            Gets the shininess.
-            </summary>
-        </member>
         <member name="T:BEditor.Graphics.OrthographicCamera">
             <summary>
             Represents an orthographic camera.
@@ -694,6 +732,11 @@
             Gets or sets the transform of this <see cref="T:BEditor.Graphics.Platform.IDrawableImpl"/>.
             </summary>
         </member>
+        <member name="P:BEditor.Graphics.Platform.IDrawableImpl.RasterizerState">
+            <summary>
+            Gets or sets the rasterizer state.
+            </summary>
+        </member>
         <member name="P:BEditor.Graphics.Platform.IDrawableImpl.IsDisposed">
             <summary>
             Gets a value indicating whether this instance has been disposed.
@@ -729,9 +772,9 @@
             Gets or sets the light.
             </summary>
         </member>
-        <member name="P:BEditor.Graphics.Platform.IGraphicsContextImpl.DepthTestState">
+        <member name="P:BEditor.Graphics.Platform.IGraphicsContextImpl.DepthStencilState">
             <summary>
-            Gets or sets the depth test state.
+            Gets or sets the depth stencil state.
             </summary>
         </member>
         <member name="M:BEditor.Graphics.Platform.IGraphicsContextImpl.MakeCurrent">
@@ -905,51 +948,347 @@
               Looks up a localized string similar to Platform is not set..
             </summary>
         </member>
-        <member name="T:BEditor.Graphics.Texture">
+        <member name="T:BEditor.Graphics.DepthStencilState">
             <summary>
-            Represents an texture.
+            A <see cref="T:BEditor.Graphics.GraphicsContext"/> component describing the properties of the depth stencil state.
             </summary>
         </member>
-        <member name="M:BEditor.Graphics.Texture.#ctor(BEditor.Graphics.Platform.ITextureImpl)">
+        <member name="F:BEditor.Graphics.DepthStencilState.DepthOnlyLessEqual">
             <summary>
-            Initializes a new instance of the <see cref="T:BEditor.Graphics.Texture"/> class.
-            </summary>
-            <param name="impl">The texture implementaion.</param>
-        </member>
-        <member name="P:BEditor.Graphics.Texture.Width">
-            <summary>
-            Gets the width of this <see cref="T:BEditor.Graphics.Texture"/>.
+            Describes a depth-only depth stencil state which uses a <see cref="F:BEditor.Graphics.ComparisonKind.LessEqual"/> comparison.
+            The stencil test is disabled.
             </summary>
         </member>
-        <member name="P:BEditor.Graphics.Texture.Height">
+        <member name="F:BEditor.Graphics.DepthStencilState.DepthOnlyLessEqualRead">
             <summary>
-            Gets the height of this <see cref="T:BEditor.Graphics.Texture"/>.
+            Describes a depth-only depth stencil state which uses a <see cref="F:BEditor.Graphics.ComparisonKind.LessEqual"/> comparison, and disables writing to the depth buffer.
+            The stencil test is disabled.
             </summary>
         </member>
-        <member name="P:BEditor.Graphics.Texture.Vertices">
+        <member name="F:BEditor.Graphics.DepthStencilState.DepthOnlyGreaterEqual">
             <summary>
-            Gets the vertices of this <see cref="T:BEditor.Graphics.Platform.ITextureImpl"/>.
+            Describes a depth-only depth stencil state which uses a <see cref="F:BEditor.Graphics.ComparisonKind.GreaterEqual"/> comparison.
+            The stencil test is disabled.
             </summary>
         </member>
-        <member name="P:BEditor.Graphics.Texture.PlatformImpl">
+        <member name="F:BEditor.Graphics.DepthStencilState.DepthOnlyGreaterEqualRead">
             <summary>
-            Gets the texture implementation.
+            Describes a depth-only depth stencil state which uses a <see cref="F:BEditor.Graphics.ComparisonKind.GreaterEqual"/> comparison, and
+            disables writing to the depth buffer. The stencil test is disabled.
             </summary>
         </member>
-        <member name="M:BEditor.Graphics.Texture.FromImage(BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32},BEditor.Graphics.VertexPositionTexture[])">
+        <member name="F:BEditor.Graphics.DepthStencilState.Disabled">
             <summary>
-            Create a texture from an <see cref="T:BEditor.Drawing.Image`1"/>.
+            Describes a depth-only depth stencil state in which depth testing and writing is disabled.
+            The stencil test is disabled.
             </summary>
-            <param name="image">The image to create texture.</param>
-            <param name="vertices">The vertices.</param>
-            <exception cref="T:BEditor.Graphics.GraphicsException">Platform is not set.</exception>
-            <returns>Returns the texture created by this method.</returns>
         </member>
-        <member name="M:BEditor.Graphics.Texture.ToImage">
+        <member name="M:BEditor.Graphics.DepthStencilState.#ctor(System.Boolean,System.Boolean,BEditor.Graphics.ComparisonKind)">
             <summary>
-            Converts this texture to an image.
+            Initializes a new instance of the <see cref="T:BEditor.Graphics.DepthStencilState"/> struct.
             </summary>
-            <returns>Returns the image.</returns>
+            <param name="depthTestEnabled">Whether depth testing is enabled.</param>
+            <param name="depthWriteEnabled">Whether new depth values are written to the depth buffer.</param>
+            <param name="comparisonKind">The <see cref="T:BEditor.Graphics.ComparisonKind"/> used when considering new depth values.</param>
+        </member>
+        <member name="M:BEditor.Graphics.DepthStencilState.#ctor(System.Boolean,System.Boolean,BEditor.Graphics.ComparisonKind,System.Boolean,BEditor.Graphics.StencilBehavior,BEditor.Graphics.StencilBehavior,System.Byte,System.Byte,System.UInt32)">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Graphics.DepthStencilState"/> struct.
+            </summary>
+            <param name="depthTestEnabled">Whether depth testing is enabled.</param>
+            <param name="depthWriteEnabled">Whether new depth values are written to the depth buffer.</param>
+            <param name="comparisonKind">The <see cref="T:BEditor.Graphics.ComparisonKind"/> used when considering new depth values.</param>
+            <param name="stencilTestEnabled">Whether the stencil test is enabled.</param>
+            <param name="stencilFront">How stencil tests are handled for pixels whose surface faces towards the camera.</param>
+            <param name="stencilBack">How stencil tests are handled for pixels whose surface faces away from the camera.</param>
+            <param name="stencilReadMask">The portion of the stencil buffer used for reading.</param>
+            <param name="stencilWriteMask">The portion of the stencil buffer used for writing.</param>
+            <param name="stencilReference">The reference value to use when doing a stencil test.</param>
+        </member>
+        <member name="P:BEditor.Graphics.DepthStencilState.DepthTestEnabled">
+            <summary>
+            Gets or sets whether depth testing is enabled.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.DepthStencilState.DepthWriteEnabled">
+            <summary>
+            Gets or sets whether new depth values are written to the depth buffer.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.DepthStencilState.DepthComparison">
+            <summary>
+            Gets or sets the <see cref="T:BEditor.Graphics.ComparisonKind"/> used when considering new depth values.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.DepthStencilState.StencilWriteMask">
+            <summary>
+            Gets or sets the portion of the stencil buffer used for writing.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.DepthStencilState.StencilReference">
+            <summary>
+            Gets or sets the reference value to use when doing a stencil test.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.DepthStencilState.StencilBack">
+            <summary>
+            Gets or sets how stencil tests are handled for pixels whose surface faces away from the camera.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.DepthStencilState.StencilFront">
+            <summary>
+            Gets or sets how stencil tests are handled for pixels whose surface faces towards the camera.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.DepthStencilState.StencilTestEnabled">
+            <summary>
+            Gets or sets whether the stencil test is enabled.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.DepthStencilState.StencilReadMask">
+            <summary>
+            Gets or sets the portion of the stencil buffer used for reading.
+            </summary>
+        </member>
+        <member name="M:BEditor.Graphics.DepthStencilState.op_Equality(BEditor.Graphics.DepthStencilState,BEditor.Graphics.DepthStencilState)">
+            <summary>
+            Compares two <see cref="T:BEditor.Graphics.DepthStencilState"/>. The result specifies whether the values of the two <see cref="T:BEditor.Graphics.DepthStencilState"/> are equal.
+            </summary>
+            <param name="left">A <see cref="T:BEditor.Graphics.DepthStencilState"/> to compare.</param>
+            <param name="right">A <see cref="T:BEditor.Graphics.DepthStencilState"/> to compare.</param>
+            <returns>true if the left and right <see cref="T:BEditor.Graphics.DepthStencilState"/> structures are equal; otherwise, false.</returns>
+        </member>
+        <member name="M:BEditor.Graphics.DepthStencilState.op_Inequality(BEditor.Graphics.DepthStencilState,BEditor.Graphics.DepthStencilState)">
+            <summary>
+            Determines whether or not the specified <see cref="T:BEditor.Graphics.DepthStencilState"/> is not equal.
+            </summary>
+            <param name="left">A <see cref="T:BEditor.Graphics.DepthStencilState"/> to compare.</param>
+            <param name="right">A <see cref="T:BEditor.Graphics.DepthStencilState"/> to compare.</param>
+            <returns>True if the left and right <see cref="T:BEditor.Graphics.DepthStencilState"/> are different, false otherwise.</returns>
+        </member>
+        <member name="M:BEditor.Graphics.DepthStencilState.Equals(System.Object)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Graphics.DepthStencilState.Equals(BEditor.Graphics.DepthStencilState)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Graphics.DepthStencilState.GetHashCode">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Graphics.DepthStencilState.WithDepth(System.Boolean,System.Boolean,BEditor.Graphics.ComparisonKind)">
+            <summary>
+            Sets the depth test.
+            </summary>
+            <param name="depthTestEnabled">Whether depth testing is enabled.</param>
+            <param name="depthWriteEnabled">Whether new depth values are written to the depth buffer.</param>
+            <param name="comparisonKind">The <see cref="T:BEditor.Graphics.ComparisonKind"/> used when considering new depth values.</param>
+            <returns>A new instance created by this method.</returns>
+        </member>
+        <member name="M:BEditor.Graphics.DepthStencilState.WithStencil(System.Boolean,BEditor.Graphics.StencilBehavior,BEditor.Graphics.StencilBehavior,System.Byte,System.Byte,System.UInt32)">
+            <summary>
+            Sets the stencil test.
+            </summary>
+            <param name="stencilTestEnabled">Whether the stencil test is enabled.</param>
+            <param name="stencilFront">How stencil tests are handled for pixels whose surface faces towards the camera.</param>
+            <param name="stencilBack">How stencil tests are handled for pixels whose surface faces away from the camera.</param>
+            <param name="stencilReadMask">The portion of the stencil buffer used for reading.</param>
+            <param name="stencilWriteMask">The portion of the stencil buffer used for writing.</param>
+            <param name="stencilReference">The reference value to use when doing a stencil test.</param>
+            <returns>A new instance created by this method.</returns>
+        </member>
+        <member name="T:BEditor.Graphics.Material">
+            <summary>
+            Represents a <see cref="T:BEditor.Graphics.Drawable"/> material structure.
+            </summary>
+        </member>
+        <member name="M:BEditor.Graphics.Material.#ctor(BEditor.Drawing.Color,BEditor.Drawing.Color,BEditor.Drawing.Color,System.Single)">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Graphics.Material"/> struct.
+            </summary>
+            <param name="ambient">The ambient color.</param>
+            <param name="diffuse">The diffuse color.</param>
+            <param name="specular">The specular color.</param>
+            <param name="shininess">The shininess.</param>
+        </member>
+        <member name="P:BEditor.Graphics.Material.Ambient">
+            <summary>
+            Gets the ambient color.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.Material.Diffuse">
+            <summary>
+            Gets the diffuse color.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.Material.Specular">
+            <summary>
+            Gets the specular color.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.Material.Shininess">
+            <summary>
+            Gets the shininess.
+            </summary>
+        </member>
+        <member name="M:BEditor.Graphics.Material.op_Equality(BEditor.Graphics.Material,BEditor.Graphics.Material)">
+            <summary>
+            Compares two <see cref="T:BEditor.Graphics.Material"/>. The result specifies whether the values of the two <see cref="T:BEditor.Graphics.Material"/> are equal.
+            </summary>
+            <param name="left">A <see cref="T:BEditor.Graphics.Material"/> to compare.</param>
+            <param name="right">A <see cref="T:BEditor.Graphics.Material"/> to compare.</param>
+            <returns>true if the left and right <see cref="T:BEditor.Graphics.Material"/> structures are equal; otherwise, false.</returns>
+        </member>
+        <member name="M:BEditor.Graphics.Material.op_Inequality(BEditor.Graphics.Material,BEditor.Graphics.Material)">
+            <summary>
+            Determines whether or not the specified <see cref="T:BEditor.Graphics.Material"/> is not equal.
+            </summary>
+            <param name="left">A <see cref="T:BEditor.Graphics.Material"/> to compare.</param>
+            <param name="right">A <see cref="T:BEditor.Graphics.Material"/> to compare.</param>
+            <returns>True if the left and right <see cref="T:BEditor.Graphics.Material"/> are different, false otherwise.</returns>
+        </member>
+        <member name="M:BEditor.Graphics.Material.Equals(System.Object)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Graphics.Material.Equals(BEditor.Graphics.Material)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Graphics.Material.GetHashCode">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Graphics.RasterizerState">
+            <summary>
+            A <see cref="T:BEditor.Graphics.GraphicsContext"/> component describing the properties of the rasterizer.
+            </summary>
+        </member>
+        <member name="F:BEditor.Graphics.RasterizerState.Default">
+            <summary>
+            Describes the default rasterizer state, with clockwise backface culling, solid polygon filling, and both depth
+            clipping and scissor tests enabled.
+            </summary>
+        </member>
+        <member name="F:BEditor.Graphics.RasterizerState.CullNone">
+            <summary>
+            Describes a rasterizer state with no culling, solid polygon filling, and both depth clipping and scissor tests enabled.
+            </summary>
+        </member>
+        <member name="M:BEditor.Graphics.RasterizerState.#ctor(BEditor.Graphics.FaceCullMode,BEditor.Graphics.PolygonFillMode,BEditor.Graphics.FrontFace,System.Boolean,System.Boolean)">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Graphics.RasterizerState"/> struct.
+            </summary>
+            <param name="cullMode">Controls which face will be culled.</param>
+            <param name="fillMode">Controls how the rasterizer fills polygons.</param>
+            <param name="frontFace">Controls the winding order used to determine the front face of primitives.</param>
+            <param name="depthClipEnabled">Controls whether depth clipping is enabled.</param>
+            <param name="scissorTestEnabled">Controls whether the scissor test is enabled.</param>
+        </member>
+        <member name="P:BEditor.Graphics.RasterizerState.CullMode">
+            <summary>
+            Gets or sets which face will be culled.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.RasterizerState.FillMode">
+            <summary>
+            Gets or sets how the rasterizer fills polygons.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.RasterizerState.FrontFace">
+            <summary>
+            Gets or sets the winding order used to determine the front face of primitives.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.RasterizerState.DepthClipEnabled">
+            <summary>
+            Gets or sets whether depth clipping is enabled.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.RasterizerState.ScissorTestEnabled">
+            <summary>
+            Gets or sets whether the scissor test is enabled.
+            </summary>
+        </member>
+        <member name="M:BEditor.Graphics.RasterizerState.op_Equality(BEditor.Graphics.RasterizerState,BEditor.Graphics.RasterizerState)">
+            <summary>
+            Compares two <see cref="T:BEditor.Graphics.RasterizerState"/>. The result specifies whether the values of the two <see cref="T:BEditor.Graphics.RasterizerState"/> are equal.
+            </summary>
+            <param name="left">A <see cref="T:BEditor.Graphics.RasterizerState"/> to compare.</param>
+            <param name="right">A <see cref="T:BEditor.Graphics.RasterizerState"/> to compare.</param>
+            <returns>true if the left and right <see cref="T:BEditor.Graphics.RasterizerState"/> structures are equal; otherwise, false.</returns>
+        </member>
+        <member name="M:BEditor.Graphics.RasterizerState.op_Inequality(BEditor.Graphics.RasterizerState,BEditor.Graphics.RasterizerState)">
+            <summary>
+            Determines whether or not the specified <see cref="T:BEditor.Graphics.RasterizerState"/> is not equal.
+            </summary>
+            <param name="left">A <see cref="T:BEditor.Graphics.RasterizerState"/> to compare.</param>
+            <param name="right">A <see cref="T:BEditor.Graphics.RasterizerState"/> to compare.</param>
+            <returns>True if the left and right <see cref="T:BEditor.Graphics.RasterizerState"/> are different, false otherwise.</returns>
+        </member>
+        <member name="M:BEditor.Graphics.RasterizerState.Equals(System.Object)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Graphics.RasterizerState.Equals(BEditor.Graphics.RasterizerState)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Graphics.RasterizerState.GetHashCode">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Graphics.StencilBehavior">
+            <summary>
+            Describes how stencil tests are performed in a depth-stencil state.
+            </summary>
+        </member>
+        <member name="M:BEditor.Graphics.StencilBehavior.#ctor(BEditor.Graphics.StencilOperation,BEditor.Graphics.StencilOperation,BEditor.Graphics.StencilOperation,BEditor.Graphics.ComparisonKind)">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Graphics.StencilBehavior"/> struct.
+            </summary>
+            <param name="fail">The operation performed on samples that fail the stencil test.</param>
+            <param name="pass">The operation performed on samples that pass the stencil test.</param>
+            <param name="depthFail">The operation performed on samples that pass the stencil test but fail the depth test.</param>
+            <param name="comparison">The comparison operator used in the stencil test.</param>
+        </member>
+        <member name="P:BEditor.Graphics.StencilBehavior.Fail">
+            <summary>
+            Gets or sets the operation performed on samples that fail the stencil test.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.StencilBehavior.Pass">
+            <summary>
+            Gets or sets the operation performed on samples that pass the stencil test.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.StencilBehavior.DepthFail">
+            <summary>
+            Gets or sets the operation performed on samples that pass the stencil test but fail the depth test.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.StencilBehavior.Comparison">
+            <summary>
+            Gets or sets the comparison operator used in the stencil test.
+            </summary>
+        </member>
+        <member name="M:BEditor.Graphics.StencilBehavior.op_Equality(BEditor.Graphics.StencilBehavior,BEditor.Graphics.StencilBehavior)">
+            <summary>
+            Compares two <see cref="T:BEditor.Graphics.StencilBehavior"/>. The result specifies whether the values of the two <see cref="T:BEditor.Graphics.StencilBehavior"/> are equal.
+            </summary>
+            <param name="left">A <see cref="T:BEditor.Graphics.StencilBehavior"/> to compare.</param>
+            <param name="right">A <see cref="T:BEditor.Graphics.StencilBehavior"/> to compare.</param>
+            <returns>true if the left and right <see cref="T:BEditor.Graphics.StencilBehavior"/> structures are equal; otherwise, false.</returns>
+        </member>
+        <member name="M:BEditor.Graphics.StencilBehavior.op_Inequality(BEditor.Graphics.StencilBehavior,BEditor.Graphics.StencilBehavior)">
+            <summary>
+            Determines whether or not the specified <see cref="T:BEditor.Graphics.StencilBehavior"/> is not equal.
+            </summary>
+            <param name="left">A <see cref="T:BEditor.Graphics.StencilBehavior"/> to compare.</param>
+            <param name="right">A <see cref="T:BEditor.Graphics.StencilBehavior"/> to compare.</param>
+            <returns>True if the left and right <see cref="T:BEditor.Graphics.StencilBehavior"/> are different, false otherwise.</returns>
+        </member>
+        <member name="M:BEditor.Graphics.StencilBehavior.Equals(System.Object)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Graphics.StencilBehavior.Equals(BEditor.Graphics.StencilBehavior)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Graphics.StencilBehavior.GetHashCode">
+            <inheritdoc/>
         </member>
         <member name="T:BEditor.Graphics.Transform">
             <summary>
@@ -1074,6 +1413,52 @@
             Enumerates the fields of this structure.
             </summary>
             <returns>Returns the fields.</returns>
+        </member>
+        <member name="T:BEditor.Graphics.Texture">
+            <summary>
+            Represents an texture.
+            </summary>
+        </member>
+        <member name="M:BEditor.Graphics.Texture.#ctor(BEditor.Graphics.Platform.ITextureImpl)">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Graphics.Texture"/> class.
+            </summary>
+            <param name="impl">The texture implementaion.</param>
+        </member>
+        <member name="P:BEditor.Graphics.Texture.Width">
+            <summary>
+            Gets the width of this <see cref="T:BEditor.Graphics.Texture"/>.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.Texture.Height">
+            <summary>
+            Gets the height of this <see cref="T:BEditor.Graphics.Texture"/>.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.Texture.Vertices">
+            <summary>
+            Gets the vertices of this <see cref="T:BEditor.Graphics.Platform.ITextureImpl"/>.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.Texture.PlatformImpl">
+            <summary>
+            Gets the texture implementation.
+            </summary>
+        </member>
+        <member name="M:BEditor.Graphics.Texture.FromImage(BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32},BEditor.Graphics.VertexPositionTexture[])">
+            <summary>
+            Create a texture from an <see cref="T:BEditor.Drawing.Image`1"/>.
+            </summary>
+            <param name="image">The image to create texture.</param>
+            <param name="vertices">The vertices.</param>
+            <exception cref="T:BEditor.Graphics.GraphicsException">Platform is not set.</exception>
+            <returns>Returns the texture created by this method.</returns>
+        </member>
+        <member name="M:BEditor.Graphics.Texture.ToImage">
+            <summary>
+            Converts this texture to an image.
+            </summary>
+            <returns>Returns the image.</returns>
         </member>
     </members>
 </doc>

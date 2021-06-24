@@ -79,15 +79,6 @@ namespace BEditor.Graphics
         }
 
         /// <summary>
-        /// Gets or sets the depth stencil state.
-        /// </summary>
-        public DepthStencilState DepthStencilState
-        {
-            get => PlatformImpl.DepthStencilState;
-            set => PlatformImpl.DepthStencilState = value;
-        }
-
-        /// <summary>
         /// Gets or sets the blend mode of this <see cref="Drawable"/>.
         /// </summary>
         public BlendMode BlendMode

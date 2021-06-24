@@ -54,10 +54,69 @@ namespace BEditor.Graphics.Veldrid
                 _ => global::Veldrid.ComparisonKind.Less,
             };
         }
-
-        public static DepthStencilStateDescription ToDepthStencilStateDescription(this DepthTestState state)
+        
+        public static global::Veldrid.StencilOperation ToVeldrid(this StencilOperation op)
         {
-            return new(state.Enabled, state.WriteEnabled, ToVeldrid(state.Comparison));
+            return op switch
+            {
+                StencilOperation.Keep => global::Veldrid.StencilOperation.Keep,
+                StencilOperation.Zero => global::Veldrid.StencilOperation.Zero,
+                StencilOperation.Replace => global::Veldrid.StencilOperation.Replace,
+                StencilOperation.IncrementAndClamp => global::Veldrid.StencilOperation.IncrementAndClamp,
+                StencilOperation.DecrementAndClamp => global::Veldrid.StencilOperation.DecrementAndClamp,
+                StencilOperation.Invert => global::Veldrid.StencilOperation.Invert,
+                StencilOperation.IncrementAndWrap => global::Veldrid.StencilOperation.IncrementAndWrap,
+                StencilOperation.DecrementAndWrap => global::Veldrid.StencilOperation.DecrementAndWrap,
+                _ => global::Veldrid.StencilOperation.Keep,
+            };
+        }
+
+        public static DepthStencilStateDescription ToVeldrid(this DepthStencilState state)
+        {
+            return new(
+                state.DepthTestEnabled, state.DepthWriteEnabled, ToVeldrid(state.DepthComparison),
+                state.StencilTestEnabled, state.StencilFront.ToVeldrid(), state.StencilBack.ToVeldrid(), state.StencilReadMask, state.StencilWriteMask, state.StencilReference);
+        }
+        
+        public static StencilBehaviorDescription ToVeldrid(this StencilBehavior state)
+        {
+            return new(state.Fail.ToVeldrid(), state.Pass.ToVeldrid(), state.DepthFail.ToVeldrid(), state.Comparison.ToVeldrid());
+        }
+
+        public static RasterizerStateDescription ToVeldrid(this RasterizerState state)
+        {
+            return new(state.CullMode.ToVeldrid(), state.FillMode.ToVeldrid(), state.FrontFace.ToVeldrid(), state.DepthClipEnabled, state.ScissorTestEnabled);
+        }
+
+        public static global::Veldrid.FaceCullMode ToVeldrid(this FaceCullMode mode)
+        {
+            return mode switch
+            {
+                FaceCullMode.Back => global::Veldrid.FaceCullMode.Back,
+                FaceCullMode.Front => global::Veldrid.FaceCullMode.Front,
+                FaceCullMode.None => global::Veldrid.FaceCullMode.None,
+                _ => global::Veldrid.FaceCullMode.None,
+            };
+        }
+        
+        public static global::Veldrid.PolygonFillMode ToVeldrid(this PolygonFillMode mode)
+        {
+            return mode switch
+            {
+                PolygonFillMode.Solid => global::Veldrid.PolygonFillMode.Solid,
+                PolygonFillMode.Wireframe => global::Veldrid.PolygonFillMode.Wireframe,
+                _ => global::Veldrid.PolygonFillMode.Solid,
+            };
+        }
+        
+        public static global::Veldrid.FrontFace ToVeldrid(this FrontFace mode)
+        {
+            return mode switch
+            {
+                FrontFace.Clockwise => global::Veldrid.FrontFace.Clockwise,
+                FrontFace.CounterClockwise => global::Veldrid.FrontFace.CounterClockwise,
+                _ => global::Veldrid.FrontFace.Clockwise,
+            };
         }
 
         public static BlendStateDescription ToBlendStateDescription(this BlendMode mode)

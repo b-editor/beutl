@@ -152,7 +152,7 @@ namespace BEditor.Graphics.OpenGL
         public Light? Light { get; set; }
 
         /// <inheritdoc/>
-        public DepthTestState DepthTestState { get; set; }
+        public DepthStencilState DepthStencilState { get; set; } = DepthStencilState.Disabled;
 
         /// <summary>
         /// Sets the framebuffer size.
@@ -287,7 +287,8 @@ namespace BEditor.Graphics.OpenGL
 
                 _textureShader.SetInt("texture0", 0);
 
-                ApplyDepthTest(DepthTestState);
+                ApplyRasterizerState(texture.RasterizerState);
+                ApplyDepthStencilState(DepthStencilState);
                 GL.Enable(EnableCap.Blend);
                 SetBlend(texture.BlendMode);
                 Tool.ThrowGLError();
@@ -327,7 +328,8 @@ namespace BEditor.Graphics.OpenGL
                 GL.EnableVertexAttribArray(vertexLocation);
                 GL.VertexAttribPointer(vertexLocation, 3, VertexAttribPointerType.Float, false, 6 * sizeof(float), 0);
 
-                ApplyDepthTest(DepthTestState);
+                ApplyRasterizerState(cube.RasterizerState);
+                ApplyDepthStencilState(DepthStencilState);
                 GL.Enable(EnableCap.Blend);
                 SetBlend(cube.BlendMode);
                 Tool.ThrowGLError();
@@ -369,7 +371,8 @@ namespace BEditor.Graphics.OpenGL
 
                 GL.BindVertexArray(impl.VertexArrayObject);
 
-                ApplyDepthTest(DepthTestState);
+                ApplyRasterizerState(ball.RasterizerState);
+                ApplyDepthStencilState(DepthStencilState);
                 GL.Enable(EnableCap.Blend);
                 SetBlend(ball.BlendMode);
                 Tool.ThrowGLError();
@@ -402,7 +405,8 @@ namespace BEditor.Graphics.OpenGL
 
             _lineShader.Use();
 
-            ApplyDepthTest(DepthTestState);
+            ApplyRasterizerState(line.RasterizerState);
+            ApplyDepthStencilState(DepthStencilState);
             GL.Enable(EnableCap.Blend);
 
             GL.BlendEquationSeparate(BlendEquationMode.FuncAdd, BlendEquationMode.FuncAdd);
@@ -494,27 +498,50 @@ namespace BEditor.Graphics.OpenGL
             MakeCurrentAndBindFbo();
         }
 
-        private static void ApplyDepthTest(DepthTestState state)
+        private static void ApplyRasterizerState(RasterizerState state)
         {
-            if (state.Enabled) GL.Enable(EnableCap.DepthTest);
-            else GL.Disable(EnableCap.DepthTest);
+            GL.CullFace(state.CullMode is FaceCullMode.Back
+                ? CullFaceMode.Back
+                : (state.CullMode is FaceCullMode.Front)
+                    ? CullFaceMode.Front
+                    : CullFaceMode.FrontAndBack);
 
-            GL.DepthMask(state.WriteEnabled);
+            GL.PolygonMode(MaterialFace.FrontAndBack, state.FillMode is PolygonFillMode.Solid ? PolygonMode.Fill : PolygonMode.Line);
 
-            var func = state.Comparison switch
+            if (state.DepthClipEnabled) GL.Enable(EnableCap.ScissorTest);
+            else GL.Disable(EnableCap.ScissorTest);
+        }
+
+        private static void ApplyDepthStencilState(DepthStencilState state)
+        {
             {
-                ComparisonKind.Never => DepthFunction.Never,
-                ComparisonKind.Less => DepthFunction.Less,
-                ComparisonKind.Equal => DepthFunction.Equal,
-                ComparisonKind.LessEqual => DepthFunction.Lequal,
-                ComparisonKind.Greater => DepthFunction.Greater,
-                ComparisonKind.NotEqual => DepthFunction.Notequal,
-                ComparisonKind.GreaterEqual => DepthFunction.Gequal,
-                ComparisonKind.Always => DepthFunction.Always,
-                _ => DepthFunction.Less,
-            };
+                if (state.DepthTestEnabled) GL.Enable(EnableCap.DepthTest);
+                else GL.Disable(EnableCap.DepthTest);
 
-            GL.DepthFunc(func);
+                GL.DepthMask(state.DepthWriteEnabled);
+
+                var func = state.DepthComparison switch
+                {
+                    ComparisonKind.Never => DepthFunction.Never,
+                    ComparisonKind.Less => DepthFunction.Less,
+                    ComparisonKind.Equal => DepthFunction.Equal,
+                    ComparisonKind.LessEqual => DepthFunction.Lequal,
+                    ComparisonKind.Greater => DepthFunction.Greater,
+                    ComparisonKind.NotEqual => DepthFunction.Notequal,
+                    ComparisonKind.GreaterEqual => DepthFunction.Gequal,
+                    ComparisonKind.Always => DepthFunction.Always,
+                    _ => DepthFunction.Less,
+                };
+
+                GL.DepthFunc(func);
+            }
+
+            {
+                if (state.StencilTestEnabled) GL.Enable(EnableCap.StencilTest);
+                else GL.Disable(EnableCap.StencilTest);
+
+                // Todo: Stencil
+            }
         }
 
         private static void SetBlend(BlendMode blend)

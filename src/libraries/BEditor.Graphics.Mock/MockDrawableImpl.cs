@@ -17,6 +17,10 @@ namespace BEditor.Graphics.Mock
 
         public bool IsDisposed { get; }
 
+        public RasterizerState RasterizerState { get; set; }
+
+        public DepthStencilState DepthStencilState { get; set; }
+
         public void Dispose()
         {
         }

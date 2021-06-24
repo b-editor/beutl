@@ -167,6 +167,7 @@ namespace BEditor.Primitive.Objects
         /// <inheritdoc/>
         public override void Apply(EffectApplyArgs args)
         {
+            if (args.Type is ApplyType.Audio) return;
             int frame = args.Frame;
             var color = Blend.Color[frame];
             color.A = (byte)(color.A * (Blend.Opacity[frame] / 100));
