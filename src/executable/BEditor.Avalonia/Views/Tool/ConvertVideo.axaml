@@ -1,0 +1,381 @@
+<Window
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:titlebar="using:BEditor.Views.CustomTitlebars"
+    xmlns:prop="using:BEditor.Properties"
+    xmlns:vm="using:BEditor.ViewModels.Tool"
+    mc:Ignorable="d"
+    WindowStartupLocation="CenterScreen"
+    Height="450" Width="800"
+    ExtendClientAreaToDecorationsHint="True"
+    ExtendClientAreaChromeHints="NoChrome"
+    ExtendClientAreaTitleBarHeightHint="-1"
+    TransparencyLevelHint="AcrylicBlur"
+    Background="Transparent"
+    x:Class="BEditor.Views.Tool.ConvertVideo"
+    x:DataType="vm:ConvertVideoViewModel"
+    Title="ConvertVideo">
+    <Grid RowDefinitions="Auto,*">
+        <DockPanel HorizontalAlignment="Stretch" Grid.RowSpan="2">
+            <ExperimentalAcrylicBorder IsHitTestVisible="False" DockPanel.Dock="Left" Width="240">
+                <ExperimentalAcrylicBorder.Material>
+                    <ExperimentalAcrylicMaterial
+                      TintColor="#222222"
+                      TintOpacity="{StaticResource AcrylicTintOpacity1}"
+                      MaterialOpacity="{StaticResource AcrylicMaterialOpacity1}" />
+                </ExperimentalAcrylicBorder.Material>
+            </ExperimentalAcrylicBorder>
+            <ExperimentalAcrylicBorder IsHitTestVisible="False">
+                <ExperimentalAcrylicBorder.Material>
+                    <ExperimentalAcrylicMaterial
+                      TintColor="Black"
+                      TintOpacity="{StaticResource AcrylicTintOpacity2}"
+                      MaterialOpacity="{StaticResource AcrylicMaterialOpacity2}" />
+                </ExperimentalAcrylicBorder.Material>
+            </ExperimentalAcrylicBorder>
+        </DockPanel>
+
+        <titlebar:WindowsTitlebarButtons />
+
+        <TabControl Classes="sidebar" Grid.Row="1">
+            <TabControl.Styles>
+                <Style Selector="StackPanel">
+                    <Setter Property="Spacing" Value="16" />
+                    <Setter Property="Orientation" Value="Horizontal" />
+                </Style>
+
+                <Style Selector="PathIcon">
+                    <Setter Property="Width" Value="16" />
+                    <Setter Property="Height" Value="16" />
+                </Style>
+            </TabControl.Styles>
+            <TabItem>
+                <TabItem.Header>
+                    <StackPanel>
+                        <PathIcon Data="{StaticResource Info20Regular}"/>
+                        <TextBlock Text="{x:Static prop:Strings.Infomation}" />
+                    </StackPanel>
+                </TabItem.Header>
+
+                <ScrollViewer>
+                    <VirtualizingStackPanel>
+                        <!--情報-->
+                        <TextBlock Text="{x:Static prop:Strings.Infomation}" Classes="SettingsHeader"/>
+
+                        <!--横幅-->
+                        <Label Content="{x:Static prop:Strings.Width}" Classes="SettingsItemHeader"/>
+
+                        <NumericUpDown
+                            Minimum="1"
+                            Value="{CompiledBinding Width.Value, Mode=TwoWay}"
+                            ShowButtonSpinner="True"
+                            Classes="SettingsNumericUpDown"/>
+
+                        <Separator Height="16" />
+
+                        <!--高さ-->
+                        <Label Content="{x:Static prop:Strings.Height}" Classes="SettingsItemHeader"/>
+
+                        <NumericUpDown
+                            Minimum="1"
+                            Value="{CompiledBinding Height.Value, Mode=TwoWay}"
+                            ShowButtonSpinner="True"
+                            Classes="SettingsNumericUpDown"/>
+
+                        <Separator Height="16" />
+
+                        <!--フレームレート-->
+                        <Label Content="{x:Static prop:Strings.Framerate}" Classes="SettingsItemHeader"/>
+
+                        <NumericUpDown
+                            Minimum="1"
+                            Value="{CompiledBinding FrameRate.Value, Mode=TwoWay}"
+                            ShowButtonSpinner="True"
+                            Classes="SettingsNumericUpDown"/>
+
+                        <Separator Height="16" />
+
+                        <!--サンプリングレート-->
+                        <Label Content="{x:Static prop:Strings.Samplingrate}" Classes="SettingsItemHeader"/>
+
+                        <NumericUpDown
+                            Minimum="1"
+                            Value="{CompiledBinding SampleRate.Value, Mode=TwoWay}"
+                            ShowButtonSpinner="True"
+                            Classes="SettingsNumericUpDown"/>
+
+                    </VirtualizingStackPanel>
+                </ScrollViewer>
+            </TabItem>
+            <TabItem>
+                <TabItem.Header>
+                    <StackPanel>
+                        <PathIcon Data="{StaticResource MoviesAndTv20Regular}"/>
+                        <TextBlock Text="{x:Static prop:Strings.Video}" />
+                    </StackPanel>
+                </TabItem.Header>
+
+                <ScrollViewer>
+                    <VirtualizingStackPanel>
+
+                        <TextBlock Text="{x:Static prop:Strings.Video}" Classes="SettingsHeader"/>
+
+                        <!--ビットレート-->
+                        <Label Content="Bitrate" Classes="SettingsItemHeader"/>
+
+                        <NumericUpDown
+                            Value="{CompiledBinding VideoBitrate.Value, Mode=TwoWay}"
+                            ShowButtonSpinner="True"
+                            Classes="SettingsNumericUpDown"/>
+
+                        <Separator Height="16" />
+
+                        <!--キーフレームレート-->
+                        <Label Content="KeyframeRate" Classes="SettingsItemHeader"/>
+
+                        <NumericUpDown
+                            Value="{CompiledBinding KeyframeRate.Value, Mode=TwoWay}"
+                            ShowButtonSpinner="True"
+                            Classes="SettingsNumericUpDown"/>
+
+                        <Separator Height="16" />
+
+                        <TextBlock
+                            Margin="16,0"
+                            Text="{x:Static prop:Strings.EncoderIsNotSet}"
+                            IsVisible="{CompiledBinding !OutputIsEnabled.Value}" />
+
+                        <ContentPresenter x:Name="VideoEncoderSettings" />
+
+                    </VirtualizingStackPanel>
+                </ScrollViewer>
+            </TabItem>
+            <TabItem>
+                <TabItem.Header>
+                    <StackPanel>
+                        <PathIcon Data="{StaticResource Speaker220Regular}"/>
+                        <TextBlock Text="{x:Static prop:Strings.Audio}" />
+                    </StackPanel>
+                </TabItem.Header>
+
+                <ScrollViewer>
+                    <VirtualizingStackPanel>
+
+                        <TextBlock Text="{x:Static prop:Strings.Audio}" Classes="SettingsHeader"/>
+
+                        <!--ビットレート-->
+                        <Label Content="Bitrate" Classes="SettingsItemHeader"/>
+
+                        <NumericUpDown
+                            Value="{CompiledBinding AudioBitrate.Value, Mode=TwoWay}"
+                            ShowButtonSpinner="True"
+                            Classes="SettingsNumericUpDown"/>
+
+                        <Separator Height="16" />
+
+                        <TextBlock
+                            Margin="16,0"
+                            Text="{x:Static prop:Strings.EncoderIsNotSet}"
+                            IsVisible="{CompiledBinding !OutputIsEnabled.Value}" />
+
+                        <ContentPresenter x:Name="AudioEncoderSettings" />
+
+                    </VirtualizingStackPanel>
+                </ScrollViewer>
+            </TabItem>
+            <TabItem>
+                <TabItem.Header>
+                    <StackPanel>
+                        <PathIcon Data="{StaticResource BookDatabase24Regular}"/>
+                        <TextBlock Text="{x:Static prop:Strings.Metadata}" />
+                    </StackPanel>
+                </TabItem.Header>
+
+                <ScrollViewer>
+                    <VirtualizingStackPanel>
+
+                        <TextBlock Text="{x:Static prop:Strings.Metadata}" Classes="SettingsHeader"/>
+
+
+                        <!--Title-->
+                        <Label Content="Title" Classes="SettingsItemHeader"/>
+
+                        <TextBox
+                            Text="{CompiledBinding Title.Value, Mode=TwoWay}"
+                            Classes="SettingsTextBox" />
+
+                        <Separator Height="16" />
+
+                        <!--Author-->
+                        <Label Content="Author" Classes="SettingsItemHeader"/>
+
+                        <TextBox
+                            Text="{CompiledBinding Author.Value, Mode=TwoWay}"
+                            Classes="SettingsTextBox" />
+
+                        <Separator Height="16" />
+
+                        <!--Album-->
+                        <Label Content="Album" Classes="SettingsItemHeader"/>
+
+                        <TextBox
+                            Text="{CompiledBinding Album.Value, Mode=TwoWay}"
+                            Classes="SettingsTextBox" />
+
+                        <Separator Height="16" />
+
+                        <!--Year-->
+                        <Label Content="Year" Classes="SettingsItemHeader"/>
+
+                        <TextBox
+                            Text="{CompiledBinding Year.Value, Mode=TwoWay}"
+                            Classes="SettingsTextBox" />
+
+                        <Separator Height="16" />
+
+                        <!--Genre-->
+                        <Label Content="Genre" Classes="SettingsItemHeader"/>
+
+                        <TextBox
+                            Text="{CompiledBinding Genre.Value, Mode=TwoWay}"
+                            Classes="SettingsTextBox" />
+
+                        <Separator Height="16" />
+
+                        <!--Description-->
+                        <Label Content="Description" Classes="SettingsItemHeader"/>
+
+                        <TextBox
+                            Text="{CompiledBinding Description.Value, Mode=TwoWay}"
+                            Classes="SettingsTextBox" />
+
+                        <Separator Height="16" />
+
+                        <!--Language-->
+                        <Label Content="Language" Classes="SettingsItemHeader"/>
+
+                        <TextBox
+                            Text="{CompiledBinding Language.Value, Mode=TwoWay}"
+                            Classes="SettingsTextBox" />
+
+                        <Separator Height="16" />
+
+                        <!--Copyright-->
+                        <Label Content="Copyright" Classes="SettingsItemHeader"/>
+
+                        <TextBox
+                            Text="{CompiledBinding Copyright.Value, Mode=TwoWay}"
+                            Classes="SettingsTextBox" />
+
+                        <Separator Height="16" />
+
+                        <!--Rating-->
+                        <Label Content="Rating" Classes="SettingsItemHeader"/>
+
+                        <TextBox
+                            Text="{CompiledBinding Rating.Value, Mode=TwoWay}"
+                            Classes="SettingsTextBox" />
+
+                        <Separator Height="16" />
+
+                        <!--TrackNumber-->
+                        <Label Content="TrackNumber" Classes="SettingsItemHeader"/>
+
+                        <TextBox
+                            Text="{CompiledBinding TrackNumber.Value, Mode=TwoWay}"
+                            Classes="SettingsTextBox" />
+
+                    </VirtualizingStackPanel>
+                </ScrollViewer>
+            </TabItem>
+            <TabItem>
+                <TabItem.Header>
+                    <StackPanel>
+                        <PathIcon Data="{StaticResource ArrowExportLtr20Regular}"/>
+                        <TextBlock Text="{x:Static prop:Strings.Output}" />
+                    </StackPanel>
+                </TabItem.Header>
+
+                <ScrollViewer>
+                    <VirtualizingStackPanel>
+
+                        <TextBlock Text="{x:Static prop:Strings.Output}" Classes="SettingsHeader"/>
+
+                        <!--ファイル-->
+                        <Label Content="{x:Static prop:Strings.File}" Classes="SettingsItemHeader"/>
+
+                        <VirtualizingStackPanel Orientation="Horizontal">
+                            <TextBox
+                                Text="{CompiledBinding File.Value, Mode=TwoWay}"
+                                Classes="SettingsTextBox"
+                                IsReadOnly="True" />
+
+                            <Button Command="{CompiledBinding SaveFileDialog, Mode=OneTime}">
+                                <PathIcon Data="{StaticResource FolderOpen16Regular}" />
+                            </Button>
+                        </VirtualizingStackPanel>
+
+                        <Separator Height="16" />
+
+                        <!--開始フレーム-->
+                        <Label Content="{x:Static prop:Strings.Start}" Classes="SettingsItemHeader"/>
+
+                        <VirtualizingStackPanel Orientation="Horizontal">
+                            <NumericUpDown
+                                Value="{CompiledBinding StartFrame.Value, Mode=TwoWay}"
+                                Minimum="0"
+                                Maximum="{CompiledBinding TotalFrame.Value, Mode=OneWay}"
+                                ShowButtonSpinner="True"
+                                Classes="SettingsNumericUpDown"/>
+
+                            <TextBlock VerticalAlignment="Center" Text="{CompiledBinding StartTime.Value, Mode=OneWay}" />
+                        </VirtualizingStackPanel>
+
+                        <Separator Height="16" />
+
+                        <!--長さ-->
+                        <Label Content="{x:Static prop:Strings.Length}" Classes="SettingsItemHeader"/>
+
+                        <VirtualizingStackPanel Orientation="Horizontal">
+                            <NumericUpDown
+                                Value="{CompiledBinding LengthFrame.Value, Mode=TwoWay}"
+                                Minimum="0"
+                                Maximum="{CompiledBinding TotalFrame.Value, Mode=OneWay}"
+                                ShowButtonSpinner="True"
+                                Classes="SettingsNumericUpDown"/>
+
+                            <TextBlock VerticalAlignment="Center" Text="{CompiledBinding LengthTime.Value, Mode=OneWay}" />
+                        </VirtualizingStackPanel>
+
+                        <Separator Height="16" />
+
+                        <!--エンコーダー-->
+                        <Label Content="{x:Static prop:Strings.Encoder}" Classes="SettingsItemHeader"/>
+
+                        <ComboBox
+                            Items="{CompiledBinding Encoders, Mode=OneTime}"
+                            SelectedItem="{CompiledBinding SelectedEncoder.Value, Mode=TwoWay}"
+                            Classes="SettingsComboBox">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding Name}" />
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+
+                        <Separator Height="16" />
+
+                        <!--出力-->
+                        <Button
+                            Content="{x:Static prop:Strings.Output}"
+                            Command="{CompiledBinding Output, Mode=OneTime}"
+                            IsEnabled="{CompiledBinding OutputIsEnabled.Value, Mode=OneWay}"
+                            Margin="16" />
+                    </VirtualizingStackPanel>
+                </ScrollViewer>
+            </TabItem>
+        </TabControl>
+    </Grid>
+</Window>

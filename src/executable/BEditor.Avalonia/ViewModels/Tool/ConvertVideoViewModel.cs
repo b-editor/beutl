@@ -6,12 +6,13 @@ using System.Threading.Tasks;
 
 using Avalonia.Threading;
 
-using BEditor.Data;
+using BEditor.Drawing;
+using BEditor.Drawing.Pixel;
 using BEditor.Media;
+using BEditor.Media.Decoding;
 using BEditor.Media.Encoding;
-using BEditor.Media.PCM;
 using BEditor.Models;
-using BEditor.Primitive.Objects;
+using BEditor.Models.Tool;
 using BEditor.Properties;
 using BEditor.Views.DialogContent;
 
@@ -21,19 +22,24 @@ using Reactive.Bindings;
 
 using static BEditor.IMessage;
 
-namespace BEditor.ViewModels
+namespace BEditor.ViewModels.Tool
 {
-    public class VideoOutputViewModel
+    public sealed class ConvertVideoViewModel
     {
-        public VideoOutputViewModel()
+        private readonly ConvertVideoSource _source;
+
+        public ConvertVideoViewModel(ConvertVideoSource source)
         {
-            SelectedScene.Value = Project.PreviewScene;
-            LengthFrame.Value = Project.PreviewScene.TotalFrame;
-            SelectedScene.Where(s => s.TotalFrame < LengthFrame.Value)
-                .Subscribe(s => LengthFrame.Value = s.TotalFrame);
-            StartTime = StartFrame.Select(i => ((Frame)i).ToTimeSpan(Project.Framerate))
+            _source = source;
+            Width.Value = source.VideoInfo.FrameSize.Width;
+            Height.Value = source.VideoInfo.FrameSize.Height;
+            FrameRate.Value = source.VideoInfo.FrameRate;
+            SampleRate.Value = source.AudioInfo.SampleRate;
+            LengthFrame.Value = source.VideoInfo.NumberOfFrames;
+            TotalFrame.Value = source.VideoInfo.NumberOfFrames;
+            StartTime = StartFrame.Select(i => ((Frame)i).ToTimeSpan(_source.VideoInfo.FrameRate))
                 .ToReadOnlyReactivePropertySlim();
-            LengthTime = LengthFrame.Select(i => ((Frame)i).ToTimeSpan(Project.Framerate))
+            LengthTime = LengthFrame.Select(i => ((Frame)i).ToTimeSpan(_source.VideoInfo.FrameRate))
                 .ToReadOnlyReactivePropertySlim();
 
             SaveFileDialog.Subscribe(async () =>
@@ -93,17 +99,17 @@ namespace BEditor.ViewModels
                 {
                     try
                     {
-                        var scene = SelectedScene.Value;
-                        var proj = Project;
                         var videoSettings = await (GetVideoSettings?.Invoke() ?? Task.FromResult<Dictionary<string, object>?>(null));
                         var audioSettings = await (GetAudioSettings?.Invoke() ?? Task.FromResult<Dictionary<string, object>?>(null));
+
+                        var input = MediaFile.Open(_source.File);
 
                         var output = MediaBuilder.CreateContainer(File.Value, SelectedEncoder.Value!)
                             .WithVideo(config =>
                             {
-                                config.VideoWidth = SelectedScene.Value.Width;
-                                config.VideoHeight = SelectedScene.Value.Height;
-                                config.Framerate = Project.Framerate;
+                                config.VideoWidth = Width.Value;
+                                config.VideoHeight = Height.Value;
+                                config.Framerate = FrameRate.Value;
                                 config.Bitrate = VideoBitrate.Value;
                                 config.KeyframeRate = KeyframeRate.Value;
                                 if (videoSettings is not null)
@@ -115,7 +121,7 @@ namespace BEditor.ViewModels
                             {
                                 config.Bitrate = AudioBitrate.Value;
                                 config.Channels = 2;
-                                config.SampleRate = Project.Samplingrate;
+                                config.SampleRate = SampleRate.Value;
                                 if (audioSettings is not null)
                                 {
                                     config.CodecOptions = audioSettings;
@@ -147,13 +153,24 @@ namespace BEditor.ViewModels
 
                             dialog.NowValue.Value = frame;
 
-                            // UIスレッドだけでレンダリングできる
-                            var img = await Dispatcher.UIThread.InvokeAsync(() => scene.Render(frame, ApplyType.Video));
-                            output.Video?.AddFrame(img);
-                            img.Dispose();
+                            Image<BGRA32>? img = null;
+                            if ((input.Video?.TryGetFrame(frame.ToTimeSpan(_source.VideoInfo.FrameRate), out img) ?? false) && img != null)
+                            {
+                                // リサイズ
+                                if (img.Size != new Size(Width.Value, Height.Value))
+                                {
+                                    var tmp = img.Resize(Width.Value, Height.Value, Quality.High);
+                                    img.Dispose();
+                                    img = tmp;
+                                }
+
+                                output.Video?.AddFrame(img);
+                                img.Dispose();
+                            }
                         }
 
                         // Audio
+                        var rate = _source.AudioInfo.SampleRate / _source.VideoInfo.FrameRate;
                         for (Frame frame = StartFrame.Value; frame < LengthFrame.Value; frame++)
                         {
                             if (t)
@@ -163,10 +180,13 @@ namespace BEditor.ViewModels
                             }
 
                             dialog.NowValue.Value = frame;
+                            var snd = input.Audio?.GetFrame(frame.ToTimeSpan(_source.VideoInfo.FrameRate), rate);
 
-                            using var sound = scene.Sample(frame);
-                            output.Audio?.AddFrame(sound);
-                            sound.Dispose();
+                            if (snd is not null)
+                            {
+                                output.Audio?.AddFrame(snd);
+                                snd.Dispose();
+                            }
                         }
 
                         output.Dispose();
@@ -197,44 +217,77 @@ namespace BEditor.ViewModels
             });
         }
 
-        public Project Project { get; } = AppModel.Current.Project;
-        public ReactivePropertySlim<Scene> SelectedScene { get; } = new();
+        #region Info
+        public ReactivePropertySlim<int> Width { get; } = new();
+
+        public ReactivePropertySlim<int> Height { get; } = new();
+
+        public ReactivePropertySlim<int> FrameRate { get; } = new();
+
+        public ReactivePropertySlim<int> SampleRate { get; } = new();
+        #endregion
 
         #region Video
         public ReactivePropertySlim<int> VideoBitrate { get; } = new(5_000_000);
+
         public ReactivePropertySlim<int> KeyframeRate { get; } = new(12);
+
         public ReadOnlyReactivePropertySlim<Dictionary<string, object>?> VideoEncoderSettings { get; }
         #endregion
 
         #region Audio
         public ReactivePropertySlim<int> AudioBitrate { get; } = new(128_000);
+
         public ReadOnlyReactivePropertySlim<Dictionary<string, object>?> AudioEncoderSettings { get; }
         #endregion
 
         #region Metadata
         public ReactivePropertySlim<string> Title { get; } = new(string.Empty);
+
         public ReactivePropertySlim<string> Author { get; } = new(string.Empty);
+
         public ReactivePropertySlim<string> Album { get; } = new(string.Empty);
+
         public ReactivePropertySlim<string> Year { get; } = new(string.Empty);
+
         public ReactivePropertySlim<string> Genre { get; } = new(string.Empty);
+
         public ReactivePropertySlim<string> Description { get; } = new(string.Empty);
+
         public ReactivePropertySlim<string> Language { get; } = new(string.Empty);
+
         public ReactivePropertySlim<string> Copyright { get; } = new(string.Empty);
+
         public ReactivePropertySlim<string> Rating { get; } = new(string.Empty);
+
         public ReactivePropertySlim<string> TrackNumber { get; } = new(string.Empty);
         #endregion
 
         public ReactivePropertySlim<string> File { get; } = new();
+
         public ReactivePropertySlim<int> StartFrame { get; } = new();
+
         public ReactivePropertySlim<int> LengthFrame { get; } = new();
+
+        public ReactivePropertySlim<int> TotalFrame { get; } = new();
+
         public ReadOnlyReactivePropertySlim<TimeSpan> StartTime { get; }
+
         public ReadOnlyReactivePropertySlim<TimeSpan> LengthTime { get; }
+
         public ReactiveCollection<IRegisterdEncoding> Encoders { get; } = new();
+
         public ReactiveProperty<IRegisterdEncoding?> SelectedEncoder { get; } = new();
+
         public ReactiveCommand SaveFileDialog { get; } = new();
+
         public ReactiveCommand Output { get; } = new();
+
         public ReadOnlyReactivePropertySlim<bool> OutputIsEnabled { get; }
+
         public Func<Task<Dictionary<string, object>?>>? GetAudioSettings { get; set; }
+
         public Func<Task<Dictionary<string, object>?>>? GetVideoSettings { get; set; }
+
     }
 }

@@ -458,6 +458,22 @@
             <param name="framesize">The video frame dimensions.</param>
             <param name="framenum">The number of frames.</param>
         </member>
+        <member name="M:BEditor.Media.Decoding.VideoStreamInfo.#ctor(System.String,BEditor.Media.MediaType,System.TimeSpan,BEditor.Drawing.Size,System.Int32,System.Int32)">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Media.Decoding.VideoStreamInfo"/> class.
+            </summary>
+            <param name="codecName">The codec name of the stream.</param>
+            <param name="type">The media type of the stream.</param>
+            <param name="duration">The duration of the stream.</param>
+            <param name="framesize">The video frame dimensions.</param>
+            <param name="framenum">The number of frames.</param>
+            <param name="framerate">The frame rate.</param>
+        </member>
+        <member name="P:BEditor.Media.Decoding.VideoStreamInfo.FrameRate">
+            <summary>
+            Gets the frame rate.
+            </summary>
+        </member>
         <member name="P:BEditor.Media.Decoding.VideoStreamInfo.NumberOfFrames">
             <summary>
             Gets the number of frames value taken from the container metadata or estimated in constant frame rate videos. Returns null if not available.

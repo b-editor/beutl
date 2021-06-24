@@ -764,4 +764,10 @@ Skia:
   <data name="ObjectFile" xml:space="preserve">
     <value>オブジェクトファイル</value>
   </data>
+  <data name="ConvertVideo" xml:space="preserve">
+    <value>動画を変換</value>
+  </data>
+  <data name="ThisFileCannotBeConverted" xml:space="preserve">
+    <value>このファイルは変換できません。</value>
+  </data>
 </root>

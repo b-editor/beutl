@@ -442,6 +442,15 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Convert video.
+        /// </summary>
+        public static string ConvertVideo {
+            get {
+                return ResourceManager.GetString("ConvertVideo", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Copy.
         /// </summary>
         public static string Copy {
@@ -1709,6 +1718,15 @@ namespace BEditor.Properties {
         public static string ThereIsNoProject {
             get {
                 return ResourceManager.GetString("ThereIsNoProject", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to This file cannot be converted..
+        /// </summary>
+        public static string ThisFileCannotBeConverted {
+            get {
+                return ResourceManager.GetString("ThisFileCannotBeConverted", resourceCulture);
             }
         }
         

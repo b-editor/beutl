@@ -39,7 +39,7 @@ namespace BEditor.ViewModels.Timelines
             TrackWidth.Value = scene.ToPixel(scene.TotalFrame);
 
             scene.ObserveProperty(s => s.PreviewFrame)
-                .Where(_ => Tool.PreviewIsEnabled)
+                .Where(_ => Extensions.Tool.PreviewIsEnabled)
                 .Subscribe(f =>
                 {
                     SeekbarMargin.Value = new Thickness(Scene.ToPixel(f), 0, 0, 0);

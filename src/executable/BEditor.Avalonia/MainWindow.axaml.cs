@@ -1,5 +1,4 @@
 using System;
-using System.IO;
 using System.Linq;
 using System.Reactive.Linq;
 using System.Threading.Tasks;
@@ -19,6 +18,7 @@ using BEditor.Properties;
 using BEditor.ViewModels;
 using BEditor.ViewModels.DialogContent;
 using BEditor.Views;
+using BEditor.Views.CustomTitlebars;
 using BEditor.Views.DialogContent;
 
 using OpenTK.Audio.OpenAL;
@@ -112,6 +112,8 @@ namespace BEditor
             await ArgumentsContext.ExecuteAsync();
 
             this.FindControl<Library>("Library").InitializeTreeView();
+
+            this.FindControl<WindowsTitlebar>("Titlebar").InitializePluginMenu();
         }
 
         private void InitializeComponent()

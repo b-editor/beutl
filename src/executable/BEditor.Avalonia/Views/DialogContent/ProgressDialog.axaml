@@ -7,6 +7,7 @@
     mc:Ignorable="d" Width="480" Height="128"
     WindowStartupLocation="CenterScreen"
     CanResize="False"
+    Classes="fluent"
     x:Class="BEditor.Views.DialogContent.ProgressDialog">
     <Grid RowDefinitions="*,*,Auto">
 
