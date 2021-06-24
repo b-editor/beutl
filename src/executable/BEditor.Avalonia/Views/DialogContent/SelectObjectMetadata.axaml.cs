@@ -33,7 +33,7 @@ namespace BEditor.Views.DialogContent
         {
             Close(null);
         }
-        
+
         public void AddClick(object s, RoutedEventArgs e)
         {
             Close(Selected);
