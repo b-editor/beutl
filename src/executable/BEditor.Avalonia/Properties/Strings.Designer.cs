@@ -823,13 +823,17 @@ namespace BEditor.Properties {
         /// <summary>
         ///   Looks up a localized string similar to OpenGL: 
         ///- Renders using &quot;OpenGL&quot;.
-        ///- There is a problem with the alpha blend.
         ///
         ///Skia:
         ///- Renders using &quot;Skia&quot;.
-        ///- It is more stable than &quot;OpenGL.&quot;
         ///- 3D drawing is not supported.
-        ///- Materials, lights, and cameras are not available..
+        ///- Materials, lights, and cameras are not available.
+        ///
+        ///Veldrid: 
+        ///- Renders using &quot;Veldrid&quot;.
+        ///- Use DirectX for Windows, OpenGL or Vulkan for Linux, and Metal or OpenGL for macOS.
+        ///- The lighting is not yet implemented.
+        ///- The ball object is not yet implemented..
         /// </summary>
         public static string GraphicsProfileDescription {
             get {

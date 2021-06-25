@@ -750,13 +750,17 @@ After the encoder is set, the detailed settings will be displayed.</value>
   <data name="GraphicsProfileDescription" xml:space="preserve">
     <value>OpenGL: 
 - Renders using "OpenGL".
-- There is a problem with the alpha blend.
 
 Skia:
 - Renders using "Skia".
-- It is more stable than "OpenGL."
 - 3D drawing is not supported.
-- Materials, lights, and cameras are not available.</value>
+- Materials, lights, and cameras are not available.
+
+Veldrid: 
+- Renders using "Veldrid".
+- Use DirectX for Windows, OpenGL or Vulkan for Linux, and Metal or OpenGL for macOS.
+- The lighting is not yet implemented.
+- The ball object is not yet implemented.</value>
   </data>
   <data name="EffectFile" xml:space="preserve">
     <value>Effect file</value>

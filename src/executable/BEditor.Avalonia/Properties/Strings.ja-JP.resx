@@ -750,13 +750,17 @@ IdにはGUID, UUIDが使えます。</value>
   <data name="GraphicsProfileDescription" xml:space="preserve">
     <value>OpenGL: 
 - "OpenGL" を利用してレンダリングします。
-- アルファブレンドに問題があります。
 
 Skia:
 - "Skia" を利用してレンダリングします。
-- "OpenGL" と比べて安定しています。
 - 3D描画には対応していません。
-- マテリアル、ライト、カメラは使えません。</value>
+- マテリアル、ライト、カメラは使えません。
+
+Veldrid:
+- "Veldrid" を利用してレンダリングします。
+- WindowsはDirectX、LinuxはOpenGLまたはVulkan、macOSはMetalまたはOpenGLを使用します。
+- ライティングが未実装です。
+- 球体が未実装です。</value>
   </data>
   <data name="EffectFile" xml:space="preserve">
     <value>エフェクトファイル</value>
