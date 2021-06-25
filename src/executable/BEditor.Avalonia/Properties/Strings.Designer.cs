@@ -442,6 +442,15 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Convert video.
+        /// </summary>
+        public static string ConvertVideo {
+            get {
+                return ResourceManager.GetString("ConvertVideo", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Copy.
         /// </summary>
         public static string Copy {
@@ -591,6 +600,15 @@ namespace BEditor.Properties {
         public static string Effect {
             get {
                 return ResourceManager.GetString("Effect", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Effect file.
+        /// </summary>
+        public static string EffectFile {
+            get {
+                return ResourceManager.GetString("EffectFile", resourceCulture);
             }
         }
         
@@ -804,12 +822,14 @@ namespace BEditor.Properties {
         
         /// <summary>
         ///   Looks up a localized string similar to OpenGL: 
-        ///* Renders using &quot;OpenGL&quot;.
-        ///* There is a problem with the alpha blend.
+        ///- Renders using &quot;OpenGL&quot;.
+        ///- There is a problem with the alpha blend.
         ///
         ///Skia:
-        ///* Renders using &quot;Skia&quot;.
-        ///* 3D drawing is not supported..
+        ///- Renders using &quot;Skia&quot;.
+        ///- It is more stable than &quot;OpenGL.&quot;
+        ///- 3D drawing is not supported.
+        ///- Materials, lights, and cameras are not available..
         /// </summary>
         public static string GraphicsProfileDescription {
             get {
@@ -1121,6 +1141,15 @@ namespace BEditor.Properties {
         public static string NotSupportedFormats {
             get {
                 return ResourceManager.GetString("NotSupportedFormats", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Object file.
+        /// </summary>
+        public static string ObjectFile {
+            get {
+                return ResourceManager.GetString("ObjectFile", resourceCulture);
             }
         }
         
@@ -1689,6 +1718,15 @@ namespace BEditor.Properties {
         public static string ThereIsNoProject {
             get {
                 return ResourceManager.GetString("ThereIsNoProject", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to This file cannot be converted..
+        /// </summary>
+        public static string ThisFileCannotBeConverted {
+            get {
+                return ResourceManager.GetString("ThisFileCannotBeConverted", resourceCulture);
             }
         }
         

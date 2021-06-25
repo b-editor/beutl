@@ -35,7 +35,10 @@
             </ExperimentalAcrylicBorder.Material>
         </ExperimentalAcrylicBorder>
 
-        <titlebar:WindowsTitlebar Grid.Row="0" Grid.ColumnSpan="5" />
+        <titlebar:WindowsTitlebar
+            Grid.Row="0"
+            Grid.ColumnSpan="5"
+            x:Name="Titlebar" />
 
         <StackPanel Margin="4" Spacing="4" Grid.Row="1" Orientation="Horizontal">
             <StackPanel.Styles>

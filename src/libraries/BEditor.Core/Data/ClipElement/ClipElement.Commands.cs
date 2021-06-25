@@ -46,6 +46,24 @@ namespace BEditor.Data
             }
 
             /// <summary>
+            /// Initializes a new instance of the <see cref="AddCommand"/> class.
+            /// </summary>
+            /// <param name="scene">新しいクリップを追加するシーンです.</param>
+            /// <param name="startFrame">新しいクリップの開始フレームです.</param>
+            /// <param name="layer">新しいクリップの配置レイヤーです.</param>
+            /// <param name="obj">新しいクリップのオブジェクトです.</param>
+            public AddCommand(Scene scene, Frame startFrame, int layer, ObjectElement obj)
+            {
+                _scene = scene ?? throw new ArgumentNullException(nameof(scene));
+                if (startFrame < Frame.Zero) throw new ArgumentOutOfRangeException(nameof(startFrame));
+                if (layer < 0) throw new ArgumentOutOfRangeException(nameof(layer));
+                if (obj is null) throw new ArgumentNullException(nameof(obj));
+
+                // オブジェクトの情報
+                Clip = new ClipElement(startFrame, startFrame + 180, layer, scene, obj);
+            }
+
+            /// <summary>
             /// Gets the clip to add.
             /// </summary>
             public ClipElement Clip { get; }

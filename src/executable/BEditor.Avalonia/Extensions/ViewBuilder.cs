@@ -471,8 +471,14 @@ namespace BEditor.Extensions
                     Header = Strings.CopyID,
                     DataContext = obj
                 };
+                var saveTo = new MenuItem
+                {
+                    Icon = new PathIcon { Data = (Geometry)Application.Current.FindResource("Save24Regular")! },
+                    Header = Strings.SaveAs,
+                    DataContext = obj
+                };
 
-                contextmenu.Items = new MenuItem[] { copyId };
+                contextmenu.Items = new MenuItem[] { copyId, saveTo };
 
                 // 作成したコンテキストメニューをListBox1に設定
                 header.ContextMenu = contextmenu;
@@ -482,6 +488,23 @@ namespace BEditor.Extensions
                     if (s is MenuItem menu && menu.DataContext is EffectElement effect)
                     {
                         await Application.Current.Clipboard.SetTextAsync(effect.Id.ToString());
+                    }
+                };
+                saveTo.Click += async (s, e) =>
+                {
+                    if (s is MenuItem menu && menu.DataContext is EffectElement efct)
+                    {
+                        var record = new SaveFileRecord
+                        {
+                            Filters =
+                            {
+                                new(Strings.ObjectFile, new string[]{ "bobj" })
+                            }
+                        };
+                        if (await AppModel.Current.FileDialog.ShowSaveFileDialogAsync(record) && !await Serialize.SaveToFileAsync(new EffectWrapper(efct), record.FileName))
+                        {
+                            AppModel.Current.Message.Snackbar(Strings.FailedToSave);
+                        }
                     }
                 };
             }
@@ -603,8 +626,14 @@ namespace BEditor.Extensions
                     Header = Strings.CopyID,
                     DataContext = effect
                 };
+                var saveTo = new MenuItem
+                {
+                    Icon = new PathIcon { Data = (Geometry)Application.Current.FindResource("Save24Regular")! },
+                    Header = Strings.SaveAs,
+                    DataContext = effect
+                };
 
-                contextmenu.Items = new MenuItem[] { remove, copyId };
+                contextmenu.Items = new MenuItem[] { remove, copyId, saveTo };
 
                 // 作成したコンテキストメニューをListBox1に設定
                 header.ContextMenu = contextmenu;
@@ -621,6 +650,23 @@ namespace BEditor.Extensions
                     if (s is MenuItem menu && menu.DataContext is EffectElement effect)
                     {
                         await Application.Current.Clipboard.SetTextAsync(effect.Id.ToString());
+                    }
+                };
+                saveTo.Click += async (s, e) =>
+                {
+                    if (s is MenuItem menu && menu.DataContext is EffectElement efct)
+                    {
+                        var record = new SaveFileRecord
+                        {
+                            Filters =
+                            {
+                                new(Strings.EffectFile, new string[]{ "befct" })
+                            }
+                        };
+                        if (await AppModel.Current.FileDialog.ShowSaveFileDialogAsync(record) && !await Serialize.SaveToFileAsync(new EffectWrapper(efct), record.FileName))
+                        {
+                            AppModel.Current.Message.Snackbar(Strings.FailedToSave);
+                        }
                     }
                 };
             }

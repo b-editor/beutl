@@ -34,12 +34,22 @@ namespace BEditor.Data
         /// <summary>
         /// Gets or sets the accent color.
         /// </summary>
-        public Color AccentColor { get; set; } = Color.FromARGB(0xff304fee);
+        public Color AccentColor { get; init; } = Color.FromARGB(0xff304fee);
 
         /// <summary>
         /// Gets or sets the path data of an icon.
         /// </summary>
-        public string PathIcon { get; set; } = string.Empty;
+        public string PathIcon { get; init; } = string.Empty;
+
+        /// <summary>
+        /// Creates an instance from a file name.
+        /// </summary>
+        public Func<string, ObjectElement>? CreateFromFile { get; init; }
+
+        /// <summary>
+        /// Check to see if the file name is supported.
+        /// </summary>
+        public Func<string, bool>? IsSupported { get; init; }
 
         /// <summary>
         /// Gets the loaded <see cref="ObjectMetadata"/>.
@@ -52,10 +62,33 @@ namespace BEditor.Data
         /// <typeparam name="T">The type of object that inherits from <see cref="ObjectElement"/>.</typeparam>
         /// <param name="name">The name of the object element.</param>
         /// <returns>A new instance of <see cref="ObjectMetadata"/>.</returns>
+        [Obsolete("Use Create{T}(string, Color?, string, Func{string, T}).")]
         public static ObjectMetadata Create<T>(string name)
             where T : ObjectElement, new()
         {
             return new(name, () => new T(), typeof(T));
+        }
+
+        /// <summary>
+        /// Create the <see cref="ObjectMetadata"/>.
+        /// </summary>
+        /// <typeparam name="T">The type of object that inherits from <see cref="ObjectElement"/>.</typeparam>
+        /// <param name="name">The name of the object element.</param>
+        /// <param name="accentColor">The accent color.</param>
+        /// <param name="pathIcon">The path data of an icon.</param>
+        /// <param name="createFromFile">Creates an instance from a file name.</param>
+        /// <param name="isSupported">Check to see if the file name is supported.</param>
+        /// <returns>A new instance of <see cref="ObjectMetadata"/>.</returns>
+        public static ObjectMetadata Create<T>(string name, Color? accentColor = null, string pathIcon = "", Func<string, T>? createFromFile = null, Func<string, bool>? isSupported = null)
+            where T : ObjectElement, new()
+        {
+            return new(name, () => new T(), typeof(T))
+            {
+                AccentColor = accentColor ?? Color.FromARGB(0xff304fee),
+                PathIcon = pathIcon,
+                CreateFromFile = createFromFile,
+                IsSupported = isSupported,
+            };
         }
     }
 }

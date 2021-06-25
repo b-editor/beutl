@@ -1,0 +1,62 @@
+<Window
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:props="using:BEditor.Properties"
+    xmlns:titlebar="using:BEditor.Views.CustomTitlebars"
+    xmlns:vm="using:BEditor.ViewModels"
+    xmlns:model="using:BEditor.Models"
+    xmlns:dialogvm="using:BEditor.ViewModels.DialogContent"
+    mc:Ignorable="d" Height="450" Width="400"
+    Classes="fluent"
+    CanResize="False"
+    WindowStartupLocation="CenterScreen"
+    x:Class="BEditor.Views.DialogContent.SelectObjectMetadata">
+    <Grid RowDefinitions="*,Auto">
+
+        <ListBox
+            x:Name="List"
+            Background="Transparent"
+            Grid.Row="0">
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <Grid
+                        ColumnDefinitions="Auto,Auto"
+                        Height="32">
+                        <PathIcon
+                            Margin="8"
+                            Foreground="{Binding AccentColor, Converter={StaticResource ColorToSolidColorBrushConverter}, Mode=OneTime}"
+                            Data="{Binding PathIcon, Mode=OneTime, Converter={StaticResource StringToGeometoryConverter}}" />
+
+                        <TextBlock Margin="8" Grid.Column="1" Text="{Binding Name, Mode=OneTime}"/>
+                    </Grid>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+
+        <VirtualizingStackPanel
+            Grid.Row="1"
+            Margin="8"
+            VerticalAlignment="Bottom"
+            HorizontalAlignment="Right"
+            Orientation="Horizontal">
+            <Button
+                Click="CancelClick"
+                HorizontalAlignment="Left"
+                Content="{x:Static props:Strings.Cancel}"
+                Background="Transparent"
+                Cursor="Arrow"
+                Foreground="Red"
+                IsCancel="True"/>
+            <Button
+                Click="AddClick"
+                HorizontalAlignment="Left"
+                Content="{x:Static props:Strings.Add}"
+                Cursor="Arrow"
+                Background="Transparent"
+                IsDefault="True"/>
+        </VirtualizingStackPanel>
+
+    </Grid>
+</Window>

@@ -173,8 +173,15 @@
                     </MenuItem.Icon>
                 </MenuItem>
 
+                <!--動画を変換-->
+                <MenuItem Click="ConvertVideo" Header="{x:Static prop:Strings.ConvertVideo}">
+                    <MenuItem.Icon>
+                        <PathIcon Data="{StaticResource ResizeVideo24Regular}" />
+                    </MenuItem.Icon>
+                </MenuItem>
+
             </MenuItem>
-            <MenuItem Header="{x:Static prop:Strings.Plugins}">
+            <MenuItem Header="{x:Static prop:Strings.Plugins}" x:Name="Plugins">
 
                 <!--プラグインを管理-->
                 <MenuItem

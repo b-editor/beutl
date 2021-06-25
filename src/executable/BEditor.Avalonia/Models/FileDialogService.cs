@@ -19,7 +19,7 @@ namespace BEditor.Models
                 {
                     Filters = record.Filters.ConvertAll(i => new FileDialogFilter
                     {
-                        Extensions = i.Extensions.Select(i => i.StartsWith('.') ? i : "." + i).ToList(),
+                        Extensions = i.Extensions.Select(i => i.TrimStart('.')).ToList(),
                         Name = i.Name
                     }),
                     InitialFileName = record.DefaultFileName,
@@ -47,7 +47,7 @@ namespace BEditor.Models
                 {
                     Filters = record.Filters.ConvertAll(i => new FileDialogFilter
                     {
-                        Extensions = i.Extensions.Select(i => i.StartsWith('.') ? i : "." + i).ToList(),
+                        Extensions = i.Extensions.Select(i => i.TrimStart('.')).ToList(),
                         Name = i.Name
                     }),
                     InitialFileName = record.DefaultFileName,

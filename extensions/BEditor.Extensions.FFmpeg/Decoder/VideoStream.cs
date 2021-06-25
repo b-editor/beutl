@@ -25,7 +25,8 @@ namespace BEditor.Extensions.FFmpeg.Decoder
                 Media.MediaType.Video,
                 stream.Info.Duration - stream.Info.StartTime ?? default,
                 new(stream.Info.FrameSize.Width, stream.Info.FrameSize.Height),
-                (int)stream.Info.NumberOfFrames!);
+                (int)stream.Info.NumberOfFrames!,
+                (int)stream.Info.AvgFrameRate);
         }
 
         public VideoStreamInfo Info { get; }

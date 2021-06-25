@@ -1,11 +1,11 @@
 <Application
-  xmlns="https://github.com/avaloniaui"
-  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-  xmlns:convert="using:BEditor.Converters"
-  xmlns:views="using:BEditor.Views"
-  xmlns:models="using:BEditor.Models"
-  xmlns:title="using:BEditor.Views.CustomTitlebars"
-  x:Class="BEditor.App">
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:convert="using:BEditor.Converters"
+    xmlns:titlebar="using:BEditor.Views.CustomTitlebars"
+    xmlns:views="using:BEditor.Views"
+    xmlns:models="using:BEditor.Models"
+    x:Class="BEditor.App">
     <Application.Resources>
         <convert:CursorTypeToCursorConverter x:Key="CursorTypeToCursorConverter" />
         <convert:SceneToTimelineConverter x:Key="SceneToTimelineConverter" />
@@ -50,6 +50,32 @@
         </Style>
         <Style Selector="TemplatedControl">
             <Setter Property="FontFamily" Value="Yu Gothic UI, Segoe UI, Hiragino Sans, Helvetica Neue, Ubuntu" />
+        </Style>
+
+        <Style Selector="Window.fluent">
+            <Setter Property="ExtendClientAreaToDecorationsHint" Value="True" />
+            <Setter Property="ExtendClientAreaChromeHints" Value="NoChrome" />
+            <Setter Property="ExtendClientAreaTitleBarHeightHint" Value="-1" />
+            <Setter Property="TransparencyLevelHint" Value="AcrylicBlur" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <ExperimentalAcrylicBorder>
+                        <ExperimentalAcrylicBorder.Material>
+                            <ExperimentalAcrylicMaterial
+                                TintColor="#222222"
+                                TintOpacity="{StaticResource AcrylicTintOpacity1}"
+                                MaterialOpacity="{StaticResource AcrylicMaterialOpacity1}" />
+                        </ExperimentalAcrylicBorder.Material>
+                        <Grid RowDefinitions="Auto,*">
+
+                            <titlebar:WindowsTitlebarButtons CanResize="{TemplateBinding CanResize}" />
+
+                            <ContentPresenter Grid.Row="1" Content="{TemplateBinding Content}"/>
+                        </Grid>
+                    </ExperimentalAcrylicBorder>
+                </ControlTemplate>
+            </Setter>
         </Style>
     </Application.Styles>
 </Application>

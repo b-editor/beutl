@@ -282,7 +282,6 @@ namespace BEditor.Data
         {
             // オブジェクトの情報
             clip.Parent = this;
-            clip.UpdateId();
 
             return RecordCommand.Create(
                 clip,
@@ -290,6 +289,7 @@ namespace BEditor.Data
                 {
                     var scene = clip.Parent;
                     clip.Load();
+                    clip.UpdateId();
                     scene.Add(clip);
                     scene.SelectItem = clip;
                 },
@@ -304,6 +304,13 @@ namespace BEditor.Data
                     {
                         scene.SelectItem = null;
                     }
+                },
+                clip =>
+                {
+                    var scene = clip.Parent;
+                    clip.Load();
+                    scene.Add(clip);
+                    scene.SelectItem = clip;
                 },
                 _ => Strings.AddClip);
         }
@@ -320,6 +327,23 @@ namespace BEditor.Data
         public IRecordCommand AddClip(Frame frame, int layer, ObjectMetadata metadata, out ClipElement generatedClip)
         {
             var command = new ClipElement.AddCommand(this, frame, layer, metadata);
+            generatedClip = command.Clip;
+
+            return command;
+        }
+
+        /// <summary>
+        /// Create a command to add a <see cref="ClipElement"/> to this <see cref="Scene"/>.
+        /// </summary>
+        /// <param name="frame">Frame to add a clip.</param>
+        /// <param name="layer">Layer to add a clip.</param>
+        /// <param name="obj">Object to be added.</param>
+        /// <param name="generatedClip">Generated <see cref="ClipElement"/>.</param>
+        /// <returns>Created <see cref="IRecordCommand"/>.</returns>
+        [Pure]
+        public IRecordCommand AddClip(Frame frame, int layer, ObjectElement obj, out ClipElement generatedClip)
+        {
+            var command = new ClipElement.AddCommand(this, frame, layer, obj);
             generatedClip = command.Clip;
 
             return command;

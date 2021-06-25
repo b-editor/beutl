@@ -15,12 +15,14 @@ using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
 
 using BEditor.Models;
+using BEditor.Plugin;
 using BEditor.Properties;
 using BEditor.ViewModels;
 using BEditor.ViewModels.DialogContent;
 using BEditor.Views.DialogContent;
 using BEditor.Views.ManagePlugins;
 using BEditor.Views.Settings;
+using BEditor.Views.Tool;
 
 namespace BEditor.Views.CustomTitlebars
 {
@@ -139,6 +141,49 @@ namespace BEditor.Views.CustomTitlebars
                     }
                 });
             };
+        }
+
+        public void InitializePluginMenu()
+        {
+            var menu = this.FindControl<MenuItem>("Plugins");
+
+            if (menu.Items is AvaloniaList<object> list)
+            {
+                foreach (var (header, items) in PluginManager.Default._menus)
+                {
+                    var item = new MenuItem
+                    {
+                        Header = header,
+                        Items = items.Select(i =>
+                        {
+                            var item = new MenuItem
+                            {
+                                Header = i.Name,
+                                DataContext = i,
+                            };
+                            item.Click += (s, e) =>
+                            {
+                                if (s is MenuItem item && item.DataContext is ICustomMenu cmenu)
+                                {
+                                    cmenu.Execute();
+                                }
+                            };
+
+                            return item;
+                        }).ToArray()
+                    };
+                    list.Add(item);
+                }
+            }
+        }
+
+        public async void ConvertVideo(object s, RoutedEventArgs e)
+        {
+            if (VisualRoot is Window window)
+            {
+                var dialog = new ConvertVideo();
+                await dialog.ShowDialog(window);
+            }
         }
 
         public async void ManagePlugins_Click(object s, RoutedEventArgs e)
