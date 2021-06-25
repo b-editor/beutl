@@ -19,17 +19,17 @@ namespace BEditor.Graphics.OpenGL
 {
     internal static class Tool
     {
-        internal static Vector3 ToOpenTK(this in System.Numerics.Vector3 vector3)
+        public static Vector3 ToOpenTK(this in System.Numerics.Vector3 vector3)
         {
             return new Vector3(vector3.X, vector3.Y, vector3.Z);
         }
 
-        internal static Vector4 ToOpenTK(this in System.Numerics.Vector4 vector4)
+        public static Vector4 ToOpenTK(this in System.Numerics.Vector4 vector4)
         {
             return new Vector4(vector4.X, vector4.Y, vector4.Z, vector4.W);
         }
 
-        internal static Matrix4 ToOpenTK(this in Matrix4x4 mat)
+        public static Matrix4 ToOpenTK(this in Matrix4x4 mat)
         {
             return new Matrix4(
                 mat.M11, mat.M12, mat.M13, mat.M14,
@@ -38,12 +38,12 @@ namespace BEditor.Graphics.OpenGL
                 mat.M41, mat.M42, mat.M43, mat.M44);
         }
 
-        internal static Vector2 ToOpenTK(this in System.Numerics.Vector2 vector3)
+        public static Vector2 ToOpenTK(this in System.Numerics.Vector2 vector3)
         {
             return new Vector2(vector3.X, vector3.Y);
         }
 
-        internal static System.Numerics.Vector3 ToVector3(this in Color color)
+        public static System.Numerics.Vector3 ToVector3(this in Color color)
         {
             return new(
                 color.R / 255f,
@@ -51,7 +51,7 @@ namespace BEditor.Graphics.OpenGL
                 color.B / 255f);
         }
 
-        internal static System.Numerics.Vector4 ToVector4(this in Color color)
+        public static System.Numerics.Vector4 ToVector4(this in Color color)
         {
             return new(
                 color.R / 255f,
@@ -60,12 +60,12 @@ namespace BEditor.Graphics.OpenGL
                 color.A / 255f);
         }
 
-        internal static System.Numerics.Vector3 ToNumerics(this in Vector3 vector3)
+        public static System.Numerics.Vector3 ToNumerics(this in Vector3 vector3)
         {
             return new(vector3.X, vector3.Y, vector3.Z);
         }
 
-        internal static Matrix4x4 ToNumerics(this in Matrix4 mat)
+        public static Matrix4x4 ToNumerics(this in Matrix4 mat)
         {
             return new(
                 mat.M11, mat.M12, mat.M13, mat.M14,
@@ -74,17 +74,17 @@ namespace BEditor.Graphics.OpenGL
                 mat.M41, mat.M42, mat.M43, mat.M44);
         }
 
-        internal static System.Numerics.Vector2 ToNumerics(this in Vector2 vector3)
+        public static System.Numerics.Vector2 ToNumerics(this in Vector2 vector3)
         {
             return new(vector3.X, vector3.Y);
         }
 
-        internal static GLColor ToOpenTK(this in Color color)
+        public static GLColor ToOpenTK(this in Color color)
         {
             return new(color.R, color.G, color.B, color.A);
         }
 
-        internal static void ThrowGLFWError()
+        public static void ThrowGLFWError()
         {
             var result = GLFW.GetError(out var description);
 
@@ -94,7 +94,7 @@ namespace BEditor.Graphics.OpenGL
             }
         }
 
-        internal static void ThrowGLError()
+        public static void ThrowGLError()
         {
             var result = GL.GetError();
 
@@ -116,6 +116,27 @@ namespace BEditor.Graphics.OpenGL
 
                 throw new GraphicsException(description);
             }
+        }
+
+        public static BallImpl ToImpl(this Ball ball)
+        {
+            return new(ball.RadiusX, ball.RadiusY, ball.RadiusZ);
+        }
+
+        public static CubeImpl ToImpl(this Cube cube)
+        {
+            return new(cube.Width, cube.Height, cube.Depth);
+        }
+
+        public static LineImpl ToImpl(this Line line)
+        {
+            return new(line.Start, line.End, line.Width);
+        }
+
+        public static TextureImpl ToImpl(this Texture texture)
+        {
+            using var img = texture.ToImage();
+            return TextureImpl.FromImage(img, texture.Vertices);
         }
     }
 }

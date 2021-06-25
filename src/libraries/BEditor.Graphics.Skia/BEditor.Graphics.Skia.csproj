@@ -1,11 +1,5 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-    <PropertyGroup>
-        <DocumentationFile>BEditor.Graphics.Skia.xml</DocumentationFile>
-    </PropertyGroup>
-
-    <Import Project="$(SolutionDir)\props\analyzer.props" />
-
     <ItemGroup>
         <ProjectReference Include="..\BEditor.Drawing\BEditor.Drawing.csproj" />
         <ProjectReference Include="..\BEditor.Graphics\BEditor.Graphics.csproj" />

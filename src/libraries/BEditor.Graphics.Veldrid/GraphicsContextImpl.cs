@@ -151,8 +151,9 @@ namespace BEditor.Graphics.Veldrid
 
         public void DrawCube(Cube cube)
         {
+            using var impl = cube.ToImpl();
             // VertexBuffer
-            var vertex = cube.Vertices;
+            var vertex = impl.Vertices;
             var vertexSize = (uint)(sizeof(float) * vertex.Length);
             var vertexBuffer = SwapchainFactory.CreateBuffer(new BufferDescription(vertexSize, BufferUsage.VertexBuffer));
             CommandList.UpdateBuffer(vertexBuffer, 0, vertex);
@@ -222,7 +223,7 @@ namespace BEditor.Graphics.Veldrid
         public void DrawLine(Line line)
         {
             // VertexBuffer
-            var vertex = line.Vertices;
+            var vertex = line.Vertices();
             var vertexBuffer = SwapchainFactory.CreateBuffer(new BufferDescription((uint)(sizeof(float) * vertex.Length), BufferUsage.VertexBuffer));
             CommandList.UpdateBuffer(vertexBuffer, 0, vertex);
 
@@ -283,91 +284,88 @@ namespace BEditor.Graphics.Veldrid
 
         public void DrawTexture(Texture texture)
         {
-            if (texture.PlatformImpl is TextureImpl impl)
+            var tex = ToTexture(texture);
+            var view = SwapchainFactory.CreateTextureView(tex);
+
+            // VertexBuffer
+            using var vertex = ToVertexTextureArray(texture.Vertices);
+            var vertexSize = (uint)(sizeof(VertexPositionTexture) * vertex.Length);
+            var vertexBuffer = SwapchainFactory.CreateBuffer(new BufferDescription(vertexSize, BufferUsage.VertexBuffer));
+            CommandList.UpdateBuffer(vertexBuffer, 0, vertex.Pointer, vertexSize);
+
+            // IndexBuffer
+            using var indices = new UnmanagedArray<ushort>(6)
             {
-                var tex = ToTexture(impl);
-                var view = SwapchainFactory.CreateTextureView(tex);
+                [0] = 0,
+                [1] = 1,
+                [2] = 2,
+                [3] = 0,
+                [4] = 2,
+                [5] = 3,
+            };
+            var indicesSize = sizeof(ushort) * (uint)indices.Length;
+            var indexBuffer = SwapchainFactory.CreateBuffer(new BufferDescription(indicesSize, BufferUsage.IndexBuffer));
+            CommandList.UpdateBuffer(indexBuffer, 0, indices.Pointer, indicesSize);
 
-                // VertexBuffer
-                using var vertex = ToVertexTextureArray(texture.Vertices);
-                var vertexSize = (uint)(sizeof(VertexPositionTexture) * vertex.Length);
-                var vertexBuffer = SwapchainFactory.CreateBuffer(new BufferDescription(vertexSize, BufferUsage.VertexBuffer));
-                CommandList.UpdateBuffer(vertexBuffer, 0, vertex.Pointer, vertexSize);
+            // ColorBuffer
+            var colorBuffer = SwapchainFactory.CreateBuffer(new BufferDescription((uint)sizeof(RgbaFloat), BufferUsage.UniformBuffer));
+            CommandList.UpdateBuffer(colorBuffer, 0, texture.Color.ToFloat());
 
-                // IndexBuffer
-                using var indices = new UnmanagedArray<ushort>(6)
+            // ShaderSet
+            var shaderSet = new ShaderSetDescription(
+                new[]
                 {
-                    [0] = 0,
-                    [1] = 1,
-                    [2] = 2,
-                    [3] = 0,
-                    [4] = 2,
-                    [5] = 3,
-                };
-                var indicesSize = sizeof(ushort) * (uint)indices.Length;
-                var indexBuffer = SwapchainFactory.CreateBuffer(new BufferDescription(indicesSize, BufferUsage.IndexBuffer));
-                CommandList.UpdateBuffer(indexBuffer, 0, indices.Pointer, indicesSize);
+                    new VertexLayoutDescription(
+                        new VertexElementDescription("Position", VertexElementSemantic.TextureCoordinate, VertexElementFormat.Float3),
+                        new VertexElementDescription("TexCoords", VertexElementSemantic.TextureCoordinate, VertexElementFormat.Float2))
+                },
+                _textureShader);
 
-                // ColorBuffer
-                var colorBuffer = SwapchainFactory.CreateBuffer(new BufferDescription((uint)sizeof(RgbaFloat), BufferUsage.UniformBuffer));
-                CommandList.UpdateBuffer(colorBuffer, 0, texture.Color.ToFloat());
+            // Layout
+            var projViewLayout = SwapchainFactory.CreateResourceLayout(
+                new ResourceLayoutDescription(
+                    new ResourceLayoutElementDescription("ProjectionBuffer", ResourceKind.UniformBuffer, ShaderStages.Vertex),
+                    new ResourceLayoutElementDescription("ViewBuffer", ResourceKind.UniformBuffer, ShaderStages.Vertex)));
 
-                // ShaderSet
-                var shaderSet = new ShaderSetDescription(
-                    new[]
-                    {
-                        new VertexLayoutDescription(
-                            new VertexElementDescription("Position", VertexElementSemantic.TextureCoordinate, VertexElementFormat.Float3),
-                            new VertexElementDescription("TexCoords", VertexElementSemantic.TextureCoordinate, VertexElementFormat.Float2))
-                    },
-                    _textureShader);
+            var worldTextureLayout = SwapchainFactory.CreateResourceLayout(
+                new ResourceLayoutDescription(
+                    new ResourceLayoutElementDescription("WorldBuffer", ResourceKind.UniformBuffer, ShaderStages.Vertex),
+                    new ResourceLayoutElementDescription("SurfaceTexture", ResourceKind.TextureReadOnly, ShaderStages.Fragment),
+                    new ResourceLayoutElementDescription("SurfaceSampler", ResourceKind.Sampler, ShaderStages.Fragment),
+                    new ResourceLayoutElementDescription("ColorBuffer", ResourceKind.UniformBuffer, ShaderStages.Fragment)));
 
-                // Layout
-                var projViewLayout = SwapchainFactory.CreateResourceLayout(
-                    new ResourceLayoutDescription(
-                        new ResourceLayoutElementDescription("ProjectionBuffer", ResourceKind.UniformBuffer, ShaderStages.Vertex),
-                        new ResourceLayoutElementDescription("ViewBuffer", ResourceKind.UniformBuffer, ShaderStages.Vertex)));
+            // Pipeline
+            var pipeline = SwapchainFactory.CreateGraphicsPipeline(new GraphicsPipelineDescription(
+                texture.BlendMode.ToBlendStateDescription(),
+                DepthStencilState.ToVeldrid(),
+                texture.RasterizerState.ToVeldrid(),
+                PrimitiveTopology.TriangleList,
+                shaderSet,
+                new[] { projViewLayout, worldTextureLayout },
+                Framebuffer.OutputDescription));
 
-                var worldTextureLayout = SwapchainFactory.CreateResourceLayout(
-                    new ResourceLayoutDescription(
-                        new ResourceLayoutElementDescription("WorldBuffer", ResourceKind.UniformBuffer, ShaderStages.Vertex),
-                        new ResourceLayoutElementDescription("SurfaceTexture", ResourceKind.TextureReadOnly, ShaderStages.Fragment),
-                        new ResourceLayoutElementDescription("SurfaceSampler", ResourceKind.Sampler, ShaderStages.Fragment),
-                        new ResourceLayoutElementDescription("ColorBuffer", ResourceKind.UniformBuffer, ShaderStages.Fragment)));
+            // ResourceSet
+            var projViewSet = SwapchainFactory.CreateResourceSet(new ResourceSetDescription(
+                projViewLayout,
+                ProjectionBuffer,
+                ViewBuffer));
 
-                // Pipeline
-                var pipeline = SwapchainFactory.CreateGraphicsPipeline(new GraphicsPipelineDescription(
-                    texture.BlendMode.ToBlendStateDescription(),
-                    DepthStencilState.ToVeldrid(),
-                    texture.RasterizerState.ToVeldrid(),
-                    PrimitiveTopology.TriangleList,
-                    shaderSet,
-                    new[] { projViewLayout, worldTextureLayout },
-                    Framebuffer.OutputDescription));
+            var worldTextureSet = SwapchainFactory.CreateResourceSet(new ResourceSetDescription(
+                worldTextureLayout,
+                WorldBuffer,
+                view,
+                GraphicsDevice.Aniso4xSampler,
+                colorBuffer));
 
-                // ResourceSet
-                var projViewSet = SwapchainFactory.CreateResourceSet(new ResourceSetDescription(
-                    projViewLayout,
-                    ProjectionBuffer,
-                    ViewBuffer));
+            UpdateBuffer(Camera, texture.Transform);
 
-                var worldTextureSet = SwapchainFactory.CreateResourceSet(new ResourceSetDescription(
-                    worldTextureLayout,
-                    WorldBuffer,
-                    view,
-                    GraphicsDevice.Aniso4xSampler,
-                    colorBuffer));
-
-                UpdateBuffer(Camera, impl.Transform);
-
-                // Draw
-                CommandList.SetPipeline(pipeline);
-                CommandList.SetVertexBuffer(0, vertexBuffer);
-                CommandList.SetIndexBuffer(indexBuffer, IndexFormat.UInt16);
-                CommandList.SetGraphicsResourceSet(0, projViewSet);
-                CommandList.SetGraphicsResourceSet(1, worldTextureSet);
-                CommandList.DrawIndexed((uint)indices.Length, 1, 0, 0, 0);
-            }
+            // Draw
+            CommandList.SetPipeline(pipeline);
+            CommandList.SetVertexBuffer(0, vertexBuffer);
+            CommandList.SetIndexBuffer(indexBuffer, IndexFormat.UInt16);
+            CommandList.SetGraphicsResourceSet(0, projViewSet);
+            CommandList.SetGraphicsResourceSet(1, worldTextureSet);
+            CommandList.DrawIndexed((uint)indices.Length, 1, 0, 0, 0);
         }
 
         public void MakeCurrent()
@@ -447,10 +445,10 @@ namespace BEditor.Graphics.Veldrid
             };
         }
 
-        private unsafe TextureVeldrid ToTexture(TextureImpl impl)
+        private unsafe TextureVeldrid ToTexture(Texture texture)
         {
-            var tex = SwapchainFactory.CreateTexture(impl.ToTextureDescription());
-            using var image = impl.ToImage();
+            var tex = SwapchainFactory.CreateTexture(texture.ToTextureDescription());
+            using var image = texture.ToImage();
 
             fixed (BGRA32* src = image.Data)
             {

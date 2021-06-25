@@ -1,16 +1,6 @@
-﻿// BallImpl.cs
-//
-// Copyright (C) BEditor
-//
-// This software may be modified and distributed under the terms
-// of the MIT license. See the LICENSE file for details.
-
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Numerics;
-
-using BEditor.Drawing;
-using BEditor.Graphics.Platform;
 
 using OpenTK.Graphics.OpenGL4;
 
@@ -19,18 +9,11 @@ namespace BEditor.Graphics.OpenGL
     /// <summary>
     /// Represents an OpenGL ball.
     /// </summary>
-    public class BallImpl : GraphicsObject, IBallImpl
+    public class BallImpl : GraphicsObject
     {
         private const int Count = 8;
         private readonly float[] _vertices;
 
-        /// <summary>
-        /// Initializes a new instance of the <see cref="BallImpl"/> class.
-        /// </summary>
-        /// <param name="radiusX">The radius of the ball in the X-axis direction.</param>
-        /// <param name="radiusY">The radius of the ball in the Y-axis direction.</param>
-        /// <param name="radiusZ">The radius of the ball in the Z-axis direction.</param>
-        /// <exception cref="GraphicsException">OpenGL error occurred.</exception>
         public BallImpl(float radiusX, float radiusY, float radiusZ)
         {
             RadiusX = radiusX;
@@ -75,29 +58,18 @@ namespace BEditor.Graphics.OpenGL
             Tool.ThrowGLError();
         }
 
-        /// <inheritdoc/>
         public float RadiusX { get; }
 
-        /// <inheritdoc/>
         public float RadiusY { get; }
 
-        /// <inheritdoc/>
         public float RadiusZ { get; }
 
-        /// <inheritdoc/>
         public override float[] Vertices => _vertices;
 
-        /// <summary>
-        /// Gets the VertexArray of this <see cref="BallImpl"/>.
-        /// </summary>
         public GraphicsHandle VertexArrayObject { get; }
 
-        /// <summary>
-        /// Gets the VertexBuffer of this <see cref="BallImpl"/>.
-        /// </summary>
         public GraphicsHandle VertexBufferObject { get; }
 
-        /// <inheritdoc/>
         public override void Draw()
         {
             GL.BindVertexArray(VertexArrayObject);
@@ -105,7 +77,6 @@ namespace BEditor.Graphics.OpenGL
             GL.DrawArrays(PrimitiveType.TriangleStrip, 0, _vertices.Length / 3);
         }
 
-        /// <inheritdoc/>
         protected override void Dispose(bool disposing)
         {
             GL.DeleteBuffer(VertexBufferObject);

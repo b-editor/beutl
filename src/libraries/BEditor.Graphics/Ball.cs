@@ -28,17 +28,10 @@ namespace BEditor.Graphics
         /// <param name="radiusZ">The radius of the ball in the Z-axis direction.</param>
         /// <exception cref="GraphicsException">Platform is not set.</exception>
         public Ball(float radiusX, float radiusY, float radiusZ)
-            : base(IPlatform.Current.CreateBall(radiusX, radiusY, radiusZ))
         {
-        }
-
-        /// <summary>
-        /// Initializes a new instance of the <see cref="Ball"/> class.
-        /// </summary>
-        /// <param name="impl">The ball implementation.</param>
-        public Ball(IBallImpl impl)
-            : base(impl)
-        {
+            RadiusX = radiusX;
+            RadiusY = radiusY;
+            RadiusZ = radiusZ;
         }
 
         /// <summary>
@@ -55,15 +48,5 @@ namespace BEditor.Graphics
         /// Gets the radius of this <see cref="Ball"/> in the Z-axis direction.
         /// </summary>
         public float RadiusZ { get; }
-
-        /// <summary>
-        /// Gets the vertices of this <see cref="Ball"/>.
-        /// </summary>
-        public float[] Vertices => PlatformImpl.Vertices;
-
-        /// <summary>
-        /// Gets the ball implementation.
-        /// </summary>
-        public new IBallImpl PlatformImpl => (IBallImpl)base.PlatformImpl;
     }
 }

@@ -34,11 +34,6 @@ namespace BEditor
         public Status AppStatus { get; set; }
 
         /// <summary>
-        /// Gets the <see cref="SynchronizationContext"/>.
-        /// </summary>
-        public SynchronizationContext UIThread { get; }
-
-        /// <summary>
         /// Gets audio context.
         /// </summary>
         public AudioContext? AudioContext { get; }

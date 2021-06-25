@@ -1,26 +1,14 @@
-﻿// TextureImpl.cs
-//
-// Copyright (C) BEditor
-//
-// This software may be modified and distributed under the terms
-// of the MIT license. See the LICENSE file for details.
-
-using System;
+﻿using System;
 using System.Linq;
-using System.Numerics;
 
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
-using BEditor.Graphics.Platform;
 
 using OpenTK.Graphics.OpenGL4;
 
 namespace BEditor.Graphics.OpenGL
 {
-    /// <summary>
-    /// Represents an OpenGL texture.
-    /// </summary>
-    public sealed class TextureImpl : GraphicsObject, ITextureImpl
+    public sealed class TextureImpl : GraphicsObject
     {
         private readonly VertexPositionTexture[] _vertices;
         private readonly uint[] _indices =
@@ -29,13 +17,6 @@ namespace BEditor.Graphics.OpenGL
             1, 2, 3,
         };
 
-        /// <summary>
-        /// Initializes a new instance of the <see cref="TextureImpl"/> class.
-        /// </summary>
-        /// <param name="glHandle">The handle for the texture.</param>
-        /// <param name="width">The width of the texture.</param>
-        /// <param name="height">The height of the texture.</param>
-        /// <param name="vertices">The vertices.</param>
         public TextureImpl(int glHandle, int width, int height, VertexPositionTexture[]? vertices = null)
         {
             Width = width;
@@ -66,49 +47,22 @@ namespace BEditor.Graphics.OpenGL
             GL.BufferData(BufferTarget.ElementArrayBuffer, _indices.Length * sizeof(uint), _indices, BufferUsageHint.StaticDraw);
         }
 
-        /// <inheritdoc/>
         public override float[] Vertices => _vertices.SelectMany(i => i.Enumerate()).ToArray();
 
-        /// <summary>
-        /// Gets the indeces of this <see cref="TextureImpl"/>.
-        /// </summary>
         public ReadOnlyMemory<uint> Indices => _indices;
 
-        /// <inheritdoc/>
         public int Width { get; }
 
-        /// <inheritdoc/>
         public int Height { get; }
 
-        /// <summary>
-        /// Gets the handle of this <see cref="TextureImpl"/>.
-        /// </summary>
         public GraphicsHandle Handle { get; }
 
-        /// <summary>
-        /// Gets the ElementBuffer of this <see cref="TextureImpl"/>.
-        /// </summary>
         public GraphicsHandle ElementBufferObject { get; }
 
-        /// <summary>
-        /// Gets the VertexBuffer of this <see cref="TextureImpl"/>.
-        /// </summary>
         public GraphicsHandle VertexBufferObject { get; }
 
-        /// <summary>
-        /// Gets the VertexArray of this <see cref="TextureImpl"/>.
-        /// </summary>
         public GraphicsHandle VertexArrayObject { get; }
 
-        /// <inheritdoc/>
-        VertexPositionTexture[] ITextureImpl.Vertices => _vertices;
-
-        /// <summary>
-        /// Create a texture from an image file.
-        /// </summary>
-        /// <param name="path">The image files for creating textures.</param>
-        /// <param name="vertices">The vertices.</param>
-        /// <returns>Returns the texture created by this method.</returns>
         public static unsafe TextureImpl FromFile(string path, VertexPositionTexture[]? vertices = null)
         {
             using var image = Image.Decode(path);
@@ -116,12 +70,6 @@ namespace BEditor.Graphics.OpenGL
             return FromImage(image, vertices);
         }
 
-        /// <summary>
-        /// Create a texture from an <see cref="Image{BGR24}"/>.
-        /// </summary>
-        /// <param name="image">The image to create texture.</param>
-        /// <param name="vertices">The vertices.</param>
-        /// <returns>Returns the texture created by this method.</returns>
         public static unsafe TextureImpl FromImage(Image<BGR24> image, VertexPositionTexture[]? vertices = null)
         {
             var handle = GL.GenTexture();
@@ -153,12 +101,6 @@ namespace BEditor.Graphics.OpenGL
             return new TextureImpl(handle, image.Width, image.Height, vertices);
         }
 
-        /// <summary>
-        /// Create a texture from an <see cref="Image{BGRA32}"/>.
-        /// </summary>
-        /// <param name="image">The image to create texture.</param>
-        /// <param name="vertices">The vertices.</param>
-        /// <returns>Returns the texture created by this method.</returns>
         public static unsafe TextureImpl FromImage(Image<BGRA32> image, VertexPositionTexture[]? vertices = null)
         {
             var handle = GL.GenTexture();
@@ -190,10 +132,6 @@ namespace BEditor.Graphics.OpenGL
             return new TextureImpl(handle, image.Width, image.Height, vertices);
         }
 
-        /// <summary>
-        /// Use this texture.
-        /// </summary>
-        /// <param name="unit">The texure unit.</param>
         public void Use(TextureUnit unit)
         {
             GL.ActiveTexture(unit);
@@ -203,7 +141,6 @@ namespace BEditor.Graphics.OpenGL
             Tool.ThrowGLError();
         }
 
-        /// <inheritdoc cref="GraphicsObject.Draw"/>
         public void Draw(TextureUnit unit)
         {
             GL.BindVertexArray(VertexArrayObject);
@@ -214,19 +151,11 @@ namespace BEditor.Graphics.OpenGL
             Tool.ThrowGLError();
         }
 
-        /// <inheritdoc/>
         public override void Draw()
         {
             Draw(TextureUnit.Texture0);
         }
 
-        /// <inheritdoc/>
-        public Image<BGRA32> ToImage()
-        {
-            throw new GraphicsException();
-        }
-
-        /// <inheritdoc/>
         protected override void Dispose(bool disposing)
         {
             GL.DeleteVertexArray(VertexArrayObject);

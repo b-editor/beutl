@@ -18,7 +18,7 @@ namespace BEditor.Graphics.OpenGL
     /// </summary>
     public class PixelBuffer : IDisposable
     {
-        private readonly SynchronizationContext _syncContext = AsyncOperationManager.SynchronizationContext;
+        private readonly SynchronizationContext _syncContext = GraphicsContextImpl.SyncContext;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="PixelBuffer"/> class.

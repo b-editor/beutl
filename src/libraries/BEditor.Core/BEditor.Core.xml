@@ -3781,11 +3781,6 @@
             Gets or sets the status of an application.
             </summary>
         </member>
-        <member name="P:BEditor.IApplication.UIThread">
-            <summary>
-            Gets the <see cref="T:System.Threading.SynchronizationContext"/>.
-            </summary>
-        </member>
         <member name="P:BEditor.IApplication.AudioContext">
             <summary>
             Gets audio context.

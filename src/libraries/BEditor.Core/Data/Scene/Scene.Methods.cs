@@ -352,34 +352,26 @@ namespace BEditor.Data
         /// <inheritdoc/>
         protected override void OnLoad()
         {
-            Parent.Parent.UIThread.Send(s =>
+            GraphicsContext = new GraphicsContext(Width, Height);
+            SamplingContext = new SamplingContext(Parent.Samplingrate, Parent.Framerate);
+
+            if (BEditor.Settings.Default.PrioritizeGPU)
             {
-                var scene = (Scene)s!;
-                scene.GraphicsContext = new GraphicsContext(scene.Width, scene.Height);
-                scene.SamplingContext = new SamplingContext(scene.Parent.Samplingrate, scene.Parent.Framerate);
+                DrawingContext = DrawingContext.Create(0);
 
-                if (BEditor.Settings.Default.PrioritizeGPU)
+                if (DrawingContext is not null)
                 {
-                    scene.DrawingContext = DrawingContext.Create(0);
-
-                    if (scene.DrawingContext is not null)
-                    {
-                        scene.ServiceProvider?.GetService<ILogger>()?.LogInformation("{0}はGpuを使用した画像処理が有効です。", SceneName);
-                    }
+                    ServiceProvider?.GetService<ILogger>()?.LogInformation("{0}はGpuを使用した画像処理が有効です。", SceneName);
                 }
-            }, this);
+            }
         }
 
         /// <inheritdoc/>
         protected override void OnUnload()
         {
-            Parent.Parent.UIThread.Send(s =>
-            {
-                var scene = (Scene)s!;
-                scene.GraphicsContext?.Dispose();
-                scene.DrawingContext?.Dispose();
-                scene.SamplingContext?.Dispose();
-            }, this);
+            GraphicsContext?.Dispose();
+            DrawingContext?.Dispose();
+            SamplingContext?.Dispose();
         }
     }
 }

@@ -1,14 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-using BEditor.Graphics.Platform;
-
-namespace BEditor.Graphics.Veldrid
+﻿namespace BEditor.Graphics.Veldrid
 {
-    public class CubeImpl : DrawableImpl, ICubeImpl
+    public class CubeImpl : DrawableImpl
     {
         public CubeImpl(float width, float height, float depth)
         {

@@ -1,11 +1,4 @@
-﻿// GraphicsContextImpl.cs
-//
-// Copyright (C) BEditor
-//
-// This software may be modified and distributed under the terms
-// of the MIT license. See the LICENSE file for details.
-
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -19,20 +12,12 @@ using SkiaSharp;
 
 namespace BEditor.Graphics.Skia
 {
-    /// <summary>
-    /// Represents the graphics context.
-    /// </summary>
     public sealed class GraphicsContextImpl : IGraphicsContextImpl
     {
         private readonly SKPaint _paint;
         private SKCanvas _canvas;
         private SKBitmap _bmp;
 
-        /// <summary>
-        /// Initializes a new instance of the <see cref="GraphicsContextImpl"/> class.
-        /// </summary>
-        /// <param name="width">The width of the graphics context.</param>
-        /// <param name="height">The height of the graphics context.</param>
         public GraphicsContextImpl(int width, int height)
         {
             Width = width;
@@ -45,35 +30,27 @@ namespace BEditor.Graphics.Skia
             _canvas.Translate(width / 2, height / 2);
         }
 
-        /// <inheritdoc/>
         public int Width { get; private set; }
 
-        /// <inheritdoc/>
         public int Height { get; private set; }
 
-        /// <inheritdoc/>
         public bool IsDisposed { get; private set; }
 
-        /// <inheritdoc/>
         public Camera Camera { get; set; }
 
-        /// <inheritdoc/>
         public Light? Light
         {
             get => default;
             set { }
         }
 
-        /// <inheritdoc/>
         public DepthStencilState DepthStencilState { get; set; } = DepthStencilState.Disabled;
 
-        /// <inheritdoc/>
         public void Clear()
         {
             _canvas.Clear();
         }
 
-        /// <inheritdoc/>
         public void Dispose()
         {
             if (IsDisposed) return;
@@ -85,17 +62,14 @@ namespace BEditor.Graphics.Skia
             IsDisposed = true;
         }
 
-        /// <inheritdoc/>
         public void DrawBall(Ball ball)
         {
         }
 
-        /// <inheritdoc/>
         public void DrawCube(Cube cube)
         {
         }
 
-        /// <inheritdoc/>
         public void DrawLine(Line line)
         {
             _paint.StrokeWidth = line.Width;
@@ -109,7 +83,6 @@ namespace BEditor.Graphics.Skia
             ResetTransform();
         }
 
-        /// <inheritdoc/>
         public void DrawTexture(Texture texture)
         {
             using var image = texture.ToImage();
@@ -121,12 +94,10 @@ namespace BEditor.Graphics.Skia
             ResetTransform();
         }
 
-        /// <inheritdoc/>
         public void MakeCurrent()
         {
         }
 
-        /// <inheritdoc/>
         public unsafe void ReadImage(Image<BGRA32> image)
         {
             fixed (BGRA32* dst = image.Data)
@@ -136,7 +107,6 @@ namespace BEditor.Graphics.Skia
             }
         }
 
-        /// <inheritdoc/>
         public void SetSize(Size size)
         {
             _canvas.Dispose();

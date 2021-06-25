@@ -54,7 +54,7 @@ namespace BEditor.Graphics.Veldrid
                 _ => global::Veldrid.ComparisonKind.Less,
             };
         }
-        
+
         public static global::Veldrid.StencilOperation ToVeldrid(this StencilOperation op)
         {
             return op switch
@@ -77,7 +77,7 @@ namespace BEditor.Graphics.Veldrid
                 state.DepthTestEnabled, state.DepthWriteEnabled, ToVeldrid(state.DepthComparison),
                 state.StencilTestEnabled, state.StencilFront.ToVeldrid(), state.StencilBack.ToVeldrid(), state.StencilReadMask, state.StencilWriteMask, state.StencilReference);
         }
-        
+
         public static StencilBehaviorDescription ToVeldrid(this StencilBehavior state)
         {
             return new(state.Fail.ToVeldrid(), state.Pass.ToVeldrid(), state.DepthFail.ToVeldrid(), state.Comparison.ToVeldrid());
@@ -98,7 +98,7 @@ namespace BEditor.Graphics.Veldrid
                 _ => global::Veldrid.FaceCullMode.None,
             };
         }
-        
+
         public static global::Veldrid.PolygonFillMode ToVeldrid(this PolygonFillMode mode)
         {
             return mode switch
@@ -108,7 +108,7 @@ namespace BEditor.Graphics.Veldrid
                 _ => global::Veldrid.PolygonFillMode.Solid,
             };
         }
-        
+
         public static global::Veldrid.FrontFace ToVeldrid(this FrontFace mode)
         {
             return mode switch
@@ -165,6 +165,36 @@ namespace BEditor.Graphics.Veldrid
 
                 _ => BlendStateDescription.SingleAlphaBlend,
             };
+        }
+
+        //public static BallImpl ToImpl(this Ball ball)
+        //{
+        //    return new(ball.RadiusX, ball.RadiusY, ball.RadiusZ);
+        //}
+
+        public static CubeImpl ToImpl(this Cube cube)
+        {
+            return new(cube.Width, cube.Height, cube.Depth);
+        }
+
+        public static float[] Vertices(this Line line)
+        {
+            return new float[]
+            {
+                line.Start.X, line.Start.Y, line.Start.Z,
+                line.End.X, line.End.Y, line.End.Z,
+            };
+        }
+
+        public static TextureDescription ToTextureDescription(this Texture texture)
+        {
+            return TextureDescription.Texture2D(
+                (uint)texture.Width,
+                (uint)texture.Height,
+                1,
+                1,
+                PixelFormat.B8_G8_R8_A8_UNorm,
+                TextureUsage.Sampled);
         }
     }
 }

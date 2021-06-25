@@ -5,16 +5,8 @@
 // This software may be modified and distributed under the terms
 // of the MIT license. See the LICENSE file for details.
 
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Numerics;
-using System.Text;
-using System.Threading.Tasks;
-
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
-using BEditor.Graphics.Platform;
 
 namespace BEditor.Graphics
 {
@@ -23,45 +15,48 @@ namespace BEditor.Graphics
     /// </summary>
     public sealed class Texture : Drawable
     {
-        /// <summary>
-        /// Initializes a new instance of the <see cref="Texture"/> class.
-        /// </summary>
-        /// <param name="impl">The texture implementaion.</param>
-        public Texture(ITextureImpl impl)
-            : base(impl)
+        private readonly Image<BGRA32> _image;
+
+        private Texture(Image<BGRA32> image, VertexPositionTexture[]? vertices = null)
         {
+            _image = image;
+
+            var halfW = Width / 2f;
+            var halfH = Height / 2f;
+
+            Vertices = vertices ?? new VertexPositionTexture[]
+            {
+                new(new(halfW, -halfH, 0), new(1, 1)),
+                new(new(halfW, halfH, 0), new(1, 0)),
+                new(new(-halfW, halfH, 0), new(0, 0)),
+                new(new(-halfW, -halfH, 0), new(0, 1)),
+            };
         }
 
         /// <summary>
         /// Gets the width of this <see cref="Texture"/>.
         /// </summary>
-        public int Width => PlatformImpl.Width;
+        public int Width => _image.Width;
 
         /// <summary>
         /// Gets the height of this <see cref="Texture"/>.
         /// </summary>
-        public int Height => PlatformImpl.Height;
+        public int Height => _image.Height;
 
         /// <summary>
-        /// Gets the vertices of this <see cref="ITextureImpl"/>.
+        /// Gets the vertices of this <see cref="Texture"/>.
         /// </summary>
-        public VertexPositionTexture[] Vertices => PlatformImpl.Vertices;
-
-        /// <summary>
-        /// Gets the texture implementation.
-        /// </summary>
-        public new ITextureImpl PlatformImpl => (ITextureImpl)base.PlatformImpl;
+        public VertexPositionTexture[] Vertices { get; }
 
         /// <summary>
         /// Create a texture from an <see cref="Image{BGRA32}"/>.
         /// </summary>
         /// <param name="image">The image to create texture.</param>
         /// <param name="vertices">The vertices.</param>
-        /// <exception cref="GraphicsException">Platform is not set.</exception>
         /// <returns>Returns the texture created by this method.</returns>
         public static Texture FromImage(Image<BGRA32> image, VertexPositionTexture[]? vertices = null)
         {
-            return new Texture(IPlatform.Current.CreateTexture(image, vertices));
+            return new(image.Clone(), vertices);
         }
 
         /// <summary>
@@ -70,7 +65,14 @@ namespace BEditor.Graphics
         /// <returns>Returns the image.</returns>
         public Image<BGRA32> ToImage()
         {
-            return PlatformImpl.ToImage();
+            return _image.Clone();
+        }
+
+        /// <inheritdoc/>
+        protected override void Dispose(bool disposing)
+        {
+            base.Dispose(disposing);
+            _image.Dispose();
         }
     }
 }
