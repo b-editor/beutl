@@ -509,7 +509,7 @@ namespace BEditor.Graphics.OpenGL
         {
             if (blend is BlendMode.AlphaBlend)
             {
-                GL.BlendFuncSeparate(BlendingFactorSrc.SrcAlpha, BlendingFactorDest.OneMinusSrcAlpha, BlendingFactorSrc.One, BlendingFactorDest.OneMinusSrcAlpha);
+                GL.BlendFunc(BlendingFactor.One, BlendingFactor.OneMinusSrcAlpha);
                 GL.BlendEquation(BlendEquationMode.FuncAdd);
             }
             else if (blend is BlendMode.Additive)

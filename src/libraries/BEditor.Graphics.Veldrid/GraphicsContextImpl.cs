@@ -146,7 +146,74 @@ namespace BEditor.Graphics.Veldrid
 
         public void DrawBall(Ball ball)
         {
-            throw new NotImplementedException();
+            using var impl = ball.ToImpl();
+            // VertexBuffer
+            var vertex = impl.Vertices;
+            var vertexSize = (uint)(sizeof(float) * vertex.Length);
+            var vertexBuffer = SwapchainFactory.CreateBuffer(new BufferDescription(vertexSize, BufferUsage.VertexBuffer));
+            CommandList.UpdateBuffer(vertexBuffer, 0, vertex);
+
+            // IndexBuffer
+            // var indices = CubeImpl.GetCubeIndices();
+            // var indicesSize = sizeof(ushort) * (uint)indices.Length;
+            // var indexBuffer = SwapchainFactory.CreateBuffer(new BufferDescription(indicesSize, BufferUsage.IndexBuffer));
+            // CommandList.UpdateBuffer(indexBuffer, 0, indices);
+
+            // ColorBuffer
+            var colorBuffer = SwapchainFactory.CreateBuffer(new BufferDescription((uint)sizeof(RgbaFloat), BufferUsage.UniformBuffer));
+            CommandList.UpdateBuffer(colorBuffer, 0, ball.Color.ToFloat());
+
+            // ShaderSet
+            var shaderSet = new ShaderSetDescription(
+                new[]
+                {
+                    new VertexLayoutDescription(
+                        new VertexElementDescription("Position", VertexElementSemantic.TextureCoordinate, VertexElementFormat.Float3))
+                },
+                _shader);
+
+            // Layout
+            var projViewLayout = SwapchainFactory.CreateResourceLayout(
+                new ResourceLayoutDescription(
+                    new ResourceLayoutElementDescription("ProjectionBuffer", ResourceKind.UniformBuffer, ShaderStages.Vertex),
+                    new ResourceLayoutElementDescription("ViewBuffer", ResourceKind.UniformBuffer, ShaderStages.Vertex)));
+
+            var worldTextureLayout = SwapchainFactory.CreateResourceLayout(
+                new ResourceLayoutDescription(
+                    new ResourceLayoutElementDescription("WorldBuffer", ResourceKind.UniformBuffer, ShaderStages.Vertex),
+                    new ResourceLayoutElementDescription("ColorBuffer", ResourceKind.UniformBuffer, ShaderStages.Fragment)));
+
+            // Pipeline
+            var pipeline = SwapchainFactory.CreateGraphicsPipeline(new GraphicsPipelineDescription(
+                ball.BlendMode.ToBlendStateDescription(),
+                DepthStencilState.ToVeldrid(),
+                ball.RasterizerState.ToVeldrid(),
+                PrimitiveTopology.TriangleList,
+                shaderSet,
+                new[] { projViewLayout, worldTextureLayout },
+                Framebuffer.OutputDescription));
+
+            // ResourceSet
+            var projViewSet = SwapchainFactory.CreateResourceSet(new ResourceSetDescription(
+                projViewLayout,
+                ProjectionBuffer,
+                ViewBuffer));
+
+            var worldTextureSet = SwapchainFactory.CreateResourceSet(new ResourceSetDescription(
+                worldTextureLayout,
+                WorldBuffer,
+                colorBuffer));
+
+            UpdateBuffer(Camera, ball.Transform);
+
+            // Draw
+            CommandList.SetPipeline(pipeline);
+            CommandList.SetVertexBuffer(0, vertexBuffer);
+            //CommandList.SetIndexBuffer(indexBuffer, IndexFormat.UInt16);
+            CommandList.SetGraphicsResourceSet(0, projViewSet);
+            CommandList.SetGraphicsResourceSet(1, worldTextureSet);
+            //CommandList.DrawIndexed((uint)indices.Length, 1, 0, 0, 0);
+            CommandList.Draw((uint)vertex.Length, 1, 0, 0);
         }
 
         public void DrawCube(Cube cube)

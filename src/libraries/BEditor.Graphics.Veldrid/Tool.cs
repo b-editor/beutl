@@ -126,7 +126,7 @@ namespace BEditor.Graphics.Veldrid
                 BlendMode.AlphaBlend => new(default,
                 new BlendAttachmentDescription(
                     true,
-                    sourceColorFactor: BlendFactor.SourceAlpha,
+                    sourceColorFactor: BlendFactor.One,
                     destinationColorFactor: BlendFactor.InverseSourceAlpha,
                     colorFunction: BlendFunction.Add,
                     sourceAlphaFactor: BlendFactor.One,
@@ -167,10 +167,10 @@ namespace BEditor.Graphics.Veldrid
             };
         }
 
-        //public static BallImpl ToImpl(this Ball ball)
-        //{
-        //    return new(ball.RadiusX, ball.RadiusY, ball.RadiusZ);
-        //}
+        public static BallImpl ToImpl(this Ball ball)
+        {
+            return new(ball.RadiusX, ball.RadiusY, ball.RadiusZ);
+        }
 
         public static CubeImpl ToImpl(this Cube cube)
         {
