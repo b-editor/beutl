@@ -194,14 +194,14 @@ namespace BEditor.Views.Properties
             _property.ChangeValue(index, (float)newValue).Execute();
         }
 
-        public void NumericUpDown_ValueChanged(object? sender, NumericUpDownValueChangedEventArgs e)
+        public async void NumericUpDown_ValueChanged(object? sender, NumericUpDownValueChangedEventArgs e)
         {
             var num = (NumericUpDown)sender!;
             var index = num.GetValue(AttachmentProperty.IntProperty);
 
             _property.Pairs[index] = new(_property.Pairs[index].Key, _property.Clamp((float)e.NewValue));
 
-            (AppModel.Current.Project!).PreviewUpdate(_property.GetParent<ClipElement>()!);
+            await (AppModel.Current.Project!).PreviewUpdateAsync(_property.GetParent<ClipElement>()!);
         }
 
         public void Dispose()

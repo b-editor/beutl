@@ -107,7 +107,7 @@ namespace BEditor.Views.Timelines
                     Height = ConstantSettings.ClipHeight
                 };
 
-                toggle.Click += (s, _) =>
+                toggle.Click += async (s, _) =>
                 {
                     if (s is not ToggleButton toggle || toggle.Content is not int layer) return;
 
@@ -120,7 +120,7 @@ namespace BEditor.Views.Timelines
                         Scene.HideLayer.Add(layer);
                     }
 
-                    Scene.Parent!.PreviewUpdate();
+                    await Scene.Parent!.PreviewUpdateAsync();
                 };
 
                 _layerLabel.Children.Add(toggle);

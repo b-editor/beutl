@@ -64,11 +64,11 @@ namespace BEditor.Views.Properties
             _property.ChangeValue((float)newValue).Execute();
         }
 
-        public void NumericUpDown_ValueChanged(object? sender, NumericUpDownValueChangedEventArgs e)
+        public async void NumericUpDown_ValueChanged(object? sender, NumericUpDownValueChangedEventArgs e)
         {
             _property.Value = _property.Clamp((float)e.NewValue);
 
-            (AppModel.Current.Project!).PreviewUpdate(_property.GetParent<ClipElement>()!);
+            await (AppModel.Current.Project!).PreviewUpdateAsync(_property.GetParent<ClipElement>()!);
         }
 
         private void InitializeComponent()

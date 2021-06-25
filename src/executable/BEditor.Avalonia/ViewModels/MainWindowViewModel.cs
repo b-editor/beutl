@@ -106,20 +106,20 @@ namespace BEditor.ViewModels
                 });
 
             Undo.Where(_ => CommandManager.Default.CanUndo)
-                .Subscribe(_ =>
+                .Subscribe(async _ =>
                 {
                     CommandManager.Default.Undo();
 
-                    AppModel.Current.Project!.PreviewUpdate();
+                    await AppModel.Current.Project!.PreviewUpdateAsync();
                     AppModel.Current.AppStatus = Status.Edit;
                 });
 
             Redo.Where(_ => CommandManager.Default.CanRedo)
-                .Subscribe(_ =>
+                .Subscribe(async _ =>
                 {
                     CommandManager.Default.Redo();
 
-                    AppModel.Current.Project!.PreviewUpdate();
+                    await AppModel.Current.Project!.PreviewUpdateAsync();
                     AppModel.Current.AppStatus = Status.Edit;
                 });
 

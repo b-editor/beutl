@@ -25,29 +25,29 @@ namespace BEditor.Extensions
 
         public static bool PreviewIsEnabled { get; set; } = true;
 
-        public static void PreviewUpdate(this Project project, ClipElement clipData, ApplyType type = ApplyType.Edit)
+        public static async Task PreviewUpdateAsync(this Project project, ClipElement clipData, ApplyType type = ApplyType.Edit)
         {
             if (project is null) return;
             var now = project.PreviewScene.PreviewFrame;
             if (clipData.Start <= now && now <= clipData.End)
             {
-                project.PreviewUpdate(type);
+                await project.PreviewUpdateAsync(type);
             }
         }
 
-        public static void PreviewUpdate(this Project project, ApplyType type = ApplyType.Edit)
+        public static async Task PreviewUpdateAsync(this Project project, ApplyType type = ApplyType.Edit)
         {
             if (project is null || project.PreviewScene.GraphicsContext is null || !PreviewIsEnabled) return;
-
-            Dispatcher.UIThread.InvokeAsync(() =>
+            PreviewIsEnabled = false;
+            try
             {
-                _image ??= App.GetMainWindow().FindControl<Previewer>("previewer").FindControl<Image>("image");
-                PreviewIsEnabled = false;
+                using var img = await Task.Run(() => project.PreviewScene.Render(type));
+                var snd = project.PreviewScene.Sample();
 
-                try
+                await Dispatcher.UIThread.InvokeAsync(() =>
                 {
-                    using var img = project.PreviewScene.Render(type);
-                    var snd = project.PreviewScene.Sample();
+                    _image ??= App.GetMainWindow().FindControl<Previewer>("previewer").FindControl<Image>("image");
+
                     var viewmodel = MainWindowViewModel.Current.Previewer;
 
                     if (viewmodel.PreviewImage.Value is null
@@ -78,39 +78,36 @@ namespace BEditor.Extensions
 
                     viewmodel.PreviewAudio.Value?.Dispose();
                     viewmodel.PreviewAudio.Value = snd;
+                });
+
+                PreviewIsEnabled = true;
+            }
+            catch (Exception e)
+            {
+                var app = AppModel.Current;
+                App.Logger.LogError(e, "Failed to rendering.");
+
+                if (app.AppStatus is Status.Playing)
+                {
+                    app.AppStatus = Status.Edit;
+                    app.Project!.PreviewScene.Player.Stop();
+                    app.IsNotPlaying = true;
+
+                    app.Message.Snackbar(Strings.An_exception_was_thrown_during_rendering);
 
                     PreviewIsEnabled = true;
                 }
-                catch (Exception e)
+                else
                 {
-                    var app = AppModel.Current;
-                    App.Logger.LogError(e, "Failed to rendering.");
+                    PreviewIsEnabled = false;
 
-                    if (app.AppStatus is Status.Playing)
-                    {
-                        app.AppStatus = Status.Edit;
-                        app.Project!.PreviewScene.Player.Stop();
-                        app.IsNotPlaying = true;
+                    app.Message.Snackbar(Strings.An_exception_was_thrown_during_rendering_preview);
 
-                        app.Message.Snackbar(Strings.An_exception_was_thrown_during_rendering);
+                    await Task.Delay(TimeSpan.FromSeconds(5));
 
-                        PreviewIsEnabled = true;
-                    }
-                    else
-                    {
-                        PreviewIsEnabled = false;
-
-                        app.Message.Snackbar(Strings.An_exception_was_thrown_during_rendering_preview);
-
-                        Task.Run(async () =>
-                        {
-                            await Task.Delay(TimeSpan.FromSeconds(5));
-
-                            PreviewIsEnabled = true;
-                        });
-                    }
+                    PreviewIsEnabled = true;
                 }
-            });
+            }
         }
 
         public static async ValueTask<AuthenticationLink?> LoadFromAsync(string filename, IAuthenticationProvider provider)

@@ -37,9 +37,12 @@ namespace BEditor.Models
 
         private AppModel()
         {
-            CommandManager.Default.Executed += (_, _) =>
+            CommandManager.Default.Executed += async (_, _) =>
             {
-                Project?.PreviewUpdate(ApplyType.Edit);
+                if (Project is not null)
+                {
+                    await Project.PreviewUpdateAsync(ApplyType.Edit);
+                }
                 AppStatus = Status.Edit;
             };
 

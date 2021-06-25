@@ -147,10 +147,8 @@ namespace BEditor.ViewModels
 
                             dialog.NowValue.Value = frame;
 
-                            // UIスレッドだけでレンダリングできる
-                            var img = await Dispatcher.UIThread.InvokeAsync(() => scene.Render(frame, ApplyType.Video));
+                            using var img = scene.Render(frame, ApplyType.Video);
                             output.Video?.AddFrame(img);
-                            img.Dispose();
                         }
 
                         // Audio
@@ -166,7 +164,6 @@ namespace BEditor.ViewModels
 
                             using var sound = scene.Sample(frame);
                             output.Audio?.AddFrame(sound);
-                            sound.Dispose();
                         }
 
                         output.Dispose();

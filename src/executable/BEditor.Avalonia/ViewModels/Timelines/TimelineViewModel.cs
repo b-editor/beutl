@@ -40,13 +40,13 @@ namespace BEditor.ViewModels.Timelines
 
             scene.ObserveProperty(s => s.PreviewFrame)
                 .Where(_ => Tool.PreviewIsEnabled)
-                .Subscribe(f =>
+                .Subscribe(async f =>
                 {
                     SeekbarMargin.Value = new Thickness(Scene.ToPixel(f), 0, 0, 0);
 
                     var type = AppModel.Current.AppStatus is Status.Playing ? ApplyType.Video : ApplyType.Edit;
 
-                    Scene.Parent.PreviewUpdate(type);
+                    await Scene.Parent.PreviewUpdateAsync(type);
                 });
 
             scene.ObserveProperty(s => s.TotalFrame)

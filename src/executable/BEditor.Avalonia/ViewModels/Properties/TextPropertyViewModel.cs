@@ -51,11 +51,11 @@ namespace BEditor.ViewModels.Properties
                 Property.ChangeText(text).Execute();
             }).AddTo(_disposables);
 
-            TextChanged.Subscribe(text =>
+            TextChanged.Subscribe(async text =>
             {
                 Property.Value = text;
 
-                (AppModel.Current.Project!).PreviewUpdate(Property.GetParent<ClipElement>()!);
+                await (AppModel.Current.Project!).PreviewUpdateAsync(Property.GetParent<ClipElement>()!);
             }).AddTo(_disposables);
         }
 
