@@ -61,6 +61,8 @@ namespace BEditor.Models
                 .AddSingleton<IAuthenticationProvider, MockAuthenticationProvider>()
                 .AddSingleton<IRemotePackageProvider, MockPackageUploader>()
 #endif
+                .AddSingleton<ITopLevel>(_ => this)
+                .AddSingleton<IApplication>(_ => this)
                 .AddSingleton(_ => FileDialog)
                 .AddSingleton(_ => Message)
                 .AddSingleton(_ => LoggingFactory)

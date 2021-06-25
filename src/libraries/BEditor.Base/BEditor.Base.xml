@@ -928,6 +928,11 @@
             Represents the top-level data.
             </summary>
         </member>
+        <member name="P:BEditor.Data.ITopLevel.UIThread">
+            <summary>
+            Gets the <see cref="T:System.Threading.SynchronizationContext"/>.
+            </summary>
+        </member>
         <member name="P:BEditor.Data.ITopLevel.Services">
             <summary>
             Gets the <see cref="T:Microsoft.Extensions.DependencyInjection.IServiceCollection"/>.
@@ -1227,6 +1232,27 @@
         <member name="P:BEditor.Resources.Strings.Z">
             <summary>
               Looks up a localized string similar to Z.
+            </summary>
+        </member>
+        <member name="T:BEditor.ServicesLocator">
+            <summary>
+            Locate services.
+            </summary>
+        </member>
+        <member name="M:BEditor.ServicesLocator.#ctor(System.IServiceProvider)">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.ServicesLocator"/> class.
+            </summary>
+            <param name="provider">The service provider.</param>
+        </member>
+        <member name="P:BEditor.ServicesLocator.Current">
+            <summary>
+            Gets or sets the current instance.
+            </summary>
+        </member>
+        <member name="P:BEditor.ServicesLocator.Provider">
+            <summary>
+            Gets the service provider.
             </summary>
         </member>
     </members>

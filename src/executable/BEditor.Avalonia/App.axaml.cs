@@ -120,6 +120,7 @@ namespace BEditor
                 StartupTask = new(Task.Run(async () =>
                 {
                     await InitialPluginsAsync();
+                    ServicesLocator.Current = new(AppModel.Current.ServiceProvider);
 
                     AppModel.Current.AudioContext = new();
 
