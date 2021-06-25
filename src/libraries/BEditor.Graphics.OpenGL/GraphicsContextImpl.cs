@@ -115,6 +115,8 @@ namespace BEditor.Graphics.OpenGL
 
         public void SetSize(Size size)
         {
+            SyncContext.Send(_ =>
+            {
                 if (Width == size.Width && Height == size.Height)
                 {
                     Clear();
@@ -150,10 +152,13 @@ namespace BEditor.Graphics.OpenGL
                 GL.Viewport(0, 0, Width, Height);
 
                 Framebuffer.Bind();
+            }, null);
         }
 
         public void Clear()
         {
+            SyncContext.Send(_ =>
+            {
                 MakeCurrent();
 
                 GL.Viewport(0, 0, Width, Height);
@@ -185,21 +190,25 @@ namespace BEditor.Graphics.OpenGL
 
                 GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
                 Tool.ThrowGLError();
+            }, null);
         }
 
         public void MakeCurrent()
         {
-            if (!IsCurrent)
+            SyncContext.Send(_ =>
             {
-                GLFW.MakeContextCurrent(_window);
-                Tool.ThrowGLFWError();
-            }
+                if (!IsCurrent)
+                {
+                    GLFW.MakeContextCurrent(_window);
+                    Tool.ThrowGLFWError();
+                }
+            }, null);
         }
 
         public void MakeCurrentAndBindFbo()
         {
             MakeCurrent();
-            Framebuffer.Bind();
+            SyncContext.Send(_ => Framebuffer.Bind(), null);
         }
 
         public void DrawTexture(Texture texture)
@@ -210,6 +219,8 @@ namespace BEditor.Graphics.OpenGL
             {
                 MakeCurrentAndBindFbo();
 
+                SyncContext.Send(_ =>
+                {
                     using var impl = texture.ToImpl();
                     impl.Use(TextureUnit.Texture0);
 
@@ -245,6 +256,7 @@ namespace BEditor.Graphics.OpenGL
                     impl.Draw(TextureUnit.Texture0);
 
                     Tool.ThrowGLError();
+                }, null);
             }
             else
             {
@@ -337,6 +349,8 @@ namespace BEditor.Graphics.OpenGL
             if (line is null) throw new ArgumentNullException(nameof(line));
 
             MakeCurrentAndBindFbo();
+            SyncContext.Send(_ =>
+            {
                 using var impl = line.ToImpl();
 
                 _lineShader.Use();
@@ -358,6 +372,7 @@ namespace BEditor.Graphics.OpenGL
                 impl.Draw();
 
                 Tool.ThrowGLError();
+            }, null);
         }
 
         /// <inheritdoc/>
@@ -413,6 +428,8 @@ namespace BEditor.Graphics.OpenGL
             image.ThrowIfDisposed();
             MakeCurrentAndBindFbo();
 
+            SyncContext.Send(_ =>
+            {
                 GL.ReadBuffer(ReadBufferMode.ColorAttachment0);
 
                 fixed (BGRA32* data = image.Data)
@@ -421,6 +438,7 @@ namespace BEditor.Graphics.OpenGL
                 }
 
                 image.Flip(FlipMode.X);
+            }, null);
         }
 
         void IGraphicsContextImpl.MakeCurrent()
@@ -430,16 +448,29 @@ namespace BEditor.Graphics.OpenGL
 
         private static void ApplyRasterizerState(RasterizerState state)
         {
-            GL.CullFace(state.CullMode is FaceCullMode.Back
-                ? CullFaceMode.Back
-                : (state.CullMode is FaceCullMode.Front)
-                    ? CullFaceMode.Front
-                    : CullFaceMode.FrontAndBack);
+            if (state.CullMode is FaceCullMode.None)
+            {
+                GL.Disable(EnableCap.CullFace);
+            }
+            else
+            {
+                GL.Enable(EnableCap.CullFace);
+                GL.CullFace(state.CullMode is FaceCullMode.Back
+                    ? CullFaceMode.Back
+                    : CullFaceMode.Front);
+            }
+
+            if (state.ScissorTestEnabled) GL.Enable(EnableCap.ScissorTest);
+            else GL.Disable(EnableCap.ScissorTest);
 
             GL.PolygonMode(MaterialFace.FrontAndBack, state.FillMode is PolygonFillMode.Solid ? PolygonMode.Fill : PolygonMode.Line);
 
-            if (state.DepthClipEnabled) GL.Enable(EnableCap.ScissorTest);
-            else GL.Disable(EnableCap.ScissorTest);
+            if (state.DepthClipEnabled) GL.Disable(EnableCap.DepthClamp);
+            else GL.Enable(EnableCap.DepthClamp);
+
+            GL.FrontFace(state.FrontFace is FrontFace.Clockwise
+                ? FrontFaceDirection.Cw
+                : FrontFaceDirection.Ccw);
         }
 
         private static void ApplyDepthStencilState(DepthStencilState state)

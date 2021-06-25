@@ -284,6 +284,7 @@ namespace BEditor.Graphics.Veldrid
 
         public void DrawTexture(Texture texture)
         {
+            CommandList.SetFramebuffer(Framebuffer);
             var tex = ToTexture(texture);
             var view = SwapchainFactory.CreateTextureView(tex);
 
