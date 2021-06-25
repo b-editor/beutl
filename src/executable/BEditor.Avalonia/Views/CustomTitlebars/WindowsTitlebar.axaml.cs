@@ -60,8 +60,6 @@ namespace BEditor.Views.CustomTitlebars
 
                 _menu.MenuOpened += (s, e) => PointerPressed -= WindowsTitlebar_PointerPressed;
                 _menu.MenuClosed += (s, e) => PointerPressed += WindowsTitlebar_PointerPressed;
-
-                SubscribeToWindowState();
             }
             else if (OperatingSystem.IsLinux())
             {
@@ -245,6 +243,30 @@ namespace BEditor.Views.CustomTitlebars
             }
         }
 
+        protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+        {
+            base.OnAttachedToVisualTree(e);
+
+            if (!OperatingSystem.IsWindows()) return;
+
+            ((Window)e.Root).GetObservable(Window.WindowStateProperty).Subscribe(s =>
+            {
+                var window = (Window)e.Root;
+                if (s is not WindowState.Maximized)
+                {
+                    _maximizeIcon.Data = Avalonia.Media.Geometry.Parse("M2048 2048v-2048h-2048v2048h2048zM1843 1843h-1638v-1638h1638v1638z");
+                    window.Padding = new Thickness(0, 0, 0, 0);
+                    _maximizeToolTip.Content = "Maximize";
+                }
+                if (s is WindowState.Maximized)
+                {
+                    _maximizeIcon.Data = Avalonia.Media.Geometry.Parse("M2048 1638h-410v410h-1638v-1638h410v-410h1638v1638zm-614-1024h-1229v1229h1229v-1229zm409-409h-1229v205h1024v1024h205v-1229z");
+                    window.Padding = new Thickness(7, 7, 7, 7);
+                    _maximizeToolTip.Content = "Restore Down";
+                }
+            });
+        }
+
         private void CloseWindow(object? sender, RoutedEventArgs e)
         {
             if (VisualRoot is Window window)
@@ -273,34 +295,6 @@ namespace BEditor.Views.CustomTitlebars
             if (VisualRoot is Window window)
             {
                 window.WindowState = WindowState.Minimized;
-            }
-        }
-
-        private async void SubscribeToWindowState()
-        {
-            if (VisualRoot is Window window)
-            {
-                while (window is null)
-                {
-                    window = (Window)VisualRoot;
-                    await Task.Delay(50);
-                }
-
-                window.GetObservable(Window.WindowStateProperty).Subscribe(s =>
-                {
-                    if (s is not WindowState.Maximized)
-                    {
-                        _maximizeIcon.Data = Avalonia.Media.Geometry.Parse("M2048 2048v-2048h-2048v2048h2048zM1843 1843h-1638v-1638h1638v1638z");
-                        window.Padding = new Thickness(0, 0, 0, 0);
-                        _maximizeToolTip.Content = "Maximize";
-                    }
-                    if (s is WindowState.Maximized)
-                    {
-                        _maximizeIcon.Data = Avalonia.Media.Geometry.Parse("M2048 1638h-410v410h-1638v-1638h410v-410h1638v1638zm-614-1024h-1229v1229h1229v-1229zm409-409h-1229v205h1024v1024h205v-1229z");
-                        window.Padding = new Thickness(7, 7, 7, 7);
-                        _maximizeToolTip.Content = "Restore Down";
-                    }
-                });
             }
         }
 

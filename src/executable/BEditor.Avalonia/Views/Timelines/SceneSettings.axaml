@@ -8,21 +8,11 @@
     xmlns:vm="using:BEditor.ViewModels.Timelines"
     mc:Ignorable="d" Height="450" Width="800"
     x:Class="BEditor.Views.Timelines.SceneSettings"
-    ExtendClientAreaToDecorationsHint="True"
-    ExtendClientAreaChromeHints="NoChrome"
-    ExtendClientAreaTitleBarHeightHint="-1"
-    TransparencyLevelHint="AcrylicBlur"
-    Background="Transparent"
+    Classes="fluent_setter"
     WindowStartupLocation="CenterScreen"
     x:DataType="vm:SceneSettingsViewModel"
     Title="SceneSettings">
-    <ExperimentalAcrylicBorder>
-        <ExperimentalAcrylicBorder.Material>
-            <ExperimentalAcrylicMaterial
-              TintColor="#222222"
-              TintOpacity="{StaticResource AcrylicTintOpacity1}"
-              MaterialOpacity="{StaticResource AcrylicMaterialOpacity1}" />
-        </ExperimentalAcrylicBorder.Material>
+    <Border Background="{StaticResource AcrylicColor1}">
         <Grid RowDefinitions="Auto,*">
 
             <titlebar:WindowsTitlebarButtons CanResize="False"/>
@@ -99,5 +89,5 @@
             </VirtualizingStackPanel>
 
         </Grid>
-    </ExperimentalAcrylicBorder>
+    </Border>
 </Window>

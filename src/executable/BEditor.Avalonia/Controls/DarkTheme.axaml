@@ -5,9 +5,7 @@
     <FluentTheme Mode="Dark" />
 
     <Styles.Resources>
-        <sys:Double x:Key="AcrylicTintOpacity1">1</sys:Double>
-        <sys:Double x:Key="AcrylicTintOpacity2">0.95</sys:Double>
-        <sys:Double x:Key="AcrylicMaterialOpacity1">1</sys:Double>
-        <sys:Double x:Key="AcrylicMaterialOpacity2">0.8</sys:Double>
+        <Color x:Key="AcrylicColor1">#363636</Color>
+        <Color x:Key="AcrylicColor2">#282828</Color>
     </Styles.Resources>
 </Styles>

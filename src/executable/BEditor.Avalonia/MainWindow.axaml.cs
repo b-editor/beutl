@@ -39,22 +39,6 @@ namespace BEditor
             };
 
             InitializeComponent();
-            // WindowsŠÂ‹«‚¾‚Æ•\Ž¦‚ªƒoƒO‚é‚Ì‚Å‘Îô
-            MainWindowViewModel.Current.IsOpened
-                .ObserveOn(AvaloniaScheduler.Instance)
-                .Where(_ => OperatingSystem.IsWindows())
-                .Subscribe(isopened =>
-            {
-                var content = (Grid)Content!;
-                if (isopened)
-                {
-                    content.Margin = new(0, 0, 8, 0);
-                }
-                else
-                {
-                    content.Margin = default;
-                }
-            });
 #if DEBUG
             this.AttachDevTools();
 #endif

@@ -157,6 +157,24 @@ namespace BEditor.Views.Timelines
                 vm.Row = layer;
                 vm.MarginTop = TimelineViewModel.ToLayerPixel(layer);
             };
+
+            if (OperatingSystem.IsWindows())
+            {
+                _scrollLine.GetObservable(BoundsProperty).Subscribe(_ =>
+                {
+                    if (VisualRoot is not Window win || win.Content is not Layoutable content) return;
+                    var grid = ((Grid)_scrollLine.Content);
+
+                    if (grid.Bounds.Width >= _scrollLine.Viewport.Width)
+                    {
+                        content.Margin = new(0, 0, 8, 0);
+                    }
+                    else
+                    {
+                        content.Margin = default;
+                    }
+                });
+            }
         }
 
         private TimelineViewModel ViewModel => (TimelineViewModel)DataContext!;

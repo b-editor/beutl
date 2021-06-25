@@ -9,21 +9,11 @@
     xmlns:model="using:BEditor.Models"
     xmlns:dialogvm="using:BEditor.ViewModels.DialogContent"
     mc:Ignorable="d" Height="450" Width="800"
-    ExtendClientAreaToDecorationsHint="True"
-    ExtendClientAreaChromeHints="NoChrome"
-    ExtendClientAreaTitleBarHeightHint="-1"
-    TransparencyLevelHint="AcrylicBlur"
-    Background="Transparent"
+    Classes="fluent_setter"
     WindowStartupLocation="CenterScreen"
     x:DataType="dialogvm:CreateClipViewModel"
     x:Class="BEditor.Views.DialogContent.CreateClip">
-    <ExperimentalAcrylicBorder>
-        <ExperimentalAcrylicBorder.Material>
-            <ExperimentalAcrylicMaterial
-                TintColor="#222222"
-                TintOpacity="{StaticResource AcrylicTintOpacity1}"
-                MaterialOpacity="{StaticResource AcrylicMaterialOpacity1}" />
-        </ExperimentalAcrylicBorder.Material>
+    <Border Background="{StaticResource AcrylicColor1}">
         <Grid RowDefinitions="Auto,*" ColumnDefinitions="*,2*">
 
             <ListBox
@@ -157,5 +147,5 @@
             </VirtualizingStackPanel>
 
         </Grid>
-    </ExperimentalAcrylicBorder>
+    </Border>
 </Window>
