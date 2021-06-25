@@ -157,7 +157,7 @@ namespace BEditor.Graphics.OpenGL
 
         public void Clear()
         {
-            DepthTestState = new(false, false, ComparisonKind.Less);
+            DepthStencilState = new(false, false, ComparisonKind.Less);
             SyncContext.Send(_ =>
             {
                 MakeCurrent();

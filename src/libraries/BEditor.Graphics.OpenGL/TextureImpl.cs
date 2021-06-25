@@ -63,9 +63,6 @@ namespace BEditor.Graphics.OpenGL
 
         public GraphicsHandle VertexArrayObject { get; }
 
-        /// <inheritdoc/>
-        VertexPositionTexture[] ITextureImpl.Vertices => _vertices;
-
         /// <summary>
         /// Create a texture from an image file.
         /// </summary>

@@ -9,7 +9,7 @@ namespace BEditor.Extensions.Svg
         public static void Register()
         {
             PluginBuilder.Configure<SvgPlugin>()
-                .With(ObjectMetadata.Create<SvgImage>("Svg‰æ‘œ"))
+                .With(ObjectMetadata.Create<SvgImage>("Svg‰æ‘œ", null))
                 .Register();
         }
     }
