@@ -12,5 +12,6 @@ layout(set = 1, binding = 3) uniform ColorBufer
 
 void main()
 {
-    fsout_color =  texture(sampler2D(SurfaceTexture, SurfaceSampler), fsin_texCoords) * Color;
+    fsout_color = texture(sampler2D(SurfaceTexture, SurfaceSampler), fsin_texCoords) * Color;
+    fsout_color.rgb /= fsout_color.a;
 }

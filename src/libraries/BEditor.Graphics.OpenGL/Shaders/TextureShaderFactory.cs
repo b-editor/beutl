@@ -22,6 +22,7 @@ namespace BEditor.Graphics.OpenGL
             "void main()\n" +
             "{\n" +
             "   outputColor = texture(texture0, texCoord) * color;\n" +
+            "   outputColor.rgb /= outputColor.a;\n" +
             "}";
 
         private const string TextureVert =

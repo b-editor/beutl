@@ -157,7 +157,7 @@ namespace BEditor.Graphics.OpenGL
 
         public void Clear()
         {
-            DepthStencilState = new(false, false, ComparisonKind.Less);
+            DepthStencilState = DepthStencilState.Disabled;
             SyncContext.Send(_ =>
             {
                 MakeCurrent();
@@ -510,7 +510,7 @@ namespace BEditor.Graphics.OpenGL
         {
             if (blend is BlendMode.AlphaBlend)
             {
-                GL.BlendFunc(BlendingFactor.One, BlendingFactor.OneMinusSrcAlpha);
+                GL.BlendFuncSeparate(BlendingFactorSrc.SrcAlpha, BlendingFactorDest.OneMinusSrcAlpha, BlendingFactorSrc.One, BlendingFactorDest.OneMinusSrcAlpha);
                 GL.BlendEquation(BlendEquationMode.FuncAdd);
             }
             else if (blend is BlendMode.Additive)

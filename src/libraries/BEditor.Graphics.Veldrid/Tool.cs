@@ -126,7 +126,7 @@ namespace BEditor.Graphics.Veldrid
                 BlendMode.AlphaBlend => new(default,
                 new BlendAttachmentDescription(
                     true,
-                    sourceColorFactor: BlendFactor.One,
+                    sourceColorFactor: BlendFactor.SourceAlpha,
                     destinationColorFactor: BlendFactor.InverseSourceAlpha,
                     colorFunction: BlendFunction.Add,
                     sourceAlphaFactor: BlendFactor.One,

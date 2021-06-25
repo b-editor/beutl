@@ -328,11 +328,6 @@
                 Padding="8" >
                 <views:ObjectViewer />
             </TabItem>
-            <TabItem
-                Header="{x:Static prop:Strings.Log}"
-                FontSize="16"
-                Padding="8" >
-            </TabItem>
         </TabControl>
     </Grid>
 </Window>
