@@ -153,12 +153,6 @@ namespace BEditor.Graphics.Veldrid
             var vertexBuffer = SwapchainFactory.CreateBuffer(new BufferDescription(vertexSize, BufferUsage.VertexBuffer));
             CommandList.UpdateBuffer(vertexBuffer, 0, vertex);
 
-            // IndexBuffer
-            // var indices = CubeImpl.GetCubeIndices();
-            // var indicesSize = sizeof(ushort) * (uint)indices.Length;
-            // var indexBuffer = SwapchainFactory.CreateBuffer(new BufferDescription(indicesSize, BufferUsage.IndexBuffer));
-            // CommandList.UpdateBuffer(indexBuffer, 0, indices);
-
             // ColorBuffer
             var colorBuffer = SwapchainFactory.CreateBuffer(new BufferDescription((uint)sizeof(RgbaFloat), BufferUsage.UniformBuffer));
             CommandList.UpdateBuffer(colorBuffer, 0, ball.Color.ToFloat());
@@ -188,7 +182,7 @@ namespace BEditor.Graphics.Veldrid
                 ball.BlendMode.ToBlendStateDescription(),
                 DepthStencilState.ToVeldrid(),
                 ball.RasterizerState.ToVeldrid(),
-                PrimitiveTopology.TriangleList,
+                PrimitiveTopology.TriangleStrip,
                 shaderSet,
                 new[] { projViewLayout, worldTextureLayout },
                 Framebuffer.OutputDescription));
@@ -209,10 +203,8 @@ namespace BEditor.Graphics.Veldrid
             // Draw
             CommandList.SetPipeline(pipeline);
             CommandList.SetVertexBuffer(0, vertexBuffer);
-            //CommandList.SetIndexBuffer(indexBuffer, IndexFormat.UInt16);
             CommandList.SetGraphicsResourceSet(0, projViewSet);
             CommandList.SetGraphicsResourceSet(1, worldTextureSet);
-            //CommandList.DrawIndexed((uint)indices.Length, 1, 0, 0, 0);
             CommandList.Draw((uint)vertex.Length, 1, 0, 0);
         }
 
