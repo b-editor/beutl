@@ -37,7 +37,7 @@ namespace BEditor.Graphics.Veldrid
         private TextureView _offscreenView;
         private TextureVeldrid _offscreenDepth;
 
-        public GraphicsContextImpl(int width, int height)
+        public GraphicsContextImpl(int width, int height, GraphicsBackend backend)
         {
             Width = width;
             Height = height;
@@ -57,7 +57,7 @@ namespace BEditor.Graphics.Veldrid
                 PreferDepthRangeZeroToOne = true
             };
 
-            GraphicsDevice = VeldridStartup.CreateGraphicsDevice(_window, options);
+            GraphicsDevice = VeldridStartup.CreateGraphicsDevice(_window, options, backend);
 
             _factory = new DisposeCollectorResourceFactory(GraphicsDevice.ResourceFactory);
 

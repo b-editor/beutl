@@ -18,7 +18,6 @@ using Avalonia.Threading;
 
 using BEditor.Data;
 using BEditor.Extensions;
-using BEditor.Graphics.OpenGL;
 using BEditor.Graphics.Platform;
 using BEditor.Models;
 using BEditor.Models.ManagePlugins;
@@ -26,6 +25,7 @@ using BEditor.Packaging;
 using BEditor.Plugin;
 using BEditor.Primitive;
 using BEditor.Properties;
+using BEditor.ViewModels.Settings;
 using BEditor.Views;
 using BEditor.Views.DialogContent;
 
@@ -77,18 +77,16 @@ namespace BEditor
                 AvaloniaLocator.CurrentMutable.Bind<IFontManagerImpl>().ToConstant(new CustomFontManagerImpl());
             }
 
-            if (Settings.Default.GraphicsProfile is "Skia")
+            IPlatform.Current = Settings.Default.GraphicsProfile switch
             {
-                IPlatform.Current = new Graphics.Skia.SkiaPlatform();
-            }
-            else if (Settings.Default.GraphicsProfile is "Veldrid")
-            {
-                IPlatform.Current = new Graphics.Veldrid.VeldridPlatform();
-            }
-            else
-            {
-                IPlatform.Current = new OpenGLPlatform();
-            }
+                ProjectViewModel.OPENGL => new Graphics.OpenGL.OpenGLPlatform(),
+                ProjectViewModel.SKIA => new Graphics.Skia.SkiaPlatform(),
+                ProjectViewModel.VELDRID_OPENGL => new Graphics.Veldrid.VeldridGLPlatform(),
+                ProjectViewModel.VELDRID_METAL => new Graphics.Veldrid.VeldridMetalPlatform(),
+                ProjectViewModel.VELDRID_DIRECTX => new Graphics.Veldrid.VeldridDirectXPlatform(),
+                ProjectViewModel.VELDRID_VULKAN => new Graphics.Veldrid.VeldridVulkanPlatform(),
+                _ => new Graphics.OpenGL.OpenGLPlatform(),
+            };
 
             base.RegisterServices();
         }
