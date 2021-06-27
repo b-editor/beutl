@@ -15,25 +15,18 @@
     d:DesignWidth="1440"
     d:DesignHeight="760"
     x:DataType="vm:MainWindowViewModel"
-    ExtendClientAreaToDecorationsHint="True"
-    ExtendClientAreaChromeHints="NoChrome"
-    ExtendClientAreaTitleBarHeightHint="-1"
-    TransparencyLevelHint="AcrylicBlur"
-    Background="Transparent"
+    Classes="fluent_setter"
     Icon="/Assets/Images/icon.ico"
     DataContext="{x:Static vm:MainWindowViewModel.Current}"
     Focusable="True"
     x:Class="BEditor.MainWindow">
     <Grid RowDefinitions="Auto,Auto,*,Auto,*,Auto" ColumnDefinitions="425,Auto,*,Auto,2*">
 
-        <ExperimentalAcrylicBorder Grid.ColumnSpan="5" Grid.RowSpan="6" IsHitTestVisible="False">
-            <ExperimentalAcrylicBorder.Material>
-                <ExperimentalAcrylicMaterial
-                    TintColor="#222222"
-                    TintOpacity="{StaticResource AcrylicTintOpacity1}"
-                    MaterialOpacity="{StaticResource AcrylicMaterialOpacity1}" />
-            </ExperimentalAcrylicBorder.Material>
-        </ExperimentalAcrylicBorder>
+        <Border
+            Background="{StaticResource AcrylicColor1}"
+            Grid.ColumnSpan="5"
+            Grid.RowSpan="6"
+            IsHitTestVisible="False" />
 
         <titlebar:WindowsTitlebar
             Grid.Row="0"
@@ -198,13 +191,7 @@
             </Button>
 
             <Popup WindowManagerAddShadowHint="False" x:Name="ObjectsPopup" StaysOpen="False" PlacementMode="Pointer">
-                <ExperimentalAcrylicBorder>
-                    <ExperimentalAcrylicBorder.Material>
-                        <ExperimentalAcrylicMaterial
-                            TintColor="Black"
-                            TintOpacity="{StaticResource AcrylicTintOpacity1}"
-                            MaterialOpacity="{StaticResource AcrylicMaterialOpacity1}" />
-                    </ExperimentalAcrylicBorder.Material>
+                <Border Background="{StaticResource AcrylicColor1}">
 
                     <ItemsControl Items="{Binding Source={x:Static data:ObjectMetadata.LoadedObjects}}">
                         <ItemsControl.ItemTemplate>
@@ -244,7 +231,7 @@
                             </ItemsPanelTemplate>
                         </ItemsControl.ItemsPanel>
                     </ItemsControl>
-                </ExperimentalAcrylicBorder>
+                </Border>
             </Popup>
 
             <Separator/>
@@ -265,17 +252,12 @@
             
         </StackPanel>
 
-        <ExperimentalAcrylicBorder
+        <Border
             Grid.Row="2"
             Grid.RowSpan="3"
+            Background="{StaticResource AcrylicColor2}"
             IsHitTestVisible="False">
-            <ExperimentalAcrylicBorder.Material>
-                <ExperimentalAcrylicMaterial
-                    TintColor="Black"
-                    TintOpacity="{StaticResource AcrylicTintOpacity2}"
-                    MaterialOpacity="{StaticResource AcrylicMaterialOpacity2}" />
-            </ExperimentalAcrylicBorder.Material>
-        </ExperimentalAcrylicBorder>
+        </Border>
 
         <Label
             Grid.Row="2"
@@ -288,17 +270,12 @@
 
         <GridSplitter Background="Transparent" Grid.Row="2" Grid.RowSpan="3" Grid.Column="1"/>
 
-        <ExperimentalAcrylicBorder
+        <Border
+            Background="{StaticResource AcrylicColor2}"
             Grid.Row="4"
             Grid.Column="2"
             Grid.ColumnSpan="4"
             Padding="0">
-            <ExperimentalAcrylicBorder.Material>
-                <ExperimentalAcrylicMaterial
-                    TintColor="Black"
-                    TintOpacity="{StaticResource AcrylicTintOpacity2}"
-                    MaterialOpacity="{StaticResource AcrylicMaterialOpacity2}" />
-            </ExperimentalAcrylicBorder.Material>
             <Grid ColumnDefinitions="*,Auto">
                 <ContentControl
                     Content="{Binding App.Project.PreviewScene, Converter={StaticResource SceneToTimelineConverter}, Mode=OneWay}"
@@ -306,7 +283,7 @@
 
                 <views:VolumeView Grid.Column="1" />
             </Grid>
-        </ExperimentalAcrylicBorder>
+        </Border>
 
         <GridSplitter Background="Transparent" Grid.Row="3" Grid.Column="2" Grid.ColumnSpan="3"/>
 
@@ -350,11 +327,6 @@
                 FontSize="16"
                 Padding="8" >
                 <views:ObjectViewer />
-            </TabItem>
-            <TabItem
-                Header="{x:Static prop:Strings.Log}"
-                FontSize="16"
-                Padding="8" >
             </TabItem>
         </TabControl>
     </Grid>

@@ -9,31 +9,17 @@
     xmlns:vm="using:BEditor.ViewModels"
     mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
     Height="450" Width="800"
-    ExtendClientAreaToDecorationsHint="True"
-    ExtendClientAreaChromeHints="NoChrome"
-    ExtendClientAreaTitleBarHeightHint="-1"
-    TransparencyLevelHint="AcrylicBlur"
-    Background="Transparent"
+    Classes="fluent_setter"
     WindowStartupLocation="CenterScreen"
     x:Class="BEditor.Views.ManagePlugins.ManagePluginsWindow">
     <Grid RowDefinitions="Auto,*">
         <DockPanel HorizontalAlignment="Stretch" Grid.RowSpan="2">
-            <ExperimentalAcrylicBorder IsHitTestVisible="False" DockPanel.Dock="Left" Width="240">
-                <ExperimentalAcrylicBorder.Material>
-                    <ExperimentalAcrylicMaterial
-                      TintColor="#222222"
-                      TintOpacity="{StaticResource AcrylicTintOpacity1}"
-                      MaterialOpacity="{StaticResource AcrylicMaterialOpacity1}" />
-                </ExperimentalAcrylicBorder.Material>
-            </ExperimentalAcrylicBorder>
-            <ExperimentalAcrylicBorder IsHitTestVisible="False">
-                <ExperimentalAcrylicBorder.Material>
-                    <ExperimentalAcrylicMaterial
-                      TintColor="Black"
-                      TintOpacity="{StaticResource AcrylicTintOpacity2}"
-                      MaterialOpacity="{StaticResource AcrylicMaterialOpacity2}" />
-                </ExperimentalAcrylicBorder.Material>
-            </ExperimentalAcrylicBorder>
+            <Border
+                Background="{StaticResource AcrylicColor1}"
+                IsHitTestVisible="False"
+                DockPanel.Dock="Left"
+                Width="240" />
+            <Border Background="{StaticResource AcrylicColor2}" IsHitTestVisible="False" />
         </DockPanel>
 
         <titlebar:WindowsTitlebarButtons/>
