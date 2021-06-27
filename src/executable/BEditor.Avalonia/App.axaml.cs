@@ -81,10 +81,9 @@ namespace BEditor
             {
                 ProjectViewModel.OPENGL => new Graphics.OpenGL.OpenGLPlatform(),
                 ProjectViewModel.SKIA => new Graphics.Skia.SkiaPlatform(),
-                ProjectViewModel.VELDRID_OPENGL => new Graphics.Veldrid.VeldridGLPlatform(),
-                ProjectViewModel.VELDRID_METAL => new Graphics.Veldrid.VeldridMetalPlatform(),
-                ProjectViewModel.VELDRID_DIRECTX => new Graphics.Veldrid.VeldridDirectXPlatform(),
-                ProjectViewModel.VELDRID_VULKAN => new Graphics.Veldrid.VeldridVulkanPlatform(),
+                ProjectViewModel.METAL => new Graphics.Veldrid.VeldridMetalPlatform(),
+                ProjectViewModel.DIRECT3D11 => new Graphics.Veldrid.VeldridDirectXPlatform(),
+                ProjectViewModel.VULKAN => new Graphics.Veldrid.VeldridVulkanPlatform(),
                 _ => new Graphics.OpenGL.OpenGLPlatform(),
             };
 

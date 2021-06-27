@@ -756,11 +756,19 @@ Skia:
 - 3D drawing is not supported.
 - Materials, lights, and cameras are not available.
 
-Veldrid: 
-- Renders using "Veldrid".
-- Use DirectX for Windows, OpenGL or Vulkan for Linux, and Metal or OpenGL for macOS.
+Direct3D 11:
+- Renders using "Direct3D 11".
+- For Windows.
 - The lighting is not yet implemented.
-- The ball object is not yet implemented.</value>
+
+Metal:
+- Renders using "Metal".
+- For macOS.
+- The lighting is not yet implemented.
+
+Vulkan: 
+- Renders using "Vulkan".
+- The lighting is not yet implemented.</value>
   </data>
   <data name="EffectFile" xml:space="preserve">
     <value>Effect file</value>

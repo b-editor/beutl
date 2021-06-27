@@ -756,11 +756,19 @@ Skia:
 - 3D描画には対応していません。
 - マテリアル、ライト、カメラは使えません。
 
-Veldrid:
-- "Veldrid" を利用してレンダリングします。
-- WindowsはDirectX、LinuxはOpenGLまたはVulkan、macOSはMetalまたはOpenGLを使用します。
+Direct3D 11:
+- "Direct3D 11" を利用してレンダリングします。
+- Windows向け
 - ライティングが未実装です。
-- 球体が未実装です。</value>
+
+Metal:
+- "Metal" を利用してレンダリングします。
+- macOS向け
+- ライティングが未実装です。
+
+Vulkan:
+- "Vulkan" を利用してレンダリングします。
+- ライティングが未実装です。</value>
   </data>
   <data name="EffectFile" xml:space="preserve">
     <value>エフェクトファイル</value>

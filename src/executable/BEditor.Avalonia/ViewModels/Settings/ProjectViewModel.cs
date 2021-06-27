@@ -10,19 +10,17 @@ namespace BEditor.ViewModels.Settings
     {
         public const string OPENGL = "OpenGL";
         public const string SKIA = "Skia";
-        public const string VELDRID_OPENGL = "Veldrid (OpenGL)";
-        public const string VELDRID_METAL = "Veldrid (Metal)";
-        public const string VELDRID_DIRECTX = "Veldrid (Direct3D 11)";
-        public const string VELDRID_VULKAN = "Veldrid (Vulkan)";
+        public const string DIRECT3D11 = "Direct3D 11";
+        public const string METAL = "Metal";
+        public const string VULKAN = "Vulkan";
 
         public string[] Profiles { get; } = new[]
         {
             OPENGL,
             SKIA,
-            VELDRID_OPENGL,
-            VELDRID_METAL,
-            VELDRID_DIRECTX,
-            VELDRID_VULKAN,
+            DIRECT3D11,
+            METAL,
+            VULKAN,
         };
     }
 }

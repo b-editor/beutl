@@ -829,11 +829,19 @@ namespace BEditor.Properties {
         ///- 3D drawing is not supported.
         ///- Materials, lights, and cameras are not available.
         ///
-        ///Veldrid: 
-        ///- Renders using &quot;Veldrid&quot;.
-        ///- Use DirectX for Windows, OpenGL or Vulkan for Linux, and Metal or OpenGL for macOS.
+        ///Direct3D 11:
+        ///- Renders using &quot;Direct3D 11&quot;.
+        ///- For Windows.
         ///- The lighting is not yet implemented.
-        ///- The ball object is not yet implemented..
+        ///
+        ///Metal:
+        ///- Renders using &quot;Metal&quot;.
+        ///- For macOS.
+        ///- The lighting is not yet implemented.
+        ///
+        ///Vulkan: 
+        ///- Renders using &quot;Vulkan&quot;.
+        ///- The lighting is not yet implemented..
         /// </summary>
         public static string GraphicsProfileDescription {
             get {

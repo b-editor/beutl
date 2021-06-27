@@ -21,7 +21,7 @@ namespace BEditor.Graphics.Veldrid
 {
     public unsafe sealed class GraphicsContextImpl : IGraphicsContextImpl
     {
-        private readonly Sdl2Window _window;
+        private readonly VeldridPlatform _platform;
         private readonly DisposeCollectorResourceFactory _factory;
 
         // シェーダー
@@ -37,27 +37,12 @@ namespace BEditor.Graphics.Veldrid
         private TextureView _offscreenView;
         private TextureVeldrid _offscreenDepth;
 
-        public GraphicsContextImpl(int width, int height, GraphicsBackend backend)
+        public GraphicsContextImpl(int width, int height, VeldridPlatform platform)
         {
+            _platform = platform;
             Width = width;
             Height = height;
             Camera = new OrthographicCamera(new Vector3(0, 0, 1024), width, height);
-
-            var windowInfo = new WindowCreateInfo()
-            {
-                WindowWidth = width,
-                WindowHeight = height,
-                WindowInitialState = WindowState.Hidden,
-            };
-            _window = VeldridStartup.CreateWindow(ref windowInfo);
-
-            var options = new GraphicsDeviceOptions
-            {
-                PreferStandardClipSpaceYDirection = true,
-                PreferDepthRangeZeroToOne = true
-            };
-
-            GraphicsDevice = VeldridStartup.CreateGraphicsDevice(_window, options, backend);
 
             _factory = new DisposeCollectorResourceFactory(GraphicsDevice.ResourceFactory);
 
@@ -113,7 +98,7 @@ namespace BEditor.Graphics.Veldrid
 
         public DisposeCollectorResourceFactory SwapchainFactory { get; }
 
-        public GraphicsDevice GraphicsDevice { get; }
+        public GraphicsDevice GraphicsDevice => _platform.GraphicsDevice;
 
         public CommandList CommandList { get; }
 
@@ -343,7 +328,6 @@ namespace BEditor.Graphics.Veldrid
 
         public void DrawTexture(Texture texture)
         {
-            CommandList.SetFramebuffer(Framebuffer);
             var tex = ToTexture(texture);
             var view = SwapchainFactory.CreateTextureView(tex);
 
@@ -457,8 +441,8 @@ namespace BEditor.Graphics.Veldrid
 
         public void SetSize(Size size)
         {
-            _window.Width = Width = size.Width;
-            _window.Height = Height = size.Height;
+            Width = size.Width;
+            Height = size.Height;
 
             // Dispose
             var collector = _factory.DisposeCollector;

@@ -2,43 +2,64 @@
 
 using BEditor.Graphics.Platform;
 
+using Veldrid;
+using Veldrid.Sdl2;
+using Veldrid.StartupUtilities;
+
 namespace BEditor.Graphics.Veldrid
 {
-    public class VeldridGLPlatform : IPlatform
+    public class VeldridPlatform : IPlatform
     {
+        public VeldridPlatform(GraphicsBackend backend)
+        {
+            var windowInfo = new WindowCreateInfo()
+            {
+                WindowWidth = 1,
+                WindowHeight = 1,
+                WindowInitialState = WindowState.Hidden,
+            };
+            Window = VeldridStartup.CreateWindow(ref windowInfo);
+
+            var options = new GraphicsDeviceOptions
+            {
+                PreferStandardClipSpaceYDirection = true,
+                PreferDepthRangeZeroToOne = true
+            };
+
+            GraphicsDevice = VeldridStartup.CreateGraphicsDevice(Window, options, backend);
+        }
+
+        public Sdl2Window Window { get; }
+
+        public GraphicsDevice GraphicsDevice { get; }
+
         public IGraphicsContextImpl CreateContext(int width, int height)
         {
-            return new GraphicsContextImpl(width, height, global::Veldrid.GraphicsBackend.OpenGL);
+            return new GraphicsContextImpl(width, height, this);
         }
     }
 
-    public class VeldridMetalPlatform : IPlatform
+    public class VeldridMetalPlatform : VeldridPlatform
     {
-        public IGraphicsContextImpl CreateContext(int width, int height)
+        public VeldridMetalPlatform()
+            : base(OperatingSystem.IsMacOS() ? GraphicsBackend.Metal : VeldridStartup.GetPlatformDefaultBackend())
         {
-            return new GraphicsContextImpl(
-                width,
-                height,
-                OperatingSystem.IsMacOS() ? global::Veldrid.GraphicsBackend.Metal : global::Veldrid.GraphicsBackend.OpenGL);
         }
     }
 
-    public class VeldridDirectXPlatform : IPlatform
+    public class VeldridDirectXPlatform : VeldridPlatform
     {
-        public IGraphicsContextImpl CreateContext(int width, int height)
+        public VeldridDirectXPlatform()
+            : base(OperatingSystem.IsWindows() ? GraphicsBackend.Direct3D11 : VeldridStartup.GetPlatformDefaultBackend())
         {
-            return new GraphicsContextImpl(
-                width,
-                height,
-                OperatingSystem.IsWindows() ? global::Veldrid.GraphicsBackend.Direct3D11 : global::Veldrid.GraphicsBackend.OpenGL);
         }
     }
 
-    public class VeldridVulkanPlatform : IPlatform
+    public class VeldridVulkanPlatform : VeldridPlatform
     {
-        public IGraphicsContextImpl CreateContext(int width, int height)
+        public VeldridVulkanPlatform()
+            : base(GraphicsBackend.Vulkan)
         {
-            return new GraphicsContextImpl(width, height, global::Veldrid.GraphicsBackend.Vulkan);
         }
     }
 }

@@ -20,7 +20,7 @@ namespace BEditor.Graphics.Veldrid
 
             const float a = (float)(Math.PI / Count / 2);
             const float b = (float)(Math.PI / Count / 2);
-            using var verticesList = new UnmanagedList<float>();
+            var verticesList = new List<float>();
             int k;
             for (k = -Count + 1; k <= Count; k++)
             {
