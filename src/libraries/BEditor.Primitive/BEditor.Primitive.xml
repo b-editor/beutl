@@ -2591,6 +2591,12 @@
         <member name="M:BEditor.Primitive.Objects.SceneObject.GetProperties">
             <inheritdoc/>
         </member>
+        <member name="M:BEditor.Primitive.Objects.SceneObject.SetObjectData(System.Text.Json.JsonElement)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Objects.SceneObject.GetObjectData(System.Text.Json.Utf8JsonWriter)">
+            <inheritdoc/>
+        </member>
         <member name="M:BEditor.Primitive.Objects.SceneObject.OnRender(BEditor.Data.EffectApplyArgs)">
             <inheritdoc/>
         </member>

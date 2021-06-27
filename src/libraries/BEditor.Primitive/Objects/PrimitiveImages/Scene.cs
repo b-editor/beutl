@@ -8,6 +8,8 @@
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using System.Runtime.Serialization;
+using System.Text.Json;
 
 using BEditor.Data;
 using BEditor.Data.Primitive;
@@ -64,6 +66,23 @@ namespace BEditor.Primitive.Objects
             yield return Material;
             yield return Start;
             yield return SelectScene;
+        }
+
+        /// <inheritdoc/>
+        public override void SetObjectData(JsonElement element)
+        {
+            base.SetObjectData(element);
+            SelectScene = (SelectorProperty)FormatterServices.GetUninitializedObject(typeof(SelectorProperty));
+            SelectScene.SetObjectData(element.GetProperty(nameof(SelectScene)));
+        }
+
+        /// <inheritdoc/>
+        public override void GetObjectData(Utf8JsonWriter writer)
+        {
+            base.GetObjectData(writer);
+            writer.WriteStartObject(nameof(SelectScene));
+            SelectScene.GetObjectData(writer);
+            writer.WriteEndObject();
         }
 
         /// <inheritdoc/>
