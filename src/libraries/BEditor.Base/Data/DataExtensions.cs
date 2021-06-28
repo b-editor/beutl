@@ -57,9 +57,20 @@ namespace BEditor.Data
                 {
                     return default;
                 }
+                else
+                {
+                    break;
+                }
             }
 
-            return (T)obj;
+            if (obj is T result)
+            {
+                return result;
+            }
+            else
+            {
+                return default;
+            }
         }
 
         /// <summary>
