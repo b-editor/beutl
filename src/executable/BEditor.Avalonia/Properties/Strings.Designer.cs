@@ -225,6 +225,15 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Background.
+        /// </summary>
+        public static string Background {
+            get {
+                return ResourceManager.GetString("Background", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Backup file.
         /// </summary>
         public static string BackupFile {
@@ -248,6 +257,15 @@ namespace BEditor.Properties {
         public static string Bind {
             get {
                 return ResourceManager.GetString("Bind", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Black.
+        /// </summary>
+        public static string Black {
+            get {
+                return ResourceManager.GetString("Black", resourceCulture);
             }
         }
         
@@ -302,6 +320,24 @@ namespace BEditor.Properties {
         public static string ChangeSucceeded {
             get {
                 return ResourceManager.GetString("ChangeSucceeded", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Checkered (Dark).
+        /// </summary>
+        public static string CheckDark {
+            get {
+                return ResourceManager.GetString("CheckDark", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Checkered (Light).
+        /// </summary>
+        public static string CheckLight {
+            get {
+                return ResourceManager.GetString("CheckLight", resourceCulture);
             }
         }
         
@@ -411,6 +447,15 @@ namespace BEditor.Properties {
         public static string ComponentIsExtractedAndPlaced {
             get {
                 return ResourceManager.GetString("ComponentIsExtractedAndPlaced", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Configuration.
+        /// </summary>
+        public static string Configuration {
+            get {
+                return ResourceManager.GetString("Configuration", resourceCulture);
             }
         }
         
@@ -1797,6 +1842,15 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Transparent.
+        /// </summary>
+        public static string Transparent {
+            get {
+                return ResourceManager.GetString("Transparent", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Type.
         /// </summary>
         public static string Type {
@@ -1973,6 +2027,15 @@ namespace BEditor.Properties {
         public static string WhenYouCloseTheApplicationTheChangesWillBegin {
             get {
                 return ResourceManager.GetString("WhenYouCloseTheApplicationTheChangesWillBegin", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to White.
+        /// </summary>
+        public static string White {
+            get {
+                return ResourceManager.GetString("White", resourceCulture);
             }
         }
         

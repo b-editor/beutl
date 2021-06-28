@@ -328,6 +328,13 @@
                 Padding="8" >
                 <views:ObjectViewer />
             </TabItem>
+            <TabItem
+                IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}"
+                Header="{x:Static prop:Strings.Configuration}"
+                FontSize="16"
+                Padding="8" >
+                <views:Configuration />
+            </TabItem>
         </TabControl>
     </Grid>
 </Window>

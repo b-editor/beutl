@@ -1,0 +1,27 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:props="using:BEditor.Properties"
+    xmlns:model="using:BEditor.Models"
+    xmlns:vm="using:BEditor.ViewModels"
+    DataContext="{Binding Project, Source={x:Static model:AppModel.Current}, Mode=OneWay, Converter={StaticResource ConfigurationViewModelConverter}}"
+    x:DataType="vm:ConfigurationViewModel"
+    mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+    x:Class="BEditor.Views.Configuration">
+    <ScrollViewer>
+        <StackPanel>
+
+            <Label
+                Classes="SettingsItemHeader"
+                Content="{x:Static props:Strings.Background}" />
+
+            <ComboBox
+                Classes="SettingsComboBox"
+                SelectedItem="{CompiledBinding SelectedBackground.Value, Mode=TwoWay}"
+                Items="{CompiledBinding Backgrounds, Mode=OneTime}">
+            </ComboBox>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

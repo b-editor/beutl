@@ -782,4 +782,25 @@ Vulkan:
   <data name="ThisFileCannotBeConverted" xml:space="preserve">
     <value>このファイルは変換できません。</value>
   </data>
+  <data name="Configuration" xml:space="preserve">
+    <value>構成</value>
+  </data>
+  <data name="Background" xml:space="preserve">
+    <value>背景</value>
+  </data>
+  <data name="CheckDark" xml:space="preserve">
+    <value>チェック柄 (ダーク)</value>
+  </data>
+  <data name="CheckLight" xml:space="preserve">
+    <value>チェック柄 (ライト)</value>
+  </data>
+  <data name="Transparent" xml:space="preserve">
+    <value>透明</value>
+  </data>
+  <data name="Black" xml:space="preserve">
+    <value>黒</value>
+  </data>
+  <data name="White" xml:space="preserve">
+    <value>白</value>
+  </data>
 </root>

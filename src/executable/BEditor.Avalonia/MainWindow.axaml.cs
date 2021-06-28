@@ -9,6 +9,7 @@ using Avalonia.Controls.Notifications;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Layout;
 using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
 
@@ -39,6 +40,14 @@ namespace BEditor
             };
 
             InitializeComponent();
+
+            vm.IsOpened.Subscribe(v =>
+            {
+                if (!v && Content is Layoutable layoutable)
+                {
+                    layoutable.Margin = default;
+                }
+            });
 #if DEBUG
             this.AttachDevTools();
 #endif

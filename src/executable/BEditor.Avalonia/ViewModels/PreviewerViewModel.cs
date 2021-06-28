@@ -10,6 +10,8 @@ using BEditor.Models;
 
 using Reactive.Bindings;
 
+using static BEditor.ViewModels.ConfigurationViewModel;
+
 namespace BEditor.ViewModels
 {
     public class PreviewerViewModel
@@ -61,6 +63,8 @@ namespace BEditor.ViewModels
         public ReactiveProperty<WriteableBitmap?> PreviewImage { get; } = new();
 
         public ReactiveProperty<Sound<StereoPCMFloat>?> PreviewAudio { get; } = new();
+        
+        public ReactiveProperty<BackgroundType> Background { get; } = new();
 
         public IReadOnlyReactiveProperty<bool> IsOpened { get; }
 

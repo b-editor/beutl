@@ -15,11 +15,19 @@
         <convert:FrameToDoubleConverter x:Key="FrameToDoubleConverter"/>
     </UserControl.Resources>
     <Grid RowDefinitions="*,Auto">
-        <Image
-            x:Name="image"
-            Source="{CompiledBinding PreviewImage.Value, Mode=OneWay}"
+        <Panel
             IsHitTestVisible="False"
-            Margin="0"/>
+            Margin="0">
+            <view:PreviewerBackground
+                Width="{Binding #image.Bounds.Width}"
+                Height="{Binding #image.Bounds.Height}"
+                BackgroundType="{Binding Value, Mode=OneWay}"
+                DataContext="{Binding App.Project, Mode=OneWay, Converter={StaticResource BackgroundTypeConverter}}"/>
+            
+            <Image
+                x:Name="image"
+                Source="{CompiledBinding PreviewImage.Value, Mode=OneWay}"/>
+        </Panel>
 
         <Grid
             ColumnDefinitions="*,Auto"

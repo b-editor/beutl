@@ -23,6 +23,7 @@
             </Grid.ContextMenu>
         </Grid>
         <TextBlock
+            IsHitTestVisible="False"
             x:Name="text"
             Margin="20,0,0,0"
             HorizontalAlignment="Left"

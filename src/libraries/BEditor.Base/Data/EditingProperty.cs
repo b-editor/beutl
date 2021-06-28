@@ -143,6 +143,7 @@ namespace BEditor.Data
                 Initializer = options.Initializer,
                 Serializer = options.Serializer,
                 IsDisposable = options.IsDisposable,
+                NotifyPropertyChanged = options.NotifyPropertyChanged,
             };
 
             EditingPropertyRegistry.RegisterAttached(typeof(TOwner), property);

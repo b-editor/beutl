@@ -148,6 +148,16 @@ namespace BEditor.Models
             IfNotExistCreateDir(cache);
 
             {
+                var projConfig = new ProjectConfig
+                {
+                    BackgroundType = ProjectConfig.GetBackgroundType(project),
+                };
+
+                await using var stream = new FileStream(Path.Combine(directory, ".config"), FileMode.Create);
+                await JsonSerializer.SerializeAsync(stream, projConfig, PackageFile._serializerOptions);
+            }
+
+            {
                 var sceneCacheDir = Path.Combine(cache, "scene");
                 IfNotExistCreateDir(sceneCacheDir);
 
@@ -182,6 +192,21 @@ namespace BEditor.Models
             var cache = Path.Combine(directory, "cache");
 
             IfNotExistCreateDir(cache);
+
+            {
+                var file = Path.Combine(directory, ".config");
+                if (!File.Exists(file))
+                {
+                    ProjectConfig.SetBackgroundType(project, ViewModels.ConfigurationViewModel.BackgroundType.Transparent);
+                }
+                else
+                {
+                    using var reader = new StreamReader(file);
+                    var projConfig = JsonSerializer.Deserialize<ProjectConfig>(reader.ReadToEnd(), PackageFile._serializerOptions);
+
+                    ProjectConfig.SetBackgroundType(project, projConfig.BackgroundType);
+                }
+            }
 
             {
                 var sceneCacheDir = Path.Combine(cache, "scene");

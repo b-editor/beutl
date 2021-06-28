@@ -64,6 +64,15 @@ namespace BEditor.Data
 
             _list.Add(observer);
 
+            try
+            {
+                observer.OnNext(_object!.GetValue(_property));
+            }
+            catch (Exception ex)
+            {
+                observer.OnError(ex);
+            }
+
             return Disposable.Create((observer, _list), o =>
             {
                 o.observer.OnCompleted();
