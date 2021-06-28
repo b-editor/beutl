@@ -45,7 +45,7 @@ namespace BEditor.Data
 
             while (t != null)
             {
-                RuntimeHelpers.RunClassConstructor(type.TypeHandle);
+                RuntimeHelpers.RunClassConstructor(t.TypeHandle);
 
                 if (_registered.TryGetValue(t, out var registered))
                 {

@@ -444,7 +444,14 @@ namespace BEditor.Data
 
         private void InvokeStaticInititlizer()
         {
-            RuntimeHelpers.RunClassConstructor(OwnerType.TypeHandle);
+            var t = OwnerType;
+
+            while (t != null)
+            {
+                RuntimeHelpers.RunClassConstructor(t.TypeHandle);
+
+                t = t.BaseType;
+            }
         }
     }
 }
