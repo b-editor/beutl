@@ -94,7 +94,6 @@ namespace BEditor.ViewModels.DialogContent
                 IsIndeterminate = { Value = true }
             };
             dialog.Show(App.GetMainWindow());
-            await TypeEarlyInitializer.AllInitializeAsync();
 
             await Task.Run(async () =>
             {

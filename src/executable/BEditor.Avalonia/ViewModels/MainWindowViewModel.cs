@@ -124,12 +124,12 @@ namespace BEditor.ViewModels
                 });
 
             Remove.Where(_ => App.Project is not null)
-                .Select(_ => App.Project!.PreviewScene.SelectItem)
+                .Select(_ => App.Project!.CurrentScene.SelectItem)
                 .Where(c => c is not null)
                 .Subscribe(clip => clip!.Parent.RemoveClip(clip).Execute());
 
             Copy.Where(_ => App.Project is not null)
-                .Select(_ => App.Project!.PreviewScene.SelectItem)
+                .Select(_ => App.Project!.CurrentScene.SelectItem)
                 .Where(clip => clip is not null)
                 .Subscribe(async clip =>
                 {
@@ -141,7 +141,7 @@ namespace BEditor.ViewModels
                 });
 
             Cut.Where(_ => App.Project is not null)
-                .Select(_ => App.Project!.PreviewScene.SelectItem)
+                .Select(_ => App.Project!.CurrentScene.SelectItem)
                 .Where(clip => clip is not null)
                 .Subscribe(async clip =>
                 {
@@ -155,7 +155,7 @@ namespace BEditor.ViewModels
                 });
 
             Paste.Where(_ => App.Project is not null)
-                .Select(_ => App.Project!.PreviewScene.GetCreateTimelineViewModel())
+                .Select(_ => App.Project!.CurrentScene.GetCreateTimelineViewModel())
                 .Subscribe(async timeline =>
                 {
                     var mes = AppModel.Current.Message;
@@ -246,7 +246,7 @@ namespace BEditor.ViewModels
 
             ImageOutput.Where(_ => App.Project is not null).Subscribe(async _ =>
             {
-                var scene = AppModel.Current.Project.PreviewScene!;
+                var scene = AppModel.Current.Project.CurrentScene!;
 
                 var record = new SaveFileRecord
                 {
@@ -315,7 +315,6 @@ namespace BEditor.ViewModels
             var app = AppModel.Current;
             app.Project?.Unload();
             var project = Project.FromFile(filename, app);
-            await TypeEarlyInitializer.AllInitializeAsync();
 
             if (project is null) return;
 

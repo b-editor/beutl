@@ -19,8 +19,8 @@ namespace BEditor.ViewModels.DialogContent
         public CreateSceneViewModel()
         {
             _project = AppModel.Current.Project;
-            Width = new((uint)_project.PreviewScene.Width);
-            Height = new((uint)_project.PreviewScene.Height);
+            Width = new((uint)_project.CurrentScene.Width);
+            Height = new((uint)_project.CurrentScene.Height);
             Name = new ReactiveProperty<string>($"{Strings.Scene}{_project.SceneList.Count}")
                 .SetValidateNotifyError(name =>
                 {
@@ -44,7 +44,7 @@ namespace BEditor.ViewModels.DialogContent
 
                 scene.Load();
                 _project.SceneList.Add(scene);
-                _project.PreviewScene = scene;
+                _project.CurrentScene = scene;
             });
         }
 

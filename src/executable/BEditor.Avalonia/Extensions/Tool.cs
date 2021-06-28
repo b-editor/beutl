@@ -28,7 +28,7 @@ namespace BEditor.Extensions
         public static async Task PreviewUpdateAsync(this Project project, ClipElement clipData, ApplyType type = ApplyType.Edit)
         {
             if (project is null) return;
-            var now = project.PreviewScene.PreviewFrame;
+            var now = project.CurrentScene.PreviewFrame;
             if (clipData.Start <= now && now <= clipData.End)
             {
                 await project.PreviewUpdateAsync(type);
@@ -37,12 +37,12 @@ namespace BEditor.Extensions
 
         public static async Task PreviewUpdateAsync(this Project project, ApplyType type = ApplyType.Edit)
         {
-            if (project is null || project.PreviewScene.GraphicsContext is null || !PreviewIsEnabled) return;
+            if (project is null || project.CurrentScene.GraphicsContext is null || !PreviewIsEnabled) return;
             PreviewIsEnabled = false;
             try
             {
-                using var img = await Task.Run(() => project.PreviewScene.Render(type));
-                var snd = project.PreviewScene.Sample();
+                using var img = await Task.Run(() => project.CurrentScene.Render(type));
+                var snd = project.CurrentScene.Sample();
 
                 await Dispatcher.UIThread.InvokeAsync(() =>
                 {
@@ -90,7 +90,7 @@ namespace BEditor.Extensions
                 if (app.AppStatus is Status.Playing)
                 {
                     app.AppStatus = Status.Edit;
-                    app.Project!.PreviewScene.Player.Stop();
+                    app.Project!.CurrentScene.Player.Stop();
                     app.IsNotPlaying = true;
 
                     app.Message.Snackbar(Strings.An_exception_was_thrown_during_rendering);

@@ -28,8 +28,8 @@
 
             <ctr:SeekSlider
                 IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}"
-                Maximum="{CompiledBinding App.Project.PreviewScene.TotalFrame, Mode=OneWay, Converter={StaticResource FrameToDoubleConverter}}"
-                Value="{CompiledBinding App.Project.PreviewScene.PreviewFrame, Mode=TwoWay, Converter={StaticResource FrameToDoubleConverter}}"
+                Maximum="{Binding App.Project.CurrentScene.TotalFrame, Mode=OneWay, Converter={StaticResource FrameToDoubleConverter}}"
+                Value="{Binding App.Project.CurrentScene.PreviewFrame, Mode=TwoWay, Converter={StaticResource FrameToDoubleConverter}}"
                 VerticalAlignment="Center"
                 Margin="10,0"
                 x:Name="slider"/>

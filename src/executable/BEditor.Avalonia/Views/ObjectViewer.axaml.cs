@@ -43,13 +43,13 @@ namespace BEditor.Views
         private Scene? GetScene()
         {
             if (this.FindControl<TreeView>("TreeView").SelectedItem is IChild<object> obj) return obj.GetParent<Scene>();
-            else return AppModel.Current.Project.PreviewScene;
+            else return AppModel.Current.Project.CurrentScene;
         }
 
         private ClipElement? GetClip()
         {
             if (this.FindControl<TreeView>("TreeView").SelectedItem is IChild<object> obj) return obj.GetParent<ClipElement>();
-            else return AppModel.Current.Project.PreviewScene.SelectItem;
+            else return AppModel.Current.Project.CurrentScene.SelectItem;
         }
 
         private EffectElement? GetEffect()
@@ -74,7 +74,7 @@ namespace BEditor.Views
                     Strings.CommandQ1,
                     types: new ButtonType[] { ButtonType.Yes, ButtonType.No }) == ButtonType.Yes)
                 {
-                    scene.Parent!.PreviewScene = scene.Parent!.SceneList[0];
+                    scene.Parent!.CurrentScene = scene.Parent!.SceneList[0];
                     scene.Parent.SceneList.Remove(scene);
                     scene.Unload();
 

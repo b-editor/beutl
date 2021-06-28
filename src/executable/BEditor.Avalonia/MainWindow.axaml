@@ -153,7 +153,7 @@
             <ComboBox
                 IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}"
                 Items="{CompiledBinding App.Project.SceneList, Mode=OneWay}"
-                SelectedItem="{CompiledBinding App.Project.PreviewScene, Mode=TwoWay}">
+                SelectedItem="{Binding App.Project.CurrentScene, Mode=TwoWay}">
                 <ComboBox.ItemTemplate>
                     <DataTemplate>
                         <TextBlock Margin="8,0" Text="{Binding SceneName, Mode=OneWay}"/>
@@ -266,7 +266,7 @@
             HorizontalContentAlignment="Stretch"
             VerticalContentAlignment="Stretch"
             IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}"
-            Content="{Binding App.Project.PreviewScene.SelectItem, Converter={StaticResource ClipPropertyConverter}, Mode=OneWay}" />
+            Content="{Binding App.Project.CurrentScene.SelectItem, Converter={StaticResource ClipPropertyConverter}, Mode=OneWay}" />
 
         <GridSplitter Background="Transparent" Grid.Row="2" Grid.RowSpan="3" Grid.Column="1"/>
 
@@ -278,7 +278,7 @@
             Padding="0">
             <Grid ColumnDefinitions="*,Auto">
                 <ContentControl
-                    Content="{Binding App.Project.PreviewScene, Converter={StaticResource SceneToTimelineConverter}, Mode=OneWay}"
+                    Content="{Binding App.Project.CurrentScene, Converter={StaticResource SceneToTimelineConverter}, Mode=OneWay}"
                     IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}"/>
 
                 <views:VolumeView Grid.Column="1" />

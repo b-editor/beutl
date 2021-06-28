@@ -53,7 +53,7 @@ namespace BEditor.ViewModels.DialogContent
             });
         }
 
-        public ReactivePropertySlim<Scene> Scene { get; } = new(AppModel.Current.Project!.PreviewScene);
+        public ReactivePropertySlim<Scene> Scene { get; } = new(AppModel.Current.Project!.CurrentScene);
 
         public ReactivePropertySlim<ObjectMetadata> Selected { get; } = new();
 

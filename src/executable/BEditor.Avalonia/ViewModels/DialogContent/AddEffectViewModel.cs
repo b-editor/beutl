@@ -18,7 +18,7 @@ namespace BEditor.ViewModels.DialogContent
 
         public AddEffectViewModel()
         {
-            Scene.Value = Project.PreviewScene;
+            Scene.Value = Project.CurrentScene;
             ClipId.Value = Scene.Value.SelectItem?.Id.ToString() ?? string.Empty;
 
             ClipId.SetValidateNotifyError(value =>

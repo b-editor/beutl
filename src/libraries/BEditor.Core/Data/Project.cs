@@ -45,13 +45,51 @@ namespace BEditor.Data
     /// </summary>
     public class Project : EditingObject, IParent<Scene>, IChild<IApplication>
     {
-        private static readonly PropertyChangedEventArgs _previewSceneArgs = new(nameof(PreviewScene));
-        private static readonly PropertyChangedEventArgs _nameArgs = new(nameof(Name));
-        private static readonly PropertyChangedEventArgs _dirnameArgs = new(nameof(DirectoryName));
-        private Scene? _previewScene;
-        private string _filename;
+        /// <summary>
+        /// Defines the <see cref="CurrentScene"/> property.
+        /// </summary>
+        public static readonly DirectProperty<Project, Scene> CurrentSceneProperty
+            = EditingProperty.RegisterDirect<Scene, Project>(
+                nameof(CurrentScene),
+                owner => owner.CurrentScene,
+                (owner, obj) => owner.CurrentScene = obj,
+                EditingPropertyOptions<Scene>.Create().Notify(true));
+
+        /// <summary>
+        /// Defines the <see cref="CurrentSceneIndex"/> property.
+        /// </summary>
+        public static readonly DirectProperty<Project, int> CurrentSceneIndexProperty
+            = EditingProperty.RegisterDirect<int, Project>(
+                $"{nameof(CurrentSceneIndex)},PreviewSceneIndex",
+                owner => owner.CurrentSceneIndex,
+                (owner, obj) => owner.CurrentSceneIndex = obj,
+                EditingPropertyOptions<int>.Create().Notify(true).Serialize());
+
+        /// <summary>
+        /// Defines the <see cref="Name"/> property.
+        /// </summary>
+        public static readonly DirectProperty<Project, string> NameProperty
+            = EditingProperty.RegisterDirect<string, Project>(
+                nameof(Name),
+                owner => owner.Name,
+                (owner, obj) => owner.Name = obj,
+                EditingPropertyOptions<string>.Create().Notify(true));
+
+        /// <summary>
+        /// Defines the <see cref="DirectoryName"/> property.
+        /// </summary>
+        public static readonly DirectProperty<Project, string> DirectoryNameProperty
+            = EditingProperty.RegisterDirect<string, Project>(
+                nameof(DirectoryName),
+                owner => owner.DirectoryName,
+                (owner, obj) => owner.DirectoryName = obj,
+                EditingPropertyOptions<string>.Create().Notify(true));
+
+        private Scene? _currentScene;
+        private string _name;
         private string _dirname;
         private IApplication _parent;
+        private int _currentSceneIndex;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Project"/> class.
@@ -67,7 +105,7 @@ namespace BEditor.Data
             Parent = _parent = app;
             Framerate = framerate;
             Samplingrate = samplingrate;
-            Name = _filename = Path.GetFileNameWithoutExtension(filename)!;
+            Name = _name = Path.GetFileNameWithoutExtension(filename)!;
             DirectoryName = _dirname = Path.GetDirectoryName(filename)!;
             SceneList.Add(new Scene(width, height)
             {
@@ -99,19 +137,43 @@ namespace BEditor.Data
         /// <summary>
         /// Gets an index of the <see cref="SceneList"/> being previewed.
         /// </summary>
-        public int PreviewSceneIndex { get; private set; }
+        [Obsolete("Use CurrentSceneIndex.")]
+        public int PreviewSceneIndex => CurrentSceneIndex;
 
         /// <summary>
         /// Gets or sets the <see cref="Scene"/> that is being previewed.
         /// </summary>
+        [Obsolete("Use CurrentScene.")]
         public Scene PreviewScene
         {
-            get => _previewScene ??= SceneList[PreviewSceneIndex];
+            get => CurrentScene;
             set
             {
-                SetAndRaise(value, ref _previewScene, _previewSceneArgs);
-                PreviewSceneIndex = SceneList.IndexOf(value);
+                CurrentScene = value;
+                RaisePropertyChanged(new(nameof(PreviewScene)));
             }
+        }
+
+        /// <summary>
+        /// Gets or sets the current <see cref="Scene"/>.
+        /// </summary>
+        public Scene CurrentScene
+        {
+            get => _currentScene ??= SceneList[CurrentSceneIndex];
+            set
+            {
+                SetAndRaise(CurrentSceneProperty, ref _currentScene!, value);
+                CurrentSceneIndex = SceneList.IndexOf(value);
+            }
+        }
+
+        /// <summary>
+        /// Gets the index of the current scene.
+        /// </summary>
+        public int CurrentSceneIndex
+        {
+            get => _currentSceneIndex;
+            set => SetAndRaise(CurrentSceneIndexProperty, ref _currentSceneIndex, value);
         }
 
         /// <inheritdoc/>
@@ -137,8 +199,8 @@ namespace BEditor.Data
         /// </summary>
         public string Name
         {
-            get => _filename;
-            set => SetAndRaise(value, ref _filename, _nameArgs);
+            get => _name;
+            set => SetAndRaise(NameProperty, ref _name, value);
         }
 
         /// <summary>
@@ -147,7 +209,7 @@ namespace BEditor.Data
         public string DirectoryName
         {
             get => _dirname;
-            set => SetAndRaise(value, ref _dirname, _dirnameArgs);
+            set => SetAndRaise(DirectoryNameProperty, ref _dirname, value);
         }
 
         /// <summary>
@@ -310,24 +372,20 @@ namespace BEditor.Data
                 DirectoryName = Path.GetDirectoryName(filename)!;
                 IfNotExistCreateDir(DirectoryName);
 
-                if (PreviewScene.IsLoaded)
+                if (CurrentScene.IsLoaded)
                 {
-                    Parent.UIThread.Send(s =>
+                    try
                     {
-                        var p = (Project)s!;
-                        try
-                        {
-                            using var img = new Image<BGRA32>(p.PreviewScene.Width, p.PreviewScene.Height);
+                        using var img = new Image<BGRA32>(CurrentScene.Width, CurrentScene.Height);
 
-                            var thumbnail = Path.Combine(p.DirectoryName, "thumbnail.png");
-                            p.PreviewScene.Render(img, ApplyType.Image);
+                        var thumbnail = Path.Combine(DirectoryName, "thumbnail.png");
+                        CurrentScene.Render(img, ApplyType.Image);
 
-                            img.Encode(thumbnail);
-                        }
-                        catch
-                        {
-                        }
-                    }, this);
+                        img.Encode(thumbnail);
+                    }
+                    catch
+                    {
+                    }
                 }
             }
 
@@ -376,24 +434,20 @@ namespace BEditor.Data
                 DirectoryName = Path.GetDirectoryName(filename)!;
                 IfNotExistCreateDir(DirectoryName);
 
-                if (PreviewScene.IsLoaded)
+                if (CurrentScene.IsLoaded)
                 {
-                    Parent.UIThread.Send(s =>
+                    try
                     {
-                        var p = (Project)s!;
-                        try
-                        {
-                            using var img = new Image<BGRA32>(p.PreviewScene.Width, p.PreviewScene.Height);
+                        using var img = new Image<BGRA32>(CurrentScene.Width, CurrentScene.Height);
 
-                            var thumbnail = Path.Combine(p.DirectoryName, "thumbnail.png");
-                            p.PreviewScene.Render(img, ApplyType.Image);
+                        var thumbnail = Path.Combine(DirectoryName, "thumbnail.png");
+                        CurrentScene.Render(img, ApplyType.Image);
 
-                            img.Encode(thumbnail);
-                        }
-                        catch
-                        {
-                        }
-                    }, this);
+                        img.Encode(thumbnail);
+                    }
+                    catch
+                    {
+                    }
                 }
             }
 
@@ -436,7 +490,6 @@ namespace BEditor.Data
             base.GetObjectData(writer);
             writer.WriteNumber(nameof(Framerate), Framerate);
             writer.WriteNumber(nameof(Samplingrate), Samplingrate);
-            writer.WriteNumber(nameof(PreviewSceneIndex), PreviewSceneIndex);
             writer.WriteStartArray("Scenes");
 
             foreach (var scene in SceneList)
@@ -457,7 +510,6 @@ namespace BEditor.Data
             base.SetObjectData(element);
             Framerate = element.GetProperty(nameof(Framerate)).GetInt32();
             Samplingrate = element.GetProperty(nameof(Samplingrate)).GetInt32();
-            PreviewSceneIndex = element.GetProperty(nameof(PreviewSceneIndex)).GetInt32();
             SceneList = new(element.GetProperty("Scenes").EnumerateArray().Select(i =>
             {
                 var scene = (Scene)FormatterServices.GetUninitializedObject(typeof(Scene));

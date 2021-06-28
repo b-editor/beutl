@@ -27,8 +27,8 @@ namespace BEditor.ViewModels
     {
         public VideoOutputViewModel()
         {
-            SelectedScene.Value = Project.PreviewScene;
-            LengthFrame.Value = Project.PreviewScene.TotalFrame;
+            SelectedScene.Value = Project.CurrentScene;
+            LengthFrame.Value = Project.CurrentScene.TotalFrame;
             SelectedScene.Where(s => s.TotalFrame < LengthFrame.Value)
                 .Subscribe(s => LengthFrame.Value = s.TotalFrame);
             StartTime = StartFrame.Select(i => ((Frame)i).ToTimeSpan(Project.Framerate))

@@ -1265,6 +1265,26 @@
             Represents the project to be used in editing.
             </summary>
         </member>
+        <member name="F:BEditor.Data.Project.CurrentSceneProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Data.Project.CurrentScene"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Data.Project.CurrentSceneIndexProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Data.Project.CurrentSceneIndex"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Data.Project.NameProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Data.Project.Name"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Data.Project.DirectoryNameProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Data.Project.DirectoryName"/> property.
+            </summary>
+        </member>
         <member name="M:BEditor.Data.Project.#ctor(System.Int32,System.Int32,System.Int32,System.Int32,BEditor.IApplication,System.String)">
             <summary>
             Initializes a new instance of the <see cref="T:BEditor.Data.Project"/> class.
@@ -1304,6 +1324,16 @@
         <member name="P:BEditor.Data.Project.PreviewScene">
             <summary>
             Gets or sets the <see cref="T:BEditor.Data.Scene"/> that is being previewed.
+            </summary>
+        </member>
+        <member name="P:BEditor.Data.Project.CurrentScene">
+            <summary>
+            Gets or sets the current <see cref="T:BEditor.Data.Scene"/>.
+            </summary>
+        </member>
+        <member name="P:BEditor.Data.Project.CurrentSceneIndex">
+            <summary>
+            Gets the index of the current scene.
             </summary>
         </member>
         <member name="P:BEditor.Data.Project.Children">
