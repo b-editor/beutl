@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -51,6 +52,17 @@ namespace BEditor.ViewModels.DialogContent
 
                 _selectedClip.AddEffect(Effect.Value.CreateFunc()).Execute();
             });
+
+            Scene.Subscribe(s =>
+            {
+                Clips.Clear();
+                if (s is null) return;
+
+                foreach (var item in s.Datas)
+                {
+                    Clips.Add(item.Id.ToString());
+                }
+            });
         }
 
         public Project Project { get; } = AppModel.Current.Project;
@@ -60,6 +72,8 @@ namespace BEditor.ViewModels.DialogContent
         public ReactiveProperty<Scene> Scene { get; } = new();
 
         public ReactiveProperty<string> ClipId { get; } = new();
+
+        public ObservableCollection<string> Clips { get; } = new();
 
         public ReactiveCommand Create { get; } = new();
     }

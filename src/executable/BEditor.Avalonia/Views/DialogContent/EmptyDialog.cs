@@ -6,7 +6,7 @@ namespace BEditor.Views.DialogContent
 {
     public sealed class EmptyDialog : Window
     {
-        private readonly ExperimentalAcrylicBorder _border;
+        private readonly Border _border;
 
         public EmptyDialog(IDialogContent content) : this()
         {
@@ -24,21 +24,13 @@ namespace BEditor.Views.DialogContent
         {
             ExtendClientAreaToDecorationsHint = true;
             ExtendClientAreaChromeHints = Avalonia.Platform.ExtendClientAreaChromeHints.NoChrome;
-            ExtendClientAreaTitleBarHeightHint = -1;
-            TransparencyLevelHint = WindowTransparencyLevel.AcrylicBlur;
-            Background = Brushes.Transparent;
             WindowStartupLocation = WindowStartupLocation.CenterScreen;
             CanResize = false;
             SizeToContent = SizeToContent.WidthAndHeight;
 
-            _border = new ExperimentalAcrylicBorder
+            _border = new Border
             {
-                Material = new ExperimentalAcrylicMaterial
-                {
-                    TintColor = Color.FromUInt32(0xff222222),
-                    TintOpacity = (double)App.Current.FindResource("AcrylicTintOpacity1")!,
-                    MaterialOpacity = (double)App.Current.FindResource("AcrylicMaterialOpacity1")!
-                }
+                Background = new SolidColorBrush((Color)App.Current.FindResource("AcrylicColor1")!),
             };
 
             Content = _border;

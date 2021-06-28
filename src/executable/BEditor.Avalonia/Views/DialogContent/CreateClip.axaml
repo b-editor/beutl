@@ -13,10 +13,11 @@
     WindowStartupLocation="CenterScreen"
     x:DataType="dialogvm:CreateClipViewModel"
     x:Class="BEditor.Views.DialogContent.CreateClip">
-    <Border Background="{StaticResource AcrylicColor1}">
+    <Border Background="{StaticResource AcrylicColor2}">
         <Grid RowDefinitions="Auto,*" ColumnDefinitions="*,2*">
 
             <ListBox
+                Background="{StaticResource AcrylicColor1}"
                 Padding="0,32,0,0"
                 Grid.RowSpan="2"
                 Items="{CompiledBinding TypeItems, Mode=OneTime}"

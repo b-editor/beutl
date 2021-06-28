@@ -14,12 +14,13 @@
     WindowStartupLocation="CenterScreen"
     x:DataType="dialogvm:AddEffectViewModel"
     x:Class="BEditor.Views.DialogContent.AddEffect">
-    <Border Background="{StaticResource AcrylicColor1}">
+    <Border Background="{StaticResource AcrylicColor2}">
         <Grid RowDefinitions="Auto,*" ColumnDefinitions="*,2*">
             <ScrollViewer
-                Padding="0,32,0,0"
+                Background="{StaticResource AcrylicColor1}"
                 Grid.RowSpan="2">
                 <TreeView
+                    Padding="0,32,0,0"
                     SelectionMode="Single"
                     SelectedItem="{CompiledBinding Effect.Value, Mode=TwoWay}"
                     Items="{x:Static data:EffectMetadata.LoadedEffects}" >
@@ -35,7 +36,7 @@
 
             <ScrollViewer Grid.Row="1" Grid.Column="1" Padding="16">
                 <ScrollViewer.Styles>
-                    <Style Selector="TextBox">
+                    <Style Selector="ComboBox">
                         <Setter Property="Width" Value="240" />
                         <Setter Property="HorizontalAlignment" Value="Left" />
                     </Style>
@@ -71,7 +72,11 @@
                             FontSize="14"
                             Text="{x:Static props:Strings.ClipId}" />
 
-                        <TextBox Margin="0,8" Text="{CompiledBinding ClipId.Value, Mode=TwoWay}" />
+                        <ComboBox
+                            Items="{CompiledBinding Clips, Mode=OneWay}"
+                            Margin="0,8"
+                            SelectedItem="{CompiledBinding ClipId.Value, Mode=TwoWay}">
+                        </ComboBox>
                     </StackPanel>
                 </StackPanel>
             </ScrollViewer>
