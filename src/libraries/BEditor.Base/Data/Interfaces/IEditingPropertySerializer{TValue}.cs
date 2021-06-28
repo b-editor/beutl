@@ -24,7 +24,14 @@ namespace BEditor.Data
         /// <inheritdoc/>
         void IEditingPropertySerializer.Write(Utf8JsonWriter writer, object value)
         {
-            Write(writer, (TValue)value);
+            if (value is null)
+            {
+                Write(writer, default!);
+            }
+            else
+            {
+                Write(writer, (TValue)value);
+            }
         }
 
         /// <inheritdoc/>

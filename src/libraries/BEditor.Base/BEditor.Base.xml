@@ -4,6 +4,27 @@
         <name>BEditor.Base</name>
     </assembly>
     <members>
+        <member name="T:BEditor.Data.AttachedProperty`1">
+            <summary>
+            An attached editing property.
+            </summary>
+            <typeparam name="TValue">The type of the property's value.</typeparam>
+        </member>
+        <member name="M:BEditor.Data.AttachedProperty`1.#ctor(System.String,System.Type)">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Data.AttachedProperty`1"/> class.
+            </summary>
+            <param name="name">The name of the property.</param>
+            <param name="ownerType">The class that is registering the property.</param>
+        </member>
+        <member name="M:BEditor.Data.AttachedProperty`1.WithOwner``1(BEditor.Data.EditingPropertyOptions{`0})">
+            <summary>
+            Registers the attached property on another type.
+            </summary>
+            <typeparam name="TNewOwner">The type of the owner.</typeparam>
+            <param name="options">The property options.</param>
+            <returns>Returns an instance of the editing property registered by this method.</returns>
+        </member>
         <member name="T:BEditor.Data.BasePropertyChanged">
             <summary>
             Represents a class that notifies property changes.
@@ -231,46 +252,68 @@
             <param name="options">The options to be specified.</param>
             <returns>An <see cref="T:BEditor.Data.EditingPropertyOptions`1"/> instance.</returns>
         </member>
-        <member name="T:BEditor.Data.DirectEditingProperty`2">
+        <member name="M:BEditor.Data.DataExtensions.GetObservable``1(BEditor.Data.IEditingObject,BEditor.Data.EditingProperty{``0})">
+            <summary>
+            Gets an observable for a <see cref="T:BEditor.Data.EditingObject"/>.
+            </summary>
+            <param name="obj">The object.</param>
+            <typeparam name="T">The property type.</typeparam>
+            <param name="property">The property.</param>
+            <returns>
+            An observable which fires immediately with the current value of the property on the
+            object and subsequently each time the property value changes.
+            </returns>
+        </member>
+        <member name="M:BEditor.Data.DataExtensions.GetSubject``1(BEditor.Data.IEditingObject,BEditor.Data.EditingProperty{``0})">
+            <summary>
+            Gets a subject for a <see cref="T:BEditor.Data.EditingObject"/>.
+            </summary>
+            <typeparam name="T">The property type.</typeparam>
+            <param name="obj">The object.</param>
+            <param name="property">The property.</param>
+            <returns>
+            An <see cref="T:System.Reactive.Subjects.ISubject`1"/> which can be used for two-way binding to/from the property.
+            </returns>
+        </member>
+        <member name="T:BEditor.Data.DirectProperty`2">
             <summary>
             A direct editing property.
             </summary>
             <typeparam name="TOwner">The type of the owner.</typeparam>
             <typeparam name="TValue">The type of the property.</typeparam>
         </member>
-        <member name="M:BEditor.Data.DirectEditingProperty`2.#ctor(System.Func{`0,`1},System.Action{`0,`1},BEditor.Data.EditingPropertyRegistryKey)">
+        <member name="M:BEditor.Data.DirectProperty`2.#ctor(System.String,System.Func{`0,`1},System.Action{`0,`1})">
             <summary>
-            Initializes a new instance of the <see cref="T:BEditor.Data.DirectEditingProperty`2"/> class.
+            Initializes a new instance of the <see cref="T:BEditor.Data.DirectProperty`2"/> class.
             </summary>
+            <param name="name">The name of the property.</param>
             <param name="getter">Gets the current value of the property.</param>
             <param name="setter">Sets the value of the property.</param>
-            <param name="key">The registry key.</param>
         </member>
-        <member name="P:BEditor.Data.DirectEditingProperty`2.Getter">
+        <member name="P:BEditor.Data.DirectProperty`2.Getter">
             <summary>
             Gets the getter function.
             </summary>
         </member>
-        <member name="P:BEditor.Data.DirectEditingProperty`2.Setter">
+        <member name="P:BEditor.Data.DirectProperty`2.Setter">
             <summary>
             Gets the setter function.
             </summary>
         </member>
-        <member name="M:BEditor.Data.DirectEditingProperty`2.BEditor#Data#IDirectProperty{TValue}#Get(BEditor.Data.IEditingObject)">
+        <member name="M:BEditor.Data.DirectProperty`2.BEditor#Data#IDirectProperty{TValue}#Get(BEditor.Data.IEditingObject)">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Data.DirectEditingProperty`2.BEditor#Data#IDirectProperty{TValue}#Set(BEditor.Data.IEditingObject,`1)">
+        <member name="M:BEditor.Data.DirectProperty`2.BEditor#Data#IDirectProperty{TValue}#Set(BEditor.Data.IEditingObject,`1)">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Data.DirectEditingProperty`2.WithOwner``1(System.Func{``0,`1},System.Action{``0,`1},BEditor.Data.IEditingPropertyInitializer{`1},BEditor.Data.IEditingPropertySerializer{`1})">
+        <member name="M:BEditor.Data.DirectProperty`2.WithOwner``1(System.Func{``0,`1},System.Action{``0,`1},BEditor.Data.EditingPropertyOptions{`1})">
             <summary>
             Registers the direct property on another type.
             </summary>
             <typeparam name="TNewOwner">The type of the owner.</typeparam>
             <param name="getter">Gets the current value of the property.</param>
             <param name="setter">Sets the value of the property.</param>
-            <param name="initializer">The <see cref="T:BEditor.Data.IEditingPropertyInitializer`1"/> that initializes the local value of a property.</param>
-            <param name="serializer">To serialize this property, specify the serializer.</param>
+            <param name="options">The property options.</param>
             <returns>Returns an instance of the editing property registered by this method.</returns>
         </member>
         <member name="T:BEditor.Data.EditingObject">
@@ -336,19 +379,35 @@
         <member name="M:BEditor.Data.EditingObject.OnUnload">
             <inheritdoc cref="M:BEditor.Data.IElementObject.Unload"/>
         </member>
+        <member name="M:BEditor.Data.EditingObject.SetAndRaise``1(BEditor.Data.EditingProperty{``0},``0@,``0)">
+            <summary>
+            Sets the backing field for a direct avalonia property, raising the <see cref="E:BEditor.Data.BasePropertyChanged.PropertyChanged"/> event if the value has changed.
+            </summary>
+            <typeparam name="T">The type of the property.</typeparam>
+            <param name="property">The property.</param>
+            <param name="field">The backing field.</param>
+            <param name="value">The value.</param>
+            <returns>
+            True if the value changed, otherwise false.
+            </returns>
+        </member>
         <member name="T:BEditor.Data.EditingProperty">
             <summary>
             Represents the properties of the edited data.
             </summary>
         </member>
-        <member name="M:BEditor.Data.EditingProperty.#ctor(System.Type,BEditor.Data.EditingPropertyRegistryKey)">
+        <member name="M:BEditor.Data.EditingProperty.#ctor(System.String,System.Type,System.Type)">
             <summary>
             Initializes a new instance of the <see cref="T:BEditor.Data.EditingProperty"/> class.
             </summary>
+            <param name="name">The name of the property.</param>
             <param name="value">The type of the local value.</param>
-            <param name="key">The registry key.</param>
+            <param name="owner">The owner type.</param>
         </member>
         <member name="P:BEditor.Data.EditingProperty.IsDisposable">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Data.EditingProperty.NotifyPropertyChanged">
             <inheritdoc/>
         </member>
         <member name="P:BEditor.Data.EditingProperty.Name">
@@ -376,7 +435,7 @@
             Gets the <see cref="T:BEditor.Data.IEditingPropertySerializer"/> that serializes the local value of this <see cref="T:BEditor.Data.EditingProperty"/>.
             </summary>
         </member>
-        <member name="P:BEditor.Data.EditingProperty.Key">
+        <member name="P:BEditor.Data.EditingProperty.Id">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Data.EditingProperty.Register``2(System.String,BEditor.Data.EditingPropertyOptions{``0})">
@@ -398,6 +457,16 @@
             <param name="name">The name of the property.</param>
             <param name="getter">Gets the current value of the property.</param>
             <param name="setter">Sets the value of the property.</param>
+            <param name="options">The property options.</param>
+            <returns>Returns the registered <see cref="T:BEditor.Data.EditingProperty`1"/>.</returns>
+        </member>
+        <member name="M:BEditor.Data.EditingProperty.RegisterAttached``2(System.String,BEditor.Data.EditingPropertyOptions{``0})">
+            <summary>
+            Registers a attached <see cref="T:BEditor.Data.EditingProperty"/>.
+            </summary>
+            <typeparam name="TValue">The type of the property.</typeparam>
+            <typeparam name="TOwner">The type of the owner.</typeparam>
+            <param name="name">The name of the property.</param>
             <param name="options">The property options.</param>
             <returns>Returns the registered <see cref="T:BEditor.Data.EditingProperty`1"/>.</returns>
         </member>
@@ -438,6 +507,11 @@
         <member name="P:BEditor.Data.EditingPropertyOptions`1.IsDisposable">
             <summary>
             Gets or sets the value of whether to delete with <see cref="M:BEditor.Data.EditingObject.ClearDisposable"/>.
+            </summary>
+        </member>
+        <member name="P:BEditor.Data.EditingPropertyOptions`1.NotifyPropertyChanged">
+            <summary>
+            Gets or sets whether to be notified of property changes.
             </summary>
         </member>
         <member name="M:BEditor.Data.EditingPropertyOptions`1.Create(BEditor.Data.IEditingPropertyInitializer{`0},BEditor.Data.IEditingPropertySerializer{`0},System.Boolean)">
@@ -485,120 +559,118 @@
             <param name="value">The value of <see cref="P:BEditor.Data.EditingPropertyOptions`1.IsDisposable"/>.</param>
             <returns>An <see cref="T:BEditor.Data.EditingPropertyOptions`1"/> instance.</returns>
         </member>
+        <member name="M:BEditor.Data.EditingPropertyOptions`1.Notify(System.Boolean)">
+            <summary>
+            Sets the value of whether to be notified of property changes.
+            </summary>
+            <param name="value">The value of <see cref="P:BEditor.Data.EditingPropertyOptions`1.IsDisposable"/>.</param>
+            <returns>An <see cref="T:BEditor.Data.EditingPropertyOptions`1"/> instance.</returns>
+        </member>
         <member name="T:BEditor.Data.EditingPropertyRegistry">
             <summary>
              Tracks registered <see cref="T:BEditor.Data.EditingProperty"/> instances.
             </summary>
         </member>
-        <member name="M:BEditor.Data.EditingPropertyRegistry.Register(BEditor.Data.EditingPropertyRegistryKey,BEditor.Data.EditingProperty)">
+        <member name="M:BEditor.Data.EditingPropertyRegistry.GetRegistered(System.Type)">
             <summary>
-            Register the <see cref="T:BEditor.Data.EditingProperty"/>.
+            Gets all non-attached <see cref="T:BEditor.Data.EditingProperty"/>s registered on a type.
             </summary>
-            <param name="key">The key of the property to register.</param>
-            <param name="property">The property to register.</param>
-            <exception cref="T:BEditor.Data.DataException">This key has already been registered.</exception>
+            <param name="type">The type.</param>
+            <returns>A collection of <see cref="T:BEditor.Data.EditingProperty"/> definitions.</returns>
         </member>
-        <member name="M:BEditor.Data.EditingPropertyRegistry.GetProperties``1">
+        <member name="M:BEditor.Data.EditingPropertyRegistry.GetRegisteredAttached(System.Type)">
             <summary>
-            Gets the editing properties of the specified type.
+            Gets all attached <see cref="T:BEditor.Data.EditingProperty"/>s registered on a type.
             </summary>
-            <typeparam name="T">The type that contains the property to be retrieved.</typeparam>
-            <returns>The properties contained in the specified type.</returns>
+            <param name="type">The type.</param>
+            <returns>A collection of <see cref="T:BEditor.Data.EditingProperty"/> definitions.</returns>
         </member>
-        <member name="M:BEditor.Data.EditingPropertyRegistry.GetProperties(System.Type)">
+        <member name="M:BEditor.Data.EditingPropertyRegistry.GetRegisteredDirect(System.Type)">
             <summary>
-            Gets the editing properties of the specified type.
+            Gets all direct <see cref="T:BEditor.Data.EditingProperty"/>s registered on a type.
             </summary>
-            <param name="type">The type that contains the property to be retrieved.</param>
-            <returns>The properties contained in the specified type.</returns>
+            <param name="type">The type.</param>
+            <returns>A collection of <see cref="T:BEditor.Data.EditingProperty"/> definitions.</returns>
         </member>
-        <member name="M:BEditor.Data.EditingPropertyRegistry.GetSerializableProperties``1">
+        <member name="M:BEditor.Data.EditingPropertyRegistry.GetRegistered(BEditor.Data.IEditingProperty)">
             <summary>
-            Gets the serializable editing properties of the specified type.
+            Gets all <see cref="T:BEditor.Data.EditingProperty"/>s registered on a object.
             </summary>
-            <typeparam name="T">The type that contains the property to be retrieved.</typeparam>
-            <returns>The properties contained in the specified type.</returns>
+            <param name="o">The object.</param>
+            <returns>A collection of <see cref="T:BEditor.Data.EditingProperty"/> definitions.</returns>
         </member>
-        <member name="M:BEditor.Data.EditingPropertyRegistry.GetSerializableProperties(System.Type)">
+        <member name="M:BEditor.Data.EditingPropertyRegistry.FindRegistered(System.Type,System.String)">
             <summary>
-            Gets the serializable editing properties of the specified type.
+            Finds a registered property on a type by name.
             </summary>
-            <param name="type">The type that contains the property to be retrieved.</param>
-            <returns>The properties contained in the specified type.</returns>
+            <param name="type">The type.</param>
+            <param name="name">The property name.</param>
+            <returns>
+            The registered property or null if no matching property found.
+            </returns>
+            <exception cref="T:System.InvalidOperationException">
+            The property name contains a '.'.
+            </exception>
         </member>
-        <member name="M:BEditor.Data.EditingPropertyRegistry.GetInitializableProperties``1">
+        <member name="M:BEditor.Data.EditingPropertyRegistry.FindRegistered(BEditor.Data.IEditingObject,System.String)">
             <summary>
-            Gets automatically initializable editing properties of the specified type.
+            Finds a registered property on an object by name.
             </summary>
-            <typeparam name="T">The type that contains the property to be retrieved.</typeparam>
-            <returns>The properties contained in the specified type.</returns>
+            <param name="o">The object.</param>
+            <param name="name">The property name.</param>
+            <returns>
+            The registered property or null if no matching property found.
+            </returns>
+            <exception cref="T:System.InvalidOperationException">
+            The property name contains a '.'.
+            </exception>
         </member>
-        <member name="M:BEditor.Data.EditingPropertyRegistry.GetInitializableProperties(System.Type)">
+        <member name="M:BEditor.Data.EditingPropertyRegistry.FindRegistered(System.Int32)">
             <summary>
-            Gets automatically initializable editing properties of the specified type.
+            Finds a registered property by Id.
             </summary>
-            <param name="type">The type that contains the property to be retrieved.</param>
-            <returns>The properties contained in the specified type.</returns>
+            <param name="id">The property Id.</param>
+            <returns>The registered property or null if no matching property found.</returns>
         </member>
-        <member name="M:BEditor.Data.EditingPropertyRegistry.IsRegistered(BEditor.Data.EditingPropertyRegistryKey)">
+        <member name="M:BEditor.Data.EditingPropertyRegistry.IsRegistered(System.Type,BEditor.Data.EditingProperty)">
             <summary>
-            Gets whether the property has already been registered.
+            Checks whether a <see cref="T:BEditor.Data.EditingProperty"/> is registered on a type.
             </summary>
-            <param name="key">The key of the property to check if the property is already registered.</param>
-            <returns>Returns <see langword="true"/> if already registered, <see langword="false"/> otherwise.</returns>
+            <param name="type">The type.</param>
+            <param name="property">The property.</param>
+            <returns>True if the property is registered, otherwise false.</returns>
         </member>
-        <member name="T:BEditor.Data.EditingPropertyRegistryKey">
+        <member name="M:BEditor.Data.EditingPropertyRegistry.IsRegistered(System.Object,BEditor.Data.EditingProperty)">
             <summary>
-            Represents the key used in <see cref="T:BEditor.Data.EditingPropertyRegistry"/>.
+            Checks whether a <see cref="T:BEditor.Data.EditingProperty"/> is registered on a object.
             </summary>
+            <param name="o">The object.</param>
+            <param name="property">The property.</param>
+            <returns>True if the property is registered, otherwise false.</returns>
         </member>
-        <member name="M:BEditor.Data.EditingPropertyRegistryKey.#ctor(System.String,System.Type,System.Boolean)">
+        <member name="M:BEditor.Data.EditingPropertyRegistry.Register(System.Type,BEditor.Data.EditingProperty)">
             <summary>
-            Initializes a new instance of the <see cref="T:BEditor.Data.EditingPropertyRegistryKey"/> class.
+            Registers a <see cref="T:BEditor.Data.EditingProperty"/> on a type.
             </summary>
-            <param name="name">The name of the property.</param>
-            <param name="ownerType">The owner type of the property.</param>
-            <param name="isDisposable">The value of whether to delete with <see cref="M:BEditor.Data.EditingObject.ClearDisposable"/>.</param>
+            <param name="type">The type.</param>
+            <param name="property">The property.</param>
+            <remarks>
+            You won't usually want to call this method directly, instead use the
+            <see cref="M:BEditor.Data.EditingProperty.Register``2(System.String,BEditor.Data.EditingPropertyOptions{``0})"/>
+            method.
+            </remarks>
         </member>
-        <member name="P:BEditor.Data.EditingPropertyRegistryKey.Name">
+        <member name="M:BEditor.Data.EditingPropertyRegistry.RegisterAttached(System.Type,BEditor.Data.EditingProperty)">
             <summary>
-            Gets the name of the property.
+            Registers an attached <see cref="T:BEditor.Data.EditingProperty"/> on a type.
             </summary>
-        </member>
-        <member name="P:BEditor.Data.EditingPropertyRegistryKey.OwnerType">
-            <summary>
-            Gets the owner type of the property.
-            </summary>
-        </member>
-        <member name="P:BEditor.Data.EditingPropertyRegistryKey.IsDisposable">
-            <summary>
-            Gets the value of whether to delete with <see cref="M:BEditor.Data.EditingObject.ClearDisposable"/>.
-            </summary>
-        </member>
-        <member name="M:BEditor.Data.EditingPropertyRegistryKey.op_Equality(BEditor.Data.EditingPropertyRegistryKey,BEditor.Data.EditingPropertyRegistryKey)">
-            <summary>
-            Compares two <see cref="T:BEditor.Data.EditingPropertyRegistryKey"/>. The result specifies whether the values of the two <see cref="T:BEditor.Data.EditingPropertyRegistryKey"/> are equal.
-            </summary>
-            <param name="left">A <see cref="T:BEditor.Data.EditingPropertyRegistryKey"/> to compare.</param>
-            <param name="right">A <see cref="T:BEditor.Data.EditingPropertyRegistryKey"/> to compare.</param>
-            <returns>true if the left and right <see cref="T:BEditor.Data.EditingPropertyRegistryKey"/> are equal; otherwise, false.</returns>
-        </member>
-        <member name="M:BEditor.Data.EditingPropertyRegistryKey.op_Inequality(BEditor.Data.EditingPropertyRegistryKey,BEditor.Data.EditingPropertyRegistryKey)">
-            <summary>
-            Determines whether the coordinates of the specified points are not equal.
-            </summary>
-            <param name="left">A <see cref="T:BEditor.Data.EditingPropertyRegistryKey"/> to compare.</param>
-            <param name="right">A <see cref="T:BEditor.Data.EditingPropertyRegistryKey"/> to compare.</param>
-            <returns>true if the left and right <see cref="T:BEditor.Data.EditingPropertyRegistryKey"/> differ; otherwise, false.</returns>
-        </member>
-        <member name="M:BEditor.Data.EditingPropertyRegistryKey.Equals(System.Object)">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Data.EditingPropertyRegistryKey.Equals(BEditor.Data.EditingPropertyRegistryKey)">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Data.EditingPropertyRegistryKey.GetHashCode">
-            <inheritdoc/>
+            <param name="type">The type.</param>
+            <param name="property">The property.</param>
+            <remarks>
+            You won't usually want to call this method directly, instead use the
+            <see cref="M:BEditor.Data.EditingProperty.RegisterAttached``2(System.String,BEditor.Data.EditingPropertyOptions{``0})"/>
+            method.
+            </remarks>
         </member>
         <member name="T:BEditor.Data.EditingPropertySerializer`1">
             <summary>
@@ -625,11 +697,12 @@
             </summary>
             <typeparam name="TValue">The type of the property.</typeparam>
         </member>
-        <member name="M:BEditor.Data.EditingProperty`1.#ctor(BEditor.Data.EditingPropertyRegistryKey)">
+        <member name="M:BEditor.Data.EditingProperty`1.#ctor(System.String,System.Type)">
             <summary>
             Initializes a new instance of the <see cref="T:BEditor.Data.EditingProperty`1"/> class.
             </summary>
-            <param name="key">The registry key..</param>
+            <param name="name">The name of the property.</param>
+            <param name="owner">The owner type.</param>
         </member>
         <member name="P:BEditor.Data.EditingProperty`1.Serializer">
             <summary>
@@ -724,6 +797,11 @@
             Get the value of whether to delete with <see cref="M:BEditor.Data.EditingObject.ClearDisposable"/>.
             </summary>
         </member>
+        <member name="P:BEditor.Data.IEditingProperty.NotifyPropertyChanged">
+            <summary>
+            Gets whether to be notified of property changes.
+            </summary>
+        </member>
         <member name="P:BEditor.Data.IEditingProperty.Name">
             <summary>
             Gets the name of this <see cref="T:BEditor.Data.IEditingProperty"/>.
@@ -739,6 +817,11 @@
             Gets the value type of this <see cref="T:BEditor.Data.IEditingProperty"/>.
             </summary>
         </member>
+        <member name="P:BEditor.Data.IEditingProperty.Id">
+            <summary>
+            Gets the Id.
+            </summary>
+        </member>
         <member name="P:BEditor.Data.IEditingProperty.Initializer">
             <summary>
             Gets the <see cref="T:BEditor.Data.IEditingPropertyInitializer"/> that initializes the local value of this <see cref="T:BEditor.Data.IEditingProperty"/>.
@@ -747,11 +830,6 @@
         <member name="P:BEditor.Data.IEditingProperty.Serializer">
             <summary>
             Gets the <see cref="T:BEditor.Data.IEditingPropertySerializer"/> that serializes the local value of this <see cref="T:BEditor.Data.IEditingProperty"/>.
-            </summary>
-        </member>
-        <member name="P:BEditor.Data.IEditingProperty.Key">
-            <summary>
-            Gets the registry key.
             </summary>
         </member>
         <member name="T:BEditor.Data.IEditingPropertyInitializer">

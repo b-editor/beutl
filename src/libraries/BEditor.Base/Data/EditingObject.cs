@@ -7,7 +7,9 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Threading.Tasks;
 
@@ -26,7 +28,7 @@ namespace BEditor.Data
         /// <summary>
         /// Defines the <see cref="Id"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<EditingObject, Guid> IdProperty = EditingProperty.RegisterDirect<Guid, EditingObject>(
+        public static readonly DirectProperty<EditingObject, Guid> IdProperty = EditingProperty.RegisterDirect<Guid, EditingObject>(
             "Id,ID",
             owner => owner.Id,
             (owner, obj) => owner.Id = obj,
@@ -34,7 +36,7 @@ namespace BEditor.Data
                 .Serialize()
                 .Initialize(() => Guid.NewGuid()));
 
-        private Dictionary<EditingPropertyRegistryKey, object?>? _values = new();
+        private Dictionary<int, object?>? _values = new();
 
         private Type? _ownerType;
 
@@ -46,8 +48,8 @@ namespace BEditor.Data
             // static コンストラクターを呼び出す
             InvokeStaticInititlizer();
 
-            // DirectEditingPropertyかつInitializerがnullじゃない
-            foreach (var prop in EditingPropertyRegistry.GetInitializableProperties(OwnerType))
+            // DirectPropertyかつInitializerがnullじゃない
+            foreach (var prop in GetInitializable())
             {
                 if (prop is IDirectProperty direct && direct.Get(this) is null)
                 {
@@ -65,7 +67,7 @@ namespace BEditor.Data
         /// <inheritdoc/>
         public Guid Id { get; protected set; } = Guid.NewGuid();
 
-        private Dictionary<EditingPropertyRegistryKey, object?> Values => _values ??= new();
+        private Dictionary<int, object?> Values => _values ??= new();
 
         private Type OwnerType => _ownerType ??= GetType();
 
@@ -100,16 +102,16 @@ namespace BEditor.Data
                 return value;
             }
 
-            if (!Values.ContainsKey(property.Key))
+            if (!Values.ContainsKey(property.Id))
             {
                 var value = property.Initializer is null ? default! : property.Initializer.Create();
 
-                Values.Add(property.Key, value);
+                Values.Add(property.Id, value);
 
                 return value;
             }
 
-            return (TValue)Values[property.Key]!;
+            return (TValue)Values[property.Id]!;
         }
 
         /// <inheritdoc/>
@@ -136,15 +138,15 @@ namespace BEditor.Data
                 return value;
             }
 
-            if (!Values.ContainsKey(property.Key))
+            if (!Values.ContainsKey(property.Id))
             {
                 var value = property.Initializer?.Create();
-                Values.Add(property.Key, value);
+                Values.Add(property.Id, value);
 
                 return value;
             }
 
-            return Values[property.Key];
+            return Values[property.Id];
         }
 
         /// <inheritdoc/>
@@ -155,19 +157,25 @@ namespace BEditor.Data
                 throw new DataException(Strings.TheOwnerTypeDoesNotMatch);
             }
 
+            var old = (TValue?)default;
             if (property is IDirectProperty<TValue> directProp)
             {
+                old = directProp.Get(this);
                 directProp.Set(this, value);
 
-                return;
+                goto RaiseEvent;
             }
 
             if (AddIfNotExist(property, value))
             {
-                return;
+                goto RaiseEvent;
             }
 
-            Values[property.Key] = value;
+            old = (TValue?)Values[property.Id];
+            Values[property.Id] = value;
+
+        RaiseEvent:
+            RaisePropertyChanged(property, old, value);
         }
 
         /// <inheritdoc/>
@@ -178,19 +186,25 @@ namespace BEditor.Data
 
             if (CheckOwnerType(this, property)) throw new DataException(Strings.TheOwnerTypeDoesNotMatch);
 
+            object? old = null;
             if (property is IDirectProperty directProp)
             {
+                old = directProp.Get(this);
                 directProp.Set(this, value!);
 
-                return;
+                goto RaiseEvent;
             }
 
             if (AddIfNotExist(property, value))
             {
-                return;
+                goto RaiseEvent;
             }
 
-            Values[property.Key] = value;
+            old = Values[property.Id];
+            Values[property.Id] = value;
+
+        RaiseEvent:
+            RaisePropertyChanged(property, old, value);
         }
 
         /// <inheritdoc/>
@@ -207,10 +221,16 @@ namespace BEditor.Data
                 }
             }
 
-            foreach (var value in Values.Where(i => i.Key.IsDisposable).ToArray())
+            foreach (var value in Values
+                .Select(i => EditingPropertyRegistry.FindRegistered(i.Key))
+                .Where(i => i?.IsDisposable == true)
+                .ToArray())
             {
-                (value.Value as IDisposable)?.Dispose();
-                Values.Remove(value.Key);
+                if (Values.ContainsKey(value!.Id))
+                {
+                    (Values[value.Id] as IDisposable)?.Dispose();
+                    Values.Remove(value.Id);
+                }
             }
 
             ClearChildren(this);
@@ -235,7 +255,7 @@ namespace BEditor.Data
 
             if (this is IParent<IEditingObject> obj2)
             {
-                foreach (var prop in EditingPropertyRegistry.GetProperties(OwnerType))
+                foreach (var prop in EditingPropertyRegistry.GetRegistered(OwnerType))
                 {
                     if (prop.Initializer is not null && this[prop] is IHasMetadata value)
                     {
@@ -273,7 +293,7 @@ namespace BEditor.Data
         /// <inheritdoc/>
         public virtual void GetObjectData(Utf8JsonWriter writer)
         {
-            foreach (var prop in EditingPropertyRegistry.GetSerializableProperties(OwnerType))
+            foreach (var prop in GetSerializable())
             {
                 var value = GetValue(prop);
 
@@ -290,7 +310,7 @@ namespace BEditor.Data
             // static コンストラクターを呼び出す
             InvokeStaticInititlizer();
 
-            foreach (var prop in EditingPropertyRegistry.GetSerializableProperties(OwnerType))
+            foreach (var prop in GetSerializable())
             {
                 SetValue(prop, element.Read(prop));
             }
@@ -320,6 +340,21 @@ namespace BEditor.Data
         {
         }
 
+        /// <summary>
+        /// Sets the backing field for a direct avalonia property, raising the <see cref="BasePropertyChanged.PropertyChanged"/> event if the value has changed.
+        /// </summary>
+        /// <typeparam name="T">The type of the property.</typeparam>
+        /// <param name="property">The property.</param>
+        /// <param name="field">The backing field.</param>
+        /// <param name="value">The value.</param>
+        /// <returns>
+        /// True if the value changed, otherwise false.
+        /// </returns>
+        protected bool SetAndRaise<T>(EditingProperty<T> property, ref T field, T value)
+        {
+            return SetAndRaise(value, ref field, property.Name);
+        }
+
         // 値の型が一致しない場合はtrue
         private static bool CheckValueType(EditingProperty property, object value)
         {
@@ -339,9 +374,9 @@ namespace BEditor.Data
         // 追加した場合はtrue
         private bool AddIfNotExist(EditingProperty property, object? value)
         {
-            if (!Values.ContainsKey(property.Key))
+            if (!Values.ContainsKey(property.Id))
             {
-                Values.Add(property.Key, value);
+                Values.Add(property.Id, value);
 
                 return true;
             }
@@ -351,9 +386,9 @@ namespace BEditor.Data
 
         private bool AddIfNotExist<TValue>(EditingProperty property, TValue value)
         {
-            if (!Values.ContainsKey(property.Key))
+            if (!Values.ContainsKey(property.Id))
             {
-                Values.Add(property.Key, value);
+                Values.Add(property.Id, value);
 
                 return true;
             }
@@ -361,10 +396,40 @@ namespace BEditor.Data
             return false;
         }
 
+        private IEnumerable<EditingProperty> GetInitializable()
+        {
+            return EditingPropertyRegistry.GetRegistered(OwnerType)
+                .Where(i => i is IDirectProperty && i.Initializer is not null);
+        }
+
+        private IEnumerable<EditingProperty> GetSerializable()
+        {
+            return EditingPropertyRegistry.GetRegistered(OwnerType)
+                .Where(i => i.Serializer is not null);
+        }
+
+        private void RaisePropertyChanged(EditingProperty property, object? old, object? @new)
+        {
+            if (property.NotifyPropertyChanged && @new?.Equals(old) != true)
+            {
+                RaisePropertyChanged(new(property.Name));
+            }
+        }
+
+        private void RaisePropertyChanged<TValue>(EditingProperty property, TValue? old, TValue? @new)
+        {
+            if (property.NotifyPropertyChanged)
+            {
+                if (@new == null || !@new.Equals(old))
+                {
+                    RaisePropertyChanged(new(property.Name));
+                }
+            }
+        }
+
         private void InvokeStaticInititlizer()
         {
-            OwnerType.TypeInitializer?.Invoke(null, null);
-            OwnerType.BaseType?.TypeInitializer?.Invoke(null, null);
+            RuntimeHelpers.RunClassConstructor(OwnerType.TypeHandle);
         }
     }
 }

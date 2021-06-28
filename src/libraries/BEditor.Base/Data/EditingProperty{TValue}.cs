@@ -5,6 +5,8 @@
 // This software may be modified and distributed under the terms
 // of the MIT license. See the LICENSE file for details.
 
+using System;
+
 namespace BEditor.Data
 {
     /// <summary>
@@ -16,9 +18,10 @@ namespace BEditor.Data
         /// <summary>
         /// Initializes a new instance of the <see cref="EditingProperty{TValue}"/> class.
         /// </summary>
-        /// <param name="key">The registry key..</param>
-        public EditingProperty(EditingPropertyRegistryKey key)
-            : base(typeof(TValue), key)
+        /// <param name="name">The name of the property.</param>
+        /// <param name="owner">The owner type.</param>
+        public EditingProperty(string name, Type owner)
+            : base(name, typeof(TValue), owner)
         {
         }
 

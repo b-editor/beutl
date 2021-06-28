@@ -7,7 +7,12 @@
 
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics.Contracts;
+using System.Reactive;
+using System.Reactive.Disposables;
+using System.Reactive.Linq;
+using System.Reactive.Subjects;
 
 namespace BEditor.Data
 {
@@ -292,6 +297,41 @@ namespace BEditor.Data
             return options.Serialize(
                 (writer, value) => writer.WriteStringValue(value),
                 element => element.GetDateTimeOffset());
+        }
+
+        /// <summary>
+        /// Gets an observable for a <see cref="EditingObject"/>.
+        /// </summary>
+        /// <param name="obj">The object.</param>
+        /// <typeparam name="T">The property type.</typeparam>
+        /// <param name="property">The property.</param>
+        /// <returns>
+        /// An observable which fires immediately with the current value of the property on the
+        /// object and subsequently each time the property value changes.
+        /// </returns>
+        public static IObservable<T> GetObservable<T>(this IEditingObject obj, EditingProperty<T> property)
+        {
+            if (obj is null) throw new ArgumentNullException(nameof(obj));
+            if (property is null) throw new ArgumentNullException(nameof(property));
+
+            return new EditingObjectSubject<T>(obj, property);
+        }
+
+        /// <summary>
+        /// Gets a subject for a <see cref="EditingObject"/>.
+        /// </summary>
+        /// <typeparam name="T">The property type.</typeparam>
+        /// <param name="obj">The object.</param>
+        /// <param name="property">The property.</param>
+        /// <returns>
+        /// An <see cref="ISubject{T}"/> which can be used for two-way binding to/from the property.
+        /// </returns>
+        public static ISubject<T> GetSubject<T>(this IEditingObject obj, EditingProperty<T> property)
+        {
+            if (obj is null) throw new ArgumentNullException(nameof(obj));
+            if (property is null) throw new ArgumentNullException(nameof(property));
+
+            return new EditingObjectSubject<T>(obj, property);
         }
     }
 }

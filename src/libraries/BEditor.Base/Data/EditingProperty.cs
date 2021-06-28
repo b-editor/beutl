@@ -17,29 +17,37 @@ namespace BEditor.Data
     /// </summary>
     public abstract class EditingProperty : IEditingProperty
     {
+        private static int _nextId;
+
         /// <summary>
         /// Initializes a new instance of the <see cref="EditingProperty"/> class.
         /// </summary>
+        /// <param name="name">The name of the property.</param>
         /// <param name="value">The type of the local value.</param>
-        /// <param name="key">The registry key.</param>
-        protected EditingProperty(Type value, EditingPropertyRegistryKey key)
+        /// <param name="owner">The owner type.</param>
+        protected EditingProperty(string name, Type value, Type owner)
         {
+            Name = name;
             ValueType = value;
-            Key = key;
+            OwnerType = owner;
+            Id = _nextId++;
         }
 
         /// <inheritdoc/>
-        public bool IsDisposable => Key.IsDisposable;
+        public bool IsDisposable { get; init; }
+
+        /// <inheritdoc/>
+        public bool NotifyPropertyChanged { get; init; }
 
         /// <summary>
         /// Gets the name of this <see cref="EditingProperty"/>.
         /// </summary>
-        public string Name => Key.Name;
+        public string Name { get; }
 
         /// <summary>
         /// Gets the owner type of this <see cref="EditingProperty"/>.
         /// </summary>
-        public Type OwnerType => Key.OwnerType;
+        public Type OwnerType { get; }
 
         /// <summary>
         /// Gets the value type of this <see cref="EditingProperty"/>.
@@ -57,7 +65,7 @@ namespace BEditor.Data
         public IEditingPropertySerializer? Serializer { get; init; }
 
         /// <inheritdoc/>
-        public EditingPropertyRegistryKey Key { get; }
+        public int Id { get; }
 
         /// <summary>
         /// Registers a <see cref="EditingProperty"/>.
@@ -70,20 +78,14 @@ namespace BEditor.Data
         public static EditingProperty<TValue> Register<TValue, TOwner>(string name, EditingPropertyOptions<TValue> options = default)
             where TOwner : IEditingObject
         {
-            var key = new EditingPropertyRegistryKey(name, typeof(TOwner), options.IsDisposable);
-
-            if (EditingPropertyRegistry.IsRegistered(key))
-            {
-                throw new DataException($"{Strings.KeyHasAlreadyBeenRegisterd}:{key.Name}");
-            }
-
-            var property = new EditingProperty<TValue>(key)
+            var property = new EditingProperty<TValue>(name, typeof(TOwner))
             {
                 Initializer = options.Initializer,
                 Serializer = options.Serializer,
+                IsDisposable = options.IsDisposable,
             };
 
-            EditingPropertyRegistry.RegisterUnChecked(key, property);
+            EditingPropertyRegistry.Register(typeof(TOwner), property);
 
             return property;
         }
@@ -98,27 +100,46 @@ namespace BEditor.Data
         /// <param name="setter">Sets the value of the property.</param>
         /// <param name="options">The property options.</param>
         /// <returns>Returns the registered <see cref="EditingProperty{TValue}"/>.</returns>
-        public static DirectEditingProperty<TOwner, TValue> RegisterDirect<TValue, TOwner>(
+        public static DirectProperty<TOwner, TValue> RegisterDirect<TValue, TOwner>(
             string name,
             Func<TOwner, TValue> getter,
             Action<TOwner, TValue> setter,
             EditingPropertyOptions<TValue> options = default)
             where TOwner : IEditingObject
         {
-            var key = new EditingPropertyRegistryKey(name, typeof(TOwner), false);
-
-            if (EditingPropertyRegistry.IsRegistered(key))
-            {
-                throw new DataException($"{Strings.KeyHasAlreadyBeenRegisterd}:{key.Name}");
-            }
-
-            var property = new DirectEditingProperty<TOwner, TValue>(getter, setter, key)
+            var property = new DirectProperty<TOwner, TValue>(name, getter, setter)
             {
                 Initializer = options.Initializer,
                 Serializer = options.Serializer,
+                IsDisposable = options.IsDisposable,
             };
 
-            EditingPropertyRegistry.RegisterUnChecked(key, property);
+            EditingPropertyRegistry.Register(typeof(TOwner), property);
+
+            return property;
+        }
+
+        /// <summary>
+        /// Registers a attached <see cref="EditingProperty"/>.
+        /// </summary>
+        /// <typeparam name="TValue">The type of the property.</typeparam>
+        /// <typeparam name="TOwner">The type of the owner.</typeparam>
+        /// <param name="name">The name of the property.</param>
+        /// <param name="options">The property options.</param>
+        /// <returns>Returns the registered <see cref="EditingProperty{TValue}"/>.</returns>
+        public static AttachedProperty<TValue> RegisterAttached<TValue, TOwner>(
+            string name,
+            EditingPropertyOptions<TValue> options = default)
+            where TOwner : IEditingObject
+        {
+            var property = new AttachedProperty<TValue>(name, typeof(TOwner))
+            {
+                Initializer = options.Initializer,
+                Serializer = options.Serializer,
+                IsDisposable = options.IsDisposable,
+            };
+
+            EditingPropertyRegistry.RegisterAttached(typeof(TOwner), property);
 
             return property;
         }

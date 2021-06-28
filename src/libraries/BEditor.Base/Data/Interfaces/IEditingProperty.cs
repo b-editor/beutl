@@ -20,6 +20,11 @@ namespace BEditor.Data
         public bool IsDisposable { get; }
 
         /// <summary>
+        /// Gets whether to be notified of property changes.
+        /// </summary>
+        public bool NotifyPropertyChanged { get; }
+
+        /// <summary>
         /// Gets the name of this <see cref="IEditingProperty"/>.
         /// </summary>
         public string Name { get; }
@@ -35,6 +40,11 @@ namespace BEditor.Data
         public Type ValueType { get; }
 
         /// <summary>
+        /// Gets the Id.
+        /// </summary>
+        public int Id { get; }
+
+        /// <summary>
         /// Gets the <see cref="IEditingPropertyInitializer"/> that initializes the local value of this <see cref="IEditingProperty"/>.
         /// </summary>
         public IEditingPropertyInitializer? Initializer { get; }
@@ -43,10 +53,5 @@ namespace BEditor.Data
         /// Gets the <see cref="IEditingPropertySerializer"/> that serializes the local value of this <see cref="IEditingProperty"/>.
         /// </summary>
         public IEditingPropertySerializer? Serializer { get; init; }
-
-        /// <summary>
-        /// Gets the registry key.
-        /// </summary>
-        public EditingPropertyRegistryKey Key { get; }
     }
 }

@@ -16,7 +16,14 @@ namespace BEditor.Data
 
         void IDirectProperty.Set(IEditingObject owner, object value)
         {
-            Set(owner, (TValue)value);
+            if (value is null)
+            {
+                Set(owner, default!);
+            }
+            else
+            {
+                Set(owner, (TValue)value);
+            }
         }
 
         public new TValue Get(IEditingObject owner);

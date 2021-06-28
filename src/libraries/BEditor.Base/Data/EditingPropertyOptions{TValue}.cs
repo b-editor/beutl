@@ -32,6 +32,11 @@ namespace BEditor.Data
         public bool IsDisposable { get; set; }
 
         /// <summary>
+        /// Gets or sets whether to be notified of property changes.
+        /// </summary>
+        public bool NotifyPropertyChanged { get; set; }
+
+        /// <summary>
         /// Initialize with each option specified.
         /// </summary>
         /// <param name="initializer">The <see cref="IEditingPropertyInitializer{T}"/> that initializes the local value of a property.</param>
@@ -104,6 +109,17 @@ namespace BEditor.Data
         public EditingPropertyOptions<TValue> Disposable(bool value)
         {
             IsDisposable = value;
+            return this;
+        }
+
+        /// <summary>
+        /// Sets the value of whether to be notified of property changes.
+        /// </summary>
+        /// <param name="value">The value of <see cref="IsDisposable"/>.</param>
+        /// <returns>An <see cref="EditingPropertyOptions{TValue}"/> instance.</returns>
+        public EditingPropertyOptions<TValue> Notify(bool value)
+        {
+            NotifyPropertyChanged = value;
             return this;
         }
     }
