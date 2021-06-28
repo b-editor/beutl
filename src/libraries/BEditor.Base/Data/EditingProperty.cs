@@ -27,7 +27,8 @@ namespace BEditor.Data
         /// <param name="owner">The owner type.</param>
         protected EditingProperty(string name, Type value, Type owner)
         {
-            Name = name;
+            Names = name.Split(',');
+            Name = Names[0];
             ValueType = value;
             OwnerType = owner;
             Id = _nextId++;
@@ -43,6 +44,11 @@ namespace BEditor.Data
         /// Gets the name of this <see cref="EditingProperty"/>.
         /// </summary>
         public string Name { get; }
+
+        /// <summary>
+        /// Gets the names of this <see cref="EditingProperty"/>.
+        /// </summary>
+        public string[] Names { get; }
 
         /// <summary>
         /// Gets the owner type of this <see cref="EditingProperty"/>.

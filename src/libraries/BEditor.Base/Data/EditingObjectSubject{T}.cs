@@ -26,6 +26,7 @@ namespace BEditor.Data
         {
             _object = o;
             _property = property;
+            o.PropertyChanged += Object_PropertyChanged;
         }
 
         public override bool HasObservers { get; }
@@ -36,6 +37,7 @@ namespace BEditor.Data
         {
             if (!_isDisposed)
             {
+                _object!.PropertyChanged -= Object_PropertyChanged;
                 _list.Clear();
                 _object = null;
                 _isDisposed = true;
@@ -62,20 +64,30 @@ namespace BEditor.Data
 
             _list.Add(observer);
 
-            try
-            {
-                observer.OnNext(_object!.GetValue(_property));
-            }
-            catch (Exception e)
-            {
-                observer.OnError(e);
-            }
-
             return Disposable.Create((observer, _list), o =>
             {
                 o.observer.OnCompleted();
                 o._list.Remove(o.observer);
             });
+        }
+
+        private void Object_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName != _property.Name) return;
+            if (_isDisposed) throw new ObjectDisposedException(nameof(EditingObjectSubject<T>));
+
+            var value = _object!.GetValue(_property);
+            foreach (var item in _list)
+            {
+                try
+                {
+                    item.OnNext(value);
+                }
+                catch (Exception ex)
+                {
+                    item.OnError(ex);
+                }
+            }
         }
     }
 }

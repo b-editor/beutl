@@ -415,6 +415,11 @@
             Gets the name of this <see cref="T:BEditor.Data.EditingProperty"/>.
             </summary>
         </member>
+        <member name="P:BEditor.Data.EditingProperty.Names">
+            <summary>
+            Gets the names of this <see cref="T:BEditor.Data.EditingProperty"/>.
+            </summary>
+        </member>
         <member name="P:BEditor.Data.EditingProperty.OwnerType">
             <summary>
             Gets the owner type of this <see cref="T:BEditor.Data.EditingProperty"/>.

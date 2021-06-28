@@ -7,6 +7,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Runtime.CompilerServices;
@@ -352,7 +353,21 @@ namespace BEditor.Data
         /// </returns>
         protected bool SetAndRaise<T>(EditingProperty<T> property, ref T field, T value)
         {
-            return SetAndRaise(value, ref field, property.Name);
+            if (value == null || !value.Equals(field))
+            {
+                field = value;
+
+                if (property.NotifyPropertyChanged)
+                {
+                    RaisePropertyChanged(new PropertyChangedEventArgs(property.Name));
+                }
+
+                return true;
+            }
+            else
+            {
+                return false;
+            }
         }
 
         // 値の型が一致しない場合はtrue

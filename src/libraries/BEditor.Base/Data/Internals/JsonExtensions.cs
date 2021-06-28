@@ -16,7 +16,7 @@ namespace BEditor.Data.Internals
         {
             if (property.Serializer is not null)
             {
-                writer.WritePropertyName(property.Name.Split(',')[0]);
+                writer.WritePropertyName(property.Name);
 
                 property.Serializer.Write(writer, value);
             }
@@ -30,7 +30,7 @@ namespace BEditor.Data.Internals
 
         public static object? Read(this JsonElement element, EditingProperty property)
         {
-            foreach (var item in property.Name.Split(','))
+            foreach (var item in property.Names)
             {
                 if (element.TryGetProperty(item, out var value))
                 {
