@@ -47,9 +47,8 @@ namespace BEditor.ViewModels.Start
 
                 if (project is null) return;
 
-                await Task.Run(async () =>
+                await Task.Run(() =>
                 {
-                    await TypeEarlyInitializer.AllInitializeAsync();
                     project.Load();
 
                     app.Project = project;

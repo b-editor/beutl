@@ -49,7 +49,10 @@ namespace BEditor.Models
             }
             else if (args.Length is 2)
             {
-                if (Path.GetExtension(args[1]) is ".bedit") return () => OpenProjectAsync(args[1]);
+                if (Path.GetExtension(args[1]) is ".bedit")
+                {
+                    return () => OpenProjectAsync(args[1]);
+                }
                 else if (args[1] is "settings")
                 {
                     return async () => await new SettingsWindow().ShowDialog(App.GetMainWindow());
@@ -58,7 +61,10 @@ namespace BEditor.Models
                 {
                     return () => NewProjectAsync();
                 }
-                else return () => default;
+                else
+                {
+                    return () => default;
+                }
             }
             else
             {
@@ -82,9 +88,8 @@ namespace BEditor.Models
 
             if (project is null) return;
 
-            await Task.Run(async () =>
+            await Task.Run(() =>
             {
-                await TypeEarlyInitializer.AllInitializeAsync();
                 project.Load();
 
                 app.Project = project;
