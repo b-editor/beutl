@@ -25,7 +25,7 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Defines the <see cref="Color"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<SetColor, ColorProperty> ColorProperty = ColorKey.ColorProperty.WithOwner<SetColor>(
+        public static readonly DirectProperty<SetColor, ColorProperty> ColorProperty = ColorKey.ColorProperty.WithOwner<SetColor>(
             owner => owner.Color,
             (owner, obj) => owner.Color = obj);
 

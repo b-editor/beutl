@@ -23,42 +23,42 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Defines the <see cref="X"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<PointLightSource, EaseProperty> XProperty = Coordinate.XProperty.WithOwner<PointLightSource>(
+        public static readonly DirectProperty<PointLightSource, EaseProperty> XProperty = Coordinate.XProperty.WithOwner<PointLightSource>(
             owner => owner.X,
             (owner, obj) => owner.X = obj);
 
         /// <summary>
         /// Defines the <see cref="Y"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<PointLightSource, EaseProperty> YProperty = Coordinate.YProperty.WithOwner<PointLightSource>(
+        public static readonly DirectProperty<PointLightSource, EaseProperty> YProperty = Coordinate.YProperty.WithOwner<PointLightSource>(
             owner => owner.Y,
             (owner, obj) => owner.Y = obj);
 
         /// <summary>
         /// Defines the <see cref="Z"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<PointLightSource, EaseProperty> ZProperty = Coordinate.ZProperty.WithOwner<PointLightSource>(
+        public static readonly DirectProperty<PointLightSource, EaseProperty> ZProperty = Coordinate.ZProperty.WithOwner<PointLightSource>(
             owner => owner.Z,
             (owner, obj) => owner.Z = obj);
 
         /// <summary>
         /// Defines the <see cref="Ambient"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<PointLightSource, ColorAnimationProperty> AmbientProperty = Material.AmbientProperty.WithOwner<PointLightSource>(
+        public static readonly DirectProperty<PointLightSource, ColorAnimationProperty> AmbientProperty = Material.AmbientProperty.WithOwner<PointLightSource>(
             owner => owner.Ambient,
             (owner, obj) => owner.Ambient = obj);
 
         /// <summary>
         /// Defines the <see cref="Diffuse"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<PointLightSource, ColorAnimationProperty> DiffuseProperty = Material.DiffuseProperty.WithOwner<PointLightSource>(
+        public static readonly DirectProperty<PointLightSource, ColorAnimationProperty> DiffuseProperty = Material.DiffuseProperty.WithOwner<PointLightSource>(
             owner => owner.Diffuse,
             (owner, obj) => owner.Diffuse = obj);
 
         /// <summary>
         /// Defines the <see cref="Specular"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<PointLightSource, ColorAnimationProperty> SpecularProperty = Material.SpecularProperty.WithOwner<PointLightSource>(
+        public static readonly DirectProperty<PointLightSource, ColorAnimationProperty> SpecularProperty = Material.SpecularProperty.WithOwner<PointLightSource>(
             owner => owner.Specular,
             (owner, obj) => owner.Specular = obj);
 

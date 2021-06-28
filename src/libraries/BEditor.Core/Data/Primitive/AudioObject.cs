@@ -23,7 +23,7 @@ namespace BEditor.Data.Primitive
         /// <summary>
         /// Defines the <see cref="Volume"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<AudioObject, EaseProperty> VolumeProperty =
+        public static readonly DirectProperty<AudioObject, EaseProperty> VolumeProperty =
             EditingProperty.RegisterDirect<EaseProperty, AudioObject>(
                 nameof(Volume),
                 owner => owner.Volume,

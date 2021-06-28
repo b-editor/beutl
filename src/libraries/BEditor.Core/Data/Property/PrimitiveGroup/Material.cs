@@ -22,7 +22,7 @@ namespace BEditor.Data.Property.PrimitiveGroup
         /// <summary>
         /// Defines the <see cref="Ambient"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<Material, ColorAnimationProperty> AmbientProperty = EditingProperty.RegisterDirect<ColorAnimationProperty, Material>(
+        public static readonly DirectProperty<Material, ColorAnimationProperty> AmbientProperty = EditingProperty.RegisterDirect<ColorAnimationProperty, Material>(
             nameof(Ambient),
             owner => owner.Ambient,
             (owner, obj) => owner.Ambient = obj,
@@ -31,7 +31,7 @@ namespace BEditor.Data.Property.PrimitiveGroup
         /// <summary>
         /// Defines the <see cref="Diffuse"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<Material, ColorAnimationProperty> DiffuseProperty = EditingProperty.RegisterDirect<ColorAnimationProperty, Material>(
+        public static readonly DirectProperty<Material, ColorAnimationProperty> DiffuseProperty = EditingProperty.RegisterDirect<ColorAnimationProperty, Material>(
             nameof(Diffuse),
             owner => owner.Diffuse,
             (owner, obj) => owner.Diffuse = obj,
@@ -40,7 +40,7 @@ namespace BEditor.Data.Property.PrimitiveGroup
         /// <summary>
         /// Defines the <see cref="Specular"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<Material, ColorAnimationProperty> SpecularProperty = EditingProperty.RegisterDirect<ColorAnimationProperty, Material>(
+        public static readonly DirectProperty<Material, ColorAnimationProperty> SpecularProperty = EditingProperty.RegisterDirect<ColorAnimationProperty, Material>(
             nameof(Specular),
             owner => owner.Specular,
             (owner, obj) => owner.Specular = obj,
@@ -49,7 +49,7 @@ namespace BEditor.Data.Property.PrimitiveGroup
         /// <summary>
         /// Defines the <see cref="Shininess"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<Material, EaseProperty> ShininessProperty = EditingProperty.RegisterDirect<EaseProperty, Material>(
+        public static readonly DirectProperty<Material, EaseProperty> ShininessProperty = EditingProperty.RegisterDirect<EaseProperty, Material>(
             nameof(Shininess),
             owner => owner.Shininess,
             (owner, obj) => owner.Shininess = obj,

@@ -22,7 +22,7 @@ namespace BEditor.Data.Property.PrimitiveGroup
         /// <summary>
         /// Defines the <see cref="Opacity"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<Blend, EaseProperty> OpacityProperty = EditingProperty.RegisterDirect<EaseProperty, Blend>(
+        public static readonly DirectProperty<Blend, EaseProperty> OpacityProperty = EditingProperty.RegisterDirect<EaseProperty, Blend>(
             nameof(Opacity),
             owner => owner.Opacity,
             (owner, obj) => owner.Opacity = obj,
@@ -31,7 +31,7 @@ namespace BEditor.Data.Property.PrimitiveGroup
         /// <summary>
         /// Defines the <see cref="Color"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<Blend, ColorAnimationProperty> ColorProperty = EditingProperty.RegisterDirect<ColorAnimationProperty, Blend>(
+        public static readonly DirectProperty<Blend, ColorAnimationProperty> ColorProperty = EditingProperty.RegisterDirect<ColorAnimationProperty, Blend>(
             nameof(Color),
             owner => owner.Color,
             (owner, obj) => owner.Color = obj,
@@ -40,7 +40,7 @@ namespace BEditor.Data.Property.PrimitiveGroup
         /// <summary>
         /// Defines the <see cref="BlendType"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<Blend, SelectorProperty> BlendTypeProperty = EditingProperty.RegisterDirect<SelectorProperty, Blend>(
+        public static readonly DirectProperty<Blend, SelectorProperty> BlendTypeProperty = EditingProperty.RegisterDirect<SelectorProperty, Blend>(
             nameof(BlendType),
             owner => owner.BlendType,
             (owner, obj) => owner.BlendType = obj,

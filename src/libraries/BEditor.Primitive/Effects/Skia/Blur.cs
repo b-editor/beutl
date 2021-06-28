@@ -25,7 +25,7 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Defines the <see cref="Size"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<Blur, EaseProperty> TopProperty = EditingProperty.RegisterDirect<EaseProperty, Blur>(
+        public static readonly DirectProperty<Blur, EaseProperty> TopProperty = EditingProperty.RegisterDirect<EaseProperty, Blur>(
             nameof(Size),
             owner => owner.Size,
             (owner, obj) => owner.Size = obj,

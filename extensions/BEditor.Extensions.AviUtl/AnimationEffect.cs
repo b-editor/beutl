@@ -19,13 +19,13 @@ namespace BEditor.Extensions.AviUtl
 {
     public class AnimationEffect : ImageEffect
     {
-        public static readonly DirectEditingProperty<AnimationEffect, string> ScriptNameProperty = EditingProperty.RegisterDirect<string, AnimationEffect>(
+        public static readonly DirectProperty<AnimationEffect, string> ScriptNameProperty = EditingProperty.RegisterDirect<string, AnimationEffect>(
             nameof(ScriptName),
             owner => owner.ScriptName,
             (owner, obj) => owner.ScriptName = obj,
             EditingPropertyOptions<string>.Create()!.Serialize()!);
 
-        public static readonly DirectEditingProperty<AnimationEffect, string?> GroupNameProperty = EditingProperty.RegisterDirect<string?, AnimationEffect>(
+        public static readonly DirectProperty<AnimationEffect, string?> GroupNameProperty = EditingProperty.RegisterDirect<string?, AnimationEffect>(
             nameof(GroupName),
             owner => owner.GroupName,
             (owner, obj) => owner.GroupName = obj,

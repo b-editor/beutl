@@ -25,7 +25,7 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Defines the <see cref="Red"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<RGBColor, EaseProperty> RedProperty = EditingProperty.RegisterDirect<EaseProperty, RGBColor>(
+        public static readonly DirectProperty<RGBColor, EaseProperty> RedProperty = EditingProperty.RegisterDirect<EaseProperty, RGBColor>(
             nameof(Red),
             owner => owner.Red,
             (owner, obj) => owner.Red = obj,
@@ -34,7 +34,7 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Defines the <see cref="Green"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<RGBColor, EaseProperty> GreenProperty = EditingProperty.RegisterDirect<EaseProperty, RGBColor>(
+        public static readonly DirectProperty<RGBColor, EaseProperty> GreenProperty = EditingProperty.RegisterDirect<EaseProperty, RGBColor>(
             nameof(Green),
             owner => owner.Green,
             (owner, obj) => owner.Green = obj,
@@ -43,7 +43,7 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Defines the <see cref="Blue"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<RGBColor, EaseProperty> BlueProperty = EditingProperty.RegisterDirect<EaseProperty, RGBColor>(
+        public static readonly DirectProperty<RGBColor, EaseProperty> BlueProperty = EditingProperty.RegisterDirect<EaseProperty, RGBColor>(
             nameof(Blue),
             owner => owner.Blue,
             (owner, obj) => owner.Blue = obj,

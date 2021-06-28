@@ -29,7 +29,7 @@ namespace BEditor.Primitive.Effects.LookupTables
         /// <summary>
         /// Defines the <see cref="Cycle"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<Solarisation, EaseProperty> CycleProperty = EditingProperty.RegisterDirect<EaseProperty, Solarisation>(
+        public static readonly DirectProperty<Solarisation, EaseProperty> CycleProperty = EditingProperty.RegisterDirect<EaseProperty, Solarisation>(
             nameof(Cycle),
             owner => owner.Cycle,
             (owner, obj) => owner.Cycle = obj,

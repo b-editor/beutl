@@ -27,14 +27,14 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Defines the <see cref="VerticalAlign"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<SetAlignment, SelectorProperty> VerticalAlignProperty = Text.VerticalAlignProperty.WithOwner<SetAlignment>(
+        public static readonly DirectProperty<SetAlignment, SelectorProperty> VerticalAlignProperty = Text.VerticalAlignProperty.WithOwner<SetAlignment>(
             owner => owner.VerticalAlign,
             (owner, obj) => owner.VerticalAlign = obj);
 
         /// <summary>
         /// Defines the <see cref="HorizontalAlign"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<SetAlignment, SelectorProperty> HorizontalAlignProperty = Text.HorizontalAlignProperty.WithOwner<SetAlignment>(
+        public static readonly DirectProperty<SetAlignment, SelectorProperty> HorizontalAlignProperty = Text.HorizontalAlignProperty.WithOwner<SetAlignment>(
             owner => owner.HorizontalAlign,
             (owner, obj) => owner.HorizontalAlign = obj);
 

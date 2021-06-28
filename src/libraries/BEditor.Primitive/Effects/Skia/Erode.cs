@@ -25,14 +25,14 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Defines the <see cref="Radius"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<Erode, EaseProperty> RadiusProperty = Dilate.RadiusProperty.WithOwner<Erode>(
+        public static readonly DirectProperty<Erode, EaseProperty> RadiusProperty = Dilate.RadiusProperty.WithOwner<Erode>(
             owner => owner.Radius,
             (owner, obj) => owner.Radius = obj);
 
         /// <summary>
         /// Defines the <see cref="Resize"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<Erode, CheckProperty> ResizeProperty = Dilate.ResizeProperty.WithOwner<Erode>(
+        public static readonly DirectProperty<Erode, CheckProperty> ResizeProperty = Dilate.ResizeProperty.WithOwner<Erode>(
             owner => owner.Resize,
             (owner, obj) => owner.Resize = obj);
 

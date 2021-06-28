@@ -18,7 +18,7 @@ namespace BEditor.Extensions.AviUtl
 {
     public sealed class LuaScript : ImageEffect
     {
-        public static readonly DirectEditingProperty<LuaScript, DocumentProperty> CodeProperty = EditingProperty.RegisterDirect<DocumentProperty, LuaScript>(
+        public static readonly DirectProperty<LuaScript, DocumentProperty> CodeProperty = EditingProperty.RegisterDirect<DocumentProperty, LuaScript>(
             nameof(Code),
             owner => owner.Code,
             (owner, obj) => owner.Code = obj,

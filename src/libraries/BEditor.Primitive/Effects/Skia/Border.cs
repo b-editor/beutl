@@ -25,7 +25,7 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Defines the <see cref="Size"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<Border, EaseProperty> SizeProperty = EditingProperty.RegisterDirect<EaseProperty, Border>(
+        public static readonly DirectProperty<Border, EaseProperty> SizeProperty = EditingProperty.RegisterDirect<EaseProperty, Border>(
             nameof(Size),
             owner => owner.Size,
             (owner, obj) => owner.Size = obj,
@@ -34,7 +34,7 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Defines the <see cref="Color"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<Border, ColorProperty> ColorProperty = EditingProperty.RegisterDirect<ColorProperty, Border>(
+        public static readonly DirectProperty<Border, ColorProperty> ColorProperty = EditingProperty.RegisterDirect<ColorProperty, Border>(
             nameof(Color),
             owner => owner.Color,
             (owner, obj) => owner.Color = obj,

@@ -24,7 +24,7 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Defines the <see cref="Enabled"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<DepthTest, CheckProperty> EnabledProperty = EditingProperty.RegisterDirect<CheckProperty, DepthTest>(
+        public static readonly DirectProperty<DepthTest, CheckProperty> EnabledProperty = EditingProperty.RegisterDirect<CheckProperty, DepthTest>(
             nameof(Enabled),
             owner => owner.Enabled,
             (owner, obj) => owner.Enabled = obj,
@@ -33,7 +33,7 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Defines the <see cref="Function"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<DepthTest, SelectorProperty> FunctionProperty = EditingProperty.RegisterDirect<SelectorProperty, DepthTest>(
+        public static readonly DirectProperty<DepthTest, SelectorProperty> FunctionProperty = EditingProperty.RegisterDirect<SelectorProperty, DepthTest>(
             nameof(Function),
             owner => owner.Function,
             (owner, obj) => owner.Function = obj,
@@ -52,7 +52,7 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Defines the <see cref="Mask"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<DepthTest, CheckProperty> MaskProperty = EditingProperty.RegisterDirect<CheckProperty, DepthTest>(
+        public static readonly DirectProperty<DepthTest, CheckProperty> MaskProperty = EditingProperty.RegisterDirect<CheckProperty, DepthTest>(
             nameof(Mask),
             owner => owner.Mask,
             (owner, obj) => owner.Mask = obj,

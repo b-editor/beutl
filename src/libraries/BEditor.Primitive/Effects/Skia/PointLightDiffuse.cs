@@ -26,28 +26,28 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Defines the <see cref="X"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<PointLightDiffuse, EaseProperty> XProperty = Coordinate.XProperty.WithOwner<PointLightDiffuse>(
+        public static readonly DirectProperty<PointLightDiffuse, EaseProperty> XProperty = Coordinate.XProperty.WithOwner<PointLightDiffuse>(
             owner => owner.X,
             (owner, obj) => owner.X = obj);
 
         /// <summary>
         /// Defines the <see cref="Y"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<PointLightDiffuse, EaseProperty> YProperty = Coordinate.YProperty.WithOwner<PointLightDiffuse>(
+        public static readonly DirectProperty<PointLightDiffuse, EaseProperty> YProperty = Coordinate.YProperty.WithOwner<PointLightDiffuse>(
             owner => owner.Y,
             (owner, obj) => owner.Y = obj);
 
         /// <summary>
         /// Defines the <see cref="Z"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<PointLightDiffuse, EaseProperty> ZProperty = Coordinate.ZProperty.WithOwner<PointLightDiffuse>(
+        public static readonly DirectProperty<PointLightDiffuse, EaseProperty> ZProperty = Coordinate.ZProperty.WithOwner<PointLightDiffuse>(
             owner => owner.Z,
             (owner, obj) => owner.Z = obj);
 
         /// <summary>
         /// Defines the <see cref="LightColor"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<PointLightDiffuse, ColorProperty> LightColorProperty = EditingProperty.RegisterDirect<ColorProperty, PointLightDiffuse>(
+        public static readonly DirectProperty<PointLightDiffuse, ColorProperty> LightColorProperty = EditingProperty.RegisterDirect<ColorProperty, PointLightDiffuse>(
             nameof(LightColor),
             owner => owner.LightColor,
             (owner, obj) => owner.LightColor = obj,
@@ -56,7 +56,7 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Defines the <see cref="SurfaceScale"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<PointLightDiffuse, EaseProperty> SurfaceScaleProperty = EditingProperty.RegisterDirect<EaseProperty, PointLightDiffuse>(
+        public static readonly DirectProperty<PointLightDiffuse, EaseProperty> SurfaceScaleProperty = EditingProperty.RegisterDirect<EaseProperty, PointLightDiffuse>(
             nameof(SurfaceScale),
             owner => owner.SurfaceScale,
             (owner, obj) => owner.SurfaceScale = obj,
@@ -65,7 +65,7 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Defines the <see cref="LightConstant"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<PointLightDiffuse, EaseProperty> LightConstantProperty = EditingProperty.RegisterDirect<EaseProperty, PointLightDiffuse>(
+        public static readonly DirectProperty<PointLightDiffuse, EaseProperty> LightConstantProperty = EditingProperty.RegisterDirect<EaseProperty, PointLightDiffuse>(
             nameof(LightConstant),
             owner => owner.LightConstant,
             (owner, obj) => owner.LightConstant = obj,

@@ -25,21 +25,21 @@ namespace BEditor.Primitive.Objects
         /// <summary>
         /// Defines the <see cref="Width"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<RoundRect, EaseProperty> WidthProperty = Shape.WidthProperty.WithOwner<RoundRect>(
+        public static readonly DirectProperty<RoundRect, EaseProperty> WidthProperty = Shape.WidthProperty.WithOwner<RoundRect>(
             owner => owner.Width,
             (owner, obj) => owner.Width = obj);
 
         /// <summary>
         /// Defines the <see cref="Height"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<RoundRect, EaseProperty> HeightProperty = Shape.HeightProperty.WithOwner<RoundRect>(
+        public static readonly DirectProperty<RoundRect, EaseProperty> HeightProperty = Shape.HeightProperty.WithOwner<RoundRect>(
             owner => owner.Height,
             (owner, obj) => owner.Height = obj);
 
         /// <summary>
         /// Defines the <see cref="TopLeftRadius"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<RoundRect, EaseProperty> TopLeftRadiusProperty = EditingProperty.RegisterDirect<EaseProperty, RoundRect>(
+        public static readonly DirectProperty<RoundRect, EaseProperty> TopLeftRadiusProperty = EditingProperty.RegisterDirect<EaseProperty, RoundRect>(
             nameof(TopLeftRadius),
             owner => owner.TopLeftRadius,
             (owner, obj) => owner.TopLeftRadius = obj,
@@ -48,7 +48,7 @@ namespace BEditor.Primitive.Objects
         /// <summary>
         /// Defines the <see cref="TopRightRadius"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<RoundRect, EaseProperty> TopRightRadiusProperty = EditingProperty.RegisterDirect<EaseProperty, RoundRect>(
+        public static readonly DirectProperty<RoundRect, EaseProperty> TopRightRadiusProperty = EditingProperty.RegisterDirect<EaseProperty, RoundRect>(
             nameof(TopRightRadius),
             owner => owner.TopRightRadius,
             (owner, obj) => owner.TopRightRadius = obj,
@@ -57,7 +57,7 @@ namespace BEditor.Primitive.Objects
         /// <summary>
         /// Defines the <see cref="BottomLeftRadius"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<RoundRect, EaseProperty> BottomLeftRadiusProperty = EditingProperty.RegisterDirect<EaseProperty, RoundRect>(
+        public static readonly DirectProperty<RoundRect, EaseProperty> BottomLeftRadiusProperty = EditingProperty.RegisterDirect<EaseProperty, RoundRect>(
             nameof(BottomLeftRadius),
             owner => owner.BottomLeftRadius,
             (owner, obj) => owner.BottomLeftRadius = obj,
@@ -66,7 +66,7 @@ namespace BEditor.Primitive.Objects
         /// <summary>
         /// Defines the <see cref="BottomRightRadius"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<RoundRect, EaseProperty> BottomRightRadiusProperty = EditingProperty.RegisterDirect<EaseProperty, RoundRect>(
+        public static readonly DirectProperty<RoundRect, EaseProperty> BottomRightRadiusProperty = EditingProperty.RegisterDirect<EaseProperty, RoundRect>(
             nameof(BottomRightRadius),
             owner => owner.BottomRightRadius,
             (owner, obj) => owner.BottomRightRadius = obj,
@@ -75,14 +75,14 @@ namespace BEditor.Primitive.Objects
         /// <summary>
         /// Defines the <see cref="Line"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<RoundRect, EaseProperty> LineProperty = Shape.LineProperty.WithOwner<RoundRect>(
+        public static readonly DirectProperty<RoundRect, EaseProperty> LineProperty = Shape.LineProperty.WithOwner<RoundRect>(
             owner => owner.Line,
             (owner, obj) => owner.Line = obj);
 
         /// <summary>
         /// Defines the <see cref="Color"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<RoundRect, ColorProperty> ColorProperty = Shape.ColorProperty.WithOwner<RoundRect>(
+        public static readonly DirectProperty<RoundRect, ColorProperty> ColorProperty = Shape.ColorProperty.WithOwner<RoundRect>(
             owner => owner.Color,
             (owner, obj) => owner.Color = obj);
 

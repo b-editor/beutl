@@ -21,7 +21,7 @@ namespace BEditor.Data.Property.PrimitiveGroup
         /// <summary>
         /// Defines the <see cref="Scale1"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<Scale, EaseProperty> ScaleProperty = EditingProperty.RegisterDirect<EaseProperty, Scale>(
+        public static readonly DirectProperty<Scale, EaseProperty> ScaleProperty = EditingProperty.RegisterDirect<EaseProperty, Scale>(
             nameof(Scale1),
             owner => owner.Scale1,
             (owner, obj) => owner.Scale1 = obj,
@@ -30,7 +30,7 @@ namespace BEditor.Data.Property.PrimitiveGroup
         /// <summary>
         /// Defines the <see cref="ScaleX"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<Scale, EaseProperty> ScaleXProperty = EditingProperty.RegisterDirect<EaseProperty, Scale>(
+        public static readonly DirectProperty<Scale, EaseProperty> ScaleXProperty = EditingProperty.RegisterDirect<EaseProperty, Scale>(
             nameof(ScaleX),
             owner => owner.ScaleX,
             (owner, obj) => owner.ScaleX = obj,
@@ -39,7 +39,7 @@ namespace BEditor.Data.Property.PrimitiveGroup
         /// <summary>
         /// Defines the <see cref="ScaleY"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<Scale, EaseProperty> ScaleYProperty = EditingProperty.RegisterDirect<EaseProperty, Scale>(
+        public static readonly DirectProperty<Scale, EaseProperty> ScaleYProperty = EditingProperty.RegisterDirect<EaseProperty, Scale>(
             nameof(ScaleY),
             owner => owner.ScaleY,
             (owner, obj) => owner.ScaleY = obj,
@@ -48,7 +48,7 @@ namespace BEditor.Data.Property.PrimitiveGroup
         /// <summary>
         /// Defines the <see cref="ScaleZ"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<Scale, EaseProperty> ScaleZProperty = EditingProperty.RegisterDirect<EaseProperty, Scale>(
+        public static readonly DirectProperty<Scale, EaseProperty> ScaleZProperty = EditingProperty.RegisterDirect<EaseProperty, Scale>(
             nameof(ScaleZ),
             owner => owner.ScaleZ,
             (owner, obj) => owner.ScaleZ = obj,

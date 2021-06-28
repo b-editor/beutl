@@ -28,28 +28,28 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Defines the <see cref="Coordinate"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<MultipleControls, Coordinate> CoordinateProperty = ImageObject.CoordinateProperty.WithOwner<MultipleControls>(
+        public static readonly DirectProperty<MultipleControls, Coordinate> CoordinateProperty = ImageObject.CoordinateProperty.WithOwner<MultipleControls>(
             owner => owner.Coordinate,
             (owner, obj) => owner.Coordinate = obj);
 
         /// <summary>
         /// Defines the <see cref="Scale"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<MultipleControls, Scale> ScaleProperty = ImageObject.ScaleProperty.WithOwner<MultipleControls>(
+        public static readonly DirectProperty<MultipleControls, Scale> ScaleProperty = ImageObject.ScaleProperty.WithOwner<MultipleControls>(
             owner => owner.Scale,
             (owner, obj) => owner.Scale = obj);
 
         /// <summary>
         /// Defines the <see cref="Rotate"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<MultipleControls, Rotate> RotateProperty = ImageObject.RotateProperty.WithOwner<MultipleControls>(
+        public static readonly DirectProperty<MultipleControls, Rotate> RotateProperty = ImageObject.RotateProperty.WithOwner<MultipleControls>(
             owner => owner.Rotate,
             (owner, obj) => owner.Rotate = obj);
 
         /// <summary>
         /// Defines the <see cref="Index"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<MultipleControls, ValueProperty> IndexProperty = EditingProperty.RegisterDirect<ValueProperty, MultipleControls>(
+        public static readonly DirectProperty<MultipleControls, ValueProperty> IndexProperty = EditingProperty.RegisterDirect<ValueProperty, MultipleControls>(
             nameof(Index),
             owner => owner.Index,
             (owner, obj) => owner.Index = obj,

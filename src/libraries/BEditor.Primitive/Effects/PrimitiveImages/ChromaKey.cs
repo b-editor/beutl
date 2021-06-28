@@ -25,7 +25,7 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Defines the <see cref="ThresholdValue"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<ChromaKey, EaseProperty> TopProperty = EditingProperty.RegisterDirect<EaseProperty, ChromaKey>(
+        public static readonly DirectProperty<ChromaKey, EaseProperty> TopProperty = EditingProperty.RegisterDirect<EaseProperty, ChromaKey>(
             nameof(ThresholdValue),
             owner => owner.ThresholdValue,
             (owner, obj) => owner.ThresholdValue = obj,

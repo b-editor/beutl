@@ -30,7 +30,7 @@ namespace BEditor.Primitive.Objects
         /// <summary>
         /// Defines the <see cref="File"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<ImageFile, FileProperty> FileProperty;
+        public static readonly DirectProperty<ImageFile, FileProperty> FileProperty;
 
         /// <summary>
         /// The extension of the supported image files.

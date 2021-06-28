@@ -34,7 +34,7 @@ namespace BEditor.Primitive.Objects
         /// <summary>
         /// Defines the <see cref="Speed"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<VideoFile, EaseProperty> SpeedProperty = EditingProperty.RegisterDirect<EaseProperty, VideoFile>(
+        public static readonly DirectProperty<VideoFile, EaseProperty> SpeedProperty = EditingProperty.RegisterDirect<EaseProperty, VideoFile>(
             nameof(Speed),
             owner => owner.Speed,
             (owner, obj) => owner.Speed = obj,
@@ -43,7 +43,7 @@ namespace BEditor.Primitive.Objects
         /// <summary>
         /// Defines the <see cref="Start"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<VideoFile, EaseProperty> StartProperty = EditingProperty.RegisterDirect<EaseProperty, VideoFile>(
+        public static readonly DirectProperty<VideoFile, EaseProperty> StartProperty = EditingProperty.RegisterDirect<EaseProperty, VideoFile>(
             nameof(Start),
             owner => owner.Start,
             (owner, obj) => owner.Start = obj,
@@ -52,7 +52,7 @@ namespace BEditor.Primitive.Objects
         /// <summary>
         /// Defines the <see cref="File"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<VideoFile, FileProperty> FileProperty = EditingProperty.RegisterDirect<FileProperty, VideoFile>(
+        public static readonly DirectProperty<VideoFile, FileProperty> FileProperty = EditingProperty.RegisterDirect<FileProperty, VideoFile>(
             nameof(File),
             owner => owner.File,
             (owner, obj) => owner.File = obj,

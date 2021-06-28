@@ -25,35 +25,35 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Defines the <see cref="Top"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<AreaExpansion, EaseProperty> TopProperty = Clipping.TopProperty.WithOwner<AreaExpansion>(
+        public static readonly DirectProperty<AreaExpansion, EaseProperty> TopProperty = Clipping.TopProperty.WithOwner<AreaExpansion>(
             owner => owner.Top,
             (owner, obj) => owner.Top = obj);
 
         /// <summary>
         /// Defines the <see cref="Bottom"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<AreaExpansion, EaseProperty> BottomProperty = Clipping.BottomProperty.WithOwner<AreaExpansion>(
+        public static readonly DirectProperty<AreaExpansion, EaseProperty> BottomProperty = Clipping.BottomProperty.WithOwner<AreaExpansion>(
             owner => owner.Bottom,
             (owner, obj) => owner.Bottom = obj);
 
         /// <summary>
         /// Defines the <see cref="Left"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<AreaExpansion, EaseProperty> LeftProperty = Clipping.LeftProperty.WithOwner<AreaExpansion>(
+        public static readonly DirectProperty<AreaExpansion, EaseProperty> LeftProperty = Clipping.LeftProperty.WithOwner<AreaExpansion>(
             owner => owner.Left,
             (owner, obj) => owner.Left = obj);
 
         /// <summary>
         /// Defines the <see cref="Right"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<AreaExpansion, EaseProperty> RightProperty = Clipping.RightProperty.WithOwner<AreaExpansion>(
+        public static readonly DirectProperty<AreaExpansion, EaseProperty> RightProperty = Clipping.RightProperty.WithOwner<AreaExpansion>(
             owner => owner.Right,
             (owner, obj) => owner.Right = obj);
 
         /// <summary>
         /// Defines the <see cref="AdjustCoordinates"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<AreaExpansion, CheckProperty> AdjustCoordinatesProperty = Clipping.AdjustCoordinatesProperty.WithOwner<AreaExpansion>(
+        public static readonly DirectProperty<AreaExpansion, CheckProperty> AdjustCoordinatesProperty = Clipping.AdjustCoordinatesProperty.WithOwner<AreaExpansion>(
             owner => owner.AdjustCoordinates,
             (owner, obj) => owner.AdjustCoordinates = obj);
 

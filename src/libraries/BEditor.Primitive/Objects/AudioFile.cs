@@ -33,7 +33,7 @@ namespace BEditor.Primitive.Objects
         /// <summary>
         /// Defines the <see cref="Start"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<AudioFile, ValueProperty> StartProperty = EditingProperty.RegisterDirect<ValueProperty, AudioFile>(
+        public static readonly DirectProperty<AudioFile, ValueProperty> StartProperty = EditingProperty.RegisterDirect<ValueProperty, AudioFile>(
             nameof(Start),
             owner => owner.Start,
             (owner, obj) => owner.Start = obj,
@@ -42,7 +42,7 @@ namespace BEditor.Primitive.Objects
         /// <summary>
         /// Defines the <see cref="File"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<AudioFile, FileProperty> FileProperty = EditingProperty.RegisterDirect<FileProperty, AudioFile>(
+        public static readonly DirectProperty<AudioFile, FileProperty> FileProperty = EditingProperty.RegisterDirect<FileProperty, AudioFile>(
             nameof(File),
             owner => owner.File,
             (owner, obj) => owner.File = obj,

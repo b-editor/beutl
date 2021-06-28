@@ -25,7 +25,7 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Dedines the <see cref="Brightness"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<BrightnessCorrection, EaseProperty> BrightnessProperty = EditingProperty.RegisterDirect<EaseProperty, BrightnessCorrection>(
+        public static readonly DirectProperty<BrightnessCorrection, EaseProperty> BrightnessProperty = EditingProperty.RegisterDirect<EaseProperty, BrightnessCorrection>(
             nameof(Brightness),
             owner => owner.Brightness,
             (owner, obj) => owner.Brightness = obj,

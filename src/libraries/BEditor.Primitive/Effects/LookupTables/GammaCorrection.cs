@@ -25,7 +25,7 @@ namespace BEditor.Primitive.Effects.LookupTables
         /// <summary>
         /// Defines the <see cref="Gamma"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<GammaCorrection, EaseProperty> GammaProperty = EditingProperty.RegisterDirect<EaseProperty, GammaCorrection>(
+        public static readonly DirectProperty<GammaCorrection, EaseProperty> GammaProperty = EditingProperty.RegisterDirect<EaseProperty, GammaCorrection>(
             nameof(Gamma),
             owner => owner.Gamma,
             (owner, obj) => owner.Gamma = obj,

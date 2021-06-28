@@ -29,7 +29,7 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Defines the <see cref="StartX"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<LinearGradient, EaseProperty> StartXProperty = EditingProperty.RegisterDirect<EaseProperty, LinearGradient>(
+        public static readonly DirectProperty<LinearGradient, EaseProperty> StartXProperty = EditingProperty.RegisterDirect<EaseProperty, LinearGradient>(
             nameof(StartX),
             owner => owner.StartX,
             (owner, obj) => owner.StartX = obj,
@@ -38,7 +38,7 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Defines the <see cref="StartY"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<LinearGradient, EaseProperty> StartYProperty = EditingProperty.RegisterDirect<EaseProperty, LinearGradient>(
+        public static readonly DirectProperty<LinearGradient, EaseProperty> StartYProperty = EditingProperty.RegisterDirect<EaseProperty, LinearGradient>(
             nameof(StartY),
             owner => owner.StartY,
             (owner, obj) => owner.StartY = obj,
@@ -47,7 +47,7 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Defines the <see cref="EndX"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<LinearGradient, EaseProperty> EndXProperty = EditingProperty.RegisterDirect<EaseProperty, LinearGradient>(
+        public static readonly DirectProperty<LinearGradient, EaseProperty> EndXProperty = EditingProperty.RegisterDirect<EaseProperty, LinearGradient>(
             nameof(EndX),
             owner => owner.EndX,
             (owner, obj) => owner.EndX = obj,
@@ -56,7 +56,7 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Defines the <see cref="EndY"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<LinearGradient, EaseProperty> EndYProperty = EditingProperty.RegisterDirect<EaseProperty, LinearGradient>(
+        public static readonly DirectProperty<LinearGradient, EaseProperty> EndYProperty = EditingProperty.RegisterDirect<EaseProperty, LinearGradient>(
             nameof(EndY),
             owner => owner.EndY,
             (owner, obj) => owner.EndY = obj,
@@ -65,7 +65,7 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Defines the <see cref="Colors"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<LinearGradient, TextProperty> ColorsProperty = EditingProperty.RegisterDirect<TextProperty, LinearGradient>(
+        public static readonly DirectProperty<LinearGradient, TextProperty> ColorsProperty = EditingProperty.RegisterDirect<TextProperty, LinearGradient>(
             nameof(Colors),
             owner => owner.Colors,
             (owner, obj) => owner.Colors = obj,
@@ -74,7 +74,7 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Defines the <see cref="Anchors"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<LinearGradient, TextProperty> AnchorsProperty = EditingProperty.RegisterDirect<TextProperty, LinearGradient>(
+        public static readonly DirectProperty<LinearGradient, TextProperty> AnchorsProperty = EditingProperty.RegisterDirect<TextProperty, LinearGradient>(
             nameof(Anchors),
             owner => owner.Anchors,
             (owner, obj) => owner.Anchors = obj,
@@ -83,7 +83,7 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Defines the <see cref="Mode"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<LinearGradient, SelectorProperty> ModeProperty = EditingProperty.RegisterDirect<SelectorProperty, LinearGradient>(
+        public static readonly DirectProperty<LinearGradient, SelectorProperty> ModeProperty = EditingProperty.RegisterDirect<SelectorProperty, LinearGradient>(
             nameof(Mode),
             owner => owner.Mode,
             (owner, obj) => owner.Mode = obj,

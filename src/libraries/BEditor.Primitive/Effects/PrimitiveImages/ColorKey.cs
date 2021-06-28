@@ -25,7 +25,7 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Defines the <see cref="Color"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<ColorKey, ColorProperty> ColorProperty = EditingProperty.RegisterDirect<ColorProperty, ColorKey>(
+        public static readonly DirectProperty<ColorKey, ColorProperty> ColorProperty = EditingProperty.RegisterDirect<ColorProperty, ColorKey>(
             nameof(Color),
             owner => owner.Color,
             (owner, obj) => owner.Color = obj,
@@ -34,7 +34,7 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Defines the <see cref="ThresholdValue"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<ColorKey, EaseProperty> ThresholdValueProperty = EditingProperty.RegisterDirect<EaseProperty, ColorKey>(
+        public static readonly DirectProperty<ColorKey, EaseProperty> ThresholdValueProperty = EditingProperty.RegisterDirect<EaseProperty, ColorKey>(
             nameof(ThresholdValue),
             owner => owner.ThresholdValue,
             (owner, obj) => owner.ThresholdValue = obj,

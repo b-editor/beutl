@@ -25,7 +25,7 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Difines the <see cref="Value"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<Binarization, EaseProperty> ValueProperty = EditingProperty.RegisterDirect<EaseProperty, Binarization>(
+        public static readonly DirectProperty<Binarization, EaseProperty> ValueProperty = EditingProperty.RegisterDirect<EaseProperty, Binarization>(
             nameof(Value),
             owner => owner.Value,
             (owner, obj) => owner.Value = obj,

@@ -15,25 +15,25 @@ namespace BEditor.Extensions.Svg
 {
     public class SvgImage : ImageObject
     {
-        public static new readonly DirectEditingProperty<SvgImage, EaseProperty> ScaleProperty = EditingProperty.RegisterDirect<EaseProperty, SvgImage>(
+        public static new readonly DirectProperty<SvgImage, EaseProperty> ScaleProperty = EditingProperty.RegisterDirect<EaseProperty, SvgImage>(
             nameof(SvgScale),
             owner => owner.SvgScale,
             (owner, obj) => owner.SvgScale = obj,
             EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata("スケール", 100, min: 0)).Serialize());
 
-        public static readonly DirectEditingProperty<SvgImage, EaseProperty> ScaleXProperty = EditingProperty.RegisterDirect<EaseProperty, SvgImage>(
+        public static readonly DirectProperty<SvgImage, EaseProperty> ScaleXProperty = EditingProperty.RegisterDirect<EaseProperty, SvgImage>(
             nameof(ScaleX),
             owner => owner.ScaleX,
             (owner, obj) => owner.ScaleY = obj,
             EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata("スケール X", 100, min: 0)).Serialize());
 
-        public static readonly DirectEditingProperty<SvgImage, EaseProperty> ScaleYProperty = EditingProperty.RegisterDirect<EaseProperty, SvgImage>(
+        public static readonly DirectProperty<SvgImage, EaseProperty> ScaleYProperty = EditingProperty.RegisterDirect<EaseProperty, SvgImage>(
             nameof(ScaleY),
             owner => owner.ScaleY,
             (owner, obj) => owner.ScaleY = obj,
             EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata("スケール Y", 100, min: 0)).Serialize());
 
-        public static readonly DirectEditingProperty<SvgImage, FileProperty> FileProperty = EditingProperty.RegisterDirect<FileProperty, SvgImage>(
+        public static readonly DirectProperty<SvgImage, FileProperty> FileProperty = EditingProperty.RegisterDirect<FileProperty, SvgImage>(
             nameof(File),
             owner => owner.File,
             (owner, obj) => owner.File = obj,

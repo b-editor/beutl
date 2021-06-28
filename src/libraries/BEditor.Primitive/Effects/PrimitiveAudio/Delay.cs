@@ -25,7 +25,7 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Defines the <see cref="Attenuation"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<Delay, EaseProperty> AttenuationProperty = EditingProperty.RegisterDirect<EaseProperty, Delay>(
+        public static readonly DirectProperty<Delay, EaseProperty> AttenuationProperty = EditingProperty.RegisterDirect<EaseProperty, Delay>(
             nameof(Attenuation),
             o => o.Attenuation,
             (o, v) => o.Attenuation = v,
@@ -34,7 +34,7 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Defines the <see cref="DelayTime"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<Delay, EaseProperty> DelayTimeProperty = EditingProperty.RegisterDirect<EaseProperty, Delay>(
+        public static readonly DirectProperty<Delay, EaseProperty> DelayTimeProperty = EditingProperty.RegisterDirect<EaseProperty, Delay>(
             nameof(DelayTime),
             o => o.DelayTime,
             (o, v) => o.DelayTime = v,
@@ -43,7 +43,7 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Defines the <see cref="Repeat"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<Delay, EaseProperty> RepeatProperty = EditingProperty.RegisterDirect<EaseProperty, Delay>(
+        public static readonly DirectProperty<Delay, EaseProperty> RepeatProperty = EditingProperty.RegisterDirect<EaseProperty, Delay>(
             nameof(Repeat),
             o => o.Repeat,
             (o, v) => o.Repeat = v,

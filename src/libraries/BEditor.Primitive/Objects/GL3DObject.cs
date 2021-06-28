@@ -28,42 +28,42 @@ namespace BEditor.Primitive.Objects
         /// <summary>
         /// Defines the <see cref="Coordinate"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<GL3DObject, Coordinate> CoordinateProperty = ImageObject.CoordinateProperty.WithOwner<GL3DObject>(
+        public static readonly DirectProperty<GL3DObject, Coordinate> CoordinateProperty = ImageObject.CoordinateProperty.WithOwner<GL3DObject>(
             owner => owner.Coordinate,
             (owner, obj) => owner.Coordinate = obj);
 
         /// <summary>
         /// Defines the <see cref="Data.Property.PrimitiveGroup.Scale"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<GL3DObject, Scale> ScaleProperty = ImageObject.ScaleProperty.WithOwner<GL3DObject>(
+        public static readonly DirectProperty<GL3DObject, Scale> ScaleProperty = ImageObject.ScaleProperty.WithOwner<GL3DObject>(
             owner => owner.Scale,
             (owner, obj) => owner.Scale = obj);
 
         /// <summary>
         /// Defines the <see cref="Blend"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<GL3DObject, Blend> BlendProperty = ImageObject.BlendProperty.WithOwner<GL3DObject>(
+        public static readonly DirectProperty<GL3DObject, Blend> BlendProperty = ImageObject.BlendProperty.WithOwner<GL3DObject>(
             owner => owner.Blend,
             (owner, obj) => owner.Blend = obj);
 
         /// <summary>
         /// Defines the <see cref="Data.Property.PrimitiveGroup.Rotate"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<GL3DObject, Rotate> RotateProperty = ImageObject.RotateProperty.WithOwner<GL3DObject>(
+        public static readonly DirectProperty<GL3DObject, Rotate> RotateProperty = ImageObject.RotateProperty.WithOwner<GL3DObject>(
             owner => owner.Rotate,
             (owner, obj) => owner.Rotate = obj);
 
         /// <summary>
         /// Defines the <see cref="Data.Property.PrimitiveGroup.Rotate"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<GL3DObject, Material> MaterialProperty = ImageObject.MaterialProperty.WithOwner<GL3DObject>(
+        public static readonly DirectProperty<GL3DObject, Material> MaterialProperty = ImageObject.MaterialProperty.WithOwner<GL3DObject>(
             owner => owner.Material,
             (owner, obj) => owner.Material = obj);
 
         /// <summary>
         /// Defines the <see cref="Type"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<GL3DObject, SelectorProperty> TypeProperty = EditingProperty.RegisterDirect<SelectorProperty, GL3DObject>(
+        public static readonly DirectProperty<GL3DObject, SelectorProperty> TypeProperty = EditingProperty.RegisterDirect<SelectorProperty, GL3DObject>(
             nameof(Type),
             owner => owner.Type,
             (owner, obj) => owner.Type = obj,
@@ -76,7 +76,7 @@ namespace BEditor.Primitive.Objects
         /// <summary>
         /// Defines the <see cref="Width"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<GL3DObject, EaseProperty> WidthProperty = EditingProperty.RegisterDirect<EaseProperty, GL3DObject>(
+        public static readonly DirectProperty<GL3DObject, EaseProperty> WidthProperty = EditingProperty.RegisterDirect<EaseProperty, GL3DObject>(
             nameof(Width),
             owner => owner.Width,
             (owner, obj) => owner.Width = obj,
@@ -85,7 +85,7 @@ namespace BEditor.Primitive.Objects
         /// <summary>
         /// Defines the <see cref="Height"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<GL3DObject, EaseProperty> HeightProperty = EditingProperty.RegisterDirect<EaseProperty, GL3DObject>(
+        public static readonly DirectProperty<GL3DObject, EaseProperty> HeightProperty = EditingProperty.RegisterDirect<EaseProperty, GL3DObject>(
             nameof(Height),
             owner => owner.Height,
             (owner, obj) => owner.Height = obj,
@@ -94,7 +94,7 @@ namespace BEditor.Primitive.Objects
         /// <summary>
         /// Defines the <see cref="Depth"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<GL3DObject, EaseProperty> DepthProperty = EditingProperty.RegisterDirect<EaseProperty, GL3DObject>(
+        public static readonly DirectProperty<GL3DObject, EaseProperty> DepthProperty = EditingProperty.RegisterDirect<EaseProperty, GL3DObject>(
             nameof(Depth),
             owner => owner.Depth,
             (owner, obj) => owner.Depth = obj,

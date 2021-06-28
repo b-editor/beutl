@@ -25,7 +25,7 @@ namespace BEditor.Primitive.Objects
         /// <summary>
         /// Defines the <see cref="Size"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<Text, EaseProperty> SizeProperty = EditingProperty.RegisterDirect<EaseProperty, Text>(
+        public static readonly DirectProperty<Text, EaseProperty> SizeProperty = EditingProperty.RegisterDirect<EaseProperty, Text>(
             nameof(Size),
             owner => owner.Size,
             (owner, obj) => owner.Size = obj,
@@ -34,7 +34,7 @@ namespace BEditor.Primitive.Objects
         /// <summary>
         /// Defines the <see cref="LineSpacing"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<Text, EaseProperty> LineSpacingProperty = EditingProperty.RegisterDirect<EaseProperty, Text>(
+        public static readonly DirectProperty<Text, EaseProperty> LineSpacingProperty = EditingProperty.RegisterDirect<EaseProperty, Text>(
             nameof(LineSpacing),
             owner => owner.LineSpacing,
             (owner, obj) => owner.LineSpacing = obj,
@@ -43,7 +43,7 @@ namespace BEditor.Primitive.Objects
         /// <summary>
         /// Defines the <see cref="Color"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<Text, ColorProperty> ColorProperty = EditingProperty.RegisterDirect<ColorProperty, Text>(
+        public static readonly DirectProperty<Text, ColorProperty> ColorProperty = EditingProperty.RegisterDirect<ColorProperty, Text>(
             nameof(Color),
             owner => owner.Color,
             (owner, obj) => owner.Color = obj,
@@ -52,7 +52,7 @@ namespace BEditor.Primitive.Objects
         /// <summary>
         /// Defines the <see cref="Color"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<Text, FontProperty> FontProperty = EditingProperty.RegisterDirect<FontProperty, Text>(
+        public static readonly DirectProperty<Text, FontProperty> FontProperty = EditingProperty.RegisterDirect<FontProperty, Text>(
             nameof(Font),
             owner => owner.Font,
             (owner, obj) => owner.Font = obj,
@@ -61,7 +61,7 @@ namespace BEditor.Primitive.Objects
         /// <summary>
         /// Defines the <see cref="HorizontalAlign"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<Text, SelectorProperty> HorizontalAlignProperty = EditingProperty.RegisterDirect<SelectorProperty, Text>(
+        public static readonly DirectProperty<Text, SelectorProperty> HorizontalAlignProperty = EditingProperty.RegisterDirect<SelectorProperty, Text>(
             nameof(HorizontalAlign),
             owner => owner.HorizontalAlign,
             (owner, obj) => owner.HorizontalAlign = obj,
@@ -75,7 +75,7 @@ namespace BEditor.Primitive.Objects
         /// <summary>
         /// Defines the <see cref="VerticalAlign"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<Text, SelectorProperty> VerticalAlignProperty = EditingProperty.RegisterDirect<SelectorProperty, Text>(
+        public static readonly DirectProperty<Text, SelectorProperty> VerticalAlignProperty = EditingProperty.RegisterDirect<SelectorProperty, Text>(
             nameof(VerticalAlign),
             owner => owner.VerticalAlign,
             (owner, obj) => owner.VerticalAlign = obj,
@@ -89,7 +89,7 @@ namespace BEditor.Primitive.Objects
         /// <summary>
         /// Defines the <see cref="Document"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<Text, DocumentProperty> DocumentProperty = EditingProperty.RegisterDirect<DocumentProperty, Text>(
+        public static readonly DirectProperty<Text, DocumentProperty> DocumentProperty = EditingProperty.RegisterDirect<DocumentProperty, Text>(
             nameof(Document),
             owner => owner.Document,
             (owner, obj) => owner.Document = obj,

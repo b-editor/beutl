@@ -25,7 +25,7 @@ namespace BEditor.Primitive.Effects.OpenCv
         /// <summary>
         /// Defines the <see cref="Size"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<GaussianBlur, EaseProperty> SizeProperty = EditingProperty.RegisterDirect<EaseProperty, GaussianBlur>(
+        public static readonly DirectProperty<GaussianBlur, EaseProperty> SizeProperty = EditingProperty.RegisterDirect<EaseProperty, GaussianBlur>(
             nameof(Size),
             owner => owner.Size,
             (owner, obj) => owner.Size = obj,
@@ -34,7 +34,7 @@ namespace BEditor.Primitive.Effects.OpenCv
         /// <summary>
         /// Defines the <see cref="Resize"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<GaussianBlur, CheckProperty> ResizeProperty = EditingProperty.RegisterDirect<CheckProperty, GaussianBlur>(
+        public static readonly DirectProperty<GaussianBlur, CheckProperty> ResizeProperty = EditingProperty.RegisterDirect<CheckProperty, GaussianBlur>(
             nameof(Resize),
             owner => owner.Resize,
             (owner, obj) => owner.Resize = obj,

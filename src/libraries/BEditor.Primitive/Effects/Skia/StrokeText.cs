@@ -26,7 +26,7 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Defines the <see cref="CenterX"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<StrokeText, EaseProperty> CenterXProperty = EditingProperty.RegisterDirect<EaseProperty, StrokeText>(
+        public static readonly DirectProperty<StrokeText, EaseProperty> CenterXProperty = EditingProperty.RegisterDirect<EaseProperty, StrokeText>(
             nameof(CenterX),
             owner => owner.CenterX,
             (owner, obj) => owner.CenterX = obj,
@@ -35,7 +35,7 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Defines the <see cref="CenterY"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<StrokeText, EaseProperty> CenterYProperty = EditingProperty.RegisterDirect<EaseProperty, StrokeText>(
+        public static readonly DirectProperty<StrokeText, EaseProperty> CenterYProperty = EditingProperty.RegisterDirect<EaseProperty, StrokeText>(
             nameof(CenterY),
             owner => owner.CenterY,
             (owner, obj) => owner.CenterY = obj,
@@ -44,22 +44,22 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Defines the <see cref="LineSpacing"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<StrokeText, EaseProperty> LineSpacingProperty = Text.LineSpacingProperty.WithOwner<StrokeText>(
+        public static readonly DirectProperty<StrokeText, EaseProperty> LineSpacingProperty = Text.LineSpacingProperty.WithOwner<StrokeText>(
             owner => owner.LineSpacing,
             (owner, obj) => owner.LineSpacing = obj,
-            new EasePropertyMetadata(Strings.LineSpacing, 0));
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.LineSpacing, 0)));
 
         /// <summary>
         /// Defines the <see cref="Size"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<StrokeText, EaseProperty> SizeProperty = Border.SizeProperty.WithOwner<StrokeText>(
+        public static readonly DirectProperty<StrokeText, EaseProperty> SizeProperty = Border.SizeProperty.WithOwner<StrokeText>(
             owner => owner.Size,
             (owner, obj) => owner.Size = obj);
 
         /// <summary>
         /// Defines the <see cref="Color"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<StrokeText, ColorProperty> ColorProperty = Border.ColorProperty.WithOwner<StrokeText>(
+        public static readonly DirectProperty<StrokeText, ColorProperty> ColorProperty = Border.ColorProperty.WithOwner<StrokeText>(
             owner => owner.Color,
             (owner, obj) => owner.Color = obj);
 

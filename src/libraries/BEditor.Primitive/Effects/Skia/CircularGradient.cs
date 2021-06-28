@@ -30,21 +30,21 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Defines the <see cref="CenterX"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<CircularGradient, EaseProperty> CenterXProperty = Coordinate.CenterXProperty.WithOwner<CircularGradient>(
+        public static readonly DirectProperty<CircularGradient, EaseProperty> CenterXProperty = Coordinate.CenterXProperty.WithOwner<CircularGradient>(
             owner => owner.CenterX,
             (owner, obj) => owner.CenterX = obj);
 
         /// <summary>
         /// Defines the <see cref="CenterY"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<CircularGradient, EaseProperty> CenterYProperty = Coordinate.CenterYProperty.WithOwner<CircularGradient>(
+        public static readonly DirectProperty<CircularGradient, EaseProperty> CenterYProperty = Coordinate.CenterYProperty.WithOwner<CircularGradient>(
             owner => owner.CenterY,
             (owner, obj) => owner.CenterY = obj);
 
         /// <summary>
         /// Defines the <see cref="Radius"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<CircularGradient, EaseProperty> RadiusProperty = EditingProperty.RegisterDirect<EaseProperty, CircularGradient>(
+        public static readonly DirectProperty<CircularGradient, EaseProperty> RadiusProperty = EditingProperty.RegisterDirect<EaseProperty, CircularGradient>(
             nameof(Radius),
             owner => owner.Radius,
             (owner, obj) => owner.Radius = obj,
@@ -53,21 +53,21 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Defines the <see cref="Colors"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<CircularGradient, TextProperty> ColorsProperty = LinearGradient.ColorsProperty.WithOwner<CircularGradient>(
+        public static readonly DirectProperty<CircularGradient, TextProperty> ColorsProperty = LinearGradient.ColorsProperty.WithOwner<CircularGradient>(
             owner => owner.Colors,
             (owner, obj) => owner.Colors = obj);
 
         /// <summary>
         /// Defines the <see cref="Anchors"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<CircularGradient, TextProperty> AnchorsProperty = LinearGradient.AnchorsProperty.WithOwner<CircularGradient>(
+        public static readonly DirectProperty<CircularGradient, TextProperty> AnchorsProperty = LinearGradient.AnchorsProperty.WithOwner<CircularGradient>(
             owner => owner.Anchors,
             (owner, obj) => owner.Anchors = obj);
 
         /// <summary>
         /// Defines the <see cref="Mode"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<CircularGradient, SelectorProperty> ModeProperty = LinearGradient.ModeProperty.WithOwner<CircularGradient>(
+        public static readonly DirectProperty<CircularGradient, SelectorProperty> ModeProperty = LinearGradient.ModeProperty.WithOwner<CircularGradient>(
             owner => owner.Mode,
             (owner, obj) => owner.Mode = obj);
 

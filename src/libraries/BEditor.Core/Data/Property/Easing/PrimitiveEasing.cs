@@ -23,7 +23,7 @@ namespace BEditor.Data.Property.Easing
         /// <summary>
         /// Defines the <see cref="EasingType"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<PrimitiveEasing, SelectorProperty> EasingTypeProperty;
+        public static readonly DirectProperty<PrimitiveEasing, SelectorProperty> EasingTypeProperty;
 
         private static readonly SelectorPropertyMetadata _easingTypeMetadata = new("EasingType", new[]
         {

@@ -21,7 +21,7 @@ namespace BEditor.Data.Property.PrimitiveGroup
         /// <summary>
         /// Defines the <see cref="X"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<Coordinate, EaseProperty> XProperty = EditingProperty.RegisterDirect<EaseProperty, Coordinate>(
+        public static readonly DirectProperty<Coordinate, EaseProperty> XProperty = EditingProperty.RegisterDirect<EaseProperty, Coordinate>(
             nameof(X),
             owner => owner.X,
             (owner, obj) => owner.X = obj,
@@ -30,7 +30,7 @@ namespace BEditor.Data.Property.PrimitiveGroup
         /// <summary>
         /// Defines the <see cref="Y"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<Coordinate, EaseProperty> YProperty = EditingProperty.RegisterDirect<EaseProperty, Coordinate>(
+        public static readonly DirectProperty<Coordinate, EaseProperty> YProperty = EditingProperty.RegisterDirect<EaseProperty, Coordinate>(
             nameof(Y),
             owner => owner.Y,
             (owner, obj) => owner.Y = obj,
@@ -39,7 +39,7 @@ namespace BEditor.Data.Property.PrimitiveGroup
         /// <summary>
         /// Defines the <see cref="Z"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<Coordinate, EaseProperty> ZProperty = EditingProperty.RegisterDirect<EaseProperty, Coordinate>(
+        public static readonly DirectProperty<Coordinate, EaseProperty> ZProperty = EditingProperty.RegisterDirect<EaseProperty, Coordinate>(
             nameof(Z),
             owner => owner.Z,
             (owner, obj) => owner.Z = obj,
@@ -48,7 +48,7 @@ namespace BEditor.Data.Property.PrimitiveGroup
         /// <summary>
         /// Defines the <see cref="CenterX"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<Coordinate, EaseProperty> CenterXProperty = EditingProperty.RegisterDirect<EaseProperty, Coordinate>(
+        public static readonly DirectProperty<Coordinate, EaseProperty> CenterXProperty = EditingProperty.RegisterDirect<EaseProperty, Coordinate>(
             nameof(CenterX),
             owner => owner.CenterX,
             (owner, obj) => owner.CenterX = obj,
@@ -57,7 +57,7 @@ namespace BEditor.Data.Property.PrimitiveGroup
         /// <summary>
         /// Defines the <see cref="CenterY"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<Coordinate, EaseProperty> CenterYProperty = EditingProperty.RegisterDirect<EaseProperty, Coordinate>(
+        public static readonly DirectProperty<Coordinate, EaseProperty> CenterYProperty = EditingProperty.RegisterDirect<EaseProperty, Coordinate>(
             nameof(CenterY),
             owner => owner.CenterY,
             (owner, obj) => owner.CenterY = obj,
@@ -66,7 +66,7 @@ namespace BEditor.Data.Property.PrimitiveGroup
         /// <summary>
         /// Defines the <see cref="CenterZ"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<Coordinate, EaseProperty> CenterZProperty = EditingProperty.RegisterDirect<EaseProperty, Coordinate>(
+        public static readonly DirectProperty<Coordinate, EaseProperty> CenterZProperty = EditingProperty.RegisterDirect<EaseProperty, Coordinate>(
             nameof(CenterZ),
             owner => owner.CenterZ,
             (owner, obj) => owner.CenterZ = obj,

@@ -25,7 +25,7 @@ namespace BEditor.Primitive.Effects.OpenCv
         /// <summary>
         /// Defines the <see cref="Size"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<MedianBlur, EaseProperty> SizeProperty = EditingProperty.RegisterDirect<EaseProperty, MedianBlur>(
+        public static readonly DirectProperty<MedianBlur, EaseProperty> SizeProperty = EditingProperty.RegisterDirect<EaseProperty, MedianBlur>(
             nameof(Size),
             owner => owner.Size,
             (owner, obj) => owner.Size = obj,
@@ -34,7 +34,7 @@ namespace BEditor.Primitive.Effects.OpenCv
         /// <summary>
         /// Defines the <see cref="Resize"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<MedianBlur, CheckProperty> ResizeProperty = EditingProperty.RegisterDirect<CheckProperty, MedianBlur>(
+        public static readonly DirectProperty<MedianBlur, CheckProperty> ResizeProperty = EditingProperty.RegisterDirect<CheckProperty, MedianBlur>(
             nameof(Resize),
             owner => owner.Resize,
             (owner, obj) => owner.Resize = obj,

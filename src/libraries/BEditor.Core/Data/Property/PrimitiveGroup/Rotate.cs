@@ -23,7 +23,7 @@ namespace BEditor.Data.Property.PrimitiveGroup
         /// <summary>
         /// Defines the <see cref="RotateX"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<Rotate, EaseProperty> RotateXProperty = EditingProperty.RegisterDirect<EaseProperty, Rotate>(
+        public static readonly DirectProperty<Rotate, EaseProperty> RotateXProperty = EditingProperty.RegisterDirect<EaseProperty, Rotate>(
             nameof(RotateX),
             owner => owner.RotateX,
             (owner, obj) => owner.RotateX = obj,
@@ -32,7 +32,7 @@ namespace BEditor.Data.Property.PrimitiveGroup
         /// <summary>
         /// Defines the <see cref="RotateY"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<Rotate, EaseProperty> RotateYProperty = EditingProperty.RegisterDirect<EaseProperty, Rotate>(
+        public static readonly DirectProperty<Rotate, EaseProperty> RotateYProperty = EditingProperty.RegisterDirect<EaseProperty, Rotate>(
             nameof(RotateY),
             owner => owner.RotateY,
             (owner, obj) => owner.RotateY = obj,
@@ -41,7 +41,7 @@ namespace BEditor.Data.Property.PrimitiveGroup
         /// <summary>
         /// Defines the <see cref="RotateZ"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<Rotate, EaseProperty> RotateZProperty = EditingProperty.RegisterDirect<EaseProperty, Rotate>(
+        public static readonly DirectProperty<Rotate, EaseProperty> RotateZProperty = EditingProperty.RegisterDirect<EaseProperty, Rotate>(
             nameof(RotateZ),
             owner => owner.RotateZ,
             (owner, obj) => owner.RotateZ = obj,

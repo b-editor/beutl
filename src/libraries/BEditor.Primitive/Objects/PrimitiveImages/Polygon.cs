@@ -26,21 +26,21 @@ namespace BEditor.Primitive.Objects
         /// <summary>
         /// Defines the <see cref="Width"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<Polygon, EaseProperty> WidthProperty = GL3DObject.WidthProperty.WithOwner<Polygon>(
+        public static readonly DirectProperty<Polygon, EaseProperty> WidthProperty = GL3DObject.WidthProperty.WithOwner<Polygon>(
             owner => owner.Width,
             (owner, obj) => owner.Width = obj);
 
         /// <summary>
         /// Defines the <see cref="Height"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<Polygon, EaseProperty> HeightProperty = GL3DObject.HeightProperty.WithOwner<Polygon>(
+        public static readonly DirectProperty<Polygon, EaseProperty> HeightProperty = GL3DObject.HeightProperty.WithOwner<Polygon>(
             owner => owner.Height,
             (owner, obj) => owner.Height = obj);
 
         /// <summary>
         /// Defines the <see cref="Number"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<Polygon, ValueProperty> NumberProperty = EditingProperty.RegisterDirect<ValueProperty, Polygon>(
+        public static readonly DirectProperty<Polygon, ValueProperty> NumberProperty = EditingProperty.RegisterDirect<ValueProperty, Polygon>(
             nameof(Number),
             owner => owner.Number,
             (owner, obj) => owner.Number = obj,
@@ -49,7 +49,7 @@ namespace BEditor.Primitive.Objects
         /// <summary>
         /// Defines the <see cref="Color"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<Polygon, ColorProperty> ColorProperty = ColorKey.ColorProperty.WithOwner<Polygon>(
+        public static readonly DirectProperty<Polygon, ColorProperty> ColorProperty = ColorKey.ColorProperty.WithOwner<Polygon>(
             owner => owner.Color,
             (owner, obj) => owner.Color = obj);
 

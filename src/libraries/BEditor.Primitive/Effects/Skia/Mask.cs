@@ -31,21 +31,21 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Defines the <see cref="X"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<Mask, EaseProperty> XProperty = Coordinate.XProperty.WithOwner<Mask>(
+        public static readonly DirectProperty<Mask, EaseProperty> XProperty = Coordinate.XProperty.WithOwner<Mask>(
             owner => owner.X,
             (owner, obj) => owner.X = obj);
 
         /// <summary>
         /// Defines the <see cref="Y"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<Mask, EaseProperty> YProperty = Coordinate.YProperty.WithOwner<Mask>(
+        public static readonly DirectProperty<Mask, EaseProperty> YProperty = Coordinate.YProperty.WithOwner<Mask>(
             owner => owner.Y,
             (owner, obj) => owner.Y = obj);
 
         /// <summary>
         /// Defines the <see cref="MaskRotate"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<Mask, EaseProperty> MaskRotateProperty = EditingProperty.RegisterDirect<EaseProperty, Mask>(
+        public static readonly DirectProperty<Mask, EaseProperty> MaskRotateProperty = EditingProperty.RegisterDirect<EaseProperty, Mask>(
             nameof(MaskRotate),
             owner => owner.MaskRotate,
             (owner, obj) => owner.MaskRotate = obj,
@@ -54,7 +54,7 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Defines the <see cref="Width"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<Mask, EaseProperty> WidthProperty = EditingProperty.RegisterDirect<EaseProperty, Mask>(
+        public static readonly DirectProperty<Mask, EaseProperty> WidthProperty = EditingProperty.RegisterDirect<EaseProperty, Mask>(
             nameof(Width),
             owner => owner.Width,
             (owner, obj) => owner.Width = obj,
@@ -63,7 +63,7 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Defines the <see cref="Height"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<Mask, EaseProperty> HeightProperty = EditingProperty.RegisterDirect<EaseProperty, Mask>(
+        public static readonly DirectProperty<Mask, EaseProperty> HeightProperty = EditingProperty.RegisterDirect<EaseProperty, Mask>(
             nameof(Height),
             owner => owner.Height,
             (owner, obj) => owner.Height = obj,
@@ -72,7 +72,7 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Defines the <see cref="Image"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<Mask, TextProperty> ImageProperty = EditingProperty.RegisterDirect<TextProperty, Mask>(
+        public static readonly DirectProperty<Mask, TextProperty> ImageProperty = EditingProperty.RegisterDirect<TextProperty, Mask>(
             nameof(Image),
             owner => owner.Image,
             (owner, obj) => owner.Image = obj,
@@ -81,7 +81,7 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Defines the <see cref="InvertMask"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<Mask, CheckProperty> InvertMaskProperty = EditingProperty.RegisterDirect<CheckProperty, Mask>(
+        public static readonly DirectProperty<Mask, CheckProperty> InvertMaskProperty = EditingProperty.RegisterDirect<CheckProperty, Mask>(
             nameof(InvertMask),
             owner => owner.InvertMask,
             (owner, obj) => owner.InvertMask = obj,
@@ -90,7 +90,7 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Defines the <see cref="FitSize"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<Mask, CheckProperty> FitSizeProperty = EditingProperty.RegisterDirect<CheckProperty, Mask>(
+        public static readonly DirectProperty<Mask, CheckProperty> FitSizeProperty = EditingProperty.RegisterDirect<CheckProperty, Mask>(
             nameof(FitSize),
             owner => owner.FitSize,
             (owner, obj) => owner.FitSize = obj,

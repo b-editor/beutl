@@ -33,42 +33,42 @@ namespace BEditor.Primitive.Effects.OpenCv
         /// <summary>
         /// Defines the <see cref="CenterX"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<WarpPolar, EaseProperty> CenterXProperty = Coordinate.CenterXProperty.WithOwner<WarpPolar>(
+        public static readonly DirectProperty<WarpPolar, EaseProperty> CenterXProperty = Coordinate.CenterXProperty.WithOwner<WarpPolar>(
             owner => owner.CenterX,
             (owner, obj) => owner.CenterX = obj);
 
         /// <summary>
         /// Defines the <see cref="CenterY"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<WarpPolar, EaseProperty> CenterYProperty = Coordinate.CenterYProperty.WithOwner<WarpPolar>(
+        public static readonly DirectProperty<WarpPolar, EaseProperty> CenterYProperty = Coordinate.CenterYProperty.WithOwner<WarpPolar>(
             owner => owner.CenterY,
             (owner, obj) => owner.CenterY = obj);
 
         /// <summary>
         /// Defines the <see cref="Radius"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<WarpPolar, EaseProperty> RadiusProperty = CircularGradient.RadiusProperty.WithOwner<WarpPolar>(
+        public static readonly DirectProperty<WarpPolar, EaseProperty> RadiusProperty = CircularGradient.RadiusProperty.WithOwner<WarpPolar>(
             owner => owner.Radius,
             (owner, obj) => owner.Radius = obj);
 
         /// <summary>
         /// Defines the <see cref="Width"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<WarpPolar, EaseProperty> WidthProperty = GL3DObject.WidthProperty.WithOwner<WarpPolar>(
+        public static readonly DirectProperty<WarpPolar, EaseProperty> WidthProperty = GL3DObject.WidthProperty.WithOwner<WarpPolar>(
             owner => owner.Width,
             (owner, obj) => owner.Width = obj);
 
         /// <summary>
         /// Defines the <see cref="Height"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<WarpPolar, EaseProperty> HeightProperty = GL3DObject.HeightProperty.WithOwner<WarpPolar>(
+        public static readonly DirectProperty<WarpPolar, EaseProperty> HeightProperty = GL3DObject.HeightProperty.WithOwner<WarpPolar>(
             owner => owner.Height,
             (owner, obj) => owner.Height = obj);
 
         /// <summary>
         /// Defines the <see cref="Mode"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<WarpPolar, SelectorProperty> ModeProperty = EditingProperty.RegisterDirect<SelectorProperty, WarpPolar>(
+        public static readonly DirectProperty<WarpPolar, SelectorProperty> ModeProperty = EditingProperty.RegisterDirect<SelectorProperty, WarpPolar>(
             nameof(Mode),
             owner => owner.Mode,
             (owner, obj) => owner.Mode = obj,

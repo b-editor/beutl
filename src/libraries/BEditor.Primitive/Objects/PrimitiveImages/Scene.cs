@@ -28,7 +28,7 @@ namespace BEditor.Primitive.Objects
         /// <summary>
         /// Defines the <see cref="Start"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<SceneObject, EaseProperty> StartProperty = VideoFile.StartProperty.WithOwner<SceneObject>(
+        public static readonly DirectProperty<SceneObject, EaseProperty> StartProperty = VideoFile.StartProperty.WithOwner<SceneObject>(
             owner => owner.Start,
             (owner, obj) => owner.Start = obj);
 

@@ -25,21 +25,21 @@ namespace BEditor.Primitive.Objects
         /// <summary>
         /// Defines the <see cref="Width"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<Shape, EaseProperty> WidthProperty = Polygon.WidthProperty.WithOwner<Shape>(
+        public static readonly DirectProperty<Shape, EaseProperty> WidthProperty = Polygon.WidthProperty.WithOwner<Shape>(
             owner => owner.Width,
             (owner, obj) => owner.Width = obj);
 
         /// <summary>
         /// Defines the <see cref="Height"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<Shape, EaseProperty> HeightProperty = Polygon.HeightProperty.WithOwner<Shape>(
+        public static readonly DirectProperty<Shape, EaseProperty> HeightProperty = Polygon.HeightProperty.WithOwner<Shape>(
             owner => owner.Height,
             (owner, obj) => owner.Height = obj);
 
         /// <summary>
         /// Defines the <see cref="Line"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<Shape, EaseProperty> LineProperty = EditingProperty.RegisterDirect<EaseProperty, Shape>(
+        public static readonly DirectProperty<Shape, EaseProperty> LineProperty = EditingProperty.RegisterDirect<EaseProperty, Shape>(
             nameof(Line),
             owner => owner.Line,
             (owner, obj) => owner.Line = obj,
@@ -48,14 +48,14 @@ namespace BEditor.Primitive.Objects
         /// <summary>
         /// Defines the <see cref="Color"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<Shape, ColorProperty> ColorProperty = Polygon.ColorProperty.WithOwner<Shape>(
+        public static readonly DirectProperty<Shape, ColorProperty> ColorProperty = Polygon.ColorProperty.WithOwner<Shape>(
             owner => owner.Color,
             (owner, obj) => owner.Color = obj);
 
         /// <summary>
         /// Defines the <see cref="Type"/> property.
         /// </summary>
-        public static readonly DirectEditingProperty<Shape, SelectorProperty> TypeProperty = EditingProperty.RegisterDirect<SelectorProperty, Shape>(
+        public static readonly DirectProperty<Shape, SelectorProperty> TypeProperty = EditingProperty.RegisterDirect<SelectorProperty, Shape>(
             nameof(Type),
             owner => owner.Type,
             (owner, obj) => owner.Type = obj,
