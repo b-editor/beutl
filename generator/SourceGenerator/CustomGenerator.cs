@@ -44,10 +44,10 @@ public class GenerateTargetAttribute : Attribute
             }
 
             var namespaceName = classSymbol.ContainingNamespace.ToDisplayString();
-
             // begin building the generated source
             var source = new StringBuilder($@"namespace {namespaceName}
 {{
+#nullable disable
     public partial class {classSymbol.Name}
     {{
 ");
@@ -68,7 +68,14 @@ public class GenerateTargetAttribute : Attribute
 
             if (property.IsDirect)
             {
-                source.Append($@"        public {property.ValueType} {propertyName} {{ get; set; }}
+                var field = $"_{propertyName.ToLowerInvariant()}";
+                source.Append($@"        private {property.ValueType} {field};
+");
+                source.Append($@"        public {property.ValueType} {propertyName}
+        {{
+            get => {field};
+            set => SetAndRaise({property.Field.Name}, ref {field}, value);
+        }}
 ");
             }
             else
@@ -94,7 +101,7 @@ public class GenerateTargetAttribute : Attribute
                     {
                         IFieldSymbol fieldSymbol = context.SemanticModel.GetDeclaredSymbol(variable) as IFieldSymbol;
 
-                        if (fieldSymbol.Type.Name.Contains("EditingProperty") &&
+                        if (fieldSymbol.Type.AllInterfaces.Any(i => i.Name.Contains("IEditingProperty")) &&
                             fieldDeclarationSyntax.Declaration.Type is GenericNameSyntax &&
                             fieldSymbol.ContainingType.GetAttributes().Any(ad => ad.AttributeClass.ToDisplayString() == "GenerateTarget"))
                         {
