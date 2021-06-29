@@ -1,6 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-    <Import Project="$(SolutionDir)\props\analyzer.props" />
+    <Import Project="..\..\..\props\analyzer.props" />
     <Import Project="..\Shared\Shared.projitems" Label="Shared" />
 
     <ItemGroup>

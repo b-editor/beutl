@@ -8,7 +8,7 @@
         <ProjectReference Include="..\BEditor.Drawing\BEditor.Drawing.csproj" />
     </ItemGroup>
 
-    <Import Project="$(SolutionDir)\props\analyzer.props" />
+    <Import Project="..\..\..\props\analyzer.props" />
     <Import Project="..\Shared\Shared.projitems" Label="Shared" />
 
     <ItemGroup>

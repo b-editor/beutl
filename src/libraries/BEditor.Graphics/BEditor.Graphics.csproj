@@ -4,7 +4,7 @@
         <DocumentationFile>BEditor.Graphics.OpenGL.xml</DocumentationFile>
     </PropertyGroup>
 
-    <Import Project="$(SolutionDir)\props\analyzer.props" />
+    <Import Project="..\..\..\props\analyzer.props" />
 
     <ItemGroup>
         <ProjectReference Include="..\BEditor.Drawing\BEditor.Drawing.csproj" />
