@@ -63,7 +63,7 @@ namespace BEditor.ViewModels
         public ReactiveProperty<WriteableBitmap?> PreviewImage { get; } = new();
 
         public ReactiveProperty<Sound<StereoPCMFloat>?> PreviewAudio { get; } = new();
-        
+
         public ReactiveProperty<BackgroundType> Background { get; } = new();
 
         public IReadOnlyReactiveProperty<bool> IsOpened { get; }
