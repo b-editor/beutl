@@ -10,7 +10,7 @@
 ![](https://github.com/b-editor/BEditor/workflows/Debug%20Build%20&%20Test/badge.svg)
 ![](https://github.com/b-editor/BEditor/workflows/CodeQL/badge.svg)
 
-Windows, Linux, macOSで動作する動画編集ソフトウェアです。
+Windows, Linuxで動作する動画編集ソフトウェアです。
 
 ![](https://beditor.net/api/header/?version=0.1.3)
 
@@ -57,3 +57,7 @@ dotnet cake
 ## Screenshots
 
 ![](https://raw.githubusercontent.com/b-editor/BEditor/main/docs/imgs/ScreenShot_1.png)
+
+## Patrons
+
+* [Bony_Chops](https://www.patreon.com/user/creators?u=52944861)
