@@ -10,7 +10,7 @@
 ![](https://github.com/b-editor/BEditor/workflows/Debug%20Build%20&%20Test/badge.svg)
 ![](https://github.com/b-editor/BEditor/workflows/CodeQL/badge.svg)
 
-Windows, Linux, macOSで動作する動画編集ソフトウェアです。
+Windows, Linuxで動作する動画編集ソフトウェアです。
 
 ![](https://beditor.net/api/header/?version=0.1.3)
 
