@@ -57,3 +57,7 @@ dotnet cake
 ## Screenshots
 
 ![](https://raw.githubusercontent.com/b-editor/BEditor/main/docs/imgs/ScreenShot_1.png)
+
+## Patrons
+
+* [Bony_Chops](https://www.patreon.com/user/creators?u=52944861)
