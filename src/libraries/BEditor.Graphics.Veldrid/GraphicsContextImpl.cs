@@ -131,6 +131,7 @@ namespace BEditor.Graphics.Veldrid
 
         public void DrawBall(Ball ball)
         {
+            CommandList.SetFramebuffer(Framebuffer);
             using var impl = ball.ToImpl();
             // VertexBuffer
             var vertex = impl.Vertices;
@@ -195,6 +196,7 @@ namespace BEditor.Graphics.Veldrid
 
         public void DrawCube(Cube cube)
         {
+            CommandList.SetFramebuffer(Framebuffer);
             using var impl = cube.ToImpl();
             // VertexBuffer
             var vertex = impl.Vertices;
@@ -266,6 +268,7 @@ namespace BEditor.Graphics.Veldrid
 
         public void DrawLine(Line line)
         {
+            CommandList.SetFramebuffer(Framebuffer);
             // VertexBuffer
             var vertex = line.Vertices();
             var vertexBuffer = SwapchainFactory.CreateBuffer(new BufferDescription((uint)(sizeof(float) * vertex.Length), BufferUsage.VertexBuffer));
@@ -328,6 +331,7 @@ namespace BEditor.Graphics.Veldrid
 
         public void DrawTexture(Texture texture)
         {
+            CommandList.SetFramebuffer(Framebuffer);
             var tex = ToTexture(texture);
             var view = SwapchainFactory.CreateTextureView(tex);
 
