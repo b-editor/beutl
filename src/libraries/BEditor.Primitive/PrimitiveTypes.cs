@@ -92,7 +92,7 @@ namespace BEditor.Primitive
         /// </summary>
         public static readonly ObjectMetadata AudioMetadata = ObjectMetadata.Create(
             name: Strings.Audio,
-            accentColor: Color.FromARGB(0xffff1744),
+            accentColor: Color.FromUInt32(0xffff1744),
             pathIcon: "M20 2.75001C20 2.51293 19.8879 2.28981 19.6977 2.14829C19.5075 2.00677 19.2616 1.96351 19.0345 2.03164L9.03449 5.03164C8.71725 5.12681 8.5 5.4188 8.5 5.75001V15.6273C7.93308 15.2319 7.24362 15 6.5 15C4.567 15 3 16.567 3 18.5C3 20.433 4.567 22 6.5 22C8.433 22 10 20.433 10 18.5C10 18.4426 9.99862 18.3856 9.99589 18.3289C9.99861 18.303 10 18.2766 10 18.25V10.308L18.5 7.75803V13.6273C17.9331 13.2319 17.2436 13 16.5 13C14.567 13 13 14.567 13 16.5C13 18.433 14.567 20 16.5 20C18.433 20 20 18.433 20 16.5C20 16.4427 19.9986 16.3856 19.9959 16.329C19.9986 16.303 20 16.2767 20 16.25V2.75001Z",
             createFromFile: AudioFile.FromFile,
             isSupported: AudioFile.IsSupported);
@@ -102,7 +102,7 @@ namespace BEditor.Primitive
         /// </summary>
         public static readonly ObjectMetadata ImageMetadata = ObjectMetadata.Create(
             name: Strings.Image,
-            accentColor: Color.FromARGB(0xff0091ea),
+            accentColor: Color.FromUInt32(0xff0091ea),
             pathIcon: "M13.4736 15.7226L13.5574 15.6513C13.8169 15.4611 14.171 15.4588 14.4329 15.6443L14.5264 15.7226L23.4531 24.5186C22.9578 24.8239 22.3745 25 21.75 25H6.25C5.62551 25 5.04216 24.8239 4.54692 24.5186L13.4736 15.7226L13.5574 15.6513L13.4736 15.7226ZM21.75 3C23.5449 3 25 4.45507 25 6.25V21.75C25 22.3766 24.8227 22.9618 24.5154 23.4582L15.5791 14.6541L15.4505 14.5367C14.6168 13.8323 13.3923 13.8303 12.5565 14.5309L12.4209 14.6541L3.48457 23.4582C3.17734 22.9618 3 22.3766 3 21.75V6.25C3 4.45507 4.45507 3 6.25 3H21.75ZM19 7C17.6193 7 16.5 8.11929 16.5 9.5C16.5 10.8807 17.6193 12 19 12C20.3807 12 21.5 10.8807 21.5 9.5C21.5 8.11929 20.3807 7 19 7ZM19 8.5C19.5523 8.5 20 8.94772 20 9.5C20 10.0523 19.5523 10.5 19 10.5C18.4477 10.5 18 10.0523 18 9.5C18 8.94772 18.4477 8.5 19 8.5Z",
             createFromFile: ImageFile.FromFile,
             isSupported: ImageFile.IsSupported);
@@ -112,7 +112,7 @@ namespace BEditor.Primitive
         /// </summary>
         public static readonly ObjectMetadata TextMetadata = ObjectMetadata.Create<Text>(
             name: Strings.Text,
-            accentColor: Color.FromARGB(0xff6200ea),
+            accentColor: Color.FromUInt32(0xff6200ea),
             pathIcon: "M5.25 3C4.00736 3 3 4.00736 3 5.25V18.75C3 19.9926 4.00736 21 5.25 21H18.75C19.9926 21 21 19.9926 21 18.75V5.25C21 4.00736 19.9926 3 18.75 3H5.25ZM8.75 8.25C8.75 8.80228 8.30228 9.25 7.75 9.25C7.19772 9.25 6.75 8.80228 6.75 8.25C6.75 7.69772 7.19772 7.25 7.75 7.25C8.30228 7.25 8.75 7.69772 8.75 8.25ZM10.5 8.25C10.5 7.83579 10.8358 7.5 11.25 7.5H16.75C17.1642 7.5 17.5 7.83579 17.5 8.25C17.5 8.66421 17.1642 9 16.75 9H11.25C10.8358 9 10.5 8.66421 10.5 8.25ZM10.5001 12C10.5001 11.5858 10.8358 11.25 11.2501 11.25H16.7499C17.1642 11.25 17.4999 11.5858 17.4999 12C17.4999 12.4142 17.1642 12.75 16.7499 12.75H11.2501C10.8358 12.75 10.5001 12.4142 10.5001 12ZM11.2501 15H16.7499C17.1642 15 17.4999 15.3358 17.4999 15.75C17.4999 16.1642 17.1642 16.5 16.7499 16.5H11.2501C10.8358 16.5 10.5001 16.1642 10.5001 15.75C10.5001 15.3358 10.8358 15 11.2501 15ZM7.75 13C7.19772 13 6.75 12.5523 6.75 12C6.75 11.4477 7.19772 11 7.75 11C8.30228 11 8.75 11.4477 8.75 12C8.75 12.5523 8.30228 13 7.75 13ZM8.75 15.75C8.75 16.3023 8.30228 16.75 7.75 16.75C7.19772 16.75 6.75 16.3023 6.75 15.75C6.75 15.1977 7.19772 14.75 7.75 14.75C8.30228 14.75 8.75 15.1977 8.75 15.75Z");
 
         /// <summary>
@@ -120,20 +120,20 @@ namespace BEditor.Primitive
         /// </summary>
         public static readonly ObjectMetadata ShapeMetadata = ObjectMetadata.Create<Shape>(
             name: Strings.Shape,
-            accentColor: Color.FromARGB(0xff0091ea),
+            accentColor: Color.FromUInt32(0xff0091ea),
             pathIcon: "M2 8.75C2 5.02208 5.02208 2 8.75 2C12.2244 2 15.0857 4.62504 15.4588 8H12.25C9.90279 8 8 9.90279 8 12.25V15.4588C4.62504 15.0857 2 12.2244 2 8.75Z M12.25 9C10.4551 9 9 10.4551 9 12.25V18.75C9 20.5449 10.4551 22 12.25 22H18.75C20.5449 22 22 20.5449 22 18.75V12.25C22 10.4551 20.5449 9 18.75 9H12.25Z");
 
         /// <summary>
         /// Metadata of <see cref="Objects.Polygon"/> class.
         /// </summary>
-        public static readonly ObjectMetadata PolygonMetadata = ObjectMetadata.Create<Polygon>(Strings.Polygon, Color.FromARGB(0xff0091ea));
+        public static readonly ObjectMetadata PolygonMetadata = ObjectMetadata.Create<Polygon>(Strings.Polygon, Color.FromUInt32(0xff0091ea));
 
         /// <summary>
         /// Metadata of <see cref="Objects.RoundRect"/> class.
         /// </summary>
         public static readonly ObjectMetadata RoundRectMetadata = ObjectMetadata.Create<RoundRect>(
             name: Strings.RoundRect,
-            accentColor: Color.FromARGB(0xff0091ea),
+            accentColor: Color.FromUInt32(0xff0091ea),
             pathIcon: "M5 4C3.34315 4 2 5.34315 2 7V13C2 14.6569 3.34315 16 5 16H15C16.6569 16 18 14.6569 18 13V7C18 5.34315 16.6569 4 15 4H5Z");
 
         /// <summary>

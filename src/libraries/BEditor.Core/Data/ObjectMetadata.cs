@@ -34,7 +34,7 @@ namespace BEditor.Data
         /// <summary>
         /// Gets or sets the accent color.
         /// </summary>
-        public Color AccentColor { get; init; } = Color.FromARGB(0xff304fee);
+        public Color AccentColor { get; init; } = Color.FromUInt32(0xff304fee);
 
         /// <summary>
         /// Gets or sets the path data of an icon.
@@ -84,7 +84,7 @@ namespace BEditor.Data
         {
             return new(name, () => new T(), typeof(T))
             {
-                AccentColor = accentColor ?? Color.FromARGB(0xff304fee),
+                AccentColor = accentColor ?? Color.FromUInt32(0xff304fee),
                 PathIcon = pathIcon,
                 CreateFromFile = createFromFile,
                 IsSupported = isSupported,

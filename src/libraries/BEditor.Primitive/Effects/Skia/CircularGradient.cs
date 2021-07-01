@@ -171,7 +171,7 @@ namespace BEditor.Primitive.Effects
                 .Select(str =>
                     str.Replace(" ", string.Empty)
                         .Split(',')
-                        .Select(s => Color.FromHTML(s))
+                        .Select(s => Color.Parse(s))
                         .ToArray())
                 .ToReactiveProperty()!;
 

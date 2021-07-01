@@ -117,7 +117,7 @@ namespace BEditor.Drawing
             g = Math.Round(g * 255.0);
             b = Math.Round(b * 255.0);
 
-            return Color.FromARGB(255, (byte)r, (byte)g, (byte)b);
+            return Color.FromArgb(255, (byte)r, (byte)g, (byte)b);
         }
 
         /// <summary>

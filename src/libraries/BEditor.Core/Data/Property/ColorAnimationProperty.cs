@@ -164,7 +164,7 @@ namespace BEditor.Data.Property
             var blue = EasingType.EaseFunc(now, end - start, stval.B, edval.B);
             var alpha = EasingType.EaseFunc(now, end - start, stval.A, edval.A);
 
-            return Color.FromARGB(
+            return Color.FromArgb(
                 (byte)alpha,
                 (byte)red,
                 (byte)green,
@@ -262,7 +262,7 @@ namespace BEditor.Data.Property
                     .GetProperty("Values")
                     .EnumerateArray()
                     .Select(i => i.GetString()))
-                    .Select(i => new KeyValuePair<float, Color>(i.First, Color.FromHTML(i.Second))));
+                    .Select(i => new KeyValuePair<float, Color>(i.First, Color.Parse(i.Second))));
             }
             else
             {
@@ -270,7 +270,7 @@ namespace BEditor.Data.Property
                     .EnumerateArray()
                     .Select(i => i.GetString()
                     ?.Split(',') ?? new string[2])
-                    .Select(i => new KeyValuePair<float, Color>(float.Parse(i[0]), Color.FromHTML(i[1]))));
+                    .Select(i => new KeyValuePair<float, Color>(float.Parse(i[0]), Color.Parse(i[1]))));
             }
 
             var easing = element.GetProperty("Easing");

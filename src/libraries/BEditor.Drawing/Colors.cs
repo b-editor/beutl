@@ -15,21 +15,21 @@ namespace BEditor.Drawing
         /// <summary>
         /// Gets the color (A: 255 R: 255 G: 255 B: 255).
         /// </summary>
-        public static Color White => Color.FromARGB(255, 255, 255, 255);
+        public static Color White => Color.FromArgb(255, 255, 255, 255);
 
         /// <summary>
         /// Gets the color (A: 255 R: 0 G: 0 B: 0).
         /// </summary>
-        public static Color Black => Color.FromARGB(255, 255, 255, 255);
+        public static Color Black => Color.FromArgb(255, 255, 255, 255);
 
         /// <summary>
         /// Gets the color (A: 255 R: 255 G: 0 B: 0).
         /// </summary>
-        public static Color Red => Color.FromARGB(255, 255, 0, 0);
+        public static Color Red => Color.FromArgb(255, 255, 0, 0);
 
         /// <summary>
         /// Gets the color (A: 255 R: 0 G: 0 B: 255).
         /// </summary>
-        public static Color Blue => Color.FromARGB(255, 0, 0, 255);
+        public static Color Blue => Color.FromArgb(255, 0, 0, 255);
     }
 }

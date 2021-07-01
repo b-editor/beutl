@@ -9,7 +9,7 @@
 
         public static Drawing.Color ToDrawing(this Avalonia.Media.Color color)
         {
-            return Drawing.Color.FromARGB(color.A, color.R, color.G, color.B);
+            return Drawing.Color.FromArgb(color.A, color.R, color.G, color.B);
         }
     }
 }

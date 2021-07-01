@@ -38,7 +38,7 @@ namespace BEditor.Controls
 
         public static void FromColor(Color color, out double h, out double s, out double v, out double a)
         {
-            var hsv = Drawing.Color.FromARGB(255, color.R, color.G, color.B).ToHsv();
+            var hsv = Drawing.Color.FromArgb(255, color.R, color.G, color.B).ToHsv();
             h = hsv.H;
             s = hsv.S;
             v = hsv.V;
@@ -391,7 +391,7 @@ namespace BEditor.Controls
             if (!_updating && ColorPicker != null)
             {
                 _updating = true;
-                var rgb = Drawing.Color.FromARGB(255, Red, Green, Blue);
+                var rgb = Drawing.Color.FromArgb(255, Red, Green, Blue);
                 var hsv = rgb.ToHsv();
                 ColorPicker.Value1 = hsv.H;
                 ColorPicker.Value2 = hsv.S;
