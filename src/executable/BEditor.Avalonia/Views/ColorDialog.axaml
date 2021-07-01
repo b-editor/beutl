@@ -1,54 +1,47 @@
 <Window
-  xmlns="https://github.com/avaloniaui"
-  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-  xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-  xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-  xmlns:dialogCnt="using:BEditor.Views.DialogContent"
-  xmlns:property="using:BEditor.Properties"
-  mc:Ignorable="d" d:DesignWidth="490" d:DesignHeight="310"
-  MinWidth="490"
-  MinHeight="310"
-  Width="490"
-  Height="310"
-  SizeToContent="WidthAndHeight"
-  WindowStartupLocation="CenterScreen"
-  x:Class="BEditor.Views.ColorDialog">
-  <Grid>
-    <Grid.RowDefinitions>
-      <RowDefinition />
-      <RowDefinition Height="Auto" />
-    </Grid.RowDefinitions>
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:property="using:BEditor.Properties"
+    xmlns:col="using:BEditor.Controls"
+    mc:Ignorable="d"
+    Width="400"
+    Height="480"
+    CanResize="False"
+    Classes="fluent"
+    x:Class="BEditor.Views.ColorDialog">
+    <Grid RowDefinitions="*,Auto">
 
-    <TabControl>
-      <TabItem Header="{x:Static property:Strings.ColorPicker}" FontSize="14">
-        <dialogCnt:ColorPicker x:Name="col"/>
-      </TabItem>
-      <TabItem Header="{x:Static property:Strings.ColorPalette}" FontSize="14">
+        <TabControl>
+            <TabItem Header="{x:Static property:Strings.ColorPicker}" FontSize="14">
+                <col:ColorPicker x:Name="col" />
+            </TabItem>
+            <TabItem Header="{x:Static property:Strings.ColorPalette}" FontSize="14">
 
-      </TabItem>
-    </TabControl>
-    <!--<colpick:ColorPalette SelectedEvent="ColorPalette_SelectedEvent" Visibility="{Binding ElementName=ColorPaletteToggle, Path=IsChecked, Converter={StaticResource BooleanToVisibilityConverter}}" />-->
+            </TabItem>
+        </TabControl>
 
-    <StackPanel
-      Grid.Row="1"
-      Margin="8"
-      VerticalAlignment="Bottom"
-      Spacing="8"
-      Orientation="Horizontal">
-      <Button
-        x:Name="ok_button"
-        VerticalAlignment="Center"
-        Click="Button_Click"
-        Content="{x:Static property:Strings.OK}"
-        Background="Transparent" >
-      </Button>
-      <Button
-        x:Name="cancel"
-        VerticalAlignment="Center"
-        Click="Button_Click"
-        Content="{x:Static property:Strings.Cancel}"
-        Background="Transparent" />
+        <StackPanel
+            Grid.Row="1"
+            Margin="8"
+            VerticalAlignment="Bottom"
+            Spacing="8"
+            Orientation="Horizontal">
+            <Button
+                x:Name="ok_button"
+                VerticalAlignment="Center"
+                Click="Button_Click"
+                Content="{x:Static property:Strings.OK}"
+                Background="Transparent" >
+            </Button>
+            <Button
+                x:Name="cancel"
+                VerticalAlignment="Center"
+                Click="Button_Click"
+                Content="{x:Static property:Strings.Cancel}"
+                Background="Transparent" />
 
-    </StackPanel>
-  </Grid>
+        </StackPanel>
+    </Grid>
 </Window>

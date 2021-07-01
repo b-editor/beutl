@@ -6,6 +6,7 @@ using Avalonia.Data;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 
+using BEditor.Controls;
 using BEditor.Data.Property;
 using BEditor.ViewModels.Properties;
 using BEditor.Views.DialogContent;
@@ -38,7 +39,8 @@ namespace BEditor.Views
             {
                 if (DataContext is ColorPropertyViewModel vm)
                 {
-                    vm.Command.Execute((col.Red, col.Green, col.Blue, col.Alpha));
+                    var color = col.Color;
+                    vm.Command.Execute((color.R, color.G, color.B, col.UseAlpha ? color.A : (byte)255));
                 }
             };
             col.Bind(ColorPicker.UseAlphaProperty, new Binding("Metadata.Value.UseAlpha") { Mode = BindingMode.OneTime });

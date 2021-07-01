@@ -37,7 +37,7 @@ namespace BEditor.Extensions
 
         public static async Task PreviewUpdateAsync(this Project project, ApplyType type = ApplyType.Edit)
         {
-            if (project is null || !project.IsLoaded || project.CurrentScene.GraphicsContext is null || !PreviewIsEnabled) return;
+            if (project?.IsLoaded != true || project.CurrentScene.GraphicsContext is null || !PreviewIsEnabled) return;
             PreviewIsEnabled = false;
             try
             {

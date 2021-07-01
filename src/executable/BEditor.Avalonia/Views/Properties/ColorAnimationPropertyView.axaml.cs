@@ -95,12 +95,9 @@ namespace BEditor.Views.Properties
                 var dialog = new ColorDialog(color);
 
                 var pair = color.Pairs[index];
-                dialog.col.Red = pair.Value.R;
-                dialog.col.Green = pair.Value.G;
-                dialog.col.Blue = pair.Value.B;
-                dialog.col.Alpha = pair.Value.A;
+                dialog.col.Color = new Color(pair.Value.A, pair.Value.R, pair.Value.G, pair.Value.B);
 
-                dialog.Command = (d) => _property.ChangeColor(index, Drawing.Color.FromARGB(d.col.Alpha, d.col.Red, d.col.Green, d.col.Blue)).Execute();
+                dialog.Command = (d) => _property.ChangeColor(index, Drawing.Color.FromARGB(d.col.Color.A, d.col.Color.R, d.col.Color.G, d.col.Color.B)).Execute();
 
                 await dialog.ShowDialog(App.GetMainWindow());
             }
