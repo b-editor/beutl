@@ -1,11 +1,12 @@
 # BEditor.Extensions.FFmpeg
 
 ## Description
-動画のデコード、エンコード機能を提供するライブラリ
+FFmpegを使って動画のデコード、エンコード機能を提供するライブラリ
 
 ## Dependent libraries
 * [.NET Runtime](https://github.com/dotnet/runtime)
 * [FFMediaToolkit](https://github.com/radek-k/FFMediaToolkit)
+* [FFmpeg](https://ffmpeg.org)
 
 ## License
 

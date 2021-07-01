@@ -1,8 +1,8 @@
-# BEditor.Core
+# BEditor.Graphics.Skia
 
 ## Description
 
-BEditor.Audio, Base, Compute, Drawing, Graphics, Media, Packagingなどをプロジェクトと結べ付けます。1
+BEditor.GraphicsのSkiaプロファイル。
 
 ## Dependent libraries
 * [.NET Runtime](https://github.com/dotnet/runtime)

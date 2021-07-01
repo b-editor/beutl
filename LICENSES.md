@@ -54,3 +54,8 @@
 ### OpenCVSharp4
 * ライセンス - Apache-2.0 License
 * [GitHub](https://github.com/shimat/opencvsharp)
+
+### Veldrid
+
+* ライセンス - MIT License
+* [GitHub](https://github.com/mellinoe/veldrid)

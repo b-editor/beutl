@@ -1,8 +1,8 @@
-# BEditor.Graphics
+# BEditor.Graphics.OpenGL
 
 ## Description
 
-OpenGLのWrapperライブラリ
+BEditor.GraphicsのOpenGLプロファイル。
 
 ## Dependent libraries
 * [.NET Runtime](https://github.com/dotnet/runtime)

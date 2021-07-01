@@ -1,8 +1,8 @@
-# BEditor.Core
+# BEditor.Graphics
 
 ## Description
 
-BEditor.Audio, Base, Compute, Drawing, Graphics, Media, Packagingなどをプロジェクトと結べ付けます。1
+ハードウェアアクセラレーションによる描画機能を提供します。
 
 ## Dependent libraries
 * [.NET Runtime](https://github.com/dotnet/runtime)

@@ -17,7 +17,7 @@
 
 ## BEditor.Graphics
 
-* OpenGLのオブジェクト指向のApiを提供します。
+* ハードウェアアクセラレーションによる描画機能を提供します。
 
 ## BEditor.Media
 
@@ -30,17 +30,6 @@
 ## BEditor.Primitive
 
 * デフォルトであるオブジェクトやエフェクトがあるライブラリです。
-
-## BEditor.WPF.Controls
-
-* BEditor.WPF用のカスタムコントロールライブラリです。
-* このプロジェクトはBEditor.Avaloniaに移行しました
-
-## BEditor.WPF
-
-* BEditorの実行ファイルのプロジェクトです。  
-* WPFをつかっています。
-* このプロジェクトはBEditor.Avaloniaに移行しました
 
 ## BEditor.Avalonia
 
@@ -110,9 +99,6 @@ EaseProperty, ColorAnimationPropertyのイージング関数のベースクラ�
 * エンコーダー, デコーダーの追加
 * カスタムメニューの追加
 * DIコンテナにサービスを追加
-
-# BEditor.Extensions
-公式で提供する拡張機能 (プラグイン)です。
 
 ## BEditor.Extensions.FFmpeg
 * エンコード、デコードにFFmpegを使えるようにする、拡張機能です

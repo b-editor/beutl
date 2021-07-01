@@ -1,4 +1,4 @@
-# BEditor.Extension.AviUtl
+# BEditor.Extensions.AviUtl
 
 ## Description
 
