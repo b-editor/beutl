@@ -9,6 +9,7 @@ using Avalonia.Threading;
 
 using BEditor.Data;
 using BEditor.Media;
+using BEditor.Media.Encoding;
 using BEditor.Models;
 using BEditor.Packaging;
 using BEditor.Properties;
@@ -271,6 +272,20 @@ namespace BEditor.Extensions
             }
             type = default;
             return false;
+        }
+
+        public static VideoEncoderSettings GetVideoSettings(this IRegisterdEncoding encoding)
+        {
+            return encoding is ISupportEncodingSettings sp
+                ? sp.GetDefaultVideoSettings()
+                : new VideoEncoderSettings(1920, 1080);
+        }
+        
+        public static AudioEncoderSettings GetAudioSettings(this IRegisterdEncoding encoding)
+        {
+            return encoding is ISupportEncodingSettings sp
+                ? sp.GetDefaultAudioSettings()
+                : new AudioEncoderSettings(44100, 2);
         }
 
         public enum RangeType

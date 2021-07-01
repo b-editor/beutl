@@ -45,7 +45,13 @@ namespace BEditor.Media
         /// </summary>
         /// <returns>Returns the supported extensions.</returns>
         public IEnumerable<string> SupportExtensions();
+    }
 
+    /// <summary>
+    /// Controls the default settings of the encoder.
+    /// </summary>
+    public interface ISupportEncodingSettings : IRegisterdEncoding
+    {
         /// <summary>
         /// Gets the default settings for video encoder.
         /// </summary>

@@ -1063,13 +1063,18 @@
             </summary>
             <returns>Returns the supported extensions.</returns>
         </member>
-        <member name="M:BEditor.Media.IRegisterdEncoding.GetDefaultVideoSettings">
+        <member name="T:BEditor.Media.ISupportEncodingSettings">
+            <summary>
+            Controls the default settings of the encoder.
+            </summary>
+        </member>
+        <member name="M:BEditor.Media.ISupportEncodingSettings.GetDefaultVideoSettings">
             <summary>
             Gets the default settings for video encoder.
             </summary>
             <returns>Returns the default encoder setting.</returns>
         </member>
-        <member name="M:BEditor.Media.IRegisterdEncoding.GetDefaultAudioSettings">
+        <member name="M:BEditor.Media.ISupportEncodingSettings.GetDefaultAudioSettings">
             <summary>
             Gets the default settings for audio encoder.
             </summary>

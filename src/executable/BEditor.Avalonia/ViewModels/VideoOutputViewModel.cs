@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using Avalonia.Threading;
 
 using BEditor.Data;
+using BEditor.Extensions;
 using BEditor.Media;
 using BEditor.Media.Encoding;
 using BEditor.Media.PCM;
@@ -73,10 +74,10 @@ namespace BEditor.ViewModels
             OutputIsEnabled = SelectedEncoder.Select(i => i is not null)
                 .ToReadOnlyReactivePropertySlim();
 
-            AudioEncoderSettings = SelectedEncoder.Select(i => i?.GetDefaultAudioSettings()?.CodecOptions)
+            AudioEncoderSettings = SelectedEncoder.Select(i => i?.GetAudioSettings()?.CodecOptions)
                 .ToReadOnlyReactivePropertySlim();
 
-            VideoEncoderSettings = SelectedEncoder.Select(i => i?.GetDefaultVideoSettings()?.CodecOptions)
+            VideoEncoderSettings = SelectedEncoder.Select(i => i?.GetVideoSettings()?.CodecOptions)
                 .ToReadOnlyReactivePropertySlim();
 
             Output.Subscribe(async () =>

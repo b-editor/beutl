@@ -69,7 +69,7 @@ namespace BEditor.Media.Encoding
         /// <returns>This <see cref="MediaBuilder"/> object.</returns>
         public MediaBuilder WithVideo(Action<VideoEncoderSettings> settings)
         {
-            var config = _encoding.GetDefaultVideoSettings();
+            var config = _encoding is ISupportEncodingSettings sp ? sp.GetDefaultVideoSettings() : new VideoEncoderSettings(1920, 1080);
             settings.Invoke(config);
 
             _container.AddVideoStream(config);
@@ -83,7 +83,7 @@ namespace BEditor.Media.Encoding
         /// <returns>This <see cref="MediaBuilder"/> object.</returns>
         public MediaBuilder WithAudio(Action<AudioEncoderSettings> settings)
         {
-            var config = _encoding.GetDefaultAudioSettings();
+            var config = _encoding is ISupportEncodingSettings sp ? sp.GetDefaultAudioSettings() : new AudioEncoderSettings(44100, 2);
             settings.Invoke(config);
 
             _container.AddAudioStream(config);
@@ -96,7 +96,7 @@ namespace BEditor.Media.Encoding
         /// <returns>This <see cref="MediaBuilder"/> object.</returns>
         public MediaBuilder WithVideo()
         {
-            var config = _encoding.GetDefaultVideoSettings();
+            var config = _encoding is ISupportEncodingSettings sp ? sp.GetDefaultVideoSettings() : new VideoEncoderSettings(1920, 1080);
 
             _container.AddVideoStream(config);
             return this;
@@ -108,7 +108,7 @@ namespace BEditor.Media.Encoding
         /// <returns>This <see cref="MediaBuilder"/> object.</returns>
         public MediaBuilder WithAudio()
         {
-            var config = _encoding.GetDefaultAudioSettings();
+            var config = _encoding is ISupportEncodingSettings sp ? sp.GetDefaultAudioSettings() : new AudioEncoderSettings(44100, 2);
 
             _container.AddAudioStream(config);
             return this;

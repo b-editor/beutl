@@ -17,7 +17,7 @@ using VideoCodec = FFMediaToolkit.Encoding.VideoCodec;
 
 namespace BEditor.Extensions.FFmpeg
 {
-    public class RegisterdEncoding : IRegisterdEncoding
+    public class RegisterdEncoding : ISupportEncodingSettings
     {
         public string Name => "FFmpeg";
 

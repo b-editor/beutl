@@ -8,6 +8,7 @@ using Avalonia.Threading;
 
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
+using BEditor.Extensions;
 using BEditor.Media;
 using BEditor.Media.Decoding;
 using BEditor.Media.Encoding;
@@ -79,10 +80,10 @@ namespace BEditor.ViewModels.Tool
             OutputIsEnabled = SelectedEncoder.Select(i => i is not null)
                 .ToReadOnlyReactivePropertySlim();
 
-            AudioEncoderSettings = SelectedEncoder.Select(i => i?.GetDefaultAudioSettings()?.CodecOptions)
+            AudioEncoderSettings = SelectedEncoder.Select(i => i?.GetAudioSettings()?.CodecOptions)
                 .ToReadOnlyReactivePropertySlim();
 
-            VideoEncoderSettings = SelectedEncoder.Select(i => i?.GetDefaultVideoSettings()?.CodecOptions)
+            VideoEncoderSettings = SelectedEncoder.Select(i => i?.GetVideoSettings()?.CodecOptions)
                 .ToReadOnlyReactivePropertySlim();
 
             Output.Subscribe(async () =>
@@ -288,6 +289,5 @@ namespace BEditor.ViewModels.Tool
         public Func<Task<Dictionary<string, object>?>>? GetAudioSettings { get; set; }
 
         public Func<Task<Dictionary<string, object>?>>? GetVideoSettings { get; set; }
-
     }
 }
