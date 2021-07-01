@@ -1824,6 +1824,15 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Time remaining.
+        /// </summary>
+        public static string TimeRemaining {
+            get {
+                return ResourceManager.GetString("TimeRemaining", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to If you want to create a project, click New..
         /// </summary>
         public static string ToCreateProjectClickNew {

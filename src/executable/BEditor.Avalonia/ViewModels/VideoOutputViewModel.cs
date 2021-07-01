@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Reactive.Linq;
 using System.Threading.Tasks;
@@ -92,6 +93,7 @@ namespace BEditor.ViewModels
 
                 await Task.Run(async () =>
                 {
+                    Stopwatch? sw = null;
                     try
                     {
                         var scene = SelectedScene.Value;
@@ -137,6 +139,13 @@ namespace BEditor.ViewModels
                             })
                             .Create();
 
+                        // 繰り返す要素数
+                        var totalElements = (LengthFrame.Value - StartFrame.Value) * 2;
+                        // 処理した要素
+                        var processed = 0;
+                        sw = new Stopwatch();
+                        sw.Start();
+
                         // 動画
                         for (Frame frame = StartFrame.Value; frame < LengthFrame.Value; frame++)
                         {
@@ -146,10 +155,13 @@ namespace BEditor.ViewModels
                                 return;
                             }
 
+                            var eta = GetEta(sw, processed, totalElements);
                             dialog.NowValue.Value = frame;
+                            dialog.Text.Value = $"{Strings.Video} {frame.Value}/{LengthFrame.Value}   {Strings.TimeRemaining} {eta:hh\\:mm\\:ss}";
 
                             using var img = scene.Render(frame, ApplyType.Video);
                             output.Video?.AddFrame(img);
+                            processed++;
                         }
 
                         // Audio
@@ -161,11 +173,16 @@ namespace BEditor.ViewModels
                                 return;
                             }
 
+                            var eta = GetEta(sw, processed, totalElements);
                             dialog.NowValue.Value = frame;
+                            dialog.Text.Value = $"{Strings.Audio} {frame.Value}/{LengthFrame.Value}   {Strings.TimeRemaining} {eta:hh\\:mm\\:ss}";
 
                             using var sound = scene.Sample(frame);
                             output.Audio?.AddFrame(sound);
+                            processed++;
                         }
+
+                        dialog.IsIndeterminate.Value = true;
 
                         output.Dispose();
 
@@ -187,6 +204,7 @@ namespace BEditor.ViewModels
                     }
                     finally
                     {
+                        sw?.Stop();
                         AppModel.Current.AppStatus = Status.Edit;
                     }
                 });
@@ -234,5 +252,13 @@ namespace BEditor.ViewModels
         public ReadOnlyReactivePropertySlim<bool> OutputIsEnabled { get; }
         public Func<Task<Dictionary<string, object>?>>? GetAudioSettings { get; set; }
         public Func<Task<Dictionary<string, object>?>>? GetVideoSettings { get; set; }
+
+        public static TimeSpan GetEta(Stopwatch sw, int counter, int counterGoal)
+        {
+            if (counter == 0) return TimeSpan.Zero;
+            var elapsedMin = (float)sw.ElapsedMilliseconds / 1000 / 60;
+            var minLeft = elapsedMin / counter * (counterGoal - counter);
+            return TimeSpan.FromMinutes(minLeft);
+        }
     }
 }

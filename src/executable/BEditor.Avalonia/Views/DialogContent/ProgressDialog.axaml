@@ -14,10 +14,10 @@
         <Label
             Grid.Row="0"
             Content="{Binding Text.Value}"
-            Margin="16,0" />
+            Margin="8,0" />
 
         <ProgressBar
-            Margin="16"
+            Margin="8"
             Grid.Row="1"
             IsIndeterminate="{Binding IsIndeterminate.Value}"
             Maximum="{Binding Maximum.Value}"
@@ -29,7 +29,7 @@
             HorizontalAlignment="Right"
             x:Name="stack"
             Spacing="8"
-            Margin="16"
+            Margin="8"
             VerticalAlignment="Bottom"
             Grid.Row="2" />
     </Grid>

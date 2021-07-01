@@ -803,4 +803,7 @@ Vulkan:
   <data name="White" xml:space="preserve">
     <value>白</value>
   </data>
+  <data name="TimeRemaining" xml:space="preserve">
+    <value>残り時間</value>
+  </data>
 </root>

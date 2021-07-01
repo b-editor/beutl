@@ -63,7 +63,7 @@ namespace BEditor.Views.DialogContent
             }
         }
 
-        public ReactiveProperty<string> Text { get; } = new();
+        public ReactiveProperty<string> Text { get; } = new(string.Empty);
 
         public ReactiveProperty<bool> IsIndeterminate { get; } = new() { Value = false };
 
@@ -111,21 +111,15 @@ namespace BEditor.Views.DialogContent
             NowValue.Value = (int)(Maximum.Value * per);
         }
 
-        protected override void OnInitialized()
-        {
-            base.OnInitialized();
-            (Width, Height) = (480, 128);
-        }
+        //protected override void OnOpened(EventArgs e)
+        //{
+        //    base.OnOpened(e);
+        //    var screen = Screens.ScreenFromVisual(this).Bounds;
+        //    var x = (screen.Width - Width) / 2;
+        //    var y = (screen.Height - Height) / 2;
 
-        protected override void OnOpened(EventArgs e)
-        {
-            base.OnOpened(e);
-            var screen = Screens.ScreenFromVisual(this).Bounds;
-            var x = (screen.Width - Width) / 2;
-            var y = (screen.Height - Height) / 2;
-
-            Position = new((int)x, (int)y);
-        }
+        //    Position = new((int)x, (int)y);
+        //}
 
         private void InitializeComponent()
         {
