@@ -1,5 +1,6 @@
 using System;
 using System.Globalization;
+using System.Linq;
 
 using Avalonia;
 
@@ -16,8 +17,15 @@ namespace BEditor
             CultureInfo.CurrentCulture = new(Settings.Default.Language);
             CultureInfo.CurrentUICulture = CultureInfo.CurrentCulture;
 
-            BuildAvaloniaApp()
-                .StartWithClassicDesktopLifetime(args);
+            if (args.ElementAtOrDefault(0) == "package-install")
+            {
+                PackageInstaller.Program.Main(args.Skip(1).ToArray());
+            }
+            else
+            {
+                BuildAvaloniaApp()
+                    .StartWithClassicDesktopLifetime(args);
+            }
         }
 
         // Avalonia configuration, don't remove; also used by visual designer.

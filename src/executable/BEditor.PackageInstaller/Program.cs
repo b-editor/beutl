@@ -1,16 +1,12 @@
-using System;
 using System.Diagnostics.CodeAnalysis;
-using System.Globalization;
 using System.IO;
 using System.Linq;
 
 using Avalonia;
 
-using BEditor.Packaging;
-
 namespace BEditor.PackageInstaller
 {
-    class Program
+    public class Program
     {
         [AllowNull]
         public static string JsonFile;

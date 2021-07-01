@@ -1,9 +1,5 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-    <PropertyGroup>
-        <OutputType>WinExe</OutputType>
-    </PropertyGroup>
-
     <ItemGroup>
         <PackageReference Include="Avalonia" Version="0.10.6" />
         <PackageReference Include="Avalonia.Desktop" Version="0.10.6" />
