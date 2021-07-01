@@ -124,6 +124,7 @@ namespace BEditor.Drawing
         /// </summary>
         /// <param name="argb">A value specifying the 32-bit ARGB value.</param>
         /// <returns>The <see cref="Color"/> structure that this method creates.</returns>
+        [Obsolete("Use FromInt32.")]
         public static Color FromARGB(int argb)
         {
             return FromARGB(unchecked((uint)argb));
@@ -134,6 +135,7 @@ namespace BEditor.Drawing
         /// </summary>
         /// <param name="argb">A value specifying the 32-bit ARGB value.</param>
         /// <returns>The <see cref="Color"/> structure that this method creates.</returns>
+        [Obsolete("Use FromUInt32.")]
         public static Color FromARGB(uint argb)
         {
             long color = argb;
@@ -152,6 +154,7 @@ namespace BEditor.Drawing
         /// <param name="g">The green component.</param>
         /// <param name="b">The blue component.</param>
         /// <returns>The <see cref="Color"/> that this method creates.</returns>
+        [Obsolete("Use FromArgb.")]
         public static Color FromARGB(byte a, byte r, byte g, byte b)
         {
             return new(a, r, g, b);
@@ -162,18 +165,67 @@ namespace BEditor.Drawing
         /// </summary>
         /// <param name="htmlcolor">The value that specifies the html color.</param>
         /// <returns>The <see cref="Color"/> that this method creates.</returns>
+        [Obsolete("Use Parse.")]
         public static Color FromHTML(string? htmlcolor)
         {
-            if (string.IsNullOrWhiteSpace(htmlcolor) || htmlcolor is "#")
+            return Parse(htmlcolor);
+        }
+
+        /// <summary>
+        /// Creates a <see cref="Color"/> structure from a 32-bit ARGB value.
+        /// </summary>
+        /// <param name="argb">A value specifying the 32-bit ARGB value.</param>
+        /// <returns>The <see cref="Color"/> structure that this method creates.</returns>
+        public static Color FromInt32(int argb)
+        {
+            return FromUInt32(unchecked((uint)argb));
+        }
+
+        /// <summary>
+        /// Creates a <see cref="Color"/> structure from a 32-bit ARGB value.
+        /// </summary>
+        /// <param name="argb">A value specifying the 32-bit ARGB value.</param>
+        /// <returns>The <see cref="Color"/> structure that this method creates.</returns>
+        public static Color FromUInt32(uint argb)
+        {
+            long color = argb;
+            return new(
+                unchecked((byte)(color >> ARGBAlphaShift)),
+                unchecked((byte)(color >> ARGBRedShift)),
+                unchecked((byte)(color >> ARGBGreenShift)),
+                unchecked((byte)(color >> ARGBBlueShift)));
+        }
+
+        /// <summary>
+        /// Creates a <see cref="Color"/> structure from the four ARGB component.
+        /// </summary>
+        /// <param name="a">The alpha component.</param>
+        /// <param name="r">The red component.</param>
+        /// <param name="g">The green component.</param>
+        /// <param name="b">The blue component.</param>
+        /// <returns>The <see cref="Color"/> that this method creates.</returns>
+        public static Color FromArgb(byte a, byte r, byte g, byte b)
+        {
+            return new(a, r, g, b);
+        }
+
+        /// <summary>
+        /// Creates a <see cref="Color"/> structure from the html color.
+        /// </summary>
+        /// <param name="s">The value that specifies the html color.</param>
+        /// <returns>The <see cref="Color"/> that this method creates.</returns>
+        public static Color Parse(string? s)
+        {
+            if (string.IsNullOrWhiteSpace(s) || s is "#")
             {
                 return MaterialColors.Dark;
             }
 
-            htmlcolor = "0x" + htmlcolor.Trim('#');
+            s = "0x" + s.Trim('#');
 
-            var argb = Convert.ToUInt32(htmlcolor, 16);
+            var argb = Convert.ToUInt32(s, 16);
 
-            return FromARGB(argb);
+            return FromUInt32(argb);
         }
 
         /// <inheritdoc/>
@@ -260,6 +312,89 @@ namespace BEditor.Drawing
             info.AddValue(nameof(R), R);
             info.AddValue(nameof(G), G);
             info.AddValue(nameof(B), B);
+        }
+
+        /// <summary>
+        /// Converts this 32Bit color to HSV.
+        /// </summary>
+        /// <returns>Returns the HSV.</returns>
+        public readonly Hsv ToHsv()
+        {
+            var r = (double)R;
+            var g = (double)G;
+            var b = (double)B;
+
+            var min = Math.Min(Math.Min(r, g), b);
+            var max = Math.Max(Math.Max(r, g), b);
+
+            var delta = max - min;
+
+            var v = 100.0 * max / 255.0;
+
+            double s;
+            if (max == 0.0)
+            {
+                s = 0;
+            }
+            else
+            {
+                s = 100.0 * delta / max;
+            }
+
+            double h = 0;
+            if (s == 0)
+            {
+                h = 0;
+            }
+            else
+            {
+                if (r == max)
+                {
+                    h = 60.0 * (g - b) / delta;
+                }
+                else if (g == max)
+                {
+                    h = 120.0 + (60.0 * (b - r) / delta);
+                }
+                else if (b == max)
+                {
+                    h = 240.0 + (60.0 * (r - g) / delta);
+                }
+
+                if (h < 0.0)
+                {
+                    h += 360.0;
+                }
+            }
+
+            return new Hsv(h, s, v);
+        }
+
+        /// <summary>
+        /// Converts this 32Bit color to CMYK.
+        /// </summary>
+        /// <returns>Returns the CMYK.</returns>
+        public readonly Cmyk ToCmyk()
+        {
+            var r = (double)R;
+            var g = (double)G;
+            var b = (double)B;
+
+            var rr = r / 255.0;
+            var gg = g / 255.0;
+            var bb = b / 255.0;
+
+            var k = 1.0 - Math.Max(Math.Max(rr, gg), bb);
+            var c = (1.0 - rr - k) / (1.0 - k);
+            var m = (1.0 - gg - k) / (1.0 - k);
+            var y = (1.0 - bb - k) / (1.0 - k);
+
+            c *= 100.0;
+            m *= 100.0;
+            y *= 100.0;
+            k *= 100.0;
+
+            return new Cmyk(c, m, y, k);
         }
 
         private static string Tohex(byte value)

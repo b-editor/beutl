@@ -236,7 +236,6 @@ dotnet_diagnostic.RCS1096.severity=silent
 dotnet_diagnostic.RCS1096i.severity=warning
 dotnet_diagnostic.RCS1101.severity=warning
 dotnet_diagnostic.RCS1101a.severity=warning
-dotnet_diagnostic.RCS1111.severity=warning
 dotnet_diagnostic.RCS1129.severity=silent
 dotnet_diagnostic.RCS1138.severity=silent
 dotnet_diagnostic.RCS1161.severity=silent
