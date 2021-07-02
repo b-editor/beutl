@@ -280,7 +280,7 @@ namespace BEditor.Extensions
                 ? sp.GetDefaultVideoSettings()
                 : new VideoEncoderSettings(1920, 1080);
         }
-        
+
         public static AudioEncoderSettings GetAudioSettings(this IRegisterdEncoding encoding)
         {
             return encoding is ISupportEncodingSettings sp
