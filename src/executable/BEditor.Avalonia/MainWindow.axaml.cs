@@ -118,7 +118,7 @@ namespace BEditor
         {
             try
             {
-                _ = AL.GetError();
+                AppModel.Current.AudioContext = new();
             }
             catch
             {

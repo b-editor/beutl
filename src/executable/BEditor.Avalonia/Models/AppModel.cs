@@ -60,10 +60,8 @@ namespace BEditor.Models
 
             // DIの設定
             Services = new ServiceCollection()
-#if DEBUG
                 .AddSingleton<IAuthenticationProvider, MockAuthenticationProvider>()
                 .AddSingleton<IRemotePackageProvider, MockPackageUploader>()
-#endif
                 .AddSingleton<ITopLevel>(_ => this)
                 .AddSingleton<IApplication>(_ => this)
                 .AddSingleton(_ => FileDialog)

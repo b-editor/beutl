@@ -119,8 +119,6 @@ namespace BEditor
                     await InitialPluginsAsync();
                     ServicesLocator.Current = new(AppModel.Current.ServiceProvider);
 
-                    AppModel.Current.AudioContext = new();
-
                     AppModel.Current.User = await Tool.LoadFromAsync(
                         Path.Combine(AppContext.BaseDirectory, "user", "token"),
                         AppModel.Current.ServiceProvider.GetRequiredService<IAuthenticationProvider>());
