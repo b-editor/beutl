@@ -171,6 +171,8 @@ namespace BEditor
                     });
                 }
             }
+
+            AppModel.Current.AudioContext?.Dispose();
         }
 
         private void CurrentDomain_UnhandledException(object sender, UnhandledExceptionEventArgs e)

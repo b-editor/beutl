@@ -61,13 +61,9 @@ namespace BEditor.Views.CustomTitlebars
                 _menu.MenuOpened += (s, e) => PointerPressed -= WindowsTitlebar_PointerPressed;
                 _menu.MenuClosed += (s, e) => PointerPressed += WindowsTitlebar_PointerPressed;
             }
-            else if (OperatingSystem.IsLinux())
+            else
             {
                 _titlebarbuttons.IsVisible = false;
-            }
-            else if (OperatingSystem.IsMacOS())
-            {
-                IsVisible = false;
             }
         }
 
