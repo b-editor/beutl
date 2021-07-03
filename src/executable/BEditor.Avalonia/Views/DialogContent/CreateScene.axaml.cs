@@ -5,7 +5,7 @@ using Avalonia.Markup.Xaml;
 
 namespace BEditor.Views.DialogContent
 {
-    public partial class CreateScene : Window
+    public partial class CreateScene : FluentWindow
     {
         public CreateScene()
         {

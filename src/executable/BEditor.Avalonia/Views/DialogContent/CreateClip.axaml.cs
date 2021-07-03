@@ -5,7 +5,7 @@ using Avalonia.Markup.Xaml;
 
 namespace BEditor.Views.DialogContent
 {
-    public partial class CreateClip : Window
+    public partial class CreateClip : FluentWindow
     {
         public CreateClip()
         {

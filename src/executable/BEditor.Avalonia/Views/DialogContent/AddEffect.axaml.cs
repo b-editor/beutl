@@ -5,7 +5,7 @@ using Avalonia.Markup.Xaml;
 
 namespace BEditor.Views.DialogContent
 {
-    public sealed class AddEffect : Window
+    public sealed class AddEffect : FluentWindow
     {
         public AddEffect()
         {

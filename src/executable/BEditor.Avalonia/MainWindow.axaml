@@ -1,4 +1,4 @@
-<Window
+<views:FluentWindow
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -17,16 +17,11 @@
     x:DataType="vm:MainWindowViewModel"
     Classes="fluent_setter"
     Icon="/Assets/Images/icon.ico"
+    Background="{StaticResource AcrylicColor1}"
     DataContext="{x:Static vm:MainWindowViewModel.Current}"
     Focusable="True"
     x:Class="BEditor.MainWindow">
     <Grid RowDefinitions="Auto,Auto,*,Auto,*,Auto" ColumnDefinitions="425,Auto,*,Auto,2*">
-
-        <Border
-            Background="{StaticResource AcrylicColor1}"
-            Grid.ColumnSpan="5"
-            Grid.RowSpan="6"
-            IsHitTestVisible="False" />
 
         <titlebar:WindowsTitlebar
             Grid.Row="0"
@@ -337,4 +332,4 @@
             </TabItem>
         </TabControl>
     </Grid>
-</Window>
+</views:FluentWindow>

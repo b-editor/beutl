@@ -10,7 +10,7 @@ using BEditor.ViewModels.DialogContent;
 
 namespace BEditor.Views.DialogContent
 {
-    public sealed class CreateProject : Window
+    public sealed class CreateProject : FluentWindow
     {
         public CreateProject()
         {

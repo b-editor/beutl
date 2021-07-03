@@ -6,7 +6,7 @@ using Avalonia.Markup.Xaml;
 
 namespace BEditor.Views
 {
-    public class SettingsWindow : Window
+    public class SettingsWindow : FluentWindow
     {
         public SettingsWindow()
         {

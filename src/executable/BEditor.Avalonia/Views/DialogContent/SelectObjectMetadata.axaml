@@ -1,10 +1,11 @@
-<Window
+<views:FluentWindow
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:props="using:BEditor.Properties"
     xmlns:titlebar="using:BEditor.Views.CustomTitlebars"
+    xmlns:views="using:BEditor.Views"
     xmlns:vm="using:BEditor.ViewModels"
     xmlns:model="using:BEditor.Models"
     xmlns:dialogvm="using:BEditor.ViewModels.DialogContent"
@@ -59,4 +60,4 @@
         </VirtualizingStackPanel>
 
     </Grid>
-</Window>
+</views:FluentWindow>

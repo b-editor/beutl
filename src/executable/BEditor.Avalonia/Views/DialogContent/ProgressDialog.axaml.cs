@@ -13,7 +13,7 @@ using static BEditor.IMessage;
 
 namespace BEditor.Views.DialogContent
 {
-    public sealed class ProgressDialog : Window, IProgressDialog
+    public sealed class ProgressDialog : FluentWindow, IProgressDialog
     {
         public ProgressDialog()
         {

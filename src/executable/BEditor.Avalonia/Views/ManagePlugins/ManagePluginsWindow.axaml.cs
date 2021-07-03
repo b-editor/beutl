@@ -10,7 +10,7 @@ using BEditor.Models;
 
 namespace BEditor.Views.ManagePlugins
 {
-    public partial class ManagePluginsWindow : Window
+    public partial class ManagePluginsWindow : FluentWindow
     {
         public ManagePluginsWindow()
         {

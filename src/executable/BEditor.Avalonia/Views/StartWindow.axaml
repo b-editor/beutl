@@ -1,9 +1,10 @@
-<Window
+<views:FluentWindow
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:prop="using:BEditor.Properties"
+    xmlns:views="using:BEditor.Views"
     xmlns:ctr="using:BEditor.Views.Start"
     xmlns:titlebar="using:BEditor.Views.CustomTitlebars"
     mc:Ignorable="d"
@@ -66,4 +67,4 @@
             </TabItem>
         </TabControl>
     </Grid>
-</Window>
+</views:FluentWindow>

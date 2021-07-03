@@ -10,7 +10,7 @@ using Reactive.Bindings.Extensions;
 
 namespace BEditor.Views
 {
-    public class FontDialog : Window
+    public class FontDialog : FluentWindow
     {
         public FontDialog()
         {

@@ -13,7 +13,7 @@ using BEditor.Views.DialogContent;
 
 namespace BEditor.Views
 {
-    public class ColorDialog : Window
+    public class ColorDialog : FluentWindow
     {
         internal readonly ColorPicker col;
         internal readonly Button ok_button;

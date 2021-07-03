@@ -7,7 +7,7 @@ using BEditor.Data;
 
 namespace BEditor.Views.DialogContent
 {
-    public partial class SelectObjectMetadata : Window
+    public partial class SelectObjectMetadata : FluentWindow
     {
         public SelectObjectMetadata()
         {

@@ -1,8 +1,9 @@
-<Window
+<views:FluentWindow
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:views="using:BEditor.Views"
     xmlns:property="using:BEditor.Properties"
     xmlns:col="using:BEditor.Controls"
     mc:Ignorable="d"
@@ -44,4 +45,4 @@
 
         </StackPanel>
     </Grid>
-</Window>
+</views:FluentWindow>

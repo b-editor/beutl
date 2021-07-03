@@ -4,7 +4,7 @@ using Avalonia.Media;
 
 namespace BEditor.Views.DialogContent
 {
-    public sealed class EmptyDialog : Window
+    public sealed class EmptyDialog : FluentWindow
     {
         private readonly Border _border;
 
@@ -22,8 +22,6 @@ namespace BEditor.Views.DialogContent
 
         private EmptyDialog()
         {
-            ExtendClientAreaToDecorationsHint = true;
-            ExtendClientAreaChromeHints = Avalonia.Platform.ExtendClientAreaChromeHints.NoChrome;
             WindowStartupLocation = WindowStartupLocation.CenterScreen;
             CanResize = false;
             SizeToContent = SizeToContent.WidthAndHeight;

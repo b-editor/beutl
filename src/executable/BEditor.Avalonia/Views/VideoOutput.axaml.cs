@@ -11,7 +11,7 @@ using BEditor.Views.ManagePlugins;
 
 namespace BEditor.Views
 {
-    public class VideoOutput : Window
+    public class VideoOutput : FluentWindow
     {
         private readonly ContentPresenter _audioEncoderSettings;
         private readonly ContentPresenter _videoEncoderSettings;

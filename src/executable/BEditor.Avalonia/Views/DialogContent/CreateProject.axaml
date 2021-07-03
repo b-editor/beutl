@@ -1,10 +1,11 @@
-<Window
+<views:FluentWindow
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:props="using:BEditor.Properties"
     xmlns:titlebar="using:BEditor.Views.CustomTitlebars"
+    xmlns:views="using:BEditor.Views"
     xmlns:vm="using:BEditor.ViewModels"
     mc:Ignorable="d" Width="800" Height="450"
     WindowStartupLocation="CenterScreen"
@@ -15,7 +16,7 @@
 
         <TextBlock
             Grid.Row="0"
-            Margin="8,8,8,24"
+            Margin="16,8"
             FontSize="24"
             Text="{x:Static props:Strings.CreateProject}" />
 
@@ -136,4 +137,4 @@
         </VirtualizingStackPanel>
 
     </Grid>
-</Window>
+</views:FluentWindow>

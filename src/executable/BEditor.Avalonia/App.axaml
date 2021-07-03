@@ -55,14 +55,7 @@
             <Setter Property="FontFamily" Value="Yu Gothic UI, Segoe UI, Hiragino Sans, Helvetica Neue, Ubuntu" />
         </Style>
 
-        <Style Selector="Window.fluent_setter">
-            <Setter Property="ExtendClientAreaToDecorationsHint" Value="True" />
-            <Setter Property="ExtendClientAreaChromeHints" Value="NoChrome" />
-        </Style>
-        
         <Style Selector="Window.fluent">
-            <Setter Property="ExtendClientAreaToDecorationsHint" Value="True" />
-            <Setter Property="ExtendClientAreaChromeHints" Value="NoChrome" />
             <Setter Property="Template">
                 <ControlTemplate>
                     <Border Background="{StaticResource AcrylicColor1}">

@@ -17,7 +17,7 @@ using BEditor.Views.ManagePlugins;
 
 namespace BEditor.Views.Tool
 {
-    public partial class ConvertVideo : Window
+    public partial class ConvertVideo : FluentWindow
     {
         private readonly ContentPresenter _audioEncoderSettings;
         private readonly ContentPresenter _videoEncoderSettings;

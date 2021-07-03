@@ -8,7 +8,7 @@ using BEditor.Models;
 
 namespace BEditor.Views
 {
-    public sealed class StartWindow : Window
+    public sealed class StartWindow : FluentWindow
     {
         private readonly TabControl _tabControl;
 

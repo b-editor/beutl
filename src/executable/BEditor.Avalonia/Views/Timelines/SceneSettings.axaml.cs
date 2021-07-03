@@ -5,7 +5,7 @@ using Avalonia.Markup.Xaml;
 
 namespace BEditor.Views.Timelines
 {
-    public partial class SceneSettings : Window
+    public partial class SceneSettings : FluentWindow
     {
         public SceneSettings()
         {

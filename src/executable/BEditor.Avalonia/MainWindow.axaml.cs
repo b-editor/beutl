@@ -26,7 +26,7 @@ using OpenTK.Audio.OpenAL;
 
 namespace BEditor
 {
-    public class MainWindow : Window
+    public class MainWindow : FluentWindow
     {
         public MainWindow()
         {
