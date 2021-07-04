@@ -237,7 +237,7 @@ namespace BEditor.Extensions.AviUtl
                     new(new(ox, oy, oz), default, new(rx, ry, rz), new(zoom, zoom, zoom));
             }
 
-            texture.Color = Color.FromARGB((byte)(255 * alpha), 255, 255, 255);
+            texture.Color = Color.FromArgb((byte)(255 * alpha), 255, 255, 255);
             ctxt.DrawTexture(texture);
         }
 
@@ -300,7 +300,7 @@ namespace BEditor.Extensions.AviUtl
                     new(new(x, y, z), default, new(rx, ry, rz), new(zoom, zoom, zoom)) :
                     new(default, default, new(0, 0, 0), new(1, 1, 1));
             }
-            texture.Color = Color.FromARGB((byte)(255 * alpha), 255, 255, 255);
+            texture.Color = Color.FromArgb((byte)(255 * alpha), 255, 255, 255);
 
             ctxt.DrawTexture(texture);
         }
@@ -377,7 +377,7 @@ namespace BEditor.Extensions.AviUtl
                     new(default, default, new(0, 0, 0), new(1, 1, 1));
             }
 
-            texture.Color = Color.FromARGB((byte)(255 * alpha), 255, 255, 255);
+            texture.Color = Color.FromArgb((byte)(255 * alpha), 255, 255, 255);
 
             ctxt.DrawTexture(texture);
         }
@@ -408,8 +408,8 @@ namespace BEditor.Extensions.AviUtl
                     break;
                 case "figure":
                     var name = GetArgValue(args, 0, "円");
-                    var color = Color.FromARGB(GetArgValue(args, 1, 0xffffff));
-                    color = Color.FromARGB(255, color.R, color.G, color.B);
+                    var color = Color.FromInt32(GetArgValue(args, 1, 0xffffff));
+                    color = Color.FromArgb(255, color.R, color.G, color.B);
                     var size = GetArgValue(args, 2, 100);
                     var line = GetArgValue(args, 3, size);
 
@@ -458,7 +458,7 @@ namespace BEditor.Extensions.AviUtl
         {
             _font = FontManager.Default.Find(f => f.FamilyName == name) ?? _font;
             _fontsize = size;
-            _fontcolor = Color.FromARGB(col1);
+            _fontcolor = Color.FromInt32(col1);
         }
 
         public int rand(int st_num, int ed_num, int? seed = null, int? frame = null)

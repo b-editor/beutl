@@ -17,7 +17,7 @@ namespace OpenCLTest
         {
             using var img = Image.Decode(BinarizationTest.FilePath);
 
-            img.ChromaKey(256);
+            img.ChromaKey(Colors.Green, 80, 80);
         }
 
 #if !GITHUB_ACTIONS
@@ -39,7 +39,7 @@ namespace OpenCLTest
         {
             using var img = Image.Decode(BinarizationTest.FilePath);
 
-            img.ChromaKey(256, context);
+            img.ChromaKey(Colors.Green, 80, 80, context);
         }
 
         public void Dispose()
