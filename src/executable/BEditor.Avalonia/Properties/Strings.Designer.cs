@@ -180,6 +180,15 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Associate the project file (Windows only).
+        /// </summary>
+        public static string AssociateProjectFileWindowsOnly {
+            get {
+                return ResourceManager.GetString("AssociateProjectFileWindowsOnly", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Audio.
         /// </summary>
         public static string Audio {
@@ -1076,6 +1085,15 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Machine translation.
+        /// </summary>
+        public static string MachineTranslation {
+            get {
+                return ResourceManager.GetString("MachineTranslation", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Manage Plugins.
         /// </summary>
         public static string ManagePlugins {
@@ -1631,6 +1649,15 @@ namespace BEditor.Properties {
         public static string Settings {
             get {
                 return ResourceManager.GetString("Settings", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Setup.
+        /// </summary>
+        public static string Setup {
+            get {
+                return ResourceManager.GetString("Setup", resourceCulture);
             }
         }
         

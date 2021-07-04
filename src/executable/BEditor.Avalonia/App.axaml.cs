@@ -28,6 +28,7 @@ using BEditor.Properties;
 using BEditor.ViewModels.Settings;
 using BEditor.Views;
 using BEditor.Views.DialogContent;
+using BEditor.Views.Setup;
 
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -122,6 +123,10 @@ namespace BEditor
                     AppModel.Current.User = await Tool.LoadFromAsync(
                         Path.Combine(AppContext.BaseDirectory, "user", "token"),
                         AppModel.Current.ServiceProvider.GetRequiredService<IAuthenticationProvider>());
+
+                    await CheckOpenALAsync();
+                    await SetupAsync();
+                    await ArgumentsContext.ExecuteAsync();
                 }));
                 AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
 
@@ -294,6 +299,31 @@ namespace BEditor
                 });
             }
             app.ServiceProvider = app.Services.BuildServiceProvider();
+        }
+
+        private static async Task CheckOpenALAsync()
+        {
+            try
+            {
+                AppModel.Current.AudioContext ??= new();
+            }
+            catch
+            {
+                await AppModel.Current.Message.DialogAsync(Strings.OpenALNotFound);
+                App.Shutdown(1);
+            }
+        }
+
+        private static async Task SetupAsync()
+        {
+            var flagPath = Path.Combine(AppContext.BaseDirectory, "SETUP_FLAG");
+            if (!File.Exists(flagPath))
+            {
+                await Dispatcher.UIThread.InvokeAsync(async () => await new SetupWindow().ShowDialog(GetMainWindow()));
+                using (new FileStream(flagPath, FileMode.Create))
+                {
+                }
+            }
         }
     }
 }

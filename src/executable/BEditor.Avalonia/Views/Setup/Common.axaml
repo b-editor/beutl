@@ -1,0 +1,64 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:props="using:BEditor.Properties"
+    xmlns:vm="using:BEditor.ViewModels.Setup"
+    mc:Ignorable="d"
+    x:DataType="vm:CommonViewModel"
+    x:Class="BEditor.Views.Setup.Common">
+    <UserControl.DataContext>
+        <vm:CommonViewModel />
+    </UserControl.DataContext>
+    <ScrollViewer>
+        <StackPanel>
+            <TextBlock Classes="SettingsHeader" Text="{x:Static props:Strings.Setup}" />
+
+            <StackPanel Spacing="0" Orientation="Horizontal">
+                <Label Classes="SettingsItemHeader" Content="{x:Static props:Strings.Language}" />
+
+                <TextBlock Text="{CompiledBinding LanguageRemark.Value}" VerticalAlignment="Center" />
+            </StackPanel>
+
+            <ComboBox
+                Classes="SettingsComboBox"
+                Items="{CompiledBinding Languages}"
+                SelectedItem="{CompiledBinding SelectedLanguage.Value}">
+                <ComboBox.ItemTemplate>
+                    <DataTemplate>
+                        <TextBlock Text="{Binding Name}" />
+                    </DataTemplate>
+                </ComboBox.ItemTemplate>
+            </ComboBox>
+
+            <Separator Height="16" />
+
+            <StackPanel Spacing="0" Orientation="Horizontal">
+                <Label Classes="SettingsItemHeader" Content="{x:Static props:Strings.GraphicsProfile}" />
+                <Label Classes="SettingsItemHeader" Content="{x:Static props:Strings.TheChangesWillBeAppliedAfterRestarting}" />
+            </StackPanel>
+
+            <ComboBox
+                Classes="SettingsComboBox"
+                Items="{CompiledBinding Profiles}"
+                SelectedItem="{CompiledBinding SelectedProfile.Value}"
+                ToolTip.Tip="{x:Static props:Strings.GraphicsProfileDescription}"/>
+
+            <Separator Height="16" />
+            
+            <CheckBox
+                IsChecked="{CompiledBinding AssociateProjectFile.Value}"
+                Content="{x:Static props:Strings.AssociateProjectFileWindowsOnly}"
+                Classes="SettingsCheckBox" />
+
+            <Separator Height="16" />
+
+            <Button
+                Margin="16,0,16,16"
+                Click="CloseClick"
+                Content="{x:Static props:Strings.Close}"
+                HorizontalAlignment="Right"/>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

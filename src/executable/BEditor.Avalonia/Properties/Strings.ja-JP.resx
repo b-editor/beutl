@@ -806,4 +806,13 @@ Vulkan:
   <data name="TimeRemaining" xml:space="preserve">
     <value>残り時間</value>
   </data>
+  <data name="Setup" xml:space="preserve">
+    <value>セットアップ</value>
+  </data>
+  <data name="MachineTranslation" xml:space="preserve">
+    <value>機械翻訳</value>
+  </data>
+  <data name="AssociateProjectFileWindowsOnly" xml:space="preserve">
+    <value>プロジェクトファイルを関連付ける (Windowsのみ)</value>
+  </data>
 </root>

@@ -47,8 +47,6 @@ namespace BEditor.Views
             base.OnOpened(e);
             await App.StartupTask;
             App.StartupTask = default;
-            await MainWindow.CheckOpenALAsync();
-            await ArgumentsContext.ExecuteAsync();
         }
 
         private void InitializeComponent()

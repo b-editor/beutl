@@ -101,8 +101,6 @@ namespace BEditor
 
             await App.StartupTask;
             App.StartupTask = default;
-            await CheckOpenALAsync();
-            await ArgumentsContext.ExecuteAsync();
 
             this.FindControl<Library>("Library").InitializeTreeView();
 
@@ -112,19 +110,6 @@ namespace BEditor
         private void InitializeComponent()
         {
             AvaloniaXamlLoader.Load(this);
-        }
-
-        internal static async Task CheckOpenALAsync()
-        {
-            try
-            {
-                AppModel.Current.AudioContext = new();
-            }
-            catch
-            {
-                await AppModel.Current.Message.DialogAsync(Strings.OpenALNotFound);
-                App.Shutdown(1);
-            }
         }
     }
 }
