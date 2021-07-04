@@ -7,6 +7,7 @@
 
 using System;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 
@@ -74,52 +75,73 @@ namespace BEditor.Compute.Runtime
 
             for (var i = 0; i < args.Length; i++)
             {
-                if (args[i] == null)
+                var arg = args[i];
+                if (arg == null)
                 {
                     throw new NullReferenceException();
                 }
-                else if (args[i] is AbstractMemory mem)
+                else if (arg is AbstractMemory mem)
                 {
                     var argPointer = (void*)Marshal.AllocCoTaskMem(IntPtr.Size);
                     Marshal.WriteIntPtr(new IntPtr(argPointer), new IntPtr(mem.Pointer));
                     CL.SetKernelArg(Pointer, i, IntPtr.Size, argPointer).CheckError();
                     _args[i] = argPointer;
                 }
-                else if (args[i] is SVMBuffer buf)
+                else if (arg is SVMBuffer buf)
                 {
                     CL.SetKernelArgSVMPointer(Pointer, i, buf.Pointer).CheckError();
                 }
-                else if (args[i] is byte barg)
+                else if (arg is byte barg)
                 {
                     CL.SetKernelArg(Pointer, i, sizeof(byte), &barg).CheckError();
                 }
-                else if (args[i] is char carg)
+                else if (arg is char carg)
                 {
                     CL.SetKernelArg(Pointer, i, sizeof(char), &carg).CheckError();
                 }
-                else if (args[i] is short sarg)
+                else if (arg is short sarg)
                 {
                     CL.SetKernelArg(Pointer, i, sizeof(short), &sarg).CheckError();
                 }
-                else if (args[i] is int iarg)
+                else if (arg is int iarg)
                 {
                     CL.SetKernelArg(Pointer, i, sizeof(int), &iarg).CheckError();
                 }
-                else if (args[i] is long larg)
+                else if (arg is long larg)
                 {
                     CL.SetKernelArg(Pointer, i, sizeof(long), &larg).CheckError();
                 }
-                else if (args[i] is float farg)
+                else if (arg is float farg)
                 {
                     CL.SetKernelArg(Pointer, i, sizeof(float), &farg).CheckError();
                 }
-                else if (args[i] is double darg)
+                else if (arg is double darg)
                 {
                     CL.SetKernelArg(Pointer, i, sizeof(double), &darg).CheckError();
                 }
-                else
+                else if (arg is Double2 d2)
                 {
-                    throw new NotSupportedException("未対応の型です");
+                    CL.SetKernelArg(Pointer, i, sizeof(Double2), &d2).CheckError();
+                }
+                else if (arg is Double3 d3)
+                {
+                    CL.SetKernelArg(Pointer, i, sizeof(Double3), &d3).CheckError();
+                }
+                else if (arg is Double4 d4)
+                {
+                    CL.SetKernelArg(Pointer, i, sizeof(Double4), &d4).CheckError();
+                }
+                else if (arg is Float2 f2)
+                {
+                    CL.SetKernelArg(Pointer, i, sizeof(Float2), &f2).CheckError();
+                }
+                else if (arg is Float3 f3)
+                {
+                    CL.SetKernelArg(Pointer, i, sizeof(Float3), &f3).CheckError();
+                }
+                else if (arg is Float4 f4)
+                {
+                    CL.SetKernelArg(Pointer, i, sizeof(Float4), &f4).CheckError();
                 }
             }
         }
