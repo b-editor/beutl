@@ -12,6 +12,9 @@ using BEditor.PackageInstaller.Models;
 using BEditor.PackageInstaller.Resources;
 using BEditor.Packaging;
 
+using Microsoft.CodeAnalysis.CSharp.Scripting;
+using Microsoft.CodeAnalysis.Scripting;
+
 using Reactive.Bindings;
 
 namespace BEditor.PackageInstaller.ViewModels
@@ -41,23 +44,31 @@ namespace BEditor.PackageInstaller.ViewModels
                 while (_packages.TryDequeue(out var package))
                 {
                     CurrentPackage.Value = package;
+                    var directory = Path.Combine(AppContext.BaseDirectory, "user", "plugins", Path.GetFileNameWithoutExtension(package.MainAssembly));
                     if (package.Type is not PackageChangeType.Uninstall)
                     {
                         var downloadFile = Path.GetTempFileName();
 
                         try
                         {
-                            var dstDir = Path.Combine(AppContext.BaseDirectory, "user", "plugins", Path.GetFileNameWithoutExtension(package.MainAssembly));
-                            if (Directory.Exists(dstDir))
+                            if (Directory.Exists(directory))
                             {
-                                Directory.Delete(dstDir);
+                                Directory.Delete(directory);
                             }
 
                             Status.Value = Strings.Downloading;
                             await client.DownloadFileTaskAsync(package.Url!, downloadFile);
 
                             Status.Value = Strings.ExtractingFiles;
-                            await PackageFile.OpenPackageAsync(downloadFile, dstDir, progress);
+                            await PackageFile.OpenPackageAsync(downloadFile, directory, progress);
+
+                            var afterInstall = Path.Combine(directory, "AFTER_INSTALL");
+                            if (File.Exists(afterInstall))
+                            {
+                                var code = await File.ReadAllTextAsync(afterInstall);
+                                await CSharpScript.RunAsync(code, ScriptOptions.Default.WithFilePath(afterInstall));
+                            }
+
                             _successfulChanges.Add(package);
                         }
                         catch
@@ -73,11 +84,18 @@ namespace BEditor.PackageInstaller.ViewModels
                     {
                         try
                         {
-                            var directory = Path.Combine(AppContext.BaseDirectory, "user", "plugins", Path.GetFileNameWithoutExtension(package.MainAssembly));
+                            var beforUninstall = Path.Combine(directory, "BEFOR_UNINSTALL");
+                            if (File.Exists(beforUninstall))
+                            {
+                                var code = await File.ReadAllTextAsync(beforUninstall);
+                                await CSharpScript.RunAsync(code, ScriptOptions.Default.WithFilePath(beforUninstall));
+                            }
+
                             if (Directory.Exists(directory))
                             {
                                 Directory.Delete(directory, true);
                             }
+
                             _successfulChanges.Add(package);
                         }
                         catch (Exception e)
