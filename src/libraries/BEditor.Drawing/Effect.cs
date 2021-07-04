@@ -264,6 +264,54 @@ namespace BEditor.Drawing
         }
 
         /// <summary>
+        /// Start the specified pixel operation using the Gpu.
+        /// </summary>
+        /// <typeparam name="TOperation">The type of operation.</typeparam>
+        /// <typeparam name="TArg1">The type of first argument.</typeparam>
+        /// <typeparam name="TArg2">The type of second argument.</typeparam>
+        /// <typeparam name="TArg3">The type of third argument.</typeparam>
+        /// <typeparam name="TArg4">The type of fourth argument.</typeparam>
+        /// <param name="image">The image to be operated.</param>
+        /// <param name="context">A valid DrawingContext.</param>
+        /// <param name="arg1">The first argument passed to the kernel.</param>
+        /// <param name="arg2">The second argument passed to the kernel.</param>
+        /// <param name="arg3">The third argument passed to the kernel.</param>
+        /// <param name="arg4">The fourth argument passed to the kernel.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="image"/> is <see langword="null"/>.</exception>
+        /// <exception cref="ObjectDisposedException">Cannot access a disposed object.</exception>
+        public static void PixelOperate<TOperation, TArg1, TArg2, TArg3, TArg4>(this Image<BGRA32> image, DrawingContext context, TArg1 arg1, TArg2 arg2, TArg3 arg3, TArg4 arg4)
+            where TOperation : struct, IGpuPixelOperation<TArg1, TArg2, TArg3, TArg4>
+            where TArg1 : notnull
+            where TArg2 : notnull
+            where TArg3 : notnull
+            where TArg4 : notnull
+        {
+            if (image is null) throw new ArgumentNullException(nameof(image));
+            image.ThrowIfDisposed();
+
+            CLProgram program;
+            var operation = (TOperation)default;
+            var key = operation.GetType().Name;
+            if (!context.Programs.ContainsKey(key))
+            {
+                program = context.Context.CreateProgram(operation.GetSource());
+                context.Programs.Add(key, program);
+            }
+            else
+            {
+                program = context.Programs[key];
+            }
+
+            using var kernel = program.CreateKernel(operation.GetKernel());
+
+            var dataSize = image.DataSize;
+            using var buf = context.Context.CreateMappingMemory(image.Data, dataSize);
+            kernel.NDRange(context.CommandQueue, new long[] { image.Width, image.Height }, buf, arg1, arg2, arg3, arg4);
+            context.CommandQueue.WaitFinish();
+            buf.Read(context.CommandQueue, true, image.Data, 0, dataSize).Wait();
+        }
+
+        /// <summary>
         /// Makes the specified image a mask for the original image.
         /// </summary>
         /// <param name="self">The image to apply the effect to.</param>
@@ -344,25 +392,6 @@ namespace BEditor.Drawing
             fixed (BGRA32* data = image.Data)
             {
                 PixelOperate(image.Data.Length, new SetColorOperation(data, color));
-            }
-        }
-
-        /// <summary>
-        /// Makes a specific color component of the image transparent.
-        /// </summary>
-        /// <param name="image">The image to apply the effect to.</param>
-        /// <param name="color">The color to make transparent.</param>
-        /// <param name="value">The threshold value.</param>
-        /// <exception cref="ArgumentNullException"><paramref name="image"/> is <see langword="null"/>.</exception>
-        /// <exception cref="ObjectDisposedException">Cannot access a disposed object.</exception>
-        public static void ColorKey(this Image<BGRA32> image, BGRA32 color, int value)
-        {
-            if (image is null) throw new ArgumentNullException(nameof(image));
-            image.ThrowIfDisposed();
-
-            fixed (BGRA32* s = image.Data)
-            {
-                PixelOperate(image.Data.Length, new ColorKeyOperation(s, s, color, value));
             }
         }
 

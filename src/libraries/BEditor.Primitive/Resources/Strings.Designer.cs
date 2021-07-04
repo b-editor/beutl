@@ -322,6 +322,15 @@ namespace BEditor.Primitive.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Color difference range.
+        /// </summary>
+        internal static string ColorDifferenceRange {
+            get {
+                return ResourceManager.GetString("ColorDifferenceRange", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Color key.
         /// </summary>
         internal static string ColorKey {
@@ -642,6 +651,15 @@ namespace BEditor.Primitive.Resources {
         internal static string HorizontalAlignment {
             get {
                 return ResourceManager.GetString("HorizontalAlignment", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Hue range.
+        /// </summary>
+        internal static string HueRange {
+            get {
+                return ResourceManager.GetString("HueRange", resourceCulture);
             }
         }
         
@@ -1002,6 +1020,15 @@ namespace BEditor.Primitive.Resources {
         internal static string RoundRect {
             get {
                 return ResourceManager.GetString("RoundRect", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Saturation range.
+        /// </summary>
+        internal static string SaturationRange {
+            get {
+                return ResourceManager.GetString("SaturationRange", resourceCulture);
             }
         }
         

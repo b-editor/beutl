@@ -98,6 +98,42 @@ namespace BEditor.Drawing
         }
 
         /// <summary>
+        /// Converts the <see cref="BGRA32"/> to a <see cref="Color"/>.
+        /// </summary>
+        /// <param name="value">A color.</param>
+        public static implicit operator Color(BGRA32 value)
+        {
+            return new(value.A, value.R, value.G, value.B);
+        }
+
+        /// <summary>
+        /// Converts the <see cref="RGBA32"/> to a <see cref="Color"/>.
+        /// </summary>
+        /// <param name="value">A color.</param>
+        public static implicit operator Color(RGBA32 value)
+        {
+            return new(value.A, value.R, value.G, value.B);
+        }
+
+        /// <summary>
+        /// Converts the <see cref="BGR24"/> to a <see cref="Color"/>.
+        /// </summary>
+        /// <param name="value">A color.</param>
+        public static implicit operator Color(BGR24 value)
+        {
+            return new(255, value.R, value.G, value.B);
+        }
+
+        /// <summary>
+        /// Converts the <see cref="RGB24"/> to a <see cref="Color"/>.
+        /// </summary>
+        /// <param name="value">A color.</param>
+        public static implicit operator Color(RGB24 value)
+        {
+            return new(255, value.R, value.G, value.B);
+        }
+
+        /// <summary>
         /// Indicates whether two <see cref="Color"/> instances are equal.
         /// </summary>
         /// <param name="left">The first color to compare.</param>
@@ -320,54 +356,30 @@ namespace BEditor.Drawing
         /// <returns>Returns the HSV.</returns>
         public readonly Hsv ToHsv()
         {
-            var r = (double)R;
-            var g = (double)G;
-            var b = (double)B;
+            var max = Math.Max(Math.Max(R, G), B);
+            var min = Math.Min(Math.Min(R, G), B);
+            var hsv = new Hsv(0, 0, max);
 
-            var min = Math.Min(Math.Min(r, g), b);
-            var max = Math.Max(Math.Max(r, g), b);
-
-            var delta = max - min;
-
-            var v = 100.0 * max / 255.0;
-
-            double s;
-            if (max == 0.0)
+            if (max != min)
             {
-                s = 0;
-            }
-            else
-            {
-                s = 100.0 * delta / max;
+                // H(色相)
+                if (max == R) hsv.H = 60 * (G - B) / (max - min);
+                if (max == G) hsv.H = (60 * (B - R) / (max - min)) + 120;
+                if (max == B) hsv.H = (60 * (R - G) / (max - min)) + 240;
+
+                // S(彩度)
+                hsv.S = (max - min) / max;
             }
 
-            double h = 0;
-            if (s == 0)
+            if (hsv.H < 0)
             {
-                h = 0;
-            }
-            else
-            {
-                if (r == max)
-                {
-                    h = 60.0 * (g - b) / delta;
-                }
-                else if (g == max)
-                {
-                    h = 120.0 + (60.0 * (b - r) / delta);
-                }
-                else if (b == max)
-                {
-                    h = 240.0 + (60.0 * (r - g) / delta);
-                }
-
-                if (h < 0.0)
-                {
-                    h += 360.0;
-                }
+                hsv.H += 360;
             }
 
-            return new Hsv(h, s, v);
+            hsv.H = Math.Round(hsv.H);
+            hsv.S = Math.Round(hsv.S * 100);
+            hsv.V = Math.Round(hsv.V / 255 * 100);
+            return hsv;
         }
 
         /// <summary>

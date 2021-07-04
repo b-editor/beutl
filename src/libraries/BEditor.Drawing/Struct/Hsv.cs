@@ -6,6 +6,7 @@
 // of the MIT license. See the LICENSE file for details.
 
 using System;
+using System.Runtime.InteropServices;
 using System.Runtime.Serialization;
 
 namespace BEditor.Drawing
@@ -14,8 +15,13 @@ namespace BEditor.Drawing
     /// Represents the HSV (Hue, Saturation, Brightness) color.
     /// </summary>
     [Serializable]
+    [StructLayout(LayoutKind.Sequential)]
     public struct Hsv : ISerializable, IEquatable<Hsv>
     {
+        // Hue 0 - 360
+        // Saturation 0-100%
+        // Value 0-100%
+
         /// <summary>
         /// Initializes a new instance of the <see cref="Hsv"/> struct.
         /// </summary>
@@ -97,67 +103,72 @@ namespace BEditor.Drawing
         /// <returns>Returns the RGB.</returns>
         public readonly Color ToColor()
         {
-            double r;
-            double g;
-            double b;
+            var h = H;
+            var s = S;
+            var v = V;
 
-            if (S == 0)
+            if (H == 360)
             {
-                r = g = b = Math.Round(V * 2.55);
-                return Color.FromArgb(255, (byte)r, (byte)g, (byte)b);
+                h = 0;
             }
 
-            var hh = H;
-            var ss = S / 100.0;
-            var vv = V / 100.0;
-            if (hh >= 360.0)
-                hh = 0.0;
-            hh /= 60.0;
+            s /= 100;
+            v /= 100;
 
-            var i = (long)hh;
-            var ff = hh - i;
-            var p = vv * (1.0 - ss);
-            var q = vv * (1.0 - (ss * ff));
-            var t = vv * (1.0 - (ss * (1.0 - ff)));
+            if (s == 0)
+            {
+                var result = Color.FromArgb(255, 0, 0, 0);
+                result.R = (byte)(v * 255);
+                result.G = (byte)(v * 255);
+                result.B = (byte)(v * 255);
+                return result;
+            }
 
-            switch ((int)i)
+            var dh = Math.Floor(h / 60);
+            var p = v * (1 - s);
+            var q = v * (1 - (s * ((h / 60) - dh)));
+            var t = v * (1 - (s * (1 - ((h / 60) - dh))));
+            double r = 0;
+            double g = 0;
+            double b = 0;
+
+            switch (dh)
             {
                 case 0:
-                    r = vv;
+                    r = v;
                     g = t;
                     b = p;
                     break;
                 case 1:
                     r = q;
-                    g = vv;
+                    g = v;
                     b = p;
                     break;
                 case 2:
                     r = p;
-                    g = vv;
+                    g = v;
                     b = t;
                     break;
                 case 3:
                     r = p;
                     g = q;
-                    b = vv;
+                    b = v;
                     break;
                 case 4:
                     r = t;
                     g = p;
-                    b = vv;
+                    b = v;
                     break;
-                default:
-                    r = vv;
+                case 5:
+                    r = v;
                     g = p;
                     b = q;
                     break;
             }
 
-            r = Math.Round(r * 255.0);
-            g = Math.Round(g * 255.0);
-            b = Math.Round(b * 255.0);
-
+            r = Math.Round(r * 255);
+            g = Math.Round(g * 255);
+            b = Math.Round(b * 255);
             return Color.FromArgb(255, (byte)r, (byte)g, (byte)b);
         }
 

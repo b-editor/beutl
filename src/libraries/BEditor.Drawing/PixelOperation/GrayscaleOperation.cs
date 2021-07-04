@@ -109,6 +109,10 @@ __kernel void grayscale(__global unsigned char* src)
         /// <inheritdoc/>
         public readonly void Invoke(int pos)
         {
+            // var ntsc = Set255Round(
+            //     (_src[pos].B * 0.11448) +
+            //     (_src[pos].G * 0.58661) +
+            //     (_src[pos].R * 0.29891));
             var ntsc = Set255Round(
                 (_src[pos].R * 0.11448) +
                 (_src[pos].G * 0.58661) +

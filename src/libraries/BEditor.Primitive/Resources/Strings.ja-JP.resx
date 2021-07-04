@@ -652,4 +652,13 @@
   <data name="NumberOfRepetitions" xml:space="preserve">
     <value>繰り返し回数</value>
   </data>
+  <data name="ColorDifferenceRange" xml:space="preserve">
+    <value>色差範囲</value>
+  </data>
+  <data name="HueRange" xml:space="preserve">
+    <value>色相範囲</value>
+  </data>
+  <data name="SaturationRange" xml:space="preserve">
+    <value>彩度範囲</value>
+  </data>
 </root>

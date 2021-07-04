@@ -652,4 +652,13 @@
   <data name="NumberOfRepetitions" xml:space="preserve">
     <value>Number of repetitions</value>
   </data>
+  <data name="ColorDifferenceRange" xml:space="preserve">
+    <value>Color difference range</value>
+  </data>
+  <data name="HueRange" xml:space="preserve">
+    <value>Hue range</value>
+  </data>
+  <data name="SaturationRange" xml:space="preserve">
+    <value>Saturation range</value>
+  </data>
 </root>

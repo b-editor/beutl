@@ -23,13 +23,29 @@ namespace BEditor.Primitive.Effects
     public sealed class ChromaKey : ImageEffect
     {
         /// <summary>
-        /// Defines the <see cref="ThresholdValue"/> property.
+        /// Defines the <see cref="Color"/> property.
         /// </summary>
-        public static readonly DirectProperty<ChromaKey, EaseProperty> TopProperty = EditingProperty.RegisterDirect<EaseProperty, ChromaKey>(
-            nameof(ThresholdValue),
-            owner => owner.ThresholdValue,
-            (owner, obj) => owner.ThresholdValue = obj,
-            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.ThresholdValue, 256)).Serialize());
+        public static readonly DirectProperty<ChromaKey, ColorProperty> ColorProperty = ColorKey.ColorProperty.WithOwner<ChromaKey>(
+            owner => owner.Color,
+            (owner, obj) => owner.Color = obj);
+
+        /// <summary>
+        /// Defines the <see cref="HueRange"/> property.
+        /// </summary>
+        public static readonly DirectProperty<ChromaKey, EaseProperty> HueRangeProperty = EditingProperty.RegisterDirect<EaseProperty, ChromaKey>(
+            nameof(HueRange),
+            owner => owner.HueRange,
+            (owner, obj) => owner.HueRange = obj,
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.HueRange, 80, min: 0)).Serialize());
+
+        /// <summary>
+        /// Defines the <see cref="SaturationRange"/> property.
+        /// </summary>
+        public static readonly DirectProperty<ChromaKey, EaseProperty> SaturationRangeProperty = EditingProperty.RegisterDirect<EaseProperty, ChromaKey>(
+            nameof(SaturationRange),
+            owner => owner.SaturationRange,
+            (owner, obj) => owner.SaturationRange = obj,
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.SaturationRange, 80, min: 0)).Serialize());
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ChromaKey"/> class.
@@ -42,21 +58,35 @@ namespace BEditor.Primitive.Effects
         public override string Name => Strings.ChromaKey;
 
         /// <summary>
-        /// Gets the threshold value.
+        /// Gets the key color.
         /// </summary>
         [AllowNull]
-        public EaseProperty ThresholdValue { get; private set; }
+        public ColorProperty Color { get; private set; }
+
+        /// <summary>
+        /// Gets the hue range.
+        /// </summary>
+        [AllowNull]
+        public EaseProperty HueRange { get; private set; }
+
+        /// <summary>
+        /// Gets the saturation range.
+        /// </summary>
+        [AllowNull]
+        public EaseProperty SaturationRange { get; private set; }
 
         /// <inheritdoc/>
         public override void Apply(EffectApplyArgs<Image<BGRA32>> args)
         {
-            args.Value.ChromaKey((int)ThresholdValue[args.Frame], Parent.Parent.DrawingContext);
+            args.Value.ChromaKey(Color.Value, (int)HueRange[args.Frame], (int)SaturationRange[args.Frame], Parent.Parent.DrawingContext);
         }
 
         /// <inheritdoc/>
         public override IEnumerable<PropertyElement> GetProperties()
         {
-            yield return ThresholdValue;
+            yield return Color;
+            yield return HueRange;
+            yield return SaturationRange;
         }
     }
 }

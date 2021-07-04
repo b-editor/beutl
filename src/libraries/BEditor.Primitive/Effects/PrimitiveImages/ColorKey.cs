@@ -32,13 +32,13 @@ namespace BEditor.Primitive.Effects
             EditingPropertyOptions<ColorProperty>.Create(new ColorPropertyMetadata(Strings.Color, Colors.White)).Serialize());
 
         /// <summary>
-        /// Defines the <see cref="ThresholdValue"/> property.
+        /// Defines the <see cref="ColorDifferenceRange"/> property.
         /// </summary>
-        public static readonly DirectProperty<ColorKey, EaseProperty> ThresholdValueProperty = EditingProperty.RegisterDirect<EaseProperty, ColorKey>(
-            nameof(ThresholdValue),
-            owner => owner.ThresholdValue,
-            (owner, obj) => owner.ThresholdValue = obj,
-            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.ThresholdValue, 60)).Serialize());
+        public static readonly DirectProperty<ColorKey, EaseProperty> ColorDifferenceRangeProperty = EditingProperty.RegisterDirect<EaseProperty, ColorKey>(
+            nameof(ColorDifferenceRange),
+            owner => owner.ColorDifferenceRange,
+            (owner, obj) => owner.ColorDifferenceRange = obj,
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.ColorDifferenceRange, 80, min: 0)).Serialize());
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ColorKey"/> class.
@@ -57,22 +57,22 @@ namespace BEditor.Primitive.Effects
         public ColorProperty Color { get; private set; }
 
         /// <summary>
-        /// Gets the threshold value.
+        /// Gets the color difference range.
         /// </summary>
         [AllowNull]
-        public EaseProperty ThresholdValue { get; private set; }
+        public EaseProperty ColorDifferenceRange { get; private set; }
 
         /// <inheritdoc/>
         public override void Apply(EffectApplyArgs<Image<BGRA32>> args)
         {
-            args.Value.ColorKey(Color.Value, (int)ThresholdValue[args.Frame]);
+            args.Value.ColorKey(Color.Value, (int)ColorDifferenceRange[args.Frame], Parent.Parent.DrawingContext);
         }
 
         /// <inheritdoc/>
         public override IEnumerable<PropertyElement> GetProperties()
         {
             yield return Color;
-            yield return ThresholdValue;
+            yield return ColorDifferenceRange;
         }
     }
 }

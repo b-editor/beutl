@@ -685,9 +685,19 @@
             Represents the <see cref="T:BEditor.Data.Primitive.ImageEffect"/> that makes the background color of an image transparent.
             </summary>
         </member>
-        <member name="F:BEditor.Primitive.Effects.ChromaKey.TopProperty">
+        <member name="F:BEditor.Primitive.Effects.ChromaKey.ColorProperty">
             <summary>
-            Defines the <see cref="P:BEditor.Primitive.Effects.ChromaKey.ThresholdValue"/> property.
+            Defines the <see cref="P:BEditor.Primitive.Effects.ChromaKey.Color"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.ChromaKey.HueRangeProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.ChromaKey.HueRange"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.ChromaKey.SaturationRangeProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.ChromaKey.SaturationRange"/> property.
             </summary>
         </member>
         <member name="M:BEditor.Primitive.Effects.ChromaKey.#ctor">
@@ -698,9 +708,19 @@
         <member name="P:BEditor.Primitive.Effects.ChromaKey.Name">
             <inheritdoc/>
         </member>
-        <member name="P:BEditor.Primitive.Effects.ChromaKey.ThresholdValue">
+        <member name="P:BEditor.Primitive.Effects.ChromaKey.Color">
             <summary>
-            Gets the threshold value.
+            Gets the key color.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.ChromaKey.HueRange">
+            <summary>
+            Gets the hue range.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.ChromaKey.SaturationRange">
+            <summary>
+            Gets the saturation range.
             </summary>
         </member>
         <member name="M:BEditor.Primitive.Effects.ChromaKey.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
@@ -788,9 +808,9 @@
             Defines the <see cref="P:BEditor.Primitive.Effects.ColorKey.Color"/> property.
             </summary>
         </member>
-        <member name="F:BEditor.Primitive.Effects.ColorKey.ThresholdValueProperty">
+        <member name="F:BEditor.Primitive.Effects.ColorKey.ColorDifferenceRangeProperty">
             <summary>
-            Defines the <see cref="P:BEditor.Primitive.Effects.ColorKey.ThresholdValue"/> property.
+            Defines the <see cref="P:BEditor.Primitive.Effects.ColorKey.ColorDifferenceRange"/> property.
             </summary>
         </member>
         <member name="M:BEditor.Primitive.Effects.ColorKey.#ctor">
@@ -806,9 +826,9 @@
             Gets the key color.
             </summary>
         </member>
-        <member name="P:BEditor.Primitive.Effects.ColorKey.ThresholdValue">
+        <member name="P:BEditor.Primitive.Effects.ColorKey.ColorDifferenceRange">
             <summary>
-            Gets the threshold value.
+            Gets the color difference range.
             </summary>
         </member>
         <member name="M:BEditor.Primitive.Effects.ColorKey.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
@@ -3124,6 +3144,11 @@
               Looks up a localized string similar to Color.
             </summary>
         </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.ColorDifferenceRange">
+            <summary>
+              Looks up a localized string similar to Color difference range.
+            </summary>
+        </member>
         <member name="P:BEditor.Primitive.Resources.Strings.ColorKey">
             <summary>
               Looks up a localized string similar to Color key.
@@ -3302,6 +3327,11 @@
         <member name="P:BEditor.Primitive.Resources.Strings.HorizontalAlignment">
             <summary>
               Looks up a localized string similar to Horizontal alignment.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.HueRange">
+            <summary>
+              Looks up a localized string similar to Hue range.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Image">
@@ -3502,6 +3532,11 @@
         <member name="P:BEditor.Primitive.Resources.Strings.RoundRect">
             <summary>
               Looks up a localized string similar to Round rect.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.SaturationRange">
+            <summary>
+              Looks up a localized string similar to Saturation range.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Scene">
