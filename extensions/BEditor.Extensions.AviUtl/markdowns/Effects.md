@@ -5,13 +5,13 @@
     * 輝度
     * 彩度
     * 飽和する
-* クリッピング
+* クリッピング (BEditor.Primitive.Effects.Clipping)
     * 上
     * 下
     * 左
     * 右
     * 中心の位置を変更
-* ぼかし
+* ぼかし (BEditor.Primitive.Effects.OpenCv.Blur)
     * 範囲
     * 縦横比
     * 光の強さ
@@ -52,7 +52,7 @@
     * color
     * no_color
     * type
-* クロマキー
+* クロマキー (BEditor.Primitive.Effects.ChromaKey)
     * 色相範囲
     * 彩度範囲
     * 境界補正
@@ -60,7 +60,7 @@
     * 透過補正
     * color_yc
     * status
-* カラーキー
+* カラーキー (BEditor.Primitive.Effects.ColorKey)
     * 輝度範囲
     * 色差範囲
     * 境界補正
@@ -76,7 +76,7 @@
     * 比率
     * 逆光
     * color
-* シャドー
+* シャドー (BEditor.Primitive.Effects.Shadow)
     * X
     * Y
     * 濃さ
@@ -84,7 +84,7 @@
     * 影を別オブジェクトで描画
     * color
     * file
-* 縁取り
+* 縁取り (BEditor.Primitive.Effects.Border)
     * サイズ
     * ぼかし
     * color
@@ -113,7 +113,7 @@
     * 反転(アウト)
     * type
     * name
-* マスク
+* マスク (BEditor.Primitive.Effects.Mask)
     * X
     * Y
     * 回転
@@ -219,11 +219,11 @@
     * 角度
     * 強さ
     * type
-* 単色化
+* 単色化 (BEditor.Primitive.Effects.SetColor)
     * 強さ
     * 輝度を保持する
     * color
-* グラデーション
+* グラデーション (BEditor.Primitive.Effects.LinearGradient)
     * 強さ
     * 中心X
     * 中心Y

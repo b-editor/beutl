@@ -239,14 +239,19 @@
             Represents the <see cref="T:BEditor.Data.Primitive.ImageEffect"/> that blurs the image.
             </summary>
         </member>
-        <member name="F:BEditor.Primitive.Effects.OpenCv.Blur.SizeProperty">
+        <member name="F:BEditor.Primitive.Effects.OpenCv.Blur.KernelWidthProperty">
             <summary>
-            Defines the <see cref="P:BEditor.Primitive.Effects.OpenCv.Blur.Size"/> property.
+            Defines the <see cref="P:BEditor.Primitive.Effects.OpenCv.Blur.KernelWidth"/> property.
             </summary>
         </member>
-        <member name="F:BEditor.Primitive.Effects.OpenCv.Blur.ResizeProperty">
+        <member name="F:BEditor.Primitive.Effects.OpenCv.Blur.KernelHeightProperty">
             <summary>
-            Defines the <see cref="P:BEditor.Primitive.Effects.OpenCv.Blur.Resize"/> property.
+            Defines the <see cref="P:BEditor.Primitive.Effects.OpenCv.Blur.KernelHeight"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.OpenCv.Blur.FixSizeProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.OpenCv.Blur.FixSize"/> property.
             </summary>
         </member>
         <member name="M:BEditor.Primitive.Effects.OpenCv.Blur.#ctor">
@@ -257,14 +262,19 @@
         <member name="P:BEditor.Primitive.Effects.OpenCv.Blur.Name">
             <inheritdoc/>
         </member>
-        <member name="P:BEditor.Primitive.Effects.OpenCv.Blur.Size">
+        <member name="P:BEditor.Primitive.Effects.OpenCv.Blur.KernelWidth">
             <summary>
-            Gets the size of the kernel.
+            Gets the width of the kernel.
             </summary>
         </member>
-        <member name="P:BEditor.Primitive.Effects.OpenCv.Blur.Resize">
+        <member name="P:BEditor.Primitive.Effects.OpenCv.Blur.KernelHeight">
             <summary>
-            Gets the value if the image should be resized.
+            Gets the height of the kernel.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.OpenCv.Blur.FixSize">
+            <summary>
+            Gets whether the size should be fixed.
             </summary>
         </member>
         <member name="M:BEditor.Primitive.Effects.OpenCv.Blur.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
@@ -278,14 +288,29 @@
             Represents the <see cref="T:BEditor.Data.Primitive.ImageEffect"/> that blurs the image.
             </summary>
         </member>
-        <member name="F:BEditor.Primitive.Effects.OpenCv.GaussianBlur.SizeProperty">
+        <member name="F:BEditor.Primitive.Effects.OpenCv.GaussianBlur.KernelWidthProperty">
             <summary>
-            Defines the <see cref="P:BEditor.Primitive.Effects.OpenCv.GaussianBlur.Size"/> property.
+            Defines the <see cref="P:BEditor.Primitive.Effects.OpenCv.GaussianBlur.KernelWidth"/> property.
             </summary>
         </member>
-        <member name="F:BEditor.Primitive.Effects.OpenCv.GaussianBlur.ResizeProperty">
+        <member name="F:BEditor.Primitive.Effects.OpenCv.GaussianBlur.KernelHeightProperty">
             <summary>
-            Defines the <see cref="P:BEditor.Primitive.Effects.OpenCv.GaussianBlur.Resize"/> property.
+            Defines the <see cref="P:BEditor.Primitive.Effects.OpenCv.GaussianBlur.KernelHeight"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.OpenCv.GaussianBlur.SigmaXProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.OpenCv.GaussianBlur.SigmaX"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.OpenCv.GaussianBlur.SigmaYProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.OpenCv.GaussianBlur.SigmaY"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.OpenCv.GaussianBlur.FixSizeProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.OpenCv.GaussianBlur.FixSize"/> property.
             </summary>
         </member>
         <member name="M:BEditor.Primitive.Effects.OpenCv.GaussianBlur.#ctor">
@@ -296,14 +321,29 @@
         <member name="P:BEditor.Primitive.Effects.OpenCv.GaussianBlur.Name">
             <inheritdoc/>
         </member>
-        <member name="P:BEditor.Primitive.Effects.OpenCv.GaussianBlur.Size">
+        <member name="P:BEditor.Primitive.Effects.OpenCv.GaussianBlur.KernelWidth">
             <summary>
-            Gets the size of the kernel.
+            Gets the width of the kernel.
             </summary>
         </member>
-        <member name="P:BEditor.Primitive.Effects.OpenCv.GaussianBlur.Resize">
+        <member name="P:BEditor.Primitive.Effects.OpenCv.GaussianBlur.KernelHeight">
             <summary>
-            Gets the value if the image should be resized.
+            Gets the height of the kernel.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.OpenCv.GaussianBlur.SigmaX">
+            <summary>
+            Gets the blur sigma.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.OpenCv.GaussianBlur.SigmaY">
+            <summary>
+            Gets the blur sigma.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.OpenCv.GaussianBlur.FixSize">
+            <summary>
+            Gets whether the size should be fixed.
             </summary>
         </member>
         <member name="M:BEditor.Primitive.Effects.OpenCv.GaussianBlur.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
@@ -1382,9 +1422,19 @@
             Represents the <see cref="T:BEditor.Data.Primitive.ImageEffect"/> that blurs the image.
             </summary>
         </member>
-        <member name="F:BEditor.Primitive.Effects.Blur.TopProperty">
+        <member name="F:BEditor.Primitive.Effects.Blur.SigmaXProperty">
             <summary>
-            Defines the <see cref="P:BEditor.Primitive.Effects.Blur.Size"/> property.
+            Defines the <see cref="P:BEditor.Primitive.Effects.Blur.SigmaX"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.Blur.SigmaYProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.Blur.SigmaX"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.Blur.FixSizeProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.Blur.FixSize"/> property.
             </summary>
         </member>
         <member name="M:BEditor.Primitive.Effects.Blur.#ctor">
@@ -1395,9 +1445,19 @@
         <member name="P:BEditor.Primitive.Effects.Blur.Name">
             <inheritdoc/>
         </member>
-        <member name="P:BEditor.Primitive.Effects.Blur.Size">
+        <member name="P:BEditor.Primitive.Effects.Blur.SigmaX">
             <summary>
             Gets the blur sigma.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.Blur.SigmaY">
+            <summary>
+            Gets the blur sigma.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.Blur.FixSize">
+            <summary>
+            Gets whether the size should be fixed.
             </summary>
         </member>
         <member name="M:BEditor.Primitive.Effects.Blur.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
@@ -3322,6 +3382,11 @@
               Looks up a localized string similar to Fit to original size.
             </summary>
         </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.FixSize">
+            <summary>
+              Looks up a localized string similar to Fix the size.
+            </summary>
+        </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Fov">
             <summary>
               Looks up a localized string similar to viewing angle.
@@ -3410,6 +3475,16 @@
         <member name="P:BEditor.Primitive.Resources.Strings.InvertMask">
             <summary>
               Looks up a localized string similar to Invert Mask.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.KernelHeight">
+            <summary>
+              Looks up a localized string similar to Kernel height.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.KernelWidth">
+            <summary>
+              Looks up a localized string similar to Kernel width.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Left">
@@ -3615,6 +3690,16 @@
         <member name="P:BEditor.Primitive.Resources.Strings.Shape">
             <summary>
               Looks up a localized string similar to Shape.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.SigmaX">
+            <summary>
+              Looks up a localized string similar to Sigma x.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.SigmaY">
+            <summary>
+              Looks up a localized string similar to Sigma y.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Size">

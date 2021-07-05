@@ -670,4 +670,19 @@
   <data name="DoNotInvertMask" xml:space="preserve">
     <value>Do not invert the mask</value>
   </data>
+  <data name="SigmaX" xml:space="preserve">
+    <value>Sigma x</value>
+  </data>
+  <data name="SigmaY" xml:space="preserve">
+    <value>Sigma y</value>
+  </data>
+  <data name="FixSize" xml:space="preserve">
+    <value>Fix the size</value>
+  </data>
+  <data name="KernelWidth" xml:space="preserve">
+    <value>Kernel width</value>
+  </data>
+  <data name="KernelHeight" xml:space="preserve">
+    <value>Kernel height</value>
+  </data>
 </root>

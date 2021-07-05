@@ -23,22 +23,45 @@ namespace BEditor.Primitive.Effects.OpenCv
     public sealed class GaussianBlur : ImageEffect
     {
         /// <summary>
-        /// Defines the <see cref="Size"/> property.
+        /// Defines the <see cref="KernelWidth"/> property.
         /// </summary>
-        public static readonly DirectProperty<GaussianBlur, EaseProperty> SizeProperty = EditingProperty.RegisterDirect<EaseProperty, GaussianBlur>(
-            nameof(Size),
-            owner => owner.Size,
-            (owner, obj) => owner.Size = obj,
-            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Size, 20, min: 0)).Serialize());
+        public static readonly DirectProperty<GaussianBlur, EaseProperty> KernelWidthProperty = EditingProperty.RegisterDirect<EaseProperty, GaussianBlur>(
+            $"{nameof(KernelWidth)},Size",
+            owner => owner.KernelWidth,
+            (owner, obj) => owner.KernelWidth = obj,
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.KernelWidth, 20, min: 0)).Serialize());
 
         /// <summary>
-        /// Defines the <see cref="Resize"/> property.
+        /// Defines the <see cref="KernelHeight"/> property.
         /// </summary>
-        public static readonly DirectProperty<GaussianBlur, CheckProperty> ResizeProperty = EditingProperty.RegisterDirect<CheckProperty, GaussianBlur>(
-            nameof(Resize),
-            owner => owner.Resize,
-            (owner, obj) => owner.Resize = obj,
-            EditingPropertyOptions<CheckProperty>.Create(new CheckPropertyMetadata(Strings.Resize, true)).Serialize());
+        public static readonly DirectProperty<GaussianBlur, EaseProperty> KernelHeightProperty = EditingProperty.RegisterDirect<EaseProperty, GaussianBlur>(
+            nameof(KernelHeight),
+            owner => owner.KernelHeight,
+            (owner, obj) => owner.KernelHeight = obj,
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.KernelHeight, 20, min: 0)).Serialize());
+
+        /// <summary>
+        /// Defines the <see cref="SigmaX"/> property.
+        /// </summary>
+        public static readonly DirectProperty<GaussianBlur, EaseProperty> SigmaXProperty = Effects.Blur.SigmaXProperty.WithOwner<GaussianBlur>(
+            owner => owner.SigmaX,
+            (owner, obj) => owner.SigmaX = obj,
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.SigmaX, 0, float.NaN, 0)).Serialize());
+
+        /// <summary>
+        /// Defines the <see cref="SigmaY"/> property.
+        /// </summary>
+        public static readonly DirectProperty<GaussianBlur, EaseProperty> SigmaYProperty = Effects.Blur.SigmaYProperty.WithOwner<GaussianBlur>(
+            owner => owner.SigmaY,
+            (owner, obj) => owner.SigmaY = obj,
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.SigmaY, 0, float.NaN, 0)).Serialize());
+
+        /// <summary>
+        /// Defines the <see cref="FixSize"/> property.
+        /// </summary>
+        public static readonly DirectProperty<GaussianBlur, CheckProperty> FixSizeProperty = Blur.FixSizeProperty.WithOwner<GaussianBlur>(
+            owner => owner.FixSize,
+            (owner, obj) => owner.FixSize = obj);
 
         /// <summary>
         /// Initializes a new instance of the <see cref="GaussianBlur"/> class.
@@ -51,36 +74,63 @@ namespace BEditor.Primitive.Effects.OpenCv
         public override string Name => Strings.GaussianBlur;
 
         /// <summary>
-        /// Gets the size of the kernel.
+        /// Gets the width of the kernel.
         /// </summary>
         [AllowNull]
-        public EaseProperty Size { get; private set; }
+        public EaseProperty KernelWidth { get; private set; }
 
         /// <summary>
-        /// Gets the value if the image should be resized.
+        /// Gets the height of the kernel.
         /// </summary>
         [AllowNull]
-        public CheckProperty Resize { get; private set; }
+        public EaseProperty KernelHeight { get; private set; }
+
+        /// <summary>
+        /// Gets the blur sigma.
+        /// </summary>
+        [AllowNull]
+        public EaseProperty SigmaX { get; private set; }
+
+        /// <summary>
+        /// Gets the blur sigma.
+        /// </summary>
+        [AllowNull]
+        public EaseProperty SigmaY { get; private set; }
+
+        /// <summary>
+        /// Gets whether the size should be fixed.
+        /// </summary>
+        [AllowNull]
+        public CheckProperty FixSize { get; private set; }
 
         /// <inheritdoc/>
         public override void Apply(EffectApplyArgs<Image<BGRA32>> args)
         {
-            var size = (int)Size[args.Frame];
-            if (Resize.Value)
+            var width = (int)KernelWidth[args.Frame];
+            var height = (int)KernelHeight[args.Frame];
+            var sigmaX = SigmaX[args.Frame];
+            var sigmaY = SigmaY[args.Frame];
+
+            if (!FixSize.Value)
             {
-                var image = args.Value.MakeBorder(args.Value.Width + size, args.Value.Height + size);
+                var image = args.Value.MakeBorder(
+                    args.Value.Width + width,
+                    args.Value.Height + height);
                 args.Value.Dispose();
                 args.Value = image;
             }
 
-            Cv.GaussianBlur(args.Value, size);
+            Cv.GaussianBlur(args.Value, new(width, height), sigmaX, sigmaY);
         }
 
         /// <inheritdoc/>
         public override IEnumerable<PropertyElement> GetProperties()
         {
-            yield return Size;
-            yield return Resize;
+            yield return KernelWidth;
+            yield return KernelHeight;
+            yield return SigmaX;
+            yield return SigmaY;
+            yield return FixSize;
         }
     }
 }

@@ -565,6 +565,15 @@ namespace BEditor.Primitive.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Fix the size.
+        /// </summary>
+        internal static string FixSize {
+            get {
+                return ResourceManager.GetString("FixSize", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to viewing angle.
         /// </summary>
         internal static string Fov {
@@ -723,6 +732,24 @@ namespace BEditor.Primitive.Resources {
         internal static string InvertMask {
             get {
                 return ResourceManager.GetString("InvertMask", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Kernel height.
+        /// </summary>
+        internal static string KernelHeight {
+            get {
+                return ResourceManager.GetString("KernelHeight", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Kernel width.
+        /// </summary>
+        internal static string KernelWidth {
+            get {
+                return ResourceManager.GetString("KernelWidth", resourceCulture);
             }
         }
         
@@ -1092,6 +1119,24 @@ namespace BEditor.Primitive.Resources {
         internal static string Shape {
             get {
                 return ResourceManager.GetString("Shape", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Sigma x.
+        /// </summary>
+        internal static string SigmaX {
+            get {
+                return ResourceManager.GetString("SigmaX", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Sigma y.
+        /// </summary>
+        internal static string SigmaY {
+            get {
+                return ResourceManager.GetString("SigmaY", resourceCulture);
             }
         }
         

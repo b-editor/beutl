@@ -23,6 +23,7 @@ namespace BEditor.Drawing
         /// </summary>
         /// <param name="image">The image to apply the effect to.</param>
         /// <param name="kernelSize">The smoothing kernel size.</param>
+        [Obsolete("Use GaussianBlur(Image<BGRA32>, Size, double, double)")]
         public static void GaussianBlur(Image<BGRA32> image, int kernelSize)
         {
             using var mat = image.ToMat();
@@ -33,6 +34,37 @@ namespace BEditor.Drawing
             }
 
             Cv2.GaussianBlur(mat, mat, new(kernelSize, kernelSize), 0, 0);
+        }
+
+        /// <summary>
+        /// Blurs an image using a Gaussian filter.
+        /// </summary>
+        /// <param name="image">The image to apply the effect to.</param>
+        /// <param name="kernelSize">The smoothing kernel size.</param>
+        /// <param name="sigmaX">Gaussian kernel standard deviation in X direction.</param>
+        /// <param name="sigmaY">Gaussian kernel standard deviation in Y direction.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="image"/> is <see langword="null"/>.</exception>
+        /// <exception cref="ObjectDisposedException">Cannot access a disposed object.</exception>
+        public static void GaussianBlur(Image<BGRA32> image, Size kernelSize, double sigmaX, double sigmaY)
+        {
+            if (image is null) throw new ArgumentNullException(nameof(image));
+            image.ThrowIfDisposed();
+
+            using var mat = image.ToMat();
+            var width = kernelSize.Width;
+            var height = kernelSize.Height;
+
+            if (width % 2 == 0)
+            {
+                width++;
+            }
+
+            if (height % 2 == 0)
+            {
+                height++;
+            }
+
+            Cv2.GaussianBlur(mat, mat, new(width, height), sigmaX, sigmaY);
         }
 
         /// <summary>
@@ -57,6 +89,7 @@ namespace BEditor.Drawing
         /// </summary>
         /// <param name="image">The image to apply the effect to.</param>
         /// <param name="kernelSize">The smoothing kernel size.</param>
+        [Obsolete("Use Blur(Image<BGRA32>, Size)")]
         public static void Blur(Image<BGRA32> image, int kernelSize)
         {
             using var mat = image.ToMat();
@@ -67,6 +100,36 @@ namespace BEditor.Drawing
             }
 
             Cv2.Blur(mat, mat, new(kernelSize, kernelSize));
+        }
+
+        /// <summary>
+        /// Smoothes image using normalized box filter.
+        /// </summary>
+        /// <param name="image">The image to apply the effect to.</param>
+        /// <param name="kernelSize">The smoothing kernel size.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="image"/> is <see langword="null"/>.</exception>
+        /// <exception cref="ObjectDisposedException">Cannot access a disposed object.</exception>
+        public static void Blur(Image<BGRA32> image, Size kernelSize)
+        {
+            if (image is null) throw new ArgumentNullException(nameof(image));
+            image.ThrowIfDisposed();
+
+            using var mat = image.ToMat();
+
+            var width = kernelSize.Width;
+            var height = kernelSize.Height;
+
+            if (width % 2 == 0)
+            {
+                width++;
+            }
+
+            if (height % 2 == 0)
+            {
+                height++;
+            }
+
+            Cv2.Blur(mat, mat, new(width, height));
         }
 
         internal static unsafe Mat ToMat(this Image<BGRA32> image)

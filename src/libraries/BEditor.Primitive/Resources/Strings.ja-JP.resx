@@ -670,4 +670,19 @@
   <data name="DoNotInvertMask" xml:space="preserve">
     <value>マスクを反転しない</value>
   </data>
+  <data name="SigmaX" xml:space="preserve">
+    <value>シグマX</value>
+  </data>
+  <data name="SigmaY" xml:space="preserve">
+    <value>シグマY</value>
+  </data>
+  <data name="FixSize" xml:space="preserve">
+    <value>サイズを固定</value>
+  </data>
+  <data name="KernelWidth" xml:space="preserve">
+    <value>カーネルの横幅</value>
+  </data>
+  <data name="KernelHeight" xml:space="preserve">
+    <value>カーネルの高さ</value>
+  </data>
 </root>
