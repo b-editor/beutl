@@ -16,7 +16,7 @@
     * 縦横比
     * 光の強さ
     * サイズ固定
-* 境界ぼかし
+* 境界ぼかし (BEditor.Primitive.Effects.EdgeBlur)
     * 範囲
     * 縦横比
     * 透明度の境界をぼかす

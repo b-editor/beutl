@@ -92,14 +92,14 @@ __kernel void alpha_sub(__global unsigned char* src, __global unsigned char* mas
     int stride = get_global_size(0) * 4;
     int pos = stride * y + x * 4;
 
-    src[pos + 3] = (unsigned char)((src[pos + 3] - mask[pos + 3]) + (mask[pos + 3] * src[pos + 3]));
+    src[pos + 3] = (unsigned char)(src[pos + 3] & mask[pos + 3]);
 }";
         }
 
         /// <inheritdoc/>
         public readonly void Invoke(int pos)
         {
-            _data[pos].A = (byte)(_data[pos].A - _mask[pos].A + (_mask[pos].A * _data[pos].A));
+            _data[pos].A = (byte)(_data[pos].A & _mask[pos].A);
         }
     }
 }

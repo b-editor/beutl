@@ -216,6 +216,7 @@ namespace BEditor.Primitive
                     EffectMetadata.Create<Effects.StrokeText>($"{Strings.Border} ({Strings.Text})"),
                     EffectMetadata.Create<Effects.Shadow>(Strings.DropShadow),
                     EffectMetadata.Create<Effects.Blur>(Strings.Blur),
+                    EffectMetadata.Create<Effects.EdgeBlur>(Strings.EdgeBlur),
                     EffectMetadata.Create<Effects.Dilate>(Strings.Dilate),
                     EffectMetadata.Create<Effects.Erode>(Strings.Erode),
                     EffectMetadata.Create<Effects.LinearGradient>(Strings.LinearGradient),

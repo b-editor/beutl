@@ -178,6 +178,15 @@ namespace BEditor.Primitive.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Blurs the borders of transparency.
+        /// </summary>
+        internal static string BlurBorderOfTransparency {
+            get {
+                return ResourceManager.GetString("BlurBorderOfTransparency", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Border.
         /// </summary>
         internal static string Border {
@@ -498,6 +507,15 @@ namespace BEditor.Primitive.Resources {
         internal static string DropShadow {
             get {
                 return ResourceManager.GetString("DropShadow", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Edge blur.
+        /// </summary>
+        internal static string EdgeBlur {
+            get {
+                return ResourceManager.GetString("EdgeBlur", resourceCulture);
             }
         }
         

@@ -161,7 +161,7 @@ namespace BEditor.Primitive.Effects
 
             if (Mask.Value is 1 or 2)
             {
-                img.Mask(image.Source, default, 0, Mask.Value is 1, Parent.Parent.DrawingContext);
+                img.Mask(image.Source, default, 0, Mask.Value is 2, Parent.Parent.DrawingContext);
             }
 
             yield return new ImageInfo(img, _ => new Transform(new(X[frame], Y[frame], 0), default, default, default));

@@ -470,88 +470,6 @@
         <member name="M:BEditor.Primitive.Effects.OpenCv.WarpPolar.GetProperties">
             <inheritdoc/>
         </member>
-        <member name="T:BEditor.Primitive.Effects.Border">
-            <summary>
-            Represents the <see cref="T:BEditor.Data.Primitive.ImageEffect"/> that adds a border to the image.
-            </summary>
-        </member>
-        <member name="F:BEditor.Primitive.Effects.Border.CenterXProperty">
-            <summary>
-            Defines the <see cref="P:BEditor.Primitive.Effects.Border.X"/> property.
-            </summary>
-        </member>
-        <member name="F:BEditor.Primitive.Effects.Border.CenterYProperty">
-            <summary>
-            Defines the <see cref="P:BEditor.Primitive.Effects.Border.Y"/> property.
-            </summary>
-        </member>
-        <member name="F:BEditor.Primitive.Effects.Border.SizeProperty">
-            <summary>
-            Defines the <see cref="P:BEditor.Primitive.Effects.Border.Size"/> property.
-            </summary>
-        </member>
-        <member name="F:BEditor.Primitive.Effects.Border.OpacityProperty">
-            <summary>
-            Defines the <see cref="P:BEditor.Primitive.Effects.Border.Opacity"/> property.
-            </summary>
-        </member>
-        <member name="F:BEditor.Primitive.Effects.Border.ColorProperty">
-            <summary>
-            Defines the <see cref="P:BEditor.Primitive.Effects.Border.Color"/> property.
-            </summary>
-        </member>
-        <member name="F:BEditor.Primitive.Effects.Border.MaskProperty">
-            <summary>
-            Defines the <see cref="P:BEditor.Primitive.Effects.Border.Mask"/> property.
-            </summary>
-        </member>
-        <member name="M:BEditor.Primitive.Effects.Border.#ctor">
-            <summary>
-            Initializes a new instance of the <see cref="T:BEditor.Primitive.Effects.Border"/> class.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Effects.Border.Name">
-            <inheritdoc/>
-        </member>
-        <member name="P:BEditor.Primitive.Effects.Border.X">
-            <summary>
-            Gets the X coordinate.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Effects.Border.Y">
-            <summary>
-            Gets the Y coordinate.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Effects.Border.Size">
-            <summary>
-            Gets the size of the edge.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Effects.Border.Opacity">
-            <summary>
-            Gets the opacity.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Effects.Border.Color">
-            <summary>
-            Gets the border color.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Effects.Border.Mask">
-            <summary>
-            Gets the mask type.
-            </summary>
-        </member>
-        <member name="M:BEditor.Primitive.Effects.Border.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Primitive.Effects.Border.Apply(BEditor.Data.EffectApplyArgs{System.Collections.Generic.IEnumerable{BEditor.Graphics.ImageInfo}})">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Primitive.Effects.Border.GetProperties">
-            <inheritdoc/>
-        </member>
         <member name="T:BEditor.Primitive.Effects.PointLightSource">
             <summary>
             Represents an <see cref="T:BEditor.Data.EffectElement"/> that sets the OpenGL point light source.
@@ -773,6 +691,137 @@
         <member name="M:BEditor.Primitive.Effects.Binarization.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
             <inheritdoc/>
         </member>
+        <member name="T:BEditor.Primitive.Effects.Blur">
+            <summary>
+            Represents the <see cref="T:BEditor.Data.Primitive.ImageEffect"/> that blurs the image.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.Blur.SigmaXProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.Blur.SigmaX"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.Blur.SigmaYProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.Blur.SigmaX"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.Blur.FixSizeProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.Blur.FixSize"/> property.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.Blur.#ctor">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Primitive.Effects.Blur"/> class.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.Blur.Name">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.Blur.SigmaX">
+            <summary>
+            Gets the blur sigma.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.Blur.SigmaY">
+            <summary>
+            Gets the blur sigma.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.Blur.FixSize">
+            <summary>
+            Gets whether the size should be fixed.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.Blur.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.Blur.GetProperties">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Primitive.Effects.Border">
+            <summary>
+            Represents the <see cref="T:BEditor.Data.Primitive.ImageEffect"/> that adds a border to the image.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.Border.CenterXProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.Border.X"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.Border.CenterYProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.Border.Y"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.Border.SizeProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.Border.Size"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.Border.OpacityProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.Border.Opacity"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.Border.ColorProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.Border.Color"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.Border.MaskProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.Border.Mask"/> property.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.Border.#ctor">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Primitive.Effects.Border"/> class.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.Border.Name">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.Border.X">
+            <summary>
+            Gets the X coordinate.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.Border.Y">
+            <summary>
+            Gets the Y coordinate.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.Border.Size">
+            <summary>
+            Gets the size of the edge.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.Border.Opacity">
+            <summary>
+            Gets the opacity.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.Border.Color">
+            <summary>
+            Gets the border color.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.Border.Mask">
+            <summary>
+            Gets the mask type.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.Border.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.Border.Apply(BEditor.Data.EffectApplyArgs{System.Collections.Generic.IEnumerable{BEditor.Graphics.ImageInfo}})">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.Border.GetProperties">
+            <inheritdoc/>
+        </member>
         <member name="T:BEditor.Primitive.Effects.BrightnessCorrection">
             <summary>
             Represents the <see cref="T:BEditor.Data.Primitive.ImageEffect"/> that corrects the brightness of an image.
@@ -849,6 +898,91 @@
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Primitive.Effects.ChromaKey.GetProperties">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Primitive.Effects.CircularGradient">
+            <summary>
+            Represents the <see cref="T:BEditor.Data.Primitive.ImageEffect"/> that masks an image with a circular gradient.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.CircularGradient.CenterXProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.CircularGradient.CenterX"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.CircularGradient.CenterYProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.CircularGradient.CenterY"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.CircularGradient.RadiusProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.CircularGradient.Radius"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.CircularGradient.ColorsProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.CircularGradient.Colors"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.CircularGradient.AnchorsProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.CircularGradient.Anchors"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.CircularGradient.ModeProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.CircularGradient.Mode"/> property.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.CircularGradient.#ctor">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Primitive.Effects.CircularGradient"/> class.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.CircularGradient.Name">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.CircularGradient.CenterX">
+            <summary>
+            Gets the X coordinate of the center.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.CircularGradient.CenterY">
+            <summary>
+            Gets the Y coordinate of the center.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.CircularGradient.Radius">
+            <summary>
+            Gets the radius.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.CircularGradient.Colors">
+            <summary>
+            Gets the colors.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.CircularGradient.Anchors">
+            <summary>
+            Gets the anchors.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.CircularGradient.Mode">
+            <summary>
+            Get the <see cref="T:BEditor.Data.Property.SelectorProperty"/> that selects the gradient mode.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.CircularGradient.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.CircularGradient.GetProperties">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.CircularGradient.OnLoad">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.CircularGradient.OnUnload">
             <inheritdoc/>
         </member>
         <member name="T:BEditor.Primitive.Effects.Clipping">
@@ -988,6 +1122,133 @@
         <member name="M:BEditor.Primitive.Effects.Diffusion.GetProperties">
             <inheritdoc/>
         </member>
+        <member name="T:BEditor.Primitive.Effects.Dilate">
+            <summary>
+            Represents the <see cref="T:BEditor.Data.Primitive.ImageEffect"/> that dilates an image.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.Dilate.RadiusProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.Dilate.Radius"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.Dilate.ResizeProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.Dilate.Resize"/> property.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.Dilate.#ctor">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Primitive.Effects.Dilate"/> class.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.Dilate.Name">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.Dilate.Radius">
+            <summary>
+            Gets the radius.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.Dilate.Resize">
+            <summary>
+            Gets the value to resize the image.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.Dilate.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.Dilate.GetProperties">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Primitive.Effects.EdgeBlur">
+            <summary>
+            Blurs the edges of the image.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.EdgeBlur.KernelWidthProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.EdgeBlur.KernelWidth"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.EdgeBlur.KernelHeightProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.EdgeBlur.KernelHeight"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.EdgeBlur.AlphaEdgeProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.EdgeBlur.AlphaEdge"/> property.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.EdgeBlur.#ctor">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Primitive.Effects.EdgeBlur"/> class.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.EdgeBlur.Name">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.EdgeBlur.KernelWidth">
+            <summary>
+            Gets the width of the kernel.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.EdgeBlur.KernelHeight">
+            <summary>
+            Gets the height of the kernel.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.EdgeBlur.AlphaEdge">
+            <summary>
+            Gets whether to blur the of borders transparency.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.EdgeBlur.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.EdgeBlur.GetProperties">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Primitive.Effects.Erode">
+            <summary>
+            Represents the <see cref="T:BEditor.Data.Primitive.ImageEffect"/> that erodes an image.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.Erode.RadiusProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.Erode.Radius"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.Erode.ResizeProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.Erode.Resize"/> property.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.Erode.#ctor">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Primitive.Effects.Erode"/> class.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.Erode.Name">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.Erode.Radius">
+            <summary>
+            Gets the <see cref="T:BEditor.Data.Property.EaseProperty"/> representing the radius.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.Erode.Resize">
+            <summary>
+            Gets a <see cref="T:BEditor.Data.Property.CheckProperty"/> representing the value to resize the image.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.Erode.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.Erode.GetProperties">
+            <inheritdoc/>
+        </member>
         <member name="T:BEditor.Primitive.Effects.Grayscale">
             <summary>
             Represents the <see cref="T:BEditor.Data.Primitive.ImageEffect"/> of grayscaling an image.
@@ -1111,522 +1372,6 @@
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Primitive.Effects.InnerShadow.GetProperties">
-            <inheritdoc/>
-        </member>
-        <member name="T:BEditor.Primitive.Effects.MultipleControls">
-            <summary>
-            Represents a <see cref="T:BEditor.Data.Primitive.ImageEffect"/> that provides the ability to edit multiple objects by specifying their indices.
-            </summary>
-        </member>
-        <member name="F:BEditor.Primitive.Effects.MultipleControls.CoordinateProperty">
-            <summary>
-            Defines the <see cref="P:BEditor.Primitive.Effects.MultipleControls.Coordinate"/> property.
-            </summary>
-        </member>
-        <member name="F:BEditor.Primitive.Effects.MultipleControls.ScaleProperty">
-            <summary>
-            Defines the <see cref="P:BEditor.Primitive.Effects.MultipleControls.Scale"/> property.
-            </summary>
-        </member>
-        <member name="F:BEditor.Primitive.Effects.MultipleControls.RotateProperty">
-            <summary>
-            Defines the <see cref="P:BEditor.Primitive.Effects.MultipleControls.Rotate"/> property.
-            </summary>
-        </member>
-        <member name="F:BEditor.Primitive.Effects.MultipleControls.IndexProperty">
-            <summary>
-            Defines the <see cref="P:BEditor.Primitive.Effects.MultipleControls.Index"/> property.
-            </summary>
-        </member>
-        <member name="M:BEditor.Primitive.Effects.MultipleControls.#ctor">
-            <summary>
-            Initializes a new instance of the <see cref="T:BEditor.Primitive.Effects.MultipleControls"/> class.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Effects.MultipleControls.Name">
-            <inheritdoc/>
-        </member>
-        <member name="P:BEditor.Primitive.Effects.MultipleControls.Coordinate">
-            <summary>
-            Get the coordinates.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Effects.MultipleControls.Scale">
-            <summary>
-            Get the scale.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Effects.MultipleControls.Rotate">
-            <summary>
-            Get the angle.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Effects.MultipleControls.Index">
-            <summary>
-            Gets the index of the image to be controlled.
-            </summary>
-        </member>
-        <member name="M:BEditor.Primitive.Effects.MultipleControls.Apply(BEditor.Data.EffectApplyArgs{System.Collections.Generic.IEnumerable{BEditor.Graphics.ImageInfo}})">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Primitive.Effects.MultipleControls.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Primitive.Effects.MultipleControls.GetProperties">
-            <inheritdoc/>
-        </member>
-        <member name="T:BEditor.Primitive.Effects.Negaposi">
-            <summary>
-            Represents the effect of flipping an image negative-positive.
-            </summary>
-        </member>
-        <member name="F:BEditor.Primitive.Effects.Negaposi.RedProperty">
-            <summary>
-            Defines the <see cref="P:BEditor.Primitive.Effects.Negaposi.Red"/> property.
-            </summary>
-        </member>
-        <member name="F:BEditor.Primitive.Effects.Negaposi.GreenProperty">
-            <summary>
-            Defines the <see cref="P:BEditor.Primitive.Effects.Negaposi.Green"/> property.
-            </summary>
-        </member>
-        <member name="F:BEditor.Primitive.Effects.Negaposi.BlueProperty">
-            <summary>
-            Defines the <see cref="P:BEditor.Primitive.Effects.Negaposi.Blue"/> property.
-            </summary>
-        </member>
-        <member name="M:BEditor.Primitive.Effects.Negaposi.#ctor">
-            <summary>
-            Initializes a new instance of the <see cref="T:BEditor.Primitive.Effects.Negaposi"/> class.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Effects.Negaposi.Name">
-            <inheritdoc/>
-        </member>
-        <member name="P:BEditor.Primitive.Effects.Negaposi.Red">
-            <summary>
-            Gets the red.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Effects.Negaposi.Green">
-            <summary>
-            Gets the green.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Effects.Negaposi.Blue">
-            <summary>
-            Gets the blue.
-            </summary>
-        </member>
-        <member name="M:BEditor.Primitive.Effects.Negaposi.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Primitive.Effects.Negaposi.GetProperties">
-            <inheritdoc/>
-        </member>
-        <member name="T:BEditor.Primitive.Effects.Noise">
-            <summary>
-            Noise effect.
-            </summary>
-        </member>
-        <member name="F:BEditor.Primitive.Effects.Noise.ValueProperty">
-            <summary>
-            Defines the <see cref="P:BEditor.Primitive.Effects.Noise.Value"/> property.
-            </summary>
-        </member>
-        <member name="M:BEditor.Primitive.Effects.Noise.#ctor">
-            <summary>
-            Initializes a new instance of the <see cref="T:BEditor.Primitive.Effects.Noise"/> class.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Effects.Noise.Name">
-            <inheritdoc/>
-        </member>
-        <member name="P:BEditor.Primitive.Effects.Noise.Value">
-            <summary>
-            Gets the threshold value.
-            </summary>
-        </member>
-        <member name="M:BEditor.Primitive.Effects.Noise.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Primitive.Effects.Noise.GetProperties">
-            <inheritdoc/>
-        </member>
-        <member name="T:BEditor.Primitive.Effects.ReverseOpacity">
-            <summary>
-            Represents an effect that reverses the opacity of an image.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Effects.ReverseOpacity.Name">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Primitive.Effects.ReverseOpacity.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Primitive.Effects.ReverseOpacity.GetProperties">
-            <inheritdoc/>
-        </member>
-        <member name="T:BEditor.Primitive.Effects.RGBColor">
-            <summary>
-            Represents an effect that corrects the RGB color tone of an image.
-            </summary>
-        </member>
-        <member name="F:BEditor.Primitive.Effects.RGBColor.RedProperty">
-            <summary>
-            Defines the <see cref="P:BEditor.Primitive.Effects.RGBColor.Red"/> property.
-            </summary>
-        </member>
-        <member name="F:BEditor.Primitive.Effects.RGBColor.GreenProperty">
-            <summary>
-            Defines the <see cref="P:BEditor.Primitive.Effects.RGBColor.Green"/> property.
-            </summary>
-        </member>
-        <member name="F:BEditor.Primitive.Effects.RGBColor.BlueProperty">
-            <summary>
-            Defines the <see cref="P:BEditor.Primitive.Effects.RGBColor.Blue"/> property.
-            </summary>
-        </member>
-        <member name="M:BEditor.Primitive.Effects.RGBColor.#ctor">
-            <summary>
-            Initializes a new instance of the <see cref="T:BEditor.Primitive.Effects.RGBColor"/> class.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Effects.RGBColor.Name">
-            <inheritdoc/>
-        </member>
-        <member name="P:BEditor.Primitive.Effects.RGBColor.Red">
-            <summary>
-            Gets the red threshold value.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Effects.RGBColor.Green">
-            <summary>
-            Gets the green threshold value.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Effects.RGBColor.Blue">
-            <summary>
-            Gets the blue threshold value.
-            </summary>
-        </member>
-        <member name="M:BEditor.Primitive.Effects.RGBColor.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Primitive.Effects.RGBColor.GetProperties">
-            <inheritdoc/>
-        </member>
-        <member name="T:BEditor.Primitive.Effects.Sepia">
-            <summary>
-            Represents an effect that turns an image into a sepia tone.
-            </summary>
-        </member>
-        <member name="M:BEditor.Primitive.Effects.Sepia.#ctor">
-            <summary>
-            Initializes a new instance of the <see cref="T:BEditor.Primitive.Effects.Sepia"/> class.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Effects.Sepia.Name">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Primitive.Effects.Sepia.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Primitive.Effects.Sepia.GetProperties">
-            <inheritdoc/>
-        </member>
-        <member name="T:BEditor.Primitive.Effects.SetAlignment">
-            <summary>
-            Represents the <see cref="T:BEditor.Data.Primitive.ImageEffect"/> that sets the alignment.
-            </summary>
-        </member>
-        <member name="F:BEditor.Primitive.Effects.SetAlignment.VerticalAlignProperty">
-            <summary>
-            Defines the <see cref="P:BEditor.Primitive.Effects.SetAlignment.VerticalAlign"/> property.
-            </summary>
-        </member>
-        <member name="F:BEditor.Primitive.Effects.SetAlignment.HorizontalAlignProperty">
-            <summary>
-            Defines the <see cref="P:BEditor.Primitive.Effects.SetAlignment.HorizontalAlign"/> property.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Effects.SetAlignment.Name">
-            <inheritdoc/>
-        </member>
-        <member name="P:BEditor.Primitive.Effects.SetAlignment.HorizontalAlign">
-            <summary>
-            Gets the horizontal alignment.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Effects.SetAlignment.VerticalAlign">
-            <summary>
-            Gets the vertical alignment.
-            </summary>
-        </member>
-        <member name="M:BEditor.Primitive.Effects.SetAlignment.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Primitive.Effects.SetAlignment.GetProperties">
-            <inheritdoc/>
-        </member>
-        <member name="T:BEditor.Primitive.Effects.SetColor">
-            <summary>
-            Represents an <see cref="T:BEditor.Data.Primitive.ImageEffect"/> that monochromatizes an image.
-            </summary>
-        </member>
-        <member name="F:BEditor.Primitive.Effects.SetColor.ColorProperty">
-            <summary>
-            Defines the <see cref="P:BEditor.Primitive.Effects.SetColor.Color"/> property.
-            </summary>
-        </member>
-        <member name="M:BEditor.Primitive.Effects.SetColor.#ctor">
-            <summary>
-            Initializes a new instance of the <see cref="T:BEditor.Primitive.Effects.SetColor"/> class.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Effects.SetColor.Name">
-            <inheritdoc/>
-        </member>
-        <member name="P:BEditor.Primitive.Effects.SetColor.Color">
-            <summary>
-            Gets the color to be monochromatic.
-            </summary>
-        </member>
-        <member name="M:BEditor.Primitive.Effects.SetColor.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Primitive.Effects.SetColor.GetProperties">
-            <inheritdoc/>
-        </member>
-        <member name="T:BEditor.Primitive.Effects.Xor">
-            <summary>
-            Represents an <see cref="T:BEditor.Data.Primitive.ImageEffect"/> that transforms an image into XOR colors.
-            </summary>
-        </member>
-        <member name="M:BEditor.Primitive.Effects.Xor.#ctor">
-            <summary>
-            Initializes a new instance of the <see cref="T:BEditor.Primitive.Effects.Xor"/> class.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Effects.Xor.Name">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Primitive.Effects.Xor.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Primitive.Effects.Xor.GetProperties">
-            <inheritdoc/>
-        </member>
-        <member name="T:BEditor.Primitive.Effects.Blur">
-            <summary>
-            Represents the <see cref="T:BEditor.Data.Primitive.ImageEffect"/> that blurs the image.
-            </summary>
-        </member>
-        <member name="F:BEditor.Primitive.Effects.Blur.SigmaXProperty">
-            <summary>
-            Defines the <see cref="P:BEditor.Primitive.Effects.Blur.SigmaX"/> property.
-            </summary>
-        </member>
-        <member name="F:BEditor.Primitive.Effects.Blur.SigmaYProperty">
-            <summary>
-            Defines the <see cref="P:BEditor.Primitive.Effects.Blur.SigmaX"/> property.
-            </summary>
-        </member>
-        <member name="F:BEditor.Primitive.Effects.Blur.FixSizeProperty">
-            <summary>
-            Defines the <see cref="P:BEditor.Primitive.Effects.Blur.FixSize"/> property.
-            </summary>
-        </member>
-        <member name="M:BEditor.Primitive.Effects.Blur.#ctor">
-            <summary>
-            Initializes a new instance of the <see cref="T:BEditor.Primitive.Effects.Blur"/> class.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Effects.Blur.Name">
-            <inheritdoc/>
-        </member>
-        <member name="P:BEditor.Primitive.Effects.Blur.SigmaX">
-            <summary>
-            Gets the blur sigma.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Effects.Blur.SigmaY">
-            <summary>
-            Gets the blur sigma.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Effects.Blur.FixSize">
-            <summary>
-            Gets whether the size should be fixed.
-            </summary>
-        </member>
-        <member name="M:BEditor.Primitive.Effects.Blur.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Primitive.Effects.Blur.GetProperties">
-            <inheritdoc/>
-        </member>
-        <member name="T:BEditor.Primitive.Effects.CircularGradient">
-            <summary>
-            Represents the <see cref="T:BEditor.Data.Primitive.ImageEffect"/> that masks an image with a circular gradient.
-            </summary>
-        </member>
-        <member name="F:BEditor.Primitive.Effects.CircularGradient.CenterXProperty">
-            <summary>
-            Defines the <see cref="P:BEditor.Primitive.Effects.CircularGradient.CenterX"/> property.
-            </summary>
-        </member>
-        <member name="F:BEditor.Primitive.Effects.CircularGradient.CenterYProperty">
-            <summary>
-            Defines the <see cref="P:BEditor.Primitive.Effects.CircularGradient.CenterY"/> property.
-            </summary>
-        </member>
-        <member name="F:BEditor.Primitive.Effects.CircularGradient.RadiusProperty">
-            <summary>
-            Defines the <see cref="P:BEditor.Primitive.Effects.CircularGradient.Radius"/> property.
-            </summary>
-        </member>
-        <member name="F:BEditor.Primitive.Effects.CircularGradient.ColorsProperty">
-            <summary>
-            Defines the <see cref="P:BEditor.Primitive.Effects.CircularGradient.Colors"/> property.
-            </summary>
-        </member>
-        <member name="F:BEditor.Primitive.Effects.CircularGradient.AnchorsProperty">
-            <summary>
-            Defines the <see cref="P:BEditor.Primitive.Effects.CircularGradient.Anchors"/> property.
-            </summary>
-        </member>
-        <member name="F:BEditor.Primitive.Effects.CircularGradient.ModeProperty">
-            <summary>
-            Defines the <see cref="P:BEditor.Primitive.Effects.CircularGradient.Mode"/> property.
-            </summary>
-        </member>
-        <member name="M:BEditor.Primitive.Effects.CircularGradient.#ctor">
-            <summary>
-            Initializes a new instance of the <see cref="T:BEditor.Primitive.Effects.CircularGradient"/> class.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Effects.CircularGradient.Name">
-            <inheritdoc/>
-        </member>
-        <member name="P:BEditor.Primitive.Effects.CircularGradient.CenterX">
-            <summary>
-            Gets the X coordinate of the center.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Effects.CircularGradient.CenterY">
-            <summary>
-            Gets the Y coordinate of the center.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Effects.CircularGradient.Radius">
-            <summary>
-            Gets the radius.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Effects.CircularGradient.Colors">
-            <summary>
-            Gets the colors.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Effects.CircularGradient.Anchors">
-            <summary>
-            Gets the anchors.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Effects.CircularGradient.Mode">
-            <summary>
-            Get the <see cref="T:BEditor.Data.Property.SelectorProperty"/> that selects the gradient mode.
-            </summary>
-        </member>
-        <member name="M:BEditor.Primitive.Effects.CircularGradient.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Primitive.Effects.CircularGradient.GetProperties">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Primitive.Effects.CircularGradient.OnLoad">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Primitive.Effects.CircularGradient.OnUnload">
-            <inheritdoc/>
-        </member>
-        <member name="T:BEditor.Primitive.Effects.Dilate">
-            <summary>
-            Represents the <see cref="T:BEditor.Data.Primitive.ImageEffect"/> that dilates an image.
-            </summary>
-        </member>
-        <member name="F:BEditor.Primitive.Effects.Dilate.RadiusProperty">
-            <summary>
-            Defines the <see cref="P:BEditor.Primitive.Effects.Dilate.Radius"/> property.
-            </summary>
-        </member>
-        <member name="F:BEditor.Primitive.Effects.Dilate.ResizeProperty">
-            <summary>
-            Defines the <see cref="P:BEditor.Primitive.Effects.Dilate.Resize"/> property.
-            </summary>
-        </member>
-        <member name="M:BEditor.Primitive.Effects.Dilate.#ctor">
-            <summary>
-            Initializes a new instance of the <see cref="T:BEditor.Primitive.Effects.Dilate"/> class.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Effects.Dilate.Name">
-            <inheritdoc/>
-        </member>
-        <member name="P:BEditor.Primitive.Effects.Dilate.Radius">
-            <summary>
-            Gets the radius.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Effects.Dilate.Resize">
-            <summary>
-            Gets the value to resize the image.
-            </summary>
-        </member>
-        <member name="M:BEditor.Primitive.Effects.Dilate.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Primitive.Effects.Dilate.GetProperties">
-            <inheritdoc/>
-        </member>
-        <member name="T:BEditor.Primitive.Effects.Erode">
-            <summary>
-            Represents the <see cref="T:BEditor.Data.Primitive.ImageEffect"/> that erodes an image.
-            </summary>
-        </member>
-        <member name="F:BEditor.Primitive.Effects.Erode.RadiusProperty">
-            <summary>
-            Defines the <see cref="P:BEditor.Primitive.Effects.Erode.Radius"/> property.
-            </summary>
-        </member>
-        <member name="F:BEditor.Primitive.Effects.Erode.ResizeProperty">
-            <summary>
-            Defines the <see cref="P:BEditor.Primitive.Effects.Erode.Resize"/> property.
-            </summary>
-        </member>
-        <member name="M:BEditor.Primitive.Effects.Erode.#ctor">
-            <summary>
-            Initializes a new instance of the <see cref="T:BEditor.Primitive.Effects.Erode"/> class.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Effects.Erode.Name">
-            <inheritdoc/>
-        </member>
-        <member name="P:BEditor.Primitive.Effects.Erode.Radius">
-            <summary>
-            Gets the <see cref="T:BEditor.Data.Property.EaseProperty"/> representing the radius.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Effects.Erode.Resize">
-            <summary>
-            Gets a <see cref="T:BEditor.Data.Property.CheckProperty"/> representing the value to resize the image.
-            </summary>
-        </member>
-        <member name="M:BEditor.Primitive.Effects.Erode.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Primitive.Effects.Erode.GetProperties">
             <inheritdoc/>
         </member>
         <member name="T:BEditor.Primitive.Effects.LinearGradient">
@@ -1826,6 +1571,146 @@
         <member name="M:BEditor.Primitive.Effects.Mask.OnLoad">
             <inheritdoc/>
         </member>
+        <member name="T:BEditor.Primitive.Effects.MultipleControls">
+            <summary>
+            Represents a <see cref="T:BEditor.Data.Primitive.ImageEffect"/> that provides the ability to edit multiple objects by specifying their indices.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.MultipleControls.CoordinateProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.MultipleControls.Coordinate"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.MultipleControls.ScaleProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.MultipleControls.Scale"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.MultipleControls.RotateProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.MultipleControls.Rotate"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.MultipleControls.IndexProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.MultipleControls.Index"/> property.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.MultipleControls.#ctor">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Primitive.Effects.MultipleControls"/> class.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.MultipleControls.Name">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.MultipleControls.Coordinate">
+            <summary>
+            Get the coordinates.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.MultipleControls.Scale">
+            <summary>
+            Get the scale.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.MultipleControls.Rotate">
+            <summary>
+            Get the angle.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.MultipleControls.Index">
+            <summary>
+            Gets the index of the image to be controlled.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.MultipleControls.Apply(BEditor.Data.EffectApplyArgs{System.Collections.Generic.IEnumerable{BEditor.Graphics.ImageInfo}})">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.MultipleControls.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.MultipleControls.GetProperties">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Primitive.Effects.Negaposi">
+            <summary>
+            Represents the effect of flipping an image negative-positive.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.Negaposi.RedProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.Negaposi.Red"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.Negaposi.GreenProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.Negaposi.Green"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.Negaposi.BlueProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.Negaposi.Blue"/> property.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.Negaposi.#ctor">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Primitive.Effects.Negaposi"/> class.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.Negaposi.Name">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.Negaposi.Red">
+            <summary>
+            Gets the red.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.Negaposi.Green">
+            <summary>
+            Gets the green.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.Negaposi.Blue">
+            <summary>
+            Gets the blue.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.Negaposi.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.Negaposi.GetProperties">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Primitive.Effects.Noise">
+            <summary>
+            Noise effect.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.Noise.ValueProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.Noise.Value"/> property.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.Noise.#ctor">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Primitive.Effects.Noise"/> class.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.Noise.Name">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.Noise.Value">
+            <summary>
+            Gets the threshold value.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.Noise.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.Noise.GetProperties">
+            <inheritdoc/>
+        </member>
         <member name="T:BEditor.Primitive.Effects.PointLightDiffuse">
             <summary>
             Point light diffusion effect.
@@ -1903,6 +1788,151 @@
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Primitive.Effects.PointLightDiffuse.GetProperties">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Primitive.Effects.ReverseOpacity">
+            <summary>
+            Represents an effect that reverses the opacity of an image.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.ReverseOpacity.Name">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.ReverseOpacity.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.ReverseOpacity.GetProperties">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Primitive.Effects.RGBColor">
+            <summary>
+            Represents an effect that corrects the RGB color tone of an image.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.RGBColor.RedProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.RGBColor.Red"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.RGBColor.GreenProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.RGBColor.Green"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.RGBColor.BlueProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.RGBColor.Blue"/> property.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.RGBColor.#ctor">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Primitive.Effects.RGBColor"/> class.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.RGBColor.Name">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.RGBColor.Red">
+            <summary>
+            Gets the red threshold value.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.RGBColor.Green">
+            <summary>
+            Gets the green threshold value.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.RGBColor.Blue">
+            <summary>
+            Gets the blue threshold value.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.RGBColor.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.RGBColor.GetProperties">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Primitive.Effects.Sepia">
+            <summary>
+            Represents an effect that turns an image into a sepia tone.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.Sepia.#ctor">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Primitive.Effects.Sepia"/> class.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.Sepia.Name">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.Sepia.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.Sepia.GetProperties">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Primitive.Effects.SetAlignment">
+            <summary>
+            Represents the <see cref="T:BEditor.Data.Primitive.ImageEffect"/> that sets the alignment.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.SetAlignment.VerticalAlignProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.SetAlignment.VerticalAlign"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.SetAlignment.HorizontalAlignProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.SetAlignment.HorizontalAlign"/> property.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.SetAlignment.Name">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.SetAlignment.HorizontalAlign">
+            <summary>
+            Gets the horizontal alignment.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.SetAlignment.VerticalAlign">
+            <summary>
+            Gets the vertical alignment.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.SetAlignment.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.SetAlignment.GetProperties">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Primitive.Effects.SetColor">
+            <summary>
+            Represents an <see cref="T:BEditor.Data.Primitive.ImageEffect"/> that monochromatizes an image.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.SetColor.ColorProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.SetColor.Color"/> property.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.SetColor.#ctor">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Primitive.Effects.SetColor"/> class.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.SetColor.Name">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.SetColor.Color">
+            <summary>
+            Gets the color to be monochromatic.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.SetColor.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.SetColor.GetProperties">
             <inheritdoc/>
         </member>
         <member name="T:BEditor.Primitive.Effects.Shadow">
@@ -2041,6 +2071,25 @@
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Primitive.Effects.StrokeText.GetProperties">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Primitive.Effects.Xor">
+            <summary>
+            Represents an <see cref="T:BEditor.Data.Primitive.ImageEffect"/> that transforms an image into XOR colors.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.Xor.#ctor">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Primitive.Effects.Xor"/> class.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.Xor.Name">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.Xor.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.Xor.GetProperties">
             <inheritdoc/>
         </member>
         <member name="T:BEditor.Primitive.Objects.AudioFile">
@@ -3167,6 +3216,11 @@
               Looks up a localized string similar to Blur.
             </summary>
         </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.BlurBorderOfTransparency">
+            <summary>
+              Looks up a localized string similar to Blurs the borders of transparency.
+            </summary>
+        </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Border">
             <summary>
               Looks up a localized string similar to Border.
@@ -3345,6 +3399,11 @@
         <member name="P:BEditor.Primitive.Resources.Strings.DropShadow">
             <summary>
               Looks up a localized string similar to Drop shadow.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.EdgeBlur">
+            <summary>
+              Looks up a localized string similar to Edge blur.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Ellipse">

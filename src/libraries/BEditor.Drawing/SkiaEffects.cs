@@ -87,7 +87,7 @@ namespace BEditor.Drawing
             using var mask = self.Clone();
 
             blurred.Mask(mask, new PointF(x, y), 0, true, context);
-            Cv.Blur(blurred, (int)blur);
+            Cv.Blur(blurred, new Size((int)blur, (int)blur));
 
             blurred.Mask(mask, default, 0, false, context);
             var result = self.Clone();

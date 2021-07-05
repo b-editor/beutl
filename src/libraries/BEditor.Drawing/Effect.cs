@@ -354,6 +354,41 @@ namespace BEditor.Drawing
         }
 
         /// <summary>
+        /// Blurs the edges of the image.
+        /// </summary>
+        /// <param name="image">The image to apply the effect to.</param>
+        /// <param name="kernelSize">The smoothing kernel size.</param>
+        /// <param name="alphaEdge">If true, blurs the borders of transparency.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="image"/> is <see langword="null"/>.</exception>
+        /// <exception cref="ObjectDisposedException">Cannot access a disposed object.</exception>
+        public static void EdgeBlur(this Image<BGRA32> image, Size kernelSize, bool alphaEdge)
+        {
+            if (image is null) throw new ArgumentNullException(nameof(image));
+            image.ThrowIfDisposed();
+
+            Image<BGRA32>? blurred;
+            kernelSize = new(Math.Clamp(kernelSize.Width, 0, image.Width), Math.Clamp(kernelSize.Height, 0, image.Height));
+
+            if (!alphaEdge)
+            {
+                var size = image.Size - kernelSize;
+                blurred = new(size.Width, size.Height, Colors.White);
+                var tmp = blurred.MakeBorder(image.Width, image.Height);
+                blurred.Dispose();
+                blurred = tmp;
+            }
+            else
+            {
+                blurred = image.Clone();
+            }
+
+            Cv.Blur(blurred, kernelSize);
+
+            image.Mask(blurred, default, 0, false);
+            blurred.Dispose();
+        }
+
+        /// <summary>
         /// Makes the specified image a mask for the original image.
         /// </summary>
         /// <param name="self">The image to apply the effect to.</param>
@@ -393,7 +428,7 @@ namespace BEditor.Drawing
             // 回転した画像
             using var m = MakeMask(self.Size, mask, point, rotate);
             using var routed = m.ToImage32();
-            if (!invert)
+            if (invert)
             {
                 routed.ReverseOpacity(context);
             }

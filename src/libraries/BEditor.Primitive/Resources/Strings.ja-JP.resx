@@ -685,4 +685,10 @@
   <data name="KernelHeight" xml:space="preserve">
     <value>カーネルの高さ</value>
   </data>
+  <data name="EdgeBlur" xml:space="preserve">
+    <value>境界ぼかし</value>
+  </data>
+  <data name="BlurBorderOfTransparency" xml:space="preserve">
+    <value>透明度の境界をぼかす</value>
+  </data>
 </root>
