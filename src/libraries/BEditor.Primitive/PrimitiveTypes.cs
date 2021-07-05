@@ -212,6 +212,15 @@ namespace BEditor.Primitive
                     EffectMetadata.Create<Effects.InnerShadow>(Strings.InnerShadow),
                     EffectMetadata.Create<Effects.SetAlignment>(Strings.SetAlignment),
                     EffectMetadata.Create<Effects.Mask>(Strings.Mask),
+                    EffectMetadata.Create<Effects.Border>(Strings.Border),
+                    EffectMetadata.Create<Effects.StrokeText>($"{Strings.Border} ({Strings.Text})"),
+                    EffectMetadata.Create<Effects.Shadow>(Strings.DropShadow),
+                    EffectMetadata.Create<Effects.Blur>(Strings.Blur),
+                    EffectMetadata.Create<Effects.Dilate>(Strings.Dilate),
+                    EffectMetadata.Create<Effects.Erode>(Strings.Erode),
+                    EffectMetadata.Create<Effects.LinearGradient>(Strings.LinearGradient),
+                    EffectMetadata.Create<Effects.CircularGradient>(Strings.CircularGradient),
+                    EffectMetadata.Create<Effects.PointLightDiffuse>(Strings.PointLightDiffuse),
                 },
             };
 
@@ -232,22 +241,6 @@ namespace BEditor.Primitive
                     EffectMetadata.Create<Effects.LookupTables.Negaposi>(Strings.Negaposi),
                     EffectMetadata.Create<Effects.LookupTables.Solarisation>(Strings.Solarisation),
                     EffectMetadata.Create<Effects.LookupTables.LookupTable>(Strings.ApplyLookupTable),
-                },
-            };
-
-            yield return new("Skia")
-            {
-                Children = new[]
-                {
-                    EffectMetadata.Create<Effects.Border>(Strings.Border),
-                    EffectMetadata.Create<Effects.StrokeText>($"{Strings.Border} ({Strings.Text})"),
-                    EffectMetadata.Create<Effects.Shadow>(Strings.DropShadow),
-                    EffectMetadata.Create<Effects.Blur>(Strings.Blur),
-                    EffectMetadata.Create<Effects.Dilate>(Strings.Dilate),
-                    EffectMetadata.Create<Effects.Erode>(Strings.Erode),
-                    EffectMetadata.Create<Effects.LinearGradient>(Strings.LinearGradient),
-                    EffectMetadata.Create<Effects.CircularGradient>(Strings.CircularGradient),
-                    EffectMetadata.Create<Effects.PointLightDiffuse>(Strings.PointLightDiffuse),
                 },
             };
 

@@ -661,4 +661,13 @@
   <data name="SaturationRange" xml:space="preserve">
     <value>彩度範囲</value>
   </data>
+  <data name="MaskType" xml:space="preserve">
+    <value>マスク</value>
+  </data>
+  <data name="Unspecified" xml:space="preserve">
+    <value>未指定</value>
+  </data>
+  <data name="DoNotInvertMask" xml:space="preserve">
+    <value>マスクを反転しない</value>
+  </data>
 </root>

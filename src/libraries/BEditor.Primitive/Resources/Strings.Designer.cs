@@ -484,6 +484,15 @@ namespace BEditor.Primitive.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Do not invert the mask.
+        /// </summary>
+        internal static string DoNotInvertMask {
+            get {
+                return ResourceManager.GetString("DoNotInvertMask", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Drop shadow.
         /// </summary>
         internal static string DropShadow {
@@ -777,6 +786,15 @@ namespace BEditor.Primitive.Resources {
         internal static string Mask {
             get {
                 return ResourceManager.GetString("Mask", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Mask type.
+        /// </summary>
+        internal static string MaskType {
+            get {
+                return ResourceManager.GetString("MaskType", resourceCulture);
             }
         }
         
@@ -1209,6 +1227,15 @@ namespace BEditor.Primitive.Resources {
         internal static string Type {
             get {
                 return ResourceManager.GetString("Type", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Unspecified.
+        /// </summary>
+        internal static string Unspecified {
+            get {
+                return ResourceManager.GetString("Unspecified", resourceCulture);
             }
         }
         

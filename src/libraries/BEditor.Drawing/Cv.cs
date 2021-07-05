@@ -69,11 +69,19 @@ namespace BEditor.Drawing
             Cv2.Blur(mat, mat, new(kernelSize, kernelSize));
         }
 
-        private static unsafe Mat ToMat(this Image<BGRA32> image)
+        internal static unsafe Mat ToMat(this Image<BGRA32> image)
         {
             fixed (BGRA32* ptr = image.Data)
             {
                 return new Mat(image.Height, image.Width, MatType.CV_8UC4, (IntPtr)ptr);
+            }
+        }
+
+        internal static unsafe Mat ToMat(this Image<Grayscale8> image)
+        {
+            fixed (Grayscale8* ptr = image.Data)
+            {
+                return new Mat(image.Height, image.Width, MatType.CV_8UC1, (IntPtr)ptr);
             }
         }
     }

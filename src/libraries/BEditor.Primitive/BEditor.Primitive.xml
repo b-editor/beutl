@@ -430,6 +430,88 @@
         <member name="M:BEditor.Primitive.Effects.OpenCv.WarpPolar.GetProperties">
             <inheritdoc/>
         </member>
+        <member name="T:BEditor.Primitive.Effects.Border">
+            <summary>
+            Represents the <see cref="T:BEditor.Data.Primitive.ImageEffect"/> that adds a border to the image.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.Border.CenterXProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.Border.X"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.Border.CenterYProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.Border.Y"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.Border.SizeProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.Border.Size"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.Border.OpacityProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.Border.Opacity"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.Border.ColorProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.Border.Color"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.Border.MaskProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.Border.Mask"/> property.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.Border.#ctor">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Primitive.Effects.Border"/> class.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.Border.Name">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.Border.X">
+            <summary>
+            Gets the X coordinate.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.Border.Y">
+            <summary>
+            Gets the Y coordinate.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.Border.Size">
+            <summary>
+            Gets the size of the edge.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.Border.Opacity">
+            <summary>
+            Gets the opacity.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.Border.Color">
+            <summary>
+            Gets the border color.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.Border.Mask">
+            <summary>
+            Gets the mask type.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.Border.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.Border.Apply(BEditor.Data.EffectApplyArgs{System.Collections.Generic.IEnumerable{BEditor.Graphics.ImageInfo}})">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.Border.GetProperties">
+            <inheritdoc/>
+        </member>
         <member name="T:BEditor.Primitive.Effects.PointLightSource">
             <summary>
             Represents an <see cref="T:BEditor.Data.EffectElement"/> that sets the OpenGL point light source.
@@ -1322,45 +1404,6 @@
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Primitive.Effects.Blur.GetProperties">
-            <inheritdoc/>
-        </member>
-        <member name="T:BEditor.Primitive.Effects.Border">
-            <summary>
-            Represents the <see cref="T:BEditor.Data.Primitive.ImageEffect"/> that adds a border to the image.
-            </summary>
-        </member>
-        <member name="F:BEditor.Primitive.Effects.Border.SizeProperty">
-            <summary>
-            Defines the <see cref="P:BEditor.Primitive.Effects.Border.Size"/> property.
-            </summary>
-        </member>
-        <member name="F:BEditor.Primitive.Effects.Border.ColorProperty">
-            <summary>
-            Defines the <see cref="P:BEditor.Primitive.Effects.Border.Color"/> property.
-            </summary>
-        </member>
-        <member name="M:BEditor.Primitive.Effects.Border.#ctor">
-            <summary>
-            Initializes a new instance of the <see cref="T:BEditor.Primitive.Effects.Border"/> class.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Effects.Border.Name">
-            <inheritdoc/>
-        </member>
-        <member name="P:BEditor.Primitive.Effects.Border.Size">
-            <summary>
-            Gets the size of the edge.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Effects.Border.Color">
-            <summary>
-            Gets the border color.
-            </summary>
-        </member>
-        <member name="M:BEditor.Primitive.Effects.Border.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Primitive.Effects.Border.GetProperties">
             <inheritdoc/>
         </member>
         <member name="T:BEditor.Primitive.Effects.CircularGradient">
@@ -3234,6 +3277,11 @@
               Looks up a localized string similar to Dilate.
             </summary>
         </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.DoNotInvertMask">
+            <summary>
+              Looks up a localized string similar to Do not invert the mask.
+            </summary>
+        </member>
         <member name="P:BEditor.Primitive.Resources.Strings.DropShadow">
             <summary>
               Looks up a localized string similar to Drop shadow.
@@ -3397,6 +3445,11 @@
         <member name="P:BEditor.Primitive.Resources.Strings.Mask">
             <summary>
               Looks up a localized string similar to Mask.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.MaskType">
+            <summary>
+              Looks up a localized string similar to Mask type.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.MedianBlur">
@@ -3637,6 +3690,11 @@
         <member name="P:BEditor.Primitive.Resources.Strings.Type">
             <summary>
               Looks up a localized string similar to Type.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Unspecified">
+            <summary>
+              Looks up a localized string similar to Unspecified.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.VerticalAlignment">

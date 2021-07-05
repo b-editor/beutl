@@ -661,4 +661,13 @@
   <data name="SaturationRange" xml:space="preserve">
     <value>Saturation range</value>
   </data>
+  <data name="MaskType" xml:space="preserve">
+    <value>Mask type</value>
+  </data>
+  <data name="Unspecified" xml:space="preserve">
+    <value>Unspecified</value>
+  </data>
+  <data name="DoNotInvertMask" xml:space="preserve">
+    <value>Do not invert the mask</value>
+  </data>
 </root>

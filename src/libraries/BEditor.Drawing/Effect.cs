@@ -12,6 +12,9 @@ using System.Threading.Tasks;
 using BEditor.Compute.Runtime;
 using BEditor.Drawing.Pixel;
 using BEditor.Drawing.PixelOperation;
+using BEditor.Drawing.Resources;
+
+using OpenCvSharp;
 
 using SkiaSharp;
 
@@ -309,6 +312,45 @@ namespace BEditor.Drawing
             kernel.NDRange(context.CommandQueue, new long[] { image.Width, image.Height }, buf, arg1, arg2, arg3, arg4);
             context.CommandQueue.WaitFinish();
             buf.Read(context.CommandQueue, true, image.Data, 0, dataSize).Wait();
+        }
+
+        /// <summary>
+        /// Borders the image.
+        /// </summary>
+        /// <param name="self">The image to be bordered.</param>
+        /// <param name="size">The size of the border.</param>
+        /// <param name="color">The color of the border.</param>
+        /// <returns>Returns an image with <paramref name="self"/> bordered.</returns>
+        /// <exception cref="ArgumentNullException"><paramref name="self"/> is <see langword="null"/>.</exception>
+        /// <exception cref="ArgumentException"><paramref name="size"/> is less than 0.</exception>
+        /// <exception cref="ObjectDisposedException">Cannot access a disposed object.</exception>
+        public static Image<BGRA32> Border(this Image<BGRA32> self, int size, BGRA32 color)
+        {
+            if (self is null) throw new ArgumentNullException(nameof(self));
+            if (size <= 0) throw new ArgumentException(string.Format(Strings.LessThan, nameof(size), 0));
+            self.ThrowIfDisposed();
+
+            var nwidth = self.Width + (size * 2);
+            var nheight = self.Height + (size * 2);
+
+            self = self.MakeBorder(nwidth, nheight);
+
+            // アルファマップ
+            using var alphamap = self.AlphaMap();
+            using var alphaMat = alphamap.ToMat();
+
+            // 縁
+            var border = new Image<BGRA32>(self.Width, self.Height, default(BGRA32));
+            using var borderMat = border.ToMat();
+
+            // 輪郭検出
+            alphaMat.FindContours(out var points, out var h, RetrievalModes.List, ContourApproximationModes.ApproxSimple);
+
+            // 検出した輪郭を描画
+            borderMat.DrawContours(points, -1, new(color.B, color.G, color.R, color.A), size, LineTypes.Link8, h);
+
+            self.Dispose();
+            return border;
         }
 
         /// <summary>

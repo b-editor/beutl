@@ -14,6 +14,8 @@ using System.Threading.Tasks;
 using BEditor.Drawing.Pixel;
 using BEditor.Drawing.Resources;
 
+using OpenCvSharp;
+
 using SkiaSharp;
 
 namespace BEditor.Drawing
@@ -21,44 +23,6 @@ namespace BEditor.Drawing
     /// <inheritdoc cref="Image"/>
     public static partial class Image
     {
-        /// <summary>
-        /// Borders the image.
-        /// </summary>
-        /// <param name="self">The image to be bordered.</param>
-        /// <param name="size">The size of the border.</param>
-        /// <param name="color">The color of the border.</param>
-        /// <returns>Returns an image with <paramref name="self"/> bordered.</returns>
-        /// <exception cref="ArgumentNullException"><paramref name="self"/> is <see langword="null"/>.</exception>
-        /// <exception cref="ArgumentException"><paramref name="size"/> is less than 0.</exception>
-        /// <exception cref="ObjectDisposedException">Cannot access a disposed object.</exception>
-        public static Image<BGRA32> Border(this Image<BGRA32> self, int size, BGRA32 color)
-        {
-            if (self is null) throw new ArgumentNullException(nameof(self));
-            if (size <= 0) throw new ArgumentException(string.Format(Strings.LessThan, nameof(size), 0));
-            self.ThrowIfDisposed();
-
-            var nwidth = self.Width + ((size + 5) * 2);
-            var nheight = self.Height + ((size + 5) * 2);
-
-            using var filter = SKImageFilter.CreateDilate(size, size);
-            using var dilatePaint = new SKPaint { ImageFilter = filter, IsAntialias = true };
-            using var paint = new SKPaint { IsAntialias = true };
-            using var bmp = new SKBitmap(new(nwidth, nheight, SKColorType.Bgra8888));
-            using var canvas = new SKCanvas(bmp);
-            using var b = self.Clone();
-            b.SetColor(color);
-            using var b_ = b.ToSKBitmap();
-            using var s = self.ToSKBitmap();
-
-            var x = (nwidth - self.Width) / 2;
-            var y = (nheight - self.Height) / 2;
-
-            canvas.DrawBitmap(b_, x, y, dilatePaint);
-            canvas.DrawBitmap(s, x, y, paint);
-
-            return bmp.ToImage32();
-        }
-
         /// <summary>
         /// Apply a shadow to the image.
         /// </summary>
