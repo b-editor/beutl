@@ -869,17 +869,14 @@
             <summary>
             The metadata of <see cref="T:BEditor.Data.EffectElement"/>.
             </summary>
-            <param name="Name">The name of the effect element.</param>
-            <param name="CreateFunc">This <see cref="T:System.Func`1"/> gets a new instance of the <see cref="T:BEditor.Data.EffectElement"/> object.</param>
-            <param name="Type">The type of the object that inherits from <see cref="T:BEditor.Data.EffectElement"/>.</param>
         </member>
         <member name="M:BEditor.Data.EffectMetadata.#ctor(System.String,System.Func{BEditor.Data.EffectElement},System.Type)">
             <summary>
-            The metadata of <see cref="T:BEditor.Data.EffectElement"/>.
+            Initializes a new instance of the <see cref="T:BEditor.Data.EffectMetadata"/> class.
             </summary>
-            <param name="Name">The name of the effect element.</param>
-            <param name="CreateFunc">This <see cref="T:System.Func`1"/> gets a new instance of the <see cref="T:BEditor.Data.EffectElement"/> object.</param>
-            <param name="Type">The type of the object that inherits from <see cref="T:BEditor.Data.EffectElement"/>.</param>
+            <param name="name">The name of the effect element.</param>
+            <param name="createFunc">Create a new instance of the <see cref="T:BEditor.Data.EffectElement"/> object.</param>
+            <param name="type">The type of the object that inherits from <see cref="T:BEditor.Data.EffectElement"/>.</param>
         </member>
         <member name="M:BEditor.Data.EffectMetadata.#ctor(System.String)">
             <summary>
@@ -894,14 +891,29 @@
             <param name="name">The name of the <see cref="T:BEditor.Data.EffectElement"/>.</param>
             <param name="create">This <see cref="T:System.Func`1"/> gets a new instance of the <see cref="T:BEditor.Data.EffectElement"/> object.</param>
         </member>
-        <member name="P:BEditor.Data.EffectMetadata.Children">
-            <summary>
-            Gets or sets the child elements of the group.
-            </summary>
-        </member>
         <member name="P:BEditor.Data.EffectMetadata.LoadedEffects">
             <summary>
             Gets the loaded <see cref="T:BEditor.Data.EffectMetadata"/>.
+            </summary>
+        </member>
+        <member name="P:BEditor.Data.EffectMetadata.Name">
+            <summary>
+            Gets or sets the name of the effect element.
+            </summary>
+        </member>
+        <member name="P:BEditor.Data.EffectMetadata.CreateFunc">
+            <summary>
+            Create a new instance of the <see cref="T:BEditor.Data.EffectElement"/> object.
+            </summary>
+        </member>
+        <member name="P:BEditor.Data.EffectMetadata.Type">
+            <summary>
+            Gets or sets the type of the object that inherits from <see cref="T:BEditor.Data.EffectElement"/>.
+            </summary>
+        </member>
+        <member name="P:BEditor.Data.EffectMetadata.Children">
+            <summary>
+            Gets or sets the child elements of the group.
             </summary>
         </member>
         <member name="M:BEditor.Data.EffectMetadata.Create``1(System.String)">

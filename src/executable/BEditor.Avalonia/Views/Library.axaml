@@ -4,11 +4,20 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:data="clr-namespace:BEditor.Data;assembly=BEditor.Core"
+    xmlns:props="using:BEditor.Properties"
     mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
     x:Class="BEditor.Views.Library">
-    <ProgressBar
-        IsIndeterminate="True"
-        VerticalAlignment="Top"
-        Margin="8,0"
-        HorizontalAlignment="Stretch" />
+    <Grid RowDefinitions="Auto,*">
+        <TextBox
+            Margin="8,0,8,8"
+            KeyDown="TextBox_KeyDown"
+            Watermark="{x:Static props:Strings.Search}" />
+
+        <ProgressBar
+            Grid.Row="1"
+            IsIndeterminate="True"
+            VerticalAlignment="Top"
+            Margin="8,0"
+            HorizontalAlignment="Stretch" />
+    </Grid>
 </UserControl>

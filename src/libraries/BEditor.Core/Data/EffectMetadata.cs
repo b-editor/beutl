@@ -15,11 +15,21 @@ namespace BEditor.Data
     /// <summary>
     /// The metadata of <see cref="EffectElement"/>.
     /// </summary>
-    /// <param name="Name">The name of the effect element.</param>
-    /// <param name="CreateFunc">This <see cref="Func{TResult}"/> gets a new instance of the <see cref="EffectElement"/> object.</param>
-    /// <param name="Type">The type of the object that inherits from <see cref="EffectElement"/>.</param>
-    public record EffectMetadata(string Name, Func<EffectElement> CreateFunc, Type Type)
+    public class EffectMetadata
     {
+        /// <summary>
+        /// Initializes a new instance of the <see cref="EffectMetadata"/> class.
+        /// </summary>
+        /// <param name="name">The name of the effect element.</param>
+        /// <param name="createFunc">Create a new instance of the <see cref="EffectElement"/> object.</param>
+        /// <param name="type">The type of the object that inherits from <see cref="EffectElement"/>.</param>
+        public EffectMetadata(string name, Func<EffectElement> createFunc, Type type)
+        {
+            Name = name;
+            CreateFunc = createFunc;
+            Type = type;
+        }
+
         /// <summary>
         /// Initializes a new instance of the <see cref="EffectMetadata"/> class.
         /// </summary>
@@ -40,14 +50,29 @@ namespace BEditor.Data
         }
 
         /// <summary>
-        /// Gets or sets the child elements of the group.
-        /// </summary>
-        public IEnumerable<EffectMetadata>? Children { get; set; }
-
-        /// <summary>
         /// Gets the loaded <see cref="EffectMetadata"/>.
         /// </summary>
         public static ObservableCollection<EffectMetadata> LoadedEffects { get; } = new();
+
+        /// <summary>
+        /// Gets or sets the name of the effect element.
+        /// </summary>
+        public string Name { get; init; }
+
+        /// <summary>
+        /// Create a new instance of the <see cref="EffectElement"/> object.
+        /// </summary>
+        public Func<EffectElement> CreateFunc { get; init; }
+
+        /// <summary>
+        /// Gets or sets the type of the object that inherits from <see cref="EffectElement"/>.
+        /// </summary>
+        public Type Type { get; init; }
+
+        /// <summary>
+        /// Gets or sets the child elements of the group.
+        /// </summary>
+        public IEnumerable<EffectMetadata>? Children { get; set; }
 
         /// <summary>
         /// Create the <see cref="EffectMetadata"/>.
