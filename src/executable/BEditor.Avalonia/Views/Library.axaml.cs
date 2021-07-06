@@ -1,19 +1,13 @@
-using System;
-using System.Collections;
-using System.Collections.Generic;
-using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 using Avalonia.Collections;
 using Avalonia.Controls;
-using Avalonia.Controls.Templates;
-using Avalonia.Data;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
-using Avalonia.Markup.Xaml.Templates;
 
 using BEditor.Data;
+using BEditor.ViewModels;
 
 namespace BEditor.Views
 {
@@ -34,6 +28,7 @@ namespace BEditor.Views
                 SelectionMode = SelectionMode.Single,
             };
             _tree.AddHandler(PointerPressedEvent, TreeViewPointerPressed, RoutingStrategies.Tunnel);
+            DataContext = new LibraryViewModel(_tree);
         }
 
         private new Grid Content => (Grid)base.Content;
@@ -58,86 +53,6 @@ namespace BEditor.Views
             Content.Children.RemoveAt(1);
             Content.Children.Add(_scroll);
             _scroll.Content = _tree;
-        }
-
-        public async void TextBox_KeyDown(object s, KeyEventArgs e)
-        {
-            if (s is not TextBox tb) return;
-            await Task.Delay(250);
-            if (string.IsNullOrWhiteSpace(tb.Text))
-            {
-                if (_tree.Items is AvaloniaList<TreeViewItem> items)
-                {
-                    foreach (var item in items)
-                    {
-                        item.IsVisible = SetIsVisible(item, _ => true);
-                    }
-                }
-            }
-            else
-            {
-                var textUpper = tb.Text.ToUpperInvariant();
-                var regexPattern = Regex.Replace(textUpper, ".", m =>
-                {
-                    var s = m.Value;
-                    if (s.Equals("?"))
-                    {
-                        return ".";
-                    }
-                    else if (s.Equals("*"))
-                    {
-                        return ".*";
-                    }
-                    else
-                    {
-                        return Regex.Escape(s);
-                    }
-                });
-                var regex = new Regex(regexPattern);
-
-                if (_tree.Items is AvaloniaList<TreeViewItem> items)
-                {
-                    foreach (var item in items)
-                    {
-                        item.IsVisible = SetIsVisible(item, str =>
-                        {
-                            var upper = str.ToUpperInvariant();
-                            return regex.IsMatch(upper) || upper.Contains(textUpper);
-                        });
-                    }
-                }
-            }
-        }
-
-        // ˆê‚Â‚Å‚àIsVisible‚ªtrue‚¾‚Á‚½‚çtrue‚ð•Ô‚·
-        private bool SetIsVisible(TreeViewItem treeitem, Func<string, bool> validate)
-        {
-            // IsVisible
-            var result = false;
-            if (treeitem.Items is AvaloniaList<TreeViewItem> list)
-            {
-                var v = false;
-                foreach (var item in list)
-                {
-                    if (item.DataContext is EffectMetadata metadata)
-                    {
-                        item.IsVisible = validate(metadata.Name);
-                    }
-                    v |= item.IsVisible;
-
-                    result |= SetIsVisible(item, validate);
-                }
-
-                if (treeitem.DataContext is EffectMetadata treeitemMetadata)
-                {
-                    v |= validate(treeitemMetadata.Name);
-                }
-
-                treeitem.IsVisible = v;
-                result |= v;
-            }
-
-            return result;
         }
 
         private void Add(TreeViewItem treeitem, EffectMetadata list)

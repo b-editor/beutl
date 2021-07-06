@@ -63,7 +63,7 @@ namespace BEditor.ViewModels.ManagePlugins
 
             Search.Where(_ => SelectedSource.Value is not null).Subscribe(_ =>
             {
-                var str = SearchText.Value.ToLowerInvariant();
+                var str = SearchText.Value;
                 if (string.IsNullOrWhiteSpace(str))
                 {
                     _loadedItems = SelectedSource.Value!.Packages;
@@ -75,28 +75,12 @@ namespace BEditor.ViewModels.ManagePlugins
                     return;
                 }
 
-                var regexPattern = Regex.Replace(str, ".", m =>
-                {
-                    var s = m.Value;
-                    if (s.Equals("?"))
-                    {
-                        return ".";
-                    }
-                    else if (s.Equals("*"))
-                    {
-                        return ".*";
-                    }
-                    else
-                    {
-                        return Regex.Escape(s);
-                    }
-                });
-                var regex = new Regex(regexPattern.ToLowerInvariant());
+                var regices = SearchService.CreateRegices(str);
 
                 _loadedItems = SelectedSource.Value!.Packages
-                    .Where(i => regex.IsMatch(i.Name.ToLowerInvariant()) ||
-                        regex.IsMatch(i.Description.ToLowerInvariant()) ||
-                        regex.IsMatch(i.Tag.ToLowerInvariant()))
+                    .Where(i => SearchService.IsMatch(regices, i.Name) 
+                    || SearchService.IsMatch(regices, i.Description)
+                    || SearchService.IsMatch(regices, i.Tag))
                     .ToArray();
 
                 ReloadItems();

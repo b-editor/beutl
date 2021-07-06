@@ -5,12 +5,15 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:data="clr-namespace:BEditor.Data;assembly=BEditor.Core"
     xmlns:props="using:BEditor.Properties"
+    xmlns:vm="using:BEditor.ViewModels"
     mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+    x:DataType="vm:LibraryViewModel"
     x:Class="BEditor.Views.Library">
     <Grid RowDefinitions="Auto,*">
         <TextBox
+            Text="{CompiledBinding SearchText.Value, Mode=TwoWay}"
+            Classes="clearButton"
             Margin="8,0,8,8"
-            KeyDown="TextBox_KeyDown"
             Watermark="{x:Static props:Strings.Search}" />
 
         <ProgressBar
