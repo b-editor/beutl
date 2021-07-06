@@ -16,9 +16,8 @@ Windows, Linuxで動作する動画編集ソフトウェアです。
 
 ## Feature
 
-* OpenGLを使ったレンダリング
+* GPUを使った処理
 * カメラ制御
-* GPUを使った画像処理
 * ダークモード
 * クロスプラットフォーム (0.1.0から)
 * キーフレーム機能
@@ -47,16 +46,12 @@ Windows, Linuxで動作する動画編集ソフトウェアです。
 
 ## Building BEditor
 
-* .NET 5.0 が必要です
+* .NET 5.0 SDK が必要です
 * 以下のコマンドを実行すると `./publish` に出力されます。
 ```
 dotnet restore
 dotnet cake
 ```
-
-## Screenshots
-
-![](https://raw.githubusercontent.com/b-editor/BEditor/main/docs/imgs/ScreenShot_1.png)
 
 ## Patrons
 
