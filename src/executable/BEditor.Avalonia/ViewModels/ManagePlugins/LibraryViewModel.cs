@@ -78,7 +78,7 @@ namespace BEditor.ViewModels.ManagePlugins
                 var regices = SearchService.CreateRegices(str);
 
                 _loadedItems = SelectedSource.Value!.Packages
-                    .Where(i => SearchService.IsMatch(regices, i.Name) 
+                    .Where(i => SearchService.IsMatch(regices, i.Name)
                     || SearchService.IsMatch(regices, i.Description)
                     || SearchService.IsMatch(regices, i.Tag))
                     .ToArray();
