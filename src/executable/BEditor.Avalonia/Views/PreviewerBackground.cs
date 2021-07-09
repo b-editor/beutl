@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
+﻿
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
@@ -16,8 +11,6 @@ namespace BEditor.Views
     {
         public static readonly StyledProperty<BackgroundType> BackgroundTypeProperty
             = AvaloniaProperty.Register<PreviewerBackground, BackgroundType>(nameof(BackgroundType), BackgroundType.Transparent);
-
-        //private static readonly Pen _pen = new(Brushes.Black);
 
         static PreviewerBackground()
         {
@@ -55,19 +48,18 @@ namespace BEditor.Views
 
         private static void DrawCheck(DrawingContext context, IBrush color1, IBrush color2, Size size)
         {
-            var dotsize = size.Height / 64;
+            var dotsize = size.Height / 40;
             var inc = dotsize * 2;
 
             for (var y = 0d; y < size.Height; y += inc)
             {
-                for (var x = 0d; x < size.Width; x += dotsize)
+                for (var x = 0d; x < size.Width; x += inc)
                 {
                     context.FillRectangle(color1, new(x, y, dotsize, dotsize));
-                    context.FillRectangle(color2, new(x, y - dotsize, dotsize, dotsize));
+                    context.FillRectangle(color2, new(x, y + dotsize, dotsize, dotsize));
 
-                    var tmp = color1;
-                    color1 = color2;
-                    color2 = tmp;
+                    context.FillRectangle(color2, new(x + dotsize, y, dotsize, dotsize));
+                    context.FillRectangle(color1, new(x + dotsize, y + dotsize, dotsize, dotsize));
                 }
             }
         }

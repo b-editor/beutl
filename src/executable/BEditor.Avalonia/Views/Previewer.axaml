@@ -23,7 +23,7 @@
                 Height="{Binding #image.Bounds.Height}"
                 BackgroundType="{Binding Value, Mode=OneWay}"
                 DataContext="{Binding App.Project, Mode=OneWay, Converter={StaticResource BackgroundTypeConverter}}"/>
-            
+
             <Image
                 x:Name="image"
                 Source="{CompiledBinding PreviewImage.Value, Mode=OneWay}"/>

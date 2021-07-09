@@ -180,6 +180,9 @@
                     </MenuItem.Icon>
                 </MenuItem>
 
+                <!--拡大表示-->
+                <MenuItem Click="ZoomIn" Header="{x:Static prop:Strings.ZoomIn}" />
+
             </MenuItem>
             <MenuItem Header="{x:Static prop:Strings.Plugins}" x:Name="Plugins">
 

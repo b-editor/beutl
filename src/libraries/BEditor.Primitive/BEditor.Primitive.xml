@@ -3351,6 +3351,11 @@
               Looks up a localized string similar to Decal.
             </summary>
         </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.DecoderNotFound">
+            <summary>
+              Looks up a localized string similar to Decoder not found..
+            </summary>
+        </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Delay">
             <summary>
               Looks up a localized string similar to Delay.

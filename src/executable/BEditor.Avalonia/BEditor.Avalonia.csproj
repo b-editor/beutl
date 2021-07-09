@@ -15,6 +15,7 @@
 
     <ItemGroup>
         <PackageReference Include="Avalonia" Version="0.10.6" />
+        <PackageReference Include="Avalonia.Controls.PanAndZoom" Version="3.6.0" />
         <PackageReference Include="Avalonia.Desktop" Version="0.10.6" />
         <PackageReference Include="Avalonia.Diagnostics" Version="0.10.6" />
         <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="5.0.0" />
@@ -43,9 +44,6 @@
             <DesignTime>True</DesignTime>
             <AutoGen>True</AutoGen>
             <DependentUpon>Strings.resx</DependentUpon>
-        </Compile>
-        <Compile Update="Views\ManagePlugins\Signin.axaml.cs">
-          <DependentUpon>Signin.axaml</DependentUpon>
         </Compile>
     </ItemGroup>
 

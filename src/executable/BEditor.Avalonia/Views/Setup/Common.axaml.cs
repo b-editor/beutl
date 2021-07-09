@@ -1,12 +1,7 @@
-using System;
 
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
-
-using BEditor.ViewModels.Setup;
-
-using Windows.Api;
 
 namespace BEditor.Views.Setup
 {

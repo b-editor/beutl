@@ -809,4 +809,7 @@ Vulkan:
   <data name="MachineTranslation" xml:space="preserve">
     <value>機械翻訳</value>
   </data>
+  <data name="ZoomIn" xml:space="preserve">
+    <value>拡大表示</value>
+  </data>
 </root>

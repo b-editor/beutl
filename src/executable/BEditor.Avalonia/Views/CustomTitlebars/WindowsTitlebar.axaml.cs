@@ -180,6 +180,15 @@ namespace BEditor.Views.CustomTitlebars
             }
         }
 
+        public void ZoomIn(object s, RoutedEventArgs e)
+        {
+            if (VisualRoot is Window window)
+            {
+                var dialog = new ZoomWindow();
+                dialog.Show(window);
+            }
+        }
+
         public async void ManagePlugins_Click(object s, RoutedEventArgs e)
         {
             if (VisualRoot is Window window)

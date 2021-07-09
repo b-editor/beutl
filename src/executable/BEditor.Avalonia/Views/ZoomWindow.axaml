@@ -1,0 +1,40 @@
+<view:FluentWindow
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:vm="using:BEditor.ViewModels"
+    xmlns:paz="using:Avalonia.Controls.PanAndZoom"
+    xmlns:view="using:BEditor.Views"
+    xmlns:props="using:BEditor.Properties"
+    xmlns:convert="using:BEditor.Converters"
+    mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+    Classes="fluent"
+    Title="{x:Static props:Strings.ZoomIn}"
+    x:Name="root"
+    x:DataType="vm:PreviewerViewModel"
+    x:Class="BEditor.Views.ZoomWindow">
+    <Window.ContextMenu>
+        <ContextMenu>
+            <MenuItem Header="{x:Static props:Strings.Reset}" Click="Reset" />
+        </ContextMenu>
+    </Window.ContextMenu>
+    <Panel>
+        <view:PreviewerBackground
+            Width="{Binding $parent.Bounds.Width}"
+            Height="{Binding $parent.Bounds.Height}"
+            BackgroundType="{Binding Value, Mode=OneWay}"
+            DataContext="{Binding App.Project, Mode=OneWay, Converter={StaticResource BackgroundTypeConverter}}"/>
+
+        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto">
+            <paz:ZoomBorder
+                Name="ZoomBorder" Stretch="None" ZoomSpeed="1.2"
+                ClipToBounds="True" Focusable="True"
+                PanButton="Left"
+                Cursor="SizeAll"
+                VerticalAlignment="Stretch" HorizontalAlignment="Stretch">
+                <Image x:Name="image" Source="{CompiledBinding PreviewImage.Value, Mode=OneWay}" />
+            </paz:ZoomBorder>
+        </ScrollViewer>
+    </Panel>
+</view:FluentWindow>
