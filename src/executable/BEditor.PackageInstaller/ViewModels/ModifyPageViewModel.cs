@@ -44,7 +44,7 @@ namespace BEditor.PackageInstaller.ViewModels
                 while (_packages.TryDequeue(out var package))
                 {
                     CurrentPackage.Value = package;
-                    var directory = Path.Combine(AppContext.BaseDirectory, "user", "plugins", Path.GetFileNameWithoutExtension(package.MainAssembly));
+                    var directory = Path.Combine(GetBaseDirectory(), "plugins", Path.GetFileNameWithoutExtension(package.MainAssembly));
                     if (package.Type is not PackageChangeType.Uninstall)
                     {
                         var downloadFile = Path.GetTempFileName();
@@ -131,6 +131,19 @@ namespace BEditor.PackageInstaller.ViewModels
         public ReactivePropertySlim<bool> IsIndeterminate { get; } = new();
 
         public ReactiveCommand Cancel { get; } = new();
+
+        public static string GetBaseDirectory()
+        {
+            if (OperatingSystem.IsWindows())
+            {
+                var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "BEditor");
+                return dir;
+            }
+            else
+            {
+                return Path.Combine(AppContext.BaseDirectory, "user");
+            }
+        }
 
         private class ProgressImpl : IProgress<int>
         {

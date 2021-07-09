@@ -5,6 +5,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Runtime.Serialization;
+using System.Text;
 using System.Threading.Tasks;
 
 using BEditor.Packaging;
@@ -46,7 +47,7 @@ namespace BEditor
 
         static Settings()
         {
-            var path = Path.Combine(AppContext.BaseDirectory, "user", "settings.json");
+            var path = Path.Combine(GetBaseDirectory(), "settings.json");
             if (!File.Exists(path))
             {
                 Default = new Settings();
@@ -209,7 +210,20 @@ namespace BEditor
                 RaisePropertyChanged(args);
             }
         }
-        public void Save() => Serialize.SaveToFile(this, Path.Combine(AppContext.BaseDirectory, "user", "settings.json"));
-        public Task SaveAsync() => Task.Run(() => Serialize.SaveToFile(this, Path.Combine(AppContext.BaseDirectory, "user", "settings.json")));
+        public void Save() => Serialize.SaveToFile(this, Path.Combine(GetBaseDirectory(), "settings.json"));
+        public Task SaveAsync() => Task.Run(() => Serialize.SaveToFile(this, Path.Combine(GetBaseDirectory(), "settings.json")));
+
+        public static string GetBaseDirectory()
+        {
+            if (OperatingSystem.IsWindows())
+            {
+                var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "BEditor");
+                return dir;
+            }
+            else
+            {
+                return Path.Combine(AppContext.BaseDirectory, "user");
+            }
+        }
     }
 }

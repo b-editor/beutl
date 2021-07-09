@@ -48,7 +48,7 @@ namespace BEditor.Models
 
             Log.Logger = new LoggerConfiguration()
                 .Enrich.FromLogContext()
-                .WriteTo.File(new JsonFormatter(), Path.Combine(AppContext.BaseDirectory, "user", "log.json"))
+                .WriteTo.File(new JsonFormatter(), Path.Combine(Settings.GetBaseDirectory(), "log.json"))
                 .CreateLogger();
 
             LoggingFactory = LoggerFactory.Create(builder =>
