@@ -7,9 +7,8 @@
     xmlns:property="using:BEditor.Properties"
     xmlns:col="using:BEditor.Controls"
     mc:Ignorable="d"
-    Width="400"
-    Height="480"
-    CanResize="False"
+    Width="560"
+    Height="400"
     Classes="fluent"
     x:Class="BEditor.Views.ColorDialog">
     <Grid RowDefinitions="*,Auto">
