@@ -5,6 +5,7 @@
 // This software may be modified and distributed under the terms
 // of the MIT license. See the LICENSE file for details.
 
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Timers;
@@ -14,6 +15,7 @@ namespace BEditor
     /// <summary>
     /// Represents a class that manages directories.
     /// </summary>
+    [Obsolete("Do not use.")]
     public class DirectoryManager
     {
         /// <summary>

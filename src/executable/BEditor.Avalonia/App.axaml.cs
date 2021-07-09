@@ -140,8 +140,6 @@ namespace BEditor
             Settings.Default.Save();
             KeyBindingModel.Save();
 
-            DirectoryManager.Default.Stop();
-
             BackupTimer.Stop();
 
             var app = AppModel.Current;

@@ -1,7 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <OutputPath>..\..\src\executable\BEditor.Avalonia\bin\$(Configuration)\net5.0\user\plugins\BEditor.Extensions.AviUtl</OutputPath>
         <Company>b-editor</Company>
         <Copyright>MIT License</Copyright>
         <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>

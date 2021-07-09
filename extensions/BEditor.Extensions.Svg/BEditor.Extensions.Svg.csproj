@@ -3,7 +3,6 @@
     <Import Project="..\..\props\plugin.props" />
 
     <PropertyGroup>
-        <OutputPath>..\..\src\executable\BEditor.Avalonia\bin\$(Configuration)\net5.0\user\plugins\BEditor.Extensions.Svg</OutputPath>
         <Company>b-editor</Company>
         <Copyright>MIT License</Copyright>
         <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>

@@ -1,7 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <OutputPath>..\..\src\executable\BEditor.Avalonia\bin\$(Configuration)\net5.0\user\plugins\BEditor.Extensions.FFmpeg</OutputPath>
         <Company>b-editor</Company>
         <Copyright>GNU General Public License (GPL) version 2</Copyright>
         <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
