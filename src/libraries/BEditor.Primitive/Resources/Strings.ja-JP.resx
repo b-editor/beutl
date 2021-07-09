@@ -691,4 +691,7 @@
   <data name="BlurBorderOfTransparency" xml:space="preserve">
     <value>透明度の境界をぼかす</value>
   </data>
+  <data name="DecoderNotFound" xml:space="preserve">
+    <value>デコーダーが見つかりませんでした。</value>
+  </data>
 </root>

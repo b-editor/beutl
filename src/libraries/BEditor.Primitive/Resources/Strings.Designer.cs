@@ -421,6 +421,15 @@ namespace BEditor.Primitive.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Decoder not found..
+        /// </summary>
+        internal static string DecoderNotFound {
+            get {
+                return ResourceManager.GetString("DecoderNotFound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Delay.
         /// </summary>
         internal static string Delay {

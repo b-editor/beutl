@@ -691,4 +691,7 @@
   <data name="BlurBorderOfTransparency" xml:space="preserve">
     <value>Blurs the borders of transparency</value>
   </data>
+  <data name="DecoderNotFound" xml:space="preserve">
+    <value>Decoder not found.</value>
+  </data>
 </root>

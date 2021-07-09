@@ -23,6 +23,9 @@ using BEditor.Media.Decoding;
 using BEditor.Media.PCM;
 using BEditor.Primitive.Resources;
 
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+
 namespace BEditor.Primitive.Objects
 {
     /// <summary>
@@ -164,11 +167,26 @@ namespace BEditor.Primitive.Objects
             base.OnLoad();
             _disposable1 = File.Where(file => System.IO.File.Exists(file)).Subscribe(file =>
             {
-                Decoder = MediaFile.Open(file, new()
+                var mes = ServiceProvider?.GetService<IMessage>();
+
+                try
                 {
-                    StreamsToLoad = MediaMode.Audio,
-                    SampleRate = this.GetRequiredParent<Project>().Samplingrate,
-                });
+                    Decoder = MediaFile.Open(file, new()
+                    {
+                        StreamsToLoad = MediaMode.Audio,
+                        SampleRate = this.GetRequiredParent<Project>().Samplingrate,
+                    });
+                }
+                catch (DecoderNotFoundException e)
+                {
+                    mes?.Snackbar(Strings.DecoderNotFound);
+                    ServicesLocator.Current.Logger?.LogError(e, Strings.DecoderNotFound);
+                }
+                catch (Exception ex)
+                {
+                    mes?.Snackbar(string.Format(Strings.FailedToLoad, file));
+                    ServicesLocator.Current.Logger?.LogError(ex, Strings.DecoderNotFound);
+                }
             });
         }
 

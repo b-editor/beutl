@@ -86,19 +86,14 @@ namespace BEditor.Media.Decoding
         /// <returns>The opened <see cref="MediaFile"/>.</returns>
         public static MediaFile Open(string path, MediaOptions options)
         {
-            try
-            {
-                var container = DecodingRegistory.Open(path, options);
-                return container is not null ? new MediaFile(container) : throw new NotSupportedException("Not supported format.");
-            }
-            catch (DirectoryNotFoundException)
-            {
-                throw;
-            }
-            catch (Exception ex)
-            {
-                throw new Exception("Failed to open the media file", ex);
-            }
+            if (path is null) throw new ArgumentNullException(nameof(path));
+            if (options is null) throw new ArgumentNullException(nameof(options));
+            if (!File.Exists(path)) throw new FileNotFoundException(null, path);
+
+            var container = DecodingRegistory.Open(path, options);
+            return container is not null
+                ? new MediaFile(container)
+                : throw new DecoderNotFoundException();
         }
 
         /// <inheritdoc/>

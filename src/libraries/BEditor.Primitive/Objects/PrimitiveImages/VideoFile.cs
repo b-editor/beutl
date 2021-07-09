@@ -174,16 +174,21 @@ namespace BEditor.Primitive.Objects
 
                 if (System.IO.File.Exists(File.Value))
                 {
+                    var mes = ServiceProvider?.GetService<IMessage>();
+
                     try
                     {
                         _mediaFile = MediaFile.Open(filename, _options);
                     }
-                    catch (Exception e)
+                    catch (DecoderNotFoundException e)
                     {
-                        var mes = ServiceProvider?.GetService<IMessage>();
-                        var msg = string.Format(Strings.FailedToLoad, filename);
-                        mes?.Snackbar(msg);
-                        LogManager.Logger?.LogError(e, msg);
+                        mes?.Snackbar(Strings.DecoderNotFound);
+                        ServicesLocator.Current.Logger?.LogError(e, Strings.DecoderNotFound);
+                    }
+                    catch (Exception ex)
+                    {
+                        mes?.Snackbar(string.Format(Strings.FailedToLoad, filename));
+                        ServicesLocator.Current.Logger?.LogError(ex, Strings.DecoderNotFound);
                     }
                 }
                 else
