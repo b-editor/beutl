@@ -47,7 +47,7 @@ namespace BEditor
 
         static Settings()
         {
-            var path = Path.Combine(GetBaseDirectory(), "settings.json");
+            var path = Path.Combine(ServicesLocator.GetUserFolder(), "settings.json");
             if (!File.Exists(path))
             {
                 Default = new Settings();
@@ -210,21 +210,7 @@ namespace BEditor
                 RaisePropertyChanged(args);
             }
         }
-        public void Save() => Serialize.SaveToFile(this, Path.Combine(GetBaseDirectory(), "settings.json"));
-        public Task SaveAsync() => Task.Run(() => Serialize.SaveToFile(this, Path.Combine(GetBaseDirectory(), "settings.json")));
-
-        public static string GetBaseDirectory()
-        {
-            if (OperatingSystem.IsWindows())
-            {
-                var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "BEditor");
-                return dir;
-            }
-            else
-            {
-                var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".config", "BEditor");
-                return dir;
-            }
-        }
+        public void Save() => Serialize.SaveToFile(this, Path.Combine(ServicesLocator.GetUserFolder(), "settings.json"));
+        public Task SaveAsync() => Task.Run(() => Serialize.SaveToFile(this, Path.Combine(ServicesLocator.GetUserFolder(), "settings.json")));
     }
 }

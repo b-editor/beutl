@@ -48,7 +48,7 @@ namespace BEditor.Plugin
         /// <summary>
         /// Gets or sets the base directory from which to retrieve plugins.
         /// </summary>
-        public string BaseDirectory { get; } = Path.Combine(Settings.GetBaseDirectory(), "plugins");
+        public string BaseDirectory { get; } = ServicesLocator.GetPluginsFolder();
 
         /// <summary>
         /// Gets all plugin names.

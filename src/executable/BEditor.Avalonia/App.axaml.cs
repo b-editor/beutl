@@ -44,7 +44,6 @@ namespace BEditor
         {
             Interval = TimeSpan.FromMinutes(Settings.Default.BackUpInterval)
         };
-        private static readonly string _pluginsDir = Path.Combine(Settings.GetBaseDirectory(), "plugins");
 
         public static ValueTask StartupTask { get; set; }
 
@@ -113,15 +112,13 @@ namespace BEditor
                 desktop.MainWindow = Settings.Default.ShowStartWindow ? new StartWindow() : new MainWindow();
                 AppModel.Current.UIThread = SynchronizationContext.Current;
 
-                CreateDirectory();
-
                 StartupTask = new(Task.Run(async () =>
                 {
                     await InitialPluginsAsync();
                     ServicesLocator.Current = new(AppModel.Current.ServiceProvider);
 
                     AppModel.Current.User = await Tool.LoadFromAsync(
-                        Path.Combine(Settings.GetBaseDirectory(), "token"),
+                        Path.Combine(ServicesLocator.GetUserFolder(), "token"),
                         AppModel.Current.ServiceProvider.GetRequiredService<IAuthenticationProvider>());
 
                     await CheckOpenALAsync();
@@ -154,11 +151,11 @@ namespace BEditor
 
             app.Project?.Unload();
             app.Project = null;
-            AppModel.Current.User?.Save(Path.Combine(Settings.GetBaseDirectory(), "token"));
+            AppModel.Current.User?.Save(Path.Combine(ServicesLocator.GetUserFolder(), "token"));
 
             if (PluginChangeSchedule.Uninstall.Count is not 0 || PluginChangeSchedule.UpdateOrInstall.Count is not 0)
             {
-                var jsonfile = Path.Combine(Settings.GetBaseDirectory(), "package-install.json");
+                var jsonfile = Path.Combine(ServicesLocator.GetUserFolder(), "package-install.json");
                 PluginChangeSchedule.CreateJsonFile(jsonfile);
 
                 if (OperatingSystem.IsWindows())
@@ -184,15 +181,8 @@ namespace BEditor
         {
             AppModel.Current.Message.Snackbar(string.Format(Strings.ExceptionWasThrown, e.ExceptionObject.ToString()));
 
-            AppModel.Current.User?.Save(Path.Combine(Settings.GetBaseDirectory(), "token"));
+            AppModel.Current.User?.Save(Path.Combine(ServicesLocator.GetUserFolder(), "token"));
             Logger?.LogError(e.ExceptionObject as Exception, "UnhandledException was thrown.");
-        }
-
-        private static void CreateDirectory()
-        {
-            DirectoryManager.Default.Directories.Add(_pluginsDir);
-
-            DirectoryManager.Default.Run();
         }
 
         private static void RunBackup()
@@ -316,7 +306,7 @@ namespace BEditor
 
         private static async Task SetupAsync()
         {
-            var flagPath = Path.Combine(Settings.GetBaseDirectory(), "SETUP_FLAG");
+            var flagPath = Path.Combine(ServicesLocator.GetUserFolder(), "SETUP_FLAG");
             if (!File.Exists(flagPath))
             {
                 await Dispatcher.UIThread.InvokeAsync(async () => await new SetupWindow().ShowDialog(GetMainWindow()));

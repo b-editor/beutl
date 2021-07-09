@@ -55,7 +55,7 @@ namespace BEditor.Plugin
             }
             catch (Exception e)
             {
-                LogManager.Logger.LogError(e, "Failed to save {0}.", GetType().Name);
+                ServicesLocator.Current.Logger.LogError(e, "Failed to save {0}.", GetType().Name);
                 return false;
             }
         }
@@ -87,7 +87,7 @@ namespace BEditor.Plugin
             }
             catch (Exception e)
             {
-                LogManager.Logger.LogError(e, "Failed to save {0}.", GetType().Name);
+                ServicesLocator.Current.Logger.LogError(e, "Failed to save {0}.", GetType().Name);
                 return false;
             }
         }
@@ -127,7 +127,7 @@ namespace BEditor.Plugin
             }
             catch (Exception e)
             {
-                LogManager.Logger.LogError(e, "Failed to load {0}.", filename);
+                ServicesLocator.Current.Logger.LogError(e, "Failed to load {0}.", filename);
                 return default;
             }
         }
@@ -167,7 +167,7 @@ namespace BEditor.Plugin
             }
             catch (Exception e)
             {
-                LogManager.Logger.LogError(e, "Failed to load {0}.", filename);
+                ServicesLocator.Current.Logger.LogError(e, "Failed to load {0}.", filename);
                 return default;
             }
         }

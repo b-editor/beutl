@@ -48,7 +48,7 @@ namespace BEditor.Models
 
             Log.Logger = new LoggerConfiguration()
                 .Enrich.FromLogContext()
-                .WriteTo.File(new JsonFormatter(), Path.Combine(Settings.GetBaseDirectory(), "log.json"))
+                .WriteTo.File(new JsonFormatter(), Path.Combine(ServicesLocator.GetUserFolder(), "log.json"))
                 .CreateLogger();
 
             LoggingFactory = LoggerFactory.Create(builder =>
@@ -67,9 +67,8 @@ namespace BEditor.Models
                 .AddSingleton(_ => FileDialog)
                 .AddSingleton(_ => Message)
                 .AddSingleton(_ => LoggingFactory)
+                .AddSingleton<Microsoft.Extensions.Logging.ILogger>(_ => LoggingFactory.CreateLogger<IApplication>())
                 .AddSingleton<HttpClient>();
-
-            LogManager.Logger = LoggingFactory.CreateLogger<LogManager>();
         }
 
         public static AppModel Current { get; } = new();

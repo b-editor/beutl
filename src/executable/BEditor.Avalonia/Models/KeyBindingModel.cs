@@ -24,7 +24,7 @@ namespace BEditor.Models
 
         static KeyBindingModel()
         {
-            var file = Path.Combine(Settings.GetBaseDirectory(), "keybindings.json");
+            var file = Path.Combine(ServicesLocator.GetUserFolder(), "keybindings.json");
             if (!File.Exists(file))
             {
                 Bindings = new(CreateDefault());
@@ -79,14 +79,14 @@ namespace BEditor.Models
 
         public static void Save()
         {
-            using var reader = new StreamWriter(Path.Combine(Settings.GetBaseDirectory(), "keybindings.json"));
+            using var reader = new StreamWriter(Path.Combine(ServicesLocator.GetUserFolder(), "keybindings.json"));
             var json = JsonSerializer.Serialize(Bindings, Packaging.PackageFile._serializerOptions);
             reader.Write(json);
         }
 
         public static async Task SaveAsync()
         {
-            await using var stream = new FileStream(Path.Combine(Settings.GetBaseDirectory(), "keybindings.json"), FileMode.Create);
+            await using var stream = new FileStream(Path.Combine(ServicesLocator.GetUserFolder(), "keybindings.json"), FileMode.Create);
             await JsonSerializer.SerializeAsync(stream, Bindings, Packaging.PackageFile._serializerOptions);
         }
 

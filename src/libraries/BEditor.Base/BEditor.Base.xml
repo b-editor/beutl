@@ -1338,5 +1338,22 @@
             Gets the service provider.
             </summary>
         </member>
+        <member name="P:BEditor.ServicesLocator.Logger">
+            <summary>
+            Gets the logger.
+            </summary>
+        </member>
+        <member name="M:BEditor.ServicesLocator.GetUserFolder">
+            <summary>
+            Gets the settings folder.
+            </summary>
+            <returns>Returns the directory path.</returns>
+        </member>
+        <member name="M:BEditor.ServicesLocator.GetPluginsFolder">
+            <summary>
+            Gets the plugins folder.
+            </summary>
+            <returns>Returns the directory path.</returns>
+        </member>
     </members>
 </doc>

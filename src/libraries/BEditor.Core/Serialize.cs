@@ -297,7 +297,7 @@ namespace BEditor
 
         private static void Log(Exception e)
         {
-            LogManager.Logger?.LogWarning(e, "Failed to serialize or deserialize.");
+            ServicesLocator.Current.Logger.LogWarning(e, "Failed to serialize or deserialize.");
         }
     }
 }

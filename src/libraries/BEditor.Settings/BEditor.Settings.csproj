@@ -5,6 +5,7 @@
     </ItemGroup>
 
     <ItemGroup>
+        <ProjectReference Include="..\BEditor.Base\BEditor.Base.csproj" />
         <ProjectReference Include="..\BEditor.Packaging\BEditor.Packaging.csproj" />
     </ItemGroup>
 
