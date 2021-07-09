@@ -222,7 +222,8 @@ namespace BEditor
             }
             else
             {
-                return Path.Combine(AppContext.BaseDirectory, "user");
+                var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".config", "BEditor");
+                return dir;
             }
         }
     }
