@@ -46,13 +46,6 @@
                 ToolTip.Tip="{x:Static props:Strings.GraphicsProfileDescription}"/>
 
             <Separator Height="16" />
-            
-            <CheckBox
-                IsChecked="{CompiledBinding AssociateProjectFile.Value}"
-                Content="{x:Static props:Strings.AssociateProjectFileWindowsOnly}"
-                Classes="SettingsCheckBox" />
-
-            <Separator Height="16" />
 
             <Button
                 Margin="16,0,16,16"

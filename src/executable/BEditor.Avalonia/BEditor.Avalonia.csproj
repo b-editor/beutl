@@ -30,7 +30,6 @@
         <ProjectReference Include="..\..\libraries\BEditor.Graphics.Veldrid\BEditor.Graphics.Veldrid.csproj" />
         <ProjectReference Include="..\..\libraries\BEditor.Graphics.OpenGL\BEditor.Graphics.OpenGL.csproj" />
         <ProjectReference Include="..\..\libraries\BEditor.Graphics.Skia\BEditor.Graphics.Skia.csproj" />
-        <ProjectReference Include="..\..\libraries\Windows.Api\Windows.Api.csproj" />
         <ProjectReference Include="..\BEditor.PackageInstaller\BEditor.PackageInstaller.csproj" />
     </ItemGroup>
 

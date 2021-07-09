@@ -19,13 +19,6 @@ namespace BEditor.Views.Setup
 
         public void CloseClick(object s, RoutedEventArgs e)
         {
-            if (OperatingSystem.IsWindows()
-                && DataContext is CommonViewModel vm
-                && vm.AssociateProjectFile.Value)
-            {
-                new FileLink(".bedit", "BEditor Project File", "BEditor Project File", "open").Link();
-            }
-
             if (VisualRoot is Window w)
             {
                 w.Close();

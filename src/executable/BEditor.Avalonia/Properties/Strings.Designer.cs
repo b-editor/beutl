@@ -180,15 +180,6 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Associate the project file (Windows only).
-        /// </summary>
-        public static string AssociateProjectFileWindowsOnly {
-            get {
-                return ResourceManager.GetString("AssociateProjectFileWindowsOnly", resourceCulture);
-            }
-        }
-        
-        /// <summary>
         ///   Looks up a localized string similar to Audio.
         /// </summary>
         public static string Audio {
@@ -1532,15 +1523,6 @@ namespace BEditor.Properties {
         public static string Retry {
             get {
                 return ResourceManager.GetString("Retry", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Run the following command to install FFmpeg..
-        /// </summary>
-        public static string RunFollowingCommandToInstallFFmpeg {
-            get {
-                return ResourceManager.GetString("RunFollowingCommandToInstallFFmpeg", resourceCulture);
             }
         }
         

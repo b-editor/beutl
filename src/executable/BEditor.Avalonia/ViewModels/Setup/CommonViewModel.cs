@@ -57,7 +57,5 @@ namespace BEditor.ViewModels.Setup
         };
 
         public ReactiveProperty<string> SelectedProfile { get; } = new(BEditor.Settings.Default.GraphicsProfile);
-
-        public ReactiveProperty<bool> AssociateProjectFile { get; } = new(true);
     }
 }

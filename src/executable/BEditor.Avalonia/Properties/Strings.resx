@@ -481,9 +481,6 @@ Do you want to perform the operation?</value>
   <data name="Delete" xml:space="preserve">
     <value>Delete</value>
   </data>
-  <data name="RunFollowingCommandToInstallFFmpeg" xml:space="preserve">
-    <value>Run the following command to install FFmpeg.</value>
-  </data>
   <data name="Path" xml:space="preserve">
     <value>Path</value>
   </data>
@@ -811,8 +808,5 @@ Vulkan:
   </data>
   <data name="MachineTranslation" xml:space="preserve">
     <value>Machine translation</value>
-  </data>
-  <data name="AssociateProjectFileWindowsOnly" xml:space="preserve">
-    <value>Associate the project file (Windows only)</value>
   </data>
 </root>
