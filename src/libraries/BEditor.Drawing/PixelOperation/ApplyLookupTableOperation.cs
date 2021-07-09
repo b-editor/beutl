@@ -21,7 +21,7 @@ namespace BEditor.Drawing
     public static unsafe partial class Image
     {
         /// <summary>
-        /// Adjusts the gamma of the image.
+        /// Apply the Lookup Table.
         /// </summary>
         /// <param name="image">The image to apply the effect to.</param>
         /// <param name="lut">The lookup table.</param>

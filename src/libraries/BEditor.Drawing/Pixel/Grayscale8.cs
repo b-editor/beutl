@@ -1,4 +1,4 @@
-﻿// BGR24.cs
+﻿// Grayscale8.cs
 //
 // Copyright (C) BEditor
 //

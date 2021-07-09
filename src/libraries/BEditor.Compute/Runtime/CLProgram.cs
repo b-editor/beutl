@@ -68,6 +68,7 @@ namespace BEditor.Compute.Runtime
 
                 _ = CL.ReleaseProgram(Pointer);
 
+                GC.SuppressFinalize(this);
                 throw new Exception(e.Message + Environment.NewLine + Encoding.UTF8.GetString(log, 0, (int)logSize));
             }
         }

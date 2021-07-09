@@ -36,6 +36,14 @@ namespace BEditor.Primitive.Effects
         public override void Apply(EffectApplyArgs<Image<BGRA32>> args)
         {
             args.Value.Grayscale(Parent.Parent.DrawingContext);
+
+            // var mat = new ColorMatrix(
+            //     0.3086f, 0.3086f, 0.3086f, 0, 0,
+            //     0.6094f, 0.6094f, 0.6094f, 0, 0,
+            //     0.0820f, 0.0820f, 0.0820f, 0, 0,
+            //     0, 0, 0, 1, 0,
+            //     0, 0, 0, 0, 1);
+            // args.Value.Apply(ref mat, Parent.Parent.DrawingContext);
         }
 
         /// <inheritdoc/>

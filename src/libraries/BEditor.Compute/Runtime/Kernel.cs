@@ -143,6 +143,10 @@ namespace BEditor.Compute.Runtime
                 {
                     CL.SetKernelArg(Pointer, i, sizeof(Float4), &f4).CheckError();
                 }
+                else if (arg is Float5x5 f5x5)
+                {
+                    CL.SetKernelArg(Pointer, i, sizeof(Float5x5), &f5x5).CheckError();
+                }
             }
         }
 
