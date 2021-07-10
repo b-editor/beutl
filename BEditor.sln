@@ -18,14 +18,6 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "props", "props", "{9D217EAA
 		props\plugin.props = props\plugin.props
 	EndProjectSection
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "snippet", "snippet", "{39BF96E6-55EC-47FD-8201-568935D041DD}"
-	ProjectSection(SolutionItems) = preProject
-		snippet\EditingProperty.snippet = snippet\EditingProperty.snippet
-		snippet\EditingPropertyOptions.snippet = snippet\EditingPropertyOptions.snippet
-		snippet\EffectElement.snippet = snippet\EffectElement.snippet
-		snippet\PropertyElement.snippet = snippet\PropertyElement.snippet
-	EndProjectSection
-EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "test", "test", "{F406E94E-67F5-43BA-AD63-6CC5E526BA89}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "root", "root", "{65A7968B-18D8-4457-8EDE-7AAEFDEA288D}"
@@ -40,7 +32,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "root", "root", "{65A7968B-1
 		icon.png = icon.png
 		icon.svg = icon.svg
 		LICENSE = LICENSE
-		LICENSES.md = LICENSES.md
+		NOTICE.md = NOTICE.md
 		NuGet.Config = NuGet.Config
 		README.md = README.md
 		RELEASE_NOTES.md = RELEASE_NOTES.md

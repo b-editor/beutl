@@ -114,20 +114,20 @@ namespace BEditor.Extensions
         public static async ValueTask<AuthenticationLink?> LoadFromAsync(string filename, IAuthenticationProvider provider)
         {
             if (!File.Exists(filename)) return null;
-            using var reader = new StreamReader(filename);
-            var token = reader.ReadLine();
-            var reftoken = reader.ReadLine();
-
-            if (token is null || reftoken is null) return null;
-            var auth = new AuthenticationLink(
-                new()
-                {
-                    RefreshToken = reftoken,
-                    Token = token,
-                },
-                provider);
             try
             {
+                using var reader = new StreamReader(filename);
+                var token = reader.ReadLine();
+                var reftoken = reader.ReadLine();
+
+                if (token is null || reftoken is null) return null;
+                var auth = new AuthenticationLink(
+                    new()
+                    {
+                        RefreshToken = reftoken,
+                        Token = token,
+                    },
+                    provider);
                 await auth.RefreshAuthAsync();
 
                 return auth;
