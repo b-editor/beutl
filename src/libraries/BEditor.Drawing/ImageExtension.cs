@@ -249,20 +249,26 @@ namespace BEditor.Drawing
             return result;
         }
 
-        internal static Image<BGR24> ToImage24(this SKBitmap self)
-        {
-            var result = new Image<BGR24>(self.Width, self.Height);
-            CopyTo(self.Bytes, result.Data, result.DataSize);
-
-            return result;
-        }
-
         internal static Image<BGRA32> ToImage32(this SKBitmap self)
         {
-            var result = new Image<BGRA32>(self.Width, self.Height);
-            CopyTo(self.Bytes, result.Data!, result.DataSize);
+            if (self.ColorType is SKColorType.Bgra8888)
+            {
+                var result = new Image<BGRA32>(self.Width, self.Height);
+                CopyTo(self.Bytes, result.Data!, result.DataSize);
 
-            return result;
+                return result;
+            }
+            else
+            {
+                using var bmp = new SKBitmap(new SKImageInfo(self.Width, self.Height, SKColorType.Bgra8888));
+                using var canvas = new SKCanvas(bmp);
+                canvas.DrawBitmap(self, SKPoint.Empty);
+
+                var result = new Image<BGRA32>(self.Width, self.Height);
+                CopyTo(self.Bytes, result.Data!, result.DataSize);
+
+                return result;
+            }
         }
 
         internal static SKBitmap ToSKBitmap(this Image<BGR24> self)

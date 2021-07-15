@@ -289,7 +289,7 @@ namespace BEditor.Drawing
         {
             if (stream is null) throw new ArgumentNullException(nameof(stream));
 
-            using var bmp = SKBitmap.Decode(stream, SKImageInfo.Empty.WithColorType(SKColorType.Bgra8888));
+            using var bmp = SKBitmap.Decode(stream);
             var image = bmp.ToImage32();
 
             if (default(T) is BGRA32)
