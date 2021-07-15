@@ -1,11 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 using Avalonia.Controls;
-using Avalonia.Media;
 using Avalonia.Styling;
 
 namespace BEditor.Views
@@ -14,6 +9,8 @@ namespace BEditor.Views
     {
         public FluentWindow()
         {
+            SetValue(WindowConfig.SaveProperty, true);
+
             if (OperatingSystem.IsWindows())
             {
                 ExtendClientAreaToDecorationsHint = true;
