@@ -45,9 +45,25 @@ namespace BEditor.Drawing.Pixel
         }
 
         /// <inheritdoc/>
+        public Grayscale8 FromColor(Color color)
+        {
+            var ntsc = Image.Set255Round(
+                (color.R * 0.11448) +
+                (color.G * 0.58661) +
+                (color.B * 0.29891));
+            return new Grayscale8((byte)ntsc);
+        }
+
+        /// <inheritdoc/>
         public Grayscale8 Subtract(Grayscale8 foreground)
         {
             return new((byte)(Value - foreground.Value));
+        }
+
+        /// <inheritdoc/>
+        public Color ToColor()
+        {
+            return Color.FromArgb(Value, Value, Value, Value);
         }
     }
 }

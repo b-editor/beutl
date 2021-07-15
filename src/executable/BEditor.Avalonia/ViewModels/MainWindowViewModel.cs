@@ -260,7 +260,7 @@ namespace BEditor.ViewModels
                 {
                     using var img = scene.Render(ApplyType.Image);
 
-                    img.Encode(record.FileName);
+                    img.Save(record.FileName);
                 }
             });
 

@@ -18,7 +18,7 @@ namespace BEditor.Drawing
     /// Represents the ARGB (alpha, red, green, blue) color.
     /// </summary>
     [Serializable]
-    public struct Color : IEquatable<Color>, IFormattable, ISerializable
+    public partial struct Color : IEquatable<Color>, IFormattable, ISerializable
     {
         private const int ARGBAlphaShift = 24;
         private const int ARGBRedShift = 16;
@@ -153,58 +153,6 @@ namespace BEditor.Drawing
         public static bool operator !=(Color left, Color right)
         {
             return !(left == right);
-        }
-
-        /// <summary>
-        /// Creates a <see cref="Color"/> structure from a 32-bit ARGB value.
-        /// </summary>
-        /// <param name="argb">A value specifying the 32-bit ARGB value.</param>
-        /// <returns>The <see cref="Color"/> structure that this method creates.</returns>
-        [Obsolete("Use FromInt32.")]
-        public static Color FromARGB(int argb)
-        {
-            return FromARGB(unchecked((uint)argb));
-        }
-
-        /// <summary>
-        /// Creates a <see cref="Color"/> structure from a 32-bit ARGB value.
-        /// </summary>
-        /// <param name="argb">A value specifying the 32-bit ARGB value.</param>
-        /// <returns>The <see cref="Color"/> structure that this method creates.</returns>
-        [Obsolete("Use FromUInt32.")]
-        public static Color FromARGB(uint argb)
-        {
-            long color = argb;
-            return new(
-                unchecked((byte)(color >> ARGBAlphaShift)),
-                unchecked((byte)(color >> ARGBRedShift)),
-                unchecked((byte)(color >> ARGBGreenShift)),
-                unchecked((byte)(color >> ARGBBlueShift)));
-        }
-
-        /// <summary>
-        /// Creates a <see cref="Color"/> structure from the four ARGB component.
-        /// </summary>
-        /// <param name="a">The alpha component.</param>
-        /// <param name="r">The red component.</param>
-        /// <param name="g">The green component.</param>
-        /// <param name="b">The blue component.</param>
-        /// <returns>The <see cref="Color"/> that this method creates.</returns>
-        [Obsolete("Use FromArgb.")]
-        public static Color FromARGB(byte a, byte r, byte g, byte b)
-        {
-            return new(a, r, g, b);
-        }
-
-        /// <summary>
-        /// Creates a <see cref="Color"/> structure from the html color.
-        /// </summary>
-        /// <param name="htmlcolor">The value that specifies the html color.</param>
-        /// <returns>The <see cref="Color"/> that this method creates.</returns>
-        [Obsolete("Use Parse.")]
-        public static Color FromHTML(string? htmlcolor)
-        {
-            return Parse(htmlcolor);
         }
 
         /// <summary>

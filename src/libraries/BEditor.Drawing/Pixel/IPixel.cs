@@ -15,6 +15,19 @@ namespace BEditor.Drawing.Pixel
         where T : unmanaged, IPixel<T>
     {
         /// <summary>
+        /// Create a pixel from Color.
+        /// </summary>
+        /// <param name="color">The color.</param>
+        /// <returns>Returns the pixel.</returns>
+        public T FromColor(Color color);
+
+        /// <summary>
+        /// Convert this pixel to <see cref="Color"/>.
+        /// </summary>
+        /// <returns>Returns the color.</returns>
+        public Color ToColor();
+
+        /// <summary>
         /// Blend this color with other colors.
         /// </summary>
         /// <param name="foreground">Other colors to blend with this color.</param>

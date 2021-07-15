@@ -16,7 +16,9 @@ namespace BEditor.Drawing.Pixel
     [Serializable]
     [StructLayout(LayoutKind.Sequential)]
     [PixelFormat(4)]
+#pragma warning disable CS0618
     public struct BGRA32 : IPixel<BGRA32>, IGpuPixel<BGRA32>, IPixelConvertable<BGR24>, IPixelConvertable<RGB24>, IPixelConvertable<RGBA32>
+#pragma warning restore CS0618
     {
         /// <summary>
         /// The blue component.
@@ -200,6 +202,18 @@ __kernel void subtract(__global unsigned char* src, __global unsigned char* mask
     src[pos + 2] -= mask[pos + 2];
     src[pos + 3] -= mask[pos + 3];
 }";
+        }
+
+        /// <inheritdoc/>
+        public BGRA32 FromColor(Color color)
+        {
+            return new BGRA32(color.R, color.G, color.B, color.A);
+        }
+
+        /// <inheritdoc/>
+        public Color ToColor()
+        {
+            return this;
         }
     }
 }

@@ -1,6 +1,7 @@
 using System;
 
 using BEditor.Drawing;
+using BEditor.Drawing.Pixel;
 using BEditor.Drawing.PixelOperation;
 
 using NUnit.Framework;
@@ -17,7 +18,7 @@ namespace OpenCLTest
         [Test]
         public void Cpu()
         {
-            using var img = Image.Decode(FilePath);
+            using var img = Image<BGRA32>.FromFile(FilePath);
 
             img.Binarization(127);
         }
@@ -39,7 +40,7 @@ namespace OpenCLTest
         [Test]
         public void Gpu()
         {
-            using var img = Image.Decode(FilePath);
+            using var img = Image<BGRA32>.FromFile(FilePath);
 
             img.Binarization(127, context);
         }

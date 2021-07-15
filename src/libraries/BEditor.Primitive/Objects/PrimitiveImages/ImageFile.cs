@@ -133,8 +133,7 @@ namespace BEditor.Primitive.Objects
                 {
                     Source?.Value?.Dispose();
 
-                    using var stream = new FileStream(f, FileMode.Open);
-                    return Image.Decode(stream);
+                    return Image<BGRA32>.FromFile(f);
                 })
                 .ToReactiveProperty();
         }

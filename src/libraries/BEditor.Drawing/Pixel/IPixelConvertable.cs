@@ -5,12 +5,15 @@
 // This software may be modified and distributed under the terms
 // of the MIT license. See the LICENSE file for details.
 
+using System;
+
 namespace BEditor.Drawing.Pixel
 {
     /// <summary>
     /// Provides the ability to convert pixels.
     /// </summary>
     /// <typeparam name="T">The type of the pixel to convert.</typeparam>
+    [Obsolete("Do not use this interface.")]
     public interface IPixelConvertable<T>
         where T : unmanaged, IPixel<T>
     {

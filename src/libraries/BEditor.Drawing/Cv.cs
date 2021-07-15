@@ -16,26 +16,8 @@ namespace BEditor.Drawing
     /// <summary>
     /// Provides image processing using OpenCV.
     /// </summary>
-    public static class Cv
+    public static partial class Cv
     {
-        /// <summary>
-        /// Blurs an image using a Gaussian filter.
-        /// </summary>
-        /// <param name="image">The image to apply the effect to.</param>
-        /// <param name="kernelSize">The smoothing kernel size.</param>
-        [Obsolete("Use GaussianBlur(Image<BGRA32>, Size, double, double)")]
-        public static void GaussianBlur(Image<BGRA32> image, int kernelSize)
-        {
-            using var mat = image.ToMat();
-
-            if (kernelSize % 2 == 0)
-            {
-                kernelSize++;
-            }
-
-            Cv2.GaussianBlur(mat, mat, new(kernelSize, kernelSize), 0, 0);
-        }
-
         /// <summary>
         /// Blurs an image using a Gaussian filter.
         /// </summary>
@@ -82,24 +64,6 @@ namespace BEditor.Drawing
             }
 
             Cv2.MedianBlur(mat, mat, kernelSize);
-        }
-
-        /// <summary>
-        /// Smoothes image using normalized box filter.
-        /// </summary>
-        /// <param name="image">The image to apply the effect to.</param>
-        /// <param name="kernelSize">The smoothing kernel size.</param>
-        [Obsolete("Use Blur(Image<BGRA32>, Size)")]
-        public static void Blur(Image<BGRA32> image, int kernelSize)
-        {
-            using var mat = image.ToMat();
-
-            if (kernelSize % 2 == 0)
-            {
-                kernelSize++;
-            }
-
-            Cv2.Blur(mat, mat, new(kernelSize, kernelSize));
         }
 
         /// <summary>

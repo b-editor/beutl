@@ -71,7 +71,7 @@ namespace BEditor.Graphics.OpenGL
         /// <returns>Returns the texture created by this method.</returns>
         public static unsafe TextureImpl FromFile(string path, VertexPositionTexture[]? vertices = null)
         {
-            using var image = Image.Decode(path);
+            using var image = Image<BGRA32>.FromFile(path);
 
             return FromImage(image, vertices);
         }

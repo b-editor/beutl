@@ -473,32 +473,6 @@ namespace BEditor.Drawing
         }
 
         /// <summary>
-        /// Converts the <see cref="Image{T}"/>.
-        /// </summary>
-        /// <typeparam name="T1">The type of pixel before conversion.</typeparam>
-        /// <typeparam name="T2">The type of pixel after conversion.</typeparam>
-        /// <param name="image">The image to convert.</param>
-        /// <returns>Returns the converted image.</returns>
-        /// <exception cref="ArgumentNullException"><paramref name="image"/> is <see langword="null"/>.</exception>
-        /// <exception cref="ObjectDisposedException">Cannot access a disposed object.</exception>
-        public static Image<T2> Convert<T1, T2>(this Image<T1> image)
-            where T1 : unmanaged, IPixel<T1>, IPixelConvertable<T2>
-            where T2 : unmanaged, IPixel<T2>
-        {
-            if (image is null) throw new ArgumentNullException(nameof(image));
-            image.ThrowIfDisposed();
-            var dst = new Image<T2>(image.Width, image.Height, default(T2));
-
-            fixed (T1* srcPtr = image.Data)
-            fixed (T2* dstPtr = dst.Data)
-            {
-                PixelOperate(image.Data.Length, new ConvertToOperation<T1, T2>(srcPtr, dstPtr));
-            }
-
-            return dst;
-        }
-
-        /// <summary>
         /// Normalize the histogram.
         /// </summary>
         /// <param name="image">The image to normalize.</param>

@@ -381,7 +381,7 @@ namespace BEditor.Data
                         var thumbnail = Path.Combine(DirectoryName, "thumbnail.png");
                         CurrentScene.Render(img, ApplyType.Image);
 
-                        img.Encode(thumbnail);
+                        img.Save(thumbnail);
                     }
                     catch
                     {
@@ -443,7 +443,7 @@ namespace BEditor.Data
                         var thumbnail = Path.Combine(DirectoryName, "thumbnail.png");
                         CurrentScene.Render(img, ApplyType.Image);
 
-                        img.Encode(thumbnail);
+                        img.Save(thumbnail);
                     }
                     catch
                     {

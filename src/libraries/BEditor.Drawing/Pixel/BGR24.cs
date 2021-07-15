@@ -16,7 +16,9 @@ namespace BEditor.Drawing.Pixel
     [Serializable]
     [StructLayout(LayoutKind.Sequential)]
     [PixelFormat(3)]
+#pragma warning disable CS0618
     public struct BGR24 : IPixel<BGR24>, IPixelConvertable<BGRA32>, IPixelConvertable<RGBA32>, IPixelConvertable<RGB24>
+#pragma warning restore CS0618
     {
         /// <summary>
         /// The blue component.
@@ -107,6 +109,18 @@ namespace BEditor.Drawing.Pixel
         public readonly void ConvertTo(out RGB24 dst)
         {
             dst = new(R, G, B);
+        }
+
+        /// <inheritdoc/>
+        public BGR24 FromColor(Color color)
+        {
+            return new BGR24(color.R, color.G, color.B);
+        }
+
+        /// <inheritdoc/>
+        public Color ToColor()
+        {
+            return this;
         }
     }
 }

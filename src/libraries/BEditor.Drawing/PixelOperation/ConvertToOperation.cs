@@ -15,7 +15,7 @@ namespace BEditor.Drawing.PixelOperation
     /// <typeparam name="T1">The type of pixel before conversion.</typeparam>
     /// <typeparam name="T2">The type of pixel after conversion.</typeparam>
     public readonly unsafe struct ConvertToOperation<T1, T2> : IPixelOperation
-        where T1 : unmanaged, IPixel<T1>, IPixelConvertable<T2>
+        where T1 : unmanaged, IPixel<T1>
         where T2 : unmanaged, IPixel<T2>
     {
         private readonly T1* _src;
@@ -35,7 +35,8 @@ namespace BEditor.Drawing.PixelOperation
         /// <inheritdoc/>
         public readonly void Invoke(int p)
         {
-            _src[p].ConvertTo(out _dst[p]);
+            var color = _src[p].ToColor();
+            _dst[p] = default(T2).FromColor(color);
         }
     }
 }

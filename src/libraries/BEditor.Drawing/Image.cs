@@ -9,6 +9,7 @@ using System;
 using System.Buffers;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -20,6 +21,8 @@ using BEditor.Drawing.Resources;
 using BEditor.Drawing.RowOperation;
 
 using OpenCvSharp;
+
+using SkiaSharp;
 
 namespace BEditor.Drawing
 {
@@ -277,6 +280,104 @@ namespace BEditor.Drawing
             }
         }
 
+        /// <summary>
+        /// Decodes an image using the specified stream.
+        /// </summary>
+        /// <param name="stream">The stream of the image to decode.</param>
+        /// <returns>Returns the decoded image.</returns>
+        public static Image<T> FromStream(Stream stream)
+        {
+            if (stream is null) throw new ArgumentNullException(nameof(stream));
+
+            using var bmp = SKBitmap.Decode(stream, SKImageInfo.Empty.WithColorType(SKColorType.Bgra8888));
+            var image = bmp.ToImage32();
+
+            if (default(T) is BGRA32)
+            {
+                return (Image<T>)(object)image;
+            }
+
+            var converted = image.Convert<T>();
+            image.Dispose();
+            return converted;
+        }
+
+        /// <summary>
+        /// Decodes an image using the specified filename.
+        /// </summary>
+        /// <param name="file">The filename of the image to decode.</param>
+        /// <returns>Returns the decoded image.</returns>
+        public static Image<T> FromFile(string file)
+        {
+            if (file is null) throw new ArgumentNullException(nameof(file));
+            if (!File.Exists(file)) throw new FileNotFoundException(null, file);
+
+            using var stream = new FileStream(file, FileMode.Open);
+            return FromStream(stream);
+        }
+
+        /// <summary>
+        /// Encodes an image and returns a value if it was successful.
+        /// </summary>
+        /// <param name="file">The buffer for encoded data.</param>
+        /// <param name="format">The format of the image to encode.</param>
+        /// <param name="quality">The quality of the image.</param>
+        /// <returns>Returns <see langword="true"/> if the encoding succeeds, <see langword="false"/> if it fails.</returns>
+        public bool Save(string file, EncodedImageFormat format = EncodedImageFormat.Default, int quality = 100)
+        {
+            if (file is null) throw new ArgumentNullException(nameof(file));
+            ThrowIfDisposed();
+            format = format is EncodedImageFormat.Default
+                ? Image.ToImageFormat(file)
+                : format;
+
+            if (default(T) is BGRA32)
+            {
+                using var bmp = ((Image<BGRA32>)(object)this).ToSKBitmap();
+                using var stream = new FileStream(file, FileMode.Create);
+
+                return bmp.Encode(stream, (SKEncodedImageFormat)format, quality);
+            }
+            else
+            {
+                using var converted = Convert<BGRA32>();
+                using var bmp = converted.ToSKBitmap();
+                using var stream = new FileStream(file, FileMode.Create);
+
+                return bmp.Encode(stream, (SKEncodedImageFormat)format, quality);
+            }
+        }
+
+        /// <summary>
+        /// Encodes an image and returns a value if it was successful.
+        /// </summary>
+        /// <param name="stream">The buffer for encoded data.</param>
+        /// <param name="format">The format of the image to encode.</param>
+        /// <param name="quality">The quality of the image.</param>
+        /// <returns>Returns <see langword="true"/> if the encoding succeeds, <see langword="false"/> if it fails.</returns>
+        public bool Save(Stream stream, EncodedImageFormat format = EncodedImageFormat.Default, int quality = 100)
+        {
+            if (stream is null) throw new ArgumentNullException(nameof(stream));
+            ThrowIfDisposed();
+            format = format is EncodedImageFormat.Default
+                ? EncodedImageFormat.Png
+                : format;
+
+            if (default(T) is BGRA32)
+            {
+                using var bmp = ((Image<BGRA32>)(object)this).ToSKBitmap();
+
+                return bmp.Encode(stream, (SKEncodedImageFormat)format, quality);
+            }
+            else
+            {
+                using var converted = Convert<BGRA32>();
+                using var bmp = converted.ToSKBitmap();
+
+                return bmp.Encode(stream, (SKEncodedImageFormat)format, quality);
+            }
+        }
+
         /// <inheritdoc cref="ICloneable.Clone"/>
         public Image<T> Clone()
         {
@@ -471,7 +572,7 @@ namespace BEditor.Drawing
         /// <typeparam name="T2">The type of pixel after conversion.</typeparam>
         /// <returns>Returns the converted image.</returns>
         public Image<T2> Convert<T2>()
-            where T2 : unmanaged, IPixel<T2>, IPixelConvertable<T>
+            where T2 : unmanaged, IPixel<T2>
         {
             ThrowIfDisposed();
             var dst = new Image<T2>(Width, Height);
@@ -479,7 +580,7 @@ namespace BEditor.Drawing
             fixed (T* srcPtr = Data)
             fixed (T2* dstPtr = dst.Data)
             {
-                Parallel.For(0, Data.Length, new ConvertFromOperation<T, T2>(srcPtr, dstPtr).Invoke);
+                Parallel.For(0, Data.Length, new ConvertToOperation<T, T2>(srcPtr, dstPtr).Invoke);
             }
 
             return dst;

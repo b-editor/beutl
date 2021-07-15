@@ -44,7 +44,7 @@ namespace NUnitTestProject1
 
             img.DrawImage(new Point(0, 0), ellipse);
 
-            img.Encode(stream, EncodedImageFormat.Png);
+            img.Save(stream, EncodedImageFormat.Png);
         }
         [Test]
         public void AddEllipse()
@@ -63,7 +63,7 @@ namespace NUnitTestProject1
 
             img[rect] = blended;
 
-            img.Encode(stream, EncodedImageFormat.Png);
+            img.Save(stream, EncodedImageFormat.Png);
         }
         [Test]
         public void DrawTriangle()
@@ -78,7 +78,7 @@ namespace NUnitTestProject1
 
             img.DrawImage(new Point(0, 0), ellipse);
 
-            img.Encode(stream, EncodedImageFormat.Png);
+            img.Save(stream, EncodedImageFormat.Png);
         }
         [Test]
         public void TestIndexer()
@@ -99,7 +99,7 @@ namespace NUnitTestProject1
                 bgra.B = red;
             }
 
-            img.Encode(stream, EncodedImageFormat.Png);
+            img.Save(stream, EncodedImageFormat.Png);
         }
         [Test]
         public void TestFlip()
@@ -113,7 +113,7 @@ namespace NUnitTestProject1
 
             img.Flip(FlipMode.X | FlipMode.Y);
 
-            img.Encode(stream, EncodedImageFormat.Png);
+            img.Save(stream, EncodedImageFormat.Png);
         }
         [Test]
         public void TestRoundRect()
@@ -128,7 +128,7 @@ namespace NUnitTestProject1
 
             img.DrawImage(new Point(50, 50), rect);
 
-            img.Encode(stream, EncodedImageFormat.Png);
+            img.Save(stream, EncodedImageFormat.Png);
         }
         [Test]
         public void TestDilateErode()
@@ -143,7 +143,7 @@ namespace NUnitTestProject1
             img.Dilate(5);
             img.Erode(5);
 
-            img.Encode(stream, EncodedImageFormat.Png);
+            img.Save(stream, EncodedImageFormat.Png);
         }
         [Test]
         public unsafe void StackArray()
@@ -158,7 +158,7 @@ namespace NUnitTestProject1
 #endif
             image[new Rectangle(0, 0, circle.Width, circle.Height)] = circle;
 
-            image.Encode(stream, EncodedImageFormat.Png);
+            image.Save(stream, EncodedImageFormat.Png);
         }
         [Test]
         public void ColorFormat()

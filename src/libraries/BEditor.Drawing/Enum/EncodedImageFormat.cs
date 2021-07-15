@@ -13,6 +13,12 @@ namespace BEditor.Drawing
     public enum EncodedImageFormat
     {
         /// <summary>
+        /// The default.
+        /// If it cannot be determined from the file name, the format will be png.
+        /// </summary>
+        Default = -1,
+
+        /// <summary>
         /// The BMP image format.
         /// </summary>
         Bmp = 0,
