@@ -89,6 +89,7 @@ namespace BEditor.Data
                 Initializer = options.Initializer,
                 Serializer = options.Serializer,
                 IsDisposable = options.IsDisposable,
+                NotifyPropertyChanged = options.NotifyPropertyChanged,
             };
 
             EditingPropertyRegistry.Register(typeof(TOwner), property);
@@ -118,6 +119,7 @@ namespace BEditor.Data
                 Initializer = options.Initializer,
                 Serializer = options.Serializer,
                 IsDisposable = options.IsDisposable,
+                NotifyPropertyChanged = options.NotifyPropertyChanged,
             };
 
             EditingPropertyRegistry.Register(typeof(TOwner), property);
