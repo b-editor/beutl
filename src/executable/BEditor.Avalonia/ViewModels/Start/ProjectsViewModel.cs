@@ -9,6 +9,8 @@ using BEditor.Models;
 using BEditor.Models.Start;
 using BEditor.Properties;
 
+using Microsoft.Extensions.Logging;
+
 using Reactive.Bindings;
 
 namespace BEditor.ViewModels.Start
@@ -47,16 +49,26 @@ namespace BEditor.ViewModels.Start
 
                 if (project is null) return;
 
-                await Task.Run(() =>
+                try
                 {
-                    project.Load();
+                    await Task.Run(() =>
+                    {
+                        project.Load();
 
-                    app.Project = project;
-                    app.AppStatus = Status.Edit;
+                        app.Project = project;
+                        app.AppStatus = Status.Edit;
 
-                    _settings.RecentFiles.Remove(filename);
-                    _settings.RecentFiles.Add(filename);
-                });
+                        _settings.RecentFiles.Remove(filename);
+                        _settings.RecentFiles.Add(filename);
+                    });
+                }
+                catch(Exception e)
+                {
+                    app.Project = null;
+                    app.AppStatus = Status.Idle;
+                    ServicesLocator.Current.Logger.LogError("Failed to load project.", e);
+                    await AppModel.Current.Message.DialogAsync(string.Format(Strings.FailedToLoad, Strings.Project), IMessage.IconType.Error);
+                }
 
                 IsLoading.Value = true;
             });

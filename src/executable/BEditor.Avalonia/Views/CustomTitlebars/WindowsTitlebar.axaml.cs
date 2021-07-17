@@ -84,6 +84,8 @@ namespace BEditor.Views.CustomTitlebars
                 }
                 catch
                 {
+                    AppModel.Current.AppStatus = Status.Idle;
+                    AppModel.Current.Project = null;
                     Debug.Fail(string.Empty);
                     AppModel.Current.Message.Snackbar(string.Format(Strings.FailedToLoad, Strings.ProjectFile));
                 }

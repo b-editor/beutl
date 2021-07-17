@@ -24,7 +24,7 @@ namespace BEditor.Extensions.Svg
         public static readonly DirectProperty<SvgImage, EaseProperty> ScaleXProperty = EditingProperty.RegisterDirect<EaseProperty, SvgImage>(
             nameof(ScaleX),
             owner => owner.ScaleX,
-            (owner, obj) => owner.ScaleY = obj,
+            (owner, obj) => owner.ScaleX = obj,
             EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata("スケール X", 100, min: 0)).Serialize());
 
         public static readonly DirectProperty<SvgImage, EaseProperty> ScaleYProperty = EditingProperty.RegisterDirect<EaseProperty, SvgImage>(

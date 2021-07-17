@@ -7,6 +7,7 @@ using System.Text;
 using System.Threading.Tasks;
 
 using Avalonia;
+using Avalonia.Threading;
 
 using BEditor.Command;
 using BEditor.Data;
@@ -60,6 +61,8 @@ namespace BEditor.ViewModels
                     catch (Exception e)
                     {
                         Debug.Fail(string.Empty);
+                        App.Project = null;
+                        App.AppStatus = Status.Idle;
 
                         var msg = string.Format(Strings.FailedToLoad, Strings.Project);
                         App.Message.Snackbar(msg);
