@@ -103,72 +103,66 @@ namespace BEditor.Drawing
         /// <returns>Returns the RGB.</returns>
         public readonly Color ToColor()
         {
-            var h = H;
-            var s = S;
-            var v = V;
-
-            if (H == 360)
+            double r;
+            double g;
+            double b;
+            if (S == 0)
             {
-                h = 0;
+                r = g = b = Math.Round(V * 2.55);
+                return Color.FromArgb(255, (byte)r, (byte)g, (byte)b);
             }
 
-            s /= 100;
-            v /= 100;
+            var hh = H;
+            var ss = S / 100.0;
+            var vv = V / 100.0;
+            if (hh >= 360.0)
+                hh = 0.0;
+            hh /= 60.0;
 
-            if (s == 0)
-            {
-                var result = Color.FromArgb(255, 0, 0, 0);
-                result.R = (byte)(v * 255);
-                result.G = (byte)(v * 255);
-                result.B = (byte)(v * 255);
-                return result;
-            }
+            var i = (long)hh;
+            var ff = hh - i;
+            var p = vv * (1.0 - ss);
+            var q = vv * (1.0 - (ss * ff));
+            var t = vv * (1.0 - (ss * (1.0 - ff)));
 
-            var dh = Math.Floor(h / 60);
-            var p = v * (1 - s);
-            var q = v * (1 - (s * ((h / 60) - dh)));
-            var t = v * (1 - (s * (1 - ((h / 60) - dh))));
-            double r = 0;
-            double g = 0;
-            double b = 0;
-
-            switch (dh)
+            switch ((int)i)
             {
                 case 0:
-                    r = v;
+                    r = vv;
                     g = t;
                     b = p;
                     break;
                 case 1:
                     r = q;
-                    g = v;
+                    g = vv;
                     b = p;
                     break;
                 case 2:
                     r = p;
-                    g = v;
+                    g = vv;
                     b = t;
                     break;
                 case 3:
                     r = p;
                     g = q;
-                    b = v;
+                    b = vv;
                     break;
                 case 4:
                     r = t;
                     g = p;
-                    b = v;
+                    b = vv;
                     break;
-                case 5:
-                    r = v;
+                default:
+                    r = vv;
                     g = p;
                     b = q;
                     break;
             }
 
-            r = Math.Round(r * 255);
-            g = Math.Round(g * 255);
-            b = Math.Round(b * 255);
+            r = Math.Round(r * 255.0);
+            g = Math.Round(g * 255.0);
+            b = Math.Round(b * 255.0);
+
             return Color.FromArgb(255, (byte)r, (byte)g, (byte)b);
         }
 

@@ -128,6 +128,7 @@ namespace BEditor.Extensions.Svg
         public override IEnumerable<PropertyElement> GetProperties()
         {
             yield return Coordinate;
+            yield return Scale;
             yield return Blend;
             yield return Rotate;
             yield return Material;

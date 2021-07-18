@@ -108,7 +108,7 @@
                                     </TextBox>
                                 </Grid>
                             </TabItem>
-                            <TabItem Header="Alpha" Classes="picker" IsEnabled="{TemplateBinding UseAlpha}">
+                            <TabItem Header="Alpha" Classes="picker">
                                 <Grid RowDefinitions="Auto" ColumnDefinitions="*" Classes="properties">
                                     <NumericUpDown Value="{Binding Alpha, Mode=TwoWay}" Minimum="0" Maximum="100" Increment="0.5" FormatString="{}{0:N2} %" Classes="picker">
                                         <NumericUpDown.DataContext>

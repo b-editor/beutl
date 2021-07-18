@@ -351,13 +351,40 @@ namespace BEditor.Controls
     public class RgbProperties : ColorPickerProperties
     {
         public static readonly StyledProperty<byte> RedProperty
-            = AvaloniaProperty.Register<RgbProperties, byte>(nameof(Red), 0xFF);
+            = AvaloniaProperty.Register<RgbProperties, byte>(nameof(Red), 0xFF, validate: ValidateRed);
 
         public static readonly StyledProperty<byte> GreenProperty
-            = AvaloniaProperty.Register<RgbProperties, byte>(nameof(Green), 0x00);
+            = AvaloniaProperty.Register<RgbProperties, byte>(nameof(Green), 0x00, validate: ValidateGreen);
 
         public static readonly StyledProperty<byte> BlueProperty
-            = AvaloniaProperty.Register<RgbProperties, byte>(nameof(Blue), 0x00);
+            = AvaloniaProperty.Register<RgbProperties, byte>(nameof(Blue), 0x00, validate: ValidateBlue);
+
+        private static bool ValidateRed(byte red)
+        {
+            if (red > 255)
+            {
+                throw new ArgumentException("Invalid Red value.");
+            }
+            return true;
+        }
+
+        private static bool ValidateGreen(byte green)
+        {
+            if (green > 255)
+            {
+                throw new ArgumentException("Invalid Green value.");
+            }
+            return true;
+        }
+
+        private static bool ValidateBlue(byte blue)
+        {
+            if (blue > 255)
+            {
+                throw new ArgumentException("Invalid Blue value.");
+            }
+            return true;
+        }
 
         private bool _updating;
 
@@ -407,9 +434,9 @@ namespace BEditor.Controls
                 _updating = true;
                 var hsv = new Hsv(ColorPicker.Value1, ColorPicker.Value2, ColorPicker.Value3);
                 var rgb = hsv.ToColor();
-                Red = rgb.R;
-                Green = rgb.G;
-                Blue = rgb.B;
+                Red = (byte)rgb.R;
+                Green = (byte)rgb.G;
+                Blue = (byte)rgb.B;
                 _updating = false;
             }
         }
@@ -465,9 +492,9 @@ namespace BEditor.Controls
             return true;
         }
 
-        private bool _updating;
+        private bool _updating = false;
 
-        public CmykProperties()
+        public CmykProperties() : base()
         {
             this.GetObservable(CyanProperty).Subscribe(_ => UpdateColorPickerValues());
             this.GetObservable(MagentaProperty).Subscribe(_ => UpdateColorPickerValues());
@@ -667,9 +694,6 @@ namespace BEditor.Controls
         public static readonly StyledProperty<Color> ColorProperty
             = AvaloniaProperty.Register<ColorPicker, Color>(nameof(Color));
 
-        public static readonly StyledProperty<bool> UseAlphaProperty
-            = AvaloniaProperty.Register<ColorPicker, bool>(nameof(UseAlpha));
-
         private Canvas? _colorCanvas;
         private Thumb? _colorThumb;
         private Canvas? _hueCanvas;
@@ -717,12 +741,6 @@ namespace BEditor.Controls
         {
             get => GetValue(ColorProperty);
             set => SetValue(ColorProperty, value);
-        }
-
-        public bool UseAlpha
-        {
-            get => GetValue(UseAlphaProperty);
-            set => SetValue(UseAlphaProperty, value);
         }
 
         protected override void OnApplyTemplate(TemplateAppliedEventArgs e)

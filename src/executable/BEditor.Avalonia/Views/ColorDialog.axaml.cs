@@ -40,10 +40,9 @@ namespace BEditor.Views
                 if (DataContext is ColorPropertyViewModel vm)
                 {
                     var color = col.Color;
-                    vm.Command.Execute((color.R, color.G, color.B, col.UseAlpha ? color.A : (byte)255));
+                    vm.Command.Execute((color.R, color.G, color.B, color.A));
                 }
             };
-            col.Bind(ColorPicker.UseAlphaProperty, new Binding("Metadata.Value.UseAlpha") { Mode = BindingMode.OneTime });
 #if DEBUG
             this.AttachDevTools();
 #endif
@@ -55,8 +54,6 @@ namespace BEditor.Views
             InitializeComponent();
             col = this.FindControl<ColorPicker>("col");
             ok_button = this.FindControl<Button>("ok_button");
-
-            col.UseAlpha = viewModel.PropertyMetadata?.UseAlpha ?? false;
 #if DEBUG
             this.AttachDevTools();
 #endif

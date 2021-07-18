@@ -304,30 +304,51 @@ namespace BEditor.Drawing
         /// <returns>Returns the HSV.</returns>
         public readonly Hsv ToHsv()
         {
-            var max = Math.Max(Math.Max(R, G), B);
+            double h = default;
+            double s;
+            double v;
             var min = Math.Min(Math.Min(R, G), B);
-            var hsv = new Hsv(0, 0, max);
+            var max = Math.Max(Math.Max(R, G), B);
 
-            if (max != min)
+            var delta = max - min;
+
+            v = 100.0 * max / 255.0;
+
+            if (max == 0.0)
             {
-                // H(色相)
-                if (max == R) hsv.H = 60 * (G - B) / (max - min);
-                if (max == G) hsv.H = (60 * (B - R) / (max - min)) + 120;
-                if (max == B) hsv.H = (60 * (R - G) / (max - min)) + 240;
-
-                // S(彩度)
-                hsv.S = (max - min) / max;
+                s = 0;
+            }
+            else
+            {
+                s = 100.0 * delta / max;
             }
 
-            if (hsv.H < 0)
+            if (s == 0)
             {
-                hsv.H += 360;
+                h = 0;
+            }
+            else
+            {
+                if (R == max)
+                {
+                    h = 60.0 * (G - B) / delta;
+                }
+                else if (G == max)
+                {
+                    h = 120.0 + (60.0 * (B - R) / delta);
+                }
+                else if (B == max)
+                {
+                    h = 240.0 + (60.0 * (R - G) / delta);
+                }
+
+                if (h < 0.0)
+                {
+                    h += 360.0;
+                }
             }
 
-            hsv.H = Math.Round(hsv.H);
-            hsv.S = Math.Round(hsv.S * 100);
-            hsv.V = Math.Round(hsv.V / 255 * 100);
-            return hsv;
+            return new Hsv(h, s, v);
         }
 
         /// <summary>

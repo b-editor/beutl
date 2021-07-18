@@ -13,6 +13,7 @@ namespace BEditor.Views
 
             if (OperatingSystem.IsWindows())
             {
+                TransparencyLevelHint = WindowTransparencyLevel.AcrylicBlur;
                 ExtendClientAreaToDecorationsHint = true;
                 ExtendClientAreaChromeHints = Avalonia.Platform.ExtendClientAreaChromeHints.NoChrome;
                 ExtendClientAreaTitleBarHeightHint = -1;

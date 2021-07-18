@@ -5,6 +5,8 @@
 // This software may be modified and distributed under the terms
 // of the MIT license. See the LICENSE file for details.
 
+using System;
+
 using BEditor.Drawing;
 
 namespace BEditor.Data.Property
@@ -15,7 +17,7 @@ namespace BEditor.Data.Property
     /// <param name="Name">The string displayed in the property header.</param>
     /// <param name="DefaultColor">The default color.</param>
     /// <param name="UseAlpha">The value of whether to use alpha components or not.</param>
-    public record ColorPropertyMetadata(string Name, Color DefaultColor, bool UseAlpha = false)
+    public record ColorPropertyMetadata(string Name, Color DefaultColor, [property: Obsolete("Obsolete")] bool UseAlpha = false)
         : PropertyElementMetadata(Name), IEditingPropertyInitializer<ColorProperty>
     {
         /// <inheritdoc/>
