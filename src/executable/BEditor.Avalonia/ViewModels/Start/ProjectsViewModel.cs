@@ -62,7 +62,7 @@ namespace BEditor.ViewModels.Start
                         _settings.RecentFiles.Add(filename);
                     });
                 }
-                catch(Exception e)
+                catch (Exception e)
                 {
                     app.Project = null;
                     app.AppStatus = Status.Idle;
