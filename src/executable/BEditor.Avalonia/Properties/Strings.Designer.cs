@@ -1518,6 +1518,15 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Reset layout.
+        /// </summary>
+        public static string ResetLayout {
+            get {
+                return ResourceManager.GetString("ResetLayout", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Retry.
         /// </summary>
         public static string Retry {

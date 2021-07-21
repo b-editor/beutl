@@ -74,7 +74,7 @@
                 <MenuItem Header="{x:Static prop:Strings.RecentFiles}" x:Name="RecentFiles" />
 
                 <!--終了-->
-                <MenuItem Header="{x:Static prop:Strings.Shutdown}"/>
+                <MenuItem Command="{CompiledBinding Shutdown, Mode=OneTime}" Header="{x:Static prop:Strings.Shutdown}"/>
 
             </MenuItem>
             <MenuItem Header="{x:Static prop:Strings.Edit}">
@@ -162,7 +162,7 @@
                 
             </MenuItem>
             <MenuItem Header="{x:Static prop:Strings.View}">
-
+                <MenuItem Click="ResetLayout" Header="{x:Static prop:Strings.ResetLayout}" />
             </MenuItem>
             <MenuItem Header="{x:Static prop:Strings.Tool}">
 

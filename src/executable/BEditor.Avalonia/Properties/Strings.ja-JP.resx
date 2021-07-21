@@ -812,4 +812,7 @@ Vulkan:
   <data name="ZoomIn" xml:space="preserve">
     <value>拡大表示</value>
   </data>
+  <data name="ResetLayout" xml:space="preserve">
+    <value>レイアウトをリセット</value>
+  </data>
 </root>

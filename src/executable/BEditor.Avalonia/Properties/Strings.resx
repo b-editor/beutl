@@ -812,4 +812,7 @@ Vulkan:
   <data name="ZoomIn" xml:space="preserve">
     <value>Zoom in</value>
   </data>
+  <data name="ResetLayout" xml:space="preserve">
+    <value>Reset layout</value>
+  </data>
 </root>

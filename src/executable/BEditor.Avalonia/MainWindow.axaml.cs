@@ -1,6 +1,10 @@
 using System;
+using System.ComponentModel;
+using System.IO;
 using System.Linq;
 using System.Reactive.Linq;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 
 using Avalonia;
@@ -28,6 +32,15 @@ namespace BEditor
 {
     public class MainWindow : FluentWindow
     {
+        private class LayoutConfig
+        {
+            [JsonPropertyName("columnDefinitions")]
+            public string ColumnDefinitions { get; set; } = "425,Auto,*,Auto,2*";
+
+            [JsonPropertyName("rowDefinitions")]
+            public string RowDefinitions { get; set; } = "Auto,Auto,*,Auto,*,Auto";
+        }
+
         public MainWindow()
         {
             var vm = MainWindowViewModel.Current;
@@ -48,6 +61,8 @@ namespace BEditor
                     layoutable.Margin = default;
                 }
             });
+
+            ApplyConfig();
 #if DEBUG
             this.AttachDevTools();
 #endif
@@ -105,6 +120,51 @@ namespace BEditor
             this.FindControl<Library>("Library").InitializeTreeView();
 
             this.FindControl<WindowsTitlebar>("Titlebar").InitializePluginMenu();
+        }
+
+        protected override void OnClosing(CancelEventArgs e)
+        {
+            base.OnClosing(e);
+
+            if (Content is Grid grid)
+            {
+                var path = Path.Combine(WindowConfig.GetFolder(), "MainWindowLayout.json");
+                try
+                {
+                    var json = JsonSerializer.Serialize(new LayoutConfig
+                    {
+                        ColumnDefinitions = grid.ColumnDefinitions.ToString(),
+                        RowDefinitions = string.Join(",", grid.RowDefinitions.Select(x => x.Height)),
+                    }, Packaging.PackageFile._serializerOptions);
+
+                    File.WriteAllText(path, json);
+                }
+                catch
+                {
+                }
+            }
+        }
+
+        private void ApplyConfig()
+        {
+            if (Content is Grid grid)
+            {
+                var path = Path.Combine(WindowConfig.GetFolder(), "MainWindowLayout.json");
+                if (!File.Exists(path)) return;
+                try
+                {
+                    var json = File.ReadAllText(path);
+
+                    var obj = JsonSerializer.Deserialize<LayoutConfig>(json, Packaging.PackageFile._serializerOptions);
+                    if (obj is null) return;
+
+                    grid.ColumnDefinitions = new(obj.ColumnDefinitions);
+                    grid.RowDefinitions = new(obj.RowDefinitions);
+                }
+                catch
+                {
+                }
+            }
         }
 
         private void InitializeComponent()

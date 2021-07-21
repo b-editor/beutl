@@ -173,6 +173,21 @@ namespace BEditor.Views.CustomTitlebars
             }
         }
 
+        public void ResetLayout(object s, RoutedEventArgs e)
+        {
+            if (VisualRoot is MainWindow window && window.Content is Grid grid)
+            {
+                grid.ColumnDefinitions = new("425,Auto,*,Auto,2*");
+                grid.RowDefinitions = new("Auto,Auto,*,Auto,*,Auto");
+
+                foreach (var item in System.IO.Directory.EnumerateFiles(WindowConfig.GetFolder())
+                    .Where(i => System.IO.File.Exists(i)))
+                {
+                    System.IO.File.Delete(item);
+                }
+            }
+        }
+
         public async void ConvertVideo(object s, RoutedEventArgs e)
         {
             if (VisualRoot is Window window)

@@ -108,6 +108,8 @@ namespace BEditor.ViewModels
                     app.AppStatus = Status.Idle;
                 });
 
+            Shutdown.Subscribe(() => BEditor.App.Shutdown(0));
+
             Undo.Where(_ => CommandManager.Default.CanUndo)
                 .Subscribe(async _ =>
                 {
