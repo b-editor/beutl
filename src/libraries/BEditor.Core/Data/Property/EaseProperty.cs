@@ -359,7 +359,6 @@ namespace BEditor.Data.Property
         /// <inheritdoc/>
         protected override void OnLoad()
         {
-            // Todo: ここに範囲外の場合の処理を書く
             EasingType.Load();
             EasingType.Parent = this;
         }

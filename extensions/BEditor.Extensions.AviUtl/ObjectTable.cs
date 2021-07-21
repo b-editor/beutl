@@ -202,7 +202,7 @@ namespace BEditor.Extensions.AviUtl
             _imageobj.ServiceProvider?.GetService<IMessage>()?.Snackbar(text);
         }
 
-        // Todo
+        // Todo: エフェクトを実装
         public void effect(string name, params object[] param)
         {
             throw new NotImplementedException();

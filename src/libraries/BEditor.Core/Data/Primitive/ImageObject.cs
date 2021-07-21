@@ -169,7 +169,6 @@ namespace BEditor.Data.Primitive
         /// <param name="image">Returns the rendered image.</param>
         public void Render(EffectApplyArgs args, out Image<BGRA32>? image)
         {
-            // Todo: 多重オブジェクトに対応させる
             var base_img = OnRender(args);
 
             if (base_img is null)

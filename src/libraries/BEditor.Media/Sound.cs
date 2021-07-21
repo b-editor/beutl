@@ -262,8 +262,7 @@ namespace BEditor.Media
         /// <param name="sound">The sound to combine.</param>
         public void Combine(Sound<T> sound)
         {
-            // Todo : Add message
-            if (sound.SampleRate != SampleRate) throw new Exception();
+            if (sound.SampleRate != SampleRate) throw new Exception("Sounds with different SampleRates cannot be synthesized.");
 
             Parallel.For(0, Math.Min(sound.NumSamples, NumSamples), i => Data[i] = Data[i].Combine(sound.Data[i]));
         }
