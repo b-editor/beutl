@@ -208,7 +208,7 @@ namespace BEditor.ViewModels.Timelines
                 int start = selectedClip.Parent.ToFrame(selectedClip.GetCreateClipViewModel().MarginLeft);
                 int end = selectedClip.Parent.ToFrame(selectedClip.GetCreateClipViewModel().WidthProperty.Value) + start;
 
-                if (0 < start && 0 < end)
+                if (0 <= start && 0 < end)
                 {
                     selectedClip.ChangeLength(start, end).Execute();
                 }
