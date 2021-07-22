@@ -31,6 +31,7 @@ namespace BEditor.Data.Property
         private IBindable<string>? _bindable;
         private Guid? _targetID;
         private FilePathType _mode;
+        private string _rawValue = string.Empty;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="FolderProperty"/> class.
@@ -46,7 +47,7 @@ namespace BEditor.Data.Property
         /// <summary>
         /// Gets the name of the selected folder.
         /// </summary>
-        public string RawValue { get; private set; } = string.Empty;
+        public string RawValue => _rawValue ??= string.Empty;
 
         /// <summary>
         /// Gets or sets the name of the selected folder.
@@ -62,7 +63,7 @@ namespace BEditor.Data.Property
             {
                 if (value != Value)
                 {
-                    RawValue = GetFullPath(value);
+                    _rawValue = GetFullPath(value);
 
                     RaisePropertyChanged(DocumentProperty._valueArgs);
                     var value1 = Value;
@@ -99,7 +100,7 @@ namespace BEditor.Data.Property
             {
                 if (SetAndRaise(value, ref _mode, _modeArgs))
                 {
-                    RawValue = GetPath();
+                    _rawValue = GetPath();
                 }
             }
         }
