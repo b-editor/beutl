@@ -57,13 +57,13 @@ namespace BEditor.Data.Property
             get
             {
                 if (Parent?.Parent?.Parent?.Parent?.DirectoryName is null) return RawValue;
-                return (_mode is FilePathType.FromProject) ? Path.GetFullPath(RawValue, Parent.Parent.Parent.Parent.DirectoryName!) : RawValue;
+                return (_mode is FilePathType.FromProject) ? GetFullPath(RawValue) : RawValue;
             }
             set
             {
                 if (value != Value)
                 {
-                    _rawValue = GetFullPath(value);
+                    _rawValue = ToFormattedPath(value);
 
                     RaisePropertyChanged(DocumentProperty._valueArgs);
                     var value1 = Value;
@@ -125,9 +125,9 @@ namespace BEditor.Data.Property
         public override void SetObjectData(JsonElement element)
         {
             base.SetObjectData(element);
-            Value = element.TryGetProperty(nameof(Value), out var value) ? value.GetString() ?? string.Empty : string.Empty;
+            _rawValue = element.TryGetProperty(nameof(Value), out var value) ? value.GetString() ?? string.Empty : string.Empty;
             TargetID = element.TryGetProperty(nameof(TargetID), out var bind) && bind.TryGetGuid(out var guid) ? guid : null;
-            Mode = element.TryGetProperty(nameof(Mode), out var mode) && mode.TryGetInt32(out var modei) ? (FilePathType)modei : FilePathType.FullPath;
+            _mode = element.TryGetProperty(nameof(Mode), out var mode) && mode.TryGetInt32(out var modei) ? (FilePathType)modei : FilePathType.FullPath;
         }
 
         /// <summary>
@@ -178,6 +178,13 @@ namespace BEditor.Data.Property
             this.AutoLoad(ref _targetID);
         }
 
+        private string GetFullPath(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path)) return string.Empty;
+
+            return Path.GetFullPath(path, this.GetRequiredParent<Project>().DirectoryName);
+        }
+
         private string GetPath()
         {
             if (Mode is FilePathType.FullPath)
@@ -200,7 +207,7 @@ namespace BEditor.Data.Property
             }
         }
 
-        private string GetFullPath(string fullpath)
+        private string ToFormattedPath(string fullpath)
         {
             if (Mode is FilePathType.FullPath)
             {
@@ -208,12 +215,8 @@ namespace BEditor.Data.Property
             }
             else
             {
-                if (Parent?.Parent?.Parent?.Parent?.DirectoryName is not null)
-                {
-                    return Path.GetRelativePath(Parent.Parent.Parent.Parent.DirectoryName!, fullpath);
-                }
-
-                return RawValue;
+                if (string.IsNullOrWhiteSpace(fullpath)) return string.Empty;
+                return Path.GetRelativePath(this.GetRequiredParent<Project>().DirectoryName, fullpath);
             }
         }
 
