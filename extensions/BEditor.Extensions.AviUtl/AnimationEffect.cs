@@ -71,6 +71,7 @@ namespace BEditor.Extensions.AviUtl
                 {
                     ServicesLocator.Current.Logger.LogError(e, Strings.FailedToExecuteScript);
                     ServiceProvider?.GetService<IMessage>()?.Snackbar(Strings.FailedToExecuteScript);
+                    IsEnabled = false;
                 }
             }
             Parent.Parent.GraphicsContext!.PlatformImpl.MakeCurrent();

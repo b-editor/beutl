@@ -5,7 +5,7 @@
     * 輝度
     * 彩度
     * 飽和する
-* クリッピング (BEditor.Primitive.Effects.Clipping)
+* クリッピング ☑
     * 上
     * 下
     * 左

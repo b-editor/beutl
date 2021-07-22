@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Diagnostics.CodeAnalysis;
+using System.IO;
 using System.Linq;
-using System.Numerics;
 
 using BEditor.Data;
 using BEditor.Data.Primitive;
@@ -205,7 +205,7 @@ namespace BEditor.Extensions.AviUtl
         // Todo: エフェクトを実装
         public void effect(string name, params object[] param)
         {
-            throw new NotImplementedException();
+            this.Apply(ref _img, name, param);
         }
 
         /// <summary>
@@ -382,7 +382,7 @@ namespace BEditor.Extensions.AviUtl
             ctxt.DrawTexture(texture);
         }
 
-        public void load(string type, params dynamic[] args)
+        public void load(string type, params object[] args)
         {
             _img.Dispose();
             var context = _imageobj.Parent.Parent.GraphicsContext!;
@@ -390,16 +390,24 @@ namespace BEditor.Extensions.AviUtl
             {
                 case "movie":
                     _img = LoadMovie(
-                        GetArgValue(args, 0, null),
-                        GetArgValue(args, 1, time),
-                        GetArgValue(args, 2, 0));
+                        args.GetArgValue<string?>(0, null),
+                        TimeSpan.FromSeconds(args.GetArgValue(1, time)),
+                        args.GetArgValue(2, 0));
                     break;
                 case "image":
-                    _img = Image.Decode(GetArgValue(args, 0, null));
+                    var file = args.GetArgValue<string?>(0, null);
+                    if (File.Exists(file))
+                    {
+                        _img = new(1, 1);
+                    }
+                    else
+                    {
+                        _img = Image<BGRA32>.FromFile(file!);
+                    }
                     break;
                 case "text":
                     _img = Image.Text(
-                        GetArgValue(args, 0, ""),
+                        args.GetArgValue(0, ""),
                         _font,
                         _fontsize,
                         _fontcolor,
@@ -407,11 +415,11 @@ namespace BEditor.Extensions.AviUtl
                         VerticalAlign.Top);
                     break;
                 case "figure":
-                    var name = GetArgValue(args, 0, "円");
-                    var color = Color.FromInt32(GetArgValue(args, 1, 0xffffff));
+                    var name = args.GetArgValue(0, "円");
+                    var color = Color.FromInt32(args.GetArgValue(1, 0xffffff));
                     color = Color.FromArgb(255, color.R, color.G, color.B);
-                    var size = GetArgValue(args, 2, 100);
-                    var line = GetArgValue(args, 3, size);
+                    var size = args.GetArgValue(2, 100);
+                    var line = args.GetArgValue(3, size);
 
                     if (name is "円")
                     {
@@ -438,10 +446,10 @@ namespace BEditor.Extensions.AviUtl
                     context = _sharedGraphics;
                     goto case "framebuffer";
                 case "framebuffer":
-                    var x = GetArgValue(args, 0, 0);
-                    var y = GetArgValue(args, 1, 0);
-                    var h = GetArgValue(args, 2, context.Width);
-                    var w = GetArgValue(args, 3, context.Height);
+                    var x = args.GetArgValue(0, 0);
+                    var y = args.GetArgValue(1, 0);
+                    var h = args.GetArgValue(2, context.Width);
+                    var w = args.GetArgValue(3, context.Height);
                     var buffer = new Image<BGRA32>(context.Width, context.Height);
 
                     context.ReadImage(buffer);
@@ -504,15 +512,15 @@ namespace BEditor.Extensions.AviUtl
                     }
                     else if (value[0] == "tempbuffer")
                     {
-                        var w = GetArgValue(value, 1, _sharedGraphics.Width);
-                        var h = GetArgValue(value, 2, _sharedGraphics.Height);
+                        var w = value.GetArgValue(1, _sharedGraphics.Width);
+                        var h = value.GetArgValue(2, _sharedGraphics.Height);
 
                         _drawTarget = DrawTarget.TempBuffer;
                         _sharedGraphics.SetSize(new(w, h));
                     }
                     break;
                 case "draw_state":
-                    _args.Handled = GetArgValue(value, 0, _args.Handled);
+                    _args.Handled = value.GetArgValue( 0, _args.Handled);
                     break;
                 default:
                     throw new NotImplementedException();
@@ -583,18 +591,6 @@ namespace BEditor.Extensions.AviUtl
 
                 var result = curve.CalculatePoint(time);
                 return (result.X, result.Y, result.Z);
-            }
-        }
-
-        private static dynamic? GetArgValue(dynamic[] args, int index, dynamic? @default)
-        {
-            if (index < args.Length)
-            {
-                return args[index];
-            }
-            else
-            {
-                return @default;
             }
         }
 
