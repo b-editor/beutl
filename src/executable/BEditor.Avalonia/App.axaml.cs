@@ -156,20 +156,10 @@ namespace BEditor
                 var jsonfile = Path.Combine(ServicesLocator.GetUserFolder(), "package-install.json");
                 PluginChangeSchedule.CreateJsonFile(jsonfile);
 
-                if (OperatingSystem.IsWindows())
+                Process.Start(new ProcessStartInfo(Path.Combine(AppContext.BaseDirectory, "beditor"), $"package-install {jsonfile}")
                 {
-                    Process.Start(new ProcessStartInfo(Path.Combine(AppContext.BaseDirectory, "beditor.exe"), $"package-install {jsonfile}")
-                    {
-                        UseShellExecute = true
-                    });
-                }
-                else if (OperatingSystem.IsLinux())
-                {
-                    Process.Start(new ProcessStartInfo(Path.Combine(AppContext.BaseDirectory, "beditor"), $"package-install {jsonfile}")
-                    {
-                        UseShellExecute = true
-                    });
-                }
+                    UseShellExecute = true
+                });
             }
 
             AppModel.Current.AudioContext?.Dispose();

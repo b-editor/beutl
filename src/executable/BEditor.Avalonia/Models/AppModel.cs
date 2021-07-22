@@ -48,15 +48,10 @@ namespace BEditor.Models
 
             Log.Logger = new LoggerConfiguration()
                 .Enrich.FromLogContext()
-                .WriteTo.File(new JsonFormatter(), Path.Combine(ServicesLocator.GetUserFolder(), "log.json"))
+                .WriteTo.File(new JsonFormatter(null, true), Path.Combine(ServicesLocator.GetUserFolder(), "log.json"))
                 .CreateLogger();
 
-            LoggingFactory = LoggerFactory.Create(builder =>
-            {
-                builder
-                    .AddDebug()
-                    .AddSerilog(Log.Logger);
-            });
+            LoggingFactory = LoggerFactory.Create(builder => builder.AddSerilog(Log.Logger, true));
 
             // DIの設定
             Services = new ServiceCollection()
