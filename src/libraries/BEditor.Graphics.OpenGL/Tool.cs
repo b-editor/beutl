@@ -118,6 +118,31 @@ namespace BEditor.Graphics.OpenGL
             }
         }
 
+        public static void Throw(FramebufferErrorCode code)
+        {
+            if (code is not (FramebufferErrorCode.FramebufferComplete or FramebufferErrorCode.FramebufferCompleteExt))
+            {
+                var description = code switch
+                {
+                    FramebufferErrorCode.FramebufferUndefined => code.ToString("g"),
+                    FramebufferErrorCode.FramebufferComplete => code.ToString("g"),
+                    FramebufferErrorCode.FramebufferIncompleteAttachment => code.ToString("g"),
+                    FramebufferErrorCode.FramebufferIncompleteMissingAttachment => code.ToString("g"),
+                    FramebufferErrorCode.FramebufferIncompleteDimensionsExt => code.ToString("g"),
+                    FramebufferErrorCode.FramebufferIncompleteFormatsExt => code.ToString("g"),
+                    FramebufferErrorCode.FramebufferIncompleteDrawBuffer => code.ToString("g"),
+                    FramebufferErrorCode.FramebufferIncompleteReadBuffer => code.ToString("g"),
+                    FramebufferErrorCode.FramebufferUnsupported => code.ToString("g"),
+                    FramebufferErrorCode.FramebufferIncompleteMultisample => code.ToString("g"),
+                    FramebufferErrorCode.FramebufferIncompleteLayerTargets => code.ToString("g"),
+                    FramebufferErrorCode.FramebufferIncompleteLayerCount => code.ToString("g"),
+                    _ => string.Empty,
+                };
+
+                throw new GraphicsException(description);
+            }
+        }
+
         public static BallImpl ToImpl(this Ball ball)
         {
             return new(ball.RadiusX, ball.RadiusY, ball.RadiusZ);
