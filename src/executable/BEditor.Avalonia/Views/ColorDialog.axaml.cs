@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 
 using Avalonia;
 using Avalonia.Controls;
@@ -8,6 +10,8 @@ using Avalonia.Markup.Xaml;
 
 using BEditor.Controls;
 using BEditor.Data.Property;
+using BEditor.Drawing;
+using BEditor.Extensions;
 using BEditor.ViewModels.Properties;
 using BEditor.Views.DialogContent;
 
@@ -23,6 +27,7 @@ namespace BEditor.Views
             InitializeComponent();
             col = this.FindControl<ColorPicker>("col");
             ok_button = this.FindControl<Button>("ok_button");
+            Reload_Palette(null, null);
 #if DEBUG
             this.AttachDevTools();
 #endif
@@ -43,6 +48,7 @@ namespace BEditor.Views
                     vm.Command.Execute((color.R, color.G, color.B, color.A));
                 }
             };
+            Reload_Palette(null, null);
 #if DEBUG
             this.AttachDevTools();
 #endif
@@ -54,6 +60,7 @@ namespace BEditor.Views
             InitializeComponent();
             col = this.FindControl<ColorPicker>("col");
             ok_button = this.FindControl<Button>("ok_button");
+            Reload_Palette(null, null);
 #if DEBUG
             this.AttachDevTools();
 #endif
@@ -71,6 +78,24 @@ namespace BEditor.Views
             Content = null;
             DataContext = null;
             Close();
+        }
+
+        public void PaletteItem_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is Button btn && btn.DataContext is KeyValuePair<string, Color> pair)
+            {
+                col.Color = pair.Value.ToAvalonia();
+                var tab = this.FindControl<TabControl>("Tab");
+                tab.SelectedIndex = 0;
+            }
+        }
+
+        private async void Reload_Palette(object? s, RoutedEventArgs? e)
+        {
+            var paletteItems = this.FindControl<ItemsControl>("PaletteItems");
+            await Task.Run(() => PaletteRegistry.Load());
+
+            paletteItems.Items = PaletteRegistry.GetRegistered();
         }
 
         private void InitializeComponent()

@@ -13,12 +13,49 @@
     x:Class="BEditor.Views.ColorDialog">
     <Grid RowDefinitions="*,Auto">
 
-        <TabControl>
+        <TabControl x:Name="Tab">
             <TabItem Header="{x:Static property:Strings.ColorPicker}" FontSize="14">
                 <col:ColorPicker x:Name="col" />
             </TabItem>
             <TabItem Header="{x:Static property:Strings.ColorPalette}" FontSize="14">
-
+                <ScrollViewer>
+                    <ScrollViewer.ContextMenu>
+                        <ContextMenu>
+                            <MenuItem Header="{x:Static property:Strings.Reload}" Click="Reload_Palette">
+                                <MenuItem.Icon>
+                                    <PathIcon Data="{StaticResource ArrowClockwise24Regular}" Width="16" Height="16" />
+                                </MenuItem.Icon>
+                            </MenuItem>
+                        </ContextMenu>
+                    </ScrollViewer.ContextMenu>
+                    <ItemsControl x:Name="PaletteItems">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Expander Header="{Binding Name, Mode=OneWay}" HorizontalContentAlignment="Stretch">
+                                    <ItemsControl Items="{Binding Colors}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Button
+                                                    Click="PaletteItem_Click"
+                                                    Width="60"
+                                                    Height="60"
+                                                    Margin="2"
+                                                    ToolTip.Tip="{Binding Key}">
+                                                    <Rectangle Fill="{Binding Value, Converter={StaticResource ColorToSolidColorBrushConverter}}" Width="60" Height="60" />
+                                                </Button>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <WrapPanel />
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                    </ItemsControl>
+                                </Expander>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </ScrollViewer>
             </TabItem>
         </TabControl>
 

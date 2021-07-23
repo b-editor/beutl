@@ -85,6 +85,7 @@ namespace BEditor.Drawing
             {
                 _registered.Clear();
                 directory ??= _path;
+                if (!Directory.Exists(directory)) Directory.CreateDirectory(directory);
 
                 foreach (var item in Directory.EnumerateFiles(directory, "*.json"))
                 {
@@ -114,6 +115,7 @@ namespace BEditor.Drawing
             try
             {
                 directory ??= _path;
+                if (!Directory.Exists(directory)) Directory.CreateDirectory(directory);
                 foreach (var item in _registered)
                 {
                     using var stream = new FileStream(Path.Combine(directory, (item.Name ?? item.Id.ToString()) + ".json"), FileMode.Create);

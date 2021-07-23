@@ -1500,6 +1500,15 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Reload.
+        /// </summary>
+        public static string Reload {
+            get {
+                return ResourceManager.GetString("Reload", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Remove.
         /// </summary>
         public static string Remove {

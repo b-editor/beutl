@@ -815,4 +815,7 @@ Vulkan:
   <data name="ResetLayout" xml:space="preserve">
     <value>レイアウトをリセット</value>
   </data>
+  <data name="Reload" xml:space="preserve">
+    <value>リロード</value>
+  </data>
 </root>
