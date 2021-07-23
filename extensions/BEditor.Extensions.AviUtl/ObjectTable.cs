@@ -520,7 +520,7 @@ namespace BEditor.Extensions.AviUtl
                     }
                     break;
                 case "draw_state":
-                    _args.Handled = value.GetArgValue( 0, _args.Handled);
+                    _args.Handled = value.GetArgValue(0, _args.Handled);
                     break;
                 default:
                     throw new NotImplementedException();
