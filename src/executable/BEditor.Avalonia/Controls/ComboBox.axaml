@@ -24,6 +24,5 @@
     <Style Selector="ComboBox.custom:pointerover /template/ Border#Background">
         <Setter Property="Background" Value="{DynamicResource ButtonBackgroundPointerOver}" />
         <Setter Property="BorderBrush" Value="Transparent" />
-        <Setter Property="RenderTransform" Value="scale(0.99)" />
     </Style>
 </Styles>
