@@ -17,15 +17,6 @@ void Publish(string rid)
     CreateDirectory(binaryPath);
     CleanDirectory(binaryPath);
 
-    DotNetCorePublish("./src/executable/BEditor.PackageInstaller/BEditor.PackageInstaller.csproj", new DotNetCorePublishSettings
-    {
-        Configuration = configuration,
-        SelfContained = true,
-        Runtime = rid,
-        Framework = "net5.0",
-        OutputDirectory = binaryPath
-    });
-
     DotNetCorePublish("./src/executable/BEditor.Avalonia/BEditor.Avalonia.csproj", new DotNetCorePublishSettings
     {
         Configuration = configuration,
@@ -34,6 +25,11 @@ void Publish(string rid)
         Framework = "net5.0",
         OutputDirectory = binaryPath
     });
+
+    if (rid == "linux-x64")
+    {
+        CopyFile("./extern/libOpenCvSharpExtern.so", binaryPath.CombineWithFilePath("libOpenCvSharpExtern.so"));
+    }
 
     Zip(binaryPath, publishDir.CombineWithFilePath($"beditor_{rid}.zip"));
 
