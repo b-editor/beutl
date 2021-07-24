@@ -818,4 +818,16 @@ Vulkan:
   <data name="Reload" xml:space="preserve">
     <value>リロード</value>
   </data>
+  <data name="DoYouWantToDeleteThePalette" xml:space="preserve">
+    <value>パレットを削除しますか？</value>
+  </data>
+  <data name="AddToColorPalette" xml:space="preserve">
+    <value>カラーパレットに追加</value>
+  </data>
+  <data name="PaletteNotSelected" xml:space="preserve">
+    <value>パレットが選択されていません</value>
+  </data>
+  <data name="AddNewPalette" xml:space="preserve">
+    <value>新しいパレットを追加</value>
+  </data>
 </root>

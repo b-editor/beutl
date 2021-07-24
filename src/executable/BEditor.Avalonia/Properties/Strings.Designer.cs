@@ -97,11 +97,29 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Add a new palette.
+        /// </summary>
+        public static string AddNewPalette {
+            get {
+                return ResourceManager.GetString("AddNewPalette", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Add a new scene.
         /// </summary>
         public static string AddScene {
             get {
                 return ResourceManager.GetString("AddScene", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Add to color palette.
+        /// </summary>
+        public static string AddToColorPalette {
+            get {
+                return ResourceManager.GetString("AddToColorPalette", resourceCulture);
             }
         }
         
@@ -627,6 +645,15 @@ namespace BEditor.Properties {
         public static string DownloadingRequiredComponents {
             get {
                 return ResourceManager.GetString("DownloadingRequiredComponents", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Do you want to delete the palette?.
+        /// </summary>
+        public static string DoYouWantToDeleteThePalette {
+            get {
+                return ResourceManager.GetString("DoYouWantToDeleteThePalette", resourceCulture);
             }
         }
         
@@ -1325,6 +1352,15 @@ namespace BEditor.Properties {
         public static string PackageSource {
             get {
                 return ResourceManager.GetString("PackageSource", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Palette not selected.
+        /// </summary>
+        public static string PaletteNotSelected {
+            get {
+                return ResourceManager.GetString("PaletteNotSelected", resourceCulture);
             }
         }
         

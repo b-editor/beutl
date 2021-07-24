@@ -19,15 +19,6 @@
             </TabItem>
             <TabItem Header="{x:Static property:Strings.ColorPalette}" FontSize="14">
                 <ScrollViewer>
-                    <ScrollViewer.ContextMenu>
-                        <ContextMenu>
-                            <MenuItem Header="{x:Static property:Strings.Reload}" Click="Reload_Palette">
-                                <MenuItem.Icon>
-                                    <PathIcon Data="{StaticResource ArrowClockwise24Regular}" Width="16" Height="16" />
-                                </MenuItem.Icon>
-                            </MenuItem>
-                        </ContextMenu>
-                    </ScrollViewer.ContextMenu>
                     <ItemsControl x:Name="PaletteItems">
                         <ItemsControl.ItemTemplate>
                             <DataTemplate>
@@ -41,7 +32,24 @@
                                                     Height="60"
                                                     Margin="2"
                                                     ToolTip.Tip="{Binding Key}">
-                                                    <Rectangle Fill="{Binding Value, Converter={StaticResource ColorToSolidColorBrushConverter}}" Width="60" Height="60" />
+                                                    <Button.ContextMenu>
+                                                        <ContextMenu>
+                                                            <MenuItem Header="{x:Static property:Strings.Reload}" Click="Reload_Palette">
+                                                                <MenuItem.Icon>
+                                                                    <PathIcon Data="{StaticResource ArrowClockwise20Regular}" Width="16" Height="16" />
+                                                                </MenuItem.Icon>
+                                                            </MenuItem>
+                                                            <MenuItem Header="{x:Static property:Strings.Delete}" Click="Delete_PaletteItem">
+                                                                <MenuItem.Icon>
+                                                                    <PathIcon Data="{StaticResource Delete20Regular}" Width="16" Height="16" />
+                                                                </MenuItem.Icon>
+                                                            </MenuItem>
+                                                        </ContextMenu>
+                                                    </Button.ContextMenu>
+                                                    <Rectangle
+                                                        Fill="{Binding Value, Converter={StaticResource ColorToSolidColorBrushConverter}}"
+                                                        Width="60"
+                                                        Height="60" />
                                                 </Button>
                                             </DataTemplate>
                                         </ItemsControl.ItemTemplate>
@@ -77,6 +85,13 @@
                 VerticalAlignment="Center"
                 Click="Button_Click"
                 Content="{x:Static property:Strings.Cancel}"
+                Background="Transparent" />
+
+            <Button
+                Margin="8,0"
+                VerticalAlignment="Center"
+                Click="AddToPalette_Click"
+                Content="{x:Static property:Strings.AddToColorPalette}"
                 Background="Transparent" />
 
         </StackPanel>

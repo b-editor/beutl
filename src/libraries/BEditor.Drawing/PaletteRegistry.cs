@@ -50,6 +50,23 @@ namespace BEditor.Drawing
         }
 
         /// <summary>
+        /// Removes a registered palette by id.
+        /// </summary>
+        /// <param name="id">The id.</param>
+        /// <returns>True if the color palette is removed, otherwise false.</returns>
+        public static bool RemoveRegistered(Guid id)
+        {
+            var item = FindRegistered(id);
+            if (item is not null)
+            {
+                _registered.Remove(item);
+                return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
         /// Checks whether a <see cref="ColorPalette"/> is registered.
         /// </summary>
         /// <param name="id">The id.</param>
@@ -116,6 +133,11 @@ namespace BEditor.Drawing
             {
                 directory ??= _path;
                 if (!Directory.Exists(directory)) Directory.CreateDirectory(directory);
+                foreach (var file in Directory.EnumerateFiles(directory))
+                {
+                    File.Delete(file);
+                }
+
                 foreach (var item in _registered)
                 {
                     using var stream = new FileStream(Path.Combine(directory, (item.Name ?? item.Id.ToString()) + ".json"), FileMode.Create);

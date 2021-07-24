@@ -59,6 +59,7 @@ namespace BEditor.Drawing
         /// <inheritdoc/>
         public override void SetObjectData(JsonElement element)
         {
+            Id = Guid.NewGuid();
             SetValue(ColorsProperty, ColorsProperty.Serializer!.Read(element));
         }
 
