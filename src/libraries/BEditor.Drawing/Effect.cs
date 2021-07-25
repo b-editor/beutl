@@ -6,6 +6,8 @@
 // of the MIT license. See the LICENSE file for details.
 
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 
@@ -608,6 +610,126 @@ namespace BEditor.Drawing
                     });
                 });
             }
+        }
+
+        public static Image<BGRA32> FillTransparency(this Image<BGRA32> image, Color color)
+        {
+            using var alphamap = image.AlphaMap();
+            using var alphaMat = alphamap.ToMat();
+
+            // 輪郭検出
+            alphaMat.FindContours(out var points, out var h, RetrievalModes.List, ContourApproximationModes.ApproxSimple);
+
+            using var bmp = new SKBitmap(new SKImageInfo(image.Width, image.Height, SKColorType.Bgra8888));
+            using var canvas = new SKCanvas(bmp);
+            using var paint = new SKPaint
+            {
+                Color = new SKColor(color.R, color.G, color.B, color.A),
+                IsAntialias = true,
+                Style = SKPaintStyle.Fill,
+                StrokeWidth = 10,
+            };
+
+            foreach (var p in points)
+            {
+                using var path1 = new SKPath();
+
+                path1.MoveTo(p[0].X, p[0].Y);
+
+                foreach (var item in p)
+                {
+                    path1.LineTo(item.X, item.Y);
+                }
+
+                path1.Close();
+
+                canvas.DrawPath(path1, paint);
+            }
+
+            return bmp.ToImage32();
+        }
+
+        public static Image<BGRA32> FlatShadow(this Image<BGRA32> image, Color color, float angle, float length)
+        {
+            using var alphamap = image.AlphaMap();
+            using var alphaMat = alphamap.ToMat();
+
+            // 輪郭検出
+            alphaMat.FindContours(out var points, out var h, RetrievalModes.List, ContourApproximationModes.ApproxSimple);
+
+            var radian = angle * (Math.PI / 180);
+            var x2 = (int)(length * Math.Cos(radian));
+            var y2 = (int)(length * Math.Sin(radian));
+
+            using var bmp = new SKBitmap(new SKImageInfo(image.Width + Math.Abs(x2), image.Height + Math.Abs(y2), SKColorType.Bgra8888));
+            using var canvas = new SKCanvas(bmp);
+            using var paint = new SKPaint
+            {
+                Color = new SKColor(color.R, color.G, color.B, color.A),
+                IsAntialias = true,
+                Style = SKPaintStyle.Fill,
+            };
+
+            foreach (var p in points)
+            {
+                using var path = new SKPath();
+
+                path.MoveTo(p[0].X, p[0].Y);
+
+                for (var i = 0; i < p.Length; i++)
+                {
+                    var item = p[i];
+                    path.LineTo(item.X, item.Y);
+                }
+
+                for (var i = 0; i < length; i++)
+                {
+                    canvas.Translate((float)Math.Cos(radian), (float)Math.Sin(radian));
+                    canvas.DrawPath(path, paint);
+                }
+
+                canvas.ResetMatrix();
+            }
+
+            using var srcBmp = image.ToSKBitmap();
+            canvas.DrawBitmap(srcBmp, SKPoint.Empty);
+
+            return bmp.ToImage32();
+
+            // using var alphamap = image.AlphaMap();
+            // using var alphaMat = alphamap.ToMat();
+
+            // // 輪郭検出
+            // alphaMat.FindContours(out var points, out var h, RetrievalModes.List, ContourApproximationModes.ApproxSimple);
+
+            // var radian = angle * (Math.PI / 180);
+            // var x2 = (int)(length * Math.Cos(radian));
+            // var y2 = (int)(length * Math.Sin(radian));
+
+            // using var bmp = new SKBitmap(new SKImageInfo(image.Width + Math.Abs(x2), image.Height + Math.Abs(y2), SKColorType.Bgra8888));
+            // using var canvas = new SKCanvas(bmp);
+            // using var paint = new SKPaint
+            // {
+            //     Color = new SKColor(color.R, color.G, color.B, color.A),
+            //     IsAntialias = true,
+            //     Style = SKPaintStyle.Fill,
+            // };
+
+            // foreach (var p in points)
+            // {
+            //     using var path = new SKPath();
+            //     path.MoveTo(p[0].X, p[0].Y);
+            //     for (var i = 0; i < p.Length; i++)
+            //     {
+            //         var item = p[i];
+            //         path.LineTo(item.X, item.Y);
+            //         path.LineTo(item.X + x2, item.Y + y2);
+            //         path.Close();
+            //     }
+            //     canvas.DrawPath(path, paint);
+            // }
+
+            // return bmp.ToImage32();
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

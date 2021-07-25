@@ -1249,6 +1249,20 @@
         <member name="M:BEditor.Primitive.Effects.Erode.GetProperties">
             <inheritdoc/>
         </member>
+        <member name="T:BEditor.Primitive.Effects.FlatShadow">
+            <summary>
+            The flat shadow.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.FlatShadow.Name">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.FlatShadow.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.FlatShadow.GetProperties">
+            <inheritdoc/>
+        </member>
         <member name="T:BEditor.Primitive.Effects.Grayscale">
             <summary>
             Represents the <see cref="T:BEditor.Data.Primitive.ImageEffect"/> of grayscaling an image.
