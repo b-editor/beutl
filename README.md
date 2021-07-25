@@ -52,7 +52,7 @@ Windows, Linuxで動作を確認しました。
 * 以下のコマンドを実行すると `./publish` に出力されます。
 ```
 dotnet restore
-dotnet cake
+dotnet cake --runtime win-x64;linux-x64
 ```
 
 ## Patrons

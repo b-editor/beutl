@@ -21,15 +21,10 @@ void Publish(string rid)
     {
         Configuration = configuration,
         SelfContained = true,
-        Runtime = rid,
+        Runtime = rid == "linux-x64" ? "ubuntu.18.04-x64" : rid,
         Framework = "net5.0",
         OutputDirectory = binaryPath
     });
-
-    if (rid == "linux-x64")
-    {
-        CopyFile("./extern/libOpenCvSharpExtern.so", binaryPath.CombineWithFilePath("libOpenCvSharpExtern.so"));
-    }
 
     Zip(binaryPath, publishDir.CombineWithFilePath($"beditor_{rid}.zip"));
 
