@@ -952,6 +952,15 @@ namespace BEditor.Primitive.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Parts disassembly.
+        /// </summary>
+        internal static string PartsDisassembly {
+            get {
+                return ResourceManager.GetString("PartsDisassembly", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Path to the image object.
         /// </summary>
         internal static string PathToImageObject {

@@ -1711,6 +1711,23 @@
         <member name="M:BEditor.Primitive.Effects.Noise.GetProperties">
             <inheritdoc/>
         </member>
+        <member name="T:BEditor.Primitive.Effects.PartsDisassembly">
+            <summary>
+            This effect decomposes the pearl in an image.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.PartsDisassembly.Name">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.PartsDisassembly.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.PartsDisassembly.Apply(BEditor.Data.EffectApplyArgs{System.Collections.Generic.IEnumerable{BEditor.Graphics.ImageInfo}})">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.PartsDisassembly.GetProperties">
+            <inheritdoc/>
+        </member>
         <member name="T:BEditor.Primitive.Effects.PointLightDiffuse">
             <summary>
             Point light diffusion effect.
@@ -3654,6 +3671,11 @@
         <member name="P:BEditor.Primitive.Resources.Strings.Opacity">
             <summary>
               Looks up a localized string similar to Opacity.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.PartsDisassembly">
+            <summary>
+              Looks up a localized string similar to Parts disassembly.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.PathToImageObject">

@@ -694,4 +694,7 @@
   <data name="DecoderNotFound" xml:space="preserve">
     <value>デコーダーが見つかりませんでした。</value>
   </data>
+  <data name="PartsDisassembly" xml:space="preserve">
+    <value>パーツ分解</value>
+  </data>
 </root>
