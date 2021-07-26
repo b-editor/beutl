@@ -2589,6 +2589,11 @@
             Defines the <see cref="P:BEditor.Primitive.Objects.Polygon.Height"/> property.
             </summary>
         </member>
+        <member name="F:BEditor.Primitive.Objects.Polygon.LineProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Objects.Polygon.Line"/> property.
+            </summary>
+        </member>
         <member name="F:BEditor.Primitive.Objects.Polygon.NumberProperty">
             <summary>
             Defines the <see cref="P:BEditor.Primitive.Objects.Polygon.Number"/> property.
@@ -2615,6 +2620,11 @@
         <member name="P:BEditor.Primitive.Objects.Polygon.Height">
             <summary>
             Gets the height of the polygon.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Objects.Polygon.Line">
+            <summary>
+            Gets the line width of the shape.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Objects.Polygon.Number">
