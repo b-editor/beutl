@@ -611,6 +611,11 @@ namespace BEditor.Drawing
             }
         }
 
+        /// <summary>
+        /// Disassemble the parts in the image.
+        /// </summary>
+        /// <param name="image">The image of disassembling the parts.</param>
+        /// <returns>Returns the decomposed image and its image rectangle.</returns>
         public static (Image<BGRA32>, Rectangle)[] PartsDisassembly(this Image<BGRA32> image)
         {
             using var alphamap = image.AlphaMap();
@@ -618,7 +623,6 @@ namespace BEditor.Drawing
 
             // 輪郭検出
             alphaMat.FindContours(out var points, out var h, RetrievalModes.List, ContourApproximationModes.ApproxSimple);
-
 
             using var mask = new Image<BGRA32>(image.Width, image.Height, default(BGRA32));
             using var maskMat = mask.ToMat();

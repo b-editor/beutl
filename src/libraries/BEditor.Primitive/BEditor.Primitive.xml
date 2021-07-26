@@ -1711,6 +1711,11 @@
         <member name="M:BEditor.Primitive.Effects.Noise.GetProperties">
             <inheritdoc/>
         </member>
+        <member name="T:BEditor.Primitive.Effects.PartsDisassembly">
+            <summary>
+            This effect decomposes the pearl in an image.
+            </summary>
+        </member>
         <member name="P:BEditor.Primitive.Effects.PartsDisassembly.Name">
             <inheritdoc/>
         </member>
@@ -3656,6 +3661,11 @@
         <member name="P:BEditor.Primitive.Resources.Strings.Opacity">
             <summary>
               Looks up a localized string similar to Opacity.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.PartsDisassembly">
+            <summary>
+              Looks up a localized string similar to Parts disassembly.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.PathToImageObject">
