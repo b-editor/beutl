@@ -39,7 +39,7 @@ namespace BEditor
             return SKFontManager.Default.FontFamilies;
         }
 
-        private readonly string[] _bcp47 = { CultureInfo.CurrentCulture.ThreeLetterISOLanguageName, CultureInfo.CurrentCulture.TwoLetterISOLanguageName };
+        private readonly string[] _bcp47 = { CultureInfo.CurrentUICulture.ThreeLetterISOLanguageName, CultureInfo.CurrentUICulture.TwoLetterISOLanguageName };
 
         public bool TryMatchCharacter(int codepoint, FontStyle fontStyle, FontWeight fontWeight, FontFamily fontFamily,
             CultureInfo culture, out Typeface typeface)

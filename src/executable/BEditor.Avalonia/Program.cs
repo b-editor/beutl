@@ -14,8 +14,7 @@ namespace BEditor
         [STAThread]
         public static void Main(string[] args)
         {
-            CultureInfo.CurrentCulture = new(Settings.Default.Language);
-            CultureInfo.CurrentUICulture = CultureInfo.CurrentCulture;
+            CultureInfo.CurrentUICulture = new(Settings.Default.Language);
 
             if (args.ElementAtOrDefault(0) == "package-install")
             {

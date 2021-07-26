@@ -815,4 +815,19 @@ Vulkan:
   <data name="ResetLayout" xml:space="preserve">
     <value>Reset layout</value>
   </data>
+  <data name="Reload" xml:space="preserve">
+    <value>Reload</value>
+  </data>
+  <data name="DoYouWantToDeleteThePalette" xml:space="preserve">
+    <value>Do you want to delete the palette?</value>
+  </data>
+  <data name="AddToColorPalette" xml:space="preserve">
+    <value>Add to color palette</value>
+  </data>
+  <data name="PaletteNotSelected" xml:space="preserve">
+    <value>Palette not selected</value>
+  </data>
+  <data name="AddNewPalette" xml:space="preserve">
+    <value>Add a new palette</value>
+  </data>
 </root>

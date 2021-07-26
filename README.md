@@ -9,6 +9,7 @@
 ![](https://img.shields.io/github/repo-size/b-editor/BEditor)
 ![](https://github.com/b-editor/BEditor/workflows/Debug%20Build%20&%20Test/badge.svg)
 ![](https://github.com/b-editor/BEditor/workflows/CodeQL/badge.svg)
+[![Discord](https://img.shields.io/discord/868076100511760385.svg?label=&logo=discord&logoColor=ffffff&color=7389D8&labelColor=6A7EC2)](https://discord.gg/Bm3pnVc928)
 
 BEditorはクロスプラットフォームの動画編集ソフトウェアです。
 Windows, Linuxで動作を確認しました。
@@ -51,7 +52,7 @@ Windows, Linuxで動作を確認しました。
 * 以下のコマンドを実行すると `./publish` に出力されます。
 ```
 dotnet restore
-dotnet cake
+dotnet cake --runtime win-x64;linux-x64
 ```
 
 ## Patrons

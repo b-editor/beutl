@@ -59,7 +59,7 @@ namespace BEditor.Primitive.Effects.OpenCv
         /// <summary>
         /// Defines the <see cref="FixSize"/> property.
         /// </summary>
-        public static readonly DirectProperty<GaussianBlur, CheckProperty> FixSizeProperty = Blur.FixSizeProperty.WithOwner<GaussianBlur>(
+        public static readonly DirectProperty<GaussianBlur, CheckProperty> FixSizeProperty = Effects.Blur.FixSizeProperty.WithOwner<GaussianBlur>(
             owner => owner.FixSize,
             (owner, obj) => owner.FixSize = obj);
 

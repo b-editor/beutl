@@ -1,6 +1,7 @@
 Package: beditor
 Maintainer: indigo-san <lugongdao07@gmail.com>
 Architecture: amd64
-Version: 0.1.2-1
+Version: 0.1.4-1
+Depends: libopenexr22, libharfbuzz0b, libhdf5-100, libwebp6, libilmbase12, libgstreamer1.0-0, libavcodec-extra57, libavformat57, libswscale4, libgtk-3-0, libtesseract4, libgtk2.0-0, libdc1394-22, libopenal1
 Description: Video editing software
  Can run on Windows, Linux, and macOS.

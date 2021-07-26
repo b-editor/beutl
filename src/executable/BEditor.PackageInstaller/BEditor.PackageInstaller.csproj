@@ -9,8 +9,8 @@
     </ItemGroup>
 
     <ItemGroup>
-        <EmbeddedResource Include="..\BEditor.Avalonia\Assets\Fonts\*.otf" />
-        <Compile Include="..\BEditor.Avalonia\CustomFontManagerImpl.cs" />
+        <EmbeddedResource Include="Assets\Fonts\*.otf" />
+        <AvaloniaResource Include="Assets\**" />
     </ItemGroup>
 
     <ItemGroup>

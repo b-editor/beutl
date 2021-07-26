@@ -22,7 +22,7 @@ namespace BEditor.ViewModels.Setup
                 new("Japanese", "ja-JP"),
                 new($"English ({Strings.MachineTranslation})", "en-US"),
             };
-            SelectedLanguage.Value = Languages.First(l => l.Culture == CultureInfo.CurrentUICulture.Name);
+            SelectedLanguage.Value = Array.Find(Languages, l => l.Culture == CultureInfo.CurrentCulture.Name) ?? Languages[0];
 
             SelectedLanguage.Subscribe(lang =>
             {

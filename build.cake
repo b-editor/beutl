@@ -17,20 +17,11 @@ void Publish(string rid)
     CreateDirectory(binaryPath);
     CleanDirectory(binaryPath);
 
-    DotNetCorePublish("./src/executable/BEditor.PackageInstaller/BEditor.PackageInstaller.csproj", new DotNetCorePublishSettings
-    {
-        Configuration = configuration,
-        SelfContained = true,
-        Runtime = rid,
-        Framework = "net5.0",
-        OutputDirectory = binaryPath
-    });
-
     DotNetCorePublish("./src/executable/BEditor.Avalonia/BEditor.Avalonia.csproj", new DotNetCorePublishSettings
     {
         Configuration = configuration,
         SelfContained = true,
-        Runtime = rid,
+        Runtime = rid == "linux-x64" ? "ubuntu.18.04-x64" : rid,
         Framework = "net5.0",
         OutputDirectory = binaryPath
     });

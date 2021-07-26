@@ -83,7 +83,7 @@ namespace BEditor.Views.Properties
                 }
                 else
                 {
-                    viewModel.SampleText.Value = CultureInfo.CurrentCulture.DisplayName;
+                    viewModel.SampleText.Value = CultureInfo.CurrentUICulture.DisplayName;
                 }
 
                 var dialog = new FontDialog

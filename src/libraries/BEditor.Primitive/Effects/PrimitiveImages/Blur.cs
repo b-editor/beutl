@@ -44,9 +44,11 @@ namespace BEditor.Primitive.Effects
         /// <summary>
         /// Defines the <see cref="FixSize"/> property.
         /// </summary>
-        public static readonly DirectProperty<Blur, CheckProperty> FixSizeProperty = OpenCv.Blur.FixSizeProperty.WithOwner<Blur>(
+        public static readonly DirectProperty<Blur, CheckProperty> FixSizeProperty = EditingProperty.RegisterDirect<CheckProperty, Blur>(
+            $"{nameof(FixSize)},Resize",
             owner => owner.FixSize,
-            (owner, obj) => owner.FixSize = obj);
+            (owner, obj) => owner.FixSize = obj,
+            EditingPropertyOptions<CheckProperty>.Create(new CheckPropertyMetadata(Strings.FixSize, false)).Serialize());
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Blur"/> class.
