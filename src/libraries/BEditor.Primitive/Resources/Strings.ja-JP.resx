@@ -697,4 +697,10 @@
   <data name="PartsDisassembly" xml:space="preserve">
     <value>パーツ分解</value>
   </data>
+  <data name="Length" xml:space="preserve">
+    <value>長さ</value>
+  </data>
+  <data name="FlatShadow" xml:space="preserve">
+    <value>フラットシャドウ</value>
+  </data>
 </root>

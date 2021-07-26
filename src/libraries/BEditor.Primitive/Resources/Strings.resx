@@ -697,4 +697,10 @@
   <data name="PartsDisassembly" xml:space="preserve">
     <value>Parts disassembly</value>
   </data>
+  <data name="Length" xml:space="preserve">
+    <value>Length</value>
+  </data>
+  <data name="FlatShadow" xml:space="preserve">
+    <value>Flat Shadow</value>
+  </data>
 </root>
