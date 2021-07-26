@@ -157,24 +157,45 @@ namespace BEditor.Drawing
         /// <param name="height">The height of the polygon.</param>
         /// <param name="color">The color of the polygon.</param>
         /// <returns>Returns an image with an polygon drawn on it.</returns>
+        [Obsolete("Use Polygon.")]
         public static Image<BGRA32> Polygon(int number, int width, int height, Color color)
         {
             var radiusX = width / 2;
             var radiusY = height / 2;
-            var points = GetPolygonVertex(number, new(radiusX, radiusY), radiusX, radiusY, 0.5);
+            using var path = GetPolygonVertex(number, new(radiusX, radiusY), radiusX, radiusY, 0.5, width);
 
             using var bmp = new SKBitmap(width, height);
             using var canvas = new SKCanvas(bmp);
 
-            using var path = new SKPath();
-            path.MoveTo(points[0].X, points[0].Y);
-
-            foreach (var p in points)
+            using var paint = new SKPaint
             {
-                path.LineTo(p.X, p.Y);
-            }
+                Color = new SKColor(color.R, color.G, color.B, color.A),
+                IsAntialias = true,
+                Style = SKPaintStyle.Fill,
+            };
 
-            path.Close();
+            canvas.DrawPath(path, paint);
+
+            return bmp.ToImage32();
+        }
+
+        /// <summary>
+        /// Generates an image with an polygon drawn on it.
+        /// </summary>
+        /// <param name="number">The number of corners of the polygon.</param>
+        /// <param name="width">The width of the polygon.</param>
+        /// <param name="height">The height of the polygon.</param>
+        /// <param name="line">The line width of the polygon.</param>
+        /// <param name="color">The color of the polygon.</param>
+        /// <returns>Returns an image with an polygon drawn on it.</returns>
+        public static Image<BGRA32> Polygon(int number, int width, int height, int line, Color color)
+        {
+            var radiusX = width / 2;
+            var radiusY = height / 2;
+            using var path = GetPolygonVertex(number, new(radiusX, radiusY), radiusX, radiusY, 0.5, line);
+
+            using var bmp = new SKBitmap(width, height);
+            using var canvas = new SKCanvas(bmp);
 
             using var paint = new SKPaint
             {
@@ -359,22 +380,52 @@ namespace BEditor.Drawing
             return bmp.ToImage32();
         }
 
-        private static Point[] GetPolygonVertex(int number, Point center, double radiusX, double radiusY, double rotate)
+        private static SKPath GetPolygonVertex(int number, Point center, double radiusX, double radiusY, double rotate, double line)
         {
             try
             {
                 if (number <= 2)
                     throw new ArgumentException(null, nameof(number));
 
-                var vertexes = new Point[number];
+                if (line >= Math.Min(radiusX, radiusY))
+                    line = Math.Min(radiusX, radiusY);
+
+                var min = Math.Min(radiusX, radiusY) * 2;
+
+                if (line < min) min = line;
+                if (min < 0) min = 0;
+
+                var path = new SKPath();
+
                 for (var pos = 0; pos < number; pos++)
                 {
-                    vertexes[pos] = new Point(
+                    var next = pos + 1;
+                    if (next > number) next = 0;
+
+                    path.MoveTo(
                         (int)(Math.Sin(((pos + rotate) * (2 * Math.PI)) / number) * radiusX) + center.X,
                         (int)(Math.Cos(((pos + rotate) * (2 * Math.PI)) / number) * radiusY) + center.Y);
+
+                    path.LineTo(
+                        (int)(Math.Sin(((pos + rotate) * (2 * Math.PI)) / number) * radiusX) + center.X,
+                        (int)(Math.Cos(((pos + rotate) * (2 * Math.PI)) / number) * radiusY) + center.Y);
+
+                    path.LineTo(
+                        (int)(Math.Sin(((next + rotate) * (2 * Math.PI)) / number) * radiusX) + center.X,
+                        (int)(Math.Cos(((next + rotate) * (2 * Math.PI)) / number) * radiusY) + center.Y);
+
+                    path.LineTo(
+                        (int)(Math.Sin(((next + rotate) * (2 * Math.PI)) / number) * (radiusX - min)) + center.X,
+                        (int)(Math.Cos(((next + rotate) * (2 * Math.PI)) / number) * (radiusY - min)) + center.Y);
+
+                    path.LineTo(
+                        (int)(Math.Sin(((pos + rotate) * (2 * Math.PI)) / number) * (radiusX - min)) + center.X,
+                        (int)(Math.Cos(((pos + rotate) * (2 * Math.PI)) / number) * (radiusY - min)) + center.Y);
+
+                    path.Close();
                 }
 
-                return vertexes;
+                return path;
             }
             catch (Exception)
             {

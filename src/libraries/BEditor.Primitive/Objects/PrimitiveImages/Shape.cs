@@ -13,6 +13,7 @@ using BEditor.Data.Primitive;
 using BEditor.Data.Property;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
+using BEditor.Primitive.Effects;
 using BEditor.Primitive.Resources;
 
 namespace BEditor.Primitive.Objects
@@ -25,14 +26,14 @@ namespace BEditor.Primitive.Objects
         /// <summary>
         /// Defines the <see cref="Width"/> property.
         /// </summary>
-        public static readonly DirectProperty<Shape, EaseProperty> WidthProperty = Polygon.WidthProperty.WithOwner<Shape>(
+        public static readonly DirectProperty<Shape, EaseProperty> WidthProperty = GL3DObject.WidthProperty.WithOwner<Shape>(
             owner => owner.Width,
             (owner, obj) => owner.Width = obj);
 
         /// <summary>
         /// Defines the <see cref="Height"/> property.
         /// </summary>
-        public static readonly DirectProperty<Shape, EaseProperty> HeightProperty = Polygon.HeightProperty.WithOwner<Shape>(
+        public static readonly DirectProperty<Shape, EaseProperty> HeightProperty = GL3DObject.HeightProperty.WithOwner<Shape>(
             owner => owner.Height,
             (owner, obj) => owner.Height = obj);
 
@@ -48,7 +49,7 @@ namespace BEditor.Primitive.Objects
         /// <summary>
         /// Defines the <see cref="Color"/> property.
         /// </summary>
-        public static readonly DirectProperty<Shape, ColorProperty> ColorProperty = Polygon.ColorProperty.WithOwner<Shape>(
+        public static readonly DirectProperty<Shape, ColorProperty> ColorProperty = ColorKey.ColorProperty.WithOwner<Shape>(
             owner => owner.Color,
             (owner, obj) => owner.Color = obj);
 
