@@ -649,6 +649,14 @@ namespace BEditor.Drawing
             return bmp.ToImage32();
         }
 
+        /// <summary>
+        /// Applies a flat shadow effect.
+        /// </summary>
+        /// <param name="image">The image to apply the effect to.</param>
+        /// <param name="color">The color.</param>
+        /// <param name="angle">The angle (degree).</param>
+        /// <param name="length">The length.</param>
+        /// <returns>Returns the image to which the effect has been applied.</returns>
         public static Image<BGRA32> FlatShadow(this Image<BGRA32> image, Color color, float angle, float length)
         {
             using var alphamap = image.AlphaMap();
@@ -657,11 +665,16 @@ namespace BEditor.Drawing
             // 輪郭検出
             alphaMat.FindContours(out var points, out var h, RetrievalModes.List, ContourApproximationModes.ApproxSimple);
 
-            var radian = angle * (Math.PI / 180);
-            var x2 = (int)(length * Math.Cos(radian));
-            var y2 = (int)(length * Math.Sin(radian));
+            var dgree = angle;
+            var radian = dgree * (MathF.PI / 180);
+            var x1 = MathF.Cos(radian);
+            var y1 = MathF.Sin(radian);
+            var x2 = (int)(length * MathF.Cos(radian));
+            var y2 = (int)(length * MathF.Sin(radian));
+            var x2Abs = Math.Abs(x2);
+            var y2Abs = Math.Abs(y2);
 
-            using var bmp = new SKBitmap(new SKImageInfo(image.Width + Math.Abs(x2), image.Height + Math.Abs(y2), SKColorType.Bgra8888));
+            using var bmp = new SKBitmap(new SKImageInfo(image.Width + x2Abs, image.Height + y2Abs, SKColorType.Bgra8888));
             using var canvas = new SKCanvas(bmp);
             using var paint = new SKPaint
             {
@@ -672,6 +685,8 @@ namespace BEditor.Drawing
 
             foreach (var p in points)
             {
+                canvas.Translate((x2Abs - x2) / 2, (y2Abs - y2) / 2);
+
                 using var path = new SKPath();
 
                 path.MoveTo(p[0].X, p[0].Y);
@@ -684,7 +699,7 @@ namespace BEditor.Drawing
 
                 for (var i = 0; i < length; i++)
                 {
-                    canvas.Translate((float)Math.Cos(radian), (float)Math.Sin(radian));
+                    canvas.Translate(x1, y1);
                     canvas.DrawPath(path, paint);
                 }
 
@@ -692,44 +707,9 @@ namespace BEditor.Drawing
             }
 
             using var srcBmp = image.ToSKBitmap();
-            canvas.DrawBitmap(srcBmp, SKPoint.Empty);
+            canvas.DrawBitmap(srcBmp, (x2Abs - x2) / 2, (y2Abs - y2) / 2);
 
             return bmp.ToImage32();
-
-            // using var alphamap = image.AlphaMap();
-            // using var alphaMat = alphamap.ToMat();
-
-            // // 輪郭検出
-            // alphaMat.FindContours(out var points, out var h, RetrievalModes.List, ContourApproximationModes.ApproxSimple);
-
-            // var radian = angle * (Math.PI / 180);
-            // var x2 = (int)(length * Math.Cos(radian));
-            // var y2 = (int)(length * Math.Sin(radian));
-
-            // using var bmp = new SKBitmap(new SKImageInfo(image.Width + Math.Abs(x2), image.Height + Math.Abs(y2), SKColorType.Bgra8888));
-            // using var canvas = new SKCanvas(bmp);
-            // using var paint = new SKPaint
-            // {
-            //     Color = new SKColor(color.R, color.G, color.B, color.A),
-            //     IsAntialias = true,
-            //     Style = SKPaintStyle.Fill,
-            // };
-
-            // foreach (var p in points)
-            // {
-            //     using var path = new SKPath();
-            //     path.MoveTo(p[0].X, p[0].Y);
-            //     for (var i = 0; i < p.Length; i++)
-            //     {
-            //         var item = p[i];
-            //         path.LineTo(item.X, item.Y);
-            //         path.LineTo(item.X + x2, item.Y + y2);
-            //         path.Close();
-            //     }
-            //     canvas.DrawPath(path, paint);
-            // }
-
-            // return bmp.ToImage32();
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

@@ -7,6 +7,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -24,6 +25,9 @@ namespace BEditor.Primitive.Effects
     /// </summary>
     public sealed class FlatShadow : ImageEffect
     {
+        /// <summary>
+        /// Defines the <see cref="Angle"/> property.
+        /// </summary>
         public static readonly DirectProperty<FlatShadow, EaseProperty> AngleProperty
             = EditingProperty.RegisterDirect<EaseProperty, FlatShadow>(
                 nameof(Angle),
@@ -31,6 +35,9 @@ namespace BEditor.Primitive.Effects
                 (owner, obj) => owner.Angle = obj,
                 EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata("Angle", 45, float.NaN, float.NaN)).Serialize());
 
+        /// <summary>
+        /// Defines the <see cref="Length"/> property.
+        /// </summary>
         public static readonly DirectProperty<FlatShadow, EaseProperty> LengthProperty
             = EditingProperty.RegisterDirect<EaseProperty, FlatShadow>(
                 nameof(Length),
@@ -41,16 +48,36 @@ namespace BEditor.Primitive.Effects
         /// <inheritdoc/>
         public override string Name => "Flat shadow";
 
+        /// <summary>
+        /// Gets the angle.
+        /// </summary>
+        [AllowNull]
         public EaseProperty Angle { get; private set; }
 
+        /// <summary>
+        /// Gets the shadow length.
+        /// </summary>
+        [AllowNull]
         public EaseProperty Length { get; private set; }
 
         /// <inheritdoc/>
         public override void Apply(EffectApplyArgs<Image<BGRA32>> args)
         {
-            var tmp = args.Value.FlatShadow(Colors.White, Angle[args.Frame], Length[args.Frame]);
+            var length = Length[args.Frame];
+            var angle = Angle[args.Frame];
+            var tmp = args.Value.FlatShadow(Colors.White, angle, length);
             args.Value.Dispose();
             args.Value = tmp;
+
+            var radian = angle * (MathF.PI / 180);
+            var x2 = (int)(length * MathF.Cos(radian));
+            var y2 = (int)(length * MathF.Sin(radian));
+
+            if (Parent.Effect[0] is ImageObject imgObj)
+            {
+                imgObj.Coordinate.CenterX.Optional += x2 / 2;
+                imgObj.Coordinate.CenterY.Optional -= y2 / 2;
+            }
         }
 
         /// <inheritdoc/>
