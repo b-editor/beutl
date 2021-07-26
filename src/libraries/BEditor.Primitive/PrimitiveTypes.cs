@@ -222,7 +222,6 @@ namespace BEditor.Primitive
                     EffectMetadata.Create<Effects.LinearGradient>(Strings.LinearGradient),
                     EffectMetadata.Create<Effects.CircularGradient>(Strings.CircularGradient),
                     EffectMetadata.Create<Effects.PointLightDiffuse>(Strings.PointLightDiffuse),
-                    EffectMetadata.Create<Effects.PartsDisassembly>(Strings.PartsDisassembly),
                 },
             };
 
