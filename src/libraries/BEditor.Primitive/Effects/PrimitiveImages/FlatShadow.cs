@@ -17,6 +17,7 @@ using BEditor.Data.Primitive;
 using BEditor.Data.Property;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
+using BEditor.Primitive.Resources;
 
 namespace BEditor.Primitive.Effects
 {
@@ -33,7 +34,7 @@ namespace BEditor.Primitive.Effects
                 nameof(Angle),
                 owner => owner.Angle,
                 (owner, obj) => owner.Angle = obj,
-                EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata("Angle", 45, float.NaN, float.NaN)).Serialize());
+                EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Angle, 45, float.NaN, float.NaN)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="Length"/> property.
@@ -43,10 +44,20 @@ namespace BEditor.Primitive.Effects
                 nameof(Length),
                 owner => owner.Length,
                 (owner, obj) => owner.Length = obj,
-                EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata("Length", 200, float.NaN, 0)).Serialize());
+                EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Length, 200, float.NaN, 0)).Serialize());
+
+        /// <summary>
+        /// Defines the <see cref="Color"/> property.
+        /// </summary>
+        public static readonly DirectProperty<FlatShadow, ColorProperty> ColorProperty
+            = EditingProperty.RegisterDirect<ColorProperty, FlatShadow>(
+                nameof(Color),
+                owner => owner.Color,
+                (owner, obj) => owner.Color = obj,
+                EditingPropertyOptions<ColorProperty>.Create(new ColorPropertyMetadata(Strings.Color, Colors.White)).Serialize());
 
         /// <inheritdoc/>
-        public override string Name => "Flat shadow";
+        public override string Name => Strings.FlatShadow;
 
         /// <summary>
         /// Gets the angle.
@@ -60,12 +71,18 @@ namespace BEditor.Primitive.Effects
         [AllowNull]
         public EaseProperty Length { get; private set; }
 
+        /// <summary>
+        /// Gets the color.
+        /// </summary>
+        [AllowNull]
+        public ColorProperty Color { get; private set; }
+
         /// <inheritdoc/>
         public override void Apply(EffectApplyArgs<Image<BGRA32>> args)
         {
             var length = Length[args.Frame];
             var angle = Angle[args.Frame];
-            var tmp = args.Value.FlatShadow(Colors.White, angle, length);
+            var tmp = args.Value.FlatShadow(Color.Value, angle, length);
             args.Value.Dispose();
             args.Value = tmp;
 
@@ -85,6 +102,7 @@ namespace BEditor.Primitive.Effects
         {
             yield return Angle;
             yield return Length;
+            yield return Color;
         }
     }
 }

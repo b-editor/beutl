@@ -1254,8 +1254,38 @@
             The flat shadow.
             </summary>
         </member>
+        <member name="F:BEditor.Primitive.Effects.FlatShadow.AngleProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.FlatShadow.Angle"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.FlatShadow.LengthProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.FlatShadow.Length"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.FlatShadow.ColorProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.FlatShadow.Color"/> property.
+            </summary>
+        </member>
         <member name="P:BEditor.Primitive.Effects.FlatShadow.Name">
             <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.FlatShadow.Angle">
+            <summary>
+            Gets the angle.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.FlatShadow.Length">
+            <summary>
+            Gets the shadow length.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.FlatShadow.Color">
+            <summary>
+            Gets the color.
+            </summary>
         </member>
         <member name="M:BEditor.Primitive.Effects.FlatShadow.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
             <inheritdoc/>
@@ -3465,6 +3495,11 @@
               Looks up a localized string similar to Fix the size.
             </summary>
         </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.FlatShadow">
+            <summary>
+              Looks up a localized string similar to Flat Shadow.
+            </summary>
+        </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Fov">
             <summary>
               Looks up a localized string similar to viewing angle.
@@ -3568,6 +3603,11 @@
         <member name="P:BEditor.Primitive.Resources.Strings.Left">
             <summary>
               Looks up a localized string similar to Left.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Length">
+            <summary>
+              Looks up a localized string similar to Length.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.LinearGradient">

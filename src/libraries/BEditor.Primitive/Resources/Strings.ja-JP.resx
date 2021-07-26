@@ -694,4 +694,10 @@
   <data name="DecoderNotFound" xml:space="preserve">
     <value>デコーダーが見つかりませんでした。</value>
   </data>
+  <data name="Length" xml:space="preserve">
+    <value>長さ</value>
+  </data>
+  <data name="FlatShadow" xml:space="preserve">
+    <value>フラットシャドウ</value>
+  </data>
 </root>
