@@ -612,6 +612,53 @@ namespace BEditor.Drawing
             }
         }
 
+        /// <summary>
+        /// Disassemble the parts in the image.
+        /// </summary>
+        /// <param name="image">The image of disassembling the parts.</param>
+        /// <returns>Returns the decomposed image and its image rectangle.</returns>
+        public static (Image<BGRA32>, Rectangle)[] PartsDisassembly(this Image<BGRA32> image)
+        {
+            using var mask = new Image<BGRA32>(image.Width, image.Height, default(BGRA32));
+            using var maskMat = mask.ToMat();
+
+            var list = new List<(Image<BGRA32>, Rectangle)>();
+            for (var i1 = 0; i1 < points.Length; i1++)
+            {
+                var p = points[i1];
+                var x0 = image.Width;
+                var y0 = image.Height;
+                var x1 = 0;
+                var y1 = 0;
+
+                for (var i = 0; i < p.Length; i++)
+                {
+                    var x = p[i].X;
+                    var y = p[i].Y;
+
+                    if (x0 > x) x0 = x;
+                    if (y0 > y) y0 = y;
+                    if (x1 < x) x1 = x;
+                    if (y1 < y) y1 = y;
+                }
+
+                mask.Clear();
+
+                // 検出した輪郭を描画
+                maskMat.DrawContours(points, i1, new Scalar(255, 255, 255, 255), -1, LineTypes.Link8, h);
+
+                var rect = Rectangle.FromLTRB(x0, y0, x1, y1);
+                var partMask = mask[rect];
+                var part = image[rect];
+
+                part.AlphaSubtract(partMask);
+
+                list.Add((part, rect));
+            }
+
+            return list.ToArray();
+        }
+      
         public static Image<BGRA32> FillTransparency(this Image<BGRA32> image, Color color)
         {
             using var alphamap = image.AlphaMap();

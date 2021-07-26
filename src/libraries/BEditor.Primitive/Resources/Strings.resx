@@ -694,6 +694,9 @@
   <data name="DecoderNotFound" xml:space="preserve">
     <value>Decoder not found.</value>
   </data>
+  <data name="PartsDisassembly" xml:space="preserve">
+    <value>Parts disassembly</value>
+  </data>
   <data name="Length" xml:space="preserve">
     <value>Length</value>
   </data>
