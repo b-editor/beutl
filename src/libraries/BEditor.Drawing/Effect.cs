@@ -619,6 +619,12 @@ namespace BEditor.Drawing
         /// <returns>Returns the decomposed image and its image rectangle.</returns>
         public static (Image<BGRA32>, Rectangle)[] PartsDisassembly(this Image<BGRA32> image)
         {
+            using var alphamap = image.AlphaMap();
+            using var alphaMat = alphamap.ToMat();
+
+            // 輪郭検出
+            alphaMat.FindContours(out var points, out var h, RetrievalModes.List, ContourApproximationModes.ApproxSimple);
+
             using var mask = new Image<BGRA32>(image.Width, image.Height, default(BGRA32));
             using var maskMat = mask.ToMat();
 
@@ -658,7 +664,13 @@ namespace BEditor.Drawing
 
             return list.ToArray();
         }
-      
+
+        /// <summary>
+        /// Fill in the transparent areas.
+        /// </summary>
+        /// <param name="image">The image to apply the effect to.</param>
+        /// <param name="color">The color.</param>
+        /// <returns>Returns an image with the transparent areas filled in.</returns>
         public static Image<BGRA32> FillTransparency(this Image<BGRA32> image, Color color)
         {
             using var alphamap = image.AlphaMap();
