@@ -5,6 +5,8 @@
 // This software may be modified and distributed under the terms
 // of the MIT license. See the LICENSE file for details.
 
+using System;
+
 namespace BEditor.Drawing
 {
     /// <summary>
@@ -15,28 +17,25 @@ namespace BEditor.Drawing
         /// <summary>
         /// Initializes a new instance of the <see cref="FormattedTextStyleSpan"/> struct.
         /// </summary>
-        /// <param name="startIndex">The index of the first character in the span.</param>
-        /// <param name="length">The length of the span.</param>
+        /// <param name="lineNumber">The number of lines of the target.</param>
+        /// <param name="range">The range of the span.</param>
         /// <param name="foregroundBrush">The span's foreground brush.</param>
-        public FormattedTextStyleSpan(
-            int startIndex,
-            int length,
-            Color foregroundBrush)
+        public FormattedTextStyleSpan(int lineNumber, Range range, Color foregroundBrush)
         {
-            StartIndex = startIndex;
-            Length = length;
+            LineNumber = lineNumber;
+            Range = range;
             ForegroundBrush = foregroundBrush;
         }
 
         /// <summary>
-        /// Gets the index of the first character in the span.
+        /// Get the number of lines of the target.
         /// </summary>
-        public int StartIndex { get; }
+        public int LineNumber { get; }
 
         /// <summary>
-        /// Gets the length of the span.
+        /// Gets the range of the span.
         /// </summary>
-        public int Length { get; }
+        public Range Range { get; }
 
         /// <summary>
         /// Gets the span's foreground brush.

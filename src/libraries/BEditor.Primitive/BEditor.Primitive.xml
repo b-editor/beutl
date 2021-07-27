@@ -2959,6 +2959,12 @@
         <member name="M:BEditor.Primitive.Objects.Text.OnRender(BEditor.Data.EffectApplyArgs{System.Collections.Generic.IEnumerable{BEditor.Graphics.ImageInfo}})">
             <inheritdoc/>
         </member>
+        <member name="M:BEditor.Primitive.Objects.Text.OnLoad">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Objects.Text.OnUnload">
+            <inheritdoc/>
+        </member>
         <member name="T:BEditor.Primitive.Objects.VideoFile">
             <summary>
             Represents an <see cref="T:BEditor.Data.Primitive.ImageObject"/> that references an video file.

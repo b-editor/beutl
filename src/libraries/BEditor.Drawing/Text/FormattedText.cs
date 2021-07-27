@@ -16,29 +16,42 @@ using SkiaSharp;
 
 namespace BEditor.Drawing
 {
-#pragma warning disable CS1591, SA1600
-    public class FormattedText
+    /// <summary>
+    /// Represents a piece of text with formatting.
+    /// </summary>
+    public class FormattedText : IDisposable
     {
-        private readonly List<KeyValuePair<FBrushRange, Color>> _foregroundBrushes = new();
         private readonly List<FormattedTextLine> _lines = new();
         private readonly SKPaint _paint;
-        private RectangleF[]? _rects;
+        private SKFontMetrics _fontMetrics;
         private float _lineHeight;
         private float _lineOffset;
-        private readonly SKFontMetrics _fontMetrics;
         private RectangleF _bounds;
-        [AllowNull]
-        private List<PrivateFormattedTextLine> _skiaLines;
+        private bool _propertyChanged;
+        private string _text;
+        private Font _font;
+        private float _fontSize;
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="FormattedText"/> class.
+        /// </summary>
+        /// <param name="text">The text.</param>
+        /// <param name="font">The font.</param>
+        /// <param name="fontSize">The font size.</param>
+        /// <param name="textAlignment">The alignment of the text.</param>
+        /// <param name="spans">A collection of spans that describe the formatting of subsections of the text.</param>
         public FormattedText(
             string text,
             Font font,
             float fontSize,
             TextAlignment textAlignment,
-            IReadOnlyList<FormattedTextStyleSpan> spans)
+            FormattedTextStyleSpan[] spans)
         {
-            Text = text ?? string.Empty;
-            Spans = spans;
+            _text = text ?? string.Empty;
+            _font = font ?? throw new ArgumentNullException(nameof(font));
+            _fontSize = fontSize;
+
+            Spans = spans ?? throw new ArgumentNullException(nameof(spans));
             TextAlignment = textAlignment;
 
             // Replace 0 characters with zero-width spaces (200B)
@@ -59,34 +72,63 @@ namespace BEditor.Drawing
 
             // currently Skia does not measure properly with Utf8 !!!
             // Paint.TextEncoding = SKTextEncoding.Utf8;
-            if (spans != null)
-            {
-                foreach (var span in spans)
-                {
-                    if (span.ForegroundBrush != default)
-                    {
-                        SetForegroundBrush(span.ForegroundBrush, span.StartIndex, span.Length);
-                    }
-                }
-            }
-
             Rebuild();
         }
 
+        /// <summary>
+        /// Finalizes an instance of the <see cref="FormattedText"/> class.
+        /// </summary>
+        ~FormattedText()
+        {
+            Dispose();
+        }
+
+        /// <summary>
+        /// Gets a value indicating whether this instance has been disposed.
+        /// </summary>
+        public bool IsDisposed { get; private set; }
+
+        /// <summary>
+        /// Gets the bounds of the text.
+        /// </summary>
         public RectangleF Bounds => _bounds;
 
-        public string Text { get; }
+        /// <summary>
+        /// Gets or sets the font.
+        /// </summary>
+        public Font Font
+        {
+            get => _font;
+            set => Set(ref _font, value);
+        }
+
+        /// <summary>
+        /// Gets or sets the font size.
+        /// </summary>
+        public float FontSize
+        {
+            get => _fontSize;
+            set => Set(ref _fontSize, value);
+        }
+
+        /// <summary>
+        /// Gets or sets the text.
+        /// </summary>
+        public string Text
+        {
+            get => _text;
+            set => Set(ref _text, value);
+        }
 
         /// <summary>
         /// Gets or sets the alignment of the text.
         /// </summary>
-        public TextAlignment TextAlignment { get; }
+        public TextAlignment TextAlignment { get; set; }
 
         /// <summary>
-        /// Gets or sets a collection of spans that describe the formatting of subsections of the
-        /// text.
+        /// Gets or sets a collection of spans that describe the formatting of subsections of the text.
         /// </summary>
-        public IReadOnlyList<FormattedTextStyleSpan> Spans { get; }
+        public FormattedTextStyleSpan[] Spans { get; set; }
 
         /// <summary>
         /// Gets the lines in the text.
@@ -96,37 +138,42 @@ namespace BEditor.Drawing
         /// </returns>
         public IEnumerable<FormattedTextLine> Lines => _lines;
 
+        /// <summary>
+        /// Draws this <see cref="FormattedText"/>.
+        /// </summary>
+        /// <returns>Returns the drawn image.</returns>
         public IEnumerable<(Image<BGRA32> Image, RectangleF Rect)> DrawMultiple()
         {
+            if (_propertyChanged) Rebuild();
+
             for (var i = 0; i < _lines.Count; i++)
             {
-                var privLine = _skiaLines[i];
                 var line = _lines[i];
-                var nextTop = privLine.Top + privLine.Height;
-                var prevRight = TransformX(0, privLine.Width, TextAlignment);
+                var nextTop = line.Top + line.Height;
+                var prevRight = TransformX(0, line.Width, TextAlignment);
 
-                if (i + 1 < _skiaLines.Count)
+                if (i + 1 < _lines.Count)
                 {
-                    nextTop = _skiaLines[i + 1].Top;
+                    nextTop = _lines[i + 1].Top;
                 }
 
                 for (var li = 0; li < line.Text.Length; li++)
                 {
                     var c = line.Text[li];
-                    var color = GetColor(li);
+                    var color = GetColor(i, li, line.Text.Length);
                     var bounds = default(SKRect);
                     _paint.MeasureText(c.ToString(), ref bounds);
                     _paint.Color = new SKColor(color.R, color.G, color.B, color.A);
 
-                    using var bmp = new SKBitmap(new SKImageInfo((int)bounds.Width, (int)(nextTop - privLine.Top), SKColorType.Bgra8888));
+                    using var bmp = new SKBitmap(new SKImageInfo((int)bounds.Width, (int)(nextTop - line.Top), SKColorType.Bgra8888));
                     using var canvas = new SKCanvas(bmp);
 
                     var resultRect = new RectangleF(
                         prevRight + bounds.Left,
-                        privLine.Top,/*privLine.Top + (bounds.Top / 2),*/
+                        line.Top,
                         bounds.Width,
-                        nextTop - privLine.Top);
-                    canvas.DrawText(c.ToString(), (bounds.Width / 2) - bounds.MidX, -_fontMetrics.Top/*(bounds.Height / 2) - bounds.MidY*/, _paint);
+                        nextTop - line.Top);
+                    canvas.DrawText(c.ToString(), (bounds.Width / 2) - bounds.MidX, -_fontMetrics.Ascent, _paint);
 
                     prevRight += bounds.Right;
 
@@ -135,39 +182,44 @@ namespace BEditor.Drawing
             }
         }
 
+        /// <summary>
+        /// Draws this <see cref="FormattedText"/>.
+        /// </summary>
+        /// <returns>Returns the drawn image.</returns>
         public Image<BGRA32> Draw()
         {
+            if (_propertyChanged) Rebuild();
+
             using var bmp = new SKBitmap(new SKImageInfo((int)Bounds.Width, (int)Bounds.Height, SKColorType.Bgra8888));
             using var canvas = new SKCanvas(bmp);
 
             for (var i = 0; i < _lines.Count; i++)
             {
-                var privLine = _skiaLines[i];
                 var line = _lines[i];
-                var nextTop = privLine.Top + privLine.Height;
-                var prevRight = TransformX(0, privLine.Width, TextAlignment);
+                var nextTop = line.Top + line.Height;
+                var prevRight = TransformX(0, line.Width, TextAlignment);
 
-                if (i + 1 < _skiaLines.Count)
+                if (i + 1 < _lines.Count)
                 {
-                    nextTop = _skiaLines[i + 1].Top;
+                    nextTop = _lines[i + 1].Top;
                 }
 
                 for (var li = 0; li < line.Text.Length; li++)
                 {
                     var c = line.Text[li];
-                    var color = GetColor(li);
+                    var color = GetColor(i, li, line.Text.Length);
                     var bounds = default(SKRect);
                     _paint.MeasureText(c.ToString(), ref bounds);
                     _paint.Color = new SKColor(color.R, color.G, color.B, color.A);
 
-                    var a = nextTop - privLine.Top;
-                    canvas.Translate(prevRight + bounds.Left, privLine.Top);
+                    var a = nextTop - line.Top;
+                    canvas.Translate(prevRight + bounds.Left, line.Top);
 
                     // DrawTextのYはベースライン
                     canvas.DrawText(
                         c.ToString(),
                         (bounds.Width / 2) - bounds.MidX,
-                        -_fontMetrics.Top,
+                        -_fontMetrics.Ascent,
                         _paint);
 
                     canvas.ResetMatrix();
@@ -178,15 +230,21 @@ namespace BEditor.Drawing
             return bmp.ToImage32();
         }
 
+        /// <inheritdoc/>
         public override string ToString()
         {
             return Text;
         }
 
-        private static bool IsBreakChar(char c)
+        /// <inheritdoc/>
+        public void Dispose()
         {
-            // white space or zero space whitespace
-            return char.IsWhiteSpace(c) || c == '\u200B';
+            if (!IsDisposed)
+            {
+                _paint.Dispose();
+                GC.SuppressFinalize(this);
+                IsDisposed = true;
+            }
         }
 
         private static string[] GetLines(string text)
@@ -194,22 +252,13 @@ namespace BEditor.Drawing
             return text.Split(new string[] { "\r\n", "\n", "\r" }, StringSplitOptions.None);
         }
 
-        private IEnumerable<RectangleF> GetRectanglesFromLine(string text)
+        private Color GetColor(int line, int index, int length)
         {
-            var bounds = default(SKRect);
-            foreach (var item in text)
-            {
-                _paint.MeasureText(item.ToString(), ref bounds);
-                yield return new RectangleF(bounds.Left, bounds.Top, bounds.Width, bounds.Height);
-            }
-        }
-
-        private Color GetColor(int index)
-        {
-            for (var i = 0; i < Spans.Count; i++)
+            for (var i = 0; i < Spans.Length; i++)
             {
                 var span = Spans[i];
-                if (span.StartIndex <= index || index < span.Length)
+                var (offset, len) = span.Range.GetOffsetAndLength(length);
+                if ((span.LineNumber == line || span.LineNumber < 0) && (offset <= index || index < len))
                 {
                     return span.ForegroundBrush;
                 }
@@ -220,11 +269,10 @@ namespace BEditor.Drawing
 
         private void Rebuild()
         {
-            var length = Text.Length;
-
             _lines.Clear();
-            _rects = null;
-            _skiaLines = new List<PrivateFormattedTextLine>();
+            _paint.TextSize = FontSize;
+            _paint.Typeface = Font.GetTypeface();
+            _fontMetrics = _paint.FontMetrics;
 
             var curY = 0F;
 
@@ -243,7 +291,6 @@ namespace BEditor.Drawing
             _lineOffset = -metrics.Ascent;
 
             var lines = GetLines(Text);
-            var count = 0;
 
             _lines.Clear();
             var maxWidth = 0F;
@@ -253,21 +300,8 @@ namespace BEditor.Drawing
             {
                 var line = lines[i];
                 var lineWidth = _paint.MeasureText(line);
-                var txtLine = new PrivateFormattedTextLine
-                {
-                    Start = count,
-                    TextLength = line.Length,
-                    Width = lineWidth,
-                    Height = _lineHeight,
-                    Top = curY,
-                };
 
-                _skiaLines.Add(txtLine);
-                count += line.Length;
-                curY += _lineHeight;
-                curY += mLeading;
-
-                var item = new FormattedTextLine(line, lineWidth, _lineHeight);
+                var item = new FormattedTextLine(line, curY, lineWidth, _lineHeight);
                 _lines.Add(item);
 
                 if (maxWidth < item.Width)
@@ -276,20 +310,21 @@ namespace BEditor.Drawing
                 }
 
                 maxHeight += item.Height;
+                curY += _lineHeight;
+                curY += mLeading;
             }
 
-            if (_skiaLines.Count == 0)
+            if (_lines.Count == 0)
             {
-                _skiaLines.Add(default);
-                _lines.Add(new FormattedTextLine(string.Empty, 0, _lineHeight));
+                _lines.Add(new FormattedTextLine(string.Empty, 0, 0, _lineHeight));
                 _bounds = new RectangleF(0, 0, 0, _lineHeight);
             }
             else
             {
-                var lastLine = _skiaLines[^1];
-
-                _bounds = new RectangleF(0, 0, maxWidth, /*lastLine.Top + lastLine.Height*//*_lineHeight * _skiaLines.Count*/maxHeight);
+                _bounds = new RectangleF(0, 0, maxWidth, maxHeight);
             }
+
+            _propertyChanged = false;
         }
 
         private float TransformX(float originX, float lineWidth, TextAlignment align)
@@ -314,55 +349,16 @@ namespace BEditor.Drawing
             return x;
         }
 
-        private void SetForegroundBrush(Color brush, int startIndex, int length)
+        private void Set<T>(ref T field, T value)
         {
-            var key = new FBrushRange(startIndex, length);
-            var index = _foregroundBrushes.FindIndex(v => v.Key.Equals(key));
-
-            if (index > -1)
+            if (field != null && field.Equals(value))
             {
-                _foregroundBrushes.RemoveAt(index);
+                return;
             }
 
-            if (brush != default)
-            {
-                _foregroundBrushes.Insert(0, new KeyValuePair<FBrushRange, Color>(key, brush));
-            }
-        }
+            field = value;
 
-        private struct PrivateFormattedTextLine
-        {
-            public float Height;
-            public int Start;
-            public int TextLength;
-            public float Top;
-            public float Width;
-            public bool IsEmptyTrailingLine;
-        }
-
-        private struct FBrushRange
-        {
-            public FBrushRange(int startIndex, int length)
-            {
-                StartIndex = startIndex;
-                Length = length;
-            }
-
-            public int EndIndex => StartIndex + Length;
-
-            public int Length { get; private set; }
-
-            public int StartIndex { get; private set; }
-
-            public bool Intersects(int index, int len) =>
-                (index + len) > StartIndex &&
-                (StartIndex + Length) > index;
-
-            public override string ToString()
-            {
-                return $"{StartIndex}-{EndIndex}";
-            }
+            _propertyChanged = true;
         }
     }
-#pragma warning restore CS1591, SA1600
 }

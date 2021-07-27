@@ -5,6 +5,7 @@
 // This software may be modified and distributed under the terms
 // of the MIT license. See the LICENSE file for details.
 
+using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
@@ -81,6 +82,7 @@ namespace BEditor.Primitive.Objects
         /// <summary>
         /// Defines the <see cref="VerticalAlign"/> property.
         /// </summary>
+        [Obsolete("Obsolete.")]
         public static readonly DirectProperty<Text, SelectorProperty> VerticalAlignProperty = EditingProperty.RegisterDirect<SelectorProperty, Text>(
             nameof(VerticalAlign),
             owner => owner.VerticalAlign,
@@ -90,7 +92,7 @@ namespace BEditor.Primitive.Objects
                 Strings.Top,
                 Strings.Center,
                 Strings.Bottom,
-            })).Serialize());
+            })));
 
         /// <summary>
         /// Defines the <see cref="Document"/> property.
@@ -108,7 +110,9 @@ namespace BEditor.Primitive.Objects
             nameof(IsMultiple),
             owner => owner.IsMultiple,
             (owner, obj) => owner.IsMultiple = obj,
-            EditingPropertyOptions<CheckProperty>.Create(new CheckPropertyMetadata(string.Empty, true)).Serialize());
+            EditingPropertyOptions<CheckProperty>.Create(new CheckPropertyMetadata(Strings.EnableMultipleObjects, true)).Serialize());
+
+        private FormattedText? _formattedText;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Text"/> class.
@@ -154,6 +158,7 @@ namespace BEditor.Primitive.Objects
         /// Gets the vertical alignment of the string to be drawn.
         /// </summary>
         [AllowNull]
+        [Obsolete("Obsolete.")]
         public SelectorProperty VerticalAlign { get; private set; }
 
         /// <summary>
@@ -181,7 +186,6 @@ namespace BEditor.Primitive.Objects
             yield return Color;
             yield return Font;
             yield return HorizontalAlign;
-            yield return VerticalAlign;
             yield return Document;
             yield return IsMultiple;
         }
@@ -189,14 +193,8 @@ namespace BEditor.Primitive.Objects
         /// <inheritdoc/>
         protected override Image<BGRA32> OnRender(EffectApplyArgs args)
         {
-            var fmtText = new FormattedText(
-                Document.Value,
-                Font.Value,
-                Size[args.Frame],
-                (TextAlignment)HorizontalAlign.Index,
-                new FormattedTextStyleSpan[] { new(0, Document.Value.Length, Color.Value), });
-
-            return fmtText.Draw();
+            SetProperty(args.Frame);
+            return _formattedText!.Draw();
         }
 
         /// <inheritdoc/>
@@ -212,17 +210,35 @@ namespace BEditor.Primitive.Objects
             }
         }
 
+        /// <inheritdoc/>
+        protected override void OnLoad()
+        {
+            base.OnLoad();
+            _formattedText = new(string.Empty, Font.Value, 16, TextAlignment.Left, new FormattedTextStyleSpan[] { new(0, 0..^1, Color.Value) });
+        }
+
+        /// <inheritdoc/>
+        protected override void OnUnload()
+        {
+            base.OnUnload();
+            _formattedText?.Dispose();
+        }
+
+        private void SetProperty(Frame frame)
+        {
+            _formattedText!.Text = Document.Value;
+            _formattedText.Font = Font.Value;
+            _formattedText.FontSize = Size[frame];
+            _formattedText.TextAlignment = (TextAlignment)HorizontalAlign.Index;
+            _formattedText.Spans[0] = new(0, 0..^1, Color.Value);
+        }
+
         private IEnumerable<ImageInfo> Selector(Frame frame)
         {
-            var fmtText = new FormattedText(
-                Document.Value,
-                Font.Value,
-                Size[frame],
-                (TextAlignment)HorizontalAlign.Index,
-                new FormattedTextStyleSpan[] { new(0, Document.Value.Length, Color.Value), });
-            var bounds = fmtText.Bounds;
+            SetProperty(frame);
+            var bounds = _formattedText!.Bounds;
 
-            foreach (var (image, rect) in fmtText.DrawMultiple())
+            foreach (var (image, rect) in _formattedText.DrawMultiple())
             {
                 yield return new ImageInfo(image, _ =>
                 {
