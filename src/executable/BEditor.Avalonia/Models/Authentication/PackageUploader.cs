@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Text.Json;
 using System.Threading.Tasks;
 
@@ -26,11 +27,13 @@ namespace BEditor.Models.Authentication
         {
             var url = Combine(GetPackages);
             var responseData = "N/A";
-            var requestData = $"{{\"access_token\":\"{auth.Token}\"}}";
 
             try
             {
-                var msg = await _client.PostAsync(url, new StringContent(requestData));
+                var request = new HttpRequestMessage(HttpMethod.Post, url);
+                AddToken(request.Headers, auth.Token);
+
+                var msg = await _client.SendAsync(request);
                 msg.EnsureSuccessStatusCode();
                 responseData = await msg.Content.ReadAsStringAsync();
                 var packages = JsonSerializer.Deserialize<IEnumerable<Package>>(responseData);
@@ -47,7 +50,6 @@ namespace BEditor.Models.Authentication
                 throw new AuthException(null, ex)
                 {
                     RequestUrl = url,
-                    RequestData = requestData,
                     ResponseData = responseData,
                 };
             }
@@ -56,22 +58,18 @@ namespace BEditor.Models.Authentication
         public async ValueTask UploadAsync(Packaging.Authentication user, Stream stream)
         {
             // Todo: APIキーを追加
-            var url = Base + string.Format(Upload, "", user.Token);
+            var url = Base + string.Format(Upload, "");
             var responseData = "N/A";
 
             try
             {
-                var msg = await _client.PostAsync(url, new StreamContent(stream));
+                var request = new HttpRequestMessage(HttpMethod.Post, url);
+                AddToken(request.Headers, user.Token);
+                request.Content = new StreamContent(stream);
+
+                var msg = await _client.SendAsync(request);
                 msg.EnsureSuccessStatusCode();
                 responseData = await msg.Content.ReadAsStringAsync();
-                // var packages = JsonSerializer.Deserialize<PackageVersion>(responseData);
-
-                // if (packages is null)
-                // {
-                //     throw new JsonException("Failed to deserialize.");
-                // }
-
-                // return packages;
             }
             catch (Exception ex)
             {
@@ -80,6 +78,14 @@ namespace BEditor.Models.Authentication
                     RequestUrl = url,
                     ResponseData = responseData,
                 };
+            }
+        }
+
+        private static void AddToken(HttpRequestHeaders header, string? item)
+        {
+            if (item != null)
+            {
+                header.Add("Authorization", "Token " + item);
             }
         }
 
