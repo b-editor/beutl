@@ -19,15 +19,13 @@ namespace BEditor.Drawing
 #pragma warning disable CS1591, SA1600
     public class FormattedText
     {
-        private const float MAXLINEWIDTH = 10000;
-
         private readonly List<KeyValuePair<FBrushRange, Color>> _foregroundBrushes = new();
         private readonly List<FormattedTextLine> _lines = new();
         private readonly SKPaint _paint;
-        private readonly List<RectangleF> _rects = new();
-        private SizeF _constraint = new(float.NaN, float.NaN);
+        private RectangleF[]? _rects;
         private float _lineHeight;
         private float _lineOffset;
+        private readonly SKFontMetrics _fontMetrics;
         private RectangleF _bounds;
         [AllowNull]
         private List<PrivateFormattedTextLine> _skiaLines;
@@ -56,8 +54,8 @@ namespace BEditor.Drawing
                 IsLinearText = true,
                 Typeface = font.GetTypeface(),
                 TextSize = fontSize,
-                TextAlign = (SKTextAlign)textAlignment,
             };
+            _fontMetrics = _paint.FontMetrics;
 
             // currently Skia does not measure properly with Utf8 !!!
             // Paint.TextEncoding = SKTextEncoding.Utf8;
@@ -90,38 +88,50 @@ namespace BEditor.Drawing
         /// </summary>
         public IReadOnlyList<FormattedTextStyleSpan> Spans { get; }
 
-        public IReadOnlyList<RectangleF> Rectangles => GetRectangles();
-
         /// <summary>
         /// Gets the lines in the text.
         /// </summary>
         /// <returns>
         /// A collection of <see cref="FormattedTextLine"/> objects.
         /// </returns>
-        public IEnumerable<FormattedTextLine> GetLines()
-        {
-            return _lines;
-        }
+        public IEnumerable<FormattedTextLine> Lines => _lines;
 
         public IEnumerable<(Image<BGRA32> Image, RectangleF Rect)> DrawMultiple()
         {
-            for (var i = 0; i < Text.Length; i++)
+            for (var i = 0; i < _lines.Count; i++)
             {
-                var chara = Text[i];
-                if (chara is '\n' or '\r') continue;
-                var rect = Rectangles[i];
-                var color = GetColor(i);
+                var privLine = _skiaLines[i];
+                var line = _lines[i];
+                var nextTop = privLine.Top + privLine.Height;
+                var prevRight = TransformX(0, privLine.Width, TextAlignment);
 
-                using var bmp = new SKBitmap(new SKImageInfo((int)rect.Width, (int)rect.Height, SKColorType.Bgra8888));
-                using var canvas = new SKCanvas(bmp);
+                if (i + 1 < _skiaLines.Count)
+                {
+                    nextTop = _skiaLines[i + 1].Top;
+                }
 
-                _paint.Color = new SKColor(color.R, color.G, color.B, color.A);
-                var bounds = default(SKRect);
-                var txt = chara.ToString();
-                _paint.MeasureText(txt, ref bounds);
-                canvas.DrawText(txt, (bounds.Width / 2) - bounds.MidX, (bounds.Height / 2) - bounds.MidY, _paint);
+                for (var li = 0; li < line.Text.Length; li++)
+                {
+                    var c = line.Text[li];
+                    var color = GetColor(li);
+                    var bounds = default(SKRect);
+                    _paint.MeasureText(c.ToString(), ref bounds);
+                    _paint.Color = new SKColor(color.R, color.G, color.B, color.A);
 
-                yield return (bmp.ToImage32(), rect);
+                    using var bmp = new SKBitmap(new SKImageInfo((int)bounds.Width, (int)(nextTop - privLine.Top), SKColorType.Bgra8888));
+                    using var canvas = new SKCanvas(bmp);
+
+                    var resultRect = new RectangleF(
+                        prevRight + bounds.Left,
+                        privLine.Top,/*privLine.Top + (bounds.Top / 2),*/
+                        bounds.Width,
+                        nextTop - privLine.Top);
+                    canvas.DrawText(c.ToString(), (bounds.Width / 2) - bounds.MidX, -_fontMetrics.Top/*(bounds.Height / 2) - bounds.MidY*/, _paint);
+
+                    prevRight += bounds.Right;
+
+                    yield return (bmp.ToImage32(), resultRect);
+                }
             }
         }
 
@@ -130,81 +140,42 @@ namespace BEditor.Drawing
             using var bmp = new SKBitmap(new SKImageInfo((int)Bounds.Width, (int)Bounds.Height, SKColorType.Bgra8888));
             using var canvas = new SKCanvas(bmp);
 
-            for (var i = 0; i < Text.Length; i++)
+            for (var i = 0; i < _lines.Count; i++)
             {
-                var chara = Text[i];
-                if (chara is '\n' or '\r') continue;
-                var rect = Rectangles[i];
-                var color = GetColor(i);
+                var privLine = _skiaLines[i];
+                var line = _lines[i];
+                var nextTop = privLine.Top + privLine.Height;
+                var prevRight = TransformX(0, privLine.Width, TextAlignment);
 
-                _paint.Color = new SKColor(color.R, color.G, color.B, color.A);
-                var bounds = default(SKRect);
-                var txt = chara.ToString();
-                _paint.MeasureText(txt, ref bounds);
-                canvas.Translate(rect.X, rect.Y);
-                canvas.DrawText(txt, (bounds.Width / 2) - bounds.MidX, (bounds.Height / 2) - bounds.MidY, _paint);
-                canvas.ResetMatrix();
+                if (i + 1 < _skiaLines.Count)
+                {
+                    nextTop = _skiaLines[i + 1].Top;
+                }
+
+                for (var li = 0; li < line.Text.Length; li++)
+                {
+                    var c = line.Text[li];
+                    var color = GetColor(li);
+                    var bounds = default(SKRect);
+                    _paint.MeasureText(c.ToString(), ref bounds);
+                    _paint.Color = new SKColor(color.R, color.G, color.B, color.A);
+
+                    var a = nextTop - privLine.Top;
+                    canvas.Translate(prevRight + bounds.Left, privLine.Top);
+
+                    // DrawTextのYはベースライン
+                    canvas.DrawText(
+                        c.ToString(),
+                        (bounds.Width / 2) - bounds.MidX,
+                        -_fontMetrics.Top,
+                        _paint);
+
+                    canvas.ResetMatrix();
+                    prevRight += bounds.Right;
+                }
             }
 
             return bmp.ToImage32();
-        }
-
-        /// <summary>
-        /// Gets the bounds rectangle that the specified character occupies.
-        /// </summary>
-        /// <param name="index">The index of the character.</param>
-        /// <returns>The character bounds.</returns>
-        public RectangleF HitTestTextPosition(int index)
-        {
-            if (string.IsNullOrEmpty(Text))
-            {
-                var alignmentOffset = TransformX(0, 0, _paint.TextAlign);
-                return new RectangleF(alignmentOffset, 0, 0, _lineHeight);
-            }
-
-            var rects = GetRectangles();
-            if (index >= Text.Length || index < 0)
-            {
-                var r = rects.LastOrDefault();
-
-                return Text[^1] switch
-                {
-                    '\n' or '\r' => new RectangleF(r.X, r.Y, 0, _lineHeight),
-                    _ => new RectangleF(r.X + r.Width, r.Y, 0, _lineHeight),
-                };
-            }
-
-            return rects[index];
-        }
-
-        /// <summary>
-        /// Gets the bounds rectangles that the specified text range occupies.
-        /// </summary>
-        /// <param name="index">The index of the first character.</param>
-        /// <param name="length">The number of characters in the text range.</param>
-        /// <returns>The character bounds.</returns>
-        public IEnumerable<RectangleF> HitTestTextRange(int index, int length)
-        {
-            var result = new List<RectangleF>();
-
-            var rects = GetRectangles();
-
-            var lastIndex = index + length - 1;
-
-            foreach (var line in _skiaLines.Where(l =>
-                (l.Start + l.Length) > index
-                && lastIndex >= l.Start
-                && !l.IsEmptyTrailingLine))
-            {
-                var lineEndIndex = line.Start + (line.Length > 0 ? line.Length - 1 : 0);
-
-                var left = rects[line.Start > index ? line.Start : index].X;
-                var right = rects[lineEndIndex > lastIndex ? lastIndex : lineEndIndex].Right;
-
-                result.Add(new RectangleF(left, line.Top, right - left, line.Height));
-            }
-
-            return result;
         }
 
         public override string ToString()
@@ -218,136 +189,18 @@ namespace BEditor.Drawing
             return char.IsWhiteSpace(c) || c == '\u200B';
         }
 
-        private static int LineBreak(
-            string textInput, int textIndex, int stop,
-            out int trailingCount)
+        private static string[] GetLines(string text)
         {
-            var lengthBreak = stop - textIndex;
-
-            // Check for white space or line breakers before the lengthBreak
-            var startIndex = textIndex;
-            var index = textIndex;
-            var word_start = textIndex;
-            var prevBreak = true;
-
-            trailingCount = 0;
-
-            while (index < stop)
-            {
-                var prevText = index;
-                var currChar = textInput[index++];
-                var currBreak = IsBreakChar(currChar);
-
-                if (!currBreak && prevBreak)
-                {
-                    word_start = prevText;
-                }
-
-                prevBreak = currBreak;
-
-                if (index > startIndex + lengthBreak)
-                {
-                    if (currBreak)
-                    {
-                        // eat the rest of the whitespace
-                        while (index < stop && IsBreakChar(textInput[index]))
-                        {
-                            index++;
-                        }
-
-                        trailingCount = index - prevText;
-                    }
-                    else
-                    {
-                        // backup until a whitespace (or 1 char)
-                        if (word_start == startIndex)
-                        {
-                            if (prevText > startIndex)
-                            {
-                                index = prevText;
-                            }
-                        }
-                        else
-                        {
-                            index = word_start;
-                        }
-                    }
-
-                    break;
-                }
-
-                if (currChar == '\n')
-                {
-                    var ret = index - startIndex;
-                    var lineBreakSizeF = 1;
-                    if (index < stop)
-                    {
-                        currChar = textInput[index++];
-                        if (currChar == '\r')
-                        {
-                            ret = index - startIndex;
-                            ++lineBreakSizeF;
-                        }
-                    }
-
-                    trailingCount = lineBreakSizeF;
-
-                    return ret;
-                }
-
-                if (currChar == '\r')
-                {
-                    var ret = index - startIndex;
-                    var lineBreakSizeF = 1;
-                    if (index < stop)
-                    {
-                        currChar = textInput[index++];
-                        if (currChar == '\n')
-                        {
-                            ret = index - startIndex;
-                            ++lineBreakSizeF;
-                        }
-                    }
-
-                    trailingCount = lineBreakSizeF;
-
-                    return ret;
-                }
-            }
-
-            return index - startIndex;
+            return text.Split(new string[] { "\r\n", "\n", "\r" }, StringSplitOptions.None);
         }
 
-        private void BuildRectangleFs()
+        private IEnumerable<RectangleF> GetRectanglesFromLine(string text)
         {
-            // Build character rects
-            var align = _paint.TextAlign;
-
-            for (var li = 0; li < _skiaLines.Count; li++)
+            var bounds = default(SKRect);
+            foreach (var item in text)
             {
-                var line = _skiaLines[li];
-                var prevRight = TransformX(0, line.Width, align);
-                var nextTop = line.Top + line.Height;
-
-                if (li + 1 < _skiaLines.Count)
-                {
-                    nextTop = _skiaLines[li + 1].Top;
-                }
-
-                for (var i = line.Start; i < line.Start + line.TextLength; i++)
-                {
-                    var bounds = default(SKRect);
-                    var c = Text[i];
-                    var w = line.IsEmptyTrailingLine ? 0 : _paint.MeasureText(c.ToString(), ref bounds);
-
-                    _rects.Add(new RectangleF(
-                        prevRight + bounds.Location.X,
-                        line.Top + bounds.Top + (_lineOffset / 2),
-                        w,
-                        bounds.Height));
-
-                    prevRight += w;
-                }
+                _paint.MeasureText(item.ToString(), ref bounds);
+                yield return new RectangleF(bounds.Left, bounds.Top, bounds.Width, bounds.Height);
             }
         }
 
@@ -365,63 +218,14 @@ namespace BEditor.Drawing
             return Colors.White;
         }
 
-        private Color GetNextForegroundBrush(ref PrivateFormattedTextLine line, int index, out int length)
-        {
-            Color result = default;
-            var len = length = line.Start + line.Length - index;
-
-            if (_foregroundBrushes.Count > 0)
-            {
-                var bi = _foregroundBrushes.FindIndex(b => b.Key.StartIndex <= index && b.Key.EndIndex > index);
-
-                if (bi > -1)
-                {
-                    var match = _foregroundBrushes[bi];
-
-                    len = match.Key.EndIndex - index;
-                    result = match.Value;
-
-                    if (len > 0 && len < length)
-                    {
-                        length = len;
-                    }
-                }
-
-                var endIndex = index + length;
-                var max = bi == -1 ? _foregroundBrushes.Count : bi;
-                var next = _foregroundBrushes.Take(max)
-                    .Where(b => b.Key.StartIndex < endIndex && b.Key.StartIndex > index)
-                    .OrderBy(b => b.Key.StartIndex)
-                    .FirstOrDefault();
-
-                if (next.Value != default)
-                {
-                    length = next.Key.StartIndex - index;
-                }
-            }
-
-            return result;
-        }
-
-        private List<RectangleF> GetRectangles()
-        {
-            if (Text.Length > _rects.Count)
-            {
-                BuildRectangleFs();
-            }
-
-            return _rects;
-        }
-
         private void Rebuild()
         {
             var length = Text.Length;
 
             _lines.Clear();
-            _rects.Clear();
+            _rects = null;
             _skiaLines = new List<PrivateFormattedTextLine>();
 
-            var curOff = 0;
             var curY = 0F;
 
             var metrics = _paint.FontMetrics;
@@ -438,91 +242,61 @@ namespace BEditor.Drawing
             // Rendering is relative to baseline
             _lineOffset = -metrics.Ascent;
 
-            string subString;
+            var lines = GetLines(Text);
+            var count = 0;
 
-            var widthConstraint = float.IsNaN(_constraint.Width) ? -1 : _constraint.Width;
+            _lines.Clear();
+            var maxWidth = 0F;
+            var maxHeight = 0F;
 
-            while (curOff < length)
+            for (var i = 0; i < lines.Length; i++)
             {
-                var measured = LineBreak(Text, curOff, length, out var trailingnumber);
-                subString = Text.Substring(curOff, measured);
-                var lineWidth = _paint.MeasureText(subString.Replace("\n", string.Empty).Replace("\r", string.Empty));
-                var line = new PrivateFormattedTextLine
+                var line = lines[i];
+                var lineWidth = _paint.MeasureText(line);
+                var txtLine = new PrivateFormattedTextLine
                 {
-                    Start = curOff,
-                    TextLength = measured,
-                    Length = measured - trailingnumber,
+                    Start = count,
+                    TextLength = line.Length,
                     Width = lineWidth,
                     Height = _lineHeight,
                     Top = curY,
                 };
 
-                _skiaLines.Add(line);
-
+                _skiaLines.Add(txtLine);
+                count += line.Length;
                 curY += _lineHeight;
                 curY += mLeading;
-                curOff += measured;
 
-                // if this is the last line and there are trailing newline characters then
-                // insert a additional line
-                if (curOff >= length)
+                var item = new FormattedTextLine(line, lineWidth, _lineHeight);
+                _lines.Add(item);
+
+                if (maxWidth < item.Width)
                 {
-                    var subStringMinusNewlines = subString.TrimEnd('\n', '\r');
-                    var lengthDiff = subString.Length - subStringMinusNewlines.Length;
-                    if (lengthDiff > 0)
-                    {
-                        var lastLineSubString = Text.Substring(line.Start, line.TextLength);
-                        var lastLineWidth = _paint.MeasureText(lastLineSubString);
-                        var lastLine = new PrivateFormattedTextLine
-                        {
-                            TextLength = lengthDiff,
-                            Start = curOff - lengthDiff,
-                            Length = 0,
-                            Width = lastLineWidth,
-                            Height = _lineHeight,
-                            Top = curY,
-                            IsEmptyTrailingLine = true,
-                        };
-
-                        _skiaLines.Add(lastLine);
-
-                        curY += _lineHeight;
-                        curY += mLeading;
-                    }
+                    maxWidth = item.Width;
                 }
-            }
 
-            // Now convert to Avalonia data formats
-            _lines.Clear();
-            float maxX = 0;
-
-            for (var c = 0; c < _skiaLines.Count; c++)
-            {
-                var w = _skiaLines[c].Width;
-                if (maxX < w)
-                    maxX = w;
-
-                _lines.Add(new FormattedTextLine(_skiaLines[c].Start, _skiaLines[c].TextLength, _skiaLines[c].Height));
+                maxHeight += item.Height;
             }
 
             if (_skiaLines.Count == 0)
             {
-                _lines.Add(new FormattedTextLine(0, 0, _lineHeight));
+                _skiaLines.Add(default);
+                _lines.Add(new FormattedTextLine(string.Empty, 0, _lineHeight));
                 _bounds = new RectangleF(0, 0, 0, _lineHeight);
             }
             else
             {
                 var lastLine = _skiaLines[^1];
-                
-                _bounds = new RectangleF(0, 0, maxX, /*lastLine.Top + lastLine.Height*/_lineHeight * _skiaLines.Count);
+
+                _bounds = new RectangleF(0, 0, maxWidth, /*lastLine.Top + lastLine.Height*//*_lineHeight * _skiaLines.Count*/maxHeight);
             }
         }
 
-        private float TransformX(float originX, float lineWidth, SKTextAlign align)
+        private float TransformX(float originX, float lineWidth, TextAlignment align)
         {
             float x = 0;
 
-            if (align == SKTextAlign.Left)
+            if (align == TextAlignment.Left)
             {
                 x = originX;
             }
@@ -532,8 +306,8 @@ namespace BEditor.Drawing
 
                 switch (align)
                 {
-                    case SKTextAlign.Center: x = originX + ((width - lineWidth) / 2); break;
-                    case SKTextAlign.Right: x = originX + (width - lineWidth); break;
+                    case TextAlignment.Center: x = originX + ((width - lineWidth) / 2); break;
+                    case TextAlignment.Right: x = originX + (width - lineWidth); break;
                 }
             }
 
@@ -559,7 +333,6 @@ namespace BEditor.Drawing
         private struct PrivateFormattedTextLine
         {
             public float Height;
-            public int Length;
             public int Start;
             public int TextLength;
             public float Top;

@@ -23,33 +23,28 @@ namespace BEditor.Drawing
         /// <summary>
         /// Initializes a new instance of the <see cref="FormattedTextLine"/> class.
         /// </summary>
-        /// <param name="startIndex">The index of the first character in the line, in characters.</param>
-        /// <param name="length">The length of the line, in characters.</param>
-        /// <param name="rectangles">The rectangles.</param>
-        public FormattedTextLine(int startIndex, int length, RectangleF[] rectangles)
+        /// <param name="text">The text in the line.</param>
+        /// <param name="width">The width of the line, in pixels.</param>
+        /// <param name="height">The height of the line, in pixels.</param>
+        public FormattedTextLine(string text, float width, float height)
         {
-            StartIndex = startIndex;
-            Length = length;
-            Rectangles = rectangles;
+            Text = text;
+            Width = width;
+            Height = height;
         }
 
         /// <summary>
-        /// Gets the length of the line, in characters.
+        /// Gets the text in the line.
         /// </summary>
-        public int StartIndex { get; }
-
-        /// <summary>
-        /// Gets the length of the line, in characters.
-        /// </summary>
-        public int Length { get; }
+        public string Text { get; }
 
         /// <summary>
         /// Gets the rectangles.
         /// </summary>
-        public RectangleF[] Rectangles { get; }
+        // public RectangleF[] Rectangles { get; }
 
         /// <summary>
-        /// Gets the height of the line, in pixels.
+        /// Gets the width of the line, in pixels.
         /// </summary>
         public float Width { get; }
 
