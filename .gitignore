@@ -356,3 +356,5 @@ tools/*
 !/packages/*
 !/packages/Debian/usr/bin
 /packages/Debian/usr/lib/beditor/*
+/src/executable/BEditor.MSIX
+/BEditor.Windows.sln
