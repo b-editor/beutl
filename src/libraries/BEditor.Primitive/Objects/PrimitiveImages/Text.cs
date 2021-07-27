@@ -7,13 +7,19 @@
 
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.Linq;
+using System.Threading;
 
 using BEditor.Data;
 using BEditor.Data.Primitive;
 using BEditor.Data.Property;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
+using BEditor.Graphics;
+using BEditor.Media;
 using BEditor.Primitive.Resources;
+
+using SkiaSharp;
 
 namespace BEditor.Primitive.Objects
 {
@@ -96,6 +102,15 @@ namespace BEditor.Primitive.Objects
             EditingPropertyOptions<DocumentProperty>.Create(new DocumentPropertyMetadata(string.Empty)).Serialize());
 
         /// <summary>
+        /// Defines the <see cref="IsMultiple"/> property.
+        /// </summary>
+        public static readonly DirectProperty<Text, CheckProperty> IsMultipleProperty = EditingProperty.RegisterDirect<CheckProperty, Text>(
+            nameof(IsMultiple),
+            owner => owner.IsMultiple,
+            (owner, obj) => owner.IsMultiple = obj,
+            EditingPropertyOptions<CheckProperty>.Create(new CheckPropertyMetadata(string.Empty, true)).Serialize());
+
+        /// <summary>
         /// Initializes a new instance of the <see cref="Text"/> class.
         /// </summary>
         public Text()
@@ -147,6 +162,12 @@ namespace BEditor.Primitive.Objects
         [AllowNull]
         public DocumentProperty Document { get; private set; }
 
+        /// <summary>
+        /// Gets the string to be drawn.
+        /// </summary>
+        [AllowNull]
+        public CheckProperty IsMultiple { get; private set; }
+
         /// <inheritdoc/>
         public override IEnumerable<PropertyElement> GetProperties()
         {
@@ -162,19 +183,54 @@ namespace BEditor.Primitive.Objects
             yield return HorizontalAlign;
             yield return VerticalAlign;
             yield return Document;
+            yield return IsMultiple;
         }
 
         /// <inheritdoc/>
         protected override Image<BGRA32> OnRender(EffectApplyArgs args)
         {
-            return Image.Text(
+            var fmtText = new FormattedText(
                 Document.Value,
                 Font.Value,
                 Size[args.Frame],
-                Color.Value,
-                (HorizontalAlign)HorizontalAlign.Index,
-                (VerticalAlign)VerticalAlign.Index,
-                LineSpacing[args.Frame]);
+                (TextAlignment)HorizontalAlign.Index,
+                new FormattedTextStyleSpan[] { new(0, Document.Value.Length, Color.Value), });
+
+            return fmtText.Draw();
+        }
+
+        /// <inheritdoc/>
+        protected override void OnRender(EffectApplyArgs<IEnumerable<ImageInfo>> args)
+        {
+            if (IsMultiple.Value)
+            {
+                args.Value = Selector(args.Frame);
+            }
+            else
+            {
+                base.OnRender(args);
+            }
+        }
+
+        private IEnumerable<ImageInfo> Selector(Frame frame)
+        {
+            var fmtText = new FormattedText(
+                Document.Value,
+                Font.Value,
+                Size[frame],
+                (TextAlignment)HorizontalAlign.Index,
+                new FormattedTextStyleSpan[] { new(0, Document.Value.Length, Color.Value), });
+            var bounds = fmtText.Bounds;
+
+            foreach (var (image, rect) in fmtText.DrawMultiple())
+            {
+                yield return new ImageInfo(image, _ =>
+                {
+                    var x = rect.X + (rect.Width / 2) - (bounds.Width / 2);
+                    var y = rect.Y + (rect.Height / 2) - (bounds.Height / 2);
+                    return new Transform(new(x, -y, 0), default, default, default);
+                });
+            }
         }
     }
 }

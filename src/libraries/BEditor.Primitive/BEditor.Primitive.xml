@@ -2897,6 +2897,11 @@
             Defines the <see cref="P:BEditor.Primitive.Objects.Text.Document"/> property.
             </summary>
         </member>
+        <member name="F:BEditor.Primitive.Objects.Text.IsMultipleProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Objects.Text.IsMultiple"/> property.
+            </summary>
+        </member>
         <member name="M:BEditor.Primitive.Objects.Text.#ctor">
             <summary>
             Initializes a new instance of the <see cref="T:BEditor.Primitive.Objects.Text"/> class.
@@ -2940,10 +2945,18 @@
             Gets the string to be drawn.
             </summary>
         </member>
+        <member name="P:BEditor.Primitive.Objects.Text.IsMultiple">
+            <summary>
+            Gets the string to be drawn.
+            </summary>
+        </member>
         <member name="M:BEditor.Primitive.Objects.Text.GetProperties">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Primitive.Objects.Text.OnRender(BEditor.Data.EffectApplyArgs)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Objects.Text.OnRender(BEditor.Data.EffectApplyArgs{System.Collections.Generic.IEnumerable{BEditor.Graphics.ImageInfo}})">
             <inheritdoc/>
         </member>
         <member name="T:BEditor.Primitive.Objects.VideoFile">

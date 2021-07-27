@@ -324,6 +324,8 @@ namespace BEditor.Drawing
             {
                 Edging = SKFontEdging.Antialias,
             };
+            var lineHeight = fontObj.Metrics.Descent - fontObj.Metrics.Ascent;
+            //linespace -= fontObj.Metrics.Ascent;
 
             using var paint = new SKPaint(fontObj)
             {
@@ -342,7 +344,7 @@ namespace BEditor.Drawing
                 linesBounds.Add(textBounds);
             }
 
-            using var bmp = new SKBitmap(new SKImageInfo((int)linesBounds.Max(i => i.Width), (int)(linesBounds.Sum(i => i.Height) + (linespace * (lines.Length - 1))), SKColorType.Bgra8888));
+            using var bmp = new SKBitmap(new SKImageInfo((int)linesBounds.Max(i => i.Width), /*(int)(linesBounds.Sum(i => i.Height) + (linespace * (lines.Length - 1)))*/(int)(lineHeight * lines.Length + linespace), SKColorType.Bgra8888));
             using var canvas = new SKCanvas(bmp);
 
             for (var i = 0; i < lines.Length; i++)
@@ -357,13 +359,13 @@ namespace BEditor.Drawing
                     canvas.Translate(x, 0);
                     canvas.DrawPath(path, paint);
 
-                    canvas.Translate(-x, bounds.Height + linespace);
+                    canvas.Translate(-x, lineHeight + linespace);
                 }
                 else if (hAlign is HorizontalAlign.Left)
                 {
                     canvas.DrawPath(path, paint);
 
-                    canvas.Translate(0, bounds.Height + linespace);
+                    canvas.Translate(0, lineHeight + linespace);
                 }
                 else
                 {
@@ -371,7 +373,7 @@ namespace BEditor.Drawing
                     canvas.Translate(x, 0);
                     canvas.DrawPath(path, paint);
 
-                    canvas.Translate(-x, bounds.Height + linespace);
+                    canvas.Translate(-x, lineHeight + linespace);
                 }
             }
 
