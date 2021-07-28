@@ -44,7 +44,7 @@ namespace BEditor.PackageInstaller.ViewModels
                 while (_packages.TryDequeue(out var package))
                 {
                     CurrentPackage.Value = package;
-                    var directory = Path.Combine(GetBaseDirectory(), "plugins", Path.GetFileNameWithoutExtension(package.MainAssembly));
+                    var directory = Path.Combine(GetPluginsFolder(), Path.GetFileNameWithoutExtension(package.MainAssembly));
                     if (package.Type is not PackageChangeType.Uninstall)
                     {
                         var downloadFile = Path.GetTempFileName();
@@ -53,7 +53,7 @@ namespace BEditor.PackageInstaller.ViewModels
                         {
                             if (Directory.Exists(directory))
                             {
-                                Directory.Delete(directory);
+                                Directory.Delete(directory, true);
                             }
 
                             Status.Value = Strings.Downloading;
@@ -132,17 +132,38 @@ namespace BEditor.PackageInstaller.ViewModels
 
         public ReactiveCommand Cancel { get; } = new();
 
-        public static string GetBaseDirectory()
+        public static string GetUserFolder()
         {
             if (OperatingSystem.IsWindows())
             {
-                var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "BEditor");
-                return dir;
+                return CreateDir(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "BEditor"));
             }
             else
             {
-                return Path.Combine(AppContext.BaseDirectory, "user");
+                return CreateDir(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".config", "BEditor"));
             }
+        }
+
+        public static string GetPluginsFolder()
+        {
+            if (OperatingSystem.IsWindows())
+            {
+                return CreateDir(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "BEditor", "plugins"));
+            }
+            else
+            {
+                return CreateDir(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".beditor", "plugins"));
+            }
+        }
+
+        private static string CreateDir(string dir)
+        {
+            if (!Directory.Exists(dir))
+            {
+                Directory.CreateDirectory(dir);
+            }
+
+            return dir;
         }
 
         private class ProgressImpl : IProgress<int>

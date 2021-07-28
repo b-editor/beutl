@@ -117,7 +117,7 @@
                 </TabItem.Header>
                 <local:CreatePluginPackage/>
             </TabItem>
-            <TabItem>
+            <!--<TabItem>
                 <TabItem.Header>
                     <StackPanel>
                         <PathIcon Data="{StaticResource Person24Regular}"/>
@@ -125,7 +125,7 @@
                     </StackPanel>
                 </TabItem.Header>
                 <local:User/>
-            </TabItem>
+            </TabItem>-->
         </TabControl>
     </Grid>
 </views:FluentWindow>
