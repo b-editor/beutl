@@ -83,6 +83,17 @@ namespace BEditor.Data.Property
             }
         }
 
+        /// <inheritdoc/>
+        public override EffectElement Parent
+        {
+            get => base.Parent;
+            set
+            {
+                base.Parent = value;
+                EasingType.Parent = this;
+            }
+        }
+
         /// <summary>
         /// Gets or sets an optional value.
         /// </summary>

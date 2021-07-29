@@ -30,7 +30,17 @@ namespace BEditor.Data.Property.Easing
         public PropertyElement Parent
         {
             get => _parent!;
-            set => _parent = value;
+            set
+            {
+                _parent = value;
+                if (Children != null)
+                {
+                    foreach (var item in Children)
+                    {
+                        if (item != null) item.Parent = value.Parent;
+                    }
+                }
+            }
         }
 
         /// <summary>
@@ -48,15 +58,5 @@ namespace BEditor.Data.Property.Easing
         /// <param name="max">The maximum value.</param>
         /// <returns>Eased value.</returns>
         public abstract float EaseFunc(Frame frame, Frame totalframe, float min, float max);
-
-        /// <inheritdoc/>
-        public override void SetObjectData(JsonElement element)
-        {
-            base.SetObjectData(element);
-            foreach (var item in Children)
-            {
-                item.Parent = Parent.Parent;
-            }
-        }
     }
 }

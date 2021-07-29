@@ -68,10 +68,13 @@ namespace BEditor.Data.Property
             {
                 base.Parent = value;
 
-                foreach (var item in Children)
+                if (Children != null)
                 {
-                    if (item is not null)
-                        item.Parent = Parent;
+                    foreach (var item in Children)
+                    {
+                        if (item is not null)
+                            item.Parent = Parent;
+                    }
                 }
             }
         }
@@ -95,17 +98,6 @@ namespace BEditor.Data.Property
         IRecordCommand IKeyframeProperty.RemoveFrame(float frame)
         {
             return RecordCommand.Empty;
-        }
-
-        /// <inheritdoc/>
-        public override void SetObjectData(JsonElement element)
-        {
-            base.SetObjectData(element);
-
-            foreach (var item in Children)
-            {
-                item.Parent = Parent;
-            }
         }
 
         /// <summary>

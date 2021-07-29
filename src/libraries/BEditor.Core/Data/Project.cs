@@ -93,6 +93,7 @@ namespace BEditor.Data
         private string _name;
         private string _dirname;
         private int _currentSceneIndex;
+        private IApplication? _parent;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Project"/> class.
@@ -183,7 +184,15 @@ namespace BEditor.Data
         public IEnumerable<Scene> Children => SceneList;
 
         /// <inheritdoc/>
-        public IApplication Parent { get; set; }
+        public IApplication Parent
+        {
+            get => _parent!;
+            set
+            {
+                _parent = value;
+                Children.SetParent<Project, Scene>(i => i.Parent = this);
+            }
+        }
 
         /// <summary>
         /// Gets or sets the name of project.
@@ -522,7 +531,6 @@ namespace BEditor.Data
             SceneList = new(element.GetProperty("Scenes").EnumerateArray().Select(i =>
             {
                 var scene = (Scene)FormatterServices.GetUninitializedObject(typeof(Scene));
-                scene.Parent = this;
                 scene.SetObjectData(i);
                 return scene;
             }));

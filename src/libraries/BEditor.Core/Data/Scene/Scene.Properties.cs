@@ -138,7 +138,11 @@ namespace BEditor.Data
         public Project Parent
         {
             get => _parent!;
-            set => _parent = value;
+            set
+            {
+                _parent = value;
+                Children.SetParent<Scene, ClipElement>(i => i.Parent = this);
+            }
         }
 
         /// <summary>
