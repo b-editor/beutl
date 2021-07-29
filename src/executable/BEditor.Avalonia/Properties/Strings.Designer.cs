@@ -994,6 +994,33 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Install later.
+        /// </summary>
+        public static string InstallLater {
+            get {
+                return ResourceManager.GetString("InstallLater", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Install now.
+        /// </summary>
+        public static string InstallNow {
+            get {
+                return ResourceManager.GetString("InstallNow", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Install the required plugins.
+        /// </summary>
+        public static string InstallRequiredPlugins {
+            get {
+                return ResourceManager.GetString("InstallRequiredPlugins", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Invalid Id.
         ///GUID and UUID can be used for Id..
         /// </summary>
@@ -1234,6 +1261,15 @@ namespace BEditor.Properties {
         public static string NoClipIsSelected {
             get {
                 return ResourceManager.GetString("NoClipIsSelected", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to The package was not found in the registered package sources..
+        /// </summary>
+        public static string NotFoundPackageFromRegisteredPackageSource {
+            get {
+                return ResourceManager.GetString("NotFoundPackageFromRegisteredPackageSource", resourceCulture);
             }
         }
         
@@ -1869,6 +1905,15 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The following plug-ins are required to open this project..
+        /// </summary>
+        public static string TheFollowingPluginsAreRrequiredToOpenProject {
+            get {
+                return ResourceManager.GetString("TheFollowingPluginsAreRrequiredToOpenProject", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to There is no project..
         /// </summary>
         public static string ThereIsNoProject {
@@ -1982,6 +2027,15 @@ namespace BEditor.Properties {
         public static string Uninstall {
             get {
                 return ResourceManager.GetString("Uninstall", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Unknown.
+        /// </summary>
+        public static string Unknown {
+            get {
+                return ResourceManager.GetString("Unknown", resourceCulture);
             }
         }
         

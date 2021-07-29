@@ -1,4 +1,4 @@
-﻿// ProjectResource.cs
+﻿// ProjectPackage.cs
 //
 // Copyright (C) BEditor
 //
@@ -6,9 +6,11 @@
 // of the MIT license. See the LICENSE file for details.
 
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
+using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -91,19 +93,31 @@ namespace BEditor.Data
             return true;
         }
 
+        /// <summary>
+        /// Get information about dependent plugins from the project package.
+        /// </summary>
+        /// <param name="file">The project package file.</param>
+        /// <returns>Information on dependent plugins.</returns>
         public static PluginInfo[] GetPluginInfo(string file)
         {
             using var stream = new FileStream(file, FileMode.Open, FileAccess.Read);
             using var archive = new ZipArchive(stream, ZipArchiveMode.Read);
 
-            var entry = archive.GetEntry("/plugins/plugins.json");
+            var entry = archive.GetEntry("plugins/plugins.json");
             if (entry is null) return Array.Empty<PluginInfo>();
 
             using var jsonStream = entry.Open();
-            using var reader = new StreamReader(stream);
-            return JsonSerializer.Deserialize<PluginInfo[]>(reader.ReadToEnd(), PackageFile._serializerOptions) ?? Array.Empty<PluginInfo>();
+            using var reader = new StreamReader(jsonStream);
+            var json = reader.ReadToEnd();
+            return JsonSerializer.Deserialize<PluginInfo[]>(json, PackageFile._serializerOptions) ?? Array.Empty<PluginInfo>();
         }
 
+        /// <summary>
+        /// Open the project package.
+        /// </summary>
+        /// <param name="file">The project package file.</param>
+        /// <param name="directry">The destination directory.</param>
+        /// <returns>Returns the opened project.</returns>
         public static Project? OpenFile(string file, string directry)
         {
             if (!File.Exists(file)) throw new FileNotFoundException(null, file);
@@ -168,6 +182,7 @@ namespace BEditor.Data
         {
             foreach (var prop in project.GetAllChildren<FileProperty>())
             {
+                if (string.IsNullOrWhiteSpace(prop.Value)) continue;
                 var dstFilename = Path.Combine(directry, Path.GetFileName(prop.Value));
 
                 if ((!File.Exists(dstFilename)) && File.Exists(prop.Value))
@@ -249,7 +264,7 @@ namespace BEditor.Data
         /// <summary>
         /// The plugin info.
         /// </summary>
-        public class PluginInfo
+        public class PluginInfo : IEquatable<PluginInfo?>
         {
             /// <summary>
             /// Initializes a new instance of the <see cref="PluginInfo"/> class.
@@ -259,6 +274,14 @@ namespace BEditor.Data
             {
                 Id = plugin.Id;
                 Version = plugin.GetType().Assembly.GetName().Version!.ToString(3);
+                Name = plugin.PluginName;
+            }
+
+            /// <summary>
+            /// Initializes a new instance of the <see cref="PluginInfo"/> class.
+            /// </summary>
+            public PluginInfo()
+            {
             }
 
             /// <summary>
@@ -272,6 +295,33 @@ namespace BEditor.Data
             /// </summary>
             [JsonPropertyName("version")]
             public string Version { get; set; } = string.Empty;
+
+            /// <summary>
+            /// Gets or sets the name of the plugin.
+            /// </summary>
+            [JsonPropertyName("name")]
+            public string Name { get; set; } = string.Empty;
+
+            /// <inheritdoc/>
+            public override bool Equals(object? obj)
+            {
+                return Equals(obj as PluginInfo);
+            }
+
+            /// <inheritdoc/>
+            public bool Equals(PluginInfo? other)
+            {
+                return other != null &&
+                       Id.Equals(other.Id) &&
+                       Version == other.Version &&
+                       Name == other.Name;
+            }
+
+            /// <inheritdoc/>
+            public override int GetHashCode()
+            {
+                return HashCode.Combine(Id, Version, Name);
+            }
         }
     }
 }

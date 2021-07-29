@@ -1,0 +1,95 @@
+<views:FluentWindow
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:views="using:BEditor.Views"
+    xmlns:viewModels="using:BEditor.ViewModels.Dialogs"
+    xmlns:props="using:BEditor.Properties"
+    mc:Ignorable="d" Width="450" Height="500"
+    WindowStartupLocation="CenterScreen"
+    CanResize="False"
+    Classes="fluent"
+    Title="{x:Static props:Strings.InstallRequiredPlugins}"
+    x:DataType="viewModels:InstallRequiredPluginsViewModel"
+    x:Class="BEditor.Views.Dialogs.InstallRequiredPlugins">
+    <Grid RowDefinitions="Auto,*">
+
+        <TextBlock
+            Grid.Row="0"
+            Margin="16,8"
+            FontSize="16"
+            Text="{x:Static props:Strings.InstallRequiredPlugins}" />
+
+        <ScrollViewer
+            HorizontalContentAlignment="Stretch"
+            Grid.Row="1"
+            Margin="16">
+            <ItemsControl HorizontalAlignment="Stretch" Items="{CompiledBinding Items, Mode=OneWay}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Grid ColumnDefinitions="Auto,*">
+                            <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}" IsEnabled="{Binding IsFound}" />
+
+                            <Grid
+                                VerticalAlignment="Center"
+                                Grid.Column="1"
+                                ColumnDefinitions="Auto,Auto"
+                                RowDefinitions="Auto,Auto">
+
+                                <TextBlock Grid.Column="0" Margin="8" Text="{Binding Info.Name}" />
+                                <TextBlock Grid.Column="1" Margin="16,8,8,8" Text="{Binding Info.Version}" />
+
+                                <TextBlock
+                                    Grid.Row="1"
+                                    Text="{x:Static props:Strings.Unknown}"
+                                    ToolTip.Tip="{x:Static props:Strings.NotFoundPackageFromRegisteredPackageSource}"
+                                    IsVisible="{Binding IsNotFound}"
+                                    Foreground="Red"
+                                    Margin="8" />
+                            </Grid>
+                        </Grid>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </ScrollViewer>
+
+        <ProgressBar
+            VerticalAlignment="Center"
+            Grid.RowSpan="2"
+            Margin="16"
+            IsVisible="{CompiledBinding IsLoaded.Value, Mode=OneWay}"
+            IsIndeterminate="True" />
+
+        <VirtualizingStackPanel
+            Grid.Row="1"
+            Margin="8"
+            VerticalAlignment="Bottom"
+            HorizontalAlignment="Right"
+            Orientation="Horizontal">
+            <Button
+                Click="CloseClick"
+                HorizontalAlignment="Left"
+                Content="{x:Static props:Strings.Close}"
+                Background="Transparent"
+                Cursor="Arrow"
+                Foreground="Red"
+                IsCancel="True"/>
+            <Button
+                Click="CloseClick"
+                HorizontalAlignment="Left"
+                Command="{CompiledBinding InstallLater, Mode=OneTime}"
+                Content="{x:Static props:Strings.InstallLater}"
+                Cursor="Arrow"
+                Background="Transparent"
+                IsDefault="True"/>
+            <Button
+                HorizontalAlignment="Left"
+                Command="{CompiledBinding InstallNow, Mode=OneTime}"
+                Content="{x:Static props:Strings.InstallNow}"
+                Cursor="Arrow"
+                Background="Transparent"
+                IsDefault="True"/>
+        </VirtualizingStackPanel>
+    </Grid>
+</views:FluentWindow>

@@ -842,4 +842,22 @@ Vulkan:
   <data name="SelectLocationToUnpackProject" xml:space="preserve">
     <value>Select a location to unpack the project</value>
   </data>
+  <data name="TheFollowingPluginsAreRrequiredToOpenProject" xml:space="preserve">
+    <value>The following plug-ins are required to open this project.</value>
+  </data>
+  <data name="InstallRequiredPlugins" xml:space="preserve">
+    <value>Install the required plugins</value>
+  </data>
+  <data name="InstallNow" xml:space="preserve">
+    <value>Install now</value>
+  </data>
+  <data name="InstallLater" xml:space="preserve">
+    <value>Install later</value>
+  </data>
+  <data name="NotFoundPackageFromRegisteredPackageSource" xml:space="preserve">
+    <value>The package was not found in the registered package sources.</value>
+  </data>
+  <data name="Unknown" xml:space="preserve">
+    <value>Unknown</value>
+  </data>
 </root>

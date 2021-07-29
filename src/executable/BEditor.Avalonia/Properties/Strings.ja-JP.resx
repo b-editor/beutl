@@ -842,4 +842,22 @@ Vulkan:
   <data name="SelectLocationToUnpackProject" xml:space="preserve">
     <value>プロジェクトを解凍する場所の選択</value>
   </data>
+  <data name="TheFollowingPluginsAreRrequiredToOpenProject" xml:space="preserve">
+    <value>このプロジェクトを開くには、以下のプラグインが必要です。</value>
+  </data>
+  <data name="InstallRequiredPlugins" xml:space="preserve">
+    <value>必要なプラグインをインストール</value>
+  </data>
+  <data name="InstallNow" xml:space="preserve">
+    <value>今すぐインストール</value>
+  </data>
+  <data name="InstallLater" xml:space="preserve">
+    <value>後でインストール</value>
+  </data>
+  <data name="NotFoundPackageFromRegisteredPackageSource" xml:space="preserve">
+    <value>登録されているパッケージソースからパッケージがみつかりませんでした。</value>
+  </data>
+  <data name="Unknown" xml:space="preserve">
+    <value>不明</value>
+  </data>
 </root>

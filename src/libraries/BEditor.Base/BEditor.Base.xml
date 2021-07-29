@@ -988,6 +988,42 @@
             </summary>
             <param name="context">Data for this object in Json to be set.</param>
         </member>
+        <member name="T:BEditor.Data.DeserializeContext">
+            <summary>
+            The deserialize context.
+            </summary>
+        </member>
+        <member name="M:BEditor.Data.DeserializeContext.#ctor(System.Text.Json.JsonElement,System.Object)">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Data.DeserializeContext"/> struct.
+            </summary>
+            <param name="element">The json element.</param>
+            <param name="parent">The parent.</param>
+        </member>
+        <member name="P:BEditor.Data.DeserializeContext.Element">
+            <summary>
+            Gets or sets the json element.
+            </summary>
+        </member>
+        <member name="P:BEditor.Data.DeserializeContext.Parent">
+            <summary>
+            Gets or sets the parent.
+            </summary>
+        </member>
+        <member name="M:BEditor.Data.DeserializeContext.WithElement(System.Text.Json.JsonElement)">
+            <summary>
+             Returns a new <see cref="T:BEditor.Data.DeserializeContext"/> with the specified json element.
+            </summary>
+            <param name="element">The json element.</param>
+            <returns>The new <see cref="T:BEditor.Data.DeserializeContext"/>.</returns>
+        </member>
+        <member name="M:BEditor.Data.DeserializeContext.WithParent(System.Object)">
+            <summary>
+             Returns a new <see cref="T:BEditor.Data.DeserializeContext"/> with the specified parent.
+            </summary>
+            <param name="parent">The parent.</param>
+            <returns>The new <see cref="T:BEditor.Data.DeserializeContext"/>.</returns>
+        </member>
         <member name="T:BEditor.Data.IParent`1">
             <summary>
             Represents that this object has a child elements of type <typeparamref name="T"/>.

@@ -20,8 +20,10 @@ using BEditor.Plugin;
 using BEditor.Primitive;
 using BEditor.Primitive.Objects;
 using BEditor.Properties;
+using BEditor.ViewModels.Dialogs;
 using BEditor.Views;
 using BEditor.Views.DialogContent;
+using BEditor.Views.Dialogs;
 
 using Microsoft.Extensions.Logging;
 
@@ -336,9 +338,21 @@ namespace BEditor.ViewModels
                 if (!Directory.Exists(dir)) return;
 
                 var plugins = ProjectPackage.GetPluginInfo(filename);
-                var notInstalled = plugins.Except(PluginManager.Default.Plugins.Select(i => new ProjectPackage.PluginInfo(i)));
+                var installed = PluginManager.Default.Plugins.Select(i => new ProjectPackage.PluginInfo(i));
+                var notInstalled = plugins.Except(installed).ToArray();
 
-                //ProjectPackage.OpenFile(filename, dir);
+                if (notInstalled.Length != 0)
+                {
+                    var installDialog = new InstallRequiredPlugins
+                    {
+                        DataContext = new InstallRequiredPluginsViewModel(notInstalled),
+                    };
+                    await installDialog.ShowDialog(BEditor.App.GetMainWindow());
+                }
+                else
+                {
+                    project = ProjectPackage.OpenFile(filename, dir);
+                }
             }
             else
             {

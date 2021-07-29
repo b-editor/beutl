@@ -37,7 +37,7 @@ namespace BEditor.ViewModels.Dialogs
                 try
                 {
                     IsLoading.Value = true;
-                    if (await Task.Run(() => ProjectPackage.CreateFromProject(_project, Path.Combine(Folder.Value, Name.Value) + ".beproj")))
+                    if (!await Task.Run(() => ProjectPackage.CreateFromProject(_project, Path.Combine(Folder.Value, Name.Value) + ".beproj")))
                     {
                         await msg.DialogAsync(Strings.FailedToPackProject, IMessage.IconType.Error);
                     }

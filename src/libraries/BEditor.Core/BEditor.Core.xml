@@ -1454,6 +1454,11 @@
             </summary>
             <param name="plugin">The plugin.</param>
         </member>
+        <member name="M:BEditor.Data.ProjectPackage.PluginInfo.#ctor">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Data.ProjectPackage.PluginInfo"/> class.
+            </summary>
+        </member>
         <member name="P:BEditor.Data.ProjectPackage.PluginInfo.Id">
             <summary>
             Gets or sets the id of the plugin.
@@ -1463,6 +1468,20 @@
             <summary>
             Gets or sets the version of the plugin.
             </summary>
+        </member>
+        <member name="P:BEditor.Data.ProjectPackage.PluginInfo.Name">
+            <summary>
+            Gets or sets the name of the plugin.
+            </summary>
+        </member>
+        <member name="M:BEditor.Data.ProjectPackage.PluginInfo.Equals(System.Object)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Data.ProjectPackage.PluginInfo.Equals(BEditor.Data.ProjectPackage.PluginInfo)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Data.ProjectPackage.PluginInfo.GetHashCode">
+            <inheritdoc/>
         </member>
         <member name="T:BEditor.Data.ProjectSavedEventArgs">
             <summary>
@@ -2368,9 +2387,6 @@
             Gets the <see cref="T:BEditor.Data.Property.PropertyElement"/> to display on the GUI.
             </summary>
             <returns>Returns the <see cref="T:BEditor.Data.Property.PropertyElement"/> to display on the GUI.</returns>
-        </member>
-        <member name="M:BEditor.Data.Property.Group.SetObjectData(BEditor.Data.DeserializeContext)">
-            <inheritdoc/>
         </member>
         <member name="T:BEditor.Data.Property.IEasingProperty">
             <summary>
