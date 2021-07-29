@@ -7,8 +7,10 @@
 
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Diagnostics.Contracts;
+using System.IO;
 using System.Linq;
 using System.Text.Json;
 
@@ -25,11 +27,13 @@ namespace BEditor.Data.Property
     [DebuggerDisplay("Select = {Value}")]
     public class FontProperty : PropertyElement<FontPropertyMetadata>, IEasingProperty, IBindable<Font>
     {
+        private static readonly PropertyChangedEventArgs _modeArgs = new(nameof(Mode));
         private Font _selectItem;
         private List<IObserver<Font>>? _list;
         private IDisposable? _bindDispose;
         private IBindable<Font>? _bindable;
         private Guid? _targetID;
+        private FilePathType _mode;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="FontProperty"/> class.
@@ -72,6 +76,15 @@ namespace BEditor.Data.Property
         {
             get => _bindable?.Id;
             private set => _targetID = value;
+        }
+
+        /// <summary>
+        /// Gets or sets the mode of the file path.
+        /// </summary>
+        public FilePathType Mode
+        {
+            get => _mode;
+            set => SetAndRaise(value, ref _mode, _modeArgs);
         }
 
         private List<IObserver<Font>> Collection => _list ??= new();

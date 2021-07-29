@@ -9,6 +9,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Text.Json;
 
 using BEditor.Command;
 using BEditor.Data.Property.Easing;
@@ -69,7 +70,8 @@ namespace BEditor.Data.Property
 
                 foreach (var item in Children)
                 {
-                    item.Parent = value;
+                    if (item is not null)
+                        item.Parent = Parent;
                 }
             }
         }
@@ -93,6 +95,17 @@ namespace BEditor.Data.Property
         IRecordCommand IKeyframeProperty.RemoveFrame(float frame)
         {
             return RecordCommand.Empty;
+        }
+
+        /// <inheritdoc/>
+        public override void SetObjectData(JsonElement element)
+        {
+            base.SetObjectData(element);
+
+            foreach (var item in Children)
+            {
+                item.Parent = Parent;
+            }
         }
 
         /// <summary>

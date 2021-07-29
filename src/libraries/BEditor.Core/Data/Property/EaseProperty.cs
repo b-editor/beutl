@@ -97,17 +97,6 @@ namespace BEditor.Data.Property
             set => SetAndRaise(value, ref _easingData, _easingDataArgs);
         }
 
-        /// <inheritdoc/>
-        public override EffectElement Parent
-        {
-            get => base.Parent;
-            set
-            {
-                base.Parent = value;
-                EasingType.Parent = this;
-            }
-        }
-
         /// <summary>
         /// Gets the length of the clip.
         /// </summary>
@@ -304,10 +293,12 @@ namespace BEditor.Data.Property
             if (type is null)
             {
                 EasingType = EasingMetadata.LoadedEasingFunc[0].CreateFunc();
+                EasingType.Parent = this;
             }
             else
             {
                 EasingType = (EasingFunc)FormatterServices.GetUninitializedObject(type);
+                EasingType.Parent = this;
                 EasingType.SetObjectData(easing);
             }
         }

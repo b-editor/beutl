@@ -11,16 +11,20 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Runtime.Serialization;
 using System.Text.Json;
 using System.Threading.Tasks;
 
 using BEditor.Audio;
+using BEditor.Data.Property;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
+using BEditor.Plugin;
 using BEditor.Resources;
 
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace BEditor.Data
 {
@@ -88,7 +92,6 @@ namespace BEditor.Data
         private Scene? _currentScene;
         private string _name;
         private string _dirname;
-        private IApplication _parent;
         private int _currentSceneIndex;
 
         /// <summary>
@@ -102,7 +105,7 @@ namespace BEditor.Data
         /// <param name="filename">The project file name.</param>
         public Project(int width, int height, int framerate, int samplingrate, IApplication app, string filename)
         {
-            Parent = _parent = app;
+            Parent = Parent = app;
             Framerate = framerate;
             Samplingrate = samplingrate;
             Name = _name = Path.GetFileNameWithoutExtension(filename)!;
@@ -180,19 +183,7 @@ namespace BEditor.Data
         public IEnumerable<Scene> Children => SceneList;
 
         /// <inheritdoc/>
-        public IApplication Parent
-        {
-            get => _parent;
-            set
-            {
-                _parent = value;
-
-                foreach (var prop in Children)
-                {
-                    prop.Parent = this;
-                }
-            }
-        }
+        public IApplication Parent { get; set; }
 
         /// <summary>
         /// Gets or sets the name of project.
@@ -245,16 +236,12 @@ namespace BEditor.Data
                 }
             }
 
-            var proj = await Serialize.LoadFromFileAsync<Project>(file);
+            var proj = await LoadFromFileAsync(file, app);
 
             if (proj is null)
             {
                 return null;
             }
-
-            proj.DirectoryName = Path.GetDirectoryName(file)!;
-            proj.Name = Path.GetFileNameWithoutExtension(file);
-            proj.Parent = app;
 
             var appConf = Path.Combine(proj.DirectoryName!, ".app");
             IfNotExistCreateDir(appConf);
@@ -296,16 +283,12 @@ namespace BEditor.Data
                 }
             }
 
-            var proj = Serialize.LoadFromFile<Project>(file);
+            var proj = LoadFromFile(file, app);
 
             if (proj is null)
             {
                 return null;
             }
-
-            proj.DirectoryName = Path.GetDirectoryName(file)!;
-            proj.Name = Path.GetFileNameWithoutExtension(file);
-            proj.Parent = app;
 
             var appConf = Path.Combine(proj.DirectoryName!, ".app");
             IfNotExistCreateDir(appConf);
@@ -484,6 +467,32 @@ namespace BEditor.Data
             return false;
         }
 
+        /// <summary>
+        /// Find the plug-ins that this project depends on.
+        /// </summary>
+        /// <returns>Returns the plugins that this project depends on.</returns>
+        public IEnumerable<PluginObject> FindDependentPlugins()
+        {
+            static PluginObject? PluginFromAssembly(Assembly assembly)
+            {
+                foreach (var item in PluginManager.Default.Plugins)
+                {
+                    if (item.GetType().Assembly == assembly)
+                    {
+                        return item;
+                    }
+                }
+
+                return null;
+            }
+
+            foreach (var child in this.GetAllChildren<object>())
+            {
+                var plugin = PluginFromAssembly(child.GetType().Assembly);
+                if (plugin is not null) yield return plugin;
+            }
+        }
+
         /// <inheritdoc/>
         public override void GetObjectData(Utf8JsonWriter writer)
         {
@@ -513,6 +522,7 @@ namespace BEditor.Data
             SceneList = new(element.GetProperty("Scenes").EnumerateArray().Select(i =>
             {
                 var scene = (Scene)FormatterServices.GetUninitializedObject(typeof(Scene));
+                scene.Parent = this;
                 scene.SetObjectData(i);
                 return scene;
             }));
@@ -525,6 +535,57 @@ namespace BEditor.Data
             {
                 disposable.Dispose();
             }
+        }
+
+        private static async Task<Project?> LoadFromFileAsync(string file, IApplication application)
+        {
+            try
+            {
+                await using var stream = new FileStream(file, FileMode.Open);
+
+                var obj = (Project)FormatterServices.GetUninitializedObject(typeof(Project));
+                obj.Parent = application;
+                obj.DirectoryName = Path.GetDirectoryName(file)!;
+                obj.Name = Path.GetFileNameWithoutExtension(file);
+
+                using var doc = await JsonDocument.ParseAsync(stream);
+                obj.SetObjectData(doc.RootElement);
+
+                return obj;
+            }
+            catch (Exception e)
+            {
+                Log(e);
+                return default;
+            }
+        }
+
+        private static Project? LoadFromFile(string file, IApplication application)
+        {
+            try
+            {
+                using var stream = new FileStream(file, FileMode.Open);
+
+                var obj = (Project)FormatterServices.GetUninitializedObject(typeof(Project));
+                obj.Parent = application;
+                obj.DirectoryName = Path.GetDirectoryName(file)!;
+                obj.Name = Path.GetFileNameWithoutExtension(file);
+
+                using var doc = JsonDocument.Parse(stream);
+                obj.SetObjectData(doc.RootElement);
+
+                return obj;
+            }
+            catch (Exception e)
+            {
+                Log(e);
+                return default;
+            }
+        }
+
+        private static void Log(Exception e)
+        {
+            ServicesLocator.Current.Logger.LogWarning(e, "Failed to serialize or deserialize.");
         }
     }
 }

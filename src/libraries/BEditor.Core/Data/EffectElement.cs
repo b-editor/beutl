@@ -62,15 +62,7 @@ namespace BEditor.Data
         public ClipElement Parent
         {
             get => _parent!;
-            set
-            {
-                _parent = value;
-
-                foreach (var prop in Children)
-                {
-                    prop.Parent = this;
-                }
-            }
+            set => _parent = value;
         }
 
         /// <summary>
@@ -135,6 +127,10 @@ namespace BEditor.Data
             base.SetObjectData(element);
             IsEnabled = element.GetProperty(nameof(IsEnabled)).GetBoolean();
             IsExpanded = element.GetProperty(nameof(IsExpanded)).GetBoolean();
+            foreach (var item in Children)
+            {
+                item.Parent = this;
+            }
         }
 
         /// <summary>

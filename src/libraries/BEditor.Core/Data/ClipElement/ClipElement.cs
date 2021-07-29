@@ -28,7 +28,6 @@ namespace BEditor.Data
         private Frame _end;
         private int _layer;
         private string _labelText = string.Empty;
-        private Scene _parent;
         private ObservableCollection<EffectElement> _effect;
 
         /// <summary>
@@ -46,7 +45,7 @@ namespace BEditor.Data
             _layer = layer;
             _effect = new() { metadata.CreateFunc() };
             Metadata = metadata;
-            Parent = _parent = scene;
+            Parent = Parent = scene;
             LabelText = Name;
         }
 
@@ -65,7 +64,7 @@ namespace BEditor.Data
             _layer = layer;
             _effect = new() { obj };
             Metadata = ObjectMetadata.LoadedObjects.First(i => i.Type == Effect[0].GetType());
-            Parent = _parent = scene;
+            Parent = Parent = scene;
             LabelText = Name;
         }
 
@@ -120,19 +119,7 @@ namespace BEditor.Data
         }
 
         /// <inheritdoc/>
-        public Scene Parent
-        {
-            get => _parent;
-            set
-            {
-                _parent = value;
-
-                foreach (var prop in Children)
-                {
-                    prop.Parent = this;
-                }
-            }
-        }
+        public Scene Parent { get; set; }
 
         /// <summary>
         /// Gets the metadata for the <see cref="ObjectElement"/> contained in this <see cref="ClipElement"/>.

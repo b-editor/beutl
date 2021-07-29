@@ -30,14 +30,7 @@ namespace BEditor.Data.Property.Easing
         public PropertyElement Parent
         {
             get => _parent!;
-            set
-            {
-                _parent = value;
-                foreach (var prop in Children)
-                {
-                    prop.Parent = Parent?.Parent!;
-                }
-            }
+            set => _parent = value;
         }
 
         /// <summary>
@@ -57,44 +50,12 @@ namespace BEditor.Data.Property.Easing
         public abstract float EaseFunc(Frame frame, Frame totalframe, float min, float max);
 
         /// <inheritdoc/>
-        public override void GetObjectData(Utf8JsonWriter writer)
-        {
-            base.GetObjectData(writer);
-            foreach (var item in GetType().GetProperties()
-                .Where(i => Attribute.IsDefined(i, typeof(DataMemberAttribute)))
-                .Select(i => (Info: i, Attribute: (DataMemberAttribute)Attribute.GetCustomAttribute(i, typeof(DataMemberAttribute))!))
-                .Select(i => (Object: i.Info.GetValue(this), i)))
-            {
-                if (item.Object is IJsonObject json)
-                {
-                    writer.WriteStartObject(item.i.Attribute.Name ?? item.i.Info.Name);
-                    json.GetObjectData(writer);
-                    writer.WriteEndObject();
-                }
-            }
-        }
-
-        /// <inheritdoc/>
         public override void SetObjectData(JsonElement element)
         {
             base.SetObjectData(element);
-            foreach (var item in GetType().GetProperties()
-                .Where(i => Attribute.IsDefined(i, typeof(DataMemberAttribute)))
-                .Select(i => (Info: i, Attribute: (DataMemberAttribute)Attribute.GetCustomAttribute(i, typeof(DataMemberAttribute))!))
-                .Where(i => i.Info.PropertyType.IsAssignableTo(typeof(IJsonObject))))
+            foreach (var item in Children)
             {
-                var property = element.GetProperty(item.Attribute.Name ?? item.Info.Name);
-                var obj = (IJsonObject)FormatterServices.GetUninitializedObject(item.Info.PropertyType);
-                obj.SetObjectData(property);
-
-                if (item.Info.ReflectedType != item.Info.DeclaringType)
-                {
-                    item.Info.DeclaringType?.GetProperty(item.Info.Name)?.SetValue(this, obj);
-                }
-                else
-                {
-                    item.Info.SetValue(this, obj);
-                }
+                item.Parent = Parent.Parent;
             }
         }
     }
