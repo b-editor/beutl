@@ -523,15 +523,17 @@ namespace BEditor.Data
         }
 
         /// <inheritdoc/>
-        public override void SetObjectData(JsonElement element)
+        public override void SetObjectData(DeserializeContext context)
         {
-            base.SetObjectData(element);
-            Framerate = element.GetProperty(nameof(Framerate)).GetInt32();
-            Samplingrate = element.GetProperty(nameof(Samplingrate)).GetInt32();
-            SceneList = new(element.GetProperty("Scenes").EnumerateArray().Select(i =>
+            base.SetObjectData(context);
+            Parent = (context.Parent as IApplication) ?? Parent;
+
+            Framerate = context.Element.GetProperty(nameof(Framerate)).GetInt32();
+            Samplingrate = context.Element.GetProperty(nameof(Samplingrate)).GetInt32();
+            SceneList = new(context.Element.GetProperty("Scenes").EnumerateArray().Select(i =>
             {
                 var scene = (Scene)FormatterServices.GetUninitializedObject(typeof(Scene));
-                scene.SetObjectData(i);
+                scene.SetObjectData(new DeserializeContext(i, this));
                 return scene;
             }));
         }
@@ -557,7 +559,7 @@ namespace BEditor.Data
                 obj.Name = Path.GetFileNameWithoutExtension(file);
 
                 using var doc = await JsonDocument.ParseAsync(stream);
-                obj.SetObjectData(doc.RootElement);
+                obj.SetObjectData(new DeserializeContext(doc.RootElement, application));
 
                 return obj;
             }
@@ -580,7 +582,7 @@ namespace BEditor.Data
                 obj.Name = Path.GetFileNameWithoutExtension(file);
 
                 using var doc = JsonDocument.Parse(stream);
-                obj.SetObjectData(doc.RootElement);
+                obj.SetObjectData(new(doc.RootElement, application));
 
                 return obj;
             }

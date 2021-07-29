@@ -110,9 +110,10 @@ namespace BEditor.Data.Property
         }
 
         /// <inheritdoc/>
-        public override void SetObjectData(JsonElement element)
+        public override void SetObjectData(DeserializeContext context)
         {
-            base.SetObjectData(element);
+            base.SetObjectData(context);
+            var element = context.Element;
             var filename = element.TryGetProperty(nameof(Value), out var value) ? value.GetString() : null;
             if (filename is not null)
             {

@@ -89,11 +89,12 @@ namespace BEditor.Data.Property
         }
 
         /// <inheritdoc/>
-        public override void SetObjectData(JsonElement element)
+        public override void SetObjectData(DeserializeContext context)
         {
+            var element = context.Element;
             IsExpanded = element.TryGetProperty(nameof(IsExpanded), out var value) && value.GetBoolean();
             TargetID = element.TryGetProperty(nameof(TargetID), out var bind) && bind.TryGetGuid(out var guid) ? guid : null;
-            base.SetObjectData(element);
+            base.SetObjectData(context);
         }
 
         /// <inheritdoc/>

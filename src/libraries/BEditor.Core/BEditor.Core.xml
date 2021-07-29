@@ -616,7 +616,7 @@
         <member name="M:BEditor.Data.ClipElement.GetObjectData(System.Text.Json.Utf8JsonWriter)">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Data.ClipElement.SetObjectData(System.Text.Json.JsonElement)">
+        <member name="M:BEditor.Data.ClipElement.SetObjectData(BEditor.Data.DeserializeContext)">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Data.ClipElement.AddEffect(BEditor.Data.EffectElement)">
@@ -800,7 +800,7 @@
         <member name="M:BEditor.Data.EffectElement.GetObjectData(System.Text.Json.Utf8JsonWriter)">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Data.EffectElement.SetObjectData(System.Text.Json.JsonElement)">
+        <member name="M:BEditor.Data.EffectElement.SetObjectData(BEditor.Data.DeserializeContext)">
             <inheritdoc/>
         </member>
         <member name="T:BEditor.Data.EffectElement.RemoveCommand">
@@ -1424,7 +1424,7 @@
         <member name="M:BEditor.Data.Project.GetObjectData(System.Text.Json.Utf8JsonWriter)">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Data.Project.SetObjectData(System.Text.Json.JsonElement)">
+        <member name="M:BEditor.Data.Project.SetObjectData(BEditor.Data.DeserializeContext)">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Data.Project.OnUnload">
@@ -1539,7 +1539,7 @@
         <member name="M:BEditor.Data.Property.CheckProperty.GetObjectData(System.Text.Json.Utf8JsonWriter)">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Data.Property.CheckProperty.SetObjectData(System.Text.Json.JsonElement)">
+        <member name="M:BEditor.Data.Property.CheckProperty.SetObjectData(BEditor.Data.DeserializeContext)">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Data.Property.CheckProperty.ChangeIsChecked(System.Boolean)">
@@ -1628,7 +1628,7 @@
         <member name="M:BEditor.Data.Property.ColorAnimationProperty.GetObjectData(System.Text.Json.Utf8JsonWriter)">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Data.Property.ColorAnimationProperty.SetObjectData(System.Text.Json.JsonElement)">
+        <member name="M:BEditor.Data.Property.ColorAnimationProperty.SetObjectData(BEditor.Data.DeserializeContext)">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Data.Property.ColorAnimationProperty.ChangeColor(System.Int32,BEditor.Drawing.Color)">
@@ -1684,7 +1684,7 @@
         <member name="M:BEditor.Data.Property.ColorProperty.GetObjectData(System.Text.Json.Utf8JsonWriter)">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Data.Property.ColorProperty.SetObjectData(System.Text.Json.JsonElement)">
+        <member name="M:BEditor.Data.Property.ColorProperty.SetObjectData(BEditor.Data.DeserializeContext)">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Data.Property.ColorProperty.ChangeColor(BEditor.Drawing.Color)">
@@ -1795,7 +1795,7 @@
         <member name="M:BEditor.Data.Property.DocumentProperty.GetObjectData(System.Text.Json.Utf8JsonWriter)">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Data.Property.DocumentProperty.SetObjectData(System.Text.Json.JsonElement)">
+        <member name="M:BEditor.Data.Property.DocumentProperty.SetObjectData(BEditor.Data.DeserializeContext)">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Data.Property.DocumentProperty.ChangeText(System.String)">
@@ -1894,7 +1894,7 @@
         <member name="M:BEditor.Data.Property.EaseProperty.GetObjectData(System.Text.Json.Utf8JsonWriter)">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Data.Property.EaseProperty.SetObjectData(System.Text.Json.JsonElement)">
+        <member name="M:BEditor.Data.Property.EaseProperty.SetObjectData(BEditor.Data.DeserializeContext)">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Data.Property.EaseProperty.ChangeValue(System.Int32,System.Single)">
@@ -1954,7 +1954,7 @@
             <param name="max">The maximum value.</param>
             <returns>Eased value.</returns>
         </member>
-        <member name="M:BEditor.Data.Property.Easing.EasingFunc.SetObjectData(System.Text.Json.JsonElement)">
+        <member name="M:BEditor.Data.Property.Easing.EasingFunc.SetObjectData(BEditor.Data.DeserializeContext)">
             <inheritdoc/>
         </member>
         <member name="T:BEditor.Data.Property.Easing.EasingMetadata">
@@ -2051,7 +2051,7 @@
         <member name="M:BEditor.Data.Property.ExpandGroup.GetObjectData(System.Text.Json.Utf8JsonWriter)">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Data.Property.ExpandGroup.SetObjectData(System.Text.Json.JsonElement)">
+        <member name="M:BEditor.Data.Property.ExpandGroup.SetObjectData(BEditor.Data.DeserializeContext)">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Data.Property.ExpandGroup.OnCompleted">
@@ -2120,7 +2120,7 @@
         <member name="M:BEditor.Data.Property.FileProperty.GetObjectData(System.Text.Json.Utf8JsonWriter)">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Data.Property.FileProperty.SetObjectData(System.Text.Json.JsonElement)">
+        <member name="M:BEditor.Data.Property.FileProperty.SetObjectData(BEditor.Data.DeserializeContext)">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Data.Property.FileProperty.ChangeFile(System.String)">
@@ -2203,7 +2203,7 @@
         <member name="M:BEditor.Data.Property.FolderProperty.GetObjectData(System.Text.Json.Utf8JsonWriter)">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Data.Property.FolderProperty.SetObjectData(System.Text.Json.JsonElement)">
+        <member name="M:BEditor.Data.Property.FolderProperty.SetObjectData(BEditor.Data.DeserializeContext)">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Data.Property.FolderProperty.ChangeFolder(System.String)">
@@ -2281,7 +2281,7 @@
         <member name="M:BEditor.Data.Property.FontProperty.GetObjectData(System.Text.Json.Utf8JsonWriter)">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Data.Property.FontProperty.SetObjectData(System.Text.Json.JsonElement)">
+        <member name="M:BEditor.Data.Property.FontProperty.SetObjectData(BEditor.Data.DeserializeContext)">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Data.Property.FontProperty.ChangeFont(BEditor.Drawing.Font)">
@@ -2363,14 +2363,14 @@
         <member name="M:BEditor.Data.Property.Group.BEditor#Data#Property#IKeyframeProperty#RemoveFrame(System.Single)">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Data.Property.Group.SetObjectData(System.Text.Json.JsonElement)">
-            <inheritdoc/>
-        </member>
         <member name="M:BEditor.Data.Property.Group.GetProperties">
             <summary>
             Gets the <see cref="T:BEditor.Data.Property.PropertyElement"/> to display on the GUI.
             </summary>
             <returns>Returns the <see cref="T:BEditor.Data.Property.PropertyElement"/> to display on the GUI.</returns>
+        </member>
+        <member name="M:BEditor.Data.Property.Group.SetObjectData(BEditor.Data.DeserializeContext)">
+            <inheritdoc/>
         </member>
         <member name="T:BEditor.Data.Property.IEasingProperty">
             <summary>
@@ -2479,7 +2479,7 @@
         <member name="M:BEditor.Data.Property.LabelComponent.GetObjectData(System.Text.Json.Utf8JsonWriter)">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Data.Property.LabelComponent.SetObjectData(System.Text.Json.JsonElement)">
+        <member name="M:BEditor.Data.Property.LabelComponent.SetObjectData(BEditor.Data.DeserializeContext)">
             <inheritdoc/>
         </member>
         <member name="T:BEditor.Data.Property.ButtonComponentMetadata">
@@ -3168,6 +3168,9 @@
         <member name="P:BEditor.Data.Property.PropertyElement.BEditor#Data#IHasMetadata#Metadata">
             <inheritdoc/>
         </member>
+        <member name="M:BEditor.Data.Property.PropertyElement.SetObjectData(BEditor.Data.DeserializeContext)">
+            <inheritdoc/>
+        </member>
         <member name="T:BEditor.Data.Property.PropertyElement`1">
             <inheritdoc cref="T:BEditor.Data.Property.PropertyElement"/>
             <typeparam name="T">Type of <see cref="P:BEditor.Data.Property.PropertyElement`1.PropertyMetadata"/>.</typeparam>
@@ -3206,7 +3209,7 @@
         <member name="M:BEditor.Data.Property.SelectorProperty.GetObjectData(System.Text.Json.Utf8JsonWriter)">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Data.Property.SelectorProperty.SetObjectData(System.Text.Json.JsonElement)">
+        <member name="M:BEditor.Data.Property.SelectorProperty.SetObjectData(BEditor.Data.DeserializeContext)">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Data.Property.SelectorProperty.ChangeSelect(System.Int32)">
@@ -3288,7 +3291,7 @@
         <member name="M:BEditor.Data.Property.SelectorProperty`1.GetObjectData(System.Text.Json.Utf8JsonWriter)">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Data.Property.SelectorProperty`1.SetObjectData(System.Text.Json.JsonElement)">
+        <member name="M:BEditor.Data.Property.SelectorProperty`1.SetObjectData(BEditor.Data.DeserializeContext)">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Data.Property.SelectorProperty`1.ChangeSelect(System.Int32)">
@@ -3381,7 +3384,7 @@
         <member name="M:BEditor.Data.Property.TextProperty.GetObjectData(System.Text.Json.Utf8JsonWriter)">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Data.Property.TextProperty.SetObjectData(System.Text.Json.JsonElement)">
+        <member name="M:BEditor.Data.Property.TextProperty.SetObjectData(BEditor.Data.DeserializeContext)">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Data.Property.TextProperty.ChangeText(System.String)">
@@ -3430,7 +3433,7 @@
         <member name="M:BEditor.Data.Property.ValueProperty.GetObjectData(System.Text.Json.Utf8JsonWriter)">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Data.Property.ValueProperty.SetObjectData(System.Text.Json.JsonElement)">
+        <member name="M:BEditor.Data.Property.ValueProperty.SetObjectData(BEditor.Data.DeserializeContext)">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Data.Property.ValueProperty.Clamp(System.Single)">
@@ -3509,7 +3512,7 @@
         <member name="M:BEditor.Data.Scene.GetObjectData(System.Text.Json.Utf8JsonWriter)">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Data.Scene.SetObjectData(System.Text.Json.JsonElement)">
+        <member name="M:BEditor.Data.Scene.SetObjectData(BEditor.Data.DeserializeContext)">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Data.Scene.Render(BEditor.Media.Frame,BEditor.Data.ApplyType)">

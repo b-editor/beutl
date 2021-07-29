@@ -57,9 +57,12 @@ namespace BEditor.Data
         }
 
         /// <inheritdoc/>
-        public override void SetObjectData(JsonElement element)
+        public override void SetObjectData(DeserializeContext context)
         {
-            base.SetObjectData(element);
+            base.SetObjectData(context);
+            var element = context.Element;
+            Parent = (context.Parent as Scene) ?? Parent;
+
             Start = element.GetProperty(nameof(Start)).GetInt32();
             End = element.GetProperty(nameof(End)).GetInt32();
             Layer = element.GetProperty(nameof(Layer)).GetInt32();
@@ -72,8 +75,7 @@ namespace BEditor.Data
                 if (Type.GetType(typeName) is var type && type is not null)
                 {
                     var obj = (EffectElement)FormatterServices.GetUninitializedObject(type);
-                    obj.Parent = this;
-                    obj.SetObjectData(effect);
+                    obj.SetObjectData(new DeserializeContext(effect, this));
 
                     Effect.Add(obj);
                 }

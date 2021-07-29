@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -7,6 +8,7 @@ using System.Text;
 using System.Threading.Tasks;
 
 using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Threading;
 
 using BEditor.Command;
@@ -14,6 +16,7 @@ using BEditor.Data;
 using BEditor.Drawing;
 using BEditor.Extensions;
 using BEditor.Models;
+using BEditor.Plugin;
 using BEditor.Primitive;
 using BEditor.Primitive.Objects;
 using BEditor.Properties;
@@ -40,6 +43,7 @@ namespace BEditor.ViewModels
                     Filters =
                     {
                         new(Strings.ProjectFile, new[] { "bedit" }),
+                        new(Strings.ProjectPackage, new[] { "beproj" }),
                         new(Strings.BackupFile, new[] { "backup" }),
                     }
                 };
@@ -319,7 +323,27 @@ namespace BEditor.ViewModels
         {
             var app = AppModel.Current;
             app.Project?.Unload();
-            var project = Project.FromFile(filename, app);
+            Project? project = null;
+
+            if (Path.GetExtension(filename) is ".beproj")
+            {
+                var dialog = new OpenFolderDialog
+                {
+                    Title = Strings.SelectLocationToUnpackProject
+                };
+                var dir = await dialog.ShowAsync(BEditor.App.GetMainWindow());
+
+                if (!Directory.Exists(dir)) return;
+
+                var plugins = ProjectPackage.GetPluginInfo(filename);
+                var notInstalled = plugins.Except(PluginManager.Default.Plugins.Select(i => new ProjectPackage.PluginInfo(i)));
+
+                //ProjectPackage.OpenFile(filename, dir);
+            }
+            else
+            {
+                project = Project.FromFile(filename, app);
+            }
 
             if (project is null) return;
 

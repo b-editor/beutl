@@ -116,11 +116,11 @@ namespace BEditor.Data.Property
         }
 
         /// <inheritdoc/>
-        public override void SetObjectData(JsonElement element)
+        public override void SetObjectData(DeserializeContext context)
         {
-            base.SetObjectData(element);
-            Value = element.TryGetProperty(nameof(Value), out var value) && value.GetBoolean();
-            TargetID = element.TryGetProperty(nameof(TargetID), out var bind) && bind.TryGetGuid(out var guid) ? guid : null;
+            base.SetObjectData(context);
+            Value = context.Element.TryGetProperty(nameof(Value), out var value) && value.GetBoolean();
+            TargetID = context.Element.TryGetProperty(nameof(TargetID), out var bind) && bind.TryGetGuid(out var guid) ? guid : null;
         }
 
         /// <summary>

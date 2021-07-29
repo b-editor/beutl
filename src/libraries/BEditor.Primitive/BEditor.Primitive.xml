@@ -2773,7 +2773,7 @@
         <member name="M:BEditor.Primitive.Objects.SceneObject.GetProperties">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Primitive.Objects.SceneObject.SetObjectData(System.Text.Json.JsonElement)">
+        <member name="M:BEditor.Primitive.Objects.SceneObject.SetObjectData(BEditor.Data.DeserializeContext)">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Primitive.Objects.SceneObject.GetObjectData(System.Text.Json.Utf8JsonWriter)">

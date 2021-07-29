@@ -15,6 +15,7 @@ using System.Linq;
 using System.Reactive.Linq;
 using System.Runtime.Serialization;
 using System.Text.Json;
+using System.Threading;
 
 using BEditor.Command;
 using BEditor.Data.Property.Easing;
@@ -243,9 +244,10 @@ namespace BEditor.Data.Property
         }
 
         /// <inheritdoc/>
-        public override void SetObjectData(JsonElement element)
+        public override void SetObjectData(DeserializeContext context)
         {
-            base.SetObjectData(element);
+            base.SetObjectData(context);
+            var element = context.Element;
 
             // 古いバージョン
             if (element.TryGetProperty("Frames", out var frme))
@@ -283,8 +285,7 @@ namespace BEditor.Data.Property
             else
             {
                 EasingType = (EasingFunc)FormatterServices.GetUninitializedObject(type);
-                EasingType.Parent = this;
-                EasingType.SetObjectData(easing);
+                EasingType.SetObjectData(new(easing, this));
             }
         }
 

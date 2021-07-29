@@ -58,5 +58,12 @@ namespace BEditor.Data.Property.Easing
         /// <param name="max">The maximum value.</param>
         /// <returns>Eased value.</returns>
         public abstract float EaseFunc(Frame frame, Frame totalframe, float min, float max);
+
+        /// <inheritdoc/>
+        public override void SetObjectData(DeserializeContext context)
+        {
+            base.SetObjectData(context);
+            Parent = (context.Parent as PropertyElement) ?? Parent;
+        }
     }
 }

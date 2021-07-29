@@ -126,11 +126,13 @@ namespace BEditor.Data
         }
 
         /// <inheritdoc/>
-        public override void SetObjectData(JsonElement element)
+        public override void SetObjectData(DeserializeContext context)
         {
-            base.SetObjectData(element);
-            IsEnabled = element.GetProperty(nameof(IsEnabled)).GetBoolean();
-            IsExpanded = element.GetProperty(nameof(IsExpanded)).GetBoolean();
+            base.SetObjectData(context);
+            Parent = (context.Parent as ClipElement) ?? Parent;
+
+            IsEnabled = context.Element.GetProperty(nameof(IsEnabled)).GetBoolean();
+            IsExpanded = context.Element.GetProperty(nameof(IsExpanded)).GetBoolean();
         }
 
         /// <summary>
