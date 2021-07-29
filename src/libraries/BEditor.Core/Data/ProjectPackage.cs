@@ -6,63 +6,44 @@
 // of the MIT license. See the LICENSE file for details.
 
 using System;
-using System.Collections.Generic;
-using System.Drawing;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
-using System.Text;
-using System.Text.RegularExpressions;
-using System.Threading.Tasks;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 using BEditor.Data.Property;
+using BEditor.Packaging;
+using BEditor.Plugin;
+
+using Microsoft.Extensions.DependencyInjection;
 
 namespace BEditor.Data
 {
-    public class ProjectPackage
+    /// <summary>
+    /// Provides for the manipulation of project packages.
+    /// </summary>
+    public static class ProjectPackage
     {
-        private ProjectPackage(Project project, string fontDir, string rsrcDir, string otherDir)
-        {
-            BaseProject = project;
-            FontsDirectory = fontDir;
-            ResourcesDirectory = rsrcDir;
-            OthersDirectory = otherDir;
-        }
-
-        /// <summary>
-        /// Gets the projects contained in this project package.
-        /// </summary>
-        public Project BaseProject { get; }
-
-        /// <summary>
-        /// Gets the directory where the resource will be saved.
-        /// </summary>
-        public string ResourcesDirectory { get; }
-
-        /// <summary>
-        /// Gets the directory where the font will be saved.
-        /// </summary>
-        public string FontsDirectory { get; }
-
-        /// <summary>
-        /// Gets the directory where the arbitrary file will be saved.
-        /// </summary>
-        public string OthersDirectory { get; }
-
         /// <summary>
         /// Create a project package from a project.
         /// </summary>
         /// <param name="project">Projects to include in the project package.</param>
+        /// <param name="file">The name of the file to be saved.</param>
         /// <returns>Returns the project package created by this method.</returns>
-        public static ProjectPackage? FromProject(Project project)
+        public static bool CreateFromProject(Project project, string file)
         {
-            var proj = project.DeepClone();
-            if (proj is null) return null;
+            if (project is null) throw new ArgumentNullException(nameof(project));
 
+            var proj = project.DeepClone();
+            if (proj is null) return false;
+
+            // ディレクトリをつなげる
             var workDir = Path.Combine(project.DirectoryName, ".app", project.Name);
             var fontDir = Path.Combine(workDir, "fonts");
             var rsrcDir = Path.Combine(workDir, "resources");
             var otherDir = Path.Combine(workDir, "others");
+            var pluginDir = Path.Combine(workDir, "plugins");
 
             // ディレクトリをクリーンにする
             if (Directory.Exists(workDir)) Directory.Delete(workDir, true);
@@ -72,6 +53,7 @@ namespace BEditor.Data
             Directory.CreateDirectory(fontDir);
             Directory.CreateDirectory(rsrcDir);
             Directory.CreateDirectory(otherDir);
+            Directory.CreateDirectory(pluginDir);
 
             // JSONに保存されないプロパティの値を設定
             proj.DirectoryName = workDir;
@@ -84,7 +66,9 @@ namespace BEditor.Data
             // 依存しているファイルをコピー
             CopyFiles(proj, rsrcDir);
 
-            // Todo: 依存しているプラグインを保存する処理を追加
+            // 依存しているプラグインを保存
+            SavePlugins(proj, pluginDir);
+
             // ディレクトリはすべてエスケープする
             foreach (var prop in proj.GetAllChildren<FolderProperty>())
             {
@@ -94,25 +78,61 @@ namespace BEditor.Data
 
             proj.Save();
 
-            return new ProjectPackage(proj, fontDir, rsrcDir, otherDir);
-        }
-
-        /// <summary>
-        /// Compress this project package.
-        /// </summary>
-        /// <param name="file">The name of the file to be saved.</param>
-        public void Compress(string file)
-        {
-            BaseProject.Save();
-
-            var appDir = Path.Combine(BaseProject.DirectoryName, ".app");
-            var thumbnail = Path.Combine(BaseProject.DirectoryName, "thumbnail.png");
+            var appDir = Path.Combine(proj.DirectoryName, ".app");
+            var thumbnail = Path.Combine(proj.DirectoryName, "thumbnail.png");
 
             if (Directory.Exists(appDir)) Directory.Delete(appDir, true);
             if (File.Exists(thumbnail)) File.Delete(thumbnail);
             if (File.Exists(file)) File.Delete(file);
 
-            ZipFile.CreateFromDirectory(BaseProject.DirectoryName, file, CompressionLevel.Optimal, true);
+            // Zip圧縮
+            ZipFile.CreateFromDirectory(proj.DirectoryName, file, CompressionLevel.Optimal, false);
+
+            return true;
+        }
+
+        public static PluginInfo[] GetPluginInfo(string file)
+        {
+            using var stream = new FileStream(file, FileMode.Open, FileAccess.Read);
+            using var archive = new ZipArchive(stream, ZipArchiveMode.Read);
+
+            var entry = archive.GetEntry("/plugins/plugins.json");
+            if (entry is null) return Array.Empty<PluginInfo>();
+
+            using var jsonStream = entry.Open();
+            using var reader = new StreamReader(stream);
+            return JsonSerializer.Deserialize<PluginInfo[]>(reader.ReadToEnd(), PackageFile._serializerOptions) ?? Array.Empty<PluginInfo>();
+        }
+
+        public static Project? OpenFile(string file, string directry)
+        {
+            if (!File.Exists(file)) throw new FileNotFoundException(null, file);
+            var projName = GetProjectName(file);
+            var projDir = Path.Combine(directry, projName);
+            if (Directory.Exists(projDir)) Directory.Delete(projDir, true);
+            Directory.CreateDirectory(projDir);
+
+            var app = ServicesLocator.Current.Provider.GetRequiredService<IApplication>();
+
+            // 展開
+            ZipFile.ExtractToDirectory(file, projDir);
+
+            // プロジェクトを読み込む
+            var proj = Project.FromFile(Directory.EnumerateFiles(projDir, ".bedit").First(), app);
+            if (proj is null) return null;
+
+            proj.DirectoryName = projDir;
+            proj.Name = projName;
+
+            return proj;
+        }
+
+        private static string GetProjectName(string zipFile)
+        {
+            using var stream = new FileStream(zipFile, FileMode.Open, FileAccess.Read);
+            using var archive = new ZipArchive(stream, ZipArchiveMode.Read);
+
+            return archive.Entries.First(i => Path.GetExtension(i.FullName) is ".bedit").Name;
         }
 
         // 依存しているフォントをコピー
@@ -171,6 +191,23 @@ namespace BEditor.Data
             }
         }
 
+        // 依存しているプラグインを保存
+        private static void SavePlugins(Project project, string directry)
+        {
+            var plugins = project.FindDependentPlugins().ToArray();
+
+            // 依存しているプラグインを書き込む
+            using var writer = new StreamWriter(Path.Combine(directry, "plugins.json"));
+            var json = JsonSerializer.Serialize(plugins.Select(i => new PluginInfo(i)).ToArray(), PackageFile._serializerOptions);
+            writer.Write(json);
+
+            // 設定を保存
+            foreach (var plugin in plugins)
+            {
+                plugin.Settings.Save(Path.Combine(directry, plugin.PluginName + plugin.Id.ToString()) + ".json");
+            }
+        }
+
         // パスをエスケープ
         private static string PathEscape(string path)
         {
@@ -207,6 +244,34 @@ namespace BEditor.Data
             while ((file1byte == file2byte) && (file1byte != -1));
 
             return (file1byte - file2byte) == 0;
+        }
+
+        /// <summary>
+        /// The plugin info.
+        /// </summary>
+        public class PluginInfo
+        {
+            /// <summary>
+            /// Initializes a new instance of the <see cref="PluginInfo"/> class.
+            /// </summary>
+            /// <param name="plugin">The plugin.</param>
+            public PluginInfo(PluginObject plugin)
+            {
+                Id = plugin.Id;
+                Version = plugin.GetType().Assembly.GetName().Version!.ToString(3);
+            }
+
+            /// <summary>
+            /// Gets or sets the id of the plugin.
+            /// </summary>
+            [JsonPropertyName("id")]
+            public Guid Id { get; set; }
+
+            /// <summary>
+            /// Gets or sets the version of the plugin.
+            /// </summary>
+            [JsonPropertyName("version")]
+            public string Version { get; set; } = string.Empty;
         }
     }
 }

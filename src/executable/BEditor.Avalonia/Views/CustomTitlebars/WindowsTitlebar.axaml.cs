@@ -177,20 +177,6 @@ namespace BEditor.Views.CustomTitlebars
 
         public async void PackingProject(object s, RoutedEventArgs e)
         {
-            //var record = new SaveFileRecord()
-            //{
-            //    Filters =
-            //    {
-            //        new FileFilter(Strings.ProjectPackage, ".beproj"),
-            //    },
-            //};
-            //if (await AppModel.Current.FileDialog.ShowSaveFileDialogAsync(record))
-            //{
-            //    var package = ProjectPackage.FromProject(AppModel.Current.Project);
-
-            //    if (package is null) return;
-            //    package.Compress(record.FileName);
-            //}
             if (VisualRoot is Window window)
             {
                 var dialog = new CreateProjectPackage();

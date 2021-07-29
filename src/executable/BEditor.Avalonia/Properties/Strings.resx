@@ -839,4 +839,7 @@ Vulkan:
   <data name="FailedToPackProject" xml:space="preserve">
     <value>Failed to pack project</value>
   </data>
+  <data name="SelectLocationToUnpackProject" xml:space="preserve">
+    <value>Select a location to unpack the project</value>
+  </data>
 </root>

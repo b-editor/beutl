@@ -1689,6 +1689,15 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Select a location to unpack the project.
+        /// </summary>
+        public static string SelectLocationToUnpackProject {
+            get {
+                return ResourceManager.GetString("SelectLocationToUnpackProject", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Separate.
         /// </summary>
         public static string Separate {
