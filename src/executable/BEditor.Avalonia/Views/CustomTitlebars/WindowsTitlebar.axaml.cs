@@ -14,12 +14,14 @@ using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
 
+using BEditor.Data;
 using BEditor.Models;
 using BEditor.Plugin;
 using BEditor.Properties;
 using BEditor.ViewModels;
 using BEditor.ViewModels.DialogContent;
 using BEditor.Views.DialogContent;
+using BEditor.Views.Dialogs;
 using BEditor.Views.ManagePlugins;
 using BEditor.Views.Settings;
 using BEditor.Views.Tool;
@@ -170,6 +172,29 @@ namespace BEditor.Views.CustomTitlebars
                     };
                     list.Add(item);
                 }
+            }
+        }
+
+        public async void PackingProject(object s, RoutedEventArgs e)
+        {
+            //var record = new SaveFileRecord()
+            //{
+            //    Filters =
+            //    {
+            //        new FileFilter(Strings.ProjectPackage, ".beproj"),
+            //    },
+            //};
+            //if (await AppModel.Current.FileDialog.ShowSaveFileDialogAsync(record))
+            //{
+            //    var package = ProjectPackage.FromProject(AppModel.Current.Project);
+
+            //    if (package is null) return;
+            //    package.Compress(record.FileName);
+            //}
+            if (VisualRoot is Window window)
+            {
+                var dialog = new CreateProjectPackage();
+                await dialog.ShowDialog(window);
             }
         }
 

@@ -1,0 +1,94 @@
+<views:FluentWindow
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:views="using:BEditor.Views"
+    xmlns:viewModels="using:BEditor.ViewModels.Dialogs"
+    xmlns:props="using:BEditor.Properties"
+    mc:Ignorable="d" Width="800" Height="450"
+    WindowStartupLocation="CenterScreen"
+    CanResize="False"
+    Classes="fluent"
+    Title="{x:Static props:Strings.PackingTheProject}"
+    x:DataType="viewModels:CreateProjectPackageViewModel"
+    x:Class="BEditor.Views.Dialogs.CreateProjectPackage">
+    <Grid RowDefinitions="Auto,*">
+
+        <TextBlock
+            Grid.Row="0"
+            Margin="16,8"
+            FontSize="24"
+            Text="{x:Static props:Strings.PackingTheProject}" />
+
+        <StackPanel Orientation="Vertical" Grid.Row="1" Margin="8">
+            
+            <!--  Name  -->
+            <VirtualizingStackPanel Margin="8">
+                <TextBlock
+                    FontSize="14"
+                    Text="{x:Static props:Strings.Name}" />
+
+                <TextBox
+                    HorizontalAlignment="Left"
+                    MinWidth="240"
+                    Margin="0,8"
+                    Text="{CompiledBinding Name.Value, Mode=TwoWay}" />
+            </VirtualizingStackPanel>
+
+            <!--  Folder  -->
+            <VirtualizingStackPanel Margin="8">
+                <TextBlock
+                    FontSize="14"
+                    Text="{x:Static props:Strings.SaveFolder}" />
+
+                <Grid Margin="0,8" HorizontalAlignment="Left">
+                    <TextBox
+                        HorizontalAlignment="Left"
+                        MinWidth="240"
+                        Text="{CompiledBinding Folder.Value, Mode=TwoWay}" />
+
+                    <Button
+                        HorizontalAlignment="Right"
+                        Background="Transparent"
+                        BorderThickness="0"
+                        Command="{CompiledBinding OpenFolderDialog}"
+                        Cursor="Arrow">
+                        <PathIcon Data="{StaticResource FolderOpen16Regular}" />
+                    </Button>
+                </Grid>
+            </VirtualizingStackPanel>
+
+        </StackPanel>
+
+        <VirtualizingStackPanel
+            Grid.Row="1"
+            Margin="8"
+            VerticalAlignment="Bottom"
+            HorizontalAlignment="Right"
+            Orientation="Horizontal">
+            <Button
+                Click="CloseClick"
+                HorizontalAlignment="Left"
+                Content="{x:Static props:Strings.Close}"
+                Background="Transparent"
+                Cursor="Arrow"
+                Foreground="Red"
+                IsCancel="True"/>
+            <Button
+                HorizontalAlignment="Left"
+                Command="{CompiledBinding Create, Mode=OneTime}"
+                Content="{x:Static props:Strings.Create}"
+                Cursor="Arrow"
+                Background="Transparent"
+                IsDefault="True"/>
+        </VirtualizingStackPanel>
+
+        <ProgressBar
+            Grid.Row="1"
+            IsVisible="{CompiledBinding IsLoading.Value, Mode=OneWay}"
+            VerticalAlignment="Bottom"
+            IsIndeterminate="True"
+            HorizontalAlignment="Stretch" />
+    </Grid>
+</views:FluentWindow>

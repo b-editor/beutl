@@ -1415,6 +1415,12 @@
             <param name="stream">Stream to save.</param>
             <returns><see langword="true"/> if the save is successful, otherwise <see langword="false"/>.</returns>
         </member>
+        <member name="M:BEditor.Data.Project.FindDependentPlugins">
+            <summary>
+            Find the plug-ins that this project depends on.
+            </summary>
+            <returns>Returns the plugins that this project depends on.</returns>
+        </member>
         <member name="M:BEditor.Data.Project.GetObjectData(System.Text.Json.Utf8JsonWriter)">
             <inheritdoc/>
         </member>
@@ -1423,6 +1429,39 @@
         </member>
         <member name="M:BEditor.Data.Project.OnUnload">
             <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Data.ProjectPackage.BaseProject">
+            <summary>
+            Gets the projects contained in this project package.
+            </summary>
+        </member>
+        <member name="P:BEditor.Data.ProjectPackage.ResourcesDirectory">
+            <summary>
+            Gets the directory where the resource will be saved.
+            </summary>
+        </member>
+        <member name="P:BEditor.Data.ProjectPackage.FontsDirectory">
+            <summary>
+            Gets the directory where the font will be saved.
+            </summary>
+        </member>
+        <member name="P:BEditor.Data.ProjectPackage.OthersDirectory">
+            <summary>
+            Gets the directory where the arbitrary file will be saved.
+            </summary>
+        </member>
+        <member name="M:BEditor.Data.ProjectPackage.FromProject(BEditor.Data.Project)">
+            <summary>
+            Create a project package from a project.
+            </summary>
+            <param name="project">Projects to include in the project package.</param>
+            <returns>Returns the project package created by this method.</returns>
+        </member>
+        <member name="M:BEditor.Data.ProjectPackage.Compress(System.String)">
+            <summary>
+            Compress this project package.
+            </summary>
+            <param name="file">The name of the file to be saved.</param>
         </member>
         <member name="T:BEditor.Data.ProjectSavedEventArgs">
             <summary>
@@ -1545,9 +1584,6 @@
             <summary>
             Gets or sets the metadata for <see cref="P:BEditor.Data.Property.ColorAnimationProperty.EasingType"/>.
             </summary>
-        </member>
-        <member name="P:BEditor.Data.Property.ColorAnimationProperty.Parent">
-            <inheritdoc/>
         </member>
         <member name="P:BEditor.Data.Property.ColorAnimationProperty.Length">
             <summary>
@@ -1805,9 +1841,6 @@
             Gets or sets the metadata for <see cref="P:BEditor.Data.Property.EaseProperty.EasingType"/>.
             </summary>
         </member>
-        <member name="P:BEditor.Data.Property.EaseProperty.Parent">
-            <inheritdoc/>
-        </member>
         <member name="P:BEditor.Data.Property.EaseProperty.Length">
             <summary>
             Gets the length of the clip.
@@ -1913,9 +1946,6 @@
             <param name="min">The minimum value.</param>
             <param name="max">The maximum value.</param>
             <returns>Eased value.</returns>
-        </member>
-        <member name="M:BEditor.Data.Property.Easing.EasingFunc.GetObjectData(System.Text.Json.Utf8JsonWriter)">
-            <inheritdoc/>
         </member>
         <member name="M:BEditor.Data.Property.Easing.EasingFunc.SetObjectData(System.Text.Json.JsonElement)">
             <inheritdoc/>
@@ -2236,6 +2266,11 @@
         <member name="P:BEditor.Data.Property.FontProperty.TargetID">
             <inheritdoc/>
         </member>
+        <member name="P:BEditor.Data.Property.FontProperty.Mode">
+            <summary>
+            Gets or sets the mode of the file path.
+            </summary>
+        </member>
         <member name="M:BEditor.Data.Property.FontProperty.GetObjectData(System.Text.Json.Utf8JsonWriter)">
             <inheritdoc/>
         </member>
@@ -2319,6 +2354,9 @@
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Data.Property.Group.BEditor#Data#Property#IKeyframeProperty#RemoveFrame(System.Single)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Data.Property.Group.SetObjectData(System.Text.Json.JsonElement)">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Data.Property.Group.GetProperties">
@@ -3822,6 +3860,13 @@
             </summary>
         </member>
         <member name="M:BEditor.FileFilter.#ctor(System.String,System.Collections.Generic.IEnumerable{System.String})">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.FileFilter"/> class.
+            </summary>
+            <param name="name">The filter name.</param>
+            <param name="extensions">The filter extensions.</param>
+        </member>
+        <member name="M:BEditor.FileFilter.#ctor(System.String,System.String[])">
             <summary>
             Initializes a new instance of the <see cref="T:BEditor.FileFilter"/> class.
             </summary>

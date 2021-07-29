@@ -785,6 +785,15 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Failed to pack project.
+        /// </summary>
+        public static string FailedToPackProject {
+            get {
+                return ResourceManager.GetString("FailedToPackProject", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Failed to save..
         /// </summary>
         public static string FailedToSave {
@@ -1356,6 +1365,15 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Packing the project.
+        /// </summary>
+        public static string PackingTheProject {
+            get {
+                return ResourceManager.GetString("PackingTheProject", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Palette not selected.
         /// </summary>
         public static string PaletteNotSelected {
@@ -1469,6 +1487,15 @@ namespace BEditor.Properties {
         public static string ProjectFile {
             get {
                 return ResourceManager.GetString("ProjectFile", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Project package.
+        /// </summary>
+        public static string ProjectPackage {
+            get {
+                return ResourceManager.GetString("ProjectPackage", resourceCulture);
             }
         }
         

@@ -251,7 +251,7 @@ namespace BEditor.Packaging
                 }
 
                 var entryName = Path.GetRelativePath(directory, item);
-                var entry = zip.CreateEntry(entryName);
+                var entry = zip.CreateEntry(entryName, CompressionLevel.Optimal);
 
                 using var entryStream = entry.Open();
                 using var itemStream = new FileStream(item, FileMode.Open);

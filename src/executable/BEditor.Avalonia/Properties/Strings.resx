@@ -830,4 +830,13 @@ Vulkan:
   <data name="AddNewPalette" xml:space="preserve">
     <value>Add a new palette</value>
   </data>
+  <data name="PackingTheProject" xml:space="preserve">
+    <value>Packing the project</value>
+  </data>
+  <data name="ProjectPackage" xml:space="preserve">
+    <value>Project package</value>
+  </data>
+  <data name="FailedToPackProject" xml:space="preserve">
+    <value>Failed to pack project</value>
+  </data>
 </root>

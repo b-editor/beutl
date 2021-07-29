@@ -93,7 +93,15 @@ namespace BEditor.Data.Property
         public override void GetObjectData(Utf8JsonWriter writer)
         {
             base.GetObjectData(writer);
-            writer.WriteString(nameof(Value), Value.Filename);
+
+            if (Mode is FilePathType.FromProject)
+            {
+                writer.WriteString(nameof(Value), Path.GetRelativePath(this.GetRequiredParent<Project>().DirectoryName, Value.Filename));
+            }
+            else
+            {
+                writer.WriteString(nameof(Value), Value.Filename);
+            }
 
             if (TargetID is not null)
             {
@@ -108,6 +116,17 @@ namespace BEditor.Data.Property
             var filename = element.TryGetProperty(nameof(Value), out var value) ? value.GetString() : null;
             if (filename is not null)
             {
+                // 相対パスの場合変換
+                if (!Path.IsPathRooted(filename))
+                {
+                    filename = Path.GetFullPath(filename, this.GetRequiredParent<Project>().DirectoryName);
+                    Mode = FilePathType.FromProject;
+                }
+                else
+                {
+                    Mode = FilePathType.FullPath;
+                }
+
                 Value = new(filename);
             }
             else
