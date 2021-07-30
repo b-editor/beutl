@@ -1443,6 +1443,21 @@
             <param name="file">The name of the file to be saved.</param>
             <returns>Returns the project package created by this method.</returns>
         </member>
+        <member name="M:BEditor.Data.ProjectPackage.GetPluginInfo(System.String)">
+            <summary>
+            Get information about dependent plugins from the project package.
+            </summary>
+            <param name="file">The project package file.</param>
+            <returns>Information on dependent plugins.</returns>
+        </member>
+        <member name="M:BEditor.Data.ProjectPackage.OpenFile(System.String,System.String)">
+            <summary>
+            Open the project package.
+            </summary>
+            <param name="file">The project package file.</param>
+            <param name="directry">The destination directory.</param>
+            <returns>Returns the opened project.</returns>
+        </member>
         <member name="T:BEditor.Data.ProjectPackage.PluginInfo">
             <summary>
             The plugin info.

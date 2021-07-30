@@ -5,24 +5,65 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:views="using:BEditor.Views"
     xmlns:viewModels="using:BEditor.ViewModels.Dialogs"
+    xmlns:titlebar="using:BEditor.Views.CustomTitlebars"
     xmlns:props="using:BEditor.Properties"
     mc:Ignorable="d" Width="800" Height="450"
     WindowStartupLocation="CenterScreen"
     CanResize="False"
-    Classes="fluent"
+    Classes="fluent_setter"
     Title="{x:Static props:Strings.PackingTheProject}"
     x:DataType="viewModels:CreateProjectPackageViewModel"
     x:Class="BEditor.Views.Dialogs.CreateProjectPackage">
-    <Grid RowDefinitions="Auto,*">
+    <Grid RowDefinitions="Auto,*" ColumnDefinitions="*,2*" Background="{StaticResource AcrylicColor2}">
+        <Grid
+            RowDefinitions="Auto,*"
+            Background="{StaticResource AcrylicColor1}"
+            Grid.RowSpan="2">
+            <TextBlock
+                Margin="16,32,16,8"
+                FontSize="16"
+                Text="{x:Static props:Strings.Dependency}" />
 
-        <TextBlock
-            Grid.Row="0"
-            Margin="16,8"
-            FontSize="24"
-            Text="{x:Static props:Strings.PackingTheProject}" />
+            <TreeView Grid.Row="1">
+                <TreeViewItem Items="{CompiledBinding Fonts, Mode=OneWay}" Header="{x:Static props:Strings.Font}">
+                    <TreeViewItem.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding Text}" ToolTip.Tip="{Binding Tip}" />
+                        </DataTemplate>
+                    </TreeViewItem.ItemTemplate>
+                </TreeViewItem>
 
-        <StackPanel Orientation="Vertical" Grid.Row="1" Margin="8">
-            
+                <TreeViewItem Items="{CompiledBinding Files, Mode=OneWay}" Header="{x:Static props:Strings.File}">
+                    <TreeViewItem.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding Text}" ToolTip.Tip="{Binding Tip}" />
+                        </DataTemplate>
+                    </TreeViewItem.ItemTemplate>
+                </TreeViewItem>
+
+                <TreeViewItem Items="{CompiledBinding Plugins, Mode=OneWay}" Header="{x:Static props:Strings.Plugins}">
+                    <TreeViewItem.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding Text}" ToolTip.Tip="{Binding Tip}" />
+                        </DataTemplate>
+                    </TreeViewItem.ItemTemplate>
+                </TreeViewItem>
+            </TreeView>
+        </Grid>
+
+        <titlebar:WindowsTitlebarButtons CanResize="False" Grid.ColumnSpan="2"/>
+
+        <StackPanel
+            Orientation="Vertical"
+            Grid.Row="1"
+            Grid.Column="1"
+            Margin="8">
+
+            <TextBlock
+                Margin="0,0,0,16"
+                FontSize="24"
+                Text="{x:Static props:Strings.PackingTheProject}" />
+
             <!--  Name  -->
             <VirtualizingStackPanel Margin="8">
                 <TextBlock
@@ -63,6 +104,7 @@
 
         <VirtualizingStackPanel
             Grid.Row="1"
+            Grid.Column="1"
             Margin="8"
             VerticalAlignment="Bottom"
             HorizontalAlignment="Right"

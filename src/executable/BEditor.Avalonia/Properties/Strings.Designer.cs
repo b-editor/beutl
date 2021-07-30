@@ -613,6 +613,15 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Dependency.
+        /// </summary>
+        public static string Dependency {
+            get {
+                return ResourceManager.GetString("Dependency", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Description.
         /// </summary>
         public static string Description {

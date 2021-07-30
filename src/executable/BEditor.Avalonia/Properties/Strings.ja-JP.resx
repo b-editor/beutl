@@ -860,4 +860,7 @@ Vulkan:
   <data name="Unknown" xml:space="preserve">
     <value>不明</value>
   </data>
+  <data name="Dependency" xml:space="preserve">
+    <value>依存関係</value>
+  </data>
 </root>

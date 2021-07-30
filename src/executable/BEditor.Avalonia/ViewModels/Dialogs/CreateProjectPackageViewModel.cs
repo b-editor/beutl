@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Drawing.Printing;
 using System.IO;
 using System.Linq;
@@ -9,6 +10,7 @@ using System.Threading.Tasks;
 using Avalonia.Controls;
 
 using BEditor.Data;
+using BEditor.Data.Property;
 using BEditor.Models;
 using BEditor.Properties;
 
@@ -20,6 +22,8 @@ namespace BEditor.ViewModels.Dialogs
 {
     public class CreateProjectPackageViewModel
     {
+        public record TreeItem(string Text, string Tip);
+
         private readonly Project _project;
 
         public CreateProjectPackageViewModel()
@@ -52,7 +56,47 @@ namespace BEditor.ViewModels.Dialogs
                     IsLoading.Value = false;
                 }
             });
+
+            Task.Run(() =>
+            {
+                try
+                {
+                    IsLoading.Value = true;
+                    foreach (var item in _project.GetAllChildren<FontProperty>()
+                        .Distinct()
+                        .Select(i => new TreeItem(i.Value.Name, i.Value.Filename)))
+                    {
+                        Fonts.Add(item);
+                    }
+
+                    foreach (var item in _project.GetAllChildren<FileProperty>()
+                        .Distinct()
+                        .Where(i => File.Exists(i.Value))
+                        .Select(i => new TreeItem(Path.GetFileName(i.Value), i.Value)))
+                    {
+                        Files.Add(item);
+                    }
+
+                    foreach (var item in _project.FindDependentPlugins()
+                        .Select(i => new TreeItem(
+                            i.PluginName + "  " + i.GetType().Assembly.GetName()?.Version?.ToString(3) ?? string.Empty,
+                            string.Empty)))
+                    {
+                        Plugins.Add(item);
+                    }
+                }
+                finally
+                {
+                    IsLoading.Value = false;
+                }
+            });
         }
+
+        public ObservableCollection<TreeItem> Fonts { get; } = new();
+
+        public ObservableCollection<TreeItem> Files { get; } = new();
+
+        public ObservableCollection<TreeItem> Plugins { get; } = new();
 
         public ReactivePropertySlim<string> Name { get; } = new();
 
