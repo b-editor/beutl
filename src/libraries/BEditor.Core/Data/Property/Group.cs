@@ -22,8 +22,6 @@ namespace BEditor.Data.Property
     /// </summary>
     public abstract class Group : PropertyElement, IKeyframeProperty, IEasingProperty, IParent<PropertyElement>
     {
-        private IEnumerable<PropertyElement>? _cachedList;
-
         /// <inheritdoc/>
         event Action<float, int>? IKeyframeProperty.Added
         {
@@ -58,7 +56,7 @@ namespace BEditor.Data.Property
         }
 
         /// <inheritdoc/>
-        public IEnumerable<PropertyElement> Children => _cachedList ??= GetProperties().ToArray();
+        public IEnumerable<PropertyElement> Children => GetProperties();
 
         /// <inheritdoc/>
         public override EffectElement Parent

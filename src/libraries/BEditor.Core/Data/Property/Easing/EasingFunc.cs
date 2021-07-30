@@ -21,10 +21,9 @@ namespace BEditor.Data.Property.Easing
     public abstract class EasingFunc : EditingObject, IChild<PropertyElement>, IParent<IEasingProperty>
     {
         private PropertyElement? _parent;
-        private IEnumerable<IEasingProperty>? _cachedList;
 
         /// <inheritdoc/>
-        public IEnumerable<IEasingProperty> Children => _cachedList ??= GetProperties().ToArray();
+        public IEnumerable<IEasingProperty> Children => GetProperties();
 
         /// <inheritdoc/>
         public PropertyElement Parent
@@ -62,8 +61,8 @@ namespace BEditor.Data.Property.Easing
         /// <inheritdoc/>
         public override void SetObjectData(DeserializeContext context)
         {
-            base.SetObjectData(context);
             Parent = (context.Parent as PropertyElement) ?? Parent;
+            base.SetObjectData(context);
         }
     }
 }

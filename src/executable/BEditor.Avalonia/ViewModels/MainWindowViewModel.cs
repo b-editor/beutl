@@ -44,8 +44,7 @@ namespace BEditor.ViewModels
                 {
                     Filters =
                     {
-                        new(Strings.ProjectFile, new[] { "bedit" }),
-                        new(Strings.ProjectPackage, new[] { "beproj" }),
+                        new(Strings.ProjectFile, new[] { "bedit", "beproj" }),
                         new(Strings.BackupFile, new[] { "backup" }),
                     }
                 };

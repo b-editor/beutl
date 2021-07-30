@@ -121,7 +121,7 @@ namespace BEditor.Data
         public static Project? OpenFile(string file, string directry)
         {
             if (!File.Exists(file)) throw new FileNotFoundException(null, file);
-            var projName = GetProjectName(file);
+            var projName = Path.GetFileNameWithoutExtension(GetProjectName(file));
             var projDir = Path.Combine(directry, projName);
             if (Directory.Exists(projDir)) Directory.Delete(projDir, true);
             Directory.CreateDirectory(projDir);
@@ -132,7 +132,7 @@ namespace BEditor.Data
             ZipFile.ExtractToDirectory(file, projDir);
 
             // プロジェクトを読み込む
-            var proj = Project.FromFile(Directory.EnumerateFiles(projDir, ".bedit").First(), app);
+            var proj = Project.FromFile(Path.Combine(projDir, projName + ".bedit"), app);
             if (proj is null) return null;
 
             proj.DirectoryName = projDir;
