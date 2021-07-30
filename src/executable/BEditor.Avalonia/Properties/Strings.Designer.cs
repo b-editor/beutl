@@ -1626,6 +1626,15 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Required plugins.
+        /// </summary>
+        public static string RequiredPlugins {
+            get {
+                return ResourceManager.GetString("RequiredPlugins", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Reset.
         /// </summary>
         public static string Reset {
@@ -1923,6 +1932,15 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The package has been created.
+        /// </summary>
+        public static string ThePackageHasBeenCreated {
+            get {
+                return ResourceManager.GetString("ThePackageHasBeenCreated", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to There is no project..
         /// </summary>
         public static string ThereIsNoProject {
@@ -2009,6 +2027,15 @@ namespace BEditor.Properties {
         public static string Transparent {
             get {
                 return ResourceManager.GetString("Transparent", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Trying to open project package.
+        /// </summary>
+        public static string TryingToOpenProjectPackage {
+            get {
+                return ResourceManager.GetString("TryingToOpenProjectPackage", resourceCulture);
             }
         }
         
@@ -2234,6 +2261,16 @@ namespace BEditor.Properties {
         public static string Yes {
             get {
                 return ResourceManager.GetString("Yes", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to You do not have the required plugins installed.
+        ///Do you want to install it now?.
+        /// </summary>
+        public static string YouDoNotHaveTheRequiredPluginsInstalled {
+            get {
+                return ResourceManager.GetString("YouDoNotHaveTheRequiredPluginsInstalled", resourceCulture);
             }
         }
         

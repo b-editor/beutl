@@ -1,18 +1,17 @@
 using System;
-
 using Avalonia;
+using Avalonia.Threading;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
-using Avalonia.Threading;
 
 using BEditor.ViewModels.Dialogs;
 
 namespace BEditor.Views.Dialogs
 {
-    public partial class InstallRequiredPlugins : FluentWindow
+    public partial class OpenProjectPackage : FluentWindow
     {
-        public InstallRequiredPlugins()
+        public OpenProjectPackage()
         {
             InitializeComponent();
 #if DEBUG
@@ -22,17 +21,16 @@ namespace BEditor.Views.Dialogs
 
         public void CloseClick(object s, RoutedEventArgs e)
         {
-            Close();
+            Close(OpenProjectPackageViewModel.State.Close);
         }
 
         protected override void OnDataContextChanged(EventArgs e)
         {
             base.OnDataContextChanged(e);
 
-            if (DataContext is InstallRequiredPluginsViewModel vm)
+            if (DataContext is OpenProjectPackageViewModel vm)
             {
-                vm.InstallNow.Subscribe(() => App.Shutdown(0));
-                vm.InstallLater.Subscribe(() => Dispatcher.UIThread.InvokeAsync(Close));
+                vm.Close.Subscribe(s => Dispatcher.UIThread.InvokeAsync(() => Close(s)));
             }
         }
 

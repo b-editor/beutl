@@ -863,4 +863,17 @@ Vulkan:
   <data name="Dependency" xml:space="preserve">
     <value>Dependency</value>
   </data>
+  <data name="ThePackageHasBeenCreated" xml:space="preserve">
+    <value>The package has been created</value>
+  </data>
+  <data name="RequiredPlugins" xml:space="preserve">
+    <value>Required plugins</value>
+  </data>
+  <data name="TryingToOpenProjectPackage" xml:space="preserve">
+    <value>Trying to open project package</value>
+  </data>
+  <data name="YouDoNotHaveTheRequiredPluginsInstalled" xml:space="preserve">
+    <value>You do not have the required plugins installed.
+Do you want to install it now?</value>
+  </data>
 </root>

@@ -22,9 +22,13 @@ namespace BEditor.ViewModels.Dialogs
 {
     public class CreateProjectPackageViewModel
     {
-        public record TreeItem(string Text, string Tip);
+        public record TreeItem(string Text, string Tip, string Hint = "")
+        {
+            public bool IsChecked { get; set; }
+        }
 
         private readonly Project _project;
+        private readonly Task<ProjectPackageBuilder?> _task;
 
         public CreateProjectPackageViewModel()
         {
@@ -35,21 +39,44 @@ namespace BEditor.ViewModels.Dialogs
             Name.Value = _project.Name;
             Create = new();
 
-            Create.Subscribe(async () =>
+            _task = Task.Run(() =>
             {
-                var msg = AppModel.Current.Message;
                 try
                 {
                     IsLoading.Value = true;
-                    if (!await Task.Run(() => ProjectPackage.CreateFromProject(_project, Path.Combine(Folder.Value, Name.Value) + ".beproj")))
+
+                    var builder = ProjectPackageBuilder.Configure(_project);
+
+                    // フォントを追加
+                    foreach (var item in builder.Fonts.Select(i => new TreeItem(i.Name, i.Filename, i.Filename)).Distinct())
                     {
-                        await msg.DialogAsync(Strings.FailedToPackProject, IMessage.IconType.Error);
+                        Fonts.AddOnScheduler(item);
                     }
+
+                    // ファイルを追加
+                    foreach (var item in builder.Files
+                        .Where(i => File.Exists(i))
+                        .Select(i => new TreeItem(Path.GetFileName(i), i))
+                        .Distinct())
+                    {
+                        Files.AddOnScheduler(item);
+                    }
+
+                    // プラグインを追加
+                    foreach (var item in builder.Plugins
+                        .Select(i => new TreeItem(
+                            i.PluginName + "  " + i.GetType().Assembly.GetName()?.Version?.ToString(3) ?? string.Empty,
+                            string.Empty))
+                        .Distinct())
+                    {
+                        Plugins.AddOnScheduler(item);
+                    }
+
+                    return builder;
                 }
-                catch (Exception e)
+                catch
                 {
-                    await msg.DialogAsync(Strings.FailedToPackProject, IMessage.IconType.Error);
-                    ServicesLocator.Current.Logger.LogError(e, Strings.FailedToPackProject);
+                    return null;
                 }
                 finally
                 {
@@ -57,48 +84,50 @@ namespace BEditor.ViewModels.Dialogs
                 }
             });
 
-            Task.Run(() =>
+            Create.Subscribe(async () =>
             {
-                try
+                await Task.Run(async () =>
                 {
-                    IsLoading.Value = true;
-                    foreach (var item in _project.GetAllChildren<FontProperty>()
-                        .Distinct()
-                        .Select(i => new TreeItem(i.Value.Name, i.Value.Filename)))
+                    var msg = AppModel.Current.Message;
+                    try
                     {
-                        Fonts.Add(item);
-                    }
+                        IsLoading.Value = true;
+                        var builder = await _task ?? throw new Exception("Failed to create project package builder");
 
-                    foreach (var item in _project.GetAllChildren<FileProperty>()
-                        .Distinct()
-                        .Where(i => File.Exists(i.Value))
-                        .Select(i => new TreeItem(Path.GetFileName(i.Value), i.Value)))
-                    {
-                        Files.Add(item);
-                    }
+                        builder.ExcludeFonts(Fonts.Where(i => !i.IsChecked).Select(i => new Drawing.Font(i.Hint)));
+                        builder.ReadMe = ReadMe.Value;
 
-                    foreach (var item in _project.FindDependentPlugins()
-                        .Select(i => new TreeItem(
-                            i.PluginName + "  " + i.GetType().Assembly.GetName()?.Version?.ToString(3) ?? string.Empty,
-                            string.Empty)))
-                    {
-                        Plugins.Add(item);
+                        if (!await Task.Run(() => builder.Create(Path.Combine(Folder.Value, Name.Value) + ".beproj")))
+                        {
+                            await msg.DialogAsync(Strings.FailedToPackProject, IMessage.IconType.Error);
+                        }
+                        else
+                        {
+                            msg.Snackbar(Strings.ThePackageHasBeenCreated);
+                        }
                     }
-                }
-                finally
-                {
-                    IsLoading.Value = false;
-                }
+                    catch (Exception e)
+                    {
+                        await msg.DialogAsync(Strings.FailedToPackProject, IMessage.IconType.Error);
+                        ServicesLocator.Current.Logger.LogError(e, Strings.FailedToPackProject);
+                    }
+                    finally
+                    {
+                        IsLoading.Value = false;
+                    }
+                });
             });
         }
 
-        public ObservableCollection<TreeItem> Fonts { get; } = new();
+        public ReactiveCollection<TreeItem> Fonts { get; } = new();
 
-        public ObservableCollection<TreeItem> Files { get; } = new();
+        public ReactiveCollection<TreeItem> Files { get; } = new();
 
-        public ObservableCollection<TreeItem> Plugins { get; } = new();
+        public ReactiveCollection<TreeItem> Plugins { get; } = new();
 
         public ReactivePropertySlim<string> Name { get; } = new();
+
+        public ReactivePropertySlim<string> ReadMe { get; } = new();
 
         public ReactivePropertySlim<string> Folder { get; } = new();
 

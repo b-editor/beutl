@@ -538,6 +538,32 @@ namespace BEditor.Data
             }));
         }
 
+        internal Project? DeepClone()
+        {
+            try
+            {
+                using var stream = new MemoryStream();
+
+                if (!Serialize.SaveToStream(this, stream)) return null;
+
+                stream.Position = 0;
+                var obj = (Project)FormatterServices.GetUninitializedObject(typeof(Project));
+                obj.Parent = Parent;
+                obj.DirectoryName = DirectoryName;
+                obj.Name = Name;
+
+                using var doc = JsonDocument.Parse(stream);
+                obj.SetObjectData(new(doc.RootElement, Parent));
+
+                return obj;
+            }
+            catch (Exception e)
+            {
+                Log(e);
+                return null;
+            }
+        }
+
         /// <inheritdoc/>
         protected override void OnUnload()
         {

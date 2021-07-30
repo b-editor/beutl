@@ -863,4 +863,17 @@ Vulkan:
   <data name="Dependency" xml:space="preserve">
     <value>依存関係</value>
   </data>
+  <data name="ThePackageHasBeenCreated" xml:space="preserve">
+    <value>パッケージが作成されました</value>
+  </data>
+  <data name="RequiredPlugins" xml:space="preserve">
+    <value>必要なプラグイン</value>
+  </data>
+  <data name="TryingToOpenProjectPackage" xml:space="preserve">
+    <value>プロジェクトパッケージを開こうとしています</value>
+  </data>
+  <data name="YouDoNotHaveTheRequiredPluginsInstalled" xml:space="preserve">
+    <value>必要なプラグインがインストールされていません。
+今すぐインストールしますか?</value>
+  </data>
 </root>

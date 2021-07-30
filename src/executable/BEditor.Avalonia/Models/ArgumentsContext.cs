@@ -101,19 +101,14 @@ namespace BEditor.Models
 
                 if (!Directory.Exists(dir)) return;
 
-                var plugins = ProjectPackage.GetPluginInfo(filename);
-                var installed = PluginManager.Default.Plugins.Select(i => new ProjectPackage.PluginInfo(i));
-                var notInstalled = plugins.Except(installed).ToArray();
-
-                if (notInstalled.Length != 0)
+                var viewModel = new OpenProjectPackageViewModel(filename);
+                var openDialog = new OpenProjectPackage
                 {
-                    var installDialog = new InstallRequiredPlugins
-                    {
-                        DataContext = new InstallRequiredPluginsViewModel(notInstalled),
-                    };
-                    await installDialog.ShowDialog(App.GetMainWindow());
-                }
-                else
+                    DataContext = viewModel,
+                };
+                var result = await openDialog.ShowDialog<OpenProjectPackageViewModel.State>(App.GetMainWindow());
+
+                if (result == OpenProjectPackageViewModel.State.Open)
                 {
                     project = ProjectPackage.OpenFile(filename, dir);
                 }

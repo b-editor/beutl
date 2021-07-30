@@ -245,7 +245,7 @@ namespace BEditor.Packaging
             for (var i = 0; i < array.Length; i++)
             {
                 var item = array[i];
-                if (_ignoreDlls.Any(i => item.Contains(i)))
+                if (_ignoreDlls.Any(i => Path.GetFileNameWithoutExtension(item).Contains(i)))
                 {
                     continue;
                 }
@@ -274,7 +274,7 @@ namespace BEditor.Packaging
             for (var i = 0; i < array.Length; i++)
             {
                 var item = array[i];
-                if (_ignoreDlls.Any(i => item.Contains(i)))
+                if (_ignoreDlls.Any(i => Path.GetFileNameWithoutExtension(item).Contains(i)))
                 {
                     continue;
                 }

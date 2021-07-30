@@ -25,10 +25,13 @@
                 Text="{x:Static props:Strings.Dependency}" />
 
             <TreeView Grid.Row="1">
-                <TreeViewItem Items="{CompiledBinding Fonts, Mode=OneWay}" Header="{x:Static props:Strings.Font}">
+                <TreeViewItem IsExpanded="True" Items="{CompiledBinding Fonts, Mode=OneWay}" Header="{x:Static props:Strings.Font}">
                     <TreeViewItem.ItemTemplate>
                         <DataTemplate>
-                            <TextBlock Text="{Binding Text}" ToolTip.Tip="{Binding Tip}" />
+                            <CheckBox
+                                Content="{Binding Text}"
+                                IsChecked="{Binding IsChecked, Mode=TwoWay}"
+                                ToolTip.Tip="{Binding Tip}" />
                         </DataTemplate>
                     </TreeViewItem.ItemTemplate>
                 </TreeViewItem>
@@ -98,6 +101,21 @@
                         <PathIcon Data="{StaticResource FolderOpen16Regular}" />
                     </Button>
                 </Grid>
+            </VirtualizingStackPanel>
+
+            <!--  Name  -->
+            <VirtualizingStackPanel Margin="8">
+                <TextBlock
+                    FontSize="14"
+                    Text="README" />
+
+                <TextBox
+                    HorizontalAlignment="Left"
+                    AcceptsReturn="True"
+                    Width="450"
+                    Height="80"
+                    Margin="0,8"
+                    Text="{CompiledBinding ReadMe.Value, Mode=TwoWay}" />
             </VirtualizingStackPanel>
 
         </StackPanel>

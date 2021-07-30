@@ -1435,20 +1435,19 @@
             Provides for the manipulation of project packages.
             </summary>
         </member>
-        <member name="M:BEditor.Data.ProjectPackage.CreateFromProject(BEditor.Data.Project,System.String)">
-            <summary>
-            Create a project package from a project.
-            </summary>
-            <param name="project">Projects to include in the project package.</param>
-            <param name="file">The name of the file to be saved.</param>
-            <returns>Returns the project package created by this method.</returns>
-        </member>
         <member name="M:BEditor.Data.ProjectPackage.GetPluginInfo(System.String)">
             <summary>
             Get information about dependent plugins from the project package.
             </summary>
             <param name="file">The project package file.</param>
             <returns>Information on dependent plugins.</returns>
+        </member>
+        <member name="M:BEditor.Data.ProjectPackage.GetReadMe(System.String)">
+            <summary>
+            Gets the readme from the project package.
+            </summary>
+            <param name="file">The project package file.</param>
+            <returns>The README.</returns>
         </member>
         <member name="M:BEditor.Data.ProjectPackage.OpenFile(System.String,System.String)">
             <summary>
@@ -1497,6 +1496,73 @@
         </member>
         <member name="M:BEditor.Data.ProjectPackage.PluginInfo.GetHashCode">
             <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Data.ProjectPackageBuilder">
+            <summary>
+            Create a project package.
+            </summary>
+        </member>
+        <member name="P:BEditor.Data.ProjectPackageBuilder.Fonts">
+            <summary>
+            Gets the fonts.
+            </summary>
+        </member>
+        <member name="P:BEditor.Data.ProjectPackageBuilder.Files">
+            <summary>
+            Gets the files.
+            </summary>
+        </member>
+        <member name="P:BEditor.Data.ProjectPackageBuilder.Plugins">
+            <summary>
+            Gets the plugins.
+            </summary>
+        </member>
+        <member name="P:BEditor.Data.ProjectPackageBuilder.ReadMe">
+            <summary>
+            Gets or sets the README.
+            </summary>
+        </member>
+        <member name="M:BEditor.Data.ProjectPackageBuilder.Configure(BEditor.Data.Project)">
+            <summary>
+            Begin configuring an project package.
+            </summary>
+            <param name="project">Projects to include in the project package.</param>
+            <returns>The same instance of the <see cref="T:BEditor.Data.ProjectPackageBuilder"/> for chaining.</returns>
+        </member>
+        <member name="M:BEditor.Data.ProjectPackageBuilder.ExcludeFont(BEditor.Drawing.Font)">
+            <summary>
+            Exclude the specified font.
+            </summary>
+            <param name="font">The font to be excluded.</param>
+            <returns>The same instance of the <see cref="T:BEditor.Data.ProjectPackageBuilder"/> for chaining.</returns>
+        </member>
+        <member name="M:BEditor.Data.ProjectPackageBuilder.ExcludeFonts(System.Collections.Generic.IEnumerable{BEditor.Drawing.Font})">
+            <summary>
+            Exclude the specified fonts.
+            </summary>
+            <param name="fonts">The fonts to be excluded.</param>
+            <returns>The same instance of the <see cref="T:BEditor.Data.ProjectPackageBuilder"/> for chaining.</returns>
+        </member>
+        <member name="M:BEditor.Data.ProjectPackageBuilder.IncludeFont(BEditor.Drawing.Font)">
+            <summary>
+            Include the specified font.
+            </summary>
+            <param name="font">The font to be include.</param>
+            <returns>The same instance of the <see cref="T:BEditor.Data.ProjectPackageBuilder"/> for chaining.</returns>
+        </member>
+        <member name="M:BEditor.Data.ProjectPackageBuilder.IncludeFonts(System.Collections.Generic.IEnumerable{BEditor.Drawing.Font})">
+            <summary>
+            Include the specified fonts.
+            </summary>
+            <param name="fonts">The fonts to be include.</param>
+            <returns>The same instance of the <see cref="T:BEditor.Data.ProjectPackageBuilder"/> for chaining.</returns>
+        </member>
+        <member name="M:BEditor.Data.ProjectPackageBuilder.Create(System.String)">
+            <summary>
+            Create a project package.
+            </summary>
+            <param name="file">The name of the file to be saved.</param>
+            <returns>Returns true on success, false otherwise.</returns>
         </member>
         <member name="T:BEditor.Data.ProjectSavedEventArgs">
             <summary>
@@ -2298,6 +2364,26 @@
             </summary>
             <param name="metadata">Metadata for this property.</param>
             <exception cref="T:System.ArgumentNullException"><paramref name="metadata"/> is <see langword="null"/>.</exception>
+        </member>
+        <member name="T:BEditor.Data.Property.FontProperty.FontSaveMode">
+            <summary>
+            Represents how the font will be saved.
+            </summary>
+        </member>
+        <member name="F:BEditor.Data.Property.FontProperty.FontSaveMode.FullPath">
+            <summary>
+            File path is full path.
+            </summary>
+        </member>
+        <member name="F:BEditor.Data.Property.FontProperty.FontSaveMode.FromProject">
+            <summary>
+            File paths are relative to the project.
+            </summary>
+        </member>
+        <member name="F:BEditor.Data.Property.FontProperty.FontSaveMode.FamilyName">
+            <summary>
+            Font family name.
+            </summary>
         </member>
         <member name="P:BEditor.Data.Property.FontProperty.Value">
             <summary>
@@ -4187,7 +4273,7 @@
         </member>
         <member name="M:BEditor.Plugin.PluginBuilder.Configure``1">
             <summary>
-             Begin configuring an <see cref="T:BEditor.Plugin.PluginObject"/>.
+            Begin configuring an <see cref="T:BEditor.Plugin.PluginObject"/>.
             </summary>
             <typeparam name="T">Class that implements the <see cref="T:BEditor.Plugin.PluginObject"/> to be configure.</typeparam>
             <returns>The same instance of the <see cref="T:BEditor.Plugin.PluginBuilder"/> for chaining.</returns>
