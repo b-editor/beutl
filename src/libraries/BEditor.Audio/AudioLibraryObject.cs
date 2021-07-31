@@ -10,6 +10,7 @@ namespace BEditor.Audio
         }
 
         public abstract int Handle { get; }
+
         public bool IsDisposed { get; private set; }
 
         public void Dispose()
@@ -21,6 +22,7 @@ namespace BEditor.Audio
 
             IsDisposed = true;
         }
+
         protected void ThrowIfDisposed()
         {
             if (IsDisposed)
@@ -28,6 +30,7 @@ namespace BEditor.Audio
                 throw new ObjectDisposedException(GetType().Name);
             }
         }
+
         protected abstract void OnDispose();
     }
 }

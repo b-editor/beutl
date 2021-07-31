@@ -162,7 +162,8 @@ namespace BEditor
                 });
             }
 
-            AppModel.Current.AudioContext?.Dispose();
+            if (app.AudioContext is IDisposable disposable)
+                disposable.Dispose();
         }
 
         private void CurrentDomain_UnhandledException(object sender, UnhandledExceptionEventArgs e)
@@ -283,7 +284,21 @@ namespace BEditor
         {
             try
             {
-                AppModel.Current.AudioContext ??= new();
+                if (OperatingSystem.IsWindows())
+                {
+                    try
+                    {
+                        AppModel.Current.AudioContext ??= new Audio.XAudio2.XAudioContext();
+                    }
+                    catch
+                    {
+                        AppModel.Current.AudioContext ??= new Audio.AudioContext();
+                    }
+                }
+                else
+                {
+                    AppModel.Current.AudioContext ??= new Audio.AudioContext();
+                }
             }
             catch
             {

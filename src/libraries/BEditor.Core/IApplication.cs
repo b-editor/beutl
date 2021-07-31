@@ -36,7 +36,7 @@ namespace BEditor
         /// <summary>
         /// Gets audio context.
         /// </summary>
-        public AudioContext? AudioContext { get; }
+        public object? AudioContext { get; }
 
         /// <summary>
         /// Restore the application configuration.
