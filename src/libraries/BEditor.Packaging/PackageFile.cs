@@ -245,13 +245,13 @@ namespace BEditor.Packaging
             for (var i = 0; i < array.Length; i++)
             {
                 var item = array[i];
-                if (_ignoreDlls.Any(i => item.Contains(i)))
+                if (_ignoreDlls.Any(i => Path.GetFileNameWithoutExtension(item).Contains(i)))
                 {
                     continue;
                 }
 
                 var entryName = Path.GetRelativePath(directory, item);
-                var entry = zip.CreateEntry(entryName);
+                var entry = zip.CreateEntry(entryName, CompressionLevel.Optimal);
 
                 using var entryStream = entry.Open();
                 using var itemStream = new FileStream(item, FileMode.Open);
@@ -274,7 +274,7 @@ namespace BEditor.Packaging
             for (var i = 0; i < array.Length; i++)
             {
                 var item = array[i];
-                if (_ignoreDlls.Any(i => item.Contains(i)))
+                if (_ignoreDlls.Any(i => Path.GetFileNameWithoutExtension(item).Contains(i)))
                 {
                     continue;
                 }

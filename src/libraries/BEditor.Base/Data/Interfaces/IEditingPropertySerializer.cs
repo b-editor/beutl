@@ -24,8 +24,8 @@ namespace BEditor.Data
         /// <summary>
         /// Reads the value from <see cref="JsonElement"/>.
         /// </summary>
-        /// <param name="element">The <see cref="JsonElement"/> that reads the value.</param>
+        /// <param name="context">The <see cref="DeserializeContext"/> that reads the value.</param>
         /// <returns>Returns the data of an object recovered from Json.</returns>
-        public object Read(JsonElement element);
+        public object Read(DeserializeContext context);
     }
 }

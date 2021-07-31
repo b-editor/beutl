@@ -141,11 +141,7 @@ namespace BEditor.Data
             set
             {
                 _parent = value;
-
-                foreach (var prop in Children)
-                {
-                    prop.Parent = this;
-                }
+                Children.SetParent<Scene, ClipElement>(i => i.Parent = this);
             }
         }
 

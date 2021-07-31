@@ -45,7 +45,7 @@ namespace BEditor
 
                 var obj = (T)FormatterServices.GetUninitializedObject(typeof(T));
                 using var doc = await JsonDocument.ParseAsync(stream);
-                obj.SetObjectData(doc.RootElement);
+                obj.SetObjectData(new(doc.RootElement));
 
                 return obj;
             }
@@ -71,7 +71,7 @@ namespace BEditor
 
                 var obj = (T)FormatterServices.GetUninitializedObject(typeof(T));
                 using var doc = JsonDocument.Parse(stream);
-                obj.SetObjectData(doc.RootElement);
+                obj.SetObjectData(new(doc.RootElement));
 
                 return obj;
             }
@@ -97,7 +97,7 @@ namespace BEditor
 
                 var obj = (T)FormatterServices.GetUninitializedObject(typeof(T));
                 using var doc = await JsonDocument.ParseAsync(stream);
-                obj.SetObjectData(doc.RootElement);
+                obj.SetObjectData(new(doc.RootElement));
 
                 return obj;
             }
@@ -123,7 +123,7 @@ namespace BEditor
 
                 var obj = (T)FormatterServices.GetUninitializedObject(typeof(T));
                 using var doc = JsonDocument.Parse(stream);
-                obj.SetObjectData(doc.RootElement);
+                obj.SetObjectData(new(doc.RootElement));
 
                 return obj;
             }

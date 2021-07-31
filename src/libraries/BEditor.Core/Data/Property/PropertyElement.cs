@@ -37,5 +37,12 @@ namespace BEditor.Data.Property
             get => PropertyMetadata;
             set => PropertyMetadata ??= value as PropertyElementMetadata;
         }
+
+        /// <inheritdoc/>
+        public override void SetObjectData(DeserializeContext context)
+        {
+            base.SetObjectData(context);
+            Parent = (context.Parent as EffectElement) ?? Parent;
+        }
     }
 }

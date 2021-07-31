@@ -7,8 +7,10 @@
 
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Diagnostics.Contracts;
+using System.IO;
 using System.Linq;
 using System.Text.Json;
 
@@ -25,11 +27,13 @@ namespace BEditor.Data.Property
     [DebuggerDisplay("Select = {Value}")]
     public class FontProperty : PropertyElement<FontPropertyMetadata>, IEasingProperty, IBindable<Font>
     {
+        private static readonly PropertyChangedEventArgs _modeArgs = new(nameof(Mode));
         private Font _selectItem;
         private List<IObserver<Font>>? _list;
         private IDisposable? _bindDispose;
         private IBindable<Font>? _bindable;
         private Guid? _targetID;
+        private FontSaveMode _mode;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="FontProperty"/> class.
@@ -40,6 +44,27 @@ namespace BEditor.Data.Property
         {
             PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
             _selectItem = metadata.SelectItem;
+        }
+
+        /// <summary>
+        /// Represents how the font will be saved.
+        /// </summary>
+        public enum FontSaveMode
+        {
+            /// <summary>
+            /// File path is full path.
+            /// </summary>
+            FullPath,
+
+            /// <summary>
+            /// File paths are relative to the project.
+            /// </summary>
+            FromProject,
+
+            /// <summary>
+            /// Font family name.
+            /// </summary>
+            FamilyName,
         }
 
         /// <summary>
@@ -74,13 +99,36 @@ namespace BEditor.Data.Property
             private set => _targetID = value;
         }
 
+        /// <summary>
+        /// Gets or sets the mode of the file path.
+        /// </summary>
+        public FontSaveMode Mode
+        {
+            get => _mode;
+            set => SetAndRaise(value, ref _mode, _modeArgs);
+        }
+
         private List<IObserver<Font>> Collection => _list ??= new();
 
         /// <inheritdoc/>
         public override void GetObjectData(Utf8JsonWriter writer)
         {
             base.GetObjectData(writer);
-            writer.WriteString(nameof(Value), Value.Filename);
+
+            if (Mode is FontSaveMode.FromProject)
+            {
+                writer.WriteString(nameof(Value), Path.GetRelativePath(this.GetRequiredParent<Project>().DirectoryName, Value.Filename));
+            }
+            else if (Mode is FontSaveMode.FullPath)
+            {
+                writer.WriteString(nameof(Value), Value.Filename);
+            }
+            else
+            {
+                writer.WriteString("FamilyName", Value.FamilyName);
+                writer.WriteNumber("Weight", (int)Value.Weight);
+                writer.WriteNumber("Width", (int)Value.Width);
+            }
 
             if (TargetID is not null)
             {
@@ -89,18 +137,43 @@ namespace BEditor.Data.Property
         }
 
         /// <inheritdoc/>
-        public override void SetObjectData(JsonElement element)
+        public override void SetObjectData(DeserializeContext context)
         {
-            base.SetObjectData(element);
-            var filename = element.TryGetProperty(nameof(Value), out var value) ? value.GetString() : null;
-            if (filename is not null)
+            base.SetObjectData(context);
+            var element = context.Element;
+
+            if (element.TryGetProperty(nameof(Value), out var value))
             {
+                var filename = value.GetString();
+                if (filename is null) goto First;
+
+                // 相対パスの場合変換
+                if (!Path.IsPathRooted(filename))
+                {
+                    filename = Path.GetFullPath(filename, this.GetRequiredParent<Project>().DirectoryName);
+                    Mode = FontSaveMode.FromProject;
+                }
+                else
+                {
+                    Mode = FontSaveMode.FullPath;
+                }
+
                 Value = new(filename);
             }
-            else
+            else if (element.TryGetProperty("FamilyName", out var fValue)
+                && element.TryGetProperty("Weight", out var weValue)
+                && element.TryGetProperty("Width", out var wiValue))
             {
-                Value = FontManager.Default.LoadedFonts.First();
+                var fname = fValue.GetString();
+                var weight = (FontStyleWeight)weValue.GetInt32();
+                var width = (FontStyleWidth)wiValue.GetInt32();
+
+                Value = FontManager.Default.Find(i => i.FamilyName == fname && i.Weight == weight && i.Width == width) ?? Font.Default;
+                Mode = FontSaveMode.FamilyName;
             }
+
+        First:
+            Value ??= FontManager.Default.LoadedFonts.First();
 
             TargetID = element.TryGetProperty(nameof(TargetID), out var bind) && bind.TryGetGuid(out var guid) ? guid : null;
         }

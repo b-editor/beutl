@@ -229,8 +229,8 @@ namespace BEditor.Drawing
             VerticalAlign vAlign,
             float linespace = 0)
         {
-            if (string.IsNullOrEmpty(text)) return new Image<BGRA32>(1, 1, default(BGRA32));
             if (font is null) throw new ArgumentNullException(nameof(font));
+            if (string.IsNullOrEmpty(text) || font == Font.Default) return new Image<BGRA32>(1, 1, default(BGRA32));
 
             return TextHorizontal(text, font, size, color, hAlign, linespace);
         }
@@ -248,7 +248,7 @@ namespace BEditor.Drawing
         /// <returns>Returns an image with an text drawn on it.</returns>
         public static Image<BGRA32> StrokeText(string text, Font font, float size, float strokewidth, Color color, HorizontalAlign hAlign, float linespace = 0)
         {
-            if (string.IsNullOrEmpty(text)) return new Image<BGRA32>(1, 1, default(BGRA32));
+            if (string.IsNullOrEmpty(text) || font == Font.Default) return new Image<BGRA32>(1, 1, default(BGRA32));
             if (font is null) throw new ArgumentNullException(nameof(font));
             var lines = text.Replace("\r\n", "\n").Split('\n');
 

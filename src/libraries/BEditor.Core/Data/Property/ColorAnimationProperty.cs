@@ -15,6 +15,7 @@ using System.Linq;
 using System.Reactive.Linq;
 using System.Runtime.Serialization;
 using System.Text.Json;
+using System.Threading;
 
 using BEditor.Command;
 using BEditor.Data.Property.Easing;
@@ -84,15 +85,6 @@ namespace BEditor.Data.Property
             }
         }
 
-        /// <summary>
-        /// Gets or sets the metadata for <see cref="EasingType"/>.
-        /// </summary>
-        public EasingMetadata EasingData
-        {
-            get => _easingData ?? EasingMetadata.LoadedEasingFunc[0];
-            set => SetAndRaise(value, ref _easingData, _easingDataArgs);
-        }
-
         /// <inheritdoc/>
         public override EffectElement Parent
         {
@@ -102,6 +94,15 @@ namespace BEditor.Data.Property
                 base.Parent = value;
                 EasingType.Parent = this;
             }
+        }
+
+        /// <summary>
+        /// Gets or sets the metadata for <see cref="EasingType"/>.
+        /// </summary>
+        public EasingMetadata EasingData
+        {
+            get => _easingData ?? EasingMetadata.LoadedEasingFunc[0];
+            set => SetAndRaise(value, ref _easingData, _easingDataArgs);
         }
 
         /// <summary>
@@ -243,9 +244,10 @@ namespace BEditor.Data.Property
         }
 
         /// <inheritdoc/>
-        public override void SetObjectData(JsonElement element)
+        public override void SetObjectData(DeserializeContext context)
         {
-            base.SetObjectData(element);
+            base.SetObjectData(context);
+            var element = context.Element;
 
             // 古いバージョン
             if (element.TryGetProperty("Frames", out var frme))
@@ -278,11 +280,12 @@ namespace BEditor.Data.Property
             if (type is null)
             {
                 EasingType = EasingMetadata.LoadedEasingFunc[0].CreateFunc();
+                EasingType.Parent = this;
             }
             else
             {
                 EasingType = (EasingFunc)FormatterServices.GetUninitializedObject(type);
-                EasingType.SetObjectData(easing);
+                EasingType.SetObjectData(new(easing, this));
             }
         }
 

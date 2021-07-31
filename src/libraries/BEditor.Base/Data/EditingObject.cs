@@ -306,14 +306,15 @@ namespace BEditor.Data
         }
 
         /// <inheritdoc/>
-        public virtual void SetObjectData(JsonElement element)
+        public virtual void SetObjectData(DeserializeContext context)
         {
             // static コンストラクターを呼び出す
             InvokeStaticInititlizer();
 
             foreach (var prop in GetSerializable())
             {
-                SetValue(prop, element.Read(prop));
+                context = context.WithParent(this);
+                SetValue(prop, context.Read(prop));
             }
         }
 

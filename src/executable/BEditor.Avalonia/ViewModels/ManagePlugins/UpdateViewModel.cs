@@ -33,7 +33,7 @@ namespace BEditor.ViewModels.ManagePlugins
             IsSelected = SelectedItem.Select(i => i is not null)
                 .ToReadOnlyReactivePropertySlim();
 
-            IsScheduled = SelectedItem.Select(p => PluginChangeSchedule.UpdateOrInstall.Any(i => i.Target == p.Package))
+            IsScheduled = SelectedItem.Where(i => i is not null).Select(p => PluginChangeSchedule.UpdateOrInstall.Any(i => i.Target == p.Package))
                 .ToReadOnlyReactivePropertySlim();
 
             SelectedVersion = SelectedItem.Select(i => i?.Package?.Versions?[0]).ToReactiveProperty()!;
