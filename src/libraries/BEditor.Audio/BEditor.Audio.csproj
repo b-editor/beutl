@@ -2,7 +2,7 @@
 
     <ItemGroup>
         <ProjectReference Include="..\BEditor.Media\BEditor.Media.csproj" />
-        <PackageReference Include="SharpAudio" Version="1.0.53-beta" />
+        <PackageReference Include="OpenTK.OpenAL" Version="4.6.4" />
     </ItemGroup>
 
     <ItemGroup>

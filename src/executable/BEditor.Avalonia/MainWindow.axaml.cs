@@ -26,6 +26,8 @@ using BEditor.Views;
 using BEditor.Views.CustomTitlebars;
 using BEditor.Views.DialogContent;
 
+using OpenTK.Audio.OpenAL;
+
 namespace BEditor
 {
     public class MainWindow : FluentWindow
