@@ -15,7 +15,6 @@ using BEditor.Data.Property.PrimitiveGroup;
 using BEditor.Graphics;
 using BEditor.Primitive.Resources;
 
-using GLColor = OpenTK.Mathematics.Color4;
 using Material = BEditor.Data.Property.PrimitiveGroup.Material;
 
 namespace BEditor.Primitive.Objects

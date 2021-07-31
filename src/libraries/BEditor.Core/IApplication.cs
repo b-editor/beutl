@@ -11,6 +11,8 @@ using System.Threading;
 using BEditor.Audio;
 using BEditor.Data;
 
+using SharpAudio;
+
 namespace BEditor
 {
     /// <summary>
@@ -36,7 +38,7 @@ namespace BEditor
         /// <summary>
         /// Gets audio context.
         /// </summary>
-        public AudioContext? AudioContext { get; }
+        public AudioEngine? AudioContext { get; }
 
         /// <summary>
         /// Restore the application configuration.

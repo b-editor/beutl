@@ -35,6 +35,8 @@ using Microsoft.Extensions.Logging;
 
 using Reactive.Bindings;
 
+using SharpAudio;
+
 namespace BEditor
 {
     public class App : Application
@@ -283,7 +285,7 @@ namespace BEditor
         {
             try
             {
-                AppModel.Current.AudioContext ??= new();
+                AppModel.Current.AudioContext ??= AudioEngine.CreateDefault();
             }
             catch
             {

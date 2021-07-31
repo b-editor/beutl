@@ -19,6 +19,8 @@ using Microsoft.Extensions.Logging;
 using Serilog;
 using Serilog.Formatting.Json;
 
+using SharpAudio;
+
 #nullable disable
 
 namespace BEditor.Models
@@ -110,7 +112,7 @@ namespace BEditor.Models
 
         Project IParentSingle<Project>.Child => Project;
 
-        public AudioContext AudioContext { get; set; }
+        public AudioEngine AudioContext { get; set; }
 
         public event EventHandler<ProjectOpenedEventArgs> ProjectOpened;
         public event EventHandler Exit;
