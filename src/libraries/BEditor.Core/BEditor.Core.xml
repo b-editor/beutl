@@ -1517,6 +1517,11 @@
             Gets the plugins.
             </summary>
         </member>
+        <member name="P:BEditor.Data.ProjectPackageBuilder.OtherFiles">
+            <summary>
+            Get files that are not used for the project.
+            </summary>
+        </member>
         <member name="P:BEditor.Data.ProjectPackageBuilder.ReadMe">
             <summary>
             Gets or sets the README.

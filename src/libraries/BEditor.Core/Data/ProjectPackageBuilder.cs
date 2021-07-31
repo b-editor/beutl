@@ -5,21 +5,16 @@
 // This software may be modified and distributed under the terms
 // of the MIT license. See the LICENSE file for details.
 
-using System;
 using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
-using System.Text;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 
 using BEditor.Data.Property;
 using BEditor.Drawing;
 using BEditor.Packaging;
 using BEditor.Plugin;
-
-using Microsoft.Extensions.DependencyInjection;
 
 namespace BEditor.Data
 {
@@ -57,6 +52,11 @@ namespace BEditor.Data
         /// Gets the plugins.
         /// </summary>
         public HashSet<PluginObject> Plugins { get; }
+
+        /// <summary>
+        /// Get files that are not used for the project.
+        /// </summary>
+        public HashSet<string> OtherFiles { get; } = new();
 
         /// <summary>
         /// Gets or sets the README.
@@ -152,6 +152,9 @@ namespace BEditor.Data
 
             // 依存しているプラグインを保存
             SavePlugins(pluginDir);
+
+            // その他のファイルをコピー
+            CopyOtherFiles(otherDir);
 
             // REAMEを書き込む
             WriteReadMe(workDir);
@@ -301,6 +304,33 @@ namespace BEditor.Data
             foreach (var plugin in Plugins)
             {
                 plugin.Settings.Save(Path.Combine(directry, plugin.PluginName + plugin.Id.ToString()) + ".json");
+            }
+        }
+
+        private void CopyOtherFiles(string directry)
+        {
+            foreach (var file in OtherFiles)
+            {
+                if (!File.Exists(file)) continue;
+                var dstFilename = Path.Combine(directry, Path.GetFileName(file));
+
+                if (!File.Exists(dstFilename))
+                {
+                    // 宛先が存在していない場合
+                    File.Copy(file, dstFilename);
+                }
+                else if (!FileCompare(file, dstFilename))
+                {
+                    // 存在していて内部が違う場合、名前を変更
+                    var num = 1;
+                    dstFilename += num;
+                    while (!File.Exists(dstFilename))
+                    {
+                        num++;
+                    }
+
+                    File.Copy(file, dstFilename);
+                }
             }
         }
     }

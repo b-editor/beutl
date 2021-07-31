@@ -1,16 +1,9 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Collections.ObjectModel;
-using System.Drawing.Printing;
 using System.IO;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 
-using Avalonia.Controls;
-
 using BEditor.Data;
-using BEditor.Data.Property;
 using BEditor.Models;
 using BEditor.Properties;
 
@@ -32,8 +25,6 @@ namespace BEditor.ViewModels.Dialogs
 
         public CreateProjectPackageViewModel()
         {
-            OpenFolderDialog.Subscribe(OpenFolder);
-
             _project = AppModel.Current.Project;
             Folder.Value = _project.DirectoryName;
             Name.Value = _project.Name;
@@ -96,6 +87,7 @@ namespace BEditor.ViewModels.Dialogs
 
                         builder.ExcludeFonts(Fonts.Where(i => !i.IsChecked).Select(i => new Drawing.Font(i.Hint)));
                         builder.ReadMe = ReadMe.Value;
+                        builder.OtherFiles.UnionWith(Others.Select(i => i.Hint));
 
                         if (!await Task.Run(() => builder.Create(Path.Combine(Folder.Value, Name.Value) + ".beproj")))
                         {
@@ -117,6 +109,12 @@ namespace BEditor.ViewModels.Dialogs
                     }
                 });
             });
+
+            RemoveOtherFile.Subscribe(item =>
+            {
+                if (item is TreeItem i)
+                    Others.Remove(i);
+            });
         }
 
         public ReactiveCollection<TreeItem> Fonts { get; } = new();
@@ -124,6 +122,8 @@ namespace BEditor.ViewModels.Dialogs
         public ReactiveCollection<TreeItem> Files { get; } = new();
 
         public ReactiveCollection<TreeItem> Plugins { get; } = new();
+
+        public ReactiveCollection<TreeItem> Others { get; } = new();
 
         public ReactivePropertySlim<string> Name { get; } = new();
 
@@ -133,24 +133,12 @@ namespace BEditor.ViewModels.Dialogs
 
         public ReactiveCommand OpenFolderDialog { get; } = new();
 
+        public ReactiveCommand OpenOtherFile { get; } = new();
+
+        public ReactiveCommand<object> RemoveOtherFile { get; } = new();
+
         public ReactivePropertySlim<bool> IsLoading { get; } = new(false);
 
         public AsyncReactiveCommand Create { get; }
-
-        private async void OpenFolder()
-        {
-            var dialog = new OpenFolderDialog();
-            var folder = await dialog.ShowAsync(App.GetMainWindow());
-
-            if (Directory.Exists(folder))
-            {
-                Folder.Value = folder;
-                var settings = BEditor.Settings.Default;
-
-                settings.LastTimeFolder = folder;
-
-                settings.Save();
-            }
-        }
     }
 }

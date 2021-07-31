@@ -24,7 +24,7 @@
                 FontSize="16"
                 Text="{x:Static props:Strings.Dependency}" />
 
-            <TreeView Grid.Row="1">
+            <TreeView Grid.Row="1" x:Name="Tree">
                 <TreeViewItem IsExpanded="True" Items="{CompiledBinding Fonts, Mode=OneWay}" Header="{x:Static props:Strings.Font}">
                     <TreeViewItem.ItemTemplate>
                         <DataTemplate>
@@ -45,6 +45,25 @@
                 </TreeViewItem>
 
                 <TreeViewItem Items="{CompiledBinding Plugins, Mode=OneWay}" Header="{x:Static props:Strings.Plugins}">
+                    <TreeViewItem.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding Text}" ToolTip.Tip="{Binding Tip}" />
+                        </DataTemplate>
+                    </TreeViewItem.ItemTemplate>
+                </TreeViewItem>
+
+                <TreeViewItem Items="{CompiledBinding Others, Mode=OneWay}" Header="{x:Static props:Strings.Others}">
+                    <TreeViewItem.ContextMenu>
+                        <ContextMenu>
+                            <MenuItem
+                                Header="{x:Static props:Strings.Add}"
+                                Command="{CompiledBinding OpenOtherFile, Mode=OneTime}" />
+                            <MenuItem
+                                Header="{x:Static props:Strings.Remove}"
+                                Command="{CompiledBinding RemoveOtherFile, Mode=OneTime}"
+                                CommandParameter="{Binding #Tree.SelectedItem, Mode=OneWay}" />
+                        </ContextMenu>
+                    </TreeViewItem.ContextMenu>
                     <TreeViewItem.ItemTemplate>
                         <DataTemplate>
                             <TextBlock Text="{Binding Text}" ToolTip.Tip="{Binding Tip}" />
