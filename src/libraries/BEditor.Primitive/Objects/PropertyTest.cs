@@ -155,9 +155,9 @@ namespace BEditor.Primitive.Objects
             writer.WriteStringValue(Value);
         }
 
-        public void SetObjectData(JsonElement element)
+        public void SetObjectData(DeserializeContext context)
         {
-            Value = element.GetString() ?? string.Empty;
+            Value = context.Element.GetString() ?? string.Empty;
         }
     }
 }

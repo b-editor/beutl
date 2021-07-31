@@ -38,6 +38,13 @@ namespace BEditor.Primitive.Objects
             (owner, obj) => owner.Height = obj);
 
         /// <summary>
+        /// Defines the <see cref="Line"/> property.
+        /// </summary>
+        public static readonly DirectProperty<Polygon, EaseProperty> LineProperty = Shape.LineProperty.WithOwner<Polygon>(
+            owner => owner.Line,
+            (owner, obj) => owner.Line = obj);
+
+        /// <summary>
         /// Defines the <see cref="Number"/> property.
         /// </summary>
         public static readonly DirectProperty<Polygon, ValueProperty> NumberProperty = EditingProperty.RegisterDirect<ValueProperty, Polygon>(
@@ -76,6 +83,12 @@ namespace BEditor.Primitive.Objects
         public EaseProperty Height { get; private set; }
 
         /// <summary>
+        /// Gets the line width of the shape.
+        /// </summary>
+        [AllowNull]
+        public EaseProperty Line { get; private set; }
+
+        /// <summary>
         /// Gets the number of corners of a polygon.
         /// </summary>
         [AllowNull]
@@ -97,6 +110,7 @@ namespace BEditor.Primitive.Objects
             yield return Material;
             yield return Width;
             yield return Height;
+            yield return Line;
             yield return Number;
             yield return Color;
         }
@@ -106,10 +120,11 @@ namespace BEditor.Primitive.Objects
         {
             var width = (int)Width[args.Frame];
             var height = (int)Height[args.Frame];
+            var line = (int)Line[args.Frame];
 
             if (width <= 0 || height <= 0) return new(1, 1, default(BGRA32));
 
-            return Image.Polygon((int)Number.Value, width, height, Color.Value);
+            return Image.Polygon((int)Number.Value, width, height, line, Color.Value);
         }
     }
 }

@@ -62,9 +62,12 @@ namespace BEditor.Data
         }
 
         /// <inheritdoc/>
-        public override void SetObjectData(JsonElement element)
+        public override void SetObjectData(DeserializeContext context)
         {
-            base.SetObjectData(element);
+            base.SetObjectData(context);
+            Parent = (context.Parent as Project) ?? Parent;
+
+            var element = context.Element;
             Width = element.GetProperty(nameof(Width)).GetInt32();
             Height = element.GetProperty(nameof(Height)).GetInt32();
             SceneName = element.GetProperty(nameof(SceneName)).GetString() ?? string.Empty;
@@ -73,7 +76,7 @@ namespace BEditor.Data
             Datas = new(element.GetProperty("Clips").EnumerateArray().Select(i =>
             {
                 var clip = (ClipElement)FormatterServices.GetUninitializedObject(typeof(ClipElement));
-                clip.SetObjectData(i);
+                clip.SetObjectData(new DeserializeContext(i, this));
 
                 return clip;
             }));

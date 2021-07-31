@@ -8,3 +8,4 @@
 using System.Runtime.CompilerServices;
 
 [assembly: InternalsVisibleTo("BEditor.Graphics.Skia")]
+[assembly: InternalsVisibleTo("BEditor.Core")]

@@ -616,7 +616,7 @@
         <member name="M:BEditor.Data.ClipElement.GetObjectData(System.Text.Json.Utf8JsonWriter)">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Data.ClipElement.SetObjectData(System.Text.Json.JsonElement)">
+        <member name="M:BEditor.Data.ClipElement.SetObjectData(BEditor.Data.DeserializeContext)">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Data.ClipElement.AddEffect(BEditor.Data.EffectElement)">
@@ -800,7 +800,7 @@
         <member name="M:BEditor.Data.EffectElement.GetObjectData(System.Text.Json.Utf8JsonWriter)">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Data.EffectElement.SetObjectData(System.Text.Json.JsonElement)">
+        <member name="M:BEditor.Data.EffectElement.SetObjectData(BEditor.Data.DeserializeContext)">
             <inheritdoc/>
         </member>
         <member name="T:BEditor.Data.EffectElement.RemoveCommand">
@@ -1415,14 +1415,159 @@
             <param name="stream">Stream to save.</param>
             <returns><see langword="true"/> if the save is successful, otherwise <see langword="false"/>.</returns>
         </member>
+        <member name="M:BEditor.Data.Project.FindDependentPlugins">
+            <summary>
+            Find the plug-ins that this project depends on.
+            </summary>
+            <returns>Returns the plugins that this project depends on.</returns>
+        </member>
         <member name="M:BEditor.Data.Project.GetObjectData(System.Text.Json.Utf8JsonWriter)">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Data.Project.SetObjectData(System.Text.Json.JsonElement)">
+        <member name="M:BEditor.Data.Project.SetObjectData(BEditor.Data.DeserializeContext)">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Data.Project.OnUnload">
             <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Data.ProjectPackage">
+            <summary>
+            Provides for the manipulation of project packages.
+            </summary>
+        </member>
+        <member name="M:BEditor.Data.ProjectPackage.GetPluginInfo(System.String)">
+            <summary>
+            Get information about dependent plugins from the project package.
+            </summary>
+            <param name="file">The project package file.</param>
+            <returns>Information on dependent plugins.</returns>
+        </member>
+        <member name="M:BEditor.Data.ProjectPackage.GetReadMe(System.String)">
+            <summary>
+            Gets the readme from the project package.
+            </summary>
+            <param name="file">The project package file.</param>
+            <returns>The README.</returns>
+        </member>
+        <member name="M:BEditor.Data.ProjectPackage.OpenFile(System.String,System.String)">
+            <summary>
+            Open the project package.
+            </summary>
+            <param name="file">The project package file.</param>
+            <param name="directry">The destination directory.</param>
+            <returns>Returns the opened project.</returns>
+        </member>
+        <member name="T:BEditor.Data.ProjectPackage.PluginInfo">
+            <summary>
+            The plugin info.
+            </summary>
+        </member>
+        <member name="M:BEditor.Data.ProjectPackage.PluginInfo.#ctor(BEditor.Plugin.PluginObject)">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Data.ProjectPackage.PluginInfo"/> class.
+            </summary>
+            <param name="plugin">The plugin.</param>
+        </member>
+        <member name="M:BEditor.Data.ProjectPackage.PluginInfo.#ctor">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Data.ProjectPackage.PluginInfo"/> class.
+            </summary>
+        </member>
+        <member name="P:BEditor.Data.ProjectPackage.PluginInfo.Id">
+            <summary>
+            Gets or sets the id of the plugin.
+            </summary>
+        </member>
+        <member name="P:BEditor.Data.ProjectPackage.PluginInfo.Version">
+            <summary>
+            Gets or sets the version of the plugin.
+            </summary>
+        </member>
+        <member name="P:BEditor.Data.ProjectPackage.PluginInfo.Name">
+            <summary>
+            Gets or sets the name of the plugin.
+            </summary>
+        </member>
+        <member name="M:BEditor.Data.ProjectPackage.PluginInfo.Equals(System.Object)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Data.ProjectPackage.PluginInfo.Equals(BEditor.Data.ProjectPackage.PluginInfo)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Data.ProjectPackage.PluginInfo.GetHashCode">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Data.ProjectPackageBuilder">
+            <summary>
+            Create a project package.
+            </summary>
+        </member>
+        <member name="P:BEditor.Data.ProjectPackageBuilder.Fonts">
+            <summary>
+            Gets the fonts.
+            </summary>
+        </member>
+        <member name="P:BEditor.Data.ProjectPackageBuilder.Files">
+            <summary>
+            Gets the files.
+            </summary>
+        </member>
+        <member name="P:BEditor.Data.ProjectPackageBuilder.Plugins">
+            <summary>
+            Gets the plugins.
+            </summary>
+        </member>
+        <member name="P:BEditor.Data.ProjectPackageBuilder.OtherFiles">
+            <summary>
+            Get files that are not used for the project.
+            </summary>
+        </member>
+        <member name="P:BEditor.Data.ProjectPackageBuilder.ReadMe">
+            <summary>
+            Gets or sets the README.
+            </summary>
+        </member>
+        <member name="M:BEditor.Data.ProjectPackageBuilder.Configure(BEditor.Data.Project)">
+            <summary>
+            Begin configuring an project package.
+            </summary>
+            <param name="project">Projects to include in the project package.</param>
+            <returns>The same instance of the <see cref="T:BEditor.Data.ProjectPackageBuilder"/> for chaining.</returns>
+        </member>
+        <member name="M:BEditor.Data.ProjectPackageBuilder.ExcludeFont(BEditor.Drawing.Font)">
+            <summary>
+            Exclude the specified font.
+            </summary>
+            <param name="font">The font to be excluded.</param>
+            <returns>The same instance of the <see cref="T:BEditor.Data.ProjectPackageBuilder"/> for chaining.</returns>
+        </member>
+        <member name="M:BEditor.Data.ProjectPackageBuilder.ExcludeFonts(System.Collections.Generic.IEnumerable{BEditor.Drawing.Font})">
+            <summary>
+            Exclude the specified fonts.
+            </summary>
+            <param name="fonts">The fonts to be excluded.</param>
+            <returns>The same instance of the <see cref="T:BEditor.Data.ProjectPackageBuilder"/> for chaining.</returns>
+        </member>
+        <member name="M:BEditor.Data.ProjectPackageBuilder.IncludeFont(BEditor.Drawing.Font)">
+            <summary>
+            Include the specified font.
+            </summary>
+            <param name="font">The font to be include.</param>
+            <returns>The same instance of the <see cref="T:BEditor.Data.ProjectPackageBuilder"/> for chaining.</returns>
+        </member>
+        <member name="M:BEditor.Data.ProjectPackageBuilder.IncludeFonts(System.Collections.Generic.IEnumerable{BEditor.Drawing.Font})">
+            <summary>
+            Include the specified fonts.
+            </summary>
+            <param name="fonts">The fonts to be include.</param>
+            <returns>The same instance of the <see cref="T:BEditor.Data.ProjectPackageBuilder"/> for chaining.</returns>
+        </member>
+        <member name="M:BEditor.Data.ProjectPackageBuilder.Create(System.String)">
+            <summary>
+            Create a project package.
+            </summary>
+            <param name="file">The name of the file to be saved.</param>
+            <returns>Returns true on success, false otherwise.</returns>
         </member>
         <member name="T:BEditor.Data.ProjectSavedEventArgs">
             <summary>
@@ -1499,7 +1644,7 @@
         <member name="M:BEditor.Data.Property.CheckProperty.GetObjectData(System.Text.Json.Utf8JsonWriter)">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Data.Property.CheckProperty.SetObjectData(System.Text.Json.JsonElement)">
+        <member name="M:BEditor.Data.Property.CheckProperty.SetObjectData(BEditor.Data.DeserializeContext)">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Data.Property.CheckProperty.ChangeIsChecked(System.Boolean)">
@@ -1541,13 +1686,13 @@
             Gets or sets the current <see cref="T:BEditor.Data.Property.Easing.EasingFunc"/>.
             </summary>
         </member>
+        <member name="P:BEditor.Data.Property.ColorAnimationProperty.Parent">
+            <inheritdoc/>
+        </member>
         <member name="P:BEditor.Data.Property.ColorAnimationProperty.EasingData">
             <summary>
             Gets or sets the metadata for <see cref="P:BEditor.Data.Property.ColorAnimationProperty.EasingType"/>.
             </summary>
-        </member>
-        <member name="P:BEditor.Data.Property.ColorAnimationProperty.Parent">
-            <inheritdoc/>
         </member>
         <member name="P:BEditor.Data.Property.ColorAnimationProperty.Length">
             <summary>
@@ -1588,7 +1733,7 @@
         <member name="M:BEditor.Data.Property.ColorAnimationProperty.GetObjectData(System.Text.Json.Utf8JsonWriter)">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Data.Property.ColorAnimationProperty.SetObjectData(System.Text.Json.JsonElement)">
+        <member name="M:BEditor.Data.Property.ColorAnimationProperty.SetObjectData(BEditor.Data.DeserializeContext)">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Data.Property.ColorAnimationProperty.ChangeColor(System.Int32,BEditor.Drawing.Color)">
@@ -1644,7 +1789,7 @@
         <member name="M:BEditor.Data.Property.ColorProperty.GetObjectData(System.Text.Json.Utf8JsonWriter)">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Data.Property.ColorProperty.SetObjectData(System.Text.Json.JsonElement)">
+        <member name="M:BEditor.Data.Property.ColorProperty.SetObjectData(BEditor.Data.DeserializeContext)">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Data.Property.ColorProperty.ChangeColor(BEditor.Drawing.Color)">
@@ -1755,7 +1900,7 @@
         <member name="M:BEditor.Data.Property.DocumentProperty.GetObjectData(System.Text.Json.Utf8JsonWriter)">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Data.Property.DocumentProperty.SetObjectData(System.Text.Json.JsonElement)">
+        <member name="M:BEditor.Data.Property.DocumentProperty.SetObjectData(BEditor.Data.DeserializeContext)">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Data.Property.DocumentProperty.ChangeText(System.String)">
@@ -1795,6 +1940,9 @@
         <member name="P:BEditor.Data.Property.EaseProperty.EasingType">
             <inheritdoc/>
         </member>
+        <member name="P:BEditor.Data.Property.EaseProperty.Parent">
+            <inheritdoc/>
+        </member>
         <member name="P:BEditor.Data.Property.EaseProperty.Optional">
             <summary>
             Gets or sets an optional value.
@@ -1804,9 +1952,6 @@
             <summary>
             Gets or sets the metadata for <see cref="P:BEditor.Data.Property.EaseProperty.EasingType"/>.
             </summary>
-        </member>
-        <member name="P:BEditor.Data.Property.EaseProperty.Parent">
-            <inheritdoc/>
         </member>
         <member name="P:BEditor.Data.Property.EaseProperty.Length">
             <summary>
@@ -1854,7 +1999,7 @@
         <member name="M:BEditor.Data.Property.EaseProperty.GetObjectData(System.Text.Json.Utf8JsonWriter)">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Data.Property.EaseProperty.SetObjectData(System.Text.Json.JsonElement)">
+        <member name="M:BEditor.Data.Property.EaseProperty.SetObjectData(BEditor.Data.DeserializeContext)">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Data.Property.EaseProperty.ChangeValue(System.Int32,System.Single)">
@@ -1914,10 +2059,7 @@
             <param name="max">The maximum value.</param>
             <returns>Eased value.</returns>
         </member>
-        <member name="M:BEditor.Data.Property.Easing.EasingFunc.GetObjectData(System.Text.Json.Utf8JsonWriter)">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Data.Property.Easing.EasingFunc.SetObjectData(System.Text.Json.JsonElement)">
+        <member name="M:BEditor.Data.Property.Easing.EasingFunc.SetObjectData(BEditor.Data.DeserializeContext)">
             <inheritdoc/>
         </member>
         <member name="T:BEditor.Data.Property.Easing.EasingMetadata">
@@ -2014,7 +2156,7 @@
         <member name="M:BEditor.Data.Property.ExpandGroup.GetObjectData(System.Text.Json.Utf8JsonWriter)">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Data.Property.ExpandGroup.SetObjectData(System.Text.Json.JsonElement)">
+        <member name="M:BEditor.Data.Property.ExpandGroup.SetObjectData(BEditor.Data.DeserializeContext)">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Data.Property.ExpandGroup.OnCompleted">
@@ -2083,7 +2225,7 @@
         <member name="M:BEditor.Data.Property.FileProperty.GetObjectData(System.Text.Json.Utf8JsonWriter)">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Data.Property.FileProperty.SetObjectData(System.Text.Json.JsonElement)">
+        <member name="M:BEditor.Data.Property.FileProperty.SetObjectData(BEditor.Data.DeserializeContext)">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Data.Property.FileProperty.ChangeFile(System.String)">
@@ -2166,7 +2308,7 @@
         <member name="M:BEditor.Data.Property.FolderProperty.GetObjectData(System.Text.Json.Utf8JsonWriter)">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Data.Property.FolderProperty.SetObjectData(System.Text.Json.JsonElement)">
+        <member name="M:BEditor.Data.Property.FolderProperty.SetObjectData(BEditor.Data.DeserializeContext)">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Data.Property.FolderProperty.ChangeFolder(System.String)">
@@ -2228,6 +2370,26 @@
             <param name="metadata">Metadata for this property.</param>
             <exception cref="T:System.ArgumentNullException"><paramref name="metadata"/> is <see langword="null"/>.</exception>
         </member>
+        <member name="T:BEditor.Data.Property.FontProperty.FontSaveMode">
+            <summary>
+            Represents how the font will be saved.
+            </summary>
+        </member>
+        <member name="F:BEditor.Data.Property.FontProperty.FontSaveMode.FullPath">
+            <summary>
+            File path is full path.
+            </summary>
+        </member>
+        <member name="F:BEditor.Data.Property.FontProperty.FontSaveMode.FromProject">
+            <summary>
+            File paths are relative to the project.
+            </summary>
+        </member>
+        <member name="F:BEditor.Data.Property.FontProperty.FontSaveMode.FamilyName">
+            <summary>
+            Font family name.
+            </summary>
+        </member>
         <member name="P:BEditor.Data.Property.FontProperty.Value">
             <summary>
             Gets or sets the selected font.
@@ -2236,10 +2398,15 @@
         <member name="P:BEditor.Data.Property.FontProperty.TargetID">
             <inheritdoc/>
         </member>
+        <member name="P:BEditor.Data.Property.FontProperty.Mode">
+            <summary>
+            Gets or sets the mode of the file path.
+            </summary>
+        </member>
         <member name="M:BEditor.Data.Property.FontProperty.GetObjectData(System.Text.Json.Utf8JsonWriter)">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Data.Property.FontProperty.SetObjectData(System.Text.Json.JsonElement)">
+        <member name="M:BEditor.Data.Property.FontProperty.SetObjectData(BEditor.Data.DeserializeContext)">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Data.Property.FontProperty.ChangeFont(BEditor.Drawing.Font)">
@@ -2434,7 +2601,7 @@
         <member name="M:BEditor.Data.Property.LabelComponent.GetObjectData(System.Text.Json.Utf8JsonWriter)">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Data.Property.LabelComponent.SetObjectData(System.Text.Json.JsonElement)">
+        <member name="M:BEditor.Data.Property.LabelComponent.SetObjectData(BEditor.Data.DeserializeContext)">
             <inheritdoc/>
         </member>
         <member name="T:BEditor.Data.Property.ButtonComponentMetadata">
@@ -3123,6 +3290,9 @@
         <member name="P:BEditor.Data.Property.PropertyElement.BEditor#Data#IHasMetadata#Metadata">
             <inheritdoc/>
         </member>
+        <member name="M:BEditor.Data.Property.PropertyElement.SetObjectData(BEditor.Data.DeserializeContext)">
+            <inheritdoc/>
+        </member>
         <member name="T:BEditor.Data.Property.PropertyElement`1">
             <inheritdoc cref="T:BEditor.Data.Property.PropertyElement"/>
             <typeparam name="T">Type of <see cref="P:BEditor.Data.Property.PropertyElement`1.PropertyMetadata"/>.</typeparam>
@@ -3161,7 +3331,7 @@
         <member name="M:BEditor.Data.Property.SelectorProperty.GetObjectData(System.Text.Json.Utf8JsonWriter)">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Data.Property.SelectorProperty.SetObjectData(System.Text.Json.JsonElement)">
+        <member name="M:BEditor.Data.Property.SelectorProperty.SetObjectData(BEditor.Data.DeserializeContext)">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Data.Property.SelectorProperty.ChangeSelect(System.Int32)">
@@ -3243,7 +3413,7 @@
         <member name="M:BEditor.Data.Property.SelectorProperty`1.GetObjectData(System.Text.Json.Utf8JsonWriter)">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Data.Property.SelectorProperty`1.SetObjectData(System.Text.Json.JsonElement)">
+        <member name="M:BEditor.Data.Property.SelectorProperty`1.SetObjectData(BEditor.Data.DeserializeContext)">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Data.Property.SelectorProperty`1.ChangeSelect(System.Int32)">
@@ -3336,7 +3506,7 @@
         <member name="M:BEditor.Data.Property.TextProperty.GetObjectData(System.Text.Json.Utf8JsonWriter)">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Data.Property.TextProperty.SetObjectData(System.Text.Json.JsonElement)">
+        <member name="M:BEditor.Data.Property.TextProperty.SetObjectData(BEditor.Data.DeserializeContext)">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Data.Property.TextProperty.ChangeText(System.String)">
@@ -3385,7 +3555,7 @@
         <member name="M:BEditor.Data.Property.ValueProperty.GetObjectData(System.Text.Json.Utf8JsonWriter)">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Data.Property.ValueProperty.SetObjectData(System.Text.Json.JsonElement)">
+        <member name="M:BEditor.Data.Property.ValueProperty.SetObjectData(BEditor.Data.DeserializeContext)">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Data.Property.ValueProperty.Clamp(System.Single)">
@@ -3464,7 +3634,7 @@
         <member name="M:BEditor.Data.Scene.GetObjectData(System.Text.Json.Utf8JsonWriter)">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Data.Scene.SetObjectData(System.Text.Json.JsonElement)">
+        <member name="M:BEditor.Data.Scene.SetObjectData(BEditor.Data.DeserializeContext)">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Data.Scene.Render(BEditor.Media.Frame,BEditor.Data.ApplyType)">
@@ -3828,6 +3998,13 @@
             <param name="name">The filter name.</param>
             <param name="extensions">The filter extensions.</param>
         </member>
+        <member name="M:BEditor.FileFilter.#ctor(System.String,System.String[])">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.FileFilter"/> class.
+            </summary>
+            <param name="name">The filter name.</param>
+            <param name="extensions">The filter extensions.</param>
+        </member>
         <member name="P:BEditor.FileFilter.Name">
             <summary>
             Gets the filter name.
@@ -4101,7 +4278,7 @@
         </member>
         <member name="M:BEditor.Plugin.PluginBuilder.Configure``1">
             <summary>
-             Begin configuring an <see cref="T:BEditor.Plugin.PluginObject"/>.
+            Begin configuring an <see cref="T:BEditor.Plugin.PluginObject"/>.
             </summary>
             <typeparam name="T">Class that implements the <see cref="T:BEditor.Plugin.PluginObject"/> to be configure.</typeparam>
             <returns>The same instance of the <see cref="T:BEditor.Plugin.PluginBuilder"/> for chaining.</returns>

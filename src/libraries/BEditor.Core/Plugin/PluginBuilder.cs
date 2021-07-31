@@ -40,7 +40,7 @@ namespace BEditor.Plugin
         }
 
         /// <summary>
-        ///  Begin configuring an <see cref="PluginObject"/>.
+        /// Begin configuring an <see cref="PluginObject"/>.
         /// </summary>
         /// <typeparam name="T">Class that implements the <see cref="PluginObject"/> to be configure.</typeparam>
         /// <returns>The same instance of the <see cref="PluginBuilder"/> for chaining.</returns>

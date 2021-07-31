@@ -28,8 +28,8 @@ namespace BEditor.Data
         private Frame _end;
         private int _layer;
         private string _labelText = string.Empty;
-        private Scene _parent;
         private ObservableCollection<EffectElement> _effect;
+        private Scene _parent;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ClipElement"/> class.
@@ -48,6 +48,7 @@ namespace BEditor.Data
             Metadata = metadata;
             Parent = _parent = scene;
             LabelText = Name;
+            _effect[0].Parent = this;
         }
 
         /// <summary>
@@ -126,11 +127,7 @@ namespace BEditor.Data
             set
             {
                 _parent = value;
-
-                foreach (var prop in Children)
-                {
-                    prop.Parent = this;
-                }
+                Children.SetParent<ClipElement, EffectElement>(i => i.Parent = this);
             }
         }
 

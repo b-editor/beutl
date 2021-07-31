@@ -31,7 +31,7 @@ namespace BEditor.Data.Property
         private IBindable<string>? _bindable;
         private Guid? _targetID;
         private FilePathType _mode;
-        private string _rawValue = string.Empty;
+        private string _value = string.Empty;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="FolderProperty"/> class.
@@ -47,32 +47,24 @@ namespace BEditor.Data.Property
         /// <summary>
         /// Gets the name of the selected folder.
         /// </summary>
-        public string RawValue => _rawValue ??= string.Empty;
+        [Obsolete("Obsolete")]
+        public string RawValue => _value ??= string.Empty;
 
         /// <summary>
         /// Gets or sets the name of the selected folder.
         /// </summary>
         public string Value
         {
-            get
-            {
-                if (Parent?.Parent?.Parent?.Parent?.DirectoryName is null) return RawValue;
-                return (_mode is FilePathType.FromProject) ? GetFullPath(RawValue) : RawValue;
-            }
+            get => _value ?? string.Empty;
             set
             {
-                if (value != Value)
+                if (SetAndRaise(value, ref _value, DocumentProperty._valueArgs))
                 {
-                    _rawValue = ToFormattedPath(value);
-
-                    RaisePropertyChanged(DocumentProperty._valueArgs);
-                    var value1 = Value;
-
                     foreach (var observer in Collection)
                     {
                         try
                         {
-                            observer.OnNext(value1);
+                            observer.OnNext(value);
                         }
                         catch (Exception ex)
                         {
@@ -96,13 +88,7 @@ namespace BEditor.Data.Property
         public FilePathType Mode
         {
             get => _mode;
-            set
-            {
-                if (SetAndRaise(value, ref _mode, _modeArgs))
-                {
-                    _rawValue = GetPath();
-                }
-            }
+            set => SetAndRaise(value, ref _mode, _modeArgs);
         }
 
         private List<IObserver<string>> Collection => _list ??= new();
@@ -111,23 +97,55 @@ namespace BEditor.Data.Property
         public override void GetObjectData(Utf8JsonWriter writer)
         {
             base.GetObjectData(writer);
-            writer.WriteString(nameof(Value), RawValue);
+
+            if (Mode is FilePathType.FromProject)
+            {
+                if (string.IsNullOrWhiteSpace(Value))
+                {
+                    writer.WriteString(nameof(Value), string.Empty);
+                }
+                else
+                {
+                    writer.WriteString(nameof(Value), Path.GetRelativePath(this.GetRequiredParent<Project>().DirectoryName, Value));
+                }
+            }
+            else
+            {
+                writer.WriteString(nameof(Value), Value);
+            }
 
             if (TargetID is not null)
             {
                 writer.WriteString(nameof(TargetID), (Guid)TargetID);
             }
-
-            writer.WriteNumber(nameof(Mode), (int)Mode);
         }
 
         /// <inheritdoc/>
-        public override void SetObjectData(JsonElement element)
+        public override void SetObjectData(DeserializeContext context)
         {
-            base.SetObjectData(element);
-            _rawValue = element.TryGetProperty(nameof(Value), out var value) ? value.GetString() ?? string.Empty : string.Empty;
+            base.SetObjectData(context);
+            var element = context.Element;
             TargetID = element.TryGetProperty(nameof(TargetID), out var bind) && bind.TryGetGuid(out var guid) ? guid : null;
-            _mode = element.TryGetProperty(nameof(Mode), out var mode) && mode.TryGetInt32(out var modei) ? (FilePathType)modei : FilePathType.FullPath;
+
+            if (element.TryGetProperty(nameof(Value), out var value))
+            {
+                var path = value.GetString() ?? string.Empty;
+                if (string.IsNullOrWhiteSpace(path))
+                {
+                    return;
+                }
+
+                if (Path.IsPathRooted(path))
+                {
+                    Value = path;
+                    Mode = FilePathType.FullPath;
+                }
+                else
+                {
+                    Value = Path.GetFullPath(path, this.GetRequiredParent<Project>().DirectoryName);
+                    Mode = FilePathType.FromProject;
+                }
+            }
         }
 
         /// <summary>
@@ -176,48 +194,6 @@ namespace BEditor.Data.Property
         protected override void OnLoad()
         {
             this.AutoLoad(ref _targetID);
-        }
-
-        private string GetFullPath(string path)
-        {
-            if (string.IsNullOrWhiteSpace(path)) return string.Empty;
-
-            return Path.GetFullPath(path, this.GetRequiredParent<Project>().DirectoryName);
-        }
-
-        private string GetPath()
-        {
-            if (Mode is FilePathType.FullPath)
-            {
-                if (Parent?.Parent?.Parent?.Parent?.DirectoryName is not null)
-                {
-                    return Path.GetFullPath(RawValue, Parent.Parent.Parent.Parent.DirectoryName!);
-                }
-
-                return RawValue;
-            }
-            else
-            {
-                if (Parent?.Parent?.Parent?.Parent?.DirectoryName is not null)
-                {
-                    return Path.GetRelativePath(Parent.Parent.Parent.Parent.DirectoryName!, Value);
-                }
-
-                return RawValue;
-            }
-        }
-
-        private string ToFormattedPath(string fullpath)
-        {
-            if (Mode is FilePathType.FullPath)
-            {
-                return fullpath;
-            }
-            else
-            {
-                if (string.IsNullOrWhiteSpace(fullpath)) return string.Empty;
-                return Path.GetRelativePath(this.GetRequiredParent<Project>().DirectoryName, fullpath);
-            }
         }
 
         /// <summary>

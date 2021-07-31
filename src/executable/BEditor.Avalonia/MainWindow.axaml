@@ -16,7 +16,6 @@
     d:DesignHeight="760"
     x:DataType="vm:MainWindowViewModel"
     Classes="fluent_setter"
-    Icon="/Assets/Images/icon.ico"
     Background="{StaticResource AcrylicColor1}"
     DataContext="{x:Static vm:MainWindowViewModel.Current}"
     Focusable="True"

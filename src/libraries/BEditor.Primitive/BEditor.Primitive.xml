@@ -1755,23 +1755,6 @@
         <member name="M:BEditor.Primitive.Effects.Noise.GetProperties">
             <inheritdoc/>
         </member>
-        <member name="T:BEditor.Primitive.Effects.PartsDisassembly">
-            <summary>
-            This effect decomposes the pearl in an image.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Effects.PartsDisassembly.Name">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Primitive.Effects.PartsDisassembly.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Primitive.Effects.PartsDisassembly.Apply(BEditor.Data.EffectApplyArgs{System.Collections.Generic.IEnumerable{BEditor.Graphics.ImageInfo}})">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Primitive.Effects.PartsDisassembly.GetProperties">
-            <inheritdoc/>
-        </member>
         <member name="T:BEditor.Primitive.Effects.PointLightDiffuse">
             <summary>
             Point light diffusion effect.
@@ -2650,6 +2633,11 @@
             Defines the <see cref="P:BEditor.Primitive.Objects.Polygon.Height"/> property.
             </summary>
         </member>
+        <member name="F:BEditor.Primitive.Objects.Polygon.LineProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Objects.Polygon.Line"/> property.
+            </summary>
+        </member>
         <member name="F:BEditor.Primitive.Objects.Polygon.NumberProperty">
             <summary>
             Defines the <see cref="P:BEditor.Primitive.Objects.Polygon.Number"/> property.
@@ -2676,6 +2664,11 @@
         <member name="P:BEditor.Primitive.Objects.Polygon.Height">
             <summary>
             Gets the height of the polygon.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Objects.Polygon.Line">
+            <summary>
+            Gets the line width of the shape.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Objects.Polygon.Number">
@@ -2824,7 +2817,7 @@
         <member name="M:BEditor.Primitive.Objects.SceneObject.GetProperties">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Primitive.Objects.SceneObject.SetObjectData(System.Text.Json.JsonElement)">
+        <member name="M:BEditor.Primitive.Objects.SceneObject.SetObjectData(BEditor.Data.DeserializeContext)">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Primitive.Objects.SceneObject.GetObjectData(System.Text.Json.Utf8JsonWriter)">
@@ -3715,11 +3708,6 @@
         <member name="P:BEditor.Primitive.Resources.Strings.Opacity">
             <summary>
               Looks up a localized string similar to Opacity.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Resources.Strings.PartsDisassembly">
-            <summary>
-              Looks up a localized string similar to Parts disassembly.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.PathToImageObject">

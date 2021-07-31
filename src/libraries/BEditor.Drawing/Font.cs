@@ -23,6 +23,10 @@ namespace BEditor.Drawing
     [Serializable]
     public class Font : ISerializable, IEquatable<Font?>
     {
+        /// <summary>
+        /// The default instance.
+        /// </summary>
+        public static readonly Font Default = new();
         private SKTypeface? _typeface;
 
         /// <summary>
@@ -41,6 +45,22 @@ namespace BEditor.Drawing
             Width = (FontStyleWidth)face.FontStyle.Width;
             FamilyName = face.FamilyName;
             Name = FormatFamilyName();
+        }
+
+        internal Font(string familyName, FontStyleWeight weight, FontStyleWidth width)
+        {
+            Name = string.Empty;
+            Filename = string.Empty;
+            FamilyName = familyName;
+            Weight = weight;
+            Width = width;
+        }
+
+        private Font()
+        {
+            Filename = string.Empty;
+            FamilyName = string.Empty;
+            Name = string.Empty;
         }
 
         private Font(SerializationInfo info, StreamingContext context)

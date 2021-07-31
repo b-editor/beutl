@@ -13,11 +13,6 @@ namespace BEditor.Extensions.FFmpeg
     {
         public string BasePath { get; set; } = string.Empty;
 
-        public event EventHandler? StartInstall;
-        public event EventHandler? Installed;
-        public event EventHandler<AsyncCompletedEventArgs>? DownloadCompleted;
-        public event EventHandler<DownloadProgressChangedEventArgs>? DownloadProgressChanged;
-
         public bool IsInstalled()
         {
             if (OperatingSystem.IsWindows())
@@ -39,46 +34,6 @@ namespace BEditor.Extensions.FFmpeg
         public Task<bool> IsInstalledAsync()
         {
             return Task.Run(IsInstalled);
-        }
-
-        public async Task InstallAsync()
-        {
-            const string url = "https://beditor.net/repo/ffmpeg.zip";
-            StartInstall?.Invoke(this, EventArgs.Empty);
-
-            using var client = new WebClient();
-
-            var tmp = Path.GetTempFileName();
-            client.DownloadFileCompleted += Client_DownloadFileCompleted;
-            client.DownloadProgressChanged += Client_DownloadProgressChanged;
-
-            await client.DownloadFileTaskAsync(url, tmp);
-
-            await using (var stream = new FileStream(tmp, FileMode.Open))
-            using (var zip = new ZipArchive(stream, ZipArchiveMode.Read))
-            {
-                var destdir = BasePath;
-
-                if (!Directory.Exists(destdir))
-                {
-                    Directory.CreateDirectory(destdir);
-                }
-
-                foreach (var entry in zip.Entries)
-                {
-                    var file = Path.GetFileName(entry.FullName);
-                    await using var deststream = new FileStream(Path.Combine(destdir, file), FileMode.Create);
-                    await using var srcstream = entry.Open();
-
-                    await srcstream.CopyToAsync(deststream);
-                }
-            }
-
-            File.Delete(tmp);
-
-            Installed?.Invoke(this, EventArgs.Empty);
-            client.DownloadFileCompleted -= Client_DownloadFileCompleted;
-            client.DownloadProgressChanged -= Client_DownloadProgressChanged;
         }
 
         private static bool IsInstalledMacOS()
@@ -133,16 +88,6 @@ namespace BEditor.Extensions.FFmpeg
             }
 
             return true;
-        }
-
-        private void Client_DownloadProgressChanged(object sender, DownloadProgressChangedEventArgs e)
-        {
-            DownloadProgressChanged?.Invoke(sender, e);
-        }
-
-        private void Client_DownloadFileCompleted(object? sender, AsyncCompletedEventArgs e)
-        {
-            DownloadCompleted?.Invoke(sender, e);
         }
     }
 }

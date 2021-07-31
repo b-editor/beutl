@@ -17,22 +17,20 @@
     x:Class="BEditor.Views.DialogContent.AddEffect">
     <Border Background="{StaticResource AcrylicColor2}">
         <Grid RowDefinitions="Auto,*" ColumnDefinitions="*,2*">
-            <ScrollViewer
+            <TreeView
                 Background="{StaticResource AcrylicColor1}"
-                Grid.RowSpan="2">
-                <TreeView
-                    Padding="0,32,0,0"
-                    SelectionMode="Single"
-                    SelectedItem="{CompiledBinding Effect.Value, Mode=TwoWay}"
-                    Items="{x:Static data:EffectMetadata.LoadedEffects}" >
-                    <TreeView.DataTemplates>
-                        <TreeDataTemplate DataType="data:EffectMetadata" ItemsSource="{Binding Children}">
-                            <TextBlock Text="{Binding Name}" Margin="3,2" />
-                        </TreeDataTemplate>
-                    </TreeView.DataTemplates>
-                </TreeView>
-            </ScrollViewer>
-            
+                Grid.RowSpan="2"
+                Padding="0,32,0,0"
+                SelectionMode="Single"
+                SelectedItem="{CompiledBinding Effect.Value, Mode=TwoWay}"
+                Items="{x:Static data:EffectMetadata.LoadedEffects}" >
+                <TreeView.DataTemplates>
+                    <TreeDataTemplate DataType="data:EffectMetadata" ItemsSource="{Binding Children}">
+                        <TextBlock Text="{Binding Name}" Margin="3,2" />
+                    </TreeDataTemplate>
+                </TreeView.DataTemplates>
+            </TreeView>
+
             <titlebar:WindowsTitlebarButtons CanResize="False" Grid.ColumnSpan="2"/>
 
             <ScrollViewer Grid.Row="1" Grid.Column="1" Padding="16">

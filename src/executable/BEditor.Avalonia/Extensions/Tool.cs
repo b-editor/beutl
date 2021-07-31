@@ -22,8 +22,6 @@ namespace BEditor.Extensions
 {
     public static class Tool
     {
-        private static Image? _image;
-
         public static bool PreviewIsEnabled { get; set; } = true;
 
         public static async Task PreviewUpdateAsync(this Project project, ClipElement clipData, ApplyType type = ApplyType.Edit)
@@ -47,8 +45,6 @@ namespace BEditor.Extensions
 
                 await Dispatcher.UIThread.InvokeAsync(() =>
                 {
-                    _image ??= App.GetMainWindow().FindControl<Previewer>("previewer").FindControl<Image>("image");
-
                     var viewmodel = MainWindowViewModel.Current.Previewer;
 
                     if (viewmodel.PreviewImage.Value is null
@@ -73,9 +69,7 @@ namespace BEditor.Extensions
                     }
 
                     buf.Dispose();
-
-                    // 再描画
-                    _image.InvalidateVisual();
+                    viewmodel.NotifyImageChanged();
 
                     viewmodel.PreviewAudio.Value?.Dispose();
                     viewmodel.PreviewAudio.Value = snd;

@@ -28,13 +28,13 @@ namespace BEditor.Data.Internals
             write(writer, value);
         }
 
-        public static object? Read(this JsonElement element, EditingProperty property)
+        public static object? Read(this DeserializeContext context, EditingProperty property)
         {
             foreach (var item in property.Names)
             {
-                if (element.TryGetProperty(item, out var value))
+                if (context.Element.TryGetProperty(item, out var value))
                 {
-                    return property.Serializer!.Read(value);
+                    return property.Serializer!.Read(context.WithElement(value));
                 }
             }
 
@@ -44,19 +44,6 @@ namespace BEditor.Data.Internals
             }
 
             return null;
-        }
-
-        public static T Read<T>(this JsonElement element, string name, Func<JsonElement, T> read, Func<T> getdefault)
-        {
-            foreach (var item in name.Split(','))
-            {
-                if (element.TryGetProperty(item, out var value))
-                {
-                    return read(value);
-                }
-            }
-
-            return getdefault();
         }
     }
 }

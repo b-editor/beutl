@@ -37,14 +37,13 @@ namespace BEditor.PackageInstaller.ViewModels
 
             Task.Run(async () =>
             {
-                using var client = new WebClient();
+                using var client = new HttpClient();
                 var progress = new ProgressImpl(this);
-                client.DownloadProgressChanged += Client_DownloadProgressChanged;
 
                 while (_packages.TryDequeue(out var package))
                 {
                     CurrentPackage.Value = package;
-                    var directory = Path.Combine(GetBaseDirectory(), "plugins", Path.GetFileNameWithoutExtension(package.MainAssembly));
+                    var directory = Path.Combine(GetPluginsFolder(), Path.GetFileNameWithoutExtension(package.MainAssembly));
                     if (package.Type is not PackageChangeType.Uninstall)
                     {
                         var downloadFile = Path.GetTempFileName();
@@ -53,11 +52,11 @@ namespace BEditor.PackageInstaller.ViewModels
                         {
                             if (Directory.Exists(directory))
                             {
-                                Directory.Delete(directory);
+                                Directory.Delete(directory, true);
                             }
 
                             Status.Value = Strings.Downloading;
-                            await client.DownloadFileTaskAsync(package.Url!, downloadFile);
+                            await DownloadFile(client, package.Url!, downloadFile); 
 
                             Status.Value = Strings.ExtractingFiles;
                             await PackageFile.OpenPackageAsync(downloadFile, directory, progress);
@@ -110,12 +109,6 @@ namespace BEditor.PackageInstaller.ViewModels
             }, _cancelToken.Token);
         }
 
-        private void Client_DownloadProgressChanged(object sender, DownloadProgressChangedEventArgs e)
-        {
-            Max.Value = e.TotalBytesToReceive;
-            Progress.Value = e.BytesReceived;
-        }
-
         public ReactiveCommand<(IEnumerable<PackageChange>, IEnumerable<PackageChange>)> CompleteModify { get; } = new();
 
         public ReactivePropertySlim<PackageChange> CurrentPackage { get; } = new();
@@ -132,16 +125,67 @@ namespace BEditor.PackageInstaller.ViewModels
 
         public ReactiveCommand Cancel { get; } = new();
 
-        public static string GetBaseDirectory()
+        public static string GetUserFolder()
         {
             if (OperatingSystem.IsWindows())
             {
-                var dir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "BEditor");
-                return dir;
+                return CreateDir(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "BEditor"));
             }
             else
             {
-                return Path.Combine(AppContext.BaseDirectory, "user");
+                return CreateDir(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".config", "BEditor"));
+            }
+        }
+
+        public static string GetPluginsFolder()
+        {
+            if (OperatingSystem.IsWindows())
+            {
+                return CreateDir(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "BEditor", "plugins"));
+            }
+            else
+            {
+                return CreateDir(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".beditor", "plugins"));
+            }
+        }
+
+        private static string CreateDir(string dir)
+        {
+            if (!Directory.Exists(dir))
+            {
+                Directory.CreateDirectory(dir);
+            }
+
+            return dir;
+        }
+
+        private async ValueTask DownloadFile(HttpClient client,  string url, string file)
+        {
+            using var fs = new FileStream(file, FileMode.Create);
+            client.DefaultRequestHeaders.ExpectContinue = false;
+            var response = await client.GetAsync(url, HttpCompletionOption.ResponseHeadersRead);
+
+            if (response.Content.Headers.ContentLength != null)
+            {
+                Max.Value = (long)response.Content.Headers.ContentLength;
+            }
+
+            await SaveAsync(response, fs, 0x10000);
+        }
+
+        private async ValueTask SaveAsync(HttpResponseMessage response, FileStream fs, int ticks)
+        {
+            using var stream = await response.Content.ReadAsStreamAsync();
+            while (true)
+            {
+                var buffer = new byte[ticks];
+                var t = await stream.ReadAsync(buffer.AsMemory(0, ticks));
+                // 0バイト読みこんだら終わり
+                if (t == 0) break;
+
+                Progress.Value += t;
+
+                await fs.WriteAsync(buffer.AsMemory(0, t));
             }
         }
 
