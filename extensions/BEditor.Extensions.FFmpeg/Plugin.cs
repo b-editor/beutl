@@ -1,7 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
+using System.Net.Http;
 using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
@@ -41,7 +43,7 @@ namespace BEditor.Extensions.FFmpeg
                 Directory.CreateDirectory(dir);
                 if (!installer.IsInstalled())
                 {
-                    builder.Task(InstallFFmpeg(dir, installer), "Install FFmpeg");
+                    builder.Task(InstallFFmpeg(dir), "Install FFmpeg");
                 }
                 else
                 {
@@ -66,21 +68,70 @@ namespace BEditor.Extensions.FFmpeg
                 .Register();
         }
 
-        private static Func<IProgressDialog, ValueTask> InstallFFmpeg(string dir, FFmpegInstaller installer)
+        private static async ValueTask DownloadFFmpeg(IProgressDialog progress, string file)
+        {
+            const string url = "https://beditor.net/repo/ffmpeg.zip";
+
+            using var client = new HttpClient();
+            using var fs = new FileStream(file, FileMode.Create);
+            client.DefaultRequestHeaders.ExpectContinue = false;
+            var response = await client.GetAsync(url, HttpCompletionOption.ResponseHeadersRead);
+
+            if (response.Content.Headers.ContentLength != null)
+            {
+                progress.Maximum = (long)response.Content.Headers.ContentLength;
+            }
+
+            await SaveAsync(progress, response, fs, 0x10000);
+        }
+
+        private static async ValueTask SaveAsync(IProgressDialog progress, HttpResponseMessage response, FileStream fs, int ticks)
+        {
+            using var stream = await response.Content.ReadAsStreamAsync();
+            while (true)
+            {
+                var buffer = new byte[ticks];
+                var t = await stream.ReadAsync(buffer.AsMemory(0, ticks));
+                // 0バイト読みこんだら終わり
+                if (t == 0) break;
+
+                progress.Value += t;
+
+                await fs.WriteAsync(buffer.AsMemory(0, t));
+            }
+        }
+
+        private static Func<IProgressDialog, ValueTask> InstallFFmpeg(string dir)
         {
             return async progress =>
             {
-                void downloadprogress(object? s, System.Net.DownloadProgressChangedEventArgs e)
+                var tmp = Path.GetTempFileName();
+                await DownloadFFmpeg(progress, tmp);
+
+                using (var stream = new FileStream(tmp, FileMode.Open))
+                using (var zip = new ZipArchive(stream, ZipArchiveMode.Read))
                 {
-                    progress.Report(e.ProgressPercentage);
+                    progress.IsIndeterminate = true;
+
+                    if (!Directory.Exists(dir))
+                    {
+                        Directory.CreateDirectory(dir);
+                    }
+
+                    foreach (var entry in zip.Entries)
+                    {
+                        var file = Path.GetFileName(entry.FullName);
+                        await using var deststream = new FileStream(Path.Combine(dir, file), FileMode.Create);
+                        await using var srcstream = entry.Open();
+
+                        await srcstream.CopyToAsync(deststream);
+                    }
+                    progress.IsIndeterminate = false;
                 }
 
-                installer.DownloadProgressChanged += downloadprogress;
-                await installer.InstallAsync();
-                installer.DownloadProgressChanged -= downloadprogress;
+                File.Delete(tmp);
 
                 FFmpegLoader.FFmpegPath = dir;
-
                 FFmpegLoader.LoadFFmpeg();
             };
         }

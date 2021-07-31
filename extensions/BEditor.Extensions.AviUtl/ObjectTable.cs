@@ -431,15 +431,15 @@ namespace BEditor.Extensions.AviUtl
                     }
                     else if (name is "三角形")
                     {
-                        _img = Image.Polygon(3, size, size, color);
+                        _img = Image.Polygon(3, size, size, size, color);
                     }
                     else if (name is "五角形")
                     {
-                        _img = Image.Polygon(5, size, size, color);
+                        _img = Image.Polygon(5, size, size, size, color);
                     }
                     else if (name is "六角形")
                     {
-                        _img = Image.Polygon(6, size, size, color);
+                        _img = Image.Polygon(6, size, size, size, color);
                     }
                     break;
                 case "tempbuffer":

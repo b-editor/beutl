@@ -60,6 +60,8 @@ namespace BEditor.ViewModels
                 .Subscribe(s => s!.PreviewFrame = s.TotalFrame);
         }
 
+        public event EventHandler? ImageChanged;
+
         public ReactiveProperty<WriteableBitmap?> PreviewImage { get; } = new();
 
         public ReactiveProperty<Sound<StereoPCMFloat>?> PreviewAudio { get; } = new();
@@ -79,5 +81,10 @@ namespace BEditor.ViewModels
         public ReactiveCommand MoveToEnd { get; } = new();
 
         public AppModel App { get; } = AppModel.Current;
+
+        public void NotifyImageChanged()
+        {
+            ImageChanged?.Invoke(this, EventArgs.Empty);
+        }
     }
 }

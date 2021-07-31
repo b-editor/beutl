@@ -65,6 +65,7 @@ namespace BEditor.Data
         public override void SetObjectData(JsonElement element)
         {
             base.SetObjectData(element);
+            TimeLineZoom = 150;
             Width = element.GetProperty(nameof(Width)).GetInt32();
             Height = element.GetProperty(nameof(Height)).GetInt32();
             SceneName = element.GetProperty(nameof(SceneName)).GetString() ?? string.Empty;
