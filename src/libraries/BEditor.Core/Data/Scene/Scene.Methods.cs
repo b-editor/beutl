@@ -64,7 +64,7 @@ namespace BEditor.Data
         /// <inheritdoc/>
         public override void SetObjectData(DeserializeContext context)
         {
-            base.SetObjectData(element);
+            base.SetObjectData(context);
             Parent = (context.Parent as Project) ?? Parent;
 
             var element = context.Element;
