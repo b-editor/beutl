@@ -14,6 +14,28 @@ namespace BEditor.ViewModels.Settings
         public const string METAL = "Metal";
         public const string VULKAN = "Vulkan";
 
+        public const string OPENAL = "OpenAL";
+        public const string XAUDIO2 = "XAudio2";
+
+        public ProjectViewModel()
+        {
+            if (OperatingSystem.IsWindows())
+            {
+                AudioProfiles = new[]
+                {
+                    OPENAL,
+                    XAUDIO2,
+                };
+            }
+            else
+            {
+                AudioProfiles = new[]
+                {
+                    OPENAL,
+                };
+            }
+        }
+
         public string[] Profiles { get; } = new[]
         {
             OPENGL,
@@ -22,5 +44,7 @@ namespace BEditor.ViewModels.Settings
             METAL,
             VULKAN,
         };
+
+        public string[] AudioProfiles { get; }
     }
 }

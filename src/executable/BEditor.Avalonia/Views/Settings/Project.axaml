@@ -31,6 +31,16 @@
 
             <Separator Height="16" />
 
+            <Label Content="{x:Static resource:Strings.AudioProfile}" Classes="SettingsItemHeader"/>
+
+            <ComboBox
+                ToolTip.Tip="{x:Static resource:Strings.TheChangesWillBeAppliedAfterRestarting}"
+                Items="{CompiledBinding AudioProfiles, Mode=OneTime}"
+                SelectedItem="{CompiledBinding AudioProfile, Source={x:Static data:Settings.Default}, Mode=TwoWay}"
+                Classes="SettingsComboBox"/>
+            
+            <Separator Height="16" />
+
             <Label Content="{x:Static resource:Strings.GraphicsProfile}" Classes="SettingsItemHeader"/>
 
             <ComboBox

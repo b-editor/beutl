@@ -282,29 +282,21 @@ namespace BEditor
 
         private static async Task CheckOpenALAsync()
         {
-            try
+            if (Settings.Default.AudioProfile is "XAudio2" && OperatingSystem.IsWindows())
             {
-                if (OperatingSystem.IsWindows())
-                {
-                    try
-                    {
-                        //AppModel.Current.AudioContext ??= new Audio.XAudio2.XAudioContext();
-                        AppModel.Current.AudioContext ??= new Audio.AudioContext();
-                    }
-                    catch
-                    {
-                        AppModel.Current.AudioContext ??= new Audio.AudioContext();
-                    }
-                }
-                else
+                AppModel.Current.AudioContext ??= new Audio.XAudio2.XAudioContext();
+            }
+            else
+            {
+                try
                 {
                     AppModel.Current.AudioContext ??= new Audio.AudioContext();
                 }
-            }
-            catch
-            {
-                await AppModel.Current.Message.DialogAsync(Strings.OpenALNotFound);
-                App.Shutdown(1);
+                catch
+                {
+                    await AppModel.Current.Message.DialogAsync(Strings.OpenALNotFound);
+                    App.Shutdown(1);
+                }
             }
         }
 
