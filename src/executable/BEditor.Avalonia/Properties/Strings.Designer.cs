@@ -225,6 +225,15 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Audio profile.
+        /// </summary>
+        public static string AudioProfile {
+            get {
+                return ResourceManager.GetString("AudioProfile", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Author.
         /// </summary>
         public static string Author {

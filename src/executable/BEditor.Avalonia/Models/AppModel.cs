@@ -110,7 +110,7 @@ namespace BEditor.Models
 
         Project IParentSingle<Project>.Child => Project;
 
-        public AudioContext AudioContext { get; set; }
+        public object AudioContext { get; set; }
 
         public event EventHandler<ProjectOpenedEventArgs> ProjectOpened;
         public event EventHandler Exit;

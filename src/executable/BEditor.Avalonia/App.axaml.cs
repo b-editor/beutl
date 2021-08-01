@@ -162,7 +162,8 @@ namespace BEditor
                 });
             }
 
-            AppModel.Current.AudioContext?.Dispose();
+            if (app.AudioContext is IDisposable disposable)
+                disposable.Dispose();
         }
 
         private void CurrentDomain_UnhandledException(object sender, UnhandledExceptionEventArgs e)
@@ -281,14 +282,21 @@ namespace BEditor
 
         private static async Task CheckOpenALAsync()
         {
-            try
+            if (Settings.Default.AudioProfile is "XAudio2" && OperatingSystem.IsWindows())
             {
-                AppModel.Current.AudioContext ??= new();
+                AppModel.Current.AudioContext ??= new Audio.XAudio2.XAudioContext();
             }
-            catch
+            else
             {
-                await AppModel.Current.Message.DialogAsync(Strings.OpenALNotFound);
-                App.Shutdown(1);
+                try
+                {
+                    AppModel.Current.AudioContext ??= new Audio.AudioContext();
+                }
+                catch
+                {
+                    await AppModel.Current.Message.DialogAsync(Strings.OpenALNotFound);
+                    App.Shutdown(1);
+                }
             }
         }
 

@@ -830,6 +830,9 @@ Vulkan:
   <data name="AddNewPalette" xml:space="preserve">
     <value>新しいパレットを追加</value>
   </data>
+  <data name="AudioProfile" xml:space="preserve">
+    <value>オーディオプロファイル</value>
+  </data>
   <data name="PackingTheProject" xml:space="preserve">
     <value>プロジェクトを梱包</value>
   </data>
