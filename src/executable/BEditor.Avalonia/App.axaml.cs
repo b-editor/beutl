@@ -288,7 +288,8 @@ namespace BEditor
                 {
                     try
                     {
-                        AppModel.Current.AudioContext ??= new Audio.XAudio2.XAudioContext();
+                        //AppModel.Current.AudioContext ??= new Audio.XAudio2.XAudioContext();
+                        AppModel.Current.AudioContext ??= new Audio.AudioContext();
                     }
                     catch
                     {

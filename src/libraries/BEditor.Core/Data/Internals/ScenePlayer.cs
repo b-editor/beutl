@@ -85,11 +85,11 @@ namespace BEditor.Data.Internals
                 var context = Scene.GetRequiredParent<IApplication>().AudioContext;
                 if (context is AudioContext audioContext)
                 {
-                    PlayViaOpenAL(audioContext);
+                    PlayWithOpenAL(audioContext);
                 }
                 else if (context is XAudioContext xcontext)
                 {
-                    PlayViaXAudio2(xcontext);
+                    PlayWithAudio2(xcontext);
                 }
             });
         }
@@ -113,19 +113,22 @@ namespace BEditor.Data.Internals
             GC.SuppressFinalize(this);
         }
 
-        private void PlayViaXAudio2(XAudioContext audioContext)
+        private void PlayWithAudio2(XAudioContext audioContext)
         {
             var context = Scene.SamplingContext!;
             context.Clear();
             int f = Scene.PreviewFrame;
-            var sound = new Sound<StereoPCM16>(Scene.Parent.Samplingrate, Scene.Parent.Samplingrate);
+            var primary = new Sound<StereoPCM16>(Scene.Parent.Samplingrate, Scene.Parent.Samplingrate);
+            var secondary = new Sound<StereoPCM16>(Scene.Parent.Samplingrate, Scene.Parent.Samplingrate);
             var fmt = new WaveFormat(Scene.Parent.Samplingrate, 2);
-            using var source = new XAudioSource(audioContext);
-            using var buffer = new XAudioBuffer();
-            FillAudioData(sound, f);
+            var source = new XAudioSource(audioContext);
+            var primaryBuffer = new XAudioBuffer();
+            var secondaryBuffer = new XAudioBuffer();
 
-            buffer.BufferData(sound.Data, fmt);
-            source.QueueBuffer(buffer);
+            FillAudioData(primary, f);
+
+            primaryBuffer.BufferData(primary.Data, fmt);
+            source.QueueBuffer(primaryBuffer);
             source.Play();
 
             f += Scene.Parent.Framerate;
@@ -134,24 +137,35 @@ namespace BEditor.Data.Internals
             {
                 if (State is PlayerState.Stop) break;
 
-                FillAudioData(sound, f);
+                FillAudioData(secondary, f);
+                f += Scene.Parent.Framerate;
 
-                while (source.BuffersQueued > 0)
+                while (source.IsPlaying())
                 {
                     if (State is PlayerState.Stop) break;
                 }
 
-                buffer.BufferData(sound.Data, fmt);
-                source.QueueBuffer(buffer);
+                secondaryBuffer.BufferData(secondary.Data, fmt);
+                source.QueueBuffer(secondaryBuffer);
 
-                f += Scene.Parent.Framerate;
+                // バッファを入れ替える
+                var a = secondary;
+                secondary = primary;
+                primary = a;
+
+                var b = secondaryBuffer;
+                secondaryBuffer = primaryBuffer;
+                primaryBuffer = b;
             }
 
-            sound.Dispose();
-            buffer.Dispose();
+            primary.Dispose();
+            secondary.Dispose();
+            source.Dispose();
+            primaryBuffer.Dispose();
+            secondaryBuffer.Dispose();
         }
 
-        private void PlayViaOpenAL(AudioContext audioContext)
+        private void PlayWithOpenAL(AudioContext audioContext)
         {
             audioContext.MakeCurrent();
 
@@ -199,7 +213,7 @@ namespace BEditor.Data.Internals
         {
             var context = Scene.SamplingContext!;
             var spf = context.SamplePerFrame;
-            for (var i = 0; i < Scene.Parent.Framerate * 3; i++)
+            for (var i = 0; i < Scene.Parent.Framerate; i++)
             {
                 using var tmp = Scene.Sample(f + i);
                 using var converted = tmp.Convert<StereoPCM16>();
