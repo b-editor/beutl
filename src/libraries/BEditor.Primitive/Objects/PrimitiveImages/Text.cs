@@ -110,7 +110,7 @@ namespace BEditor.Primitive.Objects
             nameof(IsMultiple),
             owner => owner.IsMultiple,
             (owner, obj) => owner.IsMultiple = obj,
-            EditingPropertyOptions<CheckProperty>.Create(new CheckPropertyMetadata(Strings.EnableMultipleObjects, true)).Serialize());
+            EditingPropertyOptions<CheckProperty>.Create(new CheckPropertyMetadata(Strings.EnableMultipleObjects, false)).Serialize());
 
         private FormattedText? _formattedText;
 

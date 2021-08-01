@@ -165,15 +165,15 @@ namespace BEditor.Drawing
                     _paint.MeasureText(c.ToString(), ref bounds);
                     _paint.Color = new SKColor(color.R, color.G, color.B, color.A);
 
-                    using var bmp = new SKBitmap(new SKImageInfo((int)bounds.Width, (int)(nextTop - line.Top), SKColorType.Bgra8888));
+                    using var bmp = new SKBitmap(new SKImageInfo((int)bounds.Width, (int)bounds.Height, SKColorType.Bgra8888));
                     using var canvas = new SKCanvas(bmp);
 
                     var resultRect = new RectangleF(
                         prevRight + bounds.Left,
-                        line.Top,
+                        line.Top + bounds.Top - _fontMetrics.Ascent,
                         bounds.Width,
-                        nextTop - line.Top);
-                    canvas.DrawText(c.ToString(), (bounds.Width / 2) - bounds.MidX, -_fontMetrics.Ascent, _paint);
+                        bounds.Height);
+                    canvas.DrawText(c.ToString(), (bounds.Width / 2) - bounds.MidX, (bounds.Height / 2) - bounds.MidY, _paint);
 
                     prevRight += bounds.Right;
 
