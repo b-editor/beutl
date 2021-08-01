@@ -9,6 +9,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Text.Json;
 
 using BEditor.Command;
 using BEditor.Data.Property.Easing;
@@ -21,8 +22,6 @@ namespace BEditor.Data.Property
     /// </summary>
     public abstract class Group : PropertyElement, IKeyframeProperty, IEasingProperty, IParent<PropertyElement>
     {
-        private IEnumerable<PropertyElement>? _cachedList;
-
         /// <inheritdoc/>
         event Action<float, int>? IKeyframeProperty.Added
         {
@@ -57,7 +56,7 @@ namespace BEditor.Data.Property
         }
 
         /// <inheritdoc/>
-        public IEnumerable<PropertyElement> Children => _cachedList ??= GetProperties().ToArray();
+        public IEnumerable<PropertyElement> Children => GetProperties();
 
         /// <inheritdoc/>
         public override EffectElement Parent
@@ -67,9 +66,13 @@ namespace BEditor.Data.Property
             {
                 base.Parent = value;
 
-                foreach (var item in Children)
+                if (Children != null)
                 {
-                    item.Parent = value;
+                    foreach (var item in Children)
+                    {
+                        if (item is not null)
+                            item.Parent = Parent;
+                    }
                 }
             }
         }

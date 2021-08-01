@@ -24,6 +24,16 @@ namespace BEditor.ViewModels.ManagePlugins
             PluginChangeSchedule.Uninstall.CollectionChanged += Uninstall_CollectionChanged;
             PluginChangeSchedule.UpdateOrInstall.CollectionChanged += UpdateOrInstall_CollectionChanged;
 
+            foreach (var obj in PluginChangeSchedule.UpdateOrInstall)
+            {
+                Schedules.Add(new(obj.Target.Name, obj.Target.Description, obj.Type is PluginChangeType.Install ? Strings.Install : Strings.Update, obj.Target.Id));
+            }
+            
+            foreach (var obj in PluginChangeSchedule.Uninstall)
+            {
+                Schedules.Add(new(obj.PluginName, obj.Description, Strings.Uninstall, obj.Id));
+            }
+
             IsSelected = SelectedItem.Select(i => i is not null).ToReadOnlyReactivePropertySlim();
 
             Cancel.Where(_ => IsSelected.Value)

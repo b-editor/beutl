@@ -6,6 +6,8 @@
 // of the MIT license. See the LICENSE file for details.
 
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 
@@ -608,6 +610,165 @@ namespace BEditor.Drawing
                     });
                 });
             }
+        }
+
+        /// <summary>
+        /// Disassemble the parts in the image.
+        /// </summary>
+        /// <param name="image">The image of disassembling the parts.</param>
+        /// <returns>Returns the decomposed image and its image rectangle.</returns>
+        public static (Image<BGRA32>, Rectangle)[] PartsDisassembly(this Image<BGRA32> image)
+        {
+            using var alphamap = image.AlphaMap();
+            using var alphaMat = alphamap.ToMat();
+
+            // 輪郭検出
+            alphaMat.FindContours(out var points, out var h, RetrievalModes.List, ContourApproximationModes.ApproxSimple);
+
+            using var mask = new Image<BGRA32>(image.Width, image.Height, default(BGRA32));
+            using var maskMat = mask.ToMat();
+
+            var list = new List<(Image<BGRA32>, Rectangle)>();
+            for (var i1 = 0; i1 < points.Length; i1++)
+            {
+                var p = points[i1];
+                var x0 = image.Width;
+                var y0 = image.Height;
+                var x1 = 0;
+                var y1 = 0;
+
+                for (var i = 0; i < p.Length; i++)
+                {
+                    var x = p[i].X;
+                    var y = p[i].Y;
+
+                    if (x0 > x) x0 = x;
+                    if (y0 > y) y0 = y;
+                    if (x1 < x) x1 = x;
+                    if (y1 < y) y1 = y;
+                }
+
+                mask.Clear();
+
+                // 検出した輪郭を描画
+                maskMat.DrawContours(points, i1, new Scalar(255, 255, 255, 255), -1, LineTypes.Link8, h);
+
+                var rect = Rectangle.FromLTRB(x0, y0, x1, y1);
+                var partMask = mask[rect];
+                var part = image[rect];
+
+                part.AlphaSubtract(partMask);
+
+                list.Add((part, rect));
+            }
+
+            return list.ToArray();
+        }
+
+        /// <summary>
+        /// Fill in the transparent areas.
+        /// </summary>
+        /// <param name="image">The image to apply the effect to.</param>
+        /// <param name="color">The color.</param>
+        /// <returns>Returns an image with the transparent areas filled in.</returns>
+        public static Image<BGRA32> FillTransparency(this Image<BGRA32> image, Color color)
+        {
+            using var alphamap = image.AlphaMap();
+            using var alphaMat = alphamap.ToMat();
+
+            // 輪郭検出
+            alphaMat.FindContours(out var points, out var h, RetrievalModes.List, ContourApproximationModes.ApproxSimple);
+
+            using var bmp = new SKBitmap(new SKImageInfo(image.Width, image.Height, SKColorType.Bgra8888));
+            using var canvas = new SKCanvas(bmp);
+            using var paint = new SKPaint
+            {
+                Color = new SKColor(color.R, color.G, color.B, color.A),
+                IsAntialias = true,
+                Style = SKPaintStyle.Fill,
+                StrokeWidth = 10,
+            };
+
+            foreach (var p in points)
+            {
+                using var path1 = new SKPath();
+
+                path1.MoveTo(p[0].X, p[0].Y);
+
+                foreach (var item in p)
+                {
+                    path1.LineTo(item.X, item.Y);
+                }
+
+                path1.Close();
+
+                canvas.DrawPath(path1, paint);
+            }
+
+            return bmp.ToImage32();
+        }
+
+        /// <summary>
+        /// Applies a flat shadow effect.
+        /// </summary>
+        /// <param name="image">The image to apply the effect to.</param>
+        /// <param name="color">The color.</param>
+        /// <param name="angle">The angle (degree).</param>
+        /// <param name="length">The length.</param>
+        /// <returns>Returns the image to which the effect has been applied.</returns>
+        public static Image<BGRA32> FlatShadow(this Image<BGRA32> image, Color color, float angle, float length)
+        {
+            using var alphamap = image.AlphaMap();
+            using var alphaMat = alphamap.ToMat();
+
+            // 輪郭検出
+            alphaMat.FindContours(out var points, out var h, RetrievalModes.List, ContourApproximationModes.ApproxSimple);
+
+            var dgree = angle;
+            var radian = dgree * (MathF.PI / 180);
+            var x1 = MathF.Cos(radian);
+            var y1 = MathF.Sin(radian);
+            var x2 = (int)(length * MathF.Cos(radian));
+            var y2 = (int)(length * MathF.Sin(radian));
+            var x2Abs = Math.Abs(x2);
+            var y2Abs = Math.Abs(y2);
+
+            using var bmp = new SKBitmap(new SKImageInfo(image.Width + x2Abs, image.Height + y2Abs, SKColorType.Bgra8888));
+            using var canvas = new SKCanvas(bmp);
+            using var paint = new SKPaint
+            {
+                Color = new SKColor(color.R, color.G, color.B, color.A),
+                IsAntialias = true,
+                Style = SKPaintStyle.Fill,
+            };
+
+            foreach (var p in points)
+            {
+                canvas.Translate((x2Abs - x2) / 2, (y2Abs - y2) / 2);
+
+                using var path = new SKPath();
+
+                path.MoveTo(p[0].X, p[0].Y);
+
+                for (var i = 0; i < p.Length; i++)
+                {
+                    var item = p[i];
+                    path.LineTo(item.X, item.Y);
+                }
+
+                for (var i = 0; i < length; i++)
+                {
+                    canvas.Translate(x1, y1);
+                    canvas.DrawPath(path, paint);
+                }
+
+                canvas.ResetMatrix();
+            }
+
+            using var srcBmp = image.ToSKBitmap();
+            canvas.DrawBitmap(srcBmp, (x2Abs - x2) / 2, (y2Abs - y2) / 2);
+
+            return bmp.ToImage32();
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

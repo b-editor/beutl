@@ -82,9 +82,10 @@ namespace BEditor.Extensions.AviUtl
             return Properties.Select(i => i.Value);
         }
 
-        public override void SetObjectData(JsonElement element)
+        public override void SetObjectData(DeserializeContext context)
         {
-            base.SetObjectData(element);
+            base.SetObjectData(context);
+            var element = context.Element;
             Properties = new();
             Entry = Plugin.Loader.Loaded!.First(i => i.Name == ScriptName && i.GroupName == GroupName);
 
@@ -92,7 +93,7 @@ namespace BEditor.Extensions.AviUtl
             {
                 if (element.TryGetProperty(item.Variable, out var val))
                 {
-                    SetOrAddDictionary(Properties, item.Variable, item.ToProperty(val));
+                    SetOrAddDictionary(Properties, item.Variable, item.ToProperty(new(val, this)));
                 }
                 else
                 {
@@ -183,9 +184,10 @@ namespace BEditor.Extensions.AviUtl
             return Properties.Select(i => i.Value);
         }
 
-        public override void SetObjectData(JsonElement element)
+        public override void SetObjectData(DeserializeContext context)
         {
-            base.SetObjectData(element);
+            base.SetObjectData(context);
+            var element = context.Element;
             Properties = new();
             PropertyMetadata = new("ダイアログを表示");
 
@@ -193,7 +195,7 @@ namespace BEditor.Extensions.AviUtl
             {
                 if (element.TryGetProperty(item.Variable, out var val))
                 {
-                    AnimationEffect.SetOrAddDictionary(Properties, item.Variable, item.ToProperty(val));
+                    AnimationEffect.SetOrAddDictionary(Properties, item.Variable, item.ToProperty(new(val, this)));
                 }
                 else
                 {

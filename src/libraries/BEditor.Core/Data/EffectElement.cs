@@ -28,10 +28,9 @@ namespace BEditor.Data
         private bool _isEnabled = true;
         private bool _isExpanded = true;
         private ClipElement? _parent;
-        private IEnumerable<PropertyElement>? _cachedList;
 
         /// <inheritdoc/>
-        public IEnumerable<PropertyElement> Children => _cachedList ??= GetProperties().ToArray();
+        public IEnumerable<PropertyElement> Children => GetProperties();
 
         /// <summary>
         /// Gets the name of this <see cref="EffectElement"/>.
@@ -65,11 +64,7 @@ namespace BEditor.Data
             set
             {
                 _parent = value;
-
-                foreach (var prop in Children)
-                {
-                    prop.Parent = this;
-                }
+                Children.SetParent<EffectElement, PropertyElement>(i => i.Parent = this);
             }
         }
 
@@ -130,11 +125,13 @@ namespace BEditor.Data
         }
 
         /// <inheritdoc/>
-        public override void SetObjectData(JsonElement element)
+        public override void SetObjectData(DeserializeContext context)
         {
-            base.SetObjectData(element);
-            IsEnabled = element.GetProperty(nameof(IsEnabled)).GetBoolean();
-            IsExpanded = element.GetProperty(nameof(IsExpanded)).GetBoolean();
+            Parent = (context.Parent as ClipElement) ?? Parent;
+            base.SetObjectData(context);
+
+            IsEnabled = context.Element.GetProperty(nameof(IsEnabled)).GetBoolean();
+            IsExpanded = context.Element.GetProperty(nameof(IsExpanded)).GetBoolean();
         }
 
         /// <summary>

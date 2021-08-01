@@ -97,6 +97,17 @@ namespace BEditor
         }
 
         /// <summary>
+        /// Initializes a new instance of the <see cref="FileFilter"/> class.
+        /// </summary>
+        /// <param name="name">The filter name.</param>
+        /// <param name="extensions">The filter extensions.</param>
+        public FileFilter(string name, params string[] extensions)
+        {
+            Name = name;
+            Extensions = extensions;
+        }
+
+        /// <summary>
         /// Gets the filter name.
         /// </summary>
         public string Name { get; init; }

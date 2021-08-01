@@ -14,10 +14,6 @@ namespace BEditor.Views
     public class Library : UserControl
     {
         private readonly TreeView _tree;
-        private readonly ScrollViewer _scroll = new ScrollViewer
-        {
-            [Grid.RowProperty] = 1,
-        };
 
         public Library()
         {
@@ -26,6 +22,7 @@ namespace BEditor.Views
             _tree = new()
             {
                 SelectionMode = SelectionMode.Single,
+                [Grid.RowProperty] = 1,
             };
             _tree.AddHandler(PointerPressedEvent, TreeViewPointerPressed, RoutingStrategies.Tunnel);
             DataContext = new LibraryViewModel(_tree);
@@ -51,8 +48,7 @@ namespace BEditor.Views
             }
 
             Content.Children.RemoveAt(1);
-            Content.Children.Add(_scroll);
-            _scroll.Content = _tree;
+            Content.Children.Add(_tree);
         }
 
         private void Add(TreeViewItem treeitem, EffectMetadata list)

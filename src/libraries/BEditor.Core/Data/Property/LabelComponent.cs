@@ -88,9 +88,10 @@ namespace BEditor.Data.Property
         }
 
         /// <inheritdoc/>
-        public override void SetObjectData(JsonElement element)
+        public override void SetObjectData(DeserializeContext context)
         {
-            base.SetObjectData(element);
+            base.SetObjectData(context);
+            var element = context.Element;
             Text = element.TryGetProperty(nameof(Text), out var value) ? value.GetString() ?? string.Empty : string.Empty;
         }
     }

@@ -247,7 +247,7 @@ namespace BEditor
                     if (item is PluginException ex)
                     {
                         sb.Append('\n');
-                        sb.Append("* ");
+                        sb.Append("- ");
                         sb.Append(ex.PluginName);
                     }
                 }
