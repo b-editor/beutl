@@ -68,6 +68,26 @@ namespace BEditor.ViewModels
 
         public ReactiveProperty<BackgroundType> Background { get; } = new();
 
+        public ReactivePropertySlim<string> Fps { get; } = new();
+
+        public ReactivePropertySlim<string> MinFps { get; } = new();
+
+        public ReactivePropertySlim<string> MaxFps { get; } = new();
+
+        public ReactivePropertySlim<string> AvgFps { get; } = new();
+
+        public bool IsDebug
+        {
+            get
+            {
+#if DEBUG
+                return true;
+#else
+                return false;
+#endif
+            }
+        }
+
         public IReadOnlyReactiveProperty<bool> IsOpened { get; }
 
         public ReactiveCommand MoveToTop { get; } = new();

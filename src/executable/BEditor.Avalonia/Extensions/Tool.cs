@@ -22,6 +22,14 @@ namespace BEditor.Extensions
 {
     public static class Tool
     {
+#if DEBUG
+        private static float _maxFps;
+        private static float _minFps = float.MaxValue;
+        private static float _avgFps;
+        private static float _sumFps;
+        private static float _count;
+#endif
+
         public static bool PreviewIsEnabled { get; set; } = true;
 
         public static async Task PreviewUpdateAsync(this Project project, ClipElement clipData, ApplyType type = ApplyType.Edit)
@@ -40,7 +48,13 @@ namespace BEditor.Extensions
             PreviewIsEnabled = false;
             try
             {
+#if DEBUG
+                var start = DateTime.Now;
+#endif
                 using var img = await Task.Run(() => project.CurrentScene.Render(type));
+#if DEBUG
+                var end = DateTime.Now;
+#endif
                 var snd = project.CurrentScene.Sample();
 
                 await Dispatcher.UIThread.InvokeAsync(() =>
@@ -73,6 +87,22 @@ namespace BEditor.Extensions
 
                     viewmodel.PreviewAudio.Value?.Dispose();
                     viewmodel.PreviewAudio.Value = snd;
+
+#if DEBUG
+                    var sec = (float)(end - start).TotalSeconds;
+                    var fps = 1 / sec;
+                    _maxFps = MathF.Max(_maxFps, fps);
+                    _minFps = MathF.Min(_minFps, fps);
+
+                    _sumFps += fps;
+                    _count++;
+                    _avgFps = (_sumFps + fps) / _count;
+
+                    viewmodel.Fps.Value = string.Format("{0:N2} FPS", fps);
+                    viewmodel.MinFps.Value = string.Format("Min: {0:N2} FPS", _minFps);
+                    viewmodel.MaxFps.Value = string.Format("Max: {0:N2} FPS", _maxFps);
+                    viewmodel.AvgFps.Value = string.Format("Avg: {0:N2} FPS", _avgFps);
+#endif
                 });
 
                 PreviewIsEnabled = true;
