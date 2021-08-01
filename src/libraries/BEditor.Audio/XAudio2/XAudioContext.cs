@@ -31,7 +31,7 @@ namespace BEditor.Audio.XAudio2
         public XAudioContext()
         {
             Device = Vortice.XAudio2.XAudio2.XAudio2Create();
-            MasteringVoice = Device.CreateMasteringVoice(2, 44100, Vortice.Multimedia.AudioStreamCategory.Media);
+            MasteringVoice = Device.CreateMasteringVoice(2, 44100, AudioStreamCategory.GameMedia);
         }
 
         public IXAudio2 Device { get; }
