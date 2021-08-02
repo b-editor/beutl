@@ -68,6 +68,17 @@ namespace BEditor.Data
         }
 
         /// <summary>
+        /// Sets the <see cref="IEditingPropertyInitializer{T}"/> that initializes the value of a property.
+        /// </summary>
+        /// <param name="defaultValue">The default value.</param>
+        /// <returns>An <see cref="EditingPropertyOptions{TValue}"/> instance.</returns>
+        public EditingPropertyOptions<TValue> DefaultValue(TValue defaultValue)
+        {
+            Initializer = new EditingPropertyInitializer<TValue>(() => defaultValue);
+            return this;
+        }
+
+        /// <summary>
         /// Sets the <see cref="IEditingPropertySerializer{T}"/> to serialize this property.
         /// </summary>
         /// <param name="serializer">The value of <see cref="Serializer"/>.</param>
@@ -95,7 +106,20 @@ namespace BEditor.Data
         /// <param name="write">Writes the value to <see cref="Utf8JsonWriter"/>.</param>
         /// <param name="read">Reads the value from <see cref="JsonElement"/>.</param>
         /// <returns>An <see cref="EditingPropertyOptions{TValue}"/> instance.</returns>
+        [Obsolete("Use Serialize(Action<Utf8JsonWriter, TValue>, Func<DeserializeContext, TValue>)")]
         public EditingPropertyOptions<TValue> Serialize(Action<Utf8JsonWriter, TValue> write, Func<JsonElement, TValue> read)
+        {
+            Serializer = new EditingPropertySerializer<TValue>(write, read);
+            return this;
+        }
+
+        /// <summary>
+        /// Sets the <see cref="IEditingPropertySerializer{T}"/> to serialize this property.
+        /// </summary>
+        /// <param name="write">Writes the value to <see cref="Utf8JsonWriter"/>.</param>
+        /// <param name="read">Reads the value from <see cref="DeserializeContext"/>.</param>
+        /// <returns>An <see cref="EditingPropertyOptions{TValue}"/> instance.</returns>
+        public EditingPropertyOptions<TValue> Serialize(Action<Utf8JsonWriter, TValue> write, Func<DeserializeContext, TValue> read)
         {
             Serializer = new EditingPropertySerializer<TValue>(write, read);
             return this;
