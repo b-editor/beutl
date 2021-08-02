@@ -561,7 +561,7 @@
     <value>Horizontal alignment</value>
     <comment />
   </data>
-  <data name="VerticalAlignment" xml:space="preserve">
+    <data name="VerticalAlignment" xml:space="preserve">
     <value>Vertical alignment</value>
     <comment />
   </data>
@@ -696,5 +696,11 @@
   </data>
   <data name="AlignToBaseline" xml:space="preserve">
     <value>Align to baseline</value>
+  </data>
+  <data name="CharacterSpacing" xml:space="preserve">
+    <value>Character spacing</value>
+  </data>
+  <data name="Alignment" xml:space="preserve">
+    <value>Alignment</value>
   </data>
 </root>

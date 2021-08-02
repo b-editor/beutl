@@ -1877,14 +1877,14 @@
             Represents the <see cref="T:BEditor.Data.Primitive.ImageEffect"/> that sets the alignment.
             </summary>
         </member>
-        <member name="F:BEditor.Primitive.Effects.SetAlignment.VerticalAlignProperty">
-            <summary>
-            Defines the <see cref="P:BEditor.Primitive.Effects.SetAlignment.VerticalAlign"/> property.
-            </summary>
-        </member>
         <member name="F:BEditor.Primitive.Effects.SetAlignment.HorizontalAlignProperty">
             <summary>
             Defines the <see cref="P:BEditor.Primitive.Effects.SetAlignment.HorizontalAlign"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.SetAlignment.VerticalAlignProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.SetAlignment.VerticalAlign"/> property.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Effects.SetAlignment.Name">
@@ -2887,14 +2887,9 @@
             Defines the <see cref="P:BEditor.Primitive.Objects.Text.Color"/> property.
             </summary>
         </member>
-        <member name="F:BEditor.Primitive.Objects.Text.HorizontalAlignProperty">
+        <member name="F:BEditor.Primitive.Objects.Text.TextAlignmentProperty">
             <summary>
-            Defines the <see cref="P:BEditor.Primitive.Objects.Text.HorizontalAlign"/> property.
-            </summary>
-        </member>
-        <member name="F:BEditor.Primitive.Objects.Text.VerticalAlignProperty">
-            <summary>
-            Defines the <see cref="P:BEditor.Primitive.Objects.Text.VerticalAlign"/> property.
+            Defines the <see cref="P:BEditor.Primitive.Objects.Text.TextAlignment"/> property.
             </summary>
         </member>
         <member name="F:BEditor.Primitive.Objects.Text.DocumentProperty">
@@ -2945,14 +2940,9 @@
             Gets the font of the text.
             </summary>
         </member>
-        <member name="P:BEditor.Primitive.Objects.Text.HorizontalAlign">
+        <member name="P:BEditor.Primitive.Objects.Text.TextAlignment">
             <summary>
             Gets the horizontal alignment of the text.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Objects.Text.VerticalAlign">
-            <summary>
-            Gets the vertical alignment of the text.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Objects.Text.Document">
@@ -3205,6 +3195,11 @@
               Looks up a localized string similar to Adjust coordinates.
             </summary>
         </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Alignment">
+            <summary>
+              Looks up a localized string similar to Alignment.
+            </summary>
+        </member>
         <member name="P:BEditor.Primitive.Resources.Strings.AlignToBaseline">
             <summary>
               Looks up a localized string similar to Align to baseline.
@@ -3323,6 +3318,11 @@
         <member name="P:BEditor.Primitive.Resources.Strings.CenterY">
             <summary>
               Looks up a localized string similar to Center y.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.CharacterSpacing">
+            <summary>
+              Looks up a localized string similar to Character spacing.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.ChromaKey">

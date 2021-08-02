@@ -5,11 +5,9 @@
 // This software may be modified and distributed under the terms
 // of the MIT license. See the LICENSE file for details.
 
-using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
-using System.Threading;
 
 using BEditor.Data;
 using BEditor.Data.Primitive;
@@ -19,8 +17,6 @@ using BEditor.Drawing.Pixel;
 using BEditor.Graphics;
 using BEditor.Media;
 using BEditor.Primitive.Resources;
-
-using SkiaSharp;
 
 namespace BEditor.Primitive.Objects
 {
@@ -54,7 +50,7 @@ namespace BEditor.Primitive.Objects
             nameof(CharacterSpacing),
             owner => owner.CharacterSpacing,
             (owner, obj) => owner.CharacterSpacing = obj,
-            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata("CharacterSpacing", 0, float.NaN, 0)).Serialize());
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.CharacterSpacing, 0, float.NaN, 0)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="Color"/> property.
@@ -75,33 +71,18 @@ namespace BEditor.Primitive.Objects
             EditingPropertyOptions<FontProperty>.Create(new FontPropertyMetadata()).Serialize());
 
         /// <summary>
-        /// Defines the <see cref="HorizontalAlign"/> property.
+        /// Defines the <see cref="TextAlignment"/> property.
         /// </summary>
-        public static readonly DirectProperty<Text, SelectorProperty> HorizontalAlignProperty = EditingProperty.RegisterDirect<SelectorProperty, Text>(
-            nameof(HorizontalAlign),
-            owner => owner.HorizontalAlign,
-            (owner, obj) => owner.HorizontalAlign = obj,
-            EditingPropertyOptions<SelectorProperty>.Create(new SelectorPropertyMetadata(Strings.HorizontalAlignment, new[]
+        public static readonly DirectProperty<Text, SelectorProperty> TextAlignmentProperty = EditingProperty.RegisterDirect<SelectorProperty, Text>(
+            nameof(TextAlignment),
+            owner => owner.TextAlignment,
+            (owner, obj) => owner.TextAlignment = obj,
+            EditingPropertyOptions<SelectorProperty>.Create(new SelectorPropertyMetadata(Strings.Alignment, new[]
             {
                 Strings.Left,
                 Strings.Center,
                 Strings.Right,
             })).Serialize());
-
-        /// <summary>
-        /// Defines the <see cref="VerticalAlign"/> property.
-        /// </summary>
-        [Obsolete("Obsolete.")]
-        public static readonly DirectProperty<Text, SelectorProperty> VerticalAlignProperty = EditingProperty.RegisterDirect<SelectorProperty, Text>(
-            nameof(VerticalAlign),
-            owner => owner.VerticalAlign,
-            (owner, obj) => owner.VerticalAlign = obj,
-            EditingPropertyOptions<SelectorProperty>.Create(new SelectorPropertyMetadata(Strings.VerticalAlignment, new[]
-            {
-                Strings.Top,
-                Strings.Center,
-                Strings.Bottom,
-            })));
 
         /// <summary>
         /// Defines the <see cref="Document"/> property.
@@ -176,14 +157,7 @@ namespace BEditor.Primitive.Objects
         /// Gets the horizontal alignment of the text.
         /// </summary>
         [AllowNull]
-        public SelectorProperty HorizontalAlign { get; private set; }
-
-        /// <summary>
-        /// Gets the vertical alignment of the text.
-        /// </summary>
-        [AllowNull]
-        [Obsolete("Obsolete.")]
-        public SelectorProperty VerticalAlign { get; private set; }
+        public SelectorProperty TextAlignment { get; private set; }
 
         /// <summary>
         /// Gets the text.
@@ -216,7 +190,7 @@ namespace BEditor.Primitive.Objects
             yield return CharacterSpacing;
             yield return Color;
             yield return Font;
-            yield return HorizontalAlign;
+            yield return TextAlignment;
             yield return Document;
             yield return IsMultiple;
             yield return AlignBaseline;
@@ -246,7 +220,7 @@ namespace BEditor.Primitive.Objects
         protected override void OnLoad()
         {
             base.OnLoad();
-            _formattedText = new(string.Empty, Font.Value, 16, TextAlignment.Left, new FormattedTextStyleSpan[] { new(0, 0..^1, Color.Value) });
+            _formattedText = new(string.Empty, Font.Value, 16, Drawing.TextAlignment.Left, new FormattedTextStyleSpan[] { new(0, 0..^1, Color.Value) });
         }
 
         /// <inheritdoc/>
@@ -263,7 +237,7 @@ namespace BEditor.Primitive.Objects
             _formattedText.FontSize = Size[frame];
             _formattedText.LineSpacing = LineSpacing[frame];
             _formattedText.CharacterSpacing = CharacterSpacing[frame];
-            _formattedText.TextAlignment = (TextAlignment)HorizontalAlign.Index;
+            _formattedText.TextAlignment = (TextAlignment)TextAlignment.Index;
             _formattedText.AlignBaseline = AlignBaseline.Value;
             _formattedText.Spans[0] = new(0, 0..^1, Color.Value);
         }
