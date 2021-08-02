@@ -5,16 +5,9 @@
 ## RefreshAuth
 ```
 POST /api/refreshauth
+Authorization: Token リフレッシュトークン
 ```
 トークンを更新します。
-
-### Request body
-``` Json
-{
-    "type": "refresh_token",
-    "token": "リフレッシュトークン"
-}
-```
 
 ### Response body
 ``` Json
@@ -74,16 +67,10 @@ POST /api/signup
 
 ## GetAccountInfo
 ```
-POST /api/getAccountInfo
+GET /api/getAccountInfo
+Authorization: Token アクセストークン
 ```
 アカウント情報を取得します。
-
-### Request body
-``` Json
-{
-    "access_token": "アクセストークン"
-}
-```
 
 ### Response body
 ``` Json
@@ -96,13 +83,13 @@ POST /api/getAccountInfo
 ## Update
 ```
 POST /api/update
+Authorization: Token アクセストークン
 ```
 アカウント情報を更新します。
 
 ### Request body
 ``` Json
 {
-    "access_token": "アクセストークン",
     "email": "メールアドレス",
     "password": "パスワード",
     "displayname": "表示名"
@@ -121,15 +108,9 @@ POST /api/update
 ## DeleteAccount
 ```
 POST /api/deleteAccount
+Authorization: Token アクセストークン
 ```
 アカウントを削除します。
-
-### Request body
-``` Json
-{
-    "access_token": "アクセストークン"
-}
-```
 
 ## SendPasswordResetEmail
 ```
@@ -147,10 +128,10 @@ POST /api/sendPasswordResetEmail
 # パッケージ
 ## Upload
 ```
-POST /api/upload?token={token}
+POST /api/upload
+Authorization: Token アクセストークン
 ```
 パッケージをアップロードします。
-* token: アクセストークン
 
 ### Request body
 * パッケージファイル
@@ -169,15 +150,9 @@ POST /api/upload?token={token}
 ## GetPackages
 ```
 POST /api/getPackages
+Authorization: Token アクセストークン
 ```
 アップロードしたパッケージを取得します。
-
-### Request body
-``` Json
-{
-    "access_token": "アクセストークン"
-}
-```
 
 ### Response body
 ``` Json

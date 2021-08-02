@@ -6,6 +6,7 @@
 // of the MIT license. See the LICENSE file for details.
 
 using System;
+using System.Collections.Generic;
 using System.Text.Json.Serialization;
 
 namespace BEditor.Packaging
@@ -13,7 +14,7 @@ namespace BEditor.Packaging
     /// <summary>
     /// Indicates the version of the package.
     /// </summary>
-    public class PackageVersion
+    public class PackageVersion : IEquatable<PackageVersion?>
     {
         /// <summary>
         /// Gets or sets the version of the package.
@@ -44,5 +45,50 @@ namespace BEditor.Packaging
         /// </summary>
         [JsonPropertyName("release_datetime")]
         public DateTime ReleaseDateTime { get; set; }
+
+        /// <summary>
+        /// Determines whether two specified <see cref="PackageVersion"/> objects are equal.
+        /// </summary>
+        /// <param name="left">The first <see cref="PackageVersion"/> object.</param>
+        /// <param name="right">The second <see cref="PackageVersion"/> object.</param>
+        /// <returns>true if v1 equals v2; otherwise, false.</returns>
+        public static bool operator ==(PackageVersion? left, PackageVersion? right)
+        {
+            return EqualityComparer<PackageVersion>.Default.Equals(left, right);
+        }
+
+        /// <summary>
+        /// Determines whether two specified <see cref="PackageVersion"/> objects are not equal.
+        /// </summary>
+        /// <param name="left">The first <see cref="PackageVersion"/> object.</param>
+        /// <param name="right">The second <see cref="PackageVersion"/> object.</param>
+        /// <returns>true if v1 does not equal v2; otherwise, false.</returns>
+        public static bool operator !=(PackageVersion? left, PackageVersion? right)
+        {
+            return !(left == right);
+        }
+
+        /// <inheritdoc/>
+        public override bool Equals(object? obj)
+        {
+            return Equals(obj as PackageVersion);
+        }
+
+        /// <inheritdoc/>
+        public bool Equals(PackageVersion? other)
+        {
+            return other != null &&
+                   Version == other.Version &&
+                   DownloadUrl == other.DownloadUrl &&
+                   UpdateNote == other.UpdateNote &&
+                   UpdateNoteShort == other.UpdateNoteShort &&
+                   ReleaseDateTime == other.ReleaseDateTime;
+        }
+
+        /// <inheritdoc/>
+        public override int GetHashCode()
+        {
+            return HashCode.Combine(Version, DownloadUrl, UpdateNote, UpdateNoteShort, ReleaseDateTime);
+        }
     }
 }

@@ -6,6 +6,7 @@
 // of the MIT license. See the LICENSE file for details.
 
 using System;
+using System.Collections.Generic;
 using System.Text.Json.Serialization;
 
 namespace BEditor.Packaging
@@ -13,7 +14,7 @@ namespace BEditor.Packaging
     /// <summary>
     /// Represents the package of the plugin.
     /// </summary>
-    public sealed class Package
+    public sealed class Package : IEquatable<Package?>
     {
         /// <summary>
         /// Gets or sets the assembly name of the plugin.
@@ -74,5 +75,65 @@ namespace BEditor.Packaging
         /// </summary>
         [JsonPropertyName("versions")]
         public PackageVersion[] Versions { get; set; } = Array.Empty<PackageVersion>();
+
+        /// <summary>
+        /// Determines whether two specified <see cref="Package"/> objects are equal.
+        /// </summary>
+        /// <param name="left">The first <see cref="Package"/> object.</param>
+        /// <param name="right">The second <see cref="Package"/> object.</param>
+        /// <returns>true if v1 equals v2; otherwise, false.</returns>
+        public static bool operator ==(Package? left, Package? right)
+        {
+            return EqualityComparer<Package>.Default.Equals(left, right);
+        }
+
+        /// <summary>
+        /// Determines whether two specified <see cref="Package"/> objects are not equal.
+        /// </summary>
+        /// <param name="left">The first <see cref="Package"/> object.</param>
+        /// <param name="right">The second <see cref="Package"/> object.</param>
+        /// <returns>true if v1 does not equal v2; otherwise, false.</returns>
+        public static bool operator !=(Package? left, Package? right)
+        {
+            return !(left == right);
+        }
+
+        /// <inheritdoc/>
+        public override bool Equals(object? obj)
+        {
+            return Equals(obj as Package);
+        }
+
+        /// <inheritdoc/>
+        public bool Equals(Package? other)
+        {
+            return other != null &&
+                   MainAssembly == other.MainAssembly &&
+                   Name == other.Name &&
+                   Author == other.Author &&
+                   HomePage == other.HomePage &&
+                   DescriptionShort == other.DescriptionShort &&
+                   Description == other.Description &&
+                   Tag == other.Tag &&
+                   Id.Equals(other.Id) &&
+                   License == other.License;
+        }
+
+        /// <inheritdoc/>
+        public override int GetHashCode()
+        {
+            var hash = default(HashCode);
+            hash.Add(MainAssembly);
+            hash.Add(Name);
+            hash.Add(Author);
+            hash.Add(HomePage);
+            hash.Add(DescriptionShort);
+            hash.Add(Description);
+            hash.Add(Tag);
+            hash.Add(Id);
+            hash.Add(License);
+            hash.Add(Versions);
+            return hash.ToHashCode();
+        }
     }
 }

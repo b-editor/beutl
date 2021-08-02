@@ -1249,6 +1249,50 @@
         <member name="M:BEditor.Primitive.Effects.Erode.GetProperties">
             <inheritdoc/>
         </member>
+        <member name="T:BEditor.Primitive.Effects.FlatShadow">
+            <summary>
+            The flat shadow.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.FlatShadow.AngleProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.FlatShadow.Angle"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.FlatShadow.LengthProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.FlatShadow.Length"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.FlatShadow.ColorProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.FlatShadow.Color"/> property.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.FlatShadow.Name">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.FlatShadow.Angle">
+            <summary>
+            Gets the angle.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.FlatShadow.Length">
+            <summary>
+            Gets the shadow length.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.FlatShadow.Color">
+            <summary>
+            Gets the color.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.FlatShadow.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.FlatShadow.GetProperties">
+            <inheritdoc/>
+        </member>
         <member name="T:BEditor.Primitive.Effects.Grayscale">
             <summary>
             Represents the <see cref="T:BEditor.Data.Primitive.ImageEffect"/> of grayscaling an image.
@@ -1709,6 +1753,23 @@
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Primitive.Effects.Noise.GetProperties">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Primitive.Effects.PartsDisassembly">
+            <summary>
+            This effect decomposes the pearl in an image.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.PartsDisassembly.Name">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.PartsDisassembly.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.PartsDisassembly.Apply(BEditor.Data.EffectApplyArgs{System.Collections.Generic.IEnumerable{BEditor.Graphics.ImageInfo}})">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.PartsDisassembly.GetProperties">
             <inheritdoc/>
         </member>
         <member name="T:BEditor.Primitive.Effects.PointLightDiffuse">
@@ -2773,7 +2834,7 @@
         <member name="M:BEditor.Primitive.Objects.SceneObject.GetProperties">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Primitive.Objects.SceneObject.SetObjectData(System.Text.Json.JsonElement)">
+        <member name="M:BEditor.Primitive.Objects.SceneObject.SetObjectData(BEditor.Data.DeserializeContext)">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Primitive.Objects.SceneObject.GetObjectData(System.Text.Json.Utf8JsonWriter)">
@@ -3505,6 +3566,11 @@
               Looks up a localized string similar to Fix the size.
             </summary>
         </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.FlatShadow">
+            <summary>
+              Looks up a localized string similar to Flat Shadow.
+            </summary>
+        </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Fov">
             <summary>
               Looks up a localized string similar to viewing angle.
@@ -3610,6 +3676,11 @@
               Looks up a localized string similar to Left.
             </summary>
         </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Length">
+            <summary>
+              Looks up a localized string similar to Length.
+            </summary>
+        </member>
         <member name="P:BEditor.Primitive.Resources.Strings.LinearGradient">
             <summary>
               Looks up a localized string similar to Liear gradient.
@@ -3698,6 +3769,11 @@
         <member name="P:BEditor.Primitive.Resources.Strings.Opacity">
             <summary>
               Looks up a localized string similar to Opacity.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.PartsDisassembly">
+            <summary>
+              Looks up a localized string similar to Parts disassembly.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.PathToImageObject">

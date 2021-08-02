@@ -110,7 +110,7 @@ namespace BEditor.Drawing
 
                     var obj = (ColorPalette)FormatterServices.GetUninitializedObject(typeof(ColorPalette));
                     using var doc = JsonDocument.Parse(stream);
-                    obj.SetObjectData(doc.RootElement);
+                    obj.SetObjectData(new(doc.RootElement));
 
                     obj.Name = Path.GetFileNameWithoutExtension(item);
 

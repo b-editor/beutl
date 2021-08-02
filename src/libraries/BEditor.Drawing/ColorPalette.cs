@@ -57,10 +57,10 @@ namespace BEditor.Drawing
         }
 
         /// <inheritdoc/>
-        public override void SetObjectData(JsonElement element)
+        public override void SetObjectData(DeserializeContext context)
         {
             Id = Guid.NewGuid();
-            SetValue(ColorsProperty, ColorsProperty.Serializer!.Read(element));
+            SetValue(ColorsProperty, ColorsProperty.Serializer!.Read(context));
         }
 
         private static void WriteDictionary(Utf8JsonWriter arg1, Dictionary<string, Color> arg2)

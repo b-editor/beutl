@@ -83,6 +83,17 @@ namespace BEditor.Data.Property
             }
         }
 
+        /// <inheritdoc/>
+        public override EffectElement Parent
+        {
+            get => base.Parent;
+            set
+            {
+                base.Parent = value;
+                EasingType.Parent = this;
+            }
+        }
+
         /// <summary>
         /// Gets or sets an optional value.
         /// </summary>
@@ -95,17 +106,6 @@ namespace BEditor.Data.Property
         {
             get => _easingData ?? EasingMetadata.LoadedEasingFunc[0];
             set => SetAndRaise(value, ref _easingData, _easingDataArgs);
-        }
-
-        /// <inheritdoc/>
-        public override EffectElement Parent
-        {
-            get => base.Parent;
-            set
-            {
-                base.Parent = value;
-                EasingType.Parent = this;
-            }
         }
 
         /// <summary>
@@ -269,9 +269,10 @@ namespace BEditor.Data.Property
         }
 
         /// <inheritdoc/>
-        public override void SetObjectData(JsonElement element)
+        public override void SetObjectData(DeserializeContext context)
         {
-            base.SetObjectData(element);
+            base.SetObjectData(context);
+            var element = context.Element;
 
             // 古いバージョン
             if (element.TryGetProperty("Frames", out var frme))
@@ -304,11 +305,12 @@ namespace BEditor.Data.Property
             if (type is null)
             {
                 EasingType = EasingMetadata.LoadedEasingFunc[0].CreateFunc();
+                EasingType.Parent = this;
             }
             else
             {
                 EasingType = (EasingFunc)FormatterServices.GetUninitializedObject(type);
-                EasingType.SetObjectData(easing);
+                EasingType.SetObjectData(new(easing, this));
             }
         }
 

@@ -183,6 +183,11 @@
                 <!--拡大表示-->
                 <MenuItem Click="ZoomIn" Header="{x:Static prop:Strings.ZoomIn}" />
 
+                <MenuItem
+                    Click="PackingProject"
+                    Header="{x:Static prop:Strings.PackingTheProject}"
+                    IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}" />
+                
             </MenuItem>
             <MenuItem Header="{x:Static prop:Strings.Plugins}" x:Name="Plugins">
 

@@ -110,7 +110,7 @@ namespace BEditor.Models
 
         Project IParentSingle<Project>.Child => Project;
 
-        public AudioContext AudioContext { get; set; }
+        public object AudioContext { get; set; }
 
         public event EventHandler<ProjectOpenedEventArgs> ProjectOpened;
         public event EventHandler Exit;
@@ -125,7 +125,7 @@ namespace BEditor.Models
             ProjectOpened?.Invoke(this, new(project));
         }
 
-        public async void SaveAppConfig(Project project, string directory)
+        public void SaveAppConfig(Project project, string directory)
         {
             static void IfNotExistCreateDir(string dir)
             {
@@ -145,8 +145,9 @@ namespace BEditor.Models
                     BackgroundType = ProjectConfig.GetBackgroundType(project),
                 };
 
-                await using var stream = new FileStream(Path.Combine(directory, ".config"), FileMode.Create);
-                await JsonSerializer.SerializeAsync(stream, projConfig, PackageFile._serializerOptions);
+                using var writer = new StreamWriter(Path.Combine(directory, ".config"));
+                var json = JsonSerializer.Serialize(projConfig, PackageFile._serializerOptions);
+                writer.Write(json);
             }
 
             {
@@ -165,8 +166,9 @@ namespace BEditor.Models
                         TimelineVerticalOffset = scene.TimeLineVerticalOffset
                     };
 
-                    await using var stream = new FileStream(sceneCache, FileMode.Create);
-                    await JsonSerializer.SerializeAsync(stream, cacheObj, PackageFile._serializerOptions);
+                    using var writer = new StreamWriter(sceneCache);
+                    var json = JsonSerializer.Serialize(cacheObj, PackageFile._serializerOptions);
+                    writer.Write(json);
                 }
             }
         }

@@ -830,4 +830,53 @@ Vulkan:
   <data name="AddNewPalette" xml:space="preserve">
     <value>Add a new palette</value>
   </data>
+  <data name="AudioProfile" xml:space="preserve">
+    <value>Audio profile</value>
+  </data>
+  <data name="PackingTheProject" xml:space="preserve">
+    <value>Packing the project</value>
+  </data>
+  <data name="ProjectPackage" xml:space="preserve">
+    <value>Project package</value>
+  </data>
+  <data name="FailedToPackProject" xml:space="preserve">
+    <value>Failed to pack project</value>
+  </data>
+  <data name="SelectLocationToUnpackProject" xml:space="preserve">
+    <value>Select a location to unpack the project</value>
+  </data>
+  <data name="TheFollowingPluginsAreRrequiredToOpenProject" xml:space="preserve">
+    <value>The following plug-ins are required to open this project.</value>
+  </data>
+  <data name="InstallRequiredPlugins" xml:space="preserve">
+    <value>Install the required plugins</value>
+  </data>
+  <data name="InstallNow" xml:space="preserve">
+    <value>Install now</value>
+  </data>
+  <data name="InstallLater" xml:space="preserve">
+    <value>Install later</value>
+  </data>
+  <data name="NotFoundPackageFromRegisteredPackageSource" xml:space="preserve">
+    <value>The package was not found in the registered package sources.</value>
+  </data>
+  <data name="Unknown" xml:space="preserve">
+    <value>Unknown</value>
+  </data>
+  <data name="Dependency" xml:space="preserve">
+    <value>Dependency</value>
+  </data>
+  <data name="ThePackageHasBeenCreated" xml:space="preserve">
+    <value>The package has been created</value>
+  </data>
+  <data name="RequiredPlugins" xml:space="preserve">
+    <value>Required plugins</value>
+  </data>
+  <data name="TryingToOpenProjectPackage" xml:space="preserve">
+    <value>Trying to open project package</value>
+  </data>
+  <data name="YouDoNotHaveTheRequiredPluginsInstalled" xml:space="preserve">
+    <value>You do not have the required plugins installed.
+Do you want to install it now?</value>
+  </data>
 </root>

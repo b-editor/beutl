@@ -628,6 +628,15 @@ namespace BEditor.Primitive.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Flat Shadow.
+        /// </summary>
+        internal static string FlatShadow {
+            get {
+                return ResourceManager.GetString("FlatShadow", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to viewing angle.
         /// </summary>
         internal static string Fov {
@@ -817,6 +826,15 @@ namespace BEditor.Primitive.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Length.
+        /// </summary>
+        internal static string Length {
+            get {
+                return ResourceManager.GetString("Length", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Liear gradient.
         /// </summary>
         internal static string LinearGradient {
@@ -975,6 +993,15 @@ namespace BEditor.Primitive.Resources {
         internal static string Opacity {
             get {
                 return ResourceManager.GetString("Opacity", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Parts disassembly.
+        /// </summary>
+        internal static string PartsDisassembly {
+            get {
+                return ResourceManager.GetString("PartsDisassembly", resourceCulture);
             }
         }
         

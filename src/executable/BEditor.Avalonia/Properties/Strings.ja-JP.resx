@@ -830,4 +830,53 @@ Vulkan:
   <data name="AddNewPalette" xml:space="preserve">
     <value>新しいパレットを追加</value>
   </data>
+  <data name="AudioProfile" xml:space="preserve">
+    <value>オーディオプロファイル</value>
+  </data>
+  <data name="PackingTheProject" xml:space="preserve">
+    <value>プロジェクトを梱包</value>
+  </data>
+  <data name="ProjectPackage" xml:space="preserve">
+    <value>プロジェクトパッケージ</value>
+  </data>
+  <data name="FailedToPackProject" xml:space="preserve">
+    <value>プロジェクトの梱包に失敗しました</value>
+  </data>
+  <data name="SelectLocationToUnpackProject" xml:space="preserve">
+    <value>プロジェクトを解凍する場所の選択</value>
+  </data>
+  <data name="TheFollowingPluginsAreRrequiredToOpenProject" xml:space="preserve">
+    <value>このプロジェクトを開くには、以下のプラグインが必要です。</value>
+  </data>
+  <data name="InstallRequiredPlugins" xml:space="preserve">
+    <value>必要なプラグインをインストール</value>
+  </data>
+  <data name="InstallNow" xml:space="preserve">
+    <value>今すぐインストール</value>
+  </data>
+  <data name="InstallLater" xml:space="preserve">
+    <value>後でインストール</value>
+  </data>
+  <data name="NotFoundPackageFromRegisteredPackageSource" xml:space="preserve">
+    <value>登録されているパッケージソースからパッケージがみつかりませんでした。</value>
+  </data>
+  <data name="Unknown" xml:space="preserve">
+    <value>不明</value>
+  </data>
+  <data name="Dependency" xml:space="preserve">
+    <value>依存関係</value>
+  </data>
+  <data name="ThePackageHasBeenCreated" xml:space="preserve">
+    <value>パッケージが作成されました</value>
+  </data>
+  <data name="RequiredPlugins" xml:space="preserve">
+    <value>必要なプラグイン</value>
+  </data>
+  <data name="TryingToOpenProjectPackage" xml:space="preserve">
+    <value>プロジェクトパッケージを開こうとしています</value>
+  </data>
+  <data name="YouDoNotHaveTheRequiredPluginsInstalled" xml:space="preserve">
+    <value>必要なプラグインがインストールされていません。
+今すぐインストールしますか?</value>
+  </data>
 </root>
