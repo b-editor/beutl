@@ -2872,6 +2872,11 @@
             Defines the <see cref="P:BEditor.Primitive.Objects.Text.LineSpacing"/> property.
             </summary>
         </member>
+        <member name="F:BEditor.Primitive.Objects.Text.CharacterSpacingProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Objects.Text.CharacterSpacing"/> property.
+            </summary>
+        </member>
         <member name="F:BEditor.Primitive.Objects.Text.ColorProperty">
             <summary>
             Defines the <see cref="P:BEditor.Primitive.Objects.Text.Color"/> property.
@@ -2917,42 +2922,47 @@
         </member>
         <member name="P:BEditor.Primitive.Objects.Text.Size">
             <summary>
-            Gets the size of the string to be drawn.
+            Gets the size of the text.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Objects.Text.LineSpacing">
             <summary>
-            Gets the line spacing of the string to be drawn.
+            Gets the line spacing of the text.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Objects.Text.CharacterSpacing">
+            <summary>
+            Gets the character spacing of the text.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Objects.Text.Color">
             <summary>
-            Gets the color of string to be drawn.
+            Gets the color of text.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Objects.Text.Font">
             <summary>
-            Gets the font of the string to be drawn.
+            Gets the font of the text.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Objects.Text.HorizontalAlign">
             <summary>
-            Gets the horizontal alignment of the string to be drawn.
+            Gets the horizontal alignment of the text.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Objects.Text.VerticalAlign">
             <summary>
-            Gets the vertical alignment of the string to be drawn.
+            Gets the vertical alignment of the text.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Objects.Text.Document">
             <summary>
-            Gets the string to be drawn.
+            Gets the text.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Objects.Text.IsMultiple">
             <summary>
-            Gets the string to be drawn.
+            Gets the text.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Objects.Text.AlignBaseline">
@@ -3193,6 +3203,11 @@
         <member name="P:BEditor.Primitive.Resources.Strings.AdjustCoordinates">
             <summary>
               Looks up a localized string similar to Adjust coordinates.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.AlignToBaseline">
+            <summary>
+              Looks up a localized string similar to Align to baseline.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Anchors">

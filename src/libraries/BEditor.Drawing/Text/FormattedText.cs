@@ -30,6 +30,8 @@ namespace BEditor.Drawing
         private string _text;
         private Font _font;
         private float _fontSize;
+        private float _lineSpacing;
+        private float _characterSpacing;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="FormattedText"/> class.
@@ -130,6 +132,24 @@ namespace BEditor.Drawing
         public bool AlignBaseline { get; set; }
 
         /// <summary>
+        /// Gets or sets the line spacing of the text.
+        /// </summary>
+        public float LineSpacing
+        {
+            get => _lineSpacing;
+            set => Set(ref _lineSpacing, value);
+        }
+
+        /// <summary>
+        /// Gets or sets the character spacing of the text.
+        /// </summary>
+        public float CharacterSpacing
+        {
+            get => _characterSpacing;
+            set => Set(ref _characterSpacing, value);
+        }
+
+        /// <summary>
         /// Gets or sets a collection of spans that describe the formatting of subsections of the text.
         /// </summary>
         public FormattedTextStyleSpan[] Spans { get; set; }
@@ -182,6 +202,7 @@ namespace BEditor.Drawing
                         canvas.DrawText(c.ToString(), (bounds.Width / 2) - bounds.MidX, -_fontMetrics.Ascent, _paint);
 
                         prevRight += w;
+                        prevRight += CharacterSpacing;
 
                         yield return new(bmp.ToImage32(), resultRect);
                     }
@@ -198,6 +219,7 @@ namespace BEditor.Drawing
                         canvas.DrawText(c.ToString(), (bounds.Width / 2) - bounds.MidX, (bounds.Height / 2) - bounds.MidY, _paint);
 
                         prevRight += w;
+                        prevRight += CharacterSpacing;
 
                         yield return new(bmp.ToImage32(), resultRect);
                     }
@@ -247,6 +269,7 @@ namespace BEditor.Drawing
 
                     canvas.ResetMatrix();
                     prevRight += w;
+                    prevRight += CharacterSpacing;
                 }
             }
 
@@ -297,7 +320,7 @@ namespace BEditor.Drawing
             _paint.Typeface = Font.GetTypeface();
             _fontMetrics = _paint.FontMetrics;
 
-            var curY = 0F;
+            var curY = 0f;
 
             var metrics = _paint.FontMetrics;
             var mTop = metrics.Top; // ベースラインからの最大距離 (上) (0以上)
@@ -320,8 +343,16 @@ namespace BEditor.Drawing
             {
                 var line = lines[i];
                 var lineWidth = _paint.MeasureText(line);
+                FormattedTextLine? item;
+                if (i is 0)
+                {
+                    item = new FormattedTextLine(line, curY, lineWidth + (CharacterSpacing * (line.Length - 1)), _lineHeight);
+                }
+                else
+                {
+                    item = new FormattedTextLine(line, curY, lineWidth + (CharacterSpacing * (line.Length - 1)), _lineHeight + LineSpacing);
+                }
 
-                var item = new FormattedTextLine(line, curY, lineWidth, _lineHeight);
                 _lines.Add(item);
 
                 if (maxWidth < item.Width)
@@ -332,6 +363,7 @@ namespace BEditor.Drawing
                 maxHeight += item.Height;
                 curY += _lineHeight;
                 curY += mLeading;
+                curY += LineSpacing;
             }
 
             if (_lines.Count == 0)

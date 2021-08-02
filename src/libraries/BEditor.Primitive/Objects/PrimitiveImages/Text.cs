@@ -48,6 +48,15 @@ namespace BEditor.Primitive.Objects
             EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.LineSpacing, 0, float.NaN, 0)).Serialize());
 
         /// <summary>
+        /// Defines the <see cref="CharacterSpacing"/> property.
+        /// </summary>
+        public static readonly DirectProperty<Text, EaseProperty> CharacterSpacingProperty = EditingProperty.RegisterDirect<EaseProperty, Text>(
+            nameof(CharacterSpacing),
+            owner => owner.CharacterSpacing,
+            (owner, obj) => owner.CharacterSpacing = obj,
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata("CharacterSpacing", 0, float.NaN, 0)).Serialize());
+
+        /// <summary>
         /// Defines the <see cref="Color"/> property.
         /// </summary>
         public static readonly DirectProperty<Text, ColorProperty> ColorProperty = EditingProperty.RegisterDirect<ColorProperty, Text>(
@@ -134,50 +143,56 @@ namespace BEditor.Primitive.Objects
         public override string Name => Strings.Text;
 
         /// <summary>
-        /// Gets the size of the string to be drawn.
+        /// Gets the size of the text.
         /// </summary>
         [AllowNull]
         public EaseProperty Size { get; private set; }
 
         /// <summary>
-        /// Gets the line spacing of the string to be drawn.
+        /// Gets the line spacing of the text.
         /// </summary>
         [AllowNull]
         public EaseProperty LineSpacing { get; private set; }
 
         /// <summary>
-        /// Gets the color of string to be drawn.
+        /// Gets the character spacing of the text.
+        /// </summary>
+        [AllowNull]
+        public EaseProperty CharacterSpacing { get; private set; }
+
+        /// <summary>
+        /// Gets the color of text.
         /// </summary>
         [AllowNull]
         public ColorProperty Color { get; private set; }
 
         /// <summary>
-        /// Gets the font of the string to be drawn.
+        /// Gets the font of the text.
         /// </summary>
         [AllowNull]
         public FontProperty Font { get; private set; }
 
         /// <summary>
-        /// Gets the horizontal alignment of the string to be drawn.
+        /// Gets the horizontal alignment of the text.
         /// </summary>
         [AllowNull]
         public SelectorProperty HorizontalAlign { get; private set; }
 
         /// <summary>
-        /// Gets the vertical alignment of the string to be drawn.
+        /// Gets the vertical alignment of the text.
         /// </summary>
         [AllowNull]
         [Obsolete("Obsolete.")]
         public SelectorProperty VerticalAlign { get; private set; }
 
         /// <summary>
-        /// Gets the string to be drawn.
+        /// Gets the text.
         /// </summary>
         [AllowNull]
         public DocumentProperty Document { get; private set; }
 
         /// <summary>
-        /// Gets the string to be drawn.
+        /// Gets the text.
         /// </summary>
         [AllowNull]
         public CheckProperty IsMultiple { get; private set; }
@@ -198,6 +213,7 @@ namespace BEditor.Primitive.Objects
             yield return Material;
             yield return Size;
             yield return LineSpacing;
+            yield return CharacterSpacing;
             yield return Color;
             yield return Font;
             yield return HorizontalAlign;
@@ -245,6 +261,8 @@ namespace BEditor.Primitive.Objects
             _formattedText!.Text = Document.Value;
             _formattedText.Font = Font.Value;
             _formattedText.FontSize = Size[frame];
+            _formattedText.LineSpacing = LineSpacing[frame];
+            _formattedText.CharacterSpacing = CharacterSpacing[frame];
             _formattedText.TextAlignment = (TextAlignment)HorizontalAlign.Index;
             _formattedText.AlignBaseline = AlignBaseline.Value;
             _formattedText.Spans[0] = new(0, 0..^1, Color.Value);
@@ -259,6 +277,7 @@ namespace BEditor.Primitive.Objects
             {
                 return new ImageInfo(c.Image, _ =>
                 {
+                    var a = bounds;
                     var x = c.Rectangle.X + (c.Rectangle.Width / 2) - (bounds.Width / 2);
                     var y = c.Rectangle.Y + (c.Rectangle.Height / 2) - (bounds.Height / 2);
                     return new Transform(new(x, -y, 0), default, default, default);
