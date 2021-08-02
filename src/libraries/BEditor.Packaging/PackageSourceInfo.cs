@@ -11,42 +11,54 @@ using System.IO;
 using System.Net.Http;
 using System.Runtime.Serialization;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading.Tasks;
+
+using BEditor.Data;
 
 namespace BEditor.Packaging
 {
     /// <summary>
     /// Represents the package source infomation.
     /// </summary>
-    [DataContract]
-    public sealed class PackageSourceInfo : INotifyPropertyChanged
+    public sealed class PackageSourceInfo : EditingObject
     {
-        private static readonly PropertyChangedEventArgs _urlArgs = new(nameof(Url));
-        private static readonly PropertyChangedEventArgs _nameArgs = new(nameof(Name));
-        private string _name = string.Empty;
-        private Uri? _url = null;
+        /// <summary>
+        /// Defines the <see cref="Url"/> property.
+        /// </summary>
+        public static readonly EditingProperty<Uri?> UrlProperty
+            = EditingProperty.Register<Uri?, PackageSourceInfo>(
+                "url,Url",
+                EditingPropertyOptions<Uri?>.Create().Serialize(
+                    (writer, obj) => writer.WriteStringValue(obj?.ToString() ?? string.Empty),
+                    ctx => ctx.Element.GetString() is string value ? new Uri(value) : null));
 
-        /// <inheritdoc/>
-        public event PropertyChangedEventHandler? PropertyChanged;
+        /// <summary>
+        /// Defines the <see cref="Name"/> property.
+        /// </summary>
+        public static readonly EditingProperty<string> NameProperty
+            = EditingProperty.Register<string, PackageSourceInfo>(
+                "name,Name",
+                EditingPropertyOptions<string>.Create().DefaultValue(string.Empty)!.Serialize()!);
 
         /// <summary>
         /// Gets or sets the url.
         /// </summary>
-        [DataMember]
+        [JsonPropertyName("Url")]
         public Uri? Url
         {
-            get => _url;
-            set => SetValue(value, ref _url, _urlArgs);
+            get => GetValue(UrlProperty);
+            set => SetValue(UrlProperty, value);
         }
 
         /// <summary>
         /// Gets or sets the name.
         /// </summary>
-        [DataMember]
+        [JsonPropertyName("Name")]
         public string Name
         {
-            get => _name;
-            set => SetValue(value, ref _name, _nameArgs);
+            get => GetValue(NameProperty);
+            set => SetValue(NameProperty, value);
         }
 
         /// <summary>
@@ -83,20 +95,6 @@ namespace BEditor.Packaging
             catch
             {
                 return null;
-            }
-        }
-
-        private void RaisePropertyChanged(PropertyChangedEventArgs args)
-        {
-            PropertyChanged?.Invoke(this, args);
-        }
-
-        private void SetValue<T1>(T1 src, ref T1 dst, PropertyChangedEventArgs args)
-        {
-            if (src == null || !src.Equals(dst))
-            {
-                dst = src;
-                RaisePropertyChanged(args);
             }
         }
     }

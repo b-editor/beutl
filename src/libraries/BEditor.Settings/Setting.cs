@@ -6,15 +6,15 @@ using System.IO;
 using System.Linq;
 using System.Runtime.Serialization;
 using System.Text;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 
 using BEditor.Packaging;
 
 namespace BEditor
 {
-
-    [DataContract]
-    public class Settings : INotifyPropertyChanged, IExtensibleDataObject
+    public class Settings : INotifyPropertyChanged
     {
         #region Fields
 
@@ -46,70 +46,78 @@ namespace BEditor
 
         #endregion
 
-
         static Settings()
         {
             var path = Path.Combine(ServicesLocator.GetUserFolder(), "settings.json");
             if (!File.Exists(path))
             {
                 Default = new Settings();
-                Serialize.SaveToFile(Default, path);
+                File.WriteAllText(path, JsonSerializer.Serialize(Default, PackageFile._serializerOptions));
             }
             else
             {
-                Default = Serialize.LoadFromFile<Settings>(path) ?? new Settings();
+                Default = JsonSerializer.Deserialize<Settings>(File.ReadAllText(path), PackageFile._serializerOptions) ?? new Settings();
             }
         }
-        private Settings() { }
+
+        public Settings() { }
 
         public event PropertyChangedEventHandler? PropertyChanged;
 
         #region Properties
 
         public static Settings Default { get; }
-        [DataMember]
+
+        [JsonPropertyName(nameof(ClipHeight))]
         public uint ClipHeight
         {
             get => clipHeight;
             set => SetValue(value, ref clipHeight, clipHeightArgs);
         }
-        [DataMember]
+
+        [JsonPropertyName(nameof(UseDarkMode))]
         public bool UseDarkMode
         {
             get => darkMode;
             set => SetValue(value, ref darkMode, darkModeArgs);
         }
-        [DataMember]
+
+        [JsonPropertyName(nameof(AutoBackUp))]
         public bool AutoBackUp
         {
             get => autoBackUp;
             set => SetValue(value, ref autoBackUp, autoBackUpArgs);
         }
-        [DataMember]
+
+        [JsonPropertyName(nameof(BackUpInterval))]
         public uint BackUpInterval
         {
             get => backUpInterval ??= 10;
             set => SetValue(value, ref backUpInterval, backUpIntervalArgs);
         }
-        [DataMember]
+
+        [JsonPropertyName(nameof(LastTimeFolder))]
         public string LastTimeFolder
         {
             get => lastTimeFolder ??= "";
             set => SetValue(value, ref lastTimeFolder, lastTimeFolderArgs);
         }
-        [DataMember]
+
+        [JsonPropertyName(nameof(WidthOf1Frame))]
         public uint WidthOf1Frame
         {
             get => widthOf1Frame;
             set => SetValue(value, ref widthOf1Frame, widthOf1FrameArgs);
         }
-        [DataMember]
+
+        [JsonPropertyName(nameof(RecentFiles))]
         public ObservableCollection<string> RecentFiles
         {
             get => recentFiles ??= new();
-            private set => recentFiles = new(value.Where(file => File.Exists(file)));
+            set => recentFiles = new(value.Where(file => File.Exists(file)));
         }
-        [DataMember]
+
+        [JsonPropertyName(nameof(IncludeFontDir))]
         public ObservableCollection<string> IncludeFontDir
         {
             get
@@ -163,53 +171,73 @@ namespace BEditor
             }
             set => includeFonts = value;
         }
-        [DataMember]
+
+        [JsonPropertyName(nameof(PackageSources))]
         public ObservableCollection<PackageSourceInfo> PackageSources
         {
             get => packageSources ??= new()
             {
                 new() { Name = "BEditor", Url = new("https://beditor.net/api/packages") }
             };
-            private set => packageSources = value;
+            set => packageSources = value;
         }
-        [DataMember]
+
+        [JsonPropertyName(nameof(Language))]
         public string Language
         {
             get => language ??= CultureInfo.CurrentCulture.Name;
             set => SetValue(value, ref language, langArgs);
         }
-        [DataMember]
+
+        [JsonPropertyName(nameof(ShowStartWindow))]
         public bool ShowStartWindow
         {
             get => showStartWindow;
             set => SetValue(value, ref showStartWindow, showStartWindowArgs);
         }
-        [DataMember]
+
+        [JsonPropertyName(nameof(PrioritizeGPU))]
         public bool PrioritizeGPU
         {
             get => prioritizeGPU;
             set => SetValue(value, ref prioritizeGPU, prioritizeGPUArgs);
         }
-        [DataMember]
+
+        [JsonPropertyName(nameof(GraphicsProfile))]
         public string GraphicsProfile
         {
             get => graphicsProfile ??= "";
             set => SetValue(value, ref graphicsProfile, graphicsProfileArgs);
         }
-        [DataMember]
+
+        [JsonPropertyName(nameof(AudioProfile))]
         public string AudioProfile
         {
             get => audioProfile ??= (OperatingSystem.IsWindows()) ? "XAudio2" : "OpenAL";
             set => SetValue(value, ref audioProfile, audioProfileArgs);
         }
-        public ExtensionDataObject? ExtensionData { get; set; }
 
         #endregion
+
+        public void Save()
+        {
+            File.WriteAllText(
+                Path.Combine(ServicesLocator.GetUserFolder(), "settings.json"),
+                JsonSerializer.Serialize(this, PackageFile._serializerOptions));
+        }
+
+        public async Task SaveAsync()
+        {
+            await File.WriteAllTextAsync(
+                Path.Combine(ServicesLocator.GetUserFolder(), "settings.json"),
+                JsonSerializer.Serialize(this, PackageFile._serializerOptions));
+        }
 
         private void RaisePropertyChanged(PropertyChangedEventArgs args)
         {
             PropertyChanged?.Invoke(this, args);
         }
+
         private void SetValue<T1>(T1 src, ref T1 dst, PropertyChangedEventArgs args)
         {
             if (src == null || !src.Equals(dst))
@@ -218,7 +246,5 @@ namespace BEditor
                 RaisePropertyChanged(args);
             }
         }
-        public void Save() => Serialize.SaveToFile(this, Path.Combine(ServicesLocator.GetUserFolder(), "settings.json"));
-        public Task SaveAsync() => Task.Run(() => Serialize.SaveToFile(this, Path.Combine(ServicesLocator.GetUserFolder(), "settings.json")));
     }
 }

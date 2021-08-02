@@ -2,4 +2,8 @@
 
     <Import Project="..\..\..\props\analyzer.props" />
 
+    <ItemGroup>
+      <ProjectReference Include="..\BEditor.Base\BEditor.Base.csproj" />
+    </ItemGroup>
+
 </Project>

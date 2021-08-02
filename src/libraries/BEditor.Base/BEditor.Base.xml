@@ -182,6 +182,13 @@
             <param name="options">The options to be specified.</param>
             <returns>An <see cref="T:BEditor.Data.EditingPropertyOptions`1"/> instance.</returns>
         </member>
+        <member name="M:BEditor.Data.DataExtensions.Serialize(BEditor.Data.EditingPropertyOptions{System.Boolean})">
+            <summary>
+            Specifies the serializer for the property.
+            </summary>
+            <param name="options">The options to be specified.</param>
+            <returns>An <see cref="T:BEditor.Data.EditingPropertyOptions`1"/> instance.</returns>
+        </member>
         <member name="M:BEditor.Data.DataExtensions.Serialize(BEditor.Data.EditingPropertyOptions{System.Int32})">
             <summary>
             Specifies the serializer for the property.
@@ -250,6 +257,16 @@
             Specifies the serializer for the property.
             </summary>
             <param name="options">The options to be specified.</param>
+            <returns>An <see cref="T:BEditor.Data.EditingPropertyOptions`1"/> instance.</returns>
+        </member>
+        <member name="M:BEditor.Data.DataExtensions.Serialize``2(BEditor.Data.EditingPropertyOptions{``0},System.Func{BEditor.Data.EditingPropertyOptions{``1},BEditor.Data.EditingPropertyOptions{``1}})">
+            <summary>
+            Specifies the serializer for the property.
+            </summary>
+            <typeparam name="TCollection">The type of the collection.</typeparam>
+            <typeparam name="TElement">The type of the element.</typeparam>
+            <param name="options">The options to be specified.</param>
+            <param name="func">Get the element serializer.</param>
             <returns>An <see cref="T:BEditor.Data.EditingPropertyOptions`1"/> instance.</returns>
         </member>
         <member name="M:BEditor.Data.DataExtensions.GetObservable``1(BEditor.Data.IEditingObject,BEditor.Data.EditingProperty{``0})">
@@ -535,6 +552,13 @@
             <param name="initializer">The value of <see cref="P:BEditor.Data.EditingPropertyOptions`1.Initializer"/>.</param>
             <returns>An <see cref="T:BEditor.Data.EditingPropertyOptions`1"/> instance.</returns>
         </member>
+        <member name="M:BEditor.Data.EditingPropertyOptions`1.DefaultValue(`0)">
+            <summary>
+            Sets the <see cref="T:BEditor.Data.IEditingPropertyInitializer`1"/> that initializes the value of a property.
+            </summary>
+            <param name="defaultValue">The default value.</param>
+            <returns>An <see cref="T:BEditor.Data.EditingPropertyOptions`1"/> instance.</returns>
+        </member>
         <member name="M:BEditor.Data.EditingPropertyOptions`1.Serialize(BEditor.Data.IEditingPropertySerializer{`0})">
             <summary>
             Sets the <see cref="T:BEditor.Data.IEditingPropertySerializer`1"/> to serialize this property.
@@ -555,6 +579,14 @@
             </summary>
             <param name="write">Writes the value to <see cref="T:System.Text.Json.Utf8JsonWriter"/>.</param>
             <param name="read">Reads the value from <see cref="T:System.Text.Json.JsonElement"/>.</param>
+            <returns>An <see cref="T:BEditor.Data.EditingPropertyOptions`1"/> instance.</returns>
+        </member>
+        <member name="M:BEditor.Data.EditingPropertyOptions`1.Serialize(System.Action{System.Text.Json.Utf8JsonWriter,`0},System.Func{BEditor.Data.DeserializeContext,`0})">
+            <summary>
+            Sets the <see cref="T:BEditor.Data.IEditingPropertySerializer`1"/> to serialize this property.
+            </summary>
+            <param name="write">Writes the value to <see cref="T:System.Text.Json.Utf8JsonWriter"/>.</param>
+            <param name="read">Reads the value from <see cref="T:BEditor.Data.DeserializeContext"/>.</param>
             <returns>An <see cref="T:BEditor.Data.EditingPropertyOptions`1"/> instance.</returns>
         </member>
         <member name="M:BEditor.Data.EditingPropertyOptions`1.Disposable(System.Boolean)">
