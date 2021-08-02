@@ -70,6 +70,15 @@ namespace BEditor.Primitive.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Align to baseline.
+        /// </summary>
+        internal static string AlignToBaseline {
+            get {
+                return ResourceManager.GetString("AlignToBaseline", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Anchors.
         /// </summary>
         internal static string Anchors {

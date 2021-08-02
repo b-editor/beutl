@@ -694,4 +694,7 @@
   <data name="DecoderNotFound" xml:space="preserve">
     <value>Decoder not found.</value>
   </data>
+  <data name="AlignToBaseline" xml:space="preserve">
+    <value>Align to baseline</value>
+  </data>
 </root>

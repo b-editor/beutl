@@ -25,7 +25,6 @@ namespace BEditor.Drawing
         private readonly SKPaint _paint;
         private SKFontMetrics _fontMetrics;
         private float _lineHeight;
-        private float _lineOffset;
         private RectangleF _bounds;
         private bool _propertyChanged;
         private string _text;
@@ -126,6 +125,11 @@ namespace BEditor.Drawing
         public TextAlignment TextAlignment { get; set; }
 
         /// <summary>
+        /// Gets or sets the align to the baseline.
+        /// </summary>
+        public bool AlignBaseline { get; set; }
+
+        /// <summary>
         /// Gets or sets a collection of spans that describe the formatting of subsections of the text.
         /// </summary>
         public FormattedTextStyleSpan[] Spans { get; set; }
@@ -142,7 +146,7 @@ namespace BEditor.Drawing
         /// Draws this <see cref="FormattedText"/>.
         /// </summary>
         /// <returns>Returns the drawn image.</returns>
-        public IEnumerable<(Image<BGRA32> Image, RectangleF Rect)> DrawMultiple()
+        public IEnumerable<FormattedTextCharacter> DrawMultiple()
         {
             if (_propertyChanged) Rebuild();
 
@@ -162,22 +166,41 @@ namespace BEditor.Drawing
                     var c = line.Text[li];
                     var color = GetColor(i, li, line.Text.Length);
                     var bounds = default(SKRect);
-                    _paint.MeasureText(c.ToString(), ref bounds);
+                    var w = _paint.MeasureText(c.ToString(), ref bounds);
                     _paint.Color = new SKColor(color.R, color.G, color.B, color.A);
 
-                    using var bmp = new SKBitmap(new SKImageInfo((int)bounds.Width, (int)bounds.Height, SKColorType.Bgra8888));
-                    using var canvas = new SKCanvas(bmp);
+                    if (AlignBaseline)
+                    {
+                        using var bmp = new SKBitmap(new SKImageInfo((int)w, (int)(nextTop - line.Top), SKColorType.Bgra8888));
+                        using var canvas = new SKCanvas(bmp);
 
-                    var resultRect = new RectangleF(
-                        prevRight + bounds.Left,
-                        line.Top + bounds.Top - _fontMetrics.Ascent,
-                        bounds.Width,
-                        bounds.Height);
-                    canvas.DrawText(c.ToString(), (bounds.Width / 2) - bounds.MidX, (bounds.Height / 2) - bounds.MidY, _paint);
+                        var resultRect = new RectangleF(
+                            prevRight + bounds.Left,
+                            line.Top,
+                            w,
+                            nextTop - line.Top);
+                        canvas.DrawText(c.ToString(), (bounds.Width / 2) - bounds.MidX, -_fontMetrics.Ascent, _paint);
 
-                    prevRight += bounds.Right;
+                        prevRight += w;
 
-                    yield return (bmp.ToImage32(), resultRect);
+                        yield return new(bmp.ToImage32(), resultRect);
+                    }
+                    else
+                    {
+                        using var bmp = new SKBitmap(new SKImageInfo((int)bounds.Width, (int)bounds.Height, SKColorType.Bgra8888));
+                        using var canvas = new SKCanvas(bmp);
+
+                        var resultRect = new RectangleF(
+                            prevRight + bounds.Left,
+                            line.Top + bounds.Top - _fontMetrics.Ascent,
+                            bounds.Width,
+                            bounds.Height);
+                        canvas.DrawText(c.ToString(), (bounds.Width / 2) - bounds.MidX, (bounds.Height / 2) - bounds.MidY, _paint);
+
+                        prevRight += w;
+
+                        yield return new(bmp.ToImage32(), resultRect);
+                    }
                 }
             }
         }
@@ -209,7 +232,7 @@ namespace BEditor.Drawing
                     var c = line.Text[li];
                     var color = GetColor(i, li, line.Text.Length);
                     var bounds = default(SKRect);
-                    _paint.MeasureText(c.ToString(), ref bounds);
+                    var w = _paint.MeasureText(c.ToString(), ref bounds);
                     _paint.Color = new SKColor(color.R, color.G, color.B, color.A);
 
                     var a = nextTop - line.Top;
@@ -223,7 +246,7 @@ namespace BEditor.Drawing
                         _paint);
 
                     canvas.ResetMatrix();
-                    prevRight += bounds.Right;
+                    prevRight += w;
                 }
             }
 
@@ -286,9 +309,6 @@ namespace BEditor.Drawing
 
             // 行の高さ
             _lineHeight = mDescent - mAscent;
-
-            // Rendering is relative to baseline
-            _lineOffset = -metrics.Ascent;
 
             var lines = GetLines(Text);
 

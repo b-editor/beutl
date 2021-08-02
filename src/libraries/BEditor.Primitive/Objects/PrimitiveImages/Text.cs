@@ -112,6 +112,15 @@ namespace BEditor.Primitive.Objects
             (owner, obj) => owner.IsMultiple = obj,
             EditingPropertyOptions<CheckProperty>.Create(new CheckPropertyMetadata(Strings.EnableMultipleObjects, false)).Serialize());
 
+        /// <summary>
+        /// Defines the <see cref="AlignBaseline"/> property.
+        /// </summary>
+        public static readonly DirectProperty<Text, CheckProperty> AlignBaselineProperty = EditingProperty.RegisterDirect<CheckProperty, Text>(
+            nameof(AlignBaseline),
+            owner => owner.AlignBaseline,
+            (owner, obj) => owner.AlignBaseline = obj,
+            EditingPropertyOptions<CheckProperty>.Create(new CheckPropertyMetadata(Strings.AlignToBaseline, true)).Serialize());
+
         private FormattedText? _formattedText;
 
         /// <summary>
@@ -173,6 +182,12 @@ namespace BEditor.Primitive.Objects
         [AllowNull]
         public CheckProperty IsMultiple { get; private set; }
 
+        /// <summary>
+        /// Gets the align to the baseline.
+        /// </summary>
+        [AllowNull]
+        public CheckProperty AlignBaseline { get; private set; }
+
         /// <inheritdoc/>
         public override IEnumerable<PropertyElement> GetProperties()
         {
@@ -188,6 +203,7 @@ namespace BEditor.Primitive.Objects
             yield return HorizontalAlign;
             yield return Document;
             yield return IsMultiple;
+            yield return AlignBaseline;
         }
 
         /// <inheritdoc/>
@@ -230,6 +246,7 @@ namespace BEditor.Primitive.Objects
             _formattedText.Font = Font.Value;
             _formattedText.FontSize = Size[frame];
             _formattedText.TextAlignment = (TextAlignment)HorizontalAlign.Index;
+            _formattedText.AlignBaseline = AlignBaseline.Value;
             _formattedText.Spans[0] = new(0, 0..^1, Color.Value);
         }
 
@@ -238,15 +255,15 @@ namespace BEditor.Primitive.Objects
             SetProperty(frame);
             var bounds = _formattedText!.Bounds;
 
-            foreach (var (image, rect) in _formattedText.DrawMultiple())
+            return _formattedText.DrawMultiple().Select(c =>
             {
-                yield return new ImageInfo(image, _ =>
+                return new ImageInfo(c.Image, _ =>
                 {
-                    var x = rect.X + (rect.Width / 2) - (bounds.Width / 2);
-                    var y = rect.Y + (rect.Height / 2) - (bounds.Height / 2);
+                    var x = c.Rectangle.X + (c.Rectangle.Width / 2) - (bounds.Width / 2);
+                    var y = c.Rectangle.Y + (c.Rectangle.Height / 2) - (bounds.Height / 2);
                     return new Transform(new(x, -y, 0), default, default, default);
                 });
-            }
+            });
         }
     }
 }

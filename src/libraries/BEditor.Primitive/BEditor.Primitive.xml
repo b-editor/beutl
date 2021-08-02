@@ -2902,6 +2902,11 @@
             Defines the <see cref="P:BEditor.Primitive.Objects.Text.IsMultiple"/> property.
             </summary>
         </member>
+        <member name="F:BEditor.Primitive.Objects.Text.AlignBaselineProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Objects.Text.AlignBaseline"/> property.
+            </summary>
+        </member>
         <member name="M:BEditor.Primitive.Objects.Text.#ctor">
             <summary>
             Initializes a new instance of the <see cref="T:BEditor.Primitive.Objects.Text"/> class.
@@ -2948,6 +2953,11 @@
         <member name="P:BEditor.Primitive.Objects.Text.IsMultiple">
             <summary>
             Gets the string to be drawn.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Objects.Text.AlignBaseline">
+            <summary>
+            Gets the align to the baseline.
             </summary>
         </member>
         <member name="M:BEditor.Primitive.Objects.Text.GetProperties">

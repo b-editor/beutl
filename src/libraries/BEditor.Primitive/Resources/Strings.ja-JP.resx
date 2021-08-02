@@ -694,4 +694,7 @@
   <data name="DecoderNotFound" xml:space="preserve">
     <value>デコーダーが見つかりませんでした。</value>
   </data>
+  <data name="AlignToBaseline" xml:space="preserve">
+    <value>ベースラインに整列する</value>
+  </data>
 </root>
