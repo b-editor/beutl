@@ -5,6 +5,7 @@
 // This software may be modified and distributed under the terms
 // of the MIT license. See the LICENSE file for details.
 
+using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
@@ -232,6 +233,7 @@ namespace BEditor.Primitive.Objects
 
         private void SetProperty(Frame frame)
         {
+            var lineCount = Document.Value.Split(new string[] { "\r\n", "\n", "\r" }, StringSplitOptions.None).Length;
             _formattedText!.Text = Document.Value;
             _formattedText.Font = Font.Value;
             _formattedText.FontSize = Size[frame];
@@ -239,7 +241,12 @@ namespace BEditor.Primitive.Objects
             _formattedText.CharacterSpacing = CharacterSpacing[frame];
             _formattedText.TextAlignment = (TextAlignment)TextAlignment.Index;
             _formattedText.AlignBaseline = AlignBaseline.Value;
-            _formattedText.Spans[0] = new(0, 0..^1, Color.Value);
+            _formattedText.Spans = new FormattedTextStyleSpan[lineCount];
+
+            for (var i = 0; i < lineCount; i++)
+            {
+                _formattedText.Spans[i] = new(i, 0..^1, Color.Value);
+            }
         }
 
         private IEnumerable<ImageInfo> Selector(Frame frame)

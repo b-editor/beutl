@@ -6,6 +6,6 @@
 
         public static double ClipHeight { get; } = Settings.Default.ClipHeight;
 
-        public static float WidthOf1Frame { get; } = Settings.Default.WidthOf1Frame;
+        public static float WidthOf1Frame { get; } = Settings.Default.FrameWidth;
     }
 }

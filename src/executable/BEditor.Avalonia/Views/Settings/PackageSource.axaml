@@ -18,13 +18,13 @@
         <ListBox
             SelectionMode="AlwaysSelected"
             Background="Transparent"
-            Items="{CompiledBinding PackageSources, Source={x:Static setting:Settings.Default}}"
+            Items="{Binding PackageSources, Source={x:Static setting:Settings.Default}}"
             SelectedItem="{CompiledBinding SelectedItem.Value, Mode=TwoWay}">
             <ListBox.ItemTemplate>
-                <DataTemplate x:DataType="package:PackageSourceInfo">
+                <DataTemplate>
                     <StackPanel Orientation="Vertical" Spacing="8">
-                        <TextBlock Text="{CompiledBinding Name}" FontSize="16" />
-                        <TextBlock Text="{CompiledBinding Url.OriginalString}" />
+                        <TextBlock Text="{Binding Name}" FontSize="16" />
+                        <TextBlock Text="{Binding Url.OriginalString}" />
                     </StackPanel>
                 </DataTemplate>
             </ListBox.ItemTemplate>

@@ -19,7 +19,7 @@
             <CheckBox
                 ToolTip.Tip="{x:Static resources:Strings.TheChangesWillBeAppliedAfterRestarting}"
                 Content="{x:Static resources:Strings.UseDarkMode}"
-                IsChecked="{CompiledBinding UseDarkMode, Source={x:Static root:Settings.Default}, Mode=TwoWay}"
+                IsChecked="{Binding UseDarkMode, Source={x:Static root:Settings.Default}, Mode=TwoWay}"
                 Classes="SettingsCheckBox" />
 
             <Separator Height="16" />
@@ -27,7 +27,7 @@
             <CheckBox
                 ToolTip.Tip="{x:Static resources:Strings.TheChangesWillBeAppliedAfterRestarting}"
                 Content="{x:Static resources:Strings.ShowStartWindow}"
-                IsChecked="{CompiledBinding ShowStartWindow, Source={x:Static root:Settings.Default}, Mode=TwoWay}"
+                IsChecked="{Binding ShowStartWindow, Source={x:Static root:Settings.Default}, Mode=TwoWay}"
                 Classes="SettingsCheckBox"/>
 
             <Separator Height="16" />
@@ -38,7 +38,7 @@
 
             <NumericUpDown
                 ToolTip.Tip="{x:Static resources:Strings.TheChangesWillBeAppliedAfterRestarting}"
-                Value="{CompiledBinding ClipHeight, Source={x:Static root:Settings.Default}, Mode=TwoWay}"
+                Value="{Binding ClipHeight, Source={x:Static root:Settings.Default}, Mode=TwoWay}"
                 Classes="SettingsNumericUpDown"/>
 
             <Separator Height="16" />
@@ -47,7 +47,7 @@
 
             <NumericUpDown
                 ToolTip.Tip="{x:Static resources:Strings.TheChangesWillBeAppliedAfterRestarting}"
-                Value="{CompiledBinding WidthOf1Frame, Source={x:Static root:Settings.Default}, Mode=TwoWay}"
+                Value="{Binding FrameWidth, Source={x:Static root:Settings.Default}, Mode=TwoWay}"
                 Classes="SettingsNumericUpDown"/>
 
             <Separator Height="16" />
@@ -57,7 +57,7 @@
             <ComboBox
                 ToolTip.Tip="{x:Static resources:Strings.TheChangesWillBeAppliedAfterRestarting}"
                 Items="{CompiledBinding Langs, Mode=OneTime}"
-                SelectedItem="{CompiledBinding Language, Source={x:Static root:Settings.Default}, Mode=TwoWay}"
+                SelectedItem="{Binding Language, Source={x:Static root:Settings.Default}, Mode=TwoWay}"
                 Classes="SettingsComboBox"/>
         </VirtualizingStackPanel>
     </ScrollViewer>

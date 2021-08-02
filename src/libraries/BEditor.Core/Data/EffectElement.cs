@@ -127,8 +127,9 @@ namespace BEditor.Data
         /// <inheritdoc/>
         public override void SetObjectData(DeserializeContext context)
         {
-            Parent = (context.Parent as ClipElement) ?? Parent;
+            _parent = context.Parent as ClipElement;
             base.SetObjectData(context);
+            Children.SetParent<EffectElement, PropertyElement>(i => i.Parent = this);
 
             IsEnabled = context.Element.GetProperty(nameof(IsEnabled)).GetBoolean();
             IsExpanded = context.Element.GetProperty(nameof(IsExpanded)).GetBoolean();

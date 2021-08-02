@@ -15,7 +15,7 @@
 
         <ListBox
             Background="Transparent"
-            Items="{CompiledBinding IncludeFontDir, Source={x:Static setting:Settings.Default}}"
+            Items="{Binding IncludeFontDir, Source={x:Static setting:Settings.Default}}"
             SelectedItem="{CompiledBinding SelectFont.Value, Mode=TwoWay}"/>
 
         <VirtualizingStackPanel
