@@ -7,12 +7,15 @@
 
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.Linq;
 
 using BEditor.Data;
 using BEditor.Data.Primitive;
 using BEditor.Data.Property;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
+using BEditor.Graphics;
+using BEditor.Media;
 using BEditor.Primitive.Resources;
 
 namespace BEditor.Primitive.Objects
@@ -41,6 +44,15 @@ namespace BEditor.Primitive.Objects
             EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.LineSpacing, 0, float.NaN, 0)).Serialize());
 
         /// <summary>
+        /// Defines the <see cref="CharacterSpacing"/> property.
+        /// </summary>
+        public static readonly DirectProperty<Text, EaseProperty> CharacterSpacingProperty = EditingProperty.RegisterDirect<EaseProperty, Text>(
+            nameof(CharacterSpacing),
+            owner => owner.CharacterSpacing,
+            (owner, obj) => owner.CharacterSpacing = obj,
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.CharacterSpacing, 0, float.NaN, 0)).Serialize());
+
+        /// <summary>
         /// Defines the <see cref="Color"/> property.
         /// </summary>
         public static readonly DirectProperty<Text, ColorProperty> ColorProperty = EditingProperty.RegisterDirect<ColorProperty, Text>(
@@ -59,31 +71,17 @@ namespace BEditor.Primitive.Objects
             EditingPropertyOptions<FontProperty>.Create(new FontPropertyMetadata()).Serialize());
 
         /// <summary>
-        /// Defines the <see cref="HorizontalAlign"/> property.
+        /// Defines the <see cref="TextAlignment"/> property.
         /// </summary>
-        public static readonly DirectProperty<Text, SelectorProperty> HorizontalAlignProperty = EditingProperty.RegisterDirect<SelectorProperty, Text>(
-            nameof(HorizontalAlign),
-            owner => owner.HorizontalAlign,
-            (owner, obj) => owner.HorizontalAlign = obj,
-            EditingPropertyOptions<SelectorProperty>.Create(new SelectorPropertyMetadata(Strings.HorizontalAlignment, new[]
+        public static readonly DirectProperty<Text, SelectorProperty> TextAlignmentProperty = EditingProperty.RegisterDirect<SelectorProperty, Text>(
+            nameof(TextAlignment),
+            owner => owner.TextAlignment,
+            (owner, obj) => owner.TextAlignment = obj,
+            EditingPropertyOptions<SelectorProperty>.Create(new SelectorPropertyMetadata(Strings.Alignment, new[]
             {
                 Strings.Left,
                 Strings.Center,
                 Strings.Right,
-            })).Serialize());
-
-        /// <summary>
-        /// Defines the <see cref="VerticalAlign"/> property.
-        /// </summary>
-        public static readonly DirectProperty<Text, SelectorProperty> VerticalAlignProperty = EditingProperty.RegisterDirect<SelectorProperty, Text>(
-            nameof(VerticalAlign),
-            owner => owner.VerticalAlign,
-            (owner, obj) => owner.VerticalAlign = obj,
-            EditingPropertyOptions<SelectorProperty>.Create(new SelectorPropertyMetadata(Strings.VerticalAlignment, new[]
-            {
-                Strings.Top,
-                Strings.Center,
-                Strings.Bottom,
             })).Serialize());
 
         /// <summary>
@@ -96,6 +94,26 @@ namespace BEditor.Primitive.Objects
             EditingPropertyOptions<DocumentProperty>.Create(new DocumentPropertyMetadata(string.Empty)).Serialize());
 
         /// <summary>
+        /// Defines the <see cref="IsMultiple"/> property.
+        /// </summary>
+        public static readonly DirectProperty<Text, CheckProperty> IsMultipleProperty = EditingProperty.RegisterDirect<CheckProperty, Text>(
+            nameof(IsMultiple),
+            owner => owner.IsMultiple,
+            (owner, obj) => owner.IsMultiple = obj,
+            EditingPropertyOptions<CheckProperty>.Create(new CheckPropertyMetadata(Strings.EnableMultipleObjects, false)).Serialize());
+
+        /// <summary>
+        /// Defines the <see cref="AlignBaseline"/> property.
+        /// </summary>
+        public static readonly DirectProperty<Text, CheckProperty> AlignBaselineProperty = EditingProperty.RegisterDirect<CheckProperty, Text>(
+            nameof(AlignBaseline),
+            owner => owner.AlignBaseline,
+            (owner, obj) => owner.AlignBaseline = obj,
+            EditingPropertyOptions<CheckProperty>.Create(new CheckPropertyMetadata(Strings.AlignToBaseline, true)).Serialize());
+
+        private FormattedText? _formattedText;
+
+        /// <summary>
         /// Initializes a new instance of the <see cref="Text"/> class.
         /// </summary>
         public Text()
@@ -106,46 +124,58 @@ namespace BEditor.Primitive.Objects
         public override string Name => Strings.Text;
 
         /// <summary>
-        /// Gets the size of the string to be drawn.
+        /// Gets the size of the text.
         /// </summary>
         [AllowNull]
         public EaseProperty Size { get; private set; }
 
         /// <summary>
-        /// Gets the line spacing of the string to be drawn.
+        /// Gets the line spacing of the text.
         /// </summary>
         [AllowNull]
         public EaseProperty LineSpacing { get; private set; }
 
         /// <summary>
-        /// Gets the color of string to be drawn.
+        /// Gets the character spacing of the text.
+        /// </summary>
+        [AllowNull]
+        public EaseProperty CharacterSpacing { get; private set; }
+
+        /// <summary>
+        /// Gets the color of text.
         /// </summary>
         [AllowNull]
         public ColorProperty Color { get; private set; }
 
         /// <summary>
-        /// Gets the font of the string to be drawn.
+        /// Gets the font of the text.
         /// </summary>
         [AllowNull]
         public FontProperty Font { get; private set; }
 
         /// <summary>
-        /// Gets the horizontal alignment of the string to be drawn.
+        /// Gets the horizontal alignment of the text.
         /// </summary>
         [AllowNull]
-        public SelectorProperty HorizontalAlign { get; private set; }
+        public SelectorProperty TextAlignment { get; private set; }
 
         /// <summary>
-        /// Gets the vertical alignment of the string to be drawn.
-        /// </summary>
-        [AllowNull]
-        public SelectorProperty VerticalAlign { get; private set; }
-
-        /// <summary>
-        /// Gets the string to be drawn.
+        /// Gets the text.
         /// </summary>
         [AllowNull]
         public DocumentProperty Document { get; private set; }
+
+        /// <summary>
+        /// Gets the text.
+        /// </summary>
+        [AllowNull]
+        public CheckProperty IsMultiple { get; private set; }
+
+        /// <summary>
+        /// Gets the align to the baseline.
+        /// </summary>
+        [AllowNull]
+        public CheckProperty AlignBaseline { get; private set; }
 
         /// <inheritdoc/>
         public override IEnumerable<PropertyElement> GetProperties()
@@ -157,24 +187,76 @@ namespace BEditor.Primitive.Objects
             yield return Material;
             yield return Size;
             yield return LineSpacing;
+            yield return CharacterSpacing;
             yield return Color;
             yield return Font;
-            yield return HorizontalAlign;
-            yield return VerticalAlign;
+            yield return TextAlignment;
             yield return Document;
+            yield return IsMultiple;
+            yield return AlignBaseline;
         }
 
         /// <inheritdoc/>
         protected override Image<BGRA32> OnRender(EffectApplyArgs args)
         {
-            return Image.Text(
-                Document.Value,
-                Font.Value,
-                Size[args.Frame],
-                Color.Value,
-                (HorizontalAlign)HorizontalAlign.Index,
-                (VerticalAlign)VerticalAlign.Index,
-                LineSpacing[args.Frame]);
+            SetProperty(args.Frame);
+            return _formattedText!.Draw();
+        }
+
+        /// <inheritdoc/>
+        protected override void OnRender(EffectApplyArgs<IEnumerable<ImageInfo>> args)
+        {
+            if (IsMultiple.Value)
+            {
+                args.Value = Selector(args.Frame);
+            }
+            else
+            {
+                base.OnRender(args);
+            }
+        }
+
+        /// <inheritdoc/>
+        protected override void OnLoad()
+        {
+            base.OnLoad();
+            _formattedText = new(string.Empty, Font.Value, 16, Drawing.TextAlignment.Left, new FormattedTextStyleSpan[] { new(0, 0..^1, Color.Value) });
+        }
+
+        /// <inheritdoc/>
+        protected override void OnUnload()
+        {
+            base.OnUnload();
+            _formattedText?.Dispose();
+        }
+
+        private void SetProperty(Frame frame)
+        {
+            _formattedText!.Text = Document.Value;
+            _formattedText.Font = Font.Value;
+            _formattedText.FontSize = Size[frame];
+            _formattedText.LineSpacing = LineSpacing[frame];
+            _formattedText.CharacterSpacing = CharacterSpacing[frame];
+            _formattedText.TextAlignment = (TextAlignment)TextAlignment.Index;
+            _formattedText.AlignBaseline = AlignBaseline.Value;
+            _formattedText.Spans[0] = new(0, 0..^1, Color.Value);
+        }
+
+        private IEnumerable<ImageInfo> Selector(Frame frame)
+        {
+            SetProperty(frame);
+            var bounds = _formattedText!.Bounds;
+
+            return _formattedText.DrawMultiple().Select(c =>
+            {
+                return new ImageInfo(c.Image, _ =>
+                {
+                    var a = bounds;
+                    var x = c.Rectangle.X + (c.Rectangle.Width / 2) - (bounds.Width / 2);
+                    var y = c.Rectangle.Y + (c.Rectangle.Height / 2) - (bounds.Height / 2);
+                    return new Transform(new(x, -y, 0), default, default, default);
+                });
+            });
         }
     }
 }

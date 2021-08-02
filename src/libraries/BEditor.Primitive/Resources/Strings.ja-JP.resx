@@ -561,7 +561,7 @@
     <value>水平方向のアライメント</value>
     <comment />
   </data>
-  <data name="VerticalAlignment" xml:space="preserve">
+    <data name="VerticalAlignment" xml:space="preserve">
     <value>垂直方向のアライメント</value>
     <comment />
   </data>
@@ -693,6 +693,15 @@
   </data>
   <data name="DecoderNotFound" xml:space="preserve">
     <value>デコーダーが見つかりませんでした。</value>
+  </data>
+  <data name="AlignToBaseline" xml:space="preserve">
+    <value>ベースラインに整列する</value>
+  </data>
+  <data name="CharacterSpacing" xml:space="preserve">
+    <value>字間</value>
+  </data>
+  <data name="Alignment" xml:space="preserve">
+    <value>アライメント</value>
   </data>
   <data name="PartsDisassembly" xml:space="preserve">
     <value>パーツ分解</value>

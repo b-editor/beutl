@@ -1938,14 +1938,14 @@
             Represents the <see cref="T:BEditor.Data.Primitive.ImageEffect"/> that sets the alignment.
             </summary>
         </member>
-        <member name="F:BEditor.Primitive.Effects.SetAlignment.VerticalAlignProperty">
-            <summary>
-            Defines the <see cref="P:BEditor.Primitive.Effects.SetAlignment.VerticalAlign"/> property.
-            </summary>
-        </member>
         <member name="F:BEditor.Primitive.Effects.SetAlignment.HorizontalAlignProperty">
             <summary>
             Defines the <see cref="P:BEditor.Primitive.Effects.SetAlignment.HorizontalAlign"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.SetAlignment.VerticalAlignProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.SetAlignment.VerticalAlign"/> property.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Effects.SetAlignment.Name">
@@ -2933,6 +2933,11 @@
             Defines the <see cref="P:BEditor.Primitive.Objects.Text.LineSpacing"/> property.
             </summary>
         </member>
+        <member name="F:BEditor.Primitive.Objects.Text.CharacterSpacingProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Objects.Text.CharacterSpacing"/> property.
+            </summary>
+        </member>
         <member name="F:BEditor.Primitive.Objects.Text.ColorProperty">
             <summary>
             Defines the <see cref="P:BEditor.Primitive.Objects.Text.Color"/> property.
@@ -2943,19 +2948,24 @@
             Defines the <see cref="P:BEditor.Primitive.Objects.Text.Color"/> property.
             </summary>
         </member>
-        <member name="F:BEditor.Primitive.Objects.Text.HorizontalAlignProperty">
+        <member name="F:BEditor.Primitive.Objects.Text.TextAlignmentProperty">
             <summary>
-            Defines the <see cref="P:BEditor.Primitive.Objects.Text.HorizontalAlign"/> property.
-            </summary>
-        </member>
-        <member name="F:BEditor.Primitive.Objects.Text.VerticalAlignProperty">
-            <summary>
-            Defines the <see cref="P:BEditor.Primitive.Objects.Text.VerticalAlign"/> property.
+            Defines the <see cref="P:BEditor.Primitive.Objects.Text.TextAlignment"/> property.
             </summary>
         </member>
         <member name="F:BEditor.Primitive.Objects.Text.DocumentProperty">
             <summary>
             Defines the <see cref="P:BEditor.Primitive.Objects.Text.Document"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Objects.Text.IsMultipleProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Objects.Text.IsMultiple"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Objects.Text.AlignBaselineProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Objects.Text.AlignBaseline"/> property.
             </summary>
         </member>
         <member name="M:BEditor.Primitive.Objects.Text.#ctor">
@@ -2968,43 +2978,62 @@
         </member>
         <member name="P:BEditor.Primitive.Objects.Text.Size">
             <summary>
-            Gets the size of the string to be drawn.
+            Gets the size of the text.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Objects.Text.LineSpacing">
             <summary>
-            Gets the line spacing of the string to be drawn.
+            Gets the line spacing of the text.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Objects.Text.CharacterSpacing">
+            <summary>
+            Gets the character spacing of the text.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Objects.Text.Color">
             <summary>
-            Gets the color of string to be drawn.
+            Gets the color of text.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Objects.Text.Font">
             <summary>
-            Gets the font of the string to be drawn.
+            Gets the font of the text.
             </summary>
         </member>
-        <member name="P:BEditor.Primitive.Objects.Text.HorizontalAlign">
+        <member name="P:BEditor.Primitive.Objects.Text.TextAlignment">
             <summary>
-            Gets the horizontal alignment of the string to be drawn.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Objects.Text.VerticalAlign">
-            <summary>
-            Gets the vertical alignment of the string to be drawn.
+            Gets the horizontal alignment of the text.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Objects.Text.Document">
             <summary>
-            Gets the string to be drawn.
+            Gets the text.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Objects.Text.IsMultiple">
+            <summary>
+            Gets the text.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Objects.Text.AlignBaseline">
+            <summary>
+            Gets the align to the baseline.
             </summary>
         </member>
         <member name="M:BEditor.Primitive.Objects.Text.GetProperties">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Primitive.Objects.Text.OnRender(BEditor.Data.EffectApplyArgs)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Objects.Text.OnRender(BEditor.Data.EffectApplyArgs{System.Collections.Generic.IEnumerable{BEditor.Graphics.ImageInfo}})">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Objects.Text.OnLoad">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Objects.Text.OnUnload">
             <inheritdoc/>
         </member>
         <member name="T:BEditor.Primitive.Objects.VideoFile">
@@ -3227,6 +3256,16 @@
               Looks up a localized string similar to Adjust coordinates.
             </summary>
         </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Alignment">
+            <summary>
+              Looks up a localized string similar to Alignment.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.AlignToBaseline">
+            <summary>
+              Looks up a localized string similar to Align to baseline.
+            </summary>
+        </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Anchors">
             <summary>
               Looks up a localized string similar to Anchors.
@@ -3340,6 +3379,11 @@
         <member name="P:BEditor.Primitive.Resources.Strings.CenterY">
             <summary>
               Looks up a localized string similar to Center y.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.CharacterSpacing">
+            <summary>
+              Looks up a localized string similar to Character spacing.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.ChromaKey">

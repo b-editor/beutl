@@ -114,7 +114,7 @@ namespace BEditor.Primitive.Effects
                     textObj.Size[args.Frame],
                     Size[args.Frame],
                     Color.Value,
-                    (HorizontalAlign)textObj.HorizontalAlign.Index,
+                    (HorizontalAlign)textObj.TextAlignment.Index,
                     textObj.LineSpacing[args.Frame] + LineSpacing[args.Frame]);
 
                 stroke.DrawImage(

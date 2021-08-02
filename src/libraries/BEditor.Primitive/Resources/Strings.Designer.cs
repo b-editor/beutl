@@ -70,6 +70,24 @@ namespace BEditor.Primitive.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Alignment.
+        /// </summary>
+        internal static string Alignment {
+            get {
+                return ResourceManager.GetString("Alignment", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Align to baseline.
+        /// </summary>
+        internal static string AlignToBaseline {
+            get {
+                return ResourceManager.GetString("AlignToBaseline", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Anchors.
         /// </summary>
         internal static string Anchors {
@@ -273,6 +291,15 @@ namespace BEditor.Primitive.Resources {
         internal static string CenterY {
             get {
                 return ResourceManager.GetString("CenterY", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Character spacing.
+        /// </summary>
+        internal static string CharacterSpacing {
+            get {
+                return ResourceManager.GetString("CharacterSpacing", resourceCulture);
             }
         }
         

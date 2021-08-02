@@ -25,18 +25,32 @@ namespace BEditor.Primitive.Effects
     public sealed class SetAlignment : ImageEffect
     {
         /// <summary>
-        /// Defines the <see cref="VerticalAlign"/> property.
-        /// </summary>
-        public static readonly DirectProperty<SetAlignment, SelectorProperty> VerticalAlignProperty = Text.VerticalAlignProperty.WithOwner<SetAlignment>(
-            owner => owner.VerticalAlign,
-            (owner, obj) => owner.VerticalAlign = obj);
-
-        /// <summary>
         /// Defines the <see cref="HorizontalAlign"/> property.
         /// </summary>
-        public static readonly DirectProperty<SetAlignment, SelectorProperty> HorizontalAlignProperty = Text.HorizontalAlignProperty.WithOwner<SetAlignment>(
+        public static readonly DirectProperty<SetAlignment, SelectorProperty> HorizontalAlignProperty = EditingProperty.RegisterDirect<SelectorProperty, SetAlignment>(
+            nameof(HorizontalAlign),
             owner => owner.HorizontalAlign,
-            (owner, obj) => owner.HorizontalAlign = obj);
+            (owner, obj) => owner.HorizontalAlign = obj,
+            EditingPropertyOptions<SelectorProperty>.Create(new SelectorPropertyMetadata(Strings.HorizontalAlignment, new[]
+            {
+                Strings.Left,
+                Strings.Center,
+                Strings.Right,
+            })).Serialize());
+
+        /// <summary>
+        /// Defines the <see cref="VerticalAlign"/> property.
+        /// </summary>
+        public static readonly DirectProperty<SetAlignment, SelectorProperty> VerticalAlignProperty = EditingProperty.RegisterDirect<SelectorProperty, SetAlignment>(
+            nameof(VerticalAlign),
+            owner => owner.VerticalAlign,
+            (owner, obj) => owner.VerticalAlign = obj,
+            EditingPropertyOptions<SelectorProperty>.Create(new SelectorPropertyMetadata(Strings.VerticalAlignment, new[]
+            {
+                Strings.Top,
+                Strings.Center,
+                Strings.Bottom,
+            })).Serialize());
 
         /// <inheritdoc/>
         public override string Name => Strings.SetAlignment;
