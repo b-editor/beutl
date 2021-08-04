@@ -32,3 +32,9 @@ jobs:
       run: dotnet msbuild BEditor.sln -property:DefineConstants=GITHUB_ACTIONS
     - name: Test
       run: dotnet test BEditor.sln --no-build --verbosity normal
+
+    - name: Save
+      uses: actions/upload-artifact@v2
+      with:
+        name: binary-${{ runner.os }}
+        path: ./src/executable/BEditor.Avalonia/bin/Debug/net5.0
