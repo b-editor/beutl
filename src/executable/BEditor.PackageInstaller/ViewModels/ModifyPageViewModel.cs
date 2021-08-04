@@ -56,7 +56,7 @@ namespace BEditor.PackageInstaller.ViewModels
                             }
 
                             Status.Value = Strings.Downloading;
-                            await DownloadFile(client, package.Url!, downloadFile); 
+                            await DownloadFile(client, package.Url!, downloadFile);
 
                             Status.Value = Strings.ExtractingFiles;
                             await PackageFile.OpenPackageAsync(downloadFile, directory, progress);
@@ -159,7 +159,7 @@ namespace BEditor.PackageInstaller.ViewModels
             return dir;
         }
 
-        private async ValueTask DownloadFile(HttpClient client,  string url, string file)
+        private async ValueTask DownloadFile(HttpClient client, string url, string file)
         {
             using var fs = new FileStream(file, FileMode.Create);
             client.DefaultRequestHeaders.ExpectContinue = false;
