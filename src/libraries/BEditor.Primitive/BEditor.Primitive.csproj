@@ -7,15 +7,13 @@
     </PropertyGroup>
 
     <Import Project="..\..\..\props\analyzer.props" />
-    <Import Project="..\Shared\Shared.projitems" Label="Shared" />
 
     <ItemGroup>
         <PackageReference Include="ReactiveProperty" Version="7.11.0" />
     </ItemGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\BEditor.Core\BEditor.Core.csproj" />
-        <ProjectReference Include="..\BEditor.Graphics\BEditor.Graphics.csproj" />
+      <ProjectReference Include="..\BEditor.Core\BEditor.Core.csproj" />
     </ItemGroup>
 
     <ItemGroup>

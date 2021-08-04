@@ -406,13 +406,18 @@ namespace BEditor.Extensions.AviUtl
                     }
                     break;
                 case "text":
-                    _img = Image.Text(
+                    var str = args.GetArgValue(0, "");
+                    var lineCount = str.Split(new string[] { "\r\n", "\n", "\r" }, StringSplitOptions.None).Length;
+
+                    var text = new FormattedText(
                         args.GetArgValue(0, ""),
                         _font,
                         _fontsize,
-                        _fontcolor,
-                        HorizontalAlign.Left,
-                        VerticalAlign.Top);
+                        TextAlignment.Left,
+                        Enumerable.Range(0, lineCount).Select(i=>new FormattedTextStyleSpan(i, 0..^1, _fontcolor)).ToArray());
+
+                    _img = text.Draw();
+                    text.Dispose();
                     break;
                 case "figure":
                     var name = args.GetArgValue(0, "円");

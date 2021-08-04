@@ -78,9 +78,9 @@ namespace BEditor.Drawing
             arg1.WriteEndArray();
         }
 
-        private static Dictionary<string, Color> ReadDictionary(JsonElement arg)
+        private static Dictionary<string, Color> ReadDictionary(DeserializeContext arg)
         {
-            return arg.EnumerateArray()
+            return arg.Element.EnumerateArray()
                 .Select(i =>
                 {
                     var color = i.TryGetProperty("Color", out var colorElm)

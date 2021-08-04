@@ -8,4 +8,7 @@
 using System.Runtime.CompilerServices;
 
 [assembly: InternalsVisibleTo("beditor")]
-[assembly: InternalsVisibleTo("BEditor.Core")]
+[assembly: InternalsVisibleTo("BEditor.Audio")]
+[assembly: InternalsVisibleTo("BEditor.Drawing")]
+[assembly: InternalsVisibleTo("BEditor.Media")]
+[assembly: InternalsVisibleTo("BEditor.Graphics.Veldrid")]

@@ -69,7 +69,7 @@ namespace NUnitTestProject1
         public void DrawTriangle()
         {
             using var img = GradentImage();
-            using var ellipse = Image.Polygon(3, 100, 100, Colors.White);
+            using var ellipse = Image.Polygon(3, 100, 100, 10, Colors.White);
 #if UseMemoryStream
             using var stream = new MemoryStream();
 #else
