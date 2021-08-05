@@ -20,11 +20,13 @@ namespace BEditor.Drawing
         /// <param name="lineNumber">The number of lines of the target.</param>
         /// <param name="range">The range of the span.</param>
         /// <param name="foregroundBrush">The span's foreground brush.</param>
-        public FormattedTextStyleSpan(int lineNumber, Range range, Color foregroundBrush)
+        /// <param name="strokeColor">The stroke color.</param>
+        public FormattedTextStyleSpan(int lineNumber, Range range, Color foregroundBrush, Color strokeColor = default)
         {
             LineNumber = lineNumber;
             Range = range;
             ForegroundBrush = foregroundBrush;
+            StrokeColor = strokeColor;
         }
 
         /// <summary>
@@ -41,5 +43,10 @@ namespace BEditor.Drawing
         /// Gets the span's foreground brush.
         /// </summary>
         public Color ForegroundBrush { get; }
+
+        /// <summary>
+        /// Gets the stroke color.
+        /// </summary>
+        public Color StrokeColor { get; }
     }
 }
