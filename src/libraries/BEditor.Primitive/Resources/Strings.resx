@@ -561,7 +561,7 @@
     <value>Horizontal alignment</value>
     <comment />
   </data>
-    <data name="VerticalAlignment" xml:space="preserve">
+  <data name="VerticalAlignment" xml:space="preserve">
     <value>Vertical alignment</value>
     <comment />
   </data>
@@ -711,5 +711,26 @@
   </data>
   <data name="FlatShadow" xml:space="preserve">
     <value>Flat Shadow</value>
+  </data>
+  <data name="EnableStroke" xml:space="preserve">
+    <value>Enable stroke</value>
+  </data>
+  <data name="MiterLimit" xml:space="preserve">
+    <value>Miter limit</value>
+  </data>
+  <data name="JoinType" xml:space="preserve">
+    <value>Join type</value>
+  </data>
+  <data name="Sharp" xml:space="preserve">
+    <value>Sharp</value>
+  </data>
+  <data name="Round" xml:space="preserve">
+    <value>Round</value>
+  </data>
+  <data name="Bevel" xml:space="preserve">
+    <value></value>
+  </data>
+  <data name="Stroke" xml:space="preserve">
+    <value></value>
   </data>
 </root>

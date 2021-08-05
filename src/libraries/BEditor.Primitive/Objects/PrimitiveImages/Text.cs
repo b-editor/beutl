@@ -29,6 +29,15 @@ namespace BEditor.Primitive.Objects
         /// <summary>
         /// Defines the <see cref="Size"/> property.
         /// </summary>
+        public static readonly DirectProperty<Text, StrokeInfo> StrokeProperty = EditingProperty.RegisterDirect<StrokeInfo, Text>(
+            nameof(Stroke),
+            owner => owner.Stroke,
+            (owner, obj) => owner.Stroke = obj,
+            EditingPropertyOptions<StrokeInfo>.Create(new StrokeInfoMetadata(Strings.Stroke)).Serialize());
+
+        /// <summary>
+        /// Defines the <see cref="Size"/> property.
+        /// </summary>
         public static readonly DirectProperty<Text, EaseProperty> SizeProperty = EditingProperty.RegisterDirect<EaseProperty, Text>(
             nameof(Size),
             owner => owner.Size,
@@ -125,6 +134,12 @@ namespace BEditor.Primitive.Objects
         public override string Name => Strings.Text;
 
         /// <summary>
+        /// Gets the stroke info.
+        /// </summary>
+        [AllowNull]
+        public StrokeInfo Stroke { get; private set; }
+
+        /// <summary>
         /// Gets the size of the text.
         /// </summary>
         [AllowNull]
@@ -186,6 +201,7 @@ namespace BEditor.Primitive.Objects
             yield return Blend;
             yield return Rotate;
             yield return Material;
+            yield return Stroke;
             yield return Size;
             yield return LineSpacing;
             yield return CharacterSpacing;
@@ -241,11 +257,21 @@ namespace BEditor.Primitive.Objects
             _formattedText.CharacterSpacing = CharacterSpacing[frame];
             _formattedText.TextAlignment = (TextAlignment)TextAlignment.Index;
             _formattedText.AlignBaseline = AlignBaseline.Value;
-            _formattedText.Spans = new FormattedTextStyleSpan[lineCount];
+
+            // ストロークを設定
+            _formattedText.IsStroke = Stroke.IsEnabled.Value;
+            _formattedText.StrokeWidth = Stroke.Width[frame];
+            _formattedText.StrokeJoin = (SkiaSharp.SKStrokeJoin)Stroke.Join.Value;
+            _formattedText.StrokeMiter = Stroke.MiterLimit.Value;
+
+            if (_formattedText.Spans.Length != lineCount)
+            {
+                _formattedText.Spans = new FormattedTextStyleSpan[lineCount];
+            }
 
             for (var i = 0; i < lineCount; i++)
             {
-                _formattedText.Spans[i] = new(i, 0..^1, Color.Value);
+                _formattedText.Spans[i] = new(i, 0..^1, Color.Value, Stroke.Color.Value);
             }
         }
 
@@ -264,6 +290,129 @@ namespace BEditor.Primitive.Objects
                     return new Transform(new(x, -y, 0), default, default, default);
                 });
             });
+        }
+
+        /// <summary>
+        /// The metadata of <see cref="StrokeInfo"/>.
+        /// </summary>
+        /// <param name="Name">The string displayed in the property header.</param>
+        public record StrokeInfoMetadata(string Name) : PropertyElementMetadata(Name), IEditingPropertyInitializer<StrokeInfo>
+        {
+            /// <inheritdoc/>
+            public StrokeInfo Create()
+            {
+                return new(this);
+            }
+        }
+
+        /// <summary>
+        /// Represents stroke information.
+        /// </summary>
+        public class StrokeInfo : ExpandGroup
+        {
+            /// <summary>
+            /// Defines the <see cref="IsEnabled"/> property.
+            /// </summary>
+            public static readonly DirectProperty<StrokeInfo, CheckProperty> IsEnabledProperty
+                = EditingProperty.RegisterDirect<CheckProperty, StrokeInfo>(
+                    nameof(IsEnabled),
+                    owner => owner.IsEnabled,
+                    (owner, obj) => owner.IsEnabled = obj,
+                    EditingPropertyOptions<CheckProperty>.Create(new CheckPropertyMetadata(Strings.EnableStroke)).Serialize());
+
+            /// <summary>
+            /// Defines the <see cref="Color"/> property.
+            /// </summary>
+            public static readonly DirectProperty<StrokeInfo, ColorProperty> ColorProperty
+                = EditingProperty.RegisterDirect<ColorProperty, StrokeInfo>(
+                    nameof(Color),
+                    owner => owner.Color,
+                    (owner, obj) => owner.Color = obj,
+                    EditingPropertyOptions<ColorProperty>.Create(new ColorPropertyMetadata(Strings.Color, Colors.White)).Serialize());
+
+            /// <summary>
+            /// Defines the <see cref="Width"/> property.
+            /// </summary>
+            public static readonly DirectProperty<StrokeInfo, EaseProperty> WidthProperty
+                = EditingProperty.RegisterDirect<EaseProperty, StrokeInfo>(
+                    nameof(Width),
+                    owner => owner.Width,
+                    (owner, obj) => owner.Width = obj,
+                    EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Width, 10, min: 0)).Serialize());
+
+            /// <summary>
+            /// Defines the <see cref="Join"/> property.
+            /// </summary>
+            public static readonly DirectProperty<StrokeInfo, SelectorProperty> JoinProperty
+                = EditingProperty.RegisterDirect<SelectorProperty, StrokeInfo>(
+                    nameof(Join),
+                    owner => owner.Join,
+                    (owner, obj) => owner.Join = obj,
+                    EditingPropertyOptions<SelectorProperty>.Create(new SelectorPropertyMetadata(Strings.JoinType, new string[]
+                    {
+                        Strings.Sharp,
+                        Strings.Round,
+                        Strings.Bevel,
+                    })).Serialize());
+
+            /// <summary>
+            /// Defines the <see cref="MiterLimit"/> property.
+            /// </summary>
+            public static readonly DirectProperty<StrokeInfo, ValueProperty> MiterLimitProperty
+                = EditingProperty.RegisterDirect<ValueProperty, StrokeInfo>(
+                    nameof(MiterLimit),
+                    owner => owner.MiterLimit,
+                    (owner, obj) => owner.MiterLimit = obj,
+                    EditingPropertyOptions<ValueProperty>.Create(new ValuePropertyMetadata(Strings.MiterLimit, 4, Min: 0)).Serialize());
+
+            /// <summary>
+            /// Initializes a new instance of the <see cref="StrokeInfo"/> class.
+            /// </summary>
+            /// <param name="metadata">Metadata of this property.</param>
+            public StrokeInfo(PropertyElementMetadata metadata)
+                : base(metadata)
+            {
+            }
+
+            /// <summary>
+            /// Gets if this stroke is enabled.
+            /// </summary>
+            [AllowNull]
+            public CheckProperty IsEnabled { get; private set; }
+
+            /// <summary>
+            /// Gets the stroke color.
+            /// </summary>
+            [AllowNull]
+            public ColorProperty Color { get; private set; }
+
+            /// <summary>
+            /// Gets the stroke width.
+            /// </summary>
+            [AllowNull]
+            public EaseProperty Width { get; private set; }
+
+            /// <summary>
+            /// Gets the stroke join.
+            /// </summary>
+            [AllowNull]
+            public SelectorProperty Join { get; private set; }
+
+            /// <summary>
+            /// Gets the stroke miter.
+            /// </summary>
+            [AllowNull]
+            public ValueProperty MiterLimit { get; private set; }
+
+            /// <inheritdoc/>
+            public override IEnumerable<PropertyElement> GetProperties()
+            {
+                yield return IsEnabled;
+                yield return Color;
+                yield return Width;
+                yield return Join;
+                yield return MiterLimit;
+            }
         }
     }
 }

@@ -169,6 +169,15 @@ namespace BEditor.Primitive.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to .
+        /// </summary>
+        internal static string Bevel {
+            get {
+                return ResourceManager.GetString("Bevel", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Binarization.
         /// </summary>
         internal static string Binarization {
@@ -574,6 +583,15 @@ namespace BEditor.Primitive.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Enable stroke.
+        /// </summary>
+        internal static string EnableStroke {
+            get {
+                return ResourceManager.GetString("EnableStroke", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to End point.
         /// </summary>
         internal static string EndPoint {
@@ -799,6 +817,15 @@ namespace BEditor.Primitive.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Join type.
+        /// </summary>
+        internal static string JoinType {
+            get {
+                return ResourceManager.GetString("JoinType", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Kernel height.
         /// </summary>
         internal static string KernelHeight {
@@ -912,6 +939,15 @@ namespace BEditor.Primitive.Resources {
         internal static string Mirror {
             get {
                 return ResourceManager.GetString("Mirror", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Miter limit.
+        /// </summary>
+        internal static string MiterLimit {
+            get {
+                return ResourceManager.GetString("MiterLimit", resourceCulture);
             }
         }
         
@@ -1141,6 +1177,15 @@ namespace BEditor.Primitive.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Round.
+        /// </summary>
+        internal static string Round {
+            get {
+                return ResourceManager.GetString("Round", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Round rect.
         /// </summary>
         internal static string RoundRect {
@@ -1200,6 +1245,15 @@ namespace BEditor.Primitive.Resources {
         internal static string Shape {
             get {
                 return ResourceManager.GetString("Shape", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Sharp.
+        /// </summary>
+        internal static string Sharp {
+            get {
+                return ResourceManager.GetString("Sharp", resourceCulture);
             }
         }
         
@@ -1272,6 +1326,15 @@ namespace BEditor.Primitive.Resources {
         internal static string Strength {
             get {
                 return ResourceManager.GetString("Strength", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to .
+        /// </summary>
+        internal static string Stroke {
+            get {
+                return ResourceManager.GetString("Stroke", resourceCulture);
             }
         }
         

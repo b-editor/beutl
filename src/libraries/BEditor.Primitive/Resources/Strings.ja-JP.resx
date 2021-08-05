@@ -561,7 +561,7 @@
     <value>水平方向のアライメント</value>
     <comment />
   </data>
-    <data name="VerticalAlignment" xml:space="preserve">
+  <data name="VerticalAlignment" xml:space="preserve">
     <value>垂直方向のアライメント</value>
     <comment />
   </data>
@@ -711,5 +711,20 @@
   </data>
   <data name="FlatShadow" xml:space="preserve">
     <value>フラットシャドウ</value>
+  </data>
+  <data name="EnableStroke" xml:space="preserve">
+    <value>ストロークを有効にする</value>
+  </data>
+  <data name="MiterLimit" xml:space="preserve">
+    <value>マイターリミット</value>
+  </data>
+  <data name="JoinType" xml:space="preserve">
+    <value>結合の種類</value>
+  </data>
+  <data name="Sharp" xml:space="preserve">
+    <value>シャープ</value>
+  </data>
+  <data name="Round" xml:space="preserve">
+    <value>丸い</value>
   </data>
 </root>
