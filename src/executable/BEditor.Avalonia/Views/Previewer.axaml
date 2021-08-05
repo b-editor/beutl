@@ -19,6 +19,7 @@
             IsHitTestVisible="False"
             Margin="0">
             <view:PreviewerBackground
+                ClipToBounds="True"
                 Width="{Binding #image.Bounds.Width}"
                 Height="{Binding #image.Bounds.Height}"
                 BackgroundType="{Binding Value, Mode=OneWay}"
@@ -27,6 +28,13 @@
             <Image
                 x:Name="image"
                 Source="{CompiledBinding PreviewImage.Value, Mode=OneWay}"/>
+
+            <StackPanel Orientation="Vertical">
+                <TextBlock IsVisible="{CompiledBinding IsDebug}" Text="{CompiledBinding Fps.Value, Mode=OneWay}" />
+                <TextBlock IsVisible="{CompiledBinding IsDebug}" Text="{CompiledBinding MinFps.Value, Mode=OneWay}" />
+                <TextBlock IsVisible="{CompiledBinding IsDebug}" Text="{CompiledBinding MaxFps.Value, Mode=OneWay}" />
+                <TextBlock IsVisible="{CompiledBinding IsDebug}" Text="{CompiledBinding AvgFps.Value, Mode=OneWay}" />
+            </StackPanel>
         </Panel>
 
         <Grid
