@@ -213,7 +213,6 @@ namespace BEditor.Primitive
                     EffectMetadata.Create<Effects.SetAlignment>(Strings.SetAlignment),
                     EffectMetadata.Create<Effects.Mask>(Strings.Mask),
                     EffectMetadata.Create<Effects.Border>(Strings.Border),
-                    EffectMetadata.Create<Effects.StrokeText>($"{Strings.Border} ({Strings.Text})"),
                     EffectMetadata.Create<Effects.Shadow>(Strings.DropShadow),
                     EffectMetadata.Create<Effects.Blur>(Strings.Blur),
                     EffectMetadata.Create<Effects.EdgeBlur>(Strings.EdgeBlur),

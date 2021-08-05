@@ -2923,6 +2923,11 @@
             Represents an <see cref="T:BEditor.Data.Primitive.ImageObject"/> to draw a string.
             </summary>
         </member>
+        <member name="F:BEditor.Primitive.Objects.Text.StrokeProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Objects.Text.Size"/> property.
+            </summary>
+        </member>
         <member name="F:BEditor.Primitive.Objects.Text.SizeProperty">
             <summary>
             Defines the <see cref="P:BEditor.Primitive.Objects.Text.Size"/> property.
@@ -2975,6 +2980,11 @@
         </member>
         <member name="P:BEditor.Primitive.Objects.Text.Name">
             <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Primitive.Objects.Text.Stroke">
+            <summary>
+            Gets the stroke info.
+            </summary>
         </member>
         <member name="P:BEditor.Primitive.Objects.Text.Size">
             <summary>
@@ -3034,6 +3044,80 @@
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Primitive.Objects.Text.OnUnload">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Primitive.Objects.Text.StrokeInfoMetadata">
+            <summary>
+            The metadata of <see cref="T:BEditor.Primitive.Objects.Text.StrokeInfo"/>.
+            </summary>
+            <param name="Name">The string displayed in the property header.</param>
+        </member>
+        <member name="M:BEditor.Primitive.Objects.Text.StrokeInfoMetadata.#ctor(System.String)">
+            <summary>
+            The metadata of <see cref="T:BEditor.Primitive.Objects.Text.StrokeInfo"/>.
+            </summary>
+            <param name="Name">The string displayed in the property header.</param>
+        </member>
+        <member name="M:BEditor.Primitive.Objects.Text.StrokeInfoMetadata.Create">
+            <inheritdoc/>
+        </member>
+        <member name="F:BEditor.Primitive.Objects.Text.StrokeInfo.IsEnabledProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Objects.Text.StrokeInfo.IsEnabled"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Objects.Text.StrokeInfo.ColorProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Objects.Text.StrokeInfo.Color"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Objects.Text.StrokeInfo.WidthProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Objects.Text.StrokeInfo.Width"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Objects.Text.StrokeInfo.JoinProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Objects.Text.StrokeInfo.Join"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Objects.Text.StrokeInfo.MiterProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Objects.Text.StrokeInfo.Miter"/> property.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Objects.Text.StrokeInfo.#ctor(BEditor.Data.Property.PropertyElementMetadata)">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Primitive.Objects.Text.StrokeInfo"/> class.
+            </summary>
+            <param name="metadata">Metadata of this property.</param>
+        </member>
+        <member name="P:BEditor.Primitive.Objects.Text.StrokeInfo.IsEnabled">
+            <summary>
+            Gets if this stroke is enabled.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Objects.Text.StrokeInfo.Color">
+            <summary>
+            Gets the stroke color.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Objects.Text.StrokeInfo.Width">
+            <summary>
+            Gets the stroke width.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Objects.Text.StrokeInfo.Join">
+            <summary>
+            Gets the stroke join.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Objects.Text.StrokeInfo.Miter">
+            <summary>
+            Gets the stroke miter.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Objects.Text.StrokeInfo.GetProperties">
             <inheritdoc/>
         </member>
         <member name="T:BEditor.Primitive.Objects.VideoFile">
