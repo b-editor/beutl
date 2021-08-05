@@ -407,6 +407,7 @@ namespace BEditor.Drawing
         /// <param name="hAlign">The horizontal alignment of the text.</param>
         /// <param name="linespace">The line spacing for the text.</param>
         /// <returns>Returns an image with an text drawn on it.</returns>
+        [Obsolete("Use FormattedText.")]
         public static Image<BGRA32> StrokeText(string text, Font font, float size, float strokewidth, Color color, HorizontalAlign hAlign, float linespace = 0)
         {
             if (string.IsNullOrEmpty(text)) return new Image<BGRA32>(1, 1, default(BGRA32));

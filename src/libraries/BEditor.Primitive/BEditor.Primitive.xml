@@ -2070,63 +2070,8 @@
             Represents the <see cref="T:BEditor.Data.Primitive.ImageEffect"/> that adds a border to the image.
             </summary>
         </member>
-        <member name="F:BEditor.Primitive.Effects.StrokeText.CenterXProperty">
-            <summary>
-            Defines the <see cref="P:BEditor.Primitive.Effects.StrokeText.CenterX"/> property.
-            </summary>
-        </member>
-        <member name="F:BEditor.Primitive.Effects.StrokeText.CenterYProperty">
-            <summary>
-            Defines the <see cref="P:BEditor.Primitive.Effects.StrokeText.CenterY"/> property.
-            </summary>
-        </member>
-        <member name="F:BEditor.Primitive.Effects.StrokeText.LineSpacingProperty">
-            <summary>
-            Defines the <see cref="P:BEditor.Primitive.Effects.StrokeText.LineSpacing"/> property.
-            </summary>
-        </member>
-        <member name="F:BEditor.Primitive.Effects.StrokeText.SizeProperty">
-            <summary>
-            Defines the <see cref="P:BEditor.Primitive.Effects.StrokeText.Size"/> property.
-            </summary>
-        </member>
-        <member name="F:BEditor.Primitive.Effects.StrokeText.ColorProperty">
-            <summary>
-            Defines the <see cref="P:BEditor.Primitive.Effects.StrokeText.Color"/> property.
-            </summary>
-        </member>
-        <member name="M:BEditor.Primitive.Effects.StrokeText.#ctor">
-            <summary>
-            Initializes a new instance of the <see cref="T:BEditor.Primitive.Effects.StrokeText"/> class.
-            </summary>
-        </member>
         <member name="P:BEditor.Primitive.Effects.StrokeText.Name">
             <inheritdoc/>
-        </member>
-        <member name="P:BEditor.Primitive.Effects.StrokeText.CenterX">
-            <summary>
-            Gets the X coordinate.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Effects.StrokeText.CenterY">
-            <summary>
-            Gets the Y coordinate.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Effects.StrokeText.LineSpacing">
-            <summary>
-            Gets the line spacing of the string to be drawn.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Effects.StrokeText.Size">
-            <summary>
-            Gets the size of the edge.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Effects.StrokeText.Color">
-            <summary>
-            Gets the edge color.
-            </summary>
         </member>
         <member name="M:BEditor.Primitive.Effects.StrokeText.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
             <inheritdoc/>
@@ -3061,6 +3006,11 @@
         <member name="M:BEditor.Primitive.Objects.Text.StrokeInfoMetadata.Create">
             <inheritdoc/>
         </member>
+        <member name="T:BEditor.Primitive.Objects.Text.StrokeInfo">
+            <summary>
+            Represents stroke information.
+            </summary>
+        </member>
         <member name="F:BEditor.Primitive.Objects.Text.StrokeInfo.IsEnabledProperty">
             <summary>
             Defines the <see cref="P:BEditor.Primitive.Objects.Text.StrokeInfo.IsEnabled"/> property.
@@ -3081,9 +3031,9 @@
             Defines the <see cref="P:BEditor.Primitive.Objects.Text.StrokeInfo.Join"/> property.
             </summary>
         </member>
-        <member name="F:BEditor.Primitive.Objects.Text.StrokeInfo.MiterProperty">
+        <member name="F:BEditor.Primitive.Objects.Text.StrokeInfo.MiterLimitProperty">
             <summary>
-            Defines the <see cref="P:BEditor.Primitive.Objects.Text.StrokeInfo.Miter"/> property.
+            Defines the <see cref="P:BEditor.Primitive.Objects.Text.StrokeInfo.MiterLimit"/> property.
             </summary>
         </member>
         <member name="M:BEditor.Primitive.Objects.Text.StrokeInfo.#ctor(BEditor.Data.Property.PropertyElementMetadata)">
@@ -3112,7 +3062,7 @@
             Gets the stroke join.
             </summary>
         </member>
-        <member name="P:BEditor.Primitive.Objects.Text.StrokeInfo.Miter">
+        <member name="P:BEditor.Primitive.Objects.Text.StrokeInfo.MiterLimit">
             <summary>
             Gets the stroke miter.
             </summary>
@@ -3395,6 +3345,11 @@
               Looks up a localized string similar to Ball.
             </summary>
         </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Bevel">
+            <summary>
+              Looks up a localized string similar to .
+            </summary>
+        </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Binarization">
             <summary>
               Looks up a localized string similar to Binarization.
@@ -3620,6 +3575,11 @@
               Looks up a localized string similar to Enable multiple objects.
             </summary>
         </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.EnableStroke">
+            <summary>
+              Looks up a localized string similar to Enable stroke.
+            </summary>
+        </member>
         <member name="P:BEditor.Primitive.Resources.Strings.EndPoint">
             <summary>
               Looks up a localized string similar to End point.
@@ -3745,6 +3705,11 @@
               Looks up a localized string similar to Invert Mask.
             </summary>
         </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.JoinType">
+            <summary>
+              Looks up a localized string similar to Join type.
+            </summary>
+        </member>
         <member name="P:BEditor.Primitive.Resources.Strings.KernelHeight">
             <summary>
               Looks up a localized string similar to Kernel height.
@@ -3808,6 +3773,11 @@
         <member name="P:BEditor.Primitive.Resources.Strings.Mirror">
             <summary>
               Looks up a localized string similar to Mirror.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.MiterLimit">
+            <summary>
+              Looks up a localized string similar to Miter limit.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Mode">
@@ -3935,6 +3905,11 @@
               Looks up a localized string similar to Rotate.
             </summary>
         </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Round">
+            <summary>
+              Looks up a localized string similar to Round.
+            </summary>
+        </member>
         <member name="P:BEditor.Primitive.Resources.Strings.RoundRect">
             <summary>
               Looks up a localized string similar to Round rect.
@@ -3968,6 +3943,11 @@
         <member name="P:BEditor.Primitive.Resources.Strings.Shape">
             <summary>
               Looks up a localized string similar to Shape.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Sharp">
+            <summary>
+              Looks up a localized string similar to Sharp.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.SigmaX">
@@ -4008,6 +3988,11 @@
         <member name="P:BEditor.Primitive.Resources.Strings.Strength">
             <summary>
               Looks up a localized string similar to Strength.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Stroke">
+            <summary>
+              Looks up a localized string similar to .
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.TargetX">
