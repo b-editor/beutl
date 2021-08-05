@@ -19,6 +19,7 @@
             IsHitTestVisible="False"
             Margin="0">
             <view:PreviewerBackground
+                ClipToBounds="True"
                 Width="{Binding #image.Bounds.Width}"
                 Height="{Binding #image.Bounds.Height}"
                 BackgroundType="{Binding Value, Mode=OneWay}"
