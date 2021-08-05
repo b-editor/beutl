@@ -15,6 +15,7 @@
         <Label
             Grid.Row="0"
             Content="{Binding Text.Value}"
+            FontFamily="Yu Gothic UI, Segoe UI, Hiragino Sans, Helvetica Neue, Ubuntu"
             Margin="8,0" />
 
         <ProgressBar

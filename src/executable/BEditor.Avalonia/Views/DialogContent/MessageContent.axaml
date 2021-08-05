@@ -23,6 +23,7 @@
         Width="70" Height="70"/>
       <Label
         x:Name="label"
+        FontFamily="Yu Gothic UI, Segoe UI, Hiragino Sans, Helvetica Neue, Ubuntu"
         Padding="0,0,0,0"
         HorizontalContentAlignment="Stretch"
         VerticalContentAlignment="Stretch"
