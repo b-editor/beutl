@@ -286,4 +286,10 @@
   <data name="Multiplication" xml:space="preserve">
     <value>乗算</value>
   </data>
+  <data name="Type" xml:space="preserve">
+    <value>種類</value>
+  </data>
+  <data name="Primitive" xml:space="preserve">
+    <value>プリミティブ</value>
+  </data>
 </root>

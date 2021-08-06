@@ -4785,6 +4785,11 @@
               Looks up a localized string similar to Pitch.
             </summary>
         </member>
+        <member name="P:BEditor.Resources.Strings.Primitive">
+            <summary>
+              Looks up a localized string similar to Primitive.
+            </summary>
+        </member>
         <member name="P:BEditor.Resources.Strings.ProjectFile">
             <summary>
               Looks up a localized string similar to Project file.
@@ -4868,6 +4873,11 @@
         <member name="P:BEditor.Resources.Strings.TheValueWasNotTypeButType">
             <summary>
               Looks up a localized string similar to The value was not {0} type, but {1} type..
+            </summary>
+        </member>
+        <member name="P:BEditor.Resources.Strings.Type">
+            <summary>
+              Looks up a localized string similar to Type.
             </summary>
         </member>
         <member name="P:BEditor.Resources.Strings.UnknownCommand">

@@ -286,4 +286,10 @@
   <data name="Multiplication" xml:space="preserve">
     <value>Multiplication</value>
   </data>
+  <data name="Type" xml:space="preserve">
+    <value>Type</value>
+  </data>
+  <data name="Primitive" xml:space="preserve">
+    <value>Primitive</value>
+  </data>
 </root>

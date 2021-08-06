@@ -9,9 +9,8 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 
-using BEditor.Data;
-
 using BEditor.Media;
+using BEditor.Resources;
 
 namespace BEditor.Data.Property.Easing
 {
@@ -25,7 +24,7 @@ namespace BEditor.Data.Property.Easing
         /// </summary>
         public static readonly DirectProperty<PrimitiveEasing, SelectorProperty> EasingTypeProperty;
 
-        private static readonly SelectorPropertyMetadata _easingTypeMetadata = new("EasingType", new[]
+        private static readonly SelectorPropertyMetadata _easingTypeMetadata = new(Strings.Type, new[]
         {
             "None",
             "Linear",

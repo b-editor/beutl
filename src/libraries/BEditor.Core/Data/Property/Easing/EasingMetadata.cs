@@ -9,6 +9,8 @@ using System;
 using System.Collections.Generic;
 using System.Linq.Expressions;
 
+using BEditor.Resources;
+
 namespace BEditor.Data.Property.Easing
 {
     /// <summary>
@@ -34,7 +36,7 @@ namespace BEditor.Data.Property.Easing
         /// </summary>
         public static List<EasingMetadata> LoadedEasingFunc { get; } = new()
         {
-            Create<PrimitiveEasing>("Primitive"),
+            Create<PrimitiveEasing>(Strings.Primitive),
         };
 
         /// <summary>

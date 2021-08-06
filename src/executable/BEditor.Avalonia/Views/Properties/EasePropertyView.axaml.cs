@@ -138,14 +138,8 @@ namespace BEditor.Views.Properties
 
         public async void ShowEasingProperty(object s, RoutedEventArgs e)
         {
-            var content = new EasingPropertyView(DataContext!);
-            var dialog = new Window
-            {
-                Content = content,
-                SizeToContent = SizeToContent.WidthAndHeight
-            };
+            var dialog = new EasingPropertyView(DataContext!);
             await dialog.ShowDialog((Window)this.GetVisualRoot());
-            content.DataContext = null;
         }
 
         public async void ListToggleClick(object? sender, RoutedEventArgs? e)

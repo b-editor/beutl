@@ -421,6 +421,15 @@ namespace BEditor.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Primitive.
+        /// </summary>
+        internal static string Primitive {
+            get {
+                return ResourceManager.GetString("Primitive", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Project file.
         /// </summary>
         internal static string ProjectFile {
@@ -570,6 +579,15 @@ namespace BEditor.Resources {
         internal static string TheValueWasNotTypeButType {
             get {
                 return ResourceManager.GetString("TheValueWasNotTypeButType", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Type.
+        /// </summary>
+        internal static string Type {
+            get {
+                return ResourceManager.GetString("Type", resourceCulture);
             }
         }
         
