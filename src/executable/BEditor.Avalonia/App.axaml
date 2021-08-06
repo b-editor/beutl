@@ -22,6 +22,7 @@
         <convert:PathToImageSourceConverter x:Key="PathToImageSourceConverter" />
         <convert:ConfigurationViewModelConverter x:Key="ConfigurationViewModelConverter" />
         <convert:BackgroundTypeConverter x:Key="BackgroundTypeConverter" />
+        <convert:FrameToTimeConverter x:Key="FrameToTimeConverter" />
     </Application.Resources>
     <Application.Styles>
         <StyleInclude Source="avares://beditor/Controls/SeekSlider.axaml" />

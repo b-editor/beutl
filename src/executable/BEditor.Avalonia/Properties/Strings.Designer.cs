@@ -848,7 +848,7 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to Fix the seek bar during playback..
+        ///   Looks up a localized string similar to Fix the seek bar during playback.
         /// </summary>
         public static string FixSeekbar {
             get {

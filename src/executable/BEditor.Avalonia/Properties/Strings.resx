@@ -880,6 +880,6 @@ Vulkan:
 Do you want to install it now?</value>
   </data>
   <data name="FixSeekbar" xml:space="preserve">
-    <value>Fix the seek bar during playback.</value>
+    <value>Fix the seek bar during playback</value>
   </data>
 </root>

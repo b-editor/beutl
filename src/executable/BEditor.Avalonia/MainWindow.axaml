@@ -27,224 +27,233 @@
             Grid.ColumnSpan="5"
             x:Name="Titlebar" />
 
-        <StackPanel Margin="4" Spacing="4" Grid.Row="1" Orientation="Horizontal">
-            <StackPanel.Styles>
-                <Style Selector="Separator">
-                    <Setter Property="Width" Value="1" />
-                    <Setter Property="Height" Value="16" />
-                    <Setter Property="Background" Value="{DynamicResource SystemControlForegroundBaseMediumLowBrush}" />
-                </Style>
-                <Style Selector="Button">
-                    <Setter Property="Padding" Value="8,4" />
-                </Style>
-
-                <Style Selector="PathIcon.objectmetadata">
-                    <Setter Property="Width" Value="32" />
-                    <Setter Property="Height" Value="32" />
-                    <Setter Property="RenderTransform" Value="none" />
-                    <Setter Property="Transitions">
-                        <Transitions>
-                            <TransformOperationsTransition Property="RenderTransform" Duration="0:0:.075" />
-                        </Transitions>
-                    </Setter>
-                    <Setter Property="Template">
-                        <ControlTemplate>
-                            <Border
-                                Background="{TemplateBinding Background}"
-                                CornerRadius="{DynamicResource ControlCornerRadius}">
-                                <PathIcon
-                                    Data="{TemplateBinding Data}"
-                                    Foreground="{TemplateBinding Foreground}" />
-                            </Border>
-                        </ControlTemplate>
-                    </Setter>
-                </Style>
-                <Style Selector="PathIcon.objectmetadata:pointerover">
-                    <Setter Property="Background" Value="{DynamicResource ButtonBackgroundPointerOver}" />
-                    <Setter Property="RenderTransform" Value="scale(0.98)" />
-                </Style>
-
-                <Style Selector="ComboBox">
-                    <Setter Property="BorderBrush" Value="Transparent" />
-                    <Setter Property="Background" Value="Transparent" />
-                    <Setter Property="MinWidth" Value="100" />
-                </Style>
-                <Style Selector="ComboBox /template/ Border#Background">
-                    <Setter Property="RenderTransform" Value="none" />
-                    <Setter Property="Transitions">
-                        <Transitions>
-                            <TransformOperationsTransition Property="RenderTransform" Duration="0:0:.075" />
-                        </Transitions>
-                    </Setter>
-                </Style>
-                <Style Selector="ComboBox:disabled /template/ Border#Background">
-                    <Setter Property="Background" Value="Transparent" />
-                    <Setter Property="BorderBrush" Value="Transparent" />
-                </Style>
-                <Style Selector="ComboBox:pointerover /template/ Border#Background">
-                    <Setter Property="Background" Value="{DynamicResource ButtonBackgroundPointerOver}" />
-                    <Setter Property="BorderBrush" Value="Transparent" />
-                    <Setter Property="RenderTransform" Value="scale(0.98)" />
-                </Style>
-            </StackPanel.Styles>
-
-            <Button Command="{CompiledBinding New, Mode=OneTime}" ToolTip.Tip="{x:Static prop:Strings.New}">
-                <PathIcon Data="{StaticResource DocumentAdd48Regular}"/>
-            </Button>
-
-            <Button Command="{CompiledBinding Open, Mode=OneTime}" ToolTip.Tip="{x:Static prop:Strings.Open}">
-                <PathIcon Data="{StaticResource FolderOpen24Regular}"/>
-            </Button>
-
-            <Button
-                IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}"
-                Command="{CompiledBinding Save, Mode=OneTime}"
-                ToolTip.Tip="{x:Static prop:Strings.SaveAs}">
-                <PathIcon Data="{StaticResource Save24Regular}"/>
-            </Button>
-
-            <Separator/>
-
-            <Button
-                IsEnabled="{CompiledBinding Source={x:Static command:CommandManager.Default}, Path=CanUndo, Mode=OneWay}"
-                Command="{CompiledBinding Undo, Mode=OneTime}"
-                ToolTip.Tip="{x:Static prop:Strings.Undo}">
-                <PathIcon Data="{StaticResource ArrowUndo24Regular}"/>
-            </Button>
-
-            <Button
-                IsEnabled="{CompiledBinding Source={x:Static command:CommandManager.Default}, Path=CanRedo, Mode=OneWay}"
-                Command="{CompiledBinding Redo, Mode=OneTime}"
-                ToolTip.Tip="{x:Static prop:Strings.Redo}">
-                <PathIcon Data="{StaticResource ArrowRedo24Regular}"/>
-            </Button>
-
-            <Separator/>
-
-            <Button
-                IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}"
-                Command="{CompiledBinding Cut, Mode=OneTime}"
-                ToolTip.Tip="{x:Static prop:Strings.Cut}">
-                <PathIcon Data="{StaticResource Cut24Regular}"/>
-            </Button>
-
-            <Button
-              IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}"
-              Command="{CompiledBinding Copy, Mode=OneTime}"
-              ToolTip.Tip="{x:Static prop:Strings.Copy}">
-                <PathIcon Data="{StaticResource Copy24Regular}"/>
-            </Button>
-
-            <Button
-                IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}"
-                Command="{CompiledBinding Paste, Mode=OneTime}"
-                ToolTip.Tip="{x:Static prop:Strings.Paste}">
-                <PathIcon Data="{StaticResource ClipboardPaste24Regular}"/>
-            </Button>
-
-            <Separator/>
-
-            <ComboBox
-                IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}"
-                Items="{CompiledBinding App.Project.SceneList, Mode=OneWay}"
-                SelectedItem="{Binding App.Project.CurrentScene, Mode=TwoWay}">
-                <ComboBox.ItemTemplate>
-                    <DataTemplate>
-                        <TextBlock Margin="8,0" Text="{Binding SceneName, Mode=OneWay}"/>
-                    </DataTemplate>
-                </ComboBox.ItemTemplate>
-            </ComboBox>
-
-            <Separator/>
-
-            <ItemsControl Items="{Binding Source={x:Static data:ObjectMetadata.LoadedObjects}, Converter={StaticResource EnumerableTakeConverter}, ConverterParameter=8}">
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate>
-                        <PathIcon
-                            PointerPressed="ObjectStartDrag"
-                            Foreground="{Binding AccentColor, Converter={StaticResource ColorToSolidColorBrushConverter}, Mode=OneTime}"
-                            Classes="objectmetadata"
-                            Data="{Binding PathIcon, Mode=OneTime, Converter={StaticResource StringToGeometoryConverter}}" />
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-                <ItemsControl.ItemsPanel>
-                    <ItemsPanelTemplate>
-                        <StackPanel Orientation="Horizontal" Spacing="4"/>
-                    </ItemsPanelTemplate>
-                </ItemsControl.ItemsPanel>
-            </ItemsControl>
-
-            <Button Click="ObjectsPopupOpen" Width="32" Height="32">
-                <Button.Styles>
-                    <Style Selector="Button">
-                        <Setter Property="Background" Value="Transparent" />
+        <Grid Margin="4" Grid.Row="1" Grid.ColumnSpan="5" ColumnDefinitions="Auto,*">
+            <StackPanel Spacing="4" Orientation="Horizontal">
+                <StackPanel.Styles>
+                    <Style Selector="Separator">
+                        <Setter Property="Width" Value="1" />
+                        <Setter Property="Height" Value="16" />
+                        <Setter Property="Background" Value="{DynamicResource SystemControlForegroundBaseMediumLowBrush}" />
                     </Style>
-                </Button.Styles>
+                    <Style Selector="Button">
+                        <Setter Property="Padding" Value="8,4" />
+                    </Style>
 
-                <PathIcon Data="{StaticResource MoreVertical24Regular}" />
-            </Button>
-
-            <Popup WindowManagerAddShadowHint="False" x:Name="ObjectsPopup" StaysOpen="False" PlacementMode="Pointer">
-                <Border Background="{StaticResource AcrylicColor1}">
-
-                    <ItemsControl Items="{Binding Source={x:Static data:ObjectMetadata.LoadedObjects}}">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <Grid
-                                    ColumnDefinitions="Auto,Auto"
-                                    Height="32"
-                                    PointerPressed="ObjectStartDrag">
-                                    <Grid.Styles>
-                                        <Style Selector="Grid">
-                                            <Setter Property="RenderTransform" Value="none" />
-                                            <Setter Property="Background" Value="Transparent" />
-                                            <Setter Property="Transitions">
-                                                <Transitions>
-                                                    <TransformOperationsTransition Property="RenderTransform" Duration="0:0:.075" />
-                                                </Transitions>
-                                            </Setter>
-                                        </Style>
-                                        <Style Selector="Grid:pointerover">
-                                            <Setter Property="Background" Value="{DynamicResource ButtonBackgroundPointerOver}" />
-                                            <Setter Property="RenderTransform" Value="scale(0.98)" />
-                                        </Style>
-                                    </Grid.Styles>
-
+                    <Style Selector="PathIcon.objectmetadata">
+                        <Setter Property="Width" Value="32" />
+                        <Setter Property="Height" Value="32" />
+                        <Setter Property="RenderTransform" Value="none" />
+                        <Setter Property="Transitions">
+                            <Transitions>
+                                <TransformOperationsTransition Property="RenderTransform" Duration="0:0:.075" />
+                            </Transitions>
+                        </Setter>
+                        <Setter Property="Template">
+                            <ControlTemplate>
+                                <Border
+                                    Background="{TemplateBinding Background}"
+                                    CornerRadius="{DynamicResource ControlCornerRadius}">
                                     <PathIcon
-                                        Margin="8"
-                                        Foreground="{Binding AccentColor, Converter={StaticResource ColorToSolidColorBrushConverter}, Mode=OneTime}"
-                                        Data="{Binding PathIcon, Mode=OneTime, Converter={StaticResource StringToGeometoryConverter}}" />
+                                        Data="{TemplateBinding Data}"
+                                        Foreground="{TemplateBinding Foreground}" />
+                                </Border>
+                            </ControlTemplate>
+                        </Setter>
+                    </Style>
+                    <Style Selector="PathIcon.objectmetadata:pointerover">
+                        <Setter Property="Background" Value="{DynamicResource ButtonBackgroundPointerOver}" />
+                        <Setter Property="RenderTransform" Value="scale(0.98)" />
+                    </Style>
 
-                                    <TextBlock Margin="8" Grid.Column="1" Text="{Binding Name, Mode=OneTime}"/>
-                                </Grid>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                        <ItemsControl.ItemsPanel>
-                            <ItemsPanelTemplate>
-                                <StackPanel/>
-                            </ItemsPanelTemplate>
-                        </ItemsControl.ItemsPanel>
-                    </ItemsControl>
-                </Border>
-            </Popup>
+                    <Style Selector="ComboBox">
+                        <Setter Property="BorderBrush" Value="Transparent" />
+                        <Setter Property="Background" Value="Transparent" />
+                        <Setter Property="MinWidth" Value="100" />
+                    </Style>
+                    <Style Selector="ComboBox /template/ Border#Background">
+                        <Setter Property="RenderTransform" Value="none" />
+                        <Setter Property="Transitions">
+                            <Transitions>
+                                <TransformOperationsTransition Property="RenderTransform" Duration="0:0:.075" />
+                            </Transitions>
+                        </Setter>
+                    </Style>
+                    <Style Selector="ComboBox:disabled /template/ Border#Background">
+                        <Setter Property="Background" Value="Transparent" />
+                        <Setter Property="BorderBrush" Value="Transparent" />
+                    </Style>
+                    <Style Selector="ComboBox:pointerover /template/ Border#Background">
+                        <Setter Property="Background" Value="{DynamicResource ButtonBackgroundPointerOver}" />
+                        <Setter Property="BorderBrush" Value="Transparent" />
+                        <Setter Property="RenderTransform" Value="scale(0.98)" />
+                    </Style>
+                </StackPanel.Styles>
 
-            <Separator/>
+                <Button Command="{CompiledBinding New, Mode=OneTime}" ToolTip.Tip="{x:Static prop:Strings.New}">
+                    <PathIcon Data="{StaticResource DocumentAdd48Regular}"/>
+                </Button>
 
-            <Button
-                IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}"
-                Command="{CompiledBinding ImageOutput, Mode=OneTime}"
-                ToolTip.Tip="{x:Static prop:Strings.ImageOutput}">
-                <PathIcon Data="{StaticResource Screenshot20Regular}" />
-            </Button>
+                <Button Command="{CompiledBinding Open, Mode=OneTime}" ToolTip.Tip="{x:Static prop:Strings.Open}">
+                    <PathIcon Data="{StaticResource FolderOpen24Regular}"/>
+                </Button>
 
-            <Button
-                IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}"
-                Command="{CompiledBinding VideoOutput, Mode=OneTime}"
-                ToolTip.Tip="{x:Static prop:Strings.VideoOutput}">
-                <PathIcon Data="{StaticResource VideoClip20Regular}" />
-            </Button>
-            
-        </StackPanel>
+                <Button
+                    IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}"
+                    Command="{CompiledBinding Save, Mode=OneTime}"
+                    ToolTip.Tip="{x:Static prop:Strings.SaveAs}">
+                    <PathIcon Data="{StaticResource Save24Regular}"/>
+                </Button>
+
+                <Separator/>
+
+                <Button
+                    IsEnabled="{CompiledBinding Source={x:Static command:CommandManager.Default}, Path=CanUndo, Mode=OneWay}"
+                    Command="{CompiledBinding Undo, Mode=OneTime}"
+                    ToolTip.Tip="{x:Static prop:Strings.Undo}">
+                    <PathIcon Data="{StaticResource ArrowUndo24Regular}"/>
+                </Button>
+
+                <Button
+                    IsEnabled="{CompiledBinding Source={x:Static command:CommandManager.Default}, Path=CanRedo, Mode=OneWay}"
+                    Command="{CompiledBinding Redo, Mode=OneTime}"
+                    ToolTip.Tip="{x:Static prop:Strings.Redo}">
+                    <PathIcon Data="{StaticResource ArrowRedo24Regular}"/>
+                </Button>
+
+                <Separator/>
+
+                <Button
+                    IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}"
+                    Command="{CompiledBinding Cut, Mode=OneTime}"
+                    ToolTip.Tip="{x:Static prop:Strings.Cut}">
+                    <PathIcon Data="{StaticResource Cut24Regular}"/>
+                </Button>
+
+                <Button
+                  IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}"
+                  Command="{CompiledBinding Copy, Mode=OneTime}"
+                  ToolTip.Tip="{x:Static prop:Strings.Copy}">
+                    <PathIcon Data="{StaticResource Copy24Regular}"/>
+                </Button>
+
+                <Button
+                    IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}"
+                    Command="{CompiledBinding Paste, Mode=OneTime}"
+                    ToolTip.Tip="{x:Static prop:Strings.Paste}">
+                    <PathIcon Data="{StaticResource ClipboardPaste24Regular}"/>
+                </Button>
+
+                <Separator/>
+
+                <ComboBox
+                    IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}"
+                    Items="{CompiledBinding App.Project.SceneList, Mode=OneWay}"
+                    SelectedItem="{Binding App.Project.CurrentScene, Mode=TwoWay}">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Margin="8,0" Text="{Binding SceneName, Mode=OneWay}"/>
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+
+                <Separator/>
+
+                <ItemsControl Items="{Binding Source={x:Static data:ObjectMetadata.LoadedObjects}, Converter={StaticResource EnumerableTakeConverter}, ConverterParameter=8}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <PathIcon
+                                PointerPressed="ObjectStartDrag"
+                                Foreground="{Binding AccentColor, Converter={StaticResource ColorToSolidColorBrushConverter}, Mode=OneTime}"
+                                Classes="objectmetadata"
+                                Data="{Binding PathIcon, Mode=OneTime, Converter={StaticResource StringToGeometoryConverter}}" />
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel Orientation="Horizontal" Spacing="4"/>
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                </ItemsControl>
+
+                <Button Click="ObjectsPopupOpen" Width="32" Height="32">
+                    <Button.Styles>
+                        <Style Selector="Button">
+                            <Setter Property="Background" Value="Transparent" />
+                        </Style>
+                    </Button.Styles>
+
+                    <PathIcon Data="{StaticResource MoreVertical24Regular}" />
+                </Button>
+
+                <Popup WindowManagerAddShadowHint="False" x:Name="ObjectsPopup" StaysOpen="False" PlacementMode="Pointer">
+                    <Border Background="{StaticResource AcrylicColor1}">
+
+                        <ItemsControl Items="{Binding Source={x:Static data:ObjectMetadata.LoadedObjects}}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid
+                                        ColumnDefinitions="Auto,Auto"
+                                        Height="32"
+                                        PointerPressed="ObjectStartDrag">
+                                        <Grid.Styles>
+                                            <Style Selector="Grid">
+                                                <Setter Property="RenderTransform" Value="none" />
+                                                <Setter Property="Background" Value="Transparent" />
+                                                <Setter Property="Transitions">
+                                                    <Transitions>
+                                                        <TransformOperationsTransition Property="RenderTransform" Duration="0:0:.075" />
+                                                    </Transitions>
+                                                </Setter>
+                                            </Style>
+                                            <Style Selector="Grid:pointerover">
+                                                <Setter Property="Background" Value="{DynamicResource ButtonBackgroundPointerOver}" />
+                                                <Setter Property="RenderTransform" Value="scale(0.98)" />
+                                            </Style>
+                                        </Grid.Styles>
+
+                                        <PathIcon
+                                            Margin="8"
+                                            Foreground="{Binding AccentColor, Converter={StaticResource ColorToSolidColorBrushConverter}, Mode=OneTime}"
+                                            Data="{Binding PathIcon, Mode=OneTime, Converter={StaticResource StringToGeometoryConverter}}" />
+
+                                        <TextBlock Margin="8" Grid.Column="1" Text="{Binding Name, Mode=OneTime}"/>
+                                    </Grid>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel/>
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                        </ItemsControl>
+                    </Border>
+                </Popup>
+
+                <Separator/>
+
+                <Button
+                    IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}"
+                    Command="{CompiledBinding ImageOutput, Mode=OneTime}"
+                    ToolTip.Tip="{x:Static prop:Strings.ImageOutput}">
+                    <PathIcon Data="{StaticResource Screenshot20Regular}" />
+                </Button>
+
+                <Button
+                    IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}"
+                    Command="{CompiledBinding VideoOutput, Mode=OneTime}"
+                    ToolTip.Tip="{x:Static prop:Strings.VideoOutput}">
+                    <PathIcon Data="{StaticResource VideoClip20Regular}" />
+                </Button>
+
+            </StackPanel>
+
+            <StackPanel HorizontalAlignment="Right" Grid.Column="1" Spacing="4" Orientation="Horizontal">
+                <TextBlock
+                    VerticalAlignment="Center"
+                    IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}"
+                    Text="{Binding App.Project.CurrentScene.PreviewFrame, Mode=OneWay, Converter={StaticResource FrameToTimeConverter}}" />
+            </StackPanel>
+        </Grid>
 
         <Border
             Grid.Row="2"

@@ -54,14 +54,6 @@ namespace BEditor
 
             InitializeComponent();
 
-            vm.IsOpened.Subscribe(v =>
-            {
-                if (!v && Content is Layoutable layoutable)
-                {
-                    layoutable.Margin = default;
-                }
-            });
-
             ApplyConfig();
 #if DEBUG
             this.AttachDevTools();
