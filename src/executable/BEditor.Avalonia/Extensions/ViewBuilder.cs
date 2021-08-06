@@ -234,21 +234,30 @@ namespace BEditor.Extensions
         {
             if (easing[EasePropertyViewProperty] is null)
             {
-                var stack = new StackPanel
+                AppModel.Current.UIThread.Send(static c =>
                 {
-                    Orientation = Orientation.Vertical,
-                    Width = float.NaN,
-                    HorizontalAlignment = HorizontalAlignment.Stretch
-                };
+                    var easing = (EasingFunc)c!;
+                    var stack = new StackPanel
+                    {
+                        Orientation = Orientation.Vertical,
+                        Width = float.NaN,
+                        HorizontalAlignment = HorizontalAlignment.Stretch
+                    };
 
-                foreach (var setting in easing.Children)
-                {
-                    stack.Children.Add(((PropertyElement)setting).GetCreatePropertyElementView());
-                }
+                    foreach (var setting in easing.Children)
+                    {
+                        stack.Children.Add(((PropertyElement)setting).GetCreatePropertyElementView());
+                    }
 
-                easing[EasePropertyViewProperty] = stack;
+                    easing[EasePropertyViewProperty] = stack;
+                }, easing);
             }
-            return easing.GetValue(EasePropertyViewProperty);
+            var ctr = easing.GetValue(EasePropertyViewProperty);
+            if (ctr.Parent is ContentControl contentCtr)
+            {
+                contentCtr.Content = null;
+            }
+            return ctr;
         }
 
         public static Control GetCreateKeyframeView(this IKeyframeProperty property)
