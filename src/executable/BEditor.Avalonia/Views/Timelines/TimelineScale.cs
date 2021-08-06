@@ -79,7 +79,7 @@ namespace BEditor.Views.Timelines
                 for (var s = startSec; s < totalSec + startSec; s++)
                 {
                     //一秒毎
-                    var x = ToPixel((s * rate) - 1);
+                    var x = ToPixel(s * rate);
                     if (viewport.Contains(new Point(x, Bounds.Height)))
                     {
                         context.DrawLine(_pen, new(x, 5), new(x, height));
@@ -139,16 +139,17 @@ namespace BEditor.Views.Timelines
 
                     for (var s = 1; s < 60 / value; s++)
                     {
-                        var xx = SecToPixel(s * value) + x;
+                        var sec = s * value;
+                        var xx = SecToPixel(sec) + x;
                         if (!viewport.Contains(new Point(xx, Bounds.Height))) continue;
 
                         if (Width < xx) return;
 
                         context.DrawLine(_pen, new(xx, top), new(xx, height));
 
-                        if (value is 2 or 4 or 6)
+                        if (value is 1 or 2 or 4 or 6)
                         {
-                            _text.Text = s.ToString() + " s";
+                            _text.Text = sec.ToString() + " s";
                             context.DrawText(_pen.Brush, new(xx + 8, 0), _text);
                         }
                     }
