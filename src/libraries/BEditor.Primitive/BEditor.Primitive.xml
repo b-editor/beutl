@@ -3347,7 +3347,7 @@
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Bevel">
             <summary>
-              Looks up a localized string similar to .
+              Looks up a localized string similar to Beval.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Binarization">
@@ -3992,7 +3992,7 @@
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Stroke">
             <summary>
-              Looks up a localized string similar to .
+              Looks up a localized string similar to Stroke.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.TargetX">

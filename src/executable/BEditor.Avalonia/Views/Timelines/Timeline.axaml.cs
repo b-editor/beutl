@@ -175,6 +175,39 @@ namespace BEditor.Views.Timelines
                     }
                 });
             }
+
+            // シークバーを自動追跡
+            viewmodel.SeekbarMargin.Subscribe(margin =>
+            {
+                Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    // 編集中の場合単純な追跡
+                    if (AppModel.Current.AppStatus is Status.Edit)
+                    {
+                        // シークバーがViewportの右側
+                        if (margin.Left > _scrollLine.Viewport.Width + _scrollLine.Offset.X)
+                        {
+                            _scrollLine.Offset = _scrollLine.Offset.WithX(margin.Left - _scrollLine.Viewport.Width + 1);
+                        }
+                        else if (_scrollLine.Offset.X > margin.Left)
+                        {
+                            // シークバーがViewportの左側
+                            _scrollLine.Offset = _scrollLine.Offset.WithX(margin.Left - 1);
+                        }
+                    }
+                    else if (AppModel.Current.AppStatus is Status.Playing)
+                    {
+                        if (margin.Left > _scrollLine.Viewport.Width + _scrollLine.Offset.X)
+                        {
+                            _scrollLine.Offset = _scrollLine.Offset.WithX(margin.Left - 100);
+                        }
+                        else if (_scrollLine.Offset.X > margin.Left)
+                        {
+                            _scrollLine.Offset = _scrollLine.Offset.WithX(margin.Left - _scrollLine.Viewport.Width - 100);
+                        }
+                    }
+                });
+            });
         }
 
         private TimelineViewModel ViewModel => (TimelineViewModel)DataContext!;

@@ -727,4 +727,10 @@
   <data name="Round" xml:space="preserve">
     <value>丸い</value>
   </data>
+  <data name="Stroke" xml:space="preserve">
+    <value>ストローク</value>
+  </data>
+  <data name="Bevel" xml:space="preserve">
+    <value>斜め</value>
+  </data>
 </root>

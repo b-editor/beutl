@@ -169,7 +169,7 @@ namespace BEditor.Primitive.Resources {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to .
+        ///   Looks up a localized string similar to Beval.
         /// </summary>
         internal static string Bevel {
             get {
@@ -1330,7 +1330,7 @@ namespace BEditor.Primitive.Resources {
         }
         
         /// <summary>
-        ///   Looks up a localized string similar to .
+        ///   Looks up a localized string similar to Stroke.
         /// </summary>
         internal static string Stroke {
             get {

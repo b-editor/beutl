@@ -728,9 +728,9 @@
     <value>Round</value>
   </data>
   <data name="Bevel" xml:space="preserve">
-    <value></value>
+    <value>Beval</value>
   </data>
   <data name="Stroke" xml:space="preserve">
-    <value></value>
+    <value>Stroke</value>
   </data>
 </root>
