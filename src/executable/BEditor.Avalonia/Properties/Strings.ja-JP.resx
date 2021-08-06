@@ -879,4 +879,7 @@ Vulkan:
     <value>必要なプラグインがインストールされていません。
 今すぐインストールしますか?</value>
   </data>
+  <data name="FixSeekbar" xml:space="preserve">
+    <value>再生時にシークバーを固定する</value>
+  </data>
 </root>

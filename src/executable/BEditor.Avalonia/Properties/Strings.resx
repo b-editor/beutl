@@ -879,4 +879,7 @@ Vulkan:
     <value>You do not have the required plugins installed.
 Do you want to install it now?</value>
   </data>
+  <data name="FixSeekbar" xml:space="preserve">
+    <value>Fix the seek bar during playback.</value>
+  </data>
 </root>

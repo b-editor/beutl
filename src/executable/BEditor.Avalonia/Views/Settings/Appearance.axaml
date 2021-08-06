@@ -52,6 +52,13 @@
 
             <Separator Height="16" />
 
+            <CheckBox
+                Content="{x:Static resources:Strings.FixSeekbar}"
+                IsChecked="{Binding FixSeekbar, Source={x:Static root:Settings.Default}, Mode=TwoWay}"
+                Classes="SettingsCheckBox"/>
+
+            <Separator Height="16" />
+
             <Label Content="{x:Static resources:Strings.Language}" Classes="SettingsItemHeader"/>
 
             <ComboBox

@@ -26,6 +26,11 @@ namespace BEditor
             = EditingProperty.Register<uint, Settings>(
                 "FrameWidth",
                 EditingPropertyOptions<uint>.Create().DefaultValue(5).Serialize());
+        
+        public static readonly EditingProperty<bool> FixSeekbarProperty
+            = EditingProperty.Register<bool, Settings>(
+                "FixSeekbar",
+                EditingPropertyOptions<bool>.Create().DefaultValue(true).Serialize());
 
         public static readonly EditingProperty<bool> UseDarkModeProperty
             = EditingProperty.Register<bool, Settings>(
@@ -128,6 +133,12 @@ namespace BEditor
         {
             get => GetValue(FrameWidthProperty);
             set => SetValue(FrameWidthProperty, value);
+        }
+        
+        public bool FixSeekbar
+        {
+            get => GetValue(FixSeekbarProperty);
+            set => SetValue(FixSeekbarProperty, value);
         }
 
         public bool UseDarkMode

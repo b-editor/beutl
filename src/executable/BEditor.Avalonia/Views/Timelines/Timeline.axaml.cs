@@ -195,6 +195,10 @@ namespace BEditor.Views.Timelines
                             _scrollLine.Offset = _scrollLine.Offset.WithX(margin.Left - 1);
                         }
                     }
+                    else if (AppModel.Current.AppStatus is Status.Playing && BEditor.Settings.Default.FixSeekbar)
+                    {
+                        _scrollLine.Offset = _scrollLine.Offset.WithX(margin.Left - 100);
+                    }
                     else if (AppModel.Current.AppStatus is Status.Playing)
                     {
                         if (margin.Left > _scrollLine.Viewport.Width + _scrollLine.Offset.X)

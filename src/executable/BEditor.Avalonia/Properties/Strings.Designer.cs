@@ -848,6 +848,15 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Fix the seek bar during playback..
+        /// </summary>
+        public static string FixSeekbar {
+            get {
+                return ResourceManager.GetString("FixSeekbar", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Font.
         /// </summary>
         public static string Font {
