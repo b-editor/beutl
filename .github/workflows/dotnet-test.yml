@@ -11,7 +11,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-18.04, windows-latest, macos-10.15]
+        os: [ubuntu-latest, windows-latest, macos-latest]
     env:
       NUGET_PACKAGES: ${{ github.workspace }}/.nuget/packages
     steps:
@@ -22,45 +22,6 @@ jobs:
         key: nuget-${{ runner.os }}-${{ matrix.dotnet-version }}
         restore-keys: |
           nuget-${{ runner.os }}-
-
-    - name: Install dependencies (Ubuntu)
-      if: ${{ matrix.os == 'ubuntu-18.04' }}
-      run: |
-        pwd
-        echo ${GITHUB_WORKSPACE}
-        current_path=$(pwd)
-        sudo apt-get update -y 
-        sudo apt-get install -y  --no-install-recommends \
-          apt-transport-https \
-          software-properties-common \
-          wget \
-          unzip \
-          ca-certificates \
-          build-essential \
-          cmake \
-          git \
-          libtbb-dev \
-          libatlas-base-dev \
-          libgtk2.0-dev \
-          libavcodec-dev \
-          libavformat-dev \
-          libswscale-dev \
-          libdc1394-22-dev \
-          libxine2-dev \
-          libv4l-dev \
-          libtheora-dev \
-          libvorbis-dev \
-          libxvidcore-dev \
-          libopencore-amrnb-dev \
-          libopencore-amrwb-dev \
-          libavresample-dev \
-          x264 \
-          libtesseract-dev 
-
-    - name: Install dependencies (macOS)
-      if: ${{ matrix.os == 'macos-10.15' }}
-      run: brew install wget pkg-config mono-libgdiplus gtk+ ffmpeg glog yasm harfbuzz jpeg libpng libtiff openexr openjpeg metis openblas opencore-amr protobuf tbb webp
-
     - name: Setup .NET
       uses: actions/setup-dotnet@v1
       with:
