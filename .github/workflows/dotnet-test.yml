@@ -22,49 +22,52 @@ jobs:
         key: nuget-${{ runner.os }}-${{ matrix.dotnet-version }}
         restore-keys: |
           nuget-${{ runner.os }}-
-    
-      - name: Install dependencies
-        if: ${{ matrix.os == 'ubuntu-18.04' }}
-        run: |
-          pwd
-          echo ${GITHUB_WORKSPACE}
-          current_path=$(pwd)
-          sudo apt-get update -y 
-          sudo apt-get install -y  --no-install-recommends \
-            apt-transport-https \
-            software-properties-common \
-            wget \
-            unzip \
-            ca-certificates \
-            build-essential \
-            cmake \
-            git \
-            libtbb-dev \
-            libatlas-base-dev \
-            libgtk2.0-dev \
-            libavcodec-dev \
-            libavformat-dev \
-            libswscale-dev \
-            libdc1394-22-dev \
-            libxine2-dev \
-            libv4l-dev \
-            libtheora-dev \
-            libvorbis-dev \
-            libxvidcore-dev \
-            libopencore-amrnb-dev \
-            libopencore-amrwb-dev \
-            libavresample-dev \
-            x264 \
-            libtesseract-dev 
+
+    - name: Install dependencies
+      if: ${{ matrix.os == 'ubuntu-18.04' }}
+      run: |
+        pwd
+        echo ${GITHUB_WORKSPACE}
+        current_path=$(pwd)
+        sudo apt-get update -y 
+        sudo apt-get install -y  --no-install-recommends \
+          apt-transport-https \
+          software-properties-common \
+          wget \
+          unzip \
+          ca-certificates \
+          build-essential \
+          cmake \
+          git \
+          libtbb-dev \
+          libatlas-base-dev \
+          libgtk2.0-dev \
+          libavcodec-dev \
+          libavformat-dev \
+          libswscale-dev \
+          libdc1394-22-dev \
+          libxine2-dev \
+          libv4l-dev \
+          libtheora-dev \
+          libvorbis-dev \
+          libxvidcore-dev \
+          libopencore-amrnb-dev \
+          libopencore-amrwb-dev \
+          libavresample-dev \
+          x264 \
+          libtesseract-dev 
 
     - name: Setup .NET
       uses: actions/setup-dotnet@v1
       with:
         dotnet-version: 5.0.x
+
     - name: Restore dependencies
       run: dotnet restore BEditor.sln
+
     - name: Build
       run: dotnet msbuild BEditor.sln -property:DefineConstants=GITHUB_ACTIONS
+
     - name: Test
       run: dotnet test BEditor.sln --no-build --verbosity normal
 
