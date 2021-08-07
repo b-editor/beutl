@@ -11,7 +11,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-18.04, windows-latest, macos-latest]
+        os: [ubuntu-18.04, windows-latest, macos-10.15]
     env:
       NUGET_PACKAGES: ${{ github.workspace }}/.nuget/packages
     steps:
@@ -23,7 +23,7 @@ jobs:
         restore-keys: |
           nuget-${{ runner.os }}-
 
-    - name: Install dependencies
+    - name: Install dependencies (Ubuntu)
       if: ${{ matrix.os == 'ubuntu-18.04' }}
       run: |
         pwd
@@ -56,6 +56,10 @@ jobs:
           libavresample-dev \
           x264 \
           libtesseract-dev 
+
+    - name: Install dependencies (macOS)
+      if: ${{ matrix.os == 'macos-10.15' }}
+      run: brew install wget pkg-config mono-libgdiplus gtk+ ffmpeg glog yasm harfbuzz jpeg libpng libtiff openexr openjpeg metis openblas opencore-amr protobuf tbb webp
 
     - name: Setup .NET
       uses: actions/setup-dotnet@v1
