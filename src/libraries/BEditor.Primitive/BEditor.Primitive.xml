@@ -4,6 +4,358 @@
         <name>BEditor.Primitive</name>
     </assembly>
     <members>
+        <member name="T:BEditor.Primitive.Easings.BackIn">
+            <summary>
+            To be addded.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.BackIn.EaseFunc(BEditor.Media.Frame,BEditor.Media.Frame,System.Single,System.Single)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.BackIn.GetProperties">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Primitive.Easings.BackInOut">
+            <summary>
+            To be addded.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.BackInOut.EaseFunc(BEditor.Media.Frame,BEditor.Media.Frame,System.Single,System.Single)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.BackInOut.GetProperties">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Primitive.Easings.BackOut">
+            <summary>
+            To be addded.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.BackOut.EaseFunc(BEditor.Media.Frame,BEditor.Media.Frame,System.Single,System.Single)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.BackOut.GetProperties">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Primitive.Easings.BounceIn">
+            <summary>
+            To be addded.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.BounceIn.EaseFunc(BEditor.Media.Frame,BEditor.Media.Frame,System.Single,System.Single)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.BounceIn.GetProperties">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Primitive.Easings.BounceInOut">
+            <summary>
+            To be addded.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.BounceInOut.EaseFunc(BEditor.Media.Frame,BEditor.Media.Frame,System.Single,System.Single)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.BounceInOut.GetProperties">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Primitive.Easings.BounceOut">
+            <summary>
+            To be addded.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.BounceOut.EaseFunc(BEditor.Media.Frame,BEditor.Media.Frame,System.Single,System.Single)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.BounceOut.GetProperties">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Primitive.Easings.CircIn">
+            <summary>
+            To be addded.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.CircIn.EaseFunc(BEditor.Media.Frame,BEditor.Media.Frame,System.Single,System.Single)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.CircIn.GetProperties">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Primitive.Easings.CircInOut">
+            <summary>
+            To be addded.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.CircInOut.EaseFunc(BEditor.Media.Frame,BEditor.Media.Frame,System.Single,System.Single)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.CircInOut.GetProperties">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Primitive.Easings.CircOut">
+            <summary>
+            To be addded.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.CircOut.EaseFunc(BEditor.Media.Frame,BEditor.Media.Frame,System.Single,System.Single)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.CircOut.GetProperties">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Primitive.Easings.CubicIn">
+            <summary>
+            To be addded.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.CubicIn.EaseFunc(BEditor.Media.Frame,BEditor.Media.Frame,System.Single,System.Single)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.CubicIn.GetProperties">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Primitive.Easings.CubicInOut">
+            <summary>
+            To be addded.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.CubicInOut.EaseFunc(BEditor.Media.Frame,BEditor.Media.Frame,System.Single,System.Single)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.CubicInOut.GetProperties">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Primitive.Easings.CubicOut">
+            <summary>
+            To be addded.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.CubicOut.EaseFunc(BEditor.Media.Frame,BEditor.Media.Frame,System.Single,System.Single)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.CubicOut.GetProperties">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Primitive.Easings.ElasticIn">
+            <summary>
+            To be addded.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.ElasticIn.EaseFunc(BEditor.Media.Frame,BEditor.Media.Frame,System.Single,System.Single)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.ElasticIn.GetProperties">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Primitive.Easings.ElasticInOut">
+            <summary>
+            To be addded.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.ElasticInOut.EaseFunc(BEditor.Media.Frame,BEditor.Media.Frame,System.Single,System.Single)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.ElasticInOut.GetProperties">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Primitive.Easings.ElasticOut">
+            <summary>
+            To be addded.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.ElasticOut.EaseFunc(BEditor.Media.Frame,BEditor.Media.Frame,System.Single,System.Single)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.ElasticOut.GetProperties">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Primitive.Easings.ExpIn">
+            <summary>
+            To be addded.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.ExpIn.EaseFunc(BEditor.Media.Frame,BEditor.Media.Frame,System.Single,System.Single)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.ExpIn.GetProperties">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Primitive.Easings.ExpInOut">
+            <summary>
+            To be addded.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.ExpInOut.EaseFunc(BEditor.Media.Frame,BEditor.Media.Frame,System.Single,System.Single)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.ExpInOut.GetProperties">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Primitive.Easings.ExpOut">
+            <summary>
+            To be addded.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.ExpOut.EaseFunc(BEditor.Media.Frame,BEditor.Media.Frame,System.Single,System.Single)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.ExpOut.GetProperties">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Primitive.Easings.Linear">
+            <summary>
+            To be addded.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.Linear.EaseFunc(BEditor.Media.Frame,BEditor.Media.Frame,System.Single,System.Single)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.Linear.GetProperties">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Primitive.Easings.None">
+            <summary>
+            To be addded.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.None.EaseFunc(BEditor.Media.Frame,BEditor.Media.Frame,System.Single,System.Single)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.None.GetProperties">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Primitive.Easings.QuadIn">
+            <summary>
+            To be addded.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.QuadIn.EaseFunc(BEditor.Media.Frame,BEditor.Media.Frame,System.Single,System.Single)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.QuadIn.GetProperties">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Primitive.Easings.QuadInOut">
+            <summary>
+            To be addded.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.QuadInOut.EaseFunc(BEditor.Media.Frame,BEditor.Media.Frame,System.Single,System.Single)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.QuadInOut.GetProperties">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Primitive.Easings.QuadOut">
+            <summary>
+            To be addded.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.QuadOut.EaseFunc(BEditor.Media.Frame,BEditor.Media.Frame,System.Single,System.Single)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.QuadOut.GetProperties">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Primitive.Easings.QuartIn">
+            <summary>
+            To be addded.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.QuartIn.EaseFunc(BEditor.Media.Frame,BEditor.Media.Frame,System.Single,System.Single)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.QuartIn.GetProperties">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Primitive.Easings.QuartInOut">
+            <summary>
+            To be addded.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.QuartInOut.EaseFunc(BEditor.Media.Frame,BEditor.Media.Frame,System.Single,System.Single)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.QuartInOut.GetProperties">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Primitive.Easings.QuartOut">
+            <summary>
+            To be addded.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.QuartOut.EaseFunc(BEditor.Media.Frame,BEditor.Media.Frame,System.Single,System.Single)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.QuartOut.GetProperties">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Primitive.Easings.QuintIn">
+            <summary>
+            To be addded.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.QuintIn.EaseFunc(BEditor.Media.Frame,BEditor.Media.Frame,System.Single,System.Single)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.QuintIn.GetProperties">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Primitive.Easings.QuintInOut">
+            <summary>
+            To be addded.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.QuintInOut.EaseFunc(BEditor.Media.Frame,BEditor.Media.Frame,System.Single,System.Single)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.QuintInOut.GetProperties">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Primitive.Easings.QuintOut">
+            <summary>
+            To be addded.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.QuintOut.EaseFunc(BEditor.Media.Frame,BEditor.Media.Frame,System.Single,System.Single)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.QuintOut.GetProperties">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Primitive.Easings.SineIn">
+            <summary>
+            To be addded.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.SineIn.EaseFunc(BEditor.Media.Frame,BEditor.Media.Frame,System.Single,System.Single)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.SineIn.GetProperties">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Primitive.Easings.SineInOut">
+            <summary>
+            To be addded.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.SineInOut.EaseFunc(BEditor.Media.Frame,BEditor.Media.Frame,System.Single,System.Single)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.SineInOut.GetProperties">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Primitive.Easings.SineOut">
+            <summary>
+            To be addded.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.SineOut.EaseFunc(BEditor.Media.Frame,BEditor.Media.Frame,System.Single,System.Single)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.SineOut.GetProperties">
+            <inheritdoc/>
+        </member>
         <member name="T:BEditor.Primitive.Effects.DepthTest">
             <summary>
             Represents an <see cref="T:BEditor.Data.EffectElement"/> that sets the OpenGL depth test.
@@ -3268,6 +3620,12 @@
             Enumerate all effects.
             </summary>
             <returns>Returns the effect metadata contained in BEditor.Primitive.</returns>
+        </member>
+        <member name="M:BEditor.Primitive.PrimitiveTypes.EnumerateAllEasingMetadata">
+            <summary>
+            Enumerate all easings.
+            </summary>
+            <returns>Returns the easing metadata contained in BEditor.Primitive.</returns>
         </member>
         <member name="T:BEditor.Primitive.Resources.Strings">
             <summary>

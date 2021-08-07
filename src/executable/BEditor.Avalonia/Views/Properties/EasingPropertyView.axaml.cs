@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Threading.Tasks;
 
 using Avalonia.Controls;
@@ -29,11 +30,14 @@ namespace BEditor.Views.Properties
             _playButton = this.FindControl<Button>("PlayButton");
         }
 
-        public void ListBox_SelectionChanged(object s, SelectionChangedEventArgs e)
+        public void TreeView_SelectionChanged(object s, SelectionChangedEventArgs e)
         {
-            if (DataContext is EasePropertyViewModel vm)
+            if (DataContext is EasePropertyViewModel vm
+                && e.AddedItems.OfType<EasingMetadata>().FirstOrDefault() is var metadata
+                && vm.Property.EasingData.Type != metadata.Type
+                && metadata.Type is not null)
             {
-                vm.EasingChangeCommand.Execute((EasingMetadata)e.AddedItems[0]!);
+                vm.EasingChangeCommand.Execute(metadata);
             }
         }
 

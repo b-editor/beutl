@@ -17,6 +17,7 @@ using Avalonia.Styling;
 using Avalonia.Threading;
 
 using BEditor.Data;
+using BEditor.Data.Property.Easing;
 using BEditor.Extensions;
 using BEditor.Graphics.Platform;
 using BEditor.Models;
@@ -223,6 +224,12 @@ namespace BEditor
             {
                 EffectMetadata.LoadedEffects.Add(effect);
             }
+
+            foreach (var ease in PrimitiveTypes.EnumerateAllEasingMetadata())
+            {
+                EasingMetadata.LoadedEasingFunc.Add(ease);
+            }
+            EasingMetadata.LoadedEasingFunc.Add(EasingMetadata.Create<PrimitiveEasing>(Strings.PrimitiveEasing));
         }
 
         private static async ValueTask InitialPluginsAsync()

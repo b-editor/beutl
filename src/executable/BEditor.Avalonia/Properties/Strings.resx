@@ -882,4 +882,7 @@ Do you want to install it now?</value>
   <data name="FixSeekbar" xml:space="preserve">
     <value>Fix the seek bar during playback</value>
   </data>
+  <data name="PrimitiveEasing" xml:space="preserve">
+    <value>Primitive (deprecated)</value>
+  </data>
 </root>

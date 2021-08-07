@@ -882,4 +882,7 @@ Vulkan:
   <data name="FixSeekbar" xml:space="preserve">
     <value>再生時にシークバーを固定する</value>
   </data>
+  <data name="PrimitiveEasing" xml:space="preserve">
+    <value>プリミティブ (非推奨)</value>
+  </data>
 </root>

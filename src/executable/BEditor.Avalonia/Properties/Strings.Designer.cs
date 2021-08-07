@@ -1536,6 +1536,15 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Primitive (deprecated).
+        /// </summary>
+        public static string PrimitiveEasing {
+            get {
+                return ResourceManager.GetString("PrimitiveEasing", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Project.
         /// </summary>
         public static string Project {

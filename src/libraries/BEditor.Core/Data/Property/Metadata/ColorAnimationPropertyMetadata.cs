@@ -27,7 +27,7 @@ namespace BEditor.Data.Property
         /// </summary>
         /// <param name="name">The string displayed in the property header.</param>
         public ColorAnimationPropertyMetadata(string name)
-            : this(name, default, EasingMetadata.LoadedEasingFunc[0])
+            : this(name, default, EasingMetadata.GetDefault())
         {
         }
 
@@ -38,7 +38,7 @@ namespace BEditor.Data.Property
         /// <param name="defaultColor">The default color.</param>
         /// <param name="useAlpha">The value of whether to use alpha components or not.</param>
         public ColorAnimationPropertyMetadata(string name, Color defaultColor, bool useAlpha = false)
-            : this(name, defaultColor, EasingMetadata.LoadedEasingFunc[0], useAlpha)
+            : this(name, defaultColor, EasingMetadata.GetDefault(), useAlpha)
         {
         }
 

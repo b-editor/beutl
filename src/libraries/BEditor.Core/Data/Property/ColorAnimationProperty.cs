@@ -43,6 +43,9 @@ namespace BEditor.Data.Property
         /// <exception cref="ArgumentNullException"><paramref name="metadata"/> is <see langword="null"/>.</exception>
         public ColorAnimationProperty(ColorAnimationPropertyMetadata metadata)
         {
+            if (metadata.DefaultEase.CreateFunc is null)
+                throw new DataException("Invalid easing.");
+
             PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
             var color = metadata.DefaultColor;
 
@@ -71,7 +74,7 @@ namespace BEditor.Data.Property
             {
                 if (_easingTypeProperty == null || EasingData.Type != _easingTypeProperty.GetType())
                 {
-                    _easingTypeProperty = EasingData.CreateFunc();
+                    _easingTypeProperty = EasingData.CreateFunc!();
                     _easingTypeProperty.Parent = this;
                 }
 
@@ -79,9 +82,10 @@ namespace BEditor.Data.Property
             }
             set
             {
-                SetAndRaise(value, ref _easingTypeProperty, _easingFuncArgs);
+                var type = value.GetType();
+                EasingData = EasingMetadata.Find(type);
 
-                EasingData = EasingMetadata.LoadedEasingFunc.Find(x => x.Type == value.GetType())!;
+                SetAndRaise(value, ref _easingTypeProperty, _easingFuncArgs);
             }
         }
 
@@ -101,7 +105,7 @@ namespace BEditor.Data.Property
         /// </summary>
         public EasingMetadata EasingData
         {
-            get => _easingData ?? EasingMetadata.LoadedEasingFunc[0];
+            get => _easingData ?? EasingMetadata.GetDefault();
             set => SetAndRaise(value, ref _easingData, _easingDataArgs);
         }
 
@@ -279,7 +283,7 @@ namespace BEditor.Data.Property
             var type = Type.GetType(easing.GetProperty("_type").GetString()!);
             if (type is null)
             {
-                EasingType = EasingMetadata.LoadedEasingFunc[0].CreateFunc();
+                EasingType = EasingMetadata.GetDefault().CreateFunc!();
                 EasingType.Parent = this;
             }
             else
@@ -399,18 +403,10 @@ namespace BEditor.Data.Property
             private readonly EasingFunc _new;
             private readonly EasingFunc _old;
 
-            public ChangeEaseCommand(ColorAnimationProperty property, string type)
-            {
-                _property = new(property ?? throw new ArgumentNullException(nameof(property)));
-
-                var data = EasingMetadata.LoadedEasingFunc.Find(x => x.Name == type)!;
-                _new = data.CreateFunc();
-                _new.Parent = property;
-                _old = property.EasingType;
-            }
-
             public ChangeEaseCommand(ColorAnimationProperty property, EasingMetadata metadata)
             {
+                if (metadata.CreateFunc is null) throw new DataException("Invalid easing.");
+
                 _property = new(property ?? throw new ArgumentNullException(nameof(property)));
 
                 _new = metadata.CreateFunc();

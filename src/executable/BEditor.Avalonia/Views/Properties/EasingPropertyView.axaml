@@ -14,19 +14,20 @@
     x:Class="BEditor.Views.Properties.EasingPropertyView">
     <Border Background="{StaticResource AcrylicColor2}">
         <Grid RowDefinitions="Auto,*" ColumnDefinitions="2*,Auto,3*,Auto,2*">
-            <ListBox
+            <TreeView
+                Background="{StaticResource AcrylicColor1}"
                 Grid.RowSpan="2"
                 Padding="0,32,0,0"
                 SelectionMode="Single"
-                SelectionChanged="ListBox_SelectionChanged"
+                SelectionChanged="TreeView_SelectionChanged"
                 Items="{x:Static easing:EasingMetadata.LoadedEasingFunc}"
                 SelectedItem="{Binding Property.EasingData, Mode=OneWay}">
-                <ListBox.ItemTemplate>
-                    <DataTemplate x:DataType="easing:EasingMetadata">
-                        <TextBlock Text="{Binding Name, Mode=OneTime}"/>
-                    </DataTemplate>
-                </ListBox.ItemTemplate>
-            </ListBox>
+                <TreeView.DataTemplates>
+                    <TreeDataTemplate ItemsSource="{Binding Children}">
+                        <TextBlock Text="{Binding Name}" Margin="3,2" />
+                    </TreeDataTemplate>
+                </TreeView.DataTemplates>
+            </TreeView>
 
             <GridSplitter Grid.Column="1" Grid.Row="1" Background="Transparent" />
 

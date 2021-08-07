@@ -2066,28 +2066,51 @@
             <summary>
             The metadata of <see cref="T:BEditor.Data.Property.Easing.EasingFunc"/>.
             </summary>
-            <param name="Name">The name of the easing function.</param>
-            <param name="CreateFunc">This <see cref="T:System.Func`1"/> gets a new instance of the <see cref="T:BEditor.Data.Property.Easing.EasingFunc"/> object.</param>
-            <param name="Type">The type of the object that inherits from <see cref="T:BEditor.Data.Property.Easing.EasingFunc"/>.</param>
         </member>
         <member name="M:BEditor.Data.Property.Easing.EasingMetadata.#ctor(System.String,System.Func{BEditor.Data.Property.Easing.EasingFunc},System.Type)">
             <summary>
-            The metadata of <see cref="T:BEditor.Data.Property.Easing.EasingFunc"/>.
+            Initializes a new instance of the <see cref="T:BEditor.Data.Property.Easing.EasingMetadata"/> class.
             </summary>
-            <param name="Name">The name of the easing function.</param>
-            <param name="CreateFunc">This <see cref="T:System.Func`1"/> gets a new instance of the <see cref="T:BEditor.Data.Property.Easing.EasingFunc"/> object.</param>
-            <param name="Type">The type of the object that inherits from <see cref="T:BEditor.Data.Property.Easing.EasingFunc"/>.</param>
+            <param name="name">The name of the easing func.</param>
+            <param name="createFunc">Create a new instance of the <see cref="T:BEditor.Data.Property.Easing.EasingFunc"/> object.</param>
+            <param name="type">The type of the object that inherits from <see cref="T:BEditor.Data.Property.Easing.EasingFunc"/>.</param>
+        </member>
+        <member name="M:BEditor.Data.Property.Easing.EasingMetadata.#ctor(System.String)">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Data.Property.Easing.EasingMetadata"/> class.
+            </summary>
+            <param name="name">The name of the <see cref="T:BEditor.Data.Property.Easing.EasingFunc"/>.</param>
         </member>
         <member name="M:BEditor.Data.Property.Easing.EasingMetadata.#ctor(System.String,System.Linq.Expressions.Expression{System.Func{BEditor.Data.Property.Easing.EasingFunc}})">
             <summary>
             Initializes a new instance of the <see cref="T:BEditor.Data.Property.Easing.EasingMetadata"/> class.
             </summary>
-            <param name="name">The name of the easing function.</param>
+            <param name="name">The name of the <see cref="T:BEditor.Data.Property.Easing.EasingFunc"/>.</param>
             <param name="create">This <see cref="T:System.Func`1"/> gets a new instance of the <see cref="T:BEditor.Data.Property.Easing.EasingFunc"/> object.</param>
         </member>
         <member name="P:BEditor.Data.Property.Easing.EasingMetadata.LoadedEasingFunc">
             <summary>
             Gets the loaded <see cref="T:BEditor.Data.Property.Easing.EasingMetadata"/>.
+            </summary>
+        </member>
+        <member name="P:BEditor.Data.Property.Easing.EasingMetadata.Name">
+            <summary>
+            Gets or sets the name of the easing func.
+            </summary>
+        </member>
+        <member name="P:BEditor.Data.Property.Easing.EasingMetadata.CreateFunc">
+            <summary>
+            Create a new instance of the <see cref="T:BEditor.Data.Property.Easing.EasingFunc"/> object.
+            </summary>
+        </member>
+        <member name="P:BEditor.Data.Property.Easing.EasingMetadata.Type">
+            <summary>
+            Gets or sets the type of the object that inherits from <see cref="T:BEditor.Data.Property.Easing.EasingFunc"/>.
+            </summary>
+        </member>
+        <member name="P:BEditor.Data.Property.Easing.EasingMetadata.Children">
+            <summary>
+            Gets or sets the child elements of the group.
             </summary>
         </member>
         <member name="M:BEditor.Data.Property.Easing.EasingMetadata.Create``1(System.String)">
@@ -2097,6 +2120,19 @@
             <typeparam name="T">The type of object that inherits from EasingFunc.</typeparam>
             <param name="name">The name of the easing function.</param>
             <returns>A new instance of <see cref="T:BEditor.Data.Property.Easing.EasingMetadata"/>.</returns>
+        </member>
+        <member name="M:BEditor.Data.Property.Easing.EasingMetadata.Find(System.Type)">
+            <summary>
+            Find metadata from types that inherit from <see cref="T:BEditor.Data.Property.Easing.EasingFunc"/>.
+            </summary>
+            <param name="type">Types that inherit from <see cref="T:BEditor.Data.Property.Easing.EasingFunc"/>.</param>
+            <returns>The metadata.</returns>
+        </member>
+        <member name="M:BEditor.Data.Property.Easing.EasingMetadata.GetDefault">
+            <summary>
+            Gets the default value of <see cref="T:BEditor.Data.Property.Easing.EasingMetadata"/>.
+            </summary>
+            <returns>Returns the default value of <see cref="T:BEditor.Data.Property.Easing.EasingMetadata"/>.</returns>
         </member>
         <member name="T:BEditor.Data.Property.Easing.PrimitiveEasing">
             <summary>
