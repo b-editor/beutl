@@ -7,23 +7,25 @@
     xmlns:views="using:BEditor.Views"
     xmlns:prop="clr-namespace:BEditor.Properties"
     xmlns:command="clr-namespace:BEditor.Command;assembly=BEditor.Core"
+    xmlns:titlebar="using:BEditor.Views.CustomTitlebars"
+    xmlns:ui="using:FluentAvalonia.UI.Controls"
+    xmlns:uip="using:FluentAvalonia.UI.Controls.Primitives"
     mc:Ignorable="d" d:DesignWidth="800"
     DataContext="{x:Static vm:MainWindowViewModel.Current}"
     x:DataType="vm:MainWindowViewModel"
     x:Class="BEditor.Views.CustomTitlebars.WindowsTitlebar">
-    <Grid ColumnDefinitions="*,Auto">
+    <Grid ColumnDefinitions="Auto,*">
         <Menu Name="menu">
             <Menu.Styles>
-                <Style Selector="PathIcon">
-                    <Setter Property="Width" Value="16" />
-                    <Setter Property="Height" Value="16" />
+                <Style Selector="ui|SymbolIcon">
+                    <Setter Property="FontSize" Value="20" />
                 </Style>
             </Menu.Styles>
             <MenuItem Header="{x:Static prop:Strings.File}">
                 <!--開く-->
                 <MenuItem Header="{x:Static prop:Strings.Open}" Command="{CompiledBinding Open, Mode=OneTime}">
                     <MenuItem.Icon>
-                        <PathIcon Data="{StaticResource FolderOpen24Regular}" />
+                        <ui:SymbolIcon Symbol="Open" />
                     </MenuItem.Icon>
                 </MenuItem>
 
@@ -34,7 +36,7 @@
                         Header="{x:Static prop:Strings.CreateProject}"
                         Command="{CompiledBinding New, Mode=OneTime}">
                         <MenuItem.Icon>
-                            <PathIcon Data="{StaticResource DocumentAdd24Regular}" />
+                            <ui:SymbolIcon Symbol="New" />
                         </MenuItem.Icon>
                     </MenuItem>
                     <MenuItem Header="{x:Static prop:Strings.CreateFromBackup}"/>
@@ -48,7 +50,7 @@
                     Command="{CompiledBinding Save, Mode=OneTime}"
                     IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}">
                     <MenuItem.Icon>
-                        <PathIcon Data="{StaticResource Save24Regular}" />
+                        <ui:SymbolIcon Symbol="Save" />
                     </MenuItem.Icon>
                 </MenuItem>
 
@@ -58,7 +60,7 @@
                     Command="{CompiledBinding SaveAs, Mode=OneTime}"
                     IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}">
                     <MenuItem.Icon>
-                        <PathIcon Data="{StaticResource SaveEdit24Regular}" />
+                        <ui:SymbolIcon Symbol="SaveAsCopy" />
                     </MenuItem.Icon>
                 </MenuItem>
 
@@ -84,7 +86,7 @@
                     Header="{x:Static prop:Strings.Undo}"
                     IsEnabled="{CompiledBinding CanUndo, Mode=OneWay, Source={x:Static command:CommandManager.Default}}">
                     <MenuItem.Icon>
-                        <PathIcon Data="{StaticResource ArrowUndo24Regular}" />
+                        <ui:SymbolIcon Symbol="Undo" />
                     </MenuItem.Icon>
                 </MenuItem>
 
@@ -94,7 +96,7 @@
                     Header="{x:Static prop:Strings.Redo}"
                     IsEnabled="{CompiledBinding CanRedo, Mode=OneWay, Source={x:Static command:CommandManager.Default}}">
                     <MenuItem.Icon>
-                        <PathIcon Data="{StaticResource ArrowRedo24Regular}" />
+                        <ui:SymbolIcon Symbol="Redo" />
                     </MenuItem.Icon>
                 </MenuItem>
 
@@ -104,7 +106,7 @@
                   Header="{x:Static prop:Strings.Remove}"
                   IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}">
                     <MenuItem.Icon>
-                        <PathIcon Data="{StaticResource Delete24Regular}" />
+                        <ui:SymbolIcon Symbol="Delete" />
                     </MenuItem.Icon>
                 </MenuItem>
 
@@ -116,7 +118,7 @@
                   Header="{x:Static prop:Strings.Cut}"
                   IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}">
                     <MenuItem.Icon>
-                        <PathIcon Data="{StaticResource Cut24Regular}" />
+                        <ui:SymbolIcon Symbol="Cut" />
                     </MenuItem.Icon>
                 </MenuItem>
 
@@ -126,7 +128,7 @@
                   Header="{x:Static prop:Strings.Copy}"
                   IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}">
                     <MenuItem.Icon>
-                        <PathIcon Data="{StaticResource Copy24Regular}" />
+                        <ui:SymbolIcon Symbol="Copy" />
                     </MenuItem.Icon>
                 </MenuItem>
 
@@ -136,7 +138,7 @@
                   Header="{x:Static prop:Strings.Paste}"
                   IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}">
                     <MenuItem.Icon>
-                        <PathIcon Data="{StaticResource ClipboardPaste24Regular}" />
+                        <ui:SymbolIcon Symbol="Paste" />
                     </MenuItem.Icon>
                 </MenuItem>
 
@@ -169,14 +171,14 @@
                 <!--設定-->
                 <MenuItem Click="ShowSettings" Header="{x:Static prop:Strings.Settings}">
                     <MenuItem.Icon>
-                        <PathIcon Data="{StaticResource Settings24Regular}" />
+                        <ui:SymbolIcon Symbol="Settings" />
                     </MenuItem.Icon>
                 </MenuItem>
 
                 <!--動画を変換-->
                 <MenuItem Click="ConvertVideo" Header="{x:Static prop:Strings.ConvertVideo}">
                     <MenuItem.Icon>
-                        <PathIcon Data="{StaticResource ResizeVideo24Regular}" />
+                        <ui:SymbolIcon Symbol="Video" />
                     </MenuItem.Icon>
                 </MenuItem>
 
@@ -194,11 +196,7 @@
                 <!--プラグインを管理-->
                 <MenuItem
                     Header="{x:Static prop:Strings.ManagePlugins}"
-                    Click="ManagePlugins_Click">
-                    <MenuItem.Icon>
-                        <PathIcon Data="{StaticResource Extension24Regular}" />
-                    </MenuItem.Icon>
-                </MenuItem>
+                    Click="ManagePlugins_Click" />
 
             </MenuItem>
             <MenuItem Header="{x:Static prop:Strings.Out}">
@@ -209,7 +207,7 @@
                     Header="{x:Static prop:Strings.VideoOutput}"
                     Command="{CompiledBinding VideoOutput, Mode=OneTime}">
                     <MenuItem.Icon>
-                        <PathIcon Data="{StaticResource MoviesAndTv24Regular}" />
+                        <ui:SymbolIcon Symbol="Video" />
                     </MenuItem.Icon>
                 </MenuItem>
                 
@@ -219,7 +217,7 @@
                     Header="{x:Static prop:Strings.ImageOutput}"
                     Command="{CompiledBinding ImageOutput, Mode=OneTime}">
                     <MenuItem.Icon>
-                        <PathIcon Data="{StaticResource Image24Regular}" />
+                        <ui:SymbolIcon Symbol="Image" />
                     </MenuItem.Icon>
                 </MenuItem>
                 
@@ -229,102 +227,14 @@
                 <!--情報-->
                 <MenuItem Click="ShowInfomation" Header="{x:Static prop:Strings.Infomation}">
                     <MenuItem.Icon>
-                        <PathIcon Data="{StaticResource Info24Regular}" />
+                        <ui:SymbolIcon Symbol="Help" />
                     </MenuItem.Icon>
                 </MenuItem>
 
             </MenuItem>
         </Menu>
 
-        <StackPanel
-          x:Name="titlebarbuttons"
-          Grid.Column="1"
-          Orientation="Horizontal"
-          Spacing="0">
-            <Button
-              Width="46"
-              VerticalAlignment="Stretch"
-              VerticalContentAlignment="Center"
-              BorderThickness="0"
-              Name="MinimizeButton"
-              ToolTip.Tip="Minimize">
-                <Button.Resources>
-                    <CornerRadius x:Key="ControlCornerRadius">0</CornerRadius>
-                </Button.Resources>
-                <Button.Styles>
-                    <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-                        <Setter Property="Background" Value="#44AAAAAA"/>
-                    </Style>
-                    <Style Selector="Button:not(:pointerover) /template/ ContentPresenter#PART_ContentPresenter">
-                        <Setter Property="Background" Value="Transparent"/>
-                    </Style>
-                </Button.Styles>
-                <Path Margin="10,0,10,0"
-                      Stretch="Uniform"
-                      Fill="{DynamicResource SystemControlForegroundBaseHighBrush}"
-                      Data="M2048 1229v-205h-2048v205h2048z"></Path>
-            </Button>
-
-            <Button
-              Width="46"
-              VerticalAlignment="Stretch"
-              VerticalContentAlignment="Center"
-              BorderThickness="0"
-              Name="MaximizeButton">
-                <ToolTip.Tip>
-                    <ToolTip Content="Maximize" Name="MaximizeToolTip"></ToolTip>
-                </ToolTip.Tip>
-
-                <Button.Resources>
-                    <CornerRadius x:Key="ControlCornerRadius">0</CornerRadius>
-                </Button.Resources>
-                <Button.Styles>
-                    <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-                        <Setter Property="Background" Value="#44AAAAAA"/>
-                    </Style>
-                    <Style Selector="Button:not(:pointerover) /template/ ContentPresenter#PART_ContentPresenter">
-                        <Setter Property="Background" Value="Transparent"/>
-                    </Style>
-                </Button.Styles>
-                <Path
-                  Margin="10,0,10,0"
-                  Stretch="Uniform"
-                  Fill="{DynamicResource SystemControlForegroundBaseHighBrush}"
-                  Name="MaximizeIcon"
-                  Data="M2048 2048v-2048h-2048v2048h2048zM1843 1843h-1638v-1638h1638v1638z"></Path>
-            </Button>
-
-            <Button
-              Width="46"
-              VerticalAlignment="Stretch"
-              VerticalContentAlignment="Center"
-              BorderThickness="0"
-              Name="CloseButton"
-              ToolTip.Tip="Close">
-                <Button.Resources>
-                    <CornerRadius x:Key="ControlCornerRadius">0</CornerRadius>
-                </Button.Resources>
-                <Button.Styles>
-                    <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-                        <Setter Property="Background" Value="Red"/>
-                    </Style>
-                    <Style Selector="Button:not(:pointerover) /template/ ContentPresenter#PART_ContentPresenter">
-                        <Setter Property="Background" Value="Transparent"/>
-                    </Style>
-                    <Style Selector="Button:pointerover > Path">
-                        <Setter Property="Fill" Value="White"/>
-                    </Style>
-                    <Style Selector="Button:not(:pointerover) > Path">
-                        <Setter Property="Fill" Value="{DynamicResource SystemControlForegroundBaseHighBrush}"/>
-                    </Style>
-                </Button.Styles>
-                <Path
-                  Margin="10,0,10,0"
-                  Stretch="Uniform"
-                  Data="M1169 1024l879 -879l-145 -145l-879 879l-879 -879l-145 145l879 879l-879 879l145 145l879 -879l879 879l145 -145z"></Path>
-            </Button>
-
-        </StackPanel>
+        <titlebar:WindowsTitlebarButtons x:Name="titlebarbuttons" Grid.Column="1" />
     </Grid>
 
 </UserControl>
