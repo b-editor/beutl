@@ -28,6 +28,13 @@ namespace BEditor.ViewModels
 
             SelectedBackground.Value = ToStr(ProjectConfig.GetBackgroundType(project));
             SelectedBackground.Subscribe(i => ProjectConfig.SetBackgroundType(_project, ToEnum(i)));
+
+            Speed = project.GetObservable(ProjectConfig.SpeedProperty)
+                .Select(i => i * 100)
+                .ToReactiveProperty();
+
+            Speed.Value = ProjectConfig.GetSpeed(project) * 100;
+            Speed.Subscribe(i => ProjectConfig.SetSpeed(_project, i / 100));
         }
 
         public enum BackgroundType
@@ -40,6 +47,8 @@ namespace BEditor.ViewModels
         }
 
         public ReactiveProperty<string> SelectedBackground { get; }
+
+        public ReactiveProperty<double> Speed { get; }
 
         public string[] Backgrounds { get; } =
         {

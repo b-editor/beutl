@@ -143,6 +143,7 @@ namespace BEditor.Models
                 var projConfig = new ProjectConfig
                 {
                     BackgroundType = ProjectConfig.GetBackgroundType(project),
+                    Speed = ProjectConfig.GetSpeed(project),
                 };
 
                 using var writer = new StreamWriter(Path.Combine(directory, ".config"));
@@ -192,6 +193,7 @@ namespace BEditor.Models
                 if (!File.Exists(file))
                 {
                     ProjectConfig.SetBackgroundType(project, ViewModels.ConfigurationViewModel.BackgroundType.Transparent);
+                    ProjectConfig.SetSpeed(project, 1);
                 }
                 else
                 {
@@ -199,6 +201,7 @@ namespace BEditor.Models
                     var projConfig = JsonSerializer.Deserialize<ProjectConfig>(reader.ReadToEnd(), PackageFile._serializerOptions);
 
                     ProjectConfig.SetBackgroundType(project, projConfig.BackgroundType);
+                    ProjectConfig.SetSpeed(project, projConfig.Speed);
                 }
             }
 

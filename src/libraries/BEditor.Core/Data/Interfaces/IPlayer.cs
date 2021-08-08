@@ -53,6 +53,11 @@ namespace BEditor.Data
         public Frame CurrentFrame { get; }
 
         /// <summary>
+        /// Gets or sets the speed of this <see cref="IPlayer"/>.
+        /// </summary>
+        public double Speed { get; set; }
+
+        /// <summary>
         /// Start playing.
         /// </summary>
         public void Play();

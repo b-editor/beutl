@@ -37,17 +37,19 @@ namespace BEditor.ViewModels
                 .Where(app => app.Project is not null)
                 .Subscribe(app =>
                 {
+                    app.Project.CurrentScene.Player.Speed = ProjectConfig.GetSpeed(app.Project);
+
                     if (app.AppStatus is Status.Playing)
                     {
                         app.AppStatus = Status.Edit;
 
-                        app.Project!.CurrentScene.Player.Stop();
+                        app.Project.CurrentScene.Player.Stop();
                     }
                     else
                     {
                         app.AppStatus = Status.Playing;
 
-                        app.Project!.CurrentScene.Player.Play();
+                        app.Project.CurrentScene.Player.Play();
                     }
                 });
 

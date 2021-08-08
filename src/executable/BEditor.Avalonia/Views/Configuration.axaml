@@ -22,6 +22,17 @@
                 SelectedItem="{CompiledBinding SelectedBackground.Value, Mode=TwoWay}"
                 Items="{CompiledBinding Backgrounds, Mode=OneTime}">
             </ComboBox>
+            
+            <Separator Height="8"/>
+
+            <Label
+                Classes="SettingsItemHeader"
+                Content="スピード" />
+
+            <NumericUpDown
+                Classes="SettingsNumericUpDown"
+                Minimum="0"
+                Value="{CompiledBinding Speed.Value, Mode=TwoWay}"/>
         </StackPanel>
     </ScrollViewer>
 </UserControl>

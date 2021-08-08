@@ -28,9 +28,9 @@ namespace BEditor.Data.Internals
     internal class ScenePlayer : IPlayer
     {
         private readonly Timer _timer;
-        private readonly double _framerate;
         private DateTime _startTime;
         private Frame _startframe;
+        private double _frameRate;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ScenePlayer"/> class.
@@ -39,11 +39,11 @@ namespace BEditor.Data.Internals
         public ScenePlayer(Scene scene)
         {
             Scene = scene;
-            _framerate = scene.Parent!.Framerate;
+            _frameRate = scene.Parent.Framerate;
 
             _timer = new Timer
             {
-                Interval = 1d / _framerate,
+                Interval = 1d / _frameRate,
             };
 
             _timer.Elapsed += Timer_Elapsed;
@@ -65,6 +65,9 @@ namespace BEditor.Data.Internals
 
         /// <inheritdoc/>
         public Frame CurrentFrame { get; private set; }
+
+        /// <inheritdoc/>
+        public double Speed { get; set; } = 1;
 
         /// <inheritdoc/>
         public void Play()
@@ -131,14 +134,14 @@ namespace BEditor.Data.Internals
             source.QueueBuffer(primaryBuffer);
             source.Play();
 
-            f += Scene.Parent.Framerate;
+            f += (Frame)(Scene.Parent.Framerate * Speed);
 
             while (f < Scene.TotalFrame)
             {
                 if (State is PlayerState.Stop) break;
 
                 FillAudioData(secondary, f);
-                f += Scene.Parent.Framerate;
+                f += (Frame)(Scene.Parent.Framerate * Speed);
 
                 while (source.IsPlaying())
                 {
@@ -193,7 +196,7 @@ namespace BEditor.Data.Internals
                     source.QueueBuffer(buffer);
                     source.Play();
 
-                    f += Scene.Parent.Framerate;
+                    f += (Frame)(Scene.Parent.Framerate * Speed);
                 }
             }
         }
@@ -224,12 +227,13 @@ namespace BEditor.Data.Internals
         private void Timer_Elapsed(object sender, ElapsedEventArgs e)
         {
             var time = e.SignalTime - _startTime;
-            var frame = Frame.FromTimeSpan(time, _framerate);
+            var frame = Frame.FromTimeSpan(time, Scene.Parent.Framerate);
 
             frame += _startframe;
 
             if (frame > Scene.TotalFrame) Stop();
 
+            frame = (Frame)(frame * Speed);
             CurrentFrame = frame;
             Scene.PreviewFrame = frame;
         }

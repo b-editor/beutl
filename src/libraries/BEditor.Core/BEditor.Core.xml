@@ -964,6 +964,16 @@
             Gets the current frame in this <see cref="T:BEditor.Data.IPlayer"/>.
             </summary>
         </member>
+        <member name="P:BEditor.Data.IPlayer.Speed">
+            <summary>
+            Gets or sets the speed of this <see cref="T:BEditor.Data.IPlayer"/>.
+            </summary>
+        </member>
+        <member name="P:BEditor.Data.IPlayer.FrameRate">
+            <summary>
+            Gets or sets the frame rate of this <see cref="T:BEditor.Data.IPlayer"/>.
+            </summary>
+        </member>
         <member name="M:BEditor.Data.IPlayer.Play">
             <summary>
             Start playing.
@@ -1016,6 +1026,12 @@
             <inheritdoc/>
         </member>
         <member name="P:BEditor.Data.Internals.ScenePlayer.CurrentFrame">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Data.Internals.ScenePlayer.Speed">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Data.Internals.ScenePlayer.FrameRate">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Data.Internals.ScenePlayer.Play">
