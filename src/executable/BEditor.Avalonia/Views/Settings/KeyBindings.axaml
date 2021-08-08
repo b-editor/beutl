@@ -33,9 +33,9 @@
                 Text="{CompiledBinding Key.Value, Mode=TwoWay}" />
 
             <Button
+                BorderThickness="0"
                 Margin="8"
                 Grid.Column="1"
-                Background="Transparent"
                 Content="{x:Static props:Strings.Apply}"
                 Command="{CompiledBinding Apply, Mode=OneTime}" />
         </Grid>
