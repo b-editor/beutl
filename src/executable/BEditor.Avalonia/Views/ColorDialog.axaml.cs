@@ -4,20 +4,18 @@ using System.Threading.Tasks;
 
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Data;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
 using Avalonia.Markup.Xaml;
-using Avalonia.VisualTree;
 
-using BEditor.Controls;
 using BEditor.Data.Property;
 using BEditor.Drawing;
 using BEditor.Extensions;
 using BEditor.Models;
 using BEditor.Properties;
 using BEditor.ViewModels.Properties;
-using BEditor.Views.DialogContent;
+
+using ColorPicker = FluentAvalonia.UI.Controls.ColorPicker;
 
 namespace BEditor.Views
 {
@@ -96,7 +94,7 @@ namespace BEditor.Views
 
         public async void AddToPalette_Click(object sender, RoutedEventArgs e)
         {
-            var dialog = new AddToColorPalette(col.Color.ToDrawing());
+            var dialog = new AddToColorPalette(Color.FromArgb(col.Color.A, col.Color.R, col.Color.G, col.Color.B));
             await dialog.ShowDialog(this);
 
             var paletteItems = this.FindControl<ItemsControl>("PaletteItems");

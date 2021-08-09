@@ -6,16 +6,24 @@
     xmlns:views="using:BEditor.Views"
     xmlns:property="using:BEditor.Properties"
     xmlns:col="using:BEditor.Controls"
+    xmlns:ui="using:FluentAvalonia.UI.Controls"
+    xmlns:uip="using:FluentAvalonia.UI.Controls.Primitives"
     mc:Ignorable="d"
-    Width="560"
+    Width="640"
     Height="400"
     Classes="fluent"
+    Background="{DynamicResource ColorPickerBackground}"
     x:Class="BEditor.Views.ColorDialog">
     <Grid RowDefinitions="*,Auto">
 
         <TabControl x:Name="Tab">
             <TabItem Header="{x:Static property:Strings.ColorPicker}" FontSize="14">
-                <col:ColorPicker x:Name="col" />
+                <ui:ColorPicker
+                    x:Name="col"
+                    UseColorTriangle="True"
+                    UseSpectrum="True"
+                    UseColorWheel="True"
+                    IsMoreButtonVisible="True" />
             </TabItem>
             <TabItem Header="{x:Static property:Strings.ColorPalette}" FontSize="14">
                 <ScrollViewer>
@@ -75,24 +83,21 @@
             Orientation="Horizontal">
             <Button
                 x:Name="ok_button"
-                VerticalAlignment="Center"
+                Classes="accent"
                 Click="Button_Click"
-                Content="{x:Static property:Strings.OK}"
-                Background="Transparent" >
+                Content="{x:Static property:Strings.OK}" >
             </Button>
             <Button
                 x:Name="cancel"
-                VerticalAlignment="Center"
                 Click="Button_Click"
                 Content="{x:Static property:Strings.Cancel}"
-                Background="Transparent" />
+                BorderThickness="0" />
 
             <Button
                 Margin="8,0"
-                VerticalAlignment="Center"
                 Click="AddToPalette_Click"
                 Content="{x:Static property:Strings.AddToColorPalette}"
-                Background="Transparent" />
+                BorderThickness="0" />
 
         </StackPanel>
     </Grid>

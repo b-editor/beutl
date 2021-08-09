@@ -7,6 +7,8 @@
     xmlns:props="using:BEditor.Properties"
     xmlns:views="using:BEditor.Views"
     xmlns:vm="using:BEditor.ViewModels"
+    xmlns:ui="using:FluentAvalonia.UI.Controls"
+    xmlns:uip="using:FluentAvalonia.UI.Controls.Primitives"
     Classes="fluent"
     mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
     x:Class="BEditor.Views.FontDialog"
@@ -25,13 +27,22 @@
         <Style Selector="Button.bottomButton">
             <Setter Property="VerticalAlignment" Value="Center" />
             <Setter Property="Cursor" Value="Arrow" />
-            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
         </Style>
         <Style Selector="ToggleButton.itemsToggle">
             <Setter Property="HorizontalAlignment" Value="Stretch" />
             <Setter Property="HorizontalContentAlignment" Value="Left" />
             <Setter Property="Cursor" Value="Arrow" />
             <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+        </Style>
+        <Style Selector="ToggleButton.itemsToggle:checked /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="TextBlock.Foreground" Value="{StaticResource ToggleButtonForeground}" />
+            <Setter Property="Background" Value="{StaticResource ControlFillColorDefaultBrush}" />
+        </Style>
+        <Style Selector="TextBox">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0,1,0,0" />
         </Style>
     </Window.Styles>
     <Grid>
@@ -90,7 +101,14 @@
                 <RowDefinition />
             </Grid.RowDefinitions>
 
-            <TextBox Margin="8" Text="{CompiledBinding Search.Value, Mode=TwoWay}" />
+            <TextBox
+                Watermark="{x:Static props:Strings.Search}"
+                Margin="8"
+                Text="{CompiledBinding Search.Value, Mode=TwoWay}">
+                <TextBox.InnerRightContent>
+                    <ui:PathIcon Width="16" Height="16" Margin="0,0,8,0" Data="{StaticResource Search24Regular}" />
+                </TextBox.InnerRightContent>
+            </TextBox>
 
             <StackPanel Grid.Row="1">
                 <TextBox
@@ -120,18 +138,17 @@
             <StackPanel
                 Grid.Row="1"
                 Margin="0,8"
+                Spacing="8"
                 HorizontalAlignment="Right"
                 VerticalAlignment="Bottom"
                 Orientation="Horizontal">
                 <Button
-                    Classes="bottomButton"
-                    Margin="10,0,5,0"
+                    Classes="bottomButton accent"
                     Command="{CompiledBinding OKCommand, Mode=OneTime}"
                     Content="{x:Static props:Strings.OK}" />
                 <Button
                     Classes="bottomButton"
                     x:Name="cancel"
-                    Margin="5,0,10,0"
                     Command="{CompiledBinding WindowClose, Mode=OneTime}"
                     Content="{x:Static props:Strings.Cancel}" />
             </StackPanel>

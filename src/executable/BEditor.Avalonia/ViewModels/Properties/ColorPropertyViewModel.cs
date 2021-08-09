@@ -68,6 +68,7 @@ namespace BEditor.ViewModels.Properties
                 var d = new ColorDialog(this);
 
                 d.col.Color = new Color(Property.Value.A, Property.Value.R, Property.Value.G, Property.Value.B);
+                d.col.PreviousColor = d.col.Color;
 
                 return d;
             }
