@@ -269,7 +269,7 @@
             IsHitTestVisible="False">
         </Border>
 
-        <Label
+        <ContentControl
             Grid.Row="2"
             Grid.RowSpan="3"
             Padding="0"

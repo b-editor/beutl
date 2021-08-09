@@ -99,7 +99,7 @@
         </Border>
 
         <ItemsControl
-            Background="{StaticResource SystemControlBackgroundChromeBlackLowBrush}"
+            Background="{StaticResource AcrylicColor1}"
             x:Name="itemsControl"
             Items="{Binding ClipElement.Effect, Mode=OneWay}">
             <ItemsControl.ItemTemplate>

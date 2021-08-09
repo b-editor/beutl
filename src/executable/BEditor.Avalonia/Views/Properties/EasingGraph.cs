@@ -18,7 +18,7 @@ namespace BEditor.Views.Properties
 
         private readonly Pen _pen = new()
         {
-            Brush = (IBrush)Application.Current.FindResource("SystemControlForegroundBaseMediumBrush")!,
+            Brush = (IBrush)Application.Current.FindResource("TextControlForeground")!,
             LineJoin = PenLineJoin.Round,
             LineCap = PenLineCap.Round,
             Thickness = 2.5,

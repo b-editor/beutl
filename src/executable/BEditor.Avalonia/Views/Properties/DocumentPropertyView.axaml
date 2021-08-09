@@ -6,49 +6,45 @@
     mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
     xmlns:vm="using:BEditor.ViewModels.Properties"
     xmlns:prop="using:BEditor.Properties"
+    xmlns:ui="using:FluentAvalonia.UI.Controls"
+    xmlns:uip="using:FluentAvalonia.UI.Controls.Primitives"
     x:DataType="vm:DocumentPropertyViewModel"
     Height="125"
     Background="Transparent"
     x:Class="BEditor.Views.Properties.DocumentPropertyView">
-    <UserControl.ContextMenu>
-        <ContextMenu>
-            <MenuItem
+    <UserControl.ContextFlyout>
+        <ui:MenuFlyout>
+            <ui:MenuFlyoutItem
                IsEnabled="{Binding #TextBox.CanCut}"
-               InputGesture="{x:Static TextBox.CutGesture}"
+               HotKey="{x:Static TextBox.CutGesture}"
                Command="{CompiledBinding Cut, Mode=OneTime}"
                CommandParameter="{CompiledBinding #TextBox}"
-               Header="{x:Static prop:Strings.Cut}">
-                <MenuItem.Icon>
-                    <PathIcon Data="{StaticResource Cut20Regular}" />
-                </MenuItem.Icon>
-            </MenuItem>
-            <MenuItem
+               Icon="Cut"
+               Text="{x:Static prop:Strings.Cut}" />
+            
+            <ui:MenuFlyoutItem
                IsEnabled="{Binding #TextBox.CanCopy}"
-                InputGesture="{x:Static TextBox.CopyGesture}"
-                Command="{CompiledBinding Copy, Mode=OneTime}"
-                CommandParameter="{CompiledBinding #TextBox}"
-                Header="{x:Static prop:Strings.Copy}">
-                <MenuItem.Icon>
-                    <PathIcon Data="{StaticResource Copy20Regular}" />
-                </MenuItem.Icon>
-            </MenuItem>
-            <MenuItem
+               HotKey="{x:Static TextBox.CopyGesture}"
+               Command="{CompiledBinding Copy, Mode=OneTime}"
+               CommandParameter="{CompiledBinding #TextBox}"
+               Icon="Copy"
+               Text="{x:Static prop:Strings.Copy}" />
+            
+            <ui:MenuFlyoutItem
                IsEnabled="{Binding #TextBox.CanPaste}"
-                InputGesture="{x:Static TextBox.PasteGesture}"
-                Command="{CompiledBinding Paste, Mode=OneTime}"
-                CommandParameter="{CompiledBinding #TextBox}"
-                Header="{x:Static prop:Strings.Paste}">
-                <MenuItem.Icon>
-                    <PathIcon Data="{StaticResource ClipboardPaste20Regular}" />
-                </MenuItem.Icon>
-            </MenuItem>
-            <Separator />
-            <MenuItem Header="{x:Static prop:Strings.Reset}" Command="{CompiledBinding Reset, Mode=OneTime}"/>
-            <MenuItem Header="{x:Static prop:Strings.Bind}" Command="{CompiledBinding Bind, Mode=OneTime}"/>
-            <MenuItem Header="{x:Static prop:Strings.CopyID}" Command="{CompiledBinding CopyID, Mode=OneTime}"/>
-        </ContextMenu>
-    </UserControl.ContextMenu>
-
+               HotKey="{x:Static TextBox.PasteGesture}"
+               Command="{CompiledBinding Paste, Mode=OneTime}"
+               CommandParameter="{CompiledBinding #TextBox}"
+               Icon="Paste"
+               Text="{x:Static prop:Strings.Paste}" />
+            
+            <ui:MenuFlyoutSeparator />
+            
+            <ui:MenuFlyoutItem Text="{x:Static prop:Strings.Reset}" Command="{CompiledBinding Reset, Mode=OneTime}" />
+            <ui:MenuFlyoutItem Text="{x:Static prop:Strings.Bind}" Command="{CompiledBinding Bind, Mode=OneTime}" />
+            <ui:MenuFlyoutItem Text="{x:Static prop:Strings.CopyID}" Command="{CompiledBinding CopyID, Mode=OneTime}" />
+        </ui:MenuFlyout>
+    </UserControl.ContextFlyout>
     <TextBox
         Margin="5"
         HorizontalAlignment="Stretch"

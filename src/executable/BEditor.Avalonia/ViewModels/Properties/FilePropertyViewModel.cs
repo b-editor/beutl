@@ -25,12 +25,10 @@ namespace BEditor.ViewModels.Properties
         {
             Property = property;
 
-            PathMode = property.ObserveProperty(p => p.Mode)
-                .Select(i => (int)i)
-                .ToReactiveProperty()
-                .AddTo(_disposables);
+            IsFullPath.Value = property.Mode is FilePathType.FullPath;
+            IsRelPath.Value = !IsFullPath.Value;
 
-            PathMode.Subscribe(i => Property.Mode = (FilePathType)i).AddTo(_disposables);
+            IsFullPath.Subscribe(i => Property.Mode = i ? FilePathType.FullPath : FilePathType.FromProject).AddTo(_disposables);
 
             Command.Subscribe(async _ =>
             {
@@ -73,7 +71,9 @@ namespace BEditor.ViewModels.Properties
 
         public ReactiveCommand CopyID { get; } = new();
 
-        public ReactiveProperty<int> PathMode { get; }
+        public ReactivePropertySlim<bool> IsFullPath { get; } = new();
+
+        public ReactivePropertySlim<bool> IsRelPath { get; } = new();
 
         public void Dispose()
         {
@@ -81,7 +81,8 @@ namespace BEditor.ViewModels.Properties
             Reset.Dispose();
             Bind.Dispose();
             CopyID.Dispose();
-            PathMode.Dispose();
+            IsFullPath.Dispose();
+            IsRelPath.Dispose();
             _disposables.Dispose();
 
             GC.SuppressFinalize(this);

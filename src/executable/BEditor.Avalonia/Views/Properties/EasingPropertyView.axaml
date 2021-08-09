@@ -68,7 +68,7 @@
                 RowDefinitions="Auto,*,Auto">
 
                 <Border
-                    BorderBrush="{DynamicResource SystemControlForegroundBaseMediumBrush}"
+                    BorderBrush="{DynamicResource TextControlForeground}"
                     BorderThickness="1"
                     Grid.Column="1" Grid.Row="1">
                     <views:EasingGraph

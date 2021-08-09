@@ -25,7 +25,6 @@
         <convert:FrameToTimeConverter x:Key="FrameToTimeConverter" />
     </Application.Resources>
     <Application.Styles>
-        <StyleInclude Source="avares://beditor/Controls/SeekSlider.axaml" />
         <StyleInclude Source="avares://beditor/Controls/Sidebar.axaml" />
         <StyleInclude Source="avares://beditor/Controls/TextBox.axaml" />
         <StyleInclude Source="avares://beditor/Controls/NumericUpDown.axaml" />
@@ -37,16 +36,54 @@
         <StyleInclude Source="avares://beditor/Controls/HyperLink.axaml" />
         <StyleInclude Source="avares://beditor/Controls/ColorPicker.axaml" />
 
+        <Style Selector="Expander">
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+        </Style>
+
+        <Style Selector="Expander /template/ ToggleButton#PART_toggle">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+        </Style>
+
+        <Style Selector="Expander.expandkeyframe">
+            <Setter Property="MinHeight" Value="{x:Static models:ConstantSettings.ClipHeight}" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+        </Style>
+
         <Style Selector="Expander.expandkeyframe /template/ ToggleButton#PART_toggle">
             <Setter Property="Margin" Value="32.5,0,0,0" />
+            <Setter Property="Height" Value="{x:Static models:ConstantSettings.ClipHeight}" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
         </Style>
+
+        <Style Selector="Expander.keyframe">
+            <Setter Property="MinHeight" Value="{x:Static models:ConstantSettings.ClipHeight}" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+        </Style>
+
         <Style Selector="Expander.keyframe /template/ ToggleButton#PART_toggle">
             <Setter Property="Height" Value="{x:Static models:ConstantSettings.ClipHeight}" />
-            <Setter Property="Padding" Value="0" />
-            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
         </Style>
+
+        <Style Selector="Expander.property">
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+        </Style>
+
         <Style Selector="Expander.property /template/ ToggleButton#PART_toggle">
             <Setter Property="Height" Value="40" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
         </Style>
 
         <Style Selector="TextBox">

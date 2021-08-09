@@ -6,6 +6,8 @@
     xmlns:props="using:BEditor.Properties"
     xmlns:model="using:BEditor.Models"
     xmlns:vm="using:BEditor.ViewModels"
+    xmlns:ui="using:FluentAvalonia.UI.Controls"
+    xmlns:uip="using:FluentAvalonia.UI.Controls.Primitives"
     DataContext="{Binding Project, Source={x:Static model:AppModel.Current}, Mode=OneWay, Converter={StaticResource ConfigurationViewModelConverter}}"
     x:DataType="vm:ConfigurationViewModel"
     mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
@@ -13,9 +15,9 @@
     <ScrollViewer>
         <StackPanel>
 
-            <Label
+            <TextBlock
                 Classes="SettingsItemHeader"
-                Content="{x:Static props:Strings.Background}" />
+                Text="{x:Static props:Strings.Background}" />
 
             <ComboBox
                 Classes="SettingsComboBox"
@@ -25,14 +27,14 @@
             
             <Separator Height="8"/>
 
-            <Label
+            <TextBlock
                 Classes="SettingsItemHeader"
-                Content="スピード" />
+                Text="スピード" />
 
-            <NumericUpDown
+            <ui:NumberBox
                 Classes="SettingsNumericUpDown"
                 Minimum="0"
-                Value="{CompiledBinding Speed.Value, Mode=TwoWay}"/>
+                Value="{CompiledBinding Speed.Value, Mode=TwoWay}" />
         </StackPanel>
     </ScrollViewer>
 </UserControl>

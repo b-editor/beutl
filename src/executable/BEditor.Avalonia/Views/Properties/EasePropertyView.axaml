@@ -6,6 +6,8 @@
     xmlns:views="using:BEditor.Views"
     xmlns:vm="using:BEditor.ViewModels.Properties"
     x:DataType="vm:EasePropertyViewModel"
+    xmlns:ui="using:FluentAvalonia.UI.Controls"
+    xmlns:uip="using:FluentAvalonia.UI.Controls.Primitives"
     mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
     x:Name="root"
     Height="40"
@@ -19,35 +21,47 @@
             <ColumnDefinition Width="*" MinWidth="100" />
         </Grid.ColumnDefinitions>
 
-        <Label
-            Height="40"
+        <ContentControl
             Margin="10,0,0,0"
-            HorizontalAlignment="Left"
+            Height="40"
             VerticalAlignment="Top"
-            VerticalContentAlignment="Center"
-            FontSize="13"
-            Content="{CompiledBinding Property.PropertyMetadata.Name, Mode=OneTime}" />
+            HorizontalAlignment="Left"
+            VerticalContentAlignment="Center">
+            <TextBlock FontSize="13" Text="{CompiledBinding Property.PropertyMetadata.Name, Mode=OneTime}" />
+        </ContentControl>
 
-        <Button Grid.Column="1" Width="32" Height="32" Margin="0,4" VerticalAlignment="Top" Click="ShowEasingProperty" Background="Transparent">
-            <PathIcon Data="{StaticResource DataLine24Regular}"/>
+        <Button
+            Grid.Column="1"
+            Width="32"
+            Height="32"
+            BorderThickness="0"
+            Margin="0,8"
+            Padding="0"
+            VerticalAlignment="Top"
+            Click="ShowEasingProperty">
+            <ui:SymbolIcon Symbol="NewWindow" FontSize="20" />
         </Button>
-        <StackPanel x:Name="stackPanel" Grid.Column="3"/>
+
+        <StackPanel x:Name="stackPanel" Grid.Column="3">
+            <StackPanel.Styles>
+                <Style Selector="TextBox">
+                    <Setter Property="Background" Value="Transparent" />
+                    <Setter Property="BorderThickness" Value="0,1,0,0" />
+                </Style>
+            </StackPanel.Styles>
+        </StackPanel>
 
         <ToggleButton
             x:Name="togglebutton"
             Grid.Column="2"
             Width="32"
             Height="32"
-            Margin="0,4"
+            BorderThickness="0"
+            Margin="0,8"
+            Padding="0"
             VerticalAlignment="Top"
-            Background="Transparent"
             Click="ListToggleClick">
-            <PathIcon
-                Width="20"
-                Height="20"
-                HorizontalAlignment="Center"
-                VerticalAlignment="Center"
-                Data="{StaticResource ChevronUpDown20Regular}" />
+            <ui:SymbolIcon Symbol="MoreVertical" FontSize="20" />
         </ToggleButton>
 
     </Grid>

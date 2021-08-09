@@ -5,18 +5,20 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:vm="using:BEditor.ViewModels.Properties"
     xmlns:prop="using:BEditor.Properties"
+    xmlns:ui="using:FluentAvalonia.UI.Controls"
+    xmlns:uip="using:FluentAvalonia.UI.Controls.Primitives"
     x:DataType="vm:ColorPropertyViewModel"
     Background="Transparent"
     Height="40"
     mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
     x:Class="BEditor.Views.Properties.ColorPropertyView">
-    <UserControl.ContextMenu>
-        <ContextMenu>
-            <MenuItem Header="{x:Static prop:Strings.Reset}" Command="{CompiledBinding Reset, Mode=OneTime}"/>
-            <MenuItem Header="{x:Static prop:Strings.Bind}" Command="{CompiledBinding Bind, Mode=OneTime}"/>
-            <MenuItem Header="{x:Static prop:Strings.CopyID}" Command="{CompiledBinding CopyID, Mode=OneTime}"/>
-        </ContextMenu>
-    </UserControl.ContextMenu>
+    <UserControl.ContextFlyout>
+        <ui:MenuFlyout>
+            <ui:MenuFlyoutItem Text="{x:Static prop:Strings.Reset}" Command="{CompiledBinding Reset, Mode=OneTime}" />
+            <ui:MenuFlyoutItem Text="{x:Static prop:Strings.Bind}" Command="{CompiledBinding Bind, Mode=OneTime}" />
+            <ui:MenuFlyoutItem Text="{x:Static prop:Strings.CopyID}" Command="{CompiledBinding CopyID, Mode=OneTime}" />
+        </ui:MenuFlyout>
+    </UserControl.ContextFlyout>
     <Grid>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="120*" MaxWidth="100" MinWidth="50"/>
@@ -25,14 +27,12 @@
             <ColumnDefinition Width="*" MinWidth="100"/>
         </Grid.ColumnDefinitions>
 
-        <Label
-            Height="40"
+        <TextBlock
             Margin="10,0,0,0"
             HorizontalAlignment="Left"
-            VerticalAlignment="Top"
-            VerticalContentAlignment="Center"
+            VerticalAlignment="Center"
             FontSize="13"
-            Content="{CompiledBinding Property.PropertyMetadata.Name, Mode=OneTime}" />
+            Text="{CompiledBinding Property.PropertyMetadata.Name, Mode=OneTime}" />
 
         <Button
             Background="Transparent"
@@ -40,13 +40,10 @@
             Grid.Column="2"
             Height="32"
             Width="32"
+            BorderThickness="0"
+            Padding="0"
             Command="{CompiledBinding OpenDialog, Mode=OneTime}">
-            <PathIcon
-                Data="{StaticResource Color24Regular}"
-                Width="20"
-                Height="20"
-                HorizontalAlignment="Center"
-                VerticalAlignment="Center" />
+            <ui:SymbolIcon Symbol="NewWindow" FontSize="20" />
         </Button>
 
         <Border
@@ -55,6 +52,5 @@
             CornerRadius="3"
             Background="{CompiledBinding Brush.Value, Mode=OneWay}"
             Grid.Column="3" />
-
     </Grid>
 </UserControl>

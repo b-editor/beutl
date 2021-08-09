@@ -59,15 +59,9 @@ namespace BEditor.Extensions
             PropertyViewBuilder.Create<DialogProperty>(p => new DialogPropertyView(p)),
             PropertyViewBuilder.Create<ExpandGroup>(p =>
             {
-                var header = new Label
-                {
-                    Content = p.PropertyMetadata?.Name ?? string.Empty,
-                    Height = 24,
-                    Foreground = (IBrush)App.Current.FindResource("SystemControlForegroundBaseHighBrush")!
-                };
                 var expander = new Expander
                 {
-                    Header = header,
+                    Header = p.PropertyMetadata?.Name ?? string.Empty,
                     Classes = { "property" }
                 };
                 var stack = new StackPanel();
@@ -85,15 +79,8 @@ namespace BEditor.Extensions
                 expander.Content = stack;
 
                 // binding
-                var widthbind = new Binding("Parent.Bounds.Width")
-                {
-                    Mode = BindingMode.OneWay,
-                    Source = expander,
-                    Converter = _expanderWidthConverter
-                };
                 var isExpandedbind = new Binding("IsExpanded") { Mode = BindingMode.TwoWay, Source = p };
 
-                header.Bind(Layoutable.WidthProperty, widthbind);
                 expander.Bind(Expander.IsExpandedProperty, isExpandedbind);
 
                 return expander;
@@ -120,15 +107,9 @@ namespace BEditor.Extensions
             KeyFrameViewBuilder.Create<ColorAnimationProperty>(prop => new KeyframeView(prop)),
             KeyFrameViewBuilder.Create<ExpandGroup>(p =>
             {
-                var header = new Label
-                {
-                    Content = p.PropertyMetadata?.Name ?? string.Empty,
-                    Height = 24,
-                    Foreground = (IBrush)App.Current.FindResource("SystemControlForegroundBaseHighBrush")!
-                };
                 var expander = new Expander
                 {
-                    Header = header,
+                    Header = p.PropertyMetadata?.Name ?? string.Empty,
                     Classes =
                     {
                         "expandkeyframe",
@@ -150,15 +131,8 @@ namespace BEditor.Extensions
                 expander.Content = stack;
 
                 // binding
-                var widthbind = new Binding("Parent.Bounds.Width")
-                {
-                    Mode = BindingMode.OneWay,
-                    Source = expander,
-                    Converter = _expanderWidthConverter
-                };
                 var isExpandedbind = new Binding("IsExpanded") { Mode = BindingMode.TwoWay, Source = p };
 
-                header.Bind(Layoutable.WidthProperty, widthbind);
                 expander.Bind(Expander.IsExpandedProperty, isExpandedbind);
 
                 return expander;
@@ -370,11 +344,9 @@ namespace BEditor.Extensions
                     {
                         Classes = { "keyframe" }
                     };
-                    var header = new Label();
                     var stack = new StackPanel();
 
                     keyFrame.Content = stack;
-                    keyFrame.Header = header;
 
                     foreach (var item in effect.Children)
                     {
@@ -385,13 +357,7 @@ namespace BEditor.Extensions
                         }
                     }
 
-                    header.Bind(Layoutable.WidthProperty, new Binding("Parent.Bounds.Width")
-                    {
-                        Mode = BindingMode.OneWay,
-                        Source = header,
-                        Converter = _expanderWidthConverter
-                    });
-                    header.Bind(ContentControl.ContentProperty, new Binding("Name") { Mode = BindingMode.OneTime, Source = effect });
+                    keyFrame.Bind(Expander.HeaderProperty, new Binding("Name") { Mode = BindingMode.OneTime, Source = effect });
                     keyFrame.Bind(Expander.IsExpandedProperty, new Binding("IsExpanded") { Mode = BindingMode.TwoWay, Source = effect });
 
                     effect[KeyframeProperty] = keyFrame;
@@ -423,13 +389,7 @@ namespace BEditor.Extensions
                 {
                     Margin = new(0, 0, 5, 0),
                     VerticalAlignment = VerticalAlignment.Center,
-                };
-                var textBlock = new TextBlock
-                {
-                    Margin = new(5, 0, 0, 0),
-                    VerticalAlignment = VerticalAlignment.Center,
-                    Text = obj.Name,
-                    Foreground = (IBrush)App.Current.FindResource("SystemControlForegroundBaseHighBrush")!
+                    Content = obj.Name
                 };
 
                 var header = new StackPanel
@@ -439,7 +399,6 @@ namespace BEditor.Extensions
                     Children =
                     {
                         checkBox,
-                        textBlock
                     }
                 };
                 expander.Header = header;
@@ -448,50 +407,49 @@ namespace BEditor.Extensions
                 checkBox.Click += (s, e) => obj.ChangeIsEnabled((bool)((CheckBox)s!).IsChecked!).Execute();
 
                 // binding設定
-                var widthbind = new Binding("Parent.Bounds.Width")
-                {
-                    Mode = BindingMode.OneWay,
-                    Source = header,
-                    Converter = _expanderWidthConverter
-                };
                 var isEnablebind = new Binding("IsEnabled")
                 {
                     Mode = BindingMode.OneWay,
                     Source = obj
                 };
-                header.Bind(Layoutable.WidthProperty, widthbind);
                 checkBox.Bind(ToggleButton.IsCheckedProperty, isEnablebind);
 
                 // コンテキストメニュー
-                var contextmenu = new ContextMenu();
-                var copyId = new MenuItem
+                var contextflyout = new FluentAvalonia.UI.Controls.MenuFlyout();
+                var copyId = new FluentAvalonia.UI.Controls.MenuFlyoutItem
                 {
-                    Icon = new PathIcon { Data = (Geometry)Application.Current.FindResource("Copy24Regular")! },
-                    Header = Strings.CopyID,
+                    Icon = new FluentAvalonia.UI.Controls.SymbolIcon
+                    {
+                        Symbol = FluentAvalonia.UI.Controls.Symbol.Copy
+                    },
+                    Text = Strings.CopyID,
                     DataContext = obj
                 };
-                var saveTo = new MenuItem
+                var saveTo = new FluentAvalonia.UI.Controls.MenuFlyoutItem
                 {
-                    Icon = new PathIcon { Data = (Geometry)Application.Current.FindResource("Save24Regular")! },
-                    Header = Strings.SaveAs,
+                    Icon = new FluentAvalonia.UI.Controls.SymbolIcon
+                    {
+                        Symbol = FluentAvalonia.UI.Controls.Symbol.Save
+                    },
+                    Text = Strings.SaveAs,
                     DataContext = obj
                 };
 
-                contextmenu.Items = new MenuItem[] { copyId, saveTo };
+                contextflyout.Items = new FluentAvalonia.UI.Controls.MenuFlyoutItem[] { copyId, saveTo };
 
                 // 作成したコンテキストメニューをListBox1に設定
-                header.ContextMenu = contextmenu;
+                header.ContextFlyout = contextflyout;
 
                 copyId.Click += async (s, e) =>
                 {
-                    if (s is MenuItem menu && menu.DataContext is EffectElement effect)
+                    if (s is StyledElement elm && elm.DataContext is EffectElement effect)
                     {
                         await Application.Current.Clipboard.SetTextAsync(effect.Id.ToString());
                     }
                 };
                 saveTo.Click += async (s, e) =>
                 {
-                    if (s is MenuItem menu && menu.DataContext is EffectElement efct)
+                    if (s is StyledElement elm && elm.DataContext is EffectElement efct)
                     {
                         var record = new SaveFileRecord
                         {
@@ -543,13 +501,13 @@ namespace BEditor.Extensions
                 {
                     Margin = new(0, 0, 5, 0),
                     VerticalAlignment = VerticalAlignment.Center,
-                    Width = 32
+                    Content = effect.Name
                 };
                 var upbutton = new Button
                 {
-                    Content = new PathIcon
+                    Content = new FluentAvalonia.UI.Controls.SymbolIcon
                     {
-                        Data = (Geometry)Application.Current.FindResource("ArrowUp28Regular")!
+                        Symbol = FluentAvalonia.UI.Controls.Symbol.ChevronUp,
                     },
                     Margin = new Thickness(5, 0, 0, 0),
                     Background = null,
@@ -558,21 +516,14 @@ namespace BEditor.Extensions
                 };
                 var downbutton = new Button
                 {
-                    Content = new PathIcon
+                    Content = new FluentAvalonia.UI.Controls.SymbolIcon
                     {
-                        Data = (Geometry)Application.Current.FindResource("ArrowDown28Regular")!
+                        Symbol = FluentAvalonia.UI.Controls.Symbol.ChevronDown,
                     },
                     Margin = new Thickness(0, 0, 5, 0),
                     Background = null,
                     BorderBrush = null,
                     VerticalAlignment = VerticalAlignment.Center
-                };
-                var textBlock = new TextBlock
-                {
-                    Margin = new(5, 0, 0, 0),
-                    VerticalAlignment = VerticalAlignment.Center,
-                    Text = effect.Name,
-                    Foreground = (IBrush)App.Current.FindResource("SystemControlForegroundBaseHighBrush")!
                 };
 
                 var header = new StackPanel
@@ -584,7 +535,6 @@ namespace BEditor.Extensions
                         checkBox,
                         upbutton,
                         downbutton,
-                        textBlock
                     }
                 };
                 expander.Header = header;
@@ -597,63 +547,65 @@ namespace BEditor.Extensions
                 downbutton.Click += (s, e) => effect.SendBackward().Execute();
 
                 // binding設定
-                var widthbind = new Binding("Parent.Bounds.Width")
-                {
-                    Mode = BindingMode.OneWay,
-                    Source = header,
-                    Converter = _expanderWidthConverter
-                };
                 var isEnablebind = new Binding("IsEnabled")
                 {
                     Mode = BindingMode.OneWay,
                     Source = effect
                 };
-                header.Bind(Layoutable.WidthProperty, widthbind);
                 checkBox.Bind(ToggleButton.IsCheckedProperty, isEnablebind);
 
                 // コンテキストメニュー
-                var contextmenu = new ContextMenu();
-                var remove = new MenuItem
+                var contextflyout = new FluentAvalonia.UI.Controls.MenuFlyout();
+                var remove = new FluentAvalonia.UI.Controls.MenuFlyoutItem
                 {
-                    Icon = new PathIcon { Data = (Geometry)Application.Current.FindResource("Delete24Regular")! },
-                    Header = Strings.Remove,
+                    Icon = new FluentAvalonia.UI.Controls.SymbolIcon
+                    {
+                        Symbol = FluentAvalonia.UI.Controls.Symbol.Delete
+                    },
+                    Text = Strings.Remove,
                     DataContext = effect
                 };
-                var copyId = new MenuItem
+                var copyId = new FluentAvalonia.UI.Controls.MenuFlyoutItem
                 {
-                    Icon = new PathIcon { Data = (Geometry)Application.Current.FindResource("Copy24Regular")! },
-                    Header = Strings.CopyID,
+                    Icon = new FluentAvalonia.UI.Controls.SymbolIcon
+                    {
+                        Symbol = FluentAvalonia.UI.Controls.Symbol.Copy
+                    },
+                    Text = Strings.CopyID,
                     DataContext = effect
                 };
-                var saveTo = new MenuItem
+                var saveTo = new FluentAvalonia.UI.Controls.MenuFlyoutItem
                 {
-                    Icon = new PathIcon { Data = (Geometry)Application.Current.FindResource("Save24Regular")! },
-                    Header = Strings.SaveAs,
+                    Icon = new FluentAvalonia.UI.Controls.SymbolIcon
+                    {
+                        Symbol = FluentAvalonia.UI.Controls.Symbol.Save
+                    },
+                    Text = Strings.SaveAs,
                     DataContext = effect
                 };
 
-                contextmenu.Items = new MenuItem[] { remove, copyId, saveTo };
+                contextflyout.Items = new FluentAvalonia.UI.Controls.MenuFlyoutItem[] { remove, copyId, saveTo };
 
                 // 作成したコンテキストメニューをListBox1に設定
-                header.ContextMenu = contextmenu;
+                header.ContextFlyout = contextflyout;
 
                 remove.Click += (s, e) =>
                 {
-                    if (s is MenuItem menu && menu.DataContext is EffectElement effect)
+                    if (s is StyledElement elm && elm.DataContext is EffectElement effect)
                     {
                         effect.Parent!.RemoveEffect(effect).Execute();
                     }
                 };
                 copyId.Click += async (s, e) =>
                 {
-                    if (s is MenuItem menu && menu.DataContext is EffectElement effect)
+                    if (s is StyledElement elm && elm.DataContext is EffectElement effect)
                     {
                         await Application.Current.Clipboard.SetTextAsync(effect.Id.ToString());
                     }
                 };
                 saveTo.Click += async (s, e) =>
                 {
-                    if (s is MenuItem menu && menu.DataContext is EffectElement efct)
+                    if (s is StyledElement elm && elm.DataContext is EffectElement efct)
                     {
                         var record = new SaveFileRecord
                         {
