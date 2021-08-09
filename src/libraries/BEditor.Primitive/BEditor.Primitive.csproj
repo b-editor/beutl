@@ -9,7 +9,7 @@
     <Import Project="..\..\..\props\analyzer.props" />
 
     <ItemGroup>
-        <PackageReference Include="ReactiveProperty" Version="7.11.0" />
+        <PackageReference Include="ReactiveProperty" Version="7.12.0" />
     </ItemGroup>
 
     <ItemGroup>
