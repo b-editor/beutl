@@ -21,11 +21,10 @@ namespace BEditor.Views.ManagePlugins
 
         protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
         {
-            if (AppModel.Current.User is null && Parent is TabItem item && item.Parent is TabControl tab)
+            if (AppModel.Current.User is null
+                && Parent is FluentAvalonia.UI.Controls.Frame item)
             {
                 item.Content = new Signin();
-                tab.SelectedItem = null;
-                tab.SelectedItem = item;
             }
 
             base.OnAttachedToVisualTree(e);

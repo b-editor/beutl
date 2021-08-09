@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using System.Net.Http;
 using System.Reactive.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -13,12 +14,16 @@ using BEditor.Packaging;
 using BEditor.Plugin;
 using BEditor.Properties;
 
+using Microsoft.Extensions.DependencyInjection;
+
 using Reactive.Bindings;
 
 namespace BEditor.ViewModels.ManagePlugins
 {
     public class UpdateViewModel
     {
+        private readonly HttpClient _client;
+
         public record UpdateTarget(PluginObject Plugin, Package Package)
         {
             public string OldVersion => GetVersion(Plugin)!.ToString(3);
@@ -30,6 +35,8 @@ namespace BEditor.ViewModels.ManagePlugins
 
         public UpdateViewModel()
         {
+            _client = ServicesLocator.Current.Provider.GetRequiredService<HttpClient>();
+
             IsSelected = SelectedItem.Select(i => i is not null)
                 .ToReadOnlyReactivePropertySlim();
 
@@ -68,12 +75,13 @@ namespace BEditor.ViewModels.ManagePlugins
 
                     SelectedItem.ForceNotify();
                 });
+
+            Load();
         }
 
-        [AllowNull]
-        public LibraryViewModel Library { get; private set; }
-
         public ReadOnlyReactivePropertySlim<bool> IsSelected { get; }
+
+        public ReactivePropertySlim<bool> IsLoading { get; } = new(true);
 
         public ReactivePropertySlim<UpdateTarget> SelectedItem { get; } = new();
 
@@ -87,18 +95,26 @@ namespace BEditor.ViewModels.ManagePlugins
 
         public ReadOnlyReactivePropertySlim<bool> IsScheduled { get; }
 
-        public void Initialize(LibraryViewModel library)
+        private async void Load()
         {
-            library.LoadTask.ContinueWith(_ =>
+            foreach (var item in BEditor.Settings.Default.PackageSources)
             {
-                Items.AddRangeOnScheduler(library.PackageSources
-                    .SelectMany(i => i.Packages)
-                    .Select(i => (plugin: PluginManager.Default.Plugins.FirstOrDefault(p => p.Id == i.Id), package: i))
-                    .Where(i => i.plugin is not null &&
-                        i.package.Versions.FirstOrDefault() is PackageVersion packageVersion &&
-                        GetVersion(i.plugin!) < new Version(packageVersion.Version))
-                     .Select(i => new UpdateTarget(i.plugin!, i.package)));
-            });
+                var repos = await item.ToRepositoryAsync(_client);
+                if (repos is null) continue;
+
+                foreach (var package in repos.Packages)
+                {
+                    var plugin = PluginManager.Default.Plugins.FirstOrDefault(p => p.Id == package.Id);
+
+                    if (plugin is not null
+                        && package.Versions.FirstOrDefault() is PackageVersion packageVersion
+                        && GetVersion(plugin) < new Version(packageVersion.Version))
+                    {
+                        Items.AddOnScheduler(new UpdateTarget(plugin, package));
+                    }
+                }
+            }
+            IsLoading.Value = false;
         }
 
         private static Version? GetVersion(PluginObject plugin)

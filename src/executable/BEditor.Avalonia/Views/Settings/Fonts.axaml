@@ -26,18 +26,16 @@
             SelectedItem="{CompiledBinding SelectFont.Value, Mode=TwoWay}">
             <ListBox.ItemTemplate>
                 <DataTemplate>
-                    <Border>
-                        <Panel>
-                            <TextBlock Text="{Binding}" VerticalAlignment="Center" />
-                            
-                            <ui:CommandBarButton
-                                Icon="Delete"
-                                Command="{Binding #root.DataContext.Remove, Mode=OneTime}"
-                                CommandParameter="{Binding $self.DataContext}"
-                                Label="{x:Static properties:Strings.Remove}"
-                                HorizontalAlignment="Right" />
-                        </Panel>
-                    </Border>
+                    <Panel>
+                        <TextBlock Text="{Binding}" VerticalAlignment="Center" />
+
+                        <ui:CommandBarButton
+                            Icon="Delete"
+                            Command="{Binding #root.DataContext.Remove, Mode=OneTime}"
+                            CommandParameter="{Binding $self.DataContext}"
+                            Label="{x:Static properties:Strings.Remove}"
+                            HorizontalAlignment="Right" />
+                    </Panel>
                 </DataTemplate>
             </ListBox.ItemTemplate>
         </ListBox>

@@ -19,13 +19,9 @@ namespace BEditor.Views.ManagePlugins
             {
                 await Dispatcher.UIThread.InvokeAsync(() =>
                 {
-                    if (DataContext is SignupViewModel vm && Parent is TabItem item && item.Parent is TabControl tab)
+                    if (DataContext is SignupViewModel vm && Parent is FluentAvalonia.UI.Controls.Frame item)
                     {
                         item.Content = new User();
-
-                        // VisualTreeを更新
-                        tab.SelectedItem = null;
-                        tab.SelectedItem = item;
                     }
                 });
             });
@@ -34,13 +30,9 @@ namespace BEditor.Views.ManagePlugins
 
         public void Signin(object s, RoutedEventArgs e)
         {
-            if (Parent is TabItem item && item.Parent is TabControl tab)
+            if (Parent is FluentAvalonia.UI.Controls.Frame item)
             {
                 item.Content = new Signin();
-
-                // VisualTreeを更新
-                tab.SelectedItem = null;
-                tab.SelectedItem = item;
             }
         }
 

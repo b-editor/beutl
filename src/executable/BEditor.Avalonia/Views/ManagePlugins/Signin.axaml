@@ -41,6 +41,7 @@
 
         <Grid ColumnDefinitions="*,Auto,Auto">
             <Button
+                BorderThickness="0"
                 Content="{x:Static props:Strings.ForgotYourPassword}" />
 
             <Button
