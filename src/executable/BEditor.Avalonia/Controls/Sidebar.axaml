@@ -1,6 +1,6 @@
 <Styles xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <Design.PreviewWith>
-        <Border Padding="20">
+        <Border>
             <TabControl Classes="sidebar">
                 <TabItem Header="Item1" />
                 <TabItem Header="Item2" />
@@ -66,8 +66,10 @@
         <Setter Property="Template">
             <ControlTemplate>
                 <Border
+                    Margin="8"
                     Height="40"
                     Name="PART_LayoutRoot"
+                    CornerRadius="{StaticResource OverlayCornerRadius}"
                     BorderBrush="{TemplateBinding BorderBrush}"
                     BorderThickness="0">
                     <Grid ColumnDefinitions="16,*">
@@ -92,16 +94,19 @@
         <Setter Property="Template">
             <ControlTemplate>
                 <Border
+                    Margin="8"
                     Height="40"
                     Name="PART_LayoutRoot"
+                    CornerRadius="{StaticResource OverlayCornerRadius}"
                     BorderBrush="{TemplateBinding BorderBrush}"
                     BorderThickness="0">
                     <Grid ColumnDefinitions="16,*">
                         <Border
                             Name="PART_BORDER"
                             HorizontalAlignment="Center"
-                            Width="2"
-                            Height="24"
+                            Width="4"
+                            Height="20"
+                            CornerRadius="{StaticResource OverlayCornerRadius}"                            
                             Background="{DynamicResource SliderTrackValueFill}"/>
 
                         <ContentPresenter

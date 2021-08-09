@@ -65,14 +65,14 @@
             HorizontalAlignment="Right"
             Orientation="Horizontal">
             <Button
-                Click="CancelClick"
-                Content="{x:Static props:Strings.Cancel}"
-                IsCancel="True"/>
-            <Button
                 Classes="accent"
                 Click="AddClick"
                 Content="{x:Static props:Strings.Add}"
                 IsDefault="True"/>
+            <Button
+                Click="CancelClick"
+                Content="{x:Static props:Strings.Cancel}"
+                IsCancel="True"/>
         </VirtualizingStackPanel>
 
     </Grid>

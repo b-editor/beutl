@@ -90,14 +90,12 @@
             <Button
                 x:Name="cancel"
                 Click="Button_Click"
-                Content="{x:Static property:Strings.Cancel}"
-                BorderThickness="0" />
+                Content="{x:Static property:Strings.Cancel}" />
 
             <Button
                 Margin="8,0"
                 Click="AddToPalette_Click"
-                Content="{x:Static property:Strings.AddToColorPalette}"
-                BorderThickness="0" />
+                Content="{x:Static property:Strings.AddToColorPalette}" />
 
         </StackPanel>
     </Grid>

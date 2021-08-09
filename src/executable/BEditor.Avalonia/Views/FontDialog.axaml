@@ -24,11 +24,6 @@
         <convert:FontToFontFamily x:Key="FontToFontFamily" />
     </Window.Resources>
     <Window.Styles>
-        <Style Selector="Button.bottomButton">
-            <Setter Property="VerticalAlignment" Value="Center" />
-            <Setter Property="Cursor" Value="Arrow" />
-            <Setter Property="BorderThickness" Value="0" />
-        </Style>
         <Style Selector="ToggleButton.itemsToggle">
             <Setter Property="HorizontalAlignment" Value="Stretch" />
             <Setter Property="HorizontalContentAlignment" Value="Left" />
@@ -143,11 +138,10 @@
                 VerticalAlignment="Bottom"
                 Orientation="Horizontal">
                 <Button
-                    Classes="bottomButton accent"
+                    Classes="accent"
                     Command="{CompiledBinding OKCommand, Mode=OneTime}"
                     Content="{x:Static props:Strings.OK}" />
                 <Button
-                    Classes="bottomButton"
                     x:Name="cancel"
                     Command="{CompiledBinding WindowClose, Mode=OneTime}"
                     Content="{x:Static props:Strings.Cancel}" />

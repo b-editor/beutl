@@ -35,15 +35,14 @@
             Orientation="Horizontal"
             Spacing="8">
             <Button
-                IsCancel="True"
-                Click="Cancel_Click"
-                Content="{x:Static props:Strings.Cancel}" /> 
-
-            <Button
                 IsDefault="True"
                 Classes="accent"
                 Click="OK_Click"
                 Content="{x:Static props:Strings.OK}" /> 
+            <Button
+                IsCancel="True"
+                Click="Cancel_Click"
+                Content="{x:Static props:Strings.Cancel}" /> 
         </StackPanel>
     </Grid>
 </UserControl>

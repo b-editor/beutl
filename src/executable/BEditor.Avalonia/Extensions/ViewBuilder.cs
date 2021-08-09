@@ -48,7 +48,7 @@ namespace BEditor.Extensions
             PropertyViewBuilder.Create<ButtonComponent>(p => new ButtonCompornentView(p)),
             PropertyViewBuilder.Create<LabelComponent>(p =>
             {
-                var label = new Label
+                var label = new ContentControl
                 {
                     Height = 40,
                     Background = Brushes.Transparent,

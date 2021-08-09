@@ -39,20 +39,19 @@ namespace BEditor.ViewModels.Start
             {
                 if (IsLoading.Value) return;
 
-                item.IsLoading.Value = true;
                 IsLoading.Value = true;
                 var filename = item.FileName;
-
-                var app = AppModel.Current;
-                app.Project?.Unload();
-                var project = Project.FromFile(filename, app);
-
-                if (project is null) return;
 
                 try
                 {
                     await Task.Run(() =>
                     {
+                        var app = AppModel.Current;
+                        app.Project?.Unload();
+                        var project = Project.FromFile(filename, app);
+
+                        if (project is null) return;
+
                         project.Load();
 
                         app.Project = project;
@@ -64,13 +63,14 @@ namespace BEditor.ViewModels.Start
                 }
                 catch (Exception e)
                 {
+                    var app = AppModel.Current;
                     app.Project = null;
                     app.AppStatus = Status.Idle;
                     ServicesLocator.Current.Logger.LogError("Failed to load project.", e);
                     await AppModel.Current.Message.DialogAsync(string.Format(Strings.FailedToLoad, Strings.Project), IMessage.IconType.Error);
                 }
 
-                IsLoading.Value = true;
+                IsLoading.Value = false;
             });
 
             AddToList.Subscribe(async () =>

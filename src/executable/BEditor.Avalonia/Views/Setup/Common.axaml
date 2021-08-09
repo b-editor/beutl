@@ -16,7 +16,7 @@
             <TextBlock Classes="SettingsHeader" Text="{x:Static props:Strings.Setup}" />
 
             <StackPanel Spacing="0" Orientation="Horizontal">
-                <Label Classes="SettingsItemHeader" Content="{x:Static props:Strings.Language}" />
+                <TextBlock Classes="SettingsItemHeader" Text="{x:Static props:Strings.Language}" />
 
                 <TextBlock Text="{CompiledBinding LanguageRemark.Value}" VerticalAlignment="Center" />
             </StackPanel>
@@ -35,8 +35,8 @@
             <Separator Height="16" />
 
             <StackPanel Spacing="0" Orientation="Horizontal">
-                <Label Classes="SettingsItemHeader" Content="{x:Static props:Strings.GraphicsProfile}" />
-                <Label Classes="SettingsItemHeader" Content="{x:Static props:Strings.TheChangesWillBeAppliedAfterRestarting}" />
+                <TextBlock Classes="SettingsItemHeader" Text="{x:Static props:Strings.GraphicsProfile}" />
+                <TextBlock Classes="SettingsItemHeader" Text="{x:Static props:Strings.TheChangesWillBeAppliedAfterRestarting}" />
             </StackPanel>
 
             <ComboBox
@@ -48,7 +48,7 @@
             <Separator Height="16" />
 
             <Button
-                Margin="16,0,16,16"
+                Margin="8"
                 Click="CloseClick"
                 Content="{x:Static props:Strings.Close}"
                 HorizontalAlignment="Right"/>

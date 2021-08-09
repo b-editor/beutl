@@ -7,64 +7,17 @@
     xmlns:views="using:BEditor.Views"
     xmlns:ctr="using:BEditor.Views.Start"
     xmlns:titlebar="using:BEditor.Views.CustomTitlebars"
+    xmlns:ui="using:FluentAvalonia.UI.Controls"
     mc:Ignorable="d"
     Height="450" Width="800"
-    Classes="fluent_setter"
     WindowStartupLocation="CenterScreen"
     x:Class="BEditor.Views.StartWindow"
     Title="StartWindow">
     <Grid RowDefinitions="Auto,*">
-        <DockPanel HorizontalAlignment="Stretch" Grid.RowSpan="2">
-            <Border
-                Background="{StaticResource NavigationViewContentBackground}"
-                IsHitTestVisible="False"
-                DockPanel.Dock="Left"
-                Width="240" />
-            <Border IsHitTestVisible="False" Background="{StaticResource NavigationViewDefaultPaneBackground}" />
-        </DockPanel>
-
         <titlebar:WindowsTitlebarButtons />
-        <TabControl
-            Classes="sidebar"
-            Grid.Row="1"
-            x:Name="tabControl"
-            SelectionChanged="TabChanged">
-            <TabControl.Styles>
-                <Style Selector="StackPanel">
-                    <Setter Property="Spacing" Value="16" />
-                    <Setter Property="Orientation" Value="Horizontal" />
-                </Style>
 
-                <Style Selector="PathIcon">
-                    <Setter Property="Width" Value="16" />
-                    <Setter Property="Height" Value="16" />
-                </Style>
-            </TabControl.Styles>
-            <TabItem Tag="Projects">
-                <TabItem.Header>
-                    <StackPanel>
-                        <PathIcon Data="{StaticResource Folder20Regular}"/>
-                        <TextBlock Text="{x:Static prop:Strings.Projects}" />
-                    </StackPanel>
-                </TabItem.Header>
-                <ctr:Projects/>
-            </TabItem>
-            <TabItem Tag="Settings">
-                <TabItem.Header>
-                    <StackPanel>
-                        <PathIcon Data="{StaticResource Settings20Regular}"/>
-                        <TextBlock Text="{x:Static prop:Strings.Settings}" />
-                    </StackPanel>
-                </TabItem.Header>
-            </TabItem>
-            <TabItem Tag="MainWindow">
-                <TabItem.Header>
-                    <StackPanel>
-                        <PathIcon Data="{StaticResource Window20Regular}"/>
-                        <TextBlock Text="{x:Static prop:Strings.GoToMainWindow}" />
-                    </StackPanel>
-                </TabItem.Header>
-            </TabItem>
-        </TabControl>
+        <ui:NavigationView Grid.Row="1" x:Name="NavView" IsSettingsVisible="False">
+            <ui:Frame x:Name="FrameView" />
+        </ui:NavigationView>
     </Grid>
 </views:FluentWindow>

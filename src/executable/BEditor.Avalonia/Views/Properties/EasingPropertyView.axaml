@@ -6,79 +6,82 @@
     xmlns:views="using:BEditor.Views.Properties"
     xmlns:easing="clr-namespace:BEditor.Data.Property.Easing;assembly=BEditor.Core"
     xmlns:titlebar="using:BEditor.Views.CustomTitlebars"
+    xmlns:ui="using:FluentAvalonia.UI.Controls"
     mc:Ignorable="d"
     Width="800"
     Height="450"
     WindowStartupLocation="CenterScreen"
-    Classes="fluent_setter"
+    Background="{StaticResource NavigationViewDefaultPaneBackground}"
     x:Class="BEditor.Views.Properties.EasingPropertyView">
-    <Border Background="{StaticResource NavigationViewDefaultPaneBackground}">
-        <Grid RowDefinitions="Auto,*" ColumnDefinitions="2*,Auto,3*,Auto,2*">
-            <TreeView
-                Background="{StaticResource NavigationViewContentBackground}"
-                Grid.RowSpan="2"
-                Padding="0,32,0,0"
-                SelectionMode="Single"
-                SelectionChanged="TreeView_SelectionChanged"
-                Items="{x:Static easing:EasingMetadata.LoadedEasingFunc}"
-                SelectedItem="{Binding Property.EasingData, Mode=OneWay}">
-                <TreeView.DataTemplates>
-                    <TreeDataTemplate ItemsSource="{Binding Children}">
-                        <TextBlock Text="{Binding Name}" Margin="3,2" />
-                    </TreeDataTemplate>
-                </TreeView.DataTemplates>
-            </TreeView>
+    <Grid RowDefinitions="Auto,*" ColumnDefinitions="*,Auto,2*">
+        <TreeView
+            Grid.RowSpan="2"
+            Padding="0,32,0,0"
+            SelectionMode="Single"
+            SelectionChanged="TreeView_SelectionChanged"
+            Items="{x:Static easing:EasingMetadata.LoadedEasingFunc}"
+            SelectedItem="{Binding Property.EasingData, Mode=OneWay}">
+            <TreeView.DataTemplates>
+                <TreeDataTemplate ItemsSource="{Binding Children}">
+                    <TextBlock Text="{Binding Name}" Margin="3,2" />
+                </TreeDataTemplate>
+            </TreeView.DataTemplates>
+        </TreeView>
 
-            <GridSplitter Grid.Column="1" Grid.Row="1" Background="Transparent" />
+        <GridSplitter Grid.Column="1" Grid.Row="1" Background="Transparent" />
 
-            <titlebar:WindowsTitlebarButtons CanResize="False" Grid.ColumnSpan="5"/>
+        <titlebar:WindowsTitlebarButtons CanResize="False" Grid.ColumnSpan="3"/>
 
-            <Label
-                Grid.Row="1"
-                Grid.Column="2"
-                Padding="8"
-                HorizontalContentAlignment="Stretch"
-                VerticalContentAlignment="Stretch"
-                Content="{Binding Property.EasingType, Converter={StaticResource EasingPropertyConverter}}" />
+        <Border
+            Grid.Row="1"
+            Grid.Column="2"
+            BorderBrush="{StaticResource ControlElevationBorderBrush}"
+            BorderThickness="1"
+            CornerRadius="{StaticResource OverlayCornerRadius}"
+            Background="{StaticResource NavigationViewContentBackground}">
+            <Grid ColumnDefinitions="3*,Auto,2*">
+                <ContentControl
+                    Padding="8"
+                    HorizontalContentAlignment="Stretch"
+                    VerticalContentAlignment="Stretch"
+                    Content="{Binding Property.EasingType, Converter={StaticResource EasingPropertyConverter}}" />
 
-            <GridSplitter Grid.Column="3" Grid.Row="1" Background="Transparent" />
+                <GridSplitter Grid.Column="1" Background="Transparent" />
 
-            <StackPanel
-                Grid.Column="4"
-                Grid.Row="1"
-                Spacing="8"
-                Margin="8"
-                Orientation="Horizontal"
-                HorizontalAlignment="Right"
-                VerticalAlignment="Bottom">
-                <Button Click="Play" x:Name="PlayButton">
-                    <PathIcon Data="{StaticResource Play24Regular}"/>
-                </Button>
+                <StackPanel
+                    Grid.Column="2"
+                    Spacing="8"
+                    Margin="8"
+                    Orientation="Horizontal"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Bottom">
+                    <Button Click="Play" x:Name="PlayButton">
+                        <ui:SymbolIcon Symbol="Play" FontSize="20" />
+                    </Button>
+                    <Button Click="RefleshGraph">
+                        <ui:SymbolIcon Symbol="Sync" FontSize="20" />
+                    </Button>
+                </StackPanel>
 
-                <Button Click="RefleshGraph">
-                    <PathIcon Data="{StaticResource ArrowSync24Regular}"/>
-                </Button>
-            </StackPanel>
+                <Grid
+                    VerticalAlignment="Center"
+                    Grid.Column="2"
+                    ColumnDefinitions="Auto,*,Auto"
+                    RowDefinitions="Auto,*,Auto">
 
-            <Grid
-                VerticalAlignment="Center"
-                Grid.Column="4"
-                Grid.Row="1"
-                ColumnDefinitions="Auto,*,Auto"
-                RowDefinitions="Auto,*,Auto">
+                    <Border
+                        BorderBrush="{DynamicResource TextControlForeground}"
+                        BorderThickness="1"
+                        Grid.Column="1" Grid.Row="1">
+                        <views:EasingGraph
+                            x:Name="Graph"
+                            ClipToBounds="False"
+                            Height="{Binding $self.Bounds.Width}"
+                            Func="{Binding Property.EasingType, Mode=OneWay}"/>
+                    </Border>
+                </Grid>
 
-                <Border
-                    BorderBrush="{DynamicResource TextControlForeground}"
-                    BorderThickness="1"
-                    Grid.Column="1" Grid.Row="1">
-                    <views:EasingGraph
-                        x:Name="Graph"
-                        ClipToBounds="False"
-                        Height="{Binding $self.Bounds.Width}"
-                        Func="{Binding Property.EasingType, Mode=OneWay}"/>
-                </Border>
             </Grid>
-
-        </Grid>
-    </Border>
+        </Border>
+    </Grid>
 </views:FluentWindow>

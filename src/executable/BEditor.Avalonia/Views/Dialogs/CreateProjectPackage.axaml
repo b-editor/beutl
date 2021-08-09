@@ -11,157 +11,153 @@
     WindowStartupLocation="CenterScreen"
     CanResize="False"
     Title="{x:Static props:Strings.PackingTheProject}"
-    Background="{StaticResource NavigationViewContentBackground}"
+    Background="{StaticResource NavigationViewDefaultPaneBackground}"
     x:DataType="viewModels:CreateProjectPackageViewModel"
     x:Class="BEditor.Views.Dialogs.CreateProjectPackage">
     <Grid RowDefinitions="Auto,*" ColumnDefinitions="*,2*">
 
-        <Border
-            BorderBrush="{StaticResource ControlElevationBorderBrush}"
-            BorderThickness="1"
-            CornerRadius="{StaticResource OverlayCornerRadius}"
-            Background="{StaticResource NavigationViewDefaultPaneBackground}"
-            Grid.RowSpan="2">
-            <Grid RowDefinitions="Auto,*">
-                <TextBlock
-                    Margin="16,32,16,8"
-                    FontSize="16"
-                    Text="{x:Static props:Strings.Dependency}" />
+        <Grid Grid.RowSpan="2" RowDefinitions="Auto,*">
+            <TextBlock
+                Margin="16,32,16,8"
+                FontSize="16"
+                Text="{x:Static props:Strings.Dependency}" />
 
-                <TreeView Grid.Row="1" x:Name="Tree">
-                    <TreeViewItem IsExpanded="True" Items="{CompiledBinding Fonts, Mode=OneWay}" Header="{x:Static props:Strings.Font}">
-                        <TreeViewItem.ItemTemplate>
-                            <DataTemplate>
-                                <CheckBox
-                                    Content="{Binding Text}"
-                                    IsChecked="{Binding IsChecked, Mode=TwoWay}"
-                                    ToolTip.Tip="{Binding Tip}" />
-                            </DataTemplate>
-                        </TreeViewItem.ItemTemplate>
-                    </TreeViewItem>
+            <TreeView Grid.Row="1" x:Name="Tree">
+                <TreeViewItem IsExpanded="True" Items="{CompiledBinding Fonts, Mode=OneWay}" Header="{x:Static props:Strings.Font}">
+                    <TreeViewItem.ItemTemplate>
+                        <DataTemplate>
+                            <CheckBox
+                                Content="{Binding Text}"
+                                IsChecked="{Binding IsChecked, Mode=TwoWay}"
+                                ToolTip.Tip="{Binding Tip}" />
+                        </DataTemplate>
+                    </TreeViewItem.ItemTemplate>
+                </TreeViewItem>
 
-                    <TreeViewItem Items="{CompiledBinding Files, Mode=OneWay}" Header="{x:Static props:Strings.File}">
-                        <TreeViewItem.ItemTemplate>
-                            <DataTemplate>
-                                <TextBlock Text="{Binding Text}" ToolTip.Tip="{Binding Tip}" />
-                            </DataTemplate>
-                        </TreeViewItem.ItemTemplate>
-                    </TreeViewItem>
+                <TreeViewItem Items="{CompiledBinding Files, Mode=OneWay}" Header="{x:Static props:Strings.File}">
+                    <TreeViewItem.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding Text}" ToolTip.Tip="{Binding Tip}" />
+                        </DataTemplate>
+                    </TreeViewItem.ItemTemplate>
+                </TreeViewItem>
 
-                    <TreeViewItem Items="{CompiledBinding Plugins, Mode=OneWay}" Header="{x:Static props:Strings.Plugins}">
-                        <TreeViewItem.ItemTemplate>
-                            <DataTemplate>
-                                <TextBlock Text="{Binding Text}" ToolTip.Tip="{Binding Tip}" />
-                            </DataTemplate>
-                        </TreeViewItem.ItemTemplate>
-                    </TreeViewItem>
+                <TreeViewItem Items="{CompiledBinding Plugins, Mode=OneWay}" Header="{x:Static props:Strings.Plugins}">
+                    <TreeViewItem.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding Text}" ToolTip.Tip="{Binding Tip}" />
+                        </DataTemplate>
+                    </TreeViewItem.ItemTemplate>
+                </TreeViewItem>
 
-                    <TreeViewItem Items="{CompiledBinding Others, Mode=OneWay}" Header="{x:Static props:Strings.Others}">
-                        <TreeViewItem.ContextMenu>
-                            <ContextMenu>
-                                <MenuItem
-                                    Header="{x:Static props:Strings.Add}"
-                                    Command="{CompiledBinding OpenOtherFile, Mode=OneTime}" />
-                                <MenuItem
-                                    Header="{x:Static props:Strings.Remove}"
-                                    Command="{CompiledBinding RemoveOtherFile, Mode=OneTime}"
-                                    CommandParameter="{Binding #Tree.SelectedItem, Mode=OneWay}" />
-                            </ContextMenu>
-                        </TreeViewItem.ContextMenu>
-                        <TreeViewItem.ItemTemplate>
-                            <DataTemplate>
-                                <TextBlock Text="{Binding Text}" ToolTip.Tip="{Binding Tip}" />
-                            </DataTemplate>
-                        </TreeViewItem.ItemTemplate>
-                    </TreeViewItem>
-                </TreeView>
-            </Grid>
-        </Border>
+                <TreeViewItem Items="{CompiledBinding Others, Mode=OneWay}" Header="{x:Static props:Strings.Others}">
+                    <TreeViewItem.ContextMenu>
+                        <ContextMenu>
+                            <MenuItem
+                                Header="{x:Static props:Strings.Add}"
+                                Command="{CompiledBinding OpenOtherFile, Mode=OneTime}" />
+                            <MenuItem
+                                Header="{x:Static props:Strings.Remove}"
+                                Command="{CompiledBinding RemoveOtherFile, Mode=OneTime}"
+                                CommandParameter="{Binding #Tree.SelectedItem, Mode=OneWay}" />
+                        </ContextMenu>
+                    </TreeViewItem.ContextMenu>
+                    <TreeViewItem.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding Text}" ToolTip.Tip="{Binding Tip}" />
+                        </DataTemplate>
+                    </TreeViewItem.ItemTemplate>
+                </TreeViewItem>
+            </TreeView>
+        </Grid>
 
         <titlebar:WindowsTitlebarButtons CanResize="False" Grid.ColumnSpan="2"/>
 
-        <StackPanel
-            Orientation="Vertical"
+        <Border
             Grid.Row="1"
             Grid.Column="1"
-            Margin="8">
+            BorderBrush="{StaticResource ControlElevationBorderBrush}"
+            BorderThickness="1"
+            CornerRadius="{StaticResource OverlayCornerRadius}"
+            Background="{StaticResource NavigationViewContentBackground}">
+            <Grid>
+                <StackPanel Orientation="Vertical" Margin="8">
 
-            <TextBlock
-                Margin="0,0,0,16"
-                FontSize="24"
-                Text="{x:Static props:Strings.PackingTheProject}" />
+                    <TextBlock
+                        Margin="0,0,0,16"
+                        FontSize="24"
+                        Text="{x:Static props:Strings.PackingTheProject}" />
 
-            <!--  Name  -->
-            <StackPanel Margin="8">
-                <TextBlock Text="{x:Static props:Strings.Name}" />
+                    <!--  Name  -->
+                    <StackPanel Margin="8">
+                        <TextBlock Text="{x:Static props:Strings.Name}" />
 
-                <TextBox
-                    HorizontalAlignment="Left"
-                    MinWidth="240"
-                    Margin="0,8"
-                    Text="{CompiledBinding Name.Value, Mode=TwoWay}" />
-            </StackPanel>
+                        <TextBox
+                            HorizontalAlignment="Left"
+                            MinWidth="240"
+                            Margin="0,8"
+                            Text="{CompiledBinding Name.Value, Mode=TwoWay}" />
+                    </StackPanel>
 
-            <!--  Folder  -->
-            <StackPanel Margin="8">
-                <TextBlock Text="{x:Static props:Strings.SaveFolder}" />
+                    <!--  Folder  -->
+                    <StackPanel Margin="8">
+                        <TextBlock Text="{x:Static props:Strings.SaveFolder}" />
 
-                <Grid Margin="0,8" HorizontalAlignment="Left">
-                    <TextBox
-                        HorizontalAlignment="Left"
-                        MinWidth="240"
-                        Text="{CompiledBinding Folder.Value, Mode=TwoWay}" />
+                        <Grid Margin="0,8" HorizontalAlignment="Left">
+                            <TextBox
+                                HorizontalAlignment="Left"
+                                MinWidth="240"
+                                Text="{CompiledBinding Folder.Value, Mode=TwoWay}" />
 
+                            <Button
+                                HorizontalAlignment="Right"
+                                Background="Transparent"
+                                BorderThickness="0"
+                                Command="{CompiledBinding OpenFolderDialog}"
+                                Cursor="Arrow">
+                                <PathIcon Data="{StaticResource FolderOpen16Regular}" />
+                            </Button>
+                        </Grid>
+                    </StackPanel>
+
+                    <!--  Name  -->
+                    <StackPanel Margin="8">
+                        <TextBlock Text="README" />
+
+                        <TextBox
+                            HorizontalAlignment="Left"
+                            AcceptsReturn="True"
+                            Width="450"
+                            Height="80"
+                            Margin="0,8"
+                            Text="{CompiledBinding ReadMe.Value, Mode=TwoWay}" />
+                    </StackPanel>
+
+                </StackPanel>
+
+                <StackPanel
+                    Margin="8"
+                    Spacing="8"
+                    VerticalAlignment="Bottom"
+                    HorizontalAlignment="Right"
+                    Orientation="Horizontal">
                     <Button
-                        HorizontalAlignment="Right"
-                        Background="Transparent"
-                        BorderThickness="0"
-                        Command="{CompiledBinding OpenFolderDialog}"
-                        Cursor="Arrow">
-                        <PathIcon Data="{StaticResource FolderOpen16Regular}" />
-                    </Button>
-                </Grid>
-            </StackPanel>
+                        Click="CloseClick"
+                        Content="{x:Static props:Strings.Close}"
+                        IsCancel="True"/>
+                    <Button
+                        Classes="accent"
+                        Command="{CompiledBinding Create, Mode=OneTime}"
+                        Content="{x:Static props:Strings.Create}"
+                        IsDefault="True"/>
+                </StackPanel>
 
-            <!--  Name  -->
-            <StackPanel Margin="8">
-                <TextBlock Text="README" />
-
-                <TextBox
-                    HorizontalAlignment="Left"
-                    AcceptsReturn="True"
-                    Width="450"
-                    Height="80"
-                    Margin="0,8"
-                    Text="{CompiledBinding ReadMe.Value, Mode=TwoWay}" />
-            </StackPanel>
-
-        </StackPanel>
-
-        <StackPanel
-            Grid.Row="1"
-            Grid.Column="1"
-            Margin="8"
-            Spacing="8"
-            VerticalAlignment="Bottom"
-            HorizontalAlignment="Right"
-            Orientation="Horizontal">
-            <Button
-                Click="CloseClick"
-                Content="{x:Static props:Strings.Close}"
-                IsCancel="True"/>
-            <Button
-                Classes="accent"
-                Command="{CompiledBinding Create, Mode=OneTime}"
-                Content="{x:Static props:Strings.Create}"
-                IsDefault="True"/>
-        </StackPanel>
-
-        <ProgressBar
-            Grid.Row="1"
-            IsVisible="{CompiledBinding IsLoading.Value, Mode=OneWay}"
-            VerticalAlignment="Bottom"
-            IsIndeterminate="True"
-            HorizontalAlignment="Stretch" />
+                <ProgressBar
+                    IsVisible="{CompiledBinding IsLoading.Value, Mode=OneWay}"
+                    VerticalAlignment="Bottom"
+                    IsIndeterminate="True"
+                    HorizontalAlignment="Stretch" />
+            </Grid>
+        </Border>
     </Grid>
 </views:FluentWindow>

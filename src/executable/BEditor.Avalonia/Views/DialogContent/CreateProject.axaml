@@ -103,14 +103,14 @@
             HorizontalAlignment="Right"
             Orientation="Horizontal">
             <Button
-                Click="CloseClick"
-                Content="{x:Static props:Strings.Cancel}"
-                IsCancel="True"/>
-            <Button
                 Classes="accent"
                 Command="{Binding Create, Mode=OneTime}"
                 Content="{x:Static props:Strings.Create}"
                 IsDefault="True"/>
+            <Button
+                Click="CloseClick"
+                Content="{x:Static props:Strings.Cancel}"
+                IsCancel="True"/>
         </StackPanel>
 
     </Grid>

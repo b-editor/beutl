@@ -446,6 +446,8 @@ namespace BEditor.Data.Property
             {
                 if (_property.TryGetTarget(out var target))
                 {
+                    _old.Unload();
+                    _new.Load();
                     target.EasingType = _new;
                 }
             }
@@ -459,6 +461,8 @@ namespace BEditor.Data.Property
             {
                 if (_property.TryGetTarget(out var target))
                 {
+                    _old.Load();
+                    _new.Unload();
                     target.EasingType = _old;
                 }
             }
