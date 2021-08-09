@@ -52,6 +52,7 @@
             Margin="0,4"
             Padding="0"
             BorderThickness="0"
+            Background="Transparent"
             VerticalAlignment="Top"
             Command="{CompiledBinding Command, Mode=OneTime}">
             <ui:SymbolIcon Symbol="Open" FontSize="20" />

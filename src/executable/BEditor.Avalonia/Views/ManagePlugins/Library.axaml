@@ -117,6 +117,7 @@
                 <StackPanel.Styles>
                     <Style Selector="Button">
                         <Setter Property="BorderThickness" Value="0" />
+                        <Setter Property="Background" Value="Transparent" />
                     </Style>
                 </StackPanel.Styles>
                 <Button Command="{CompiledBinding PrevPage, Mode=OneTime}" IsEnabled="{CompiledBinding ExistPrevPage.Value, Mode=OneWay}">

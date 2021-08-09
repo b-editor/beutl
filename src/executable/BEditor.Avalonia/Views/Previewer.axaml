@@ -45,6 +45,7 @@
             <Grid.Styles>
                 <Style Selector="Button">
                     <Setter Property="BorderThickness" Value="0" />
+                    <Setter Property="Background" Value="Transparent" />
                 </Style>
                 <Style Selector="ui|SymbolIcon">
                     <Setter Property="FontSize" Value="20" />

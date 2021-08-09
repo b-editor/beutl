@@ -17,7 +17,12 @@
     <Grid RowDefinitions="Auto,*">
         <titlebar:WindowsTitlebarButtons />
 
-        <ui:NavigationView Grid.Row="1" x:Name="NavView" IsSettingsVisible="False">
+        <ui:NavigationView
+            Grid.Row="1"
+            x:Name="NavView"
+            IsSettingsVisible="False"
+            IsBackButtonVisible="True"
+            IsBackEnabled="{Binding #FrameView.CanGoBack}">
             <ui:Frame x:Name="FrameView" />
         </ui:NavigationView>
     </Grid>

@@ -8,12 +8,28 @@
     xmlns:ui="using:FluentAvalonia.UI.Controls"
     xmlns:uip="using:FluentAvalonia.UI.Controls.Primitives"
     x:DataType="vm:ColorAnimationPropertyViewModel"
-    mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+    mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="40"
     x:Name="root"
     Height="40"
     Background="Transparent"
     x:Class="BEditor.Views.Properties.ColorAnimationPropertyView">
     <Grid>
+        <Grid.Styles>
+            <Style Selector="Button">
+                <Setter Property="Width" Value="32" />
+                <Setter Property="Height" Value="32" />
+                <Setter Property="BorderThickness" Value="0" />
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="Padding" Value="0" />
+            </Style>
+            <Style Selector="ToggleButton">
+                <Setter Property="Width" Value="32" />
+                <Setter Property="Height" Value="32" />
+                <Setter Property="BorderThickness" Value="0" />
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="Padding" Value="0" />
+            </Style>
+        </Grid.Styles>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="120*" MinWidth="50" MaxWidth="100" />
             <ColumnDefinition Width="40" />
@@ -32,14 +48,10 @@
 
         <Button
             Grid.Column="1"
-            Width="32"
-            Height="32"
-            BorderThickness="0"
-            Margin="0,8"
-            Padding="0"
+            Margin="0,4"
             VerticalAlignment="Top"
             Click="ShowEasingProperty">
-            <ui:SymbolIcon Symbol="NewWindow" FontSize="20" />
+            <ui:PathIcon Data="{StaticResource DataLine24Regular}" />
         </Button>
 
         <StackPanel x:Name="stackPanel" Grid.Column="3"/>
@@ -47,14 +59,10 @@
         <ToggleButton
             x:Name="togglebutton"
             Grid.Column="2"
-            Width="32"
-            Height="32"
-            BorderThickness="0"
-            Margin="0,8"
-            Padding="0"
+            Margin="0,4"
             VerticalAlignment="Top"
             Click="ListToggleClick">
-            <ui:SymbolIcon Symbol="MoreVertical" FontSize="20" />
+            <ui:PathIcon Data="{StaticResource ChevronUpDown24Regular}" />
         </ToggleButton>
 
     </Grid>

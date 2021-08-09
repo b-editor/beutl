@@ -43,13 +43,14 @@
             BorderThickness="0"
             Padding="0"
             Command="{CompiledBinding OpenDialog, Mode=OneTime}">
-            <ui:SymbolIcon Symbol="NewWindow" FontSize="20" />
+            <ui:PathIcon Data="{StaticResource Color24Regular}" />
         </Button>
 
         <Border
             Margin="8"
+            VerticalAlignment="Center"
             Height="24"
-            CornerRadius="3"
+            CornerRadius="4"
             Background="{CompiledBinding Brush.Value, Mode=OneWay}"
             Grid.Column="3" />
     </Grid>

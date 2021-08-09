@@ -78,7 +78,7 @@ namespace BEditor.Views.Properties
                 Height = 24,
                 Margin = new Thickness(8),
                 Background = new SolidColorBrush(_property.Pairs[index].Value.ToAvalonia()),
-                CornerRadius = new(3),
+                CornerRadius = new(4),
             };
 
             border.PointerPressed += Border_PointerPressed;

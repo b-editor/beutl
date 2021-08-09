@@ -87,6 +87,7 @@ namespace BEditor.Views.Properties
                 Value = _property.Pairs[index].Value,
                 LargeChange = 10,
                 SmallChange = 1,
+                Height = 40,
             };
 
             num.GotFocus += NumericUpDown_GotFocus;

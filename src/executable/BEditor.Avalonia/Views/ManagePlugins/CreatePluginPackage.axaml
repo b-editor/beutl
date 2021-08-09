@@ -5,6 +5,7 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:vm="using:BEditor.ViewModels.ManagePlugins"
     xmlns:props="using:BEditor.Properties"
+    xmlns:ui="using:FluentAvalonia.UI.Controls"
     x:DataType="vm:CreatePluginPackageViewModel"
     mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
     x:Class="BEditor.Views.ManagePlugins.CreatePluginPackage">
@@ -108,7 +109,7 @@
                         <TextBox Text="{CompiledBinding OutputDirectory.Value, Mode=TwoWay}" Classes="SettingsTextBox" />
 
                         <Button Command="{CompiledBinding PickDirectory, Mode=OneTime}">
-                            <PathIcon Data="{StaticResource FolderOpen16Regular}" />
+                            <ui:SymbolIcon Symbol="OpenFolder" FontSize="20" />
                         </Button>
                     </StackPanel>
 
@@ -120,7 +121,7 @@
                         <TextBox Text="{CompiledBinding AssemblyFile.Value, Mode=TwoWay}" Classes="SettingsTextBox" />
 
                         <Button Command="{CompiledBinding PickAssemblyFile, Mode=OneTime}">
-                            <PathIcon Data="{StaticResource FolderOpen16Regular}" />
+                            <ui:SymbolIcon Symbol="Open" FontSize="20" />
                         </Button>
                     </StackPanel>
 

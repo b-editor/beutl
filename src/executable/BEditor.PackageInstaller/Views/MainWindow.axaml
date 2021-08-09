@@ -6,6 +6,7 @@
     mc:Ignorable="d" Width="450" Height="400"
     WindowStartupLocation="CenterScreen"
     CanResize="False"
+    Background="{StaticResource NavigationViewDefaultPaneBackground}"
     x:Class="BEditor.PackageInstaller.Views.MainWindow"
     Title="BEditor.PackageInstaller">
 </Window>

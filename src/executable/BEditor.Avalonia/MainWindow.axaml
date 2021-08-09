@@ -42,6 +42,7 @@
                     <Style Selector="Button">
                         <Setter Property="Padding" Value="12,8" />
                         <Setter Property="BorderThickness" Value="0" />
+                        <Setter Property="Background" Value="Transparent" />
                     </Style>
 
                     <Style Selector="PathIcon.objectmetadata">
