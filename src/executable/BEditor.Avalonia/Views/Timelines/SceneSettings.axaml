@@ -13,7 +13,7 @@
     WindowStartupLocation="CenterScreen"
     x:DataType="vm:SceneSettingsViewModel"
     Title="SceneSettings">
-    <Border Background="{StaticResource AcrylicColor1}">
+    <Border Background="{StaticResource NavigationViewContentBackground}">
         <Grid RowDefinitions="Auto,*">
 
             <titlebar:WindowsTitlebarButtons CanResize="False"/>

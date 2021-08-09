@@ -7,6 +7,7 @@
     xmlns:vmroot="using:BEditor.ViewModels"
     xmlns:view="using:BEditor.Views.Timelines"
     xmlns:command="clr-namespace:BEditor.Command;assembly=BEditor.Core"
+    xmlns:ui="using:FluentAvalonia.UI.Controls"
     mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
     xmlns:properties="clr-namespace:BEditor.Properties"
     x:DataType="vm:TimelineViewModel"
@@ -34,7 +35,7 @@
                             InputGesture="Ctrl+Z"
                             IsEnabled="{CompiledBinding CanUndo, Mode=OneWay, Source={x:Static command:CommandManager.Default}}">
                             <MenuItem.Icon>
-                                <PathIcon Data="{StaticResource ArrowUndo24Regular}" />
+                                <ui:SymbolIcon FontSize="20" Symbol="Undo" />
                             </MenuItem.Icon>
                         </MenuItem>
                         <MenuItem
@@ -43,7 +44,7 @@
                             InputGesture="Ctrl+Y"
                             IsEnabled="{CompiledBinding CanRedo, Mode=OneWay, Source={x:Static command:CommandManager.Default}}">
                             <MenuItem.Icon>
-                                <PathIcon Data="{StaticResource ArrowRedo24Regular}" />
+                                <ui:SymbolIcon FontSize="20" Symbol="Redo" />
                             </MenuItem.Icon>
                         </MenuItem>
                         <MenuItem
@@ -51,10 +52,12 @@
                             Header="{x:Static properties:Strings.Paste}"
                             InputGesture="Ctrl+V">
                             <MenuItem.Icon>
-                                <PathIcon Data="{StaticResource ClipboardPaste20Regular}" />
+                                <ui:SymbolIcon FontSize="20" Symbol="Paste" />
                             </MenuItem.Icon>
                         </MenuItem>
+                        
                         <Separator />
+                        
                         <MenuItem
                             Click="SetMaxFrame"
                             Header="{x:Static properties:Strings.SetMaximumFrame}">
@@ -63,7 +66,7 @@
                             Click="SceneSettings"
                             Header="{x:Static properties:Strings.Settings}">
                             <MenuItem.Icon>
-                                <PathIcon Data="{StaticResource Settings20Regular}" />
+                                <ui:SymbolIcon FontSize="20" Symbol="Settings" />
                             </MenuItem.Icon>
                         </MenuItem>
                     </ContextMenu>

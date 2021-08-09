@@ -28,7 +28,7 @@ namespace BEditor.Views.DialogContent
 
             _border = new Border
             {
-                Background = new SolidColorBrush((Color)App.Current.FindResource("AcrylicColor1")!),
+                Background = (IBrush)App.Current.FindResource("NavigationViewContentBackground")!,
             };
 
             Content = _border;

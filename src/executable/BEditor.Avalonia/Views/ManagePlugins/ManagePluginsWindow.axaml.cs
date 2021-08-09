@@ -108,12 +108,12 @@ namespace BEditor.Views.ManagePlugins
                     Icon = new SymbolIcon { Symbol = Symbol.ZipFolder },
                     Tag = typeof(CreatePluginPackage)
                 },
-                new NavigationViewItem
-                {
-                    Content = Strings.User,
-                    Icon = new SymbolIcon { Symbol = Symbol.People },
-                    Tag = typeof(User)
-                },
+                //new NavigationViewItem
+                //{
+                //    Content = Strings.User,
+                //    Icon = new SymbolIcon { Symbol = Symbol.People },
+                //    Tag = typeof(User)
+                //},
             };
         }
 

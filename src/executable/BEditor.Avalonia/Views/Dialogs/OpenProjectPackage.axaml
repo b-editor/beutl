@@ -17,11 +17,14 @@
     <Grid RowDefinitions="Auto,*">
         <DockPanel HorizontalAlignment="Stretch" Grid.RowSpan="2">
             <Border
-                Background="{StaticResource AcrylicColor1}"
+                BorderBrush="{StaticResource ControlElevationBorderBrush}"
+                BorderThickness="1"
+                CornerRadius="{StaticResource OverlayCornerRadius}"
+                Background="{StaticResource NavigationViewDefaultPaneBackground}"
                 IsHitTestVisible="False"
                 DockPanel.Dock="Left"
                 Width="240" />
-            <Border IsHitTestVisible="False" Background="{StaticResource AcrylicColor2}" />
+            <Border IsHitTestVisible="False" Background="{StaticResource NavigationViewContentBackground}" />
         </DockPanel>
 
         <titlebar:WindowsTitlebarButtons />
@@ -89,36 +92,25 @@
                             </ItemsControl>
                         </ScrollViewer>
 
-                        <VirtualizingStackPanel
+                        <StackPanel
                             Grid.Row="1"
                             Margin="8"
+                            Spacing="8"
                             VerticalAlignment="Bottom"
                             HorizontalAlignment="Right"
                             Orientation="Horizontal">
                             <Button
                                 Click="CloseClick"
-                                HorizontalAlignment="Left"
                                 Content="{x:Static props:Strings.Close}"
-                                Background="Transparent"
-                                Cursor="Arrow"
-                                Foreground="Red"
                                 IsCancel="True"/>
                             <Button
                                 Click="CloseClick"
-                                HorizontalAlignment="Left"
                                 Command="{CompiledBinding InstallLater, Mode=OneTime}"
-                                Content="{x:Static props:Strings.InstallLater}"
-                                Cursor="Arrow"
-                                Background="Transparent"
-                                IsDefault="True"/>
+                                Content="{x:Static props:Strings.InstallLater}" />
                             <Button
-                                HorizontalAlignment="Left"
                                 Command="{CompiledBinding InstallNow, Mode=OneTime}"
-                                Content="{x:Static props:Strings.InstallNow}"
-                                Cursor="Arrow"
-                                Background="Transparent"
-                                IsDefault="True"/>
-                        </VirtualizingStackPanel>
+                                Content="{x:Static props:Strings.InstallNow}" />
+                        </StackPanel>
                     </Grid>
                 </ScrollViewer>
             </TabItem>
@@ -126,15 +118,14 @@
             <TabItem Header="{x:Static props:Strings.Open}">
                 <ScrollViewer>
                     <Panel>
-                        <VirtualizingStackPanel>
-
+                        <StackPanel Orientation="Vertical">
                             <TextBlock
                                 Grid.Row="0"
                                 Margin="16,8"
                                 FontSize="16"
                                 Text="{x:Static props:Strings.TryingToOpenProjectPackage}" />
 
-                            <Label Content="README" Classes="SettingsItemHeader" />
+                            <TextBlock Text="README" Classes="SettingsItemHeader" />
 
                             <TextBox
                                 AcceptsReturn="True"
@@ -142,29 +133,24 @@
                                 Width="450"
                                 Height="80"
                                 Text="{CompiledBinding ReadMe.Value}" />
-                        </VirtualizingStackPanel>
+                        </StackPanel>
 
-                        <VirtualizingStackPanel
+                        <StackPanel
                             Margin="8"
+                            Spacing="8"
                             VerticalAlignment="Bottom"
                             HorizontalAlignment="Right"
                             Orientation="Horizontal">
                             <Button
                                 Click="CloseClick"
-                                HorizontalAlignment="Left"
                                 Content="{x:Static props:Strings.Close}"
-                                Background="Transparent"
-                                Cursor="Arrow"
-                                Foreground="Red"
                                 IsCancel="True"/>
                             <Button
-                                HorizontalAlignment="Left"
+                                Classes="accent"
                                 Command="{CompiledBinding Open, Mode=OneTime}"
                                 Content="{x:Static props:Strings.Open}"
-                                Cursor="Arrow"
-                                Background="Transparent"
                                 IsDefault="True"/>
-                        </VirtualizingStackPanel>
+                        </StackPanel>
                     </Panel>
                 </ScrollViewer>
             </TabItem>

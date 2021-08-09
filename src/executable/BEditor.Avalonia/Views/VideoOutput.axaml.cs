@@ -1,21 +1,29 @@
 using System;
+using System.Collections;
+using System.Collections.Generic;
+using System.Linq;
 
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Presenters;
 using Avalonia.Markup.Xaml;
+using Avalonia.Media;
 using Avalonia.Threading;
 
+using BEditor.Properties;
 using BEditor.ViewModels;
 using BEditor.Views.ManagePlugins;
+
+using FluentAvalonia.Core;
+using FluentAvalonia.UI.Controls;
+using FluentAvalonia.UI.Navigation;
 
 namespace BEditor.Views
 {
     public class VideoOutput : FluentWindow
     {
-        private readonly ContentPresenter _audioEncoderSettings;
-        private readonly ContentPresenter _videoEncoderSettings;
         private readonly VideoOutputViewModel _viewModel;
+        private readonly NavigationView _navView;
 
         public VideoOutput()
         {
@@ -24,61 +32,63 @@ namespace BEditor.Views
             InitializeComponent();
 
             _viewModel.Output.Subscribe(Close);
-            _audioEncoderSettings = this.FindControl<ContentPresenter>("AudioEncoderSettings");
-            _videoEncoderSettings = this.FindControl<ContentPresenter>("VideoEncoderSettings");
-            _viewModel.AudioEncoderSettings.Subscribe(s =>
-            {
-                if (s is null)
-                {
-                    _audioEncoderSettings.Content = null;
-                }
-                else
-                {
-                    _audioEncoderSettings.Content = PluginSettingsUIBuilder.Create(s);
-                }
-            });
-            _viewModel.VideoEncoderSettings.Subscribe(s =>
-            {
-                if (s is null)
-                {
-                    _videoEncoderSettings.Content = null;
-                }
-                else
-                {
-                    _videoEncoderSettings.Content = PluginSettingsUIBuilder.Create(s);
-                }
-            });
-
-            _viewModel.GetAudioSettings = () => Dispatcher.UIThread.InvokeAsync(() =>
-            {
-                var settings = _viewModel.AudioEncoderSettings.Value;
-                if (_audioEncoderSettings.Content is StackPanel stack && settings is not null)
-                {
-                    PluginSettingsUIBuilder.GetValue(stack, ref settings);
-                    return settings;
-                }
-                else
-                {
-                    return null;
-                }
-            });
-
-            _viewModel.GetVideoSettings = () => Dispatcher.UIThread.InvokeAsync(() =>
-            {
-                var settings = _viewModel.VideoEncoderSettings.Value;
-                if (_videoEncoderSettings.Content is StackPanel stack && settings is not null)
-                {
-                    PluginSettingsUIBuilder.GetValue(stack, ref settings);
-                    return settings;
-                }
-                else
-                {
-                    return null;
-                }
-            });
 #if DEBUG
             this.AttachDevTools();
 #endif
+            _navView = this.Find<NavigationView>("NavView");
+
+            _navView.ItemInvoked += NavView_ItemInvoked;
+
+            AddNavigationViewMenuItems();
+
+            var first = _navView.MenuItems.OfType<NavigationViewItemBase>().FirstOrDefault();
+            _navView.Content = first?.Tag;
+            _navView.SelectedItem = first;
+        }
+
+        private void AddNavigationViewMenuItems()
+        {
+            _navView.MenuItems = new List<NavigationViewItemBase>
+            {
+                new NavigationViewItem
+                {
+                    Content = Strings.Infomation,
+                    Icon = new FluentAvalonia.UI.Controls.PathIcon { Data = (Geometry)App.Current.FindResource("Info20Regular")! },
+                    Tag = new VideoOutputPages.Infomation(),
+                },
+                new NavigationViewItem
+                {
+                    Content = Strings.Video,
+                    Icon = new SymbolIcon { Symbol = Symbol.Video },
+                    Tag = new VideoOutputPages.Video(),
+                },
+                new NavigationViewItem
+                {
+                    Content = Strings.Project,
+                    Icon = new SymbolIcon { Symbol = Symbol.Speaker2 },
+                    Tag = new VideoOutputPages.Audio()
+                },
+                new NavigationViewItem
+                {
+                    Content = Strings.Metadata,
+                    Icon = new SymbolIcon { Symbol = Symbol.Tag },
+                    Tag = new VideoOutputPages.Metadata()
+                },
+                new NavigationViewItem
+                {
+                    Content = Strings.Output,
+                    Icon = new SymbolIcon { Symbol = Symbol.Import },
+                    Tag = new VideoOutputPages.Output()
+                },
+            };
+        }
+
+        private void NavView_ItemInvoked(object? sender, NavigationViewItemInvokedEventArgs e)
+        {
+            if (e.InvokedItemContainer is NavigationViewItem nvi)
+            {
+                _navView.Content = nvi.Tag;
+            }
         }
 
         private void InitializeComponent()

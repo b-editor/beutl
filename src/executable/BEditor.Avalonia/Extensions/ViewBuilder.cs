@@ -441,11 +441,11 @@ namespace BEditor.Extensions
                     Content = obj.Name
                 };
 
-                var copyId = new FluentAvalonia.UI.Controls.MenuFlyoutItem
+                var copyId = new MenuItem
                 {
                     Command = _copyEffectId,
                     CommandParameter = obj,
-                    Text = Strings.CopyID,
+                    Header = Strings.CopyID,
                     Icon = new FluentAvalonia.UI.Controls.SymbolIcon
                     {
                         Symbol = FluentAvalonia.UI.Controls.Symbol.Copy,
@@ -453,11 +453,11 @@ namespace BEditor.Extensions
                     },
                 };
 
-                var save = new FluentAvalonia.UI.Controls.MenuFlyoutItem
+                var save = new MenuItem
                 {
                     Command = _saveObject,
                     CommandParameter = obj,
-                    Text = Strings.SaveAs,
+                    Header = Strings.SaveAs,
                     Icon = new FluentAvalonia.UI.Controls.SymbolIcon
                     {
                         Symbol = FluentAvalonia.UI.Controls.Symbol.Save,
@@ -478,9 +478,9 @@ namespace BEditor.Extensions
 
                 expander.Header = header;
 
-                header.ContextFlyout = new FluentAvalonia.UI.Controls.MenuFlyout
+                header.ContextMenu = new ContextMenu
                 {
-                    Items = new FluentAvalonia.UI.Controls.MenuFlyoutItem[]
+                    Items = new MenuItem[]
                     {
                         copyId,
                         save,
@@ -564,11 +564,11 @@ namespace BEditor.Extensions
                     },
                 };
 
-                var remove = new FluentAvalonia.UI.Controls.MenuFlyoutItem
+                var remove = new MenuItem
                 {
                     Command = _removeEffect,
                     CommandParameter = effect,
-                    Text = Strings.Remove,
+                    Header = Strings.Remove,
                     Icon = new FluentAvalonia.UI.Controls.SymbolIcon
                     {
                         Symbol = FluentAvalonia.UI.Controls.Symbol.Delete,
@@ -576,11 +576,11 @@ namespace BEditor.Extensions
                     },
                 };
 
-                var copyId = new FluentAvalonia.UI.Controls.MenuFlyoutItem
+                var copyId = new MenuItem
                 {
                     Command = _copyEffectId,
                     CommandParameter = effect,
-                    Text = Strings.CopyID,
+                    Header = Strings.CopyID,
                     Icon = new FluentAvalonia.UI.Controls.SymbolIcon
                     {
                         Symbol = FluentAvalonia.UI.Controls.Symbol.Copy,
@@ -588,11 +588,11 @@ namespace BEditor.Extensions
                     },
                 };
 
-                var save = new FluentAvalonia.UI.Controls.MenuFlyoutItem
+                var save = new MenuItem
                 {
                     Command = _saveEffect,
                     CommandParameter = effect,
-                    Text = Strings.SaveAs,
+                    Header = Strings.SaveAs,
                     Icon = new FluentAvalonia.UI.Controls.SymbolIcon
                     {
                         Symbol = FluentAvalonia.UI.Controls.Symbol.Save,
@@ -615,9 +615,9 @@ namespace BEditor.Extensions
 
                 expander.Header = header;
 
-                header.ContextFlyout = new FluentAvalonia.UI.Controls.MenuFlyout
+                header.ContextMenu = new ContextMenu
                 {
-                    Items = new FluentAvalonia.UI.Controls.MenuFlyoutItem[]
+                    Items = new MenuItem[]
                     {
                         remove,
                         copyId,

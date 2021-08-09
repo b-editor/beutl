@@ -12,13 +12,13 @@
     Height="40"
     Background="Transparent"
     x:Class="BEditor.Views.Properties.ValuePropertyView">
-    <UserControl.ContextFlyout>
-        <ui:MenuFlyout>
-            <ui:MenuFlyoutItem Text="{x:Static prop:Strings.Reset}" Command="{CompiledBinding Reset, Mode=OneTime}" />
-            <ui:MenuFlyoutItem Text="{x:Static prop:Strings.Bind}" Command="{CompiledBinding Bind, Mode=OneTime}" />
-            <ui:MenuFlyoutItem Text="{x:Static prop:Strings.CopyID}" Command="{CompiledBinding CopyID, Mode=OneTime}" />
-        </ui:MenuFlyout>
-    </UserControl.ContextFlyout>
+    <UserControl.ContextMenu>
+        <ContextMenu>
+            <MenuItem Header="{x:Static prop:Strings.Reset}" Command="{CompiledBinding Reset, Mode=OneTime}" />
+            <MenuItem Header="{x:Static prop:Strings.Bind}" Command="{CompiledBinding Bind, Mode=OneTime}" />
+            <MenuItem Header="{x:Static prop:Strings.CopyID}" Command="{CompiledBinding CopyID, Mode=OneTime}" />
+        </ContextMenu>
+    </UserControl.ContextMenu>
     <Grid>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="120*" MinWidth="50" MaxWidth="100" />

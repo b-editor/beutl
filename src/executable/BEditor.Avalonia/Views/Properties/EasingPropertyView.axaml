@@ -12,10 +12,10 @@
     WindowStartupLocation="CenterScreen"
     Classes="fluent_setter"
     x:Class="BEditor.Views.Properties.EasingPropertyView">
-    <Border Background="{StaticResource AcrylicColor2}">
+    <Border Background="{StaticResource NavigationViewDefaultPaneBackground}">
         <Grid RowDefinitions="Auto,*" ColumnDefinitions="2*,Auto,3*,Auto,2*">
             <TreeView
-                Background="{StaticResource AcrylicColor1}"
+                Background="{StaticResource NavigationViewContentBackground}"
                 Grid.RowSpan="2"
                 Padding="0,32,0,0"
                 SelectionMode="Single"

@@ -11,16 +11,19 @@
     xmlns:dialogvm="using:BEditor.ViewModels.DialogContent"
     xmlns:data="clr-namespace:BEditor.Data;assembly=BEditor.Core"
     mc:Ignorable="d" Width="800" Height="450"
-    Classes="fluent_setter"
     WindowStartupLocation="CenterScreen"
+    Background="{StaticResource NavigationViewContentBackground}"
     x:DataType="dialogvm:AddEffectViewModel"
     x:Class="BEditor.Views.DialogContent.AddEffect">
-    <Border Background="{StaticResource AcrylicColor2}">
-        <Grid RowDefinitions="Auto,*" ColumnDefinitions="*,2*">
+    <Grid RowDefinitions="Auto,*" ColumnDefinitions="*,2*">
+        <Border
+            BorderBrush="{StaticResource ControlElevationBorderBrush}"
+            BorderThickness="1"
+            CornerRadius="{StaticResource OverlayCornerRadius}"
+            Background="{StaticResource NavigationViewDefaultPaneBackground}"
+            Grid.RowSpan="2"
+            Padding="0,32,0,0">
             <TreeView
-                Background="{StaticResource AcrylicColor1}"
-                Grid.RowSpan="2"
-                Padding="0,32,0,0"
                 SelectionMode="Single"
                 SelectedItem="{CompiledBinding Effect.Value, Mode=TwoWay}"
                 Items="{x:Static data:EffectMetadata.LoadedEffects}" >
@@ -30,81 +33,76 @@
                     </TreeDataTemplate>
                 </TreeView.DataTemplates>
             </TreeView>
+        </Border>
 
-            <titlebar:WindowsTitlebarButtons CanResize="False" Grid.ColumnSpan="2"/>
+        <titlebar:WindowsTitlebarButtons CanResize="False" Grid.ColumnSpan="2"/>
 
-            <ScrollViewer Grid.Row="1" Grid.Column="1" Padding="16">
-                <ScrollViewer.Styles>
-                    <Style Selector="ComboBox">
-                        <Setter Property="Width" Value="240" />
-                        <Setter Property="HorizontalAlignment" Value="Left" />
-                    </Style>
-                </ScrollViewer.Styles>
-                <StackPanel>
+        <ScrollViewer Grid.Row="1" Grid.Column="1" Padding="16">
+            <ScrollViewer.Styles>
+                <Style Selector="ComboBox">
+                    <Setter Property="Width" Value="240" />
+                    <Setter Property="HorizontalAlignment" Value="Left" />
+                </Style>
+            </ScrollViewer.Styles>
+            <StackPanel>
+                <TextBlock
+                    Margin="0,0,0,16"
+                    FontSize="24"
+                    Text="{x:Static props:Strings.AddEffect}" />
+
+                <!--  Scene  -->
+                <StackPanel Margin="8">
                     <TextBlock
-                        Margin="0,0,0,16"
-                        FontSize="24"
-                        Text="{x:Static props:Strings.AddEffect}" />
+                        FontSize="14"
+                        Text="{x:Static props:Strings.Scene}" />
 
-                    <!--  Scene  -->
-                    <VirtualizingStackPanel Margin="8">
-                        <TextBlock
-                            FontSize="14"
-                            Text="{x:Static props:Strings.Scene}" />
-
-                        <ComboBox
-                            Margin="0,8"
-                            MinWidth="240"
-                            Items="{Binding Source={x:Static model:AppModel.Current}, Path=Project.SceneList}"
-                            SelectedItem="{CompiledBinding Scene.Value}">
-                            <ComboBox.ItemTemplate>
-                                <DataTemplate>
-                                    <TextBlock Text="{Binding SceneName}" />
-                                </DataTemplate>
-                            </ComboBox.ItemTemplate>
-                        </ComboBox>
-                    </VirtualizingStackPanel>
-
-                    <!--  Id  -->
-                    <StackPanel Margin="8,24,8,8">
-                        <TextBlock
-                            FontSize="14"
-                            Text="{x:Static props:Strings.ClipId}" />
-
-                        <ComboBox
-                            Items="{CompiledBinding Clips, Mode=OneWay}"
-                            Margin="0,8"
-                            SelectedItem="{CompiledBinding ClipId.Value, Mode=TwoWay}">
-                        </ComboBox>
-                    </StackPanel>
+                    <ComboBox
+                        Margin="0,8"
+                        MinWidth="240"
+                        Items="{Binding Source={x:Static model:AppModel.Current}, Path=Project.SceneList}"
+                        SelectedItem="{CompiledBinding Scene.Value}">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding SceneName}" />
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
                 </StackPanel>
-            </ScrollViewer>
 
-            <VirtualizingStackPanel
-                Grid.Row="1"
-                Grid.Column="1"
-                Margin="8"
-                VerticalAlignment="Bottom"
-                HorizontalAlignment="Right"
-                Orientation="Horizontal">
-                <Button
-                    Click="CloseClick"
-                    HorizontalAlignment="Left"
-                    Content="{x:Static props:Strings.Cancel}"
-                    Background="Transparent"
-                    Cursor="Arrow"
-                    Foreground="Red"
-                    IsCancel="True"/>
-                <Button
-                    Click="CloseClick"
-                    HorizontalAlignment="Left"
-                    Command="{CompiledBinding Create, Mode=OneTime}"
-                    Content="{x:Static props:Strings.Create}"
-                    Cursor="Arrow"
-                    Background="Transparent"
-                    IsDefault="True"/>
-            </VirtualizingStackPanel>
+                <!--  Id  -->
+                <StackPanel Margin="8,24,8,8">
+                    <TextBlock
+                        FontSize="14"
+                        Text="{x:Static props:Strings.ClipId}" />
 
-        </Grid>
-    </Border>
+                    <ComboBox
+                        Items="{CompiledBinding Clips, Mode=OneWay}"
+                        Margin="0,8"
+                        SelectedItem="{CompiledBinding ClipId.Value, Mode=TwoWay}">
+                    </ComboBox>
+                </StackPanel>
+            </StackPanel>
+        </ScrollViewer>
+
+        <StackPanel
+            Grid.Row="1"
+            Grid.Column="1"
+            Margin="8"
+            Spacing="8"
+            VerticalAlignment="Bottom"
+            HorizontalAlignment="Right"
+            Orientation="Horizontal">
+            <Button
+                Click="CloseClick"
+                Content="{x:Static props:Strings.Cancel}"
+                IsCancel="True" />
+            <Button
+                Click="CloseClick"
+                Command="{CompiledBinding Create, Mode=OneTime}"
+                Content="{x:Static props:Strings.Create}"
+                Classes="accent"
+                IsDefault="True"/>
+        </StackPanel>
+
+    </Grid>
 </views:FluentWindow>

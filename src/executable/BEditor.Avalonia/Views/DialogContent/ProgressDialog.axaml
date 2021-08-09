@@ -26,7 +26,7 @@
             Minimum="{Binding Minimum.Value}"
             Value="{Binding NowValue.Value}" />
 
-        <VirtualizingStackPanel
+        <StackPanel
             Orientation="Horizontal"
             HorizontalAlignment="Right"
             x:Name="stack"

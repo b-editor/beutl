@@ -18,7 +18,7 @@
     d:DesignHeight="760"
     x:DataType="vm:MainWindowViewModel"
     Classes="fluent_setter"
-    Background="{StaticResource AcrylicColor1}"
+    Background="{StaticResource NavigationViewDefaultPaneBackground}"
     DataContext="{x:Static vm:MainWindowViewModel.Current}"
     Focusable="True"
     x:Class="BEditor.MainWindow">
@@ -182,7 +182,7 @@
                 </Button>
 
                 <Popup WindowManagerAddShadowHint="False" x:Name="ObjectsPopup" StaysOpen="False" PlacementMode="Pointer">
-                    <Border Background="{StaticResource AcrylicColor1}" CornerRadius="{DynamicResource ControlCornerRadius}">
+                    <Border Background="{StaticResource NavigationViewContentBackground}" CornerRadius="{DynamicResource ControlCornerRadius}">
 
                         <ItemsControl Items="{Binding Source={x:Static data:ObjectMetadata.LoadedObjects}}">
                             <ItemsControl.ItemTemplate>
@@ -263,9 +263,13 @@
         </Grid>
 
         <Border
+            Margin="4,0,0,4"
+            BorderBrush="{StaticResource ControlElevationBorderBrush}"
+            BorderThickness="1"
+            CornerRadius="{StaticResource OverlayCornerRadius}"
             Grid.Row="2"
             Grid.RowSpan="3"
-            Background="{StaticResource AcrylicColor2}"
+            Background="{StaticResource NavigationViewContentBackground}"
             IsHitTestVisible="False">
         </Border>
 
@@ -273,6 +277,7 @@
             Grid.Row="2"
             Grid.RowSpan="3"
             Padding="0"
+            Margin="4,0,0,4"
             HorizontalContentAlignment="Stretch"
             VerticalContentAlignment="Stretch"
             IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}"
@@ -281,7 +286,11 @@
         <GridSplitter Background="Transparent" Grid.Row="2" Grid.RowSpan="3" Grid.Column="1"/>
 
         <Border
-            Background="{StaticResource AcrylicColor2}"
+            Margin="0,0,4,4"
+            BorderBrush="{StaticResource ControlElevationBorderBrush}"
+            BorderThickness="1"
+            CornerRadius="{StaticResource OverlayCornerRadius}"
+            Background="{StaticResource NavigationViewContentBackground}"
             Grid.Row="4"
             Grid.Column="2"
             Grid.ColumnSpan="4"

@@ -11,9 +11,7 @@
     xmlns:uip="using:FluentAvalonia.UI.Controls.Primitives"
     mc:Ignorable="d"
     Height="450" Width="800"
-    Classes="fluent_setter"
     WindowStartupLocation="CenterScreen"
-    Background="{StaticResource AcrylicColor2}"
     x:Class="BEditor.Views.SettingsWindow"
     Title="SettingsWindow">
     <Grid RowDefinitions="Auto,*">

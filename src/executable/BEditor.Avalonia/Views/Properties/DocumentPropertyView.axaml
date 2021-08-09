@@ -12,39 +12,39 @@
     Height="125"
     Background="Transparent"
     x:Class="BEditor.Views.Properties.DocumentPropertyView">
-    <UserControl.ContextFlyout>
-        <ui:MenuFlyout>
-            <ui:MenuFlyoutItem
+    <UserControl.ContextMenu>
+        <ContextMenu>
+            <MenuItem
                IsEnabled="{Binding #TextBox.CanCut}"
-               HotKey="{x:Static TextBox.CutGesture}"
+               InputGesture="{x:Static TextBox.CutGesture}"
                Command="{CompiledBinding Cut, Mode=OneTime}"
                CommandParameter="{CompiledBinding #TextBox}"
                Icon="Cut"
-               Text="{x:Static prop:Strings.Cut}" />
+               Header="{x:Static prop:Strings.Cut}" />
             
-            <ui:MenuFlyoutItem
+            <MenuItem
                IsEnabled="{Binding #TextBox.CanCopy}"
-               HotKey="{x:Static TextBox.CopyGesture}"
+               InputGesture="{x:Static TextBox.CopyGesture}"
                Command="{CompiledBinding Copy, Mode=OneTime}"
                CommandParameter="{CompiledBinding #TextBox}"
                Icon="Copy"
-               Text="{x:Static prop:Strings.Copy}" />
+               Header="{x:Static prop:Strings.Copy}" />
             
-            <ui:MenuFlyoutItem
+            <MenuItem
                IsEnabled="{Binding #TextBox.CanPaste}"
-               HotKey="{x:Static TextBox.PasteGesture}"
+               InputGesture="{x:Static TextBox.PasteGesture}"
                Command="{CompiledBinding Paste, Mode=OneTime}"
                CommandParameter="{CompiledBinding #TextBox}"
                Icon="Paste"
-               Text="{x:Static prop:Strings.Paste}" />
+               Header="{x:Static prop:Strings.Paste}" />
             
-            <ui:MenuFlyoutSeparator />
+            <Separator />
             
-            <ui:MenuFlyoutItem Text="{x:Static prop:Strings.Reset}" Command="{CompiledBinding Reset, Mode=OneTime}" />
-            <ui:MenuFlyoutItem Text="{x:Static prop:Strings.Bind}" Command="{CompiledBinding Bind, Mode=OneTime}" />
-            <ui:MenuFlyoutItem Text="{x:Static prop:Strings.CopyID}" Command="{CompiledBinding CopyID, Mode=OneTime}" />
-        </ui:MenuFlyout>
-    </UserControl.ContextFlyout>
+            <MenuItem Header="{x:Static prop:Strings.Reset}" Command="{CompiledBinding Reset, Mode=OneTime}" />
+            <MenuItem Header="{x:Static prop:Strings.Bind}" Command="{CompiledBinding Bind, Mode=OneTime}" />
+            <MenuItem Header="{x:Static prop:Strings.CopyID}" Command="{CompiledBinding CopyID, Mode=OneTime}" />
+        </ContextMenu>
+    </UserControl.ContextMenu>
     <TextBox
         Margin="5"
         HorizontalAlignment="Stretch"

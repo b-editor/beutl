@@ -28,7 +28,28 @@
                         <PathIcon
                             Margin="8"
                             Foreground="{Binding AccentColor, Converter={StaticResource ColorToSolidColorBrushConverter}, Mode=OneTime}"
-                            Data="{Binding PathIcon, Mode=OneTime, Converter={StaticResource StringToGeometoryConverter}}" />
+                            Data="{Binding PathIcon, Mode=OneTime, Converter={StaticResource StringToGeometoryConverter}}">
+                            <PathIcon.Styles>
+                                <Style Selector="PathIcon">
+                                    <Setter Property="Foreground" Value="{DynamicResource TextControlForeground}" />
+                                    <Setter Property="Background" Value="Transparent" />
+                                    <Setter Property="Height" Value="{DynamicResource IconElementThemeHeight}" />
+                                    <Setter Property="Width" Value="{DynamicResource IconElementThemeWidth}" />
+                                    <Setter Property="Template">
+                                        <ControlTemplate>
+                                            <Border Background="{TemplateBinding Background}">
+                                                <Viewbox Height="{TemplateBinding Height}"
+                                                         Width="{TemplateBinding Width}">
+                                                    <Path Fill="{TemplateBinding Foreground}"
+                                                          Data="{TemplateBinding Data}"
+                                                          Stretch="Uniform" />
+                                                </Viewbox>
+                                            </Border>
+                                        </ControlTemplate>
+                                    </Setter>
+                                </Style>
+                            </PathIcon.Styles>
+                        </PathIcon>
 
                         <TextBlock Margin="8" Grid.Column="1" Text="{Binding Name, Mode=OneTime}"/>
                     </Grid>
@@ -39,23 +60,18 @@
         <VirtualizingStackPanel
             Grid.Row="1"
             Margin="8"
+            Spacing="8"
             VerticalAlignment="Bottom"
             HorizontalAlignment="Right"
             Orientation="Horizontal">
             <Button
                 Click="CancelClick"
-                HorizontalAlignment="Left"
                 Content="{x:Static props:Strings.Cancel}"
-                Background="Transparent"
-                Cursor="Arrow"
-                Foreground="Red"
                 IsCancel="True"/>
             <Button
+                Classes="accent"
                 Click="AddClick"
-                HorizontalAlignment="Left"
                 Content="{x:Static props:Strings.Add}"
-                Cursor="Arrow"
-                Background="Transparent"
                 IsDefault="True"/>
         </VirtualizingStackPanel>
 

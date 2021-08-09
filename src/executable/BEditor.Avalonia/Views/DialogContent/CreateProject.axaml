@@ -7,6 +7,7 @@
     xmlns:titlebar="using:BEditor.Views.CustomTitlebars"
     xmlns:views="using:BEditor.Views"
     xmlns:vm="using:BEditor.ViewModels"
+    xmlns:ui="using:FluentAvalonia.UI.Controls"
     mc:Ignorable="d" Width="800" Height="450"
     WindowStartupLocation="CenterScreen"
     CanResize="False"
@@ -22,119 +23,95 @@
 
         <WrapPanel Orientation="Vertical" Grid.Row="1" Margin="8">
             <!--  Width  -->
-            <VirtualizingStackPanel Margin="8">
-                <TextBlock
-                    FontSize="14"
-                    Text="{x:Static props:Strings.Width}" />
+            <StackPanel Margin="8">
+                <TextBlock Text="{x:Static props:Strings.Width}" />
 
-                <NumericUpDown
-                    HorizontalAlignment="Left"
+                <ui:NumberBox
                     MinWidth="240"
                     Margin="0,8"
                     Value="{Binding Width.Value, Mode=TwoWay}" />
-            </VirtualizingStackPanel>
+            </StackPanel>
 
             <!--  Height  -->
-            <VirtualizingStackPanel Margin="8">
-                <TextBlock
-                    FontSize="14"
-                    Text="{x:Static props:Strings.Height}" />
+            <StackPanel Margin="8">
+                <TextBlock Text="{x:Static props:Strings.Height}" />
 
-                <NumericUpDown
-                    HorizontalAlignment="Left"
+                <ui:NumberBox
                     MinWidth="240"
                     Margin="0,8"
                     Value="{Binding Height.Value, Mode=TwoWay}" />
-            </VirtualizingStackPanel>
+            </StackPanel>
 
             <!--  Framerate  -->
-            <VirtualizingStackPanel Margin="8">
-                <TextBlock
-                    FontSize="14"
-                    Text="{x:Static props:Strings.Framerate}" />
+            <StackPanel Margin="8">
+                <TextBlock Text="{x:Static props:Strings.Framerate}" />
 
 
-                <NumericUpDown
-                    HorizontalAlignment="Left"
+                <ui:NumberBox
                     MinWidth="240"
                     Margin="0,8"
                     Value="{Binding Framerate.Value, Mode=TwoWay}" />
-            </VirtualizingStackPanel>
+            </StackPanel>
 
             <!--  Samplingrate  -->
-            <VirtualizingStackPanel Margin="8">
-                <TextBlock
-                    FontSize="14"
-                    Text="{x:Static props:Strings.Samplingrate}" />
+            <StackPanel Margin="8">
+                <TextBlock Text="{x:Static props:Strings.Samplingrate}" />
 
-                <NumericUpDown
-                    HorizontalAlignment="Left"
+                <ui:NumberBox
                     MinWidth="240"
                     Margin="0,8"
                     Value="{Binding Samplingrate.Value, Mode=TwoWay}" />
-            </VirtualizingStackPanel>
+            </StackPanel>
 
 
             <!--  Name  -->
-            <VirtualizingStackPanel Margin="8">
-                <TextBlock
-                    FontSize="14"
-                    Text="{x:Static props:Strings.Name}" />
+            <StackPanel Margin="8">
+                <TextBlock Text="{x:Static props:Strings.Name}" />
 
                 <TextBox
-                    HorizontalAlignment="Left"
                     MinWidth="240"
                     Margin="0,8"
                     Text="{Binding Name.Value, Mode=TwoWay}" />
-            </VirtualizingStackPanel>
+            </StackPanel>
 
             <!--  Folder  -->
-            <VirtualizingStackPanel Margin="8">
-                <TextBlock
-                    FontSize="14"
-                    Text="{x:Static props:Strings.SaveFolder}" />
+            <StackPanel Margin="8">
+                <TextBlock Text="{x:Static props:Strings.SaveFolder}" />
 
-                <Grid Margin="0,8" HorizontalAlignment="Left">
+                <Grid Margin="0,8">
                     <TextBox
-                        HorizontalAlignment="Left"
                         MinWidth="240"
                         Text="{Binding Folder.Value, Mode=TwoWay}" />
 
                     <Button
                         HorizontalAlignment="Right"
-                        Background="{x:Null}"
                         BorderThickness="0"
                         Command="{Binding OpenFolerDialog}"
                         Cursor="Arrow">
-                        <PathIcon Data="{StaticResource FolderOpen16Regular}" />
+                        <ui:SymbolIcon Symbol="OpenFolder" />
                     </Button>
                 </Grid>
-            </VirtualizingStackPanel>
+            </StackPanel>
 
         </WrapPanel>
 
-        <VirtualizingStackPanel
+        <StackPanel
             Grid.Row="1"
             Margin="8"
+            Spacing="8"
             VerticalAlignment="Bottom"
             HorizontalAlignment="Right"
             Orientation="Horizontal">
             <Button
                 Click="CloseClick"
-                HorizontalAlignment="Left"
                 Content="{x:Static props:Strings.Cancel}"
-                Background="Transparent"
-                Cursor="Arrow"
-                Foreground="Red"
                 IsCancel="True"/>
             <Button
-                HorizontalAlignment="Left"
+                Classes="accent"
                 Command="{Binding Create, Mode=OneTime}"
                 Content="{x:Static props:Strings.Create}"
-                Cursor="Arrow"
-                Background="Transparent"
                 IsDefault="True"/>
-        </VirtualizingStackPanel>
+        </StackPanel>
 
     </Grid>
 </views:FluentWindow>

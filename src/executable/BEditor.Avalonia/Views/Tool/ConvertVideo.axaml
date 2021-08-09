@@ -17,11 +17,11 @@
     <Grid RowDefinitions="Auto,*">
         <DockPanel HorizontalAlignment="Stretch" Grid.RowSpan="2">
             <Border
-                Background="{StaticResource AcrylicColor1}"
+                Background="{StaticResource NavigationViewContentBackground}"
                 IsHitTestVisible="False"
                 DockPanel.Dock="Left"
                 Width="240" />
-            <Border Background="{StaticResource AcrylicColor2}" IsHitTestVisible="False" />
+            <Border Background="{StaticResource NavigationViewDefaultPaneBackground}" IsHitTestVisible="False" />
         </DockPanel>
 
         <titlebar:WindowsTitlebarButtons />
