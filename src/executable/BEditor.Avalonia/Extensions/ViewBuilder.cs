@@ -21,6 +21,8 @@ using BEditor.ViewModels.Timelines;
 using BEditor.Views.Properties;
 using BEditor.Views.Timelines;
 
+using Reactive.Bindings;
+
 namespace BEditor.Extensions
 {
     public static partial class ViewBuilder
@@ -138,6 +140,46 @@ namespace BEditor.Extensions
                 return expander;
             })
         };
+
+        static ViewBuilder()
+        {
+            _removeEffect.Subscribe(efct => efct.Parent.RemoveEffect(efct).Execute());
+
+            _copyEffectId.Subscribe(async efct => await Application.Current.Clipboard.SetTextAsync(efct.Id.ToString()));
+
+            _saveEffect.Subscribe(async efct =>
+            {
+                var record = new SaveFileRecord
+                {
+                    Filters =
+                    {
+                        new(Strings.EffectFile, new string[]{ "befct" })
+                    }
+                };
+
+                if (await AppModel.Current.FileDialog.ShowSaveFileDialogAsync(record)
+                && !await Serialize.SaveToFileAsync(new EffectWrapper(efct), record.FileName))
+                {
+                    AppModel.Current.Message.Snackbar(Strings.FailedToSave);
+                }
+            });
+
+            _saveObject.Subscribe(async obj =>
+            {
+                var record = new SaveFileRecord
+                {
+                    Filters =
+                    {
+                        new(Strings.ObjectFile, new string[]{ "bobj" })
+                    }
+                };
+                if (await AppModel.Current.FileDialog.ShowSaveFileDialogAsync(record)
+                && !await Serialize.SaveToFileAsync(new EffectWrapper(obj), record.FileName))
+                {
+                    AppModel.Current.Message.Snackbar(Strings.FailedToSave);
+                }
+            });
+        }
 
         public static Timeline GetCreateTimeline(this Scene scene)
         {
@@ -370,7 +412,13 @@ namespace BEditor.Extensions
             return ctr;
         }
 
-        private static readonly IValueConverter _expanderWidthConverter = new FuncValueConverter<double, double>(i => i - 38);
+        private static readonly ReactiveCommand<EffectElement> _removeEffect = new();
+
+        private static readonly ReactiveCommand<EffectElement> _copyEffectId = new();
+
+        private static readonly ReactiveCommand<EffectElement> _saveEffect = new();
+        
+        private static readonly ReactiveCommand<ObjectElement> _saveObject = new();
 
         public static (Expander, StackPanel) CreateObjectExpander(ObjectElement obj)
         {
@@ -393,31 +441,31 @@ namespace BEditor.Extensions
                     Content = obj.Name
                 };
 
-                var copyId = new Button
+                var copyId = new FluentAvalonia.UI.Controls.MenuFlyoutItem
                 {
-                    [ToolTip.TipProperty] = Strings.CopyID,
-                    DataContext = obj,
-                    BorderThickness = default,
-                    Content = new FluentAvalonia.UI.Controls.SymbolIcon
+                    Command = _copyEffectId,
+                    CommandParameter = obj,
+                    Text = Strings.CopyID,
+                    Icon = new FluentAvalonia.UI.Controls.SymbolIcon
                     {
                         Symbol = FluentAvalonia.UI.Controls.Symbol.Copy,
                         FontSize = 20,
                     },
                 };
 
-                var save = new Button
+                var save = new FluentAvalonia.UI.Controls.MenuFlyoutItem
                 {
-                    [ToolTip.TipProperty] = Strings.SaveAs,
-                    DataContext = obj,
-                    BorderThickness = default,
-                    Content = new FluentAvalonia.UI.Controls.SymbolIcon
+                    Command = _saveObject,
+                    CommandParameter = obj,
+                    Text = Strings.SaveAs,
+                    Icon = new FluentAvalonia.UI.Controls.SymbolIcon
                     {
                         Symbol = FluentAvalonia.UI.Controls.Symbol.Save,
                         FontSize = 20,
                     },
                 };
 
-                expander.Header = new StackPanel
+                var header = new StackPanel
                 {
                     Orientation = Orientation.Horizontal,
                     VerticalAlignment = VerticalAlignment.Center,
@@ -425,9 +473,18 @@ namespace BEditor.Extensions
                     Children =
                     {
                         checkBox,
+                    }
+                };
+
+                expander.Header = header;
+
+                header.ContextFlyout = new FluentAvalonia.UI.Controls.MenuFlyout
+                {
+                    Items = new FluentAvalonia.UI.Controls.MenuFlyoutItem[]
+                    {
                         copyId,
                         save,
-                    }
+                    },
                 };
 
                 // event設定
@@ -436,32 +493,6 @@ namespace BEditor.Extensions
                     if (s is CheckBox check && check.DataContext is EffectElement efct)
                     {
                         efct.ChangeIsEnabled(check.IsChecked ?? false).Execute();
-                    }
-                };
-
-                copyId.Click += async (s, e) =>
-                {
-                    if (s is StyledElement elm && elm.DataContext is EffectElement effect)
-                    {
-                        await Application.Current.Clipboard.SetTextAsync(effect.Id.ToString());
-                    }
-                };
-
-                save.Click += async (s, e) =>
-                {
-                    if (s is StyledElement elm && elm.DataContext is EffectElement efct)
-                    {
-                        var record = new SaveFileRecord
-                        {
-                            Filters =
-                            {
-                                new(Strings.ObjectFile, new string[]{ "bobj" })
-                            }
-                        };
-                        if (await AppModel.Current.FileDialog.ShowSaveFileDialogAsync(record) && !await Serialize.SaveToFileAsync(new EffectWrapper(efct), record.FileName))
-                        {
-                            AppModel.Current.Message.Snackbar(Strings.FailedToSave);
-                        }
                     }
                 };
 
@@ -533,43 +564,43 @@ namespace BEditor.Extensions
                     },
                 };
 
-                var remove = new Button
+                var remove = new FluentAvalonia.UI.Controls.MenuFlyoutItem
                 {
-                    [ToolTip.TipProperty] = Strings.Remove,
-                    DataContext = effect,
-                    BorderThickness = default,
-                    Content = new FluentAvalonia.UI.Controls.SymbolIcon
+                    Command = _removeEffect,
+                    CommandParameter = effect,
+                    Text = Strings.Remove,
+                    Icon = new FluentAvalonia.UI.Controls.SymbolIcon
                     {
                         Symbol = FluentAvalonia.UI.Controls.Symbol.Delete,
                         FontSize = 20,
                     },
                 };
-                
-                var copyId = new Button
+
+                var copyId = new FluentAvalonia.UI.Controls.MenuFlyoutItem
                 {
-                    [ToolTip.TipProperty] = Strings.CopyID,
-                    DataContext = effect,
-                    BorderThickness = default,
-                    Content = new FluentAvalonia.UI.Controls.SymbolIcon
+                    Command = _copyEffectId,
+                    CommandParameter = effect,
+                    Text = Strings.CopyID,
+                    Icon = new FluentAvalonia.UI.Controls.SymbolIcon
                     {
                         Symbol = FluentAvalonia.UI.Controls.Symbol.Copy,
                         FontSize = 20,
                     },
                 };
 
-                var save = new Button
+                var save = new FluentAvalonia.UI.Controls.MenuFlyoutItem
                 {
-                    [ToolTip.TipProperty] = Strings.SaveAs,
-                    DataContext = effect,
-                    BorderThickness = default,
-                    Content = new FluentAvalonia.UI.Controls.SymbolIcon
+                    Command = _saveEffect,
+                    CommandParameter = effect,
+                    Text = Strings.SaveAs,
+                    Icon = new FluentAvalonia.UI.Controls.SymbolIcon
                     {
                         Symbol = FluentAvalonia.UI.Controls.Symbol.Save,
                         FontSize = 20,
                     },
                 };
 
-                expander.Header = new StackPanel
+                var header = new StackPanel
                 {
                     Orientation = Orientation.Horizontal,
                     VerticalAlignment = VerticalAlignment.Center,
@@ -579,10 +610,19 @@ namespace BEditor.Extensions
                         checkBox,
                         upbutton,
                         downbutton,
+                    }
+                };
+
+                expander.Header = header;
+
+                header.ContextFlyout = new FluentAvalonia.UI.Controls.MenuFlyout
+                {
+                    Items = new FluentAvalonia.UI.Controls.MenuFlyoutItem[]
+                    {
                         remove,
                         copyId,
                         save,
-                    }
+                    },
                 };
 
                 // event設定
@@ -607,40 +647,6 @@ namespace BEditor.Extensions
                     if (s is Button btn && btn.DataContext is EffectElement efct)
                     {
                         efct.SendBackward().Execute();
-                    }
-                };
-
-                remove.Click += (s, e) =>
-                {
-                    if (s is StyledElement elm && elm.DataContext is EffectElement effect)
-                    {
-                        effect.Parent!.RemoveEffect(effect).Execute();
-                    }
-                };
-
-                copyId.Click += async (s, e) =>
-                {
-                    if (s is StyledElement elm && elm.DataContext is EffectElement effect)
-                    {
-                        await Application.Current.Clipboard.SetTextAsync(effect.Id.ToString());
-                    }
-                };
-
-                save.Click += async (s, e) =>
-                {
-                    if (s is StyledElement elm && elm.DataContext is EffectElement efct)
-                    {
-                        var record = new SaveFileRecord
-                        {
-                            Filters =
-                            {
-                                new(Strings.EffectFile, new string[]{ "befct" })
-                            }
-                        };
-                        if (await AppModel.Current.FileDialog.ShowSaveFileDialogAsync(record) && !await Serialize.SaveToFileAsync(new EffectWrapper(efct), record.FileName))
-                        {
-                            AppModel.Current.Message.Snackbar(Strings.FailedToSave);
-                        }
                     }
                 };
 
