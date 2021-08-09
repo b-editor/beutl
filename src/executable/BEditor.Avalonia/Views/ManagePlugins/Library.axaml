@@ -29,8 +29,8 @@
                     UseFloatingWatermark="True"
                     Watermark="{x:Static props:Strings.Search}">
                     <TextBox.InnerRightContent>
-                        <Button IsDefault="True" Command="{CompiledBinding Search, Mode=OneTime}">
-                            <PathIcon Data="{StaticResource Search16Regular}" Width="16" />
+                        <Button IsDefault="True" Command="{CompiledBinding Search, Mode=OneTime}" Background="Transparent" BorderThickness="0">
+                            <ui:PathIcon Data="{StaticResource Search16Regular}" Width="16" Height="16" />
                         </Button>
                     </TextBox.InnerRightContent>
                 </TextBox>

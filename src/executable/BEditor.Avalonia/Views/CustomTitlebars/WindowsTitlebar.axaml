@@ -234,7 +234,7 @@
             </MenuItem>
         </Menu>
 
-        <titlebar:WindowsTitlebarButtons x:Name="titlebarbuttons" Grid.Column="1" />
+        <titlebar:WindowsTitlebarButtons x:Name="titlebarbuttons" Grid.Column="1" Margin="2" />
     </Grid>
 
 </UserControl>
