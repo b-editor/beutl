@@ -4,6 +4,7 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:props="using:BEditor.Properties"
+    xmlns:ui="using:FluentAvalonia.UI.Controls"
     xmlns:ctrs="using:BEditor.Controls"
     xmlns:vm="using:BEditor.ViewModels.ManagePlugins"
     x:DataType="vm:LibraryViewModel"
@@ -28,8 +29,8 @@
                     UseFloatingWatermark="True"
                     Watermark="{x:Static props:Strings.Search}">
                     <TextBox.InnerRightContent>
-                        <Button IsDefault="True" Command="{CompiledBinding Search, Mode=OneTime}">
-                            <PathIcon Data="{StaticResource Search16Regular}" Width="16" />
+                        <Button IsDefault="True" Command="{CompiledBinding Search, Mode=OneTime}" Background="Transparent" BorderThickness="0">
+                            <ui:PathIcon Data="{StaticResource Search16Regular}" Width="16" Height="16" />
                         </Button>
                     </TextBox.InnerRightContent>
                 </TextBox>
@@ -93,6 +94,7 @@
             <Button
                 Grid.Row="3"
                 VerticalAlignment="Bottom"
+                Classes="accent"
                 Content="{x:Static props:Strings.Install}"
                 IsVisible="{CompiledBinding InstallIsVisible.Value, Mode=OneWay}"
                 Command="{CompiledBinding Install, Mode=OneTime}"
@@ -112,12 +114,18 @@
                 Grid.Row="5"
                 HorizontalAlignment="Center"
                 Orientation="Horizontal">
+                <StackPanel.Styles>
+                    <Style Selector="Button">
+                        <Setter Property="BorderThickness" Value="0" />
+                        <Setter Property="Background" Value="Transparent" />
+                    </Style>
+                </StackPanel.Styles>
                 <Button Command="{CompiledBinding PrevPage, Mode=OneTime}" IsEnabled="{CompiledBinding ExistPrevPage.Value, Mode=OneWay}">
-                    <PathIcon Data="{StaticResource ArrowLeft20Regular}"/>
+                    <ui:SymbolIcon Symbol="ChevronLeft"/>
                 </Button>
                 <Button Content="{CompiledBinding Page.Value}"/>
                 <Button Command="{CompiledBinding NextPage, Mode=OneTime}" IsEnabled="{CompiledBinding ExistNextPage.Value, Mode=OneWay}">
-                    <PathIcon Data="{StaticResource ArrowRight20Regular}"/>
+                    <ui:SymbolIcon Symbol="ChevronRight"/>
                 </Button>
             </StackPanel>
         </Grid>
@@ -129,7 +137,7 @@
             Items="{CompiledBinding Items}">
             <ListBox.ItemTemplate>
                 <DataTemplate>
-                    <Grid RowDefinitions="Auto,*">
+                    <Grid RowDefinitions="Auto,*" Margin="8">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock FontSize="16" Text="{Binding Name}" />
 

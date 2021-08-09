@@ -2,6 +2,8 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
 
+using FluentAvalonia.Styling;
+
 namespace BEditor.PackageInstaller.Views
 {
     public partial class MainWindow : Window
@@ -11,6 +13,8 @@ namespace BEditor.PackageInstaller.Views
             InitializeComponent();
 
             Content = new MainPage();
+            var thm = AvaloniaLocator.Current.GetService<FluentAvaloniaTheme>();
+            thm.ForceNativeTitleBarToTheme(this);
 #if DEBUG
             this.AttachDevTools();
 #endif

@@ -1,6 +1,7 @@
 using System;
 
 using Avalonia;
+using Avalonia.Layout;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media;
@@ -29,7 +30,8 @@ namespace BEditor.Views.DialogContent
             };
 
             var stack = this.FindControl<StackPanel>("stack");
-            var label = this.FindControl<Label>("label");
+            var label = this.FindControl<ContentControl>("label");
+            var icon = this.FindControl<ContentControl>("icon");
 
             foreach (var button in buttons)
             {
@@ -46,34 +48,42 @@ namespace BEditor.Views.DialogContent
 
                 var button_ = new Button
                 {
-                    Background = Brushes.Transparent,
                     Content = text,
                     CommandParameter = button,
-                    Margin = new Thickness(5, 0, 5, 0),
+                };
+
+                if (button is ButtonType.Ok or ButtonType.Yes)
+                {
+                    button_.Classes.Add("accent");
+                }
+
+                button_.Click += (sender, e) =>
+                {
+                    DialogResult = (ButtonType)((Button)sender!).CommandParameter;
+                    ButtonClicked?.Invoke(sender, e);
                 };
 
                 stack.Children.Add(button_);
             }
 
-            foreach (Button b in stack.Children)
+            var geometry = iconKind switch
             {
-                b.Click += (sender, e) =>
-                {
-                    DialogResult = (ButtonType)b.CommandParameter;
-                    ButtonClicked?.Invoke(sender, e);
-                };
-            }
+                IconType.Info => App.Current.FindResource("Info24Regular") as Geometry,
+                IconType.None => null,
+                IconType.Error => (Geometry)App.Current.FindResource("ErrorCircle24Regular")!,
+                _ => null,
+            };
 
-            if (iconKind != IconType.None)
+            if (geometry != null)
             {
-                //icon.Content = new PackIcon()
-                //{
-                //    Kind = (PackIconKind)Enum.ToObject(typeof(PackIconKind), (int)iconKind),
-                //    HorizontalAlignment = HorizontalAlignment.Center,
-                //    VerticalAlignment = VerticalAlignment.Center,
-                //    Width = 60,
-                //    Height = 60
-                //};
+                icon.Content = new FluentAvalonia.UI.Controls.PathIcon()
+                {
+                    Data = geometry,
+                    HorizontalAlignment = HorizontalAlignment.Center,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Width = 40,
+                    Height = 40
+                };
             }
 
             label.Content = content;

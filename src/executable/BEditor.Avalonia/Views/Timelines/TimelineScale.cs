@@ -14,7 +14,7 @@ namespace BEditor.Views.Timelines
         private static readonly Typeface _typeface = new(FontFamily.Default, FontStyle.Normal, FontWeight.Medium);
         private readonly Pen _pen = new()
         {
-            Brush = (IBrush)Application.Current.FindResource("SystemControlForegroundBaseMediumBrush")!
+            Brush = (IBrush)Application.Current.FindResource("TextControlForeground")!
         };
         private readonly FormattedText _text = new()
         {

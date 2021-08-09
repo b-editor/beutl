@@ -7,21 +7,24 @@
     xmlns:views="using:BEditor.Views"
     xmlns:prop="using:BEditor.Properties"
     xmlns:vm="using:BEditor.ViewModels.Tool"
+    xmlns:ui="using:FluentAvalonia.UI.Controls"
     mc:Ignorable="d"
     WindowStartupLocation="CenterScreen"
     Height="450" Width="800"
-    Classes="fluent_setter"
     x:Class="BEditor.Views.Tool.ConvertVideo"
     x:DataType="vm:ConvertVideoViewModel"
     Title="ConvertVideo">
     <Grid RowDefinitions="Auto,*">
         <DockPanel HorizontalAlignment="Stretch" Grid.RowSpan="2">
             <Border
-                Background="{StaticResource AcrylicColor1}"
+                BorderBrush="{StaticResource ControlElevationBorderBrush}"
+                BorderThickness="1"
+                CornerRadius="{StaticResource OverlayCornerRadius}"
+                Background="{StaticResource NavigationViewDefaultPaneBackground}"
                 IsHitTestVisible="False"
                 DockPanel.Dock="Left"
                 Width="240" />
-            <Border Background="{StaticResource AcrylicColor2}" IsHitTestVisible="False" />
+            <Border Background="{StaticResource NavigationViewContentBackground}" IsHitTestVisible="False" />
         </DockPanel>
 
         <titlebar:WindowsTitlebarButtons />
@@ -33,7 +36,7 @@
                     <Setter Property="Orientation" Value="Horizontal" />
                 </Style>
 
-                <Style Selector="PathIcon">
+                <Style Selector="ui|PathIcon">
                     <Setter Property="Width" Value="16" />
                     <Setter Property="Height" Value="16" />
                 </Style>
@@ -41,7 +44,7 @@
             <TabItem>
                 <TabItem.Header>
                     <StackPanel>
-                        <PathIcon Data="{StaticResource Info20Regular}"/>
+                        <ui:PathIcon Data="{StaticResource Info20Regular}"/>
                         <TextBlock Text="{x:Static prop:Strings.Infomation}" />
                     </StackPanel>
                 </TabItem.Header>
@@ -52,45 +55,41 @@
                         <TextBlock Text="{x:Static prop:Strings.Infomation}" Classes="SettingsHeader"/>
 
                         <!--横幅-->
-                        <Label Content="{x:Static prop:Strings.Width}" Classes="SettingsItemHeader"/>
+                        <TextBlock Text="{x:Static prop:Strings.Width}" Classes="SettingsItemHeader"/>
 
-                        <NumericUpDown
+                        <ui:NumberBox
                             Minimum="1"
                             Value="{CompiledBinding Width.Value, Mode=TwoWay}"
-                            ShowButtonSpinner="True"
                             Classes="SettingsNumericUpDown"/>
 
                         <Separator Height="16" />
 
                         <!--高さ-->
-                        <Label Content="{x:Static prop:Strings.Height}" Classes="SettingsItemHeader"/>
+                        <TextBlock Text="{x:Static prop:Strings.Height}" Classes="SettingsItemHeader"/>
 
-                        <NumericUpDown
+                        <ui:NumberBox
                             Minimum="1"
                             Value="{CompiledBinding Height.Value, Mode=TwoWay}"
-                            ShowButtonSpinner="True"
                             Classes="SettingsNumericUpDown"/>
 
                         <Separator Height="16" />
 
                         <!--フレームレート-->
-                        <Label Content="{x:Static prop:Strings.Framerate}" Classes="SettingsItemHeader"/>
+                        <TextBlock Text="{x:Static prop:Strings.Framerate}" Classes="SettingsItemHeader"/>
 
-                        <NumericUpDown
+                        <ui:NumberBox
                             Minimum="1"
                             Value="{CompiledBinding FrameRate.Value, Mode=TwoWay}"
-                            ShowButtonSpinner="True"
                             Classes="SettingsNumericUpDown"/>
 
                         <Separator Height="16" />
 
                         <!--サンプリングレート-->
-                        <Label Content="{x:Static prop:Strings.Samplingrate}" Classes="SettingsItemHeader"/>
+                        <TextBlock Text="{x:Static prop:Strings.Samplingrate}" Classes="SettingsItemHeader"/>
 
-                        <NumericUpDown
+                        <ui:NumberBox
                             Minimum="1"
                             Value="{CompiledBinding SampleRate.Value, Mode=TwoWay}"
-                            ShowButtonSpinner="True"
                             Classes="SettingsNumericUpDown"/>
 
                     </VirtualizingStackPanel>
@@ -99,7 +98,7 @@
             <TabItem>
                 <TabItem.Header>
                     <StackPanel>
-                        <PathIcon Data="{StaticResource MoviesAndTv20Regular}"/>
+                        <ui:PathIcon Data="{StaticResource MoviesAndTv20Regular}"/>
                         <TextBlock Text="{x:Static prop:Strings.Video}" />
                     </StackPanel>
                 </TabItem.Header>
@@ -110,21 +109,19 @@
                         <TextBlock Text="{x:Static prop:Strings.Video}" Classes="SettingsHeader"/>
 
                         <!--ビットレート-->
-                        <Label Content="Bitrate" Classes="SettingsItemHeader"/>
+                        <TextBlock Text="Bitrate" Classes="SettingsItemHeader"/>
 
-                        <NumericUpDown
+                        <ui:NumberBox
                             Value="{CompiledBinding VideoBitrate.Value, Mode=TwoWay}"
-                            ShowButtonSpinner="True"
                             Classes="SettingsNumericUpDown"/>
 
                         <Separator Height="16" />
 
                         <!--キーフレームレート-->
-                        <Label Content="KeyframeRate" Classes="SettingsItemHeader"/>
+                        <TextBlock Text="KeyframeRate" Classes="SettingsItemHeader"/>
 
-                        <NumericUpDown
+                        <ui:NumberBox
                             Value="{CompiledBinding KeyframeRate.Value, Mode=TwoWay}"
-                            ShowButtonSpinner="True"
                             Classes="SettingsNumericUpDown"/>
 
                         <Separator Height="16" />
@@ -142,7 +139,7 @@
             <TabItem>
                 <TabItem.Header>
                     <StackPanel>
-                        <PathIcon Data="{StaticResource Speaker220Regular}"/>
+                        <ui:PathIcon Data="{StaticResource Speaker220Regular}"/>
                         <TextBlock Text="{x:Static prop:Strings.Audio}" />
                     </StackPanel>
                 </TabItem.Header>
@@ -153,11 +150,10 @@
                         <TextBlock Text="{x:Static prop:Strings.Audio}" Classes="SettingsHeader"/>
 
                         <!--ビットレート-->
-                        <Label Content="Bitrate" Classes="SettingsItemHeader"/>
+                        <TextBlock Text="Bitrate" Classes="SettingsItemHeader"/>
 
-                        <NumericUpDown
+                        <ui:NumberBox
                             Value="{CompiledBinding AudioBitrate.Value, Mode=TwoWay}"
-                            ShowButtonSpinner="True"
                             Classes="SettingsNumericUpDown"/>
 
                         <Separator Height="16" />
@@ -175,7 +171,7 @@
             <TabItem>
                 <TabItem.Header>
                     <StackPanel>
-                        <PathIcon Data="{StaticResource BookDatabase24Regular}"/>
+                        <ui:PathIcon Data="{StaticResource BookDatabase24Regular}"/>
                         <TextBlock Text="{x:Static prop:Strings.Metadata}" />
                     </StackPanel>
                 </TabItem.Header>
@@ -187,7 +183,7 @@
 
 
                         <!--Title-->
-                        <Label Content="Title" Classes="SettingsItemHeader"/>
+                        <TextBlock Text="Title" Classes="SettingsItemHeader"/>
 
                         <TextBox
                             Text="{CompiledBinding Title.Value, Mode=TwoWay}"
@@ -196,7 +192,7 @@
                         <Separator Height="16" />
 
                         <!--Author-->
-                        <Label Content="Author" Classes="SettingsItemHeader"/>
+                        <TextBlock Text="Author" Classes="SettingsItemHeader"/>
 
                         <TextBox
                             Text="{CompiledBinding Author.Value, Mode=TwoWay}"
@@ -205,7 +201,7 @@
                         <Separator Height="16" />
 
                         <!--Album-->
-                        <Label Content="Album" Classes="SettingsItemHeader"/>
+                        <TextBlock Text="Album" Classes="SettingsItemHeader"/>
 
                         <TextBox
                             Text="{CompiledBinding Album.Value, Mode=TwoWay}"
@@ -214,7 +210,7 @@
                         <Separator Height="16" />
 
                         <!--Year-->
-                        <Label Content="Year" Classes="SettingsItemHeader"/>
+                        <TextBlock Text="Year" Classes="SettingsItemHeader"/>
 
                         <TextBox
                             Text="{CompiledBinding Year.Value, Mode=TwoWay}"
@@ -223,7 +219,7 @@
                         <Separator Height="16" />
 
                         <!--Genre-->
-                        <Label Content="Genre" Classes="SettingsItemHeader"/>
+                        <TextBlock Text="Genre" Classes="SettingsItemHeader"/>
 
                         <TextBox
                             Text="{CompiledBinding Genre.Value, Mode=TwoWay}"
@@ -232,7 +228,7 @@
                         <Separator Height="16" />
 
                         <!--Description-->
-                        <Label Content="Description" Classes="SettingsItemHeader"/>
+                        <TextBlock Text="Description" Classes="SettingsItemHeader"/>
 
                         <TextBox
                             Text="{CompiledBinding Description.Value, Mode=TwoWay}"
@@ -241,7 +237,7 @@
                         <Separator Height="16" />
 
                         <!--Language-->
-                        <Label Content="Language" Classes="SettingsItemHeader"/>
+                        <TextBlock Text="Language" Classes="SettingsItemHeader"/>
 
                         <TextBox
                             Text="{CompiledBinding Language.Value, Mode=TwoWay}"
@@ -250,7 +246,7 @@
                         <Separator Height="16" />
 
                         <!--Copyright-->
-                        <Label Content="Copyright" Classes="SettingsItemHeader"/>
+                        <TextBlock Text="Copyright" Classes="SettingsItemHeader"/>
 
                         <TextBox
                             Text="{CompiledBinding Copyright.Value, Mode=TwoWay}"
@@ -259,7 +255,7 @@
                         <Separator Height="16" />
 
                         <!--Rating-->
-                        <Label Content="Rating" Classes="SettingsItemHeader"/>
+                        <TextBlock Text="Rating" Classes="SettingsItemHeader"/>
 
                         <TextBox
                             Text="{CompiledBinding Rating.Value, Mode=TwoWay}"
@@ -268,7 +264,7 @@
                         <Separator Height="16" />
 
                         <!--TrackNumber-->
-                        <Label Content="TrackNumber" Classes="SettingsItemHeader"/>
+                        <TextBlock Text="TrackNumber" Classes="SettingsItemHeader"/>
 
                         <TextBox
                             Text="{CompiledBinding TrackNumber.Value, Mode=TwoWay}"
@@ -280,7 +276,7 @@
             <TabItem>
                 <TabItem.Header>
                     <StackPanel>
-                        <PathIcon Data="{StaticResource ArrowExportLtr20Regular}"/>
+                        <ui:PathIcon Data="{StaticResource ArrowExportLtr20Regular}"/>
                         <TextBlock Text="{x:Static prop:Strings.Output}" />
                     </StackPanel>
                 </TabItem.Header>
@@ -291,7 +287,7 @@
                         <TextBlock Text="{x:Static prop:Strings.Output}" Classes="SettingsHeader"/>
 
                         <!--ファイル-->
-                        <Label Content="{x:Static prop:Strings.File}" Classes="SettingsItemHeader"/>
+                        <TextBlock Text="{x:Static prop:Strings.File}" Classes="SettingsItemHeader"/>
 
                         <VirtualizingStackPanel Orientation="Horizontal">
                             <TextBox
@@ -300,21 +296,20 @@
                                 IsReadOnly="True" />
 
                             <Button Command="{CompiledBinding SaveFileDialog, Mode=OneTime}">
-                                <PathIcon Data="{StaticResource FolderOpen16Regular}" />
+                                <ui:SymbolIcon Symbol="OpenFolder" FontSize="20" />
                             </Button>
                         </VirtualizingStackPanel>
 
                         <Separator Height="16" />
 
                         <!--開始フレーム-->
-                        <Label Content="{x:Static prop:Strings.Start}" Classes="SettingsItemHeader"/>
+                        <TextBlock Text="{x:Static prop:Strings.Start}" Classes="SettingsItemHeader"/>
 
                         <VirtualizingStackPanel Orientation="Horizontal">
-                            <NumericUpDown
+                            <ui:NumberBox
                                 Value="{CompiledBinding StartFrame.Value, Mode=TwoWay}"
                                 Minimum="0"
                                 Maximum="{CompiledBinding TotalFrame.Value, Mode=OneWay}"
-                                ShowButtonSpinner="True"
                                 Classes="SettingsNumericUpDown"/>
 
                             <TextBlock VerticalAlignment="Center" Text="{CompiledBinding StartTime.Value, Mode=OneWay}" />
@@ -323,14 +318,13 @@
                         <Separator Height="16" />
 
                         <!--長さ-->
-                        <Label Content="{x:Static prop:Strings.Length}" Classes="SettingsItemHeader"/>
+                        <TextBlock Text="{x:Static prop:Strings.Length}" Classes="SettingsItemHeader"/>
 
                         <VirtualizingStackPanel Orientation="Horizontal">
-                            <NumericUpDown
+                            <ui:NumberBox
                                 Value="{CompiledBinding LengthFrame.Value, Mode=TwoWay}"
                                 Minimum="0"
                                 Maximum="{CompiledBinding TotalFrame.Value, Mode=OneWay}"
-                                ShowButtonSpinner="True"
                                 Classes="SettingsNumericUpDown"/>
 
                             <TextBlock VerticalAlignment="Center" Text="{CompiledBinding LengthTime.Value, Mode=OneWay}" />
@@ -339,7 +333,7 @@
                         <Separator Height="16" />
 
                         <!--エンコーダー-->
-                        <Label Content="{x:Static prop:Strings.Encoder}" Classes="SettingsItemHeader"/>
+                        <TextBlock Text="{x:Static prop:Strings.Encoder}" Classes="SettingsItemHeader"/>
 
                         <ComboBox
                             Items="{CompiledBinding Encoders, Mode=OneTime}"
@@ -356,6 +350,7 @@
 
                         <!--出力-->
                         <Button
+                            Classes="accent"
                             Content="{x:Static prop:Strings.Output}"
                             Command="{CompiledBinding Output, Mode=OneTime}"
                             IsEnabled="{CompiledBinding OutputIsEnabled.Value, Mode=OneWay}"

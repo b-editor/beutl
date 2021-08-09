@@ -10,8 +10,8 @@
     Height="40"
     x:Class="BEditor.Views.Properties.DialogPropertyView">
     <Button
-      HorizontalAlignment="Stretch"
-      VerticalAlignment="Stretch"
-      Content="{CompiledBinding Property.PropertyMetadata.Name, Mode=OneTime}"
-      Command="{CompiledBinding ClickCommand, Mode=OneTime}" />
+        HorizontalAlignment="Stretch"
+        VerticalAlignment="Stretch"
+        Content="{CompiledBinding Property.PropertyMetadata.Name, Mode=OneTime}"
+        Command="{CompiledBinding ClickCommand, Mode=OneTime}" />
 </UserControl>

@@ -17,21 +17,6 @@ namespace BEditor.Views.ManagePlugins
             InitializeComponent();
         }
 
-        protected override void OnAttachedToLogicalTree(LogicalTreeAttachmentEventArgs e)
-        {
-            base.OnAttachedToLogicalTree(e);
-
-            if (e.Parent.LogicalParent is TabControl tab &&
-                tab.Items is AvaloniaList<object> items &&
-                items[1] is TabItem tabitem &&
-                tabitem.Content is Library lib &&
-                lib.DataContext is LibraryViewModel lvm &&
-                DataContext is UpdateViewModel vm)
-            {
-                vm.Initialize(lvm);
-            }
-        }
-
         private void InitializeComponent()
         {
             AvaloniaXamlLoader.Load(this);

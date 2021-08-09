@@ -3,35 +3,41 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="using:BEditor.ViewModels.Settings"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:uip="using:FluentAvalonia.UI.Controls.Primitives"
              x:DataType="vm:FontsViewModel"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              xmlns:properties="using:BEditor.Properties"
              xmlns:setting="clr-namespace:BEditor;assembly=BEditor.Settings"
+             x:Name="root"
              x:Class="BEditor.Views.Settings.Fonts">
     <UserControl.DataContext>
         <vm:FontsViewModel/>
     </UserControl.DataContext>
-    <Grid RowDefinitions="*,Auto">
+    <StackPanel>
+        <ui:CommandBar DefaultLabelPosition="Right">
+            <ui:CommandBar.PrimaryCommands>
+                <ui:CommandBarButton Icon="Add" Label="{x:Static properties:Strings.Add}" Click="AddClick" />
+            </ui:CommandBar.PrimaryCommands>
+        </ui:CommandBar>
 
         <ListBox
-            Background="Transparent"
             Items="{Binding IncludeFontDir, Source={x:Static setting:Settings.Default}}"
-            SelectedItem="{CompiledBinding SelectFont.Value, Mode=TwoWay}"/>
+            SelectedItem="{CompiledBinding SelectFont.Value, Mode=TwoWay}">
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <Panel>
+                        <TextBlock Text="{Binding}" VerticalAlignment="Center" />
 
-        <VirtualizingStackPanel
-            Grid.Row="1"
-            Orientation="Horizontal">
-            <Button
-                Background="Transparent"
-                Margin="10"
-                Content="{x:Static properties:Strings.Add}"
-                Click="AddClick"/>
-            <Button
-                Background="Transparent"
-                IsEnabled="{CompiledBinding IsSelected.Value, Mode=OneWay}"
-                Margin="10"
-                Content="{x:Static properties:Strings.Remove}"
-                Command="{CompiledBinding Remove, Mode=OneTime}"/>
-        </VirtualizingStackPanel>
-    </Grid>
+                        <ui:CommandBarButton
+                            Icon="Delete"
+                            Command="{Binding #root.DataContext.Remove, Mode=OneTime}"
+                            CommandParameter="{Binding $self.DataContext}"
+                            Label="{x:Static properties:Strings.Remove}"
+                            HorizontalAlignment="Right" />
+                    </Panel>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+    </StackPanel>
 </UserControl>

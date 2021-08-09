@@ -34,9 +34,9 @@ namespace BEditor.Views
 #endif
         }
 
-        public void NewPalette_Click(object s, RoutedEventArgs e)
+        public async void NewPalette_Click(object s, RoutedEventArgs e)
         {
-            this.FindControl<Popup>("NewPalette").Open();
+            await this.FindControl<FluentAvalonia.UI.Controls.ContentDialog>("NewPalette").ShowAsync();
         }
 
         private void InitializeComponent()

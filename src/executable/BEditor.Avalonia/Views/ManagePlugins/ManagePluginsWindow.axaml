@@ -8,124 +8,22 @@
     xmlns:prop="using:BEditor.Properties"
     xmlns:views="using:BEditor.Views"
     xmlns:vm="using:BEditor.ViewModels"
+    xmlns:ui="using:FluentAvalonia.UI.Controls"
+    xmlns:uip="using:FluentAvalonia.UI.Controls.Primitives"
     mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
     Height="450" Width="800"
-    Classes="fluent_setter"
     WindowStartupLocation="CenterScreen"
     x:Class="BEditor.Views.ManagePlugins.ManagePluginsWindow">
     <Grid RowDefinitions="Auto,*">
-        <DockPanel HorizontalAlignment="Stretch" Grid.RowSpan="2">
-            <Border
-                Background="{StaticResource AcrylicColor1}"
-                IsHitTestVisible="False"
-                DockPanel.Dock="Left"
-                Width="240" />
-            <Border Background="{StaticResource AcrylicColor2}" IsHitTestVisible="False" />
-        </DockPanel>
-
         <titlebar:WindowsTitlebarButtons/>
 
-        <TabControl Classes="sidebar" Grid.Row="1" x:Name="tabControl">
-            <TabControl.Template>
-                <ControlTemplate>
-                    <Border
-                        Margin="{TemplateBinding Margin}"
-                        BorderBrush="{TemplateBinding BorderBrush}"
-                        BorderThickness="{TemplateBinding BorderThickness}">
-                        <DockPanel>
-                            <ScrollViewer
-                                Name="PART_ScrollViewer"
-                                Width="240"
-                                Background="{TemplateBinding Background}"
-                                DockPanel.Dock="Left"
-                                HorizontalScrollBarVisibility="{TemplateBinding (ScrollViewer.HorizontalScrollBarVisibility)}"
-                                VerticalScrollBarVisibility="{TemplateBinding (ScrollViewer.VerticalScrollBarVisibility)}">
-                                <ItemsPresenter
-                                    Name="PART_ItemsPresenter"
-                                    ItemTemplate="{TemplateBinding ItemTemplate}"
-                                    Items="{TemplateBinding Items}"
-                                    ItemsPanel="{TemplateBinding ItemsPanel}" />
-                            </ScrollViewer>
-                            <ContentControl
-                                HorizontalContentAlignment="Right"
-                                Content="{TemplateBinding Tag}"
-                                DockPanel.Dock="Bottom" />
-                            <ContentPresenter
-                                Name="PART_SelectedContentHost"
-                                Margin="{TemplateBinding Padding}"
-                                HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
-                                Content="{TemplateBinding SelectedContent}"
-                                ContentTemplate="{TemplateBinding SelectedContentTemplate}" />
-                        </DockPanel>
-                    </Border>
-                </ControlTemplate>
-            </TabControl.Template>
-            <TabControl.Styles>
-                <Style Selector="StackPanel">
-                    <Setter Property="Spacing" Value="16" />
-                    <Setter Property="Orientation" Value="Horizontal" />
-                </Style>
-
-                <Style Selector="PathIcon">
-                    <Setter Property="Width" Value="16" />
-                    <Setter Property="Height" Value="16" />
-                </Style>
-            </TabControl.Styles>
-            <TabItem>
-                <TabItem.Header>
-                    <StackPanel>
-                        <PathIcon Data="{StaticResource Extension20Regular}"/>
-                        <TextBlock Text="{x:Static prop:Strings.Installed}" />
-                    </StackPanel>
-                </TabItem.Header>
-                <local:LoadedPlugins/>
-            </TabItem>
-            <TabItem>
-                <TabItem.Header>
-                    <StackPanel>
-                        <PathIcon Data="{StaticResource BookDatabase24Regular}"/>
-                        <TextBlock Text="{x:Static prop:Strings.Library}" />
-                    </StackPanel>
-                </TabItem.Header>
-                <local:Library/>
-            </TabItem>
-            <TabItem>
-                <TabItem.Header>
-                    <StackPanel>
-                        <PathIcon Data="{StaticResource CalendarLtr24Regular}"/>
-                        <TextBlock Text="{x:Static prop:Strings.Changes}" />
-                    </StackPanel>
-                </TabItem.Header>
-                <local:ScheduleChanges/>
-            </TabItem>
-            <TabItem>
-                <TabItem.Header>
-                    <StackPanel>
-                        <PathIcon Data="{StaticResource ArrowClockwise24Regular}"/>
-                        <TextBlock Text="{x:Static prop:Strings.Update}" />
-                    </StackPanel>
-                </TabItem.Header>
-                <local:Update/>
-            </TabItem>
-            <TabItem>
-                <TabItem.Header>
-                    <StackPanel>
-                        <PathIcon Data="{StaticResource FolderZip24Regular}"/>
-                        <TextBlock Text="{x:Static prop:Strings.CreatePluginPackage}" />
-                    </StackPanel>
-                </TabItem.Header>
-                <local:CreatePluginPackage/>
-            </TabItem>
-            <!--<TabItem>
-                <TabItem.Header>
-                    <StackPanel>
-                        <PathIcon Data="{StaticResource Person24Regular}"/>
-                        <TextBlock Text="{x:Static prop:Strings.User}" />
-                    </StackPanel>
-                </TabItem.Header>
-                <local:User/>
-            </TabItem>-->
-        </TabControl>
+        <ui:NavigationView
+            Grid.Row="1"
+            x:Name="NavView"
+            IsBackButtonVisible="True" 
+            IsSettingsVisible="False"
+            IsBackEnabled="{Binding #FrameView.CanGoBack}">
+            <ui:Frame x:Name="FrameView" />
+        </ui:NavigationView>
     </Grid>
 </views:FluentWindow>

@@ -1,0 +1,33 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:vm="using:BEditor.ViewModels"
+    xmlns:prop="using:BEditor.Properties"
+    xmlns:ui="using:FluentAvalonia.UI.Controls"
+    x:DataType="vm:VideoOutputViewModel"
+    mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+    x:Class="BEditor.Views.VideoOutputPages.Audio">
+    <ScrollViewer>
+        <VirtualizingStackPanel>
+
+            <TextBlock Text="{x:Static prop:Strings.Audio}" Classes="SettingsHeader"/>
+
+            <!--ビットレート-->
+            <TextBlock Text="Bitrate" Classes="SettingsItemHeader"/>
+
+            <ui:NumberBox Value="{CompiledBinding AudioBitrate.Value, Mode=TwoWay}" Classes="SettingsNumericUpDown"/>
+
+            <Separator Height="16" />
+
+            <TextBlock
+                Margin="16,0"
+                Text="{x:Static prop:Strings.EncoderIsNotSet}"
+                IsVisible="{CompiledBinding !OutputIsEnabled.Value}" />
+
+            <ContentPresenter x:Name="AudioEncoderSettings" />
+
+        </VirtualizingStackPanel>
+    </ScrollViewer>
+</UserControl>

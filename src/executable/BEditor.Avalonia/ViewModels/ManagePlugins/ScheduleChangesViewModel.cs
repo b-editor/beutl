@@ -28,49 +28,40 @@ namespace BEditor.ViewModels.ManagePlugins
             {
                 Schedules.Add(new(obj.Target.Name, obj.Target.Description, obj.Type is PluginChangeType.Install ? Strings.Install : Strings.Update, obj.Target.Id));
             }
-            
+
             foreach (var obj in PluginChangeSchedule.Uninstall)
             {
                 Schedules.Add(new(obj.PluginName, obj.Description, Strings.Uninstall, obj.Id));
             }
 
-            IsSelected = SelectedItem.Select(i => i is not null).ToReadOnlyReactivePropertySlim();
-
-            Cancel.Where(_ => IsSelected.Value)
-                .Subscribe(_ =>
+            Cancel.Subscribe(value =>
+            {
+                if (value.Type == Strings.Update || value.Type == Strings.Install)
                 {
-                    var value = SelectedItem.Value;
+                    var obj = PluginChangeSchedule.UpdateOrInstall
+                        .FirstOrDefault(i => i.Target.Name == value.Name);
 
-                    if (value.Type == Strings.Update || value.Type == Strings.Install)
+                    if (obj is not null)
                     {
-                        var obj = PluginChangeSchedule.UpdateOrInstall
-                            .FirstOrDefault(i => i.Target.Name == SelectedItem.Value.Name);
-
-                        if (obj is not null)
-                        {
-                            PluginChangeSchedule.UpdateOrInstall.Remove(obj);
-                        }
+                        PluginChangeSchedule.UpdateOrInstall.Remove(obj);
                     }
-                    else
+                }
+                else
+                {
+                    var obj = PluginChangeSchedule.Uninstall
+                        .FirstOrDefault(i => i.Id == value.Id);
+
+                    if (obj is not null)
                     {
-                        var obj = PluginChangeSchedule.Uninstall
-                            .FirstOrDefault(i => i.Id == SelectedItem.Value.Id);
-
-                        if (obj is not null)
-                        {
-                            PluginChangeSchedule.Uninstall.Remove(obj);
-                        }
+                        PluginChangeSchedule.Uninstall.Remove(obj);
                     }
-                });
+                }
+            });
         }
 
         public ReactiveCollection<Schedule> Schedules { get; } = new();
 
-        public ReactiveProperty<Schedule> SelectedItem { get; } = new();
-
-        public ReadOnlyReactivePropertySlim<bool> IsSelected { get; }
-
-        public ReactiveCommand Cancel { get; } = new();
+        public ReactiveCommand<Schedule> Cancel { get; } = new();
 
         private void UpdateOrInstall_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
         {

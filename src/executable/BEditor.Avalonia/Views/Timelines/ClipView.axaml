@@ -5,6 +5,7 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:properties="using:BEditor.Properties"
     xmlns:vm="using:BEditor.ViewModels.Timelines"
+    xmlns:ui="using:FluentAvalonia.UI.Controls"
     x:DataType="vm:ClipViewModel"
     mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
     HorizontalAlignment="Left"
@@ -29,14 +30,14 @@
                         Command="{CompiledBinding MessageLog, Mode=OneTime}"
                         Header="{x:Static properties:Strings.ClipInfo}">
                         <MenuItem.Icon>
-                            <PathIcon Data="{StaticResource Info20Regular}" />
+                            <ui:PathIcon Data="{StaticResource Info20Regular}" />
                         </MenuItem.Icon>
                     </MenuItem>
                     <MenuItem
                         Command="{CompiledBinding CopyID, Mode=OneTime}"
                         Header="{x:Static properties:Strings.CopyID}">
                         <MenuItem.Icon>
-                            <PathIcon Data="{StaticResource Copy24Regular}" />
+                            <ui:SymbolIcon FontSize="20" Symbol="Copy" />
                         </MenuItem.Icon>
                     </MenuItem>
                     <MenuItem
@@ -44,21 +45,25 @@
                         Command="{CompiledBinding AdjustLength, Mode=OneTime}"
                         Header="{x:Static properties:Strings.AdjustLengthOfClip}">
                     </MenuItem>
+
                     <Separator />
+
                     <MenuItem
                         Command="{CompiledBinding Split, Mode=OneTime}"
                         Header="{x:Static properties:Strings.Separate}">
                         <MenuItem.Icon>
-                            <PathIcon Data="{StaticResource ScreenCut20Regular}" />
+                            <ui:PathIcon Data="{StaticResource ScreenCut20Regular}" />
                         </MenuItem.Icon>
                     </MenuItem>
+
                     <Separator />
+
                     <MenuItem
                         InputGesture="{x:Static TextBox.CutGesture}"
                         Command="{CompiledBinding Cut, Mode=OneTime}"
                         Header="{x:Static properties:Strings.Cut}">
                         <MenuItem.Icon>
-                            <PathIcon Data="{StaticResource Cut20Regular}" />
+                            <ui:SymbolIcon FontSize="20" Symbol="Cut" />
                         </MenuItem.Icon>
                     </MenuItem>
                     <MenuItem
@@ -66,16 +71,18 @@
                         Command="{CompiledBinding Copy, Mode=OneTime}"
                         Header="{x:Static properties:Strings.Copy}">
                         <MenuItem.Icon>
-                            <PathIcon Data="{StaticResource Copy20Regular}" />
+                            <ui:SymbolIcon FontSize="20" Symbol="Copy" />
                         </MenuItem.Icon>
                     </MenuItem>
+
                     <Separator />
+
                     <MenuItem
                         InputGesture="Delete"
                         Command="{CompiledBinding Remove, Mode=OneTime}"
                         Header="{x:Static properties:Strings.Remove}">
                         <MenuItem.Icon>
-                            <PathIcon Data="{StaticResource Delete20Regular}" />
+                            <ui:SymbolIcon FontSize="20" Symbol="Delete" />
                         </MenuItem.Icon>
                     </MenuItem>
                 </ContextMenu>
@@ -99,7 +106,7 @@
         </Border>
 
         <ItemsControl
-            Background="{StaticResource SystemControlBackgroundChromeBlackLowBrush}"
+            Background="{StaticResource NavigationViewContentBackground}"
             x:Name="itemsControl"
             Items="{Binding ClipElement.Effect, Mode=OneWay}">
             <ItemsControl.ItemTemplate>

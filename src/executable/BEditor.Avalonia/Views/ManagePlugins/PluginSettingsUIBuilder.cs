@@ -46,9 +46,9 @@ namespace BEditor.Views.ManagePlugins
                     Orientation = Orientation.Vertical,
                     Children =
                     {
-                        new Label
+                        new TextBlock
                         {
-                            Content = header,
+                            Text = header,
                             Classes =
                             {
                                 "SettingsItemHeader"
@@ -82,9 +82,9 @@ namespace BEditor.Views.ManagePlugins
                     Orientation = Orientation.Vertical,
                     Children =
                     {
-                        new Label
+                        new TextBlock
                         {
-                            Content = header,
+                            Text = header,
                             Classes =
                             {
                                 "SettingsItemHeader"
@@ -118,14 +118,7 @@ namespace BEditor.Views.ManagePlugins
                     Orientation = Orientation.Vertical,
                     Children =
                     {
-                        new Label
-                        {
-                            Content = header,
-                            Classes =
-                            {
-                                "SettingsItemHeader"
-                            }
-                        },
+                        new TextBlock { Text = header, Classes = { "SettingsItemHeader" } },
                         new NumericUpDown
                         {
                             Maximum = short.MaxValue,
@@ -154,14 +147,7 @@ namespace BEditor.Views.ManagePlugins
                     Orientation = Orientation.Vertical,
                     Children =
                     {
-                        new Label
-                        {
-                            Content = header,
-                            Classes =
-                            {
-                                "SettingsItemHeader"
-                            }
-                        },
+                        new TextBlock { Text = header, Classes = { "SettingsItemHeader" } },
                         new NumericUpDown
                         {
                             Maximum = ushort.MaxValue,
@@ -190,14 +176,7 @@ namespace BEditor.Views.ManagePlugins
                     Orientation = Orientation.Vertical,
                     Children =
                     {
-                        new Label
-                        {
-                            Content = header,
-                            Classes =
-                            {
-                                "SettingsItemHeader"
-                            }
-                        },
+                        new TextBlock { Text = header, Classes = { "SettingsItemHeader" } },
                         new NumericUpDown
                         {
                             Maximum = int.MaxValue,
@@ -226,14 +205,7 @@ namespace BEditor.Views.ManagePlugins
                     Orientation = Orientation.Vertical,
                     Children =
                     {
-                        new Label
-                        {
-                            Content = header,
-                            Classes =
-                            {
-                                "SettingsItemHeader"
-                            }
-                        },
+                        new TextBlock { Text = header, Classes = { "SettingsItemHeader" } },
                         new NumericUpDown
                         {
                             Maximum = uint.MaxValue,
@@ -262,14 +234,7 @@ namespace BEditor.Views.ManagePlugins
                     Orientation = Orientation.Vertical,
                     Children =
                     {
-                        new Label
-                        {
-                            Content = header,
-                            Classes =
-                            {
-                                "SettingsItemHeader"
-                            }
-                        },
+                        new TextBlock { Text = header, Classes = { "SettingsItemHeader" } },
                         new NumericUpDown
                         {
                             Maximum = long.MaxValue,
@@ -298,14 +263,7 @@ namespace BEditor.Views.ManagePlugins
                     Orientation = Orientation.Vertical,
                     Children =
                     {
-                        new Label
-                        {
-                            Content = header,
-                            Classes =
-                            {
-                                "SettingsItemHeader"
-                            }
-                        },
+                        new TextBlock { Text = header, Classes = { "SettingsItemHeader" } },
                         new NumericUpDown
                         {
                             Maximum = ulong.MaxValue,
@@ -334,14 +292,7 @@ namespace BEditor.Views.ManagePlugins
                     Orientation = Orientation.Vertical,
                     Children =
                     {
-                        new Label
-                        {
-                            Content = header,
-                            Classes =
-                            {
-                                "SettingsItemHeader"
-                            }
-                        },
+                        new TextBlock { Text = header, Classes = { "SettingsItemHeader" } },
                         new TextBox
                         {
                             MaxLength = 1,
@@ -369,14 +320,7 @@ namespace BEditor.Views.ManagePlugins
                     Orientation = Orientation.Vertical,
                     Children =
                     {
-                        new Label
-                        {
-                            Content = header,
-                            Classes =
-                            {
-                                "SettingsItemHeader"
-                            }
-                        },
+                        new TextBlock { Text = header, Classes = { "SettingsItemHeader" } },
                         new NumericUpDown
                         {
                             Classes =
@@ -403,14 +347,7 @@ namespace BEditor.Views.ManagePlugins
                     Orientation = Orientation.Vertical,
                     Children =
                     {
-                        new Label
-                        {
-                            Content = header,
-                            Classes =
-                            {
-                                "SettingsItemHeader"
-                            }
-                        },
+                        new TextBlock { Text = header, Classes = { "SettingsItemHeader" } },
                         new NumericUpDown
                         {
                             Maximum = float.MaxValue,
@@ -439,14 +376,7 @@ namespace BEditor.Views.ManagePlugins
                     Orientation = Orientation.Vertical,
                     Children =
                     {
-                        new Label
-                        {
-                            Content = header,
-                            Classes =
-                            {
-                                "SettingsItemHeader"
-                            }
-                        },
+                        new TextBlock { Text = header, Classes = { "SettingsItemHeader" } },
                         new DatePicker()
                     }
                 };
@@ -467,14 +397,7 @@ namespace BEditor.Views.ManagePlugins
                     Orientation = Orientation.Vertical,
                     Children =
                     {
-                        new Label
-                        {
-                            Content = header,
-                            Classes =
-                            {
-                                "SettingsItemHeader"
-                            }
-                        },
+                        new TextBlock { Text = header, Classes = { "SettingsItemHeader" } },
                         new DatePicker()
                     }
                 };
@@ -495,14 +418,7 @@ namespace BEditor.Views.ManagePlugins
                     Orientation = Orientation.Vertical,
                     Children =
                     {
-                        new Label
-                        {
-                            Content = header,
-                            Classes =
-                            {
-                                "SettingsItemHeader"
-                            }
-                        },
+                        new TextBlock { Text = header, Classes = { "SettingsItemHeader" } },
                         new TextBox
                         {
                             Classes =
@@ -529,14 +445,7 @@ namespace BEditor.Views.ManagePlugins
                     Orientation = Orientation.Vertical,
                     Children =
                     {
-                        new Label
-                        {
-                            Content = header,
-                            Classes =
-                            {
-                                "SettingsItemHeader"
-                            }
-                        },
+                        new TextBlock { Text = header, Classes = { "SettingsItemHeader" } },
                         new TextBox
                         {
                             Classes =
@@ -563,14 +472,7 @@ namespace BEditor.Views.ManagePlugins
                     Orientation = Orientation.Vertical,
                     Children =
                     {
-                        new Label
-                        {
-                            Content = header,
-                            Classes =
-                            {
-                                "SettingsItemHeader"
-                            }
-                        },
+                        new TextBlock { Text = header, Classes = { "SettingsItemHeader" } },
                         new ComboBox
                         {
                             Classes =

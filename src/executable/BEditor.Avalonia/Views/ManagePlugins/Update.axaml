@@ -69,7 +69,7 @@
             SelectedItem="{CompiledBinding SelectedItem.Value, Mode=TwoWay}">
             <ListBox.ItemTemplate>
                 <DataTemplate>
-                    <Grid RowDefinitions="Auto,*">
+                    <Grid RowDefinitions="Auto,*" Margin="8">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock FontSize="16" Text="{Binding Plugin.PluginName}" />
                             <TextBlock FontSize="12" VerticalAlignment="Center" Margin="16,0,0,0" Text="{Binding OldVersion}"/>
@@ -82,5 +82,10 @@
                 </DataTemplate>
             </ListBox.ItemTemplate>
         </ListBox>
+        
+        <ProgressBar
+            VerticalAlignment="Bottom"
+            IsIndeterminate="True"
+            IsVisible="{CompiledBinding IsLoading.Value}" />
     </Grid>
 </UserControl>

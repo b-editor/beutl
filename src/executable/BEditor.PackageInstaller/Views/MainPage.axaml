@@ -12,94 +12,103 @@
         <vm:MainPageViewModel/>
     </UserControl.DataContext>
     <Grid RowDefinitions="*,Auto">
-        <ScrollViewer Margin="32">
+        <ScrollViewer Margin="16">
             <StackPanel>
                 <TextBlock
                     Margin="0,8,0,0"
                     IsVisible="{CompiledBinding !InstallsIsEmpty.Value, Mode=OneWay}"
                     Text="{x:Static res:Strings.Install}" />
 
-                <ItemsControl
+                <ListBox
                     IsVisible="{CompiledBinding !InstallsIsEmpty.Value, Mode=OneWay}"
                     Items="{CompiledBinding Installs, Mode=OneTime}">
-                    <ItemsControl.ItemTemplate>
+                    <ListBox.ItemTemplate>
                         <DataTemplate>
-                            <Button
-                                Background="Transparent"
-                                Height="50"
-                                Width="{Binding $parent.Bounds.Width}">
-                                <Panel>
-                                    <StackPanel Orientation="Horizontal" Spacing="8">
-                                        <TextBlock Text="{Binding Name}" />
+                            <Grid RowDefinitions="*,*">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <TextBlock Text="{Binding Name}" />
 
-                                        <TextBlock Text="{Binding Version}" />
-                                    </StackPanel>
+                                    <TextBlock Text="{Binding Version}" />
+                                </StackPanel>
 
-                                    <TextBlock VerticalAlignment="Bottom" Text="{Binding Author}" Margin="8,0,0,0" />
-                                    <TextBlock Text="{Binding License}" HorizontalAlignment="Right" />
-                                </Panel>
-                            </Button>
+                                <TextBlock
+                                    Margin="0,8"
+                                    Grid.Row="1"
+                                    VerticalAlignment="Bottom"
+                                    Text="{Binding Author}" />
+                                <TextBlock
+                                    Margin="0,8"
+                                    Grid.Row="1"
+                                    Text="{Binding License}"
+                                    HorizontalAlignment="Right" />
+                            </Grid>
                         </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
+                    </ListBox.ItemTemplate>
+                </ListBox>
 
                 <TextBlock
                     Margin="0,8,0,0"
                     IsVisible="{CompiledBinding !UninstallsIsEmpty.Value, Mode=OneWay}"
                     Text="{x:Static res:Strings.Uninstall}" />
 
-                <ItemsControl
+                <ListBox
                     IsVisible="{CompiledBinding !UninstallsIsEmpty.Value, Mode=OneWay}"
                     Items="{CompiledBinding Uninstalls, Mode=OneTime}">
-                    <ItemsControl.ItemTemplate>
+                    <ListBox.ItemTemplate>
                         <DataTemplate>
-                            <Button
-                                Background="Transparent"
-                                Height="50"
-                                Width="{Binding $parent.Bounds.Width}">
-                                <Panel>
-                                    <StackPanel Orientation="Horizontal" Spacing="8">
-                                        <TextBlock Text="{Binding Name}" />
+                            <Grid RowDefinitions="*,*">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <TextBlock Text="{Binding Name}" />
 
-                                        <TextBlock Text="{Binding Version}" />
-                                    </StackPanel>
+                                    <TextBlock Text="{Binding Version}" />
+                                </StackPanel>
 
-                                    <TextBlock VerticalAlignment="Bottom" Text="{Binding Author}" Margin="8,0,0,0" />
-                                    <TextBlock Text="{Binding License}" HorizontalAlignment="Right" />
-                                </Panel>
-                            </Button>
+                                <TextBlock
+                                    Margin="0,8"
+                                    Grid.Row="1"
+                                    VerticalAlignment="Bottom"
+                                    Text="{Binding Author}" />
+                                <TextBlock
+                                    Margin="0,8"
+                                    Grid.Row="1"
+                                    Text="{Binding License}"
+                                    HorizontalAlignment="Right" />
+                            </Grid>
                         </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
+                    </ListBox.ItemTemplate>
+                </ListBox>
 
                 <TextBlock
                     Margin="0,8,0,0"
                     IsVisible="{CompiledBinding !UpdatesIsEmpty.Value, Mode=OneWay}"
                     Text="{x:Static res:Strings.Update}" />
 
-                <ItemsControl
+                <ListBox
                     IsVisible="{CompiledBinding !UpdatesIsEmpty.Value, Mode=OneWay}"
                     Items="{CompiledBinding Updates, Mode=OneTime}">
-                    <ItemsControl.ItemTemplate>
+                    <ListBox.ItemTemplate>
                         <DataTemplate>
-                            <Button
-                                Background="Transparent"
-                                Height="50"
-                                Width="{Binding $parent.Bounds.Width}">
-                                <Panel>
-                                    <StackPanel Orientation="Horizontal" Spacing="8">
-                                        <TextBlock Text="{Binding Name}" />
+                            <Grid RowDefinitions="*,*">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <TextBlock Text="{Binding Name}" />
 
-                                        <TextBlock Text="{Binding Version}" />
-                                    </StackPanel>
+                                    <TextBlock Text="{Binding Version}" />
+                                </StackPanel>
 
-                                    <TextBlock VerticalAlignment="Bottom" Text="{Binding Author}" Margin="8,0,0,0" />
-                                    <TextBlock Text="{Binding License}" HorizontalAlignment="Right" />
-                                </Panel>
-                            </Button>
+                                <TextBlock
+                                    Margin="0,8"
+                                    Grid.Row="1"
+                                    VerticalAlignment="Bottom"
+                                    Text="{Binding Author}" />
+                                <TextBlock
+                                    Margin="0,8"
+                                    Grid.Row="1"
+                                    Text="{Binding License}"
+                                    HorizontalAlignment="Right" />
+                            </Grid>
                         </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
+                    </ListBox.ItemTemplate>
+                </ListBox>
             </StackPanel>
         </ScrollViewer>
 
@@ -107,27 +116,31 @@
             IsIndeterminate="True"
             IsVisible="{CompiledBinding IsLoading.Value, Mode=OneWay}"
             Margin="16" />
-        
-        <Grid
+
+        <Border
             Grid.Row="1"
-            ColumnDefinitions="*,Auto"
-            Background="{StaticResource SystemControlBackgroundChromeMediumLowBrush}">
-            <TextBlock
-                Text="{x:Static res:Strings.ByClickingModify}"
-                Margin="16"
-                TextWrapping="WrapWithOverflow" />
+            BorderBrush="{StaticResource ControlElevationBorderBrush}"
+            BorderThickness="1"
+            CornerRadius="{StaticResource OverlayCornerRadius}"
+            Background="{StaticResource NavigationViewContentBackground}">
+            <Grid ColumnDefinitions="*,Auto">
+                <TextBlock
+                    Text="{x:Static res:Strings.ByClickingModify}"
+                    Margin="16"
+                    TextWrapping="WrapWithOverflow" />
 
-            <StackPanel Orientation="Horizontal" Grid.Column="1" Margin="16" Spacing="8">
-                <Button
-                    Content="{x:Static res:Strings.Modify}"
-                    Click="ModifyClick"
-                    IsDefault="True" />
-                <Button
-                    Content="{x:Static res:Strings.Cancel}"
-                    Click="CancelClick"
-                    IsCancel="True" />
-            </StackPanel>
-
-        </Grid>
+                <StackPanel Orientation="Horizontal" Grid.Column="1" Margin="16" Spacing="8">
+                    <Button
+                        Classes="accent"
+                        Content="{x:Static res:Strings.Modify}"
+                        Click="ModifyClick"
+                        IsDefault="True" />
+                    <Button
+                        Content="{x:Static res:Strings.Cancel}"
+                        Click="CancelClick"
+                        IsCancel="True" />
+                </StackPanel>
+            </Grid>
+        </Border>
     </Grid>
 </UserControl>

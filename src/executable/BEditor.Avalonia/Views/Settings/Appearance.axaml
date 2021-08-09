@@ -4,6 +4,8 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="using:BEditor.ViewModels.Settings"
              xmlns:resources="using:BEditor.Properties"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:uip="using:FluentAvalonia.UI.Controls.Primitives"
              x:DataType="vm:AppearanceViewModel"
              xmlns:root="clr-namespace:BEditor;assembly=BEditor.Settings"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
@@ -34,18 +36,18 @@
 
             <TextBlock Text="{x:Static resources:Strings.Timeline}" Classes="SettingsHeader"/>
 
-            <Label Content="{x:Static resources:Strings.ClipHeight}" Classes="SettingsItemHeader"/>
+            <TextBlock Text="{x:Static resources:Strings.ClipHeight}" Classes="SettingsItemHeader"/>
 
-            <NumericUpDown
+            <ui:NumberBox
                 ToolTip.Tip="{x:Static resources:Strings.TheChangesWillBeAppliedAfterRestarting}"
                 Value="{Binding ClipHeight, Source={x:Static root:Settings.Default}, Mode=TwoWay}"
                 Classes="SettingsNumericUpDown"/>
 
             <Separator Height="16" />
 
-            <Label Content="{x:Static resources:Strings.WidthOf1Frame}" Classes="SettingsItemHeader"/>
+            <TextBlock Text="{x:Static resources:Strings.WidthOf1Frame}" Classes="SettingsItemHeader"/>
 
-            <NumericUpDown
+            <ui:NumberBox
                 ToolTip.Tip="{x:Static resources:Strings.TheChangesWillBeAppliedAfterRestarting}"
                 Value="{Binding FrameWidth, Source={x:Static root:Settings.Default}, Mode=TwoWay}"
                 Classes="SettingsNumericUpDown"/>
@@ -59,7 +61,7 @@
 
             <Separator Height="16" />
 
-            <Label Content="{x:Static resources:Strings.Language}" Classes="SettingsItemHeader"/>
+            <TextBlock Text="{x:Static resources:Strings.Language}" Classes="SettingsItemHeader"/>
 
             <ComboBox
                 ToolTip.Tip="{x:Static resources:Strings.TheChangesWillBeAppliedAfterRestarting}"

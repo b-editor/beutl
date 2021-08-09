@@ -3,7 +3,10 @@ using System.Globalization;
 
 using Avalonia.Media;
 using Avalonia.Platform;
+using Avalonia.Shared.PlatformSupport;
 using Avalonia.Skia;
+
+using FluentAvalonia.Styling;
 
 using SkiaSharp;
 
@@ -65,6 +68,8 @@ namespace BEditor.PackageInstaller
         public IGlyphTypefaceImpl CreateGlyphTypeface(Typeface typeface)
         {
             if (typeface.FontFamily.Name is "Inter") return new GlyphTypefaceImpl(MatchFace());
+            if (typeface.FontFamily.Name is "FluentSystemIcons-Regular") return new GlyphTypefaceImpl(GetRegularIcon());
+            if (typeface.FontFamily.Name is "FluentSystemIcons-Filled") return new GlyphTypefaceImpl(GetFilledIcon());
 
             foreach (var name in GetInstalledFontFamilyNames())
             {
@@ -77,9 +82,25 @@ namespace BEditor.PackageInstaller
                 }
             }
 
-            using var stream = typeof(CustomFontManagerImpl).Assembly.GetManifestResourceStream("BEditor.PackageInstaller.Assets.Fonts.NotoSansJP-Regular.otf");
+            using var stream = typeof(CustomFontManagerImpl).Assembly.GetManifestResourceStream("BEditor.Assets.Fonts.NotoSansJP-Regular.otf");
 
             return new GlyphTypefaceImpl(SKTypeface.FromStream(stream));
+        }
+
+        public static SKTypeface GetRegularIcon()
+        {
+            var loader = new AssetLoader(typeof(FluentAvaloniaTheme).Assembly);
+            using var stream = loader.Open(new("avares://FluentAvalonia/Fonts/FluentSystemIcons-Regular.ttf"));
+
+            return SKTypeface.FromStream(stream);
+        }
+
+        public static SKTypeface GetFilledIcon()
+        {
+            var loader = new AssetLoader(typeof(FluentAvaloniaTheme).Assembly);
+            using var stream = loader.Open(new("avares://FluentAvalonia/Fonts/FluentSystemIcons-Filled.ttf"));
+
+            return SKTypeface.FromStream(stream);
         }
 
         private static SKTypeface MatchFace()

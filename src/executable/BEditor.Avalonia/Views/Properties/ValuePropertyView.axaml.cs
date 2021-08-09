@@ -56,7 +56,7 @@ namespace BEditor.Views.Properties
 
         public void NumericUpDown_LostFocus(object? sender, RoutedEventArgs e)
         {
-            var num = (NumericUpDown)sender!;
+            var num = (FluentAvalonia.UI.Controls.NumberBox)sender!;
             var newValue = num.Value;
 
             _property.Value = _oldvalue;
@@ -64,7 +64,7 @@ namespace BEditor.Views.Properties
             _property.ChangeValue((float)newValue).Execute();
         }
 
-        public async void NumericUpDown_ValueChanged(object? sender, NumericUpDownValueChangedEventArgs e)
+        public async void NumericUpDown_ValueChanged(FluentAvalonia.UI.Controls.NumberBox sender, FluentAvalonia.UI.Controls.NumberBoxValueChangedEventArgs e)
         {
             _property.Value = _property.Clamp((float)e.NewValue);
 

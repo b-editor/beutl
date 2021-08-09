@@ -1,0 +1,88 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:vm="using:BEditor.ViewModels"
+    xmlns:prop="using:BEditor.Properties"
+    xmlns:ui="using:FluentAvalonia.UI.Controls"
+    x:DataType="vm:VideoOutputViewModel"
+    mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+    x:Class="BEditor.Views.VideoOutputPages.Output">
+    <ScrollViewer>
+        <VirtualizingStackPanel>
+
+            <TextBlock Text="{x:Static prop:Strings.Output}" Classes="SettingsHeader"/>
+
+            <!--ファイル-->
+            <TextBlock Text="{x:Static prop:Strings.File}" Classes="SettingsItemHeader"/>
+
+            <VirtualizingStackPanel Orientation="Horizontal">
+                <TextBox
+                    Text="{CompiledBinding File.Value, Mode=TwoWay}"
+                    Classes="SettingsTextBox"
+                    IsReadOnly="True" />
+
+                <Button Command="{CompiledBinding SaveFileDialog, Mode=OneTime}">
+                    <ui:SymbolIcon Symbol="OpenFolder" FontSize="20" />
+                </Button>
+            </VirtualizingStackPanel>
+
+            <Separator Height="16" />
+
+            <!--開始フレーム-->
+            <TextBlock Text="{x:Static prop:Strings.Start}" Classes="SettingsItemHeader"/>
+
+            <VirtualizingStackPanel Orientation="Horizontal">
+                <ui:NumberBox
+                    Value="{CompiledBinding StartFrame.Value, Mode=TwoWay}"
+                    Minimum="0"
+                    Maximum="{CompiledBinding SelectedScene.Value.TotalFrame.Value, Mode=OneWay}"
+                    Classes="SettingsNumericUpDown"/>
+
+                <TextBlock VerticalAlignment="Center" Text="{CompiledBinding StartTime.Value, Mode=OneWay}" />
+            </VirtualizingStackPanel>
+
+            <Separator Height="16" />
+
+            <!--長さ-->
+            <TextBlock Text="{x:Static prop:Strings.Length}" Classes="SettingsItemHeader"/>
+
+            <VirtualizingStackPanel Orientation="Horizontal">
+                <ui:NumberBox
+                    Value="{CompiledBinding LengthFrame.Value, Mode=TwoWay}"
+                    Minimum="0"
+                    Maximum="{CompiledBinding SelectedScene.Value.TotalFrame.Value, Mode=OneWay}"
+                    Classes="SettingsNumericUpDown"/>
+
+                <TextBlock VerticalAlignment="Center" Text="{CompiledBinding LengthTime.Value, Mode=OneWay}" />
+            </VirtualizingStackPanel>
+
+            <Separator Height="16" />
+
+            <!--エンコーダー-->
+            <TextBlock Text="{x:Static prop:Strings.Encoder}" Classes="SettingsItemHeader"/>
+
+            <ComboBox
+                Items="{CompiledBinding Encoders, Mode=OneTime}"
+                SelectedItem="{CompiledBinding SelectedEncoder.Value, Mode=TwoWay}"
+                Classes="SettingsComboBox">
+                <ComboBox.ItemTemplate>
+                    <DataTemplate>
+                        <TextBlock Text="{Binding Name}" />
+                    </DataTemplate>
+                </ComboBox.ItemTemplate>
+            </ComboBox>
+
+            <Separator Height="16" />
+
+            <!--出力-->
+            <Button
+                Classes="accent"
+                Content="{x:Static prop:Strings.Output}"
+                Command="{CompiledBinding Output, Mode=OneTime}"
+                IsEnabled="{CompiledBinding OutputIsEnabled.Value, Mode=OneWay}"
+                Margin="16" />
+        </VirtualizingStackPanel>
+    </ScrollViewer>    
+</UserControl>

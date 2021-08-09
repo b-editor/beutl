@@ -1,11 +1,11 @@
 ﻿<Styles
     xmlns="https://github.com/avaloniaui"
     xmlns:sys="using:System"
+    xmlns:sty="using:FluentAvalonia.Styling"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    <FluentTheme Mode="Dark" />
-
-    <Styles.Resources>
-        <Color x:Key="AcrylicColor1">#363636</Color>
-        <Color x:Key="AcrylicColor2">#282828</Color>
-    </Styles.Resources>
+    <sty:FluentAvaloniaTheme
+        ControlsVersion="2"
+        DefaultToUserTheme="False"
+        GetUserAccentColor="True"
+        RequestedTheme="Dark" />
 </Styles>

@@ -1,4 +1,5 @@
-﻿using System.Linq;
+﻿using System;
+using System.Linq;
 using System.Reactive.Linq;
 
 using Reactive.Bindings;
@@ -11,13 +12,13 @@ namespace BEditor.ViewModels.Settings
         {
             IsSelected = SelectFont.Select(dir => dir is not null).ToReadOnlyReactiveProperty();
 
-            Remove.Subscribe(() => BEditor.Settings.Default.IncludeFontDir.Remove(SelectFont.Value));
+            Remove.Subscribe(str => BEditor.Settings.Default.IncludeFontDir.Remove(str));
         }
 
         public ReactiveProperty<string> SelectFont { get; } = new();
 
         public ReadOnlyReactiveProperty<bool> IsSelected { get; }
 
-        public ReactiveCommand Remove { get; } = new();
+        public ReactiveCommand<string> Remove { get; } = new();
     }
 }

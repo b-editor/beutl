@@ -21,6 +21,8 @@ using BEditor.ViewModels.Timelines;
 using BEditor.Views.Properties;
 using BEditor.Views.Timelines;
 
+using Reactive.Bindings;
+
 namespace BEditor.Extensions
 {
     public static partial class ViewBuilder
@@ -46,7 +48,7 @@ namespace BEditor.Extensions
             PropertyViewBuilder.Create<ButtonComponent>(p => new ButtonCompornentView(p)),
             PropertyViewBuilder.Create<LabelComponent>(p =>
             {
-                var label = new Label
+                var label = new ContentControl
                 {
                     Height = 40,
                     Background = Brushes.Transparent,
@@ -59,15 +61,9 @@ namespace BEditor.Extensions
             PropertyViewBuilder.Create<DialogProperty>(p => new DialogPropertyView(p)),
             PropertyViewBuilder.Create<ExpandGroup>(p =>
             {
-                var header = new Label
-                {
-                    Content = p.PropertyMetadata?.Name ?? string.Empty,
-                    Height = 24,
-                    Foreground = (IBrush)App.Current.FindResource("SystemControlForegroundBaseHighBrush")!
-                };
                 var expander = new Expander
                 {
-                    Header = header,
+                    Header = p.PropertyMetadata?.Name ?? string.Empty,
                     Classes = { "property" }
                 };
                 var stack = new StackPanel();
@@ -85,15 +81,8 @@ namespace BEditor.Extensions
                 expander.Content = stack;
 
                 // binding
-                var widthbind = new Binding("Parent.Bounds.Width")
-                {
-                    Mode = BindingMode.OneWay,
-                    Source = expander,
-                    Converter = _expanderWidthConverter
-                };
                 var isExpandedbind = new Binding("IsExpanded") { Mode = BindingMode.TwoWay, Source = p };
 
-                header.Bind(Layoutable.WidthProperty, widthbind);
                 expander.Bind(Expander.IsExpandedProperty, isExpandedbind);
 
                 return expander;
@@ -120,15 +109,9 @@ namespace BEditor.Extensions
             KeyFrameViewBuilder.Create<ColorAnimationProperty>(prop => new KeyframeView(prop)),
             KeyFrameViewBuilder.Create<ExpandGroup>(p =>
             {
-                var header = new Label
-                {
-                    Content = p.PropertyMetadata?.Name ?? string.Empty,
-                    Height = 24,
-                    Foreground = (IBrush)App.Current.FindResource("SystemControlForegroundBaseHighBrush")!
-                };
                 var expander = new Expander
                 {
-                    Header = header,
+                    Header = p.PropertyMetadata?.Name ?? string.Empty,
                     Classes =
                     {
                         "expandkeyframe",
@@ -150,20 +133,53 @@ namespace BEditor.Extensions
                 expander.Content = stack;
 
                 // binding
-                var widthbind = new Binding("Parent.Bounds.Width")
-                {
-                    Mode = BindingMode.OneWay,
-                    Source = expander,
-                    Converter = _expanderWidthConverter
-                };
                 var isExpandedbind = new Binding("IsExpanded") { Mode = BindingMode.TwoWay, Source = p };
 
-                header.Bind(Layoutable.WidthProperty, widthbind);
                 expander.Bind(Expander.IsExpandedProperty, isExpandedbind);
 
                 return expander;
             })
         };
+
+        static ViewBuilder()
+        {
+            _removeEffect.Subscribe(efct => efct.Parent.RemoveEffect(efct).Execute());
+
+            _copyEffectId.Subscribe(async efct => await Application.Current.Clipboard.SetTextAsync(efct.Id.ToString()));
+
+            _saveEffect.Subscribe(async efct =>
+            {
+                var record = new SaveFileRecord
+                {
+                    Filters =
+                    {
+                        new(Strings.EffectFile, new string[]{ "befct" })
+                    }
+                };
+
+                if (await AppModel.Current.FileDialog.ShowSaveFileDialogAsync(record)
+                && !await Serialize.SaveToFileAsync(new EffectWrapper(efct), record.FileName))
+                {
+                    AppModel.Current.Message.Snackbar(Strings.FailedToSave);
+                }
+            });
+
+            _saveObject.Subscribe(async obj =>
+            {
+                var record = new SaveFileRecord
+                {
+                    Filters =
+                    {
+                        new(Strings.ObjectFile, new string[]{ "bobj" })
+                    }
+                };
+                if (await AppModel.Current.FileDialog.ShowSaveFileDialogAsync(record)
+                && !await Serialize.SaveToFileAsync(new EffectWrapper(obj), record.FileName))
+                {
+                    AppModel.Current.Message.Snackbar(Strings.FailedToSave);
+                }
+            });
+        }
 
         public static Timeline GetCreateTimeline(this Scene scene)
         {
@@ -370,11 +386,9 @@ namespace BEditor.Extensions
                     {
                         Classes = { "keyframe" }
                     };
-                    var header = new Label();
                     var stack = new StackPanel();
 
                     keyFrame.Content = stack;
-                    keyFrame.Header = header;
 
                     foreach (var item in effect.Children)
                     {
@@ -385,13 +399,7 @@ namespace BEditor.Extensions
                         }
                     }
 
-                    header.Bind(Layoutable.WidthProperty, new Binding("Parent.Bounds.Width")
-                    {
-                        Mode = BindingMode.OneWay,
-                        Source = header,
-                        Converter = _expanderWidthConverter
-                    });
-                    header.Bind(ContentControl.ContentProperty, new Binding("Name") { Mode = BindingMode.OneTime, Source = effect });
+                    keyFrame.Bind(Expander.HeaderProperty, new Binding("Name") { Mode = BindingMode.OneTime, Source = effect });
                     keyFrame.Bind(Expander.IsExpandedProperty, new Binding("IsExpanded") { Mode = BindingMode.TwoWay, Source = effect });
 
                     effect[KeyframeProperty] = keyFrame;
@@ -404,7 +412,13 @@ namespace BEditor.Extensions
             return ctr;
         }
 
-        private static readonly IValueConverter _expanderWidthConverter = new FuncValueConverter<double, double>(i => i - 38);
+        private static readonly ReactiveCommand<EffectElement> _removeEffect = new();
+
+        private static readonly ReactiveCommand<EffectElement> _copyEffectId = new();
+
+        private static readonly ReactiveCommand<EffectElement> _saveEffect = new();
+        
+        private static readonly ReactiveCommand<ObjectElement> _saveObject = new();
 
         public static (Expander, StackPanel) CreateObjectExpander(ObjectElement obj)
         {
@@ -421,91 +435,74 @@ namespace BEditor.Extensions
             {
                 var checkBox = new CheckBox
                 {
-                    Margin = new(0, 0, 5, 0),
+                    DataContext = obj,
                     VerticalAlignment = VerticalAlignment.Center,
+                    VerticalContentAlignment = VerticalAlignment.Center,
+                    Content = obj.Name
                 };
-                var textBlock = new TextBlock
+
+                var copyId = new MenuItem
                 {
-                    Margin = new(5, 0, 0, 0),
-                    VerticalAlignment = VerticalAlignment.Center,
-                    Text = obj.Name,
-                    Foreground = (IBrush)App.Current.FindResource("SystemControlForegroundBaseHighBrush")!
+                    Command = _copyEffectId,
+                    CommandParameter = obj,
+                    Header = Strings.CopyID,
+                    Icon = new FluentAvalonia.UI.Controls.SymbolIcon
+                    {
+                        Symbol = FluentAvalonia.UI.Controls.Symbol.Copy,
+                        FontSize = 20,
+                    },
+                };
+
+                var save = new MenuItem
+                {
+                    Command = _saveObject,
+                    CommandParameter = obj,
+                    Header = Strings.SaveAs,
+                    Icon = new FluentAvalonia.UI.Controls.SymbolIcon
+                    {
+                        Symbol = FluentAvalonia.UI.Controls.Symbol.Save,
+                        FontSize = 20,
+                    },
                 };
 
                 var header = new StackPanel
                 {
                     Orientation = Orientation.Horizontal,
-                    Background = Brushes.Transparent,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Spacing = 4,
                     Children =
                     {
                         checkBox,
-                        textBlock
                     }
                 };
+
                 expander.Header = header;
 
+                header.ContextMenu = new ContextMenu
+                {
+                    Items = new MenuItem[]
+                    {
+                        copyId,
+                        save,
+                    },
+                };
+
                 // event設定
-                checkBox.Click += (s, e) => obj.ChangeIsEnabled((bool)((CheckBox)s!).IsChecked!).Execute();
+                checkBox.Click += (s, e) =>
+                {
+                    if (s is CheckBox check && check.DataContext is EffectElement efct)
+                    {
+                        efct.ChangeIsEnabled(check.IsChecked ?? false).Execute();
+                    }
+                };
 
                 // binding設定
-                var widthbind = new Binding("Parent.Bounds.Width")
-                {
-                    Mode = BindingMode.OneWay,
-                    Source = header,
-                    Converter = _expanderWidthConverter
-                };
                 var isEnablebind = new Binding("IsEnabled")
                 {
                     Mode = BindingMode.OneWay,
                     Source = obj
                 };
-                header.Bind(Layoutable.WidthProperty, widthbind);
                 checkBox.Bind(ToggleButton.IsCheckedProperty, isEnablebind);
-
-                // コンテキストメニュー
-                var contextmenu = new ContextMenu();
-                var copyId = new MenuItem
-                {
-                    Icon = new PathIcon { Data = (Geometry)Application.Current.FindResource("Copy24Regular")! },
-                    Header = Strings.CopyID,
-                    DataContext = obj
-                };
-                var saveTo = new MenuItem
-                {
-                    Icon = new PathIcon { Data = (Geometry)Application.Current.FindResource("Save24Regular")! },
-                    Header = Strings.SaveAs,
-                    DataContext = obj
-                };
-
-                contextmenu.Items = new MenuItem[] { copyId, saveTo };
-
-                // 作成したコンテキストメニューをListBox1に設定
-                header.ContextMenu = contextmenu;
-
-                copyId.Click += async (s, e) =>
-                {
-                    if (s is MenuItem menu && menu.DataContext is EffectElement effect)
-                    {
-                        await Application.Current.Clipboard.SetTextAsync(effect.Id.ToString());
-                    }
-                };
-                saveTo.Click += async (s, e) =>
-                {
-                    if (s is MenuItem menu && menu.DataContext is EffectElement efct)
-                    {
-                        var record = new SaveFileRecord
-                        {
-                            Filters =
-                            {
-                                new(Strings.ObjectFile, new string[]{ "bobj" })
-                            }
-                        };
-                        if (await AppModel.Current.FileDialog.ShowSaveFileDialogAsync(record) && !await Serialize.SaveToFileAsync(new EffectWrapper(efct), record.FileName))
-                        {
-                            AppModel.Current.Message.Snackbar(Strings.FailedToSave);
-                        }
-                    }
-                };
             }
 
             #endregion
@@ -541,133 +538,125 @@ namespace BEditor.Extensions
             {
                 var checkBox = new CheckBox
                 {
-                    Margin = new(0, 0, 5, 0),
+                    DataContext = effect,
                     VerticalAlignment = VerticalAlignment.Center,
-                    Width = 32
+                    VerticalContentAlignment = VerticalAlignment.Center,
+                    Content = effect.Name
                 };
                 var upbutton = new Button
                 {
-                    Content = new PathIcon
+                    DataContext = effect,
+                    BorderThickness = default,
+                    Content = new FluentAvalonia.UI.Controls.SymbolIcon
                     {
-                        Data = (Geometry)Application.Current.FindResource("ArrowUp28Regular")!
+                        Symbol = FluentAvalonia.UI.Controls.Symbol.ChevronUp,
+                        FontSize = 20,
                     },
-                    Margin = new Thickness(5, 0, 0, 0),
-                    Background = null,
-                    BorderBrush = null,
-                    VerticalAlignment = VerticalAlignment.Center
                 };
                 var downbutton = new Button
                 {
-                    Content = new PathIcon
+                    DataContext = effect,
+                    BorderThickness = default,
+                    Content = new FluentAvalonia.UI.Controls.SymbolIcon
                     {
-                        Data = (Geometry)Application.Current.FindResource("ArrowDown28Regular")!
+                        Symbol = FluentAvalonia.UI.Controls.Symbol.ChevronDown,
+                        FontSize = 20,
                     },
-                    Margin = new Thickness(0, 0, 5, 0),
-                    Background = null,
-                    BorderBrush = null,
-                    VerticalAlignment = VerticalAlignment.Center
                 };
-                var textBlock = new TextBlock
+
+                var remove = new MenuItem
                 {
-                    Margin = new(5, 0, 0, 0),
-                    VerticalAlignment = VerticalAlignment.Center,
-                    Text = effect.Name,
-                    Foreground = (IBrush)App.Current.FindResource("SystemControlForegroundBaseHighBrush")!
+                    Command = _removeEffect,
+                    CommandParameter = effect,
+                    Header = Strings.Remove,
+                    Icon = new FluentAvalonia.UI.Controls.SymbolIcon
+                    {
+                        Symbol = FluentAvalonia.UI.Controls.Symbol.Delete,
+                        FontSize = 20,
+                    },
+                };
+
+                var copyId = new MenuItem
+                {
+                    Command = _copyEffectId,
+                    CommandParameter = effect,
+                    Header = Strings.CopyID,
+                    Icon = new FluentAvalonia.UI.Controls.SymbolIcon
+                    {
+                        Symbol = FluentAvalonia.UI.Controls.Symbol.Copy,
+                        FontSize = 20,
+                    },
+                };
+
+                var save = new MenuItem
+                {
+                    Command = _saveEffect,
+                    CommandParameter = effect,
+                    Header = Strings.SaveAs,
+                    Icon = new FluentAvalonia.UI.Controls.SymbolIcon
+                    {
+                        Symbol = FluentAvalonia.UI.Controls.Symbol.Save,
+                        FontSize = 20,
+                    },
                 };
 
                 var header = new StackPanel
                 {
                     Orientation = Orientation.Horizontal,
-                    Background = Brushes.Transparent,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Spacing = 4,
                     Children =
                     {
                         checkBox,
                         upbutton,
                         downbutton,
-                        textBlock
                     }
                 };
+
                 expander.Header = header;
 
+                header.ContextMenu = new ContextMenu
+                {
+                    Items = new MenuItem[]
+                    {
+                        remove,
+                        copyId,
+                        save,
+                    },
+                };
+
                 // event設定
-                checkBox.Click += (s, e) => effect.ChangeIsEnabled((bool)((CheckBox)s!).IsChecked!).Execute();
+                checkBox.Click += (s, e) =>
+                {
+                    if (s is CheckBox check && check.DataContext is EffectElement efct)
+                    {
+                        efct.ChangeIsEnabled(check.IsChecked ?? false).Execute();
+                    }
+                };
 
-                upbutton.Click += (s, e) => effect.BringForward().Execute();
+                upbutton.Click += (s, e) =>
+                {
+                    if (s is Button btn && btn.DataContext is EffectElement efct)
+                    {
+                        efct.BringForward().Execute();
+                    }
+                };
 
-                downbutton.Click += (s, e) => effect.SendBackward().Execute();
+                downbutton.Click += (s, e) =>
+                {
+                    if (s is Button btn && btn.DataContext is EffectElement efct)
+                    {
+                        efct.SendBackward().Execute();
+                    }
+                };
 
                 // binding設定
-                var widthbind = new Binding("Parent.Bounds.Width")
-                {
-                    Mode = BindingMode.OneWay,
-                    Source = header,
-                    Converter = _expanderWidthConverter
-                };
                 var isEnablebind = new Binding("IsEnabled")
                 {
                     Mode = BindingMode.OneWay,
                     Source = effect
                 };
-                header.Bind(Layoutable.WidthProperty, widthbind);
                 checkBox.Bind(ToggleButton.IsCheckedProperty, isEnablebind);
-
-                // コンテキストメニュー
-                var contextmenu = new ContextMenu();
-                var remove = new MenuItem
-                {
-                    Icon = new PathIcon { Data = (Geometry)Application.Current.FindResource("Delete24Regular")! },
-                    Header = Strings.Remove,
-                    DataContext = effect
-                };
-                var copyId = new MenuItem
-                {
-                    Icon = new PathIcon { Data = (Geometry)Application.Current.FindResource("Copy24Regular")! },
-                    Header = Strings.CopyID,
-                    DataContext = effect
-                };
-                var saveTo = new MenuItem
-                {
-                    Icon = new PathIcon { Data = (Geometry)Application.Current.FindResource("Save24Regular")! },
-                    Header = Strings.SaveAs,
-                    DataContext = effect
-                };
-
-                contextmenu.Items = new MenuItem[] { remove, copyId, saveTo };
-
-                // 作成したコンテキストメニューをListBox1に設定
-                header.ContextMenu = contextmenu;
-
-                remove.Click += (s, e) =>
-                {
-                    if (s is MenuItem menu && menu.DataContext is EffectElement effect)
-                    {
-                        effect.Parent!.RemoveEffect(effect).Execute();
-                    }
-                };
-                copyId.Click += async (s, e) =>
-                {
-                    if (s is MenuItem menu && menu.DataContext is EffectElement effect)
-                    {
-                        await Application.Current.Clipboard.SetTextAsync(effect.Id.ToString());
-                    }
-                };
-                saveTo.Click += async (s, e) =>
-                {
-                    if (s is MenuItem menu && menu.DataContext is EffectElement efct)
-                    {
-                        var record = new SaveFileRecord
-                        {
-                            Filters =
-                            {
-                                new(Strings.EffectFile, new string[]{ "befct" })
-                            }
-                        };
-                        if (await AppModel.Current.FileDialog.ShowSaveFileDialogAsync(record) && !await Serialize.SaveToFileAsync(new EffectWrapper(efct), record.FileName))
-                        {
-                            AppModel.Current.Message.Snackbar(Strings.FailedToSave);
-                        }
-                    }
-                };
             }
 
             #endregion
