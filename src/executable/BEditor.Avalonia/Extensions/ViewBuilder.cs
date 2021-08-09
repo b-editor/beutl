@@ -387,58 +387,57 @@ namespace BEditor.Extensions
             {
                 var checkBox = new CheckBox
                 {
-                    Margin = new(0, 0, 5, 0),
+                    DataContext = obj,
                     VerticalAlignment = VerticalAlignment.Center,
+                    VerticalContentAlignment = VerticalAlignment.Center,
                     Content = obj.Name
                 };
 
-                var header = new StackPanel
+                var copyId = new Button
+                {
+                    [ToolTip.TipProperty] = Strings.CopyID,
+                    DataContext = obj,
+                    BorderThickness = default,
+                    Content = new FluentAvalonia.UI.Controls.SymbolIcon
+                    {
+                        Symbol = FluentAvalonia.UI.Controls.Symbol.Copy,
+                        FontSize = 20,
+                    },
+                };
+
+                var save = new Button
+                {
+                    [ToolTip.TipProperty] = Strings.SaveAs,
+                    DataContext = obj,
+                    BorderThickness = default,
+                    Content = new FluentAvalonia.UI.Controls.SymbolIcon
+                    {
+                        Symbol = FluentAvalonia.UI.Controls.Symbol.Save,
+                        FontSize = 20,
+                    },
+                };
+
+                expander.Header = new StackPanel
                 {
                     Orientation = Orientation.Horizontal,
-                    Background = Brushes.Transparent,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Spacing = 4,
                     Children =
                     {
                         checkBox,
+                        copyId,
+                        save,
                     }
                 };
-                expander.Header = header;
 
                 // event設定
-                checkBox.Click += (s, e) => obj.ChangeIsEnabled((bool)((CheckBox)s!).IsChecked!).Execute();
-
-                // binding設定
-                var isEnablebind = new Binding("IsEnabled")
+                checkBox.Click += (s, e) =>
                 {
-                    Mode = BindingMode.OneWay,
-                    Source = obj
-                };
-                checkBox.Bind(ToggleButton.IsCheckedProperty, isEnablebind);
-
-                // コンテキストメニュー
-                var contextflyout = new FluentAvalonia.UI.Controls.MenuFlyout();
-                var copyId = new FluentAvalonia.UI.Controls.MenuFlyoutItem
-                {
-                    Icon = new FluentAvalonia.UI.Controls.SymbolIcon
+                    if (s is CheckBox check && check.DataContext is EffectElement efct)
                     {
-                        Symbol = FluentAvalonia.UI.Controls.Symbol.Copy
-                    },
-                    Text = Strings.CopyID,
-                    DataContext = obj
+                        efct.ChangeIsEnabled(check.IsChecked ?? false).Execute();
+                    }
                 };
-                var saveTo = new FluentAvalonia.UI.Controls.MenuFlyoutItem
-                {
-                    Icon = new FluentAvalonia.UI.Controls.SymbolIcon
-                    {
-                        Symbol = FluentAvalonia.UI.Controls.Symbol.Save
-                    },
-                    Text = Strings.SaveAs,
-                    DataContext = obj
-                };
-
-                contextflyout.Items = new FluentAvalonia.UI.Controls.MenuFlyoutItem[] { copyId, saveTo };
-
-                // 作成したコンテキストメニューをListBox1に設定
-                header.ContextFlyout = contextflyout;
 
                 copyId.Click += async (s, e) =>
                 {
@@ -447,7 +446,8 @@ namespace BEditor.Extensions
                         await Application.Current.Clipboard.SetTextAsync(effect.Id.ToString());
                     }
                 };
-                saveTo.Click += async (s, e) =>
+
+                save.Click += async (s, e) =>
                 {
                     if (s is StyledElement elm && elm.DataContext is EffectElement efct)
                     {
@@ -464,6 +464,14 @@ namespace BEditor.Extensions
                         }
                     }
                 };
+
+                // binding設定
+                var isEnablebind = new Binding("IsEnabled")
+                {
+                    Mode = BindingMode.OneWay,
+                    Source = obj
+                };
+                checkBox.Bind(ToggleButton.IsCheckedProperty, isEnablebind);
             }
 
             #endregion
@@ -499,95 +507,108 @@ namespace BEditor.Extensions
             {
                 var checkBox = new CheckBox
                 {
-                    Margin = new(0, 0, 5, 0),
+                    DataContext = effect,
                     VerticalAlignment = VerticalAlignment.Center,
+                    VerticalContentAlignment = VerticalAlignment.Center,
                     Content = effect.Name
                 };
                 var upbutton = new Button
                 {
+                    DataContext = effect,
+                    BorderThickness = default,
                     Content = new FluentAvalonia.UI.Controls.SymbolIcon
                     {
                         Symbol = FluentAvalonia.UI.Controls.Symbol.ChevronUp,
+                        FontSize = 20,
                     },
-                    Margin = new Thickness(5, 0, 0, 0),
-                    Background = null,
-                    BorderBrush = null,
-                    VerticalAlignment = VerticalAlignment.Center
                 };
                 var downbutton = new Button
                 {
+                    DataContext = effect,
+                    BorderThickness = default,
                     Content = new FluentAvalonia.UI.Controls.SymbolIcon
                     {
                         Symbol = FluentAvalonia.UI.Controls.Symbol.ChevronDown,
+                        FontSize = 20,
                     },
-                    Margin = new Thickness(0, 0, 5, 0),
-                    Background = null,
-                    BorderBrush = null,
-                    VerticalAlignment = VerticalAlignment.Center
                 };
 
-                var header = new StackPanel
+                var remove = new Button
+                {
+                    [ToolTip.TipProperty] = Strings.Remove,
+                    DataContext = effect,
+                    BorderThickness = default,
+                    Content = new FluentAvalonia.UI.Controls.SymbolIcon
+                    {
+                        Symbol = FluentAvalonia.UI.Controls.Symbol.Delete,
+                        FontSize = 20,
+                    },
+                };
+                
+                var copyId = new Button
+                {
+                    [ToolTip.TipProperty] = Strings.CopyID,
+                    DataContext = effect,
+                    BorderThickness = default,
+                    Content = new FluentAvalonia.UI.Controls.SymbolIcon
+                    {
+                        Symbol = FluentAvalonia.UI.Controls.Symbol.Copy,
+                        FontSize = 20,
+                    },
+                };
+
+                var save = new Button
+                {
+                    [ToolTip.TipProperty] = Strings.SaveAs,
+                    DataContext = effect,
+                    BorderThickness = default,
+                    Content = new FluentAvalonia.UI.Controls.SymbolIcon
+                    {
+                        Symbol = FluentAvalonia.UI.Controls.Symbol.Save,
+                        FontSize = 20,
+                    },
+                };
+
+                expander.Header = new StackPanel
                 {
                     Orientation = Orientation.Horizontal,
-                    Background = Brushes.Transparent,
+                    VerticalAlignment = VerticalAlignment.Center,
+                    Spacing = 4,
                     Children =
                     {
                         checkBox,
                         upbutton,
                         downbutton,
+                        remove,
+                        copyId,
+                        save,
                     }
                 };
-                expander.Header = header;
 
                 // event設定
-                checkBox.Click += (s, e) => effect.ChangeIsEnabled((bool)((CheckBox)s!).IsChecked!).Execute();
-
-                upbutton.Click += (s, e) => effect.BringForward().Execute();
-
-                downbutton.Click += (s, e) => effect.SendBackward().Execute();
-
-                // binding設定
-                var isEnablebind = new Binding("IsEnabled")
+                checkBox.Click += (s, e) =>
                 {
-                    Mode = BindingMode.OneWay,
-                    Source = effect
-                };
-                checkBox.Bind(ToggleButton.IsCheckedProperty, isEnablebind);
-
-                // コンテキストメニュー
-                var contextflyout = new FluentAvalonia.UI.Controls.MenuFlyout();
-                var remove = new FluentAvalonia.UI.Controls.MenuFlyoutItem
-                {
-                    Icon = new FluentAvalonia.UI.Controls.SymbolIcon
+                    if (s is CheckBox check && check.DataContext is EffectElement efct)
                     {
-                        Symbol = FluentAvalonia.UI.Controls.Symbol.Delete
-                    },
-                    Text = Strings.Remove,
-                    DataContext = effect
-                };
-                var copyId = new FluentAvalonia.UI.Controls.MenuFlyoutItem
-                {
-                    Icon = new FluentAvalonia.UI.Controls.SymbolIcon
-                    {
-                        Symbol = FluentAvalonia.UI.Controls.Symbol.Copy
-                    },
-                    Text = Strings.CopyID,
-                    DataContext = effect
-                };
-                var saveTo = new FluentAvalonia.UI.Controls.MenuFlyoutItem
-                {
-                    Icon = new FluentAvalonia.UI.Controls.SymbolIcon
-                    {
-                        Symbol = FluentAvalonia.UI.Controls.Symbol.Save
-                    },
-                    Text = Strings.SaveAs,
-                    DataContext = effect
+                        efct.ChangeIsEnabled(check.IsChecked ?? false).Execute();
+                    }
                 };
 
-                contextflyout.Items = new FluentAvalonia.UI.Controls.MenuFlyoutItem[] { remove, copyId, saveTo };
+                upbutton.Click += (s, e) =>
+                {
+                    if (s is Button btn && btn.DataContext is EffectElement efct)
+                    {
+                        efct.BringForward().Execute();
+                    }
+                };
 
-                // 作成したコンテキストメニューをListBox1に設定
-                header.ContextFlyout = contextflyout;
+                downbutton.Click += (s, e) =>
+                {
+                    if (s is Button btn && btn.DataContext is EffectElement efct)
+                    {
+                        efct.SendBackward().Execute();
+                    }
+                };
 
                 remove.Click += (s, e) =>
                 {
@@ -596,6 +617,7 @@ namespace BEditor.Extensions
                         effect.Parent!.RemoveEffect(effect).Execute();
                     }
                 };
+
                 copyId.Click += async (s, e) =>
                 {
                     if (s is StyledElement elm && elm.DataContext is EffectElement effect)
@@ -603,7 +625,8 @@ namespace BEditor.Extensions
                         await Application.Current.Clipboard.SetTextAsync(effect.Id.ToString());
                     }
                 };
-                saveTo.Click += async (s, e) =>
+
+                save.Click += async (s, e) =>
                 {
                     if (s is StyledElement elm && elm.DataContext is EffectElement efct)
                     {
@@ -620,6 +643,14 @@ namespace BEditor.Extensions
                         }
                     }
                 };
+
+                // binding設定
+                var isEnablebind = new Binding("IsEnabled")
+                {
+                    Mode = BindingMode.OneWay,
+                    Source = effect
+                };
+                checkBox.Bind(ToggleButton.IsCheckedProperty, isEnablebind);
             }
 
             #endregion
