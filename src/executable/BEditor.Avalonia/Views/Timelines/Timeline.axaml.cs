@@ -329,7 +329,7 @@ namespace BEditor.Views.Timelines
                 var ext = Path.GetExtension(file);
                 if (!Scene.InRange(vm.ClickedFrame, vm.ClickedFrame + 180, vm.ClickedLayer))
                 {
-                    mes.Snackbar(Strings.ClipExistsInTheSpecifiedLocation);
+                    mes.Snackbar(Strings.ClipExistsInTheSpecifiedLocation, string.Empty);
                     return;
                 }
 
@@ -338,7 +338,10 @@ namespace BEditor.Views.Timelines
                     var efct = await Serialize.LoadFromFileAsync<EffectWrapper>(file);
                     if (efct?.Effect is not ObjectElement obj)
                     {
-                        mes?.Snackbar(Strings.FailedToLoad);
+                        mes?.Snackbar(
+                            string.Format(Strings.FailedToLoad, file),
+                            string.Empty,
+                            IMessage.IconType.Error);
                         return;
                     }
                     obj.Load();

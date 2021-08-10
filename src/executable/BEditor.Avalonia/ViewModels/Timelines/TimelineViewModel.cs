@@ -56,7 +56,7 @@ namespace BEditor.ViewModels.Timelines
             {
                 if (!Scene.InRange(ClickedFrame, ClickedFrame + 180, ClickedLayer))
                 {
-                    Scene.ServiceProvider?.GetService<IMessage>()?.Snackbar(Strings.ClipExistsInTheSpecifiedLocation);
+                    Scene.ServiceProvider?.GetService<IMessage>()?.Snackbar(Strings.ClipExistsInTheSpecifiedLocation, string.Empty);
 
                     return;
                 }

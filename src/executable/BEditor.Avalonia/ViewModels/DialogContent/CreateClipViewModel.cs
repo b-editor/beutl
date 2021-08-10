@@ -40,7 +40,7 @@ namespace BEditor.ViewModels.DialogContent
                 if (!Scene.Value.InRange(Start.Value, Start.Value + Length.Value, Layer.Value))
                 {
                     Scene.Value.ServiceProvider?.GetService<IMessage>()?
-                        .Snackbar(Strings.ClipExistsInTheSpecifiedLocation);
+                        .Snackbar(Strings.ClipExistsInTheSpecifiedLocation, string.Empty);
 
                     return;
                 }

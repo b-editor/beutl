@@ -70,7 +70,7 @@ namespace BEditor.ViewModels
                         App.AppStatus = Status.Idle;
 
                         var msg = string.Format(Strings.FailedToLoad, Strings.Project);
-                        App.Message.Snackbar(msg);
+                        App.Message.Snackbar(msg, string.Empty, IMessage.IconType.Error);
 
                         BEditor.App.Logger?.LogError(e, msg);
                     }
@@ -184,7 +184,7 @@ namespace BEditor.ViewModels
 
                         if (!timeline.Scene.InRange(clip.Start, clip.End, clip.Layer))
                         {
-                            mes?.Snackbar(Strings.ClipExistsInTheSpecifiedLocation);
+                            mes?.Snackbar(Strings.ClipExistsInTheSpecifiedLocation, string.Empty);
                             BEditor.App.Logger.LogInformation("{0} Start: {0} End: {1} Layer: {2}", Strings.ClipExistsInTheSpecifiedLocation, clip.Start, clip.End, clip.Layer);
 
                             return;
@@ -201,7 +201,7 @@ namespace BEditor.ViewModels
 
                         if (!timeline.Scene.InRange(start, end, layer))
                         {
-                            mes?.Snackbar(Strings.ClipExistsInTheSpecifiedLocation);
+                            mes?.Snackbar(Strings.ClipExistsInTheSpecifiedLocation, string.Empty);
                             return;
                         }
 
@@ -210,7 +210,7 @@ namespace BEditor.ViewModels
                             var efct = await Serialize.LoadFromFileAsync<EffectWrapper>(text);
                             if (efct?.Effect is not ObjectElement obj)
                             {
-                                mes?.Snackbar(Strings.FailedToLoad);
+                                mes?.Snackbar(Strings.FailedToLoad, string.Empty, IMessage.IconType.Error);
                                 return;
                             }
 

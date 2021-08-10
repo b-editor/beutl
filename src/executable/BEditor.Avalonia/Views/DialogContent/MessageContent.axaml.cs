@@ -70,7 +70,9 @@ namespace BEditor.Views.DialogContent
             {
                 IconType.Info => App.Current.FindResource("Info24Regular") as Geometry,
                 IconType.None => null,
-                IconType.Error => (Geometry)App.Current.FindResource("ErrorCircle24Regular")!,
+                IconType.Error => App.Current.FindResource("ErrorCircle24Regular") as Geometry,
+                IconType.Success => App.Current.FindResource("CheckmarkCircle24Regular") as Geometry,
+                IconType.Warning => App.Current.FindResource("Warning24Regular") as Geometry,
                 _ => null,
             };
 

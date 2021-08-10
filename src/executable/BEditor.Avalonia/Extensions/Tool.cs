@@ -118,7 +118,7 @@ namespace BEditor.Extensions
                     app.Project!.CurrentScene.Player.Stop();
                     app.IsNotPlaying = true;
 
-                    app.Message.Snackbar(Strings.An_exception_was_thrown_during_rendering);
+                    app.Message.Snackbar(Strings.An_exception_was_thrown_during_rendering, string.Empty, IMessage.IconType.Warning);
 
                     PreviewIsEnabled = true;
                 }
@@ -126,7 +126,7 @@ namespace BEditor.Extensions
                 {
                     PreviewIsEnabled = false;
 
-                    app.Message.Snackbar(Strings.An_exception_was_thrown_during_rendering_preview);
+                    app.Message.Snackbar(Strings.An_exception_was_thrown_during_rendering_preview, string.Empty, IMessage.IconType.Warning);
 
                     await Task.Delay(TimeSpan.FromSeconds(5));
 

@@ -95,7 +95,7 @@ namespace BEditor.ViewModels.Dialogs
                         }
                         else
                         {
-                            msg.Snackbar(Strings.ThePackageHasBeenCreated);
+                            msg.Snackbar(Strings.ThePackageHasBeenCreated, string.Empty, IMessage.IconType.Success);
                         }
                     }
                     catch (Exception e)

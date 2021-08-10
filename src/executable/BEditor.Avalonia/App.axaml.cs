@@ -169,7 +169,10 @@ namespace BEditor
 
         private void CurrentDomain_UnhandledException(object sender, UnhandledExceptionEventArgs e)
         {
-            AppModel.Current.Message.Snackbar(string.Format(Strings.ExceptionWasThrown, e.ExceptionObject.ToString()));
+            AppModel.Current.Message.Snackbar(
+                string.Format(Strings.ExceptionWasThrown, e.ExceptionObject.ToString()),
+                string.Empty,
+                icon: IMessage.IconType.Error);
 
             AppModel.Current.User?.Save(Path.Combine(ServicesLocator.GetUserFolder(), "token"));
             Logger?.LogError(e.ExceptionObject as Exception, "UnhandledException was thrown.");

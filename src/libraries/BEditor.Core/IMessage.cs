@@ -5,6 +5,7 @@
 // This software may be modified and distributed under the terms
 // of the MIT license. See the LICENSE file for details.
 
+using System;
 using System.Threading.Tasks;
 
 namespace BEditor
@@ -20,19 +21,29 @@ namespace BEditor
         public enum IconType
         {
             /// <summary>
-            /// The info.
-            /// </summary>
-            Info = 3075,
-
-            /// <summary>
             /// The none.
             /// </summary>
-            None = 3695,
+            None,
+
+            /// <summary>
+            /// The info.
+            /// </summary>
+            Info,
+
+            /// <summary>
+            /// The success.
+            /// </summary>
+            Success,
+
+            /// <summary>
+            /// The warning.
+            /// </summary>
+            Warning,
 
             /// <summary>
             /// The error.
             /// </summary>
-            Error = 135,
+            Error,
         }
 
         /// <summary>
@@ -85,5 +96,24 @@ namespace BEditor
         /// </summary>
         /// <param name="text">The string to display.</param>
         public void Snackbar(string text = "");
+
+        /// <summary>
+        /// Show the snackbar.
+        /// </summary>
+        /// <param name="text">The text.</param>
+        /// <param name="title">The title.</param>
+        /// <param name="icon">The icon.</param>
+        /// <param name="close">The function invoked when the snack bar is closed.</param>
+        /// <param name="action">The function invoked when the snack bar is clicked.</param>
+        /// <param name="actionName">The name of <paramref name="action"/>.</param>
+        /// <param name="parameter">The command parameter.</param>
+        public void Snackbar(
+            string text,
+            string title,
+            IconType icon = IconType.Info,
+            Action? close = null,
+            Action<object?>? action = null,
+            string actionName = "",
+            object? parameter = null);
     }
 }

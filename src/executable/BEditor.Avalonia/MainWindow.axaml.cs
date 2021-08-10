@@ -32,6 +32,10 @@ namespace BEditor
 {
     public class MainWindow : FluentWindow
     {
+        internal readonly FluentAvalonia.UI.Controls.Primitives.InfoBarPanel _notifications;
+        internal readonly FluentAvalonia.UI.Controls.Primitives.InfoBarPanel _stackNotifications;
+        internal readonly Popup _notificationsPopup;
+
         private class LayoutConfig
         {
             [JsonPropertyName("columnDefinitions")]
@@ -47,20 +51,16 @@ namespace BEditor
             AddHandler(KeyDownEvent, Window_KeyDown, RoutingStrategies.Tunnel);
             vm.New.Subscribe(CreateProjectClick);
 
-            NotificationManager = new(this)
-            {
-                Position = NotificationPosition.BottomLeft,
-            };
-
             InitializeComponent();
 
+            _notifications = this.FindControl<FluentAvalonia.UI.Controls.Primitives.InfoBarPanel>("Notifications");
+            _stackNotifications = this.FindControl<FluentAvalonia.UI.Controls.Primitives.InfoBarPanel>("NotificationsPanel");
+            _notificationsPopup = this.FindControl<Popup>("NotificationsPopup");
             ApplyConfig();
 #if DEBUG
             this.AttachDevTools();
 #endif
         }
-
-        public WindowNotificationManager NotificationManager { get; }
 
         private void Window_KeyDown(object? sender, KeyEventArgs e)
         {
@@ -74,6 +74,11 @@ namespace BEditor
                     kb.Command?.Command.Execute(null);
                 }
             }
+        }
+
+        public void ShowNotifications(object? s, RoutedEventArgs e)
+        {
+            _notificationsPopup.Open();
         }
 
         public void ObjectsPopupOpen(object s, RoutedEventArgs e)

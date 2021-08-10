@@ -160,7 +160,7 @@ namespace BEditor.Extensions
                 if (await AppModel.Current.FileDialog.ShowSaveFileDialogAsync(record)
                 && !await Serialize.SaveToFileAsync(new EffectWrapper(efct), record.FileName))
                 {
-                    AppModel.Current.Message.Snackbar(Strings.FailedToSave);
+                    AppModel.Current.Message.Snackbar(Strings.FailedToSave, string.Empty, IMessage.IconType.Error);
                 }
             });
 
@@ -176,7 +176,7 @@ namespace BEditor.Extensions
                 if (await AppModel.Current.FileDialog.ShowSaveFileDialogAsync(record)
                 && !await Serialize.SaveToFileAsync(new EffectWrapper(obj), record.FileName))
                 {
-                    AppModel.Current.Message.Snackbar(Strings.FailedToSave);
+                    AppModel.Current.Message.Snackbar(Strings.FailedToSave, string.Empty, IMessage.IconType.Error);
                 }
             });
         }

@@ -4124,14 +4124,24 @@
             Represents the type of icon.
             </summary>
         </member>
+        <member name="F:BEditor.IMessage.IconType.None">
+            <summary>
+            The none.
+            </summary>
+        </member>
         <member name="F:BEditor.IMessage.IconType.Info">
             <summary>
             The info.
             </summary>
         </member>
-        <member name="F:BEditor.IMessage.IconType.None">
+        <member name="F:BEditor.IMessage.IconType.Success">
             <summary>
-            The none.
+            The success.
+            </summary>
+        </member>
+        <member name="F:BEditor.IMessage.IconType.Warning">
+            <summary>
+            The warning.
             </summary>
         </member>
         <member name="F:BEditor.IMessage.IconType.Error">
@@ -4188,6 +4198,18 @@
             Show the snackbar.
             </summary>
             <param name="text">The string to display.</param>
+        </member>
+        <member name="M:BEditor.IMessage.Snackbar(System.String,System.String,BEditor.IMessage.IconType,System.Action,System.Action{System.Object},System.String,System.Object)">
+            <summary>
+            Show the snackbar.
+            </summary>
+            <param name="text">The text.</param>
+            <param name="title">The title.</param>
+            <param name="icon">The icon.</param>
+            <param name="close">The function invoked when the snack bar is closed.</param>
+            <param name="action">The function invoked when the snack bar is clicked.</param>
+            <param name="actionName">The name of <paramref name="action"/>.</param>
+            <param name="parameter">The command parameter.</param>
         </member>
         <member name="T:BEditor.IProgressDialog">
             <summary>

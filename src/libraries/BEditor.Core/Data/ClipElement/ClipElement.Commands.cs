@@ -127,7 +127,7 @@ namespace BEditor.Data
             {
                 if (!_clip.Parent.Remove(_clip))
                 {
-                    _clip.ServiceProvider?.GetService<IMessage>()?.Snackbar(Strings.FailedToRemove);
+                    _clip.ServiceProvider?.GetService<IMessage>()?.Snackbar(Strings.FailedToRemove, string.Empty, IMessage.IconType.Error);
                 }
                 else
                 {

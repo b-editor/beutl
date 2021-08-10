@@ -46,7 +46,7 @@ namespace BEditor.ViewModels.DialogContent
                 var msg = AppModel.Current.Message;
                 if (_selectedClip is null)
                 {
-                    msg.Snackbar(Strings.NoClipIsSelected);
+                    msg.Snackbar(Strings.NoClipIsSelected, string.Empty);
                     return;
                 }
 

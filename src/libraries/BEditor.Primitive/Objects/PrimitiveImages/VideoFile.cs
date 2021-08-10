@@ -182,12 +182,12 @@ namespace BEditor.Primitive.Objects
                     }
                     catch (DecoderNotFoundException e)
                     {
-                        mes?.Snackbar(Strings.DecoderNotFound);
+                        mes?.Snackbar(Strings.DecoderNotFound, string.Empty, IMessage.IconType.Warning);
                         ServicesLocator.Current.Logger?.LogError(e, Strings.DecoderNotFound);
                     }
                     catch (Exception ex)
                     {
-                        mes?.Snackbar(string.Format(Strings.FailedToLoad, filename));
+                        mes?.Snackbar(string.Format(Strings.FailedToLoad, filename), string.Empty, IMessage.IconType.Error);
                         ServicesLocator.Current.Logger?.LogError(ex, Strings.DecoderNotFound);
                     }
                 }
