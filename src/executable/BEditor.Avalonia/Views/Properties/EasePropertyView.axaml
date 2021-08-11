@@ -48,7 +48,7 @@
 
         <Button
             Grid.Column="1"
-            Margin="0,8"
+            Margin="0,4"
             VerticalAlignment="Top"
             Click="ShowEasingProperty">
             <ui:PathIcon Data="{StaticResource DataLine24Regular}" />
@@ -66,7 +66,7 @@
         <ToggleButton
             x:Name="togglebutton"
             Grid.Column="2"
-            Margin="0,8"
+            Margin="0,4"
             VerticalAlignment="Top"
             Click="ListToggleClick">
             <ui:PathIcon Data="{StaticResource ChevronUpDown24Regular}" />

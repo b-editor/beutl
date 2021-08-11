@@ -81,13 +81,13 @@ namespace BEditor.Views.Properties
             var num = new NumberBox
             {
                 [AttachmentProperty.IntProperty] = index,
-                Margin = new Thickness(8, 0),
+                Margin = new Thickness(8, 4),
                 HorizontalAlignment = HorizontalAlignment.Stretch,
                 VerticalAlignment = VerticalAlignment.Stretch,
                 Value = _property.Pairs[index].Value,
                 LargeChange = 10,
                 SmallChange = 1,
-                Height = 40,
+                Height = 32,
             };
 
             num.GotFocus += NumericUpDown_GotFocus;

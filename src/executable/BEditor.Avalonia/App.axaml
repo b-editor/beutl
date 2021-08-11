@@ -2,6 +2,7 @@
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:convert="using:BEditor.Converters"
+    xmlns:ui="using:FluentAvalonia.UI.Controls"
     xmlns:titlebar="using:BEditor.Views.CustomTitlebars"
     xmlns:views="using:BEditor.Views"
     xmlns:models="using:BEditor.Models"
@@ -103,6 +104,11 @@
             </Setter>
         </Style>
 
+        <!--https://github.com/amwx/FluentAvalonia/blob/master/FluentAvalonia/Styling/Controls/NumberBoxStyle.axaml#L74-->
+        <Style Selector="TextBox.NumberBoxTextBoxStyle">
+            <Setter Property="Foreground" Value="{DynamicResource TextControlForeground}" />
+        </Style>
+        
         <Style Selector="ContextMenu">
 
             <Style.Resources>
