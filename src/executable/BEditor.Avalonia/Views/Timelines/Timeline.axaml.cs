@@ -96,17 +96,15 @@ namespace BEditor.Views.Timelines
 
             InitializeContextMenu();
 
-            // レイヤー名追加for
+            var borderBrush = App.Current.FindResource("ControlElevationBorderBrush") as IBrush;
             for (var l = 1; l <= 100; l++)
             {
+                // レイヤー名追加
                 var toggle = new ToggleButton
                 {
                     ContextMenu = CreateMenu(l),
-                    HorizontalAlignment = HorizontalAlignment.Stretch,
-                    VerticalAlignment = VerticalAlignment.Top,
-                    HorizontalContentAlignment = HorizontalAlignment.Center,
                     VerticalContentAlignment = VerticalAlignment.Center,
-                    Padding = new(0),
+                    Padding = default,
                     Background = null,
                     BorderThickness = default,
                     Content = l,
@@ -131,6 +129,19 @@ namespace BEditor.Views.Timelines
                 };
 
                 _layerLabel.Children.Add(toggle);
+
+                // レイヤーの線を追加
+                var border = new Border
+                {
+                    Background = borderBrush,
+                    HorizontalAlignment = HorizontalAlignment.Stretch,
+                    VerticalAlignment = VerticalAlignment.Top,
+                    Height = 1,
+                    ZIndex = 2,
+                    Margin = new Thickness(0, l * ConstantSettings.ClipHeight, 0, 0)
+                };
+
+                _timelinePanel.Children.Add(border);
             }
 
             foreach (var l in scene.HideLayer)
