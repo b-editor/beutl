@@ -1,7 +1,9 @@
 ﻿
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.LogicalTree;
 using Avalonia.Media;
+using Avalonia.VisualTree;
 
 using BEditor.Models;
 
@@ -64,7 +66,7 @@ namespace BEditor.Views.Timelines
             }
 
             var height = Bounds.Height;
-            var scroll = (ScrollViewer)Parent!.Parent!;
+            var scroll = this.FindLogicalAncestorOfType<ScrollViewer>();
             var viewport = new Rect(new Point(scroll.Offset.X, scroll.Offset.Y), scroll.Viewport);
             var totalSec = (int)PixelToSec(viewport.Width) + 2;
             var startSec = (int)PixelToSec(viewport.X);

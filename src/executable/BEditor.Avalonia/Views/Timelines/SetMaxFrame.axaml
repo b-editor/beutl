@@ -24,7 +24,7 @@
                 x:Name="Toggle"
                 Click="Toggle_Click"
                 Content="{x:Static props:Strings.UseCurrentFrame}" />
-            
+
         </StackPanel>
 
         <StackPanel
@@ -38,11 +38,11 @@
                 IsDefault="True"
                 Classes="accent"
                 Click="OK_Click"
-                Content="{x:Static props:Strings.OK}" /> 
+                Content="{x:Static props:Strings.OK}" />
             <Button
                 IsCancel="True"
                 Click="Cancel_Click"
-                Content="{x:Static props:Strings.Cancel}" /> 
+                Content="{x:Static props:Strings.Cancel}" />
         </StackPanel>
     </Grid>
 </UserControl>

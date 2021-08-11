@@ -33,8 +33,10 @@ namespace BEditor.Views.Timelines
     {
         private readonly ScrollViewer _scrollLine;
         private readonly ScrollViewer _scrollLabel;
+        private readonly ScrollViewer _scrollScale;
         private readonly StackPanel _layerLabel;
-        internal readonly Grid _timelineGrid;
+        private readonly Panel _timelinePanel;
+        private readonly Panel _scalePanel;
         private readonly ContextMenu _timelineMenu;
         private bool _isFirst = true;
 
@@ -44,11 +46,11 @@ namespace BEditor.Views.Timelines
 
             _scrollLine = this.FindControl<ScrollViewer>("ScrollLine");
             _scrollLabel = this.FindControl<ScrollViewer>("ScrollLabel");
+            _scrollScale = this.FindControl<ScrollViewer>("ScrollScale");
             _layerLabel = this.FindControl<StackPanel>("LayerLabel");
-            _timelineGrid = this.FindControl<Grid>("timelinegrid");
+            _timelinePanel = this.FindControl<Panel>("TimelinePanel");
+            _scalePanel = this.FindControl<Panel>("ScalePanel");
             _timelineMenu = this.FindControl<ContextMenu>("TimelineMenu");
-
-            throw new Exception();
         }
 
         public Timeline(Scene scene)
@@ -85,8 +87,10 @@ namespace BEditor.Views.Timelines
 
             _scrollLine = this.FindControl<ScrollViewer>("ScrollLine");
             _scrollLabel = this.FindControl<ScrollViewer>("ScrollLabel");
+            _scrollScale = this.FindControl<ScrollViewer>("ScrollScale");
             _layerLabel = this.FindControl<StackPanel>("LayerLabel");
-            _timelineGrid = this.FindControl<Grid>("timelinegrid");
+            _timelinePanel = this.FindControl<Panel>("TimelinePanel");
+            _scalePanel = this.FindControl<Panel>("ScalePanel");
             _timelineMenu = this.FindControl<ContextMenu>("TimelineMenu");
             AddAllClip(scene.Datas);
 
@@ -136,20 +140,26 @@ namespace BEditor.Views.Timelines
 
             // AddHandler
             Scene.Datas.CollectionChanged += ClipsCollectionChanged;
-            _scrollLine.ScrollChanged += ScrollLine_ScrollChanged1;
+
             _scrollLabel.ScrollChanged += ScrollLabel_ScrollChanged;
-            _timelineGrid.PointerMoved += TimelineGrid_PointerMoved;
-            _timelineGrid.PointerReleased += TimelineGrid_PointerReleased;
-            _timelineGrid.PointerPressed += TimelineGrid_PointerPressed;
-            _timelineGrid.PointerLeave += TimelineGrid_PointerLeave;
-            _timelineGrid.AddHandler(DragDrop.DragOverEvent, TimelineGrid_DragOver);
-            _timelineGrid.AddHandler(DragDrop.DropEvent, TimelineGrid_Drop);
-            DragDrop.SetAllowDrop(_timelineGrid, true);
-
-            // WPF ‚Ì Preview* ƒCƒxƒ“ƒg
+            _scrollLine.ScrollChanged += ScrollLine_ScrollChanged;
             _scrollLine.AddHandler(PointerWheelChangedEvent, ScrollLine_PointerWheel, RoutingStrategies.Tunnel);
+            _scrollScale.AddHandler(PointerWheelChangedEvent, ScrollLine_PointerWheel, RoutingStrategies.Tunnel);
 
-            viewmodel.GetLayerMousePosition = (e) => e.GetPosition(_timelineGrid);
+            _scalePanel.PointerMoved += ScalePanel_PointerMoved;
+            _scalePanel.PointerReleased += ScalePanel_PointerReleased;
+            _scalePanel.PointerPressed += ScalePanel_PointerPressed;
+            _scalePanel.PointerLeave += ScalePanel_PointerLeave;
+
+            _timelinePanel.PointerMoved += TimelinePanel_PointerMoved;
+            _timelinePanel.PointerReleased += TimelinePanel_PointerReleased;
+            _timelinePanel.PointerPressed += TimelinePanel_PointerPressed;
+            _timelinePanel.PointerLeave += TimelinePanel_PointerLeave;
+            _timelinePanel.AddHandler(DragDrop.DragOverEvent, TimelinePanel_DragOver);
+            _timelinePanel.AddHandler(DragDrop.DropEvent, TimelinePanel_Drop);
+            DragDrop.SetAllowDrop(_timelinePanel, true);
+
+            viewmodel.GetLayerMousePosition = (e) => e.GetPosition(_timelinePanel);
             //viewmodel.ResetScale = ResetScale;
             viewmodel.ClipLayerMoveCommand = (clip, layer) =>
             {
@@ -265,12 +275,48 @@ namespace BEditor.Views.Timelines
             }
         }
 
-        private void TimelineGrid_PointerLeave(object? sender, PointerEventArgs e)
+        private void ScalePanel_PointerLeave(object? sender, PointerEventArgs e)
         {
             ViewModel.PointerLeaved();
         }
 
-        private void TimelineGrid_PointerPressed(object? sender, PointerPressedEventArgs e)
+        private void ScalePanel_PointerPressed(object? sender, PointerPressedEventArgs e)
+        {
+            var visual = (IVisual?)sender;
+            var point = e.GetCurrentPoint(visual);
+            var pos = point.Position;
+            var vm = ViewModel;
+
+            vm.ClickedFrame = Scene.ToFrame(pos.X);
+
+            if (point.Properties.IsLeftButtonPressed)
+            {
+                vm.PointerLeftPressed();
+            }
+        }
+
+        private void ScalePanel_PointerReleased(object? sender, PointerReleasedEventArgs e)
+        {
+            var visual = (IVisual?)sender;
+            var point = e.GetCurrentPoint(visual);
+
+            if (point.Properties.PointerUpdateKind is PointerUpdateKind.LeftButtonReleased)
+            {
+                ViewModel.PointerLeftReleased();
+            }
+        }
+
+        private void ScalePanel_PointerMoved(object? sender, PointerEventArgs e)
+        {
+            ViewModel.ScalePointerMoved(e.GetPosition((IVisual?)sender));
+        }
+
+        private void TimelinePanel_PointerLeave(object? sender, PointerEventArgs e)
+        {
+            ViewModel.PointerLeaved();
+        }
+
+        private void TimelinePanel_PointerPressed(object? sender, PointerPressedEventArgs e)
         {
             var visual = (IVisual?)sender;
             var point = e.GetCurrentPoint(visual);
@@ -286,7 +332,7 @@ namespace BEditor.Views.Timelines
             }
         }
 
-        private void TimelineGrid_PointerReleased(object? sender, PointerReleasedEventArgs e)
+        private void TimelinePanel_PointerReleased(object? sender, PointerReleasedEventArgs e)
         {
             var visual = (IVisual?)sender;
             var point = e.GetCurrentPoint(visual);
@@ -297,18 +343,18 @@ namespace BEditor.Views.Timelines
             }
         }
 
-        private void TimelineGrid_PointerMoved(object? sender, PointerEventArgs e)
+        private void TimelinePanel_PointerMoved(object? sender, PointerEventArgs e)
         {
             ViewModel.PointerMoved(e.GetPosition((IVisual?)sender));
         }
 
-        private void TimelineGrid_DragOver(object? sender, DragEventArgs e)
+        private void TimelinePanel_DragOver(object? sender, DragEventArgs e)
         {
             ViewModel.LayerCursor.Value = StandardCursorType.DragCopy;
             e.DragEffects = e.Data.Contains("ObjectMetadata") || (e.Data.GetFileNames()?.Any() ?? false) ? DragDropEffects.Copy : DragDropEffects.None;
         }
 
-        private async void TimelineGrid_Drop(object? sender, DragEventArgs e)
+        private async void TimelinePanel_Drop(object? sender, DragEventArgs e)
         {
             ViewModel.LayerCursor.Value = StandardCursorType.Arrow;
             var vm = ViewModel;
@@ -374,8 +420,20 @@ namespace BEditor.Views.Timelines
             }
         }
 
-        private void ScrollLine_ScrollChanged1(object? sender, ScrollChangedEventArgs e)
+        private void ScrollLine_ScrollChanged(object? sender, ScrollChangedEventArgs e)
         {
+            if (_isFirst)
+            {
+                _scrollLine.Offset = new(Scene.TimeLineHorizonOffset, Scene.TimeLineVerticalOffset);
+                _scrollLabel.Offset = new(0, Scene.TimeLineVerticalOffset);
+
+                _isFirst = false;
+            }
+
+            Scene.TimeLineHorizonOffset = _scrollLine.Offset.X;
+            Scene.TimeLineVerticalOffset = _scrollLine.Offset.Y;
+
+            _scrollScale.Offset = new(_scrollLine.Offset.X, 0);
             _scrollLabel.Offset = _scrollLabel.Offset.WithY(_scrollLine.Offset.Y);
         }
 
@@ -392,7 +450,7 @@ namespace BEditor.Views.Timelines
                 {
                     var item = Scene.Datas[e.NewStartingIndex];
 
-                    _timelineGrid.Children.Add(item.GetCreateClipViewSafe());
+                    _timelinePanel.Children.Add(item.GetCreateClipViewSafe());
                 }
                 else if (e.Action == NotifyCollectionChangedAction.Remove)
                 {
@@ -419,7 +477,7 @@ namespace BEditor.Views.Timelines
             {
                 var clip = clips[i];
 
-                _timelineGrid.Children.Add(clip.GetCreateClipView());
+                _timelinePanel.Children.Add(clip.GetCreateClipView());
             }
         }
 
@@ -437,7 +495,7 @@ namespace BEditor.Views.Timelines
             await dialog.ShowDialog(App.GetMainWindow());
         }
 
-        public void ScrollLine_PointerWheel(object? sender, PointerWheelEventArgs e)
+        private void ScrollLine_PointerWheel(object? sender, PointerWheelEventArgs e)
         {
             if (e.KeyModifiers is KeyModifiers.Control)
             {
@@ -463,19 +521,6 @@ namespace BEditor.Views.Timelines
             }
 
             e.Handled = true;
-        }
-
-        public void ScrollLine_ScrollChanged(object sender, ScrollChangedEventArgs e)
-        {
-            if (_isFirst)
-            {
-                _scrollLine.Offset = new(Scene.TimeLineHorizonOffset, Scene.TimeLineVerticalOffset);
-                _scrollLabel.Offset = new(0, Scene.TimeLineVerticalOffset);
-
-                _isFirst = false;
-            }
-            Scene.TimeLineHorizonOffset = _scrollLine.Offset.X;
-            Scene.TimeLineVerticalOffset = _scrollLine.Offset.Y;
         }
     }
 }

@@ -85,13 +85,22 @@ namespace BEditor.ViewModels.Timelines
 
         public static int ToLayer(double pixel)
         {
-            pixel -= 32;
             return (int)(pixel / ConstantSettings.ClipHeight) + 1;
         }
 
         public static double ToLayerPixel(int layer)
         {
-            return ((layer - 1) * ConstantSettings.ClipHeight) + 32;
+            return (layer - 1) * ConstantSettings.ClipHeight;
+        }
+
+        public void ScalePointerMoved(Point point)
+        {
+            PointerFrame = Scene.ToFrame(point.X);
+
+            if (SeekbarIsMouseDown && KeyframeToggle)
+            {
+                Scene.PreviewFrame = PointerFrame + 1;
+            }
         }
 
         public void PointerMoved(Point point)
