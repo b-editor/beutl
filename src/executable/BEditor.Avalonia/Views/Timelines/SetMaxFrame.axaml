@@ -13,7 +13,7 @@
         <StackPanel>
             <TextBlock Text="{x:Static props:Strings.SetMaximumFrame}" />
 
-            <ui:NumberBox
+            <NumericUpDown
                 HorizontalAlignment="Stretch"
                 IsEnabled="{Binding #Toggle.IsChecked}"
                 Margin="0,8"

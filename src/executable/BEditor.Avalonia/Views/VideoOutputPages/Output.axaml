@@ -34,7 +34,7 @@
             <TextBlock Text="{x:Static prop:Strings.Start}" Classes="SettingsItemHeader"/>
 
             <VirtualizingStackPanel Orientation="Horizontal">
-                <ui:NumberBox
+                <NumericUpDown
                     Value="{CompiledBinding StartFrame.Value, Mode=TwoWay}"
                     Minimum="0"
                     Maximum="{CompiledBinding SelectedScene.Value.TotalFrame.Value, Mode=OneWay}"
@@ -49,7 +49,7 @@
             <TextBlock Text="{x:Static prop:Strings.Length}" Classes="SettingsItemHeader"/>
 
             <VirtualizingStackPanel Orientation="Horizontal">
-                <ui:NumberBox
+                <NumericUpDown
                     Value="{CompiledBinding LengthFrame.Value, Mode=TwoWay}"
                     Minimum="0"
                     Maximum="{CompiledBinding SelectedScene.Value.TotalFrame.Value, Mode=OneWay}"

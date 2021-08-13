@@ -56,9 +56,22 @@
 
         <StackPanel x:Name="stackPanel" Grid.Column="3">
             <StackPanel.Styles>
-                <Style Selector="TextBox">
+                <Style Selector="NumericUpDown">
+                    <Setter Property="Background" Value="White" />
+                    <Setter Property="Margin" Value="8,4" />
+                    <Setter Property="HorizontalAlignment" Value="Stretch" />
+                    <Setter Property="VerticalAlignment" Value="Stretch" />
+                    <Setter Property="Height" Value="32" />
+                    <Setter Property="ShowButtonSpinner" Value="False" />
+                </Style>
+
+                <Style Selector="ButtonSpinner.NumericUpDownButtonSpinnerStyle">
                     <Setter Property="Background" Value="Transparent" />
                     <Setter Property="BorderThickness" Value="0,1,0,0" />
+                </Style>
+
+                <Style Selector="NumericUpDown[IsKeyboardFocusWithin=true] /template/ ButtonSpinner#PART_Spinner">
+                    <Setter Property="BorderThickness" Value="0,2,0,0" />
                 </Style>
             </StackPanel.Styles>
         </StackPanel>

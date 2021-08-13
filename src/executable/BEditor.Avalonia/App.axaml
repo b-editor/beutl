@@ -31,6 +31,7 @@
         <StyleInclude Source="avares://beditor/Controls/FluentUiIcons_Regular.axaml" />
         <StyleInclude Source="avares://beditor/Views/Settings/SettingsResources.axaml" />
         <StyleInclude Source="avares://beditor/Controls/HyperLink.axaml" />
+        <StyleInclude Source="avares://beditor/Controls/NumericUpDown.axaml" />
 
         <Style Selector="Expander">
             <Setter Property="Padding" Value="0" />

@@ -21,8 +21,6 @@ using BEditor.Extensions;
 using BEditor.Models;
 using BEditor.ViewModels.Properties;
 
-using NumberBox = FluentAvalonia.UI.Controls.NumberBox;
-
 namespace BEditor.Views.Properties
 {
     public sealed class EasePropertyView : UserControl, IDisposable
@@ -76,18 +74,12 @@ namespace BEditor.Views.Properties
             Dispatcher.UIThread.InvokeAsync(Dispose);
         }
 
-        private NumberBox CreateNumeric(int index)
+        private NumericUpDown CreateNumeric(int index)
         {
-            var num = new NumberBox
+            var num = new NumericUpDown
             {
                 [AttachmentProperty.IntProperty] = index,
-                Margin = new Thickness(8, 4),
-                HorizontalAlignment = HorizontalAlignment.Stretch,
-                VerticalAlignment = VerticalAlignment.Stretch,
                 Value = _property.Pairs[index].Value,
-                LargeChange = 10,
-                SmallChange = 1,
-                Height = 32,
             };
 
             num.GotFocus += NumericUpDown_GotFocus;
@@ -134,7 +126,7 @@ namespace BEditor.Views.Properties
             }
             else if (e.Action is NotifyCollectionChangedAction.Replace)
             {
-                var num = (NumberBox)_stackPanel.Children[e.NewStartingIndex];
+                var num = (NumericUpDown)_stackPanel.Children[e.NewStartingIndex];
                 num.Value = _property.Pairs[e.NewStartingIndex].Value;
             }
         }
@@ -173,7 +165,7 @@ namespace BEditor.Views.Properties
 
         public void NumericUpDown_GotFocus(object? sender, GotFocusEventArgs e)
         {
-            var num = (NumberBox)sender!;
+            var num = (NumericUpDown)sender!;
 
             var index = num.GetValue(AttachmentProperty.IntProperty);
 
@@ -182,7 +174,7 @@ namespace BEditor.Views.Properties
 
         public void NumericUpDown_LostFocus(object? sender, RoutedEventArgs e)
         {
-            var num = (NumberBox)sender!;
+            var num = (NumericUpDown)sender!;
             var index = num.GetValue(AttachmentProperty.IntProperty);
             var newValue = num.Value;
 
@@ -191,9 +183,9 @@ namespace BEditor.Views.Properties
             _property.ChangeValue(index, (float)newValue).Execute();
         }
 
-        public async void NumericUpDown_ValueChanged(NumberBox sender, FluentAvalonia.UI.Controls.NumberBoxValueChangedEventArgs e)
+        public async void NumericUpDown_ValueChanged(object? sender, NumericUpDownValueChangedEventArgs e)
         {
-            var num = sender;
+            var num = (NumericUpDown)sender!;
             var index = num.GetValue(AttachmentProperty.IntProperty);
 
             _property.Pairs[index] = new(_property.Pairs[index].Key, _property.Clamp((float)e.NewValue));

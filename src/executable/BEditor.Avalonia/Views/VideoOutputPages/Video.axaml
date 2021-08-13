@@ -17,7 +17,7 @@
             <!--ビットレート-->
             <TextBlock Text="Bitrate" Classes="SettingsItemHeader"/>
 
-            <ui:NumberBox
+            <NumericUpDown
                 Value="{CompiledBinding VideoBitrate.Value, Mode=TwoWay}"
                 Classes="SettingsNumericUpDown"/>
 
@@ -26,7 +26,7 @@
             <!--キーフレームレート-->
             <TextBlock Text="KeyframeRate" Classes="SettingsItemHeader"/>
 
-            <ui:NumberBox
+            <NumericUpDown
                 Value="{CompiledBinding KeyframeRate.Value, Mode=TwoWay}"
                 Classes="SettingsNumericUpDown"/>
 

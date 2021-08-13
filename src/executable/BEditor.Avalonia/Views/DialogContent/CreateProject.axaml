@@ -26,7 +26,7 @@
             <StackPanel Margin="8">
                 <TextBlock Text="{x:Static props:Strings.Width}" />
 
-                <ui:NumberBox
+                <NumericUpDown
                     MinWidth="240"
                     Margin="0,8"
                     Value="{Binding Width.Value, Mode=TwoWay}" />
@@ -36,7 +36,7 @@
             <StackPanel Margin="8">
                 <TextBlock Text="{x:Static props:Strings.Height}" />
 
-                <ui:NumberBox
+                <NumericUpDown
                     MinWidth="240"
                     Margin="0,8"
                     Value="{Binding Height.Value, Mode=TwoWay}" />
@@ -47,7 +47,7 @@
                 <TextBlock Text="{x:Static props:Strings.Framerate}" />
 
 
-                <ui:NumberBox
+                <NumericUpDown
                     MinWidth="240"
                     Margin="0,8"
                     Value="{Binding Framerate.Value, Mode=TwoWay}" />
@@ -57,7 +57,7 @@
             <StackPanel Margin="8">
                 <TextBlock Text="{x:Static props:Strings.Samplingrate}" />
 
-                <ui:NumberBox
+                <NumericUpDown
                     MinWidth="240"
                     Margin="0,8"
                     Value="{Binding Samplingrate.Value, Mode=TwoWay}" />

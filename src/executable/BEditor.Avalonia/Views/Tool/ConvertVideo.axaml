@@ -57,7 +57,7 @@
                         <!--横幅-->
                         <TextBlock Text="{x:Static prop:Strings.Width}" Classes="SettingsItemHeader"/>
 
-                        <ui:NumberBox
+                        <NumericUpDown
                             Minimum="1"
                             Value="{CompiledBinding Width.Value, Mode=TwoWay}"
                             Classes="SettingsNumericUpDown"/>
@@ -67,7 +67,7 @@
                         <!--高さ-->
                         <TextBlock Text="{x:Static prop:Strings.Height}" Classes="SettingsItemHeader"/>
 
-                        <ui:NumberBox
+                        <NumericUpDown
                             Minimum="1"
                             Value="{CompiledBinding Height.Value, Mode=TwoWay}"
                             Classes="SettingsNumericUpDown"/>
@@ -77,7 +77,7 @@
                         <!--フレームレート-->
                         <TextBlock Text="{x:Static prop:Strings.Framerate}" Classes="SettingsItemHeader"/>
 
-                        <ui:NumberBox
+                        <NumericUpDown
                             Minimum="1"
                             Value="{CompiledBinding FrameRate.Value, Mode=TwoWay}"
                             Classes="SettingsNumericUpDown"/>
@@ -87,7 +87,7 @@
                         <!--サンプリングレート-->
                         <TextBlock Text="{x:Static prop:Strings.Samplingrate}" Classes="SettingsItemHeader"/>
 
-                        <ui:NumberBox
+                        <NumericUpDown
                             Minimum="1"
                             Value="{CompiledBinding SampleRate.Value, Mode=TwoWay}"
                             Classes="SettingsNumericUpDown"/>
@@ -111,7 +111,7 @@
                         <!--ビットレート-->
                         <TextBlock Text="Bitrate" Classes="SettingsItemHeader"/>
 
-                        <ui:NumberBox
+                        <NumericUpDown
                             Value="{CompiledBinding VideoBitrate.Value, Mode=TwoWay}"
                             Classes="SettingsNumericUpDown"/>
 
@@ -120,7 +120,7 @@
                         <!--キーフレームレート-->
                         <TextBlock Text="KeyframeRate" Classes="SettingsItemHeader"/>
 
-                        <ui:NumberBox
+                        <NumericUpDown
                             Value="{CompiledBinding KeyframeRate.Value, Mode=TwoWay}"
                             Classes="SettingsNumericUpDown"/>
 
@@ -152,7 +152,7 @@
                         <!--ビットレート-->
                         <TextBlock Text="Bitrate" Classes="SettingsItemHeader"/>
 
-                        <ui:NumberBox
+                        <NumericUpDown
                             Value="{CompiledBinding AudioBitrate.Value, Mode=TwoWay}"
                             Classes="SettingsNumericUpDown"/>
 
@@ -306,7 +306,7 @@
                         <TextBlock Text="{x:Static prop:Strings.Start}" Classes="SettingsItemHeader"/>
 
                         <VirtualizingStackPanel Orientation="Horizontal">
-                            <ui:NumberBox
+                            <NumericUpDown
                                 Value="{CompiledBinding StartFrame.Value, Mode=TwoWay}"
                                 Minimum="0"
                                 Maximum="{CompiledBinding TotalFrame.Value, Mode=OneWay}"
@@ -321,7 +321,7 @@
                         <TextBlock Text="{x:Static prop:Strings.Length}" Classes="SettingsItemHeader"/>
 
                         <VirtualizingStackPanel Orientation="Horizontal">
-                            <ui:NumberBox
+                            <NumericUpDown
                                 Value="{CompiledBinding LengthFrame.Value, Mode=TwoWay}"
                                 Minimum="0"
                                 Maximum="{CompiledBinding TotalFrame.Value, Mode=OneWay}"

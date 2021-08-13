@@ -26,7 +26,7 @@
             <StackPanel Margin="8">
                 <TextBlock Text="{x:Static props:Strings.Width}" />
 
-                <ui:NumberBox
+                <NumericUpDown
                     MinWidth="240"
                     Margin="0,8"
                     Value="{CompiledBinding Width.Value, Mode=TwoWay}" />
@@ -36,7 +36,7 @@
             <StackPanel Margin="8">
                 <TextBlock Text="{x:Static props:Strings.Height}" />
 
-                <ui:NumberBox
+                <NumericUpDown
                     MinWidth="240"
                     Margin="0,8"
                     Value="{CompiledBinding Height.Value, Mode=TwoWay}" />

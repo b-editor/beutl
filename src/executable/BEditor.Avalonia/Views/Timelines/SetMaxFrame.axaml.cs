@@ -23,7 +23,7 @@ namespace BEditor.Views.Timelines
         {
             _scene = scene;
             InitializeComponent();
-            var num = this.FindControl<FluentAvalonia.UI.Controls.NumberBox>("Num");
+            var num = this.FindControl<NumericUpDown>("Num");
             num.Value = scene.TotalFrame;
         }
 
@@ -37,7 +37,7 @@ namespace BEditor.Views.Timelines
 
         public void OK_Click(object s, RoutedEventArgs e)
         {
-            var num = this.FindControl<FluentAvalonia.UI.Controls.NumberBox>("Num");
+            var num = this.FindControl<NumericUpDown>("Num");
             _scene.TotalFrame = (Media.Frame)num.Value;
             if (VisualRoot is Window window)
             {
@@ -49,7 +49,7 @@ namespace BEditor.Views.Timelines
         {
             var toggle = this.FindControl<ToggleButton>("Toggle");
             if (!toggle.IsChecked ?? false) return;
-            var num = this.FindControl<FluentAvalonia.UI.Controls.NumberBox>("Num");
+            var num = this.FindControl<NumericUpDown>("Num");
             num.Value = _scene.PreviewFrame;
         }
 

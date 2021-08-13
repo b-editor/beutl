@@ -31,7 +31,7 @@
                 Classes="SettingsItemHeader"
                 Text="スピード" />
 
-            <ui:NumberBox
+            <NumericUpDown
                 Classes="SettingsNumericUpDown"
                 Minimum="0"
                 Value="{CompiledBinding Speed.Value, Mode=TwoWay}" />

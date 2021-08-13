@@ -17,7 +17,7 @@
             <!--ビットレート-->
             <TextBlock Text="Bitrate" Classes="SettingsItemHeader"/>
 
-            <ui:NumberBox Value="{CompiledBinding AudioBitrate.Value, Mode=TwoWay}" Classes="SettingsNumericUpDown"/>
+            <NumericUpDown Value="{CompiledBinding AudioBitrate.Value, Mode=TwoWay}" Classes="SettingsNumericUpDown"/>
 
             <Separator Height="16" />
 

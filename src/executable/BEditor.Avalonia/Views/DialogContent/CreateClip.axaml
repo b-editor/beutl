@@ -106,7 +106,7 @@
                                 FontSize="14"
                                 Text="{x:Static props:Strings.Start}" />
 
-                            <ui:NumberBox
+                            <NumericUpDown
                                 Minimum="1"
                                 Margin="0,8"
                                 Value="{CompiledBinding Start.Value, Mode=TwoWay}" />
@@ -118,7 +118,7 @@
                                 FontSize="14"
                                 Text="{x:Static props:Strings.Length}" />
 
-                            <ui:NumberBox
+                            <NumericUpDown
                                 Minimum="1"
                                 Margin="0,8"
                                 Value="{CompiledBinding Length.Value, Mode=TwoWay}" />
@@ -130,7 +130,7 @@
                                 FontSize="14"
                                 Text="{x:Static props:Strings.Layer}" />
 
-                            <ui:NumberBox
+                            <NumericUpDown
                                 Margin="0,8"
                                 Maximum="100"
                                 Minimum="1"

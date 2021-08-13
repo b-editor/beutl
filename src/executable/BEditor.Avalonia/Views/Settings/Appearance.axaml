@@ -38,7 +38,7 @@
 
             <TextBlock Text="{x:Static resources:Strings.ClipHeight}" Classes="SettingsItemHeader"/>
 
-            <ui:NumberBox
+            <NumericUpDown
                 ToolTip.Tip="{x:Static resources:Strings.TheChangesWillBeAppliedAfterRestarting}"
                 Value="{Binding ClipHeight, Source={x:Static root:Settings.Default}, Mode=TwoWay}"
                 Classes="SettingsNumericUpDown"/>
@@ -47,7 +47,7 @@
 
             <TextBlock Text="{x:Static resources:Strings.WidthOf1Frame}" Classes="SettingsItemHeader"/>
 
-            <ui:NumberBox
+            <NumericUpDown
                 ToolTip.Tip="{x:Static resources:Strings.TheChangesWillBeAppliedAfterRestarting}"
                 Value="{Binding FrameWidth, Source={x:Static root:Settings.Default}, Mode=TwoWay}"
                 Classes="SettingsNumericUpDown"/>

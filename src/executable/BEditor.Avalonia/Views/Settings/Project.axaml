@@ -57,7 +57,7 @@
 
             <TextBlock Text="{x:Static resource:Strings.BackupInterval}" Classes="SettingsItemHeader"/>
 
-            <ui:NumberBox
+            <NumericUpDown
                 Value="{Binding BackUpInterval, Mode=TwoWay, Source={x:Static data:Settings.Default}}"
                 Classes="SettingsNumericUpDown"/>
 
