@@ -1121,6 +1121,15 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Layer Thickness.
+        /// </summary>
+        public static string LayerThickness {
+            get {
+                return ResourceManager.GetString("LayerThickness", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Learn how to use.
         /// </summary>
         public static string LearnHowToUse {
@@ -1288,6 +1297,15 @@ namespace BEditor.Properties {
         public static string NoClipIsSelected {
             get {
                 return ResourceManager.GetString("NoClipIsSelected", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to None.
+        /// </summary>
+        public static string None {
+            get {
+                return ResourceManager.GetString("None", resourceCulture);
             }
         }
         
@@ -1923,6 +1941,15 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Strong.
+        /// </summary>
+        public static string Strong {
+            get {
+                return ResourceManager.GetString("Strong", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Tag.
         /// </summary>
         public static string Tag {
@@ -1973,6 +2000,15 @@ namespace BEditor.Properties {
         public static string ThereIsNoProject {
             get {
                 return ResourceManager.GetString("ThereIsNoProject", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Thin.
+        /// </summary>
+        public static string Thin {
+            get {
+                return ResourceManager.GetString("Thin", resourceCulture);
             }
         }
         

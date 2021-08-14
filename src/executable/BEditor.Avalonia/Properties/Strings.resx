@@ -885,4 +885,16 @@ Do you want to install it now?</value>
   <data name="PrimitiveEasing" xml:space="preserve">
     <value>Primitive (deprecated)</value>
   </data>
+  <data name="LayerThickness" xml:space="preserve">
+    <value>Layer Thickness</value>
+  </data>
+  <data name="Thin" xml:space="preserve">
+    <value>Thin</value>
+  </data>
+  <data name="Strong" xml:space="preserve">
+    <value>Strong</value>
+  </data>
+  <data name="None" xml:space="preserve">
+    <value>None</value>
+  </data>
 </root>

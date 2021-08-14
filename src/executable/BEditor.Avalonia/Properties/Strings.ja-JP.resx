@@ -885,4 +885,16 @@ Vulkan:
   <data name="PrimitiveEasing" xml:space="preserve">
     <value>プリミティブ (非推奨)</value>
   </data>
+  <data name="LayerThickness" xml:space="preserve">
+    <value>レイヤーの線の濃さ</value>
+  </data>
+  <data name="Thin" xml:space="preserve">
+    <value>薄い</value>
+  </data>
+  <data name="Strong" xml:space="preserve">
+    <value>濃い</value>
+  </data>
+  <data name="None" xml:space="preserve">
+    <value>無し</value>
+  </data>
 </root>

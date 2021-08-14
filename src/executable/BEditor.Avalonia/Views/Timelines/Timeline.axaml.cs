@@ -95,8 +95,15 @@ namespace BEditor.Views.Timelines
             AddAllClip(scene.Datas);
 
             InitializeContextMenu();
+            //LayerThinBorderBrush
+            var borderBrush = BEditor.Settings.Default.LayerBorder switch
+            {
+                LayerBorder.None => null,
+                LayerBorder.Strong => App.Current.FindResource("LayerStrongBorderBrush") as IBrush,
+                LayerBorder.Thin => App.Current.FindResource("LayerThinBorderBrush") as IBrush,
+                _ => null,
+            };
 
-            var borderBrush = App.Current.FindResource("ControlElevationBorderBrush") as IBrush;
             for (var l = 1; l <= 100; l++)
             {
                 // ƒŒƒCƒ„[–¼’Ç‰Á
@@ -138,7 +145,8 @@ namespace BEditor.Views.Timelines
                     VerticalAlignment = VerticalAlignment.Top,
                     Height = 1,
                     ZIndex = 2,
-                    Margin = new Thickness(0, l * ConstantSettings.ClipHeight, 0, 0)
+                    Margin = new Thickness(0, l * ConstantSettings.ClipHeight, 0, 0),
+                    Tag = "LayerBorder",
                 };
 
                 _timelinePanel.Children.Add(border);
@@ -504,6 +512,22 @@ namespace BEditor.Views.Timelines
             var ctr = new SetMaxFrame(Scene);
             var dialog = new EmptyDialog(ctr);
             await dialog.ShowDialog(App.GetMainWindow());
+        }
+
+        public void UpdateLayerBorderColor()
+        {
+            var borderBrush = BEditor.Settings.Default.LayerBorder switch
+            {
+                LayerBorder.None => null,
+                LayerBorder.Strong => App.Current.FindResource("LayerStrongBorderBrush") as IBrush,
+                LayerBorder.Thin => App.Current.FindResource("LayerThinBorderBrush") as IBrush,
+                _ => null,
+            };
+
+            foreach (var item in _timelinePanel.Children.OfType<Border>().Where(i => i.Tag is string tag && tag == "LayerBorder"))
+            {
+                item.Background = borderBrush;
+            }
         }
 
         private void ScrollLine_PointerWheel(object? sender, PointerWheelEventArgs e)

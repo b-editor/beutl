@@ -6,6 +6,8 @@ using System.Net.Http;
 using System.Text.Json;
 using System.Threading;
 
+using Avalonia.Threading;
+
 using BEditor.Audio;
 using BEditor.Command;
 using BEditor.Data;
@@ -64,6 +66,24 @@ namespace BEditor.Models
                 .AddSingleton(_ => LoggingFactory)
                 .AddSingleton<Microsoft.Extensions.Logging.ILogger>(_ => LoggingFactory.CreateLogger<IApplication>())
                 .AddSingleton<HttpClient>();
+
+            // 設定が変更されたときにUIに変更を適用
+            Settings.Default.PropertyChanged += Settings_PropertyChanged;
+        }
+
+        private void Settings_PropertyChanged(object sender, PropertyChangedEventArgs e)
+        {
+            Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                if (e.PropertyName == nameof(Settings.LayerBorder) && Project != null)
+                {
+                    foreach (var item in Project.SceneList)
+                    {
+                        var timeline = item.GetCreateTimeline();
+                        timeline.UpdateLayerBorderColor();
+                    }
+                }
+            }, DispatcherPriority.MinValue);
         }
 
         public static AppModel Current { get; } = new();

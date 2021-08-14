@@ -15,6 +15,15 @@ using BEditor.Packaging;
 
 namespace BEditor
 {
+    public enum LayerBorder
+    {
+        None,
+
+        Strong,
+
+        Thin,
+    }
+
     public sealed class Settings : EditingObject
     {
         public static readonly EditingProperty<uint> ClipHeightProperty
@@ -26,11 +35,18 @@ namespace BEditor
             = EditingProperty.Register<uint, Settings>(
                 "FrameWidth",
                 EditingPropertyOptions<uint>.Create().DefaultValue(5).Serialize());
-        
+
         public static readonly EditingProperty<bool> FixSeekbarProperty
             = EditingProperty.Register<bool, Settings>(
                 "FixSeekbar",
                 EditingPropertyOptions<bool>.Create().DefaultValue(true).Serialize());
+
+        public static readonly EditingProperty<LayerBorder> LayerBorderProperty
+            = EditingProperty.Register<LayerBorder, Settings>(
+                "LayerBorder",
+                EditingPropertyOptions<LayerBorder>.Create().DefaultValue(LayerBorder.Strong).Notify(true).Serialize(
+                    (writer, obj) => writer.WriteNumberValue((int)obj),
+                    ctx => (LayerBorder)ctx.Element.GetInt32()));
 
         public static readonly EditingProperty<bool> UseDarkModeProperty
             = EditingProperty.Register<bool, Settings>(
@@ -134,11 +150,17 @@ namespace BEditor
             get => GetValue(FrameWidthProperty);
             set => SetValue(FrameWidthProperty, value);
         }
-        
+
         public bool FixSeekbar
         {
             get => GetValue(FixSeekbarProperty);
             set => SetValue(FixSeekbarProperty, value);
+        }
+        
+        public LayerBorder LayerBorder
+        {
+            get => GetValue(LayerBorderProperty);
+            set => SetValue(LayerBorderProperty, value);
         }
 
         public bool UseDarkMode

@@ -3,6 +3,11 @@
     xmlns:sys="using:System"
     xmlns:sty="using:FluentAvalonia.Styling"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Styles.Resources>
+        <SolidColorBrush x:Key="LayerStrongBorderBrush" Color="#20000000" />
+        <SolidColorBrush x:Key="LayerThinBorderBrush" Color="#0F000000" />
+    </Styles.Resources>
+
     <sty:FluentAvaloniaTheme
         ControlsVersion="2"
         DefaultToUserTheme="False"
