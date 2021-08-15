@@ -1,0 +1,133 @@
+<views:FluentWindow
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:props="using:BEditor.Properties"
+    xmlns:titlebar="using:BEditor.Views.CustomTitlebars"
+    xmlns:views="using:BEditor.Views"
+    xmlns:vm="using:BEditor.ViewModels"
+    xmlns:ui="using:FluentAvalonia.UI.Controls"
+    mc:Ignorable="d" Width="800" Height="450"
+    WindowStartupLocation="CenterScreen"
+    CanResize="False"
+    Classes="fluent"
+    x:Class="BEditor.Views.Dialogs.CreateProject">
+    <Grid RowDefinitions="Auto,*,Auto">
+
+        <TextBlock
+            Grid.Row="0"
+            Margin="16,8"
+            FontSize="24"
+            Text="{x:Static props:Strings.CreateProject}" />
+
+        <ScrollViewer Grid.Row="1" Margin="8">
+            <StackPanel Orientation="Horizontal">
+                <StackPanel.Styles>
+                    <Style Selector="StackPanel.item">
+                        <Setter Property="Margin" Value="8" />
+                        <Setter Property="HorizontalAlignment" Value="Left" />
+                    </Style>
+
+                    <Style Selector="NumericUpDown.style">
+                        <Setter Property="MinWidth" Value="240" />
+                        <Setter Property="Margin" Value="0,8" />
+                    </Style>
+                </StackPanel.Styles>
+                <StackPanel>
+                    <!--  Name  -->
+                    <StackPanel Classes="item">
+                        <TextBlock Text="{x:Static props:Strings.Name}" />
+
+                        <TextBox
+                            MinWidth="240"
+                            Margin="0,8"
+                            Text="{Binding Name.Value, Mode=TwoWay}" />
+                    </StackPanel>
+
+                    <!--  Folder  -->
+                    <StackPanel Classes="item">
+                        <TextBlock Text="{x:Static props:Strings.Location}" />
+
+                        <Grid Margin="0,8">
+                            <TextBox
+                                MinWidth="240"
+                                Text="{Binding Folder.Value, Mode=TwoWay}" />
+
+                            <Button
+                                HorizontalAlignment="Right"
+                                BorderThickness="0"
+                                Command="{Binding OpenFolerDialog}"
+                                Cursor="Arrow">
+                                <ui:SymbolIcon Symbol="OpenFolder" />
+                            </Button>
+                        </Grid>
+                    </StackPanel>
+                </StackPanel>
+
+                <StackPanel Margin="16,0,0,0">
+                    <!--  Width  -->
+                    <StackPanel Classes="item">
+                        <TextBlock Text="{x:Static props:Strings.Width}" />
+
+                        <StackPanel Spacing="16" Orientation="Horizontal">
+                            <NumericUpDown Classes="style" Value="{Binding Width.Value, Mode=TwoWay}" />
+
+                            <ComboBox
+                                MinWidth="120"
+                                VerticalAlignment="Center"
+                                Items="{Binding ImageSizes, Mode=OneTime}"
+                                SelectedItem="{Binding SelectedSize.Value, Mode=TwoWay}">
+                                <ComboBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding Text}" />
+                                    </DataTemplate>
+                                </ComboBox.ItemTemplate>
+                            </ComboBox>
+                        </StackPanel>
+                    </StackPanel>
+
+                    <!--  Height  -->
+                    <StackPanel Classes="item">
+                        <TextBlock Text="{x:Static props:Strings.Height}" />
+
+                        <NumericUpDown Classes="style" Value="{Binding Height.Value, Mode=TwoWay}" />
+                    </StackPanel>
+
+                    <!--  Framerate  -->
+                    <StackPanel Classes="item">
+                        <TextBlock Text="{x:Static props:Strings.Framerate}" />
+
+                        <NumericUpDown Classes="style" Value="{Binding Framerate.Value, Mode=TwoWay}" />
+                    </StackPanel>
+
+                    <!--  Samplingrate  -->
+                    <StackPanel Classes="item">
+                        <TextBlock Text="{x:Static props:Strings.Samplingrate}" />
+
+                        <NumericUpDown Classes="style" Value="{Binding Samplingrate.Value, Mode=TwoWay}" />
+                    </StackPanel>
+                </StackPanel>
+            </StackPanel>
+        </ScrollViewer>
+
+        <StackPanel
+            Grid.Row="2"
+            Margin="8"
+            Spacing="8"
+            VerticalAlignment="Bottom"
+            HorizontalAlignment="Right"
+            Orientation="Horizontal">
+            <Button
+                Classes="accent"
+                Command="{Binding Create, Mode=OneTime}"
+                Content="{x:Static props:Strings.Create}"
+                IsDefault="True"/>
+            <Button
+                Click="CloseClick"
+                Content="{x:Static props:Strings.Cancel}"
+                IsCancel="True"/>
+        </StackPanel>
+
+    </Grid>
+</views:FluentWindow>

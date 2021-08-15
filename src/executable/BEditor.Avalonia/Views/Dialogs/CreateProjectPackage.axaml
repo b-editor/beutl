@@ -101,7 +101,7 @@
 
                     <!--  Folder  -->
                     <StackPanel Margin="8">
-                        <TextBlock Text="{x:Static props:Strings.SaveFolder}" />
+                        <TextBlock Text="{x:Static props:Strings.Location}" />
 
                         <Grid Margin="0,8" HorizontalAlignment="Left">
                             <TextBox

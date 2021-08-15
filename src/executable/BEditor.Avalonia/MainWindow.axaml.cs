@@ -22,9 +22,11 @@ using BEditor.Models;
 using BEditor.Properties;
 using BEditor.ViewModels;
 using BEditor.ViewModels.DialogContent;
+using BEditor.ViewModels.Dialogs;
 using BEditor.Views;
 using BEditor.Views.CustomTitlebars;
 using BEditor.Views.DialogContent;
+using BEditor.Views.Dialogs;
 
 using OpenTK.Audio.OpenAL;
 
@@ -103,6 +105,7 @@ namespace BEditor
             {
                 var viewmodel = new CreateProjectViewModel();
                 var dialog = new CreateProject { DataContext = viewmodel };
+
                 await dialog.ShowDialog(window);
             }
         }

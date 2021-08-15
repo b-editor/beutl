@@ -1,6 +1,7 @@
 ﻿using System;
 using System.IO;
 using System.Linq;
+using System.Reactive.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
@@ -13,10 +14,12 @@ using BEditor.Views.DialogContent;
 
 using Reactive.Bindings;
 
-namespace BEditor.ViewModels.DialogContent
+namespace BEditor.ViewModels.Dialogs
 {
     public class CreateProjectViewModel
     {
+        public record ImageSizeItem(string Text, int Width, int Height);
+
         private const int WIDTH = 1920;
         private const int HEIGHT = 1080;
         private const int FRAMERATE = 30;
@@ -29,7 +32,21 @@ namespace BEditor.ViewModels.DialogContent
                 BEditor.Settings.Default.LastTimeFolder = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
             }
 
+            SelectedSize.Value = ImageSizes[0];
             Folder = new(BEditor.Settings.Default.LastTimeFolder);
+
+            SelectedSize.Subscribe(i =>
+            {
+                if (i.Width < 0 || i.Height < 0) return;
+                Width.Value = (uint)i.Width;
+                Height.Value = (uint)i.Height;
+            });
+
+            Width.Select(_ => Array.Find(ImageSizes, s => s.Width == Width.Value && s.Height == Height.Value) ?? ImageSizes[0])
+                .Subscribe(i => SelectedSize.Value = i!);
+            
+            Height.Select(_ => Array.Find(ImageSizes, s => s.Width == Width.Value && s.Height == Height.Value) ?? ImageSizes[0])
+                .Subscribe(i => SelectedSize.Value = i!);
 
             OpenFolerDialog.Subscribe(OpenFolder);
             Create.Subscribe(CreateCoreAsync);
@@ -48,6 +65,16 @@ namespace BEditor.ViewModels.DialogContent
         public ReactiveProperty<uint> Width { get; } = new(WIDTH);
 
         public ReactiveProperty<uint> Height { get; } = new(HEIGHT);
+
+        public ReactiveProperty<ImageSizeItem> SelectedSize { get; } = new();
+
+        public ImageSizeItem[] ImageSizes { get; } =
+        {
+            new("Custom", -1, -1),
+            new("HD", 1280, 720),
+            new("FHD", 1920, 1080),
+            new("4K", 3840, 2160),
+        };
 
         public ReactiveProperty<uint> Framerate { get; } = new(FRAMERATE);
 

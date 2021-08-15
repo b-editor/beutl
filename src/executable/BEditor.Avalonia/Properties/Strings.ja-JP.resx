@@ -403,9 +403,6 @@
   <data name="SaveAs" xml:space="preserve">
     <value>名前を付けて保存</value>
   </data>
-  <data name="SaveFolder" xml:space="preserve">
-    <value>保存フォルダー</value>
-  </data>
   <data name="Scene" xml:space="preserve">
     <value>シーン</value>
   </data>
@@ -896,5 +893,14 @@ Vulkan:
   </data>
   <data name="None" xml:space="preserve">
     <value>無し</value>
+  </data>
+  <data name="Location" xml:space="preserve">
+    <value>場所</value>
+  </data>
+  <data name="ProjectLocation" xml:space="preserve">
+    <value>プロジェクトの場所</value>
+  </data>
+  <data name="Next" xml:space="preserve">
+    <value>次</value>
   </data>
 </root>

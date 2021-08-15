@@ -6,18 +6,15 @@ using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
 
-using BEditor.ViewModels.DialogContent;
+using BEditor.ViewModels.Dialogs;
 
-namespace BEditor.Views.DialogContent
+namespace BEditor.Views.Dialogs
 {
     public sealed class CreateProject : FluentWindow
     {
         public CreateProject()
         {
             InitializeComponent();
-#if DEBUG
-            this.AttachDevTools();
-#endif
         }
 
         public void CloseClick(object s, RoutedEventArgs e)

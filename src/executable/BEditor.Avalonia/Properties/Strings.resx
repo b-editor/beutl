@@ -304,9 +304,6 @@ Do you want to perform the operation?</value>
   <data name="Samplingrate" xml:space="preserve">
     <value>Samplingrate</value>
   </data>
-  <data name="SaveFolder" xml:space="preserve">
-    <value>Save folder</value>
-  </data>
   <data name="AddScene" xml:space="preserve">
     <value>Add a new scene</value>
   </data>
@@ -896,5 +893,14 @@ Do you want to install it now?</value>
   </data>
   <data name="None" xml:space="preserve">
     <value>None</value>
+  </data>
+  <data name="Location" xml:space="preserve">
+    <value>Location</value>
+  </data>
+  <data name="ProjectLocation" xml:space="preserve">
+    <value>Project Location</value>
+  </data>
+  <data name="Next" xml:space="preserve">
+    <value>Next</value>
   </data>
 </root>

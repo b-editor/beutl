@@ -1166,6 +1166,15 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Location.
+        /// </summary>
+        public static string Location {
+            get {
+                return ResourceManager.GetString("Location", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Log.
         /// </summary>
         public static string Log {
@@ -1279,6 +1288,15 @@ namespace BEditor.Properties {
         public static string NewPassword {
             get {
                 return ResourceManager.GetString("NewPassword", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Next.
+        /// </summary>
+        public static string Next {
+            get {
+                return ResourceManager.GetString("Next", resourceCulture);
             }
         }
         
@@ -1581,6 +1599,15 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Project Location.
+        /// </summary>
+        public static string ProjectLocation {
+            get {
+                return ResourceManager.GetString("ProjectLocation", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Project package.
         /// </summary>
         public static string ProjectPackage {
@@ -1730,15 +1757,6 @@ namespace BEditor.Properties {
         public static string SaveAs {
             get {
                 return ResourceManager.GetString("SaveAs", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Looks up a localized string similar to Save folder.
-        /// </summary>
-        public static string SaveFolder {
-            get {
-                return ResourceManager.GetString("SaveFolder", resourceCulture);
             }
         }
         
