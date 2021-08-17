@@ -23,7 +23,7 @@
         <PackageReference Include="ReactiveProperty" Version="7.12.0" />
         <PackageReference Include="Serilog.Extensions.Logging" Version="3.0.1" />
         <PackageReference Include="Serilog.Sinks.File" Version="5.0.0" />
-        <PackageReference Include="Roslynator.Analyzers" Version="3.2.0" PrivateAssets="all" />
+        <PackageReference Include="Roslynator.Analyzers" Version="3.2.2" PrivateAssets="all" />
     </ItemGroup>
 
     <ItemGroup>
