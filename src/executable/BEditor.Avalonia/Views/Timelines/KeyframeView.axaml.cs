@@ -9,10 +9,12 @@ using Avalonia.Controls.Shapes;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
+using Avalonia.LogicalTree;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 
 using BEditor.Data;
 using BEditor.Data.Property;
@@ -77,13 +79,14 @@ namespace BEditor.Views.Timelines
             _grid.AddHandler(PointerPressedEvent, Grid_PointerRightPressedTunnel, RoutingStrategies.Tunnel);
             _grid.AddHandler(PointerReleasedEvent, Grid_PointerReleasedTunnel, RoutingStrategies.Tunnel);
 
-            viewmodel.AddKeyFrameIcon = (frame, index) =>
+            viewmodel.AddKeyFrameIcon = pos =>
             {
                 Dispatcher.UIThread.InvokeAsync(() =>
                 {
+                    var index = Property.IndexOf(pos);
                     index--;
                     var length = Property.GetRequiredParent<ClipElement>().Length;
-                    var x = Scene.ToPixel((Media.Frame)(frame * length));
+                    var x = Scene.ToPixel((Media.Frame)(pos.GetAbsolutePosition(length)));
                     var icon = new Rectangle
                     {
                         HorizontalAlignment = HorizontalAlignment.Left,
@@ -92,7 +95,8 @@ namespace BEditor.Views.Timelines
                         Width = 8,
                         Height = 8,
                         RenderTransform = new RotateTransform { Angle = 45 },
-                        Fill = (IBrush?)Application.Current.FindResource("TextControlForeground")
+                        Fill = (IBrush?)Application.Current.FindResource("TextControlForeground"),
+                        Tag = pos,
                     };
 
                     Add_Handler_Icon(icon);
@@ -105,14 +109,27 @@ namespace BEditor.Views.Timelines
                     _grid.Children.Insert(index, icon);
                 });
             };
-            viewmodel.RemoveKeyFrameIcon = (index) => Dispatcher.UIThread.InvokeAsync(() => _grid.Children.RemoveAt(index - 1));
+            viewmodel.RemoveKeyFrameIcon = (pos) => Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                foreach (var item in _grid.Children)
+                {
+                    if (item is Shape shape && shape.Tag is PositionInfo pi && pi == pos)
+                    {
+                        _grid.Children.Remove(item);
+                        break;
+                    }
+                }
+            });
             viewmodel.MoveKeyFrameIcon = (from, to) =>
             {
                 Dispatcher.UIThread.InvokeAsync(() =>
                 {
+                    var tag = Property.Enumerate().ElementAt(to);
                     from--;
                     to--;
-                    var icon = _grid.Children[from];
+                    var icon = (Shape)_grid.Children[from];
+                    icon.Tag = tag;
+
                     _grid.Children.RemoveAt(from);
                     _grid.Children.Insert(to, icon);
                 });
@@ -124,14 +141,14 @@ namespace BEditor.Views.Timelines
             {
                 for (var index = 1; index < f.Pairs.Count - 1; index++)
                 {
-                    viewmodel.AddKeyFrameIcon(f.Pairs[index].Key, index);
+                    viewmodel.AddKeyFrameIcon(f.Pairs[index].Position);
                 }
             }
             else if (Property is IKeyframeProperty<Drawing.Color> c)
             {
                 for (var index = 1; index < c.Pairs.Count - 1; index++)
                 {
-                    viewmodel.AddKeyFrameIcon(c.Pairs[index].Key, index);
+                    viewmodel.AddKeyFrameIcon(c.Pairs[index].Position);
                 }
             }
 
@@ -155,7 +172,7 @@ namespace BEditor.Views.Timelines
         }
 
         private Scene Scene => Property.GetParent<Scene>()!;
-        private IKeyframePropertyViewModel ViewModel => (IKeyframePropertyViewModel)DataContext!;
+        private KeyframeViewModel ViewModel => (KeyframeViewModel)DataContext!;
         private IKeyframeProperty Property => ViewModel.Property;
 
         // サイズ変更
@@ -172,7 +189,7 @@ namespace BEditor.Views.Timelines
 
                         if (_grid.Children[frame] is Shape icon)
                         {
-                            icon.Margin = new Thickness(Scene.ToPixel((Media.Frame)(f.Pairs[frame + 1].Key * length)), 0, 0, 0);
+                            icon.Margin = new Thickness(Scene.ToPixel((Media.Frame)f.Pairs[frame + 1].Position.GetAbsolutePosition(length)), 0, 0, 0);
                         }
                     }
                 }
@@ -185,7 +202,7 @@ namespace BEditor.Views.Timelines
 
                         if (_grid.Children[frame] is Shape icon)
                         {
-                            icon.Margin = new Thickness(Scene.ToPixel((Media.Frame)(c.Pairs[frame + 1].Key * length)), 0, 0, 0);
+                            icon.Margin = new Thickness(Scene.ToPixel((Media.Frame)c.Pairs[frame + 1].Position.GetAbsolutePosition(length)), 0, 0, 0);
                         }
                     }
                 }
@@ -216,19 +233,19 @@ namespace BEditor.Views.Timelines
         // キーフレームを追加
         public void Add_Frame(object sender, RoutedEventArgs e)
         {
-            ViewModel.AddKeyFrameCommand.Execute(_startpos / (float)Property.GetRequiredParent<ClipElement>().Length);
+            ViewModel.AddKeyFrameCommand.Execute(new(_startpos / (float)Property.GetRequiredParent<ClipElement>().Length, PositionType.Percentage));
         }
 
         // キーフレームを削除
         private void Remove_Click(object? sender, RoutedEventArgs e)
         {
-            if (Property is IKeyframeProperty<float> f)
+            if (sender is MenuItem menu)
             {
-                ViewModel.RemoveKeyFrameCommand.Execute(f.Pairs[_grid.Children.IndexOf(_select) + 1].Key);
-            }
-            else if (Property is IKeyframeProperty<Drawing.Color> c)
-            {
-                ViewModel.RemoveKeyFrameCommand.Execute(c.Pairs[_grid.Children.IndexOf(_select) + 1].Key);
+                var shape = menu.FindLogicalAncestorOfType<Shape>();
+                if (shape.Tag is PositionInfo pos)
+                {
+                    ViewModel.RemoveKeyFrameCommand.Execute(pos);
+                }
             }
         }
 
@@ -316,7 +333,7 @@ namespace BEditor.Views.Timelines
                 // インデックス
                 var idx = _grid.Children.IndexOf(_select);
                 // クリップからのフレーム
-                var frame = Scene.ToFrame(_select.Margin.Left) / Property.GetRequiredParent<ClipElement>().Length;
+                var frame = Scene.ToFrame(_select.Margin.Left) / (float)Property.GetRequiredParent<ClipElement>().Length;
 
                 if (frame > 0 && frame < 1)
                 {

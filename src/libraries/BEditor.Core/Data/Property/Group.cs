@@ -23,7 +23,7 @@ namespace BEditor.Data.Property
     public abstract class Group : PropertyElement, IKeyframeProperty, IEasingProperty, IParent<PropertyElement>
     {
         /// <inheritdoc/>
-        event Action<float, int>? IKeyframeProperty.Added
+        event Action<PositionInfo>? IKeyframeProperty.Added
         {
             add
             {
@@ -34,11 +34,12 @@ namespace BEditor.Data.Property
         }
 
         /// <inheritdoc/>
-        event Action<int>? IKeyframeProperty.Removed
+        event Action<PositionInfo>? IKeyframeProperty.Removed
         {
             add
             {
             }
+
             remove
             {
             }
@@ -50,6 +51,7 @@ namespace BEditor.Data.Property
             add
             {
             }
+
             remove
             {
             }
@@ -80,28 +82,40 @@ namespace BEditor.Data.Property
         /// <inheritdoc/>
         EasingFunc? IKeyframeProperty.EasingType => null;
 
-        /// <inheritdoc/>
-        IRecordCommand IKeyframeProperty.AddFrame(float frame)
-        {
-            return RecordCommand.Empty;
-        }
-
-        /// <inheritdoc/>
-        IRecordCommand IKeyframeProperty.MoveFrame(int fromIndex, float toFrame)
-        {
-            return RecordCommand.Empty;
-        }
-
-        /// <inheritdoc/>
-        IRecordCommand IKeyframeProperty.RemoveFrame(float frame)
-        {
-            return RecordCommand.Empty;
-        }
-
         /// <summary>
         /// Gets the <see cref="PropertyElement"/> to display on the GUI.
         /// </summary>
         /// <returns>Returns the <see cref="PropertyElement"/> to display on the GUI.</returns>
         public abstract IEnumerable<PropertyElement> GetProperties();
+
+        /// <inheritdoc/>
+        IRecordCommand IKeyframeProperty.AddFrame(PositionInfo frame)
+        {
+            throw new NotSupportedException();
+        }
+
+        /// <inheritdoc/>
+        IEnumerable<PositionInfo> IKeyframeProperty.Enumerate()
+        {
+            throw new NotSupportedException();
+        }
+
+        /// <inheritdoc/>
+        int IKeyframeProperty.IndexOf(PositionInfo position)
+        {
+            throw new NotSupportedException();
+        }
+
+        /// <inheritdoc/>
+        IRecordCommand IKeyframeProperty.MoveFrame(int fromIndex, PositionInfo toFrame)
+        {
+            throw new NotSupportedException();
+        }
+
+        /// <inheritdoc/>
+        IRecordCommand IKeyframeProperty.RemoveFrame(PositionInfo frame)
+        {
+            throw new NotSupportedException();
+        }
     }
 }

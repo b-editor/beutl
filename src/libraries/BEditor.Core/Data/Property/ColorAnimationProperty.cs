@@ -49,21 +49,21 @@ namespace BEditor.Data.Property
             PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
             var color = metadata.DefaultColor;
 
-            Pairs = new() { new(0, color), new(1, color) };
+            Pairs = new() { new(0, color, PositionType.Percentage), new(1, color, PositionType.Percentage) };
             EasingType = metadata.DefaultEase.CreateFunc();
         }
 
         /// <inheritdoc/>
-        public event Action<float, int>? Added;
+        public event Action<PositionInfo>? Added;
 
         /// <inheritdoc/>
-        public event Action<int>? Removed;
+        public event Action<PositionInfo>? Removed;
 
         /// <inheritdoc/>
         public event Action<int, int>? Moved;
 
         /// <inheritdoc/>
-        public ObservableCollection<KeyValuePair<float, Color>> Pairs { get; private set; }
+        public ObservableCollection<KeyFramePair<Color>> Pairs { get; private set; }
 
         /// <summary>
         /// Gets or sets the current <see cref="EasingFunc"/>.
@@ -127,14 +127,14 @@ namespace BEditor.Data.Property
         /// <returns>Returns an eased value.</returns>
         public Color GetValue(Frame frame)
         {
-            (KeyValuePair<float, Color>, KeyValuePair<float, Color>) GetFrame(Frame frame)
+            (KeyFramePair<Color>, KeyFramePair<Color>) GetFrame(Frame frame)
             {
                 var time = frame / (float)Length;
-                if (time >= 0 && time <= Pairs[1].Key)
+                if (time >= 0 && time <= Pairs[1].Position.GetPercentagePosition(Length))
                 {
                     return (Pairs[0], Pairs[1]);
                 }
-                else if (Pairs[^2].Key <= time && time <= 1)
+                else if (Pairs[^2].Position.GetPercentagePosition(Length) <= time && time <= 1)
                 {
                     return (Pairs[^2], Pairs[^1]);
                 }
@@ -143,7 +143,7 @@ namespace BEditor.Data.Property
                     var index = 0;
                     for (var f = 0; f < Pairs.Count - 1; f++)
                     {
-                        if (Pairs[f].Key <= time && time <= Pairs[f + 1].Key)
+                        if (Pairs[f].Position.GetPercentagePosition(Length) <= time && time <= Pairs[f + 1].Position.GetPercentagePosition(Length))
                         {
                             index = f;
                         }
@@ -158,7 +158,7 @@ namespace BEditor.Data.Property
             frame -= this.GetParent<ClipElement>()?.Start ?? default;
 
             var (startPair, endPair) = GetFrame(frame);
-            var (start, end) = (GetRelFrame(startPair.Key), GetRelFrame(endPair.Key));
+            var (start, end) = ((Frame)startPair.Position.GetAbsolutePosition(Length), (Frame)endPair.Position.GetAbsolutePosition(Length));
             var (stval, edval) = (startPair.Value, endPair.Value);
 
             // 相対的な現在フレーム
@@ -179,47 +179,45 @@ namespace BEditor.Data.Property
         /// <summary>
         /// Insert a keyframe at a specific frame.
         /// </summary>
-        /// <param name="frame">Frame to be added.</param>
-        /// <param name="value">Value to be added.</param>
+        /// <param name="item">Item to be added.</param>
         /// <returns>Index of the added <see cref="Pairs"/>.</returns>
-        /// <exception cref="ArgumentOutOfRangeException"><paramref name="frame"/> is outside the scope of the parent element.</exception>
-        public int InsertKeyframe(float frame, Color value)
+        /// <exception cref="ArgumentOutOfRangeException"><paramref name="item"/> is outside the scope of the parent element.</exception>
+        public int InsertKeyframe(KeyFramePair<Color> item)
         {
-            if (frame <= 0 || frame >= 1) throw new ArgumentOutOfRangeException(nameof(frame));
+            var ps = item.Position.GetPercentagePosition(Length);
+            if (ps <= 0 || ps >= 1) throw new ArgumentOutOfRangeException(nameof(item));
 
             for (var i = 0; i < Pairs.Count - 1; i++)
             {
                 var current = Pairs[i];
                 var nextIdx = i + 1;
                 var next = Pairs[nextIdx];
-                if (current.Key <= frame && frame <= next.Key)
+                if (current.Position.GetPercentagePosition(Length) <= ps && ps <= next.Position.GetPercentagePosition(Length))
                 {
-                    Pairs.Insert(nextIdx, new(frame, value));
+                    Pairs.Insert(nextIdx, item);
                     return nextIdx;
                 }
             }
 
-            Pairs.Add(new(frame, value));
+            Pairs.Add(item);
             return Pairs.Count - 1;
         }
 
         /// <summary>
         /// Remove a keyframe of a specific frame.
         /// </summary>
-        /// <param name="frame">Frame to be removed.</param>
-        /// <param name="value">Removed value.</param>
+        /// <param name="item">Item to be removed.</param>
         /// <returns>Index of the removed <see cref="Pairs"/>.</returns>
-        /// <exception cref="ArgumentOutOfRangeException"><paramref name="frame"/> is outside the scope of the parent element.</exception>
-        public int RemoveKeyframe(float frame, out Color value)
+        /// <exception cref="ArgumentOutOfRangeException"><paramref name="item"/> is outside the scope of the parent element.</exception>
+        public Color RemoveKeyframe(PositionInfo item)
         {
-            if (frame <= 0 || frame >= 1) throw new ArgumentOutOfRangeException(nameof(frame));
+            var per = item.GetPercentagePosition(Length);
+            if (per <= 0 || per >= 1) throw new ArgumentOutOfRangeException(nameof(item));
 
-            var item = Pairs.First(i => i.Key == frame);
-            value = item.Value;
-            var index = Pairs.IndexOf(item);
-            Pairs.RemoveAt(index);
+            var pair = Pairs.First(i => i.Position == item);
+            Pairs.Remove(pair);
 
-            return index;
+            return pair.Value;
         }
 
         /// <inheritdoc/>
@@ -232,7 +230,7 @@ namespace BEditor.Data.Property
 
             foreach (var item in Pairs)
             {
-                writer.WriteStringValue($"{item.Key},{item.Value:#argb}");
+                writer.WriteStringValue(item.ToString());
             }
 
             writer.WriteEndArray();
@@ -268,15 +266,15 @@ namespace BEditor.Data.Property
                     .GetProperty("Values")
                     .EnumerateArray()
                     .Select(i => i.GetString()))
-                    .Select(i => new KeyValuePair<float, Color>(i.First, Color.Parse(i.Second))));
+                    .Select(i => new KeyFramePair<Color>(i.First, Color.Parse(i.Second), PositionType.Percentage)));
             }
             else
             {
                 Pairs = new(element.GetProperty(nameof(Pairs))
                     .EnumerateArray()
-                    .Select(i => i.GetString()
-                    ?.Split(',') ?? new string[2])
-                    .Select(i => new KeyValuePair<float, Color>(float.Parse(i[0]), Color.Parse(i[1]))));
+                    .Select(i => (KeyFramePair<Color>?)(KeyFramePair<Color>.TryParse(i.GetString() ?? string.Empty, out var pair) ? pair : null))
+                    .Where(i => i.HasValue)
+                    .Select(i => (KeyFramePair<Color>)i!));
             }
 
             var easing = element.GetProperty("Easing");
@@ -318,23 +316,36 @@ namespace BEditor.Data.Property
 
         /// <inheritdoc/>
         [Pure]
-        public IRecordCommand AddFrame(float frame)
+        public IRecordCommand AddFrame(PositionInfo position)
         {
-            return new AddCommand(this, frame);
+            return new AddCommand(this, position);
         }
 
         /// <inheritdoc/>
         [Pure]
-        public IRecordCommand RemoveFrame(float frame)
+        public IRecordCommand RemoveFrame(PositionInfo position)
         {
-            return new RemoveCommand(this, frame);
+            return new RemoveCommand(this, position);
         }
 
         /// <inheritdoc/>
         [Pure]
-        public IRecordCommand MoveFrame(int fromIndex, float toFrame)
+        public IRecordCommand MoveFrame(int fromIndex, PositionInfo toFrame)
         {
             return new MoveCommand(this, fromIndex, toFrame);
+        }
+
+        /// <inheritdoc/>
+        public int IndexOf(PositionInfo position)
+        {
+            var item = Pairs.First(i => i.Position == position);
+            return Pairs.IndexOf(item);
+        }
+
+        /// <inheritdoc/>
+        public IEnumerable<PositionInfo> Enumerate()
+        {
+            return Pairs.Select(i => i.Position);
         }
 
         /// <inheritdoc/>
@@ -348,11 +359,6 @@ namespace BEditor.Data.Property
         protected override void OnUnload()
         {
             EasingType.Unload();
-        }
-
-        private Frame GetRelFrame(float frame)
-        {
-            return (Frame)(Length * frame);
         }
 
         private sealed class ChangeColorCommand : IRecordCommand
@@ -378,7 +384,7 @@ namespace BEditor.Data.Property
                 if (_property.TryGetTarget(out var target))
                 {
                     var item = target.Pairs[_index];
-                    target.Pairs[_index] = new(item.Key, _new);
+                    target.Pairs[_index] = item.WithValue(_new);
                 }
             }
 
@@ -392,7 +398,7 @@ namespace BEditor.Data.Property
                 if (_property.TryGetTarget(out var target))
                 {
                     var item = target.Pairs[_index];
-                    target.Pairs[_index] = new(item.Key, _old);
+                    target.Pairs[_index] = item.WithValue(_old);
                 }
             }
         }
@@ -445,13 +451,16 @@ namespace BEditor.Data.Property
         private sealed class AddCommand : IRecordCommand
         {
             private readonly WeakReference<ColorAnimationProperty> _property;
-            private readonly float _frame;
+            private readonly KeyFramePair<Color> _item;
 
-            public AddCommand(ColorAnimationProperty property, float frame)
+            public AddCommand(ColorAnimationProperty property, PositionInfo position)
             {
                 _property = new(property ?? throw new ArgumentNullException(nameof(property)));
+                var clip = property.GetRequiredParent<ClipElement>();
 
-                _frame = (frame <= 0 || frame >= 1) ? throw new ArgumentOutOfRangeException(nameof(frame)) : frame;
+                _item = new(
+                    position,
+                    property.GetValue(((int)position.GetAbsolutePosition(clip.Length)) + clip.Start));
             }
 
             public string Name => Strings.AddKeyframe;
@@ -460,10 +469,9 @@ namespace BEditor.Data.Property
             {
                 if (_property.TryGetTarget(out var target))
                 {
-                    var clip = target.GetRequiredParent<ClipElement>();
-                    var index = target.InsertKeyframe(_frame, target.GetValue((int)(_frame * clip.Length) + clip.Start));
+                    target.InsertKeyframe(_item);
 
-                    target.Added?.Invoke(_frame, index);
+                    target.Added?.Invoke(_item.Position);
                 }
             }
 
@@ -476,9 +484,9 @@ namespace BEditor.Data.Property
             {
                 if (_property.TryGetTarget(out var target))
                 {
-                    var index = target.RemoveKeyframe(_frame, out _);
+                    target.RemoveKeyframe(_item.Position);
 
-                    target.Removed?.Invoke(index);
+                    target.Removed?.Invoke(_item.Position);
                 }
             }
         }
@@ -486,14 +494,13 @@ namespace BEditor.Data.Property
         private sealed class RemoveCommand : IRecordCommand
         {
             private readonly WeakReference<ColorAnimationProperty> _property;
-            private readonly float _frame;
+            private readonly PositionInfo _item;
             private Color _value;
 
-            public RemoveCommand(ColorAnimationProperty property, float frame)
+            public RemoveCommand(ColorAnimationProperty property, PositionInfo item)
             {
                 _property = new(property ?? throw new ArgumentNullException(nameof(property)));
-
-                _frame = (frame <= 0 || frame >= 1) ? throw new ArgumentOutOfRangeException(nameof(frame)) : frame;
+                _item = item;
             }
 
             public string Name => Strings.RemoveKeyframe;
@@ -502,9 +509,9 @@ namespace BEditor.Data.Property
             {
                 if (_property.TryGetTarget(out var target))
                 {
-                    var index = target.RemoveKeyframe(_frame, out _value);
+                    _value = target.RemoveKeyframe(_item);
 
-                    target.Removed?.Invoke(index);
+                    target.Removed?.Invoke(_item);
                 }
             }
 
@@ -517,9 +524,9 @@ namespace BEditor.Data.Property
             {
                 if (_property.TryGetTarget(out var target))
                 {
-                    var index = target.InsertKeyframe(_frame, _value);
+                    target.InsertKeyframe(new(_item, _value));
 
-                    target.Added?.Invoke(_frame, index);
+                    target.Added?.Invoke(_item);
                 }
             }
         }
@@ -527,18 +534,18 @@ namespace BEditor.Data.Property
         private sealed class MoveCommand : IRecordCommand
         {
             private readonly WeakReference<ColorAnimationProperty> _property;
-            private readonly float _oldFrame;
-            private readonly float _newFrame;
+            private readonly PositionInfo _oldFrame;
+            private readonly PositionInfo _newFrame;
             private int _fromIndex;
             private int _toIndex;
 
-            public MoveCommand(ColorAnimationProperty property, int fromIndex, float to)
+            public MoveCommand(ColorAnimationProperty property, int fromIndex, PositionInfo to)
             {
                 _property = new(property ?? throw new ArgumentNullException(nameof(property)));
 
                 _fromIndex = (fromIndex < 0 || fromIndex > property.Pairs.Count) ? throw new IndexOutOfRangeException() : fromIndex;
-                _oldFrame = property.Pairs[fromIndex].Key;
-                _newFrame = (to <= 0 || to >= 1) ? throw new ArgumentOutOfRangeException(nameof(to)) : to;
+                _oldFrame = property.Pairs[fromIndex].Position;
+                _newFrame = to;
             }
 
             public string Name => Strings.MoveKeyframe;
@@ -547,8 +554,8 @@ namespace BEditor.Data.Property
             {
                 if (_property.TryGetTarget(out var target))
                 {
-                    target.RemoveKeyframe(_oldFrame, out var value);
-                    _toIndex = target.InsertKeyframe(_newFrame, value);
+                    var value = target.RemoveKeyframe(_oldFrame);
+                    _toIndex = target.InsertKeyframe(new(_newFrame, value));
 
                     target.Moved?.Invoke(_fromIndex, _toIndex);
                 }
@@ -563,8 +570,8 @@ namespace BEditor.Data.Property
             {
                 if (_property.TryGetTarget(out var target))
                 {
-                    target.RemoveKeyframe(_newFrame, out var value);
-                    _fromIndex = target.InsertKeyframe(_oldFrame, value);
+                    var value = target.RemoveKeyframe(_newFrame);
+                    _fromIndex = target.InsertKeyframe(new(_oldFrame, value));
 
                     target.Moved?.Invoke(_toIndex, _fromIndex);
                 }

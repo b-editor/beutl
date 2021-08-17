@@ -1725,23 +1725,21 @@
             <param name="frame">The frame of the value to get.</param>
             <returns>Returns an eased value.</returns>
         </member>
-        <member name="M:BEditor.Data.Property.ColorAnimationProperty.InsertKeyframe(System.Single,BEditor.Drawing.Color)">
+        <member name="M:BEditor.Data.Property.ColorAnimationProperty.InsertKeyframe(BEditor.Data.Property.KeyFramePair{BEditor.Drawing.Color})">
             <summary>
             Insert a keyframe at a specific frame.
             </summary>
-            <param name="frame">Frame to be added.</param>
-            <param name="value">Value to be added.</param>
+            <param name="item">Item to be added.</param>
             <returns>Index of the added <see cref="P:BEditor.Data.Property.ColorAnimationProperty.Pairs"/>.</returns>
-            <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="frame"/> is outside the scope of the parent element.</exception>
+            <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="item"/> is outside the scope of the parent element.</exception>
         </member>
-        <member name="M:BEditor.Data.Property.ColorAnimationProperty.RemoveKeyframe(System.Single,BEditor.Drawing.Color@)">
+        <member name="M:BEditor.Data.Property.ColorAnimationProperty.RemoveKeyframe(BEditor.Data.Property.PositionInfo)">
             <summary>
             Remove a keyframe of a specific frame.
             </summary>
-            <param name="frame">Frame to be removed.</param>
-            <param name="value">Removed value.</param>
+            <param name="item">Item to be removed.</param>
             <returns>Index of the removed <see cref="P:BEditor.Data.Property.ColorAnimationProperty.Pairs"/>.</returns>
-            <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="frame"/> is outside the scope of the parent element.</exception>
+            <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="item"/> is outside the scope of the parent element.</exception>
         </member>
         <member name="M:BEditor.Data.Property.ColorAnimationProperty.GetObjectData(System.Text.Json.Utf8JsonWriter)">
             <inheritdoc/>
@@ -1764,13 +1762,19 @@
             <param name="metadata">New easing function metadata.</param>
             <returns>Created <see cref="T:BEditor.Command.IRecordCommand"/>.</returns>
         </member>
-        <member name="M:BEditor.Data.Property.ColorAnimationProperty.AddFrame(System.Single)">
+        <member name="M:BEditor.Data.Property.ColorAnimationProperty.AddFrame(BEditor.Data.Property.PositionInfo)">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Data.Property.ColorAnimationProperty.RemoveFrame(System.Single)">
+        <member name="M:BEditor.Data.Property.ColorAnimationProperty.RemoveFrame(BEditor.Data.Property.PositionInfo)">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Data.Property.ColorAnimationProperty.MoveFrame(System.Int32,System.Single)">
+        <member name="M:BEditor.Data.Property.ColorAnimationProperty.MoveFrame(System.Int32,BEditor.Data.Property.PositionInfo)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Data.Property.ColorAnimationProperty.IndexOf(BEditor.Data.Property.PositionInfo)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Data.Property.ColorAnimationProperty.Enumerate">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Data.Property.ColorAnimationProperty.OnLoad">
@@ -1991,23 +1995,21 @@
             <param name="value">The value to be clamped.</param>
             <returns>value if min ≤ value ≤ max. -or- min if value &lt; min. -or- max if max &lt; value.</returns>
         </member>
-        <member name="M:BEditor.Data.Property.EaseProperty.InsertKeyframe(System.Single,System.Single)">
+        <member name="M:BEditor.Data.Property.EaseProperty.InsertKeyframe(BEditor.Data.Property.KeyFramePair{System.Single})">
             <summary>
             Insert a keyframe at a specific frame.
             </summary>
-            <param name="frame">Frame to be added.</param>
-            <param name="value">Value to be added.</param>
+            <param name="item">Item to be added.</param>
             <returns>Index of the added <see cref="P:BEditor.Data.Property.EaseProperty.Pairs"/>.</returns>
-            <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="frame"/> is outside the scope of the parent element.</exception>
+            <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="item"/> is outside the scope of the parent element.</exception>
         </member>
-        <member name="M:BEditor.Data.Property.EaseProperty.RemoveKeyframe(System.Single,System.Single@)">
+        <member name="M:BEditor.Data.Property.EaseProperty.RemoveKeyframe(BEditor.Data.Property.PositionInfo)">
             <summary>
             Remove a keyframe of a specific frame.
             </summary>
-            <param name="frame">Frame to be removed.</param>
-            <param name="value">Removed value.</param>
+            <param name="item">Item to be removed.</param>
             <returns>Index of the removed <see cref="P:BEditor.Data.Property.EaseProperty.Pairs"/>.</returns>
-            <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="frame"/> is outside the scope of the parent element.</exception>
+            <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="item"/> is outside the scope of the parent element.</exception>
         </member>
         <member name="M:BEditor.Data.Property.EaseProperty.GetObjectData(System.Text.Json.Utf8JsonWriter)">
             <inheritdoc/>
@@ -2030,13 +2032,19 @@
             <param name="metadata">New easing function metadata.</param>
             <returns>Created <see cref="T:BEditor.Command.IRecordCommand"/>.</returns>
         </member>
-        <member name="M:BEditor.Data.Property.EaseProperty.AddFrame(System.Single)">
+        <member name="M:BEditor.Data.Property.EaseProperty.AddFrame(BEditor.Data.Property.PositionInfo)">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Data.Property.EaseProperty.RemoveFrame(System.Single)">
+        <member name="M:BEditor.Data.Property.EaseProperty.RemoveFrame(BEditor.Data.Property.PositionInfo)">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Data.Property.EaseProperty.MoveFrame(System.Int32,System.Single)">
+        <member name="M:BEditor.Data.Property.EaseProperty.MoveFrame(System.Int32,BEditor.Data.Property.PositionInfo)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Data.Property.EaseProperty.IndexOf(BEditor.Data.Property.PositionInfo)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Data.Property.EaseProperty.Enumerate">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Data.Property.EaseProperty.OnLoad">
@@ -2528,20 +2536,26 @@
         <member name="P:BEditor.Data.Property.Group.BEditor#Data#Property#IKeyframeProperty#EasingType">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Data.Property.Group.BEditor#Data#Property#IKeyframeProperty#AddFrame(System.Single)">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Data.Property.Group.BEditor#Data#Property#IKeyframeProperty#MoveFrame(System.Int32,System.Single)">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Data.Property.Group.BEditor#Data#Property#IKeyframeProperty#RemoveFrame(System.Single)">
-            <inheritdoc/>
-        </member>
         <member name="M:BEditor.Data.Property.Group.GetProperties">
             <summary>
             Gets the <see cref="T:BEditor.Data.Property.PropertyElement"/> to display on the GUI.
             </summary>
             <returns>Returns the <see cref="T:BEditor.Data.Property.PropertyElement"/> to display on the GUI.</returns>
+        </member>
+        <member name="M:BEditor.Data.Property.Group.BEditor#Data#Property#IKeyframeProperty#AddFrame(BEditor.Data.Property.PositionInfo)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Data.Property.Group.BEditor#Data#Property#IKeyframeProperty#Enumerate">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Data.Property.Group.BEditor#Data#Property#IKeyframeProperty#IndexOf(BEditor.Data.Property.PositionInfo)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Data.Property.Group.BEditor#Data#Property#IKeyframeProperty#MoveFrame(System.Int32,BEditor.Data.Property.PositionInfo)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Data.Property.Group.BEditor#Data#Property#IKeyframeProperty#RemoveFrame(BEditor.Data.Property.PositionInfo)">
+            <inheritdoc/>
         </member>
         <member name="T:BEditor.Data.Property.IEasingProperty">
             <summary>
@@ -2559,13 +2573,13 @@
         <member name="E:BEditor.Data.Property.IKeyframeProperty.Added">
             <summary>
             Occurs when a keyframe is added.
-            <para>arg1: The added frame, arg2: The Index of the values.</para>
+            <para>arg1: The added position.</para>
             </summary>
         </member>
         <member name="E:BEditor.Data.Property.IKeyframeProperty.Removed">
             <summary>
             Occurs when a keyframe is removed.
-            <para>obj: The Index of the values.</para>
+            <para>obj: The removed position.</para>
             </summary>
         </member>
         <member name="E:BEditor.Data.Property.IKeyframeProperty.Moved">
@@ -2582,27 +2596,34 @@
         <member name="P:BEditor.Data.Property.IKeyframeProperty.BEditor#Data#IParentSingle{BEditor#Data#Property#Easing#EasingFunc}#Child">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Data.Property.IKeyframeProperty.AddFrame(System.Single)">
+        <member name="M:BEditor.Data.Property.IKeyframeProperty.AddFrame(BEditor.Data.Property.PositionInfo)">
             <summary>
             Create a command to add a keyframe.
             </summary>
-            <param name="frame">Frame to be added.</param>
+            <param name="frame">Position to be added.</param>
             <returns>Created <see cref="T:BEditor.Command.IRecordCommand"/>.</returns>
         </member>
-        <member name="M:BEditor.Data.Property.IKeyframeProperty.RemoveFrame(System.Single)">
+        <member name="M:BEditor.Data.Property.IKeyframeProperty.RemoveFrame(BEditor.Data.Property.PositionInfo)">
             <summary>
             Create a command to remove a keyframe.
             </summary>
-            <param name="frame">Frame to be removed.</param>
+            <param name="frame">Position to be removed.</param>
             <returns>Created <see cref="T:BEditor.Command.IRecordCommand"/>.</returns>
         </member>
-        <member name="M:BEditor.Data.Property.IKeyframeProperty.MoveFrame(System.Int32,System.Single)">
+        <member name="M:BEditor.Data.Property.IKeyframeProperty.MoveFrame(System.Int32,BEditor.Data.Property.PositionInfo)">
             <summary>
             Create a command to move a keyframe.
             </summary>
             <param name="fromIndex">Index of the frame to be moved from.</param>
-            <param name="toFrame">Destination frame.</param>
+            <param name="toFrame">Destination position.</param>
             <returns>Created <see cref="T:BEditor.Command.IRecordCommand"/>.</returns>
+        </member>
+        <member name="M:BEditor.Data.Property.IKeyframeProperty.IndexOf(BEditor.Data.Property.PositionInfo)">
+            <summary>
+            Determines the index of a specific item in the <see cref="T:BEditor.Data.Property.IKeyframeProperty"/>.
+            </summary>
+            <param name="position">The object to locate in the <see cref="T:BEditor.Data.Property.IKeyframeProperty"/>.</param>
+            <returns>The index of item if found in the list; otherwise, -1.</returns>
         </member>
         <member name="T:BEditor.Data.Property.IKeyframeProperty`1">
             <summary>
@@ -2624,6 +2645,25 @@
             <summary>
             Gets or sets the metadata for this <see cref="T:BEditor.Data.Property.IPropertyElement"/>.
             </summary>
+        </member>
+        <member name="T:BEditor.Data.Property.KeyFramePair`1">
+            <summary>
+            Represents a position and value pair.
+            </summary>
+            <typeparam name="T">The type of the value.</typeparam>
+        </member>
+        <member name="P:BEditor.Data.Property.KeyFramePair`1.Value">
+            <summary>
+            Gets or sets the value.
+            </summary>
+        </member>
+        <member name="P:BEditor.Data.Property.KeyFramePair`1.Position">
+            <summary>
+            Gets or sets the position.
+            </summary>
+        </member>
+        <member name="M:BEditor.Data.Property.KeyFramePair`1.ToString">
+            <inheritdoc/>
         </member>
         <member name="T:BEditor.Data.Property.LabelComponent">
             <summary>

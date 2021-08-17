@@ -178,7 +178,7 @@ namespace BEditor.Views.Properties
             var index = num.GetValue(AttachmentProperty.IntProperty);
             var newValue = num.Value;
 
-            _property.Pairs[index] = new(_property.Pairs[index].Key, _oldvalue);
+            _property.Pairs[index] = _property.Pairs[index].WithValue(_oldvalue);
 
             _property.ChangeValue(index, (float)newValue).Execute();
         }
@@ -188,7 +188,7 @@ namespace BEditor.Views.Properties
             var num = (NumericUpDown)sender!;
             var index = num.GetValue(AttachmentProperty.IntProperty);
 
-            _property.Pairs[index] = new(_property.Pairs[index].Key, _property.Clamp((float)e.NewValue));
+            _property.Pairs[index] = _property.Pairs[index].WithValue(_property.Clamp((float)e.NewValue));
 
             await (AppModel.Current.Project!).PreviewUpdateAsync(_property.GetParent<ClipElement>()!);
         }

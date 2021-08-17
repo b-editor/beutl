@@ -230,6 +230,12 @@ namespace BEditor.Drawing
             return HashCode.Combine(R, G, B, A);
         }
 
+        /// <inheritdoc/>
+        public readonly override string ToString()
+        {
+            return ToString("#argb");
+        }
+
         /// <inheritdoc cref="IFormattable.ToString(string?, IFormatProvider?)"/>
         public readonly string ToString(string? format)
         {
