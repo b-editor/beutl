@@ -9,10 +9,12 @@
     x:DataType="vm:KeyframeViewModel"
     Height="{x:Static model:ConstantSettings.ClipHeight}"
     Background="Transparent"
+    HorizontalAlignment="Stretch"
     mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
     x:Class="BEditor.Views.Timelines.KeyframeView">
     <Grid>
         <Grid
+            HorizontalAlignment="Stretch"
             x:Name="grid"
             Background="Transparent"
             PointerLeave="Grid_PointerLeave">

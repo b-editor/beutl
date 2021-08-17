@@ -21,6 +21,7 @@ namespace BEditor.Data
     {
         private static readonly PropertyChangedEventArgs _startArgs = new(nameof(Start));
         private static readonly PropertyChangedEventArgs _endArgs = new(nameof(End));
+        private static readonly PropertyChangedEventArgs _lengthArgs = new(nameof(Length));
         private static readonly PropertyChangedEventArgs _layerArgs = new(nameof(Layer));
         private static readonly PropertyChangedEventArgs _textArgs = new(nameof(LabelText));
         private string? _name;
@@ -81,7 +82,13 @@ namespace BEditor.Data
         public Frame Start
         {
             get => _start;
-            set => SetAndRaise(value, ref _start, _startArgs);
+            set
+            {
+                if (SetAndRaise(value, ref _start, _startArgs))
+                {
+                    RaisePropertyChanged(_lengthArgs);
+                }
+            }
         }
 
         /// <summary>
@@ -90,7 +97,13 @@ namespace BEditor.Data
         public Frame End
         {
             get => _end;
-            set => SetAndRaise(value, ref _end, _endArgs);
+            set
+            {
+                if (SetAndRaise(value, ref _end, _endArgs))
+                {
+                    RaisePropertyChanged(_lengthArgs);
+                }
+            }
         }
 
         /// <summary>

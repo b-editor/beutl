@@ -54,6 +54,7 @@ namespace BEditor.Views.Timelines
         };
         private Media.Frame _startpos;
         private Shape? _select;
+        private Size _recentSize;
 
 #pragma warning disable CS8618
         public KeyframeView()
@@ -91,7 +92,7 @@ namespace BEditor.Views.Timelines
                         Width = 8,
                         Height = 8,
                         RenderTransform = new RotateTransform { Angle = 45 },
-                        Fill = (IBrush?)Application.Current.FindResource("SystemControlForegroundBaseMediumHighBrush")
+                        Fill = (IBrush?)Application.Current.FindResource("TextControlForeground")
                     };
 
                     Add_Handler_Icon(icon);
@@ -126,23 +127,13 @@ namespace BEditor.Views.Timelines
                     viewmodel.AddKeyFrameIcon(f.Pairs[index].Key, index);
                 }
             }
-            else if (Property is IKeyframeProperty<Color> c)
+            else if (Property is IKeyframeProperty<Drawing.Color> c)
             {
                 for (var index = 1; index < c.Pairs.Count - 1; index++)
                 {
                     viewmodel.AddKeyFrameIcon(c.Pairs[index].Key, index);
                 }
             }
-
-            var tmp = Scene.ToPixel(Property.GetParent<ClipElement>()!.Length);
-            if (tmp > 0)
-            {
-                Width = tmp;
-            }
-
-            Scene.ObserveProperty(p => p.TimeLineZoom)
-                .Subscribe(_ => ZoomChange())
-                .AddTo(_disposable);
 
             // StoryBoardを設定
             {
@@ -167,6 +158,43 @@ namespace BEditor.Views.Timelines
         private IKeyframePropertyViewModel ViewModel => (IKeyframePropertyViewModel)DataContext!;
         private IKeyframeProperty Property => ViewModel.Property;
 
+        // サイズ変更
+        protected override Size MeasureOverride(Size availableSize)
+        {
+            if (_recentSize != availableSize)
+            {
+                if (Property is IKeyframeProperty<float> f)
+                {
+                    var length = Scene.ToFrame(availableSize.Width);
+                    for (var frame = 0; frame < f.Pairs.Count - 2; frame++)
+                    {
+                        if (_grid.Children.Count <= frame) break;
+
+                        if (_grid.Children[frame] is Shape icon)
+                        {
+                            icon.Margin = new Thickness(Scene.ToPixel((Media.Frame)(f.Pairs[frame + 1].Key * length)), 0, 0, 0);
+                        }
+                    }
+                }
+                else if (Property is IKeyframeProperty<Drawing.Color> c)
+                {
+                    var length = Scene.ToFrame(availableSize.Width);
+                    for (var frame = 0; frame < c.Pairs.Count - 2; frame++)
+                    {
+                        if (_grid.Children.Count <= frame) break;
+
+                        if (_grid.Children[frame] is Shape icon)
+                        {
+                            icon.Margin = new Thickness(Scene.ToPixel((Media.Frame)(c.Pairs[frame + 1].Key * length)), 0, 0, 0);
+                        }
+                    }
+                }
+                _recentSize = availableSize;
+            }
+
+            return base.MeasureOverride(availableSize);
+        }
+
         // iconのイベントを追加
         private void Add_Handler_Icon(Shape icon)
         {
@@ -185,41 +213,6 @@ namespace BEditor.Views.Timelines
             icon.PointerLeave -= Icon_PointerLeave;
         }
 
-        // タイムラインのスケール変更
-        private void ZoomChange()
-        {
-            if (Property is IKeyframeProperty<float> f)
-            {
-                var length = Property.GetRequiredParent<ClipElement>().Length;
-                for (var frame = 0; frame < f.Pairs.Count - 2; frame++)
-                {
-                    if (_grid.Children.Count <= frame) break;
-
-                    if (_grid.Children[frame] is Shape icon)
-                    {
-                        icon.Margin = new Thickness(Scene.ToPixel((Media.Frame)(f.Pairs[frame + 1].Key * length)), 0, 0, 0);
-                    }
-                }
-
-                Width = Scene.ToPixel(length);
-            }
-            else if (Property is IKeyframeProperty<Color> c)
-            {
-                var length = Property.GetRequiredParent<ClipElement>().Length;
-                for (var frame = 0; frame < c.Pairs.Count - 2; frame++)
-                {
-                    if (_grid.Children.Count <= frame) break;
-
-                    if (_grid.Children[frame] is Shape icon)
-                    {
-                        icon.Margin = new Thickness(Scene.ToPixel((Media.Frame)(c.Pairs[frame + 1].Key * length)), 0, 0, 0);
-                    }
-                }
-
-                Width = Scene.ToPixel(length);
-            }
-        }
-
         // キーフレームを追加
         public void Add_Frame(object sender, RoutedEventArgs e)
         {
@@ -233,7 +226,7 @@ namespace BEditor.Views.Timelines
             {
                 ViewModel.RemoveKeyFrameCommand.Execute(f.Pairs[_grid.Children.IndexOf(_select) + 1].Key);
             }
-            else if (Property is IKeyframeProperty<Color> c)
+            else if (Property is IKeyframeProperty<Drawing.Color> c)
             {
                 ViewModel.RemoveKeyFrameCommand.Execute(c.Pairs[_grid.Children.IndexOf(_select) + 1].Key);
             }
@@ -323,7 +316,7 @@ namespace BEditor.Views.Timelines
                 // インデックス
                 var idx = _grid.Children.IndexOf(_select);
                 // クリップからのフレーム
-                var frame = Scene.ToFrame(_select.Margin.Left) / (float)Property.GetRequiredParent<ClipElement>().Length;
+                var frame = Scene.ToFrame(_select.Margin.Left) / Property.GetRequiredParent<ClipElement>().Length;
 
                 if (frame > 0 && frame < 1)
                 {
