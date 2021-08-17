@@ -75,7 +75,7 @@ namespace BEditor.Data
                 if (Type.GetType(typeName) is var type && type is not null)
                 {
                     var obj = (EffectElement)FormatterServices.GetUninitializedObject(type);
-                    obj.SetObjectData(new DeserializeContext(effect, this));
+                    obj.SetObjectData(context.WithParent(this).WithElement(effect));
 
                     Effect.Add(obj);
                 }

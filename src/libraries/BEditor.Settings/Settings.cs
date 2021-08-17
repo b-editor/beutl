@@ -133,7 +133,7 @@ namespace BEditor
                 Default = new Settings();
                 using var stream = new FileStream(path, FileMode.Open);
                 using var doc = JsonDocument.Parse(stream);
-                Default.SetObjectData(new(doc.RootElement));
+                Default.SetObjectData(new(doc.RootElement, null));
             }
         }
 
@@ -363,7 +363,7 @@ namespace BEditor
                 .Select(i =>
                 {
                     var obj = new PackageSourceInfo();
-                    obj.SetObjectData(new DeserializeContext(i));
+                    obj.SetObjectData(new DeserializeContext(i, null));
                     return obj;
                 })!);
         }

@@ -1305,6 +1305,11 @@
             Defines the <see cref="P:BEditor.Data.Project.DirectoryName"/> property.
             </summary>
         </member>
+        <member name="F:BEditor.Data.Project.ProjectVersionProperty">
+            <summary>
+            Defines the ProjectVersion property.
+            </summary>
+        </member>
         <member name="M:BEditor.Data.Project.#ctor(System.Int32,System.Int32,System.Int32,System.Int32,BEditor.IApplication,System.String)">
             <summary>
             Initializes a new instance of the <see cref="T:BEditor.Data.Project"/> class.

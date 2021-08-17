@@ -89,6 +89,15 @@ namespace BEditor.Data
                 (owner, obj) => owner.DirectoryName = obj,
                 EditingPropertyOptions<string>.Create().Notify(true));
 
+        /// <summary>
+        /// Defines the ProjectVersion property.
+        /// </summary>
+        public static readonly EditingProperty<string> ProjectVersionProperty
+            = EditingProperty.Register<string, Project>(
+                "ProjectVersion",
+                EditingPropertyOptions<string>.Create().DefaultValue(CurrentProjectVersion)!.Serialize()!);
+
+        private const string CurrentProjectVersion = "0.2.0";
         private Scene? _currentScene;
         private string _name;
         private string _dirname;
@@ -506,6 +515,7 @@ namespace BEditor.Data
         public override void GetObjectData(Utf8JsonWriter writer)
         {
             base.GetObjectData(writer);
+            SetValue(ProjectVersionProperty, CurrentProjectVersion);
             writer.WriteNumber(nameof(Framerate), Framerate);
             writer.WriteNumber(nameof(Samplingrate), Samplingrate);
             writer.WriteStartArray("Scenes");
@@ -528,12 +538,13 @@ namespace BEditor.Data
             base.SetObjectData(context);
             Parent = (context.Parent as IApplication) ?? Parent;
 
+            context.Version = GetValue(ProjectVersionProperty);
             Framerate = context.Element.GetProperty(nameof(Framerate)).GetInt32();
             Samplingrate = context.Element.GetProperty(nameof(Samplingrate)).GetInt32();
             SceneList = new(context.Element.GetProperty("Scenes").EnumerateArray().Select(i =>
             {
                 var scene = (Scene)FormatterServices.GetUninitializedObject(typeof(Scene));
-                scene.SetObjectData(new DeserializeContext(i, this));
+                scene.SetObjectData(context.WithElement(i).WithParent(this));
                 return scene;
             }));
         }

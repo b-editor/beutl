@@ -33,7 +33,7 @@ namespace BEditor.Models
             if (Type.GetType(typeName) is var type && type is not null)
             {
                 Effect = (EffectElement)FormatterServices.GetUninitializedObject(type);
-                Effect.SetObjectData(new DeserializeContext(element));
+                Effect.SetObjectData(context);
             }
         }
     }

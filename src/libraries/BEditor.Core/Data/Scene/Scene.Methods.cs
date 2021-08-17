@@ -77,7 +77,7 @@ namespace BEditor.Data
             Datas = new(element.GetProperty("Clips").EnumerateArray().Select(i =>
             {
                 var clip = (ClipElement)FormatterServices.GetUninitializedObject(typeof(ClipElement));
-                clip.SetObjectData(new DeserializeContext(i, this));
+                clip.SetObjectData(context.WithElement(i).WithParent(this));
 
                 return clip;
             }));

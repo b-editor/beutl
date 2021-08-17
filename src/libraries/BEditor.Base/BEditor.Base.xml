@@ -1032,9 +1032,22 @@
             <param name="element">The json element.</param>
             <param name="parent">The parent.</param>
         </member>
+        <member name="M:BEditor.Data.DeserializeContext.#ctor(System.Text.Json.JsonElement,System.Object,System.String)">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Data.DeserializeContext"/> struct.
+            </summary>
+            <param name="element">The json element.</param>
+            <param name="parent">The parent.</param>
+            <param name="version">The version.</param>
+        </member>
         <member name="P:BEditor.Data.DeserializeContext.Element">
             <summary>
             Gets or sets the json element.
+            </summary>
+        </member>
+        <member name="P:BEditor.Data.DeserializeContext.Version">
+            <summary>
+            Gets or sets the version.
             </summary>
         </member>
         <member name="P:BEditor.Data.DeserializeContext.Parent">

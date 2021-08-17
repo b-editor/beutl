@@ -73,7 +73,7 @@ namespace BEditor.Primitive.Objects
         {
             base.SetObjectData(context);
             SelectScene = (SelectorProperty)FormatterServices.GetUninitializedObject(typeof(SelectorProperty));
-            SelectScene.SetObjectData(new(context.Element.GetProperty(nameof(SelectScene)), this));
+            SelectScene.SetObjectData(context.WithElement(context.Element.GetProperty(nameof(SelectScene))).WithParent(this));
         }
 
         /// <inheritdoc/>

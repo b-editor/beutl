@@ -41,12 +41,31 @@ namespace BEditor.Data
         {
             Element = element;
             Parent = parent;
+            Version = string.Empty;
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="DeserializeContext"/> struct.
+        /// </summary>
+        /// <param name="element">The json element.</param>
+        /// <param name="parent">The parent.</param>
+        /// <param name="version">The version.</param>
+        public DeserializeContext(JsonElement element, object? parent, string version)
+        {
+            Element = element;
+            Parent = parent;
+            Version = version;
         }
 
         /// <summary>
         /// Gets or sets the json element.
         /// </summary>
         public JsonElement Element { get; set; }
+
+        /// <summary>
+        /// Gets or sets the version.
+        /// </summary>
+        public string Version { get; set; }
 
         /// <summary>
         /// Gets or sets the parent.

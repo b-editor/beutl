@@ -119,7 +119,7 @@ namespace BEditor.Data.Property
             base.SetObjectData(context);
             var element = context.Element;
             SelectItem = (T)FormatterServices.GetUninitializedObject(typeof(T));
-            SelectItem.SetObjectData(new DeserializeContext(element.GetProperty(nameof(Value)), this));
+            SelectItem.SetObjectData(context.WithElement(element.GetProperty(nameof(Value))).WithParent(this));
             TargetID = element.TryGetProperty(nameof(TargetID), out var bind) && bind.TryGetGuid(out var guid) ? guid : null;
         }
 

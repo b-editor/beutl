@@ -350,7 +350,7 @@ namespace BEditor.Data
                     var list = new TCollection();
                     foreach (var item in ctx.Element.EnumerateArray())
                     {
-                        list.Add(inner.Serializer!.Read(new DeserializeContext(item, list)));
+                        list.Add(inner.Serializer!.Read(ctx.WithElement(item).WithParent(list)));
                     }
 
                     return list;

@@ -289,7 +289,7 @@ namespace BEditor.Data.Property
             else
             {
                 EasingType = (EasingFunc)FormatterServices.GetUninitializedObject(type);
-                EasingType.SetObjectData(new(easing, this));
+                EasingType.SetObjectData(context.WithElement(easing).WithParent(this));
             }
         }
 

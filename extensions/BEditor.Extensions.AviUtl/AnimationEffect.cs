@@ -93,7 +93,7 @@ namespace BEditor.Extensions.AviUtl
             {
                 if (element.TryGetProperty(item.Variable, out var val))
                 {
-                    SetOrAddDictionary(Properties, item.Variable, item.ToProperty(new(val, this)));
+                    SetOrAddDictionary(Properties, item.Variable, item.ToProperty(context.WithElement(val).WithParent(this)));
                 }
                 else
                 {
@@ -195,7 +195,7 @@ namespace BEditor.Extensions.AviUtl
             {
                 if (element.TryGetProperty(item.Variable, out var val))
                 {
-                    AnimationEffect.SetOrAddDictionary(Properties, item.Variable, item.ToProperty(new(val, this)));
+                    AnimationEffect.SetOrAddDictionary(Properties, item.Variable, item.ToProperty(context.WithElement(val).WithParent(this)));
                 }
                 else
                 {
