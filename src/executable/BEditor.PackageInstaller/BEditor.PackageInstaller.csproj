@@ -2,7 +2,7 @@
 
     <ItemGroup>
         <PackageReference Include="Avalonia" Version="0.10.7" />
-        <PackageReference Include="Avalonia.Desktop" Version="0.10.6" />
+        <PackageReference Include="Avalonia.Desktop" Version="0.10.7" />
         <PackageReference Include="Avalonia.Diagnostics" Version="0.10.6" />
         <PackageReference Include="FluentAvaloniaUI" Version="1.1.1" />
         <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Scripting" Version="3.11.0" />
