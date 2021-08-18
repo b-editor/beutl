@@ -117,5 +117,11 @@ namespace BEditor.Data.Property
         {
             throw new NotSupportedException();
         }
+
+        /// <inheritdoc/>
+        IRecordCommand IKeyframeProperty.UpdatePositionInfo(int index, PositionInfo position)
+        {
+            throw new NotSupportedException();
+        }
     }
 }

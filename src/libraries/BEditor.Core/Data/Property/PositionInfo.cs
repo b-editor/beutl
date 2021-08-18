@@ -70,7 +70,7 @@ namespace BEditor.Data.Property
         {
             if (type == Type) return this;
 
-            if (type == PositionType.Absolute)
+            if (Type == PositionType.Absolute)
             {
                 // 割合に変換
                 return new(Value / length, type);

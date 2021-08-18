@@ -1771,6 +1771,9 @@
         <member name="M:BEditor.Data.Property.ColorAnimationProperty.MoveFrame(System.Int32,BEditor.Data.Property.PositionInfo)">
             <inheritdoc/>
         </member>
+        <member name="M:BEditor.Data.Property.ColorAnimationProperty.UpdatePositionInfo(System.Int32,BEditor.Data.Property.PositionInfo)">
+            <inheritdoc/>
+        </member>
         <member name="M:BEditor.Data.Property.ColorAnimationProperty.IndexOf(BEditor.Data.Property.PositionInfo)">
             <inheritdoc/>
         </member>
@@ -2039,6 +2042,9 @@
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Data.Property.EaseProperty.MoveFrame(System.Int32,BEditor.Data.Property.PositionInfo)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Data.Property.EaseProperty.UpdatePositionInfo(System.Int32,BEditor.Data.Property.PositionInfo)">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Data.Property.EaseProperty.IndexOf(BEditor.Data.Property.PositionInfo)">
@@ -2557,6 +2563,9 @@
         <member name="M:BEditor.Data.Property.Group.BEditor#Data#Property#IKeyframeProperty#RemoveFrame(BEditor.Data.Property.PositionInfo)">
             <inheritdoc/>
         </member>
+        <member name="M:BEditor.Data.Property.Group.BEditor#Data#Property#IKeyframeProperty#UpdatePositionInfo(System.Int32,BEditor.Data.Property.PositionInfo)">
+            <inheritdoc/>
+        </member>
         <member name="T:BEditor.Data.Property.IEasingProperty">
             <summary>
             Represents a property that can be used by <see cref="T:BEditor.Data.Property.Easing.EasingFunc"/>.
@@ -2616,6 +2625,14 @@
             </summary>
             <param name="fromIndex">Index of the frame to be moved from.</param>
             <param name="toFrame">Destination position.</param>
+            <returns>Created <see cref="T:BEditor.Command.IRecordCommand"/>.</returns>
+        </member>
+        <member name="M:BEditor.Data.Property.IKeyframeProperty.UpdatePositionInfo(System.Int32,BEditor.Data.Property.PositionInfo)">
+            <summary>
+            Create a command to update the <see cref="T:BEditor.Data.Property.PositionInfo"/> for the specified index.
+            </summary>
+            <param name="index">The index of <see cref="T:BEditor.Data.Property.PositionInfo"/> to update.</param>
+            <param name="position">The new <see cref="T:BEditor.Data.Property.PositionInfo"/>.</param>
             <returns>Created <see cref="T:BEditor.Command.IRecordCommand"/>.</returns>
         </member>
         <member name="M:BEditor.Data.Property.IKeyframeProperty.IndexOf(BEditor.Data.Property.PositionInfo)">
@@ -4994,6 +5011,11 @@
         <member name="P:BEditor.Resources.Strings.UnknownCommand">
             <summary>
               Looks up a localized string similar to Unknown command.
+            </summary>
+        </member>
+        <member name="P:BEditor.Resources.Strings.UpdatePosition">
+            <summary>
+              Looks up a localized string similar to Update the position.
             </summary>
         </member>
         <member name="P:BEditor.Resources.Strings.UpEffect">

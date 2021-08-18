@@ -292,4 +292,7 @@
   <data name="Primitive" xml:space="preserve">
     <value>Primitive</value>
   </data>
+  <data name="UpdatePosition" xml:space="preserve">
+    <value>Update the position</value>
+  </data>
 </root>

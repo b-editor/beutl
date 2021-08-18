@@ -336,6 +336,13 @@ namespace BEditor.Data.Property
         }
 
         /// <inheritdoc/>
+        [Pure]
+        public IRecordCommand UpdatePositionInfo(int index, PositionInfo position)
+        {
+            return new UpdatePositionInfoCommand(this, index, position);
+        }
+
+        /// <inheritdoc/>
         public int IndexOf(PositionInfo position)
         {
             var item = Pairs.First(i => i.Position == position);
@@ -574,6 +581,50 @@ namespace BEditor.Data.Property
                     _fromIndex = target.InsertKeyframe(new(_oldFrame, value));
 
                     target.Moved?.Invoke(_toIndex, _fromIndex);
+                }
+            }
+        }
+
+        private sealed class UpdatePositionInfoCommand : IRecordCommand
+        {
+            private readonly WeakReference<ColorAnimationProperty> _property;
+            private readonly PositionInfo _oldValue;
+            private readonly PositionInfo _newValue;
+            private readonly int _index;
+
+            public UpdatePositionInfoCommand(ColorAnimationProperty property, int index, PositionInfo value)
+            {
+                _property = new(property ?? throw new ArgumentNullException(nameof(property)));
+
+                _index = (index < 0 || index > property.Pairs.Count) ? throw new IndexOutOfRangeException() : index;
+                _oldValue = property.Pairs[index].Position;
+                _newValue = value;
+            }
+
+            public string Name => Strings.UpdatePosition;
+
+            public void Do()
+            {
+                if (_property.TryGetTarget(out var target))
+                {
+                    target.Pairs[_index] = target.Pairs[_index]
+                        .WithPosition(_newValue.Value)
+                        .WithType(_newValue.Type);
+                }
+            }
+
+            public void Redo()
+            {
+                Do();
+            }
+
+            public void Undo()
+            {
+                if (_property.TryGetTarget(out var target))
+                {
+                    target.Pairs[_index] = target.Pairs[_index]
+                        .WithPosition(_oldValue.Value)
+                        .WithType(_oldValue.Type);
                 }
             }
         }

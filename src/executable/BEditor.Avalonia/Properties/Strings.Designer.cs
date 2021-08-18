@@ -1779,6 +1779,24 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Save the position as a frame number.
+        /// </summary>
+        public static string SavePositionAsFrameNumber {
+            get {
+                return ResourceManager.GetString("SavePositionAsFrameNumber", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Save the position as a percentage.
+        /// </summary>
+        public static string SavePositionAsPercentage {
+            get {
+                return ResourceManager.GetString("SavePositionAsPercentage", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Scene.
         /// </summary>
         public static string Scene {

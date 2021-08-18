@@ -69,6 +69,14 @@ namespace BEditor.Data.Property
         public IRecordCommand MoveFrame(int fromIndex, PositionInfo toFrame);
 
         /// <summary>
+        /// Create a command to update the <see cref="PositionInfo"/> for the specified index.
+        /// </summary>
+        /// <param name="index">The index of <see cref="PositionInfo"/> to update.</param>
+        /// <param name="position">The new <see cref="PositionInfo"/>.</param>
+        /// <returns>Created <see cref="IRecordCommand"/>.</returns>
+        public IRecordCommand UpdatePositionInfo(int index, PositionInfo position);
+
+        /// <summary>
         /// Determines the index of a specific item in the <see cref="IKeyframeProperty"/>.
         /// </summary>
         /// <param name="position">The object to locate in the <see cref="IKeyframeProperty"/>.</param>

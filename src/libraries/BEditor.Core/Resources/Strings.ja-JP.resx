@@ -292,4 +292,7 @@
   <data name="Primitive" xml:space="preserve">
     <value>プリミティブ</value>
   </data>
+  <data name="UpdatePosition" xml:space="preserve">
+    <value>位置を更新</value>
+  </data>
 </root>

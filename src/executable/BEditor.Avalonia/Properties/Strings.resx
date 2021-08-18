@@ -903,4 +903,10 @@ Do you want to install it now?</value>
   <data name="Next" xml:space="preserve">
     <value>Next</value>
   </data>
+  <data name="SavePositionAsPercentage" xml:space="preserve">
+    <value>Save the position as a percentage</value>
+  </data>
+  <data name="SavePositionAsFrameNumber" xml:space="preserve">
+    <value>Save the position as a frame number</value>
+  </data>
 </root>

@@ -22,6 +22,7 @@ using BEditor.Extensions;
 using BEditor.Properties;
 using BEditor.ViewModels.Timelines;
 
+using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 
 namespace BEditor.Views.Timelines
@@ -101,10 +102,12 @@ namespace BEditor.Views.Timelines
 
                     Add_Handler_Icon(icon);
 
-                    icon.ContextMenu = new ContextMenu
-                    {
-                        Items = new MenuItem[] { CreateMenu() }
-                    };
+                    //icon.ContextMenu = new ContextMenu
+                    //{
+                    //    Items = new MenuItem[] { CreateMenu() }
+                    //};
+
+                    icon.ContextMenu = CreateContextMenu(pos);
 
                     _grid.Children.Insert(index, icon);
                 });
@@ -234,19 +237,6 @@ namespace BEditor.Views.Timelines
         public void Add_Frame(object sender, RoutedEventArgs e)
         {
             ViewModel.AddKeyFrameCommand.Execute(new(_startpos / (float)Property.GetRequiredParent<ClipElement>().Length, PositionType.Percentage));
-        }
-
-        // キーフレームを削除
-        private void Remove_Click(object? sender, RoutedEventArgs e)
-        {
-            if (sender is MenuItem menu)
-            {
-                var shape = menu.FindLogicalAncestorOfType<Shape>();
-                if (shape.Tag is PositionInfo pos)
-                {
-                    ViewModel.RemoveKeyFrameCommand.Execute(pos);
-                }
-            }
         }
 
         // IconのPointerPressedイベント
@@ -409,21 +399,119 @@ namespace BEditor.Views.Timelines
         }
 
         // Iconのメニューを作成
-        private MenuItem CreateMenu()
+        private ContextMenu CreateContextMenu(PositionInfo position)
         {
+            var context = new ContextMenu();
+
             var removeMenu = new MenuItem
             {
-                Icon = new PathIcon
+                Icon = new FluentAvalonia.UI.Controls.SymbolIcon
                 {
-                    Data = (Geometry)Application.Current.FindResource("Delete20Regular")!,
-                    Margin = new Thickness(5, 0, 5, 0)
+                    Symbol = FluentAvalonia.UI.Controls.Symbol.Delete,
+                    FontSize = 20,
                 },
                 Header = Strings.Remove
             };
 
             removeMenu.Click += Remove_Click;
 
-            return removeMenu;
+            var saveAsFrameNumberMenu = new MenuItem
+            {
+                Header = Strings.SavePositionAsFrameNumber
+            };
+
+            saveAsFrameNumberMenu.Click += SaveAsFrameNumber_Click;
+
+            var saveAsPercentageMenu = new MenuItem
+            {
+                Header = Strings.SavePositionAsPercentage
+            };
+
+            saveAsPercentageMenu.Click += SaveAsPercentage_Click;
+
+            var icon = new FluentAvalonia.UI.Controls.PathIcon
+            {
+                Data = StreamGeometry.Parse("M0,2a2,2 0 1,0 4,0a2,2 0 1,0 -4,0"),
+                UseLayoutRounding = false,
+                VerticalAlignment = VerticalAlignment.Center,
+                HorizontalAlignment = HorizontalAlignment.Center,
+            };
+
+            if (position.Type == PositionType.Percentage)
+            {
+                saveAsPercentageMenu.Icon = icon;
+            }
+            else
+            {
+                saveAsFrameNumberMenu.Icon = icon;
+            }
+
+            saveAsPercentageMenu.Tag = saveAsFrameNumberMenu;
+            saveAsFrameNumberMenu.Tag = saveAsPercentageMenu;
+
+            context.Items = new object[]
+            {
+                removeMenu,
+                saveAsFrameNumberMenu,
+                saveAsPercentageMenu
+            };
+
+            return context;
+        }
+
+        // PositionTypeをPercentageに変更
+        private void SaveAsPercentage_Click(object? sender, RoutedEventArgs e)
+        {
+            if (sender is MenuItem menu && menu.Tag is MenuItem menu1)
+            {
+                var shape = menu.FindLogicalAncestorOfType<Shape>();
+                if (shape.Tag is PositionInfo pos && pos.Type != PositionType.Percentage)
+                {
+                    var index = Property.IndexOf(pos);
+                    pos = pos.WithType(PositionType.Percentage, Property.GetRequiredParent<ClipElement>().Length);
+                    Property.UpdatePositionInfo(index, pos).Execute();
+                    shape.Tag = pos;
+
+                    // アイコン変更
+                    var icon = menu1.Icon;
+                    menu1.Icon = null!;
+                    menu.Icon = icon;
+                }
+            }
+        }
+
+        // PositionTypeをAbsに変更
+        private void SaveAsFrameNumber_Click(object? sender, RoutedEventArgs e)
+        {
+            if (sender is MenuItem menu && menu.Tag is MenuItem menu1)
+            {
+                var shape = menu.FindLogicalAncestorOfType<Shape>();
+                if (shape.Tag is PositionInfo pos && pos.Type != PositionType.Absolute)
+                {
+                    var index = Property.IndexOf(pos);
+                    pos = pos.WithType(PositionType.Absolute, Property.GetRequiredParent<ClipElement>().Length);
+                    Property.UpdatePositionInfo(index, pos).Execute();
+                    shape.Tag = pos;
+
+                    // アイコン変更
+                    var icon = menu1.Icon;
+                    menu1.Icon = null!;
+                    menu.Icon = icon;
+                }
+            }
+        }
+
+        // キーフレームを削除
+        private void Remove_Click(object? sender, RoutedEventArgs e)
+        {
+            if (sender is MenuItem menu)
+            {
+                var shape = menu.FindLogicalAncestorOfType<Shape>();
+                if (shape.Tag is PositionInfo pos)
+                {
+                    ViewModel.RemoveKeyFrameCommand.Execute(pos);
+                }
+            }
         }
 
         private void InitializeComponent()

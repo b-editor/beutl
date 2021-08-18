@@ -601,6 +601,15 @@ namespace BEditor.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Update the position.
+        /// </summary>
+        internal static string UpdatePosition {
+            get {
+                return ResourceManager.GetString("UpdatePosition", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Change the order of the effects (top).
         /// </summary>
         internal static string UpEffect {
