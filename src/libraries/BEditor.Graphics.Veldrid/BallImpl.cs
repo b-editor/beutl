@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace BEditor.Graphics.Veldrid
 {
-    public class BallImpl : DrawableImpl
+    public sealed class BallImpl : DrawableImpl
     {
         private const int Count = 8;
         private readonly float[] _vertices;

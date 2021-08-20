@@ -9,7 +9,7 @@ using BEditor.Packaging;
 
 namespace BEditor.Models.Authentication
 {
-    public class MockPackageUploader : IRemotePackageProvider
+    public sealed class MockPackageUploader : IRemotePackageProvider
     {
         public async ValueTask<IEnumerable<Package>> GetPackagesAsync(Packaging.Authentication auth)
         {
@@ -23,7 +23,7 @@ namespace BEditor.Models.Authentication
         }
     }
 
-    public class MockAuthenticationProvider : IAuthenticationProvider
+    public sealed class MockAuthenticationProvider : IAuthenticationProvider
     {
         private AuthenticationLink? _instance;
 

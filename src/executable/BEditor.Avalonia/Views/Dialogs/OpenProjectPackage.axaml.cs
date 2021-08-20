@@ -9,7 +9,7 @@ using BEditor.ViewModels.Dialogs;
 
 namespace BEditor.Views.Dialogs
 {
-    public partial class OpenProjectPackage : FluentWindow
+    public sealed class OpenProjectPackage : FluentWindow
     {
         public OpenProjectPackage()
         {

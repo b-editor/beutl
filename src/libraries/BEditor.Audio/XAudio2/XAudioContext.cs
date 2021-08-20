@@ -10,7 +10,7 @@ using Vortice.XAudio2;
 
 namespace BEditor.Audio.XAudio2
 {
-    public class XAudioContext
+    public sealed class XAudioContext
     {
         private const uint RPC_E_CHANGED_MODE = 0x80010106;
         private const uint COINIT_MULTITHREADED = 0x0;

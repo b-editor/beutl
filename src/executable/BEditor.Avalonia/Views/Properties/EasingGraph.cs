@@ -8,7 +8,7 @@ using BEditor.Data.Property.Easing;
 
 namespace BEditor.Views.Properties
 {
-    public class EasingGraph : TemplatedControl
+    public sealed class EasingGraph : TemplatedControl
     {
         public static readonly StyledProperty<EasingFunc?> FuncProperty
             = AvaloniaProperty.Register<EasingGraph, EasingFunc?>("Func");

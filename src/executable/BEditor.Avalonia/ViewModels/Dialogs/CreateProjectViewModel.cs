@@ -16,9 +16,9 @@ using Reactive.Bindings;
 
 namespace BEditor.ViewModels.Dialogs
 {
-    public class CreateProjectViewModel
+    public sealed class CreateProjectViewModel
     {
-        public record ImageSizeItem(string Text, int Width, int Height);
+        public sealed record ImageSizeItem(string Text, int Width, int Height);
 
         private const int WIDTH = 1920;
         private const int HEIGHT = 1080;

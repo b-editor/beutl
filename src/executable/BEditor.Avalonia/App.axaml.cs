@@ -38,7 +38,7 @@ using Reactive.Bindings;
 
 namespace BEditor
 {
-    public class App : Application
+    public sealed class App : Application
     {
         public static readonly ILogger Logger = AppModel.Current.LoggingFactory.CreateLogger<App>();
         public static readonly DispatcherTimer BackupTimer = new()

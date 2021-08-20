@@ -12,7 +12,7 @@ namespace BEditor.Graphics
     /// <summary>
     /// Represents an orthographic camera.
     /// </summary>
-    public class OrthographicCamera : Camera
+    public sealed class OrthographicCamera : Camera
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="OrthographicCamera"/> class.

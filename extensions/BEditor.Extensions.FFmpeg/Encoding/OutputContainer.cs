@@ -14,7 +14,7 @@ using VideoCodec = FFMediaToolkit.Encoding.VideoCodec;
 
 namespace BEditor.Extensions.FFmpeg.Encoding
 {
-    public class OutputContainer : IOutputContainer
+    public sealed class OutputContainer : IOutputContainer
     {
         private readonly List<VideoEncoderSettings> _videoConfig = new();
         private readonly List<AudioEncoderSettings> _audioConfig = new();

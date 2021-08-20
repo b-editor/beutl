@@ -32,13 +32,13 @@ using OpenTK.Audio.OpenAL;
 
 namespace BEditor
 {
-    public class MainWindow : FluentWindow
+    public sealed class MainWindow : FluentWindow
     {
         internal readonly FluentAvalonia.UI.Controls.Primitives.InfoBarPanel _notifications;
         internal readonly FluentAvalonia.UI.Controls.Primitives.InfoBarPanel _stackNotifications;
         internal readonly Popup _notificationsPopup;
 
-        private class LayoutConfig
+        private sealed class LayoutConfig
         {
             [JsonPropertyName("columnDefinitions")]
             public string ColumnDefinitions { get; set; } = "425,Auto,*,Auto,2*";

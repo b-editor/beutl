@@ -10,7 +10,7 @@ using BEditor.Data;
 
 namespace BEditor.Models
 {
-    public class EffectWrapper : IJsonObject
+    public sealed class EffectWrapper : IJsonObject
     {
         public EffectWrapper(EffectElement effect)
         {

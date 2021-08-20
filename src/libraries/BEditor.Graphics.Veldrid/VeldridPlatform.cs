@@ -39,7 +39,7 @@ namespace BEditor.Graphics.Veldrid
         }
     }
 
-    public class VeldridMetalPlatform : VeldridPlatform
+    public sealed class VeldridMetalPlatform : VeldridPlatform
     {
         public VeldridMetalPlatform()
             : base(OperatingSystem.IsMacOS() ? GraphicsBackend.Metal : VeldridStartup.GetPlatformDefaultBackend())
@@ -47,7 +47,7 @@ namespace BEditor.Graphics.Veldrid
         }
     }
 
-    public class VeldridDirectXPlatform : VeldridPlatform
+    public sealed class VeldridDirectXPlatform : VeldridPlatform
     {
         public VeldridDirectXPlatform()
             : base(OperatingSystem.IsWindows() ? GraphicsBackend.Direct3D11 : VeldridStartup.GetPlatformDefaultBackend())
@@ -55,7 +55,7 @@ namespace BEditor.Graphics.Veldrid
         }
     }
 
-    public class VeldridVulkanPlatform : VeldridPlatform
+    public sealed class VeldridVulkanPlatform : VeldridPlatform
     {
         public VeldridVulkanPlatform()
             : base(GraphicsBackend.Vulkan)

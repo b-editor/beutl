@@ -16,7 +16,7 @@ namespace BEditor.Data.Property.Easing
     /// <summary>
     /// The metadata of <see cref="EasingFunc"/>.
     /// </summary>
-    public class EasingMetadata
+    public sealed class EasingMetadata
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="EasingMetadata"/> class.

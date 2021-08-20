@@ -9,7 +9,7 @@ using BEditor.Models;
 
 namespace BEditor.Views.Timelines
 {
-    public class TimelineScale : Control
+    public sealed class TimelineScale : Control
     {
         public static readonly StyledProperty<float> ScaleProperty = AvaloniaProperty.Register<TimelineScale, float>(nameof(Scale), 150);
         public static readonly StyledProperty<int> RateProperty = AvaloniaProperty.Register<TimelineScale, int>(nameof(Rate), 30);

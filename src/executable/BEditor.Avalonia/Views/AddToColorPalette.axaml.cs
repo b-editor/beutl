@@ -9,7 +9,7 @@ using BEditor.ViewModels;
 
 namespace BEditor.Views
 {
-    public partial class AddToColorPalette : FluentWindow
+    public sealed class AddToColorPalette : FluentWindow
     {
         public AddToColorPalette()
         {

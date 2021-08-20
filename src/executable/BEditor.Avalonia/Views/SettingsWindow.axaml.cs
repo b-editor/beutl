@@ -14,7 +14,7 @@ using FluentAvalonia.UI.Navigation;
 
 namespace BEditor.Views
 {
-    public class SettingsWindow : FluentWindow
+    public sealed class SettingsWindow : FluentWindow
     {
         private readonly NavigationView _navView;
         private readonly Frame _frame;

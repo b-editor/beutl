@@ -3,7 +3,7 @@ using Avalonia;
 
 namespace BEditor.Views
 {
-    public class AttachmentProperty : AvaloniaObject
+    public sealed class AttachmentProperty : AvaloniaObject
     {
         public static readonly AttachedProperty<int> IntProperty = AvaloniaProperty.RegisterAttached<AttachmentProperty, AvaloniaObject, int>("Int", 0);
 

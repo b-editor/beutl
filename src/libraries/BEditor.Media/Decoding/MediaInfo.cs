@@ -13,7 +13,7 @@ namespace BEditor.Media.Decoding
     /// <summary>
     /// Contains informations about the media container.
     /// </summary>
-    public class MediaInfo
+    public sealed class MediaInfo
     {
         private readonly Lazy<FileInfo?> _fileInfo;
 

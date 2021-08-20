@@ -17,7 +17,7 @@ namespace BEditor.Data
     /// <summary>
     /// Represents a data of a clip to be placed in the timeline.
     /// </summary>
-    public partial class ClipElement : EditingObject, IParent<EffectElement>, IChild<Scene>
+    public sealed partial class ClipElement : EditingObject, IParent<EffectElement>, IChild<Scene>
     {
         private static readonly PropertyChangedEventArgs _startArgs = new(nameof(Start));
         private static readonly PropertyChangedEventArgs _endArgs = new(nameof(End));

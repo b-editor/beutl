@@ -231,7 +231,7 @@ namespace BEditor.Data
         /// <summary>
         /// 空のエフェクトを表します.
         /// </summary>
-        internal class EmptyClass : ObjectElement
+        internal sealed class EmptyClass : ObjectElement
         {
             /// <inheritdoc/>
             public override string Name => "Empty";

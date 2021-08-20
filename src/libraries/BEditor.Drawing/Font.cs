@@ -21,7 +21,7 @@ namespace BEditor.Drawing
     /// Represents the font.
     /// </summary>
     [Serializable]
-    public class Font : ISerializable, IEquatable<Font?>
+    public sealed class Font : ISerializable, IEquatable<Font?>
     {
         /// <summary>
         /// The default instance.

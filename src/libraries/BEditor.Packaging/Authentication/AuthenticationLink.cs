@@ -12,7 +12,7 @@ namespace BEditor.Packaging
     /// <summary>
     /// Represents the result of authentication.
     /// </summary>
-    public class AuthenticationLink : Authentication
+    public sealed class AuthenticationLink : Authentication
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="AuthenticationLink"/> class.

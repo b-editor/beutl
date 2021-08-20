@@ -4,7 +4,7 @@ using Avalonia.Markup.Xaml;
 
 namespace BEditor.Views.VideoOutputPages
 {
-    public partial class Infomation : UserControl
+    public sealed class Infomation : UserControl
     {
         public Infomation()
         {

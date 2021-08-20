@@ -17,7 +17,7 @@ namespace BEditor
     /// <summary>
     /// Locate services.
     /// </summary>
-    public class ServicesLocator
+    public sealed class ServicesLocator
     {
         private ILogger? _logger;
 

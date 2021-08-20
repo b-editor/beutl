@@ -13,9 +13,9 @@ using Reactive.Bindings;
 
 namespace BEditor.ViewModels.Dialogs
 {
-    public class CreateProjectPackageViewModel
+    public sealed class CreateProjectPackageViewModel
     {
-        public record TreeItem(string Text, string Tip, string Hint = "")
+        public sealed record TreeItem(string Text, string Tip, string Hint = "")
         {
             public bool IsChecked { get; set; }
         }

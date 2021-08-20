@@ -19,7 +19,7 @@ using ColorPicker = FluentAvalonia.UI.Controls.ColorPicker;
 
 namespace BEditor.Views
 {
-    public class ColorDialog : FluentWindow
+    public sealed class ColorDialog : FluentWindow
     {
         internal readonly ColorPicker col;
         internal readonly Button ok_button;

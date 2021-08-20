@@ -18,7 +18,7 @@ namespace BEditor.Media
     /// Represents the audio.
     /// </summary>
     /// <typeparam name="T">The type of audio data.</typeparam>
-    public unsafe partial class Sound<T> : IDisposable, ICloneable
+    public sealed unsafe class Sound<T> : IDisposable, ICloneable
         where T : unmanaged, IPCM<T>
     {
         private readonly bool _requireDispose = true;

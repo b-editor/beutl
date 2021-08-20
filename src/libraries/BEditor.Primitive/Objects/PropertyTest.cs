@@ -16,7 +16,7 @@ using BEditor.Drawing;
 
 namespace BEditor.Primitive.Objects
 {
-    internal class PropertyTest : ObjectElement
+    internal sealed class PropertyTest : ObjectElement
     {
         public static readonly EditingProperty<ButtonComponent> ButtonProperty = EditingProperty.RegisterDirect<ButtonComponent, PropertyTest>(
             nameof(Button),

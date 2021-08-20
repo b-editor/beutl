@@ -7,7 +7,7 @@ using Reactive.Bindings;
 
 namespace BEditor.ViewModels
 {
-    public class VolumeViewModel
+    public sealed class VolumeViewModel
     {
         public VolumeViewModel(ReactiveProperty<Sound<StereoPCMFloat>?> property)
         {

@@ -12,7 +12,7 @@ namespace BEditor.Graphics
     /// <summary>
     /// Represents the perspective camera.
     /// </summary>
-    public class PerspectiveCamera : Camera
+    public sealed class PerspectiveCamera : Camera
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="PerspectiveCamera"/> class.

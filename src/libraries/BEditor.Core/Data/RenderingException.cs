@@ -13,7 +13,7 @@ namespace BEditor.Data
     /// Represents errors that occur during rendering.
     /// </summary>
     [Serializable]
-    public class RenderingException : Exception
+    public sealed class RenderingException : Exception
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="RenderingException"/> class.

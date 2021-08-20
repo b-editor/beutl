@@ -30,7 +30,7 @@ namespace BEditor.Drawing
     /// Represents the image.
     /// </summary>
     /// <typeparam name="T">The type of pixel.</typeparam>
-    public unsafe class Image<T> : IDisposable, ICloneable
+    public sealed unsafe class Image<T> : IDisposable, ICloneable
         where T : unmanaged, IPixel<T>
     {
         // 同じImage<T>型のみで共有される

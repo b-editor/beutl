@@ -111,7 +111,7 @@ namespace BEditor.Data
         /// <summary>
         /// The plugin info.
         /// </summary>
-        public class PluginInfo : IEquatable<PluginInfo?>
+        public sealed class PluginInfo : IEquatable<PluginInfo?>
         {
             /// <summary>
             /// Initializes a new instance of the <see cref="PluginInfo"/> class.

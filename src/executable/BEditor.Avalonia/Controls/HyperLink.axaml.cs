@@ -10,7 +10,7 @@ using Avalonia.Media;
 
 namespace BEditor.Controls
 {
-    public class HyperLink : TemplatedControl
+    public sealed class HyperLink : TemplatedControl
     {
         public static readonly StyledProperty<string?> TextProperty = AvaloniaProperty.Register<HyperLink, string?>("Text");
         public static readonly StyledProperty<ICommand?> CommandProperty = AvaloniaProperty.Register<HyperLink, ICommand?>("Command");

@@ -9,7 +9,7 @@ using BEditor.ViewModels.ManagePlugins;
 
 namespace BEditor.Views.ManagePlugins
 {
-    public partial class Signup : UserControl
+    public sealed class Signup : UserControl
     {
         public Signup()
         {

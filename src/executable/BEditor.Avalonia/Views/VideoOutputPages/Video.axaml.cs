@@ -12,7 +12,7 @@ using BEditor.Views.ManagePlugins;
 
 namespace BEditor.Views.VideoOutputPages
 {
-    public partial class Video : UserControl
+    public sealed class Video : UserControl
     {
         private readonly ContentPresenter _videoEncoderSettings;
         private bool _isSubscribed;

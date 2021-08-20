@@ -7,7 +7,7 @@ using OpenTK.Audio.OpenAL;
 
 namespace BEditor.Audio
 {
-    public partial class AudioSource
+    public sealed partial class AudioSource
     {
         /// <summary>
         /// Gets the status of this AudioSource.

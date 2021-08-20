@@ -19,7 +19,7 @@ using BEditor.ViewModels.Timelines;
 
 namespace BEditor.Views.Timelines
 {
-    public class ClipVolumeView : Control
+    public sealed class ClipVolumeView : Control
     {
         private static Binding? _heightBinding;
         private readonly AudioObject _audio;
@@ -63,7 +63,7 @@ namespace BEditor.Views.Timelines
         }
     }
 
-    public class ClipView : UserControl, IDisposable
+    public sealed class ClipView : UserControl, IDisposable
     {
         public ClipView()
         {

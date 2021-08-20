@@ -16,7 +16,7 @@ namespace BEditor.Graphics.OpenGL
     /// <summary>
     /// Represents the color buffer of the frame buffer.
     /// </summary>
-    public class ColorBuffer : IDisposable
+    public sealed class ColorBuffer : IDisposable
     {
         private readonly SynchronizationContext _syncContext = GraphicsContextImpl.SyncContext;
 

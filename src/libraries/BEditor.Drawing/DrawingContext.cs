@@ -17,7 +17,7 @@ namespace BEditor.Drawing
     /// <summary>
     /// The context used for pixel manipulation on the GPU.
     /// </summary>
-    public class DrawingContext : IDisposable
+    public sealed class DrawingContext : IDisposable
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="DrawingContext"/> class.

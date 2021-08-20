@@ -6,7 +6,7 @@ using FluentAvalonia.Styling;
 
 namespace BEditor.PackageInstaller.Views
 {
-    public partial class MainWindow : Window
+    public sealed class MainWindow : Window
     {
         public MainWindow()
         {

@@ -9,7 +9,7 @@ namespace BEditor.ViewModels.Settings
 {
     public sealed class AppearanceViewModel
     {
-        public record LayerBorderItem(string Text, LayerBorder Border);
+        public sealed record LayerBorderItem(string Text, LayerBorder Border);
 
         public AppearanceViewModel()
         {

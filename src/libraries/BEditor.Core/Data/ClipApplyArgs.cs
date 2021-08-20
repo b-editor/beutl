@@ -12,7 +12,7 @@ namespace BEditor.Data
     /// <summary>
     /// Represents a data to be passed to the <see cref="ClipElement"/> at applying time.
     /// </summary>
-    public class ClipApplyArgs
+    public sealed class ClipApplyArgs
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="ClipApplyArgs"/> class.

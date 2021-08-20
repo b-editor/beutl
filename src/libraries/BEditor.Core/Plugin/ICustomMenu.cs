@@ -26,7 +26,7 @@ namespace BEditor.Plugin
     }
 
     /// <inheritdoc cref="ICustomMenu"/>
-    public class CustomMenu : ICustomMenu
+    public sealed class CustomMenu : ICustomMenu
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="CustomMenu" /> class.

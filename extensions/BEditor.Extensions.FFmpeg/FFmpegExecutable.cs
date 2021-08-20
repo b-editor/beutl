@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace BEditor.Extensions.FFmpeg
 {
-    internal class FFmpegExecutable
+    internal static class FFmpegExecutable
     {
         public static string GetExecutable()
         {

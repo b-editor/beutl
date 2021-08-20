@@ -9,7 +9,7 @@ using BEditor.PackageInstaller.ViewModels;
 
 namespace BEditor.PackageInstaller.Views
 {
-    public partial class MainPage : UserControl
+    public sealed class MainPage : UserControl
     {
         public MainPage()
         {

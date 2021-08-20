@@ -4,7 +4,7 @@ using BEditor.Plugin;
 
 namespace BEditor.Extensions.Svg
 {
-    public class Plugin
+    public sealed class Plugin
     {
         public static void Register()
         {

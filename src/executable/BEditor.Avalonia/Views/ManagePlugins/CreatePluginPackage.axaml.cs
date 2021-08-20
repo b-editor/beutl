@@ -5,7 +5,7 @@ using Avalonia.Markup.Xaml;
 
 namespace BEditor.Views.ManagePlugins
 {
-    public partial class CreatePluginPackage : UserControl
+    public sealed class CreatePluginPackage : UserControl
     {
         public CreatePluginPackage()
         {

@@ -16,7 +16,7 @@ namespace BEditor.Graphics.OpenGL
     /// <summary>
     /// Represents the OpenGL pixel buffer.
     /// </summary>
-    public class PixelBuffer : IDisposable
+    public sealed class PixelBuffer : IDisposable
     {
         private readonly SynchronizationContext _syncContext = GraphicsContextImpl.SyncContext;
 

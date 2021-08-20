@@ -15,7 +15,7 @@ namespace BEditor.Drawing
     /// <summary>
     /// Represents the manager of the font.
     /// </summary>
-    public class FontManager
+    public sealed class FontManager
     {
         private readonly Font[] _loadedFonts;
 

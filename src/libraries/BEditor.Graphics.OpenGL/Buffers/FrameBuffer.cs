@@ -16,7 +16,7 @@ namespace BEditor.Graphics.OpenGL
     /// <summary>
     /// Represents a frame buffer in OpenGL.
     /// </summary>
-    public class FrameBuffer : IDisposable
+    public sealed class FrameBuffer : IDisposable
     {
         private readonly SynchronizationContext _syncContext = GraphicsContextImpl.SyncContext;
 

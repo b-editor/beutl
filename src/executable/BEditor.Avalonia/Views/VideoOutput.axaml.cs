@@ -20,7 +20,7 @@ using FluentAvalonia.UI.Navigation;
 
 namespace BEditor.Views
 {
-    public class VideoOutput : FluentWindow
+    public sealed class VideoOutput : FluentWindow
     {
         private readonly VideoOutputViewModel _viewModel;
         private readonly NavigationView _navView;

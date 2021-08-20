@@ -32,7 +32,7 @@ using Reactive.Bindings.Extensions;
 
 namespace BEditor.ViewModels
 {
-    public class MainWindowViewModel
+    public sealed class MainWindowViewModel
     {
         public static readonly MainWindowViewModel Current = new();
 

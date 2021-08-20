@@ -677,7 +677,7 @@ namespace BEditor.Extensions
             return (expander, stack);
         }
 
-        public record PropertyViewBuilder(Type PropertyType, Func<PropertyElement, Control> CreateFunc)
+        public sealed record PropertyViewBuilder(Type PropertyType, Func<PropertyElement, Control> CreateFunc)
         {
             public static PropertyViewBuilder Create<T>(Func<T, Control> CreateFunc) where T : PropertyElement
             {
@@ -685,7 +685,7 @@ namespace BEditor.Extensions
             }
         }
 
-        public record KeyFrameViewBuilder(Type PropertyType, Func<IKeyframeProperty, Control> CreateFunc)
+        public sealed record KeyFrameViewBuilder(Type PropertyType, Func<IKeyframeProperty, Control> CreateFunc)
         {
             public static KeyFrameViewBuilder Create<T>(Func<T, Control> CreateFunc) where T : IKeyframeProperty
             {

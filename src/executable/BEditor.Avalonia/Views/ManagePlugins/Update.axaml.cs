@@ -10,7 +10,7 @@ using BEditor.ViewModels.ManagePlugins;
 
 namespace BEditor.Views.ManagePlugins
 {
-    public partial class Update : UserControl
+    public sealed class Update : UserControl
     {
         public Update()
         {

@@ -8,7 +8,7 @@ using BEditor.ViewModels.ManagePlugins;
 
 namespace BEditor.Views.ManagePlugins
 {
-    public partial class User : UserControl
+    public sealed class User : UserControl
     {
         public User()
         {
