@@ -143,7 +143,7 @@ namespace BEditor.Primitive.Objects
                 if (System.IO.File.Exists(File.Value))
                 {
                     var project = this.GetRequiredParent<Project>();
-                    _resource = new(f, () => Image<BGRA32>.FromFile(f));
+                    _resource = new("Image " + f, () => Image<BGRA32>.FromFile(f));
                     _resource = project.Resources.RegisterResource(_resource);
                     _disposable = _resource.MakeReference(this);
 

@@ -157,7 +157,7 @@ namespace BEditor.Primitive.Objects
                     try
                     {
                         var project = this.GetRequiredParent<Project>();
-                        _resource = new(file, () =>
+                        _resource = new("Audio " + file, () =>
                         {
                             using var mediafile = MediaFile.Open(file, new()
                             {

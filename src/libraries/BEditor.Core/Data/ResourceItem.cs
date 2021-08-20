@@ -20,7 +20,7 @@ namespace BEditor.Data
     /// </summary>
     public class ResourceItem
     {
-        private readonly Func<object> _create;
+        private readonly Func<object?> _create;
         private readonly HashSet<object> _refs = new();
 
         /// <summary>
@@ -28,7 +28,7 @@ namespace BEditor.Data
         /// </summary>
         /// <param name="key">The key of the resource.</param>
         /// <param name="create">Create a value.</param>
-        public ResourceItem(string key, Func<object> create)
+        public ResourceItem(string key, Func<object?> create)
         {
             Key = key;
             _create = create;

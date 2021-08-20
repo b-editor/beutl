@@ -185,7 +185,7 @@ namespace BEditor.Primitive.Objects
                     try
                     {
                         var project = this.GetRequiredParent<Project>();
-                        _resource = new(filename, () => MediaFile.Open(filename, _options));
+                        _resource = new("Video " + filename, () => MediaFile.Open(filename, _options));
                         _resource = project.Resources.RegisterResource(_resource);
                         _disposable = _resource.MakeReference(this);
 
