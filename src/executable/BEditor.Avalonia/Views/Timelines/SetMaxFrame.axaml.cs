@@ -8,7 +8,7 @@ using BEditor.Data;
 
 namespace BEditor.Views.Timelines
 {
-    public partial class SetMaxFrame : UserControl
+    public sealed class SetMaxFrame : UserControl
     {
         private readonly Scene _scene;
 

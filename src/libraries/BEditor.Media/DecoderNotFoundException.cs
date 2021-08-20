@@ -18,7 +18,7 @@ namespace BEditor.Media
     /// The exception that is thrown when the decoder is not found.
     /// </summary>
     [Serializable]
-    public class DecoderNotFoundException : Exception
+    public sealed class DecoderNotFoundException : Exception
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="DecoderNotFoundException"/> class.

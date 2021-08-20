@@ -4,7 +4,7 @@ using Vortice.Multimedia;
 
 namespace BEditor.Audio.XAudio2
 {
-    public class XAudioBuffer : IDisposable
+    public sealed class XAudioBuffer : IDisposable
     {
         private UnmanagedArray<byte>?_stream;
 

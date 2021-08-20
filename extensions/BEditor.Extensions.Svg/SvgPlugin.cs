@@ -5,7 +5,7 @@ using BEditor.Plugin;
 
 namespace BEditor.Extensions.Svg
 {
-    public class SvgPlugin : PluginObject
+    public sealed class SvgPlugin : PluginObject
     {
         public SvgPlugin(PluginConfig config) : base(config)
         {

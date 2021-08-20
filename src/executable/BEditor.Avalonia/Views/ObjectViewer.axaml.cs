@@ -17,7 +17,7 @@ using static BEditor.IMessage;
 
 namespace BEditor.Views
 {
-    public partial class ObjectViewer : UserControl
+    public sealed class ObjectViewer : UserControl
     {
         private static IMessage Message => AppModel.Current.Message;
 

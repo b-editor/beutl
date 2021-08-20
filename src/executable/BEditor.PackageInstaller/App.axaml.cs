@@ -15,7 +15,7 @@ using BEditor.PackageInstaller.Views;
 
 namespace BEditor.PackageInstaller
 {
-    public class App : Application
+    public sealed class App : Application
     {
         public override void Initialize()
         {

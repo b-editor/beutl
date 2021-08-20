@@ -4,7 +4,7 @@ using Vortice.XAudio2;
 
 namespace BEditor.Audio.XAudio2
 {
-    public class XAudioSource : IDisposable
+    public sealed class XAudioSource : IDisposable
     {
         private readonly XAudioContext _context;
         private IXAudio2SourceVoice? SourceVoice;

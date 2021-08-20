@@ -10,7 +10,7 @@ namespace BEditor.Media
     /// <summary>
     /// Represents multimedia file metadata info.
     /// </summary>
-    public class ContainerMetadata
+    public sealed class ContainerMetadata
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="ContainerMetadata"/> class.

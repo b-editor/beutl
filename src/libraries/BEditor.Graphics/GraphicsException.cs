@@ -14,7 +14,7 @@ namespace BEditor.Graphics
     /// Represents an exception that is raised when an error occurs using OpenGL.
     /// </summary>
     [Serializable]
-    public class GraphicsException : Exception
+    public sealed class GraphicsException : Exception
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="GraphicsException"/> class.

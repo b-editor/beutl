@@ -4,7 +4,7 @@ using BEditor.ViewModels;
 
 namespace BEditor.Models
 {
-    public class ProjectConfig
+    public sealed class ProjectConfig
     {
         public static readonly AttachedProperty<ConfigurationViewModel.BackgroundType> BackgroundTypeProperty
             = EditingProperty.RegisterAttached<ConfigurationViewModel.BackgroundType, Project>(

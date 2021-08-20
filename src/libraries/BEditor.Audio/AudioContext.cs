@@ -8,7 +8,7 @@ namespace BEditor.Audio
     /// <summary>
     /// Represents an OpenAL context.
     /// </summary>
-    public class AudioContext : IDisposable
+    public sealed class AudioContext : IDisposable
     {
         private readonly ALDevice _device;
         private readonly ALContext _context;

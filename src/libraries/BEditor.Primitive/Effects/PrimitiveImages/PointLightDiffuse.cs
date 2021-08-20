@@ -21,7 +21,7 @@ namespace BEditor.Primitive.Effects
     /// <summary>
     /// Point light diffusion effect.
     /// </summary>
-    public class PointLightDiffuse : ImageEffect
+    public sealed class PointLightDiffuse : ImageEffect
     {
         /// <summary>
         /// Defines the <see cref="X"/> property.

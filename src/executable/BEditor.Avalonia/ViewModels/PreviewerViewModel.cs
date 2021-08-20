@@ -14,7 +14,7 @@ using static BEditor.ViewModels.ConfigurationViewModel;
 
 namespace BEditor.ViewModels
 {
-    public class PreviewerViewModel
+    public sealed class PreviewerViewModel
     {
         public PreviewerViewModel(IReadOnlyReactiveProperty<bool> isopened)
         {

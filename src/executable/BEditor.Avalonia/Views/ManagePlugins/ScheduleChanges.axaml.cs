@@ -5,7 +5,7 @@ using Avalonia.Markup.Xaml;
 
 namespace BEditor.Views.ManagePlugins
 {
-    public partial class ScheduleChanges : UserControl
+    public sealed class ScheduleChanges : UserControl
     {
         public ScheduleChanges()
         {

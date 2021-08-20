@@ -28,7 +28,7 @@ namespace BEditor.ViewModels.Dialogs
             Open,
         }
 
-        public class PluginItem
+        public sealed class PluginItem
         {
             public PluginItem(bool isFound, ProjectPackage.PluginInfo info, bool isSelected)
             {

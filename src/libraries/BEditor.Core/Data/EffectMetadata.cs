@@ -15,7 +15,7 @@ namespace BEditor.Data
     /// <summary>
     /// The metadata of <see cref="EffectElement"/>.
     /// </summary>
-    public class EffectMetadata
+    public sealed class EffectMetadata
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="EffectMetadata"/> class.

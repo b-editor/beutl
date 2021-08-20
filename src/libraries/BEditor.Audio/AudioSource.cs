@@ -6,7 +6,7 @@ using OpenTK.Audio.OpenAL;
 
 namespace BEditor.Audio
 {
-    public partial class AudioSource : AudioLibraryObject
+    public sealed partial class AudioSource : AudioLibraryObject
     {
         public AudioSource()
         {

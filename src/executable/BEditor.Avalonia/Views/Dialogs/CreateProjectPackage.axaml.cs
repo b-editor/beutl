@@ -11,7 +11,7 @@ using BEditor.ViewModels.Dialogs;
 
 namespace BEditor.Views.Dialogs
 {
-    public partial class CreateProjectPackage : FluentWindow
+    public sealed class CreateProjectPackage : FluentWindow
     {
         public CreateProjectPackage()
         {

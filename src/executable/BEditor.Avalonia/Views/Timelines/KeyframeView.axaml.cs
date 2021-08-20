@@ -27,7 +27,7 @@ using Reactive.Bindings.Extensions;
 
 namespace BEditor.Views.Timelines
 {
-    public class KeyframeView : UserControl
+    public sealed class KeyframeView : UserControl
     {
         private readonly Grid _grid;
         private readonly TextBlock _text;

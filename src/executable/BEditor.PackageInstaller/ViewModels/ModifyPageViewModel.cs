@@ -19,7 +19,7 @@ using Reactive.Bindings;
 
 namespace BEditor.PackageInstaller.ViewModels
 {
-    public class ModifyPageViewModel
+    public sealed class ModifyPageViewModel
     {
         private readonly Queue<PackageChange> _packages;
         private readonly CancellationTokenSource _cancelToken = new();

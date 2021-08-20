@@ -9,7 +9,7 @@ namespace BEditor.Graphics.OpenGL
     /// <summary>
     /// Represents an OpenGL ball.
     /// </summary>
-    public class BallImpl : GraphicsObject
+    public sealed class BallImpl : GraphicsObject
     {
         private const int Count = 8;
         private readonly float[] _vertices;

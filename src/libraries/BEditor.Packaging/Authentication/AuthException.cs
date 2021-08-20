@@ -18,7 +18,7 @@ namespace BEditor.Packaging
     /// Represents an error thrown in the <see cref="IAuthenticationProvider"/>.
     /// </summary>
     [Serializable]
-    public class AuthException : Exception
+    public sealed class AuthException : Exception
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="AuthException"/> class.

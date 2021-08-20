@@ -8,7 +8,7 @@ using FFMediaToolkit.Graphics;
 
 namespace BEditor.Extensions.FFmpeg.Encoding
 {
-    public class VideoOutputStream : IVideoOutputStream
+    public sealed class VideoOutputStream : IVideoOutputStream
     {
         private readonly FFMediaToolkit.Encoding.VideoOutputStream _stream;
 

@@ -12,7 +12,7 @@ using BEditor.Media.PCM;
 
 namespace BEditor.Extensions.FFmpeg.Encoding
 {
-    public class AudioOutputStream : IAudioOutputStream
+    public sealed class AudioOutputStream : IAudioOutputStream
     {
         private readonly FileStream _stream;
         private readonly BinaryWriter _writer;

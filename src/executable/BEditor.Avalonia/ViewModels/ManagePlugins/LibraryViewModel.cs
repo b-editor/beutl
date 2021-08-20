@@ -22,7 +22,7 @@ using Setting = BEditor.Settings;
 
 namespace BEditor.ViewModels.ManagePlugins
 {
-    public class LibraryViewModel
+    public sealed class LibraryViewModel
     {
         private readonly HttpClient _client;
         private Package[]? _loadedItems;

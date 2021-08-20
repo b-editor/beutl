@@ -10,7 +10,7 @@ using Reactive.Bindings;
 
 namespace BEditor.ViewModels.ManagePlugins
 {
-    public class UserViewModel
+    public sealed class UserViewModel
     {
         public UserViewModel(AuthenticationLink auth)
         {

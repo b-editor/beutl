@@ -29,7 +29,7 @@ using Reactive.Bindings.Extensions;
 
 namespace BEditor.Views.Timelines
 {
-    public class Timeline : UserControl
+    public sealed class Timeline : UserControl
     {
         private readonly ScrollViewer _scrollLine;
         private readonly ScrollViewer _scrollLabel;

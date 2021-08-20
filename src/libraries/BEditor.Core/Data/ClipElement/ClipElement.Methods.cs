@@ -19,7 +19,7 @@ namespace BEditor.Data
     /// <summary>
     /// Represents a data of a clip to be placed in the timeline.
     /// </summary>
-    public partial class ClipElement : ICloneable, IJsonObject, IElementObject
+    public sealed partial class ClipElement : ICloneable, IJsonObject, IElementObject
     {
         /// <inheritdoc cref="ICloneable.Clone"/>
         public ClipElement Clone()

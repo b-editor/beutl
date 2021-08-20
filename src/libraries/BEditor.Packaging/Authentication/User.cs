@@ -17,7 +17,7 @@ namespace BEditor.Packaging
     /// <summary>
     /// Represents basic user information.
     /// </summary>
-    public class User
+    public sealed class User
     {
         /// <summary>
         /// Gets or sets the display name.

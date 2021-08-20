@@ -38,7 +38,7 @@ namespace BEditor.Command
     /// <summary>
     /// Indicates the Undo and Redo functions by storing the history of the operations performed.
     /// </summary>
-    public class CommandManager : BasePropertyChanged
+    public sealed class CommandManager : BasePropertyChanged
     {
         /// <summary>
         /// Default instance of CommandManager.

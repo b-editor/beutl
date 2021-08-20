@@ -13,9 +13,9 @@ using Avalonia.Controls;
 
 namespace BEditor
 {
-    public class WindowConfig : AvaloniaObject
+    public sealed class WindowConfig : AvaloniaObject
     {
-        private class Config
+        private sealed class Config
         {
             [JsonPropertyName("x")]
             public int X { get; set; }

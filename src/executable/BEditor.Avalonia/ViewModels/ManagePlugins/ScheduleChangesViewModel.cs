@@ -15,9 +15,9 @@ using Reactive.Bindings;
 
 namespace BEditor.ViewModels.ManagePlugins
 {
-    public class ScheduleChangesViewModel : IDisposable
+    public sealed class ScheduleChangesViewModel : IDisposable
     {
-        public record Schedule(string Name, string Description, string Type, Guid Id);
+        public sealed record Schedule(string Name, string Description, string Type, Guid Id);
 
         public ScheduleChangesViewModel()
         {

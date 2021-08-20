@@ -16,7 +16,7 @@ using System.Text;
 #pragma warning disable CA2208
 namespace BEditor
 {
-    internal class UnmanagedList<T> : IList<T>, IReadOnlyList<T>, IDisposable
+    internal sealed class UnmanagedList<T> : IList<T>, IReadOnlyList<T>, IDisposable
         where T : unmanaged
     {
         private const int DefaultCapacity = 4;

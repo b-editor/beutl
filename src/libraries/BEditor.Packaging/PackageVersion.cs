@@ -14,7 +14,7 @@ namespace BEditor.Packaging
     /// <summary>
     /// Indicates the version of the package.
     /// </summary>
-    public class PackageVersion : IEquatable<PackageVersion?>
+    public sealed class PackageVersion : IEquatable<PackageVersion?>
     {
         /// <summary>
         /// Gets or sets the version of the package.

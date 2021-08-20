@@ -20,11 +20,11 @@ using Reactive.Bindings;
 
 namespace BEditor.ViewModels.ManagePlugins
 {
-    public class UpdateViewModel
+    public sealed class UpdateViewModel
     {
         private readonly HttpClient _client;
 
-        public record UpdateTarget(PluginObject Plugin, Package Package)
+        public sealed record UpdateTarget(PluginObject Plugin, Package Package)
         {
             public string OldVersion => GetVersion(Plugin)!.ToString(3);
 

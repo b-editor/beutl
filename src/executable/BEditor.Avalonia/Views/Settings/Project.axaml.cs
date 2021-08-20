@@ -3,7 +3,7 @@ using Avalonia.Markup.Xaml;
 
 namespace BEditor.Views.Settings
 {
-    public class Project : UserControl
+    public sealed class Project : UserControl
     {
         public Project()
         {

@@ -11,7 +11,7 @@ using BEditor.Media.PCM;
 
 namespace BEditor.Audio
 {
-    public class SamplingContext : IDisposable
+    public sealed class SamplingContext : IDisposable
     {
         private readonly Sound<StereoPCMFloat> _buffer;
 

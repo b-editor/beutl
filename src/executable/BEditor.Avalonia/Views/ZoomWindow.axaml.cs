@@ -10,7 +10,7 @@ using BEditor.ViewModels;
 
 namespace BEditor.Views
 {
-    public partial class ZoomWindow : FluentWindow
+    public sealed class ZoomWindow : FluentWindow
     {
         private readonly ZoomBorder _zoomBorder;
         private readonly Image _image;

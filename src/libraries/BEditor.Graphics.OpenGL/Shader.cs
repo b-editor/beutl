@@ -12,7 +12,7 @@ using OpenTK.Graphics.OpenGL4;
 
 namespace BEditor.Graphics.OpenGL
 {
-    public class Shader : IDisposable
+    public sealed class Shader : IDisposable
     {
         private readonly Dictionary<string, int> _uniformLocations;
         private readonly SynchronizationContext _synchronization;

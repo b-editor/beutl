@@ -3,7 +3,7 @@ using OpenTK.Graphics.OpenGL4;
 
 namespace BEditor.Graphics.OpenGL
 {
-    public class CubeImpl : GraphicsObject
+    public sealed class CubeImpl : GraphicsObject
     {
         private readonly float[] _vertices;
 

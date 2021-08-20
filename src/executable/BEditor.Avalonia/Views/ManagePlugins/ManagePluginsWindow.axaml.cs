@@ -17,7 +17,7 @@ using FluentAvalonia.UI.Navigation;
 
 namespace BEditor.Views.ManagePlugins
 {
-    public partial class ManagePluginsWindow : FluentWindow
+    public sealed class ManagePluginsWindow : FluentWindow
     {
         private readonly NavigationView _navView;
         private readonly Frame _frame;

@@ -119,7 +119,7 @@ namespace BEditor.Data
     /// <summary>
     /// Represents a <see cref="Scene"/> setting.
     /// </summary>
-    public record SceneSettings
+    public sealed record SceneSettings
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="SceneSettings"/> class.

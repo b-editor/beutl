@@ -11,7 +11,7 @@ using BEditor.ViewModels;
 
 namespace BEditor.Views
 {
-    public class Library : UserControl
+    public sealed class Library : UserControl
     {
         private readonly TreeView _tree;
 

@@ -20,7 +20,7 @@ namespace BEditor.Plugin
     /// <summary>
     /// Represents the class that manages the plugin.
     /// </summary>
-    public class PluginManager
+    public sealed class PluginManager
     {
         /// <summary>
         /// Gets a default <see cref="PluginManager"/> instance.

@@ -16,7 +16,7 @@ using KeyGesture = Avalonia.Input.KeyGesture;
 
 namespace BEditor.Models
 {
-    public record KeyBindingCommand(string Name, string CommandName, ICommand Command);
+    public sealed record KeyBindingCommand(string Name, string CommandName, ICommand Command);
 
     public sealed class KeyBindingModel
     {

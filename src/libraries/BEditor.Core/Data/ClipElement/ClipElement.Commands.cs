@@ -18,7 +18,7 @@ namespace BEditor.Data
     /// <summary>
     /// Represents a data of a clip to be placed in the timeline.
     /// </summary>
-    public partial class ClipElement
+    public sealed partial class ClipElement
     {
         /// <summary>
         /// 指定したシーンに新しいクリップを追加するコマンドを表します.

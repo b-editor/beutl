@@ -11,7 +11,7 @@ using BEditor.Packaging;
 
 namespace BEditor.Models.Authentication
 {
-    public class PackageUploader : IRemotePackageProvider
+    public sealed class PackageUploader : IRemotePackageProvider
     {
         private const string Base = "https://api.beditor.net";
         private const string GetPackages = "/api/getPackages?key={0}";

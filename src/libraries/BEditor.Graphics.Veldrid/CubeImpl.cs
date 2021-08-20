@@ -1,6 +1,6 @@
 ﻿namespace BEditor.Graphics.Veldrid
 {
-    public class CubeImpl : DrawableImpl
+    public sealed class CubeImpl : DrawableImpl
     {
         public CubeImpl(float width, float height, float depth)
         {

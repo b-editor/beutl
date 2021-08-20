@@ -14,7 +14,7 @@ using Reactive.Bindings;
 
 namespace BEditor.ViewModels.ManagePlugins
 {
-    public class SigninViewModel
+    public sealed class SigninViewModel
     {
         private readonly IAuthenticationProvider _provider;
 

@@ -14,7 +14,7 @@ using SkiaSharp;
 
 namespace BEditor
 {
-    internal class CustomFontManagerImpl : IFontManagerImpl
+    internal sealed class CustomFontManagerImpl : IFontManagerImpl
     {
         private readonly Typeface[] _customTypefaces;
         private readonly string _defaultFamilyName;

@@ -12,7 +12,7 @@ namespace BEditor.Media.Encoding
     /// <summary>
     /// Represents an audio encoder configuration.
     /// </summary>
-    public class AudioEncoderSettings
+    public sealed class AudioEncoderSettings
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="AudioEncoderSettings"/> class with default video settings values.

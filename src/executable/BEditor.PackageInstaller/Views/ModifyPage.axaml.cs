@@ -14,7 +14,7 @@ using Reactive.Bindings.Extensions;
 
 namespace BEditor.PackageInstaller.Views
 {
-    public partial class ModifyPage : UserControl
+    public sealed class ModifyPage : UserControl
     {
         public ModifyPage()
         {

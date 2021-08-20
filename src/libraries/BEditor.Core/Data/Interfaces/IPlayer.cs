@@ -71,7 +71,7 @@ namespace BEditor.Data
     /// <summary>
     /// Represents the event argument at the start of playback.
     /// </summary>
-    public class PlayingEventArgs : EventArgs
+    public sealed class PlayingEventArgs : EventArgs
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="PlayingEventArgs"/> class.

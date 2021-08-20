@@ -7,7 +7,7 @@ using BEditor.ViewModels;
 
 namespace BEditor.Views
 {
-    public class Previewer : UserControl
+    public sealed class Previewer : UserControl
     {
         private readonly Image _image;
 

@@ -25,7 +25,7 @@ using static BEditor.IMessage;
 
 namespace BEditor.ViewModels
 {
-    public class VideoOutputViewModel
+    public sealed class VideoOutputViewModel
     {
         public VideoOutputViewModel()
         {

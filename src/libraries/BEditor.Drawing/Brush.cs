@@ -10,7 +10,7 @@ namespace BEditor.Drawing
     /// <summary>
     /// Represents the brush.
     /// </summary>
-    public class Brush
+    public sealed class Brush
     {
         /// <summary>
         /// Gets or sets the color.

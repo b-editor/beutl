@@ -25,12 +25,12 @@ namespace BEditor.Data.Internals
     /// <summary>
     /// Represents a <see cref="Scene"/> player.
     /// </summary>
-    internal class ScenePlayer : IPlayer
+    internal sealed class ScenePlayer : IPlayer
     {
         private readonly Timer _timer;
+        private readonly double _frameRate;
         private DateTime _startTime;
         private Frame _startframe;
-        private double _frameRate;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ScenePlayer"/> class.

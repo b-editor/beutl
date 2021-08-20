@@ -11,7 +11,7 @@ using BEditor.Views.ManagePlugins;
 
 namespace BEditor.Views.VideoOutputPages
 {
-    public partial class Audio : UserControl
+    public sealed class Audio : UserControl
     {
         private readonly ContentPresenter _audioEncoderSettings;
         private bool _isSubscribed;

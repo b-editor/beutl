@@ -10,7 +10,7 @@ using static BEditor.Audio.AudioSource;
 
 namespace BEditor.Audio
 {
-    public class AudioBuffer : AudioLibraryObject
+    public sealed class AudioBuffer : AudioLibraryObject
     {
         public AudioBuffer(Sound<PCM16> sound)
         {

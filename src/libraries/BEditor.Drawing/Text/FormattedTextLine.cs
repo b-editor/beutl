@@ -10,7 +10,7 @@ namespace BEditor.Drawing
     /// <summary>
     /// Stores information about a line of <see cref="FormattedText"/>.
     /// </summary>
-    public class FormattedTextLine
+    public sealed class FormattedTextLine
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="FormattedTextLine"/> class.

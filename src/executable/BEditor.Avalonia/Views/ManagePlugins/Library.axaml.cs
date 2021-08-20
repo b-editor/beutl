@@ -5,7 +5,7 @@ using Avalonia.Media;
 
 namespace BEditor.Views.ManagePlugins
 {
-    public partial class Library : UserControl
+    public sealed class Library : UserControl
     {
         public Library()
         {

@@ -19,7 +19,7 @@ namespace BEditor.Drawing
     /// <summary>
     /// Represents a piece of text with formatting.
     /// </summary>
-    public class FormattedText : IDisposable
+    public sealed class FormattedText : IDisposable
     {
         private readonly List<FormattedTextLine> _lines = new();
         private readonly SKPaint _paint;

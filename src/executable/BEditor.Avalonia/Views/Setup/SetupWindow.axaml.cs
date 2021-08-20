@@ -13,7 +13,7 @@ using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace BEditor.Views.Setup
 {
-    public partial class SetupWindow : FluentWindow
+    public sealed class SetupWindow : FluentWindow
     {
         public SetupWindow()
         {
