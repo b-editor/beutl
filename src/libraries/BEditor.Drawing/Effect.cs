@@ -659,6 +659,7 @@ namespace BEditor.Drawing
 
                 part.AlphaSubtract(partMask);
 
+                partMask.Dispose();
                 list.Add((part, rect));
             }
 

@@ -88,52 +88,7 @@ namespace BEditor.Graphics
                 left.Coordinate + right.Coordinate,
                 left.Center + right.Center,
                 left.Rotate + right.Rotate,
-                left.Scale + right.Scale);
-        }
-
-        /// <summary>
-        /// Subtracts a specified <see cref="Transform"/> from another specified <see cref="Transform"/>.
-        /// </summary>
-        /// <param name="left">The minuend.</param>
-        /// <param name="right">The subtrahend.</param>
-        /// <returns>An object whose value is the result of the value of <paramref name="left"/> minus the value of <paramref name="right"/>.</returns>
-        public static Transform operator -(Transform left, Transform right)
-        {
-            return new(
-                left.Coordinate - right.Coordinate,
-                left.Center - right.Center,
-                left.Rotate - right.Rotate,
-                left.Scale - right.Scale);
-        }
-
-        /// <summary>
-        /// Returns a new <see cref="Transform"/> object whose value is the result of multiplying the specified <see cref="Transform"/> instance and the specified factor.
-        /// </summary>
-        /// <param name="left">The value to be multiplied.</param>
-        /// <param name="right">The value to be multiplied by.</param>
-        /// <returns>A new object that represents the value of the specified <see cref="Transform"/> instance multiplied by the value of the specified factor.</returns>
-        public static Transform operator *(Transform left, Transform right)
-        {
-            return new(
-                left.Coordinate * right.Coordinate,
-                left.Center * right.Center,
-                left.Rotate * right.Rotate,
                 left.Scale * right.Scale);
-        }
-
-        /// <summary>
-        /// Returns a new <see cref="Transform"/> value which is the result of division of <paramref name="left"/> instance and the specified <paramref name="right"/>.
-        /// </summary>
-        /// <param name="left">Divident or the value to be divided.</param>
-        /// <param name="right">The value to be divided by.</param>
-        /// <returns>A new value that represents result of division of <paramref name="left"/> instance by the value of the <paramref name="right"/>.</returns>
-        public static Transform operator /(Transform left, Transform right)
-        {
-            return new(
-                left.Coordinate / right.Coordinate,
-                left.Center / right.Center,
-                left.Rotate / right.Rotate,
-                left.Scale / right.Scale);
         }
     }
 }

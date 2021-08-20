@@ -76,6 +76,19 @@ namespace BEditor.Graphics
             }
         }
 
+        /// <summary>
+        /// Synchronizes properties with other <see cref="Drawable"/>.
+        /// </summary>
+        /// <param name="drawable">The object to be synchronized.</param>
+        public void Synchronize(Drawable drawable)
+        {
+            Color = drawable.Color;
+            Material = drawable.Material;
+            Transform = drawable.Transform;
+            RasterizerState = drawable.RasterizerState;
+            BlendMode = drawable.BlendMode;
+        }
+
         /// <inheritdoc cref="IDisposable.Dispose"/>
         protected virtual void Dispose(bool disposing)
         {

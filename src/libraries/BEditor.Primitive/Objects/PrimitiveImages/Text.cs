@@ -221,7 +221,7 @@ namespace BEditor.Primitive.Objects
         }
 
         /// <inheritdoc/>
-        protected override void OnRender(EffectApplyArgs<IEnumerable<ImageInfo>> args)
+        protected override void OnRender(EffectApplyArgs<IEnumerable<Texture>> args)
         {
             if (IsMultiple.Value)
             {
@@ -275,20 +275,24 @@ namespace BEditor.Primitive.Objects
             }
         }
 
-        private IEnumerable<ImageInfo> Selector(Frame frame)
+        private IEnumerable<Texture> Selector(Frame frame)
         {
             SetProperty(frame);
             var bounds = _formattedText!.Bounds;
 
             return _formattedText.DrawMultiple().Select(c =>
             {
-                return new ImageInfo(c.Image, _ =>
-                {
-                    var a = bounds;
-                    var x = c.Rectangle.X + (c.Rectangle.Width / 2) - (bounds.Width / 2);
-                    var y = c.Rectangle.Y + (c.Rectangle.Height / 2) - (bounds.Height / 2);
-                    return new Transform(new(x, -y, 0), default, default, default);
-                });
+                var texture = Texture.FromImage(c.Image);
+                var a = bounds;
+                var x = c.Rectangle.X + (c.Rectangle.Width / 2) - (bounds.Width / 2);
+                var y = c.Rectangle.Y + (c.Rectangle.Height / 2) - (bounds.Height / 2);
+
+                var transform = texture.Transform;
+                transform.Coordinate = new(x, -y, 0);
+                texture.Transform = transform;
+
+                c.Image.Dispose();
+                return texture;
             });
         }
 

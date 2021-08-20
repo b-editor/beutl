@@ -1095,14 +1095,6 @@
             Gets the loaded <see cref="T:BEditor.Data.ObjectMetadata"/>.
             </summary>
         </member>
-        <member name="M:BEditor.Data.ObjectMetadata.Create``1(System.String)">
-            <summary>
-            Create the <see cref="T:BEditor.Data.ObjectMetadata"/>.
-            </summary>
-            <typeparam name="T">The type of object that inherits from <see cref="T:BEditor.Data.ObjectElement"/>.</typeparam>
-            <param name="name">The name of the object element.</param>
-            <returns>A new instance of <see cref="T:BEditor.Data.ObjectMetadata"/>.</returns>
-        </member>
         <member name="M:BEditor.Data.ObjectMetadata.Create``1(System.String,System.Nullable{BEditor.Drawing.Color},System.String,System.Func{System.String,``0},System.Func{System.String,System.Boolean})">
             <summary>
             Create the <see cref="T:BEditor.Data.ObjectMetadata"/>.
@@ -1160,7 +1152,7 @@
         <member name="M:BEditor.Data.Primitive.ImageEffect.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
             <inheritdoc cref="M:BEditor.Data.Primitive.ImageEffect.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})"/>
         </member>
-        <member name="M:BEditor.Data.Primitive.ImageEffect.Apply(BEditor.Data.EffectApplyArgs{System.Collections.Generic.IEnumerable{BEditor.Graphics.ImageInfo}})">
+        <member name="M:BEditor.Data.Primitive.ImageEffect.Apply(BEditor.Data.EffectApplyArgs{System.Collections.Generic.IEnumerable{BEditor.Graphics.Texture}})">
             <inheritdoc cref="M:BEditor.Data.Primitive.ImageEffect.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})"/>
         </member>
         <member name="M:BEditor.Data.Primitive.ImageEffect.Apply(BEditor.Data.EffectApplyArgs)">
@@ -1252,7 +1244,7 @@
         <member name="M:BEditor.Data.Primitive.ImageObject.OnRender(BEditor.Data.EffectApplyArgs)">
             <inheritdoc cref="M:BEditor.Data.Primitive.ImageObject.Apply(BEditor.Data.EffectApplyArgs)"/>
         </member>
-        <member name="M:BEditor.Data.Primitive.ImageObject.OnRender(BEditor.Data.EffectApplyArgs{System.Collections.Generic.IEnumerable{BEditor.Graphics.ImageInfo}})">
+        <member name="M:BEditor.Data.Primitive.ImageObject.OnRender(BEditor.Data.EffectApplyArgs{System.Collections.Generic.IEnumerable{BEditor.Graphics.Texture}})">
             <inheritdoc cref="M:BEditor.Data.Primitive.ImageObject.Apply(BEditor.Data.EffectApplyArgs)"/>
         </member>
         <member name="T:BEditor.Data.Primitive.IMediaObject">
@@ -1341,16 +1333,6 @@
             Gets a list of Scenes in this <see cref="T:BEditor.Data.Project"/>.
             </summary>
         </member>
-        <member name="P:BEditor.Data.Project.PreviewSceneIndex">
-            <summary>
-            Gets an index of the <see cref="P:BEditor.Data.Project.SceneList"/> being previewed.
-            </summary>
-        </member>
-        <member name="P:BEditor.Data.Project.PreviewScene">
-            <summary>
-            Gets or sets the <see cref="T:BEditor.Data.Scene"/> that is being previewed.
-            </summary>
-        </member>
         <member name="P:BEditor.Data.Project.CurrentScene">
             <summary>
             Gets or sets the current <see cref="T:BEditor.Data.Scene"/>.
@@ -1375,11 +1357,6 @@
         <member name="P:BEditor.Data.Project.DirectoryName">
             <summary>
             Gets or sets the directory name of this <see cref="T:BEditor.Data.Project"/>.
-            </summary>
-        </member>
-        <member name="P:BEditor.Data.Project.Resources">
-            <summary>
-            Gets the class that manages the resources used by the project.
             </summary>
         </member>
         <member name="M:BEditor.Data.Project.FromFileAsync(System.String,BEditor.IApplication)">
@@ -1586,47 +1563,6 @@
             </summary>
             <param name="file">The name of the file to be saved.</param>
             <returns>Returns true on success, false otherwise.</returns>
-        </member>
-        <member name="T:BEditor.Data.ProjectResources">
-            <summary>
-            Manage the resources that the project is using.
-            </summary>
-        </member>
-        <member name="M:BEditor.Data.ProjectResources.Finalize">
-            <summary>
-            Finalizes an instance of the <see cref="T:BEditor.Data.ProjectResources"/> class.
-            </summary>
-        </member>
-        <member name="P:BEditor.Data.ProjectResources.Items">
-            <summary>
-            Gets all registered resources.
-            </summary>
-        </member>
-        <member name="M:BEditor.Data.ProjectResources.RegisterResource(BEditor.Data.ResourceItem)">
-            <summary>
-            Register the resources to be used.
-            </summary>
-            <param name="item">A resource to register.</param>
-            <returns>Returns a registered resource.</returns>
-        </member>
-        <member name="M:BEditor.Data.ProjectResources.Release">
-            <summary>
-            Releases the registered resources.
-            </summary>
-        </member>
-        <member name="M:BEditor.Data.ProjectResources.GetItem(System.String)">
-            <summary>
-            Gets a registered resource.
-            </summary>
-            <param name="key">The key of a resource to get.</param>
-            <returns>Returns a resource that matches the key. If not found, <see langword="null"/> will be returned.</returns>
-        </member>
-        <member name="M:BEditor.Data.ProjectResources.RemoveItem(System.String)">
-            <summary>
-            Removes a resource with the specified key.
-            </summary>
-            <param name="key">The key of a resource to be removed.</param>
-            <returns>Returns a resource if it has been removed, otherwise returns <see langword="null"/>.</returns>
         </member>
         <member name="T:BEditor.Data.ProjectSavedEventArgs">
             <summary>
@@ -2688,6 +2624,12 @@
             <param name="position">The object to locate in the <see cref="T:BEditor.Data.Property.IKeyframeProperty"/>.</param>
             <returns>The index of item if found in the list; otherwise, -1.</returns>
         </member>
+        <member name="M:BEditor.Data.Property.IKeyframeProperty.Enumerate">
+            <summary>
+            Gets an enumerable collection of position information.
+            </summary>
+            <returns>An enumerable collection of position information.</returns>
+        </member>
         <member name="T:BEditor.Data.Property.IKeyframeProperty`1">
             <summary>
             Represents a property that has an editing window on the timeline.
@@ -2715,6 +2657,21 @@
             </summary>
             <typeparam name="T">The type of the value.</typeparam>
         </member>
+        <member name="M:BEditor.Data.Property.KeyFramePair`1.#ctor(BEditor.Data.Property.PositionInfo,`0)">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Data.Property.KeyFramePair`1"/> struct.
+            </summary>
+            <param name="position">The position.</param>
+            <param name="value">The value.</param>
+        </member>
+        <member name="M:BEditor.Data.Property.KeyFramePair`1.#ctor(System.Single,`0,BEditor.Data.Property.PositionType)">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Data.Property.KeyFramePair`1"/> struct.
+            </summary>
+            <param name="position">The position.</param>
+            <param name="value">The value.</param>
+            <param name="type">The type of the position.</param>
+        </member>
         <member name="P:BEditor.Data.Property.KeyFramePair`1.Value">
             <summary>
             Gets or sets the value.
@@ -2725,7 +2682,77 @@
             Gets or sets the position.
             </summary>
         </member>
+        <member name="M:BEditor.Data.Property.KeyFramePair`1.op_Equality(BEditor.Data.Property.KeyFramePair{`0},BEditor.Data.Property.KeyFramePair{`0})">
+            <summary>
+            Indicates whether two <see cref="T:BEditor.Data.Property.KeyFramePair`1"/> instances are equal.
+            </summary>
+            <param name="left">The first color to compare.</param>
+            <param name="right">The second color to compare.</param>
+            <returns>true if the values of <paramref name="left"/> and <paramref name="right"/> are equal; otherwise, false.</returns>
+        </member>
+        <member name="M:BEditor.Data.Property.KeyFramePair`1.op_Inequality(BEditor.Data.Property.KeyFramePair{`0},BEditor.Data.Property.KeyFramePair{`0})">
+            <summary>
+            Indicates whether two <see cref="T:BEditor.Data.Property.KeyFramePair`1"/> instances are not equal.
+            </summary>
+            <param name="left">The first color to compare.</param>
+            <param name="right">The second color to compare.</param>
+            <returns>true if the values of <paramref name="left"/> and <paramref name="right"/> are not equal; otherwise, false.</returns>
+        </member>
+        <member name="M:BEditor.Data.Property.KeyFramePair`1.TryParse(System.String,BEditor.Data.Property.KeyFramePair{`0}@)">
+            <summary>
+            Parses a <see cref="T:BEditor.Data.Property.KeyFramePair`1"/> string.
+            A return value indicates whether the conversion succeeded or failed.
+            </summary>
+            <param name="s">The string.</param>
+            <param name="result">The parsed <see cref="T:BEditor.Data.Property.KeyFramePair`1"/>.</param>
+            <returns>true if s was parsed successfully; otherwise, false.</returns>
+        </member>
+        <member name="M:BEditor.Data.Property.KeyFramePair`1.Parse(System.String)">
+            <summary>
+            Parses a <see cref="T:BEditor.Data.Property.KeyFramePair`1"/> string.
+            </summary>
+            <param name="s">The string.</param>
+            <returns>The parsed <see cref="T:BEditor.Data.Property.KeyFramePair`1"/>.</returns>
+        </member>
+        <member name="M:BEditor.Data.Property.KeyFramePair`1.WithPosition(System.Single)">
+            <summary>
+            Returns a new <see cref="T:BEditor.Data.Property.KeyFramePair`1"/> with the specified position.
+            </summary>
+            <param name="position">The position.</param>
+            <returns>The new <see cref="T:BEditor.Data.Property.KeyFramePair`1"/>.</returns>
+        </member>
+        <member name="M:BEditor.Data.Property.KeyFramePair`1.WithValue(`0)">
+            <summary>
+            Returns a new <see cref="T:BEditor.Data.Property.KeyFramePair`1"/> with the specified value.
+            </summary>
+            <param name="value">The value.</param>
+            <returns>The new <see cref="T:BEditor.Data.Property.KeyFramePair`1"/>.</returns>
+        </member>
+        <member name="M:BEditor.Data.Property.KeyFramePair`1.WithType(BEditor.Data.Property.PositionType)">
+            <summary>
+            Returns a new <see cref="T:BEditor.Data.Property.KeyFramePair`1"/> with the specified position type.
+            </summary>
+            <param name="type">The position type.</param>
+            <returns>The new <see cref="T:BEditor.Data.Property.KeyFramePair`1"/>.</returns>
+        </member>
+        <member name="M:BEditor.Data.Property.KeyFramePair`1.WithType(BEditor.Data.Property.PositionType,System.Single)">
+            <summary>
+            Returns a new <see cref="T:BEditor.Data.Property.KeyFramePair`1"/> with the specified position type.
+            </summary>
+            <param name="type">The position type.</param>
+            <param name="length">The length.</param>
+            <returns>The new <see cref="T:BEditor.Data.Property.KeyFramePair`1"/>.</returns>
+        </member>
         <member name="M:BEditor.Data.Property.KeyFramePair`1.ToString">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Data.Property.KeyFramePair`1.Equals(System.Object)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Data.Property.KeyFramePair`1.Equals(BEditor.Data.Property.KeyFramePair{`0})">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Data.Property.KeyFramePair`1.GetHashCode">
             <inheritdoc/>
         </member>
         <member name="T:BEditor.Data.Property.LabelComponent">
@@ -2795,16 +2822,14 @@
             <param name="Name">The string displayed in the property header.</param>
             <param name="DefaultColor">The default color.</param>
             <param name="DefaultEase">The default easing function.</param>
-            <param name="UseAlpha">The value of whether to use alpha components or not.</param>
         </member>
-        <member name="M:BEditor.Data.Property.ColorAnimationPropertyMetadata.#ctor(System.String,BEditor.Drawing.Color,BEditor.Data.Property.Easing.EasingMetadata,System.Boolean)">
+        <member name="M:BEditor.Data.Property.ColorAnimationPropertyMetadata.#ctor(System.String,BEditor.Drawing.Color,BEditor.Data.Property.Easing.EasingMetadata)">
             <summary>
             The metadata of <see cref="T:BEditor.Data.Property.ColorAnimationProperty"/>.
             </summary>
             <param name="Name">The string displayed in the property header.</param>
             <param name="DefaultColor">The default color.</param>
             <param name="DefaultEase">The default easing function.</param>
-            <param name="UseAlpha">The value of whether to use alpha components or not.</param>
         </member>
         <member name="M:BEditor.Data.Property.ColorAnimationPropertyMetadata.#ctor(System.String)">
             <summary>
@@ -2812,13 +2837,12 @@
             </summary>
             <param name="name">The string displayed in the property header.</param>
         </member>
-        <member name="M:BEditor.Data.Property.ColorAnimationPropertyMetadata.#ctor(System.String,BEditor.Drawing.Color,System.Boolean)">
+        <member name="M:BEditor.Data.Property.ColorAnimationPropertyMetadata.#ctor(System.String,BEditor.Drawing.Color)">
             <summary>
             Initializes a new instance of the <see cref="T:BEditor.Data.Property.ColorAnimationPropertyMetadata"/> class.
             </summary>
             <param name="name">The string displayed in the property header.</param>
             <param name="defaultColor">The default color.</param>
-            <param name="useAlpha">The value of whether to use alpha components or not.</param>
         </member>
         <member name="M:BEditor.Data.Property.ColorAnimationPropertyMetadata.Create">
             <inheritdoc/>
@@ -2829,15 +2853,13 @@
             </summary>
             <param name="Name">The string displayed in the property header.</param>
             <param name="DefaultColor">The default color.</param>
-            <param name="UseAlpha">The value of whether to use alpha components or not.</param>
         </member>
-        <member name="M:BEditor.Data.Property.ColorPropertyMetadata.#ctor(System.String,BEditor.Drawing.Color,System.Boolean)">
+        <member name="M:BEditor.Data.Property.ColorPropertyMetadata.#ctor(System.String,BEditor.Drawing.Color)">
             <summary>
             The metadata of <see cref="T:BEditor.Data.Property.ColorProperty"/>.
             </summary>
             <param name="Name">The string displayed in the property header.</param>
             <param name="DefaultColor">The default color.</param>
-            <param name="UseAlpha">The value of whether to use alpha components or not.</param>
         </member>
         <member name="M:BEditor.Data.Property.ColorPropertyMetadata.Create">
             <inheritdoc/>
@@ -3055,6 +3077,123 @@
         </member>
         <member name="M:BEditor.Data.Property.ValuePropertyMetadata.Create">
             <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Data.Property.PositionInfo">
+            <summary>
+            Represents position information.
+            </summary>
+        </member>
+        <member name="M:BEditor.Data.Property.PositionInfo.#ctor(System.Single,BEditor.Data.Property.PositionType)">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Data.Property.PositionInfo"/> struct.
+            </summary>
+            <param name="position">The position.</param>
+            <param name="type">The type of the position.</param>
+        </member>
+        <member name="P:BEditor.Data.Property.PositionInfo.Value">
+            <summary>
+            Gets the value.
+            </summary>
+        </member>
+        <member name="P:BEditor.Data.Property.PositionInfo.Type">
+            <summary>
+            Gets the type of the position.
+            </summary>
+        </member>
+        <member name="M:BEditor.Data.Property.PositionInfo.op_Equality(BEditor.Data.Property.PositionInfo,BEditor.Data.Property.PositionInfo)">
+            <summary>
+            Indicates whether two <see cref="T:BEditor.Data.Property.PositionInfo"/> instances are equal.
+            </summary>
+            <param name="left">The first color to compare.</param>
+            <param name="right">The second color to compare.</param>
+            <returns>true if the values of <paramref name="left"/> and <paramref name="right"/> are equal; otherwise, false.</returns>
+        </member>
+        <member name="M:BEditor.Data.Property.PositionInfo.op_Inequality(BEditor.Data.Property.PositionInfo,BEditor.Data.Property.PositionInfo)">
+            <summary>
+            Indicates whether two <see cref="T:BEditor.Data.Property.PositionInfo"/> instances are not equal.
+            </summary>
+            <param name="left">The first color to compare.</param>
+            <param name="right">The second color to compare.</param>
+            <returns>true if the values of <paramref name="left"/> and <paramref name="right"/> are not equal; otherwise, false.</returns>
+        </member>
+        <member name="M:BEditor.Data.Property.PositionInfo.TryParse(System.String,BEditor.Data.Property.PositionInfo@)">
+            <summary>
+            Parses a <see cref="T:BEditor.Data.Property.PositionInfo"/> string.
+            A return value indicates whether the conversion succeeded or failed.
+            </summary>
+            <param name="s">The string.</param>
+            <param name="result">The parsed <see cref="T:BEditor.Data.Property.PositionInfo"/>.</param>
+            <returns>true if s was parsed successfully; otherwise, false.</returns>
+        </member>
+        <member name="M:BEditor.Data.Property.PositionInfo.Parse(System.String)">
+            <summary>
+            Parses a <see cref="T:BEditor.Data.Property.PositionInfo"/> string.
+            </summary>
+            <param name="s">The string.</param>
+            <returns>The parsed <see cref="T:BEditor.Data.Property.PositionInfo"/>.</returns>
+        </member>
+        <member name="M:BEditor.Data.Property.PositionInfo.WithValue(System.Single)">
+            <summary>
+            Returns a new <see cref="T:BEditor.Data.Property.PositionInfo"/> with the specified position.
+            </summary>
+            <param name="value">The position.</param>
+            <returns>The new <see cref="T:BEditor.Data.Property.PositionInfo"/>.</returns>
+        </member>
+        <member name="M:BEditor.Data.Property.PositionInfo.WithType(BEditor.Data.Property.PositionType)">
+            <summary>
+            Returns a new <see cref="T:BEditor.Data.Property.PositionInfo"/> with the specified position type.
+            </summary>
+            <param name="type">The type of the position.</param>
+            <returns>The new <see cref="T:BEditor.Data.Property.PositionInfo"/>.</returns>
+        </member>
+        <member name="M:BEditor.Data.Property.PositionInfo.WithType(BEditor.Data.Property.PositionType,System.Single)">
+            <summary>
+            Returns a new <see cref="T:BEditor.Data.Property.PositionInfo"/> with the specified position type.
+            </summary>
+            <param name="type">The type of the position.</param>
+            <param name="length">The length.</param>
+            <returns>The new <see cref="T:BEditor.Data.Property.PositionInfo"/>.</returns>
+        </member>
+        <member name="M:BEditor.Data.Property.PositionInfo.GetAbsolutePosition(System.Single)">
+            <summary>
+            Gets the absolute position.
+            </summary>
+            <param name="length">The length.</param>
+            <returns>The absolute position.</returns>
+        </member>
+        <member name="M:BEditor.Data.Property.PositionInfo.GetPercentagePosition(System.Single)">
+            <summary>
+            Gets the percentage.
+            </summary>
+            <param name="length">The length.</param>
+            <returns>The percentage.</returns>
+        </member>
+        <member name="M:BEditor.Data.Property.PositionInfo.ToString">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Data.Property.PositionInfo.Equals(System.Object)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Data.Property.PositionInfo.Equals(BEditor.Data.Property.PositionInfo)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Data.Property.PositionInfo.GetHashCode">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Data.Property.PositionType">
+            <summary>
+            Represents the type of position.
+            </summary>
+        </member>
+        <member name="F:BEditor.Data.Property.PositionType.Absolute">
+            <summary>
+            Absolute position.
+            </summary>
+        </member>
+        <member name="F:BEditor.Data.Property.PositionType.Percentage">
+            <summary>
+            Percentage.
+            </summary>
         </member>
         <member name="T:BEditor.Data.Property.PrimitiveGroup.Blend">
             <summary>
@@ -3759,40 +3898,6 @@
             <exception cref="T:System.ArgumentNullException"><paramref name="info"/> is null.</exception>
             <exception cref="T:System.Runtime.Serialization.SerializationException">The class name is null or <see cref="P:System.Exception.HResult"/> is zero (0).</exception>
         </member>
-        <member name="T:BEditor.Data.ResourceItem">
-            <summary>
-            Represents a resource used by the project.
-            </summary>
-        </member>
-        <member name="M:BEditor.Data.ResourceItem.#ctor(System.String,System.Func{System.Object})">
-            <summary>
-            Initializes a new instance of the <see cref="T:BEditor.Data.ResourceItem"/> class.
-            </summary>
-            <param name="key">The key of the resource.</param>
-            <param name="create">Create a value.</param>
-        </member>
-        <member name="P:BEditor.Data.ResourceItem.Key">
-            <summary>
-            Gets the key of this resource.
-            </summary>
-        </member>
-        <member name="P:BEditor.Data.ResourceItem.Value">
-            <summary>
-            Gets the value.
-            </summary>
-        </member>
-        <member name="M:BEditor.Data.ResourceItem.MakeReference(System.Object)">
-            <summary>
-            References this resource.
-            </summary>
-            <param name="obj">The object to reference.</param>
-            <returns>Returns the <see cref="T:System.IDisposable"/> from which the reference will be removed.</returns>
-        </member>
-        <member name="M:BEditor.Data.ResourceItem.Build">
-            <summary>
-            Builds this resource.
-            </summary>
-        </member>
         <member name="T:BEditor.Data.Scene">
             <summary>
             Represents a scene to be included in the <see cref="T:BEditor.Data.Project"/>.
@@ -3902,13 +4007,6 @@
             <see langword="true"/> if item is successfully removed; otherwise, <see langword="false"/>. This method also returns
             <see langword="false"/> if item was not found in the original <see cref="T:System.Collections.ObjectModel.Collection`1"/>.
             </returns>
-        </member>
-        <member name="M:BEditor.Data.Scene.SetCurrentClip(BEditor.Data.ClipElement)">
-            <summary>
-            Set the selected <see cref="T:BEditor.Data.ClipElement"/>.
-            </summary>
-            <param name="clip"><see cref="T:BEditor.Data.ClipElement"/> to be set to current.</param>
-            <exception cref="T:System.ArgumentNullException"><paramref name="clip"/> is <see langword="null"/>.</exception>
         </member>
         <member name="M:BEditor.Data.Scene.AddClip(BEditor.Data.ClipElement)">
             <summary>
@@ -4069,47 +4167,6 @@
         <member name="P:BEditor.Data.SceneSettings.Name">
             <summary>
             Gets the name.
-            </summary>
-        </member>
-        <member name="T:BEditor.DirectoryManager">
-            <summary>
-            Represents a class that manages directories.
-            </summary>
-        </member>
-        <member name="F:BEditor.DirectoryManager.Default">
-            <summary>
-            Gets a default <see cref="T:BEditor.DirectoryManager"/> instance.
-            </summary>
-        </member>
-        <member name="M:BEditor.DirectoryManager.#ctor">
-            <summary>
-            Initializes a new instance of the <see cref="T:BEditor.DirectoryManager"/> class.
-            </summary>
-        </member>
-        <member name="M:BEditor.DirectoryManager.#ctor(System.Collections.Generic.List{System.String})">
-            <summary>
-            Initializes a new instance of the <see cref="T:BEditor.DirectoryManager"/> class.
-            </summary>
-            <param name="directories">The directories to manage.</param>
-        </member>
-        <member name="P:BEditor.DirectoryManager.Directories">
-            <summary>
-            Gets the directories to manage.
-            </summary>
-        </member>
-        <member name="P:BEditor.DirectoryManager.IsRunning">
-            <summary>
-            Gets the running status of <see cref="T:BEditor.DirectoryManager"/>.
-            </summary>
-        </member>
-        <member name="M:BEditor.DirectoryManager.Run">
-            <summary>
-            Run the <see cref="T:BEditor.DirectoryManager"/>.
-            </summary>
-        </member>
-        <member name="M:BEditor.DirectoryManager.Stop">
-            <summary>
-            Stop the <see cref="T:BEditor.DirectoryManager"/>.
             </summary>
         </member>
         <member name="T:BEditor.IFileDialogService">
@@ -4539,13 +4596,6 @@
             </summary>
             <param name="func">The function to run.</param>
             <param name="name">The name of the <see cref="T:BEditor.PluginTask"/>.</param>
-            <returns>The same instance of the <see cref="T:BEditor.Plugin.PluginBuilder"/> for chaining.</returns>
-        </member>
-        <member name="M:BEditor.Plugin.PluginBuilder.Task(System.Func{System.IProgress{System.Int32},System.Threading.Tasks.ValueTask})">
-            <summary>
-            Add a task to be executed when the application is launched.
-            </summary>
-            <param name="func">The function to run.</param>
             <returns>The same instance of the <see cref="T:BEditor.Plugin.PluginBuilder"/> for chaining.</returns>
         </member>
         <member name="M:BEditor.Plugin.PluginBuilder.SetCustomMenu(System.String,System.Collections.Generic.IEnumerable{BEditor.Plugin.ICustomMenu})">

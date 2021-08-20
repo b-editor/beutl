@@ -1168,7 +1168,7 @@
         <member name="M:BEditor.Primitive.Effects.Border.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Primitive.Effects.Border.Apply(BEditor.Data.EffectApplyArgs{System.Collections.Generic.IEnumerable{BEditor.Graphics.ImageInfo}})">
+        <member name="M:BEditor.Primitive.Effects.Border.Apply(BEditor.Data.EffectApplyArgs{System.Collections.Generic.IEnumerable{BEditor.Graphics.Texture}})">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Primitive.Effects.Border.GetProperties">
@@ -1697,7 +1697,7 @@
             Gets the number of vertical divisions.
             </summary>
         </member>
-        <member name="M:BEditor.Primitive.Effects.ImageSplit.Apply(BEditor.Data.EffectApplyArgs{System.Collections.Generic.IEnumerable{BEditor.Graphics.ImageInfo}})">
+        <member name="M:BEditor.Primitive.Effects.ImageSplit.Apply(BEditor.Data.EffectApplyArgs{System.Collections.Generic.IEnumerable{BEditor.Graphics.Texture}})">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Primitive.Effects.ImageSplit.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
@@ -2020,7 +2020,7 @@
             Gets the index of the image to be controlled.
             </summary>
         </member>
-        <member name="M:BEditor.Primitive.Effects.MultipleControls.Apply(BEditor.Data.EffectApplyArgs{System.Collections.Generic.IEnumerable{BEditor.Graphics.ImageInfo}})">
+        <member name="M:BEditor.Primitive.Effects.MultipleControls.Apply(BEditor.Data.EffectApplyArgs{System.Collections.Generic.IEnumerable{BEditor.Graphics.Texture}})">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Primitive.Effects.MultipleControls.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
@@ -2118,7 +2118,7 @@
         <member name="M:BEditor.Primitive.Effects.PartsDisassembly.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Primitive.Effects.PartsDisassembly.Apply(BEditor.Data.EffectApplyArgs{System.Collections.Generic.IEnumerable{BEditor.Graphics.ImageInfo}})">
+        <member name="M:BEditor.Primitive.Effects.PartsDisassembly.Apply(BEditor.Data.EffectApplyArgs{System.Collections.Generic.IEnumerable{BEditor.Graphics.Texture}})">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Primitive.Effects.PartsDisassembly.GetProperties">
@@ -3231,7 +3231,7 @@
         <member name="M:BEditor.Primitive.Objects.Text.OnRender(BEditor.Data.EffectApplyArgs)">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Primitive.Objects.Text.OnRender(BEditor.Data.EffectApplyArgs{System.Collections.Generic.IEnumerable{BEditor.Graphics.ImageInfo}})">
+        <member name="M:BEditor.Primitive.Objects.Text.OnRender(BEditor.Data.EffectApplyArgs{System.Collections.Generic.IEnumerable{BEditor.Graphics.Texture}})">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Primitive.Objects.Text.OnLoad">

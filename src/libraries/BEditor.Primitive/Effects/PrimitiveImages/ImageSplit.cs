@@ -67,48 +67,41 @@ namespace BEditor.Primitive.Effects
         public EaseProperty VSplit { get; private set; }
 
         /// <inheritdoc/>
-        public override void Apply(EffectApplyArgs<IEnumerable<ImageInfo>> args)
+        public override void Apply(EffectApplyArgs<IEnumerable<Texture>> args)
         {
-            // forに使う変数はキャプチャされないのでこれで対策
-            Func<ImageInfo, Transform> GetTransform(float x, float y, float hsplit, float vsplit)
-            {
-                return img =>
-                {
-                    var x_ = img.Source.Width * x;
-                    var y_ = -img.Source.Height * y;
-
-                    x_ -= ((hsplit / 2) * img.Source.Width) - (img.Source.Width / 2);
-                    y_ += ((vsplit / 2) * img.Source.Height) - (img.Source.Height / 2);
-
-                    var trans = new Transform(
-                        new Vector3(x_, y_, 0),
-                        Vector3.Zero,
-                        Vector3.Zero,
-                        Vector3.Zero);
-
-                    return trans;
-                };
-            }
-
-            args.Value = args.Value.SelectMany(img =>
+            args.Value = args.Value.SelectMany(texture =>
             {
                 var hsplt = HSplit[args.Frame];
                 var vsplt = VSplit[args.Frame];
-                var sw = img.Source.Width / hsplt;
-                var sh = img.Source.Height / vsplt;
-                var result = new ImageInfo[(int)(hsplt * vsplt)];
+                var sw = texture.Width / hsplt;
+                var sh = texture.Height / vsplt;
+                var result = new Texture[(int)(hsplt * vsplt)];
                 var count = 0;
+                using var image = texture.ToImage();
 
                 for (var v = 0; v < vsplt; v++)
                 {
                     for (var h = 0; h < hsplt; h++, count++)
                     {
-                        result[count] = new(
-                            img.Source[new Rectangle((int)(sw * h), (int)(sh * v), (int)sw, (int)sh)],
-                            GetTransform(h, v, hsplt, vsplt));
+                        using var cropped = image[new Rectangle((int)(sw * h), (int)(sh * v), (int)sw, (int)sh)];
+                        var item = Texture.FromImage(cropped);
+                        item.Synchronize(texture);
+
+                        var x_ = (float)item.Width * h;
+                        var y_ = (float)-item.Height * v;
+
+                        x_ -= (hsplt / 2 * item.Width) - (item.Width / 2);
+                        y_ += (vsplt / 2 * item.Height) - (item.Height / 2);
+
+                        var transform = item.Transform;
+                        transform.Coordinate += new Vector3(x_, y_, 0);
+                        item.Transform = transform;
+
+                        result[count] = item;
                     }
                 }
 
+                texture.Dispose();
                 return result;
             });
         }

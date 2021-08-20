@@ -23,16 +23,22 @@ namespace BEditor.Data.Primitive
         public abstract void Apply(EffectApplyArgs<Image<BGRA32>> args);
 
         /// <inheritdoc cref="Apply(EffectApplyArgs{Image{BGRA32}})"/>
-        public virtual void Apply(EffectApplyArgs<IEnumerable<ImageInfo>> args)
+        public virtual void Apply(EffectApplyArgs<IEnumerable<Texture>> args)
         {
-            args.Value = args.Value.Select(img =>
+            args.Value = args.Value.Select(tex =>
             {
-                var a = new EffectApplyArgs<Image<BGRA32>>(args.Frame, img.Source, args.Type);
-                Apply(a);
-                img.Source = a.Value;
-                args.Handled = a.Handled;
+                var innerArgs = new EffectApplyArgs<Image<BGRA32>>(args.Frame, tex.ToImage(), args.Type);
 
-                return img;
+                // エフェクトを適用
+                Apply(innerArgs);
+
+                // テクスチャを更新
+                tex.Update(innerArgs.Value);
+                innerArgs.Value.Dispose();
+
+                args.Handled = innerArgs.Handled;
+
+                return tex;
             });
         }
 
