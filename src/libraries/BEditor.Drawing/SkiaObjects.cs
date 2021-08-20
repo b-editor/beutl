@@ -155,36 +155,6 @@ namespace BEditor.Drawing
         /// <param name="number">The number of corners of the polygon.</param>
         /// <param name="width">The width of the polygon.</param>
         /// <param name="height">The height of the polygon.</param>
-        /// <param name="color">The color of the polygon.</param>
-        /// <returns>Returns an image with an polygon drawn on it.</returns>
-        [Obsolete("Use Polygon.")]
-        public static Image<BGRA32> Polygon(int number, int width, int height, Color color)
-        {
-            var radiusX = width / 2;
-            var radiusY = height / 2;
-            using var path = GetPolygonVertex(number, new(radiusX, radiusY), radiusX, radiusY, 0.5, width);
-
-            using var bmp = new SKBitmap(width, height);
-            using var canvas = new SKCanvas(bmp);
-
-            using var paint = new SKPaint
-            {
-                Color = new SKColor(color.R, color.G, color.B, color.A),
-                IsAntialias = true,
-                Style = SKPaintStyle.Fill,
-            };
-
-            canvas.DrawPath(path, paint);
-
-            return bmp.ToImage32();
-        }
-
-        /// <summary>
-        /// Generates an image with an polygon drawn on it.
-        /// </summary>
-        /// <param name="number">The number of corners of the polygon.</param>
-        /// <param name="width">The width of the polygon.</param>
-        /// <param name="height">The height of the polygon.</param>
         /// <param name="line">The line width of the polygon.</param>
         /// <param name="color">The color of the polygon.</param>
         /// <returns>Returns an image with an polygon drawn on it.</returns>

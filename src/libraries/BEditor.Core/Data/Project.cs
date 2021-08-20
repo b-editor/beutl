@@ -148,26 +148,6 @@ namespace BEditor.Data
         public ObservableCollection<Scene> SceneList { get; private set; } = new ObservableCollection<Scene>();
 
         /// <summary>
-        /// Gets an index of the <see cref="SceneList"/> being previewed.
-        /// </summary>
-        [Obsolete("Use CurrentSceneIndex.")]
-        public int PreviewSceneIndex => CurrentSceneIndex;
-
-        /// <summary>
-        /// Gets or sets the <see cref="Scene"/> that is being previewed.
-        /// </summary>
-        [Obsolete("Use CurrentScene.")]
-        public Scene PreviewScene
-        {
-            get => CurrentScene;
-            set
-            {
-                CurrentScene = value;
-                RaisePropertyChanged(new(nameof(PreviewScene)));
-            }
-        }
-
-        /// <summary>
         /// Gets or sets the current <see cref="Scene"/>.
         /// </summary>
         public Scene CurrentScene

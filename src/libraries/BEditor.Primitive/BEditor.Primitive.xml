@@ -2417,20 +2417,6 @@
         <member name="M:BEditor.Primitive.Effects.Shadow.GetProperties">
             <inheritdoc/>
         </member>
-        <member name="T:BEditor.Primitive.Effects.StrokeText">
-            <summary>
-            Represents the <see cref="T:BEditor.Data.Primitive.ImageEffect"/> that adds a border to the image.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Effects.StrokeText.Name">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Primitive.Effects.StrokeText.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Primitive.Effects.StrokeText.GetProperties">
-            <inheritdoc/>
-        </member>
         <member name="T:BEditor.Primitive.Effects.Xor">
             <summary>
             Represents an <see cref="T:BEditor.Data.Primitive.ImageEffect"/> that transforms an image into XOR colors.
@@ -2758,95 +2744,6 @@
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Primitive.Objects.GL3DObject.GetProperties">
-            <inheritdoc/>
-        </member>
-        <member name="T:BEditor.Primitive.Objects.ListenerObject">
-            <summary>
-            Represents an <see cref="T:BEditor.Data.ObjectElement"/> that sets the listener for OpenAL.
-            </summary>
-        </member>
-        <member name="F:BEditor.Primitive.Objects.ListenerObject.XProperty">
-            <summary>
-            Defines the <see cref="P:BEditor.Primitive.Objects.ListenerObject.X"/> property.
-            </summary>
-        </member>
-        <member name="F:BEditor.Primitive.Objects.ListenerObject.YProperty">
-            <summary>
-            Defines the <see cref="P:BEditor.Primitive.Objects.ListenerObject.Y"/> property.
-            </summary>
-        </member>
-        <member name="F:BEditor.Primitive.Objects.ListenerObject.ZProperty">
-            <summary>
-            Defines the <see cref="P:BEditor.Primitive.Objects.ListenerObject.Z"/> property.
-            </summary>
-        </member>
-        <member name="F:BEditor.Primitive.Objects.ListenerObject.TargetXProperty">
-            <summary>
-            Defines the <see cref="P:BEditor.Primitive.Objects.ListenerObject.TargetX"/> property.
-            </summary>
-        </member>
-        <member name="F:BEditor.Primitive.Objects.ListenerObject.TargetYProperty">
-            <summary>
-            Defines the <see cref="P:BEditor.Primitive.Objects.ListenerObject.TargetY"/> property.
-            </summary>
-        </member>
-        <member name="F:BEditor.Primitive.Objects.ListenerObject.TargetZProperty">
-            <summary>
-            Defines the <see cref="P:BEditor.Primitive.Objects.ListenerObject.TargetZ"/> property.
-            </summary>
-        </member>
-        <member name="F:BEditor.Primitive.Objects.ListenerObject.GainProperty">
-            <summary>
-            Defines the <see cref="P:BEditor.Primitive.Objects.ListenerObject.Gain"/> property.
-            </summary>
-        </member>
-        <member name="M:BEditor.Primitive.Objects.ListenerObject.#ctor">
-            <summary>
-            Initializes a new instance of the <see cref="T:BEditor.Primitive.Objects.ListenerObject"/> class.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Objects.ListenerObject.Name">
-            <inheritdoc/>
-        </member>
-        <member name="P:BEditor.Primitive.Objects.ListenerObject.X">
-            <summary>
-            Gets the X coordinate of the listener.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Objects.ListenerObject.Y">
-            <summary>
-            Gets the Y coordinate of the listener.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Objects.ListenerObject.Z">
-            <summary>
-            Gets the Z coordinate of the listener.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Objects.ListenerObject.TargetX">
-            <summary>
-            Gets the X coordinate of the listener's target position.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Objects.ListenerObject.TargetY">
-            <summary>
-            Gets the Y coordinate of the listener's target position.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Objects.ListenerObject.TargetZ">
-            <summary>
-            Gets the Z coordinate of the listener's target position.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Objects.ListenerObject.Gain">
-            <summary>
-            Gets the gain.
-            </summary>
-        </member>
-        <member name="M:BEditor.Primitive.Objects.ListenerObject.Apply(BEditor.Data.EffectApplyArgs)">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Primitive.Objects.ListenerObject.GetProperties">
             <inheritdoc/>
         </member>
         <member name="T:BEditor.Primitive.Objects.Framebuffer">

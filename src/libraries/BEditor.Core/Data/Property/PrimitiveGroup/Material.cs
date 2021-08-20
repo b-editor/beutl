@@ -26,7 +26,7 @@ namespace BEditor.Data.Property.PrimitiveGroup
             nameof(Ambient),
             owner => owner.Ambient,
             (owner, obj) => owner.Ambient = obj,
-            EditingPropertyOptions<ColorAnimationProperty>.Create(new ColorAnimationPropertyMetadata(Strings.Ambient, Colors.White, true)).Serialize());
+            EditingPropertyOptions<ColorAnimationProperty>.Create(new ColorAnimationPropertyMetadata(Strings.Ambient, Colors.White)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="Diffuse"/> property.
@@ -35,7 +35,7 @@ namespace BEditor.Data.Property.PrimitiveGroup
             nameof(Diffuse),
             owner => owner.Diffuse,
             (owner, obj) => owner.Diffuse = obj,
-            EditingPropertyOptions<ColorAnimationProperty>.Create(new ColorAnimationPropertyMetadata(Strings.Diffuse, Colors.White, true)).Serialize());
+            EditingPropertyOptions<ColorAnimationProperty>.Create(new ColorAnimationPropertyMetadata(Strings.Diffuse, Colors.White)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="Specular"/> property.
@@ -44,7 +44,7 @@ namespace BEditor.Data.Property.PrimitiveGroup
             nameof(Specular),
             owner => owner.Specular,
             (owner, obj) => owner.Specular = obj,
-            EditingPropertyOptions<ColorAnimationProperty>.Create(new ColorAnimationPropertyMetadata(Strings.Specular, Colors.White, true)).Serialize());
+            EditingPropertyOptions<ColorAnimationProperty>.Create(new ColorAnimationPropertyMetadata(Strings.Specular, Colors.White)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="Shininess"/> property.

@@ -22,46 +22,6 @@ namespace BEditor.Data
         /// <summary>
         /// Set the value.
         /// </summary>
-        /// <typeparam name="T1">Type of the value to set.</typeparam>
-        /// <typeparam name="T2">Type of state.</typeparam>
-        /// <param name="src">source value.</param>
-        /// <param name="dst">destination value.</param>
-        /// <param name="args">Arguments used for the <see cref="PropertyChanged"/> event.</param>
-        /// <param name="state">state.</param>
-        /// <param name="action"><paramref name="action"/> to be executed after the <see cref="PropertyChanged"/> event occurs.</param>
-        [Obsolete("Use SetAndRaise")]
-        protected void SetValue<T1, T2>(T1 src, ref T1 dst, PropertyChangedEventArgs args, T2? state = default, Action<T2>? action = null)
-        {
-            if (src == null || !src.Equals(dst))
-            {
-                dst = src;
-                RaisePropertyChanged(args);
-                action?.Invoke(state!);
-            }
-        }
-
-        /// <summary>
-        /// Set the value.
-        /// </summary>
-        /// <typeparam name="T1">Type of the value to set.</typeparam>
-        /// <param name="src">source value.</param>
-        /// <param name="dst">destination value.</param>
-        /// <param name="args">Arguments used for the <see cref="PropertyChanged"/> event.</param>
-        /// <param name="action"><paramref name="action"/> to be executed after the <see cref="PropertyChanged"/> event occurs.</param>
-        [Obsolete("Use SetAndRaise")]
-        protected void SetValue<T1>(T1 src, ref T1 dst, PropertyChangedEventArgs args, Action? action = null)
-        {
-            if (src == null || !src.Equals(dst))
-            {
-                dst = src;
-                RaisePropertyChanged(args);
-                action?.Invoke();
-            }
-        }
-
-        /// <summary>
-        /// Set the value.
-        /// </summary>
         /// <typeparam name="T">Type of the value to set.</typeparam>
         /// <param name="src">source value.</param>
         /// <param name="dst">destination value.</param>

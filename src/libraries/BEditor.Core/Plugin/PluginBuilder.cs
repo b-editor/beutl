@@ -143,22 +143,6 @@ namespace BEditor.Plugin
         }
 
         /// <summary>
-        /// Add a task to be executed when the application is launched.
-        /// </summary>
-        /// <param name="func">The function to run.</param>
-        /// <returns>The same instance of the <see cref="PluginBuilder"/> for chaining.</returns>
-        [Obsolete("Use PluginBuilder.Task(Func{IProgressDialog, ValueTask}, BackgroundTaskCompleteType, string)")]
-        public PluginBuilder Task(Func<IProgress<int>, ValueTask> func)
-        {
-            if (!_task.Any(i => i._task == func))
-            {
-                _task.Add(new(func, (_task.Count + 1).ToString()));
-            }
-
-            return this;
-        }
-
-        /// <summary>
         /// Set the menu.
         /// </summary>
         /// <param name="header">The string to display in the menu header.</param>

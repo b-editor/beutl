@@ -478,16 +478,6 @@
             Represents informations about the video stream.
             </summary>
         </member>
-        <member name="M:BEditor.Media.Decoding.VideoStreamInfo.#ctor(System.String,BEditor.Media.MediaType,System.TimeSpan,BEditor.Drawing.Size,System.Int32)">
-            <summary>
-            Initializes a new instance of the <see cref="T:BEditor.Media.Decoding.VideoStreamInfo"/> class.
-            </summary>
-            <param name="codecName">The codec name of the stream.</param>
-            <param name="type">The media type of the stream.</param>
-            <param name="duration">The duration of the stream.</param>
-            <param name="framesize">The video frame dimensions.</param>
-            <param name="framenum">The number of frames.</param>
-        </member>
         <member name="M:BEditor.Media.Decoding.VideoStreamInfo.#ctor(System.String,BEditor.Media.MediaType,System.TimeSpan,BEditor.Drawing.Size,System.Int32,System.Int32)">
             <summary>
             Initializes a new instance of the <see cref="T:BEditor.Media.Decoding.VideoStreamInfo"/> class.
@@ -638,18 +628,6 @@
             Adds a new audio stream to the container. Usable only in encoding, before locking file.
             </summary>
             <param name="config">The stream configuration.</param>
-        </member>
-        <member name="M:BEditor.Media.Encoding.IOutputContainer.GetDefaultVideoSettings">
-            <summary>
-            Gets the default settings for video encoder.
-            </summary>
-            <returns>Returns the default encoder setting.</returns>
-        </member>
-        <member name="M:BEditor.Media.Encoding.IOutputContainer.GetDefaultAudioSettings">
-            <summary>
-            Gets the default settings for audio encoder.
-            </summary>
-            <returns>Returns the default encoder setting.</returns>
         </member>
         <member name="M:BEditor.Media.Encoding.IOutputContainer.Create">
             <summary>

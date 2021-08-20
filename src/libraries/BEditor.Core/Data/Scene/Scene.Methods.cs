@@ -266,17 +266,6 @@ namespace BEditor.Data
         }
 
         /// <summary>
-        /// Set the selected <see cref="ClipElement"/>.
-        /// </summary>
-        /// <param name="clip"><see cref="ClipElement"/> to be set to current.</param>
-        /// <exception cref="ArgumentNullException"><paramref name="clip"/> is <see langword="null"/>.</exception>
-        [Obsolete("Use Scene.SelectItem.Set")]
-        public void SetCurrentClip(ClipElement clip)
-        {
-            SelectItem = clip ?? throw new ArgumentNullException(nameof(clip));
-        }
-
-        /// <summary>
         /// Create a command to add a <see cref="ClipElement"/> to this <see cref="Scene"/>.
         /// </summary>
         /// <param name="clip"><see cref="ClipElement"/> to be added.</param>
