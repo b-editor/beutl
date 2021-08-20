@@ -30,14 +30,12 @@ namespace BEditor.Views.CustomTitlebars
 {
     public sealed class WindowsTitlebar : UserControl
     {
-        private readonly Menu _menu;
         private readonly MenuItem _recentFiles;
         private readonly WindowsTitlebarButtons _titlebarbuttons;
 
         public WindowsTitlebar()
         {
             InitializeComponent();
-            _menu = this.FindControl<Menu>("menu");
             _recentFiles = this.FindControl<MenuItem>("RecentFiles");
             _titlebarbuttons = this.FindControl<WindowsTitlebarButtons>("titlebarbuttons");
 

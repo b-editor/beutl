@@ -96,7 +96,7 @@ namespace BEditor
 
             return SKTypeface.FromStream(stream);
         }
-        
+
         public static SKTypeface GetFilledIcon()
         {
             var loader = new AssetLoader(typeof(FluentAvaloniaTheme).Assembly);

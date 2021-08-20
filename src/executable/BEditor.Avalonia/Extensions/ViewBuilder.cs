@@ -417,7 +417,7 @@ namespace BEditor.Extensions
         private static readonly ReactiveCommand<EffectElement> _copyEffectId = new();
 
         private static readonly ReactiveCommand<EffectElement> _saveEffect = new();
-        
+
         private static readonly ReactiveCommand<ObjectElement> _saveObject = new();
 
         public static (Expander, StackPanel) CreateObjectExpander(ObjectElement obj)

@@ -24,7 +24,7 @@ namespace BEditor.Audio.XAudio2
             var hr = CoInitializeEx(IntPtr.Zero, COINIT_APARTMENTTHREADED);
             if (hr == RPC_E_CHANGED_MODE)
             {
-                hr = CoInitializeEx(IntPtr.Zero, COINIT_MULTITHREADED);
+                _ = CoInitializeEx(IntPtr.Zero, COINIT_MULTITHREADED);
             }
         }
 

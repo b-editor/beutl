@@ -25,10 +25,7 @@ namespace BEditor.Views
             DataContext = viewModel;
             InitializeComponent();
             viewModel.Close.Subscribe(Close);
-            viewModel.ClosePopup.Subscribe(() =>
-            {
-                this.FindControl<Popup>("NewPalette").Close();
-            });
+            viewModel.ClosePopup.Subscribe(() => this.FindControl<Popup>("NewPalette").Close());
 #if DEBUG
             this.AttachDevTools();
 #endif

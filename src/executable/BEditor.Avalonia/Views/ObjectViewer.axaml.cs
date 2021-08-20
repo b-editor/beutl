@@ -28,7 +28,7 @@ namespace BEditor.Views
 
         public static IEnumerable<string> Empty { get; } = Enumerable.Empty<string>();
 
-        private async void CopyID_Click(object sender, RoutedEventArgs e)
+        public async void CopyID_Click(object sender, RoutedEventArgs e)
         {
             if (this.FindControl<TreeView>("TreeView").SelectedItem is IEditingObject obj)
             {

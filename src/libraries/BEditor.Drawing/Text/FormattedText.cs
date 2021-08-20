@@ -283,12 +283,12 @@ namespace BEditor.Drawing
             var curY = _paint.StrokeWidth;
 
             var metrics = _paint.FontMetrics;
-            var mTop = metrics.Top; // ベースラインからの最大距離 (上) (0以上)
-            var mBottom = metrics.Bottom; // ベースラインからの最大距離 (下) (0以下)
+
+            // var mTop = metrics.Top; // ベースラインからの最大距離 (上) (0以上)
+            // var mBottom = metrics.Bottom; // ベースラインからの最大距離 (下) (0以下)
             var mLeading = metrics.Leading; // テキストの行間に追加する推奨距離 (0以下)
             var mDescent = metrics.Descent; // ベースラインからの推奨距離 (下) (0以下)
             var mAscent = metrics.Ascent; // ベースラインからの推奨距離 (上) (0以上)
-            var lastLineDescent = mBottom - mDescent;
 
             // 行の高さ
             _lineHeight = mDescent - mAscent;

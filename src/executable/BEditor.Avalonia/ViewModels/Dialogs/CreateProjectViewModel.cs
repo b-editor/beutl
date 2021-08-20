@@ -44,7 +44,7 @@ namespace BEditor.ViewModels.Dialogs
 
             Width.Select(_ => Array.Find(ImageSizes, s => s.Width == Width.Value && s.Height == Height.Value) ?? ImageSizes[0])
                 .Subscribe(i => SelectedSize.Value = i!);
-            
+
             Height.Select(_ => Array.Find(ImageSizes, s => s.Width == Width.Value && s.Height == Height.Value) ?? ImageSizes[0])
                 .Subscribe(i => SelectedSize.Value = i!);
 

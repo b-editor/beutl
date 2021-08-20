@@ -15,7 +15,6 @@ using Reactive.Bindings;
 
 using Setting = BEditor.Settings;
 
-
 namespace BEditor.ViewModels.Settings
 {
     public sealed class PackageSourceViewModel

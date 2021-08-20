@@ -118,7 +118,6 @@ namespace BEditor.Models
                 project = Project.FromFile(filename, app);
             }
 
-
             if (project is null) return;
 
             await Task.Run(() =>
