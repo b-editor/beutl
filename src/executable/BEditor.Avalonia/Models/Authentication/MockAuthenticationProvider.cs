@@ -11,13 +11,6 @@ namespace BEditor.Models.Authentication
 {
     public class MockPackageUploader : IRemotePackageProvider
     {
-        private readonly HttpClient _client;
-
-        public MockPackageUploader(HttpClient client)
-        {
-            _client = client;
-        }
-
         public async ValueTask<IEnumerable<Package>> GetPackagesAsync(Packaging.Authentication auth)
         {
             await Task.Delay(3000);

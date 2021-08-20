@@ -31,7 +31,6 @@ namespace BEditor.Views.Timelines
     {
         private readonly Grid _grid;
         private readonly TextBlock _text;
-        private readonly CompositeDisposable _disposable = new();
         private readonly Animation _anm = new()
         {
             Duration = TimeSpan.FromSeconds(0.15),

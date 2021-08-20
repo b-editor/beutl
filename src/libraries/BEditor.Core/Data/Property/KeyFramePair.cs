@@ -1,4 +1,4 @@
-﻿// ColorAnimationProperty.cs
+﻿// KeyFramePair.cs
 //
 // Copyright (C) BEditor
 //
@@ -18,12 +18,23 @@ namespace BEditor.Data.Property
     public readonly struct KeyFramePair<T> : IEquatable<KeyFramePair<T>>
         where T : notnull
     {
+        /// <summary>
+        /// Initializes a new instance of the <see cref="KeyFramePair{T}"/> struct.
+        /// </summary>
+        /// <param name="position">The position.</param>
+        /// <param name="value">The value.</param>
         public KeyFramePair(PositionInfo position, T value)
         {
             Position = position;
             Value = value;
         }
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="KeyFramePair{T}"/> struct.
+        /// </summary>
+        /// <param name="position">The position.</param>
+        /// <param name="value">The value.</param>
+        /// <param name="type">The type of the position.</param>
         public KeyFramePair(float position, T value, PositionType type)
         {
             Position = new(position, type);
@@ -40,16 +51,35 @@ namespace BEditor.Data.Property
         /// </summary>
         public PositionInfo Position { get; }
 
+        /// <summary>
+        /// Indicates whether two <see cref="KeyFramePair{T}"/> instances are equal.
+        /// </summary>
+        /// <param name="left">The first color to compare.</param>
+        /// <param name="right">The second color to compare.</param>
+        /// <returns>true if the values of <paramref name="left"/> and <paramref name="right"/> are equal; otherwise, false.</returns>
         public static bool operator ==(KeyFramePair<T> left, KeyFramePair<T> right)
         {
             return left.Equals(right);
         }
 
+        /// <summary>
+        /// Indicates whether two <see cref="KeyFramePair{T}"/> instances are not equal.
+        /// </summary>
+        /// <param name="left">The first color to compare.</param>
+        /// <param name="right">The second color to compare.</param>
+        /// <returns>true if the values of <paramref name="left"/> and <paramref name="right"/> are not equal; otherwise, false.</returns>
         public static bool operator !=(KeyFramePair<T> left, KeyFramePair<T> right)
         {
             return !(left == right);
         }
 
+        /// <summary>
+        /// Parses a <see cref="KeyFramePair{T}"/> string.
+        /// A return value indicates whether the conversion succeeded or failed.
+        /// </summary>
+        /// <param name="s">The string.</param>
+        /// <param name="result">The parsed <see cref="KeyFramePair{T}"/>.</param>
+        /// <returns>true if s was parsed successfully; otherwise, false.</returns>
         public static bool TryParse(string s, out KeyFramePair<T> result)
         {
             var strs = s.Split(',');
@@ -82,6 +112,11 @@ namespace BEditor.Data.Property
             return true;
         }
 
+        /// <summary>
+        /// Parses a <see cref="KeyFramePair{T}"/> string.
+        /// </summary>
+        /// <param name="s">The string.</param>
+        /// <returns>The parsed <see cref="KeyFramePair{T}"/>.</returns>
         public static KeyFramePair<T> Parse(string s)
         {
             if (TryParse(s, out var result))
@@ -94,21 +129,42 @@ namespace BEditor.Data.Property
             }
         }
 
+        /// <summary>
+        /// Returns a new <see cref="KeyFramePair{T}"/> with the specified position.
+        /// </summary>
+        /// <param name="position">The position.</param>
+        /// <returns>The new <see cref="KeyFramePair{T}"/>.</returns>
         public KeyFramePair<T> WithPosition(float position)
         {
             return new(position, Value, Position.Type);
         }
 
+        /// <summary>
+        /// Returns a new <see cref="KeyFramePair{T}"/> with the specified value.
+        /// </summary>
+        /// <param name="value">The value.</param>
+        /// <returns>The new <see cref="KeyFramePair{T}"/>.</returns>
         public KeyFramePair<T> WithValue(T value)
         {
             return new(Position, value);
         }
 
+        /// <summary>
+        /// Returns a new <see cref="KeyFramePair{T}"/> with the specified position type.
+        /// </summary>
+        /// <param name="type">The position type.</param>
+        /// <returns>The new <see cref="KeyFramePair{T}"/>.</returns>
         public KeyFramePair<T> WithType(PositionType type)
         {
             return new(Position.Value, Value, type);
         }
 
+        /// <summary>
+        /// Returns a new <see cref="KeyFramePair{T}"/> with the specified position type.
+        /// </summary>
+        /// <param name="type">The position type.</param>
+        /// <param name="length">The length.</param>
+        /// <returns>The new <see cref="KeyFramePair{T}"/>.</returns>
         public KeyFramePair<T> WithType(PositionType type, float length)
         {
             if (type == Position.Type) return this;
@@ -132,17 +188,20 @@ namespace BEditor.Data.Property
             return string.Join(",", pos, value);
         }
 
+        /// <inheritdoc/>
         public override bool Equals(object? obj)
         {
             return obj is KeyFramePair<T> pair && Equals(pair);
         }
 
+        /// <inheritdoc/>
         public bool Equals(KeyFramePair<T> other)
         {
             return EqualityComparer<T>.Default.Equals(Value, other.Value) &&
                    Position.Equals(other.Position);
         }
 
+        /// <inheritdoc/>
         public override int GetHashCode()
         {
             return HashCode.Combine(Value, Position);

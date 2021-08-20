@@ -29,7 +29,7 @@ namespace BEditor.ViewModels.ManagePlugins
                 }
                 catch
                 {
-                    Message.Value = Message.Value = string.Format(Strings.FailedTo, Strings.Signup); ;
+                    Message.Value = Message.Value = string.Format(Strings.FailedTo, Strings.Signup);
                 }
                 finally
                 {

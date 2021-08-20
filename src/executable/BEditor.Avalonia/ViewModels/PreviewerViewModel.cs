@@ -64,6 +64,18 @@ namespace BEditor.ViewModels
 
         public event EventHandler? ImageChanged;
 
+        public static bool IsDebug
+        {
+            get
+            {
+#if DEBUG
+                return true;
+#else
+                return false;
+#endif
+            }
+        }
+
         public ReactiveProperty<WriteableBitmap?> PreviewImage { get; } = new();
 
         public ReactiveProperty<Sound<StereoPCMFloat>?> PreviewAudio { get; } = new();
@@ -77,18 +89,6 @@ namespace BEditor.ViewModels
         public ReactivePropertySlim<string> MaxFps { get; } = new();
 
         public ReactivePropertySlim<string> AvgFps { get; } = new();
-
-        public bool IsDebug
-        {
-            get
-            {
-#if DEBUG
-                return true;
-#else
-                return false;
-#endif
-            }
-        }
 
         public IReadOnlyReactiveProperty<bool> IsOpened { get; }
 

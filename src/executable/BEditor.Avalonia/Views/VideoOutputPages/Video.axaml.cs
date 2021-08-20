@@ -21,7 +21,6 @@ namespace BEditor.Views.VideoOutputPages
         {
             InitializeComponent();
             _videoEncoderSettings = this.FindControl<ContentPresenter>("VideoEncoderSettings");
-
         }
 
         protected override void OnDataContextChanged(EventArgs e)

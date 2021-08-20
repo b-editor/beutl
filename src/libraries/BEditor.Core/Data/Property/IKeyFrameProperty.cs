@@ -83,6 +83,10 @@ namespace BEditor.Data.Property
         /// <returns>The index of item if found in the list; otherwise, -1.</returns>
         public int IndexOf(PositionInfo position);
 
+        /// <summary>
+        /// Gets an enumerable collection of position information.
+        /// </summary>
+        /// <returns>An enumerable collection of position information.</returns>
         public IEnumerable<PositionInfo> Enumerate();
     }
 

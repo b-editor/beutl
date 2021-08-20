@@ -33,7 +33,7 @@ namespace BEditor.Views.Properties
         public void TreeView_SelectionChanged(object s, SelectionChangedEventArgs e)
         {
             if (DataContext is EasePropertyViewModel vm
-                && e.AddedItems.OfType<EasingMetadata>().FirstOrDefault() is var metadata
+                && e.AddedItems.OfType<EasingMetadata>().FirstOrDefault() is EasingMetadata metadata
                 && vm.Property.EasingData.Type != metadata.Type
                 && metadata.Type is not null)
             {

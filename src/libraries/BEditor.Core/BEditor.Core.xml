@@ -1377,6 +1377,11 @@
             Gets or sets the directory name of this <see cref="T:BEditor.Data.Project"/>.
             </summary>
         </member>
+        <member name="P:BEditor.Data.Project.Resources">
+            <summary>
+            Gets the class that manages the resources used by the project.
+            </summary>
+        </member>
         <member name="M:BEditor.Data.Project.FromFileAsync(System.String,BEditor.IApplication)">
             <summary>
             Load a <see cref="T:BEditor.Data.Project"/> from a file.
@@ -1581,6 +1586,47 @@
             </summary>
             <param name="file">The name of the file to be saved.</param>
             <returns>Returns true on success, false otherwise.</returns>
+        </member>
+        <member name="T:BEditor.Data.ProjectResources">
+            <summary>
+            Manage the resources that the project is using.
+            </summary>
+        </member>
+        <member name="M:BEditor.Data.ProjectResources.Finalize">
+            <summary>
+            Finalizes an instance of the <see cref="T:BEditor.Data.ProjectResources"/> class.
+            </summary>
+        </member>
+        <member name="P:BEditor.Data.ProjectResources.Items">
+            <summary>
+            Gets all registered resources.
+            </summary>
+        </member>
+        <member name="M:BEditor.Data.ProjectResources.RegisterResource(BEditor.Data.ResourceItem)">
+            <summary>
+            Register the resources to be used.
+            </summary>
+            <param name="item">A resource to register.</param>
+            <returns>Returns a registered resource.</returns>
+        </member>
+        <member name="M:BEditor.Data.ProjectResources.Release">
+            <summary>
+            Releases the registered resources.
+            </summary>
+        </member>
+        <member name="M:BEditor.Data.ProjectResources.GetItem(System.String)">
+            <summary>
+            Gets a registered resource.
+            </summary>
+            <param name="key">The key of a resource to get.</param>
+            <returns>Returns a resource that matches the key. If not found, <see langword="null"/> will be returned.</returns>
+        </member>
+        <member name="M:BEditor.Data.ProjectResources.RemoveItem(System.String)">
+            <summary>
+            Removes a resource with the specified key.
+            </summary>
+            <param name="key">The key of a resource to be removed.</param>
+            <returns>Returns a resource if it has been removed, otherwise returns <see langword="null"/>.</returns>
         </member>
         <member name="T:BEditor.Data.ProjectSavedEventArgs">
             <summary>
@@ -3712,6 +3758,40 @@
             <param name="context">The System.Runtime.Serialization.StreamingContext that contains contextual information about the source or destination.</param>
             <exception cref="T:System.ArgumentNullException"><paramref name="info"/> is null.</exception>
             <exception cref="T:System.Runtime.Serialization.SerializationException">The class name is null or <see cref="P:System.Exception.HResult"/> is zero (0).</exception>
+        </member>
+        <member name="T:BEditor.Data.ResourceItem">
+            <summary>
+            Represents a resource used by the project.
+            </summary>
+        </member>
+        <member name="M:BEditor.Data.ResourceItem.#ctor(System.String,System.Func{System.Object})">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Data.ResourceItem"/> class.
+            </summary>
+            <param name="key">The key of the resource.</param>
+            <param name="create">Create a value.</param>
+        </member>
+        <member name="P:BEditor.Data.ResourceItem.Key">
+            <summary>
+            Gets the key of this resource.
+            </summary>
+        </member>
+        <member name="P:BEditor.Data.ResourceItem.Value">
+            <summary>
+            Gets the value.
+            </summary>
+        </member>
+        <member name="M:BEditor.Data.ResourceItem.MakeReference(System.Object)">
+            <summary>
+            References this resource.
+            </summary>
+            <param name="obj">The object to reference.</param>
+            <returns>Returns the <see cref="T:System.IDisposable"/> from which the reference will be removed.</returns>
+        </member>
+        <member name="M:BEditor.Data.ResourceItem.Build">
+            <summary>
+            Builds this resource.
+            </summary>
         </member>
         <member name="T:BEditor.Data.Scene">
             <summary>

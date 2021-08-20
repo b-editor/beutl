@@ -1,4 +1,4 @@
-﻿// ColorAnimationProperty.cs
+﻿// PositionType.cs
 //
 // Copyright (C) BEditor
 //
@@ -7,10 +7,19 @@
 
 namespace BEditor.Data.Property
 {
+    /// <summary>
+    /// Represents the type of position.
+    /// </summary>
     public enum PositionType
     {
+        /// <summary>
+        /// Absolute position.
+        /// </summary>
         Absolute = 0,
 
+        /// <summary>
+        /// Percentage.
+        /// </summary>
         Percentage = 1,
     }
 }
