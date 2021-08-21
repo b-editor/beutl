@@ -444,5 +444,67 @@ namespace BEditor.Drawing
 
             return newbmp.ToImage32();
         }
+
+        /// <summary>
+        /// Applies fractal noise.
+        /// </summary>
+        /// <param name="self">The image to apply the effect to.</param>
+        /// <param name="baseFrequencyX">The frequency in the x-direction in the range of 0..1.</param>
+        /// <param name="baseFrequencyY">The frequency in the y-direction in the range of 0..1.</param>
+        /// <param name="numOctaves">The number of octaves, usually fairly small.</param>
+        /// <param name="seed">The randomization seed.</param>
+        public static void FractalNoise(this Image<BGRA32> self, float baseFrequencyX, float baseFrequencyY, int numOctaves, float seed)
+        {
+            if (self is null) throw new ArgumentNullException(nameof(self));
+            self.ThrowIfDisposed();
+
+            using var bmp = new SKBitmap(new(self.Width, self.Height, SKColorType.Bgra8888));
+            using var canvas = new SKCanvas(bmp);
+            using var b = self.ToSKBitmap();
+            using var paint = new SKPaint
+            {
+                IsAntialias = true,
+            };
+            paint.Shader = SKShader.CreateCompose(SKShader.CreateBitmap(b), SKShader.CreatePerlinNoiseFractalNoise(
+                baseFrequencyX,
+                baseFrequencyY,
+                numOctaves,
+                seed));
+
+            canvas.DrawRect(SKRect.Create(bmp.Width, bmp.Height), paint);
+
+            CopyTo(bmp.Bytes, self.Data!, self.DataSize);
+        }
+
+        /// <summary>
+        /// Applies turbulence noise.
+        /// </summary>
+        /// <param name="self">The image to apply the effect to.</param>
+        /// <param name="baseFrequencyX">The frequency in the x-direction in the range of 0..1.</param>
+        /// <param name="baseFrequencyY">The frequency in the y-direction in the range of 0..1.</param>
+        /// <param name="numOctaves">The number of octaves, usually fairly small.</param>
+        /// <param name="seed">The randomization seed.</param>
+        public static void TurbulenceNoise(this Image<BGRA32> self, float baseFrequencyX, float baseFrequencyY, int numOctaves, float seed)
+        {
+            if (self is null) throw new ArgumentNullException(nameof(self));
+            self.ThrowIfDisposed();
+
+            using var bmp = new SKBitmap(new(self.Width, self.Height, SKColorType.Bgra8888));
+            using var canvas = new SKCanvas(bmp);
+            using var b = self.ToSKBitmap();
+            using var paint = new SKPaint
+            {
+                IsAntialias = true,
+            };
+            paint.Shader = SKShader.CreateCompose(SKShader.CreateBitmap(b), SKShader.CreatePerlinNoiseTurbulence(
+                baseFrequencyX,
+                baseFrequencyY,
+                numOctaves,
+                seed));
+
+            canvas.DrawRect(SKRect.Create(bmp.Width, bmp.Height), paint);
+
+            CopyTo(bmp.Bytes, self.Data!, self.DataSize);
+        }
     }
 }

@@ -2083,9 +2083,24 @@
             Noise effect.
             </summary>
         </member>
-        <member name="F:BEditor.Primitive.Effects.Noise.ValueProperty">
+        <member name="F:BEditor.Primitive.Effects.Noise.FrequencyXProperty">
             <summary>
-            Defines the <see cref="P:BEditor.Primitive.Effects.Noise.Value"/> property.
+            Defines the <see cref="P:BEditor.Primitive.Effects.Noise.FrequencyX"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.Noise.FrequencyYProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.Noise.FrequencyY"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.Noise.NumberOfOctavesProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.Noise.NumberOfOctaves"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.Noise.TypeProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.Noise.Type"/> property.
             </summary>
         </member>
         <member name="M:BEditor.Primitive.Effects.Noise.#ctor">
@@ -2096,9 +2111,24 @@
         <member name="P:BEditor.Primitive.Effects.Noise.Name">
             <inheritdoc/>
         </member>
-        <member name="P:BEditor.Primitive.Effects.Noise.Value">
+        <member name="P:BEditor.Primitive.Effects.Noise.FrequencyX">
             <summary>
-            Gets the threshold value.
+            Gets the frequency in the x-direction.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.Noise.FrequencyY">
+            <summary>
+            Gets the frequency in the y-direction.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.Noise.NumberOfOctaves">
+            <summary>
+            Gets the number of octaves.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.Noise.Type">
+            <summary>
+            Gets the type of noise.
             </summary>
         </member>
         <member name="M:BEditor.Primitive.Effects.Noise.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">

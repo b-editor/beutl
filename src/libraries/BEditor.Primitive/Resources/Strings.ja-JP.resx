@@ -733,4 +733,19 @@
   <data name="Bevel" xml:space="preserve">
     <value>斜め</value>
   </data>
+  <data name="FrequencyX" xml:space="preserve">
+    <value>周期X</value>
+  </data>
+  <data name="FrequencyY" xml:space="preserve">
+    <value>周期Y</value>
+  </data>
+  <data name="NumberOfOctaves" xml:space="preserve">
+    <value>オクターブ数</value>
+  </data>
+  <data name="Fractal" xml:space="preserve">
+    <value>フラクタル</value>
+  </data>
+  <data name="Turbulence" xml:space="preserve">
+    <value>タービュランス</value>
+  </data>
 </root>
