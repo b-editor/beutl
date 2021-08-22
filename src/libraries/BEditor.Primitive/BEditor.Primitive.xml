@@ -1011,6 +1011,9 @@
         <member name="M:BEditor.Primitive.Effects.AreaExpansion.GetProperties">
             <inheritdoc/>
         </member>
+        <member name="M:BEditor.Primitive.Effects.AreaExpansion.Apply(BEditor.Data.EffectApplyArgs{System.Collections.Generic.IEnumerable{BEditor.Graphics.Texture}})">
+            <inheritdoc/>
+        </member>
         <member name="M:BEditor.Primitive.Effects.AreaExpansion.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
             <inheritdoc/>
         </member>
@@ -1399,6 +1402,9 @@
             <summary>
             Gets whether or not to adjust the coordinates.
             </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.Clipping.Apply(BEditor.Data.EffectApplyArgs{System.Collections.Generic.IEnumerable{BEditor.Graphics.Texture}})">
+            <inheritdoc/>
         </member>
         <member name="M:BEditor.Primitive.Effects.Clipping.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
             <inheritdoc/>
@@ -2342,6 +2348,9 @@
             <summary>
             Gets the vertical alignment.
             </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.SetAlignment.Apply(BEditor.Data.EffectApplyArgs{System.Collections.Generic.IEnumerable{BEditor.Graphics.Texture}})">
+            <inheritdoc/>
         </member>
         <member name="M:BEditor.Primitive.Effects.SetAlignment.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
             <inheritdoc/>
@@ -3905,6 +3914,11 @@
               Looks up a localized string similar to viewing angle.
             </summary>
         </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Fractal">
+            <summary>
+              Looks up a localized string similar to Fractal.
+            </summary>
+        </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Framebuffer">
             <summary>
               Looks up a localized string similar to Framebuffer.
@@ -3913,6 +3927,16 @@
         <member name="P:BEditor.Primitive.Resources.Strings.Frequency">
             <summary>
               Looks up a localized string similar to Frequency.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.FrequencyX">
+            <summary>
+              Looks up a localized string similar to Frequency X.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.FrequencyY">
+            <summary>
+              Looks up a localized string similar to Frequency Y.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Gamma">
@@ -4093,6 +4117,11 @@
         <member name="P:BEditor.Primitive.Resources.Strings.NumberOfHorizontalDivisions">
             <summary>
               Looks up a localized string similar to Number of horizontal divisions.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.NumberOfOctaves">
+            <summary>
+              Looks up a localized string similar to Number of octaves.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.NumberOfRepetitions">
@@ -4318,6 +4347,11 @@
         <member name="P:BEditor.Primitive.Resources.Strings.TopRight">
             <summary>
               Looks up a localized string similar to Upper right.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Turbulence">
+            <summary>
+              Looks up a localized string similar to Turbulence.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Type">

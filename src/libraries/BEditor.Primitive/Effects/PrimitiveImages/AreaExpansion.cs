@@ -7,12 +7,15 @@
 
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.Linq;
+using System.Numerics;
 
 using BEditor.Data;
 using BEditor.Data.Primitive;
 using BEditor.Data.Property;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
+using BEditor.Graphics;
 using BEditor.Primitive.Resources;
 
 namespace BEditor.Primitive.Effects
@@ -108,24 +111,32 @@ namespace BEditor.Primitive.Effects
         }
 
         /// <inheritdoc/>
+        public override void Apply(EffectApplyArgs<IEnumerable<Texture>> args)
+        {
+            args.Value = args.Value.Select(texture =>
+            {
+                using var image = texture.ToImage();
+                var top = Top[args.Frame];
+                var bottom = Bottom[args.Frame];
+                var left = Left[args.Frame];
+                var right = Right[args.Frame];
+
+                if (AdjustCoordinates.Value)
+                {
+                    var transform = texture.Transform;
+                    transform.Center += new Vector3((right / 2) - (left / 2), (top / 2) - (bottom / 2), 0);
+                    texture.Transform = transform;
+                }
+
+                using var img = image.MakeBorder((int)top, (int)bottom, (int)left, (int)right);
+                texture.Update(img);
+                return texture;
+            });
+        }
+
+        /// <inheritdoc/>
         public override void Apply(EffectApplyArgs<Image<BGRA32>> args)
         {
-            var top = (int)Top.GetValue(args.Frame);
-            var bottom = (int)Bottom.GetValue(args.Frame);
-            var left = (int)Left.GetValue(args.Frame);
-            var right = (int)Right.GetValue(args.Frame);
-
-            if (AdjustCoordinates.Value && Parent!.Effect[0] is ImageObject image)
-            {
-                image.Coordinate.CenterX.Optional = (right / 2) - (left / 2);
-                image.Coordinate.CenterY.Optional = (top / 2) - (bottom / 2);
-            }
-
-            var img = args.Value.MakeBorder(top, bottom, left, right);
-
-            args.Value.Dispose();
-
-            args.Value = img;
         }
     }
 }
