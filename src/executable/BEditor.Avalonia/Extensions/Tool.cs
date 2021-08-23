@@ -68,7 +68,7 @@ namespace BEditor.Extensions
                         viewmodel.PreviewImage.Value = new(
                             new(img.Width, img.Height),
                             new(96, 96),
-                            PixelFormat.Bgra8888, AlphaFormat.Unpremul);
+                            PixelFormat.Bgra8888, AlphaFormat.Premul);
                     }
 
                     var buf = viewmodel.PreviewImage.Value.Lock();
