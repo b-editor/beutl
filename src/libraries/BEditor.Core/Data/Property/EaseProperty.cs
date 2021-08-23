@@ -397,11 +397,12 @@ namespace BEditor.Data.Property
         /// <inheritdoc/>
         protected override void OnLoad()
         {
-            EasingType.Load();
             EasingType.Parent = this;
+            EasingType.Load();
 
-            var clip = this.GetRequiredParent<ClipElement>();
-            clip.LengthChanging += Clip_LengthChanging;
+            var clip = this.GetParent<ClipElement>();
+            if (clip != null)
+                clip.LengthChanging += Clip_LengthChanging;
         }
 
         /// <inheritdoc/>
@@ -409,8 +410,9 @@ namespace BEditor.Data.Property
         {
             EasingType.Unload();
 
-            var clip = this.GetRequiredParent<ClipElement>();
-            clip.LengthChanging -= Clip_LengthChanging;
+            var clip = this.GetParent<ClipElement>();
+            if (clip != null)
+                clip.LengthChanging -= Clip_LengthChanging;
         }
 
         private void Clip_LengthChanging(object? sender, ClipLengthChangingEventArgs e)
