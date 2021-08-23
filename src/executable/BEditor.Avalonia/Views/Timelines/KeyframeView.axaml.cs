@@ -101,11 +101,6 @@ namespace BEditor.Views.Timelines
 
                     Add_Handler_Icon(icon);
 
-                    //icon.ContextMenu = new ContextMenu
-                    //{
-                    //    Items = new MenuItem[] { CreateMenu() }
-                    //};
-
                     icon.ContextMenu = CreateContextMenu(pos);
 
                     _grid.Children.Insert(index, icon);
@@ -139,19 +134,11 @@ namespace BEditor.Views.Timelines
 
             _grid.Children.Clear();
 
-            if (Property is IKeyframeProperty<float> f)
+            var array = Property.Enumerate().ToArray();
+            for (var i = 1; i < array.Length - 1; i++)
             {
-                for (var index = 1; index < f.Pairs.Count - 1; index++)
-                {
-                    viewmodel.AddKeyFrameIcon(f.Pairs[index].Position);
-                }
-            }
-            else if (Property is IKeyframeProperty<Drawing.Color> c)
-            {
-                for (var index = 1; index < c.Pairs.Count - 1; index++)
-                {
-                    viewmodel.AddKeyFrameIcon(c.Pairs[index].Position);
-                }
+                var item = array[i];
+                viewmodel.AddKeyFrameIcon(item);
             }
 
             // StoryBoard‚ðÝ’è
@@ -182,32 +169,18 @@ namespace BEditor.Views.Timelines
         {
             if (_recentSize != availableSize)
             {
-                if (Property is IKeyframeProperty<float> f)
+                var length = Scene.ToFrame(availableSize.Width);
+                var array = Property.Enumerate().ToArray();
+                for (var i = 0; i < array.Length - 2; i++)
                 {
-                    var length = Scene.ToFrame(availableSize.Width);
-                    for (var frame = 0; frame < f.Pairs.Count - 2; frame++)
-                    {
-                        if (_grid.Children.Count <= frame) break;
+                    if (_grid.Children.Count <= i) break;
 
-                        if (_grid.Children[frame] is Shape icon)
-                        {
-                            icon.Margin = new Thickness(Scene.ToPixel((Media.Frame)f.Pairs[frame + 1].Position.GetAbsolutePosition(length)), 0, 0, 0);
-                        }
+                    if (_grid.Children[i] is Shape icon)
+                    {
+                        icon.Margin = new Thickness(Scene.ToPixel((Media.Frame)array[i + 1].GetAbsolutePosition(length)), 0, 0, 0);
                     }
                 }
-                else if (Property is IKeyframeProperty<Drawing.Color> c)
-                {
-                    var length = Scene.ToFrame(availableSize.Width);
-                    for (var frame = 0; frame < c.Pairs.Count - 2; frame++)
-                    {
-                        if (_grid.Children.Count <= frame) break;
 
-                        if (_grid.Children[frame] is Shape icon)
-                        {
-                            icon.Margin = new Thickness(Scene.ToPixel((Media.Frame)c.Pairs[frame + 1].Position.GetAbsolutePosition(length)), 0, 0, 0);
-                        }
-                    }
-                }
                 _recentSize = availableSize;
             }
 

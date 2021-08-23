@@ -278,7 +278,7 @@
                         CornerRadius="{StaticResource OverlayCornerRadius}"
                         Background="{StaticResource NavigationViewDefaultPaneBackground}">
 
-                        <uip:InfoBarPanel x:Name="NotificationsPanel"/>
+                        <StackPanel Orientation="Vertical" Spacing="8" x:Name="NotificationsPanel"/>
                     </Border>
                 </Popup>
 
@@ -338,16 +338,6 @@
 
         <GridSplitter Background="Transparent" Grid.Row="2" Grid.Column="3"/>
 
-        <StackPanel
-            x:Name="NotifyStack"
-            Margin="8"
-            Grid.ColumnSpan="5"
-            Grid.Row="1"
-            Grid.RowSpan="5"
-            Spacing="8"
-            HorizontalAlignment="Right"
-            VerticalAlignment="Top" />
-        
         <TabControl
             Grid.Row="2"
             Grid.Column="2"
@@ -379,13 +369,15 @@
             </TabItem>
         </TabControl>
 
-        <uip:InfoBarPanel
+        <StackPanel
+            Spacing="8"
+            Orientation="Vertical"
             Margin="8"
             Grid.RowSpan="6"
             Grid.ColumnSpan="5"
             HorizontalAlignment="Left"
             VerticalAlignment="Bottom"
             x:Name="Notifications">
-        </uip:InfoBarPanel>
+        </StackPanel>
     </Grid>
 </views:FluentWindow>

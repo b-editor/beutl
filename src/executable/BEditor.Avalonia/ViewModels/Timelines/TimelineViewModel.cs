@@ -146,7 +146,7 @@ namespace BEditor.ViewModels.Timelines
                         // 左
                         selectviewmodel.WidthProperty.Value += move;
                     }
-                    else if (ClipLeftRight == 1)
+                    else if (ClipLeftRight == 1 && PointerFrame > 0)
                     {
                         // 右
                         selectviewmodel.WidthProperty.Value -= move;
@@ -169,12 +169,18 @@ namespace BEditor.ViewModels.Timelines
             {
                 var clipVm = SelectedClip.GetCreateClipViewModel();
 
-                var start = Scene.ToFrame(clipVm.MarginLeft);
-                var end = Scene.ToFrame(clipVm.WidthProperty.Value) + start;
+                var length = Scene.ToFrame(clipVm.WidthProperty.Value);
 
-                if (0 <= start && 0 < end)
+                if (0 < length)
                 {
-                    SelectedClip.ChangeLength(start, end).Execute();
+                    var anchor = ClipLeftRight switch
+                    {
+                        1 => ClipLengthChangeAnchor.End,
+                        2 => ClipLengthChangeAnchor.Start,
+                        _ => ClipLengthChangeAnchor.Start,
+                    };
+
+                    SelectedClip.ChangeLength(anchor, length).Execute();
                 }
 
                 ClipLeftRight = 0;

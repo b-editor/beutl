@@ -295,4 +295,14 @@
   <data name="UpdatePosition" xml:space="preserve">
     <value>位置を更新</value>
   </data>
+  <data name="KeyframeHasBeenMovedOutOfRange" xml:space="preserve">
+    <value>キーフレームが範囲外に移動しています。
+{0} -&gt; {1}</value>
+  </data>
+  <data name="MessageBy" xml:space="preserve">
+    <value>{0} によるメッセージ</value>
+  </data>
+  <data name="RemoveTarget" xml:space="preserve">
+    <value>対象を削除</value>
+  </data>
 </root>

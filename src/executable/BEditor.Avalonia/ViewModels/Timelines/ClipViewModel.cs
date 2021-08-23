@@ -103,7 +103,7 @@ namespace BEditor.ViewModels.Timelines
                     {
                         var length = Frame.FromTimeSpan((TimeSpan)obj.Length, Scene.Parent.Framerate);
 
-                        ClipElement.ChangeLength(ClipElement.Start, ClipElement.Start + length).Execute();
+                        ClipElement.ChangeLength(ClipLengthChangeAnchor.Start, length).Execute();
                     }
                 });
             }
@@ -205,12 +205,18 @@ namespace BEditor.ViewModels.Timelines
             // 値の保存
             if (timelinevm.ClipLeftRight != 0)
             {
-                int start = selectedClip.Parent.ToFrame(selectedClip.GetCreateClipViewModel().MarginLeft);
-                int end = selectedClip.Parent.ToFrame(selectedClip.GetCreateClipViewModel().WidthProperty.Value) + start;
+                var length = selectedClip.Parent.ToFrame(selectedClip.GetCreateClipViewModel().WidthProperty.Value);
 
-                if (0 <= start && 0 < end)
+                if (0 < length)
                 {
-                    selectedClip.ChangeLength(start, end).Execute();
+                    var anchor = timelinevm.ClipLeftRight switch
+                    {
+                        1 => ClipLengthChangeAnchor.End,
+                        2 => ClipLengthChangeAnchor.Start,
+                        _ => ClipLengthChangeAnchor.Start,
+                    };
+
+                    selectedClip.ChangeLength(anchor, length).Execute();
                 }
             }
 

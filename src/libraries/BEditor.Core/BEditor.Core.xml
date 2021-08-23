@@ -490,14 +490,6 @@
             クリップの長さを変更するコマンドを表します.
             </summary>
         </member>
-        <member name="M:BEditor.Data.ClipElement.LengthChangeCommand.#ctor(BEditor.Data.ClipElement,BEditor.Media.Frame,BEditor.Media.Frame)">
-            <summary>
-            Initializes a new instance of the <see cref="T:BEditor.Data.ClipElement.LengthChangeCommand"/> class.
-            </summary>
-            <param name="clip">長さを変更するクリップです.</param>
-            <param name="start">クリップの新しい開始フレームです.</param>
-            <param name="end">クリップの新しい終了フレームです.</param>
-        </member>
         <member name="P:BEditor.Data.ClipElement.LengthChangeCommand.Name">
             <inheritdoc/>
         </member>
@@ -563,6 +555,21 @@
             <param name="layer">The layer number of the clip.</param>
             <param name="scene">The scene where this clip will be placed.</param>
             <param name="obj">The <see cref="T:BEditor.Data.ObjectElement"/> contained in this clip.</param>
+        </member>
+        <member name="E:BEditor.Data.ClipElement.Moved">
+            <summary>
+            Occurs when a clip is moved.
+            </summary>
+        </member>
+        <member name="E:BEditor.Data.ClipElement.LengthChanging">
+            <summary>
+            Occurs when the length of the clip is changing.
+            </summary>
+        </member>
+        <member name="E:BEditor.Data.ClipElement.LengthChanged">
+            <summary>
+            Occurs when the length of the clip is changed.
+            </summary>
         </member>
         <member name="P:BEditor.Data.ClipElement.Name">
             <summary>
@@ -653,6 +660,14 @@
             <returns>Created <see cref="T:BEditor.Command.IRecordCommand"/>.</returns>
             <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="start"/> or <paramref name="end"/> is less than 0.</exception>
         </member>
+        <member name="M:BEditor.Data.ClipElement.ChangeLength(BEditor.Data.ClipLengthChangeAnchor,BEditor.Media.Frame)">
+            <summary>
+            Create a command to change the length of this <see cref="T:BEditor.Data.ClipElement"/>.
+            </summary>
+            <param name="anchor">The anchor.</param>
+            <param name="length">The new length of this <see cref="T:BEditor.Data.ClipElement"/>.</param>
+            <returns>Created <see cref="T:BEditor.Command.IRecordCommand"/>.</returns>
+        </member>
         <member name="M:BEditor.Data.ClipElement.Split(BEditor.Media.Frame)">
             <summary>
             Create a command to split this clip at the specified frame.
@@ -682,6 +697,111 @@
             指定した開始フレームにクリップを移動します.
             </summary>
             <param name="start">開始フレームです.</param>
+        </member>
+        <member name="T:BEditor.Data.ClipLengthChangeAnchor">
+            <summary>
+            Types of anchors used in <see cref="T:BEditor.Data.ClipLengthChangedEventArgs"/>.
+            </summary>
+        </member>
+        <member name="F:BEditor.Data.ClipLengthChangeAnchor.Start">
+            <summary>
+            The starting frame.
+            </summary>
+        </member>
+        <member name="F:BEditor.Data.ClipLengthChangeAnchor.End">
+            <summary>
+            The ending frame.
+            </summary>
+        </member>
+        <member name="T:BEditor.Data.ClipLengthChangedEventArgs">
+            <summary>
+            Provides data for the <see cref="E:BEditor.Data.ClipElement.LengthChanged"/> event.
+            </summary>
+        </member>
+        <member name="M:BEditor.Data.ClipLengthChangedEventArgs.#ctor(BEditor.Data.ClipLengthChangeAnchor,BEditor.Media.Frame,BEditor.Media.Frame)">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Data.ClipLengthChangedEventArgs"/> class.
+            </summary>
+            <param name="anchor">The anchor.</param>
+            <param name="newLength">The new length.</param>
+            <param name="oldLength">The old length.</param>
+        </member>
+        <member name="P:BEditor.Data.ClipLengthChangedEventArgs.Anchor">
+            <summary>
+            Gets the anchor.
+            </summary>
+        </member>
+        <member name="P:BEditor.Data.ClipLengthChangedEventArgs.NewLength">
+            <summary>
+            Gets the new length.
+            </summary>
+        </member>
+        <member name="P:BEditor.Data.ClipLengthChangedEventArgs.OldLength">
+            <summary>
+            Gets the old length.
+            </summary>
+        </member>
+        <member name="T:BEditor.Data.ClipLengthChangingEventArgs">
+            <summary>
+            Provides data for the <see cref="E:BEditor.Data.ClipElement.LengthChanging"/> event.
+            </summary>
+        </member>
+        <member name="M:BEditor.Data.ClipLengthChangingEventArgs.#ctor(BEditor.Data.ClipLengthChangeAnchor,BEditor.Media.Frame,BEditor.Media.Frame)">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Data.ClipLengthChangingEventArgs"/> class.
+            </summary>
+            <param name="anchor">The anchor.</param>
+            <param name="newLength">The new length.</param>
+            <param name="oldLength">The old length.</param>
+        </member>
+        <member name="P:BEditor.Data.ClipLengthChangingEventArgs.Anchor">
+            <summary>
+            Gets the anchor.
+            </summary>
+        </member>
+        <member name="P:BEditor.Data.ClipLengthChangingEventArgs.NewLength">
+            <summary>
+            Gets the new length.
+            </summary>
+        </member>
+        <member name="P:BEditor.Data.ClipLengthChangingEventArgs.OldLength">
+            <summary>
+            Gets the old length.
+            </summary>
+        </member>
+        <member name="T:BEditor.Data.ClipMovedEventArgs">
+            <summary>
+            Provides data for the <see cref="E:BEditor.Data.ClipElement.Moved"/> event.
+            </summary>
+        </member>
+        <member name="M:BEditor.Data.ClipMovedEventArgs.#ctor(System.Int32,System.Int32,BEditor.Media.Frame,BEditor.Media.Frame)">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Data.ClipMovedEventArgs"/> class.
+            </summary>
+            <param name="newLayer">The new layer.</param>
+            <param name="oldLayer">The old layer.</param>
+            <param name="newStart">The new starting frame.</param>
+            <param name="oldStart">The old starting frame.</param>
+        </member>
+        <member name="P:BEditor.Data.ClipMovedEventArgs.NewLayer">
+            <summary>
+            Gets the new layer.
+            </summary>
+        </member>
+        <member name="P:BEditor.Data.ClipMovedEventArgs.OldLayer">
+            <summary>
+            Gets the old layer.
+            </summary>
+        </member>
+        <member name="P:BEditor.Data.ClipMovedEventArgs.NewStart">
+            <summary>
+            Gets the new starting frame.
+            </summary>
+        </member>
+        <member name="P:BEditor.Data.ClipMovedEventArgs.OldStart">
+            <summary>
+            Gets the old starting frame.
+            </summary>
         </member>
         <member name="T:BEditor.Data.EffectApplyArgs">
             <summary>
@@ -1987,6 +2107,14 @@
             <param name="item">Item to be added.</param>
             <returns>Index of the added <see cref="P:BEditor.Data.Property.EaseProperty.Pairs"/>.</returns>
             <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="item"/> is outside the scope of the parent element.</exception>
+        </member>
+        <member name="M:BEditor.Data.Property.EaseProperty.InsertKeyframe(BEditor.Data.Property.KeyFramePair{System.Single},System.Int32)">
+            <summary>
+            Insert a keyframe at a specific frame.
+            </summary>
+            <param name="item">Item to be added.</param>
+            <param name="index">The index.</param>
+            <returns>Index of the added <see cref="P:BEditor.Data.Property.EaseProperty.Pairs"/>.</returns>
         </member>
         <member name="M:BEditor.Data.Property.EaseProperty.RemoveKeyframe(BEditor.Data.Property.PositionInfo)">
             <summary>
@@ -5003,6 +5131,12 @@
               Looks up a localized string similar to Font.
             </summary>
         </member>
+        <member name="P:BEditor.Resources.Strings.KeyframeHasBeenMovedOutOfRange">
+             <summary>
+               Looks up a localized string similar to The keyframe has been moved out of range.
+            {0} -&gt; {1}.
+             </summary>
+        </member>
         <member name="P:BEditor.Resources.Strings.KeyHasAlreadyBeenRegisterd">
             <summary>
               Looks up a localized string similar to This key has already been registered..
@@ -5011,6 +5145,11 @@
         <member name="P:BEditor.Resources.Strings.Material">
             <summary>
               Looks up a localized string similar to Material.
+            </summary>
+        </member>
+        <member name="P:BEditor.Resources.Strings.MessageBy">
+            <summary>
+              Looks up a localized string similar to Message by {0}.
             </summary>
         </member>
         <member name="P:BEditor.Resources.Strings.MoveClip">
@@ -5071,6 +5210,11 @@
         <member name="P:BEditor.Resources.Strings.RemoveLayer">
             <summary>
               Looks up a localized string similar to Remove layer.
+            </summary>
+        </member>
+        <member name="P:BEditor.Resources.Strings.RemoveTarget">
+            <summary>
+              Looks up a localized string similar to Remove target.
             </summary>
         </member>
         <member name="P:BEditor.Resources.Strings.Rotate">
