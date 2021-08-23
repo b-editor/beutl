@@ -129,7 +129,7 @@ namespace BEditor.Drawing
 
             canvas.DrawBitmap(b, 0, 0, paint);
 
-            CopyTo(bmp.Bytes, self.Data!, self.DataSize);
+            CopyTo(bmp.GetPixels(), self.Data!, self.DataSize);
         }
 
         /// <summary>
@@ -165,7 +165,7 @@ namespace BEditor.Drawing
 
             canvas.DrawBitmap(b, 0, 0, paint);
 
-            CopyTo(bmp.Bytes, self.Data!, self.DataSize);
+            CopyTo(bmp.GetPixels(), self.Data!, self.DataSize);
         }
 
         /// <summary>
@@ -201,7 +201,7 @@ namespace BEditor.Drawing
 
             canvas.DrawBitmap(b, 0, 0, paint);
 
-            CopyTo(bmp.Bytes, self.Data!, self.DataSize);
+            CopyTo(bmp.GetPixels(), self.Data!, self.DataSize);
         }
 
         /// <summary>
@@ -237,7 +237,7 @@ namespace BEditor.Drawing
 
             canvas.DrawBitmap(b, 0, 0, paint);
 
-            CopyTo(bmp.Bytes, self.Data!, self.DataSize);
+            CopyTo(bmp.GetPixels(), self.Data!, self.DataSize);
         }
 
         /// <summary>
@@ -273,7 +273,7 @@ namespace BEditor.Drawing
 
             canvas.DrawBitmap(b, 0, 0, paint);
 
-            CopyTo(bmp.Bytes, self.Data!, self.DataSize);
+            CopyTo(bmp.GetPixels(), self.Data!, self.DataSize);
         }
 
         /// <summary>
@@ -309,7 +309,7 @@ namespace BEditor.Drawing
 
             canvas.DrawBitmap(b, 0, 0, paint);
 
-            CopyTo(bmp.Bytes, self.Data!, self.DataSize);
+            CopyTo(bmp.GetPixels(), self.Data!, self.DataSize);
         }
 
         /// <summary>
@@ -353,7 +353,7 @@ namespace BEditor.Drawing
 
             canvas.DrawRect(0, 0, self.Width, self.Height, paint);
 
-            CopyTo(bmp.Bytes, self.Data!, self.DataSize);
+            CopyTo(bmp.GetPixels(), self.Data!, self.DataSize);
         }
 
         /// <summary>
@@ -393,7 +393,7 @@ namespace BEditor.Drawing
 
             canvas.DrawRect(0, 0, self.Width, self.Height, paint);
 
-            CopyTo(bmp.Bytes, self.Data!, self.DataSize);
+            CopyTo(bmp.GetPixels(), self.Data!, self.DataSize);
         }
 
         /// <summary>
@@ -424,7 +424,7 @@ namespace BEditor.Drawing
 
             canvas.DrawBitmap(b, (SKPoint)default, paint);
 
-            CopyTo(bmp.Bytes, self.Data!, self.DataSize);
+            CopyTo(bmp.GetPixels(), self.Data!, self.DataSize);
         }
 
         /// <summary>
@@ -473,7 +473,7 @@ namespace BEditor.Drawing
 
             canvas.DrawRect(SKRect.Create(bmp.Width, bmp.Height), paint);
 
-            CopyTo(bmp.Bytes, self.Data!, self.DataSize);
+            CopyTo(bmp.GetPixels(), self.Data!, self.DataSize);
         }
 
         /// <summary>
@@ -504,7 +504,7 @@ namespace BEditor.Drawing
 
             canvas.DrawRect(SKRect.Create(bmp.Width, bmp.Height), paint);
 
-            CopyTo(bmp.Bytes, self.Data!, self.DataSize);
+            CopyTo(bmp.GetPixels(), self.Data!, self.DataSize);
         }
     }
 }

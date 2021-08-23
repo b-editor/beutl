@@ -138,7 +138,7 @@ namespace BEditor.Drawing
 
             canvas.DrawBitmap(b, point.X, point.Y, paint);
 
-            CopyTo(bmp.Bytes, self.Data, self.DataSize);
+            CopyTo(bmp.GetPixels(), self.Data, self.DataSize);
         }
 
         /// <summary>
@@ -174,7 +174,7 @@ namespace BEditor.Drawing
 
             canvas.DrawPath(path, paint);
 
-            CopyTo(bmp.Bytes, self.Data, self.DataSize);
+            CopyTo(bmp.GetPixels(), self.Data, self.DataSize);
         }
 
         /// <summary>
@@ -254,7 +254,7 @@ namespace BEditor.Drawing
             if (self.ColorType is SKColorType.Bgra8888)
             {
                 var result = new Image<BGRA32>(self.Width, self.Height);
-                CopyTo(self.Bytes, result.Data!, result.DataSize);
+                CopyTo(self.GetPixels(), result.Data!, result.DataSize);
 
                 return result;
             }
@@ -265,7 +265,7 @@ namespace BEditor.Drawing
                 canvas.DrawBitmap(self, SKPoint.Empty);
 
                 var result = new Image<BGRA32>(self.Width, self.Height);
-                CopyTo(self.Bytes, result.Data!, result.DataSize);
+                CopyTo(self.GetPixels(), result.Data!, result.DataSize);
 
                 return result;
             }
@@ -291,21 +291,19 @@ namespace BEditor.Drawing
             return result;
         }
 
-        internal static void CopyTo(byte[] src, Span<BGR24> dst, int length)
+        internal static void CopyTo(IntPtr src, Span<BGR24> dst, int length)
         {
             fixed (BGR24* dstPtr = dst)
-            fixed (byte* srcPtr = src)
             {
-                Buffer.MemoryCopy(srcPtr, dstPtr, length, length);
+                Buffer.MemoryCopy((void*)src, dstPtr, length, length);
             }
         }
 
-        internal static void CopyTo(byte[] src, Span<BGRA32> dst, int length)
+        internal static void CopyTo(IntPtr src, Span<BGRA32> dst, int length)
         {
             fixed (BGRA32* dstPtr = dst)
-            fixed (byte* srcPtr = src)
             {
-                Buffer.MemoryCopy(srcPtr, dstPtr, length, length);
+                Buffer.MemoryCopy((void*)src, dstPtr, length, length);
             }
         }
 

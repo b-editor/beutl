@@ -1835,6 +1835,14 @@
             <returns>Index of the added <see cref="P:BEditor.Data.Property.ColorAnimationProperty.Pairs"/>.</returns>
             <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="item"/> is outside the scope of the parent element.</exception>
         </member>
+        <member name="M:BEditor.Data.Property.ColorAnimationProperty.InsertKeyframe(BEditor.Data.Property.KeyFramePair{BEditor.Drawing.Color},System.Int32)">
+            <summary>
+            Insert a keyframe at a specific frame.
+            </summary>
+            <param name="item">Item to be added.</param>
+            <param name="index">The index.</param>
+            <returns>Index of the added <see cref="P:BEditor.Data.Property.ColorAnimationProperty.Pairs"/>.</returns>
+        </member>
         <member name="M:BEditor.Data.Property.ColorAnimationProperty.RemoveKeyframe(BEditor.Data.Property.PositionInfo)">
             <summary>
             Remove a keyframe of a specific frame.
