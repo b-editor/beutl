@@ -27,8 +27,19 @@ jobs:
       with:
         languages: ${{ matrix.language }}
  
-    - name: Autobuild
-      uses: github/codeql-action/autobuild@v1
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v1
+      with:
+        dotnet-version: 5.0.x
+
+    - name: Clean
+      run: dotnet clean BEditor.sln
+
+    - name: Restore dependencies
+      run: dotnet restore BEditor.sln
+
+    - name: Build
+      run: dotnet build --no-incremental /p:UseSharedCompilation=false BEditor.sln
 
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v1
