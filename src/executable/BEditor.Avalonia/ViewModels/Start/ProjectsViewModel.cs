@@ -99,10 +99,18 @@ namespace BEditor.ViewModels.Start
                 }
             });
 
+            ListView.Subscribe(_ => UpdateIsEmpty());
+
             UpdateIsEmpty();
         }
 
         public ReactivePropertySlim<bool> IsEmpty { get; } = new();
+
+        public ReactivePropertySlim<bool> ListView { get; } = new();
+
+        public ReactivePropertySlim<bool> CardViewIsVisible { get; } = new();
+
+        public ReactivePropertySlim<bool> ListViewIsVisible { get; } = new();
 
         public ReactivePropertySlim<bool> IsLoading { get; } = new();
 
@@ -117,6 +125,17 @@ namespace BEditor.ViewModels.Start
         private void UpdateIsEmpty()
         {
             IsEmpty.Value = Projects.Count is 0;
+
+            if (IsEmpty.Value)
+            {
+                CardViewIsVisible.Value = false;
+                ListViewIsVisible.Value = false;
+            }
+            else
+            {
+                CardViewIsVisible.Value = !ListView.Value;
+                ListViewIsVisible.Value = ListView.Value;
+            }
         }
     }
 }
