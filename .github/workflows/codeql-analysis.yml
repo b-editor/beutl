@@ -39,7 +39,7 @@ jobs:
       run: dotnet restore BEditor.sln
 
     - name: Build
-      run: dotnet build --no-incremental /p:UseSharedCompilation=false BEditor.sln
+      run: dotnet build BEditor.sln
 
     - name: Perform CodeQL Analysis
       uses: github/codeql-action/analyze@v1
