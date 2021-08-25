@@ -1,7 +1,9 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
+using System.Runtime.Intrinsics;
 
 using BEditor.Data;
 using BEditor.Data.Primitive;
@@ -17,14 +19,15 @@ using Neo.IronLua;
 
 namespace BEditor.Extensions.AviUtl
 {
-    public class ObjectTable
+    public class ObjectTable : IDisposable
     {
         internal delegate int RandomDelegate(int st_num, int ed_num, int? seed = null, int? frame = null);
 
+        private static readonly Dictionary<string, Image<BGRA32>> _buffers = new();
         [AllowNull]
-        internal static GraphicsContext _sharedGraphics;
+        private static GraphicsContext _sharedGraphics;
         private readonly ImageObject _imageobj;
-        private readonly EffectApplyArgs<Image<BGRA32>> _args;
+        private readonly EffectApplyArgs _args;
         private readonly Frame _frame;
         private readonly Project _proj;
         private readonly Scene _scene;
@@ -32,17 +35,26 @@ namespace BEditor.Extensions.AviUtl
         // クリップからの現在のフレーム
         private readonly Frame _rframe;
         private readonly CustomSettings _settings;
+
+        private float _ox;
+        private float _oy;
+        private float _oz;
+
+        private float _zoom = 1;
+
+        private Texture _texture;
         private DrawTarget _drawTarget = DrawTarget.FrameBuffer;
         private Image<BGRA32> _img;
         private Font _font;
         private int _fontsize = 16;
         private Color _fontcolor = Colors.White;
 
-        public ObjectTable(EffectApplyArgs<Image<BGRA32>> args, ImageObject image)
+        public ObjectTable(EffectApplyArgs args, Texture texture, ImageObject image)
         {
             _args = args;
             _frame = args.Frame;
-            _img = args.Value;
+            _texture = texture;
+            _img = texture.ToImage();
             _imageobj = image;
             _clip = image.Parent;
             _scene = image.Parent.Parent;
@@ -53,11 +65,11 @@ namespace BEditor.Extensions.AviUtl
 
             if (_sharedGraphics is null)
             {
-                _sharedGraphics = new(args.Value.Width, args.Value.Height);
+                _sharedGraphics = new(_img.Width, _img.Height);
             }
             else
             {
-                _sharedGraphics.SetSize(args.Value.Size);
+                _sharedGraphics.SetSize(_img.Size);
             }
         }
 
@@ -66,62 +78,130 @@ namespace BEditor.Extensions.AviUtl
         #region Properties
         public float ox
         {
-            get => _imageobj.Coordinate.CenterX.Optional;
-            set => _imageobj.Coordinate.CenterX.Optional = value;
+            get => _ox;
+            set
+            {
+                _ox = value;
+
+                var transform = _texture.Transform;
+                var vector = transform.Center;
+                vector.X += _ox;
+                transform.Center = vector;
+                _texture.Transform = transform;
+            }
         }
 
         public float oy
         {
-            get => _settings.ReverseYAsis ? -_imageobj.Coordinate.CenterY.Optional : _imageobj.Coordinate.CenterY.Optional;
-            set => _imageobj.Coordinate.CenterY.Optional = _settings.ReverseYAsis ? -value : value;
+            get => _oy;
+            set
+            {
+                _oy = _settings.ReverseYAsis ? -value : value;
+
+                var transform = _texture.Transform;
+                var vector = transform.Center;
+                vector.Y += _oy;
+                transform.Center = vector;
+                _texture.Transform = transform;
+            }
         }
 
         public float oz
         {
-            get => _settings.ReverseYAsis ? -_imageobj.Coordinate.CenterZ.Optional : _imageobj.Coordinate.CenterZ.Optional;
-            set => _imageobj.Coordinate.CenterZ.Optional = _settings.ReverseYAsis ? -value : value;
+            get => _oz;
+            set
+            {
+                _oz = value;
+
+                var transform = _texture.Transform;
+                var vector = transform.Center;
+                vector.Z += _oz;
+                transform.Center = vector;
+                _texture.Transform = transform;
+            }
         }
 
         public float rx
         {
-            get => _imageobj.Rotate.RotateX[_frame];
-            set => _imageobj.Rotate.RotateX.Optional = value - rx;
+            get => _texture.Transform.Rotation.X;
+            set
+            {
+                var transform = _texture.Transform;
+                var vector = transform.Rotation;
+                vector.X = value;
+                transform.Rotation = vector;
+            }
         }
 
         public float ry
         {
-            get => _imageobj.Rotate.RotateY[_frame];
-            set => _imageobj.Rotate.RotateY.Optional = value - ry;
+            get => _texture.Transform.Rotation.Y;
+            set
+            {
+                var transform = _texture.Transform;
+                var vector = transform.Rotation;
+                vector.Y = value;
+                transform.Rotation = vector;
+            }
         }
 
         public float rz
         {
-            get => _imageobj.Rotate.RotateZ[_frame];
-            set => _imageobj.Rotate.RotateZ.Optional = value - rz;
+            get => _texture.Transform.Rotation.Z;
+            set
+            {
+                var transform = _texture.Transform;
+                var vector = transform.Rotation;
+                vector.Z = value;
+                transform.Rotation = vector;
+            }
         }
 
         public float cx
         {
-            get => _imageobj.Coordinate.CenterX[_frame];
-            set => _imageobj.Coordinate.CenterX.Optional = value - cx;
+            get => _texture.Transform.Center.X;
+            set
+            {
+                var transform = _texture.Transform;
+                var vector = transform.Center;
+                vector.X = value;
+                transform.Center = vector;
+            }
         }
 
         public float cy
         {
-            get => _settings.ReverseYAsis ? -_imageobj.Coordinate.CenterY[_frame] : _imageobj.Coordinate.CenterY[_frame];
-            set => _imageobj.Coordinate.CenterY.Optional = _settings.ReverseYAsis ? -(value - cy) : (value - cy);
+            get => _texture.Transform.Center.Y;
+            set
+            {
+                var transform = _texture.Transform;
+                var vector = transform.Center;
+                vector.Y = _settings.ReverseYAsis ? -value : value;
+                transform.Center = vector;
+            }
         }
 
         public float cz
         {
-            get => _settings.ReverseYAsis ? -_imageobj.Coordinate.CenterZ[_frame] : _imageobj.Coordinate.CenterZ[_frame];
-            set => _imageobj.Coordinate.CenterZ.Optional = _settings.ReverseYAsis ? -(value - cz) : (value - cz);
+            get => _texture.Transform.Center.Z;
+            set
+            {
+                var transform = _texture.Transform;
+                var vector = transform.Center;
+                vector.Z = _settings.ReverseYAsis ? -value : value;
+                transform.Center = vector;
+            }
         }
 
         public float zoom
         {
-            get => _imageobj.Scale.Scale1[_frame] / 100;
-            set => _imageobj.Scale.Scale1.Optional = (value - zoom) * 100;
+            get => _zoom;
+            set
+            {
+                _zoom = value;
+                zoom_w = zoom_w;
+                zoom_h = zoom_h;
+            }
         }
 
         public float alpha
@@ -132,32 +212,44 @@ namespace BEditor.Extensions.AviUtl
 
         public float aspect
         {
-            get => ToAspect(_imageobj.Scale.ScaleX[_frame], _imageobj.Scale.ScaleY[_frame]);
+            get => ToAspect(_texture.Transform.Scale.X, _texture.Transform.Scale.Y);
             set
             {
-                var size = ToSize(MathF.Max(_imageobj.Scale.ScaleX[_frame], _imageobj.Scale.ScaleY[_frame]), value);
-                zoom_w = size.Width / 100f;
-                zoom_h = size.Height / 100f;
+                var size = ToSize(MathF.Max(_texture.Transform.Scale.X, _texture.Transform.Scale.X), value);
+                zoom_w = size.Width;
+                zoom_h = size.Height;
             }
         }
 
         public float zoom_w
         {
-            get => _imageobj.Scale.ScaleX[_frame] / 100;
-            set => _imageobj.Scale.ScaleX.Optional = (value - zoom_w) * 100;
+            get => _texture.Transform.Scale.X;
+            set
+            {
+                var transform = _texture.Transform;
+                var vector = transform.Scale;
+                vector.X = value * zoom;
+                transform.Scale = vector;
+            }
         }
 
         public float zoom_h
         {
-            get => _imageobj.Scale.ScaleY[_frame] / 100;
-            set => _imageobj.Scale.ScaleY.Optional = (value - zoom_h) * 100;
+            get => _texture.Transform.Scale.Y;
+            set
+            {
+                var transform = _texture.Transform;
+                var vector = transform.Scale;
+                vector.Y = value * zoom;
+                transform.Scale = vector;
+            }
         }
 
-        public float x => _imageobj.Coordinate.X[_frame];
+        public float x => _texture.Transform.Position.X;
 
-        public float y => _settings.ReverseYAsis ? -_imageobj.Coordinate.Y[_frame] : _imageobj.Coordinate.Y[_frame];
+        public float y => _settings.ReverseYAsis ? -_texture.Transform.Position.Y : _texture.Transform.Position.Y;
 
-        public float z => _settings.ReverseYAsis ? -_imageobj.Coordinate.Z[_frame] : _imageobj.Coordinate.Z[_frame];
+        public float z => _settings.ReverseYAsis ? -_texture.Transform.Position.Z : _texture.Transform.Position.Z;
 
         public int w => _img.Width;
 
@@ -179,9 +271,9 @@ namespace BEditor.Extensions.AviUtl
 
         public int layer => _imageobj.Parent.Layer;
 
-        public int index => 0;
+        public int index { get; set; }
 
-        public int num => 1;
+        public int num { get; set; }
 
         public float track0 { get; set; }
 
@@ -194,6 +286,8 @@ namespace BEditor.Extensions.AviUtl
         public bool check0 { get; set; }
 
         public int color { get; set; }
+
+        internal string BasePath { get; set; } = string.Empty;
         #endregion
 
         #region Methods
@@ -414,7 +508,7 @@ namespace BEditor.Extensions.AviUtl
                         _font,
                         _fontsize,
                         TextAlignment.Left,
-                        Enumerable.Range(0, lineCount).Select(i=>new FormattedTextStyleSpan(i, 0..^1, _fontcolor)).ToArray());
+                        Enumerable.Range(0, lineCount).Select(i => new FormattedTextStyleSpan(i, 0..^1, _fontcolor)).ToArray());
 
                     _img = text.Draw();
                     text.Dispose();
@@ -528,14 +622,119 @@ namespace BEditor.Extensions.AviUtl
                     _args.Handled = value.GetArgValue(0, _args.Handled);
                     break;
                 default:
-                    throw new NotImplementedException();
+                    //throw new NotImplementedException();
+                    break;
             }
         }
 
-        //public dynamic getoption(string name, params dynamic[] value)
-        //{
+        public bool copybuffer(string dst, string src)
+        {
+            Action<Image<BGRA32>>? GetAction(string dst)
+            {
+                if (dst == "tmp")
+                {
+                    return img =>
+                    {
+                        using var texture = Texture.FromImage(img);
+                        _sharedGraphics.SetSize(img.Size);
+                        _sharedGraphics.DrawTexture(texture);
+                    };
+                }
+                else if (dst == "obj")
+                {
+                    return img =>
+                    {
+                        // "obj" <= "obj" の場合のため
+                        var cloned = img.Clone();
+                        _img.Dispose();
+                        _img = cloned;
+                    };
+                }
+                else if (dst.Contains("cache:"))
+                {
+                    var name = dst.Split(":").LastOrDefault();
+                    if (string.IsNullOrWhiteSpace(name))
+                        return null;
 
-        //}
+                    if (_buffers.TryGetValue(name, out var old))
+                    {
+                        old.Dispose();
+                        _buffers.Remove(name);
+                    }
+
+                    return img =>
+                    {
+                        _buffers.Add(name, img);
+                    };
+                }
+                else
+                {
+                    return null;
+                }
+            }
+
+            var action = GetAction(dst);
+            if (action == null)
+                return false;
+
+            if (src == "frm")
+            {
+                var ctx = _imageobj.Parent.Parent.GraphicsContext!;
+                using var buffer = new Image<BGRA32>(ctx.Width, ctx.Height);
+
+                ctx.ReadImage(buffer);
+
+                action.Invoke(buffer);
+                return true;
+            }
+            else if (src == "obj")
+            {
+                action.Invoke(_img);
+                return true;
+            }
+            else if (src.Contains("cache:"))
+            {
+                var name = src.Split(":").LastOrDefault();
+                if (string.IsNullOrWhiteSpace(name))
+                    return false;
+
+                if (_buffers.TryGetValue(name, out var buffer))
+                {
+                    action.Invoke(buffer);
+                    return true;
+                }
+                else
+                {
+                    return false;
+                }
+            }
+            else if (src.Contains("image:"))
+            {
+                var file = src.Split(":").LastOrDefault();
+                if (string.IsNullOrWhiteSpace(file))
+                    return false;
+
+                file = Path.GetFullPath(file, BasePath);
+                if (!File.Exists(file))
+                    return false;
+
+                using var buffer = Image<BGRA32>.FromFile(file);
+                action.Invoke(buffer);
+                return true;
+            }
+
+            return false;
+        }
+
+        public object getvalue(object target, double time, int section)
+        {
+            throw new NotImplementedException();
+        }
+
+        public dynamic getoption(string name, params dynamic[] value)
+        {
+            throw new NotImplementedException();
+        }
 
         public LuaResult interpolation(
             float time,
@@ -567,6 +766,59 @@ namespace BEditor.Extensions.AviUtl
         #endregion
 
 #pragma warning restore IDE1006, CA1822, IDE0060
+
+        internal static Size ToSize(float size, float aspect)
+        {
+            Size result;
+
+            if (aspect > 0)
+            {
+                result = new((int)(size - (aspect * size / 100f)), (int)size);
+            }
+            else
+            {
+                result = new((int)size, (int)(size + (aspect * size / 100)));
+            }
+
+            return result;
+        }
+
+        internal static float ToAspect(float width, float height)
+        {
+            var max = MathF.Max(width, height);
+            var min = MathF.Min(width, height);
+
+            return (1 - (1 / max) * min) * -100;
+        }
+
+        internal void Update(Texture texture)
+        {
+            _img.Dispose();
+
+            _texture = texture;
+            _img = texture.ToImage();
+
+            // フィールドをリセット
+            _ox = 0;
+            _oy = 0;
+            _oz = 0;
+            _zoom = 1;
+            _drawTarget = DrawTarget.FrameBuffer;
+            _font = FontManager.Default.LoadedFonts.First();
+            _fontsize = 16;
+            _fontcolor = Colors.White;
+        }
+
+        internal Texture ReadTexture()
+        {
+            _texture.Update(_img);
+            return _texture;
+        }
+
+        public void Dispose()
+        {
+            _img.Dispose();
+        }
 
         private (float x, float y, float z) InterpolationPrivate(
             float time,
@@ -621,30 +873,6 @@ namespace BEditor.Extensions.AviUtl
         private GraphicsContext GetContext()
         {
             return _drawTarget is DrawTarget.FrameBuffer ? _imageobj.Parent.Parent.GraphicsContext! : _sharedGraphics;
-        }
-
-        internal static Size ToSize(float size, float aspect)
-        {
-            Size result;
-
-            if (aspect > 0)
-            {
-                result = new((int)(size - (aspect * size / 100f)), (int)size);
-            }
-            else
-            {
-                result = new((int)size, (int)(size + (aspect * size / 100)));
-            }
-
-            return result;
-        }
-
-        internal static float ToAspect(float width, float height)
-        {
-            var max = MathF.Max(width, height);
-            var min = MathF.Min(width, height);
-
-            return (1 - (1 / max) * min) * -100;
         }
     }
 }
