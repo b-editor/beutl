@@ -61,7 +61,7 @@ namespace BEditor.Primitive.Effects
                 var x = rect.X + (rect.Width / 2) - (size.Width / 2);
                 var y = rect.Y + (rect.Height / 2) - (size.Height / 2);
                 var transform = item.Transform;
-                transform.Coordinate += new Vector3(x, -y, 0);
+                transform.Position += new Vector3(x, -y, 0);
                 item.Transform = transform;
 
                 part.Dispose();

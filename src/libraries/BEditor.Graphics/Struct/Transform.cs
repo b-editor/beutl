@@ -5,6 +5,7 @@
 // This software may be modified and distributed under the terms
 // of the MIT license. See the LICENSE file for details.
 
+using System;
 using System.Numerics;
 
 namespace BEditor.Graphics
@@ -33,16 +34,26 @@ namespace BEditor.Graphics
         /// <param name="scale">The scale.</param>
         public Transform(Vector3 coord, Vector3 center, Vector3 rotate, Vector3 scale)
         {
-            Coordinate = coord;
+            Position = coord;
             Center = center;
-            Rotate = rotate;
+            Rotation = rotate;
             Scale = scale;
         }
 
         /// <summary>
-        /// Gets or sets the coordinates.
+        /// Gets or sets the position.
         /// </summary>
-        public Vector3 Coordinate { get; set; }
+        public Vector3 Position { get; set; }
+
+        /// <summary>
+        /// Gets or sets the position.
+        /// </summary>
+        [Obsolete("Use Position.")]
+        public Vector3 Coordinate
+        {
+            get => Position;
+            set => Position = value;
+        }
 
         /// <summary>
         /// Gets or sets the center coordinates.
@@ -52,7 +63,17 @@ namespace BEditor.Graphics
         /// <summary>
         /// Gets or sets the rotation.
         /// </summary>
-        public Vector3 Rotate { get; set; }
+        public Vector3 Rotation { get; set; }
+
+        /// <summary>
+        /// Gets or sets the position.
+        /// </summary>
+        [Obsolete("Use Rotation.")]
+        public Vector3 Rotate
+        {
+            get => Rotation;
+            set => Rotation = value;
+        }
 
         /// <summary>
         /// Gets or sets the scale.
@@ -68,11 +89,11 @@ namespace BEditor.Graphics
             {
                 return Matrix4x4.Identity
                     * Matrix4x4.CreateTranslation(Center)
-                        * Matrix4x4.CreateRotationX(Camera.ToRadians(Rotate.X))
-                        * Matrix4x4.CreateRotationY(Camera.ToRadians(Rotate.Y))
-                        * Matrix4x4.CreateRotationZ(Camera.ToRadians(Rotate.Z))
+                        * Matrix4x4.CreateRotationX(Camera.ToRadians(Rotation.X))
+                        * Matrix4x4.CreateRotationY(Camera.ToRadians(Rotation.Y))
+                        * Matrix4x4.CreateRotationZ(Camera.ToRadians(Rotation.Z))
                             * Matrix4x4.CreateScale(Scale)
-                                * Matrix4x4.CreateTranslation(Coordinate);
+                                * Matrix4x4.CreateTranslation(Position);
             }
         }
 
@@ -85,9 +106,9 @@ namespace BEditor.Graphics
         public static Transform operator +(Transform left, Transform right)
         {
             return new(
-                left.Coordinate + right.Coordinate,
+                left.Position + right.Position,
                 left.Center + right.Center,
-                left.Rotate + right.Rotate,
+                left.Rotation + right.Rotation,
                 left.Scale * right.Scale);
         }
     }

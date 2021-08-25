@@ -132,11 +132,12 @@ namespace BEditor.Graphics.Skia
         {
             _paint.Color = new(drawable.Color.R, drawable.Color.G, drawable.Color.B, drawable.Color.A);
             _paint.BlendMode = ToSkBlendMode(drawable.BlendMode);
+            var transform = drawable.Transform;
 
-            _canvas.Translate(drawable.Transform.Coordinate.X, -drawable.Transform.Coordinate.Y);
-            _canvas.RotateDegrees(drawable.Transform.Rotate.Z);
-            _canvas.Scale(drawable.Transform.Scale.X, drawable.Transform.Scale.Y);
-            _canvas.Translate(drawable.Transform.Center.X, -drawable.Transform.Center.Y);
+            _canvas.Translate(transform.Position.X, -transform.Position.Y);
+            _canvas.RotateDegrees(transform.Rotation.Z);
+            _canvas.Scale(transform.Scale.X, transform.Scale.Y);
+            _canvas.Translate(transform.Center.X, -transform.Center.Y);
         }
 
         private void ResetTransform()

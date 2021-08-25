@@ -1062,9 +1062,14 @@
             <param name="rotate">The rotation.</param>
             <param name="scale">The scale.</param>
         </member>
+        <member name="P:BEditor.Graphics.Transform.Position">
+            <summary>
+            Gets or sets the position.
+            </summary>
+        </member>
         <member name="P:BEditor.Graphics.Transform.Coordinate">
             <summary>
-            Gets or sets the coordinates.
+            Gets or sets the position.
             </summary>
         </member>
         <member name="P:BEditor.Graphics.Transform.Center">
@@ -1072,9 +1077,14 @@
             Gets or sets the center coordinates.
             </summary>
         </member>
-        <member name="P:BEditor.Graphics.Transform.Rotate">
+        <member name="P:BEditor.Graphics.Transform.Rotation">
             <summary>
             Gets or sets the rotation.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.Transform.Rotate">
+            <summary>
+            Gets or sets the position.
             </summary>
         </member>
         <member name="P:BEditor.Graphics.Transform.Scale">

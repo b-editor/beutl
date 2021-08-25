@@ -288,7 +288,7 @@ namespace BEditor.Primitive.Objects
                 var y = c.Rectangle.Y + (c.Rectangle.Height / 2) - (bounds.Height / 2);
 
                 var transform = texture.Transform;
-                transform.Coordinate = new(x, -y, 0);
+                transform.Position = new(x, -y, 0);
                 texture.Transform = transform;
 
                 c.Image.Dispose();

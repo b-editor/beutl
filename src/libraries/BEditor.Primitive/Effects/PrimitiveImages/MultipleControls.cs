@@ -109,9 +109,9 @@ namespace BEditor.Primitive.Effects
                     var sy = Scale.ScaleY[f] / 100 * s;
                     var sz = Scale.ScaleZ[f] / 100 * s;
                     var transform = result.Transform;
-                    transform.Coordinate += new Vector3(Coordinate.X[f], Coordinate.Y[f], Coordinate.Z[f]);
+                    transform.Position += new Vector3(Coordinate.X[f], Coordinate.Y[f], Coordinate.Z[f]);
                     transform.Center += new Vector3(Coordinate.CenterX[f], Coordinate.CenterY[f], Coordinate.CenterZ[f]);
-                    transform.Rotate += new Vector3(Rotate.RotateX[f], Rotate.RotateY[f], Rotate.RotateZ[f]);
+                    transform.Rotation += new Vector3(Rotate.RotateX[f], Rotate.RotateY[f], Rotate.RotateZ[f]);
                     transform.Scale *= new Vector3(sx, sy, sz);
                     result.Transform = transform;
 

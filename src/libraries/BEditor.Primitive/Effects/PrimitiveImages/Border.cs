@@ -172,7 +172,7 @@ namespace BEditor.Primitive.Effects
 
             // Transformを変更
             var transform = borderTexture.Transform;
-            transform.Coordinate += new Vector3(X[frame], Y[frame], 0);
+            transform.Position += new Vector3(X[frame], Y[frame], 0);
             borderTexture.Transform = transform;
 
             yield return borderTexture;
