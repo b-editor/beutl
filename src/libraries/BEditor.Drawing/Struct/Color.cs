@@ -62,6 +62,20 @@ namespace BEditor.Drawing
         public byte B { readonly get; set; }
 
         /// <summary>
+        /// Gets the value.
+        /// </summary>
+        public int Value
+        {
+            get
+            {
+                return A << ARGBAlphaShift |
+                    R << ARGBRedShift |
+                    G << ARGBGreenShift |
+                    B << ARGBBlueShift;
+            }
+        }
+
+        /// <summary>
         /// Converts the <see cref="Color"/> to a <see cref="BGRA32"/>.
         /// </summary>
         /// <param name="value">A color.</param>

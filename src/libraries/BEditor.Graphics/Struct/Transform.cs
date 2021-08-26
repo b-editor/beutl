@@ -35,6 +35,24 @@ namespace BEditor.Graphics
         public Transform(Vector3 coord, Vector3 center, Vector3 rotate, Vector3 scale)
         {
             Position = coord;
+            Relative = Vector3.Zero;
+            Center = center;
+            Rotation = rotate;
+            Scale = scale;
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="Transform"/> struct.
+        /// </summary>
+        /// <param name="position">The position.</param>
+        /// <param name="relative">The relative position.</param>
+        /// <param name="center">The center coordinates.</param>
+        /// <param name="rotate">The rotation.</param>
+        /// <param name="scale">The scale.</param>
+        public Transform(Vector3 position, Vector3 relative, Vector3 center, Vector3 rotate, Vector3 scale)
+        {
+            Position = position;
+            Relative = relative;
             Center = center;
             Rotation = rotate;
             Scale = scale;
@@ -44,6 +62,11 @@ namespace BEditor.Graphics
         /// Gets or sets the position.
         /// </summary>
         public Vector3 Position { get; set; }
+
+        /// <summary>
+        /// Gets or sets the relative position.
+        /// </summary>
+        public Vector3 Relative { get; set; }
 
         /// <summary>
         /// Gets or sets the position.
@@ -93,7 +116,7 @@ namespace BEditor.Graphics
                         * Matrix4x4.CreateRotationY(Camera.ToRadians(Rotation.Y))
                         * Matrix4x4.CreateRotationZ(Camera.ToRadians(Rotation.Z))
                             * Matrix4x4.CreateScale(Scale)
-                                * Matrix4x4.CreateTranslation(Position);
+                                * Matrix4x4.CreateTranslation(Position + Relative);
             }
         }
 
@@ -107,6 +130,7 @@ namespace BEditor.Graphics
         {
             return new(
                 left.Position + right.Position,
+                left.Relative + right.Relative,
                 left.Center + right.Center,
                 left.Rotation + right.Rotation,
                 left.Scale * right.Scale);

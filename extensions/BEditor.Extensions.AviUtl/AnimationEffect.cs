@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using System.Text;
 using System.Text.Json;
 
 using BEditor.Data;
@@ -17,6 +18,8 @@ using BEditor.Media;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
+using Neo.IronLua;
+
 namespace BEditor.Extensions.AviUtl
 {
     public class AnimationEffect : ImageEffect
@@ -25,7 +28,7 @@ namespace BEditor.Extensions.AviUtl
             nameof(ScriptName),
             owner => owner.ScriptName,
             (owner, obj) => owner.ScriptName = obj,
-            EditingPropertyOptions<string>.Create()!.Serialize()!);
+            EditingPropertyOptions<string>.Create().DefaultValue(string.Empty)!.Serialize()!);
 
         public static readonly DirectProperty<AnimationEffect, string?> GroupNameProperty = EditingProperty.RegisterDirect<string?, AnimationEffect>(
             nameof(GroupName),
@@ -67,7 +70,7 @@ namespace BEditor.Extensions.AviUtl
 
         public override IEnumerable<PropertyElement> GetProperties()
         {
-            return Properties.Select(i => i.Value);
+            return Properties?.Select(i => i.Value) ?? Enumerable.Empty<PropertyElement>();
         }
 
         public override void SetObjectData(DeserializeContext context)
@@ -81,16 +84,16 @@ namespace BEditor.Extensions.AviUtl
             {
                 if (element.TryGetProperty(item.Variable, out var val))
                 {
-                    SetOrAddDictionary(Properties, item.Variable, item.ToProperty(context.WithElement(val).WithParent(this)));
+                    SetOrAddDictionary(Properties, this, item.Variable, item.ToProperty(context.WithElement(val).WithParent(this)));
                 }
                 else
                 {
-                    SetOrAddDictionary(Properties, item.Variable, item.ToProperty());
+                    SetOrAddDictionary(Properties, this, item.Variable, item.ToProperty());
                 }
             }
         }
 
-        internal static void SetOrAddDictionary(Dictionary<string, PropertyElement> dictionary, string key, PropertyElement value)
+        internal static void SetOrAddDictionary(Dictionary<string, PropertyElement> dictionary, EffectElement parent, string key, PropertyElement value)
         {
             if (dictionary.ContainsKey(key))
             {
@@ -100,6 +103,8 @@ namespace BEditor.Extensions.AviUtl
             {
                 dictionary.Add(key, value);
             }
+
+            value.Parent = parent;
         }
 
         private IEnumerable<Texture> Selector(Texture[] textures, EffectApplyArgs args)
@@ -112,10 +117,17 @@ namespace BEditor.Extensions.AviUtl
                     num = textures.Length,
                     index = 0,
                     BasePath = Path.GetDirectoryName(Entry.File) ?? string.Empty,
+                    Parent = this,
                 };
                 SetPropertyValue(table, args.Frame);
                 lua.SetValue("obj", table);
                 lua.SetValue("rand", new ObjectTable.RandomDelegate(table.rand));
+                var variable = string.Empty;
+
+                if (Properties.TryGetValue("Dialog", out var dialog))
+                {
+                    variable = ((DynamicDialog)dialog).SetPropertyValue();
+                }
 
                 for (var i = 0; i < textures.Length; i++)
                 {
@@ -125,7 +137,7 @@ namespace BEditor.Extensions.AviUtl
 
                     try
                     {
-                        var result = lua.DoChunk(Entry.Code, Entry.File);
+                        var result = lua.DoChunk(variable + Entry.Code, Entry.File);
                     }
                     catch (Exception e)
                     {
@@ -165,8 +177,7 @@ namespace BEditor.Extensions.AviUtl
             }
             if (Properties.TryGetValue("color", out prop) && prop is ColorProperty color)
             {
-                var value = (BGRA32)color.Value;
-                table.color = Unsafe.As<BGRA32, int>(ref value);
+                Plugin.Loader.Global.SetValue("color", color.Value.Value);
             }
             if (Properties.TryGetValue("file", out prop) && prop is FileProperty file)
             {
@@ -222,13 +233,42 @@ namespace BEditor.Extensions.AviUtl
             {
                 if (element.TryGetProperty(item.Variable, out var val))
                 {
-                    AnimationEffect.SetOrAddDictionary(Properties, item.Variable, item.ToProperty(context.WithElement(val).WithParent(this)));
+                    AnimationEffect.SetOrAddDictionary(Properties, Parent, item.Variable, item.ToProperty(context.WithElement(val).WithParent(this)));
                 }
                 else
                 {
-                    AnimationEffect.SetOrAddDictionary(Properties, item.Variable, item.ToProperty());
+                    AnimationEffect.SetOrAddDictionary(Properties, Parent, item.Variable, item.ToProperty());
                 }
             }
+        }
+
+        public string SetPropertyValue()
+        {
+            var sb = new StringBuilder();
+            foreach (var item in Properties)
+            {
+                if (item.Value is TextProperty text)
+                {
+                    sb.Append(item.Key);
+                    sb.Append('=');
+                    sb.Append(text.Value);
+                }
+                else if (item.Value is CheckProperty check)
+                {
+                    sb.Append(item.Key);
+                    sb.Append('=');
+                    sb.Append(check.Value);
+                }
+                else if (item.Value is ColorProperty color)
+                {
+                    sb.Append(item.Key);
+                    sb.Append('=');
+                    sb.Append(color.Value.ToString("0xARGB"));
+                }
+                sb.AppendLine();
+            }
+
+            return sb.ToString();
         }
     }
 }

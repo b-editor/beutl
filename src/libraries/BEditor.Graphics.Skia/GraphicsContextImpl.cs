@@ -134,7 +134,7 @@ namespace BEditor.Graphics.Skia
             _paint.BlendMode = ToSkBlendMode(drawable.BlendMode);
             var transform = drawable.Transform;
 
-            _canvas.Translate(transform.Position.X, -transform.Position.Y);
+            _canvas.Translate(transform.Position.X + transform.Relative.X, -transform.Position.Y + transform.Relative.Y);
             _canvas.RotateDegrees(transform.Rotation.Z);
             _canvas.Scale(transform.Scale.X, transform.Scale.Y);
             _canvas.Translate(transform.Center.X, -transform.Center.Y);

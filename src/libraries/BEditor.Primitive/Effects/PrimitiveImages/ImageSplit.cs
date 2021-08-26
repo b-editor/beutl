@@ -94,7 +94,7 @@ namespace BEditor.Primitive.Effects
                         y_ += (vsplt / 2 * item.Height) - (item.Height / 2);
 
                         var transform = item.Transform;
-                        transform.Position += new Vector3(x_, y_, 0);
+                        transform.Relative += new Vector3(x_, y_, 0);
                         item.Transform = transform;
 
                         result[count] = item;

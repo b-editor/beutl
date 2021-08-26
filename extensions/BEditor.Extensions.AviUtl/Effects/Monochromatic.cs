@@ -12,7 +12,7 @@ namespace BEditor.Extensions.AviUtl.Effects
 
         public void Apply(ref Image<BGRA32> image, ObjectTable table, Dictionary<string, object> @params)
         {
-            throw new NotImplementedException();
+            //throw new NotImplementedException();
         }
     }
 }

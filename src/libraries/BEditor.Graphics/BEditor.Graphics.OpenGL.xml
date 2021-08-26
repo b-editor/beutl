@@ -1062,9 +1062,24 @@
             <param name="rotate">The rotation.</param>
             <param name="scale">The scale.</param>
         </member>
+        <member name="M:BEditor.Graphics.Transform.#ctor(System.Numerics.Vector3,System.Numerics.Vector3,System.Numerics.Vector3,System.Numerics.Vector3,System.Numerics.Vector3)">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Graphics.Transform"/> struct.
+            </summary>
+            <param name="position">The position.</param>
+            <param name="relative">The relative position.</param>
+            <param name="center">The center coordinates.</param>
+            <param name="rotate">The rotation.</param>
+            <param name="scale">The scale.</param>
+        </member>
         <member name="P:BEditor.Graphics.Transform.Position">
             <summary>
             Gets or sets the position.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.Transform.Relative">
+            <summary>
+            Gets or sets the relative position.
             </summary>
         </member>
         <member name="P:BEditor.Graphics.Transform.Coordinate">

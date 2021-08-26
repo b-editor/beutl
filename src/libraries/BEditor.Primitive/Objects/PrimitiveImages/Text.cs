@@ -288,7 +288,25 @@ namespace BEditor.Primitive.Objects
                 var y = c.Rectangle.Y + (c.Rectangle.Height / 2) - (bounds.Height / 2);
 
                 var transform = texture.Transform;
-                transform.Position = new(x, -y, 0);
+
+                // Transformを設定
+                transform += GetTransform(frame);
+                transform.Relative = new(x, -y, 0);
+
+                // Materialを設定
+                var ambient = Material.Ambient[frame];
+                var diffuse = Material.Diffuse[frame];
+                var specular = Material.Specular[frame];
+                var shininess = Material.Shininess[frame];
+                texture.Material = new(ambient, diffuse, specular, shininess);
+
+                // Blend を設定
+                var alpha = Blend.Opacity[frame] / 100f;
+                var color = Blend.Color[frame];
+                color.A = (byte)(color.A * alpha);
+                texture.Color = color;
+                texture.BlendMode = (BlendMode)Blend.BlendType.Index;
+
                 texture.Transform = transform;
 
                 c.Image.Dispose();
