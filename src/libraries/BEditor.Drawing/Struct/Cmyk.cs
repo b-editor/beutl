@@ -49,6 +49,15 @@ namespace BEditor.Drawing
             this = hsv.ToCmyk();
         }
 
+        /// <summary>
+        /// Initializes a new instance of the <see cref="Cmyk"/> struct.
+        /// </summary>
+        /// <param name="yc">The YCbcr.</param>
+        public Cmyk(YCbCr yc)
+        {
+            this = yc.ToCmyk();
+        }
+
         private Cmyk(SerializationInfo info, StreamingContext context)
         {
             C = info.GetDouble(nameof(C));
@@ -127,6 +136,15 @@ namespace BEditor.Drawing
         public readonly Hsv ToHsv()
         {
             return ToColor().ToHsv();
+        }
+
+        /// <summary>
+        /// Converts this CMYK to YCbCr.
+        /// </summary>
+        /// <returns>Returns the YCbCr.</returns>
+        public readonly YCbCr ToYCbCr()
+        {
+            return ToColor().ToYCbCr();
         }
 
         /// <inheritdoc/>

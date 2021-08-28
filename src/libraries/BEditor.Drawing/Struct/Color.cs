@@ -18,7 +18,7 @@ namespace BEditor.Drawing
     /// Represents the ARGB (alpha, red, green, blue) color.
     /// </summary>
     [Serializable]
-    public partial struct Color : IEquatable<Color>, IFormattable, ISerializable
+    public struct Color : IEquatable<Color>, IFormattable, ISerializable
     {
         private const int ARGBAlphaShift = 24;
         private const int ARGBRedShift = 16;
@@ -396,6 +396,23 @@ namespace BEditor.Drawing
             k *= 100.0;
 
             return new Cmyk(c, m, y, k);
+        }
+
+        /// <summary>
+        /// Converts this 32Bit color to YCbCr.
+        /// </summary>
+        /// <returns>Returns the YCbCr.</returns>
+        public readonly YCbCr ToYCbCr()
+        {
+            float r = R;
+            float g = G;
+            float b = B;
+
+            var y = (0.299F * r) + (0.587F * g) + (0.114F * b);
+            var cb = 128F + ((-0.168736F * r) - (0.331264F * g) + (0.5F * b));
+            var cr = 128F + ((0.5F * r) - (0.418688F * g) - (0.081312F * b));
+
+            return new YCbCr(y, cb, cr);
         }
 
         private static string Tohex(byte value)
