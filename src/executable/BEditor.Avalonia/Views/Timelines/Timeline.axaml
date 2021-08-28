@@ -19,7 +19,10 @@
             Grid.Column="1"
             VerticalScrollBarVisibility="Hidden"
             HorizontalScrollBarVisibility="Hidden">
-            <Panel x:Name="ScalePanel" Background="Transparent">
+            <Panel
+                x:Name="ScalePanel"
+                Background="Transparent"
+                HorizontalAlignment="Left">
                 <view:TimelineScale
                     x:Name="scale"
                     Scale="{CompiledBinding Scene.TimeLineZoom, Mode=OneWay}"

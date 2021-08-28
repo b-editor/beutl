@@ -20,6 +20,7 @@ using BEditor.Data.Primitive;
 using BEditor.Data.Property;
 using BEditor.Media;
 using BEditor.Media.Decoding;
+using BEditor.Media.Encoding;
 using BEditor.Media.PCM;
 using BEditor.Primitive.Resources;
 
@@ -40,7 +41,7 @@ namespace BEditor.Primitive.Objects
             nameof(Start),
             owner => owner.Start,
             (owner, obj) => owner.Start = obj,
-            EditingPropertyOptions<ValueProperty>.Create(new ValuePropertyMetadata(Strings.Start + "(Milliseconds)", 0, Min: 0)).Serialize());
+            EditingPropertyOptions<ValueProperty>.Create(new ValuePropertyMetadata(Strings.Start + "(Milliseconds)", 0)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="File"/> property.
@@ -157,8 +158,18 @@ namespace BEditor.Primitive.Objects
             var proj = Parent.Parent.Parent;
             var context = Parent.Parent.SamplingContext!;
             var start = (args.Frame - Parent.Start).ToTimeSpan(proj.Framerate);
+            start = start.Add(TimeSpan.FromMilliseconds(Start.Value));
             var length = TimeSpan.FromSeconds(context.SamplePerFrame / (double)proj.Samplingrate);
-            return Loaded.Slice(start, length).Clone();
+
+            if (start >= TimeSpan.Zero)
+            {
+                // 開始位置がZero以上
+                return Loaded.Slice(start, length).Clone();
+            }
+            else
+            {
+                return new Sound<StereoPCMFloat>(proj.Samplingrate, length);
+            }
         }
 
         /// <inheritdoc/>

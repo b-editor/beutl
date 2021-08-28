@@ -143,6 +143,8 @@ namespace BEditor.Data.Internals
                 FillAudioData(secondary, f);
                 f += (Frame)(Scene.Parent.Framerate * Speed);
 
+                source.Flush();
+
                 while (source.IsPlaying())
                 {
                     if (State is PlayerState.Stop) break;
