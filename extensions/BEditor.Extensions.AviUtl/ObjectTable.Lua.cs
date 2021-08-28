@@ -1,10 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using System.Numerics;
-using System.Runtime.Intrinsics;
 
 using BEditor.Data;
 using BEditor.Data.Primitive;
@@ -13,70 +11,16 @@ using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
 using BEditor.Graphics;
 using BEditor.Media;
-using BEditor.Media.Decoding;
 
 using Microsoft.Extensions.DependencyInjection;
 
 using Neo.IronLua;
 
-using SkiaSharp;
-
 namespace BEditor.Extensions.AviUtl
 {
-    public class ObjectTable : IDisposable
+    public partial class ObjectTable
     {
-        internal delegate int RandomDelegate(int st_num, int ed_num, int? seed = null, int? frame = null);
-
-        private static readonly Dictionary<string, Image<BGRA32>> _buffers = new();
-        [AllowNull]
-        private static GraphicsContext _sharedGraphics;
-        private readonly ImageObject _imageobj;
-        private readonly EffectApplyArgs _args;
-        private readonly Frame _frame;
-        private readonly Project _proj;
-        private readonly Scene _scene;
-        private readonly ClipElement _clip;
-        // クリップからの現在のフレーム
-        private readonly Frame _rframe;
-
-        private float _zoom = 1;
-
-        private string _pixelType = "col";
-
-        private Texture _texture;
-        private DrawTarget _drawTarget = DrawTarget.FrameBuffer;
-        private Image<BGRA32> _img;
-        private Font _font;
-        private int _fontsize = 16;
-        private Color _fontcolor = Colors.White;
-
-        public ObjectTable(EffectApplyArgs args, Texture texture, ImageObject image)
-        {
-            _args = args;
-            _frame = args.Frame;
-            _texture = texture;
-            _img = texture.ToImage();
-            _imageobj = image;
-            _clip = image.Parent;
-            _scene = image.Parent.Parent;
-            _proj = image.Parent.Parent.Parent;
-            _font = FontManager.Default.LoadedFonts.First();
-            _rframe = args.Frame - image.Parent.Start;
-            _zoom = image.Scale.Scale1[args.Frame] / 100;
-
-            if (_sharedGraphics is null)
-            {
-                _sharedGraphics = new(_img.Width, _img.Height);
-            }
-            else
-            {
-                _sharedGraphics.SetSize(_img.Size);
-            }
-        }
-
 #pragma warning disable IDE1006, CA1822, IDE0060
-
-        #region Properties
         public float ox
         {
             get => _texture.Transform.Relative.X;
@@ -290,12 +234,6 @@ namespace BEditor.Extensions.AviUtl
 
         public int color { get; set; }
 
-        internal string BasePath { get; set; } = string.Empty;
-
-        internal AnimationEffect? Parent { get; set; }
-        #endregion
-
-        #region Methods
         public void mes(string text)
         {
             _imageobj.ServiceProvider?.GetService<IMessage>()?.Snackbar(text);
@@ -471,6 +409,8 @@ namespace BEditor.Extensions.AviUtl
             ctxt.DrawTexture(texture);
         }
 
+        // - layer
+        // - before
         public void load(string type, params object[] args)
         {
             _img.Dispose();
@@ -598,9 +538,15 @@ namespace BEditor.Extensions.AviUtl
             }
         }
 
+        // - culling
+        // - billboard
+        // - shadow
+        // - antialias
+        // - blend
+        // - focus_mode
+        // - camera_param
         public void setoption(string name, params dynamic[] value)
         {
-            // Todo: 実装
             switch (name)
             {
                 case "drawtarget":
@@ -625,6 +571,124 @@ namespace BEditor.Extensions.AviUtl
                     break;
             }
         }
+
+        // - track_mode
+        // - section_num
+        // - camera_param
+        public dynamic getoption(string name, params dynamic[] value)
+        {
+            switch (name)
+            {
+                case "multi_object":
+                    return num > 0;
+                case "script_name":
+                    if (value.Length == 0)
+                        return Parent?.Entry.Name ?? string.Empty;
+
+                    var relIndex = value.GetArgValue(0, 0);
+                    var skip = value.GetArgValue(1, false);
+
+                    return GetScriptName(relIndex, skip);
+                case "gui":
+                    return true;
+                case "camera_mode":
+                    if (Parent?.GetParent<Scene>()?.GraphicsContext is GraphicsContext ctx)
+                    {
+                        return ctx.Camera is OrthographicCamera ortho
+                            && ortho.Position.X == 0
+                            && ortho.Position.Y == 0
+                            && ortho.Target == Vector3.Zero ? 0 : 1;
+                    }
+                    else
+                    {
+                        return -1;
+                    }
+                default:
+                    throw new NotImplementedException();
+            }
+        }
+
+        // scenechange未実装
+        public double getvalue(dynamic target, double time = double.NaN, int section = 0)
+        {
+            var frame = double.IsNaN(time) ? (Frame)this.frame : Frame.FromSeconds(time, framerate);
+
+            if (Parent is AnimationEffect anm && target is int num)
+            {
+                if (anm.Properties.TryGetValue($"track{num}", out var prop)
+                    && prop is EaseProperty track)
+                {
+                    return GetValue(track, frame, section);
+                }
+            }
+            else if (target is string targetStr)
+            {
+                if (targetStr == "x")
+                {
+                    return GetValue(_imageobj.Coordinate.X, frame, section);
+                }
+                else if (targetStr == "y")
+                {
+                    return -GetValue(_imageobj.Coordinate.Y, frame, section);
+                }
+                else if (targetStr == "z")
+                {
+                    return -GetValue(_imageobj.Coordinate.Z, frame, section);
+                }
+                else if (targetStr == "rx")
+                {
+                    return GetValue(_imageobj.Rotate.RotateX, frame, section);
+                }
+                else if (targetStr == "ry")
+                {
+                    return -GetValue(_imageobj.Rotate.RotateY, frame, section);
+                }
+                else if (targetStr == "rz")
+                {
+                    return -GetValue(_imageobj.Rotate.RotateZ, frame, section);
+                }
+                else if (targetStr == "zoom")
+                {
+                    return GetValue(_imageobj.Scale.Scale1, frame, section);
+                }
+                else if (targetStr == "alpha")
+                {
+                    return GetValue(_imageobj.Blend.Opacity, frame, section) / 100;
+                }
+                else if (targetStr == "aspect")
+                {
+                    var x = GetValue(_imageobj.Scale.ScaleX, frame, section);
+                    var y = GetValue(_imageobj.Scale.ScaleY, frame, section);
+
+                    return ToAspect(x, y);
+                }
+                else if (targetStr == "time")
+                {
+                    return this.time;
+                }
+                else if (targetStr.Contains("layer"))
+                {
+                    var items = targetStr.Split(".");
+                    var layer = items[0].Replace("layer", string.Empty);
+                    var name = items[^1];
+                    var targetLayer = int.Parse(layer);
+                    var targetClip = _scene.GetFrame(_frame).FirstOrDefault(i => i.Layer == targetLayer);
+
+                    if (targetClip == null)
+                        throw new Exception("対象のレイヤーにオブジェクトが存在しません。");
+
+                    if (targetClip.Effect[0] is ImageObject imageObject)
+                    {
+                        return GetImageObjectValue(imageObject, _frame - targetClip.Start, framerate, name, time, section);
+                    }
+                }
+            }
+            throw new Exception($"'{target}'は不正です。");
+        }
+
+        // setanchor
+        // getaudio
+        // filter
 
         public bool copybuffer(string dst, string src)
         {
@@ -725,115 +789,6 @@ namespace BEditor.Extensions.AviUtl
             return false;
         }
 
-        public double getvalue(dynamic target, double time = double.NaN, int section = 0)
-        {
-            var frame = double.IsNaN(time) ? (Frame)this.frame : Frame.FromSeconds(time, framerate);
-
-            if (Parent is AnimationEffect anm && target is int num)
-            {
-                if (anm.Properties.TryGetValue($"track{num}", out var prop)
-                    && prop is EaseProperty track)
-                {
-                    return GetValue(track, frame, section);
-                }
-            }
-            else if (target is string targetStr)
-            {
-                if (targetStr == "x")
-                {
-                    return GetValue(_imageobj.Coordinate.X, frame, section);
-                }
-                else if (targetStr == "y")
-                {
-                    return -GetValue(_imageobj.Coordinate.Y, frame, section);
-                }
-                else if (targetStr == "z")
-                {
-                    return -GetValue(_imageobj.Coordinate.Z, frame, section);
-                }
-                else if (targetStr == "rx")
-                {
-                    return GetValue(_imageobj.Rotate.RotateX, frame, section);
-                }
-                else if (targetStr == "ry")
-                {
-                    return -GetValue(_imageobj.Rotate.RotateY, frame, section);
-                }
-                else if (targetStr == "rz")
-                {
-                    return -GetValue(_imageobj.Rotate.RotateZ, frame, section);
-                }
-                else if (targetStr == "zoom")
-                {
-                    return GetValue(_imageobj.Scale.Scale1, frame, section);
-                }
-                else if (targetStr == "alpha")
-                {
-                    return GetValue(_imageobj.Blend.Opacity, frame, section) / 100;
-                }
-                else if (targetStr == "aspect")
-                {
-                    var x = GetValue(_imageobj.Scale.ScaleX, frame, section);
-                    var y = GetValue(_imageobj.Scale.ScaleY, frame, section);
-
-                    return ToAspect(x, y);
-                }
-                else if (targetStr == "time")
-                {
-                    return this.time;
-                }
-                else if (targetStr.Contains("layer"))
-                {
-                    var items = targetStr.Split(".");
-                    var layer = items[0].Replace("layer", string.Empty);
-                    var name = items[^1];
-                    var targetLayer = int.Parse(layer);
-                    var targetClip = _scene.GetFrame(_frame).FirstOrDefault(i => i.Layer == targetLayer);
-
-                    if (targetClip == null)
-                        throw new Exception("対象のレイヤーにオブジェクトが存在しません。");
-
-                    if (targetClip.Effect[0] is ImageObject imageObject)
-                    {
-                        return GetImageObjectValue(imageObject, _frame - targetClip.Start, framerate, name, time, section);
-                    }
-                }
-            }
-            throw new Exception($"'{target}'は不正です。");
-        }
-
-        public dynamic getoption(string name, params dynamic[] value)
-        {
-            // Todo: 実装
-            switch (name)
-            {
-                case "multi_object":
-                    return num > 0;
-                default:
-                    throw new NotImplementedException();
-            }
-        }
-
-        public void pixeloption(string name, dynamic value)
-        {
-            // Todo: 実装
-            switch (name)
-            {
-                case "type":
-                    if (value is string type && type is "col" or "rgb" or "yc")
-                    {
-                        _pixelType = type;
-                    }
-                    else
-                    {
-                        throw new Exception($"'{value}' はピクセルの種類として不正です。");
-                    }
-                    break;
-                default:
-                    break;
-            }
-        }
-
         public LuaResult getpixel(params dynamic[] args)
         {
             if (args.Length == 0)
@@ -843,7 +798,7 @@ namespace BEditor.Extensions.AviUtl
 
             var x = args.GetArgValue(0, 0);
             var y = args.GetArgValue(1, 0);
-            var type = args.GetArgValue(2, _pixelType);
+            var type = args.GetArgValue(2, PixelOption.Type.ToStringCore());
 
             if (type == "col")
             {
@@ -858,10 +813,142 @@ namespace BEditor.Extensions.AviUtl
             }
             else if (type == "yc")
             {
-                // Todo: 実装
+                var pixel = (Color)_img[x, y];
+                var alpha = pixel.A / 255f;
+                var yc = pixel.ToYCbCr();
+
+                // PixelYCに
+                return new LuaResult(
+                    Math.Clamp(yc.Y / 255F * 4096, 0, 4096),
+                    Math.Clamp((yc.Cb - 128F) / 255F * 2048, -2048, 2048),
+                    Math.Clamp((yc.Cr - 128F) / 255F * 2048, -2048, 2048),
+                    alpha);
             }
 
             throw new Exception();
+        }
+
+        public LuaResult putpixel(params dynamic[] args)
+        {
+            if (args.Length == 0)
+            {
+                return new LuaResult(_img.Width, _img.Height);
+            }
+
+            var x = args.GetArgValue(0, 0);
+            var y = args.GetArgValue(1, 0);
+            var type = PixelOption.Type;
+
+            if (type == PixelType.Color)
+            {
+                var pixel = Color.FromInt32(args.GetArgValue(2, 0xffffff));
+                var alpha = args.GetArgValue<float>(3, 1);
+
+                pixel.A = (byte)MathF.Round(alpha * 255, MidpointRounding.AwayFromZero);
+                _img[x, y] = pixel;
+            }
+            else if (type == PixelType.Rgb)
+            {
+                var r = args.GetArgValue<byte>(2, 255);
+                var g = args.GetArgValue<byte>(3, 255);
+                var b = args.GetArgValue<byte>(4, 255);
+                var a = args.GetArgValue<byte>(5, 255);
+                _img[x, y] = new BGRA32(r, g, b, a);
+            }
+            else if (type == PixelType.YCbCr)
+            {
+                var ye = MathF.Round(args.GetArgValue(2, 4096F) / 4096F * 255F, MidpointRounding.AwayFromZero);
+                var cb = MathF.Round((args.GetArgValue(3, 2048F) / 2048 * 255F) + 128F, MidpointRounding.AwayFromZero);
+                var cr = MathF.Round((args.GetArgValue(3, 2048F) / 2048 * 255F) + 128F, MidpointRounding.AwayFromZero);
+                var a = (byte)MathF.Round(args.GetArgValue(5, 1) * 255F, MidpointRounding.AwayFromZero);
+                var color = new YCbCr(ye, cb, cr).ToColor();
+                color.A = a;
+
+                _img[x, y] = color;
+            }
+
+            return new LuaResult();
+        }
+
+        public void copypixel(int dst_x, int dst_y, int src_x, int src_y)
+        {
+            _img[dst_x, dst_y] = _img[src_x, src_y];
+        }
+
+        public void pixeloption(string name, dynamic value)
+        {
+            switch (name)
+            {
+                case "type":
+                    if (value is string type && type is "col" or "rgb" or "yc")
+                    {
+                        var pixelType = ToPixelType(type);
+                        PixelOption = PixelOption with { Type = pixelType };
+                    }
+                    else
+                    {
+                        throw new Exception($"'{value}' はピクセルの種類として不正です。");
+                    }
+                    break;
+                case "get":
+                    PixelOption = PixelOption with
+                    {
+                        PixelSource = ToPixelReadWriteOption(value)
+                    };
+                    break;
+                case "put":
+                    PixelOption = PixelOption with
+                    {
+                        PixelDestination = ToPixelReadWriteOption(value)
+                    };
+                    break;
+                default:
+                    break;
+            }
+        }
+
+        /// <summary>
+        /// 各種環境情報を取得します。
+        /// </summary>
+        /// <param name="name">
+        /// <list type = "bullet|number|table">
+        ///     <listheader>
+        ///         <term>取得する情報の名前</term>
+        ///         <description>戻り値</description>
+        ///     </listheader>
+        ///     <item>
+        ///         <term>"script_path"</term>
+        ///         <description>スクリプトフォルダのパス</description>
+        ///     </item>
+        ///     <item>
+        ///         <term>"saving"</term>
+        ///         <description>true=出力中 / false=非出力中</description>
+        ///     </item>
+        ///     <item>
+        ///         <term>"image_max"</term>
+        ///         <description>最大画像サイズ(横幅,高さ)</description>
+        ///     </item>
+        /// </list>
+        /// </param>
+        /// <returns></returns>
+        public LuaResult? getinfo(string name)
+        {
+            switch (name)
+            {
+                case "script_path":
+                    return new(Path.Combine(Plugin.Default.BaseDirectory, "script"));
+                case "saving":
+                    return new(_args.Type is ApplyType.Video or ApplyType.Image);
+                case "image_max":
+                    return new(32768, 32768);
+                case "version":
+                    var ver = typeof(ImageObject).Assembly.GetName().Version;
+
+                    if (ver == null) return null;
+                    return new(ver.ToString(3));
+                default:
+                    return null;
+            }
         }
 
         public LuaResult interpolation(
@@ -963,189 +1050,7 @@ namespace BEditor.Extensions.AviUtl
                 return LuaResult.Empty;
             }
         }
-        #endregion
 
 #pragma warning restore IDE1006, CA1822, IDE0060
-
-        internal static SizeF ToSize(float size, float aspect)
-        {
-            SizeF result;
-
-            if (aspect > 0)
-            {
-                result = new(size - (aspect * size / 100f), size);
-            }
-            else
-            {
-                result = new(size, size + (aspect * size / 100));
-            }
-
-            return result;
-        }
-
-        internal static float ToAspect(float width, float height)
-        {
-            var max = MathF.Max(width, height);
-            var min = MathF.Min(width, height);
-
-            return (1 - (1 / max) * min) * -100;
-        }
-
-        internal void Update(Texture texture)
-        {
-            _img.Dispose();
-
-            _texture = texture;
-            _img = texture.ToImage();
-
-            // フィールドをリセット
-            _zoom = _imageobj.Scale.Scale1[_args.Frame] / 100;
-            _pixelType = "col";
-            _drawTarget = DrawTarget.FrameBuffer;
-            _font = FontManager.Default.LoadedFonts.First();
-            _fontsize = 16;
-            _fontcolor = Colors.White;
-        }
-
-        internal Texture ReadTexture()
-        {
-            _texture.Update(_img);
-            return _texture;
-        }
-
-        public void Dispose()
-        {
-            _img.Dispose();
-        }
-
-        private static double Linear(double t, double totaltime, double min, double max)
-        {
-            return ((max - min) * t / totaltime) + min;
-        }
-
-        private static float GetValue(EaseProperty property, Frame frame, int section)
-        {
-            var clip = property.GetRequiredParent<ClipElement>();
-            if (section < 0 || section > property.Pairs.Count)
-                throw new Exception("'section'が範囲外です。");
-
-            if (section == -1)
-            {
-                section = property.Pairs.Count - 1;
-            }
-
-            var pair = property.Pairs[section];
-            var baseFrame = (Frame)pair.Position.GetAbsolutePosition(clip.Length.Value) + clip.Start;
-
-            var value = property[frame + baseFrame];
-            return value;
-        }
-
-        private static float GetImageObjectValue(ImageObject imageObject, Frame cur, double framerate, string target, double time, int section)
-        {
-            var frame = double.IsNaN(time) ? cur : Frame.FromSeconds(time, framerate);
-
-            if (target == "x")
-            {
-                return GetValue(imageObject.Coordinate.X, frame, section);
-            }
-            else if (target == "y")
-            {
-                return -GetValue(imageObject.Coordinate.Y, frame, section);
-            }
-            else if (target == "z")
-            {
-                return -GetValue(imageObject.Coordinate.Z, frame, section);
-            }
-            else if (target == "rx")
-            {
-                return GetValue(imageObject.Rotate.RotateX, frame, section);
-            }
-            else if (target == "ry")
-            {
-                return -GetValue(imageObject.Rotate.RotateY, frame, section);
-            }
-            else if (target == "rz")
-            {
-                return -GetValue(imageObject.Rotate.RotateZ, frame, section);
-            }
-            else if (target == "zoom")
-            {
-                return GetValue(imageObject.Scale.Scale1, frame, section);
-            }
-            else if (target == "alpha")
-            {
-                return GetValue(imageObject.Blend.Opacity, frame, section) / 100;
-            }
-            else if (target == "aspect")
-            {
-                var x = GetValue(imageObject.Scale.ScaleX, frame, section);
-                var y = GetValue(imageObject.Scale.ScaleY, frame, section);
-
-                return ToAspect(x, y);
-            }
-            else
-            {
-                throw new Exception($"'{target}'は不正です。");
-            }
-        }
-
-        private (float x, float y, float z) InterpolationPrivate(
-            float time,
-            float x0, float y0, float z0,
-            float x1, float y1, float z1,
-            float x2, float y2, float z2,
-            float x3, float y3, float z3)
-        {
-            // https://scrapbox.io/aviutl-script/obj.interpolation
-            var (xd0, xd1, xd2) = (x1 - x0, x2 - x1, x3 - x2);
-            var (yd0, yd1, yd2) = (y1 - y0, y2 - y1, y3 - y2);
-            var (zd0, zd1, zd2) = (z1 - z0, z2 - z1, z3 - z2);
-            var d0 = MathF.Sqrt(xd0 * xd0 + yd0 * yd0 + zd0 * zd0);
-            var d1 = MathF.Sqrt(xd1 * xd1 + yd1 * yd1 + zd1 * zd1);
-            var d2 = MathF.Sqrt(xd2 * xd2 + yd2 * yd2 + zd2 * zd2);
-            if (d1 <= 0)
-            {
-                return (x0, y0, z0);
-            }
-            var dd0 = d0 + d0 + d1 + d1;
-            var dd1 = d1 + d1 + d2 + d2;
-            var s = 1 - time;
-
-            var resultX = ((x1 + (d1 * xd0 + d0 * xd1) / dd0) * s * s * 3 + time * time * x2) * time +
-                ((x2 - (d2 * xd1 + d1 * xd2) / dd1) * time * time * 3 + s * s * x1) * s;
-
-            var resultY = ((y1 + (d1 * yd0 + d0 * yd1) / dd0) * s * s * 3 + time * time * y2) * time +
-                ((y2 - (d2 * yd1 + d1 * yd2) / dd1) * time * time * 3 + s * s * y1) * s;
-
-            var resultZ = ((z1 + (d1 * zd0 + d0 * zd1) / dd0) * s * s * 3 + time * time * z2) * time +
-             ((z2 - (d2 * zd1 + d1 * zd2) / dd1) * time * time * 3 + s * s * z1) * s;
-
-            return (resultX, resultY, resultZ);
-        }
-
-        private static unsafe Image<BGRA32> LoadMovie(string? file, TimeSpan time, int flag)
-        {
-            if (file is null) return new(1, 1);
-
-            using var decoder = MediaFile.Open(file, new MediaOptions() { StreamsToLoad = MediaMode.Video });
-            if (decoder.Video is null) return new(1, 1);
-            var decoded = decoder.Video.GetFrame(time);
-
-            if (flag is 1)
-            {
-                fixed (BGRA32* data = decoded.Data)
-                {
-                    Image.PixelOperate(decoded.Width * decoded.Height, new SetAlphaOperation(data, 255));
-                }
-            }
-
-            return decoded;
-        }
-
-        private GraphicsContext GetContext()
-        {
-            return _drawTarget is DrawTarget.FrameBuffer ? _imageobj.Parent.Parent.GraphicsContext! : _sharedGraphics;
-        }
     }
 }

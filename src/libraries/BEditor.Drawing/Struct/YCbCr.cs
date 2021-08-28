@@ -67,19 +67,16 @@ namespace BEditor.Drawing
 
         /// <summary>
         /// Gets or sets the Y luminance component.
-        /// <remarks>A value ranging between 0 and 255.</remarks>
         /// </summary>
         public float Y { readonly get; set; }
 
         /// <summary>
         /// Gets or sets the Cb chroma component.
-        /// <remarks>A value ranging between 0 and 255.</remarks>
         /// </summary>
         public float Cb { readonly get; set; }
 
         /// <summary>
         /// Gets or sets the Cr chroma component.
-        /// <remarks>A value ranging between 0 and 255.</remarks>
         /// </summary>
         public float Cr { readonly get; set; }
 
@@ -119,7 +116,7 @@ namespace BEditor.Drawing
             var g = MathF.Round(y - (0.344136F * cb) - (0.714136F * cr), MidpointRounding.AwayFromZero);
             var b = MathF.Round(y + (1.772F * cb), MidpointRounding.AwayFromZero);
 
-            return Color.FromArgb(255, (byte)(r / 255), (byte)(g / 255), (byte)(b / 255));
+            return Color.FromArgb(255, (byte)(r * 255), (byte)(g * 255), (byte)(b * 255));
         }
 
         /// <summary>
