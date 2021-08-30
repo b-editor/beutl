@@ -71,16 +71,16 @@
 
             <TextBlock
                 Classes="SettingsItemHeader"
-                Text="{x:Static props:Strings.Length}" />
+                Text="{x:Static props:Strings.End}" />
 
             <StackPanel Orientation="Horizontal">
                 <TextBox
                     Classes="SettingsTextBox"
-                    Text="{CompiledBinding Length.Value, Mode=TwoWay}" />
+                    Text="{CompiledBinding End.Value, Mode=TwoWay}" />
 
                 <Button
                     Command="{CompiledBinding UseCurrentFrame, Mode=OneTime}"
-                    CommandParameter="{CompiledBinding Length, Mode=OneTime}"
+                    CommandParameter="{CompiledBinding End, Mode=OneTime}"
                     Content="{x:Static props:Strings.UseCurrentFrame}" />
             </StackPanel>
 
@@ -101,6 +101,9 @@
                     Content="{x:Static props:Strings.ClearCache}"
                     Command="{CompiledBinding ClearCache, Mode=OneTime}" />
 
+                <TextBlock
+                    VerticalAlignment="Center"
+                    Text="{CompiledBinding PresumedUsageCapacity.Value}" />
             </StackPanel>
         </StackPanel>
     </ScrollViewer>

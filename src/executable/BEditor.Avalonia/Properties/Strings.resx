@@ -933,4 +933,7 @@ Do you want to install it now?</value>
   <data name="UseCache" xml:space="preserve">
     <value>Use cache</value>
   </data>
+  <data name="End" xml:space="preserve">
+    <value>End frame</value>
+  </data>
 </root>
