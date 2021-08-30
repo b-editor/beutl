@@ -57,6 +57,16 @@
                 <Style Selector="ToggleButton:disabled /template/ ContentPresenter#PART_ContentPresenter">
                     <Setter Property="Background" Value="Transparent" />
                 </Style>
+
+                <Style Selector="ToggleButton:checked:pointerover /template/ Border#BorderElement">
+                    <Setter Property="BorderBrush" Value="{DynamicResource ToggleButtonBorderBrushPointerOver}" />
+                </Style>
+                <Style Selector="ToggleButton:checked:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+                    <Setter Property="Background" Value="{DynamicResource ToggleButtonBackgroundPointerOver}" />
+                    <!--<Setter Property="BorderBrush" Value="{DynamicResource ToggleButtonBorderBrushPointerOver}" />-->
+                    <Setter Property="TextBlock.Foreground" Value="{DynamicResource ToggleButtonForegroundPointerOver}" />
+                </Style>
+
                 <Style Selector="ToggleButton:checked /template/ ContentPresenter#PART_ContentPresenter">
                     <Setter Property="Background" Value="Transparent" />
                     <Setter Property="TextBlock.Foreground" Value="{DynamicResource ToggleButtonForeground}" />

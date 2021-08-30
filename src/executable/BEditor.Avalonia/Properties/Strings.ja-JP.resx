@@ -915,4 +915,22 @@ Vulkan:
   <data name="Pause" xml:space="preserve">
     <value>一時停止</value>
   </data>
+  <data name="Preview" xml:space="preserve">
+    <value>プレビュー</value>
+  </data>
+  <data name="Speed" xml:space="preserve">
+    <value>スピード</value>
+  </data>
+  <data name="Cache" xml:space="preserve">
+    <value>キャッシュ</value>
+  </data>
+  <data name="CreateCache" xml:space="preserve">
+    <value>キャッシュを作成</value>
+  </data>
+  <data name="ClearCache" xml:space="preserve">
+    <value>キャッシュをクリア</value>
+  </data>
+  <data name="UseCache" xml:space="preserve">
+    <value>キャッシュを使う</value>
+  </data>
 </root>

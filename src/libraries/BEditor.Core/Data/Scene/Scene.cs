@@ -53,6 +53,7 @@ namespace BEditor.Data
             Width = width;
             Height = height;
             Datas = new ObservableCollection<ClipElement>();
+            Cache = new(this);
         }
 
         /// <summary>

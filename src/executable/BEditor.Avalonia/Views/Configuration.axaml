@@ -14,6 +14,16 @@
     x:Class="BEditor.Views.Configuration">
     <ScrollViewer>
         <StackPanel>
+            <StackPanel.Styles>
+                <Style Selector="TextBlock.SettingsHeader">
+                    <Setter Property="FontSize" Value="20" />
+                    <Setter Property="Margin" Value="16,4"/>
+                </Style>
+            </StackPanel.Styles>
+
+            <TextBlock
+                Classes="SettingsHeader"
+                Text="{x:Static props:Strings.Preview}" />
 
             <TextBlock
                 Classes="SettingsItemHeader"
@@ -24,17 +34,74 @@
                 SelectedItem="{CompiledBinding SelectedBackground.Value, Mode=TwoWay}"
                 Items="{CompiledBinding Backgrounds, Mode=OneTime}">
             </ComboBox>
-            
+
             <Separator Height="8"/>
 
             <TextBlock
                 Classes="SettingsItemHeader"
-                Text="スピード" />
+                Text="{x:Static props:Strings.Speed}" />
 
             <NumericUpDown
                 Classes="SettingsNumericUpDown"
                 Minimum="0"
                 Value="{CompiledBinding Speed.Value, Mode=TwoWay}" />
+
+            <Separator Height="8"/>
+
+            <TextBlock
+                Classes="SettingsHeader"
+                Text="{x:Static props:Strings.Cache}" />
+
+            <TextBlock
+                Classes="SettingsItemHeader"
+                Text="{x:Static props:Strings.Start}" />
+
+            <StackPanel Orientation="Horizontal">
+                <TextBox
+                    Classes="SettingsTextBox"
+                    Text="{CompiledBinding Start.Value, Mode=TwoWay}" />
+
+                <Button
+                    Command="{CompiledBinding UseCurrentFrame, Mode=OneTime}"
+                    CommandParameter="{CompiledBinding Start, Mode=OneTime}"
+                    Content="{x:Static props:Strings.UseCurrentFrame}" />
+            </StackPanel>
+
+            <Separator Height="8"/>
+
+            <TextBlock
+                Classes="SettingsItemHeader"
+                Text="{x:Static props:Strings.Length}" />
+
+            <StackPanel Orientation="Horizontal">
+                <TextBox
+                    Classes="SettingsTextBox"
+                    Text="{CompiledBinding Length.Value, Mode=TwoWay}" />
+
+                <Button
+                    Command="{CompiledBinding UseCurrentFrame, Mode=OneTime}"
+                    CommandParameter="{CompiledBinding Length, Mode=OneTime}"
+                    Content="{x:Static props:Strings.UseCurrentFrame}" />
+            </StackPanel>
+
+            <Separator Height="8"/>
+
+            <CheckBox
+                Classes="SettingsCheckBox"
+                Content="{x:Static props:Strings.UseCache}"
+                IsChecked="{CompiledBinding UseCache.Value, Mode=TwoWay}" />
+            
+            <StackPanel Orientation="Horizontal" Margin="16" Spacing="16">
+                <Button
+                    Classes="accent"
+                    Content="{x:Static props:Strings.CreateCache}"
+                    Command="{CompiledBinding CreateCache, Mode=OneTime}" />
+
+                <Button
+                    Content="{x:Static props:Strings.ClearCache}"
+                    Command="{CompiledBinding ClearCache, Mode=OneTime}" />
+
+            </StackPanel>
         </StackPanel>
     </ScrollViewer>
 </UserControl>

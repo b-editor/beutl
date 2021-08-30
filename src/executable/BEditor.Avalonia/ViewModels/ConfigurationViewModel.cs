@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using Avalonia.Media;
 
 using BEditor.Data;
+using BEditor.Media;
 using BEditor.Models;
 using BEditor.Properties;
 
@@ -35,6 +36,49 @@ namespace BEditor.ViewModels
 
             Speed.Value = ProjectConfig.GetSpeed(project) * 100;
             Speed.Subscribe(i => ProjectConfig.SetSpeed(_project, i / 100));
+
+            _project.GetObservable(Project.CurrentSceneProperty).Subscribe(scene =>
+            {
+                if (scene.Cache != null)
+                {
+                    Start.Value = scene.Cache.Start.ToTimeSpan(_project.Framerate);
+                    Length.Value = scene.Cache.Length.ToTimeSpan(_project.Framerate);
+                }
+                else
+                {
+                    if (Start.Value >= scene.TotalFrame.ToTimeSpan(_project.Framerate))
+                    {
+                        Start.Value = default;
+                    }
+
+                    var total = scene.TotalFrame.ToTimeSpan(_project.Framerate);
+                    if ((Length.Value + Start.Value) >= total)
+                    {
+                        Length.Value = total - Start.Value;
+                    }
+                }
+
+                UseCache.Value = scene.UseCache;
+            });
+
+            UseCache.Subscribe(i => _project.CurrentScene.UseCache = i);
+
+            UseCurrentFrame.Subscribe(i =>
+            {
+                var scene = _project.CurrentScene;
+                i.Value = scene.PreviewFrame.ToTimeSpan(_project.Framerate);
+            });
+
+            CreateCache.Subscribe(async () =>
+            {
+                var scene = _project.CurrentScene;
+                var st = Frame.FromTimeSpan(Start.Value, _project.Framerate);
+                var len = Frame.FromTimeSpan(Length.Value, _project.Framerate);
+
+                await Task.Run(() => scene.Cache.Create(st, len));
+            });
+
+            ClearCache.Subscribe(() => _project.CurrentScene.Cache.Clear());
         }
 
         public enum BackgroundType
@@ -49,6 +93,18 @@ namespace BEditor.ViewModels
         public ReactiveProperty<string> SelectedBackground { get; }
 
         public ReactiveProperty<double> Speed { get; }
+
+        public ReactiveProperty<TimeSpan> Start { get; } = new();
+
+        public ReactiveProperty<TimeSpan> Length { get; } = new();
+
+        public ReactiveProperty<bool> UseCache { get; } = new();
+
+        public ReactiveCommand<ReactiveProperty<TimeSpan>> UseCurrentFrame { get; } = new();
+
+        public AsyncReactiveCommand CreateCache { get; } = new();
+
+        public ReactiveCommand ClearCache { get; } = new();
 
         public string[] Backgrounds { get; } =
         {

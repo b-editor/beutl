@@ -4034,6 +4034,69 @@
             <exception cref="T:System.ArgumentNullException"><paramref name="info"/> is null.</exception>
             <exception cref="T:System.Runtime.Serialization.SerializationException">The class name is null or <see cref="P:System.Exception.HResult"/> is zero (0).</exception>
         </member>
+        <member name="T:BEditor.Data.SceneCache">
+            <summary>
+            Represents the scene cache.
+            </summary>
+        </member>
+        <member name="M:BEditor.Data.SceneCache.#ctor(BEditor.Data.Scene)">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Data.SceneCache"/> class.
+            </summary>
+            <param name="scene">The scene.</param>
+        </member>
+        <member name="E:BEditor.Data.SceneCache.Updated">
+            <summary>
+            Occurs when the cache is updated.
+            </summary>
+        </member>
+        <member name="E:BEditor.Data.SceneCache.Building">
+            <summary>
+            Occurs when the cache is building.
+            </summary>
+        </member>
+        <member name="P:BEditor.Data.SceneCache.Width">
+            <summary>
+            Gets the width of the cache.
+            </summary>
+        </member>
+        <member name="P:BEditor.Data.SceneCache.Height">
+            <summary>
+            Gets the height of the cache.
+            </summary>
+        </member>
+        <member name="P:BEditor.Data.SceneCache.Start">
+            <summary>
+            Gets the starting position of the cache.
+            </summary>
+        </member>
+        <member name="P:BEditor.Data.SceneCache.Length">
+            <summary>
+            Gets the length of the cache.
+            </summary>
+        </member>
+        <member name="M:BEditor.Data.SceneCache.Dispose">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Data.SceneCache.Create(BEditor.Media.Frame,BEditor.Media.Frame)">
+            <summary>
+            Creates a cache for the specified range.
+            </summary>
+            <param name="start">The starting position of the cache.</param>
+            <param name="length">The length of the cache.</param>
+        </member>
+        <member name="M:BEditor.Data.SceneCache.Clear">
+            <summary>
+            Clear the cache.
+            </summary>
+        </member>
+        <member name="M:BEditor.Data.SceneCache.ReadImage(BEditor.Media.Frame)">
+            <summary>
+            Read the image from the cache.
+            </summary>
+            <param name="frame">The frame to read.</param>
+            <returns>Returns the image that was read.</returns>
+        </member>
         <member name="T:BEditor.Data.Scene">
             <summary>
             Represents a scene to be included in the <see cref="T:BEditor.Data.Project"/>.
@@ -4219,6 +4282,16 @@
         <member name="P:BEditor.Data.Scene.Datas">
             <summary>
             Gets the <see cref="T:BEditor.Data.ClipElement"/> contained in this <see cref="T:BEditor.Data.Scene"/>.
+            </summary>
+        </member>
+        <member name="P:BEditor.Data.Scene.Cache">
+            <summary>
+            Gets the cache of this scene.
+            </summary>
+        </member>
+        <member name="P:BEditor.Data.Scene.UseCache">
+            <summary>
+            Gets or sets whether to use the cache or not.
             </summary>
         </member>
         <member name="P:BEditor.Data.Scene.SelectItem">

@@ -297,6 +297,15 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Cache.
+        /// </summary>
+        public static string Cache {
+            get {
+                return ResourceManager.GetString("Cache", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Cancel.
         /// </summary>
         public static string Cancel {
@@ -365,6 +374,15 @@ namespace BEditor.Properties {
         public static string CheckLight {
             get {
                 return ResourceManager.GetString("CheckLight", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Clear cache.
+        /// </summary>
+        public static string ClearCache {
+            get {
+                return ResourceManager.GetString("ClearCache", resourceCulture);
             }
         }
         
@@ -555,6 +573,15 @@ namespace BEditor.Properties {
         public static string Create {
             get {
                 return ResourceManager.GetString("Create", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Create cache.
+        /// </summary>
+        public static string CreateCache {
+            get {
+                return ResourceManager.GetString("CreateCache", resourceCulture);
             }
         }
         
@@ -1590,6 +1617,15 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Preview.
+        /// </summary>
+        public static string Preview {
+            get {
+                return ResourceManager.GetString("Preview", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Primitive (deprecated).
         /// </summary>
         public static string PrimitiveEasing {
@@ -1986,6 +2022,15 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Speed.
+        /// </summary>
+        public static string Speed {
+            get {
+                return ResourceManager.GetString("Speed", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Start frame.
         /// </summary>
         public static string Start {
@@ -2225,6 +2270,15 @@ namespace BEditor.Properties {
         public static string UseAutoBackup {
             get {
                 return ResourceManager.GetString("UseAutoBackup", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Use cache.
+        /// </summary>
+        public static string UseCache {
+            get {
+                return ResourceManager.GetString("UseCache", resourceCulture);
             }
         }
         

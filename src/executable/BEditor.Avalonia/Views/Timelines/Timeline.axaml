@@ -42,6 +42,24 @@
                     Width="1.25"
                     HorizontalAlignment="Right"
                     Background="Blue" />
+
+                <Border
+                    IsVisible="False"
+                    x:Name="CreatedCacheBorder"
+                    Height="5"
+                    CornerRadius="2.5"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Bottom"
+                    Background="{StaticResource AccentFillColorDefaultBrush}" />
+
+                <Border
+                    IsVisible="False"
+                    x:Name="BuildingCacheBorder"
+                    Height="5"
+                    CornerRadius="2.5"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Bottom"
+                    Background="{StaticResource SystemFillColorCriticalBrush}" />
             </Panel>
         </ScrollViewer>
 

@@ -144,8 +144,13 @@ namespace BEditor.Extensions.AviUtl
             set
             {
                 _zoom = value;
-                zoom_w = zoom_w;
-                zoom_h = zoom_h;
+
+                var transform = _texture.Transform;
+                var vector = transform.Scale;
+                vector.X *= value;
+                vector.Y *= value;
+                transform.Scale = vector;
+                _texture.Transform = transform;
             }
         }
 

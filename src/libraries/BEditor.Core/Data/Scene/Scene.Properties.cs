@@ -23,6 +23,8 @@ namespace BEditor.Data
     /// </summary>
     public partial class Scene : IParent<ClipElement>, IChild<Project>
     {
+        private bool _useCache = true;
+
         /// <summary>
         /// Gets the width of the frame buffer.
         /// </summary>
@@ -36,7 +38,7 @@ namespace BEditor.Data
         /// <summary>
         /// Gets or sets the name of this <see cref="Scene"/>.
         /// </summary>
-        public virtual string SceneName
+        public string SceneName
         {
             get => _sceneName;
             set => SetAndRaise(value, ref _sceneName, _sceneNameArgs);
@@ -60,6 +62,27 @@ namespace BEditor.Data
         /// Gets the <see cref="ClipElement"/> contained in this <see cref="Scene"/>.
         /// </summary>
         public ObservableCollection<ClipElement> Datas { get; private set; }
+
+        /// <summary>
+        /// Gets the cache of this scene.
+        /// </summary>
+        public SceneCache Cache { get; private set; }
+
+        /// <summary>
+        /// Gets or sets whether to use the cache or not.
+        /// </summary>
+        public bool UseCache
+        {
+            get => _useCache;
+            set
+            {
+                _useCache = value;
+                if (!value)
+                {
+                    Cache.Clear();
+                }
+            }
+        }
 
         /// <summary>
         /// Gets or sets the selected <see cref="ClipElement"/>.
