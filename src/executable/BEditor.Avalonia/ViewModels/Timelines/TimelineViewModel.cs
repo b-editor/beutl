@@ -99,7 +99,7 @@ namespace BEditor.ViewModels.Timelines
 
             if (SeekbarIsMouseDown && KeyframeToggle)
             {
-                Scene.PreviewFrame = PointerFrame + 1;
+                Scene.PreviewFrame = PointerFrame;
             }
         }
 
@@ -112,7 +112,7 @@ namespace BEditor.ViewModels.Timelines
 
             if (SeekbarIsMouseDown && KeyframeToggle)
             {
-                Scene.PreviewFrame = PointerFrame + 1;
+                Scene.PreviewFrame = PointerFrame;
             }
             else if (ClipMouseDown)
             {
@@ -197,7 +197,7 @@ namespace BEditor.ViewModels.Timelines
             // フラグを"マウス押下中"にする
             SeekbarIsMouseDown = true;
 
-            Scene.PreviewFrame = ClickedFrame + 1;
+            Scene.PreviewFrame = ClickedFrame;
         }
 
         public void PointerLeaved()

@@ -68,7 +68,7 @@ namespace BEditor.Data
             Parent = (context.Parent as Project) ?? Parent;
 
             var element = context.Element;
-            TimeLineZoom = 150;
+            TimeLineScale = 0.75f;
             Width = element.GetProperty(nameof(Width)).GetInt32();
             Height = element.GetProperty(nameof(Height)).GetInt32();
             SceneName = element.GetProperty(nameof(SceneName)).GetString() ?? string.Empty;

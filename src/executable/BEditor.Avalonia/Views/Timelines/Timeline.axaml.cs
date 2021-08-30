@@ -233,22 +233,11 @@ namespace BEditor.Views.Timelines
         {
             base.OnInitialized();
 
-            Scene.ObserveProperty(s => s.TimeLineZoom)
+            Scene.ObserveProperty(s => s.TimeLineScale)
                 .Subscribe(_ =>
                 {
                     var viewmodel = ViewModel;
                     var scene = viewmodel.Scene;
-
-                    if (scene.TimeLineZoom <= 0)
-                    {
-                        scene.TimeLineZoom = 1;
-                        return;
-                    }
-                    if (scene.TimeLineZoom >= 201)
-                    {
-                        scene.TimeLineZoom = 200;
-                        return;
-                    }
 
                     var l = scene.TotalFrame;
 
@@ -536,7 +525,7 @@ namespace BEditor.Views.Timelines
             {
                 var offset = _scrollLine.Offset.X;
                 var frame = Scene.ToFrame(offset);
-                Scene.TimeLineZoom += (float)(e.Delta.Y / 120) * 5 * Scene.TimeLineZoom;
+                Scene.TimeLineScale += (float)(e.Delta.Y / 120) * 10 * Scene.TimeLineScale;
 
                 _scrollLine.Offset = _scrollLine.Offset.WithX(Scene.ToPixel(frame));
             }

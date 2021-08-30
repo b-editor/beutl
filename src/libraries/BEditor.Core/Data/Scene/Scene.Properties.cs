@@ -107,10 +107,28 @@ namespace BEditor.Data
         /// <summary>
         /// Gets or sets the scale of the timeline.
         /// </summary>
+        [Obsolete("Use TimeLineScale")]
         public float TimeLineZoom
         {
-            get => _timeLineZoom;
-            set => SetAndRaise(Math.Clamp(value, 1, 200), ref _timeLineZoom, _zoomArgs);
+            get => TimeLineScale * 200;
+            set => TimeLineScale = value / 200;
+        }
+
+        /// <summary>
+        /// Gets or sets the scale of the timeline.
+        /// </summary>
+        public float TimeLineScale
+        {
+            get => _timeLineScale;
+            set
+            {
+                if (SetAndRaise(Math.Clamp(value, 0.1f, 1), ref _timeLineScale, _scaleArgs))
+                {
+#pragma warning disable CS0612
+                    RaisePropertyChanged(_zoomArgs);
+#pragma warning restore CS0612
+                }
+            }
         }
 
         /// <summary>

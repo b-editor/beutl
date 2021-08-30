@@ -4256,6 +4256,11 @@
             Gets or sets the scale of the timeline.
             </summary>
         </member>
+        <member name="P:BEditor.Data.Scene.TimeLineScale">
+            <summary>
+            Gets or sets the scale of the timeline.
+            </summary>
+        </member>
         <member name="P:BEditor.Data.Scene.TimeLineHorizonOffset">
             <summary>
             Gets or sets the horizontal scrolling offset of the timeline.

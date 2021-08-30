@@ -1,9 +1,9 @@
-﻿
+﻿using System;
+
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.LogicalTree;
 using Avalonia.Media;
-using Avalonia.VisualTree;
 
 using BEditor.Models;
 
@@ -40,121 +40,45 @@ namespace BEditor.Views.Timelines
         {
             base.Render(context);
             const int top = 16;//15
-            double ToPixel(int frame)
+            double PixelToSec(double pixel)
             {
-                return ConstantSettings.WidthOf1Frame * (Scale / 200) * frame;
-            }
-
-            double SecToPixel(float sec)
-            {
-                return ToPixel((int)(sec * Rate));
-            }
-
-            double MinToPixel(float min)
-            {
-                return SecToPixel(min * 60);
-            }
-
-            int ToFrame(double pixel)
-            {
-                return (int)(pixel / (ConstantSettings.WidthOf1Frame * (Scale / 200)));
-            }
-
-            float PixelToSec(double pixel)
-            {
-                return ToFrame(pixel) / Rate;
+                return pixel / (ConstantSettings.WidthOf1Frame * (Scale / 200)) / Rate;
             }
 
             var height = Bounds.Height;
             var scroll = this.FindLogicalAncestorOfType<ScrollViewer>();
             var viewport = new Rect(new Point(scroll.Offset.X, scroll.Offset.Y), scroll.Viewport);
-            var totalSec = (int)PixelToSec(viewport.Width) + 2;
-            var startSec = (int)PixelToSec(viewport.X);
-            //var totalSec = Max / Rate;
+            var wf = ConstantSettings.WidthOf1Frame;
 
-            var rate = Rate;
-            var scale = Scale;
+            var recentPix = 0d;
+            var inc = wf * 30;
+            var l = viewport.Width + viewport.X;
 
-            if (scale is >= 50 and <= 200f)
+            for (var x = viewport.X; x < l; x += inc)
             {
-                //sは秒数
-                for (var s = startSec; s < totalSec + startSec; s++)
+                var s = PixelToSec(x);
+
+                if (viewport.Contains(new Point(x, Bounds.Height)))
                 {
-                    //一秒毎
-                    var x = ToPixel(s * rate);
-                    if (viewport.Contains(new Point(x, Bounds.Height)))
+                    context.DrawLine(_pen, new(x, 5), new(x, height));
+
+                    if (recentPix == 0d || (x + 8) > recentPix)
                     {
-                        context.DrawLine(_pen, new(x, 5), new(x, height));
-
-                        if (s is not 0)
-                        {
-                            _text.Text = s.ToString() + " s";
-                            context.DrawText(_pen.Brush, new(x + 8, 0), _text);
-                        }
-                    }
-
-                    int value;
-
-                    if (scale is <= 200f and >= 150f) value = 1;
-                    else if (scale is <= 150f and >= 100f) value = 2;
-                    else if (scale is <= 100f and >= 50f) value = 6;
-                    else return;
-
-                    //以下はフレーム
-                    for (var frame = 1; frame < rate / value; frame++)
-                    {
-                        var xx = ToPixel(frame * value) + x;
-                        if (!viewport.Contains(new Point(xx, Bounds.Height))) continue;
-
-                        if (Width < xx) return;
-
-                        context.DrawLine(_pen, new(xx, top), new(xx, height));
+                        var time = TimeSpan.FromSeconds(s);
+                        _text.Text = time.ToString("hh\\:mm\\:ss\\.ff");
+                        recentPix = x + _text.Bounds.Width + 8;
+                        context.DrawText(_pen.Brush, new(x + 8, 0), _text);
                     }
                 }
-            }
-            else
-            {
-                //min は分数
-                //最大の分
-                for (var min = startSec / 60; min < ((totalSec + startSec) / 60) + 1; min++)
+
+                var ll = x + inc;
+                for (var xx = x + wf; xx < ll; xx += wf)
                 {
-                    var x = MinToPixel(min);
-                    if (viewport.Contains(new Point(x, Bounds.Height)))
-                    {
-                        context.DrawLine(_pen, new(x, 5), new(x, height));
+                    if (!viewport.Contains(new Point(xx, Bounds.Height))) continue;
 
-                        if (min is not 0)
-                        {
-                            _text.Text = min.ToString() + " m";
-                            context.DrawText(_pen.Brush, new(x + 8, 0), _text);
-                        }
-                    }
+                    if (Width < xx) return;
 
-                    int value;
-
-                    if (scale is <= 50f and >= 40f) value = 1;
-                    else if (scale is <= 40f and >= 30f) value = 2;
-                    else if (scale is <= 30f and >= 20f) value = 4;
-                    else if (scale is <= 20f and >= 10f) value = 6;
-                    else if (scale is <= 10f and >= 0f) value = 15;
-                    else return;
-
-                    for (var s = 1; s < 60 / value; s++)
-                    {
-                        var sec = s * value;
-                        var xx = SecToPixel(sec) + x;
-                        if (!viewport.Contains(new Point(xx, Bounds.Height))) continue;
-
-                        if (Width < xx) return;
-
-                        context.DrawLine(_pen, new(xx, top), new(xx, height));
-
-                        if (value is 1 or 2 or 4 or 6)
-                        {
-                            _text.Text = sec.ToString() + " s";
-                            context.DrawText(_pen.Brush, new(xx + 8, 0), _text);
-                        }
-                    }
+                    context.DrawLine(_pen, new(xx, top), new(xx, height));
                 }
             }
         }

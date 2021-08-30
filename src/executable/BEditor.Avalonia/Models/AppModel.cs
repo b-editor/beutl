@@ -182,7 +182,7 @@ namespace BEditor.Models
                     {
                         Select = scene.SelectItem?.Name,
                         PreviewFrame = scene.PreviewFrame,
-                        TimelineScale = scene.TimeLineZoom,
+                        TimelineScale = scene.TimeLineScale,
                         TimelineHorizonOffset = scene.TimeLineHorizonOffset,
                         TimelineVerticalOffset = scene.TimeLineVerticalOffset
                     };
@@ -250,7 +250,7 @@ namespace BEditor.Models
                         {
                             scene.SelectItem = scene[cacheObj.Select];
                             scene.PreviewFrame = cacheObj.PreviewFrame;
-                            scene.TimeLineZoom = cacheObj.TimelineScale;
+                            scene.TimeLineScale = cacheObj.TimelineScale;
                             scene.TimeLineHorizonOffset = cacheObj.TimelineHorizonOffset;
                             scene.TimeLineVerticalOffset = cacheObj.TimelineVerticalOffset;
                         }
