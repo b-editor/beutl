@@ -909,4 +909,10 @@ Vulkan:
   <data name="SavePositionAsFrameNumber" xml:space="preserve">
     <value>位置をフレーム番号で保存</value>
   </data>
+  <data name="Play" xml:space="preserve">
+    <value>再生</value>
+  </data>
+  <data name="Pause" xml:space="preserve">
+    <value>一時停止</value>
+  </data>
 </root>
