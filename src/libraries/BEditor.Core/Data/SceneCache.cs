@@ -26,7 +26,8 @@ namespace BEditor.Data
     public class SceneCache : IDisposable
     {
         private readonly Scene _scene;
-        private Image<BGRA32>[]? _images;
+        private Image<Bgra4444>[]? _bgra16;
+        private Image<BGRA32>[]? _bgra32;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="SceneCache"/> class.
@@ -67,6 +68,16 @@ namespace BEditor.Data
         /// </summary>
         public Frame Length { get; private set; }
 
+        /// <summary>
+        /// Gets whether the color reproduction is reduced.
+        /// </summary>
+        public bool LowColor { get; private set; }
+
+        /// <summary>
+        /// Gets whether or not to lower the resolution.
+        /// </summary>
+        public bool LowResolution { get; private set; }
+
         /// <inheritdoc/>
         public void Dispose()
         {
@@ -80,15 +91,50 @@ namespace BEditor.Data
         /// </summary>
         /// <param name="start">The starting position of the cache.</param>
         /// <param name="length">The length of the cache.</param>
-        public void Create(Frame start, Frame length)
+        /// <param name="lowColor">Whether the color reproduction is reduced.</param>
+        /// <param name="lowResolution">Whether or not to lower the resolution.</param>
+        public void Create(Frame start, Frame length, bool lowColor = false, bool lowResolution = false)
         {
             Clear();
-            _images = Enumerable.Range(start.Value, length.Value).Select(i =>
+            if (lowColor)
             {
-                Building?.Invoke(this, new Range(start.Value, i));
-                return _scene.Render(i, ApplyType.Video);
-            }).ToArray();
+                _bgra16 = Enumerable.Range(start.Value, length.Value).Select(i =>
+                {
+                    Building?.Invoke(this, new Range(start.Value, i));
+                    using var bgra32 = _scene.Render(i, ApplyType.Video);
 
+                    if (lowResolution)
+                    {
+                        using var resized = bgra32.Resize(bgra32.Width / 2, bgra32.Height / 2, Quality.High);
+                        return resized.Convert<Bgra4444>();
+                    }
+                    else
+                    {
+                        return bgra32.Convert<Bgra4444>();
+                    }
+                }).ToArray();
+            }
+            else
+            {
+                _bgra32 = Enumerable.Range(start.Value, length.Value).Select(i =>
+                {
+                    Building?.Invoke(this, new Range(start.Value, i));
+                    var bgra32 = _scene.Render(i, ApplyType.Video);
+                    if (lowResolution)
+                    {
+                        var resized = bgra32.Resize(bgra32.Width / 2, bgra32.Height / 2, Quality.High);
+                        bgra32.Dispose();
+                        return resized;
+                    }
+                    else
+                    {
+                        return bgra32;
+                    }
+                }).ToArray();
+            }
+
+            LowColor = lowColor;
+            LowResolution = lowResolution;
             Start = start;
             Length = length;
             Updated?.Invoke(this, EventArgs.Empty);
@@ -99,14 +145,24 @@ namespace BEditor.Data
         /// </summary>
         public void Clear()
         {
-            if (_images != null)
+            if (_bgra16 != null)
             {
-                foreach (var item in _images)
+                foreach (var item in _bgra16)
                 {
                     item.Dispose();
                 }
 
-                _images = null;
+                _bgra16 = null;
+            }
+
+            if (_bgra32 != null)
+            {
+                foreach (var item in _bgra32)
+                {
+                    item.Dispose();
+                }
+
+                _bgra32 = null;
             }
 
             Start = 0;
@@ -122,7 +178,23 @@ namespace BEditor.Data
         /// <returns>Returns the image that was read.</returns>
         public unsafe Image<BGRA32> ReadImage(Frame frame)
         {
-            return _images?[frame - Start]?.Clone() ?? new Image<BGRA32>(Width, Height, default(BGRA32));
+            var image = LowColor switch
+            {
+                true => _bgra16?[frame - Start]?.Convert<BGRA32>(),
+                false => _bgra32?[frame - Start]?.Clone(),
+            };
+
+            if (image == null)
+                return new Image<BGRA32>(Width, Height, default(BGRA32));
+
+            if (LowResolution)
+            {
+                var resized = image.Resize(Width, Height, Quality.Medium);
+                image.Dispose();
+                return resized;
+            }
+
+            return image;
         }
     }
 }

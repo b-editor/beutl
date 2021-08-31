@@ -1220,6 +1220,24 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Lower color reproduction.
+        /// </summary>
+        public static string LowerColorReproduction {
+            get {
+                return ResourceManager.GetString("LowerColorReproduction", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Lower resolution.
+        /// </summary>
+        public static string LowerResolution {
+            get {
+                return ResourceManager.GetString("LowerResolution", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Machine translation.
         /// </summary>
         public static string MachineTranslation {

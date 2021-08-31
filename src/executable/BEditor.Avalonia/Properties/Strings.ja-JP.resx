@@ -936,4 +936,10 @@ Vulkan:
   <data name="End" xml:space="preserve">
     <value>終了フレーム</value>
   </data>
+  <data name="LowerColorReproduction" xml:space="preserve">
+    <value>色の再現性を低くする</value>
+  </data>
+  <data name="LowerResolution" xml:space="preserve">
+    <value>解像度を下げる</value>
+  </data>
 </root>

@@ -7,6 +7,7 @@
 
 using System;
 using System.Globalization;
+using System.Numerics;
 using System.Runtime.Serialization;
 
 using BEditor.Drawing.Pixel;

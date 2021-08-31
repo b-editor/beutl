@@ -91,6 +91,16 @@
                 Content="{x:Static props:Strings.UseCache}"
                 IsChecked="{CompiledBinding UseCache.Value, Mode=TwoWay}" />
             
+            <CheckBox
+                Classes="SettingsCheckBox"
+                Content="{x:Static props:Strings.LowerColorReproduction}"
+                IsChecked="{CompiledBinding LowColor.Value, Mode=TwoWay}" />
+            
+            <CheckBox
+                Classes="SettingsCheckBox"
+                Content="{x:Static props:Strings.LowerResolution}"
+                IsChecked="{CompiledBinding LowResolution.Value, Mode=TwoWay}" />
+            
             <StackPanel Orientation="Horizontal" Margin="16" Spacing="16">
                 <Button
                     Classes="accent"

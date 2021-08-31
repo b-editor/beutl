@@ -76,13 +76,15 @@ namespace BEditor.ViewModels
                 var st = Frame.FromTimeSpan(Start.Value, _project.Framerate);
                 var ed = Frame.FromTimeSpan(End.Value, _project.Framerate);
 
-                await Task.Run(() => scene.Cache.Create(st, ed - st));
+                await Task.Run(() => scene.Cache.Create(st, ed - st, LowColor.Value, LowResolution.Value));
             });
 
             ClearCache.Subscribe(() => _project.CurrentScene.Cache.Clear());
 
             Start.Subscribe(_ => PresumedUsageCapacity.Value = DataSizeToString(CalculateCacheSize()).GB);
             End.Subscribe(_ => PresumedUsageCapacity.Value = DataSizeToString(CalculateCacheSize()).GB);
+            LowColor.Subscribe(_ => PresumedUsageCapacity.Value = DataSizeToString(CalculateCacheSize()).GB);
+            LowResolution.Subscribe(_ => PresumedUsageCapacity.Value = DataSizeToString(CalculateCacheSize()).GB);
         }
 
         public enum BackgroundType
@@ -103,6 +105,10 @@ namespace BEditor.ViewModels
         public ReactiveProperty<TimeSpan> End { get; } = new();
 
         public ReactiveProperty<bool> UseCache { get; } = new();
+
+        public ReactiveProperty<bool> LowColor { get; } = new();
+
+        public ReactiveProperty<bool> LowResolution { get; } = new();
 
         public ReactivePropertySlim<string> PresumedUsageCapacity { get; } = new();
 
@@ -161,7 +167,26 @@ namespace BEditor.ViewModels
             var length = Frame.FromTimeSpan(End.Value, _project.Framerate) - Frame.FromTimeSpan(Start.Value, _project.Framerate);
             var scn = _project.CurrentScene;
             var size = (long)(sizeof(int) * 2) + (sizeof(bool) * 2) + (IntPtr.Size * 2);
-            size += (long)scn.Width * scn.Height * sizeof(BGRA32);
+            long imgSize;
+            if (LowResolution.Value)
+            {
+                imgSize = (long)(scn.Width / 2) * (scn.Height / 2);
+            }
+            else
+            {
+                imgSize = (long)scn.Width * scn.Height;
+            }
+
+            if (LowColor.Value)
+            {
+                imgSize *= sizeof(Bgra4444);
+            }
+            else
+            {
+                imgSize *= sizeof(BGRA32);
+            }
+
+            size += imgSize;
             size *= length.Value;
 
             return size;

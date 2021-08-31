@@ -936,4 +936,10 @@ Do you want to install it now?</value>
   <data name="End" xml:space="preserve">
     <value>End frame</value>
   </data>
+  <data name="LowerColorReproduction" xml:space="preserve">
+    <value>Lower color reproduction</value>
+  </data>
+  <data name="LowerResolution" xml:space="preserve">
+    <value>Lower resolution</value>
+  </data>
 </root>
