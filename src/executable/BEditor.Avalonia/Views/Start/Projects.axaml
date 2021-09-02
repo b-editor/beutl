@@ -228,5 +228,11 @@
                 FontSize="14"
                 Text="{x:Static props:Strings.ToCreateProjectClickNew}" />
         </StackPanel>
+        
+        <ProgressBar
+            Grid.Row="1"
+            VerticalAlignment="Bottom"
+            IsVisible="{CompiledBinding IsLoading.Value, Mode=OneWay}"
+            IsIndeterminate="True" />
     </Grid>
 </UserControl>

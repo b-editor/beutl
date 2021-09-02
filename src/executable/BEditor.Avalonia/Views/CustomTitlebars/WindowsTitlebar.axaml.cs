@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -50,6 +51,18 @@ namespace BEditor.Views.CustomTitlebars
         {
             static async Task ProjectOpenCommand(string name)
             {
+                if (!File.Exists(name))
+                {
+                    if (await AppModel.Current.Message.DialogAsync(
+                       Strings.FileDoesNotExistRemoveItFromList,
+                       IMessage.IconType.Info,
+                       new IMessage.ButtonType[] { IMessage.ButtonType.Yes, IMessage.ButtonType.No }) == IMessage.ButtonType.Yes)
+                    {
+                        BEditor.Settings.Default.RecentFiles.Remove(name);
+                    }
+                    return;
+                }
+
                 ProgressDialog? dialog = null;
                 try
                 {

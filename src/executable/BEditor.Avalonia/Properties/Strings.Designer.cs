@@ -866,6 +866,16 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The file does not exist.
+        ///Do you want to remove it from the list?.
+        /// </summary>
+        public static string FileDoesNotExistRemoveItFromList {
+            get {
+                return ResourceManager.GetString("FileDoesNotExistRemoveItFromList", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to File not found..
         /// </summary>
         public static string FileNotFound {

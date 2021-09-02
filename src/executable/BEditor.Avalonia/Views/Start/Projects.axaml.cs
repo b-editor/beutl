@@ -21,7 +21,7 @@ namespace BEditor.Views.Start
 
             if (DataContext is ProjectsViewModel vm)
             {
-                vm.OpenItem.Subscribe(async _ =>
+                vm.Close.Subscribe(async () =>
                 {
                     await Dispatcher.UIThread.InvokeAsync(() =>
                     {

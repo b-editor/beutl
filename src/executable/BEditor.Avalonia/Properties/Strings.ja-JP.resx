@@ -942,4 +942,8 @@ Vulkan:
   <data name="LowerResolution" xml:space="preserve">
     <value>解像度を下げる</value>
   </data>
+  <data name="FileDoesNotExistRemoveItFromList" xml:space="preserve">
+    <value>ファイルが存在しません。
+リストから削除しますか？</value>
+  </data>
 </root>

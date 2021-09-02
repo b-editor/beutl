@@ -39,9 +39,22 @@ namespace BEditor.ViewModels.Start
             {
                 if (IsLoading.Value) return;
 
-                IsLoading.Value = true;
                 var filename = item.FileName;
+                if (!File.Exists(filename))
+                {
+                    if (await AppModel.Current.Message.DialogAsync(
+                       Strings.FileDoesNotExistRemoveItFromList,
+                       IMessage.IconType.Info,
+                       new IMessage.ButtonType[] { IMessage.ButtonType.Yes, IMessage.ButtonType.No }) == IMessage.ButtonType.Yes)
+                    {
+                        Projects.Remove(item);
+                        _settings.RecentFiles.Remove(filename);
+                        UpdateIsEmpty();
+                    }
+                    return;
+                }
 
+                IsLoading.Value = true;
                 try
                 {
                     await Task.Run(() =>
@@ -59,6 +72,7 @@ namespace BEditor.ViewModels.Start
 
                         _settings.RecentFiles.Remove(filename);
                         _settings.RecentFiles.Add(filename);
+                        Close.Execute();
                     });
                 }
                 catch (Exception e)
@@ -115,6 +129,8 @@ namespace BEditor.ViewModels.Start
         public ReactivePropertySlim<bool> IsLoading { get; } = new();
 
         public AsyncReactiveCommand<ProjectModel> OpenItem { get; } = new();
+
+        public ReactiveCommand Close { get; } = new();
 
         public ReactiveCommand AddToList { get; } = new();
 

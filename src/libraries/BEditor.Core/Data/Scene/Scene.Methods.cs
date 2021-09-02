@@ -75,7 +75,6 @@ namespace BEditor.Data
             Height = element.GetProperty(nameof(Height)).GetInt32();
             SceneName = element.GetProperty(nameof(SceneName)).GetString() ?? string.Empty;
             TotalFrame = element.GetProperty(nameof(TotalFrame)).GetInt32();
-            UseCache = element.GetProperty(nameof(UseCache)).GetBoolean();
             HideLayer = element.GetProperty(nameof(HideLayer)).EnumerateArray().Select(i => i.GetInt32()).ToList();
             Datas = new(element.GetProperty("Clips").EnumerateArray().Select(i =>
             {
@@ -84,6 +83,8 @@ namespace BEditor.Data
 
                 return clip;
             }));
+
+            UseCache = !element.TryGetProperty(nameof(UseCache), out var useCache) || useCache.GetBoolean();
         }
 
         /// <summary>
