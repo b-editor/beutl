@@ -41,6 +41,7 @@ namespace BEditor.Data
             writer.WriteNumber(nameof(Height), Height);
             writer.WriteString(nameof(SceneName), SceneName);
             writer.WriteNumber(nameof(TotalFrame), TotalFrame);
+            writer.WriteBoolean(nameof(UseCache), UseCache);
             writer.WriteStartArray(nameof(HideLayer));
 
             foreach (var layer in HideLayer)
@@ -65,14 +66,16 @@ namespace BEditor.Data
         public override void SetObjectData(DeserializeContext context)
         {
             base.SetObjectData(context);
+            Cache ??= new(this);
             Parent = (context.Parent as Project) ?? Parent;
 
             var element = context.Element;
-            TimeLineZoom = 150;
+            TimeLineScale = 0.75f;
             Width = element.GetProperty(nameof(Width)).GetInt32();
             Height = element.GetProperty(nameof(Height)).GetInt32();
             SceneName = element.GetProperty(nameof(SceneName)).GetString() ?? string.Empty;
             TotalFrame = element.GetProperty(nameof(TotalFrame)).GetInt32();
+            UseCache = element.GetProperty(nameof(UseCache)).GetBoolean();
             HideLayer = element.GetProperty(nameof(HideLayer)).EnumerateArray().Select(i => i.GetInt32()).ToList();
             Datas = new(element.GetProperty("Clips").EnumerateArray().Select(i =>
             {
@@ -128,6 +131,15 @@ namespace BEditor.Data
             image.ThrowIfDisposed();
             if (image.Width != Width) throw new ArgumentException(null, nameof(image));
             if (image.Height != Height) throw new ArgumentException(null, nameof(image));
+
+            if (UseCache && Cache != null && Cache.Start <= frame && frame < (Cache.Start + Cache.Length))
+            {
+                var caheImage = Cache.ReadImage(frame);
+                caheImage.Data.CopyTo(image.Data);
+
+                caheImage.Dispose();
+                return;
+            }
 
             var layer = GetFrame(frame);
 
@@ -266,17 +278,6 @@ namespace BEditor.Data
         }
 
         /// <summary>
-        /// Set the selected <see cref="ClipElement"/>.
-        /// </summary>
-        /// <param name="clip"><see cref="ClipElement"/> to be set to current.</param>
-        /// <exception cref="ArgumentNullException"><paramref name="clip"/> is <see langword="null"/>.</exception>
-        [Obsolete("Use Scene.SelectItem.Set")]
-        public void SetCurrentClip(ClipElement clip)
-        {
-            SelectItem = clip ?? throw new ArgumentNullException(nameof(clip));
-        }
-
-        /// <summary>
         /// Create a command to add a <see cref="ClipElement"/> to this <see cref="Scene"/>.
         /// </summary>
         /// <param name="clip"><see cref="ClipElement"/> to be added.</param>
@@ -382,6 +383,7 @@ namespace BEditor.Data
         {
             GraphicsContext = new GraphicsContext(Width, Height);
             SamplingContext = new SamplingContext(Parent.Samplingrate, Parent.Framerate);
+            Cache ??= new(this);
 
             if (BEditor.Settings.Default.PrioritizeGPU)
             {
@@ -400,6 +402,7 @@ namespace BEditor.Data
             GraphicsContext?.Dispose();
             DrawingContext?.Dispose();
             SamplingContext?.Dispose();
+            Cache.Clear();
         }
     }
 }

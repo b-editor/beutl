@@ -21,6 +21,8 @@ using BEditor.Data.Property.Easing;
 using BEditor.Media;
 using BEditor.Resources;
 
+using Microsoft.Extensions.DependencyInjection;
+
 namespace BEditor.Data.Property
 {
     /// <summary>
@@ -230,6 +232,18 @@ namespace BEditor.Data.Property
         }
 
         /// <summary>
+        /// Insert a keyframe at a specific frame.
+        /// </summary>
+        /// <param name="item">Item to be added.</param>
+        /// <param name="index">The index.</param>
+        /// <returns>Index of the added <see cref="Pairs"/>.</returns>
+        public int InsertKeyframe(KeyFramePair<float> item, int index)
+        {
+            Pairs.Insert(index, item);
+            return index;
+        }
+
+        /// <summary>
         /// Remove a keyframe of a specific frame.
         /// </summary>
         /// <param name="item">Item to be removed.</param>
@@ -238,7 +252,6 @@ namespace BEditor.Data.Property
         public float RemoveKeyframe(PositionInfo item)
         {
             var per = item.GetPercentagePosition(Length);
-            if (per <= 0 || per >= 1) throw new ArgumentOutOfRangeException(nameof(item));
 
             var pair = Pairs.First(i => i.Position == item);
             Pairs.Remove(pair);
@@ -384,14 +397,65 @@ namespace BEditor.Data.Property
         /// <inheritdoc/>
         protected override void OnLoad()
         {
-            EasingType.Load();
             EasingType.Parent = this;
+            EasingType.Load();
+
+            var clip = this.GetParent<ClipElement>();
+            if (clip != null)
+                clip.LengthChanging += Clip_LengthChanging;
         }
 
         /// <inheritdoc/>
         protected override void OnUnload()
         {
             EasingType.Unload();
+
+            var clip = this.GetParent<ClipElement>();
+            if (clip != null)
+                clip.LengthChanging -= Clip_LengthChanging;
+        }
+
+        private void Clip_LengthChanging(object? sender, ClipLengthChangingEventArgs e)
+        {
+            var msg = ServicesLocator.Current.Provider.GetRequiredService<IMessage>();
+            if (e.Anchor == ClipLengthChangeAnchor.End && sender is ClipElement clip)
+            {
+                var oldStart = clip.End - e.OldLength;
+                var newStart = clip.End - e.NewLength;
+                for (var i = 0; i < Pairs.Count; i++)
+                {
+                    var item = Pairs[i];
+                    if (item.Position.Type == PositionType.Absolute)
+                    {
+                        // タイムラインベースのフレーム
+                        var abs = item.Position.Value + oldStart;
+                        var rel = abs - newStart;
+                        var newItem = item.WithPosition(rel);
+
+                        Pairs[i] = newItem;
+
+                        Removed?.Invoke(item.Position);
+                        Added?.Invoke(newItem.Position);
+
+                        if (rel < 0)
+                        {
+                            msg.Snackbar(
+                                string.Format(Strings.KeyframeHasBeenMovedOutOfRange, item.Position.ToString(), newItem.Position.ToString()),
+                                string.Format(Strings.MessageBy, PropertyMetadata?.Name ?? Id.ToString()),
+                                IMessage.IconType.Warning,
+                                actionName: Strings.RemoveTarget,
+                                parameter: (this, newItem.Position),
+                                action: obj =>
+                                {
+                                    if (obj is (EaseProperty ease, PositionInfo pos))
+                                    {
+                                        ease.RemoveFrame(pos).Execute();
+                                    }
+                                });
+                        }
+                    }
+                }
+            }
         }
 
         private sealed class ChangeValueCommand : IRecordCommand
@@ -528,11 +592,13 @@ namespace BEditor.Data.Property
         {
             private readonly WeakReference<EaseProperty> _property;
             private readonly PositionInfo _item;
+            private readonly int _index;
             private float _value;
 
             public RemoveCommand(EaseProperty property, PositionInfo item)
             {
                 _property = new(property ?? throw new ArgumentNullException(nameof(property)));
+                _index = property.IndexOf(item);
                 _item = item;
             }
 
@@ -557,7 +623,7 @@ namespace BEditor.Data.Property
             {
                 if (_property.TryGetTarget(out var target))
                 {
-                    target.InsertKeyframe(new(_item, _value));
+                    target.InsertKeyframe(new(_item, _value), _index);
 
                     target.Added?.Invoke(_item);
                 }

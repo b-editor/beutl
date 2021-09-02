@@ -8,6 +8,7 @@
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using System.Numerics;
 
 using BEditor.Data;
 using BEditor.Data.Primitive;
@@ -136,7 +137,7 @@ namespace BEditor.Primitive.Effects
         }
 
         /// <inheritdoc/>
-        public override void Apply(EffectApplyArgs<IEnumerable<ImageInfo>> args)
+        public override void Apply(EffectApplyArgs<IEnumerable<Texture>> args)
         {
             args.Value = args.Value.SelectMany(i => Selector(i, args.Frame));
         }
@@ -152,20 +153,30 @@ namespace BEditor.Primitive.Effects
             yield return Mask;
         }
 
-        private IEnumerable<ImageInfo> Selector(ImageInfo image, Frame frame)
+        private IEnumerable<Texture> Selector(Texture texture, Frame frame)
         {
             var color = Color.Value;
             var size = (int)Size.GetValue(frame);
-            color.A = (byte)(color.A * Opacity[frame] / 100);
-            var img = image.Source.Border(size, color);
+            color.A = (byte)(color.A * (Opacity[frame] / 100));
+
+            using var source = texture.ToImage();
+            using var border = source.Border(size, color);
 
             if (Mask.Value is 1 or 2)
             {
-                img.Mask(image.Source, default, 0, Mask.Value is 2, Parent.Parent.DrawingContext);
+                border.Mask(source, default, 0, Mask.Value is 2, Parent.Parent.DrawingContext);
             }
 
-            yield return new ImageInfo(img, _ => new Transform(new(X[frame], Y[frame], 0), default, default, default));
-            yield return image;
+            var borderTexture = Texture.FromImage(border);
+            borderTexture.Synchronize(texture);
+
+            // Transformを変更
+            var transform = borderTexture.Transform;
+            transform.Position += new Vector3(X[frame], Y[frame], 0);
+            borderTexture.Transform = transform;
+
+            yield return borderTexture;
+            yield return texture;
         }
     }
 }

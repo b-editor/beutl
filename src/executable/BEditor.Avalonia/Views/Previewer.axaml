@@ -50,6 +50,27 @@
                 <Style Selector="Button:disabled /template/ ContentPresenter#PART_ContentPresenter">
                     <Setter Property="Background" Value="Transparent" />
                 </Style>
+                <Style Selector="ToggleButton">
+                    <Setter Property="BorderThickness" Value="0" />
+                    <Setter Property="Background" Value="Transparent" />
+                </Style>
+                <Style Selector="ToggleButton:disabled /template/ ContentPresenter#PART_ContentPresenter">
+                    <Setter Property="Background" Value="Transparent" />
+                </Style>
+
+                <Style Selector="ToggleButton:checked:pointerover /template/ Border#BorderElement">
+                    <Setter Property="BorderBrush" Value="{DynamicResource ToggleButtonBorderBrushPointerOver}" />
+                </Style>
+                <Style Selector="ToggleButton:checked:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+                    <Setter Property="Background" Value="{DynamicResource ToggleButtonBackgroundPointerOver}" />
+                    <!--<Setter Property="BorderBrush" Value="{DynamicResource ToggleButtonBorderBrushPointerOver}" />-->
+                    <Setter Property="TextBlock.Foreground" Value="{DynamicResource ToggleButtonForegroundPointerOver}" />
+                </Style>
+
+                <Style Selector="ToggleButton:checked /template/ ContentPresenter#PART_ContentPresenter">
+                    <Setter Property="Background" Value="Transparent" />
+                    <Setter Property="TextBlock.Foreground" Value="{DynamicResource ToggleButtonForeground}" />
+                </Style>
                 <Style Selector="ui|SymbolIcon">
                     <Setter Property="FontSize" Value="20" />
                 </Style>
@@ -85,12 +106,28 @@
                 <ui:SymbolIcon Symbol="Previous" />
             </Button>
 
-            <Button
+            <ToggleButton
                 Grid.Column="3"
-                Command="{CompiledBinding PlayPause, Mode=OneTime}"
-                ToolTip.Tip="{x:Static props:Strings.PlayPause}">
-                <ui:SymbolIcon Symbol="Play" />
-            </Button>
+                IsChecked="{CompiledBinding IsPlaying.Value, Mode=TwoWay}">
+                <ToggleButton.Styles>
+                    <Style Selector="ToggleButton">
+                        <Setter Property="ToolTip.Tip" Value="{x:Static props:Strings.Play}" />
+                        <Setter Property="Content">
+                            <Template>
+                                <ui:SymbolIcon Symbol="Play" />
+                            </Template>
+                        </Setter>
+                    </Style>
+                    <Style Selector="ToggleButton:checked">
+                        <Setter Property="ToolTip.Tip" Value="{x:Static props:Strings.Pause}" />
+                        <Setter Property="Content">
+                            <Template>
+                                <ui:SymbolIcon Symbol="Pause" />
+                            </Template>
+                        </Setter>
+                    </Style>
+                </ToggleButton.Styles>
+            </ToggleButton>
             
             <Button
                 Grid.Column="4"

@@ -909,4 +909,37 @@ Do you want to install it now?</value>
   <data name="SavePositionAsFrameNumber" xml:space="preserve">
     <value>Save the position as a frame number</value>
   </data>
+  <data name="Play" xml:space="preserve">
+    <value>Play</value>
+  </data>
+  <data name="Pause" xml:space="preserve">
+    <value>Pause</value>
+  </data>
+  <data name="Preview" xml:space="preserve">
+    <value>Preview</value>
+  </data>
+  <data name="Speed" xml:space="preserve">
+    <value>Speed</value>
+  </data>
+  <data name="Cache" xml:space="preserve">
+    <value>Cache</value>
+  </data>
+  <data name="CreateCache" xml:space="preserve">
+    <value>Create cache</value>
+  </data>
+  <data name="ClearCache" xml:space="preserve">
+    <value>Clear cache</value>
+  </data>
+  <data name="UseCache" xml:space="preserve">
+    <value>Use cache</value>
+  </data>
+  <data name="End" xml:space="preserve">
+    <value>End frame</value>
+  </data>
+  <data name="LowerColorReproduction" xml:space="preserve">
+    <value>Lower color reproduction</value>
+  </data>
+  <data name="LowerResolution" xml:space="preserve">
+    <value>Lower resolution</value>
+  </data>
 </root>

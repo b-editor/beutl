@@ -33,7 +33,7 @@ namespace BEditor.Media
         public Sound(int rate, TimeSpan duration)
         {
             SampleRate = rate;
-            NumSamples = (int)(duration.TotalSeconds * rate);
+            NumSamples = (int)Math.Round(duration.TotalSeconds * rate, MidpointRounding.AwayFromZero);
 
             _pointer = (T*)Marshal.AllocCoTaskMem(DataSize);
             Data.Fill(default);
@@ -217,7 +217,10 @@ namespace BEditor.Media
         /// <returns>A sound that consists of length elements from the current sound starting at start.</returns>
         public Sound<T> Slice(TimeSpan start, TimeSpan length)
         {
-            var data = Data.Slice((int)(start.TotalSeconds * SampleRate), (int)(length.TotalSeconds * SampleRate));
+            var startI = (int)(start.TotalSeconds * SampleRate);
+            var lengthI = (int)Math.Round(length.TotalSeconds * SampleRate, MidpointRounding.AwayFromZero);
+
+            var data = Data.Slice(startI, lengthI);
 
             fixed (T* dataPtr = data)
             {

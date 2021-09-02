@@ -46,6 +46,14 @@
                 <Style Selector="Button:disabled /template/ ContentPresenter#PART_ContentPresenter">
                     <Setter Property="Background" Value="Transparent" />
                 </Style>
+                <Style Selector="ui|SplitButton">
+                    <Setter Property="Padding" Value="12,8" />
+                    <Setter Property="BorderThickness" Value="0" />
+                    <Setter Property="Background" Value="Transparent" />
+                </Style>
+                <Style Selector="ui|SplitButton:disabled">
+                    <Setter Property="Background" Value="Transparent" />
+                </Style>
 
                 <Style Selector="PathIcon.objectmetadata">
                     <Setter Property="VerticalAlignment" Value="Center" />
@@ -101,12 +109,25 @@
                     <ui:SymbolIcon Symbol="Open" />
                 </Button>
 
-                <Button
+                <ui:SplitButton
                     IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}"
                     Command="{CompiledBinding Save, Mode=OneTime}"
-                    ToolTip.Tip="{x:Static prop:Strings.SaveAs}">
+                    ToolTip.Tip="{x:Static prop:Strings.Save}">
+                    <ui:SplitButton.Flyout>
+                        <ui:MenuFlyout>
+                            <ui:MenuFlyoutItem
+                                Icon="Save"
+                                Text="{x:Static prop:Strings.Save}"
+                                Command="{CompiledBinding Save, Mode=OneTime}" />
+                            
+                            <ui:MenuFlyoutItem
+                                Icon="SaveAsCopy"
+                                Text="{x:Static prop:Strings.SaveAs}"
+                                Command="{CompiledBinding SaveAs, Mode=OneTime}" />
+                        </ui:MenuFlyout>
+                    </ui:SplitButton.Flyout>
                     <ui:SymbolIcon Symbol="Save" />
-                </Button>
+                </ui:SplitButton>
 
                 <Separator/>
 
@@ -278,7 +299,7 @@
                         CornerRadius="{StaticResource OverlayCornerRadius}"
                         Background="{StaticResource NavigationViewDefaultPaneBackground}">
 
-                        <uip:InfoBarPanel x:Name="NotificationsPanel"/>
+                        <StackPanel Orientation="Vertical" Spacing="8" x:Name="NotificationsPanel"/>
                     </Border>
                 </Popup>
 
@@ -338,16 +359,6 @@
 
         <GridSplitter Background="Transparent" Grid.Row="2" Grid.Column="3"/>
 
-        <StackPanel
-            x:Name="NotifyStack"
-            Margin="8"
-            Grid.ColumnSpan="5"
-            Grid.Row="1"
-            Grid.RowSpan="5"
-            Spacing="8"
-            HorizontalAlignment="Right"
-            VerticalAlignment="Top" />
-        
         <TabControl
             Grid.Row="2"
             Grid.Column="2"
@@ -379,13 +390,15 @@
             </TabItem>
         </TabControl>
 
-        <uip:InfoBarPanel
+        <StackPanel
+            Spacing="8"
+            Orientation="Vertical"
             Margin="8"
             Grid.RowSpan="6"
             Grid.ColumnSpan="5"
             HorizontalAlignment="Left"
             VerticalAlignment="Bottom"
             x:Name="Notifications">
-        </uip:InfoBarPanel>
+        </StackPanel>
     </Grid>
 </views:FluentWindow>

@@ -7,12 +7,15 @@
 
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.Linq;
+using System.Numerics;
 
 using BEditor.Data;
 using BEditor.Data.Primitive;
 using BEditor.Data.Property;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
+using BEditor.Graphics;
 using BEditor.Primitive.Resources;
 
 namespace BEditor.Primitive.Effects
@@ -108,36 +111,46 @@ namespace BEditor.Primitive.Effects
         public CheckProperty AdjustCoordinates { get; private set; }
 
         /// <inheritdoc/>
+        public override void Apply(EffectApplyArgs<IEnumerable<Texture>> args)
+        {
+            args.Value = args.Value.Select(texture =>
+            {
+                using var image = texture.ToImage();
+                var top = Top[args.Frame];
+                var bottom = Bottom[args.Frame];
+                var left = Left[args.Frame];
+                var right = Right[args.Frame];
+
+                if (AdjustCoordinates.Value)
+                {
+                    var transform = texture.Transform;
+                    transform.Center += new Vector3(-(right / 2) + (left / 2), -(top / 2) + (bottom / 2), 0);
+                    texture.Transform = transform;
+                }
+
+                if (image.Width <= left + right || image.Height <= top + bottom)
+                {
+                    using var empty = new Image<BGRA32>(1, 1, default(BGRA32));
+                    texture.Update(empty);
+
+                    return texture;
+                }
+
+                var width = image.Width - left - right;
+                var height = image.Height - top - bottom;
+                var x = left;
+                var y = top;
+
+                using var img1 = image[new Rectangle((int)x, (int)y, (int)width, (int)height)];
+                texture.Update(img1);
+
+                return texture;
+            });
+        }
+
+        /// <inheritdoc/>
         public override void Apply(EffectApplyArgs<Image<BGRA32>> args)
         {
-            var top = (int)Top.GetValue(args.Frame);
-            var bottom = (int)Bottom.GetValue(args.Frame);
-            var left = (int)Left.GetValue(args.Frame);
-            var right = (int)Right.GetValue(args.Frame);
-            var img = args.Value;
-
-            if (AdjustCoordinates.Value && Parent!.Effect[0] is ImageObject image)
-            {
-                image.Coordinate.CenterX.Optional += -(right / 2) + (left / 2);
-                image.Coordinate.CenterY.Optional += -(top / 2) + (bottom / 2);
-            }
-
-            if (img.Width <= left + right || img.Height <= top + bottom)
-            {
-                img.Dispose();
-                args.Value = new(1, 1, default(BGRA32));
-                return;
-            }
-
-            var width = img.Width - left - right;
-            var height = img.Height - top - bottom;
-            var x = left;
-            var y = top;
-
-            var img1 = img[new Rectangle(x, y, width, height)];
-            img.Dispose();
-
-            args.Value = img1;
         }
 
         /// <inheritdoc/>

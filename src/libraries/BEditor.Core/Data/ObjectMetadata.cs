@@ -61,19 +61,6 @@ namespace BEditor.Data
         /// </summary>
         /// <typeparam name="T">The type of object that inherits from <see cref="ObjectElement"/>.</typeparam>
         /// <param name="name">The name of the object element.</param>
-        /// <returns>A new instance of <see cref="ObjectMetadata"/>.</returns>
-        [Obsolete("Use Create{T}(string, Color?, string, Func{string, T}).")]
-        public static ObjectMetadata Create<T>(string name)
-            where T : ObjectElement, new()
-        {
-            return new(name, () => new T(), typeof(T));
-        }
-
-        /// <summary>
-        /// Create the <see cref="ObjectMetadata"/>.
-        /// </summary>
-        /// <typeparam name="T">The type of object that inherits from <see cref="ObjectElement"/>.</typeparam>
-        /// <param name="name">The name of the object element.</param>
         /// <param name="accentColor">The accent color.</param>
         /// <param name="pathIcon">The path data of an icon.</param>
         /// <param name="createFromFile">Creates an instance from a file name.</param>

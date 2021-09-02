@@ -365,8 +365,6 @@ namespace BEditor.Extensions.AviUtl
         [AllowNull]
         internal static Plugin Default;
 
-        private SettingRecord? settings;
-
         public Plugin(PluginConfig config) : base(config)
         {
             Default = this;
@@ -376,11 +374,7 @@ namespace BEditor.Extensions.AviUtl
 
         public override string Description => string.Empty;
 
-        public override SettingRecord Settings
-        {
-            get => settings ??= SettingRecord.LoadFrom<CustomSettings>(Path.Combine(BaseDirectory, "settings.json")) ?? new CustomSettings();
-            set => (settings = value).Save(Path.Combine(BaseDirectory, "settings.json"));
-        }
+        public override SettingRecord Settings { get; set; } = new();
 
         public override Guid Id { get; } = Guid.Parse("138CE66C-3E1D-4BF8-A879-F3272C8FFE05");
 
@@ -438,7 +432,7 @@ namespace BEditor.Extensions.AviUtl
         }
     }
 
-    public record CustomSettings(
-        [property: DisplayName("Y軸の値を反転する (左手座標系を使用)")]
-        bool ReverseYAsis = true) : SettingRecord;
+    //public record CustomSettings(
+    //    [property: DisplayName("Y軸の値を反転する (左手座標系を使用)")]
+    //    bool ReverseYAsis = true) : SettingRecord;
 }

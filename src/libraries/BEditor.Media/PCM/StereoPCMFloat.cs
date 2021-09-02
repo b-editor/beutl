@@ -59,13 +59,13 @@ namespace BEditor.Media.PCM
         /// <inheritdoc/>
         public void ConvertTo(out StereoPCM32 dst)
         {
-            dst = new((int)(Left * int.MaxValue), (int)(Right * int.MaxValue));
+            dst = new((int)MathF.Round(Left * int.MaxValue, MidpointRounding.AwayFromZero), (int)MathF.Round(Right * int.MaxValue, MidpointRounding.AwayFromZero));
         }
 
         /// <inheritdoc/>
         public void ConvertTo(out StereoPCM16 dst)
         {
-            dst = new((short)(Left * short.MaxValue), (short)(Right * short.MaxValue));
+            dst = new((short)MathF.Round(Left * short.MaxValue, MidpointRounding.AwayFromZero), (short)MathF.Round(Right * short.MaxValue, MidpointRounding.AwayFromZero));
         }
 
         /// <inheritdoc/>

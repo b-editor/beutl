@@ -909,4 +909,37 @@ Vulkan:
   <data name="SavePositionAsFrameNumber" xml:space="preserve">
     <value>位置をフレーム番号で保存</value>
   </data>
+  <data name="Play" xml:space="preserve">
+    <value>再生</value>
+  </data>
+  <data name="Pause" xml:space="preserve">
+    <value>一時停止</value>
+  </data>
+  <data name="Preview" xml:space="preserve">
+    <value>プレビュー</value>
+  </data>
+  <data name="Speed" xml:space="preserve">
+    <value>スピード</value>
+  </data>
+  <data name="Cache" xml:space="preserve">
+    <value>キャッシュ</value>
+  </data>
+  <data name="CreateCache" xml:space="preserve">
+    <value>キャッシュを作成</value>
+  </data>
+  <data name="ClearCache" xml:space="preserve">
+    <value>キャッシュをクリア</value>
+  </data>
+  <data name="UseCache" xml:space="preserve">
+    <value>キャッシュを使う</value>
+  </data>
+  <data name="End" xml:space="preserve">
+    <value>終了フレーム</value>
+  </data>
+  <data name="LowerColorReproduction" xml:space="preserve">
+    <value>色の再現性を低くする</value>
+  </data>
+  <data name="LowerResolution" xml:space="preserve">
+    <value>解像度を下げる</value>
+  </data>
 </root>

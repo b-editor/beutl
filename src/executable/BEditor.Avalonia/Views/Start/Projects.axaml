@@ -64,7 +64,7 @@
                         <Style Selector="ui|CommandBarButton:pointerover /template/ TextBlock#KeyboardAcceleratorTextLabel">
                             <Setter Property="Foreground" Value="{DynamicResource AccentButtonForegroundPointerOver}" />
                         </Style>
-                        
+
                         <Style Selector="ui|CommandBarButton:pointerover /template/ Border#AppBarButtonInnerBorder">
                             <Setter Property="Background" Value="{DynamicResource AccentButtonBackgroundPointerOver}" />
                         </Style>
@@ -87,13 +87,47 @@
                         </Style>
                     </ui:CommandBarButton.Styles>
                 </ui:CommandBarButton>
+
+                <ui:CommandBarSeparator />
+
+                <ui:CommandBarElementContainer>
+                    <ToggleButton Padding="8" x:Name="ViewToggleButton" IsChecked="{CompiledBinding ListView.Value, Mode=TwoWay}">
+                        <ToggleButton.Styles>
+                            <Style Selector="ToggleButton:checked">
+                                <Setter Property="Content">
+                                    <Template>
+                                        <ui:PathIcon Data="{StaticResource TableSimple16Regular}" Width="20" Height="20" />
+                                    </Template>
+                                </Setter>
+                            </Style>
+
+                            <Style Selector="ToggleButton:checked /template/ ContentPresenter#PART_ContentPresenter">
+                                <Setter Property="Background" Value="Transparent" />
+                                <Setter Property="TextBlock.Foreground" Value="{DynamicResource ToggleButtonForeground}" />
+                            </Style>
+
+                            <Style Selector="ToggleButton:checked:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+                                <Setter Property="Background" Value="{DynamicResource ToggleButtonBackgroundPointerOver}" />
+                                <Setter Property="TextBlock.Foreground" Value="{DynamicResource ToggleButtonForegroundPointerOver}" />
+                            </Style>
+
+                            <Style Selector="ToggleButton">
+                                <Setter Property="Background" Value="Transparent" />
+                                <Setter Property="BorderThickness" Value="0" />
+                                <Setter Property="Content">
+                                    <Template>
+                                        <ui:SymbolIcon FontSize="20" Symbol="List" />
+                                    </Template>
+                                </Setter>
+                            </Style>
+                        </ToggleButton.Styles>
+                    </ToggleButton>
+                </ui:CommandBarElementContainer>
             </ui:CommandBar.PrimaryCommands>
         </ui:CommandBar>
 
-        <ScrollViewer Grid.Row="1">
-            <ItemsControl
-                IsVisible="{CompiledBinding !IsEmpty.Value, Mode=OneWay}"
-                Items="{CompiledBinding Projects, Mode=OneTime}">
+        <ScrollViewer Grid.Row="1" IsVisible="{CompiledBinding CardViewIsVisible.Value, Mode=OneWay}">
+            <ItemsControl Items="{CompiledBinding Projects, Mode=OneTime}">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="model:ProjectModel">
                         <Button
@@ -112,7 +146,7 @@
                                         InputGesture="Delete"
                                         Header="{x:Static props:Strings.Remove}">
                                         <MenuItem.Icon>
-                                            <ui:SymbolIcon Symbol="Delete" />
+                                            <ui:SymbolIcon FontSize="20" Symbol="Delete" />
                                         </MenuItem.Icon>
                                     </MenuItem>
                                 </ContextMenu>
@@ -127,7 +161,7 @@
                                 </ContentControl>
 
                                 <StackPanel Grid.Row="1" Margin="8">
-                                    <TextBlock FontSize="24" Text="{CompiledBinding Name, Mode=OneTime}" />
+                                    <TextBlock FontSize="24" FontWeight="SemiBold" Text="{CompiledBinding Name, Mode=OneTime}" />
                                     <TextBlock
                                         Margin="0,8"
                                         Text="{CompiledBinding FileName, Mode=OneTime}"
@@ -142,6 +176,39 @@
                         <WrapPanel Orientation="Horizontal" />
                     </ItemsPanelTemplate>
                 </ItemsControl.ItemsPanel>
+            </ItemsControl>
+        </ScrollViewer>
+
+        <ScrollViewer Grid.Row="1" IsVisible="{CompiledBinding ListViewIsVisible.Value, Mode=OneWay}">
+            <ItemsControl Items="{CompiledBinding Projects, Mode=OneTime}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="model:ProjectModel">
+                        <Button
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Stretch"
+                            Padding="8,0"
+                            BorderThickness="0"
+                            Background="Transparent"
+                            CommandParameter="{CompiledBinding}"
+                            Command="{Binding #root.DataContext.OpenItem, Mode=OneTime}">
+                            <Panel>
+                                <StackPanel VerticalAlignment="Center" Spacing="4">
+                                    <TextBlock FontSize="18" FontWeight="SemiBold" Text="{CompiledBinding Name, Mode=OneTime}" />
+                                    <TextBlock
+                                        Text="{CompiledBinding FileName, Mode=OneTime}"
+                                        ToolTip.Tip="{CompiledBinding FileName, Mode=OneTime}" />
+                                </StackPanel>
+
+                                <ui:CommandBarButton
+                                    CommandParameter="{CompiledBinding}"
+                                    Command="{Binding #root.DataContext.RemoveItem, Mode=OneTime}"
+                                    Icon="Delete"
+                                    Label="{x:Static props:Strings.Remove}"
+                                    HorizontalAlignment="Right" />
+                            </Panel>
+                        </Button>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
             </ItemsControl>
         </ScrollViewer>
 

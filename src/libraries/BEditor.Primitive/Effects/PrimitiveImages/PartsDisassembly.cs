@@ -7,6 +7,7 @@
 
 using System.Collections.Generic;
 using System.Linq;
+using System.Numerics;
 
 using BEditor.Data;
 using BEditor.Data.Primitive;
@@ -32,7 +33,7 @@ namespace BEditor.Primitive.Effects
         }
 
         /// <inheritdoc/>
-        public override void Apply(EffectApplyArgs<IEnumerable<ImageInfo>> args)
+        public override void Apply(EffectApplyArgs<IEnumerable<Texture>> args)
         {
             args.Value = args.Value.SelectMany(i => Selector(i));
         }
@@ -43,20 +44,31 @@ namespace BEditor.Primitive.Effects
             yield break;
         }
 
-        private static IEnumerable<ImageInfo> Selector(ImageInfo image)
+        private static IEnumerable<Texture> Selector(Texture texture)
         {
-            var img = image.Source.PartsDisassembly();
-            var size = image.Source.Size;
+            var image = texture.ToImage();
+            var images = image.PartsDisassembly();
+            var size = image.Size;
+            image.Dispose();
 
-            foreach (var (part, rect) in img)
+            foreach (var (part, rect) in images)
             {
-                yield return new ImageInfo(part, _ =>
-                {
-                    var x = rect.X + (rect.Width / 2) - (size.Width / 2);
-                    var y = rect.Y + (rect.Height / 2) - (size.Height / 2);
-                    return new Transform(new(x, -y, 0), default, default, default);
-                });
+                // テクスチャを複製
+                var item = Texture.FromImage(part);
+                item.Synchronize(texture);
+
+                // Transform設定
+                var x = rect.X + (rect.Width / 2) - (size.Width / 2);
+                var y = rect.Y + (rect.Height / 2) - (size.Height / 2);
+                var transform = item.Transform;
+                transform.Position += new Vector3(x, -y, 0);
+                item.Transform = transform;
+
+                part.Dispose();
+                yield return item;
             }
+
+            texture.Dispose();
         }
     }
 }

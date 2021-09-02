@@ -25,7 +25,7 @@ namespace BEditor.Views.Timelines
         private readonly AudioObject _audio;
         private readonly ClipView _view;
         private readonly IBrush _brush = ConstantSettings.UseDarkMode ? Brushes.White : Brushes.Black;
-        private readonly IBrush _background = (IBrush)Application.Current.FindResource("SystemControlBackgroundChromeBlackLowBrush")!;
+        private readonly IBrush _background = (IBrush)Application.Current.FindResource("NavigationViewContentBackground")!;
 
         public ClipVolumeView(AudioObject audio, ClipView view)
         {

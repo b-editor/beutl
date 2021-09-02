@@ -525,45 +525,6 @@ namespace BEditor.Drawing
         }
 
         /// <summary>
-        /// Applies a noise effect.
-        /// </summary>
-        /// <param name="image">The image to apply the effect to.</param>
-        /// <param name="value">The threshold value.</param>
-        /// <exception cref="ArgumentNullException"><paramref name="image"/> is <see langword="null"/>.</exception>
-        /// <exception cref="ObjectDisposedException">Cannot access a disposed object.</exception>
-        public static void Noise(this Image<BGRA32> image, byte value)
-        {
-            if (image is null) throw new ArgumentNullException(nameof(image));
-            image.ThrowIfDisposed();
-
-            fixed (BGRA32* data = image.Data)
-            {
-                var rand = new Random();
-                PixelOperate(image.Data.Length, new NoiseOperation(data, data, value, rand));
-            }
-        }
-
-        /// <summary>
-        /// Applies a noise effect.
-        /// </summary>
-        /// <param name="image">The image to apply the effect to.</param>
-        /// <param name="value">The threshold value.</param>
-        /// <param name="seed">The seed value.</param>
-        /// <exception cref="ArgumentNullException"><paramref name="image"/> is <see langword="null"/>.</exception>
-        /// <exception cref="ObjectDisposedException">Cannot access a disposed object.</exception>
-        public static void Noise(this Image<BGRA32> image, byte value, int seed)
-        {
-            if (image is null) throw new ArgumentNullException(nameof(image));
-            image.ThrowIfDisposed();
-
-            fixed (BGRA32* data = image.Data)
-            {
-                var rand = new Random(seed);
-                PixelOperate(image.Data.Length, new NoiseOperation(data, data, value, rand));
-            }
-        }
-
-        /// <summary>
         /// Applies a diffusion effect.
         /// </summary>
         /// <param name="image">The image to apply the effect to.</param>
@@ -659,6 +620,7 @@ namespace BEditor.Drawing
 
                 part.AlphaSubtract(partMask);
 
+                partMask.Dispose();
                 list.Add((part, rect));
             }
 

@@ -70,13 +70,13 @@ namespace BEditor.Media.PCM
         /// <inheritdoc/>
         public void ConvertTo(out PCM16 dst)
         {
-            dst = new((short)(Value * short.MaxValue));
+            dst = new((short)MathF.Round(Value * short.MaxValue, MidpointRounding.AwayFromZero));
         }
 
         /// <inheritdoc/>
         public void ConvertTo(out PCM32 dst)
         {
-            dst = new((int)(Value * int.MaxValue));
+            dst = new((int)MathF.Round(Value * int.MaxValue, MidpointRounding.AwayFromZero));
         }
     }
 }

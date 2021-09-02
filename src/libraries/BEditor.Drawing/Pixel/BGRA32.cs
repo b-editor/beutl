@@ -16,9 +16,7 @@ namespace BEditor.Drawing.Pixel
     [Serializable]
     [StructLayout(LayoutKind.Sequential)]
     [PixelFormat(4)]
-#pragma warning disable CS0618
-    public struct BGRA32 : IPixel<BGRA32>, IGpuPixel<BGRA32>, IPixelConvertable<BGR24>, IPixelConvertable<RGB24>, IPixelConvertable<RGBA32>
-#pragma warning restore CS0618
+    public struct BGRA32 : IPixel<BGRA32>, IGpuPixel<BGRA32>
     {
         /// <summary>
         /// The blue component.
@@ -90,51 +88,6 @@ namespace BEditor.Drawing.Pixel
                 (byte)(G - foreground.G),
                 (byte)(B - foreground.B),
                 (byte)(A - foreground.A));
-        }
-
-        /// <inheritdoc/>
-        public void ConvertFrom(BGR24 src)
-        {
-            B = src.B;
-            G = src.G;
-            R = src.R;
-            A = 255;
-        }
-
-        /// <inheritdoc/>
-        public void ConvertFrom(RGBA32 src)
-        {
-            B = src.B;
-            G = src.G;
-            R = src.R;
-            A = src.A;
-        }
-
-        /// <inheritdoc/>
-        public void ConvertFrom(RGB24 src)
-        {
-            B = src.B;
-            G = src.G;
-            R = src.R;
-            A = 255;
-        }
-
-        /// <inheritdoc/>
-        public readonly void ConvertTo(out BGR24 dst)
-        {
-            dst = new(R, G, B);
-        }
-
-        /// <inheritdoc/>
-        public readonly void ConvertTo(out RGB24 dst)
-        {
-            dst = new(R, G, B);
-        }
-
-        /// <inheritdoc/>
-        public readonly void ConvertTo(out RGBA32 dst)
-        {
-            dst = new(R, G, B, A);
         }
 
         /// <inheritdoc/>

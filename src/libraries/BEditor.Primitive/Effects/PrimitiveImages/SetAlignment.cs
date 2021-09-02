@@ -8,12 +8,14 @@
 using System.Buffers;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.Linq;
 
 using BEditor.Data;
 using BEditor.Data.Primitive;
 using BEditor.Data.Property;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
+using BEditor.Graphics;
 using BEditor.Primitive.Objects;
 using BEditor.Primitive.Resources;
 
@@ -68,29 +70,40 @@ namespace BEditor.Primitive.Effects
         public SelectorProperty VerticalAlign { get; private set; }
 
         /// <inheritdoc/>
+        public override void Apply(EffectApplyArgs<IEnumerable<Texture>> args)
+        {
+            args.Value = args.Value.Select(texture =>
+            {
+                var center = texture.Transform.Center;
+                if (HorizontalAlign.Index is 0)
+                {
+                    center.X += texture.Width / 2;
+                }
+                else if (HorizontalAlign.Index is 2)
+                {
+                    center.X -= texture.Width / 2;
+                }
+
+                if (VerticalAlign.Index is 0)
+                {
+                    center.Y -= texture.Height / 2;
+                }
+                else if (VerticalAlign.Index is 2)
+                {
+                    center.Y += texture.Height / 2;
+                }
+
+                var transform = texture.Transform;
+                transform.Center = center;
+                texture.Transform = transform;
+
+                return texture;
+            });
+        }
+
+        /// <inheritdoc/>
         public override void Apply(EffectApplyArgs<Image<BGRA32>> args)
         {
-            if (Parent.Effect[0] is not ImageObject obj) return;
-
-            var img = args.Value;
-
-            if (HorizontalAlign.Index is 0)
-            {
-                obj.Coordinate.CenterX.Optional = img.Width / 2;
-            }
-            else if (HorizontalAlign.Index is 2)
-            {
-                obj.Coordinate.CenterX.Optional = -img.Width / 2;
-            }
-
-            if (VerticalAlign.Index is 0)
-            {
-                obj.Coordinate.CenterY.Optional = -img.Height / 2;
-            }
-            else if (VerticalAlign.Index is 2)
-            {
-                obj.Coordinate.CenterY.Optional = img.Height / 2;
-            }
         }
 
         /// <inheritdoc/>

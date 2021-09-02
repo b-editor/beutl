@@ -33,28 +33,6 @@
         <member name="E:BEditor.Data.BasePropertyChanged.PropertyChanged">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Data.BasePropertyChanged.SetValue``2(``0,``0@,System.ComponentModel.PropertyChangedEventArgs,``1,System.Action{``1})">
-            <summary>
-            Set the value.
-            </summary>
-            <typeparam name="T1">Type of the value to set.</typeparam>
-            <typeparam name="T2">Type of state.</typeparam>
-            <param name="src">source value.</param>
-            <param name="dst">destination value.</param>
-            <param name="args">Arguments used for the <see cref="E:BEditor.Data.BasePropertyChanged.PropertyChanged"/> event.</param>
-            <param name="state">state.</param>
-            <param name="action"><paramref name="action"/> to be executed after the <see cref="E:BEditor.Data.BasePropertyChanged.PropertyChanged"/> event occurs.</param>
-        </member>
-        <member name="M:BEditor.Data.BasePropertyChanged.SetValue``1(``0,``0@,System.ComponentModel.PropertyChangedEventArgs,System.Action)">
-            <summary>
-            Set the value.
-            </summary>
-            <typeparam name="T1">Type of the value to set.</typeparam>
-            <param name="src">source value.</param>
-            <param name="dst">destination value.</param>
-            <param name="args">Arguments used for the <see cref="E:BEditor.Data.BasePropertyChanged.PropertyChanged"/> event.</param>
-            <param name="action"><paramref name="action"/> to be executed after the <see cref="E:BEditor.Data.BasePropertyChanged.PropertyChanged"/> event occurs.</param>
-        </member>
         <member name="M:BEditor.Data.BasePropertyChanged.SetAndRaise``1(``0,``0@,System.ComponentModel.PropertyChangedEventArgs)">
             <summary>
             Set the value.

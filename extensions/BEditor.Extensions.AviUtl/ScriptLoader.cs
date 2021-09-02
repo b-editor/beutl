@@ -17,8 +17,14 @@ namespace BEditor.Extensions.AviUtl
         public ScriptLoader(string baseDir)
         {
             BaseDirectory = baseDir;
+
+            LuaType.RegisterTypeExtension(typeof(LuaLibraryString));
             Engine = new();
             Global = Engine.CreateEnvironment();
+            Global.DefaultCompileOptions = new()
+            {
+                DebugEngine = LuaExceptionDebugger.Default,
+            };
         }
 
         public Lua Engine { get; }

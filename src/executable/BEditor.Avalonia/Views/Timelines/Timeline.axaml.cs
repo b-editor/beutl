@@ -38,6 +38,8 @@ namespace BEditor.Views.Timelines
         private readonly Panel _timelinePanel;
         private readonly Panel _scalePanel;
         private readonly ContextMenu _timelineMenu;
+        private readonly Border _createdCacheBorder;
+        private readonly Border _buildingCacheBorder;
         private bool _isFirst = true;
 
         public Timeline()
@@ -51,6 +53,8 @@ namespace BEditor.Views.Timelines
             _timelinePanel = this.FindControl<Panel>("TimelinePanel");
             _scalePanel = this.FindControl<Panel>("ScalePanel");
             _timelineMenu = this.FindControl<ContextMenu>("TimelineMenu");
+            _createdCacheBorder = this.FindControl<Border>("CreatedCacheBorder");
+            _buildingCacheBorder = this.FindControl<Border>("BuildingCacheBorder");
         }
 
         public Timeline(Scene scene)
@@ -92,6 +96,9 @@ namespace BEditor.Views.Timelines
             _timelinePanel = this.FindControl<Panel>("TimelinePanel");
             _scalePanel = this.FindControl<Panel>("ScalePanel");
             _timelineMenu = this.FindControl<ContextMenu>("TimelineMenu");
+            _createdCacheBorder = this.FindControl<Border>("CreatedCacheBorder");
+            _buildingCacheBorder = this.FindControl<Border>("BuildingCacheBorder");
+
             AddAllClip(scene.Datas);
 
             InitializeContextMenu();
@@ -223,6 +230,34 @@ namespace BEditor.Views.Timelines
                     }
                 });
             });
+
+            Scene.Cache.Updated += Cache_Updated;
+            Scene.Cache.Building += Cache_Building;
+        }
+
+        private void Cache_Building(object? sender, Range e)
+        {
+            Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                _buildingCacheBorder.Margin = new Thickness(Scene.ToPixel(e.Start.Value), 0, 0, 0);
+                _buildingCacheBorder.Width = Scene.ToPixel(e.End.Value - e.Start.Value);
+
+                _createdCacheBorder.IsVisible = false;
+                _buildingCacheBorder.IsVisible = true;
+            });
+        }
+
+        private void Cache_Updated(object? sender, EventArgs e)
+        {
+            Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                var cache = Scene.Cache;
+                _createdCacheBorder.Margin = new Thickness(Scene.ToPixel(cache.Start), 0, 0, 0);
+                _createdCacheBorder.Width = Scene.ToPixel(cache.Length);
+
+                _createdCacheBorder.IsVisible = true;
+                _buildingCacheBorder.IsVisible = false;
+            });
         }
 
         private TimelineViewModel ViewModel => (TimelineViewModel)DataContext!;
@@ -233,22 +268,11 @@ namespace BEditor.Views.Timelines
         {
             base.OnInitialized();
 
-            Scene.ObserveProperty(s => s.TimeLineZoom)
+            Scene.ObserveProperty(s => s.TimeLineScale)
                 .Subscribe(_ =>
                 {
                     var viewmodel = ViewModel;
                     var scene = viewmodel.Scene;
-
-                    if (scene.TimeLineZoom <= 0)
-                    {
-                        scene.TimeLineZoom = 1;
-                        return;
-                    }
-                    if (scene.TimeLineZoom >= 201)
-                    {
-                        scene.TimeLineZoom = 200;
-                        return;
-                    }
 
                     var l = scene.TotalFrame;
 
@@ -536,7 +560,7 @@ namespace BEditor.Views.Timelines
             {
                 var offset = _scrollLine.Offset.X;
                 var frame = Scene.ToFrame(offset);
-                Scene.TimeLineZoom += (float)(e.Delta.Y / 120) * 5 * Scene.TimeLineZoom;
+                Scene.TimeLineScale += (float)(e.Delta.Y / 120) * 10 * Scene.TimeLineScale;
 
                 _scrollLine.Offset = _scrollLine.Offset.WithX(Scene.ToPixel(frame));
             }

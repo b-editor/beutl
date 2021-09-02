@@ -36,10 +36,12 @@ namespace BEditor.Extensions.FFmpeg.Encoding
 
         public void AddFrame(Sound<StereoPCMFloat> sound)
         {
-            foreach (var item in sound.Data)
+            unsafe
             {
-                _writer.Write(item.Left);
-                _writer.Write(item.Right);
+                fixed(void* ptr = sound.Data)
+                {
+                    _stream.Write(new Span<byte>(ptr, sound.DataSize));
+                }
             }
 
             CurrentDuration = CurrentDuration.Add(sound.Duration);
@@ -56,7 +58,7 @@ namespace BEditor.Extensions.FFmpeg.Encoding
                 var wavfile = Path.ChangeExtension(Path.GetTempFileName(), "wav");
                 var process = Process.Start(new ProcessStartInfo(
                     ffmpeg,
-                    $"-f f32le -ar {Configuration.SampleRate} -ac 2 -i \"{_pcmfile}\" \"{wavfile}\"")
+                    $"-f f32le -ar {Configuration.SampleRate} -ac 2 -i \"{_pcmfile}\" -ar {Configuration.SampleRate} -ac {Configuration.Channels} -ab {Configuration.Bitrate} \"{wavfile}\"")
                 {
                     CreateNoWindow = true
                 })!;
@@ -84,7 +86,7 @@ namespace BEditor.Extensions.FFmpeg.Encoding
             {
                 var process = Process.Start(new ProcessStartInfo(
                     ffmpeg,
-                    $"-f f32le -ar {Configuration.SampleRate} -ac 2 -i \"{_pcmfile}\" \"{_videofile}\"")
+                    $"-f f32le -ar {Configuration.SampleRate} -ac 2 -i \"{_pcmfile}\" -ar {Configuration.SampleRate} -ac {Configuration.Channels} -ab {Configuration.Bitrate} \"{_videofile}\"")
                 {
                     CreateNoWindow = true
                 })!;

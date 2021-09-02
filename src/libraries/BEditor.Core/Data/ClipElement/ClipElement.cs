@@ -5,6 +5,7 @@
 // This software may be modified and distributed under the terms
 // of the MIT license. See the LICENSE file for details.
 
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -70,6 +71,21 @@ namespace BEditor.Data
             Parent = _parent = scene;
             LabelText = Name;
         }
+
+        /// <summary>
+        /// Occurs when a clip is moved.
+        /// </summary>
+        public event EventHandler<ClipMovedEventArgs>? Moved;
+
+        /// <summary>
+        /// Occurs when the length of the clip is changing.
+        /// </summary>
+        public event EventHandler<ClipLengthChangingEventArgs>? LengthChanging;
+
+        /// <summary>
+        /// Occurs when the length of the clip is changed.
+        /// </summary>
+        public event EventHandler<ClipLengthChangedEventArgs>? LengthChanged;
 
         /// <summary>
         /// Gets the name of this <see cref="ClipElement"/>.

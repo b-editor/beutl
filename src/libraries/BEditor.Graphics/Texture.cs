@@ -5,8 +5,12 @@
 // This software may be modified and distributed under the terms
 // of the MIT license. See the LICENSE file for details.
 
+using System;
+
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
+
+using OpenCvSharp.ML;
 
 namespace BEditor.Graphics
 {
@@ -15,7 +19,7 @@ namespace BEditor.Graphics
     /// </summary>
     public sealed class Texture : Drawable
     {
-        private readonly Image<BGRA32> _image;
+        private Image<BGRA32> _image;
 
         private Texture(Image<BGRA32> image, VertexPositionTexture[]? vertices = null)
         {
@@ -66,6 +70,35 @@ namespace BEditor.Graphics
         public Image<BGRA32> ToImage()
         {
             return _image.Clone();
+        }
+
+        /// <summary>
+        /// Updates this texture.
+        /// </summary>
+        /// <param name="image">The image.</param>
+        /// <param name="updateVertices">Update Vertices if the image size is different from the original size.</param>
+        public void Update(Image<BGRA32> image, bool updateVertices = true)
+        {
+            if (image.Size != _image.Size && updateVertices)
+            {
+                var halfWidth = image.Width / 2f;
+                var halfHeight = image.Height / 2f;
+
+                Vertices[0].PosX = halfWidth;
+                Vertices[0].PosY = -halfHeight;
+
+                Vertices[1].PosX = halfWidth;
+                Vertices[1].PosY = halfHeight;
+
+                Vertices[2].PosX = -halfWidth;
+                Vertices[2].PosY = halfHeight;
+
+                Vertices[3].PosX = -halfWidth;
+                Vertices[3].PosY = -halfHeight;
+            }
+
+            _image.Dispose();
+            _image = image.Clone();
         }
 
         /// <inheritdoc/>

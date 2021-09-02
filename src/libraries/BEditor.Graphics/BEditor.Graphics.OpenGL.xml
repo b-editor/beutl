@@ -153,6 +153,12 @@
         <member name="M:BEditor.Graphics.Drawable.Dispose">
             <inheritdoc/>
         </member>
+        <member name="M:BEditor.Graphics.Drawable.Synchronize(BEditor.Graphics.Drawable)">
+            <summary>
+            Synchronizes properties with other <see cref="T:BEditor.Graphics.Drawable"/>.
+            </summary>
+            <param name="drawable">The object to be synchronized.</param>
+        </member>
         <member name="M:BEditor.Graphics.Drawable.Dispose(System.Boolean)">
             <inheritdoc cref="M:System.IDisposable.Dispose"/>
         </member>
@@ -461,36 +467,6 @@
             <param name="context">The <see cref="T:System.Runtime.Serialization.StreamingContext"/> that contains contextual information about the source or destination.</param>
             <exception cref="T:System.ArgumentNullException"><paramref name="info"/> is <see langword="null"/>.</exception>
             <exception cref="T:System.Runtime.Serialization.SerializationException">The class name is <see langword="null"/> or <see cref="P:System.Exception.HResult"/> is zero (0).</exception>
-        </member>
-        <member name="T:BEditor.Graphics.ImageInfo">
-            <summary>
-            A pair of an image and a transformation matrix.
-            </summary>
-        </member>
-        <member name="M:BEditor.Graphics.ImageInfo.#ctor(BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32},System.Func{BEditor.Graphics.ImageInfo,BEditor.Graphics.Transform})">
-            <summary>
-            Initializes a new instance of the <see cref="T:BEditor.Graphics.ImageInfo"/> class.
-            </summary>
-            <param name="image">The image.</param>
-            <param name="transform">Gets the tramsform.</param>
-        </member>
-        <member name="P:BEditor.Graphics.ImageInfo.Source">
-            <summary>
-            Gets or sets the image.
-            </summary>
-        </member>
-        <member name="P:BEditor.Graphics.ImageInfo.Transform">
-            <summary>
-            Gets the <see cref="T:BEditor.Graphics.Transform"/> structure.
-            </summary>
-        </member>
-        <member name="P:BEditor.Graphics.ImageInfo.IsDisposed">
-            <summary>
-            Gets a value indicating whether this instance has been disposed.
-            </summary>
-        </member>
-        <member name="M:BEditor.Graphics.ImageInfo.Dispose">
-            <inheritdoc/>
         </member>
         <member name="T:BEditor.Graphics.Light">
             <summary>
@@ -1086,9 +1062,29 @@
             <param name="rotate">The rotation.</param>
             <param name="scale">The scale.</param>
         </member>
+        <member name="M:BEditor.Graphics.Transform.#ctor(System.Numerics.Vector3,System.Numerics.Vector3,System.Numerics.Vector3,System.Numerics.Vector3,System.Numerics.Vector3)">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Graphics.Transform"/> struct.
+            </summary>
+            <param name="position">The position.</param>
+            <param name="relative">The relative position.</param>
+            <param name="center">The center coordinates.</param>
+            <param name="rotate">The rotation.</param>
+            <param name="scale">The scale.</param>
+        </member>
+        <member name="P:BEditor.Graphics.Transform.Position">
+            <summary>
+            Gets or sets the position.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.Transform.Relative">
+            <summary>
+            Gets or sets the relative position.
+            </summary>
+        </member>
         <member name="P:BEditor.Graphics.Transform.Coordinate">
             <summary>
-            Gets or sets the coordinates.
+            Gets or sets the position.
             </summary>
         </member>
         <member name="P:BEditor.Graphics.Transform.Center">
@@ -1096,9 +1092,14 @@
             Gets or sets the center coordinates.
             </summary>
         </member>
-        <member name="P:BEditor.Graphics.Transform.Rotate">
+        <member name="P:BEditor.Graphics.Transform.Rotation">
             <summary>
             Gets or sets the rotation.
+            </summary>
+        </member>
+        <member name="P:BEditor.Graphics.Transform.Rotate">
+            <summary>
+            Gets or sets the position.
             </summary>
         </member>
         <member name="P:BEditor.Graphics.Transform.Scale">
@@ -1118,30 +1119,6 @@
             <param name="left">The first time interval to add.</param>
             <param name="right">The second time interval to add.</param>
             <returns>An object whose value is the sum of the values of <paramref name="left"/> and <paramref name="right"/>.</returns>
-        </member>
-        <member name="M:BEditor.Graphics.Transform.op_Subtraction(BEditor.Graphics.Transform,BEditor.Graphics.Transform)">
-            <summary>
-            Subtracts a specified <see cref="T:BEditor.Graphics.Transform"/> from another specified <see cref="T:BEditor.Graphics.Transform"/>.
-            </summary>
-            <param name="left">The minuend.</param>
-            <param name="right">The subtrahend.</param>
-            <returns>An object whose value is the result of the value of <paramref name="left"/> minus the value of <paramref name="right"/>.</returns>
-        </member>
-        <member name="M:BEditor.Graphics.Transform.op_Multiply(BEditor.Graphics.Transform,BEditor.Graphics.Transform)">
-            <summary>
-            Returns a new <see cref="T:BEditor.Graphics.Transform"/> object whose value is the result of multiplying the specified <see cref="T:BEditor.Graphics.Transform"/> instance and the specified factor.
-            </summary>
-            <param name="left">The value to be multiplied.</param>
-            <param name="right">The value to be multiplied by.</param>
-            <returns>A new object that represents the value of the specified <see cref="T:BEditor.Graphics.Transform"/> instance multiplied by the value of the specified factor.</returns>
-        </member>
-        <member name="M:BEditor.Graphics.Transform.op_Division(BEditor.Graphics.Transform,BEditor.Graphics.Transform)">
-            <summary>
-            Returns a new <see cref="T:BEditor.Graphics.Transform"/> value which is the result of division of <paramref name="left"/> instance and the specified <paramref name="right"/>.
-            </summary>
-            <param name="left">Divident or the value to be divided.</param>
-            <param name="right">The value to be divided by.</param>
-            <returns>A new value that represents result of division of <paramref name="left"/> instance by the value of the <paramref name="right"/>.</returns>
         </member>
         <member name="T:BEditor.Graphics.VertexPositionTexture">
             <summary>
@@ -1219,6 +1196,13 @@
             Converts this texture to an image.
             </summary>
             <returns>Returns the image.</returns>
+        </member>
+        <member name="M:BEditor.Graphics.Texture.Update(BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32},System.Boolean)">
+            <summary>
+            Updates this texture.
+            </summary>
+            <param name="image">The image.</param>
+            <param name="updateVertices">Update Vertices if the image size is different from the original size.</param>
         </member>
         <member name="M:BEditor.Graphics.Texture.Dispose(System.Boolean)">
             <inheritdoc/>

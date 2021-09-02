@@ -203,6 +203,8 @@ namespace BEditor.Data
                 {
                     Scene.TotalFrame = _clip.End;
                 }
+
+                _clip.Moved?.Invoke(_clip, new(_newLayer, _oldLayer, _newFrame, _oldFrame));
             }
 
             /// <inheritdoc/>
@@ -222,6 +224,8 @@ namespace BEditor.Data
                 {
                     Scene.TotalFrame = _clip.End;
                 }
+
+                _clip.Moved?.Invoke(_clip, new(_oldLayer, _newLayer, _oldFrame, _newFrame));
             }
         }
 
@@ -231,24 +235,16 @@ namespace BEditor.Data
         private sealed class LengthChangeCommand : IRecordCommand
         {
             private readonly ClipElement _clip;
-            private readonly Frame _newStart;
-            private readonly Frame _newEnd;
-            private readonly Frame _oldStart;
-            private readonly Frame _oldEnd;
+            private Frame _oldLength;
+            private Frame _newLength;
+            private ClipLengthChangeAnchor _anchor;
 
-            /// <summary>
-            /// Initializes a new instance of the <see cref="LengthChangeCommand"/> class.
-            /// </summary>
-            /// <param name="clip">長さを変更するクリップです.</param>
-            /// <param name="start">クリップの新しい開始フレームです.</param>
-            /// <param name="end">クリップの新しい終了フレームです.</param>
-            public LengthChangeCommand(ClipElement clip, Frame start, Frame end)
+            public LengthChangeCommand(ClipElement clip, Frame length, ClipLengthChangeAnchor anchor)
             {
                 _clip = clip ?? throw new ArgumentNullException(nameof(clip));
-                _newStart = (start < Frame.Zero) ? throw new ArgumentOutOfRangeException(nameof(start)) : start;
-                _newEnd = (end < Frame.Zero) ? throw new ArgumentOutOfRangeException(nameof(end)) : end;
-                _oldStart = clip.Start;
-                _oldEnd = clip.End;
+                _anchor = anchor;
+                _newLength = (length < Frame.Zero) ? throw new ArgumentOutOfRangeException(nameof(length)) : length;
+                _oldLength = clip.Length;
             }
 
             /// <inheritdoc/>
@@ -258,13 +254,28 @@ namespace BEditor.Data
             public void Do()
             {
                 var scene = _clip.Parent;
-                _clip.Start = _newStart;
-                _clip.End = _newEnd;
+
+                // LengthChangingを発生させる
+                var eventArgs = new ClipLengthChangingEventArgs(_anchor, _newLength, _oldLength);
+                _clip.LengthChanging?.Invoke(_clip, eventArgs);
+                _newLength = eventArgs.NewLength;
+                _anchor = eventArgs.Anchor;
+
+                if (_anchor == ClipLengthChangeAnchor.Start)
+                {
+                    _clip.End = _clip.Start + _newLength;
+                }
+                else
+                {
+                    _clip.Start = _clip.End - _newLength;
+                }
 
                 if (scene.TotalFrame < _clip.End)
                 {
                     scene.TotalFrame = _clip.End;
                 }
+
+                _clip.LengthChanged?.Invoke(_clip, new(_anchor, _newLength, _oldLength));
             }
 
             /// <inheritdoc/>
@@ -277,13 +288,28 @@ namespace BEditor.Data
             public void Undo()
             {
                 var scene = _clip.Parent;
-                _clip.Start = _oldStart;
-                _clip.End = _oldEnd;
+
+                // LengthChangingを発生させる
+                var eventArgs = new ClipLengthChangingEventArgs(_anchor, _oldLength, _newLength);
+                _clip.LengthChanging?.Invoke(_clip, eventArgs);
+                _oldLength = eventArgs.NewLength;
+                _anchor = eventArgs.Anchor;
+
+                if (_anchor == ClipLengthChangeAnchor.Start)
+                {
+                    _clip.End = _clip.Start + _oldLength;
+                }
+                else
+                {
+                    _clip.Start = _clip.End - _oldLength;
+                }
 
                 if (scene.TotalFrame < _clip.End)
                 {
                     scene.TotalFrame = _clip.End;
                 }
+
+                _clip.LengthChanged?.Invoke(_clip, new(_anchor, _oldLength, _newLength));
             }
         }
 

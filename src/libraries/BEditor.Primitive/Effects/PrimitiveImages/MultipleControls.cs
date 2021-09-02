@@ -8,6 +8,7 @@
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using System.Numerics;
 
 using BEditor.Data;
 using BEditor.Data.Primitive;
@@ -90,33 +91,35 @@ namespace BEditor.Primitive.Effects
         public ValueProperty Index { get; private set; }
 
         /// <inheritdoc/>
-        public override void Apply(EffectApplyArgs<IEnumerable<ImageInfo>> args)
+        public override void Apply(EffectApplyArgs<IEnumerable<Texture>> args)
         {
-            args.Value = args.Value.Select((img, i) =>
+            args.Value = args.Value.Select((texture, i) =>
             {
-                var trans = img.Transform;
-
                 if (i == (int)Index.Value)
                 {
-                    return new(
-                        img.Source,
-                        _ =>
-                        {
-                            var f = args.Frame;
-                            var s = Scale.Scale1[f] / 100;
-                            var sx = (Scale.ScaleX[f] / 100 * s) - 1;
-                            var sy = (Scale.ScaleY[f] / 100 * s) - 1;
-                            var sz = (Scale.ScaleZ[f] / 100 * s) - 1;
+                    // テクスチャをコピー
+                    using var image = texture.ToImage();
+                    var result = Texture.FromImage(image, texture.Vertices);
+                    result.Synchronize(texture);
 
-                            return img.Transform + new Transform(
-                                new(Coordinate.X[f], Coordinate.Y[f], Coordinate.Z[f]),
-                                new(Coordinate.CenterX[f], Coordinate.CenterY[f], Coordinate.CenterZ[f]),
-                                new(Rotate.RotateX[f], Rotate.RotateY[f], Rotate.RotateZ[f]),
-                                new(sx, sy, sz));
-                        });
+                    // Transformを設定
+                    var f = args.Frame;
+                    var s = Scale.Scale1[f] / 100;
+                    var sx = Scale.ScaleX[f] / 100 * s;
+                    var sy = Scale.ScaleY[f] / 100 * s;
+                    var sz = Scale.ScaleZ[f] / 100 * s;
+                    var transform = result.Transform;
+                    transform.Position += new Vector3(Coordinate.X[f], Coordinate.Y[f], Coordinate.Z[f]);
+                    transform.Center += new Vector3(Coordinate.CenterX[f], Coordinate.CenterY[f], Coordinate.CenterZ[f]);
+                    transform.Rotation += new Vector3(Rotate.RotateX[f], Rotate.RotateY[f], Rotate.RotateZ[f]);
+                    transform.Scale *= new Vector3(sx, sy, sz);
+                    result.Transform = transform;
+
+                    texture.Dispose();
+                    return result;
                 }
 
-                return img;
+                return texture;
             });
         }
 

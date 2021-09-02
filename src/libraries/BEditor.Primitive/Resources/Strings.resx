@@ -733,4 +733,19 @@
   <data name="Stroke" xml:space="preserve">
     <value>Stroke</value>
   </data>
+  <data name="FrequencyX" xml:space="preserve">
+    <value>Frequency X</value>
+  </data>
+  <data name="FrequencyY" xml:space="preserve">
+    <value>Frequency Y</value>
+  </data>
+  <data name="NumberOfOctaves" xml:space="preserve">
+    <value>Number of octaves</value>
+  </data>
+  <data name="Fractal" xml:space="preserve">
+    <value>Fractal</value>
+  </data>
+  <data name="Turbulence" xml:space="preserve">
+    <value>Turbulence</value>
+  </data>
 </root>

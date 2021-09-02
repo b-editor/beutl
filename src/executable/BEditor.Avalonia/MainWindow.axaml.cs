@@ -34,8 +34,8 @@ namespace BEditor
 {
     public sealed class MainWindow : FluentWindow
     {
-        internal readonly FluentAvalonia.UI.Controls.Primitives.InfoBarPanel _notifications;
-        internal readonly FluentAvalonia.UI.Controls.Primitives.InfoBarPanel _stackNotifications;
+        internal readonly StackPanel _notifications;
+        internal readonly StackPanel _stackNotifications;
         internal readonly Popup _notificationsPopup;
 
         private sealed class LayoutConfig
@@ -55,8 +55,8 @@ namespace BEditor
 
             InitializeComponent();
 
-            _notifications = this.FindControl<FluentAvalonia.UI.Controls.Primitives.InfoBarPanel>("Notifications");
-            _stackNotifications = this.FindControl<FluentAvalonia.UI.Controls.Primitives.InfoBarPanel>("NotificationsPanel");
+            _notifications = this.FindControl<StackPanel>("Notifications");
+            _stackNotifications = this.FindControl<StackPanel>("NotificationsPanel");
             _notificationsPopup = this.FindControl<Popup>("NotificationsPopup");
             ApplyConfig();
 #if DEBUG

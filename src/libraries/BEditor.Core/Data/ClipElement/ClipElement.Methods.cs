@@ -132,10 +132,22 @@ namespace BEditor.Data
         /// <param name="end">The new ending frame of this <see cref="ClipElement"/>.</param>
         /// <returns>Created <see cref="IRecordCommand"/>.</returns>
         /// <exception cref="ArgumentOutOfRangeException"><paramref name="start"/> or <paramref name="end"/> is less than 0.</exception>
-        [Pure]
+        [Obsolete("Use ChangeLength(ClipLengthChangeAnchor, Frame).", error: true)]
         public IRecordCommand ChangeLength(Frame start, Frame end)
         {
-            return new LengthChangeCommand(this, start, end);
+            throw new NotSupportedException();
+        }
+
+        /// <summary>
+        /// Create a command to change the length of this <see cref="ClipElement"/>.
+        /// </summary>
+        /// <param name="anchor">The anchor.</param>
+        /// <param name="length">The new length of this <see cref="ClipElement"/>.</param>
+        /// <returns>Created <see cref="IRecordCommand"/>.</returns>
+        [Pure]
+        public IRecordCommand ChangeLength(ClipLengthChangeAnchor anchor, Frame length)
+        {
+            return new LengthChangeCommand(this, length, anchor);
         }
 
         /// <summary>

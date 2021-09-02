@@ -221,7 +221,7 @@ namespace BEditor.Primitive.Objects
         }
 
         /// <inheritdoc/>
-        protected override void OnRender(EffectApplyArgs<IEnumerable<ImageInfo>> args)
+        protected override void OnRender(EffectApplyArgs<IEnumerable<Texture>> args)
         {
             if (IsMultiple.Value)
             {
@@ -275,20 +275,42 @@ namespace BEditor.Primitive.Objects
             }
         }
 
-        private IEnumerable<ImageInfo> Selector(Frame frame)
+        private IEnumerable<Texture> Selector(Frame frame)
         {
             SetProperty(frame);
             var bounds = _formattedText!.Bounds;
 
             return _formattedText.DrawMultiple().Select(c =>
             {
-                return new ImageInfo(c.Image, _ =>
-                {
-                    var a = bounds;
-                    var x = c.Rectangle.X + (c.Rectangle.Width / 2) - (bounds.Width / 2);
-                    var y = c.Rectangle.Y + (c.Rectangle.Height / 2) - (bounds.Height / 2);
-                    return new Transform(new(x, -y, 0), default, default, default);
-                });
+                var texture = Texture.FromImage(c.Image);
+                var a = bounds;
+                var x = c.Rectangle.X + (c.Rectangle.Width / 2) - (bounds.Width / 2);
+                var y = c.Rectangle.Y + (c.Rectangle.Height / 2) - (bounds.Height / 2);
+
+                var transform = texture.Transform;
+
+                // Transformを設定
+                transform += GetTransform(frame);
+                transform.Relative = new(x, -y, 0);
+
+                // Materialを設定
+                var ambient = Material.Ambient[frame];
+                var diffuse = Material.Diffuse[frame];
+                var specular = Material.Specular[frame];
+                var shininess = Material.Shininess[frame];
+                texture.Material = new(ambient, diffuse, specular, shininess);
+
+                // Blend を設定
+                var alpha = Blend.Opacity[frame] / 100f;
+                var color = Blend.Color[frame];
+                color.A = (byte)(color.A * alpha);
+                texture.Color = color;
+                texture.BlendMode = (BlendMode)Blend.BlendType.Index;
+
+                texture.Transform = transform;
+
+                c.Image.Dispose();
+                return texture;
             });
         }
 

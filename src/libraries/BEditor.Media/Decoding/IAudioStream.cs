@@ -99,10 +99,12 @@ namespace BEditor.Media.Decoding
 
                 while (decoded < sound.NumSamples && TryGetNextFrame(out var data))
                 {
-                    var length = sound.Data.Length > data.NumSamples + decoded ? data.NumSamples : sound.Data.Length - decoded;
+                    var length = sound.NumSamples > data.NumSamples + decoded
+                        ? data.NumSamples
+                        : sound.Data.Length - decoded;
                     data.Data.Slice(0, length).CopyTo(sound.Data.Slice(decoded, length));
 
-                    decoded += data.NumSamples;
+                    decoded += length;
 
                     data.Dispose();
                 }

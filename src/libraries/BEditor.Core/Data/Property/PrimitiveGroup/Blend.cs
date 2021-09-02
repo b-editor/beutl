@@ -35,7 +35,7 @@ namespace BEditor.Data.Property.PrimitiveGroup
             nameof(Color),
             owner => owner.Color,
             (owner, obj) => owner.Color = obj,
-            EditingPropertyOptions<ColorAnimationProperty>.Create(new ColorAnimationPropertyMetadata(Strings.Color, Colors.White, false)).Serialize());
+            EditingPropertyOptions<ColorAnimationProperty>.Create(new ColorAnimationPropertyMetadata(Strings.Color, Colors.White)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="BlendType"/> property.

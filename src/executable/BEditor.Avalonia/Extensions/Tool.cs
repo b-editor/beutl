@@ -68,7 +68,7 @@ namespace BEditor.Extensions
                         viewmodel.PreviewImage.Value = new(
                             new(img.Width, img.Height),
                             new(96, 96),
-                            PixelFormat.Bgra8888, AlphaFormat.Unpremul);
+                            PixelFormat.Bgra8888, AlphaFormat.Premul);
                     }
 
                     var buf = viewmodel.PreviewImage.Value.Lock();
@@ -173,12 +173,12 @@ namespace BEditor.Extensions
 
         public static double ToPixel(this Scene scene, Frame frame)
         {
-            return ConstantSettings.WidthOf1Frame * (scene.TimeLineZoom / 200) * frame;
+            return ConstantSettings.WidthOf1Frame * scene.TimeLineScale * frame;
         }
 
         public static Frame ToFrame(this Scene scene, double pixel)
         {
-            return (int)(pixel / (ConstantSettings.WidthOf1Frame * (scene.TimeLineZoom / 200)));
+            return (int)Math.Round(pixel / (ConstantSettings.WidthOf1Frame * scene.TimeLineScale), MidpointRounding.AwayFromZero);
         }
 
         public static bool Clamp(this Scene self, ClipElement? clip_, ref Frame start, ref Frame end, int layer)

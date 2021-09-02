@@ -16,8 +16,7 @@ namespace BEditor.Data.Property
     /// </summary>
     /// <param name="Name">The string displayed in the property header.</param>
     /// <param name="DefaultColor">The default color.</param>
-    /// <param name="UseAlpha">The value of whether to use alpha components or not.</param>
-    public record ColorPropertyMetadata(string Name, Color DefaultColor, [property: Obsolete("Obsolete")] bool UseAlpha = false)
+    public record ColorPropertyMetadata(string Name, Color DefaultColor)
         : PropertyElementMetadata(Name), IEditingPropertyInitializer<ColorProperty>
     {
         /// <inheritdoc/>

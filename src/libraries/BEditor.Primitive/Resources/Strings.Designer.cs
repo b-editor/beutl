@@ -664,6 +664,15 @@ namespace BEditor.Primitive.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Fractal.
+        /// </summary>
+        internal static string Fractal {
+            get {
+                return ResourceManager.GetString("Fractal", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Framebuffer.
         /// </summary>
         internal static string Framebuffer {
@@ -678,6 +687,24 @@ namespace BEditor.Primitive.Resources {
         internal static string Frequency {
             get {
                 return ResourceManager.GetString("Frequency", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Frequency X.
+        /// </summary>
+        internal static string FrequencyX {
+            get {
+                return ResourceManager.GetString("FrequencyX", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Frequency Y.
+        /// </summary>
+        internal static string FrequencyY {
+            get {
+                return ResourceManager.GetString("FrequencyY", resourceCulture);
             }
         }
         
@@ -1002,6 +1029,15 @@ namespace BEditor.Primitive.Resources {
         internal static string NumberOfHorizontalDivisions {
             get {
                 return ResourceManager.GetString("NumberOfHorizontalDivisions", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Number of octaves.
+        /// </summary>
+        internal static string NumberOfOctaves {
+            get {
+                return ResourceManager.GetString("NumberOfOctaves", resourceCulture);
             }
         }
         
@@ -1407,6 +1443,15 @@ namespace BEditor.Primitive.Resources {
         internal static string TopRight {
             get {
                 return ResourceManager.GetString("TopRight", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Turbulence.
+        /// </summary>
+        internal static string Turbulence {
+            get {
+                return ResourceManager.GetString("Turbulence", resourceCulture);
             }
         }
         

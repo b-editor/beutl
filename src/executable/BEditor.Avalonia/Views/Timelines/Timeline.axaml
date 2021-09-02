@@ -19,10 +19,13 @@
             Grid.Column="1"
             VerticalScrollBarVisibility="Hidden"
             HorizontalScrollBarVisibility="Hidden">
-            <Panel x:Name="ScalePanel" Background="Transparent">
+            <Panel
+                x:Name="ScalePanel"
+                Background="Transparent"
+                HorizontalAlignment="Left">
                 <view:TimelineScale
                     x:Name="scale"
-                    Scale="{CompiledBinding Scene.TimeLineZoom, Mode=OneWay}"
+                    Scale="{CompiledBinding Scene.TimeLineScale, Mode=OneWay}"
                     Rate="{CompiledBinding Scene.Parent.Framerate, Mode=OneWay}"
                     Width="{CompiledBinding TrackWidth.Value, Mode=OneWay}"
                     Height="32"
@@ -39,6 +42,24 @@
                     Width="1.25"
                     HorizontalAlignment="Right"
                     Background="Blue" />
+
+                <Border
+                    IsVisible="False"
+                    x:Name="CreatedCacheBorder"
+                    Height="5"
+                    CornerRadius="2.5"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Bottom"
+                    Background="{StaticResource AccentFillColorDefaultBrush}" />
+
+                <Border
+                    IsVisible="False"
+                    x:Name="BuildingCacheBorder"
+                    Height="5"
+                    CornerRadius="2.5"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Bottom"
+                    Background="{StaticResource SystemFillColorCriticalBrush}" />
             </Panel>
         </ScrollViewer>
 

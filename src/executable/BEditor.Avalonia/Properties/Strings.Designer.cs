@@ -297,6 +297,15 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Cache.
+        /// </summary>
+        public static string Cache {
+            get {
+                return ResourceManager.GetString("Cache", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Cancel.
         /// </summary>
         public static string Cancel {
@@ -365,6 +374,15 @@ namespace BEditor.Properties {
         public static string CheckLight {
             get {
                 return ResourceManager.GetString("CheckLight", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Clear cache.
+        /// </summary>
+        public static string ClearCache {
+            get {
+                return ResourceManager.GetString("ClearCache", resourceCulture);
             }
         }
         
@@ -559,6 +577,15 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Create cache.
+        /// </summary>
+        public static string CreateCache {
+            get {
+                return ResourceManager.GetString("CreateCache", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Create from backup file.
         /// </summary>
         public static string CreateFromBackup {
@@ -745,6 +772,15 @@ namespace BEditor.Properties {
         public static string EncoderSettings {
             get {
                 return ResourceManager.GetString("EncoderSettings", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to End frame.
+        /// </summary>
+        public static string End {
+            get {
+                return ResourceManager.GetString("End", resourceCulture);
             }
         }
         
@@ -1184,6 +1220,24 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Lower color reproduction.
+        /// </summary>
+        public static string LowerColorReproduction {
+            get {
+                return ResourceManager.GetString("LowerColorReproduction", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Lower resolution.
+        /// </summary>
+        public static string LowerResolution {
+            get {
+                return ResourceManager.GetString("LowerResolution", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Machine translation.
         /// </summary>
         public static string MachineTranslation {
@@ -1518,6 +1572,24 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Pause.
+        /// </summary>
+        public static string Pause {
+            get {
+                return ResourceManager.GetString("Pause", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Play.
+        /// </summary>
+        public static string Play {
+            get {
+                return ResourceManager.GetString("Play", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Playing.
         /// </summary>
         public static string Playing {
@@ -1568,6 +1640,15 @@ namespace BEditor.Properties {
         public static string Preset {
             get {
                 return ResourceManager.GetString("Preset", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Preview.
+        /// </summary>
+        public static string Preview {
+            get {
+                return ResourceManager.GetString("Preview", resourceCulture);
             }
         }
         
@@ -1968,6 +2049,15 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Speed.
+        /// </summary>
+        public static string Speed {
+            get {
+                return ResourceManager.GetString("Speed", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Start frame.
         /// </summary>
         public static string Start {
@@ -2207,6 +2297,15 @@ namespace BEditor.Properties {
         public static string UseAutoBackup {
             get {
                 return ResourceManager.GetString("UseAutoBackup", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Use cache.
+        /// </summary>
+        public static string UseCache {
+            get {
+                return ResourceManager.GetString("UseCache", resourceCulture);
             }
         }
         
