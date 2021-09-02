@@ -98,6 +98,7 @@ namespace BEditor.Data
                 EditingPropertyOptions<string>.Create().DefaultValue(CurrentProjectVersion)!.Serialize()!);
 
         private const string CurrentProjectVersion = "0.2.0";
+        private ProjectResources? _resources;
         private Scene? _currentScene;
         private string _name;
         private string _dirname;
@@ -200,6 +201,11 @@ namespace BEditor.Data
             get => _dirname;
             set => SetAndRaise(DirectoryNameProperty, ref _dirname, value);
         }
+
+        /// <summary>
+        /// Gets the class that manages the resources used by the project.
+        /// </summary>
+        public ProjectResources Resources => _resources ?? throw new Exception("The project is invalid.");
 
         /// <summary>
         /// Load a <see cref="Project"/> from a file.
@@ -556,8 +562,16 @@ namespace BEditor.Data
         }
 
         /// <inheritdoc/>
+        protected override void OnLoad()
+        {
+            _resources = new();
+            base.OnLoad();
+        }
+
+        /// <inheritdoc/>
         protected override void OnUnload()
         {
+            _resources?.Release();
             if (ServiceProvider is IDisposable disposable)
             {
                 disposable.Dispose();

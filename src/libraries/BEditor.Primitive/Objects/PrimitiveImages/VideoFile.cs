@@ -67,8 +67,13 @@ namespace BEditor.Primitive.Objects
             StreamsToLoad = MediaMode.Video,
         };
 
-        private MediaFile? _mediaFile;
+        // リソース
+        private ResourceItem? _resource;
 
+        // リソースへの参照を切る
+        private IDisposable? _disposable;
+
+        // File.Subscribe
         private IDisposable? _disposable1;
 
         /// <summary>
@@ -100,7 +105,7 @@ namespace BEditor.Primitive.Objects
         public FileProperty File { get; private set; }
 
         /// <inheritdoc/>
-        public TimeSpan? Length => _mediaFile?.Video?.Info?.Duration;
+        public TimeSpan? Length => (_resource?.Value as MediaFile)?.Video?.Info?.Duration;
 
         /// <summary>
         /// Gets whether the file name is supported.
@@ -147,7 +152,8 @@ namespace BEditor.Primitive.Objects
         /// <inheritdoc/>
         protected override Image<BGRA32>? OnRender(EffectApplyArgs args)
         {
-            if (_mediaFile?.Video is null) return null;
+            if (_resource?.Value is not MediaFile mediaFile || mediaFile.Video is null)
+                return null;
 
             var speed = Speed[args.Frame] / 100;
             var start = (int)Start[args.Frame];
@@ -155,7 +161,7 @@ namespace BEditor.Primitive.Objects
 
             try
             {
-                return time < Length ? _mediaFile.Video.GetFrame(time) : null;
+                return time < Length ? mediaFile.Video.GetFrame(time) : null;
             }
             catch
             {
@@ -170,7 +176,7 @@ namespace BEditor.Primitive.Objects
 
             _disposable1 = File.Subscribe(filename =>
             {
-                _mediaFile?.Dispose();
+                _disposable?.Dispose();
 
                 if (System.IO.File.Exists(File.Value))
                 {
@@ -178,7 +184,12 @@ namespace BEditor.Primitive.Objects
 
                     try
                     {
-                        _mediaFile = MediaFile.Open(filename, _options);
+                        var project = this.GetRequiredParent<Project>();
+                        _resource = new("Video " + filename, () => MediaFile.Open(filename, _options));
+                        _resource = project.Resources.RegisterResource(_resource);
+                        _disposable = _resource.MakeReference(this);
+
+                        _resource.Build();
                     }
                     catch (DecoderNotFoundException e)
                     {
@@ -193,7 +204,8 @@ namespace BEditor.Primitive.Objects
                 }
                 else
                 {
-                    _mediaFile = null;
+                    _disposable = null;
+                    _resource = null;
                 }
             });
         }
@@ -202,9 +214,11 @@ namespace BEditor.Primitive.Objects
         protected override void OnUnload()
         {
             base.OnUnload();
-
-            _mediaFile?.Dispose();
+            _disposable?.Dispose();
             _disposable1?.Dispose();
+            _disposable = null;
+            _disposable1 = null;
+            _resource = null;
         }
     }
 }
