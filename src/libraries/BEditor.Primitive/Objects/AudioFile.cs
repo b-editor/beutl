@@ -145,7 +145,7 @@ namespace BEditor.Primitive.Objects
             if (start >= TimeSpan.Zero)
             {
                 // 開始位置がZero以上
-                return Loaded.Slice(start, length).Clone();
+                return sound.Slice(start, length).Clone();
             }
             else
             {
