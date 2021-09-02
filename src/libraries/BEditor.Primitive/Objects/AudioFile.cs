@@ -60,8 +60,13 @@ namespace BEditor.Primitive.Objects
                         .ToArray())))
             .Serialize());
 
-        private MediaFile? _mediaFile;
+        // リソース
+        private ResourceItem? _resource;
 
+        // リソースへの参照を切る
+        private IDisposable? _disposable;
+
+        // File.Subscribe
         private IDisposable? _disposable1;
 
         /// <summary>
@@ -86,32 +91,8 @@ namespace BEditor.Primitive.Objects
         [AllowNull]
         public FileProperty File { get; private set; }
 
-        /// <summary>
-        /// Gets the opened decoder.
-        /// </summary>
-        public MediaFile? Decoder
-        {
-            get => _mediaFile;
-            set
-            {
-                _mediaFile?.Dispose();
-                _mediaFile = value;
-
-                if (_mediaFile is not null)
-                {
-                    Loaded?.Dispose();
-                    Loaded = GetAllFrame(_mediaFile.Audio!);
-                }
-            }
-        }
-
-        /// <summary>
-        /// Gets the loaded audio data.
-        /// </summary>
-        public Sound<StereoPCMFloat>? Loaded { get; private set; }
-
         /// <inheritdoc/>
-        public TimeSpan? Length => Loaded?.Duration;
+        public TimeSpan? Length => (_resource?.Value as Sound<StereoPCMFloat>)?.Duration;
 
         /// <summary>
         /// Gets whether the file name is supported.
@@ -153,7 +134,7 @@ namespace BEditor.Primitive.Objects
         /// <inheritdoc/>
         public override Sound<StereoPCMFloat>? OnSample(EffectApplyArgs args)
         {
-            if (Loaded is null) return null;
+            if (_resource?.Value is not Sound<StereoPCMFloat> sound) return null;
 
             var proj = Parent.Parent.Parent;
             var context = Parent.Parent.SamplingContext!;
@@ -176,27 +157,50 @@ namespace BEditor.Primitive.Objects
         protected override void OnLoad()
         {
             base.OnLoad();
-            _disposable1 = File.Where(file => System.IO.File.Exists(file)).Subscribe(file =>
+            _disposable1 = File.Subscribe(file =>
             {
-                var mes = ServiceProvider?.GetService<IMessage>();
+                _disposable?.Dispose();
 
-                try
+                if (System.IO.File.Exists(File.Value))
                 {
-                    Decoder = MediaFile.Open(file, new()
+                    var mes = ServiceProvider?.GetService<IMessage>();
+
+                    try
                     {
-                        StreamsToLoad = MediaMode.Audio,
-                        SampleRate = this.GetRequiredParent<Project>().Samplingrate,
-                    });
+                        var project = this.GetRequiredParent<Project>();
+                        _resource = new("Audio " + file, () =>
+                        {
+                            using var mediafile = MediaFile.Open(file, new()
+                            {
+                                StreamsToLoad = MediaMode.Audio,
+                                SampleRate = project.Samplingrate,
+                            });
+
+                            if (mediafile.Audio is null)
+                                return null;
+
+                            return GetAllFrame(mediafile.Audio);
+                        });
+                        _resource = project.Resources.RegisterResource(_resource);
+                        _disposable = _resource.MakeReference(this);
+
+                        _resource.Build();
+                    }
+                    catch (DecoderNotFoundException e)
+                    {
+                        mes?.Snackbar(Strings.DecoderNotFound, string.Empty, IMessage.IconType.Warning);
+                        ServicesLocator.Current.Logger?.LogError(e, Strings.DecoderNotFound);
+                    }
+                    catch (Exception ex)
+                    {
+                        mes?.Snackbar(string.Format(Strings.FailedToLoad, file), string.Empty, IMessage.IconType.Error);
+                        ServicesLocator.Current.Logger?.LogError(ex, Strings.DecoderNotFound);
+                    }
                 }
-                catch (DecoderNotFoundException e)
+                else
                 {
-                    mes?.Snackbar(Strings.DecoderNotFound, string.Empty, IMessage.IconType.Warning);
-                    ServicesLocator.Current.Logger?.LogError(e, Strings.DecoderNotFound);
-                }
-                catch (Exception ex)
-                {
-                    mes?.Snackbar(string.Format(Strings.FailedToLoad, file), string.Empty, IMessage.IconType.Error);
-                    ServicesLocator.Current.Logger?.LogError(ex, Strings.DecoderNotFound);
+                    _disposable = null;
+                    _resource = null;
                 }
             });
         }
@@ -205,11 +209,11 @@ namespace BEditor.Primitive.Objects
         protected override void OnUnload()
         {
             base.OnUnload();
+            _disposable?.Dispose();
             _disposable1?.Dispose();
-            _mediaFile?.Dispose();
-            _mediaFile = null;
-            Loaded?.Dispose();
-            Loaded = null;
+            _disposable = null;
+            _disposable1 = null;
+            _resource = null;
         }
 
         private static Sound<StereoPCMFloat> GetAllFrame(IAudioStream stream)

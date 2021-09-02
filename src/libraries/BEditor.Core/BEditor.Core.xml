@@ -1542,6 +1542,9 @@
         <member name="M:BEditor.Data.Project.SetObjectData(BEditor.Data.DeserializeContext)">
             <inheritdoc/>
         </member>
+        <member name="M:BEditor.Data.Project.OnLoad">
+            <inheritdoc/>
+        </member>
         <member name="M:BEditor.Data.Project.OnUnload">
             <inheritdoc/>
         </member>
