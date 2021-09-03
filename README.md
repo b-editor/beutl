@@ -32,13 +32,8 @@ Windows, Linuxで動作を確認しました。
 
 ## Requirements
 
-* [OpenAL](https://www.openal.org/)
-
-## Contributers
-
-|      |      |
-| ---- | ---- |
-|  <a href="https://twitter.com/indigo_san_"><img src="https://github.com/indigo-san.png" width="75" height="75"></img></a>  |  <a href="https://twitter.com/PC_YiB"><img src="https://github.com/YiB-PC.png" width="75" height="75"></img></a>  |
+Windows以外では [OpenAL](https://www.openal.org/) 
+が必要です
 
 ## License
 
