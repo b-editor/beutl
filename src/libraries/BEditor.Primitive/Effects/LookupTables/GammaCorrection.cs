@@ -45,7 +45,7 @@ namespace BEditor.Primitive.Effects.LookupTables
         /// Gets the gamma.
         /// </summary>
         [AllowNull]
-        public EaseProperty Gamma { get; set; }
+        public EaseProperty Gamma { get; private set; }
 
         /// <inheritdoc/>
         public override void Apply(EffectApplyArgs<Image<BGRA32>> args)

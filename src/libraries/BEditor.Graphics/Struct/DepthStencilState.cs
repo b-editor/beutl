@@ -118,12 +118,12 @@ namespace BEditor.Graphics
         }
 
         /// <summary>
-        /// Gets or sets whether depth testing is enabled.
+        /// Gets or sets a value indicating whether depth testing is enabled.
         /// </summary>
         public bool DepthTestEnabled { get; set; }
 
         /// <summary>
-        /// Gets or sets whether new depth values are written to the depth buffer.
+        /// Gets or sets a value indicating whether new depth values are written to the depth buffer.
         /// </summary>
         public bool DepthWriteEnabled { get; set; }
 
@@ -153,7 +153,7 @@ namespace BEditor.Graphics
         public StencilBehavior StencilFront { get; set; }
 
         /// <summary>
-        /// Gets or sets whether the stencil test is enabled.
+        /// Gets or sets a value indicating whether the stencil test is enabled.
         /// </summary>
         public bool StencilTestEnabled { get; set; }
 

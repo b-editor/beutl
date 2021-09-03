@@ -55,17 +55,19 @@ namespace BEditor.Data
         public static ObservableCollection<EffectMetadata> LoadedEffects { get; } = new();
 
         /// <summary>
-        /// Gets or sets the name of the effect element.
+        /// Gets the name of the effect element.
         /// </summary>
         public string Name { get; init; }
 
+#pragma warning disable SA1623 // Property summary documentation should match accessors
         /// <summary>
         /// Create a new instance of the <see cref="EffectElement"/> object.
         /// </summary>
         public Func<EffectElement> CreateFunc { get; init; }
+#pragma warning restore SA1623 // Property summary documentation should match accessors
 
         /// <summary>
-        /// Gets or sets the type of the object that inherits from <see cref="EffectElement"/>.
+        /// Gets the type of the object that inherits from <see cref="EffectElement"/>.
         /// </summary>
         public Type Type { get; init; }
 

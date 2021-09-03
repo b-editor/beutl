@@ -116,7 +116,7 @@ namespace BEditor.Primitive.Effects
         public TextProperty Anchors { get; private set; }
 
         /// <summary>
-        /// Get the <see cref="SelectorProperty"/> that selects the gradient mode.
+        /// Gets the <see cref="SelectorProperty"/> that selects the gradient mode.
         /// </summary>
         [AllowNull]
         public SelectorProperty Mode { get; private set; }

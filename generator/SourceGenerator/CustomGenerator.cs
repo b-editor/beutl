@@ -32,11 +32,12 @@ public class GenerateTargetAttribute : Attribute
             // group the fields by class, and generate the source
             foreach (IGrouping<INamedTypeSymbol, GeneratedEditingProperty> group in receiver.Fields.GroupBy(f => f.Field.ContainingType))
             {
-                string classSource = ProcessClass(group.Key, group.ToList(), context);
+                string classSource = ProcessClass(group.Key, group.ToList());
                 context.AddSource($"{group.Key.Name}.g.cs", SourceText.From(classSource, Encoding.UTF8));
             }
         }
-        private string ProcessClass(INamedTypeSymbol classSymbol, List<GeneratedEditingProperty> fields, GeneratorExecutionContext context)
+
+        private string ProcessClass(INamedTypeSymbol classSymbol, List<GeneratedEditingProperty> fields)
         {
             if (!classSymbol.ContainingSymbol.Equals(classSymbol.ContainingNamespace, SymbolEqualityComparer.Default))
             {

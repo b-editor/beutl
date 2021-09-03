@@ -72,25 +72,25 @@ namespace BEditor.Primitive.Effects
         /// Gets the frequency in the x-direction.
         /// </summary>
         [AllowNull]
-        public EaseProperty FrequencyX { get; set; }
+        public EaseProperty FrequencyX { get; private set; }
 
         /// <summary>
         /// Gets the frequency in the y-direction.
         /// </summary>
         [AllowNull]
-        public EaseProperty FrequencyY { get; set; }
+        public EaseProperty FrequencyY { get; private set; }
 
         /// <summary>
         /// Gets the number of octaves.
         /// </summary>
         [AllowNull]
-        public EaseProperty NumberOfOctaves { get; set; }
+        public EaseProperty NumberOfOctaves { get; private set; }
 
         /// <summary>
         /// Gets the type of noise.
         /// </summary>
         [AllowNull]
-        public SelectorProperty Type { get; set; }
+        public SelectorProperty Type { get; private set; }
 
         /// <inheritdoc/>
         public override void Apply(EffectApplyArgs<Image<BGRA32>> args)

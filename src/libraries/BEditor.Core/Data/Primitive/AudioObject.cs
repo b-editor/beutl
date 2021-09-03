@@ -38,7 +38,7 @@ namespace BEditor.Data.Primitive
         }
 
         /// <summary>
-        /// Get the volume.
+        /// Gets the volume.
         /// </summary>
         [AllowNull]
         public EaseProperty Volume { get; private set; }

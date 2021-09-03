@@ -121,6 +121,7 @@ namespace BEditor.Extensions.AviUtl
         public void Dispose()
         {
             _img.Dispose();
+            GC.SuppressFinalize(this);
         }
 
         private static PixelType ToPixelType(string type)

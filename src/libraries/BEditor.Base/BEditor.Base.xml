@@ -506,12 +506,12 @@
         </member>
         <member name="P:BEditor.Data.EditingPropertyOptions`1.IsDisposable">
             <summary>
-            Gets or sets the value of whether to delete with <see cref="M:BEditor.Data.EditingObject.ClearDisposable"/>.
+            Gets or sets a value indicating whether to delete with <see cref="M:BEditor.Data.EditingObject.ClearDisposable"/>.
             </summary>
         </member>
         <member name="P:BEditor.Data.EditingPropertyOptions`1.NotifyPropertyChanged">
             <summary>
-            Gets or sets whether to be notified of property changes.
+            Gets or sets a value indicating whether to be notified of property changes.
             </summary>
         </member>
         <member name="M:BEditor.Data.EditingPropertyOptions`1.Create(BEditor.Data.IEditingPropertyInitializer{`0},BEditor.Data.IEditingPropertySerializer{`0},System.Boolean)">
@@ -816,12 +816,12 @@
         </member>
         <member name="P:BEditor.Data.IEditingProperty.IsDisposable">
             <summary>
-            Get the value of whether to delete with <see cref="M:BEditor.Data.EditingObject.ClearDisposable"/>.
+            Gets a value indicating whether to delete with <see cref="M:BEditor.Data.EditingObject.ClearDisposable"/>.
             </summary>
         </member>
         <member name="P:BEditor.Data.IEditingProperty.NotifyPropertyChanged">
             <summary>
-            Gets whether to be notified of property changes.
+            Gets a value indicating whether to be notified of property changes.
             </summary>
         </member>
         <member name="P:BEditor.Data.IEditingProperty.Name">

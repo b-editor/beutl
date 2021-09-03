@@ -265,14 +265,14 @@ namespace BEditor
                 await app.Message.DialogAsync(sb.ToString());
             }
 
-            if (PluginManager.Default._tasks.Count is not 0)
+            if (PluginManager.Default.Tasks.Count is not 0)
             {
                 await Dispatcher.UIThread.InvokeAsync(async () =>
                 {
                     var dialog = new ProgressDialog();
                     dialog.Maximum.Value = 100;
                     _ = dialog.ShowDialog(GetMainWindow());
-                    foreach (var (plugin, tasks) in PluginManager.Default._tasks)
+                    foreach (var (plugin, tasks) in PluginManager.Default.Tasks)
                     {
                         for (var i = 0; i < tasks.Count; i++)
                         {

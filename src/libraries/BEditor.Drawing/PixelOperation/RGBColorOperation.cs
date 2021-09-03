@@ -35,7 +35,7 @@ namespace BEditor.Drawing
             green = Math.Clamp(green, (short)-255, (short)255);
             blue = Math.Clamp(blue, (short)-255, (short)255);
 
-            if (context is not null && !context.IsDisposed)
+            if (context?.IsDisposed == false)
             {
                 image.PixelOperate<RGBColorOperation, short, short, short>(context, red, green, blue);
             }

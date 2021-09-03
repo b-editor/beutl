@@ -38,7 +38,7 @@ namespace BEditor.Data
         public abstract string Name { get; }
 
         /// <summary>
-        /// Gets or sets if this <see cref="EffectElement"/> is enabled.
+        /// Gets or sets a value indicating whether if this <see cref="EffectElement"/> is enabled.
         /// </summary>
         /// <remarks><see langword="true"/> if the <see cref="EffectElement"/> is enabled or <see langword="false"/> otherwise.</remarks>
         public bool IsEnabled
@@ -48,7 +48,7 @@ namespace BEditor.Data
         }
 
         /// <summary>
-        /// Gets or sets whether the expander is open.
+        /// Gets or sets a value indicating whether the expander is open.
         /// </summary>
         /// <remarks><see langword="true"/> if the expander is open, otherwise <see langword="false"/>.</remarks>
         public bool IsExpanded

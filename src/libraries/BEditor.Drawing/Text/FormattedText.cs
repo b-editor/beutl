@@ -129,7 +129,7 @@ namespace BEditor.Drawing
         public TextAlignment TextAlignment { get; set; }
 
         /// <summary>
-        /// Gets or sets the align to the baseline.
+        /// Gets or sets a value indicating whether the align to the baseline.
         /// </summary>
         public bool AlignBaseline { get; set; }
 

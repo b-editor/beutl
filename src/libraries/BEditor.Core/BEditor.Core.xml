@@ -756,12 +756,12 @@
         </member>
         <member name="P:BEditor.Data.ClipLengthChangingEventArgs.Anchor">
             <summary>
-            Gets the anchor.
+            Gets or sets the anchor.
             </summary>
         </member>
         <member name="P:BEditor.Data.ClipLengthChangingEventArgs.NewLength">
             <summary>
-            Gets the new length.
+            Gets or sets the new length.
             </summary>
         </member>
         <member name="P:BEditor.Data.ClipLengthChangingEventArgs.OldLength">
@@ -864,13 +864,13 @@
         </member>
         <member name="P:BEditor.Data.EffectElement.IsEnabled">
             <summary>
-            Gets or sets if this <see cref="T:BEditor.Data.EffectElement"/> is enabled.
+            Gets or sets a value indicating whether if this <see cref="T:BEditor.Data.EffectElement"/> is enabled.
             </summary>
             <remarks><see langword="true"/> if the <see cref="T:BEditor.Data.EffectElement"/> is enabled or <see langword="false"/> otherwise.</remarks>
         </member>
         <member name="P:BEditor.Data.EffectElement.IsExpanded">
             <summary>
-            Gets or sets whether the expander is open.
+            Gets or sets a value indicating whether the expander is open.
             </summary>
             <remarks><see langword="true"/> if the expander is open, otherwise <see langword="false"/>.</remarks>
         </member>
@@ -1018,7 +1018,7 @@
         </member>
         <member name="P:BEditor.Data.EffectMetadata.Name">
             <summary>
-            Gets or sets the name of the effect element.
+            Gets the name of the effect element.
             </summary>
         </member>
         <member name="P:BEditor.Data.EffectMetadata.CreateFunc">
@@ -1028,7 +1028,7 @@
         </member>
         <member name="P:BEditor.Data.EffectMetadata.Type">
             <summary>
-            Gets or sets the type of the object that inherits from <see cref="T:BEditor.Data.EffectElement"/>.
+            Gets the type of the object that inherits from <see cref="T:BEditor.Data.EffectElement"/>.
             </summary>
         </member>
         <member name="P:BEditor.Data.EffectMetadata.Children">
@@ -1112,7 +1112,7 @@
         </member>
         <member name="P:BEditor.Data.PlayingEventArgs.StartFrame">
             <summary>
-            Get the frame at the start of playback.
+            Gets the frame at the start of playback.
             </summary>
         </member>
         <member name="T:BEditor.Data.Internals.ScenePlayer">
@@ -1192,12 +1192,12 @@
         </member>
         <member name="P:BEditor.Data.ObjectMetadata.AccentColor">
             <summary>
-            Gets or sets the accent color.
+            Gets the accent color.
             </summary>
         </member>
         <member name="P:BEditor.Data.ObjectMetadata.PathIcon">
             <summary>
-            Gets or sets the path data of an icon.
+            Gets the path data of an icon.
             </summary>
         </member>
         <member name="P:BEditor.Data.ObjectMetadata.CreateFromFile">
@@ -1255,7 +1255,7 @@
         </member>
         <member name="P:BEditor.Data.Primitive.AudioObject.Volume">
             <summary>
-            Get the volume.
+            Gets the volume.
             </summary>
         </member>
         <member name="M:BEditor.Data.Primitive.AudioObject.Apply(BEditor.Data.EffectApplyArgs)">
@@ -1460,7 +1460,7 @@
         </member>
         <member name="P:BEditor.Data.Project.CurrentSceneIndex">
             <summary>
-            Gets the index of the current scene.
+            Gets or sets the index of the current scene.
             </summary>
         </member>
         <member name="P:BEditor.Data.Project.Children">
@@ -1642,7 +1642,7 @@
         </member>
         <member name="P:BEditor.Data.ProjectPackageBuilder.OtherFiles">
             <summary>
-            Get files that are not used for the project.
+            Gets the files that are not used for the project.
             </summary>
         </member>
         <member name="P:BEditor.Data.ProjectPackageBuilder.ReadMe">
@@ -1786,7 +1786,7 @@
         </member>
         <member name="P:BEditor.Data.Property.CheckProperty.Value">
             <summary>
-            Gets or sets the value of whether the item is checked or not.
+            Gets or sets a value indicating whether the item is checked or not.
             </summary>
         </member>
         <member name="M:BEditor.Data.Property.CheckProperty.OnCompleted">
@@ -2289,7 +2289,7 @@
         </member>
         <member name="P:BEditor.Data.Property.Easing.EasingMetadata.Name">
             <summary>
-            Gets or sets the name of the easing func.
+            Gets the name of the easing func.
             </summary>
         </member>
         <member name="P:BEditor.Data.Property.Easing.EasingMetadata.CreateFunc">
@@ -2299,7 +2299,7 @@
         </member>
         <member name="P:BEditor.Data.Property.Easing.EasingMetadata.Type">
             <summary>
-            Gets or sets the type of the object that inherits from <see cref="T:BEditor.Data.Property.Easing.EasingFunc"/>.
+            Gets the type of the object that inherits from <see cref="T:BEditor.Data.Property.Easing.EasingFunc"/>.
             </summary>
         </member>
         <member name="P:BEditor.Data.Property.Easing.EasingMetadata.Children">
@@ -2859,12 +2859,12 @@
         </member>
         <member name="P:BEditor.Data.Property.KeyFramePair`1.Value">
             <summary>
-            Gets or sets the value.
+            Gets the value.
             </summary>
         </member>
         <member name="P:BEditor.Data.Property.KeyFramePair`1.Position">
             <summary>
-            Gets or sets the position.
+            Gets the position.
             </summary>
         </member>
         <member name="M:BEditor.Data.Property.KeyFramePair`1.op_Equality(BEditor.Data.Property.KeyFramePair{`0},BEditor.Data.Property.KeyFramePair{`0})">
@@ -3147,7 +3147,7 @@
         </member>
         <member name="P:BEditor.Data.Property.FontPropertyMetadata.SelectItem">
             <summary>
-            The default selected item.
+            Gets the default selected item.
             </summary>
         </member>
         <member name="M:BEditor.Data.Property.FontPropertyMetadata.Create">
@@ -3790,7 +3790,7 @@
         </member>
         <member name="P:BEditor.Data.Property.SelectorProperty.SelectItem">
             <summary>
-            Get or set the selected item.
+            Gets or sets the selected item.
             </summary>
         </member>
         <member name="P:BEditor.Data.Property.SelectorProperty.Index">
@@ -4160,12 +4160,12 @@
         </member>
         <member name="P:BEditor.Data.SceneCache.LowColor">
             <summary>
-            Gets whether the color reproduction is reduced.
+            Gets a value indicating whether the color reproduction is reduced.
             </summary>
         </member>
         <member name="P:BEditor.Data.SceneCache.LowResolution">
             <summary>
-            Gets whether or not to lower the resolution.
+            Gets a value indicating whether or not to lower the resolution.
             </summary>
         </member>
         <member name="M:BEditor.Data.SceneCache.Dispose">
@@ -4386,7 +4386,7 @@
         </member>
         <member name="P:BEditor.Data.Scene.UseCache">
             <summary>
-            Gets or sets whether to use the cache or not.
+            Gets or sets a value indicating whether to use the cache or not.
             </summary>
         </member>
         <member name="P:BEditor.Data.Scene.SelectItem">
@@ -4746,7 +4746,7 @@
         </member>
         <member name="P:BEditor.IProgressDialog.IsIndeterminate">
             <summary>
-            Gets or sets whether the progress bar shows actual values or generic, continuous progress feedback.
+            Gets or sets a value indicating whether the progress bar shows actual values or generic, continuous progress feedback.
             </summary>
         </member>
         <member name="T:BEditor.PluginTask">
@@ -4769,7 +4769,7 @@
         </member>
         <member name="P:BEditor.PluginTask.IsExecuted">
             <summary>
-            Gets the value of whether the task has been executed.
+            Gets a value indicating whether the task has been executed.
             </summary>
         </member>
         <member name="M:BEditor.PluginTask.op_Equality(BEditor.PluginTask,BEditor.PluginTask)">
@@ -4811,7 +4811,7 @@
         </member>
         <member name="P:BEditor.Plugin.ICustomMenu.Name">
             <summary>
-            Get the string to be displayed in the UI.
+            Gets the string to be displayed in the UI.
             </summary>
         </member>
         <member name="M:BEditor.Plugin.ICustomMenu.Execute">
@@ -4845,9 +4845,9 @@
             Represents a class that initializes the services provided by the <see cref="T:BEditor.Plugin.PluginObject"/>.
             </summary>
         </member>
-        <member name="F:BEditor.Plugin.PluginBuilder.Config">
+        <member name="P:BEditor.Plugin.PluginBuilder.Config">
             <summary>
-            The plugin config.
+            Gets or sets the plugin config.
             </summary>
         </member>
         <member name="M:BEditor.Plugin.PluginBuilder.Configure``1">
@@ -5008,7 +5008,22 @@
         </member>
         <member name="P:BEditor.Plugin.PluginManager.BaseDirectory">
             <summary>
-            Gets or sets the base directory from which to retrieve plugins.
+            Gets the base directory from which to retrieve plugins.
+            </summary>
+        </member>
+        <member name="P:BEditor.Plugin.PluginManager.Menus">
+            <summary>
+            Gets the menus.
+            </summary>
+        </member>
+        <member name="P:BEditor.Plugin.PluginManager.Tasks">
+            <summary>
+            Gets the tasks.
+            </summary>
+        </member>
+        <member name="P:BEditor.Plugin.PluginManager.Loaded">
+            <summary>
+            Gets the loaded plugins.
             </summary>
         </member>
         <member name="M:BEditor.Plugin.PluginManager.GetNames">

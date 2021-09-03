@@ -27,7 +27,6 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "root", "root", "{65A7968B-1
 		ARCHITECTURE.md = ARCHITECTURE.md
 		BEditor.code-workspace = BEditor.code-workspace
 		build.cake = build.cake
-		CodeAnalysis.ruleset = CodeAnalysis.ruleset
 		CONTRIBUTING.md = CONTRIBUTING.md
 		icon.png = icon.png
 		icon.svg = icon.svg

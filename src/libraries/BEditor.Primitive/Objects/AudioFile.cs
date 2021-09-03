@@ -80,13 +80,13 @@ namespace BEditor.Primitive.Objects
         public override string Name => Strings.Audio;
 
         /// <summary>
-        /// Get the <see cref="EaseProperty"/> that represents the start position.
+        /// Gets the <see cref="EaseProperty"/> that represents the start position.
         /// </summary>
         [AllowNull]
         public ValueProperty Start { get; private set; }
 
         /// <summary>
-        /// Get the <see cref="FileProperty"/> to select the file to reference.
+        /// Gets the <see cref="FileProperty"/> to select the file to reference.
         /// </summary>
         [AllowNull]
         public FileProperty File { get; private set; }

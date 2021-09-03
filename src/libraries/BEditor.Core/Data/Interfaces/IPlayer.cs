@@ -83,7 +83,7 @@ namespace BEditor.Data
         }
 
         /// <summary>
-        /// Get the frame at the start of playback.
+        /// Gets the frame at the start of playback.
         /// </summary>
         public Frame StartFrame { get; }
     }

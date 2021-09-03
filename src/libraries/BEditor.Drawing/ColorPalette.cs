@@ -70,7 +70,7 @@ namespace BEditor.Drawing
             foreach (var (key, value) in arg2)
             {
                 arg1.WriteStartObject();
-                arg1.WriteString("Name", key);
+                arg1.WriteString(nameof(Name), key);
                 arg1.WriteString("Color", value.ToString("#argb"));
                 arg1.WriteEndObject();
             }
@@ -87,7 +87,7 @@ namespace BEditor.Drawing
                         ? Color.Parse(colorElm.GetString())
                         : Drawing.Colors.White;
 
-                    var name = (i.TryGetProperty("Name", out var nameElm)
+                    var name = (i.TryGetProperty(nameof(Name), out var nameElm)
                         ? nameElm.GetString()
                         : color.ToString("#argb")) ?? color.ToString("#argb");
 

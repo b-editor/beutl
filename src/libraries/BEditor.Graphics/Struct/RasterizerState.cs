@@ -77,12 +77,12 @@ namespace BEditor.Graphics
         public FrontFace FrontFace { get; set; }
 
         /// <summary>
-        /// Gets or sets whether depth clipping is enabled.
+        /// Gets or sets a value indicating whether depth clipping is enabled.
         /// </summary>
         public bool DepthClipEnabled { get; set; }
 
         /// <summary>
-        /// Gets or sets whether the scissor test is enabled.
+        /// Gets or sets a value indicating whether the scissor test is enabled.
         /// </summary>
         public bool ScissorTestEnabled { get; set; }
 

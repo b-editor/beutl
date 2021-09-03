@@ -391,7 +391,7 @@
         </member>
         <member name="P:BEditor.Primitive.Effects.DepthTest.Function">
             <summary>
-            Get the <see cref="T:BEditor.Data.Property.SelectorProperty"/> that selects the function for the depth test.
+            Gets the <see cref="T:BEditor.Data.Property.SelectorProperty"/> that selects the function for the depth test.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Effects.DepthTest.Mask">
@@ -1325,7 +1325,7 @@
         </member>
         <member name="P:BEditor.Primitive.Effects.CircularGradient.Mode">
             <summary>
-            Get the <see cref="T:BEditor.Data.Property.SelectorProperty"/> that selects the gradient mode.
+            Gets the <see cref="T:BEditor.Data.Property.SelectorProperty"/> that selects the gradient mode.
             </summary>
         </member>
         <member name="M:BEditor.Primitive.Effects.CircularGradient.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
@@ -1926,7 +1926,7 @@
         </member>
         <member name="P:BEditor.Primitive.Effects.Mask.X">
             <summary>
-            Get the X coordinate.
+            Gets the X coordinate.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Effects.Mask.Y">
@@ -2008,17 +2008,17 @@
         </member>
         <member name="P:BEditor.Primitive.Effects.MultipleControls.Coordinate">
             <summary>
-            Get the coordinates.
+            Gets the coordinates.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Effects.MultipleControls.Scale">
             <summary>
-            Get the scale.
+            Gets the scale.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Effects.MultipleControls.Rotate">
             <summary>
-            Get the angle.
+            Gets the angle.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Effects.MultipleControls.Index">
@@ -2500,12 +2500,12 @@
         </member>
         <member name="P:BEditor.Primitive.Objects.AudioFile.Start">
             <summary>
-            Get the <see cref="T:BEditor.Data.Property.EaseProperty"/> that represents the start position.
+            Gets the <see cref="T:BEditor.Data.Property.EaseProperty"/> that represents the start position.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Objects.AudioFile.File">
             <summary>
-            Get the <see cref="F:BEditor.Primitive.Objects.AudioFile.FileProperty"/> to select the file to reference.
+            Gets the <see cref="F:BEditor.Primitive.Objects.AudioFile.FileProperty"/> to select the file to reference.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Objects.AudioFile.Length">
@@ -2829,7 +2829,7 @@
         </member>
         <member name="P:BEditor.Primitive.Objects.ImageFile.File">
             <summary>
-            Get the <see cref="F:BEditor.Primitive.Objects.ImageFile.FileProperty"/> to select the image file to reference.
+            Gets the <see cref="F:BEditor.Primitive.Objects.ImageFile.FileProperty"/> to select the image file to reference.
             </summary>
         </member>
         <member name="M:BEditor.Primitive.Objects.ImageFile.IsSupported(System.String)">
@@ -2898,7 +2898,7 @@
         </member>
         <member name="P:BEditor.Primitive.Objects.Polygon.Width">
             <summary>
-            Gest the width of the polygon.
+            Gets the width of the polygon.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Objects.Polygon.Height">
@@ -2918,7 +2918,7 @@
         </member>
         <member name="P:BEditor.Primitive.Objects.Polygon.Color">
             <summary>
-            Get the color of the polygon.
+            Gets the color of the polygon.
             </summary>
         </member>
         <member name="M:BEditor.Primitive.Objects.Polygon.GetProperties">
@@ -2982,42 +2982,42 @@
         </member>
         <member name="P:BEditor.Primitive.Objects.RoundRect.Width">
             <summary>
-            Get the width of the shape.
+            Gets the width of the shape.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Objects.RoundRect.Height">
             <summary>
-            Get the width of the shape.
+            Gets the width of the shape.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Objects.RoundRect.TopLeftRadius">
             <summary>
-            Get the roundness of the shape.
+            Gets the roundness of the shape.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Objects.RoundRect.TopRightRadius">
             <summary>
-            Get the roundness of the shape.
+            Gets the roundness of the shape.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Objects.RoundRect.BottomLeftRadius">
             <summary>
-            Get the roundness of the shape.
+            Gets the roundness of the shape.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Objects.RoundRect.BottomRightRadius">
             <summary>
-            Get the roundness of the shape.
+            Gets the roundness of the shape.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Objects.RoundRect.Line">
             <summary>
-            Get the line width of the shape.
+            Gets the line width of the shape.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Objects.RoundRect.Color">
             <summary>
-            Get the type of the shape.
+            Gets the type of the shape.
             </summary>
         </member>
         <member name="M:BEditor.Primitive.Objects.RoundRect.GetProperties">

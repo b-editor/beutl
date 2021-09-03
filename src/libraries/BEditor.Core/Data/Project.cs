@@ -162,7 +162,7 @@ namespace BEditor.Data
         }
 
         /// <summary>
-        /// Gets the index of the current scene.
+        /// Gets or sets the index of the current scene.
         /// </summary>
         public int CurrentSceneIndex
         {

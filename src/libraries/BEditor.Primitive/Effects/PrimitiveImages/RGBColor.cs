@@ -63,19 +63,19 @@ namespace BEditor.Primitive.Effects
         /// Gets the red threshold value.
         /// </summary>
         [AllowNull]
-        public EaseProperty Red { get; set; }
+        public EaseProperty Red { get; private set; }
 
         /// <summary>
         /// Gets the green threshold value.
         /// </summary>
         [AllowNull]
-        public EaseProperty Green { get; set; }
+        public EaseProperty Green { get; private set; }
 
         /// <summary>
         /// Gets the blue threshold value.
         /// </summary>
         [AllowNull]
-        public EaseProperty Blue { get; set; }
+        public EaseProperty Blue { get; private set; }
 
         /// <inheritdoc/>
         public override void Apply(EffectApplyArgs<Image<BGRA32>> args)

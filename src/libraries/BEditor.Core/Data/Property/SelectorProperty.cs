@@ -43,7 +43,7 @@ namespace BEditor.Data.Property
         }
 
         /// <summary>
-        /// Get or set the selected item.
+        /// Gets or sets the selected item.
         /// </summary>
         public string? SelectItem
         {

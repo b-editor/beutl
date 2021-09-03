@@ -120,7 +120,7 @@ namespace BEditor.Data.Property.Easing
 #pragma warning disable RCS1176, RCS1010, RCS0056, RCS1163, RCS1089, CA1822, IDE0060
         private class Easing
         {
-            public static Easing Instance = new();
+            public static readonly Easing Instance = new();
 
             public float QuadIn(float t, float totaltime, float min, float max)
             {

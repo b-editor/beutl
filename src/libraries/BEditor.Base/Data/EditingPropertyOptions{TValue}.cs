@@ -27,12 +27,12 @@ namespace BEditor.Data
         public IEditingPropertySerializer<TValue>? Serializer { get; set; }
 
         /// <summary>
-        /// Gets or sets the value of whether to delete with <see cref="EditingObject.ClearDisposable"/>.
+        /// Gets or sets a value indicating whether to delete with <see cref="EditingObject.ClearDisposable"/>.
         /// </summary>
         public bool IsDisposable { get; set; }
 
         /// <summary>
-        /// Gets or sets whether to be notified of property changes.
+        /// Gets or sets a value indicating whether to be notified of property changes.
         /// </summary>
         public bool NotifyPropertyChanged { get; set; }
 

@@ -30,12 +30,12 @@ namespace BEditor.Data
         }
 
         /// <summary>
-        /// Gets the anchor.
+        /// Gets or sets the anchor.
         /// </summary>
         public ClipLengthChangeAnchor Anchor { get; set; }
 
         /// <summary>
-        /// Gets the new length.
+        /// Gets or sets the new length.
         /// </summary>
         public Frame NewLength { get; set; }
 

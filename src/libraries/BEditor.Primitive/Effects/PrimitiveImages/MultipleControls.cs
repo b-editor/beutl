@@ -67,19 +67,19 @@ namespace BEditor.Primitive.Effects
         public override string Name => Strings.MultipleImageControls;
 
         /// <summary>
-        /// Get the coordinates.
+        /// Gets the coordinates.
         /// </summary>
         [AllowNull]
         public Coordinate Coordinate { get; private set; }
 
         /// <summary>
-        /// Get the scale.
+        /// Gets the scale.
         /// </summary>
         [AllowNull]
         public Scale Scale { get; private set; }
 
         /// <summary>
-        /// Get the angle.
+        /// Gets the angle.
         /// </summary>
         [AllowNull]
         public Rotate Rotate { get; private set; }

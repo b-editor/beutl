@@ -755,12 +755,12 @@
         </member>
         <member name="P:BEditor.Graphics.DepthStencilState.DepthTestEnabled">
             <summary>
-            Gets or sets whether depth testing is enabled.
+            Gets or sets a value indicating whether depth testing is enabled.
             </summary>
         </member>
         <member name="P:BEditor.Graphics.DepthStencilState.DepthWriteEnabled">
             <summary>
-            Gets or sets whether new depth values are written to the depth buffer.
+            Gets or sets a value indicating whether new depth values are written to the depth buffer.
             </summary>
         </member>
         <member name="P:BEditor.Graphics.DepthStencilState.DepthComparison">
@@ -790,7 +790,7 @@
         </member>
         <member name="P:BEditor.Graphics.DepthStencilState.StencilTestEnabled">
             <summary>
-            Gets or sets whether the stencil test is enabled.
+            Gets or sets a value indicating whether the stencil test is enabled.
             </summary>
         </member>
         <member name="P:BEditor.Graphics.DepthStencilState.StencilReadMask">
@@ -946,12 +946,12 @@
         </member>
         <member name="P:BEditor.Graphics.RasterizerState.DepthClipEnabled">
             <summary>
-            Gets or sets whether depth clipping is enabled.
+            Gets or sets a value indicating whether depth clipping is enabled.
             </summary>
         </member>
         <member name="P:BEditor.Graphics.RasterizerState.ScissorTestEnabled">
             <summary>
-            Gets or sets whether the scissor test is enabled.
+            Gets or sets a value indicating whether the scissor test is enabled.
             </summary>
         </member>
         <member name="M:BEditor.Graphics.RasterizerState.op_Equality(BEditor.Graphics.RasterizerState,BEditor.Graphics.RasterizerState)">

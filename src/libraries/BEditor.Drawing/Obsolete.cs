@@ -42,7 +42,9 @@ namespace BEditor.Drawing
             float size,
             Color color,
             HorizontalAlign hAlign,
+#pragma warning disable RCS1163
             VerticalAlign vAlign,
+#pragma warning restore RCS1163
             float linespace = 0)
         {
             if (string.IsNullOrEmpty(text)) return new Image<BGRA32>(1, 1, default(BGRA32));

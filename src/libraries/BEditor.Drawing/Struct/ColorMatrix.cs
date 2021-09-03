@@ -120,127 +120,127 @@ namespace BEditor.Drawing
         }
 
         /// <summary>
-        /// Gets or sets the element at the 0th row and 0th column of this <see cref="ColorMatrix"/>.
+        /// Gets the element at the 0th row and 0th column of this <see cref="ColorMatrix"/>.
         /// </summary>
         public ref float M00 => ref _array[0];
 
         /// <summary>
-        /// Gets or sets the element at the 0th row and 1st column of this <see cref="ColorMatrix"/>.
+        /// Gets the element at the 0th row and 1st column of this <see cref="ColorMatrix"/>.
         /// </summary>
         public ref float M01 => ref _array[1];
 
         /// <summary>
-        /// Gets or sets the element at the 0th row and 2nd column of this <see cref="ColorMatrix"/>.
+        /// Gets the element at the 0th row and 2nd column of this <see cref="ColorMatrix"/>.
         /// </summary>
         public ref float M02 => ref _array[2];
 
         /// <summary>
-        /// Gets or sets the element at the 0th row and 3rd column of this <see cref="ColorMatrix"/>.
+        /// Gets the element at the 0th row and 3rd column of this <see cref="ColorMatrix"/>.
         /// </summary>
         public ref float M03 => ref _array[3];
 
         /// <summary>
-        /// Gets or sets the element at the 0th row and 4th column of this <see cref="ColorMatrix"/>.
+        /// Gets the element at the 0th row and 4th column of this <see cref="ColorMatrix"/>.
         /// </summary>
         public ref float M04 => ref _array[4];
 
         /// <summary>
-        /// Gets or sets the element at the 1st row and 0th column of this <see cref="ColorMatrix"/>.
+        /// Gets the element at the 1st row and 0th column of this <see cref="ColorMatrix"/>.
         /// </summary>
         public ref float M10 => ref _array[5];
 
         /// <summary>
-        /// Gets or sets the element at the 1st row and 1st column of this <see cref="ColorMatrix"/>.
+        /// Gets the element at the 1st row and 1st column of this <see cref="ColorMatrix"/>.
         /// </summary>
         public ref float M11 => ref _array[6];
 
         /// <summary>
-        /// Gets or sets the element at the 1st row and 2nd column of this <see cref="ColorMatrix"/>.
+        /// Gets the element at the 1st row and 2nd column of this <see cref="ColorMatrix"/>.
         /// </summary>
         public ref float M12 => ref _array[7];
 
         /// <summary>
-        /// Gets or sets the element at the 1st row and 3rd column of this <see cref="ColorMatrix"/>.
+        /// Gets the element at the 1st row and 3rd column of this <see cref="ColorMatrix"/>.
         /// </summary>
         public ref float M13 => ref _array[8];
 
         /// <summary>
-        /// Gets or sets the element at the 1st row and 4th column of this <see cref="ColorMatrix"/>.
+        /// Gets the element at the 1st row and 4th column of this <see cref="ColorMatrix"/>.
         /// </summary>
         public ref float M14 => ref _array[9];
 
         /// <summary>
-        /// Gets or sets the element at the 2nd row and 0th column of this <see cref="ColorMatrix"/>.
+        /// Gets the element at the 2nd row and 0th column of this <see cref="ColorMatrix"/>.
         /// </summary>
         public ref float M20 => ref _array[10];
 
         /// <summary>
-        /// Gets or sets the element at the 2nd row and 1st column of this <see cref="ColorMatrix"/>.
+        /// Gets the element at the 2nd row and 1st column of this <see cref="ColorMatrix"/>.
         /// </summary>
         public ref float M21 => ref _array[11];
 
         /// <summary>
-        /// Gets or sets the element at the 2nd row and 2nd column of this <see cref="ColorMatrix"/>.
+        /// Gets the element at the 2nd row and 2nd column of this <see cref="ColorMatrix"/>.
         /// </summary>
         public ref float M22 => ref _array[12];
 
         /// <summary>
-        /// Gets or sets the element at the 2nd row and 3rd column of this <see cref="ColorMatrix"/>.
+        /// Gets the element at the 2nd row and 3rd column of this <see cref="ColorMatrix"/>.
         /// </summary>
         public ref float M23 => ref _array[13];
 
         /// <summary>
-        /// Gets or sets the element at the 2nd row and 4th column of this <see cref="ColorMatrix"/>.
+        /// Gets the element at the 2nd row and 4th column of this <see cref="ColorMatrix"/>.
         /// </summary>
         public ref float M24 => ref _array[14];
 
         /// <summary>
-        /// Gets or sets the element at the 3rd row and 0th column of this <see cref="ColorMatrix"/>.
+        /// Gets the element at the 3rd row and 0th column of this <see cref="ColorMatrix"/>.
         /// </summary>
         public ref float M30 => ref _array[15];
 
         /// <summary>
-        /// Gets or sets the element at the 3rd row and 1st column of this <see cref="ColorMatrix"/>.
+        /// Gets the element at the 3rd row and 1st column of this <see cref="ColorMatrix"/>.
         /// </summary>
         public ref float M31 => ref _array[16];
 
         /// <summary>
-        /// Gets or sets the element at the 3rd row and 2nd column of this <see cref="ColorMatrix"/>.
+        /// Gets the element at the 3rd row and 2nd column of this <see cref="ColorMatrix"/>.
         /// </summary>
         public ref float M32 => ref _array[17];
 
         /// <summary>
-        /// Gets or sets the element at the 3rd row and 3rd column of this <see cref="ColorMatrix"/>.
+        /// Gets the element at the 3rd row and 3rd column of this <see cref="ColorMatrix"/>.
         /// </summary>
         public ref float M33 => ref _array[18];
 
         /// <summary>
-        /// Gets or sets the element at the 3rd row and 4th column of this <see cref="ColorMatrix"/>.
+        /// Gets the element at the 3rd row and 4th column of this <see cref="ColorMatrix"/>.
         /// </summary>
         public ref float M34 => ref _array[19];
 
         /// <summary>
-        /// Gets or sets the element at the 4th row and 0th column of this <see cref="ColorMatrix"/>.
+        /// Gets the element at the 4th row and 0th column of this <see cref="ColorMatrix"/>.
         /// </summary>
         public ref float M40 => ref _array[20];
 
         /// <summary>
-        /// Gets or sets the element at the 4th row and 1st column of this <see cref="ColorMatrix"/>.
+        /// Gets the element at the 4th row and 1st column of this <see cref="ColorMatrix"/>.
         /// </summary>
         public ref float M41 => ref _array[21];
 
         /// <summary>
-        /// Gets or sets the element at the 4th row and 2nd column of this <see cref="ColorMatrix"/>.
+        /// Gets the element at the 4th row and 2nd column of this <see cref="ColorMatrix"/>.
         /// </summary>
         public ref float M42 => ref _array[22];
 
         /// <summary>
-        /// Gets or sets the element at the 4th row and 3rd column of this <see cref="ColorMatrix"/>.
+        /// Gets the element at the 4th row and 3rd column of this <see cref="ColorMatrix"/>.
         /// </summary>
         public ref float M43 => ref _array[23];
 
         /// <summary>
-        /// Gets or sets the element at the 4th row and 4th column of this <see cref="ColorMatrix"/>.
+        /// Gets the element at the 4th row and 4th column of this <see cref="ColorMatrix"/>.
         /// </summary>
         public ref float M44 => ref _array[24];
 

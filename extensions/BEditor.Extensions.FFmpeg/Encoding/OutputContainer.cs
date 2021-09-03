@@ -79,31 +79,6 @@ namespace BEditor.Extensions.FFmpeg.Encoding
             }
         }
 
-        public AudioEncoderSettings GetDefaultAudioSettings()
-        {
-            return new(44100, 2)
-            {
-                CodecOptions =
-                {
-                    { "Format", SampleFormat.SingleP },
-                    { "Codec", AudioCodec.Default },
-                }
-            };
-        }
-
-        public VideoEncoderSettings GetDefaultVideoSettings()
-        {
-            return new(1920, 1080)
-            {
-                CodecOptions =
-                {
-                    { "Format", ImagePixelFormat.Yuv420 },
-                    { "Preset", EncoderPreset.Medium },
-                    { "Codec", VideoCodec.Default },
-                }
-            };
-        }
-
         public void SetMetadata(ContainerMetadata metadata)
         {
             _builder?.UseMetadata(new()

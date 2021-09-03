@@ -45,7 +45,7 @@ namespace BEditor.Primitive.Effects.LookupTables
         /// Gets the contrast.
         /// </summary>
         [AllowNull]
-        public EaseProperty Contrast { get; set; }
+        public EaseProperty Contrast { get; private set; }
 
         /// <inheritdoc/>
         public override void Apply(EffectApplyArgs<Image<BGRA32>> args)

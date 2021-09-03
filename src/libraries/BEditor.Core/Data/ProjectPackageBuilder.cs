@@ -54,7 +54,7 @@ namespace BEditor.Data
         public HashSet<PluginObject> Plugins { get; }
 
         /// <summary>
-        /// Get files that are not used for the project.
+        /// Gets the files that are not used for the project.
         /// </summary>
         public HashSet<string> OtherFiles { get; } = new();
 
@@ -217,6 +217,37 @@ namespace BEditor.Data
             return (file1byte - file2byte) == 0;
         }
 
+        // 依存しているファイルをコピー
+        private static void CopyFiles(Project project, string directry)
+        {
+            foreach (var prop in project.GetAllChildren<FileProperty>())
+            {
+                if (string.IsNullOrWhiteSpace(prop.Value)) continue;
+                var dstFilename = Path.Combine(directry, Path.GetFileName(prop.Value));
+
+                if ((!File.Exists(dstFilename)) && File.Exists(prop.Value))
+                {
+                    // 宛先が存在していなくて、ソースが存在している場合
+                    File.Copy(prop.Value, dstFilename);
+                }
+                else if (!FileCompare(prop.Value, dstFilename))
+                {
+                    // 存在していて内部が違う場合、名前を変更
+                    var num = 1;
+                    dstFilename += num;
+                    while (!File.Exists(dstFilename))
+                    {
+                        num++;
+                    }
+
+                    File.Copy(prop.Value, dstFilename);
+                }
+
+                prop.Value = dstFilename;
+                prop.Mode = FilePathType.FromProject;
+            }
+        }
+
         private void WriteReadMe(string directry)
         {
             var file = Path.Combine(directry, "README");
@@ -258,37 +289,6 @@ namespace BEditor.Data
                 {
                     font.Mode = FontProperty.FontSaveMode.FamilyName;
                 }
-            }
-        }
-
-        // 依存しているファイルをコピー
-        private void CopyFiles(Project project, string directry)
-        {
-            foreach (var prop in project.GetAllChildren<FileProperty>())
-            {
-                if (string.IsNullOrWhiteSpace(prop.Value)) continue;
-                var dstFilename = Path.Combine(directry, Path.GetFileName(prop.Value));
-
-                if ((!File.Exists(dstFilename)) && File.Exists(prop.Value))
-                {
-                    // 宛先が存在していなくて、ソースが存在している場合
-                    File.Copy(prop.Value, dstFilename);
-                }
-                else if (!FileCompare(prop.Value, dstFilename))
-                {
-                    // 存在していて内部が違う場合、名前を変更
-                    var num = 1;
-                    dstFilename += num;
-                    while (!File.Exists(dstFilename))
-                    {
-                        num++;
-                    }
-
-                    File.Copy(prop.Value, dstFilename);
-                }
-
-                prop.Value = dstFilename;
-                prop.Mode = FilePathType.FromProject;
             }
         }
 

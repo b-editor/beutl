@@ -20,7 +20,7 @@ namespace BEditor.Data
     /// </summary>
     public sealed class ProjectResources
     {
-        internal readonly Dictionary<string, ResourceItem> _items = new();
+        private readonly Dictionary<string, ResourceItem> _items = new();
 
         /// <summary>
         /// Finalizes an instance of the <see cref="ProjectResources"/> class.

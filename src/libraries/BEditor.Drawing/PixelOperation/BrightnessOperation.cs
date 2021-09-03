@@ -31,7 +31,7 @@ namespace BEditor.Drawing
             image.ThrowIfDisposed();
             brightness = Math.Clamp(brightness, (short)-255, (short)255);
 
-            if (context is not null && !context.IsDisposed)
+            if (context?.IsDisposed == false)
             {
                 image.PixelOperate<BrightnessOperation, short>(context, brightness);
             }

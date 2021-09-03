@@ -15,12 +15,12 @@ namespace BEditor.Data
     public interface IEditingProperty
     {
         /// <summary>
-        /// Get the value of whether to delete with <see cref="EditingObject.ClearDisposable"/>.
+        /// Gets a value indicating whether to delete with <see cref="EditingObject.ClearDisposable"/>.
         /// </summary>
         public bool IsDisposable { get; }
 
         /// <summary>
-        /// Gets whether to be notified of property changes.
+        /// Gets a value indicating whether to be notified of property changes.
         /// </summary>
         public bool NotifyPropertyChanged { get; }
 

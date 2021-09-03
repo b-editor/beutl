@@ -85,7 +85,8 @@ namespace BEditor.Primitive.Objects
             EditingPropertyOptions<SelectorProperty<StringWrapper>>
                 .Create(new SelectorPropertyMetadata<StringWrapper>(
                     "SelectorGen",
-                    new StringWrapper[] { new("One"), new("Two"), new("Three") }, i => i.Value))
+                    new StringWrapper[] { new("One"), new("Two"), new("Three") },
+                    i => i.Value))
                 .Serialize());
 
         public static readonly EditingProperty<TextProperty> TextProperty = EditingProperty.RegisterDirect<TextProperty, PropertyTest>(
@@ -100,23 +101,32 @@ namespace BEditor.Primitive.Objects
             (owner, obj) => owner.Value = obj,
             EditingPropertyOptions<ValueProperty>.Create(new ValuePropertyMetadata("Value")).Serialize());
 
-        public PropertyTest()
-        {
-        }
-
         public override string Name => nameof(PropertyTest);
+
         public ButtonComponent Button { get; set; }
+
         public CheckProperty Check { get; set; }
+
         public ColorAnimationProperty ColorAnimation { get; set; }
+
         public ColorProperty Color { get; set; }
+
         public DocumentProperty Document { get; set; }
+
         public EaseProperty Ease { get; set; }
+
         public FileProperty File { get; set; }
+
         public FolderProperty Folder { get; set; }
+
         public LabelComponent Label { get; set; }
+
         public SelectorProperty Selector { get; set; }
+
         public SelectorProperty<StringWrapper> SelectorGen { get; set; }
+
         public TextProperty Text { get; set; }
+
         public ValueProperty Value { get; set; }
 
         public override void Apply(EffectApplyArgs args)

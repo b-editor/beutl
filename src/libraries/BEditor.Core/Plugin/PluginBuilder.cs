@@ -23,10 +23,6 @@ namespace BEditor.Plugin
     /// </summary>
     public sealed class PluginBuilder
     {
-        /// <summary>
-        /// The plugin config.
-        /// </summary>
-        internal static PluginConfig? Config;
         private readonly Func<PluginObject> _plugin;
         private readonly List<EffectMetadata> _effects = new();
         private readonly List<ObjectMetadata> _objects = new();
@@ -38,6 +34,11 @@ namespace BEditor.Plugin
         {
             _plugin = create;
         }
+
+        /// <summary>
+        /// Gets or sets the plugin config.
+        /// </summary>
+        internal static PluginConfig? Config { get; set; }
 
         /// <summary>
         /// Begin configuring an <see cref="PluginObject"/>.
@@ -193,16 +194,16 @@ namespace BEditor.Plugin
 
             if (_menus.Item1 is not null && _menus.Item2 is not null)
             {
-                manager._menus.Add(_menus!);
+                manager.Menus.Add(_menus!);
             }
 
             var instance = _plugin();
             if (_task.Count is not 0)
             {
-                manager._tasks.Add((instance, _task));
+                manager.Tasks.Add((instance, _task));
             }
 
-            manager._loaded.Add(instance);
+            manager.Loaded.Add(instance);
         }
 
         /// <summary>

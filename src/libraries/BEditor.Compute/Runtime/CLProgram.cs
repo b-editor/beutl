@@ -66,9 +66,6 @@ namespace BEditor.Compute.Runtime
                     CL.GetProgramBuildInfo(Pointer, context.Devices[0].Pointer, CLProgramBuildInfo.CL_PROGRAM_BUILD_LOG, new IntPtr(logSize), logPointer, null).CheckError();
                 }
 
-                _ = CL.ReleaseProgram(Pointer);
-
-                GC.SuppressFinalize(this);
                 throw new Exception(e.Message + Environment.NewLine + Encoding.UTF8.GetString(log, 0, (int)logSize));
             }
         }

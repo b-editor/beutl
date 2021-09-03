@@ -31,7 +31,7 @@ namespace BEditor.Drawing
             image.ThrowIfDisposed();
             mask.ThrowIfDisposed();
 
-            if (context is not null && !context.IsDisposed)
+            if (context?.IsDisposed == false)
             {
                 using var maskMem = context.Context.CreateMappingMemory(mask.Data, mask.DataSize);
 

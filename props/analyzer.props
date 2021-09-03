@@ -1,17 +1,12 @@
 <Project>
 
     <PropertyGroup>
-        <CodeAnalysisRuleSet>$(MSBuildThisFileDirectory)\..\CodeAnalysis.ruleset</CodeAnalysisRuleSet>
         <GenerateDocumentationFile>true</GenerateDocumentationFile>
     </PropertyGroup>
 
     <ItemGroup>
         <AdditionalFiles Include="$(MSBuildThisFileDirectory)\..\stylecop.json">
             <Link>stylecop.json</Link>
-            <InProject>false</InProject>
-        </AdditionalFiles>
-        <AdditionalFiles Include="$(MSBuildThisFileDirectory)\..\CodeAnalysis.ruleset">
-            <Link>CodeAnalysis.ruleset</Link>
             <InProject>false</InProject>
         </AdditionalFiles>
     </ItemGroup>

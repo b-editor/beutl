@@ -27,7 +27,8 @@ namespace BEditor.Data
         [Obsolete("Obsolete")]
         public EditingPropertySerializer(Action<Utf8JsonWriter, TValue> write, Func<JsonElement, TValue> read)
         {
-            (_write, _read) = (write, (c) => read(c.Element));
+            _write = write;
+            _read = (c) => read(c.Element);
         }
 
         /// <summary>

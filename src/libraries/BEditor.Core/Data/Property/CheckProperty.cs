@@ -48,7 +48,7 @@ namespace BEditor.Data.Property
         }
 
         /// <summary>
-        /// Gets or sets the value of whether the item is checked or not.
+        /// Gets or sets a value indicating whether the item is checked or not.
         /// </summary>
         public bool Value
         {

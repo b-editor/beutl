@@ -140,7 +140,7 @@ namespace BEditor.Views.CustomTitlebars
 
             if (menu.Items is AvaloniaList<object> list)
             {
-                foreach (var (header, items) in PluginManager.Default._menus)
+                foreach (var (header, items) in PluginManager.Default.Menus)
                 {
                     var item = new MenuItem
                     {

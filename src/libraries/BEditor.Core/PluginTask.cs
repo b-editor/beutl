@@ -37,7 +37,7 @@ namespace BEditor
         public string Name { get; }
 
         /// <summary>
-        /// Gets the value of whether the task has been executed.
+        /// Gets a value indicating whether the task has been executed.
         /// </summary>
         public bool IsExecuted { get; private set; }
 

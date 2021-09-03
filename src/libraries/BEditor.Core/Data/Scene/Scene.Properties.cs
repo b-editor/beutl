@@ -69,7 +69,7 @@ namespace BEditor.Data
         public SceneCache Cache { get; private set; }
 
         /// <summary>
-        /// Gets or sets whether to use the cache or not.
+        /// Gets or sets a value indicating whether to use the cache or not.
         /// </summary>
         public bool UseCache
         {

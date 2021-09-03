@@ -30,7 +30,7 @@ namespace BEditor.Drawing
         }
 
         /// <summary>
-        /// Get the number of lines of the target.
+        /// Gets the number of lines of the target.
         /// </summary>
         public int LineNumber { get; }
 

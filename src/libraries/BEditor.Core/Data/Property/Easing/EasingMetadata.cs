@@ -56,17 +56,19 @@ namespace BEditor.Data.Property.Easing
         public static List<EasingMetadata> LoadedEasingFunc { get; } = new();
 
         /// <summary>
-        /// Gets or sets the name of the easing func.
+        /// Gets the name of the easing func.
         /// </summary>
         public string Name { get; init; }
 
+#pragma warning disable SA1623
         /// <summary>
         /// Create a new instance of the <see cref="EasingFunc"/> object.
         /// </summary>
         public Func<EasingFunc>? CreateFunc { get; init; }
+#pragma warning restore SA1623
 
         /// <summary>
-        /// Gets or sets the type of the object that inherits from <see cref="EasingFunc"/>.
+        /// Gets the type of the object that inherits from <see cref="EasingFunc"/>.
         /// </summary>
         public Type? Type { get; init; }
 

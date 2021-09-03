@@ -69,12 +69,12 @@ namespace BEditor.Data
         public Frame Length { get; private set; }
 
         /// <summary>
-        /// Gets whether the color reproduction is reduced.
+        /// Gets a value indicating whether the color reproduction is reduced.
         /// </summary>
         public bool LowColor { get; private set; }
 
         /// <summary>
-        /// Gets whether or not to lower the resolution.
+        /// Gets a value indicating whether or not to lower the resolution.
         /// </summary>
         public bool LowResolution { get; private set; }
 

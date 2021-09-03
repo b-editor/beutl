@@ -42,12 +42,12 @@ namespace BEditor.Data.Property
         }
 
         /// <summary>
-        /// Gets or sets the value.
+        /// Gets the value.
         /// </summary>
         public T Value { get; }
 
         /// <summary>
-        /// Gets or sets the position.
+        /// Gets the position.
         /// </summary>
         public PositionInfo Position { get; }
 
