@@ -184,10 +184,10 @@ namespace BEditor.Views.CustomTitlebars
                 grid.ColumnDefinitions = new("425,Auto,*,Auto,2*");
                 grid.RowDefinitions = new("Auto,Auto,*,Auto,*,Auto");
 
-                foreach (var item in System.IO.Directory.EnumerateFiles(WindowConfig.GetFolder())
-                    .Where(i => System.IO.File.Exists(i)))
+                foreach (var item in Directory.EnumerateFiles(WindowConfig.GetFolder())
+                    .Where(i => File.Exists(i)))
                 {
-                    System.IO.File.Delete(item);
+                    File.Delete(item);
                 }
             }
         }
