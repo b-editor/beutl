@@ -1,14 +1,11 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Threading.Tasks;
 
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
-using Avalonia.Rendering;
 
-using BEditor.Models;
 using BEditor.Packaging;
 using BEditor.Properties;
 using BEditor.ViewModels.ManagePlugins;
@@ -42,7 +39,7 @@ namespace BEditor.Views.ManagePlugins
             _frame.Navigate(typeof(LoadedPlugins));
         }
 
-        private NavigationViewItem? GetNVIFromPageSourceType(IEnumerable items, Type t)
+        private static NavigationViewItem? GetNVIFromPageSourceType(IEnumerable items, Type t)
         {
             foreach (var item in items)
             {
@@ -66,7 +63,7 @@ namespace BEditor.Views.ManagePlugins
             return null;
         }
 
-        private NavigationViewItem? GetSearchItem(IEnumerable items)
+        private static NavigationViewItem? GetSearchItem(IEnumerable items)
         {
             foreach (var item in items)
             {
@@ -125,12 +122,6 @@ namespace BEditor.Views.ManagePlugins
                     Icon = new SymbolIcon { Symbol = Symbol.Library },
                     Tag = typeof(Search)
                 },
-                //new NavigationViewItem
-                //{
-                //    Content = Strings.Library,
-                //    Icon = new SymbolIcon { Symbol = Symbol.Library },
-                //    Tag = typeof(Library)
-                //},
                 new NavigationViewItem
                 {
                     Content = Strings.Changes,

@@ -3,6 +3,7 @@ using System.Linq;
 using System.Reactive.Linq;
 using System.Threading.Tasks;
 
+using BEditor.Models;
 using BEditor.Packaging;
 using BEditor.Properties;
 
@@ -82,6 +83,8 @@ namespace BEditor.ViewModels.ManagePlugins
                     }
                 }
             });
+
+            SignOut.Subscribe(() => AppModel.Current.User = null);
         }
 
         public ReactivePropertySlim<bool> IsLoading { get; } = new(false);
@@ -102,6 +105,8 @@ namespace BEditor.ViewModels.ManagePlugins
         public ReactiveCommand UpdatePassword { get; } = new();
 
         public ReactivePropertySlim<string> ChangePasswordMessage { get; } = new(string.Empty);
+
+        public ReactiveCommand SignOut { get; } = new();
 
         public AuthenticationLink Auth { get; }
     }

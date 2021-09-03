@@ -76,12 +76,14 @@
                 <TextBox
                     Text="{CompiledBinding NewPassword.Value, Mode=TwoWay}"
                     Margin="16,0,16,16"
+                    PasswordChar="*"
                     Watermark="{x:Static props:Strings.NewPassword}"
                     Classes="SettingsTextBox revealPasswordButton" />
 
                 <TextBox
                     Text="{CompiledBinding ConfirmNewPassword.Value, Mode=TwoWay}"
                     Margin="16,0,16,16"
+                    PasswordChar="*"
                     Watermark="{x:Static props:Strings.ConfirmNewPassword}"
                     Classes="SettingsTextBox revealPasswordButton" />
 
@@ -92,7 +94,10 @@
                 </StackPanel>
 
 
-                <Button Content="{x:Static props:Strings.Signout}" Margin="16,0" />
+                <Button
+                    Content="{x:Static props:Strings.Signout}"
+                    Margin="16,0"
+                    Command="{CompiledBinding SignOut, Mode=OneTime}" />
             </StackPanel>
         </ScrollViewer>
     </Grid>
