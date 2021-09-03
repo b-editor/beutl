@@ -1,0 +1,65 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:props="using:BEditor.Properties"
+    xmlns:ui="using:FluentAvalonia.UI.Controls"
+    xmlns:vm="using:BEditor.ViewModels.ManagePlugins"
+    x:DataType="vm:SearchViewModel"
+    mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+    x:Class="BEditor.Views.ManagePlugins.Search">
+    <UserControl.DataContext>
+        <vm:SearchViewModel />
+    </UserControl.DataContext>
+    <Grid RowDefinitions="Auto,*">
+        <Panel>
+            <TextBox
+                Margin="8"
+                Text="{CompiledBinding SearchText.Value, Mode=TwoWay}"
+                Watermark="{x:Static props:Strings.Search}">
+                <TextBox.InnerRightContent>
+                    <ui:PathIcon
+                        Margin="8"
+                        Data="{StaticResource Search16Regular}"
+                        Width="16"
+                        Height="16" />
+                </TextBox.InnerRightContent>
+            </TextBox>
+
+            <ProgressBar
+                Margin="8,0"
+                VerticalAlignment="Top"
+                IsIndeterminate="True"
+                IsVisible="{CompiledBinding IsLoaded.Value, Mode=OneWay}" />
+        </Panel>
+
+        <Panel Grid.Row="1">
+            <ListBox
+                SelectedItem="{CompiledBinding SelectedItem.Value, Mode=TwoWay}"
+                Items="{CompiledBinding Items}">
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <Grid RowDefinitions="Auto,*" Margin="8">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock FontSize="16" Text="{Binding Name}" />
+
+                                <TextBlock
+                                    FontSize="12"
+                                    VerticalAlignment="Center"
+                                    Margin="16,0,0,0"
+                                    Text="{Binding Versions[0].Version}"/>
+                            </StackPanel>
+
+                            <TextBlock
+                                FontSize="12"
+                                Margin="0,10,0,0"
+                                Text="{Binding DescriptionShort}"
+                                Grid.Row="1" />
+                        </Grid>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+        </Panel>
+    </Grid>
+</UserControl>

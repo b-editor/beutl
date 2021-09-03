@@ -1,13 +1,15 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.LogicalTree;
 using Avalonia.Markup.Xaml;
-using Avalonia.Media;
+
+using BEditor.ViewModels.ManagePlugins;
 
 namespace BEditor.Views.ManagePlugins
 {
-    public sealed class Library : UserControl
+    public sealed class PackageView : UserControl
     {
-        public Library()
+        public PackageView()
         {
             InitializeComponent();
         }

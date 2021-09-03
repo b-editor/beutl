@@ -1,0 +1,79 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:props="using:BEditor.Properties"
+    xmlns:ui="using:FluentAvalonia.UI.Controls"
+    xmlns:vm="using:BEditor.ViewModels.ManagePlugins"
+    xmlns:ctrs="using:BEditor.Controls"
+    x:DataType="vm:PackageViewModel"
+    mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+    x:Class="BEditor.Views.ManagePlugins.PackageView">
+    <ScrollViewer>
+        <StackPanel Margin="8" Spacing="8">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+                <StackPanel.Styles>
+                    <Style Selector="Separator">
+                        <Setter Property="Background" Value="{DynamicResource MenuFlyoutSeparatorBackground}" />
+                        <Setter Property="HorizontalAlignment" Value="Stretch" />
+                        <Setter Property="Margin" Value="{DynamicResource MenuFlyoutSeparatorThemePadding}" />
+                        <Setter Property="Height" Value="{DynamicResource MenuFlyoutSeparatorHeight}" />
+                    </Style>
+                </StackPanel.Styles>
+
+                <Button
+                    Classes="accent"
+                    Content="{x:Static props:Strings.Install}"
+                    IsVisible="{CompiledBinding CanInstall.Value, Mode=OneWay}"
+                    Command="{CompiledBinding Install, Mode=OneTime}" />
+
+                <Button
+                    Classes="accent"
+                    Content="{x:Static props:Strings.Update}"
+                    IsVisible="{CompiledBinding CanUpdate.Value, Mode=OneWay}"
+                    Command="{CompiledBinding Update, Mode=OneTime}" />
+
+                <Button
+                    Content="{x:Static props:Strings.Uninstall}"
+                    IsVisible="{CompiledBinding CanUninstall.Value, Mode=OneWay}"
+                    Command="{CompiledBinding Uninstall, Mode=OneTime}" />
+
+                <Button
+                    Content="{x:Static props:Strings.Cancel}"
+                    IsVisible="{CompiledBinding CanCancel.Value, Mode=OneWay}"
+                    Command="{CompiledBinding CancelChange, Mode=OneTime}" />
+                
+                <ComboBox
+                    IsVisible="{CompiledBinding CanSelectVersion.Value, Mode=OneWay}"
+                    Items="{CompiledBinding Package.Value.Versions, Mode=OneWay}"
+                    SelectedItem="{CompiledBinding SelectedVersion.Value, Mode=TwoWay}">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding Version}" />
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+            </StackPanel>
+
+            <TextBlock Text="{CompiledBinding Package.Value.Description}" />
+
+            <TextBlock
+                FontSize="24"
+                Text="{CompiledBinding SelectedVersion.Value.Version, Mode=OneWay}" />
+            
+            <TextBlock Text="{CompiledBinding SelectedVersion.Value.UpdateNote, Mode=OneWay}" />
+            
+            <Separator />
+
+            <TextBlock Text="{Binding Source={x:Static props:Strings.Author}, StringFormat='{}{0}: '}" />
+            <TextBlock Classes="content" Text="{CompiledBinding Package.Value.Author}" />
+
+            <TextBlock Text="{Binding Source={x:Static props:Strings.Tag}, StringFormat='{}{0}: '}" />
+            <TextBlock Classes="content" Text="{CompiledBinding Package.Value.Tag}" />
+
+            <ctrs:HyperLink Text="{x:Static props:Strings.WebSite}" Command="{CompiledBinding OpenHomePage, Mode=OneTime}" />
+
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

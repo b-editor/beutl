@@ -9,7 +9,9 @@ using Avalonia.Markup.Xaml;
 using Avalonia.Rendering;
 
 using BEditor.Models;
+using BEditor.Packaging;
 using BEditor.Properties;
+using BEditor.ViewModels.ManagePlugins;
 
 using FluentAvalonia.Core;
 using FluentAvalonia.UI.Controls;
@@ -64,6 +66,21 @@ namespace BEditor.Views.ManagePlugins
             return null;
         }
 
+        private NavigationViewItem? GetSearchItem(IEnumerable items)
+        {
+            foreach (var item in items)
+            {
+                if (item is NavigationViewItem nvi
+                    && nvi.Tag is Type type
+                    && type == typeof(Search))
+                {
+                    return nvi;
+                }
+            }
+
+            return null;
+        }
+
         private void NavView_BackRequested(object? sender, NavigationViewBackRequestedEventArgs e)
         {
             _frame?.GoBack();
@@ -71,6 +88,18 @@ namespace BEditor.Views.ManagePlugins
 
         private void OnFrameNavigated(object? sender, NavigationEventArgs e)
         {
+            if (e.SourcePageType == typeof(PackageView)
+                && GetSearchItem(_navView.MenuItems) is NavigationViewItem viewItem
+                && _frame.Content is PackageView view
+                && e.Parameter is Package model)
+            {
+                _navView.SelectedItem = viewItem;
+                _navView.AlwaysShowHeader = true;
+                _navView.Header = model.Name;
+                view.DataContext ??= new PackageViewModel(model);
+                return;
+            }
+
             var nvi = GetNVIFromPageSourceType(_navView.MenuItems, e.SourcePageType);
             if (nvi != null)
             {
@@ -92,10 +121,16 @@ namespace BEditor.Views.ManagePlugins
                 },
                 new NavigationViewItem
                 {
-                    Content = Strings.Library,
+                    Content = Strings.Search,
                     Icon = new SymbolIcon { Symbol = Symbol.Library },
-                    Tag = typeof(Library)
+                    Tag = typeof(Search)
                 },
+                //new NavigationViewItem
+                //{
+                //    Content = Strings.Library,
+                //    Icon = new SymbolIcon { Symbol = Symbol.Library },
+                //    Tag = typeof(Library)
+                //},
                 new NavigationViewItem
                 {
                     Content = Strings.Changes,
