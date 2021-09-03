@@ -8,6 +8,10 @@
         <RuntimeIdentifiers>win-x64;linux-x64;osx-x64</RuntimeIdentifiers>
     </PropertyGroup>
 
+    <PropertyGroup Condition="'$(Configuration)'=='Release'">
+        <PublishReadyToRun>true</PublishReadyToRun>
+    </PropertyGroup>
+    
     <ItemGroup>
         <EmbeddedResource Include="Assets\Fonts\*.otf" />
         <AvaloniaResource Include="Assets\**" />

@@ -3,12 +3,13 @@
         <TargetFramework>net5.0</TargetFramework>
         <LangVersion>latest</LangVersion>
         <Authors>b-editor</Authors>
-        <Version>0.1.4</Version>
+        <Version>0.2.0</Version>
         <Nullable>enable</Nullable>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
         <Deterministic>true</Deterministic>
         <NeutralLanguage>en-US</NeutralLanguage>
         <PackageIcon>icon.png</PackageIcon>
+        <Optimize>true</Optimize>
     </PropertyGroup>
 
     <PropertyGroup Condition="'$(Configuration)'=='Debug'">

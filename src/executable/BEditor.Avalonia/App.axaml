@@ -109,7 +109,7 @@
         <Style Selector="TextBox.NumberBoxTextBoxStyle">
             <Setter Property="Foreground" Value="{DynamicResource TextControlForeground}" />
         </Style>
-        
+
         <Style Selector="ContextMenu">
 
             <Style.Resources>
