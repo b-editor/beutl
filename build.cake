@@ -23,7 +23,8 @@ void Publish(string rid)
         SelfContained = true,
         Runtime = rid == "linux-x64" ? "ubuntu.18.04-x64" : rid,
         Framework = "net5.0",
-        OutputDirectory = binaryPath
+        OutputDirectory = binaryPath,
+        PublishReadyToRun = rid == "win-x64",
     });
 
     Zip(binaryPath, publishDir.CombineWithFilePath($"beditor_{rid}.zip"));
