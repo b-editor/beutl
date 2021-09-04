@@ -14,6 +14,9 @@ using BEditor.Data;
 using BEditor.Extensions;
 using BEditor.Models.Authentication;
 using BEditor.Packaging;
+using BEditor.ViewModels.Dialogs;
+using BEditor.Views;
+using BEditor.Views.Dialogs;
 
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -36,6 +39,44 @@ namespace BEditor.Models
         private bool _isplaying = true;
         private IServiceProvider _serviceProvider;
         private AuthenticationLink _user;
+        private readonly Navigatable[] _navigatables =
+        {
+            // 設定
+            new Navigatable("settings", async _ => await new SettingsWindow().ShowDialog(App.GetMainWindow())),
+            new Navigatable("settings/appearance", async _ => await new SettingsWindow().Navigate(typeof(Views.Settings.Appearance)).ShowDialog(App.GetMainWindow())),
+            new Navigatable("settings/fonts", async _ => await new SettingsWindow().Navigate(typeof(Views.Settings.Fonts)).ShowDialog(App.GetMainWindow())),
+            new Navigatable("settings/project", async _ => await new SettingsWindow().Navigate(typeof(Views.Settings.Project)).ShowDialog(App.GetMainWindow())),
+            new Navigatable("settings/package-source", async _ => await new SettingsWindow().Navigate(typeof(Views.Settings.PackageSource)).ShowDialog(App.GetMainWindow())),
+            new Navigatable("settings/key-bindings", async _ => await new SettingsWindow().Navigate(typeof(Views.Settings.KeyBindings)).ShowDialog(App.GetMainWindow())),
+            new Navigatable("settings/license", async _ => await new SettingsWindow().Navigate(typeof(Views.Settings.License)).ShowDialog(App.GetMainWindow())),
+
+            // プラグインを管理
+            new Navigatable("manage-plugin", async _ => await new Views.ManagePlugins.ManagePluginsWindow().ShowDialog(App.GetMainWindow())),
+            new Navigatable("manage-plugin/installed", async _ => await new Views.ManagePlugins.ManagePluginsWindow()
+                .Navigate(typeof(Views.ManagePlugins.LoadedPlugins), null)
+                .ShowDialog(App.GetMainWindow())),
+            new Navigatable("manage-plugin/search", async pre => await new Views.ManagePlugins.ManagePluginsWindow()
+                .Navigate(typeof(Views.ManagePlugins.Search), pre)
+                .ShowDialog(App.GetMainWindow())),
+            new Navigatable("manage-plugin/changes", async _ => await new Views.ManagePlugins.ManagePluginsWindow()
+                .Navigate(typeof(Views.ManagePlugins.ScheduleChanges), null)
+                .ShowDialog(App.GetMainWindow())),
+            new Navigatable("manage-plugin/update", async _ => await new Views.ManagePlugins.ManagePluginsWindow()
+                .Navigate(typeof(Views.ManagePlugins.Update), null)
+                .ShowDialog(App.GetMainWindow())),
+            new Navigatable("manage-plugin/create-package", async _ => await new Views.ManagePlugins.ManagePluginsWindow()
+                .Navigate(typeof(Views.ManagePlugins.CreatePluginPackage), null)
+                .ShowDialog(App.GetMainWindow())),
+
+            // プロジェクトを作成
+            new Navigatable("new-project", async _ =>
+            {
+                var viewmodel = new CreateProjectViewModel();
+                var dialog = new CreateProject { DataContext = viewmodel };
+
+                await dialog.ShowDialog(App.GetMainWindow());
+            }),
+        };
 
         private AppModel()
         {
@@ -263,5 +304,20 @@ namespace BEditor.Models
                 }
             }
         }
+
+        public void Navigate(Uri uri, object parameter = null)
+        {
+            if (uri.Scheme == "beditor")
+            {
+                var abs = uri.AbsoluteUri.Remove(0, 10).TrimEnd('/');
+                var item = Array.Find(_navigatables, i => i.Uri == abs);
+                if (item != null)
+                {
+                    item.Execute.Invoke(parameter);
+                }
+            }
+        }
     }
+
+    public record Navigatable(string Uri, Action<object> Execute);
 }

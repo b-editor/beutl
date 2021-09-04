@@ -37,6 +37,12 @@ namespace BEditor.Views
             _frame.Navigate(typeof(Settings.Appearance));
         }
 
+        public SettingsWindow Navigate(Type type)
+        {
+            _frame.Navigate(type, null);
+            return this;
+        }
+
         private NavigationViewItem? GetNVIFromPageSourceType(IEnumerable items, Type t)
         {
             foreach (var item in items)
