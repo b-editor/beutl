@@ -188,7 +188,13 @@ namespace BEditor.Primitive.Objects
                     }
                     catch (DecoderNotFoundException e)
                     {
-                        mes?.Snackbar(Strings.DecoderNotFound, string.Empty, IMessage.IconType.Warning);
+                        mes?.Snackbar(
+                            Strings.DecoderNotFound,
+                            string.Empty,
+                            IMessage.IconType.Warning,
+                            actionName: Strings.SearchForDecoder,
+                            action: _ => this.GetParent<IApplication>()?.Navigate("beditor://manage-plugin/search", "decoder decoding"));
+
                         ServicesLocator.Current.Logger?.LogError(e, Strings.DecoderNotFound);
                     }
                     catch (Exception ex)

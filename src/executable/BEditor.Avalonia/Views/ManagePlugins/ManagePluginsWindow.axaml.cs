@@ -39,6 +39,12 @@ namespace BEditor.Views.ManagePlugins
             _frame.Navigate(typeof(LoadedPlugins));
         }
 
+        public ManagePluginsWindow Navigate(Type type, object? parameter)
+        {
+            _frame.Navigate(type, parameter);
+            return this;
+        }
+
         private static NavigationViewItem? GetNVIFromPageSourceType(IEnumerable items, Type t)
         {
             foreach (var item in items)
@@ -85,6 +91,7 @@ namespace BEditor.Views.ManagePlugins
 
         private void OnFrameNavigated(object? sender, NavigationEventArgs e)
         {
+            // 検索/任意のパッケージ
             if (e.SourcePageType == typeof(PackageView)
                 && GetSearchItem(_navView.MenuItems) is NavigationViewItem viewItem
                 && _frame.Content is PackageView view
@@ -94,6 +101,21 @@ namespace BEditor.Views.ManagePlugins
                 _navView.AlwaysShowHeader = true;
                 _navView.Header = model.Name;
                 view.DataContext ??= new PackageViewModel(model);
+                return;
+            }
+
+            // 検索
+            if (e.SourcePageType == typeof(Search)
+                && GetSearchItem(_navView.MenuItems) is NavigationViewItem viewItem2
+                && _frame.Content is Search view2
+                && view2.DataContext is SearchViewModel viewModel
+                && e.Parameter is string pre)
+            {
+                _navView.SelectedItem = viewItem2;
+                _navView.AlwaysShowHeader = false;
+                _navView.Header = viewItem2.Content;
+
+                viewModel.SearchText.Value = pre;
                 return;
             }
 
