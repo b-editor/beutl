@@ -3555,863 +3555,868 @@
         </member>
         <member name="T:BEditor.Primitive.Resources.Strings">
             <summary>
-              A strongly-typed resource class, for looking up localized strings, etc.
+              ローカライズされた文字列などを検索するための、厳密に型指定されたリソース クラスです。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.ResourceManager">
             <summary>
-              Returns the cached ResourceManager instance used by this class.
+              このクラスで使用されているキャッシュされた ResourceManager インスタンスを返します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Culture">
             <summary>
-              Overrides the current thread's CurrentUICulture property for all
-              resource lookups using this strongly typed resource class.
+              すべてについて、現在のスレッドの CurrentUICulture プロパティをオーバーライドします
+              現在のスレッドの CurrentUICulture プロパティをオーバーライドします。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.AdjustCoordinates">
             <summary>
-              Looks up a localized string similar to Adjust coordinates.
+              Adjust coordinates に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Alignment">
             <summary>
-              Looks up a localized string similar to Alignment.
+              Alignment に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.AlignToBaseline">
             <summary>
-              Looks up a localized string similar to Align to baseline.
+              Align to baseline に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Anchors">
             <summary>
-              Looks up a localized string similar to Anchors.
+              Anchors に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Angle">
             <summary>
-              Looks up a localized string similar to Angle.
+              Angle に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.ApplyLookupTable">
             <summary>
-              Looks up a localized string similar to Apply Lookup table.
+              Apply Lookup table に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.AreaExpansion">
             <summary>
-              Looks up a localized string similar to Area expansion.
+              Area expansion に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.AttenuationRate">
             <summary>
-              Looks up a localized string similar to Attenuation rate.
+              Attenuation rate に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Audio">
             <summary>
-              Looks up a localized string similar to Audio.
+              Audio に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.AudioEffect">
             <summary>
-              Looks up a localized string similar to Audio effect.
+              Audio effect に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.AudioFile">
             <summary>
-              Looks up a localized string similar to Audio file.
+              Audio file に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Ball">
             <summary>
-              Looks up a localized string similar to Ball.
+              Ball に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Bevel">
             <summary>
-              Looks up a localized string similar to Beval.
+              Beval に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Binarization">
             <summary>
-              Looks up a localized string similar to Binarization.
+              Binarization に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Blue">
             <summary>
-              Looks up a localized string similar to Blue.
+              Blue に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Blur">
             <summary>
-              Looks up a localized string similar to Blur.
+              Blur に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.BlurBorderOfTransparency">
             <summary>
-              Looks up a localized string similar to Blurs the borders of transparency.
+              Blurs the borders of transparency に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Border">
             <summary>
-              Looks up a localized string similar to Border.
+              Border に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Bottom">
             <summary>
-              Looks up a localized string similar to Bottom.
+              Bottom に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.BottomLeft">
             <summary>
-              Looks up a localized string similar to Lower left.
+              Lower left に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.BottomRight">
             <summary>
-              Looks up a localized string similar to Lower right.
+              Lower right に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Brightness">
             <summary>
-              Looks up a localized string similar to Brightness.
+              Brightness に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.BrightnessCorrection">
             <summary>
-              Looks up a localized string similar to Brightness correction.
+              Brightness correction に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Camera">
             <summary>
-              Looks up a localized string similar to Camera.
+              Camera に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Center">
             <summary>
-              Looks up a localized string similar to Center.
+              Center に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.CenterX">
             <summary>
-              Looks up a localized string similar to Center x.
+              Center x に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.CenterY">
             <summary>
-              Looks up a localized string similar to Center y.
+              Center y に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.CharacterSpacing">
             <summary>
-              Looks up a localized string similar to Character spacing.
+              Character spacing に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.ChromaKey">
             <summary>
-              Looks up a localized string similar to Chroma key.
+              Chroma key に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.CircularGradient">
             <summary>
-              Looks up a localized string similar to Circular gradient.
+              Circular gradient に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Clamp">
             <summary>
-              Looks up a localized string similar to Clamp.
+              Clamp に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.ClearFramebuffer">
             <summary>
-              Looks up a localized string similar to Clear the frame buffer.
+              Clear the frame buffer に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Clipping">
             <summary>
-              Looks up a localized string similar to Clipping.
+              Clipping に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Color">
             <summary>
-              Looks up a localized string similar to Color.
+              Color に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.ColorDifferenceRange">
             <summary>
-              Looks up a localized string similar to Color difference range.
+              Color difference range に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.ColorKey">
             <summary>
-              Looks up a localized string similar to Color key.
+              Color key に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Colors">
             <summary>
-              Looks up a localized string similar to Colors.
+              Colors に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Contrast">
             <summary>
-              Looks up a localized string similar to Contrast.
+              Contrast に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.ContrastCorrection">
             <summary>
-              Looks up a localized string similar to Contrast correction.
+              Contrast correction に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Coordinate">
             <summary>
-              Looks up a localized string similar to Coordinate.
+              Coordinate に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Cube">
             <summary>
-              Looks up a localized string similar to Cube.
+              Cube に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.CubeFile">
             <summary>
-              Looks up a localized string similar to Cube file.
+              Cube file に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Cycle">
             <summary>
-              Looks up a localized string similar to Cycle.
+              Cycle に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Decal">
             <summary>
-              Looks up a localized string similar to Decal.
+              Decal に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.DecoderNotFound">
             <summary>
-              Looks up a localized string similar to Decoder not found..
+              Decoder not found. に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Delay">
             <summary>
-              Looks up a localized string similar to Delay.
+              Delay に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.DelayTime">
             <summary>
-              Looks up a localized string similar to Delay time.
+              Delay time に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Depth">
             <summary>
-              Looks up a localized string similar to Depth.
+              Depth に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.DepthFunction">
             <summary>
-              Looks up a localized string similar to Depth function.
+              Depth function に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.DepthTest">
             <summary>
-              Looks up a localized string similar to Depth test.
+              Depth test に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.DepthTestEnable">
             <summary>
-              Looks up a localized string similar to Enable Depth Testing.
+              Enable Depth Testing に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Diffusion">
             <summary>
-              Looks up a localized string similar to Diffusion.
+              Diffusion に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Dilate">
             <summary>
-              Looks up a localized string similar to Dilate.
+              Dilate に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.DoNotInvertMask">
             <summary>
-              Looks up a localized string similar to Do not invert the mask.
+              Do not invert the mask に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.DropShadow">
             <summary>
-              Looks up a localized string similar to Drop shadow.
+              Drop shadow に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.EdgeBlur">
             <summary>
-              Looks up a localized string similar to Edge blur.
+              Edge blur に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Ellipse">
             <summary>
-              Looks up a localized string similar to Ellipse.
+              Ellipse に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.EnableMultipleObjects">
             <summary>
-              Looks up a localized string similar to Enable multiple objects.
+              Enable multiple objects に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.EnableStroke">
             <summary>
-              Looks up a localized string similar to Enable stroke.
+              Enable stroke に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.EndPoint">
             <summary>
-              Looks up a localized string similar to End point.
+              End point に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Erode">
             <summary>
-              Looks up a localized string similar to Erode.
+              Erode に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.FailedToLoad">
             <summary>
-              Looks up a localized string similar to {0} failed to load..
+              {0} failed to load. に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.File">
             <summary>
-              Looks up a localized string similar to File.
+              File に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.FitToOriginalSize">
             <summary>
-              Looks up a localized string similar to Fit to original size.
+              Fit to original size に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.FixSize">
             <summary>
-              Looks up a localized string similar to Fix the size.
+              Fix the size に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.FlatShadow">
             <summary>
-              Looks up a localized string similar to Flat Shadow.
+              Flat Shadow に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Fov">
             <summary>
-              Looks up a localized string similar to viewing angle.
+              viewing angle に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Fractal">
             <summary>
-              Looks up a localized string similar to Fractal.
+              Fractal に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Framebuffer">
             <summary>
-              Looks up a localized string similar to Framebuffer.
+              Framebuffer に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Frequency">
             <summary>
-              Looks up a localized string similar to Frequency.
+              Frequency に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.FrequencyX">
             <summary>
-              Looks up a localized string similar to Frequency X.
+              Frequency X に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.FrequencyY">
             <summary>
-              Looks up a localized string similar to Frequency Y.
+              Frequency Y に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Gamma">
             <summary>
-              Looks up a localized string similar to Gamma.
+              Gamma に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.GammaCorrection">
             <summary>
-              Looks up a localized string similar to Gamma correction.
+              Gamma correction に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.GaussianBlur">
             <summary>
-              Looks up a localized string similar to Gaussian blur.
+              Gaussian blur に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.GL3DObject">
             <summary>
-              Looks up a localized string similar to 3D object.
+              3D object に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Grayscale">
             <summary>
-              Looks up a localized string similar to Grayscale.
+              Grayscale に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Green">
             <summary>
-              Looks up a localized string similar to Green.
+              Green に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Height">
             <summary>
-              Looks up a localized string similar to Height.
+              Height に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.HorizontalAlignment">
             <summary>
-              Looks up a localized string similar to Horizontal alignment.
+              Horizontal alignment に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.HueRange">
             <summary>
-              Looks up a localized string similar to Hue range.
+              Hue range に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Image">
             <summary>
-              Looks up a localized string similar to Image.
+              Image に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.ImageEffects">
             <summary>
-              Looks up a localized string similar to Image effects.
+              Image effects に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.ImageFile">
             <summary>
-              Looks up a localized string similar to Image file.
+              Image file に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.ImageSplit">
             <summary>
-              Looks up a localized string similar to Image splitting.
+              Image splitting に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.InnerShadow">
             <summary>
-              Looks up a localized string similar to Inner Shadow.
+              Inner Shadow に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.InvertMask">
             <summary>
-              Looks up a localized string similar to Invert Mask.
+              Invert Mask に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.JoinType">
             <summary>
-              Looks up a localized string similar to Join type.
+              Join type に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.KernelHeight">
             <summary>
-              Looks up a localized string similar to Kernel height.
+              Kernel height に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.KernelWidth">
             <summary>
-              Looks up a localized string similar to Kernel width.
+              Kernel width に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Left">
             <summary>
-              Looks up a localized string similar to Left.
+              Left に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Length">
             <summary>
-              Looks up a localized string similar to Length.
+              Length に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.LinearGradient">
             <summary>
-              Looks up a localized string similar to Liear gradient.
+              Liear gradient に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.LineSpacing">
             <summary>
-              Looks up a localized string similar to Line spacing.
+              Line spacing に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.LineWidth">
             <summary>
-              Looks up a localized string similar to line width.
+              line width に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Listener">
             <summary>
-              Looks up a localized string similar to Listener.
+              Listener に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.LookupTable">
             <summary>
-              Looks up a localized string similar to Lookup table.
+              Lookup table に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Mask">
             <summary>
-              Looks up a localized string similar to Mask.
+              Mask に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.MaskType">
             <summary>
-              Looks up a localized string similar to Mask type.
+              Mask type に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.MedianBlur">
             <summary>
-              Looks up a localized string similar to Median blur.
+              Median blur に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Mirror">
             <summary>
-              Looks up a localized string similar to Mirror.
+              Mirror に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.MiterLimit">
             <summary>
-              Looks up a localized string similar to Miter limit.
+              Miter limit に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Mode">
             <summary>
-              Looks up a localized string similar to Mode.
+              Mode に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Monoc">
             <summary>
-              Looks up a localized string similar to Monochromatic.
+              Monochromatic に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.MultipleImageControls">
             <summary>
-              Looks up a localized string similar to Multiple Image Control.
+              Multiple Image Control に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Negaposi">
             <summary>
-              Looks up a localized string similar to Negaposi.
+              Negaposi に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Noise">
             <summary>
-              Looks up a localized string similar to Noise.
+              Noise に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.NumberOfHorizontalDivisions">
             <summary>
-              Looks up a localized string similar to Number of horizontal divisions.
+              Number of horizontal divisions に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.NumberOfOctaves">
             <summary>
-              Looks up a localized string similar to Number of octaves.
+              Number of octaves に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.NumberOfRepetitions">
             <summary>
-              Looks up a localized string similar to Number of repetitions.
+              Number of repetitions に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.NumberOfVerticalDivisions">
             <summary>
-              Looks up a localized string similar to Number of vertical divisions.
+              Number of vertical divisions に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Opacity">
             <summary>
-              Looks up a localized string similar to Opacity.
+              Opacity に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.PartsDisassembly">
             <summary>
-              Looks up a localized string similar to Parts disassembly.
+              Parts disassembly に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.PathToImageObject">
             <summary>
-              Looks up a localized string similar to Path to the image object.
+              Path to the image object に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Perspective">
             <summary>
-              Looks up a localized string similar to Perspective.
+              Perspective に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Pitch">
             <summary>
-              Looks up a localized string similar to Pitch.
+              Pitch に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.PointLightDiffuse">
             <summary>
-              Looks up a localized string similar to Point light diffuse.
+              Point light diffuse に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.PointLightSource">
             <summary>
-              Looks up a localized string similar to Point light source.
+              Point light source に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Polygon">
             <summary>
-              Looks up a localized string similar to Polygon.
+              Polygon に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Radius">
             <summary>
-              Looks up a localized string similar to Radius.
+              Radius に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Rectangle">
             <summary>
-              Looks up a localized string similar to Rectangle.
+              Rectangle に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Red">
             <summary>
-              Looks up a localized string similar to Red.
+              Red に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Repeat">
             <summary>
-              Looks up a localized string similar to Repeat.
+              Repeat に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Resize">
             <summary>
-              Looks up a localized string similar to Resize.
+              Resize に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.ReverseOpacity">
             <summary>
-              Looks up a localized string similar to Reverse opacity.
+              Reverse opacity に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.RGBColorCorrection">
             <summary>
-              Looks up a localized string similar to RGB correction.
+              RGB correction に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Right">
             <summary>
-              Looks up a localized string similar to Right.
+              Right に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Rotate">
             <summary>
-              Looks up a localized string similar to Rotate.
+              Rotate に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Round">
             <summary>
-              Looks up a localized string similar to Round.
+              Round に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.RoundRect">
             <summary>
-              Looks up a localized string similar to Round rect.
+              Round rect に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.SaturationRange">
             <summary>
-              Looks up a localized string similar to Saturation range.
+              Saturation range に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Scene">
             <summary>
-              Looks up a localized string similar to Scene.
+              Scene に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Scenes">
             <summary>
-              Looks up a localized string similar to Scenes.
+              Scenes に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.SearchForDecoder">
+            <summary>
+              Search for the decoder に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Sepia">
             <summary>
-              Looks up a localized string similar to Sepia.
+              Sepia に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.SetAlignment">
             <summary>
-              Looks up a localized string similar to Set alignment.
+              Set alignment に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Shape">
             <summary>
-              Looks up a localized string similar to Shape.
+              Shape に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Sharp">
             <summary>
-              Looks up a localized string similar to Sharp.
+              Sharp に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.SigmaX">
             <summary>
-              Looks up a localized string similar to Sigma x.
+              Sigma x に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.SigmaY">
             <summary>
-              Looks up a localized string similar to Sigma y.
+              Sigma y に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Size">
             <summary>
-              Looks up a localized string similar to Size.
+              Size に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Solarisation">
             <summary>
-              Looks up a localized string similar to Solarisation.
+              Solarisation に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Speed">
             <summary>
-              Looks up a localized string similar to Speed.
+              Speed に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Start">
             <summary>
-              Looks up a localized string similar to Start.
+              Start に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.StartPoint">
             <summary>
-              Looks up a localized string similar to Start point.
+              Start point に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Strength">
             <summary>
-              Looks up a localized string similar to Strength.
+              Strength に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Stroke">
             <summary>
-              Looks up a localized string similar to Stroke.
+              Stroke に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.TargetX">
             <summary>
-              Looks up a localized string similar to Target x.
+              Target x に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.TargetY">
             <summary>
-              Looks up a localized string similar to Target y.
+              Target y に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.TargetZ">
             <summary>
-              Looks up a localized string similar to Target z.
+              Target z に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Text">
             <summary>
-              Looks up a localized string similar to Text.
+              Text に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.ThresholdValue">
             <summary>
-              Looks up a localized string similar to Threshold value.
+              Threshold value に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Top">
             <summary>
-              Looks up a localized string similar to Top.
+              Top に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.TopLeft">
             <summary>
-              Looks up a localized string similar to Upper left.
+              Upper left に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.TopRight">
             <summary>
-              Looks up a localized string similar to Upper right.
+              Upper right に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Turbulence">
             <summary>
-              Looks up a localized string similar to Turbulence.
+              Turbulence に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Type">
             <summary>
-              Looks up a localized string similar to Type.
+              Type に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Unspecified">
             <summary>
-              Looks up a localized string similar to Unspecified.
+              Unspecified に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.VerticalAlignment">
             <summary>
-              Looks up a localized string similar to Vertical alignment.
+              Vertical alignment に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Video">
             <summary>
-              Looks up a localized string similar to Video.
+              Video に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.VideoFile">
             <summary>
-              Looks up a localized string similar to Video file.
+              Video file に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Volume">
             <summary>
-              Looks up a localized string similar to Volume.
+              Volume に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.WarpPolar">
             <summary>
-              Looks up a localized string similar to Warp Polar.
+              Warp Polar に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Width">
             <summary>
-              Looks up a localized string similar to Width.
+              Width に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.X">
             <summary>
-              Looks up a localized string similar to X.
+              X に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Xor">
             <summary>
-              Looks up a localized string similar to Xor.
+              Xor に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Y">
             <summary>
-              Looks up a localized string similar to Y.
+              Y に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Z">
             <summary>
-              Looks up a localized string similar to Z.
+              Z に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.ZFar">
             <summary>
-              Looks up a localized string similar to ZFar.
+              ZFar に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.ZNear">
             <summary>
-              Looks up a localized string similar to ZNear.
+              ZNear に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
     </members>

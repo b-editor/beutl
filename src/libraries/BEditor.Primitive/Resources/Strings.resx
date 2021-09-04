@@ -748,4 +748,7 @@
   <data name="Turbulence" xml:space="preserve">
     <value>Turbulence</value>
   </data>
+  <data name="SearchForDecoder" xml:space="preserve">
+    <value>Search for the decoder</value>
+  </data>
 </root>
