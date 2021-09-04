@@ -1,4 +1,6 @@
 ﻿using System;
+using System.ComponentModel;
+using System.IO;
 
 using BEditor.Data;
 using BEditor.Plugin;
@@ -9,6 +11,8 @@ namespace BEditor.Extensions.MotionTrack
 {
     public sealed class Plugin : PluginObject
     {
+        private SettingRecord? settings;
+
         public Plugin(PluginConfig config) : base(config)
         {
         }
@@ -17,7 +21,11 @@ namespace BEditor.Extensions.MotionTrack
 
         public override string Description => "";
 
-        public override SettingRecord Settings { get; set; } = new();
+        public override SettingRecord Settings
+        {
+            get => settings ??= SettingRecord.LoadFrom<CustomSettings>(Path.Combine(BaseDirectory, "settings.json")) ?? new CustomSettings(Algorithm.KCF);
+            set => (settings = value).Save(Path.Combine(BaseDirectory, "settings.json"));
+        }
 
         public override Guid Id { get; } = Guid.Parse("92B488ED-F31A-4F90-A645-021C9BC99C48");
 
@@ -49,5 +57,16 @@ namespace BEditor.Extensions.MotionTrack
                 })
                 .Register();
         }
+    }
+
+    public record CustomSettings(
+        [property: DisplayName("アルゴリズム")]
+        Algorithm Algorithm) : SettingRecord;
+
+    public enum Algorithm
+    {
+        MIL,
+        KCF,
+        CSRT,
     }
 }

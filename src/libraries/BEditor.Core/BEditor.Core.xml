@@ -5039,6 +5039,13 @@
             <param name="pluginName">The name of the plugin to load.</param>
             <exception cref="T:System.AggregateException">Plugin failded to load.</exception>
         </member>
+        <member name="M:BEditor.Plugin.PluginManager.Get``1">
+            <summary>
+            Gets the plugin of the specified type.
+            </summary>
+            <typeparam name="T">The type of plugin.</typeparam>
+            <returns>Returns the plugin.</returns>
+        </member>
         <member name="T:BEditor.Plugin.PluginObject">
             <summary>
             Represents a plug-in that extends the functionality of the application.
