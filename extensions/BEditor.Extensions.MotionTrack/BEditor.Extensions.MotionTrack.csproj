@@ -1,0 +1,15 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <Import Project="..\..\props\plugin.props" />
+
+    <PropertyGroup>
+        <Company>b-editor</Company>
+        <Copyright>MIT License</Copyright>
+        <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\src\libraries\BEditor.Core\BEditor.Core.csproj" />
+    </ItemGroup>
+
+</Project>
