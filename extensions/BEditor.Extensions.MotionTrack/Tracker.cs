@@ -5,6 +5,7 @@ using BEditor.Data;
 using BEditor.Data.Property;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
+using BEditor.Extensions.MotionTrack.Resources;
 using BEditor.Plugin;
 
 using Microsoft.Extensions.DependencyInjection;
@@ -18,12 +19,12 @@ namespace BEditor.Extensions.MotionTrack
         public static readonly EditingProperty<ButtonComponent> CropProperty
             = EditingProperty.Register<ButtonComponent, Tracker>(
                 nameof(Crop),
-                EditingPropertyOptions<ButtonComponent>.Create(new ButtonComponentMetadata("範囲を選択")).Serialize());
+                EditingPropertyOptions<ButtonComponent>.Create(new ButtonComponentMetadata(Strings.Crop)).Serialize());
 
         public static readonly EditingProperty<ValueProperty> TargetIdProperty
             = EditingProperty.Register<ValueProperty, Tracker>(
                 nameof(TargetId),
-                EditingPropertyOptions<ValueProperty>.Create(new ValuePropertyMetadata("ID", 0, Min: 0)).Serialize());
+                EditingPropertyOptions<ValueProperty>.Create(new ValuePropertyMetadata(Strings.ID, 0, Min: 0)).Serialize());
 
         public static readonly EditingProperty<string?> FileProperty
             = EditingProperty.Register<string?, Tracker>(
@@ -46,7 +47,7 @@ namespace BEditor.Extensions.MotionTrack
             _trackingService = ServicesLocator.Current.Provider.GetRequiredService<TrackingService>();
         }
 
-        public override string Name => "トラッカー";
+        public override string Name => Strings.Tracker;
 
         public ButtonComponent Crop => GetValue(CropProperty);
 

@@ -10,6 +10,7 @@ using BEditor.Data.Primitive;
 using BEditor.Data.Property;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
+using BEditor.Extensions.MotionTrack.Resources;
 using BEditor.Graphics;
 
 using Microsoft.Extensions.DependencyInjection;
@@ -21,7 +22,7 @@ namespace BEditor.Extensions.MotionTrack
         public static readonly EditingProperty<ValueProperty> TargetIdProperty
             = EditingProperty.Register<ValueProperty, Linker>(
                 nameof(TargetId),
-                EditingPropertyOptions<ValueProperty>.Create(new ValuePropertyMetadata("ID", 0)).Serialize());
+                EditingPropertyOptions<ValueProperty>.Create(new ValuePropertyMetadata(Strings.ID, 0)).Serialize());
 
         private TrackingService _trackingService;
 
@@ -30,7 +31,7 @@ namespace BEditor.Extensions.MotionTrack
             _trackingService = ServicesLocator.Current.Provider.GetRequiredService<TrackingService>();
         }
 
-        public override string Name => "リンカー";
+        public override string Name => Strings.Linker;
 
         public ValueProperty TargetId => GetValue(TargetIdProperty);
 

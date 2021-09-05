@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.IO;
 
 using BEditor.Data;
+using BEditor.Extensions.MotionTrack.Resources;
 using BEditor.Plugin;
 
 using Microsoft.Extensions.DependencyInjection;
@@ -19,7 +20,7 @@ namespace BEditor.Extensions.MotionTrack
 
         public override string PluginName => "BEditor.Extensions.MotionTrack";
 
-        public override string Description => "";
+        public override string Description => Strings.PluginDescription;
 
         public override SettingRecord Settings
         {
@@ -32,18 +33,18 @@ namespace BEditor.Extensions.MotionTrack
         public static void Register()
         {
             PluginBuilder.Configure<Plugin>()
-                .With(new EffectMetadata("モーショントラッキング")
+                .With(new EffectMetadata(Strings.MotionTracking)
                 {
                     Children = new EffectMetadata[]
                     {
-                        EffectMetadata.Create<Linker>("リンカー"),
+                        EffectMetadata.Create<Linker>(Strings.Linker),
                     },
                 })
-                .With(ObjectMetadata.Create<Tracker>("トラッカー"))
+                .With(ObjectMetadata.Create<Tracker>(Strings.Tracker))
                 .ConfigureServices(s => s.AddSingleton<TrackingService>())
                 .SetCustomMenu("BEditor.Extensions.MotionTrack", new ICustomMenu[]
                 {
-                    new CustomMenu("メモリ解放", () =>
+                    new CustomMenu(Strings.ReleaseMemory, () =>
                     {
                         var service = ServicesLocator.Current.Provider.GetService<TrackingService>();
                         if (service != null)
