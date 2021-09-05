@@ -59,7 +59,7 @@ namespace BEditor.Packaging
             "System.Reactive",
             "Vortice.Multimedia",
             "Vortice.XAudio2",
-            "opencv_videoio_ffmpeg452",
+            "opencv_videoio_ffmpeg453",
         };
 
         /// <summary>
