@@ -21,15 +21,31 @@ namespace BEditor.ViewModels.ManagePlugins
     {
         private readonly HttpClient _client;
         private readonly List<PackageSource> _packageSources = new();
+        private readonly Task _loadTask;
         private Package[]? _loadedItems;
 
         public SearchViewModel()
         {
             _client = AppModel.Current.ServiceProvider.GetRequiredService<HttpClient>();
 
-            SearchText.Subscribe(str =>
+            _loadTask = Task.Run(async () =>
             {
-                if (_loadedItems == null)
+                foreach (var item in Setting.Default.PackageSources)
+                {
+                    var repos = await item.ToRepositoryAsync(_client).ConfigureAwait(false);
+                    if (repos is null) continue;
+                    _packageSources.Add(repos);
+                }
+
+                _loadedItems = _packageSources.SelectMany(i => i.Packages).ToArray();
+                ReloadItems();
+                IsLoaded.Value = false;
+            });
+
+            SearchText.Subscribe(async str =>
+            {
+                await _loadTask;
+                if (_loadedItems == null || str != SearchText.Value)
                     return;
 
                 if (string.IsNullOrWhiteSpace(str))
@@ -54,20 +70,6 @@ namespace BEditor.ViewModels.ManagePlugins
 
                 await Navigate.ExecuteAsync(i).ConfigureAwait(false);
                 SelectedItem.Value = null;
-            });
-
-            Task.Run(async () =>
-            {
-                foreach (var item in Setting.Default.PackageSources)
-                {
-                    var repos = await item.ToRepositoryAsync(_client).ConfigureAwait(false);
-                    if (repos is null) continue;
-                    _packageSources.Add(repos);
-                }
-
-                _loadedItems = _packageSources.SelectMany(i => i.Packages).ToArray();
-                ReloadItems();
-                IsLoaded.Value = false;
             });
         }
 

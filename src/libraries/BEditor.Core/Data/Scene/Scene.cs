@@ -36,7 +36,7 @@ namespace BEditor.Data
         private ClipElement? _selectItem;
         private Frame _previewframe;
         private Frame _totalframe = 1000;
-        private float _timeLineScale = 150;
+        private float _timeLineScale = 0.75F;
         private double _timeLineHorizonOffset;
         private double _timeLineVerticalOffset;
         private string _sceneName = string.Empty;
