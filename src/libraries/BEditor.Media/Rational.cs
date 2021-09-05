@@ -54,6 +54,24 @@ namespace BEditor.Media
         public int Denominator { get; }
 
         /// <summary>
+        /// Converts the <see cref="Rational"/> to a <see cref="double"/>.
+        /// </summary>
+        /// <param name="value">A value.</param>
+        public static implicit operator double(Rational value)
+        {
+            return value.Numerator / (double)value.Denominator;
+        }
+
+        /// <summary>
+        /// Converts the <see cref="Rational"/> to a <see cref="float"/>.
+        /// </summary>
+        /// <param name="value">A value.</param>
+        public static implicit operator float(Rational value)
+        {
+            return value.Numerator / (float)value.Denominator;
+        }
+
+        /// <summary>
         /// Returns a new <see cref="Rational"/> object whose value is the result of multiplying the specified <see cref="Rational"/> instance and the specified factor.
         /// </summary>
         /// <param name="left">The value to be multiplied.</param>
