@@ -245,6 +245,25 @@ namespace BEditor.Extensions
             return true;
         }
 
+        public static bool InRange(this Scene self, ClipElement clip_, Frame start, Frame end, int layer, out ClipElement r)
+        {
+            var array = self.GetLayer(layer).ToArray();
+
+            for (var i = 0; i < array.Length; i++)
+            {
+                var clip = array[i];
+
+                if (clip != clip_ && clip.InRange(start, end, out _))
+                {
+                    r = clip;
+                    return false;
+                }
+            }
+
+            r = clip_;
+            return true;
+        }
+
         // このクリップと被る場合はtrue
         public static bool InRange(this ClipElement self, Frame start, Frame end)
         {

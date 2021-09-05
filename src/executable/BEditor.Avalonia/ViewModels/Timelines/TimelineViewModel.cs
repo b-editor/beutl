@@ -143,11 +143,36 @@ namespace BEditor.ViewModels.Timelines
                     var move = Scene.ToPixel(PointerFrame - Scene.ToFrame(ClipStartAbs.X)); //一時的な移動量
                     if (ClipLeftRight == 2)
                     {
+                        if (!Scene.InRange(
+                            SelectedClip,
+                            Scene.ToFrame(selectviewmodel.MarginLeft),
+                            Scene.ToFrame(selectviewmodel.WidthProperty.Value + move + selectviewmodel.MarginLeft),
+                            SelectedClip.Layer,
+                            out var near))
+                        {
+                            selectviewmodel.WidthProperty.Value = Scene.ToPixel(near.Start - SelectedClip.Start);
+
+                            return;
+                        }
+
                         // 左
                         selectviewmodel.WidthProperty.Value += move;
                     }
                     else if (ClipLeftRight == 1 && PointerFrame > 0)
                     {
+                        if (!Scene.InRange(
+                            SelectedClip,
+                            Scene.ToFrame(selectviewmodel.MarginLeft + move),
+                            Scene.ToFrame(selectviewmodel.WidthProperty.Value - move + selectviewmodel.MarginLeft),
+                            SelectedClip.Layer,
+                            out var near))
+                        {
+                            selectviewmodel.MarginLeft = Scene.ToPixel(near.End);
+                            selectviewmodel.WidthProperty.Value = Scene.ToPixel(SelectedClip.End - near.End);
+
+                            return;
+                        }
+
                         // 右
                         selectviewmodel.WidthProperty.Value -= move;
                         selectviewmodel.MarginLeft += move;

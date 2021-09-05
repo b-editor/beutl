@@ -4622,6 +4622,20 @@
             <param name="project">The project to save the config.</param>
             <param name="directory">The directory of config.</param>
         </member>
+        <member name="M:BEditor.IApplication.Navigate(System.Uri,System.Object)">
+            <summary>
+            Navigate to the location specified by Uri.
+            </summary>
+            <param name="uri">The uri.</param>
+            <param name="parameter">The parameter.</param>
+        </member>
+        <member name="M:BEditor.IApplication.Navigate(System.String,System.Object)">
+            <summary>
+            Navigate to the location specified by Uri.
+            </summary>
+            <param name="uri">The uri.</param>
+            <param name="parameter">The parameter.</param>
+        </member>
         <member name="T:BEditor.IMessage">
             <summary>
             Represents a class that provides a service to notify users.

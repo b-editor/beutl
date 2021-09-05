@@ -9,6 +9,9 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{7FE512B7-E1B
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "extensions", "extensions", "{3437934B-324E-4296-B776-F6433FC9CD98}"
+	ProjectSection(SolutionItems) = preProject
+		extensions\Directory.Build.props = extensions\Directory.Build.props
+	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "generator", "generator", "{BEDB6856-1463-4C6D-8490-511C1A9D78A4}"
 EndProject
