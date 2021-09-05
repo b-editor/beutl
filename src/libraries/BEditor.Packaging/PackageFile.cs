@@ -50,14 +50,15 @@ namespace BEditor.Packaging
             "OpenCvSharp",
             "OpenCvSharp.Extensions",
             "OpenTK.Core",
-            "OpenTK.Graphics",
             "OpenTK.Mathematics",
             "OpenTK.OpenAL",
-            "OpenTK.Windowing.GraphicsLibraryFramework",
+            "SharpGen.Runtime.COM",
+            "SharpGen.Runtime",
             "SkiaSharp",
             "System.Drawing.Common",
             "System.Reactive",
-            "glfw",
+            "Vortice.Multimedia",
+            "Vortice.XAudio2",
             "opencv_videoio_ffmpeg452",
         };
 
