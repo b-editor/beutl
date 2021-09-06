@@ -1370,6 +1370,11 @@
             Defines the <see cref="P:BEditor.Primitive.Effects.Clipping.AdjustCoordinates"/> property.
             </summary>
         </member>
+        <member name="F:BEditor.Primitive.Effects.Clipping.CropTransparentAreaProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.Clipping.CropTransparentArea"/> property.
+            </summary>
+        </member>
         <member name="M:BEditor.Primitive.Effects.Clipping.#ctor">
             <summary>
             Initializes a new instance of the <see cref="T:BEditor.Primitive.Effects.Clipping"/> class.
@@ -1401,6 +1406,11 @@
         <member name="P:BEditor.Primitive.Effects.Clipping.AdjustCoordinates">
             <summary>
             Gets whether or not to adjust the coordinates.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.Clipping.CropTransparentArea">
+            <summary>
+            Gets whether or not to crop the transparent area.
             </summary>
         </member>
         <member name="M:BEditor.Primitive.Effects.Clipping.Apply(BEditor.Data.EffectApplyArgs{System.Collections.Generic.IEnumerable{BEditor.Graphics.Texture}})">
@@ -3767,6 +3777,11 @@
         <member name="P:BEditor.Primitive.Resources.Strings.Coordinate">
             <summary>
               Coordinate に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.CropTransparentArea">
+            <summary>
+              Crop the transparent area. に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Cube">

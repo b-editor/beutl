@@ -751,4 +751,7 @@
   <data name="SearchForDecoder" xml:space="preserve">
     <value>デコーダーを探す</value>
   </data>
+  <data name="CropTransparentArea" xml:space="preserve">
+    <value>透過な領域をクロップします。</value>
+  </data>
 </root>

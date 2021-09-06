@@ -421,6 +421,15 @@ namespace BEditor.Primitive.Resources {
         }
         
         /// <summary>
+        ///   Crop the transparent area. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string CropTransparentArea {
+            get {
+                return ResourceManager.GetString("CropTransparentArea", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Cube に類似しているローカライズされた文字列を検索します。
         /// </summary>
         internal static string Cube {
