@@ -31,7 +31,7 @@ namespace BEditor.Views.DialogContent
 
             InitializeComponent();
 
-            var stack = this.FindControl<VirtualizingStackPanel>("stack");
+            var stack = this.FindControl<StackPanel>("stack");
 
             foreach (var button in buttons)
             {
@@ -110,16 +110,6 @@ namespace BEditor.Views.DialogContent
             var per = value / 100f;
             NowValue.Value = (int)(Maximum.Value * per);
         }
-
-        //protected override void OnOpened(EventArgs e)
-        //{
-        //    base.OnOpened(e);
-        //    var screen = Screens.ScreenFromVisual(this).Bounds;
-        //    var x = (screen.Width - Width) / 2;
-        //    var y = (screen.Height - Height) / 2;
-
-        //    Position = new((int)x, (int)y);
-        //}
 
         private void InitializeComponent()
         {

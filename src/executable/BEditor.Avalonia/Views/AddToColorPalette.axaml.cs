@@ -9,7 +9,7 @@ using BEditor.ViewModels;
 
 namespace BEditor.Views
 {
-    public partial class AddToColorPalette : FluentWindow
+    public sealed class AddToColorPalette : FluentWindow
     {
         public AddToColorPalette()
         {
@@ -25,18 +25,15 @@ namespace BEditor.Views
             DataContext = viewModel;
             InitializeComponent();
             viewModel.Close.Subscribe(Close);
-            viewModel.ClosePopup.Subscribe(() =>
-            {
-                this.FindControl<Popup>("NewPalette").Close();
-            });
+            viewModel.ClosePopup.Subscribe(() => this.FindControl<Popup>("NewPalette").Close());
 #if DEBUG
             this.AttachDevTools();
 #endif
         }
 
-        public void NewPalette_Click(object s, RoutedEventArgs e)
+        public async void NewPalette_Click(object s, RoutedEventArgs e)
         {
-            this.FindControl<Popup>("NewPalette").Open();
+            await this.FindControl<FluentAvalonia.UI.Controls.ContentDialog>("NewPalette").ShowAsync();
         }
 
         private void InitializeComponent()

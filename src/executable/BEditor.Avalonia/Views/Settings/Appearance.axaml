@@ -4,6 +4,8 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="using:BEditor.ViewModels.Settings"
              xmlns:resources="using:BEditor.Properties"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:uip="using:FluentAvalonia.UI.Controls.Primitives"
              x:DataType="vm:AppearanceViewModel"
              xmlns:root="clr-namespace:BEditor;assembly=BEditor.Settings"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
@@ -19,7 +21,7 @@
             <CheckBox
                 ToolTip.Tip="{x:Static resources:Strings.TheChangesWillBeAppliedAfterRestarting}"
                 Content="{x:Static resources:Strings.UseDarkMode}"
-                IsChecked="{CompiledBinding UseDarkMode, Source={x:Static root:Settings.Default}, Mode=TwoWay}"
+                IsChecked="{Binding UseDarkMode, Source={x:Static root:Settings.Default}, Mode=TwoWay}"
                 Classes="SettingsCheckBox" />
 
             <Separator Height="16" />
@@ -27,38 +29,62 @@
             <CheckBox
                 ToolTip.Tip="{x:Static resources:Strings.TheChangesWillBeAppliedAfterRestarting}"
                 Content="{x:Static resources:Strings.ShowStartWindow}"
-                IsChecked="{CompiledBinding ShowStartWindow, Source={x:Static root:Settings.Default}, Mode=TwoWay}"
+                IsChecked="{Binding ShowStartWindow, Source={x:Static root:Settings.Default}, Mode=TwoWay}"
                 Classes="SettingsCheckBox"/>
 
             <Separator Height="16" />
 
             <TextBlock Text="{x:Static resources:Strings.Timeline}" Classes="SettingsHeader"/>
 
-            <Label Content="{x:Static resources:Strings.ClipHeight}" Classes="SettingsItemHeader"/>
+            <TextBlock Text="{x:Static resources:Strings.ClipHeight}" Classes="SettingsItemHeader"/>
 
             <NumericUpDown
                 ToolTip.Tip="{x:Static resources:Strings.TheChangesWillBeAppliedAfterRestarting}"
-                Value="{CompiledBinding ClipHeight, Source={x:Static root:Settings.Default}, Mode=TwoWay}"
+                Value="{Binding ClipHeight, Source={x:Static root:Settings.Default}, Mode=TwoWay}"
                 Classes="SettingsNumericUpDown"/>
 
             <Separator Height="16" />
 
-            <Label Content="{x:Static resources:Strings.WidthOf1Frame}" Classes="SettingsItemHeader"/>
+            <TextBlock Text="{x:Static resources:Strings.WidthOf1Frame}" Classes="SettingsItemHeader"/>
 
             <NumericUpDown
                 ToolTip.Tip="{x:Static resources:Strings.TheChangesWillBeAppliedAfterRestarting}"
-                Value="{CompiledBinding WidthOf1Frame, Source={x:Static root:Settings.Default}, Mode=TwoWay}"
+                Value="{Binding FrameWidth, Source={x:Static root:Settings.Default}, Mode=TwoWay}"
                 Classes="SettingsNumericUpDown"/>
 
             <Separator Height="16" />
 
-            <Label Content="{x:Static resources:Strings.Language}" Classes="SettingsItemHeader"/>
+            <CheckBox
+                Content="{x:Static resources:Strings.FixSeekbar}"
+                IsChecked="{Binding FixSeekbar, Source={x:Static root:Settings.Default}, Mode=TwoWay}"
+                Classes="SettingsCheckBox"/>
+
+            <Separator Height="16" />
+
+            <TextBlock Text="{x:Static resources:Strings.LayerThickness}" Classes="SettingsItemHeader" />
+
+            <ComboBox
+                SelectedItem="{CompiledBinding SelectedLayerBorder.Value, Mode=TwoWay}"
+                Items="{CompiledBinding LayerBorderItems}"
+                Classes="SettingsComboBox">
+                <ComboBox.ItemTemplate>
+                    <DataTemplate>
+                        <TextBlock Text="{Binding Text}" />
+                    </DataTemplate>
+                </ComboBox.ItemTemplate>
+            </ComboBox>
+
+            <Separator Height="16" />
+
+            <TextBlock Text="{x:Static resources:Strings.Language}" Classes="SettingsItemHeader"/>
 
             <ComboBox
                 ToolTip.Tip="{x:Static resources:Strings.TheChangesWillBeAppliedAfterRestarting}"
                 Items="{CompiledBinding Langs, Mode=OneTime}"
-                SelectedItem="{CompiledBinding Language, Source={x:Static root:Settings.Default}, Mode=TwoWay}"
+                SelectedItem="{Binding Language, Source={x:Static root:Settings.Default}, Mode=TwoWay}"
                 Classes="SettingsComboBox"/>
+
+            <Separator Height="16" />
         </VirtualizingStackPanel>
     </ScrollViewer>
 </UserControl>

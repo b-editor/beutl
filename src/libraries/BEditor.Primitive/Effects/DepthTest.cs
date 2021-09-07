@@ -87,7 +87,7 @@ namespace BEditor.Primitive.Effects
         public CheckProperty Enabled { get; private set; }
 
         /// <summary>
-        /// Get the <see cref="SelectorProperty"/> that selects the function for the depth test.
+        /// Gets the <see cref="SelectorProperty"/> that selects the function for the depth test.
         /// </summary>
         [AllowNull]
         public SelectorProperty Function { get; private set; }

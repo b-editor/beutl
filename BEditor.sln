@@ -9,6 +9,9 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{7FE512B7-E1B
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "extensions", "extensions", "{3437934B-324E-4296-B776-F6433FC9CD98}"
+	ProjectSection(SolutionItems) = preProject
+		extensions\Directory.Build.props = extensions\Directory.Build.props
+	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "generator", "generator", "{BEDB6856-1463-4C6D-8490-511C1A9D78A4}"
 EndProject
@@ -27,7 +30,6 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "root", "root", "{65A7968B-1
 		ARCHITECTURE.md = ARCHITECTURE.md
 		BEditor.code-workspace = BEditor.code-workspace
 		build.cake = build.cake
-		CodeAnalysis.ruleset = CodeAnalysis.ruleset
 		CONTRIBUTING.md = CONTRIBUTING.md
 		icon.png = icon.png
 		icon.svg = icon.svg
@@ -84,8 +86,6 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BEditor.Primitive", "src\li
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BEditor.Settings", "src\libraries\BEditor.Settings\BEditor.Settings.csproj", "{E07ED3D1-0D6C-4696-B756-7ECA627DF953}"
 EndProject
-Project("{D954291E-2A0B-460D-934E-DC6B0785DB48}") = "Shared", "src\libraries\Shared\Shared.shproj", "{865E19ED-CB17-4F80-80BD-5300D135B598}"
-EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BEditor.Graphics", "src\libraries\BEditor.Graphics\BEditor.Graphics.csproj", "{339FD8A4-79C6-4773-A7E3-85D2AADCDD74}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BEditor.Graphics.OpenGL", "src\libraries\BEditor.Graphics.OpenGL\BEditor.Graphics.OpenGL.csproj", "{A9A06B48-9E26-4094-AF1D-057A9D225A39}"
@@ -95,13 +95,6 @@ EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BEditor.Graphics.Veldrid", "src\libraries\BEditor.Graphics.Veldrid\BEditor.Graphics.Veldrid.csproj", "{BB2E2B01-5EBD-44F7-97CD-614C08A6AF01}"
 EndProject
 Global
-	GlobalSection(SharedMSBuildProjectFiles) = preSolution
-		src\libraries\Shared\Shared.projitems*{06802d60-fe1c-4c7a-974f-20dce729bdb5}*SharedItemsImports = 5
-		src\libraries\Shared\Shared.projitems*{09fae411-8986-49ff-bd78-bf8e183f5340}*SharedItemsImports = 5
-		src\libraries\Shared\Shared.projitems*{865e19ed-cb17-4f80-80bd-5300d135b598}*SharedItemsImports = 13
-		src\libraries\Shared\Shared.projitems*{89ef11ab-317d-4568-bd0e-7a63c8b648b3}*SharedItemsImports = 5
-		src\libraries\Shared\Shared.projitems*{bb2e2b01-5ebd-44f7-97cd-614c08a6af01}*SharedItemsImports = 5
-	EndGlobalSection
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
 		Release|Any CPU = Release|Any CPU
@@ -230,7 +223,6 @@ Global
 		{207E8719-532A-4D76-B89E-D0EB0552B673} = {C8421BCD-75F3-47F8-85C8-FD47D2807F9C}
 		{06802D60-FE1C-4C7A-974F-20DCE729BDB5} = {C8421BCD-75F3-47F8-85C8-FD47D2807F9C}
 		{E07ED3D1-0D6C-4696-B756-7ECA627DF953} = {C8421BCD-75F3-47F8-85C8-FD47D2807F9C}
-		{865E19ED-CB17-4F80-80BD-5300D135B598} = {C8421BCD-75F3-47F8-85C8-FD47D2807F9C}
 		{339FD8A4-79C6-4773-A7E3-85D2AADCDD74} = {C8421BCD-75F3-47F8-85C8-FD47D2807F9C}
 		{A9A06B48-9E26-4094-AF1D-057A9D225A39} = {C8421BCD-75F3-47F8-85C8-FD47D2807F9C}
 		{C9AB399C-CA41-4F78-BA14-D4695451DD35} = {C8421BCD-75F3-47F8-85C8-FD47D2807F9C}

@@ -7,7 +7,7 @@ using OpenTK.Graphics.OpenGL4;
 
 namespace BEditor.Graphics.OpenGL
 {
-    public class LineImpl : GraphicsObject
+    public sealed class LineImpl : GraphicsObject
     {
         private readonly float[] _vertices;
 

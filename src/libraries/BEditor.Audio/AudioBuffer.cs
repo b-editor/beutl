@@ -10,7 +10,7 @@ using static BEditor.Audio.AudioSource;
 
 namespace BEditor.Audio
 {
-    public class AudioBuffer : AudioLibraryObject, IEquatable<AudioBuffer?>
+    public sealed class AudioBuffer : AudioLibraryObject
     {
         public AudioBuffer(Sound<PCM16> sound)
         {
@@ -18,12 +18,14 @@ namespace BEditor.Audio
 
             Tool.BufferData(Handle, ALFormat.Mono16, sound.Data, sound.SampleRate);
         }
+
         public AudioBuffer(Sound<StereoPCM16> sound)
         {
             Handle = Tool.GenBuffer();
 
             Tool.BufferData(Handle, ALFormat.Stereo16, sound.Data, sound.SampleRate);
         }
+
         public AudioBuffer(Sound<PCMFloat> sound)
         {
             Handle = Tool.GenBuffer();
@@ -32,6 +34,7 @@ namespace BEditor.Audio
 
             Tool.BufferData(Handle, ALFormat.Mono16, converted.Data, converted.SampleRate);
         }
+
         public AudioBuffer(Sound<StereoPCMFloat> sound)
         {
             Handle = Tool.GenBuffer();
@@ -40,6 +43,7 @@ namespace BEditor.Audio
 
             Tool.BufferData(Handle, ALFormat.Stereo16, converted.Data, converted.SampleRate);
         }
+
         public AudioBuffer()
         {
             Handle = Tool.GenBuffer();
@@ -123,47 +127,29 @@ namespace BEditor.Audio
         {
             Tool.BufferData(Handle, ALFormat.Mono16, sound.Data, sound.SampleRate);
         }
+
         public void BufferData(Sound<StereoPCM16> sound)
         {
             Tool.BufferData(Handle, ALFormat.Stereo16, sound.Data, sound.SampleRate);
         }
+
         public void BufferData(Sound<PCMFloat> sound)
         {
             using var converted = sound.Convert<PCM16>();
 
             Tool.BufferData(Handle, ALFormat.Mono16, converted.Data, converted.SampleRate);
         }
+
         public void BufferData(Sound<StereoPCMFloat> sound)
         {
             using var converted = sound.Convert<StereoPCM16>();
 
             Tool.BufferData(Handle, ALFormat.Stereo16, converted.Data, converted.SampleRate);
         }
-        public override bool Equals(object? obj)
-        {
-            return Equals(obj as AudioBuffer);
-        }
-        public bool Equals(AudioBuffer? other)
-        {
-            return other != null &&
-                   Handle == other.Handle;
-        }
-        public override int GetHashCode()
-        {
-            return HashCode.Combine(Handle);
-        }
+
         protected override void OnDispose()
         {
             Tool.DeleteBuffer(Handle);
-        }
-
-        public static bool operator ==(AudioBuffer? left, AudioBuffer? right)
-        {
-            return EqualityComparer<AudioBuffer>.Default.Equals(left, right);
-        }
-        public static bool operator !=(AudioBuffer? left, AudioBuffer? right)
-        {
-            return !(left == right);
         }
     }
 }

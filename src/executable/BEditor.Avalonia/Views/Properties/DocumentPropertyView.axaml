@@ -6,6 +6,8 @@
     mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
     xmlns:vm="using:BEditor.ViewModels.Properties"
     xmlns:prop="using:BEditor.Properties"
+    xmlns:ui="using:FluentAvalonia.UI.Controls"
+    xmlns:uip="using:FluentAvalonia.UI.Controls.Primitives"
     x:DataType="vm:DocumentPropertyViewModel"
     Height="125"
     Background="Transparent"
@@ -17,38 +19,32 @@
                InputGesture="{x:Static TextBox.CutGesture}"
                Command="{CompiledBinding Cut, Mode=OneTime}"
                CommandParameter="{CompiledBinding #TextBox}"
-               Header="{x:Static prop:Strings.Cut}">
-                <MenuItem.Icon>
-                    <PathIcon Data="{StaticResource Cut20Regular}" />
-                </MenuItem.Icon>
-            </MenuItem>
+               Icon="Cut"
+               Header="{x:Static prop:Strings.Cut}" />
+            
             <MenuItem
                IsEnabled="{Binding #TextBox.CanCopy}"
-                InputGesture="{x:Static TextBox.CopyGesture}"
-                Command="{CompiledBinding Copy, Mode=OneTime}"
-                CommandParameter="{CompiledBinding #TextBox}"
-                Header="{x:Static prop:Strings.Copy}">
-                <MenuItem.Icon>
-                    <PathIcon Data="{StaticResource Copy20Regular}" />
-                </MenuItem.Icon>
-            </MenuItem>
+               InputGesture="{x:Static TextBox.CopyGesture}"
+               Command="{CompiledBinding Copy, Mode=OneTime}"
+               CommandParameter="{CompiledBinding #TextBox}"
+               Icon="Copy"
+               Header="{x:Static prop:Strings.Copy}" />
+            
             <MenuItem
                IsEnabled="{Binding #TextBox.CanPaste}"
-                InputGesture="{x:Static TextBox.PasteGesture}"
-                Command="{CompiledBinding Paste, Mode=OneTime}"
-                CommandParameter="{CompiledBinding #TextBox}"
-                Header="{x:Static prop:Strings.Paste}">
-                <MenuItem.Icon>
-                    <PathIcon Data="{StaticResource ClipboardPaste20Regular}" />
-                </MenuItem.Icon>
-            </MenuItem>
+               InputGesture="{x:Static TextBox.PasteGesture}"
+               Command="{CompiledBinding Paste, Mode=OneTime}"
+               CommandParameter="{CompiledBinding #TextBox}"
+               Icon="Paste"
+               Header="{x:Static prop:Strings.Paste}" />
+            
             <Separator />
-            <MenuItem Header="{x:Static prop:Strings.Reset}" Command="{CompiledBinding Reset, Mode=OneTime}"/>
-            <MenuItem Header="{x:Static prop:Strings.Bind}" Command="{CompiledBinding Bind, Mode=OneTime}"/>
-            <MenuItem Header="{x:Static prop:Strings.CopyID}" Command="{CompiledBinding CopyID, Mode=OneTime}"/>
+            
+            <MenuItem Header="{x:Static prop:Strings.Reset}" Command="{CompiledBinding Reset, Mode=OneTime}" />
+            <MenuItem Header="{x:Static prop:Strings.Bind}" Command="{CompiledBinding Bind, Mode=OneTime}" />
+            <MenuItem Header="{x:Static prop:Strings.CopyID}" Command="{CompiledBinding CopyID, Mode=OneTime}" />
         </ContextMenu>
     </UserControl.ContextMenu>
-
     <TextBox
         Margin="5"
         HorizontalAlignment="Stretch"

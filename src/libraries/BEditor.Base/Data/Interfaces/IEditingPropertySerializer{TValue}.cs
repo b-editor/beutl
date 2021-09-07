@@ -18,8 +18,8 @@ namespace BEditor.Data
         /// <inheritdoc cref="IEditingPropertySerializer.Write(Utf8JsonWriter, object)"/>
         public void Write(Utf8JsonWriter writer, TValue value);
 
-        /// <inheritdoc cref="IEditingPropertySerializer.Read(JsonElement)"/>
-        public new TValue Read(JsonElement element);
+        /// <inheritdoc cref="IEditingPropertySerializer.Read(DeserializeContext)"/>
+        public new TValue Read(DeserializeContext context);
 
         /// <inheritdoc/>
         void IEditingPropertySerializer.Write(Utf8JsonWriter writer, object value)
@@ -35,9 +35,9 @@ namespace BEditor.Data
         }
 
         /// <inheritdoc/>
-        object IEditingPropertySerializer.Read(JsonElement element)
+        object IEditingPropertySerializer.Read(DeserializeContext context)
         {
-            return Read(element)!;
+            return Read(context)!;
         }
     }
 }

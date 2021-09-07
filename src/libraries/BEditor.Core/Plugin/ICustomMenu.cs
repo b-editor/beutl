@@ -15,7 +15,7 @@ namespace BEditor.Plugin
     public interface ICustomMenu
     {
         /// <summary>
-        /// Get the string to be displayed in the UI.
+        /// Gets the string to be displayed in the UI.
         /// </summary>
         public string Name { get; }
 
@@ -26,7 +26,7 @@ namespace BEditor.Plugin
     }
 
     /// <inheritdoc cref="ICustomMenu"/>
-    public class CustomMenu : ICustomMenu
+    public sealed class CustomMenu : ICustomMenu
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="CustomMenu" /> class.
@@ -42,10 +42,12 @@ namespace BEditor.Plugin
         /// <inheritdoc/>
         public string Name { get; }
 
+#pragma warning disable SA1623
         /// <summary>
         /// Execute when the menu is clicked.
         /// </summary>
         public Action Execute { get; }
+#pragma warning restore SA1623
 
         /// <inheritdoc/>
         void ICustomMenu.Execute()

@@ -65,7 +65,11 @@ namespace BEditor.Extensions.AviUtl
             }
 
             if (effect is null)
-                throw new Exception($"Not found {name}.");
+            {
+                // obj.effect()の場合があるので
+                // throw new Exception($"Not found {name}.");
+                return;
+            }
 
             effect.Apply(ref image, table, ToDictionary(param));
         }

@@ -27,7 +27,7 @@ namespace BEditor.Data.Property
         }
 
         /// <summary>
-        /// The default selected item.
+        /// Gets the default selected item.
         /// </summary>
         public Font SelectItem { get; init; }
 

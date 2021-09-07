@@ -286,4 +286,23 @@
   <data name="Multiplication" xml:space="preserve">
     <value>Multiplication</value>
   </data>
+  <data name="Type" xml:space="preserve">
+    <value>Type</value>
+  </data>
+  <data name="Primitive" xml:space="preserve">
+    <value>Primitive</value>
+  </data>
+  <data name="UpdatePosition" xml:space="preserve">
+    <value>Update the position</value>
+  </data>
+  <data name="KeyframeHasBeenMovedOutOfRange" xml:space="preserve">
+    <value>The keyframe has been moved out of range.
+{0} -&gt; {1}</value>
+  </data>
+  <data name="MessageBy" xml:space="preserve">
+    <value>Message by {0}</value>
+  </data>
+  <data name="RemoveTarget" xml:space="preserve">
+    <value>Remove target</value>
+  </data>
 </root>

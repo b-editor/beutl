@@ -253,6 +253,20 @@ namespace BEditor.Drawing
             return new Rectangle(x1, y1, x2 - x1, y2 - y1);
         }
 
+        /// <summary>
+        /// Centers another rectangle in this rectangle.
+        /// </summary>
+        /// <param name="rect">The rectangle to center.</param>
+        /// <returns>The centered rectangle.</returns>
+        public Rectangle CenterRect(Rectangle rect)
+        {
+            return new Rectangle(
+                X + ((Width - rect.Width) / 2),
+                Y + ((Height - rect.Height) / 2),
+                rect.Width,
+                rect.Height);
+        }
+
         /// <inheritdoc/>
         public bool Equals(Rectangle other)
         {

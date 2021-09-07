@@ -9,12 +9,13 @@
     WindowStartupLocation="CenterScreen"
     CanResize="False"
     Classes="fluent"
+    Background="{StaticResource NavigationViewContentBackground}"
     x:Class="BEditor.Views.DialogContent.ProgressDialog">
     <Grid RowDefinitions="*,*,Auto">
 
-        <Label
+        <TextBlock
             Grid.Row="0"
-            Content="{Binding Text.Value}"
+            Text="{Binding Text.Value}"
             FontFamily="Yu Gothic UI, Segoe UI, Hiragino Sans, Helvetica Neue, Ubuntu"
             Margin="8,0" />
 
@@ -26,7 +27,7 @@
             Minimum="{Binding Minimum.Value}"
             Value="{Binding NowValue.Value}" />
 
-        <VirtualizingStackPanel
+        <StackPanel
             Orientation="Horizontal"
             HorizontalAlignment="Right"
             x:Name="stack"

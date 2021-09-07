@@ -4,7 +4,7 @@ using Avalonia.Markup.Xaml;
 
 namespace BEditor.Views
 {
-    public partial class Configuration : UserControl
+    public sealed class Configuration : UserControl
     {
         public Configuration()
         {

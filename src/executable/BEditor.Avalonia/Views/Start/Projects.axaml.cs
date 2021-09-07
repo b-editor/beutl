@@ -6,8 +6,10 @@ using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
 
 using BEditor.ViewModels.DialogContent;
+using BEditor.ViewModels.Dialogs;
 using BEditor.ViewModels.Start;
 using BEditor.Views.DialogContent;
+using BEditor.Views.Dialogs;
 
 namespace BEditor.Views.Start
 {
@@ -19,7 +21,7 @@ namespace BEditor.Views.Start
 
             if (DataContext is ProjectsViewModel vm)
             {
-                vm.OpenItem.Subscribe(async _ =>
+                vm.Close.Subscribe(async () =>
                 {
                     await Dispatcher.UIThread.InvokeAsync(() =>
                     {

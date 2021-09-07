@@ -1,0 +1,154 @@
+<views:FluentWindow
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:views="using:BEditor.Views"
+    xmlns:viewModels="using:BEditor.ViewModels.Dialogs"
+    xmlns:titlebar="using:BEditor.Views.CustomTitlebars"
+    xmlns:props="using:BEditor.Properties"
+    mc:Ignorable="d" Width="800" Height="450"
+    WindowStartupLocation="CenterScreen"
+    CanResize="False"
+    Background="{StaticResource NavigationViewDefaultPaneBackground}"
+    x:DataType="viewModels:OpenProjectPackageViewModel"
+    x:Class="BEditor.Views.Dialogs.OpenProjectPackage"
+    Title="OpenProjectPackage">
+    <views:FluentWindow.Styles>
+        <Style Selector="Border.card">
+            <Setter Property="BorderBrush" Value="{StaticResource ControlElevationBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="{StaticResource OverlayCornerRadius}" />
+            <Setter Property="Background" Value="{StaticResource NavigationViewDefaultPaneBackground}" />
+        </Style>
+    </views:FluentWindow.Styles>
+    <Grid RowDefinitions="Auto,*">
+        <titlebar:WindowsTitlebarButtons />
+
+        <TabControl Classes="sidebar" Grid.Row="1" SelectedIndex="{CompiledBinding TabIndex.Value, Mode=OneWay}">
+            <TabControl.Styles>
+                <Style Selector="StackPanel">
+                    <Setter Property="Spacing" Value="16" />
+                    <Setter Property="Orientation" Value="Horizontal" />
+                </Style>
+            </TabControl.Styles>
+
+            <TabItem Header="{x:Static props:Strings.RequiredPlugins}">
+                <Border Classes="card">
+                    <ScrollViewer>
+                        <Grid RowDefinitions="Auto,*">
+
+                            <TextBlock
+                                Grid.Row="0"
+                                Margin="16,8"
+                                FontSize="16"
+                                Text="{x:Static props:Strings.InstallRequiredPlugins}" />
+
+                            <ScrollViewer
+                                HorizontalContentAlignment="Stretch"
+                                Grid.Row="1"
+                                Margin="16">
+                                <ItemsControl HorizontalAlignment="Stretch" Items="{CompiledBinding Plugins, Mode=OneWay}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid ColumnDefinitions="Auto,*">
+                                                <CheckBox IsChecked="{Binding IsSelected, Mode=TwoWay}" IsEnabled="{Binding IsFound}" />
+
+                                                <Grid
+                                                    VerticalAlignment="Center"
+                                                    Grid.Column="1"
+                                                    ColumnDefinitions="Auto,Auto"
+                                                    RowDefinitions="Auto,Auto">
+
+                                                    <TextBlock Grid.Column="0" Margin="8" Text="{Binding Info.Name}" />
+                                                    <TextBlock Grid.Column="1" Margin="16,8,8,8" Text="{Binding Info.Version}" />
+
+                                                    <TextBlock
+                                                        Grid.Row="1"
+                                                        Text="{x:Static props:Strings.Unknown}"
+                                                        ToolTip.Tip="{x:Static props:Strings.NotFoundPackageFromRegisteredPackageSource}"
+                                                        IsVisible="{Binding IsNotFound}"
+                                                        Foreground="Red"
+                                                        Margin="8" />
+                                                </Grid>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+
+                            <StackPanel
+                                Grid.Row="1"
+                                Margin="8"
+                                Spacing="8"
+                                VerticalAlignment="Bottom"
+                                HorizontalAlignment="Right"
+                                Orientation="Horizontal">
+                                <Button
+                                    Click="CloseClick"
+                                    Content="{x:Static props:Strings.Close}"
+                                    IsCancel="True"/>
+                                <Button
+                                    Click="CloseClick"
+                                    Command="{CompiledBinding InstallLater, Mode=OneTime}"
+                                    Content="{x:Static props:Strings.InstallLater}" />
+                                <Button
+                                    Command="{CompiledBinding InstallNow, Mode=OneTime}"
+                                    Content="{x:Static props:Strings.InstallNow}" />
+                            </StackPanel>
+                        </Grid>
+                    </ScrollViewer>
+                </Border>
+            </TabItem>
+
+            <TabItem Header="{x:Static props:Strings.Open}">
+                <Border Classes="card">
+                    <ScrollViewer>
+                        <Panel>
+                            <StackPanel Orientation="Vertical">
+                                <TextBlock
+                                    Grid.Row="0"
+                                    Margin="16,8"
+                                    FontSize="16"
+                                    Text="{x:Static props:Strings.TryingToOpenProjectPackage}" />
+
+                                <TextBlock Text="README" Classes="SettingsItemHeader" />
+
+                                <TextBox
+                                    AcceptsReturn="True"
+                                    Classes="SettingsTextBox"
+                                    Width="450"
+                                    Height="80"
+                                    Text="{CompiledBinding ReadMe.Value}" />
+                            </StackPanel>
+
+                            <StackPanel
+                                Margin="8"
+                                Spacing="8"
+                                VerticalAlignment="Bottom"
+                                HorizontalAlignment="Right"
+                                Orientation="Horizontal">
+                                <Button
+                                    Click="CloseClick"
+                                    Content="{x:Static props:Strings.Close}"
+                                    IsCancel="True"/>
+                                <Button
+                                    Classes="accent"
+                                    Command="{CompiledBinding Open, Mode=OneTime}"
+                                    Content="{x:Static props:Strings.Open}"
+                                    IsDefault="True"/>
+                            </StackPanel>
+                        </Panel>
+                    </ScrollViewer>
+                </Border>
+            </TabItem>
+        </TabControl>
+
+        <ProgressBar
+            VerticalAlignment="Center"
+            Grid.RowSpan="2"
+            Margin="16"
+            IsVisible="{CompiledBinding IsLoaded.Value, Mode=OneWay}"
+            IsIndeterminate="True" />
+    </Grid>
+</views:FluentWindow>

@@ -39,20 +39,32 @@ namespace BEditor.ViewModels.Start
             {
                 if (IsLoading.Value) return;
 
-                item.IsLoading.Value = true;
-                IsLoading.Value = true;
                 var filename = item.FileName;
+                if (!File.Exists(filename))
+                {
+                    if (await AppModel.Current.Message.DialogAsync(
+                       Strings.FileDoesNotExistRemoveItFromList,
+                       IMessage.IconType.Info,
+                       new IMessage.ButtonType[] { IMessage.ButtonType.Yes, IMessage.ButtonType.No }) == IMessage.ButtonType.Yes)
+                    {
+                        Projects.Remove(item);
+                        _settings.RecentFiles.Remove(filename);
+                        UpdateIsEmpty();
+                    }
+                    return;
+                }
 
-                var app = AppModel.Current;
-                app.Project?.Unload();
-                var project = Project.FromFile(filename, app);
-
-                if (project is null) return;
-
+                IsLoading.Value = true;
                 try
                 {
                     await Task.Run(() =>
                     {
+                        var app = AppModel.Current;
+                        app.Project?.Unload();
+                        var project = Project.FromFile(filename, app);
+
+                        if (project is null) return;
+
                         project.Load();
 
                         app.Project = project;
@@ -60,17 +72,19 @@ namespace BEditor.ViewModels.Start
 
                         _settings.RecentFiles.Remove(filename);
                         _settings.RecentFiles.Add(filename);
+                        Close.Execute();
                     });
                 }
                 catch (Exception e)
                 {
+                    var app = AppModel.Current;
                     app.Project = null;
                     app.AppStatus = Status.Idle;
                     ServicesLocator.Current.Logger.LogError("Failed to load project.", e);
                     await AppModel.Current.Message.DialogAsync(string.Format(Strings.FailedToLoad, Strings.Project), IMessage.IconType.Error);
                 }
 
-                IsLoading.Value = true;
+                IsLoading.Value = false;
             });
 
             AddToList.Subscribe(async () =>
@@ -99,14 +113,24 @@ namespace BEditor.ViewModels.Start
                 }
             });
 
+            ListView.Subscribe(_ => UpdateIsEmpty());
+
             UpdateIsEmpty();
         }
 
         public ReactivePropertySlim<bool> IsEmpty { get; } = new();
 
+        public ReactivePropertySlim<bool> ListView { get; } = new();
+
+        public ReactivePropertySlim<bool> CardViewIsVisible { get; } = new();
+
+        public ReactivePropertySlim<bool> ListViewIsVisible { get; } = new();
+
         public ReactivePropertySlim<bool> IsLoading { get; } = new();
 
         public AsyncReactiveCommand<ProjectModel> OpenItem { get; } = new();
+
+        public ReactiveCommand Close { get; } = new();
 
         public ReactiveCommand AddToList { get; } = new();
 
@@ -117,6 +141,17 @@ namespace BEditor.ViewModels.Start
         private void UpdateIsEmpty()
         {
             IsEmpty.Value = Projects.Count is 0;
+
+            if (IsEmpty.Value)
+            {
+                CardViewIsVisible.Value = false;
+                ListViewIsVisible.Value = false;
+            }
+            else
+            {
+                CardViewIsVisible.Value = !ListView.Value;
+                ListViewIsVisible.Value = ListView.Value;
+            }
         }
     }
 }

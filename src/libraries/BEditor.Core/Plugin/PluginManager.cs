@@ -20,18 +20,12 @@ namespace BEditor.Plugin
     /// <summary>
     /// Represents the class that manages the plugin.
     /// </summary>
-    public class PluginManager
+    public sealed class PluginManager
     {
         /// <summary>
         /// Gets a default <see cref="PluginManager"/> instance.
         /// </summary>
         public static readonly PluginManager Default = new();
-
-        internal readonly List<(string, IEnumerable<ICustomMenu>)> _menus = new();
-
-        internal readonly List<(PluginObject, List<PluginTask>)> _tasks = new();
-
-        internal readonly List<PluginObject> _loaded = new();
 
         /// <summary>
         /// Initializes a new instance of the <see cref="PluginManager"/> class.
@@ -43,12 +37,27 @@ namespace BEditor.Plugin
         /// <summary>
         /// Gets the loaded plugins.
         /// </summary>
-        public IEnumerable<PluginObject> Plugins => _loaded;
+        public IEnumerable<PluginObject> Plugins => Loaded;
 
         /// <summary>
-        /// Gets or sets the base directory from which to retrieve plugins.
+        /// Gets the base directory from which to retrieve plugins.
         /// </summary>
         public string BaseDirectory { get; } = ServicesLocator.GetPluginsFolder();
+
+        /// <summary>
+        /// Gets the menus.
+        /// </summary>
+        internal List<(string Header, IEnumerable<ICustomMenu> Items)> Menus { get; } = new();
+
+        /// <summary>
+        /// Gets the tasks.
+        /// </summary>
+        internal List<(PluginObject Plugin, List<PluginTask> Tasks)> Tasks { get; } = new();
+
+        /// <summary>
+        /// Gets the loaded plugins.
+        /// </summary>
+        internal List<PluginObject> Loaded { get; } = new();
 
         /// <summary>
         /// Gets all plugin names.

@@ -2,6 +2,7 @@ using System;
 
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Data;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
@@ -18,18 +19,24 @@ using BEditor.ViewModels.Timelines;
 
 namespace BEditor.Views.Timelines
 {
-    public class ClipVolumeView : Control
+    public sealed class ClipVolumeView : Control
     {
+        private static Binding? _heightBinding;
         private readonly AudioObject _audio;
         private readonly ClipView _view;
         private readonly IBrush _brush = ConstantSettings.UseDarkMode ? Brushes.White : Brushes.Black;
-        private readonly IBrush _background = (IBrush)Application.Current.FindResource("SystemControlBackgroundChromeBlackLowBrush")!;
+        private readonly IBrush _background = (IBrush)Application.Current.FindResource("NavigationViewContentBackground")!;
 
         public ClipVolumeView(AudioObject audio, ClipView view)
         {
             _audio = audio;
             _view = view;
-            Height = ConstantSettings.ClipHeight;
+            _heightBinding ??= new Binding("ClipHeight", BindingMode.OneWay)
+            {
+                Source = BEditor.Settings.Default
+            };
+
+            this.Bind(HeightProperty, _heightBinding);
         }
 
         public override void Render(DrawingContext context)
@@ -56,7 +63,7 @@ namespace BEditor.Views.Timelines
         }
     }
 
-    public class ClipView : UserControl, IDisposable
+    public sealed class ClipView : UserControl, IDisposable
     {
         public ClipView()
         {

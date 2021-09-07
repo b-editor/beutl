@@ -36,7 +36,7 @@ namespace BEditor
         /// <summary>
         /// Gets audio context.
         /// </summary>
-        public AudioContext? AudioContext { get; }
+        public object? AudioContext { get; }
 
         /// <summary>
         /// Restore the application configuration.
@@ -51,5 +51,22 @@ namespace BEditor
         /// <param name="project">The project to save the config.</param>
         /// <param name="directory">The directory of config.</param>
         public void SaveAppConfig(Project project, string directory);
+
+        /// <summary>
+        /// Navigate to the location specified by Uri.
+        /// </summary>
+        /// <param name="uri">The uri.</param>
+        /// <param name="parameter">The parameter.</param>
+        public void Navigate(Uri uri, object? parameter = null);
+
+        /// <summary>
+        /// Navigate to the location specified by Uri.
+        /// </summary>
+        /// <param name="uri">The uri.</param>
+        /// <param name="parameter">The parameter.</param>
+        public void Navigate(string uri, object? parameter = null)
+        {
+            Navigate(new Uri(uri), parameter);
+        }
     }
 }

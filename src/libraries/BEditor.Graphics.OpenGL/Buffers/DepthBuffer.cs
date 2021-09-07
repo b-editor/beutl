@@ -16,7 +16,7 @@ namespace BEditor.Graphics.OpenGL
     /// <summary>
     /// Represents the depth buffer of the frame buffer.
     /// </summary>
-    public class DepthBuffer : IDisposable
+    public sealed class DepthBuffer : IDisposable
     {
         private readonly SynchronizationContext _syncContext = GraphicsContextImpl.SyncContext;
 

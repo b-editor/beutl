@@ -1,7 +1,10 @@
 <Application xmlns="https://github.com/avaloniaui"
+             xmlns:sty="using:FluentAvalonia.Styling"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Class="BEditor.PackageInstaller.App">
     <Application.Styles>
-        <FluentTheme Mode="Light"/>
+        <sty:FluentAvaloniaTheme
+            ControlsVersion="2"
+            GetUserAccentColor="True" />
     </Application.Styles>
 </Application>

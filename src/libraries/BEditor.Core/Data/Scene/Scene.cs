@@ -5,6 +5,7 @@
 // This software may be modified and distributed under the terms
 // of the MIT license. See the LICENSE file for details.
 
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -26,14 +27,16 @@ namespace BEditor.Data
         private static readonly PropertyChangedEventArgs _selectItemArgs = new(nameof(SelectItem));
         private static readonly PropertyChangedEventArgs _previreFrameArgs = new(nameof(PreviewFrame));
         private static readonly PropertyChangedEventArgs _totalFrameArgs = new(nameof(TotalFrame));
+        [Obsolete]
         private static readonly PropertyChangedEventArgs _zoomArgs = new(nameof(TimeLineZoom));
+        private static readonly PropertyChangedEventArgs _scaleArgs = new(nameof(TimeLineScale));
         private static readonly PropertyChangedEventArgs _hoffsetArgs = new(nameof(TimeLineHorizonOffset));
         private static readonly PropertyChangedEventArgs _voffsetArgs = new(nameof(TimeLineVerticalOffset));
         private static readonly PropertyChangedEventArgs _sceneNameArgs = new(nameof(SceneName));
         private ClipElement? _selectItem;
         private Frame _previewframe;
         private Frame _totalframe = 1000;
-        private float _timeLineZoom = 150;
+        private float _timeLineScale = 0.75F;
         private double _timeLineHorizonOffset;
         private double _timeLineVerticalOffset;
         private string _sceneName = string.Empty;
@@ -50,6 +53,7 @@ namespace BEditor.Data
             Width = width;
             Height = height;
             Datas = new ObservableCollection<ClipElement>();
+            Cache = new(this);
         }
 
         /// <summary>
@@ -119,7 +123,7 @@ namespace BEditor.Data
     /// <summary>
     /// Represents a <see cref="Scene"/> setting.
     /// </summary>
-    public record SceneSettings
+    public sealed record SceneSettings
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="SceneSettings"/> class.

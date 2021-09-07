@@ -6,6 +6,7 @@
     xmlns:props="using:BEditor.Properties"
     xmlns:vm="using:BEditor.ViewModels.Start"
     xmlns:model="using:BEditor.Models.Start"
+    xmlns:ui="using:FluentAvalonia.UI.Controls"
     x:DataType="vm:ProjectsViewModel"
     mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
     Padding="8"
@@ -30,24 +31,103 @@
         </Style>
     </UserControl.Styles>
     <Grid RowDefinitions="Auto,*">
-        <StackPanel
-            Spacing="8"
-            DockPanel.Dock="Top"
-            Orientation="Horizontal"
-            HorizontalAlignment="Right">
-            <Button
-                Command="{CompiledBinding AddToList, Mode=OneTime}"
-                Content="{x:Static props:Strings.AddToList}" />
-            <Button
-                Click="CreateNew"
-                Content="{x:Static props:Strings.New}"
-                Classes="accent" />
-        </StackPanel>
+        <ui:CommandBar DefaultLabelPosition="Right">
+            <ui:CommandBar.PrimaryCommands>
+                <ui:CommandBarButton
+                    Icon="Add"
+                    Command="{CompiledBinding AddToList, Mode=OneTime}"
+                    Label="{x:Static props:Strings.AddToList}" />
 
-        <ScrollViewer Grid.Row="1">
-            <ItemsControl
-                IsVisible="{CompiledBinding !IsEmpty.Value, Mode=OneWay}"
-                Items="{CompiledBinding Projects, Mode=OneTime}">
+                <ui:CommandBarButton
+                    Icon="New"
+                    Click="CreateNew"
+                    Label="{x:Static props:Strings.New}">
+                    <ui:CommandBarButton.Styles>
+                        <Style Selector="ui|CommandBarButton">
+                            <Setter Property="Background" Value="{DynamicResource AccentButtonBackground}" />
+                            <Setter Property="TextBlock.Foreground" Value="{DynamicResource AccentButtonForeground}" />
+                        </Style>
+
+                        <!-- PointerOver -->
+                        <Style Selector="ui|CommandBarButton:pointerover /template/ ContentPresenter#Content">
+                            <Setter Property="TextBlock.Foreground" Value="{DynamicResource AccentButtonForegroundPointerOver}" />
+                        </Style>
+
+                        <Style Selector="ui|CommandBarButton:pointerover /template/ TextBlock#TextLabel">
+                            <Setter Property="Foreground" Value="{DynamicResource AccentButtonForegroundPointerOver}" />
+                        </Style>
+
+                        <Style Selector="ui|CommandBarButton:pointerover /template/ TextBlock#OverflowTextLabel">
+                            <Setter Property="Foreground" Value="{DynamicResource AccentButtonForegroundPointerOver}" />
+                        </Style>
+
+                        <Style Selector="ui|CommandBarButton:pointerover /template/ TextBlock#KeyboardAcceleratorTextLabel">
+                            <Setter Property="Foreground" Value="{DynamicResource AccentButtonForegroundPointerOver}" />
+                        </Style>
+
+                        <Style Selector="ui|CommandBarButton:pointerover /template/ Border#AppBarButtonInnerBorder">
+                            <Setter Property="Background" Value="{DynamicResource AccentButtonBackgroundPointerOver}" />
+                        </Style>
+
+                        <!-- Pressed -->
+                        <Style Selector="ui|CommandBarButton:pressed /template/ Border#AppBarButtonInnerBorder">
+                            <Setter Property="Background" Value="{DynamicResource AccentButtonBackgroundPressed}" />
+                        </Style>
+                        <Style Selector="ui|CommandBarButton:pressed /template/ ContentPresenter#Content">
+                            <Setter Property="TextBlock.Foreground" Value="{DynamicResource AccentButtonForegroundPressed}" />
+                        </Style>
+                        <Style Selector="ui|CommandBarButton:pressed /template/ TextBlock#TextLabel">
+                            <Setter Property="Foreground" Value="{DynamicResource AccentButtonForegroundPressed}" />
+                        </Style>
+                        <Style Selector="ui|CommandBarButton:pressed /template/ TextBlock#OverflowTextLabel">
+                            <Setter Property="Foreground" Value="{DynamicResource AccentButtonForegroundPressed}" />
+                        </Style>
+                        <Style Selector="ui|CommandBarButton:pressed /template/ TextBlock#KeyboardAcceleratorTextLabel">
+                            <Setter Property="Foreground" Value="{DynamicResource AccentButtonForegroundPressed}" />
+                        </Style>
+                    </ui:CommandBarButton.Styles>
+                </ui:CommandBarButton>
+
+                <ui:CommandBarSeparator />
+
+                <ui:CommandBarElementContainer>
+                    <ToggleButton Padding="8" x:Name="ViewToggleButton" IsChecked="{CompiledBinding ListView.Value, Mode=TwoWay}">
+                        <ToggleButton.Styles>
+                            <Style Selector="ToggleButton:checked">
+                                <Setter Property="Content">
+                                    <Template>
+                                        <ui:PathIcon Data="{StaticResource TableSimple16Regular}" Width="20" Height="20" />
+                                    </Template>
+                                </Setter>
+                            </Style>
+
+                            <Style Selector="ToggleButton:checked /template/ ContentPresenter#PART_ContentPresenter">
+                                <Setter Property="Background" Value="Transparent" />
+                                <Setter Property="TextBlock.Foreground" Value="{DynamicResource ToggleButtonForeground}" />
+                            </Style>
+
+                            <Style Selector="ToggleButton:checked:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+                                <Setter Property="Background" Value="{DynamicResource ToggleButtonBackgroundPointerOver}" />
+                                <Setter Property="TextBlock.Foreground" Value="{DynamicResource ToggleButtonForegroundPointerOver}" />
+                            </Style>
+
+                            <Style Selector="ToggleButton">
+                                <Setter Property="Background" Value="Transparent" />
+                                <Setter Property="BorderThickness" Value="0" />
+                                <Setter Property="Content">
+                                    <Template>
+                                        <ui:SymbolIcon FontSize="20" Symbol="List" />
+                                    </Template>
+                                </Setter>
+                            </Style>
+                        </ToggleButton.Styles>
+                    </ToggleButton>
+                </ui:CommandBarElementContainer>
+            </ui:CommandBar.PrimaryCommands>
+        </ui:CommandBar>
+
+        <ScrollViewer Grid.Row="1" IsVisible="{CompiledBinding CardViewIsVisible.Value, Mode=OneWay}">
+            <ItemsControl Items="{CompiledBinding Projects, Mode=OneTime}">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="model:ProjectModel">
                         <Button
@@ -66,26 +146,22 @@
                                         InputGesture="Delete"
                                         Header="{x:Static props:Strings.Remove}">
                                         <MenuItem.Icon>
-                                            <PathIcon Data="{StaticResource Delete20Regular}" />
+                                            <ui:SymbolIcon FontSize="20" Symbol="Delete" />
                                         </MenuItem.Icon>
                                     </MenuItem>
                                 </ContextMenu>
                             </Button.ContextMenu>
-                            <Grid RowDefinitions="5,2*,Auto">
-                                <ProgressBar
-                                    BorderThickness="0"
-                                    IsIndeterminate="{CompiledBinding IsLoading.Value, Mode=OneWay}" />
-
-                                <Label Background="{StaticResource ButtonBackgroundDisabled}" Grid.Row="1" Padding="0">
+                            <Grid RowDefinitions="2*,Auto">
+                                <ContentControl Background="{StaticResource ButtonBackgroundDisabled}" Padding="0">
                                     <Image
                                         HorizontalAlignment="Center"
                                         VerticalAlignment="Center"
                                         Source="{CompiledBinding Thumbnail, Converter={StaticResource PathToImageSourceConverter}}"
                                         Stretch="UniformToFill" />
-                                </Label>
+                                </ContentControl>
 
-                                <StackPanel Grid.Row="2" Margin="8">
-                                    <TextBlock FontSize="24" Text="{CompiledBinding Name, Mode=OneTime}" />
+                                <StackPanel Grid.Row="1" Margin="8">
+                                    <TextBlock FontSize="24" FontWeight="SemiBold" Text="{CompiledBinding Name, Mode=OneTime}" />
                                     <TextBlock
                                         Margin="0,8"
                                         Text="{CompiledBinding FileName, Mode=OneTime}"
@@ -100,6 +176,39 @@
                         <WrapPanel Orientation="Horizontal" />
                     </ItemsPanelTemplate>
                 </ItemsControl.ItemsPanel>
+            </ItemsControl>
+        </ScrollViewer>
+
+        <ScrollViewer Grid.Row="1" IsVisible="{CompiledBinding ListViewIsVisible.Value, Mode=OneWay}">
+            <ItemsControl Items="{CompiledBinding Projects, Mode=OneTime}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="model:ProjectModel">
+                        <Button
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Stretch"
+                            Padding="8,0"
+                            BorderThickness="0"
+                            Background="Transparent"
+                            CommandParameter="{CompiledBinding}"
+                            Command="{Binding #root.DataContext.OpenItem, Mode=OneTime}">
+                            <Panel>
+                                <StackPanel VerticalAlignment="Center" Spacing="4">
+                                    <TextBlock FontSize="18" FontWeight="SemiBold" Text="{CompiledBinding Name, Mode=OneTime}" />
+                                    <TextBlock
+                                        Text="{CompiledBinding FileName, Mode=OneTime}"
+                                        ToolTip.Tip="{CompiledBinding FileName, Mode=OneTime}" />
+                                </StackPanel>
+
+                                <ui:CommandBarButton
+                                    CommandParameter="{CompiledBinding}"
+                                    Command="{Binding #root.DataContext.RemoveItem, Mode=OneTime}"
+                                    Icon="Delete"
+                                    Label="{x:Static props:Strings.Remove}"
+                                    HorizontalAlignment="Right" />
+                            </Panel>
+                        </Button>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
             </ItemsControl>
         </ScrollViewer>
 
@@ -119,5 +228,11 @@
                 FontSize="14"
                 Text="{x:Static props:Strings.ToCreateProjectClickNew}" />
         </StackPanel>
+        
+        <ProgressBar
+            Grid.Row="1"
+            VerticalAlignment="Bottom"
+            IsVisible="{CompiledBinding IsLoading.Value, Mode=OneWay}"
+            IsIndeterminate="True" />
     </Grid>
 </UserControl>

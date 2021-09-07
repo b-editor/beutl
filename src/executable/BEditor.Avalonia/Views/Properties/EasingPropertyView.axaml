@@ -1,37 +1,87 @@
-<UserControl
-  xmlns="https://github.com/avaloniaui"
-  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-  xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-  xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-  xmlns:easing="clr-namespace:BEditor.Data.Property.Easing;assembly=BEditor.Core"
-  mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-  HorizontalAlignment="Stretch"
-  VerticalAlignment="Stretch"
-  x:Class="BEditor.Views.Properties.EasingPropertyView">
-  <Grid MinWidth="450" MinHeight="250">
-    <Grid.ColumnDefinitions>
-      <ColumnDefinition Width="240" />
-      <ColumnDefinition />
-    </Grid.ColumnDefinitions>
-    <ListBox
-      Grid.Column="0"
-      HorizontalAlignment="Stretch"
-      VerticalAlignment="Stretch"
-      SelectionMode="Single"
-      SelectionChanged="ListBox_SelectionChanged"
-      Items="{x:Static easing:EasingMetadata.LoadedEasingFunc}"
-      SelectedItem="{Binding Property.EasingData, Mode=OneWay}">
-      <ListBox.ItemTemplate>
-        <DataTemplate x:DataType="easing:EasingMetadata">
-          <TextBlock Text="{Binding Name, Mode=OneTime}"/>
-        </DataTemplate>
-      </ListBox.ItemTemplate>
-    </ListBox>
-    <Label
-      Grid.Column="1"
-      Padding="8"
-      HorizontalContentAlignment="Stretch"
-      VerticalContentAlignment="Stretch"
-      Content="{Binding Property.EasingType, Converter={StaticResource EasingPropertyConverter}}" />
-  </Grid>
-</UserControl>
+<views:FluentWindow
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:views="using:BEditor.Views.Properties"
+    xmlns:easing="clr-namespace:BEditor.Data.Property.Easing;assembly=BEditor.Core"
+    xmlns:titlebar="using:BEditor.Views.CustomTitlebars"
+    xmlns:ui="using:FluentAvalonia.UI.Controls"
+    mc:Ignorable="d"
+    Width="800"
+    Height="450"
+    WindowStartupLocation="CenterScreen"
+    Background="{StaticResource NavigationViewDefaultPaneBackground}"
+    x:Class="BEditor.Views.Properties.EasingPropertyView">
+    <Grid RowDefinitions="Auto,*" ColumnDefinitions="*,Auto,2*">
+        <TreeView
+            Grid.RowSpan="2"
+            Padding="0,32,0,0"
+            SelectionMode="Single"
+            SelectionChanged="TreeView_SelectionChanged"
+            Items="{x:Static easing:EasingMetadata.LoadedEasingFunc}"
+            SelectedItem="{Binding Property.EasingData, Mode=OneWay}">
+            <TreeView.DataTemplates>
+                <TreeDataTemplate ItemsSource="{Binding Children}">
+                    <TextBlock Text="{Binding Name}" Margin="3,2" />
+                </TreeDataTemplate>
+            </TreeView.DataTemplates>
+        </TreeView>
+
+        <GridSplitter Grid.Column="1" Grid.Row="1" Background="Transparent" />
+
+        <titlebar:WindowsTitlebarButtons CanResize="False" Grid.ColumnSpan="3"/>
+
+        <Border
+            Grid.Row="1"
+            Grid.Column="2"
+            BorderBrush="{StaticResource ControlElevationBorderBrush}"
+            BorderThickness="1"
+            CornerRadius="{StaticResource OverlayCornerRadius}"
+            Background="{StaticResource NavigationViewContentBackground}">
+            <Grid ColumnDefinitions="3*,Auto,2*">
+                <ContentControl
+                    Padding="8"
+                    HorizontalContentAlignment="Stretch"
+                    VerticalContentAlignment="Stretch"
+                    Content="{Binding Property.EasingType, Converter={StaticResource EasingPropertyConverter}}" />
+
+                <GridSplitter Grid.Column="1" Background="Transparent" />
+
+                <StackPanel
+                    Grid.Column="2"
+                    Spacing="8"
+                    Margin="8"
+                    Orientation="Horizontal"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Bottom">
+                    <Button Click="Play" x:Name="PlayButton">
+                        <ui:SymbolIcon Symbol="Play" FontSize="20" />
+                    </Button>
+                    <Button Click="RefleshGraph">
+                        <ui:SymbolIcon Symbol="Sync" FontSize="20" />
+                    </Button>
+                </StackPanel>
+
+                <Grid
+                    VerticalAlignment="Center"
+                    Grid.Column="2"
+                    ColumnDefinitions="Auto,*,Auto"
+                    RowDefinitions="Auto,*,Auto">
+
+                    <Border
+                        BorderBrush="{DynamicResource TextControlForeground}"
+                        BorderThickness="1"
+                        Grid.Column="1" Grid.Row="1">
+                        <views:EasingGraph
+                            x:Name="Graph"
+                            ClipToBounds="False"
+                            Height="{Binding $self.Bounds.Width}"
+                            Func="{Binding Property.EasingType, Mode=OneWay}"/>
+                    </Border>
+                </Grid>
+
+            </Grid>
+        </Border>
+    </Grid>
+</views:FluentWindow>

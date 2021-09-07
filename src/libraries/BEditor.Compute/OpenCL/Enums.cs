@@ -5,6 +5,8 @@
 // This software may be modified and distributed under the terms
 // of the MIT license. See the LICENSE file for details.
 
+using System;
+
 namespace BEditor.Compute.OpenCL
 {
 #pragma warning disable CS1591, SA1600, SA1602
@@ -161,8 +163,10 @@ namespace BEditor.Compute.OpenCL
         CL_QUEUE_ON_DEVICE_DEFAULT = 1 << 3,
     }
 
+    [Flags]
     public enum CLMemoryFlags : long
     {
+        None = 0,
         CL_MEM_READ_WRITE = 1 << 0,
         CL_MEM_WRITE_ONLY = 1 << 1,
         CL_MEM_READ_ONLY = 1 << 2,
@@ -171,8 +175,10 @@ namespace BEditor.Compute.OpenCL
         CL_MEM_COPY_HOST_PTR = 1 << 5,
     }
 
+    [Flags]
     public enum CLMapFlags : long
     {
+        None = 0,
         CL_MAP_READ = 1 << 0,
         CL_MAP_WRITE = 1 << 1,
         CL_MAP_WRITE_INVALIDATE_REGION = 1 << 2,

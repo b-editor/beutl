@@ -78,6 +78,7 @@ namespace BEditor.Views.Properties
                 Height = 24,
                 Margin = new Thickness(8),
                 Background = new SolidColorBrush(_property.Pairs[index].Value.ToAvalonia()),
+                CornerRadius = new(4),
             };
 
             border.PointerPressed += Border_PointerPressed;
@@ -96,6 +97,7 @@ namespace BEditor.Views.Properties
 
                 var pair = color.Pairs[index];
                 dialog.col.Color = new Color(pair.Value.A, pair.Value.R, pair.Value.G, pair.Value.B);
+                dialog.col.PreviousColor = dialog.col.Color;
 
                 dialog.Command = (d) => _property.ChangeColor(index, Drawing.Color.FromArgb(d.col.Color.A, d.col.Color.R, d.col.Color.G, d.col.Color.B)).Execute();
 
@@ -135,14 +137,8 @@ namespace BEditor.Views.Properties
 
         public async void ShowEasingProperty(object s, RoutedEventArgs e)
         {
-            var content = new EasingPropertyView(DataContext!);
-            var dialog = new Window
-            {
-                Content = content,
-                SizeToContent = SizeToContent.WidthAndHeight
-            };
+            var dialog = new EasingPropertyView(DataContext!);
             await dialog.ShowDialog((Window)this.GetVisualRoot());
-            content.DataContext = null;
         }
 
         public async void ListToggleClick(object? sender, RoutedEventArgs? e)

@@ -15,10 +15,10 @@ namespace BEditor.Data.Internals
     {
         public static readonly PropertyJsonSerializer<TValue> Current = new();
 
-        public TValue Read(JsonElement element)
+        public TValue Read(DeserializeContext context)
         {
             var value = (TValue)FormatterServices.GetUninitializedObject(typeof(TValue));
-            value.SetObjectData(element);
+            value.SetObjectData(context);
 
             return value;
         }

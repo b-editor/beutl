@@ -7,101 +7,23 @@
     xmlns:views="using:BEditor.Views"
     xmlns:ctr="using:BEditor.Views.Settings"
     xmlns:titlebar="using:BEditor.Views.CustomTitlebars"
+    xmlns:ui="using:FluentAvalonia.UI.Controls"
+    xmlns:uip="using:FluentAvalonia.UI.Controls.Primitives"
     mc:Ignorable="d"
     Height="450" Width="800"
-    Classes="fluent_setter"
     WindowStartupLocation="CenterScreen"
     x:Class="BEditor.Views.SettingsWindow"
     Title="SettingsWindow">
     <Grid RowDefinitions="Auto,*">
-        <DockPanel HorizontalAlignment="Stretch" Grid.RowSpan="2">
-            <Border
-                Background="{StaticResource AcrylicColor1}"
-                IsHitTestVisible="False"
-                DockPanel.Dock="Left"
-                Width="240" />
-            <Border IsHitTestVisible="False" Background="{StaticResource AcrylicColor2}" />
-        </DockPanel>
-
         <titlebar:WindowsTitlebarButtons />
 
-        <TabControl Classes="sidebar" Grid.Row="1">
-            <TabControl.Styles>
-                <Style Selector="StackPanel">
-                    <Setter Property="Spacing" Value="16" />
-                    <Setter Property="Orientation" Value="Horizontal" />
-                </Style>
-
-                <Style Selector="PathIcon">
-                    <Setter Property="Width" Value="16" />
-                    <Setter Property="Height" Value="16" />
-                </Style>
-            </TabControl.Styles>
-            <TabItem>
-                <TabItem.Header>
-                    <StackPanel>
-                        <PathIcon Data="{StaticResource Laptop20Regular}"/>
-                        <TextBlock Text="{x:Static prop:Strings.Appearance}" />
-                    </StackPanel>
-                </TabItem.Header>
-                <ctr:Appearance/>
-            </TabItem>
-            <TabItem>
-                <TabItem.Header>
-                    <StackPanel>
-                        <PathIcon Data="{StaticResource TextFontSize20Regular}"/>
-                        <TextBlock Text="{x:Static prop:Strings.Font}" />
-                    </StackPanel>
-                </TabItem.Header>
-                <ctr:Fonts/>
-            </TabItem>
-            <TabItem>
-                <TabItem.Header>
-                    <StackPanel>
-                        <PathIcon Data="{StaticResource Document20Regular}"/>
-                        <TextBlock Text="{x:Static prop:Strings.Project}" />
-                    </StackPanel>
-                </TabItem.Header>
-                <ctr:Project/>
-            </TabItem>
-            <TabItem>
-                <TabItem.Header>
-                    <StackPanel>
-                        <PathIcon Data="{StaticResource BookDatabase24Regular}"/>
-                        <TextBlock Text="{x:Static prop:Strings.PackageSource}" />
-                    </StackPanel>
-                </TabItem.Header>
-                <ctr:PackageSource/>
-            </TabItem>
-            <TabItem>
-                <TabItem.Header>
-                    <StackPanel>
-                        <PathIcon Data="{StaticResource Keyboard24Regular}"/>
-                        <TextBlock Text="{x:Static prop:Strings.KeyBindings}" />
-                    </StackPanel>
-                </TabItem.Header>
-                <ctr:KeyBindings/>
-            </TabItem>
-            <TabItem>
-                <TabItem.Header>
-                    <StackPanel>
-                        <PathIcon Data="{StaticResource RibbonStar20Regular}"/>
-                        <TextBlock Text="{x:Static prop:Strings.License}" />
-                    </StackPanel>
-                </TabItem.Header>
-                <ctr:License />
-            </TabItem>
-            <TabItem>
-                <TabItem.Header>
-                    <StackPanel>
-                        <PathIcon Data="{StaticResource MoreVertical20Regular}"/>
-                        <TextBlock Text="{x:Static prop:Strings.Others}" />
-                    </StackPanel>
-                </TabItem.Header>
-
-            </TabItem>
-        </TabControl>
+        <ui:NavigationView
+            Grid.Row="1"
+            x:Name="NavView"
+            IsSettingsVisible="False"
+            IsBackButtonVisible="True"
+            IsBackEnabled="{Binding #FrameView.CanGoBack}">
+            <ui:Frame x:Name="FrameView" />
+        </ui:NavigationView>
     </Grid>
-
-
 </views:FluentWindow>

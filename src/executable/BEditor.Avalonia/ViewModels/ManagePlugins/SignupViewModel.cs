@@ -11,7 +11,7 @@ using Reactive.Bindings;
 
 namespace BEditor.ViewModels.ManagePlugins
 {
-    public class SignupViewModel
+    public sealed class SignupViewModel
     {
         private readonly IAuthenticationProvider _provider;
 
@@ -29,7 +29,7 @@ namespace BEditor.ViewModels.ManagePlugins
                 }
                 catch
                 {
-                    Message.Value = Message.Value = string.Format(Strings.FailedTo, Strings.Signup); ;
+                    Message.Value = Message.Value = string.Format(Strings.FailedTo, Strings.Signup);
                 }
                 finally
                 {

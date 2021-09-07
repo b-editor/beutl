@@ -12,7 +12,7 @@ namespace BEditor.Data
     /// <summary>
     /// Provides data for the <see cref="Project.Saved"/> event.
     /// </summary>
-    public class ProjectSavedEventArgs : EventArgs
+    public sealed class ProjectSavedEventArgs : EventArgs
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="ProjectSavedEventArgs"/> class.

@@ -5,7 +5,7 @@ namespace BEditor.Views
 {
     public static class Cursors
     {
-        public static Cursor Arrow = new(StandardCursorType.Arrow);
-        public static Cursor SizeWestEast = new(StandardCursorType.SizeWestEast);
+        public static readonly Cursor Arrow = new(StandardCursorType.Arrow);
+        public static readonly Cursor SizeWestEast = new(StandardCursorType.SizeWestEast);
     }
 }

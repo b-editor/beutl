@@ -22,17 +22,23 @@ using BEditor.Models;
 using BEditor.Properties;
 using BEditor.ViewModels;
 using BEditor.ViewModels.DialogContent;
+using BEditor.ViewModels.Dialogs;
 using BEditor.Views;
 using BEditor.Views.CustomTitlebars;
 using BEditor.Views.DialogContent;
+using BEditor.Views.Dialogs;
 
 using OpenTK.Audio.OpenAL;
 
 namespace BEditor
 {
-    public class MainWindow : FluentWindow
+    public sealed class MainWindow : FluentWindow
     {
-        private class LayoutConfig
+        internal readonly StackPanel _notifications;
+        internal readonly StackPanel _stackNotifications;
+        internal readonly Popup _notificationsPopup;
+
+        private sealed class LayoutConfig
         {
             [JsonPropertyName("columnDefinitions")]
             public string ColumnDefinitions { get; set; } = "425,Auto,*,Auto,2*";
@@ -47,28 +53,16 @@ namespace BEditor
             AddHandler(KeyDownEvent, Window_KeyDown, RoutingStrategies.Tunnel);
             vm.New.Subscribe(CreateProjectClick);
 
-            NotificationManager = new(this)
-            {
-                Position = NotificationPosition.BottomLeft,
-            };
-
             InitializeComponent();
 
-            vm.IsOpened.Subscribe(v =>
-            {
-                if (!v && Content is Layoutable layoutable)
-                {
-                    layoutable.Margin = default;
-                }
-            });
-
+            _notifications = this.FindControl<StackPanel>("Notifications");
+            _stackNotifications = this.FindControl<StackPanel>("NotificationsPanel");
+            _notificationsPopup = this.FindControl<Popup>("NotificationsPopup");
             ApplyConfig();
 #if DEBUG
             this.AttachDevTools();
 #endif
         }
-
-        public WindowNotificationManager NotificationManager { get; }
 
         private void Window_KeyDown(object? sender, KeyEventArgs e)
         {
@@ -82,6 +76,11 @@ namespace BEditor
                     kb.Command?.Command.Execute(null);
                 }
             }
+        }
+
+        public void ShowNotifications(object? s, RoutedEventArgs e)
+        {
+            _notificationsPopup.Open();
         }
 
         public void ObjectsPopupOpen(object s, RoutedEventArgs e)
@@ -106,6 +105,7 @@ namespace BEditor
             {
                 var viewmodel = new CreateProjectViewModel();
                 var dialog = new CreateProject { DataContext = viewmodel };
+
                 await dialog.ShowDialog(window);
             }
         }

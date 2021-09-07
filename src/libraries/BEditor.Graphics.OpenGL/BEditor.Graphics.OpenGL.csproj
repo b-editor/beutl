@@ -12,6 +12,11 @@
     </ItemGroup>
 
     <ItemGroup>
+        <EmbeddedResource Include="Resources\*.frag" />
+        <EmbeddedResource Include="Resources\*.vert" />
+    </ItemGroup>
+
+    <ItemGroup>
         <Compile Update="Resources\Strings.Designer.cs">
             <DesignTime>True</DesignTime>
             <AutoGen>True</AutoGen>

@@ -694,4 +694,64 @@
   <data name="DecoderNotFound" xml:space="preserve">
     <value>デコーダーが見つかりませんでした。</value>
   </data>
+  <data name="AlignToBaseline" xml:space="preserve">
+    <value>ベースラインに整列する</value>
+  </data>
+  <data name="CharacterSpacing" xml:space="preserve">
+    <value>字間</value>
+  </data>
+  <data name="Alignment" xml:space="preserve">
+    <value>アライメント</value>
+  </data>
+  <data name="PartsDisassembly" xml:space="preserve">
+    <value>パーツ分解</value>
+  </data>
+  <data name="Length" xml:space="preserve">
+    <value>長さ</value>
+  </data>
+  <data name="FlatShadow" xml:space="preserve">
+    <value>フラットシャドウ</value>
+  </data>
+  <data name="EnableStroke" xml:space="preserve">
+    <value>ストロークを有効にする</value>
+  </data>
+  <data name="MiterLimit" xml:space="preserve">
+    <value>マイターリミット</value>
+  </data>
+  <data name="JoinType" xml:space="preserve">
+    <value>結合の種類</value>
+  </data>
+  <data name="Sharp" xml:space="preserve">
+    <value>シャープ</value>
+  </data>
+  <data name="Round" xml:space="preserve">
+    <value>丸い</value>
+  </data>
+  <data name="Stroke" xml:space="preserve">
+    <value>ストローク</value>
+  </data>
+  <data name="Bevel" xml:space="preserve">
+    <value>斜め</value>
+  </data>
+  <data name="FrequencyX" xml:space="preserve">
+    <value>周期X</value>
+  </data>
+  <data name="FrequencyY" xml:space="preserve">
+    <value>周期Y</value>
+  </data>
+  <data name="NumberOfOctaves" xml:space="preserve">
+    <value>オクターブ数</value>
+  </data>
+  <data name="Fractal" xml:space="preserve">
+    <value>フラクタル</value>
+  </data>
+  <data name="Turbulence" xml:space="preserve">
+    <value>タービュランス</value>
+  </data>
+  <data name="SearchForDecoder" xml:space="preserve">
+    <value>デコーダーを探す</value>
+  </data>
+  <data name="CropTransparentArea" xml:space="preserve">
+    <value>透過な領域をクロップします。</value>
+  </data>
 </root>

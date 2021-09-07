@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using System.Reactive.Disposables;
 
 using BEditor.Data;
@@ -10,7 +11,7 @@ using Reactive.Bindings.Extensions;
 
 namespace BEditor.ViewModels.Timelines
 {
-    public sealed class KeyframeViewModel : IKeyframePropertyViewModel
+    public sealed class KeyframeViewModel : IDisposable
     {
         private readonly CompositeDisposable _disposable = new();
 
@@ -27,7 +28,19 @@ namespace BEditor.ViewModels.Timelines
                 .AddTo(_disposable);
 
             MoveKeyFrameCommand
-                .Subscribe(x => Property.MoveFrame(x.Item1, x.Item2).Execute())
+                .Subscribe(x =>
+                {
+                    var pos = Property.Enumerate().ElementAt(x.Item1);
+                    var length = property.GetRequiredParent<ClipElement>().Length;
+                    if (pos.Type == PositionType.Percentage)
+                    {
+                        Property.MoveFrame(x.Item1, pos.WithValue(x.Item2)).Execute();
+                    }
+                    else
+                    {
+                        Property.MoveFrame(x.Item1, pos.WithValue(x.Item2 * length)).Execute();
+                    }
+                })
                 .AddTo(_disposable);
 
             property.Added += Property_Added;
@@ -40,28 +53,28 @@ namespace BEditor.ViewModels.Timelines
             Dispose();
         }
 
-        public Action<float, int>? AddKeyFrameIcon { get; set; }
+        public Action<PositionInfo>? AddKeyFrameIcon { get; set; }
 
-        public Action<int>? RemoveKeyFrameIcon { get; set; }
+        public Action<PositionInfo>? RemoveKeyFrameIcon { get; set; }
 
         public Action<int, int>? MoveKeyFrameIcon { get; set; }
 
         public IKeyframeProperty Property { get; }
 
-        public ReactiveCommand<float> AddKeyFrameCommand { get; } = new();
+        public ReactiveCommand<PositionInfo> AddKeyFrameCommand { get; } = new();
 
-        public ReactiveCommand<float> RemoveKeyFrameCommand { get; } = new();
+        public ReactiveCommand<PositionInfo> RemoveKeyFrameCommand { get; } = new();
 
         public ReactiveCommand<(int, float)> MoveKeyFrameCommand { get; } = new();
 
-        private void Property_Added(float arg1, int arg2)
+        private void Property_Added(PositionInfo position)
         {
-            AddKeyFrameIcon?.Invoke(arg1, arg2);
+            AddKeyFrameIcon?.Invoke(position);
         }
 
-        private void Property_Removed(int obj)
+        private void Property_Removed(PositionInfo position)
         {
-            RemoveKeyFrameIcon?.Invoke(obj);
+            RemoveKeyFrameIcon?.Invoke(position);
         }
 
         private void Property_Moved(int arg1, int arg2)

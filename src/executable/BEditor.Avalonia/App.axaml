@@ -2,6 +2,7 @@
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:convert="using:BEditor.Converters"
+    xmlns:ui="using:FluentAvalonia.UI.Controls"
     xmlns:titlebar="using:BEditor.Views.CustomTitlebars"
     xmlns:views="using:BEditor.Views"
     xmlns:models="using:BEditor.Models"
@@ -22,30 +23,64 @@
         <convert:PathToImageSourceConverter x:Key="PathToImageSourceConverter" />
         <convert:ConfigurationViewModelConverter x:Key="ConfigurationViewModelConverter" />
         <convert:BackgroundTypeConverter x:Key="BackgroundTypeConverter" />
+        <convert:FrameToTimeConverter x:Key="FrameToTimeConverter" />
     </Application.Resources>
     <Application.Styles>
-        <StyleInclude Source="avares://beditor/Controls/SeekSlider.axaml" />
         <StyleInclude Source="avares://beditor/Controls/Sidebar.axaml" />
-        <StyleInclude Source="avares://beditor/Controls/TextBox.axaml" />
-        <StyleInclude Source="avares://beditor/Controls/NumericUpDown.axaml" />
-        <StyleInclude Source="avares://beditor/Controls/ComboBox.axaml" />
-        <StyleInclude Source="avares://beditor/Controls/Buttons.axaml" />
         <StyleInclude Source="avares://beditor/Controls/FluentUiIcons_Filled.axaml" />
         <StyleInclude Source="avares://beditor/Controls/FluentUiIcons_Regular.axaml" />
         <StyleInclude Source="avares://beditor/Views/Settings/SettingsResources.axaml" />
         <StyleInclude Source="avares://beditor/Controls/HyperLink.axaml" />
-        <StyleInclude Source="avares://beditor/Controls/ColorPicker.axaml" />
+        <StyleInclude Source="avares://beditor/Controls/NumericUpDown.axaml" />
+
+        <Style Selector="Expander">
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+        </Style>
+
+        <Style Selector="Expander /template/ ToggleButton#PART_toggle">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+        </Style>
+
+        <Style Selector="Expander.expandkeyframe">
+            <Setter Property="MinHeight" Value="{x:Static models:ConstantSettings.ClipHeight}" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+        </Style>
 
         <Style Selector="Expander.expandkeyframe /template/ ToggleButton#PART_toggle">
             <Setter Property="Margin" Value="32.5,0,0,0" />
+            <Setter Property="Height" Value="{x:Static models:ConstantSettings.ClipHeight}" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
         </Style>
+
+        <Style Selector="Expander.keyframe">
+            <Setter Property="MinHeight" Value="{x:Static models:ConstantSettings.ClipHeight}" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+        </Style>
+
         <Style Selector="Expander.keyframe /template/ ToggleButton#PART_toggle">
             <Setter Property="Height" Value="{x:Static models:ConstantSettings.ClipHeight}" />
-            <Setter Property="Padding" Value="0" />
-            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
         </Style>
+
+        <Style Selector="Expander.property">
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+        </Style>
+
         <Style Selector="Expander.property /template/ ToggleButton#PART_toggle">
             <Setter Property="Height" Value="40" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
         </Style>
 
         <Style Selector="TextBox">
@@ -58,13 +93,59 @@
         <Style Selector="Window.fluent">
             <Setter Property="Template">
                 <ControlTemplate>
-                    <Border Background="{StaticResource AcrylicColor1}">
+                    <Border Background="{TemplateBinding Background}">
                         <Grid RowDefinitions="Auto,*">
 
                             <titlebar:WindowsTitlebarButtons CanResize="{TemplateBinding CanResize}" />
 
                             <ContentPresenter Grid.Row="1" Content="{TemplateBinding Content}"/>
                         </Grid>
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+
+        <!--https://github.com/amwx/FluentAvalonia/blob/master/FluentAvalonia/Styling/Controls/NumberBoxStyle.axaml#L74-->
+        <Style Selector="TextBox.NumberBoxTextBoxStyle">
+            <Setter Property="Foreground" Value="{DynamicResource TextControlForeground}" />
+        </Style>
+
+        <Style Selector="ContextMenu">
+
+            <Style.Resources>
+                <!-- Added missing resource -->
+                <Thickness x:Key="MenuFlyoutScrollerMargin">4</Thickness>
+            </Style.Resources>
+
+            <Setter Property="Background" Value="{DynamicResource MenuFlyoutPresenterBackground}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource MenuFlyoutPresenterBorderBrush}" />
+            <Setter Property="BorderThickness" Value="{DynamicResource MenuFlyoutPresenterBorderThemeThickness}" />
+            <Setter Property="MaxWidth" Value="{DynamicResource FlyoutThemeMaxWidth}" />
+            <Setter Property="MinHeight" Value="{DynamicResource MenuFlyoutThemeMinHeight}" />
+            <Setter Property="Padding" Value="{DynamicResource MenuFlyoutPresenterThemePadding}" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="TextBlock.FontSize" Value="{DynamicResource ControlContentThemeFontSize}" />
+            <Setter Property="TextBlock.FontWeight" Value="Normal" />
+            <Setter Property="WindowManagerAddShadowHint" Value="False" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            Padding="{TemplateBinding Padding}"
+                            MaxWidth="{TemplateBinding MaxWidth}"
+                            MinHeight="{TemplateBinding MinHeight}"
+                            HorizontalAlignment="{TemplateBinding HorizontalAlignment}"
+                            CornerRadius="{DynamicResource OverlayCornerRadius}">
+                        <ScrollViewer Classes="menuscroller">
+                            <ItemsPresenter Name="PART_ItemsPresenter"
+                                            Items="{TemplateBinding Items}"
+                                            ItemsPanel="{TemplateBinding ItemsPanel}"
+                                            ItemTemplate="{TemplateBinding ItemTemplate}"
+                                            Margin="{DynamicResource MenuFlyoutScrollerMargin}"
+                                            KeyboardNavigation.TabNavigation="Continue"
+                                            Grid.IsSharedSizeScope="True" />
+                        </ScrollViewer>
                     </Border>
                 </ControlTemplate>
             </Setter>

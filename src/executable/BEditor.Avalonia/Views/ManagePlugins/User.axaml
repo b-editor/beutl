@@ -5,6 +5,7 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:props="using:BEditor.Properties"
     xmlns:vm="using:BEditor.ViewModels.ManagePlugins"
+    xmlns:ui="using:FluentAvalonia.UI.Controls"
     x:DataType="vm:UserViewModel"
     mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
     x:Class="BEditor.Views.ManagePlugins.User">
@@ -18,14 +19,14 @@
             <StackPanel Spacing="0" Orientation="Vertical">
                 <TextBlock Classes="SettingsHeader" Text="{x:Static props:Strings.User}"/>
 
-                <Label Classes="SettingsItemHeader" Content="{x:Static props:Strings.UserName}" />
+                <TextBlock Classes="SettingsItemHeader" Text="{x:Static props:Strings.UserName}" />
 
                 <TextBox
                     IsReadOnly="{CompiledBinding !CanEdit.Value, Mode=OneWay}"
                     Classes="SettingsTextBox"
                     Text="{CompiledBinding UserName.Value, Mode=TwoWay}" />
 
-                <Label Classes="SettingsItemHeader" Content="{x:Static props:Strings.Email}" />
+                <TextBlock Classes="SettingsItemHeader" Text="{x:Static props:Strings.Email}" />
 
                 <TextBox
                     IsReadOnly="{CompiledBinding !CanEdit.Value, Mode=OneWay}"
@@ -38,28 +39,29 @@
                         IsChecked="{CompiledBinding CanEdit.Value, Mode=TwoWay}" >
                         <ToggleButton.Styles>
                             <Style Selector="ToggleButton:checked">
-                                <Setter Property="Background" Value="Transparent" />
                                 <Setter Property="ContentTemplate">
                                     <DataTemplate>
-                                        <PathIcon Data="{StaticResource Edit24Regular}" />
+                                        <ui:PathIcon Data="{StaticResource Edit24Regular}" />
                                     </DataTemplate>
                                 </Setter>
                             </Style>
 
+                            <Style Selector="ToggleButton:checked /template/ ContentPresenter#PART_ContentPresenter">
+                                <Setter Property="TextBlock.Foreground" Value="{StaticResource ToggleButtonForeground}" />
+                            </Style>
+
                             <Style Selector="ToggleButton:unchecked">
-                                <Setter Property="Background" Value="Transparent" />
                                 <Setter Property="ContentTemplate">
                                     <DataTemplate>
-                                        <PathIcon Data="{StaticResource EditOff24Regular}" />
+                                        <ui:PathIcon Data="{StaticResource EditOff24Regular}" />
                                     </DataTemplate>
                                 </Setter>
                             </Style>
 
                             <Style Selector="ToggleButton:indeterminate">
-                                <Setter Property="Background" Value="Transparent" />
                                 <Setter Property="ContentTemplate">
                                     <DataTemplate>
-                                        <PathIcon Data="{StaticResource EditOff24Regular}" />
+                                        <ui:PathIcon Data="{StaticResource EditOff24Regular}" />
                                     </DataTemplate>
                                 </Setter>
                             </Style>
@@ -69,28 +71,33 @@
                     <TextBlock Text="{CompiledBinding EditMessage.Value, Mode=OneWay}" VerticalAlignment="Center" />
                 </StackPanel>
 
-                <Label Classes="SettingsItemHeader" Content="{x:Static props:Strings.ChangePassword}" />
+                <TextBlock Classes="SettingsItemHeader" Text="{x:Static props:Strings.ChangePassword}" />
 
                 <TextBox
                     Text="{CompiledBinding NewPassword.Value, Mode=TwoWay}"
                     Margin="16,0,16,16"
+                    PasswordChar="*"
                     Watermark="{x:Static props:Strings.NewPassword}"
                     Classes="SettingsTextBox revealPasswordButton" />
 
                 <TextBox
                     Text="{CompiledBinding ConfirmNewPassword.Value, Mode=TwoWay}"
                     Margin="16,0,16,16"
+                    PasswordChar="*"
                     Watermark="{x:Static props:Strings.ConfirmNewPassword}"
                     Classes="SettingsTextBox revealPasswordButton" />
 
                 <StackPanel Spacing="16" Margin="16,0,16,16" Orientation="Horizontal">
-                    <Button Content="{x:Static props:Strings.UpdatePassword}" Command="{CompiledBinding UpdatePassword, Mode=OneTime}" />
+                    <Button Classes="accent" Content="{x:Static props:Strings.UpdatePassword}" Command="{CompiledBinding UpdatePassword, Mode=OneTime}" />
 
                     <TextBlock Text="{CompiledBinding ChangePasswordMessage.Value, Mode=OneWay}" VerticalAlignment="Center" />
                 </StackPanel>
 
 
-                <Button Content="{x:Static props:Strings.Signout}" Margin="16,0" />
+                <Button
+                    Content="{x:Static props:Strings.Signout}"
+                    Margin="16,0"
+                    Command="{CompiledBinding SignOut, Mode=OneTime}" />
             </StackPanel>
         </ScrollViewer>
     </Grid>

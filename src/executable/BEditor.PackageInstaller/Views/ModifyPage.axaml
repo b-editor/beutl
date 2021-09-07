@@ -33,15 +33,18 @@
         </StackPanel>
 
 
-        <Panel
+        <Border
             Grid.Row="1"
-            Background="{StaticResource SystemControlBackgroundChromeMediumLowBrush}">
+            BorderBrush="{StaticResource ControlElevationBorderBrush}"
+            BorderThickness="1"
+            CornerRadius="{StaticResource OverlayCornerRadius}"
+            Background="{StaticResource NavigationViewContentBackground}">
             <Button
                 HorizontalAlignment="Right"
                 Margin="16"
                 Content="{x:Static res:Strings.Cancel}"
                 Command="{CompiledBinding Cancel, Mode=OneTime}"
                 IsCancel="True" />
-        </Panel>
+        </Border>
     </Grid>
 </UserControl>

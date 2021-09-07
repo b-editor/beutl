@@ -6,22 +6,115 @@
     xmlns:props="using:BEditor.Properties"
     xmlns:model="using:BEditor.Models"
     xmlns:vm="using:BEditor.ViewModels"
+    xmlns:ui="using:FluentAvalonia.UI.Controls"
+    xmlns:uip="using:FluentAvalonia.UI.Controls.Primitives"
     DataContext="{Binding Project, Source={x:Static model:AppModel.Current}, Mode=OneWay, Converter={StaticResource ConfigurationViewModelConverter}}"
     x:DataType="vm:ConfigurationViewModel"
     mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
     x:Class="BEditor.Views.Configuration">
     <ScrollViewer>
         <StackPanel>
+            <StackPanel.Styles>
+                <Style Selector="TextBlock.SettingsHeader">
+                    <Setter Property="FontSize" Value="20" />
+                    <Setter Property="Margin" Value="16,4"/>
+                </Style>
+            </StackPanel.Styles>
 
-            <Label
+            <TextBlock
+                Classes="SettingsHeader"
+                Text="{x:Static props:Strings.Preview}" />
+
+            <TextBlock
                 Classes="SettingsItemHeader"
-                Content="{x:Static props:Strings.Background}" />
+                Text="{x:Static props:Strings.Background}" />
 
             <ComboBox
                 Classes="SettingsComboBox"
                 SelectedItem="{CompiledBinding SelectedBackground.Value, Mode=TwoWay}"
                 Items="{CompiledBinding Backgrounds, Mode=OneTime}">
             </ComboBox>
+
+            <Separator Height="8"/>
+
+            <TextBlock
+                Classes="SettingsItemHeader"
+                Text="{x:Static props:Strings.Speed}" />
+
+            <NumericUpDown
+                Classes="SettingsNumericUpDown"
+                Minimum="0"
+                Value="{CompiledBinding Speed.Value, Mode=TwoWay}" />
+
+            <Separator Height="8"/>
+
+            <TextBlock
+                Classes="SettingsHeader"
+                Text="{x:Static props:Strings.Cache}" />
+
+            <TextBlock
+                Classes="SettingsItemHeader"
+                Text="{x:Static props:Strings.Start}" />
+
+            <StackPanel Orientation="Horizontal">
+                <TextBox
+                    Classes="SettingsTextBox"
+                    Text="{CompiledBinding Start.Value, Mode=TwoWay}" />
+
+                <Button
+                    Command="{CompiledBinding UseCurrentFrame, Mode=OneTime}"
+                    CommandParameter="{CompiledBinding Start, Mode=OneTime}"
+                    Content="{x:Static props:Strings.UseCurrentFrame}" />
+            </StackPanel>
+
+            <Separator Height="8"/>
+
+            <TextBlock
+                Classes="SettingsItemHeader"
+                Text="{x:Static props:Strings.End}" />
+
+            <StackPanel Orientation="Horizontal">
+                <TextBox
+                    Classes="SettingsTextBox"
+                    Text="{CompiledBinding End.Value, Mode=TwoWay}" />
+
+                <Button
+                    Command="{CompiledBinding UseCurrentFrame, Mode=OneTime}"
+                    CommandParameter="{CompiledBinding End, Mode=OneTime}"
+                    Content="{x:Static props:Strings.UseCurrentFrame}" />
+            </StackPanel>
+
+            <Separator Height="8"/>
+
+            <CheckBox
+                Classes="SettingsCheckBox"
+                Content="{x:Static props:Strings.UseCache}"
+                IsChecked="{CompiledBinding UseCache.Value, Mode=TwoWay}" />
+            
+            <CheckBox
+                Classes="SettingsCheckBox"
+                Content="{x:Static props:Strings.LowerColorReproduction}"
+                IsChecked="{CompiledBinding LowColor.Value, Mode=TwoWay}" />
+            
+            <CheckBox
+                Classes="SettingsCheckBox"
+                Content="{x:Static props:Strings.LowerResolution}"
+                IsChecked="{CompiledBinding LowResolution.Value, Mode=TwoWay}" />
+            
+            <StackPanel Orientation="Horizontal" Margin="16" Spacing="16">
+                <Button
+                    Classes="accent"
+                    Content="{x:Static props:Strings.CreateCache}"
+                    Command="{CompiledBinding CreateCache, Mode=OneTime}" />
+
+                <Button
+                    Content="{x:Static props:Strings.ClearCache}"
+                    Command="{CompiledBinding ClearCache, Mode=OneTime}" />
+
+                <TextBlock
+                    VerticalAlignment="Center"
+                    Text="{CompiledBinding PresumedUsageCapacity.Value}" />
+            </StackPanel>
         </StackPanel>
     </ScrollViewer>
 </UserControl>

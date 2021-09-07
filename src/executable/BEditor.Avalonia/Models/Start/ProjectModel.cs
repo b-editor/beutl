@@ -8,8 +8,5 @@ using Reactive.Bindings;
 
 namespace BEditor.Models.Start
 {
-    public sealed record ProjectModel(string Name, string Thumbnail, string FileName)
-    {
-        public ReactivePropertySlim<bool> IsLoading { get; } = new();
-    }
+    public sealed record ProjectModel(string Name, string Thumbnail, string FileName);
 }

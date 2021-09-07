@@ -6,15 +6,17 @@
     mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
     xmlns:vm="using:BEditor.ViewModels.Properties"
     xmlns:prop="using:BEditor.Properties"
+    xmlns:ui="using:FluentAvalonia.UI.Controls"
+    xmlns:uip="using:FluentAvalonia.UI.Controls.Primitives"
     x:DataType="vm:TextPropertyViewModel"
     Height="40"
     Background="Transparent"
     x:Class="BEditor.Views.Properties.TextPropertyView">
     <UserControl.ContextMenu>
         <ContextMenu>
-            <MenuItem Header="{x:Static prop:Strings.Reset}" Command="{CompiledBinding Reset, Mode=OneTime}"/>
-            <MenuItem Header="{x:Static prop:Strings.Bind}" Command="{CompiledBinding Bind, Mode=OneTime}"/>
-            <MenuItem Header="{x:Static prop:Strings.CopyID}" Command="{CompiledBinding CopyID, Mode=OneTime}"/>
+            <MenuItem Header="{x:Static prop:Strings.Reset}" Command="{CompiledBinding Reset, Mode=OneTime}" />
+            <MenuItem Header="{x:Static prop:Strings.Bind}" Command="{CompiledBinding Bind, Mode=OneTime}" />
+            <MenuItem Header="{x:Static prop:Strings.CopyID}" Command="{CompiledBinding CopyID, Mode=OneTime}" />
         </ContextMenu>
     </UserControl.ContextMenu>
     <Grid>
@@ -25,24 +27,24 @@
             <ColumnDefinition Width="*" MinWidth="100" />
         </Grid.ColumnDefinitions>
 
-        <Label
-            Height="40"
+        <TextBlock
             Margin="10,0,0,0"
             HorizontalAlignment="Left"
-            VerticalAlignment="Top"
-            VerticalContentAlignment="Center"
+            VerticalAlignment="Center"
             FontSize="13"
-            Content="{CompiledBinding Property.PropertyMetadata.Name, Mode=OneTime}" />
+            Text="{Binding Property.PropertyMetadata.Name, Mode=OneTime}" />
 
         <TextBox
             x:Name="TextBox"
-            Margin="8,4"
+            BorderThickness="0,1,0,0"
+            Background="Transparent"
             Grid.Column="3"
+            Margin="8,4"
             HorizontalAlignment="Stretch"
             VerticalAlignment="Stretch"
-            Classes="custom"
-            Text="{CompiledBinding Property.Value, Mode=OneWay}"
             GotFocus="TextBox_GotFocus"
-            LostFocus="TextBox_LostFocus" />
+            LostFocus="TextBox_LostFocus"
+            Text="{CompiledBinding Property.Value, Mode=OneWay}" />
+
     </Grid>
 </UserControl>

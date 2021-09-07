@@ -50,15 +50,16 @@ namespace BEditor.Packaging
             "OpenCvSharp",
             "OpenCvSharp.Extensions",
             "OpenTK.Core",
-            "OpenTK.Graphics",
             "OpenTK.Mathematics",
             "OpenTK.OpenAL",
-            "OpenTK.Windowing.GraphicsLibraryFramework",
+            "SharpGen.Runtime.COM",
+            "SharpGen.Runtime",
             "SkiaSharp",
             "System.Drawing.Common",
             "System.Reactive",
-            "glfw",
-            "opencv_videoio_ffmpeg452",
+            "Vortice.Multimedia",
+            "Vortice.XAudio2",
+            "opencv_videoio_ffmpeg453",
         };
 
         /// <summary>
@@ -245,13 +246,13 @@ namespace BEditor.Packaging
             for (var i = 0; i < array.Length; i++)
             {
                 var item = array[i];
-                if (_ignoreDlls.Any(i => item.Contains(i)))
+                if (_ignoreDlls.Any(i => Path.GetFileNameWithoutExtension(item).Contains(i)))
                 {
                     continue;
                 }
 
                 var entryName = Path.GetRelativePath(directory, item);
-                var entry = zip.CreateEntry(entryName);
+                var entry = zip.CreateEntry(entryName, CompressionLevel.Optimal);
 
                 using var entryStream = entry.Open();
                 using var itemStream = new FileStream(item, FileMode.Open);
@@ -274,7 +275,7 @@ namespace BEditor.Packaging
             for (var i = 0; i < array.Length; i++)
             {
                 var item = array[i];
-                if (_ignoreDlls.Any(i => item.Contains(i)))
+                if (_ignoreDlls.Any(i => Path.GetFileNameWithoutExtension(item).Contains(i)))
                 {
                     continue;
                 }

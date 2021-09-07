@@ -30,7 +30,7 @@ namespace BEditor.Data.Property
         /// <param name="min">The minimum value.</param>
         /// <param name="useOptional">The bool of whether to use the Optional value.</param>
         public EasePropertyMetadata(string name, float defaultValue = 0, float max = float.NaN, float min = float.NaN, bool useOptional = false)
-            : this(name, EasingMetadata.LoadedEasingFunc[0], defaultValue, max, min, useOptional)
+            : this(name, EasingMetadata.GetDefault(), defaultValue, max, min, useOptional)
         {
         }
 

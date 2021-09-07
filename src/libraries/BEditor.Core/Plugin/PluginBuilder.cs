@@ -23,10 +23,6 @@ namespace BEditor.Plugin
     /// </summary>
     public sealed class PluginBuilder
     {
-        /// <summary>
-        /// The plugin config.
-        /// </summary>
-        internal static PluginConfig? Config;
         private readonly Func<PluginObject> _plugin;
         private readonly List<EffectMetadata> _effects = new();
         private readonly List<ObjectMetadata> _objects = new();
@@ -40,7 +36,12 @@ namespace BEditor.Plugin
         }
 
         /// <summary>
-        ///  Begin configuring an <see cref="PluginObject"/>.
+        /// Gets or sets the plugin config.
+        /// </summary>
+        internal static PluginConfig? Config { get; set; }
+
+        /// <summary>
+        /// Begin configuring an <see cref="PluginObject"/>.
         /// </summary>
         /// <typeparam name="T">Class that implements the <see cref="PluginObject"/> to be configure.</typeparam>
         /// <returns>The same instance of the <see cref="PluginBuilder"/> for chaining.</returns>
@@ -143,22 +144,6 @@ namespace BEditor.Plugin
         }
 
         /// <summary>
-        /// Add a task to be executed when the application is launched.
-        /// </summary>
-        /// <param name="func">The function to run.</param>
-        /// <returns>The same instance of the <see cref="PluginBuilder"/> for chaining.</returns>
-        [Obsolete("Use PluginBuilder.Task(Func{IProgressDialog, ValueTask}, BackgroundTaskCompleteType, string)")]
-        public PluginBuilder Task(Func<IProgress<int>, ValueTask> func)
-        {
-            if (!_task.Any(i => i._task == func))
-            {
-                _task.Add(new(func, (_task.Count + 1).ToString()));
-            }
-
-            return this;
-        }
-
-        /// <summary>
         /// Set the menu.
         /// </summary>
         /// <param name="header">The string to display in the menu header.</param>
@@ -209,16 +194,16 @@ namespace BEditor.Plugin
 
             if (_menus.Item1 is not null && _menus.Item2 is not null)
             {
-                manager._menus.Add(_menus!);
+                manager.Menus.Add(_menus!);
             }
 
             var instance = _plugin();
             if (_task.Count is not 0)
             {
-                manager._tasks.Add((instance, _task));
+                manager.Tasks.Add((instance, _task));
             }
 
-            manager._loaded.Add(instance);
+            manager.Loaded.Add(instance);
         }
 
         /// <summary>

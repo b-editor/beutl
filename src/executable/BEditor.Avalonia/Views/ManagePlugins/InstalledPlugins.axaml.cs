@@ -2,8 +2,11 @@ using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 
+using BEditor.Plugin;
 using BEditor.Properties;
 using BEditor.ViewModels.ManagePlugins;
+
+using FluentAvalonia.UI.Controls;
 
 namespace BEditor.Views.ManagePlugins
 {
@@ -11,19 +14,32 @@ namespace BEditor.Views.ManagePlugins
     {
         private readonly ListBox _pluginList;
         private readonly ContentControl _pluginSettings;
-        private readonly Button _settingsButton;
-        private readonly Button _applySettingsButton;
+        private readonly CommandBarButton _backButton;
+        private readonly CommandBarButton _applySettingsButton;
 
         public LoadedPlugins()
         {
             InitializeComponent();
             _pluginList = this.FindControl<ListBox>("PluginList");
             _pluginSettings = this.FindControl<ContentControl>("PluginSettings");
-            _settingsButton = this.FindControl<Button>("SettingsButton");
-            _applySettingsButton = this.FindControl<Button>("ApplySettingsButton");
+            _backButton = this.FindControl<CommandBarButton>("BackButton");
+            _applySettingsButton = this.FindControl<CommandBarButton>("ApplySettingsButton");
         }
 
         public void ShowSettings(object s, RoutedEventArgs e)
+        {
+            if (s is CommandBarButton button && button.DataContext is PluginObject plugin)
+            {
+                _pluginSettings.Content = (StackPanel?)PluginSettingsUIBuilder.Create(plugin.Settings);
+                _pluginSettings.IsVisible = true;
+                _applySettingsButton.IsVisible = true;
+
+                _pluginList.IsVisible = false;
+                _backButton.IsVisible = true;
+            }
+        }
+
+        public void BackClick(object s, RoutedEventArgs e)
         {
             if (_pluginSettings.IsVisible)
             {
@@ -32,16 +48,7 @@ namespace BEditor.Views.ManagePlugins
                 _applySettingsButton.IsVisible = false;
 
                 _pluginList.IsVisible = true;
-                _settingsButton.Content = Strings.Settings;
-            }
-            else if (DataContext is LoadedPluginsViewModel vm && vm.IsSelected.Value)
-            {
-                _pluginSettings.Content = (StackPanel?)PluginSettingsUIBuilder.Create(vm.SelectPlugin.Value.Settings);
-                _pluginSettings.IsVisible = true;
-                _applySettingsButton.IsVisible = true;
-
-                _pluginList.IsVisible = false;
-                _settingsButton.Content = Strings.Back;
+                _backButton.IsVisible = false;
             }
         }
 

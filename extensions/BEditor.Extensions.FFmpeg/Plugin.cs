@@ -14,7 +14,7 @@ using FFMediaToolkit;
 
 namespace BEditor.Extensions.FFmpeg
 {
-    public class Plugin : PluginObject
+    public sealed class Plugin : PluginObject
     {
         public Plugin(PluginConfig config) : base(config)
         {

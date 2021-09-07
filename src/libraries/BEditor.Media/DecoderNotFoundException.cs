@@ -18,7 +18,7 @@ namespace BEditor.Media
     /// The exception that is thrown when the decoder is not found.
     /// </summary>
     [Serializable]
-    public class DecoderNotFoundException : Exception
+    public sealed class DecoderNotFoundException : Exception
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="DecoderNotFoundException"/> class.
@@ -52,7 +52,7 @@ namespace BEditor.Media
         /// </summary>
         /// <param name="info">The <see cref="System.Runtime.Serialization.SerializationInfo"/> that holds the serialized object data about the exception being thrown.</param>
         /// <param name="context">The <see cref="System.Runtime.Serialization.StreamingContext"/> that contains contextual information about the source or destination.</param>
-        protected DecoderNotFoundException(
+        private DecoderNotFoundException(
             System.Runtime.Serialization.SerializationInfo info,
             System.Runtime.Serialization.StreamingContext context)
             : base(info, context)

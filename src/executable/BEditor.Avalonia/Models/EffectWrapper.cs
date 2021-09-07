@@ -10,7 +10,7 @@ using BEditor.Data;
 
 namespace BEditor.Models
 {
-    public class EffectWrapper : IJsonObject
+    public sealed class EffectWrapper : IJsonObject
     {
         public EffectWrapper(EffectElement effect)
         {
@@ -26,13 +26,14 @@ namespace BEditor.Models
             Effect.GetObjectData(writer);
         }
 
-        public void SetObjectData(JsonElement element)
+        public void SetObjectData(DeserializeContext context)
         {
+            var element = context.Element;
             var typeName = element.GetProperty("_type").GetString() ?? string.Empty;
             if (Type.GetType(typeName) is var type && type is not null)
             {
                 Effect = (EffectElement)FormatterServices.GetUninitializedObject(type);
-                Effect.SetObjectData(element);
+                Effect.SetObjectData(context);
             }
         }
     }

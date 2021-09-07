@@ -4,39 +4,32 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d" MinWidth="350" MinHeight="200"
              x:Class="BEditor.Views.DialogContent.MessageContent">
-  <Grid Margin="5,5,5,5">
-    <Grid.RowDefinitions>
-      <RowDefinition/>
-      <RowDefinition Height="Auto"/>
-    </Grid.RowDefinitions>
-    <Grid>
-      <Grid.ColumnDefinitions>
-        <ColumnDefinition Width="Auto"/>
-        <ColumnDefinition/>
-      </Grid.ColumnDefinitions>
-      <Label
-        x:Name="icon"
-        Padding="0,0,0,0"
-        Margin="5,5,5,5"
-        HorizontalContentAlignment="Stretch"
-        VerticalContentAlignment="Stretch"
-        Width="70" Height="70"/>
-      <Label
-        x:Name="label"
-        FontFamily="Yu Gothic UI, Segoe UI, Hiragino Sans, Helvetica Neue, Ubuntu"
-        Padding="0,0,0,0"
-        HorizontalContentAlignment="Stretch"
-        VerticalContentAlignment="Stretch"
-        Margin="5,5,5,5"
-        Grid.Column="1"/>
-    </Grid>
+    <Grid Margin="8" RowDefinitions="*,Auto">
+        <Grid ColumnDefinitions="Auto,*">
+            <ContentControl
+                x:Name="icon"
+                Padding="0"
+                Margin="8"
+                HorizontalContentAlignment="Stretch"
+                VerticalContentAlignment="Stretch"
+                Width="60" Height="60"/>
+            <ContentControl
+                x:Name="label"
+                FontFamily="Yu Gothic UI, Segoe UI, Hiragino Sans, Helvetica Neue, Ubuntu"
+                Padding="0"
+                HorizontalContentAlignment="Stretch"
+                VerticalContentAlignment="Stretch"
+                Margin="8"
+                Grid.Column="1"/>
+        </Grid>
 
-    <StackPanel
-      Grid.Row="1"
-      Orientation="Horizontal"
-      HorizontalAlignment="Right"
-      x:Name="stack"
-      Margin="5,5,5,5"
-      VerticalAlignment="Bottom"/>
-  </Grid>
+        <StackPanel
+            Grid.Row="1"
+            Orientation="Horizontal"
+            HorizontalAlignment="Right"
+            x:Name="stack"
+            Spacing="8"
+            Margin="8"
+            VerticalAlignment="Bottom"/>
+    </Grid>
 </UserControl>

@@ -11,16 +11,20 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Runtime.Serialization;
 using System.Text.Json;
 using System.Threading.Tasks;
 
 using BEditor.Audio;
+using BEditor.Data.Property;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
+using BEditor.Plugin;
 using BEditor.Resources;
 
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace BEditor.Data
 {
@@ -85,11 +89,21 @@ namespace BEditor.Data
                 (owner, obj) => owner.DirectoryName = obj,
                 EditingPropertyOptions<string>.Create().Notify(true));
 
+        /// <summary>
+        /// Defines the ProjectVersion property.
+        /// </summary>
+        public static readonly EditingProperty<string> ProjectVersionProperty
+            = EditingProperty.Register<string, Project>(
+                "ProjectVersion",
+                EditingPropertyOptions<string>.Create().DefaultValue(CurrentProjectVersion)!.Serialize()!);
+
+        private const string CurrentProjectVersion = "0.2.0";
+        private ProjectResources? _resources;
         private Scene? _currentScene;
         private string _name;
         private string _dirname;
-        private IApplication _parent;
         private int _currentSceneIndex;
+        private IApplication? _parent;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Project"/> class.
@@ -102,7 +116,7 @@ namespace BEditor.Data
         /// <param name="filename">The project file name.</param>
         public Project(int width, int height, int framerate, int samplingrate, IApplication app, string filename)
         {
-            Parent = _parent = app;
+            Parent = Parent = app;
             Framerate = framerate;
             Samplingrate = samplingrate;
             Name = _name = Path.GetFileNameWithoutExtension(filename)!;
@@ -135,26 +149,6 @@ namespace BEditor.Data
         public ObservableCollection<Scene> SceneList { get; private set; } = new ObservableCollection<Scene>();
 
         /// <summary>
-        /// Gets an index of the <see cref="SceneList"/> being previewed.
-        /// </summary>
-        [Obsolete("Use CurrentSceneIndex.")]
-        public int PreviewSceneIndex => CurrentSceneIndex;
-
-        /// <summary>
-        /// Gets or sets the <see cref="Scene"/> that is being previewed.
-        /// </summary>
-        [Obsolete("Use CurrentScene.")]
-        public Scene PreviewScene
-        {
-            get => CurrentScene;
-            set
-            {
-                CurrentScene = value;
-                RaisePropertyChanged(new(nameof(PreviewScene)));
-            }
-        }
-
-        /// <summary>
         /// Gets or sets the current <see cref="Scene"/>.
         /// </summary>
         public Scene CurrentScene
@@ -168,7 +162,7 @@ namespace BEditor.Data
         }
 
         /// <summary>
-        /// Gets the index of the current scene.
+        /// Gets or sets the index of the current scene.
         /// </summary>
         public int CurrentSceneIndex
         {
@@ -182,15 +176,11 @@ namespace BEditor.Data
         /// <inheritdoc/>
         public IApplication Parent
         {
-            get => _parent;
+            get => _parent!;
             set
             {
                 _parent = value;
-
-                foreach (var prop in Children)
-                {
-                    prop.Parent = this;
-                }
+                Children.SetParent<Project, Scene>(i => i.Parent = this);
             }
         }
 
@@ -211,6 +201,11 @@ namespace BEditor.Data
             get => _dirname;
             set => SetAndRaise(DirectoryNameProperty, ref _dirname, value);
         }
+
+        /// <summary>
+        /// Gets the class that manages the resources used by the project.
+        /// </summary>
+        public ProjectResources Resources => _resources ?? throw new Exception("The project is invalid.");
 
         /// <summary>
         /// Load a <see cref="Project"/> from a file.
@@ -245,16 +240,12 @@ namespace BEditor.Data
                 }
             }
 
-            var proj = await Serialize.LoadFromFileAsync<Project>(file);
+            var proj = await LoadFromFileAsync(file, app);
 
             if (proj is null)
             {
                 return null;
             }
-
-            proj.DirectoryName = Path.GetDirectoryName(file)!;
-            proj.Name = Path.GetFileNameWithoutExtension(file);
-            proj.Parent = app;
 
             var appConf = Path.Combine(proj.DirectoryName!, ".app");
             IfNotExistCreateDir(appConf);
@@ -296,16 +287,12 @@ namespace BEditor.Data
                 }
             }
 
-            var proj = Serialize.LoadFromFile<Project>(file);
+            var proj = LoadFromFile(file, app);
 
             if (proj is null)
             {
                 return null;
             }
-
-            proj.DirectoryName = Path.GetDirectoryName(file)!;
-            proj.Name = Path.GetFileNameWithoutExtension(file);
-            proj.Parent = app;
 
             var appConf = Path.Combine(proj.DirectoryName!, ".app");
             IfNotExistCreateDir(appConf);
@@ -484,10 +471,37 @@ namespace BEditor.Data
             return false;
         }
 
+        /// <summary>
+        /// Find the plug-ins that this project depends on.
+        /// </summary>
+        /// <returns>Returns the plugins that this project depends on.</returns>
+        public IEnumerable<PluginObject> FindDependentPlugins()
+        {
+            static PluginObject? PluginFromAssembly(Assembly assembly)
+            {
+                foreach (var item in PluginManager.Default.Plugins)
+                {
+                    if (item.GetType().Assembly == assembly)
+                    {
+                        return item;
+                    }
+                }
+
+                return null;
+            }
+
+            foreach (var child in this.GetAllChildren<object>())
+            {
+                var plugin = PluginFromAssembly(child.GetType().Assembly);
+                if (plugin is not null) yield return plugin;
+            }
+        }
+
         /// <inheritdoc/>
         public override void GetObjectData(Utf8JsonWriter writer)
         {
             base.GetObjectData(writer);
+            SetValue(ProjectVersionProperty, CurrentProjectVersion);
             writer.WriteNumber(nameof(Framerate), Framerate);
             writer.WriteNumber(nameof(Samplingrate), Samplingrate);
             writer.WriteStartArray("Scenes");
@@ -505,26 +519,114 @@ namespace BEditor.Data
         }
 
         /// <inheritdoc/>
-        public override void SetObjectData(JsonElement element)
+        public override void SetObjectData(DeserializeContext context)
         {
-            base.SetObjectData(element);
-            Framerate = element.GetProperty(nameof(Framerate)).GetInt32();
-            Samplingrate = element.GetProperty(nameof(Samplingrate)).GetInt32();
-            SceneList = new(element.GetProperty("Scenes").EnumerateArray().Select(i =>
+            base.SetObjectData(context);
+            Parent = (context.Parent as IApplication) ?? Parent;
+
+            context.Version = GetValue(ProjectVersionProperty);
+            Framerate = context.Element.GetProperty(nameof(Framerate)).GetInt32();
+            Samplingrate = context.Element.GetProperty(nameof(Samplingrate)).GetInt32();
+            SceneList = new(context.Element.GetProperty("Scenes").EnumerateArray().Select(i =>
             {
                 var scene = (Scene)FormatterServices.GetUninitializedObject(typeof(Scene));
-                scene.SetObjectData(i);
+                scene.SetObjectData(context.WithElement(i).WithParent(this));
                 return scene;
             }));
+        }
+
+        internal Project? DeepClone()
+        {
+            try
+            {
+                using var stream = new MemoryStream();
+
+                if (!Serialize.SaveToStream(this, stream)) return null;
+
+                stream.Position = 0;
+                var obj = (Project)FormatterServices.GetUninitializedObject(typeof(Project));
+                obj.Parent = Parent;
+                obj.DirectoryName = DirectoryName;
+                obj.Name = Name;
+
+                using var doc = JsonDocument.Parse(stream);
+                obj.SetObjectData(new(doc.RootElement, Parent));
+
+                return obj;
+            }
+            catch (Exception e)
+            {
+                Log(e);
+                return null;
+            }
+        }
+
+        /// <inheritdoc/>
+        protected override void OnLoad()
+        {
+            _resources = new();
+            base.OnLoad();
         }
 
         /// <inheritdoc/>
         protected override void OnUnload()
         {
+            _resources?.Release();
             if (ServiceProvider is IDisposable disposable)
             {
                 disposable.Dispose();
             }
+        }
+
+        private static async Task<Project?> LoadFromFileAsync(string file, IApplication application)
+        {
+            try
+            {
+                await using var stream = new FileStream(file, FileMode.Open);
+
+                var obj = (Project)FormatterServices.GetUninitializedObject(typeof(Project));
+                obj.Parent = application;
+                obj.DirectoryName = Path.GetDirectoryName(file)!;
+                obj.Name = Path.GetFileNameWithoutExtension(file);
+
+                using var doc = await JsonDocument.ParseAsync(stream);
+                obj.SetObjectData(new DeserializeContext(doc.RootElement, application));
+
+                return obj;
+            }
+            catch (Exception e)
+            {
+                Log(e);
+                return default;
+            }
+        }
+
+        private static Project? LoadFromFile(string file, IApplication application)
+        {
+            try
+            {
+                using var stream = new FileStream(file, FileMode.Open);
+
+                var obj = (Project)FormatterServices.GetUninitializedObject(typeof(Project));
+                obj.Parent = application;
+                obj.DirectoryName = Path.GetDirectoryName(file)!;
+                obj.Name = Path.GetFileNameWithoutExtension(file);
+
+                using var doc = JsonDocument.Parse(stream);
+                obj.SetObjectData(new(doc.RootElement, application));
+
+                return obj;
+            }
+            catch (Exception e)
+            {
+                Log(e);
+                return default;
+            }
+        }
+
+        private static void Log(Exception e)
+        {
+            ServicesLocator.Current.Logger.LogWarning(e, "Failed to serialize or deserialize.");
         }
     }
 }

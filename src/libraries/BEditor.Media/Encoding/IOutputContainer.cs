@@ -44,20 +44,6 @@ namespace BEditor.Media.Encoding
         public void AddAudioStream(AudioEncoderSettings config);
 
         /// <summary>
-        /// Gets the default settings for video encoder.
-        /// </summary>
-        /// <returns>Returns the default encoder setting.</returns>
-        [Obsolete("Use IRegisterdEncoding.GetDefaultVideoSettings")]
-        public VideoEncoderSettings GetDefaultVideoSettings();
-
-        /// <summary>
-        /// Gets the default settings for audio encoder.
-        /// </summary>
-        /// <returns>Returns the default encoder setting.</returns>
-        [Obsolete("Use IRegisterdEncoding.GetDefaultAudioSettings")]
-        public AudioEncoderSettings GetDefaultAudioSettings();
-
-        /// <summary>
         /// Creates a multimedia file.
         /// </summary>
         /// <returns>A new <see cref="MediaOutput"/>.</returns>

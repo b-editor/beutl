@@ -19,7 +19,7 @@ namespace BEditor.Data
     /// <summary>
     /// Represents a data of a clip to be placed in the timeline.
     /// </summary>
-    public partial class ClipElement : ICloneable, IJsonObject, IElementObject
+    public sealed partial class ClipElement : ICloneable, IJsonObject, IElementObject
     {
         /// <inheritdoc cref="ICloneable.Clone"/>
         public ClipElement Clone()
@@ -57,9 +57,12 @@ namespace BEditor.Data
         }
 
         /// <inheritdoc/>
-        public override void SetObjectData(JsonElement element)
+        public override void SetObjectData(DeserializeContext context)
         {
-            base.SetObjectData(element);
+            base.SetObjectData(context);
+            var element = context.Element;
+            Parent = (context.Parent as Scene) ?? Parent;
+
             Start = element.GetProperty(nameof(Start)).GetInt32();
             End = element.GetProperty(nameof(End)).GetInt32();
             Layer = element.GetProperty(nameof(Layer)).GetInt32();
@@ -72,7 +75,7 @@ namespace BEditor.Data
                 if (Type.GetType(typeName) is var type && type is not null)
                 {
                     var obj = (EffectElement)FormatterServices.GetUninitializedObject(type);
-                    obj.SetObjectData(effect);
+                    obj.SetObjectData(context.WithParent(this).WithElement(effect));
 
                     Effect.Add(obj);
                 }
@@ -129,10 +132,22 @@ namespace BEditor.Data
         /// <param name="end">The new ending frame of this <see cref="ClipElement"/>.</param>
         /// <returns>Created <see cref="IRecordCommand"/>.</returns>
         /// <exception cref="ArgumentOutOfRangeException"><paramref name="start"/> or <paramref name="end"/> is less than 0.</exception>
-        [Pure]
+        [Obsolete("Use ChangeLength(ClipLengthChangeAnchor, Frame).", error: true)]
         public IRecordCommand ChangeLength(Frame start, Frame end)
         {
-            return new LengthChangeCommand(this, start, end);
+            throw new NotSupportedException();
+        }
+
+        /// <summary>
+        /// Create a command to change the length of this <see cref="ClipElement"/>.
+        /// </summary>
+        /// <param name="anchor">The anchor.</param>
+        /// <param name="length">The new length of this <see cref="ClipElement"/>.</param>
+        /// <returns>Created <see cref="IRecordCommand"/>.</returns>
+        [Pure]
+        public IRecordCommand ChangeLength(ClipLengthChangeAnchor anchor, Frame length)
+        {
+            return new LengthChangeCommand(this, length, anchor);
         }
 
         /// <summary>

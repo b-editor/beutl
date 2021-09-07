@@ -1,4 +1,5 @@
-using Avalonia;
+using System.IO;
+
 using Avalonia.Controls;
 using Avalonia.LogicalTree;
 using Avalonia.Markup.Xaml;
@@ -8,27 +9,37 @@ using BEditor.ViewModels.ManagePlugins;
 
 namespace BEditor.Views.ManagePlugins
 {
-    public partial class User : UserControl
+    public sealed class User : UserControl
     {
         public User()
         {
             if (AppModel.Current.User is not null)
             {
-                DataContext = new UserViewModel(AppModel.Current.User);
+                var vm = new UserViewModel(AppModel.Current.User);
+                vm.SignOut.Subscribe(() =>
+                {
+                    var file = Path.Combine(ServicesLocator.GetUserFolder(), "token");
+                    if (File.Exists(file))
+                        File.Delete(file);
+
+                    if (Parent is FluentAvalonia.UI.Controls.Frame item)
+                    {
+                        item.Content = new Signin();
+                    }
+                });
+                DataContext = vm;
             }
             InitializeComponent();
         }
 
-        protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+        protected override void OnAttachedToLogicalTree(LogicalTreeAttachmentEventArgs e)
         {
-            if (AppModel.Current.User is null && Parent is TabItem item && item.Parent is TabControl tab)
+            base.OnAttachedToLogicalTree(e);
+            if (AppModel.Current.User is null
+                && Parent is FluentAvalonia.UI.Controls.Frame item)
             {
                 item.Content = new Signin();
-                tab.SelectedItem = null;
-                tab.SelectedItem = item;
             }
-
-            base.OnAttachedToVisualTree(e);
         }
 
         private void InitializeComponent()

@@ -18,8 +18,7 @@ namespace BEditor.Data.Property
     /// <param name="Name">The string displayed in the property header.</param>
     /// <param name="DefaultColor">The default color.</param>
     /// <param name="DefaultEase">The default easing function.</param>
-    /// <param name="UseAlpha">The value of whether to use alpha components or not.</param>
-    public record ColorAnimationPropertyMetadata(string Name, Color DefaultColor, EasingMetadata DefaultEase, [property: Obsolete("Obsolete")] bool UseAlpha = false)
+    public record ColorAnimationPropertyMetadata(string Name, Color DefaultColor, EasingMetadata DefaultEase)
         : PropertyElementMetadata(Name), IEditingPropertyInitializer<ColorAnimationProperty>
     {
         /// <summary>
@@ -27,7 +26,7 @@ namespace BEditor.Data.Property
         /// </summary>
         /// <param name="name">The string displayed in the property header.</param>
         public ColorAnimationPropertyMetadata(string name)
-            : this(name, default, EasingMetadata.LoadedEasingFunc[0])
+            : this(name, default, EasingMetadata.GetDefault())
         {
         }
 
@@ -36,9 +35,8 @@ namespace BEditor.Data.Property
         /// </summary>
         /// <param name="name">The string displayed in the property header.</param>
         /// <param name="defaultColor">The default color.</param>
-        /// <param name="useAlpha">The value of whether to use alpha components or not.</param>
-        public ColorAnimationPropertyMetadata(string name, Color defaultColor, bool useAlpha = false)
-            : this(name, defaultColor, EasingMetadata.LoadedEasingFunc[0], useAlpha)
+        public ColorAnimationPropertyMetadata(string name, Color defaultColor)
+            : this(name, defaultColor, EasingMetadata.GetDefault())
         {
         }
 

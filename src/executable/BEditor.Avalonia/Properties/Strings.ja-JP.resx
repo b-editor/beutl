@@ -403,9 +403,6 @@
   <data name="SaveAs" xml:space="preserve">
     <value>名前を付けて保存</value>
   </data>
-  <data name="SaveFolder" xml:space="preserve">
-    <value>保存フォルダー</value>
-  </data>
   <data name="Scene" xml:space="preserve">
     <value>シーン</value>
   </data>
@@ -829,5 +826,124 @@ Vulkan:
   </data>
   <data name="AddNewPalette" xml:space="preserve">
     <value>新しいパレットを追加</value>
+  </data>
+  <data name="AudioProfile" xml:space="preserve">
+    <value>オーディオプロファイル</value>
+  </data>
+  <data name="PackingTheProject" xml:space="preserve">
+    <value>プロジェクトを梱包</value>
+  </data>
+  <data name="ProjectPackage" xml:space="preserve">
+    <value>プロジェクトパッケージ</value>
+  </data>
+  <data name="FailedToPackProject" xml:space="preserve">
+    <value>プロジェクトの梱包に失敗しました</value>
+  </data>
+  <data name="SelectLocationToUnpackProject" xml:space="preserve">
+    <value>プロジェクトを解凍する場所の選択</value>
+  </data>
+  <data name="TheFollowingPluginsAreRrequiredToOpenProject" xml:space="preserve">
+    <value>このプロジェクトを開くには、以下のプラグインが必要です。</value>
+  </data>
+  <data name="InstallRequiredPlugins" xml:space="preserve">
+    <value>必要なプラグインをインストール</value>
+  </data>
+  <data name="InstallNow" xml:space="preserve">
+    <value>今すぐインストール</value>
+  </data>
+  <data name="InstallLater" xml:space="preserve">
+    <value>後でインストール</value>
+  </data>
+  <data name="NotFoundPackageFromRegisteredPackageSource" xml:space="preserve">
+    <value>登録されているパッケージソースからパッケージがみつかりませんでした。</value>
+  </data>
+  <data name="Unknown" xml:space="preserve">
+    <value>不明</value>
+  </data>
+  <data name="Dependency" xml:space="preserve">
+    <value>依存関係</value>
+  </data>
+  <data name="ThePackageHasBeenCreated" xml:space="preserve">
+    <value>パッケージが作成されました</value>
+  </data>
+  <data name="RequiredPlugins" xml:space="preserve">
+    <value>必要なプラグイン</value>
+  </data>
+  <data name="TryingToOpenProjectPackage" xml:space="preserve">
+    <value>プロジェクトパッケージを開こうとしています</value>
+  </data>
+  <data name="YouDoNotHaveTheRequiredPluginsInstalled" xml:space="preserve">
+    <value>必要なプラグインがインストールされていません。
+今すぐインストールしますか?</value>
+  </data>
+  <data name="FixSeekbar" xml:space="preserve">
+    <value>再生時にシークバーを固定する</value>
+  </data>
+  <data name="PrimitiveEasing" xml:space="preserve">
+    <value>プリミティブ (非推奨)</value>
+  </data>
+  <data name="LayerThickness" xml:space="preserve">
+    <value>レイヤーの線の濃さ</value>
+  </data>
+  <data name="Thin" xml:space="preserve">
+    <value>薄い</value>
+  </data>
+  <data name="Strong" xml:space="preserve">
+    <value>濃い</value>
+  </data>
+  <data name="None" xml:space="preserve">
+    <value>無し</value>
+  </data>
+  <data name="Location" xml:space="preserve">
+    <value>場所</value>
+  </data>
+  <data name="ProjectLocation" xml:space="preserve">
+    <value>プロジェクトの場所</value>
+  </data>
+  <data name="Next" xml:space="preserve">
+    <value>次</value>
+  </data>
+  <data name="SavePositionAsPercentage" xml:space="preserve">
+    <value>位置を割合で保存</value>
+  </data>
+  <data name="SavePositionAsFrameNumber" xml:space="preserve">
+    <value>位置をフレーム番号で保存</value>
+  </data>
+  <data name="Play" xml:space="preserve">
+    <value>再生</value>
+  </data>
+  <data name="Pause" xml:space="preserve">
+    <value>一時停止</value>
+  </data>
+  <data name="Preview" xml:space="preserve">
+    <value>プレビュー</value>
+  </data>
+  <data name="Speed" xml:space="preserve">
+    <value>スピード</value>
+  </data>
+  <data name="Cache" xml:space="preserve">
+    <value>キャッシュ</value>
+  </data>
+  <data name="CreateCache" xml:space="preserve">
+    <value>キャッシュを作成</value>
+  </data>
+  <data name="ClearCache" xml:space="preserve">
+    <value>キャッシュをクリア</value>
+  </data>
+  <data name="UseCache" xml:space="preserve">
+    <value>キャッシュを使う</value>
+  </data>
+  <data name="End" xml:space="preserve">
+    <value>終了フレーム</value>
+  </data>
+  <data name="LowerColorReproduction" xml:space="preserve">
+    <value>色の再現性を低くする</value>
+  </data>
+  <data name="LowerResolution" xml:space="preserve">
+    <value>解像度を下げる</value>
+  </data>
+  <data name="FileDoesNotExistRemoveItFromList" xml:space="preserve">
+    <value>ファイルが存在しません。
+リストから削除しますか？</value>
   </data>
 </root>

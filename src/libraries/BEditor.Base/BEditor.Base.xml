@@ -33,28 +33,6 @@
         <member name="E:BEditor.Data.BasePropertyChanged.PropertyChanged">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Data.BasePropertyChanged.SetValue``2(``0,``0@,System.ComponentModel.PropertyChangedEventArgs,``1,System.Action{``1})">
-            <summary>
-            Set the value.
-            </summary>
-            <typeparam name="T1">Type of the value to set.</typeparam>
-            <typeparam name="T2">Type of state.</typeparam>
-            <param name="src">source value.</param>
-            <param name="dst">destination value.</param>
-            <param name="args">Arguments used for the <see cref="E:BEditor.Data.BasePropertyChanged.PropertyChanged"/> event.</param>
-            <param name="state">state.</param>
-            <param name="action"><paramref name="action"/> to be executed after the <see cref="E:BEditor.Data.BasePropertyChanged.PropertyChanged"/> event occurs.</param>
-        </member>
-        <member name="M:BEditor.Data.BasePropertyChanged.SetValue``1(``0,``0@,System.ComponentModel.PropertyChangedEventArgs,System.Action)">
-            <summary>
-            Set the value.
-            </summary>
-            <typeparam name="T1">Type of the value to set.</typeparam>
-            <param name="src">source value.</param>
-            <param name="dst">destination value.</param>
-            <param name="args">Arguments used for the <see cref="E:BEditor.Data.BasePropertyChanged.PropertyChanged"/> event.</param>
-            <param name="action"><paramref name="action"/> to be executed after the <see cref="E:BEditor.Data.BasePropertyChanged.PropertyChanged"/> event occurs.</param>
-        </member>
         <member name="M:BEditor.Data.BasePropertyChanged.SetAndRaise``1(``0,``0@,System.ComponentModel.PropertyChangedEventArgs)">
             <summary>
             Set the value.
@@ -182,6 +160,13 @@
             <param name="options">The options to be specified.</param>
             <returns>An <see cref="T:BEditor.Data.EditingPropertyOptions`1"/> instance.</returns>
         </member>
+        <member name="M:BEditor.Data.DataExtensions.Serialize(BEditor.Data.EditingPropertyOptions{System.Boolean})">
+            <summary>
+            Specifies the serializer for the property.
+            </summary>
+            <param name="options">The options to be specified.</param>
+            <returns>An <see cref="T:BEditor.Data.EditingPropertyOptions`1"/> instance.</returns>
+        </member>
         <member name="M:BEditor.Data.DataExtensions.Serialize(BEditor.Data.EditingPropertyOptions{System.Int32})">
             <summary>
             Specifies the serializer for the property.
@@ -250,6 +235,16 @@
             Specifies the serializer for the property.
             </summary>
             <param name="options">The options to be specified.</param>
+            <returns>An <see cref="T:BEditor.Data.EditingPropertyOptions`1"/> instance.</returns>
+        </member>
+        <member name="M:BEditor.Data.DataExtensions.Serialize``2(BEditor.Data.EditingPropertyOptions{``0},System.Func{BEditor.Data.EditingPropertyOptions{``1},BEditor.Data.EditingPropertyOptions{``1}})">
+            <summary>
+            Specifies the serializer for the property.
+            </summary>
+            <typeparam name="TCollection">The type of the collection.</typeparam>
+            <typeparam name="TElement">The type of the element.</typeparam>
+            <param name="options">The options to be specified.</param>
+            <param name="func">Get the element serializer.</param>
             <returns>An <see cref="T:BEditor.Data.EditingPropertyOptions`1"/> instance.</returns>
         </member>
         <member name="M:BEditor.Data.DataExtensions.GetObservable``1(BEditor.Data.IEditingObject,BEditor.Data.EditingProperty{``0})">
@@ -367,7 +362,7 @@
         <member name="M:BEditor.Data.EditingObject.GetObjectData(System.Text.Json.Utf8JsonWriter)">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Data.EditingObject.SetObjectData(System.Text.Json.JsonElement)">
+        <member name="M:BEditor.Data.EditingObject.SetObjectData(BEditor.Data.DeserializeContext)">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Data.EditingObject.UpdateId">
@@ -511,12 +506,12 @@
         </member>
         <member name="P:BEditor.Data.EditingPropertyOptions`1.IsDisposable">
             <summary>
-            Gets or sets the value of whether to delete with <see cref="M:BEditor.Data.EditingObject.ClearDisposable"/>.
+            Gets or sets a value indicating whether to delete with <see cref="M:BEditor.Data.EditingObject.ClearDisposable"/>.
             </summary>
         </member>
         <member name="P:BEditor.Data.EditingPropertyOptions`1.NotifyPropertyChanged">
             <summary>
-            Gets or sets whether to be notified of property changes.
+            Gets or sets a value indicating whether to be notified of property changes.
             </summary>
         </member>
         <member name="M:BEditor.Data.EditingPropertyOptions`1.Create(BEditor.Data.IEditingPropertyInitializer{`0},BEditor.Data.IEditingPropertySerializer{`0},System.Boolean)">
@@ -533,6 +528,13 @@
             Sets the <see cref="T:BEditor.Data.IEditingPropertyInitializer`1"/> that initializes the value of a property.
             </summary>
             <param name="initializer">The value of <see cref="P:BEditor.Data.EditingPropertyOptions`1.Initializer"/>.</param>
+            <returns>An <see cref="T:BEditor.Data.EditingPropertyOptions`1"/> instance.</returns>
+        </member>
+        <member name="M:BEditor.Data.EditingPropertyOptions`1.DefaultValue(`0)">
+            <summary>
+            Sets the <see cref="T:BEditor.Data.IEditingPropertyInitializer`1"/> that initializes the value of a property.
+            </summary>
+            <param name="defaultValue">The default value.</param>
             <returns>An <see cref="T:BEditor.Data.EditingPropertyOptions`1"/> instance.</returns>
         </member>
         <member name="M:BEditor.Data.EditingPropertyOptions`1.Serialize(BEditor.Data.IEditingPropertySerializer{`0})">
@@ -555,6 +557,14 @@
             </summary>
             <param name="write">Writes the value to <see cref="T:System.Text.Json.Utf8JsonWriter"/>.</param>
             <param name="read">Reads the value from <see cref="T:System.Text.Json.JsonElement"/>.</param>
+            <returns>An <see cref="T:BEditor.Data.EditingPropertyOptions`1"/> instance.</returns>
+        </member>
+        <member name="M:BEditor.Data.EditingPropertyOptions`1.Serialize(System.Action{System.Text.Json.Utf8JsonWriter,`0},System.Func{BEditor.Data.DeserializeContext,`0})">
+            <summary>
+            Sets the <see cref="T:BEditor.Data.IEditingPropertySerializer`1"/> to serialize this property.
+            </summary>
+            <param name="write">Writes the value to <see cref="T:System.Text.Json.Utf8JsonWriter"/>.</param>
+            <param name="read">Reads the value from <see cref="T:BEditor.Data.DeserializeContext"/>.</param>
             <returns>An <see cref="T:BEditor.Data.EditingPropertyOptions`1"/> instance.</returns>
         </member>
         <member name="M:BEditor.Data.EditingPropertyOptions`1.Disposable(System.Boolean)">
@@ -690,10 +700,17 @@
             <param name="write">Writes the value to <see cref="T:System.Text.Json.Utf8JsonWriter"/>.</param>
             <param name="read">Reads the value from <see cref="T:System.Text.Json.JsonElement"/>.</param>
         </member>
+        <member name="M:BEditor.Data.EditingPropertySerializer`1.#ctor(System.Action{System.Text.Json.Utf8JsonWriter,`0},System.Func{BEditor.Data.DeserializeContext,`0})">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Data.EditingPropertySerializer`1"/> class.
+            </summary>
+            <param name="write">Writes the value to <see cref="T:System.Text.Json.Utf8JsonWriter"/>.</param>
+            <param name="read">Reads the value from <see cref="T:BEditor.Data.DeserializeContext"/>.</param>
+        </member>
         <member name="M:BEditor.Data.EditingPropertySerializer`1.Write(System.Text.Json.Utf8JsonWriter,`0)">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Data.EditingPropertySerializer`1.Read(System.Text.Json.JsonElement)">
+        <member name="M:BEditor.Data.EditingPropertySerializer`1.Read(BEditor.Data.DeserializeContext)">
             <inheritdoc/>
         </member>
         <member name="T:BEditor.Data.EditingProperty`1">
@@ -799,12 +816,12 @@
         </member>
         <member name="P:BEditor.Data.IEditingProperty.IsDisposable">
             <summary>
-            Get the value of whether to delete with <see cref="M:BEditor.Data.EditingObject.ClearDisposable"/>.
+            Gets a value indicating whether to delete with <see cref="M:BEditor.Data.EditingObject.ClearDisposable"/>.
             </summary>
         </member>
         <member name="P:BEditor.Data.IEditingProperty.NotifyPropertyChanged">
             <summary>
-            Gets whether to be notified of property changes.
+            Gets a value indicating whether to be notified of property changes.
             </summary>
         </member>
         <member name="P:BEditor.Data.IEditingProperty.Name">
@@ -875,11 +892,11 @@
             <param name="writer">The <see cref="T:System.Text.Json.Utf8JsonWriter"/> that writes the value.</param>
             <param name="value">The value to be written.</param>
         </member>
-        <member name="M:BEditor.Data.IEditingPropertySerializer.Read(System.Text.Json.JsonElement)">
+        <member name="M:BEditor.Data.IEditingPropertySerializer.Read(BEditor.Data.DeserializeContext)">
             <summary>
             Reads the value from <see cref="T:System.Text.Json.JsonElement"/>.
             </summary>
-            <param name="element">The <see cref="T:System.Text.Json.JsonElement"/> that reads the value.</param>
+            <param name="context">The <see cref="T:BEditor.Data.DeserializeContext"/> that reads the value.</param>
             <returns>Returns the data of an object recovered from Json.</returns>
         </member>
         <member name="T:BEditor.Data.IEditingPropertySerializer`1">
@@ -891,13 +908,13 @@
         <member name="M:BEditor.Data.IEditingPropertySerializer`1.Write(System.Text.Json.Utf8JsonWriter,`0)">
             <inheritdoc cref="M:BEditor.Data.IEditingPropertySerializer.Write(System.Text.Json.Utf8JsonWriter,System.Object)"/>
         </member>
-        <member name="M:BEditor.Data.IEditingPropertySerializer`1.Read(System.Text.Json.JsonElement)">
-            <inheritdoc cref="M:BEditor.Data.IEditingPropertySerializer.Read(System.Text.Json.JsonElement)"/>
+        <member name="M:BEditor.Data.IEditingPropertySerializer`1.Read(BEditor.Data.DeserializeContext)">
+            <inheritdoc cref="M:BEditor.Data.IEditingPropertySerializer.Read(BEditor.Data.DeserializeContext)"/>
         </member>
         <member name="M:BEditor.Data.IEditingPropertySerializer`1.BEditor#Data#IEditingPropertySerializer#Write(System.Text.Json.Utf8JsonWriter,System.Object)">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Data.IEditingPropertySerializer`1.BEditor#Data#IEditingPropertySerializer#Read(System.Text.Json.JsonElement)">
+        <member name="M:BEditor.Data.IEditingPropertySerializer`1.BEditor#Data#IEditingPropertySerializer#Read(BEditor.Data.DeserializeContext)">
             <inheritdoc/>
         </member>
         <member name="T:BEditor.Data.IEditingProperty`1">
@@ -975,11 +992,60 @@
             </summary>
             <param name="writer">Write the data of this object <see cref="T:System.Text.Json.Utf8JsonWriter"/>.</param>
         </member>
-        <member name="M:BEditor.Data.IJsonObject.SetObjectData(System.Text.Json.JsonElement)">
+        <member name="M:BEditor.Data.IJsonObject.SetObjectData(BEditor.Data.DeserializeContext)">
             <summary>
             Set the Json data to this object.
             </summary>
-            <param name="element">Data for this object in Json to be set.</param>
+            <param name="context">Data for this object in Json to be set.</param>
+        </member>
+        <member name="T:BEditor.Data.DeserializeContext">
+            <summary>
+            The deserialize context.
+            </summary>
+        </member>
+        <member name="M:BEditor.Data.DeserializeContext.#ctor(System.Text.Json.JsonElement,System.Object)">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Data.DeserializeContext"/> struct.
+            </summary>
+            <param name="element">The json element.</param>
+            <param name="parent">The parent.</param>
+        </member>
+        <member name="M:BEditor.Data.DeserializeContext.#ctor(System.Text.Json.JsonElement,System.Object,System.String)">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Data.DeserializeContext"/> struct.
+            </summary>
+            <param name="element">The json element.</param>
+            <param name="parent">The parent.</param>
+            <param name="version">The version.</param>
+        </member>
+        <member name="P:BEditor.Data.DeserializeContext.Element">
+            <summary>
+            Gets or sets the json element.
+            </summary>
+        </member>
+        <member name="P:BEditor.Data.DeserializeContext.Version">
+            <summary>
+            Gets or sets the version.
+            </summary>
+        </member>
+        <member name="P:BEditor.Data.DeserializeContext.Parent">
+            <summary>
+            Gets or sets the parent.
+            </summary>
+        </member>
+        <member name="M:BEditor.Data.DeserializeContext.WithElement(System.Text.Json.JsonElement)">
+            <summary>
+             Returns a new <see cref="T:BEditor.Data.DeserializeContext"/> with the specified json element.
+            </summary>
+            <param name="element">The json element.</param>
+            <returns>The new <see cref="T:BEditor.Data.DeserializeContext"/>.</returns>
+        </member>
+        <member name="M:BEditor.Data.DeserializeContext.WithParent(System.Object)">
+            <summary>
+             Returns a new <see cref="T:BEditor.Data.DeserializeContext"/> with the specified parent.
+            </summary>
+            <param name="parent">The parent.</param>
+            <returns>The new <see cref="T:BEditor.Data.DeserializeContext"/>.</returns>
         </member>
         <member name="T:BEditor.Data.IParent`1">
             <summary>

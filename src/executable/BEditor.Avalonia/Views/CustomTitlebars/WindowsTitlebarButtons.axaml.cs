@@ -39,13 +39,15 @@ namespace BEditor.Views.CustomTitlebars
                 _minimizeButton.Click += MinimizeWindow;
                 _maximizeButton.Click += MaximizeWindow;
                 _closeButton.Click += CloseWindow;
-
-                PointerPressed += Titlebar_PointerPressed;
             }
             else
             {
-                IsVisible = false;
+                _minimizeButton.IsVisible = false;
+                _maximizeButton.IsVisible = false;
+                _closeButton.IsVisible = false;
             }
+
+            PointerPressed += Titlebar_PointerPressed;
         }
 
         public bool CanResize

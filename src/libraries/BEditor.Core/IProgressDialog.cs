@@ -35,7 +35,7 @@ namespace BEditor
         public string Text { get; set; }
 
         /// <summary>
-        /// Gets or sets whether the progress bar shows actual values or generic, continuous progress feedback.
+        /// Gets or sets a value indicating whether the progress bar shows actual values or generic, continuous progress feedback.
         /// </summary>
         public bool IsIndeterminate { get; set; }
     }

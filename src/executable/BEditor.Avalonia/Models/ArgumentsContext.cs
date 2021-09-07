@@ -1,15 +1,20 @@
 ﻿using System;
 using System.ComponentModel;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 
 using Avalonia.Controls;
 using Avalonia.Threading;
 
 using BEditor.Data;
+using BEditor.Plugin;
+using BEditor.Properties;
 using BEditor.ViewModels.DialogContent;
+using BEditor.ViewModels.Dialogs;
 using BEditor.Views;
 using BEditor.Views.DialogContent;
+using BEditor.Views.Dialogs;
 
 namespace BEditor.Models
 {
@@ -84,7 +89,34 @@ namespace BEditor.Models
 
             var app = AppModel.Current;
             app.Project?.Unload();
-            var project = Project.FromFile(filename, app);
+            Project? project = null;
+
+            if (Path.GetExtension(filename) is ".beproj")
+            {
+                var dialog = new OpenFolderDialog
+                {
+                    Title = Strings.SelectLocationToUnpackProject
+                };
+                var dir = await dialog.ShowAsync(App.GetMainWindow());
+
+                if (!Directory.Exists(dir)) return;
+
+                var viewModel = new OpenProjectPackageViewModel(filename);
+                var openDialog = new OpenProjectPackage
+                {
+                    DataContext = viewModel,
+                };
+                var result = await openDialog.ShowDialog<OpenProjectPackageViewModel.State>(App.GetMainWindow());
+
+                if (result == OpenProjectPackageViewModel.State.Open)
+                {
+                    project = ProjectPackage.OpenFile(filename, dir);
+                }
+            }
+            else
+            {
+                project = Project.FromFile(filename, app);
+            }
 
             if (project is null) return;
 

@@ -57,10 +57,10 @@ namespace BEditor.Drawing
         }
 
         /// <inheritdoc/>
-        public override void SetObjectData(JsonElement element)
+        public override void SetObjectData(DeserializeContext context)
         {
             Id = Guid.NewGuid();
-            SetValue(ColorsProperty, ColorsProperty.Serializer!.Read(element));
+            SetValue(ColorsProperty, ColorsProperty.Serializer!.Read(context));
         }
 
         private static void WriteDictionary(Utf8JsonWriter arg1, Dictionary<string, Color> arg2)
@@ -70,7 +70,7 @@ namespace BEditor.Drawing
             foreach (var (key, value) in arg2)
             {
                 arg1.WriteStartObject();
-                arg1.WriteString("Name", key);
+                arg1.WriteString(nameof(Name), key);
                 arg1.WriteString("Color", value.ToString("#argb"));
                 arg1.WriteEndObject();
             }
@@ -78,16 +78,16 @@ namespace BEditor.Drawing
             arg1.WriteEndArray();
         }
 
-        private static Dictionary<string, Color> ReadDictionary(JsonElement arg)
+        private static Dictionary<string, Color> ReadDictionary(DeserializeContext arg)
         {
-            return arg.EnumerateArray()
+            return arg.Element.EnumerateArray()
                 .Select(i =>
                 {
                     var color = i.TryGetProperty("Color", out var colorElm)
                         ? Color.Parse(colorElm.GetString())
                         : Drawing.Colors.White;
 
-                    var name = (i.TryGetProperty("Name", out var nameElm)
+                    var name = (i.TryGetProperty(nameof(Name), out var nameElm)
                         ? nameElm.GetString()
                         : color.ToString("#argb")) ?? color.ToString("#argb");
 

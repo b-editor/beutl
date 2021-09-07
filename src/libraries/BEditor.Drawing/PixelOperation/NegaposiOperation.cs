@@ -30,7 +30,7 @@ namespace BEditor.Drawing
             if (image is null) throw new ArgumentNullException(nameof(image));
             image.ThrowIfDisposed();
 
-            if (context is not null && !context.IsDisposed)
+            if (context?.IsDisposed == false)
             {
                 image.PixelOperate<NegaposiOperation, byte, byte, byte>(context, red, green, blue);
             }

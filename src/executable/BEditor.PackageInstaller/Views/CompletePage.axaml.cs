@@ -5,7 +5,7 @@ using Avalonia.Markup.Xaml;
 
 namespace BEditor.PackageInstaller.Views
 {
-    public partial class CompletePage : UserControl
+    public sealed class CompletePage : UserControl
     {
         public CompletePage()
         {

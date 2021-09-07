@@ -42,42 +42,54 @@ namespace BEditor.Extensions.FFmpeg.Decoder
 
         public Sound<StereoPCMFloat> GetFrame(TimeSpan time)
         {
-            return ToSound(_stream.GetFrame(time));
+            lock (this)
+            {
+                return ToSound(_stream.GetFrame(time));
+            }
         }
 
         public Sound<StereoPCMFloat> GetNextFrame()
         {
-            return ToSound(_stream.GetNextFrame());
+            lock (this)
+            {
+                return ToSound(_stream.GetNextFrame());
+            }
         }
 
         public bool TryGetFrame(TimeSpan time, [NotNullWhen(true)] out Sound<StereoPCMFloat>? sound)
         {
-            var result = _stream.TryGetFrame(time, out var data);
-            if (result)
+            lock (this)
             {
-                sound = ToSound(data);
-            }
-            else
-            {
-                sound = null;
-            }
+                var result = _stream.TryGetFrame(time, out var data);
+                if (result)
+                {
+                    sound = ToSound(data);
+                }
+                else
+                {
+                    sound = null;
+                }
 
-            return result;
+                return result;
+            }
         }
 
         public bool TryGetNextFrame([NotNullWhen(true)] out Sound<StereoPCMFloat>? sound)
         {
-            var result = _stream.TryGetNextFrame(out var data);
-            if (result)
+            lock (this)
             {
-                sound = ToSound(data);
-            }
-            else
-            {
-                sound = null;
-            }
+                var result = _stream.TryGetNextFrame(out var data);
+                if (result)
+                {
+                    sound = ToSound(data);
+                }
+                else
+                {
+                    sound = null;
+                }
 
-            return result;
+                return result;
+            }
         }
 
         private Sound<StereoPCMFloat> ToSound(AudioData data)

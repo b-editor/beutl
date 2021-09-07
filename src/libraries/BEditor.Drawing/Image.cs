@@ -30,7 +30,7 @@ namespace BEditor.Drawing
     /// Represents the image.
     /// </summary>
     /// <typeparam name="T">The type of pixel.</typeparam>
-    public unsafe class Image<T> : IDisposable, ICloneable
+    public sealed unsafe class Image<T> : IDisposable, ICloneable
         where T : unmanaged, IPixel<T>
     {
         // 同じImage<T>型のみで共有される
@@ -414,6 +414,8 @@ namespace BEditor.Drawing
         /// </summary>
         /// <param name="image">Another image to blend with this image.</param>
         /// <param name="dst">The destination image.</param>
+        /// <exception cref="ArgumentOutOfRangeException">The size of the image is out of range.</exception>
+        /// <exception cref="ArgumentNullException"><paramref name="image"/> or <paramref name="dst"/> is null.</exception>
         public void Blend(Image<T> image, Image<T> dst)
         {
             if (image is null) throw new ArgumentNullException(nameof(image));

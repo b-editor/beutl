@@ -56,7 +56,7 @@ namespace BEditor.ViewModels.Timelines
             {
                 if (!Scene.InRange(ClickedFrame, ClickedFrame + 180, ClickedLayer))
                 {
-                    Scene.ServiceProvider?.GetService<IMessage>()?.Snackbar(Strings.ClipExistsInTheSpecifiedLocation);
+                    Scene.ServiceProvider?.GetService<IMessage>()?.Snackbar(Strings.ClipExistsInTheSpecifiedLocation, string.Empty);
 
                     return;
                 }
@@ -85,13 +85,22 @@ namespace BEditor.ViewModels.Timelines
 
         public static int ToLayer(double pixel)
         {
-            pixel -= 32;
             return (int)(pixel / ConstantSettings.ClipHeight) + 1;
         }
 
         public static double ToLayerPixel(int layer)
         {
-            return ((layer - 1) * ConstantSettings.ClipHeight) + 32;
+            return (layer - 1) * ConstantSettings.ClipHeight;
+        }
+
+        public void ScalePointerMoved(Point point)
+        {
+            PointerFrame = Scene.ToFrame(point.X);
+
+            if (SeekbarIsMouseDown && KeyframeToggle)
+            {
+                Scene.PreviewFrame = PointerFrame;
+            }
         }
 
         public void PointerMoved(Point point)
@@ -103,7 +112,7 @@ namespace BEditor.ViewModels.Timelines
 
             if (SeekbarIsMouseDown && KeyframeToggle)
             {
-                Scene.PreviewFrame = PointerFrame + 1;
+                Scene.PreviewFrame = PointerFrame;
             }
             else if (ClipMouseDown)
             {
@@ -134,11 +143,36 @@ namespace BEditor.ViewModels.Timelines
                     var move = Scene.ToPixel(PointerFrame - Scene.ToFrame(ClipStartAbs.X)); //一時的な移動量
                     if (ClipLeftRight == 2)
                     {
+                        if (!Scene.InRange(
+                            SelectedClip,
+                            Scene.ToFrame(selectviewmodel.MarginLeft),
+                            Scene.ToFrame(selectviewmodel.WidthProperty.Value + move + selectviewmodel.MarginLeft),
+                            SelectedClip.Layer,
+                            out var near))
+                        {
+                            selectviewmodel.WidthProperty.Value = Scene.ToPixel(near.Start - SelectedClip.Start);
+
+                            return;
+                        }
+
                         // 左
                         selectviewmodel.WidthProperty.Value += move;
                     }
-                    else if (ClipLeftRight == 1)
+                    else if (ClipLeftRight == 1 && PointerFrame > 0)
                     {
+                        if (!Scene.InRange(
+                            SelectedClip,
+                            Scene.ToFrame(selectviewmodel.MarginLeft + move),
+                            Scene.ToFrame(selectviewmodel.WidthProperty.Value - move + selectviewmodel.MarginLeft),
+                            SelectedClip.Layer,
+                            out var near))
+                        {
+                            selectviewmodel.MarginLeft = Scene.ToPixel(near.End);
+                            selectviewmodel.WidthProperty.Value = Scene.ToPixel(SelectedClip.End - near.End);
+
+                            return;
+                        }
+
                         // 右
                         selectviewmodel.WidthProperty.Value -= move;
                         selectviewmodel.MarginLeft += move;
@@ -160,12 +194,18 @@ namespace BEditor.ViewModels.Timelines
             {
                 var clipVm = SelectedClip.GetCreateClipViewModel();
 
-                var start = Scene.ToFrame(clipVm.MarginLeft);
-                var end = Scene.ToFrame(clipVm.WidthProperty.Value) + start;
+                var length = Scene.ToFrame(clipVm.WidthProperty.Value);
 
-                if (0 <= start && 0 < end)
+                if (0 < length)
                 {
-                    SelectedClip.ChangeLength(start, end).Execute();
+                    var anchor = ClipLeftRight switch
+                    {
+                        1 => ClipLengthChangeAnchor.End,
+                        2 => ClipLengthChangeAnchor.Start,
+                        _ => ClipLengthChangeAnchor.Start,
+                    };
+
+                    SelectedClip.ChangeLength(anchor, length).Execute();
                 }
 
                 ClipLeftRight = 0;
@@ -182,7 +222,7 @@ namespace BEditor.ViewModels.Timelines
             // フラグを"マウス押下中"にする
             SeekbarIsMouseDown = true;
 
-            Scene.PreviewFrame = ClickedFrame + 1;
+            Scene.PreviewFrame = ClickedFrame;
         }
 
         public void PointerLeaved()

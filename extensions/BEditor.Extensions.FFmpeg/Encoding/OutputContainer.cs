@@ -14,7 +14,7 @@ using VideoCodec = FFMediaToolkit.Encoding.VideoCodec;
 
 namespace BEditor.Extensions.FFmpeg.Encoding
 {
-    public class OutputContainer : IOutputContainer
+    public sealed class OutputContainer : IOutputContainer
     {
         private readonly List<VideoEncoderSettings> _videoConfig = new();
         private readonly List<AudioEncoderSettings> _audioConfig = new();
@@ -77,31 +77,6 @@ namespace BEditor.Extensions.FFmpeg.Encoding
             {
                 audio.Dispose();
             }
-        }
-
-        public AudioEncoderSettings GetDefaultAudioSettings()
-        {
-            return new(44100, 2)
-            {
-                CodecOptions =
-                {
-                    { "Format", SampleFormat.SingleP },
-                    { "Codec", AudioCodec.Default },
-                }
-            };
-        }
-
-        public VideoEncoderSettings GetDefaultVideoSettings()
-        {
-            return new(1920, 1080)
-            {
-                CodecOptions =
-                {
-                    { "Format", ImagePixelFormat.Yuv420 },
-                    { "Preset", EncoderPreset.Medium },
-                    { "Codec", VideoCodec.Default },
-                }
-            };
         }
 
         public void SetMetadata(ContainerMetadata metadata)

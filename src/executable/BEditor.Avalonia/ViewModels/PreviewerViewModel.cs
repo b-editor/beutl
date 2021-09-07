@@ -9,12 +9,13 @@ using BEditor.Media.PCM;
 using BEditor.Models;
 
 using Reactive.Bindings;
+using Reactive.Bindings.Extensions;
 
 using static BEditor.ViewModels.ConfigurationViewModel;
 
 namespace BEditor.ViewModels
 {
-    public class PreviewerViewModel
+    public sealed class PreviewerViewModel
     {
         public PreviewerViewModel(IReadOnlyReactiveProperty<bool> isopened)
         {
@@ -25,42 +26,82 @@ namespace BEditor.ViewModels
                 PreviewAudio.Value = null;
             });
 
+            IsPlaying = AppModel.Current.ObserveProperty(i => i.AppStatus)
+                .Select(i => i == Status.Playing)
+                .ToReactiveProperty();
+
+            IsPlaying.Subscribe(value =>
+            {
+                var app = AppModel.Current;
+                if (app.Project == null) return;
+
+                app.Project.CurrentScene.Player.Speed = ProjectConfig.GetSpeed(app.Project);
+
+                if (!value)
+                {
+                    app.AppStatus = Status.Edit;
+
+                    app.Project.CurrentScene.Player.Stop();
+                }
+                else
+                {
+                    app.AppStatus = Status.Playing;
+
+                    app.Project.CurrentScene.Player.Play();
+                }
+            });
+
             MoveToTop.Select(_ => AppModel.Current.Project?.CurrentScene)
-                .Where(s => s is not null)
+                .Where(s => s != null)
                 .Subscribe(s => s!.PreviewFrame = 0);
 
             MoveToPrevious.Select(_ => AppModel.Current.Project?.CurrentScene)
-                .Where(s => s is not null)
+                .Where(s => s != null)
                 .Subscribe(s => s!.PreviewFrame--);
 
-            PlayPause.Select(_ => AppModel.Current)
-                .Where(app => app.Project is not null)
-                .Subscribe(app =>
+            PlayPause.Subscribe(() =>
+            {
+                var app = AppModel.Current;
+                if (app.Project == null) return;
+
+                app.Project.CurrentScene.Player.Speed = ProjectConfig.GetSpeed(app.Project);
+
+                if (app.AppStatus == Status.Playing)
                 {
-                    if (app.AppStatus is Status.Playing)
-                    {
-                        app.AppStatus = Status.Edit;
+                    app.AppStatus = Status.Edit;
 
-                        app.Project!.CurrentScene.Player.Stop();
-                    }
-                    else
-                    {
-                        app.AppStatus = Status.Playing;
+                    app.Project.CurrentScene.Player.Stop();
+                }
+                else
+                {
+                    app.AppStatus = Status.Playing;
 
-                        app.Project!.CurrentScene.Player.Play();
-                    }
-                });
+                    app.Project.CurrentScene.Player.Play();
+                }
+            });
 
             MoveToNext.Select(_ => AppModel.Current.Project?.CurrentScene)
-                .Where(s => s is not null)
+                .Where(s => s != null)
                 .Subscribe(s => s!.PreviewFrame++);
 
             MoveToEnd.Select(_ => AppModel.Current.Project?.CurrentScene)
-                .Where(s => s is not null)
+                .Where(s => s != null)
                 .Subscribe(s => s!.PreviewFrame = s.TotalFrame);
         }
 
         public event EventHandler? ImageChanged;
+
+        public static bool IsDebug
+        {
+            get
+            {
+#if DEBUG
+                return true;
+#else
+                return false;
+#endif
+            }
+        }
 
         public ReactiveProperty<WriteableBitmap?> PreviewImage { get; } = new();
 
@@ -68,7 +109,17 @@ namespace BEditor.ViewModels
 
         public ReactiveProperty<BackgroundType> Background { get; } = new();
 
+        public ReactivePropertySlim<string> Fps { get; } = new();
+
+        public ReactivePropertySlim<string> MinFps { get; } = new();
+
+        public ReactivePropertySlim<string> MaxFps { get; } = new();
+
+        public ReactivePropertySlim<string> AvgFps { get; } = new();
+
         public IReadOnlyReactiveProperty<bool> IsOpened { get; }
+
+        public ReactiveProperty<bool> IsPlaying { get; }
 
         public ReactiveCommand MoveToTop { get; } = new();
 

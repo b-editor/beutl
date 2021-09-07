@@ -64,7 +64,7 @@ namespace BEditor.Views.Properties
             _property.ChangeValue((float)newValue).Execute();
         }
 
-        public async void NumericUpDown_ValueChanged(object? sender, NumericUpDownValueChangedEventArgs e)
+        public async void NumericUpDown_ValueChanged(object sender, NumericUpDownValueChangedEventArgs e)
         {
             _property.Value = _property.Clamp((float)e.NewValue);
 

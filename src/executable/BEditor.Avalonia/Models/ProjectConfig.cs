@@ -1,15 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
+﻿
 using BEditor.Data;
 using BEditor.ViewModels;
 
 namespace BEditor.Models
 {
-    public class ProjectConfig
+    public sealed class ProjectConfig
     {
         public static readonly AttachedProperty<ConfigurationViewModel.BackgroundType> BackgroundTypeProperty
             = EditingProperty.RegisterAttached<ConfigurationViewModel.BackgroundType, Project>(
@@ -18,7 +13,26 @@ namespace BEditor.Models
                 .Initialize(() => ConfigurationViewModel.BackgroundType.Transparent)
                 .Notify(true));
 
+        public static readonly AttachedProperty<double> SpeedProperty
+            = EditingProperty.RegisterAttached<double, Project>(
+                "Speed",
+                EditingPropertyOptions<double>.Create()
+                .Initialize(() => 1)
+                .Notify(true));
+
         public ConfigurationViewModel.BackgroundType BackgroundType { get; set; } = ConfigurationViewModel.BackgroundType.Transparent;
+
+        public double Speed { get; set; } = 1;
+
+        public static void SetSpeed(Project project, double value)
+        {
+            project.SetValue(SpeedProperty, value);
+        }
+
+        public static double GetSpeed(Project project)
+        {
+            return project.GetValue(SpeedProperty);
+        }
 
         public static void SetBackgroundType(Project project, ConfigurationViewModel.BackgroundType value)
         {

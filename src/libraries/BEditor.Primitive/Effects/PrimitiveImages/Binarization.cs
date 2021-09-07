@@ -45,7 +45,7 @@ namespace BEditor.Primitive.Effects
         /// Gets the threshold value.
         /// </summary>
         [AllowNull]
-        public EaseProperty Value { get; set; }
+        public EaseProperty Value { get; private set; }
 
         /// <inheritdoc/>
         public override IEnumerable<PropertyElement> GetProperties()

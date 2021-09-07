@@ -4,10 +4,12 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:properties="using:BEditor.Properties"
+    xmlns:ui="using:FluentAvalonia.UI.Controls"
     xmlns:plugin="clr-namespace:BEditor.Plugin;assembly=BEditor.Core"
     xmlns:vm="using:BEditor.ViewModels.ManagePlugins"
     x:DataType="vm:LoadedPluginsViewModel"
     mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+    x:Name="root"
     x:Class="BEditor.Views.ManagePlugins.LoadedPlugins">
     <UserControl.DataContext>
         <vm:LoadedPluginsViewModel/>
@@ -18,11 +20,31 @@
             <Setter Property="Spacing" Value="0" />
         </Style>
     </UserControl.Styles>
-    <Grid>
-        <Grid.RowDefinitions>
-            <RowDefinition/>
-            <RowDefinition Height="Auto"/>
-        </Grid.RowDefinitions>
+    <StackPanel>
+        <ui:CommandBar DefaultLabelPosition="Right">
+            <ui:CommandBar.PrimaryCommands>
+                <ui:CommandBarButton x:Name="BackButton" Icon="Back" Click="BackClick" IsVisible="False" />
+
+                <ui:CommandBarButton
+                    x:Name="ApplySettingsButton"
+                    IsEnabled="{CompiledBinding IsSelected.Value, Mode=OneWay}"
+                    IsVisible="False"
+                    Icon="Save"
+                    Label="{x:Static properties:Strings.Apply}"
+                    Click="ApplySettings" />
+
+                <ui:CommandBarButton
+                    IsVisible="{CompiledBinding UninstallVisible.Value, Mode=OneWay}"
+                    Label="{x:Static properties:Strings.Uninstall}"
+                    Command="{CompiledBinding Uninstall, Mode=OneTime}"/>
+
+                <ui:CommandBarButton
+                    IsVisible="{CompiledBinding CancelVisible.Value, Mode=OneWay}"
+                    Label="{x:Static properties:Strings.Cancel}"
+                    Command="{CompiledBinding Cancel, Mode=OneTime}"/>
+            </ui:CommandBar.PrimaryCommands>
+        </ui:CommandBar>
+
         <ListBox
             SelectionMode="Toggle"
             x:Name="PluginList"
@@ -31,48 +53,26 @@
             SelectedItem="{CompiledBinding SelectPlugin.Value, Mode=TwoWay}">
             <ListBox.ItemTemplate>
                 <DataTemplate>
-                    <VirtualizingStackPanel Spacing="8" Height="60" Orientation="Horizontal">
-                        <VirtualizingStackPanel>
-                            <Label Content="{Binding Converter={StaticResource NameConvert}}" FontSize="14" />
-                            <Label Content="{Binding Description}" />
-                        </VirtualizingStackPanel>
-                        
-                        <Label Content="{Binding Converter={StaticResource AuthorConvert}}" />
-                    </VirtualizingStackPanel>
+                    <Panel>
+                        <StackPanel Spacing="8" Orientation="Horizontal" VerticalAlignment="Center">
+                            <StackPanel>
+                                <TextBlock Text="{Binding Converter={StaticResource NameConvert}}" FontSize="14" />
+                                <TextBlock Text="{Binding Description}" />
+                            </StackPanel>
+
+                            <TextBlock Text="{Binding Converter={StaticResource AuthorConvert}}" />
+                        </StackPanel>
+
+                        <ui:CommandBarButton
+                            Icon="Settings"
+                            Click="ShowSettings"
+                            Label="{x:Static properties:Strings.Settings}"
+                            HorizontalAlignment="Right" />
+                    </Panel>
                 </DataTemplate>
             </ListBox.ItemTemplate>
         </ListBox>
 
         <ContentControl x:Name="PluginSettings" IsVisible="False" />
-
-        <VirtualizingStackPanel Grid.Row="1" Orientation="Horizontal">
-            <Button
-                x:Name="SettingsButton"
-                Background="Transparent"
-                IsEnabled="{CompiledBinding IsSelected.Value, Mode=OneWay}"
-                Margin="10"
-                Content="{x:Static properties:Strings.Settings}"
-                Click="ShowSettings" />
-            <Button
-                x:Name="ApplySettingsButton"
-                Background="Transparent"
-                IsEnabled="{CompiledBinding IsSelected.Value, Mode=OneWay}"
-                IsVisible="False"
-                Margin="10"
-                Content="{x:Static properties:Strings.Apply}"
-                Click="ApplySettings" />
-            <Button
-                Background="Transparent"
-                IsVisible="{CompiledBinding UninstallVisible.Value, Mode=OneWay}"
-                Margin="10"
-                Content="{x:Static properties:Strings.Uninstall}"
-                Command="{CompiledBinding Uninstall, Mode=OneTime}"/>
-            <Button
-                Background="Transparent"
-                IsVisible="{CompiledBinding CancelVisible.Value, Mode=OneWay}"
-                Margin="10"
-                Content="{x:Static properties:Strings.Cancel}"
-                Command="{CompiledBinding Cancel, Mode=OneTime}"/>
-        </VirtualizingStackPanel>
-    </Grid>
+    </StackPanel>
 </UserControl>

@@ -8,6 +8,8 @@
     xmlns:props="using:BEditor.Properties"
     xmlns:convert="using:BEditor.Converters"
     xmlns:vm="using:BEditor.ViewModels"
+    xmlns:ui="using:FluentAvalonia.UI.Controls"
+    xmlns:uip="using:FluentAvalonia.UI.Controls.Primitives"
     x:DataType="vm:PreviewerViewModel"
     mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
     x:Class="BEditor.Views.Previewer">
@@ -28,57 +30,128 @@
             <Image
                 x:Name="image"
                 Source="{CompiledBinding PreviewImage.Value, Mode=OneWay}"/>
+
+            <StackPanel Orientation="Vertical">
+                <TextBlock IsVisible="{CompiledBinding IsDebug}" Text="{CompiledBinding Fps.Value, Mode=OneWay}" />
+                <TextBlock IsVisible="{CompiledBinding IsDebug}" Text="{CompiledBinding MinFps.Value, Mode=OneWay}" />
+                <TextBlock IsVisible="{CompiledBinding IsDebug}" Text="{CompiledBinding MaxFps.Value, Mode=OneWay}" />
+                <TextBlock IsVisible="{CompiledBinding IsDebug}" Text="{CompiledBinding AvgFps.Value, Mode=OneWay}" />
+            </StackPanel>
         </Panel>
 
         <Grid
-            ColumnDefinitions="*,Auto"
+            ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto"
             Grid.Row="1"
             IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}">
+            <Grid.Styles>
+                <Style Selector="Button">
+                    <Setter Property="BorderThickness" Value="0" />
+                    <Setter Property="Background" Value="Transparent" />
+                </Style>
+                <Style Selector="Button:disabled /template/ ContentPresenter#PART_ContentPresenter">
+                    <Setter Property="Background" Value="Transparent" />
+                </Style>
+                <Style Selector="ToggleButton">
+                    <Setter Property="BorderThickness" Value="0" />
+                    <Setter Property="Background" Value="Transparent" />
+                </Style>
+                <Style Selector="ToggleButton:disabled /template/ ContentPresenter#PART_ContentPresenter">
+                    <Setter Property="Background" Value="Transparent" />
+                </Style>
 
-            <ctr:SeekSlider
+                <Style Selector="ToggleButton:checked:pointerover /template/ Border#BorderElement">
+                    <Setter Property="BorderBrush" Value="{DynamicResource ToggleButtonBorderBrushPointerOver}" />
+                </Style>
+                <Style Selector="ToggleButton:checked:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+                    <Setter Property="Background" Value="{DynamicResource ToggleButtonBackgroundPointerOver}" />
+                    <!--<Setter Property="BorderBrush" Value="{DynamicResource ToggleButtonBorderBrushPointerOver}" />-->
+                    <Setter Property="TextBlock.Foreground" Value="{DynamicResource ToggleButtonForegroundPointerOver}" />
+                </Style>
+
+                <Style Selector="ToggleButton:checked /template/ ContentPresenter#PART_ContentPresenter">
+                    <Setter Property="Background" Value="Transparent" />
+                    <Setter Property="TextBlock.Foreground" Value="{DynamicResource ToggleButtonForeground}" />
+                </Style>
+                <Style Selector="ui|SymbolIcon">
+                    <Setter Property="FontSize" Value="20" />
+                </Style>
+            </Grid.Styles>
+
+            <Slider
                 IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}"
                 Maximum="{Binding App.Project.CurrentScene.TotalFrame, Mode=OneWay, Converter={StaticResource FrameToDoubleConverter}}"
                 Value="{Binding App.Project.CurrentScene.PreviewFrame, Mode=TwoWay, Converter={StaticResource FrameToDoubleConverter}}"
-                VerticalAlignment="Center"
-                Margin="10,0"
+                Margin="8,-4"
                 x:Name="slider"/>
 
-            <StackPanel Grid.Column="1" Orientation="Horizontal">
-                <Button
-                    Command="{CompiledBinding MoveToTop, Mode=OneTime}"
-                    ToolTip.Tip="{x:Static props:Strings.MoveToTop}">
-                    <PathIcon Data="{StaticResource Previous24Regular}" Width="16"/>
-                </Button>
-                <Button
-                    Command="{CompiledBinding MoveToPrevious, Mode=OneTime}"
-                    ToolTip.Tip="{x:Static props:Strings.MoveToPreviousFrame}">
-                    <PathIcon Data="{StaticResource FastForward24Regular}">
-                        <PathIcon.RenderTransform>
-                            <TransformGroup>
-                                <ScaleTransform />
-                                <SkewTransform />
-                                <RotateTransform Angle="180" />
-                                <TranslateTransform />
-                            </TransformGroup>
-                        </PathIcon.RenderTransform>
-                    </PathIcon>
-                </Button>
-                <Button
-                    Command="{CompiledBinding PlayPause, Mode=OneTime}"
-                    ToolTip.Tip="{x:Static props:Strings.PlayPause}">
-                    <PathIcon Data="{StaticResource Play48Regular}"/>
-                </Button>
-                <Button
-                    Command="{CompiledBinding MoveToNext, Mode=OneTime}"
-                    ToolTip.Tip="{x:Static props:Strings.MoveToNextFrame}">
-                    <PathIcon Data="{StaticResource FastForward24Regular}"/>
-                </Button>
-                <Button
-                    Command="{CompiledBinding MoveToEnd, Mode=OneTime}"
-                    ToolTip.Tip="{x:Static props:Strings.MoveToEnd}">
-                    <PathIcon Data="{StaticResource Next24Regular}" Width="16"/>
-                </Button>
-            </StackPanel>
+            <Button
+                Grid.Column="1"
+                Command="{CompiledBinding MoveToTop, Mode=OneTime}"
+                ToolTip.Tip="{x:Static props:Strings.MoveToTop}">
+                <ui:SymbolIcon Symbol="Upload">
+                    <ui:SymbolIcon.RenderTransform>
+                        <TransformGroup>
+                            <ScaleTransform />
+                            <SkewTransform />
+                            <RotateTransform Angle="-90" />
+                            <TranslateTransform />
+                        </TransformGroup>
+                    </ui:SymbolIcon.RenderTransform>
+                </ui:SymbolIcon>
+            </Button>
+
+            <Button
+                Grid.Column="2"
+                Command="{CompiledBinding MoveToPrevious, Mode=OneTime}"
+                ToolTip.Tip="{x:Static props:Strings.MoveToPreviousFrame}">
+                <ui:SymbolIcon Symbol="Previous" />
+            </Button>
+
+            <ToggleButton
+                Grid.Column="3"
+                IsChecked="{CompiledBinding IsPlaying.Value, Mode=TwoWay}">
+                <ToggleButton.Styles>
+                    <Style Selector="ToggleButton">
+                        <Setter Property="ToolTip.Tip" Value="{x:Static props:Strings.Play}" />
+                        <Setter Property="Content">
+                            <Template>
+                                <ui:SymbolIcon Symbol="Play" />
+                            </Template>
+                        </Setter>
+                    </Style>
+                    <Style Selector="ToggleButton:checked">
+                        <Setter Property="ToolTip.Tip" Value="{x:Static props:Strings.Pause}" />
+                        <Setter Property="Content">
+                            <Template>
+                                <ui:SymbolIcon Symbol="Pause" />
+                            </Template>
+                        </Setter>
+                    </Style>
+                </ToggleButton.Styles>
+            </ToggleButton>
+            
+            <Button
+                Grid.Column="4"
+                Command="{CompiledBinding MoveToNext, Mode=OneTime}"
+                ToolTip.Tip="{x:Static props:Strings.MoveToNextFrame}">
+                <ui:SymbolIcon Symbol="Next" />
+            </Button>
+
+            <Button
+                Grid.Column="5"
+                Command="{CompiledBinding MoveToEnd, Mode=OneTime}"
+                ToolTip.Tip="{x:Static props:Strings.MoveToEnd}">
+                <ui:SymbolIcon Symbol="Upload">
+                    <ui:SymbolIcon.RenderTransform>
+                        <TransformGroup>
+                            <ScaleTransform />
+                            <SkewTransform />
+                            <RotateTransform Angle="90" />
+                            <TranslateTransform />
+                        </TransformGroup>
+                    </ui:SymbolIcon.RenderTransform>
+                </ui:SymbolIcon>
+            </Button>
         </Grid>
     </Grid>
 </UserControl>

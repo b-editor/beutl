@@ -97,49 +97,49 @@ namespace BEditor.Primitive.Objects
         public override string Name => Strings.RoundRect;
 
         /// <summary>
-        /// Get the width of the shape.
+        /// Gets the width of the shape.
         /// </summary>
         [AllowNull]
         public EaseProperty Width { get; private set; }
 
         /// <summary>
-        /// Get the width of the shape.
+        /// Gets the width of the shape.
         /// </summary>
         [AllowNull]
         public EaseProperty Height { get; private set; }
 
         /// <summary>
-        /// Get the roundness of the shape.
+        /// Gets the roundness of the shape.
         /// </summary>
         [AllowNull]
         public EaseProperty TopLeftRadius { get; private set; }
 
         /// <summary>
-        /// Get the roundness of the shape.
+        /// Gets the roundness of the shape.
         /// </summary>
         [AllowNull]
         public EaseProperty TopRightRadius { get; private set; }
 
         /// <summary>
-        /// Get the roundness of the shape.
+        /// Gets the roundness of the shape.
         /// </summary>
         [AllowNull]
         public EaseProperty BottomLeftRadius { get; private set; }
 
         /// <summary>
-        /// Get the roundness of the shape.
+        /// Gets the roundness of the shape.
         /// </summary>
         [AllowNull]
         public EaseProperty BottomRightRadius { get; private set; }
 
         /// <summary>
-        /// Get the line width of the shape.
+        /// Gets the line width of the shape.
         /// </summary>
         [AllowNull]
         public EaseProperty Line { get; private set; }
 
         /// <summary>
-        /// Get the type of the shape.
+        /// Gets the type of the shape.
         /// </summary>
         [AllowNull]
         public ColorProperty Color { get; private set; }

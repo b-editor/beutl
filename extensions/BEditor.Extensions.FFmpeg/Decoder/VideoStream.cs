@@ -38,42 +38,54 @@ namespace BEditor.Extensions.FFmpeg.Decoder
 
         public Image<BGRA32> GetFrame(TimeSpan time)
         {
-            return ToImage(_stream.GetFrame(time));
+            lock (this)
+            {
+                return ToImage(_stream.GetFrame(time));
+            }
         }
 
         public Image<BGRA32> GetNextFrame()
         {
-            return ToImage(_stream.GetNextFrame());
+            lock (this)
+            {
+                return ToImage(_stream.GetNextFrame());
+            }
         }
 
         public bool TryGetFrame(TimeSpan time, [NotNullWhen(true)] out Image<BGRA32>? image)
         {
-            var result = _stream.TryGetFrame(time, out var data);
-            if (result)
+            lock (this)
             {
-                image = ToImage(data);
-            }
-            else
-            {
-                image = null;
-            }
+                var result = _stream.TryGetFrame(time, out var data);
+                if (result)
+                {
+                    image = ToImage(data);
+                }
+                else
+                {
+                    image = null;
+                }
 
-            return result;
+                return result;
+            }
         }
 
         public bool TryGetNextFrame([NotNullWhen(true)] out Image<BGRA32>? image)
         {
-            var result = _stream.TryGetNextFrame(out var data);
-            if (result)
+            lock (this)
             {
-                image = ToImage(data);
-            }
-            else
-            {
-                image = null;
-            }
+                var result = _stream.TryGetNextFrame(out var data);
+                if (result)
+                {
+                    image = ToImage(data);
+                }
+                else
+                {
+                    image = null;
+                }
 
-            return result;
+                return result;
+            }
         }
 
         private static unsafe Image<BGRA32> ToImage(ImageData data)

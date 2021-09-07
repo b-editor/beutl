@@ -27,7 +27,7 @@ namespace BEditor.Extensions.AviUtl
 
         public PropertyElement ToProperty();
 
-        public PropertyElement ToProperty(JsonElement json);
+        public PropertyElement ToProperty(DeserializeContext context);
     }
 
     public record Track(string Name, int Number, float Max, float Min, float Default, string Unit) : IScriptSettings
@@ -69,10 +69,10 @@ namespace BEditor.Extensions.AviUtl
             return new EaseProperty(new(Name, Default, Max, Min));
         }
 
-        public PropertyElement ToProperty(JsonElement json)
+        public PropertyElement ToProperty(DeserializeContext context)
         {
             var prop = ToProperty();
-            prop.SetObjectData(json);
+            prop.SetObjectData(context);
             return prop;
         }
     }
@@ -106,10 +106,10 @@ namespace BEditor.Extensions.AviUtl
             return new TextProperty(new(Name, new string(Variables.Select(i => $"{i.Key}={i.Value};").SelectMany(i => i).ToArray())));
         }
 
-        public PropertyElement ToProperty(JsonElement json)
+        public PropertyElement ToProperty(DeserializeContext context)
         {
             var prop = ToProperty();
-            prop.SetObjectData(json);
+            prop.SetObjectData(context);
             return prop;
         }
     }
@@ -143,10 +143,10 @@ namespace BEditor.Extensions.AviUtl
             return new ColorProperty(new(Name, Color));
         }
 
-        public PropertyElement ToProperty(JsonElement json)
+        public PropertyElement ToProperty(DeserializeContext context)
         {
             var prop = ToProperty();
-            prop.SetObjectData(json);
+            prop.SetObjectData(context);
             return prop;
         }
     }
@@ -170,10 +170,10 @@ namespace BEditor.Extensions.AviUtl
             return new FileProperty(new(Name));
         }
 
-        public PropertyElement ToProperty(JsonElement json)
+        public PropertyElement ToProperty(DeserializeContext context)
         {
             var prop = ToProperty();
-            prop.SetObjectData(json);
+            prop.SetObjectData(context);
             return prop;
         }
     }
@@ -205,10 +205,10 @@ namespace BEditor.Extensions.AviUtl
             return new CheckProperty(new(Name, IsChecked));
         }
 
-        public PropertyElement ToProperty(JsonElement json)
+        public PropertyElement ToProperty(DeserializeContext context)
         {
             var prop = ToProperty();
-            prop.SetObjectData(json);
+            prop.SetObjectData(context);
             return prop;
         }
     }
@@ -249,10 +249,10 @@ namespace BEditor.Extensions.AviUtl
             return new DynamicDialog(this);
         }
 
-        public PropertyElement ToProperty(JsonElement json)
+        public PropertyElement ToProperty(DeserializeContext context)
         {
             var prop = ToProperty();
-            prop.SetObjectData(json);
+            prop.SetObjectData(context);
             return prop;
         }
     }
@@ -300,10 +300,10 @@ namespace BEditor.Extensions.AviUtl
             };
         }
 
-        public PropertyElement ToProperty(JsonElement json)
+        public PropertyElement ToProperty(DeserializeContext context)
         {
             var prop = ToProperty();
-            prop.SetObjectData(json);
+            prop.SetObjectData(context);
             return prop;
         }
 
@@ -365,8 +365,6 @@ namespace BEditor.Extensions.AviUtl
         [AllowNull]
         internal static Plugin Default;
 
-        private SettingRecord? settings;
-
         public Plugin(PluginConfig config) : base(config)
         {
             Default = this;
@@ -376,11 +374,7 @@ namespace BEditor.Extensions.AviUtl
 
         public override string Description => string.Empty;
 
-        public override SettingRecord Settings
-        {
-            get => settings ??= SettingRecord.LoadFrom<CustomSettings>(Path.Combine(BaseDirectory, "settings.json")) ?? new CustomSettings();
-            set => (settings = value).Save(Path.Combine(BaseDirectory, "settings.json"));
-        }
+        public override SettingRecord Settings { get; set; } = new();
 
         public override Guid Id { get; } = Guid.Parse("138CE66C-3E1D-4BF8-A879-F3272C8FFE05");
 
@@ -438,7 +432,7 @@ namespace BEditor.Extensions.AviUtl
         }
     }
 
-    public record CustomSettings(
-        [property: DisplayName("Y軸の値を反転する (左手座標系を使用)")]
-        bool ReverseYAsis = true) : SettingRecord;
+    //public record CustomSettings(
+    //    [property: DisplayName("Y軸の値を反転する (左手座標系を使用)")]
+    //    bool ReverseYAsis = true) : SettingRecord;
 }

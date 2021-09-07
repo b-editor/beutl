@@ -10,6 +10,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Markup.Xaml;
+using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
@@ -77,14 +78,8 @@ namespace BEditor.Views.Properties
         {
             var num = new NumericUpDown
             {
-                Classes = { "custom" },
                 [AttachmentProperty.IntProperty] = index,
-                Height = 32,
-                Margin = new Thickness(8, 4),
-                HorizontalAlignment = HorizontalAlignment.Stretch,
-                VerticalAlignment = VerticalAlignment.Stretch,
                 Value = _property.Pairs[index].Value,
-                Increment = 10
             };
 
             num.GotFocus += NumericUpDown_GotFocus;
@@ -138,14 +133,8 @@ namespace BEditor.Views.Properties
 
         public async void ShowEasingProperty(object s, RoutedEventArgs e)
         {
-            var content = new EasingPropertyView(DataContext!);
-            var dialog = new Window
-            {
-                Content = content,
-                SizeToContent = SizeToContent.WidthAndHeight
-            };
+            var dialog = new EasingPropertyView(DataContext!);
             await dialog.ShowDialog((Window)this.GetVisualRoot());
-            content.DataContext = null;
         }
 
         public async void ListToggleClick(object? sender, RoutedEventArgs? e)
@@ -189,7 +178,7 @@ namespace BEditor.Views.Properties
             var index = num.GetValue(AttachmentProperty.IntProperty);
             var newValue = num.Value;
 
-            _property.Pairs[index] = new(_property.Pairs[index].Key, _oldvalue);
+            _property.Pairs[index] = _property.Pairs[index].WithValue(_oldvalue);
 
             _property.ChangeValue(index, (float)newValue).Execute();
         }
@@ -199,7 +188,7 @@ namespace BEditor.Views.Properties
             var num = (NumericUpDown)sender!;
             var index = num.GetValue(AttachmentProperty.IntProperty);
 
-            _property.Pairs[index] = new(_property.Pairs[index].Key, _property.Clamp((float)e.NewValue));
+            _property.Pairs[index] = _property.Pairs[index].WithValue(_property.Clamp((float)e.NewValue));
 
             await (AppModel.Current.Project!).PreviewUpdateAsync(_property.GetParent<ClipElement>()!);
         }

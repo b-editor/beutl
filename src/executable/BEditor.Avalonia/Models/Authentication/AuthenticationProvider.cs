@@ -9,7 +9,7 @@ using BEditor.Packaging;
 
 namespace BEditor.Models.Authentication
 {
-    public class AuthenticationProvider : IAuthenticationProvider
+    public sealed class AuthenticationProvider : IAuthenticationProvider
     {
         private const string Base = "https://api.beditor.net";
         private const string Refresh = "/api/refreshauth?key={0}";

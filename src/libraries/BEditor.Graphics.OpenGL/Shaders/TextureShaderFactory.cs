@@ -9,42 +9,23 @@ namespace BEditor.Graphics.OpenGL
 {
     internal sealed class TextureShaderFactory : ShaderFactory
     {
-        private const string TextureFrag =
-            "#version 330\n" +
+        private string? Fragment;
 
-            "out vec4 outputColor;\n" +
-
-            "in vec2 texCoord;\n" +
-
-            "uniform vec4 color;\n" +
-            "uniform sampler2D texture0;\n" +
-
-            "void main()\n" +
-            "{\n" +
-            "   outputColor = texture(texture0, texCoord) * color;\n" +
-            "   outputColor.rgb /= outputColor.a;\n" +
-            "}";
-
-        private const string TextureVert =
-            "#version 330 core\n" +
-
-            "layout(location = 0) in vec3 aPosition;\n" +
-            "layout(location = 1) in vec2 aTexCoord;\n" +
-
-            "out vec2 texCoord;\n" +
-            "uniform mat4 model;\n" +
-            "uniform mat4 view;\n" +
-            "uniform mat4 projection;\n" +
-
-            "void main(void)\n" +
-            "{\n" +
-            "   texCoord = aTexCoord;\n" +
-            "   gl_Position = vec4(aPosition, 1.0) * model * view * projection;\n" +
-            "}";
+        private string? Vertex;
 
         public override Shader Create()
         {
-            return new(TextureVert, TextureFrag);
+            if (Fragment == null)
+            {
+                Fragment = ReadEmbeddedFile("BEditor.Graphics.OpenGL.Resources.texture.frag");
+            }
+
+            if (Vertex == null)
+            {
+                Vertex = ReadEmbeddedFile("BEditor.Graphics.OpenGL.Resources.texture.vert");
+            }
+
+            return new(Vertex, Fragment);
         }
     }
 }

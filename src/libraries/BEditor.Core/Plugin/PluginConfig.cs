@@ -10,7 +10,7 @@ namespace BEditor.Plugin
     /// <summary>
     /// Represents a plugin config.
     /// </summary>
-    public class PluginConfig
+    public sealed class PluginConfig
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="PluginConfig"/> class.

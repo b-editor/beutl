@@ -10,6 +10,7 @@ using System.Collections.Generic;
 using System.Runtime.CompilerServices;
 
 using BEditor.Data;
+using BEditor.Data.Property.Easing;
 using BEditor.Drawing;
 using BEditor.Primitive.Objects;
 using BEditor.Primitive.Resources;
@@ -213,7 +214,6 @@ namespace BEditor.Primitive
                     EffectMetadata.Create<Effects.SetAlignment>(Strings.SetAlignment),
                     EffectMetadata.Create<Effects.Mask>(Strings.Mask),
                     EffectMetadata.Create<Effects.Border>(Strings.Border),
-                    EffectMetadata.Create<Effects.StrokeText>($"{Strings.Border} ({Strings.Text})"),
                     EffectMetadata.Create<Effects.Shadow>(Strings.DropShadow),
                     EffectMetadata.Create<Effects.Blur>(Strings.Blur),
                     EffectMetadata.Create<Effects.EdgeBlur>(Strings.EdgeBlur),
@@ -222,6 +222,8 @@ namespace BEditor.Primitive
                     EffectMetadata.Create<Effects.LinearGradient>(Strings.LinearGradient),
                     EffectMetadata.Create<Effects.CircularGradient>(Strings.CircularGradient),
                     EffectMetadata.Create<Effects.PointLightDiffuse>(Strings.PointLightDiffuse),
+                    EffectMetadata.Create<Effects.PartsDisassembly>(Strings.PartsDisassembly),
+                    EffectMetadata.Create<Effects.FlatShadow>(Strings.FlatShadow),
                 },
             };
 
@@ -262,6 +264,62 @@ namespace BEditor.Primitive
                 {
                     EffectMetadata.Create<Effects.DepthTest>(Strings.DepthTest),
                     EffectMetadata.Create<Effects.PointLightSource>(Strings.PointLightSource),
+                },
+            };
+        }
+
+        /// <summary>
+        /// Enumerate all easings.
+        /// </summary>
+        /// <returns>Returns the easing metadata contained in BEditor.Primitive.</returns>
+        public static IEnumerable<EasingMetadata> EnumerateAllEasingMetadata()
+        {
+            yield return new("BEditor")
+            {
+                Children = new[]
+                {
+                    EasingMetadata.Create<Easings.None>("None"),
+                    EasingMetadata.Create<Easings.Linear>("Linear"),
+
+                    EasingMetadata.Create<Easings.SineIn>("SineIn"),
+                    EasingMetadata.Create<Easings.SineOut>("SineOut"),
+                    EasingMetadata.Create<Easings.SineInOut>("SineInOut"),
+
+                    EasingMetadata.Create<Easings.QuadIn>("QuadIn"),
+                    EasingMetadata.Create<Easings.QuadOut>("QuadOut"),
+                    EasingMetadata.Create<Easings.QuadInOut>("QuadInOut"),
+
+                    EasingMetadata.Create<Easings.CubicIn>("CubicIn"),
+                    EasingMetadata.Create<Easings.CubicOut>("CubicOut"),
+                    EasingMetadata.Create<Easings.CubicInOut>("CubicInOut"),
+
+                    EasingMetadata.Create<Easings.QuartIn>("QuartIn"),
+                    EasingMetadata.Create<Easings.QuartOut>("QuartOut"),
+                    EasingMetadata.Create<Easings.QuartInOut>("QuartInOut"),
+
+                    EasingMetadata.Create<Easings.QuintIn>("QuintIn"),
+                    EasingMetadata.Create<Easings.QuintOut>("QuintOut"),
+                    EasingMetadata.Create<Easings.QuintInOut>("QuintInOut"),
+
+                    EasingMetadata.Create<Easings.ExpIn>("ExpIn"),
+                    EasingMetadata.Create<Easings.ExpOut>("ExpOut"),
+                    EasingMetadata.Create<Easings.ExpInOut>("ExpInOut"),
+
+                    EasingMetadata.Create<Easings.CircIn>("CircIn"),
+                    EasingMetadata.Create<Easings.CircOut>("CircOut"),
+                    EasingMetadata.Create<Easings.CircInOut>("CircInOut"),
+
+                    EasingMetadata.Create<Easings.BackIn>("BackIn"),
+                    EasingMetadata.Create<Easings.BackOut>("BackOut"),
+                    EasingMetadata.Create<Easings.BackInOut>("BackInOut"),
+
+                    EasingMetadata.Create<Easings.ElasticIn>("ElasticIn"),
+                    EasingMetadata.Create<Easings.ElasticOut>("ElasticOut"),
+                    EasingMetadata.Create<Easings.ElasticInOut>("ElasticInOut"),
+
+                    EasingMetadata.Create<Easings.BounceIn>("BounceIn"),
+                    EasingMetadata.Create<Easings.BounceOut>("BounceOut"),
+                    EasingMetadata.Create<Easings.BounceInOut>("BounceInOut"),
                 },
             };
         }

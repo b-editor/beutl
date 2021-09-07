@@ -6,15 +6,17 @@
     mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
     xmlns:vm="using:BEditor.ViewModels.Properties"
     xmlns:prop="using:BEditor.Properties"
+    xmlns:ui="using:FluentAvalonia.UI.Controls"
+    xmlns:uip="using:FluentAvalonia.UI.Controls.Primitives"
     x:DataType="vm:ValuePropertyViewModel"
     Height="40"
     Background="Transparent"
     x:Class="BEditor.Views.Properties.ValuePropertyView">
     <UserControl.ContextMenu>
         <ContextMenu>
-            <MenuItem Header="{x:Static prop:Strings.Reset}" Command="{CompiledBinding Reset, Mode=OneTime}"/>
-            <MenuItem Header="{x:Static prop:Strings.Bind}" Command="{CompiledBinding Bind, Mode=OneTime}"/>
-            <MenuItem Header="{x:Static prop:Strings.CopyID}" Command="{CompiledBinding CopyID, Mode=OneTime}"/>
+            <MenuItem Header="{x:Static prop:Strings.Reset}" Command="{CompiledBinding Reset, Mode=OneTime}" />
+            <MenuItem Header="{x:Static prop:Strings.Bind}" Command="{CompiledBinding Bind, Mode=OneTime}" />
+            <MenuItem Header="{x:Static prop:Strings.CopyID}" Command="{CompiledBinding CopyID, Mode=OneTime}" />
         </ContextMenu>
     </UserControl.ContextMenu>
     <Grid>
@@ -25,27 +27,41 @@
             <ColumnDefinition Width="*" MinWidth="100" />
         </Grid.ColumnDefinitions>
 
-        <Label
-            Height="40"
+        <TextBlock
             Margin="10,0,0,0"
             HorizontalAlignment="Left"
-            VerticalAlignment="Top"
-            VerticalContentAlignment="Center"
+            VerticalAlignment="Center"
             FontSize="13"
-            Content="{CompiledBinding Property.PropertyMetadata.Name, Mode=OneTime}" />
+            Text="{Binding Property.PropertyMetadata.Name, Mode=OneTime}" />
 
         <NumericUpDown
             Grid.Column="3"
-            Margin="8,4"
-            HorizontalAlignment="Stretch"
-            VerticalAlignment="Stretch"
-            Classes="custom"
-            Increment="10"
             Value="{CompiledBinding Property.Value, Mode=OneWay}"
             Maximum="{CompiledBinding Maximum, Mode=OneTime}"
             Minimum="{CompiledBinding Minimum, Mode=OneTime}"
             GotFocus="NumericUpDown_GotFocus"
             LostFocus="NumericUpDown_LostFocus"
-            ValueChanged="NumericUpDown_ValueChanged" />
+            ValueChanged="NumericUpDown_ValueChanged">
+            <NumericUpDown.Styles>
+                <Style Selector="NumericUpDown">
+                    <Setter Property="Background" Value="White" />
+                    <Setter Property="Margin" Value="8,4" />
+                    <Setter Property="HorizontalAlignment" Value="Stretch" />
+                    <Setter Property="VerticalAlignment" Value="Stretch" />
+                    <Setter Property="Height" Value="32" />
+                    <Setter Property="ShowButtonSpinner" Value="False" />
+                </Style>
+
+                <Style Selector="ButtonSpinner.NumericUpDownButtonSpinnerStyle">
+                    <Setter Property="Background" Value="Transparent" />
+                    <Setter Property="BorderThickness" Value="0,1,0,0" />
+                </Style>
+
+                <Style Selector="NumericUpDown[IsKeyboardFocusWithin=true] /template/ ButtonSpinner#PART_Spinner">
+                    <Setter Property="BorderThickness" Value="0,2,0,0" />
+                </Style>
+            </NumericUpDown.Styles>
+        </NumericUpDown>
+
     </Grid>
 </UserControl>

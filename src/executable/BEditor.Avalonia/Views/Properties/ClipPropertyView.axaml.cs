@@ -46,7 +46,7 @@ namespace BEditor.Views.Properties
 
                 if (efct?.Effect is null)
                 {
-                    AppModel.Current.Message.Snackbar(string.Format(Strings.FailedToLoad, Strings.EffectFile));
+                    AppModel.Current.Message.Snackbar(string.Format(Strings.FailedToLoad, Strings.EffectFile), string.Empty, IMessage.IconType.Error);
                 }
                 else
                 {

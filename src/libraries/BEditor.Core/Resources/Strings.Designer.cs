@@ -349,6 +349,16 @@ namespace BEditor.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to The keyframe has been moved out of range.
+        ///{0} -&gt; {1}.
+        /// </summary>
+        internal static string KeyframeHasBeenMovedOutOfRange {
+            get {
+                return ResourceManager.GetString("KeyframeHasBeenMovedOutOfRange", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to This key has already been registered..
         /// </summary>
         internal static string KeyHasAlreadyBeenRegisterd {
@@ -363,6 +373,15 @@ namespace BEditor.Resources {
         internal static string Material {
             get {
                 return ResourceManager.GetString("Material", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Message by {0}.
+        /// </summary>
+        internal static string MessageBy {
+            get {
+                return ResourceManager.GetString("MessageBy", resourceCulture);
             }
         }
         
@@ -421,6 +440,15 @@ namespace BEditor.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Primitive.
+        /// </summary>
+        internal static string Primitive {
+            get {
+                return ResourceManager.GetString("Primitive", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Project file.
         /// </summary>
         internal static string ProjectFile {
@@ -462,6 +490,15 @@ namespace BEditor.Resources {
         internal static string RemoveLayer {
             get {
                 return ResourceManager.GetString("RemoveLayer", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Remove target.
+        /// </summary>
+        internal static string RemoveTarget {
+            get {
+                return ResourceManager.GetString("RemoveTarget", resourceCulture);
             }
         }
         
@@ -574,11 +611,29 @@ namespace BEditor.Resources {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Type.
+        /// </summary>
+        internal static string Type {
+            get {
+                return ResourceManager.GetString("Type", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Looks up a localized string similar to Unknown command.
         /// </summary>
         internal static string UnknownCommand {
             get {
                 return ResourceManager.GetString("UnknownCommand", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Update the position.
+        /// </summary>
+        internal static string UpdatePosition {
+            get {
+                return ResourceManager.GetString("UpdatePosition", resourceCulture);
             }
         }
         

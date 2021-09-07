@@ -4,6 +4,358 @@
         <name>BEditor.Primitive</name>
     </assembly>
     <members>
+        <member name="T:BEditor.Primitive.Easings.BackIn">
+            <summary>
+            To be addded.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.BackIn.EaseFunc(BEditor.Media.Frame,BEditor.Media.Frame,System.Single,System.Single)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.BackIn.GetProperties">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Primitive.Easings.BackInOut">
+            <summary>
+            To be addded.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.BackInOut.EaseFunc(BEditor.Media.Frame,BEditor.Media.Frame,System.Single,System.Single)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.BackInOut.GetProperties">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Primitive.Easings.BackOut">
+            <summary>
+            To be addded.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.BackOut.EaseFunc(BEditor.Media.Frame,BEditor.Media.Frame,System.Single,System.Single)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.BackOut.GetProperties">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Primitive.Easings.BounceIn">
+            <summary>
+            To be addded.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.BounceIn.EaseFunc(BEditor.Media.Frame,BEditor.Media.Frame,System.Single,System.Single)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.BounceIn.GetProperties">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Primitive.Easings.BounceInOut">
+            <summary>
+            To be addded.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.BounceInOut.EaseFunc(BEditor.Media.Frame,BEditor.Media.Frame,System.Single,System.Single)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.BounceInOut.GetProperties">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Primitive.Easings.BounceOut">
+            <summary>
+            To be addded.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.BounceOut.EaseFunc(BEditor.Media.Frame,BEditor.Media.Frame,System.Single,System.Single)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.BounceOut.GetProperties">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Primitive.Easings.CircIn">
+            <summary>
+            To be addded.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.CircIn.EaseFunc(BEditor.Media.Frame,BEditor.Media.Frame,System.Single,System.Single)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.CircIn.GetProperties">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Primitive.Easings.CircInOut">
+            <summary>
+            To be addded.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.CircInOut.EaseFunc(BEditor.Media.Frame,BEditor.Media.Frame,System.Single,System.Single)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.CircInOut.GetProperties">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Primitive.Easings.CircOut">
+            <summary>
+            To be addded.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.CircOut.EaseFunc(BEditor.Media.Frame,BEditor.Media.Frame,System.Single,System.Single)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.CircOut.GetProperties">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Primitive.Easings.CubicIn">
+            <summary>
+            To be addded.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.CubicIn.EaseFunc(BEditor.Media.Frame,BEditor.Media.Frame,System.Single,System.Single)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.CubicIn.GetProperties">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Primitive.Easings.CubicInOut">
+            <summary>
+            To be addded.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.CubicInOut.EaseFunc(BEditor.Media.Frame,BEditor.Media.Frame,System.Single,System.Single)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.CubicInOut.GetProperties">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Primitive.Easings.CubicOut">
+            <summary>
+            To be addded.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.CubicOut.EaseFunc(BEditor.Media.Frame,BEditor.Media.Frame,System.Single,System.Single)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.CubicOut.GetProperties">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Primitive.Easings.ElasticIn">
+            <summary>
+            To be addded.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.ElasticIn.EaseFunc(BEditor.Media.Frame,BEditor.Media.Frame,System.Single,System.Single)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.ElasticIn.GetProperties">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Primitive.Easings.ElasticInOut">
+            <summary>
+            To be addded.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.ElasticInOut.EaseFunc(BEditor.Media.Frame,BEditor.Media.Frame,System.Single,System.Single)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.ElasticInOut.GetProperties">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Primitive.Easings.ElasticOut">
+            <summary>
+            To be addded.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.ElasticOut.EaseFunc(BEditor.Media.Frame,BEditor.Media.Frame,System.Single,System.Single)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.ElasticOut.GetProperties">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Primitive.Easings.ExpIn">
+            <summary>
+            To be addded.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.ExpIn.EaseFunc(BEditor.Media.Frame,BEditor.Media.Frame,System.Single,System.Single)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.ExpIn.GetProperties">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Primitive.Easings.ExpInOut">
+            <summary>
+            To be addded.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.ExpInOut.EaseFunc(BEditor.Media.Frame,BEditor.Media.Frame,System.Single,System.Single)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.ExpInOut.GetProperties">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Primitive.Easings.ExpOut">
+            <summary>
+            To be addded.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.ExpOut.EaseFunc(BEditor.Media.Frame,BEditor.Media.Frame,System.Single,System.Single)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.ExpOut.GetProperties">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Primitive.Easings.Linear">
+            <summary>
+            To be addded.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.Linear.EaseFunc(BEditor.Media.Frame,BEditor.Media.Frame,System.Single,System.Single)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.Linear.GetProperties">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Primitive.Easings.None">
+            <summary>
+            To be addded.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.None.EaseFunc(BEditor.Media.Frame,BEditor.Media.Frame,System.Single,System.Single)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.None.GetProperties">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Primitive.Easings.QuadIn">
+            <summary>
+            To be addded.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.QuadIn.EaseFunc(BEditor.Media.Frame,BEditor.Media.Frame,System.Single,System.Single)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.QuadIn.GetProperties">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Primitive.Easings.QuadInOut">
+            <summary>
+            To be addded.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.QuadInOut.EaseFunc(BEditor.Media.Frame,BEditor.Media.Frame,System.Single,System.Single)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.QuadInOut.GetProperties">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Primitive.Easings.QuadOut">
+            <summary>
+            To be addded.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.QuadOut.EaseFunc(BEditor.Media.Frame,BEditor.Media.Frame,System.Single,System.Single)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.QuadOut.GetProperties">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Primitive.Easings.QuartIn">
+            <summary>
+            To be addded.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.QuartIn.EaseFunc(BEditor.Media.Frame,BEditor.Media.Frame,System.Single,System.Single)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.QuartIn.GetProperties">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Primitive.Easings.QuartInOut">
+            <summary>
+            To be addded.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.QuartInOut.EaseFunc(BEditor.Media.Frame,BEditor.Media.Frame,System.Single,System.Single)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.QuartInOut.GetProperties">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Primitive.Easings.QuartOut">
+            <summary>
+            To be addded.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.QuartOut.EaseFunc(BEditor.Media.Frame,BEditor.Media.Frame,System.Single,System.Single)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.QuartOut.GetProperties">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Primitive.Easings.QuintIn">
+            <summary>
+            To be addded.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.QuintIn.EaseFunc(BEditor.Media.Frame,BEditor.Media.Frame,System.Single,System.Single)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.QuintIn.GetProperties">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Primitive.Easings.QuintInOut">
+            <summary>
+            To be addded.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.QuintInOut.EaseFunc(BEditor.Media.Frame,BEditor.Media.Frame,System.Single,System.Single)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.QuintInOut.GetProperties">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Primitive.Easings.QuintOut">
+            <summary>
+            To be addded.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.QuintOut.EaseFunc(BEditor.Media.Frame,BEditor.Media.Frame,System.Single,System.Single)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.QuintOut.GetProperties">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Primitive.Easings.SineIn">
+            <summary>
+            To be addded.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.SineIn.EaseFunc(BEditor.Media.Frame,BEditor.Media.Frame,System.Single,System.Single)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.SineIn.GetProperties">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Primitive.Easings.SineInOut">
+            <summary>
+            To be addded.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.SineInOut.EaseFunc(BEditor.Media.Frame,BEditor.Media.Frame,System.Single,System.Single)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.SineInOut.GetProperties">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Primitive.Easings.SineOut">
+            <summary>
+            To be addded.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.SineOut.EaseFunc(BEditor.Media.Frame,BEditor.Media.Frame,System.Single,System.Single)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Easings.SineOut.GetProperties">
+            <inheritdoc/>
+        </member>
         <member name="T:BEditor.Primitive.Effects.DepthTest">
             <summary>
             Represents an <see cref="T:BEditor.Data.EffectElement"/> that sets the OpenGL depth test.
@@ -39,7 +391,7 @@
         </member>
         <member name="P:BEditor.Primitive.Effects.DepthTest.Function">
             <summary>
-            Get the <see cref="T:BEditor.Data.Property.SelectorProperty"/> that selects the function for the depth test.
+            Gets the <see cref="T:BEditor.Data.Property.SelectorProperty"/> that selects the function for the depth test.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Effects.DepthTest.Mask">
@@ -659,6 +1011,9 @@
         <member name="M:BEditor.Primitive.Effects.AreaExpansion.GetProperties">
             <inheritdoc/>
         </member>
+        <member name="M:BEditor.Primitive.Effects.AreaExpansion.Apply(BEditor.Data.EffectApplyArgs{System.Collections.Generic.IEnumerable{BEditor.Graphics.Texture}})">
+            <inheritdoc/>
+        </member>
         <member name="M:BEditor.Primitive.Effects.AreaExpansion.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
             <inheritdoc/>
         </member>
@@ -816,7 +1171,7 @@
         <member name="M:BEditor.Primitive.Effects.Border.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Primitive.Effects.Border.Apply(BEditor.Data.EffectApplyArgs{System.Collections.Generic.IEnumerable{BEditor.Graphics.ImageInfo}})">
+        <member name="M:BEditor.Primitive.Effects.Border.Apply(BEditor.Data.EffectApplyArgs{System.Collections.Generic.IEnumerable{BEditor.Graphics.Texture}})">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Primitive.Effects.Border.GetProperties">
@@ -970,7 +1325,7 @@
         </member>
         <member name="P:BEditor.Primitive.Effects.CircularGradient.Mode">
             <summary>
-            Get the <see cref="T:BEditor.Data.Property.SelectorProperty"/> that selects the gradient mode.
+            Gets the <see cref="T:BEditor.Data.Property.SelectorProperty"/> that selects the gradient mode.
             </summary>
         </member>
         <member name="M:BEditor.Primitive.Effects.CircularGradient.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
@@ -1015,6 +1370,11 @@
             Defines the <see cref="P:BEditor.Primitive.Effects.Clipping.AdjustCoordinates"/> property.
             </summary>
         </member>
+        <member name="F:BEditor.Primitive.Effects.Clipping.CropTransparentAreaProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.Clipping.CropTransparentArea"/> property.
+            </summary>
+        </member>
         <member name="M:BEditor.Primitive.Effects.Clipping.#ctor">
             <summary>
             Initializes a new instance of the <see cref="T:BEditor.Primitive.Effects.Clipping"/> class.
@@ -1047,6 +1407,14 @@
             <summary>
             Gets whether or not to adjust the coordinates.
             </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.Clipping.CropTransparentArea">
+            <summary>
+            Gets whether or not to crop the transparent area.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.Clipping.Apply(BEditor.Data.EffectApplyArgs{System.Collections.Generic.IEnumerable{BEditor.Graphics.Texture}})">
+            <inheritdoc/>
         </member>
         <member name="M:BEditor.Primitive.Effects.Clipping.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
             <inheritdoc/>
@@ -1249,6 +1617,50 @@
         <member name="M:BEditor.Primitive.Effects.Erode.GetProperties">
             <inheritdoc/>
         </member>
+        <member name="T:BEditor.Primitive.Effects.FlatShadow">
+            <summary>
+            The flat shadow.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.FlatShadow.AngleProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.FlatShadow.Angle"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.FlatShadow.LengthProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.FlatShadow.Length"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.FlatShadow.ColorProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.FlatShadow.Color"/> property.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.FlatShadow.Name">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.FlatShadow.Angle">
+            <summary>
+            Gets the angle.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.FlatShadow.Length">
+            <summary>
+            Gets the shadow length.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.FlatShadow.Color">
+            <summary>
+            Gets the color.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.FlatShadow.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.FlatShadow.GetProperties">
+            <inheritdoc/>
+        </member>
         <member name="T:BEditor.Primitive.Effects.Grayscale">
             <summary>
             Represents the <see cref="T:BEditor.Data.Primitive.ImageEffect"/> of grayscaling an image.
@@ -1301,7 +1713,7 @@
             Gets the number of vertical divisions.
             </summary>
         </member>
-        <member name="M:BEditor.Primitive.Effects.ImageSplit.Apply(BEditor.Data.EffectApplyArgs{System.Collections.Generic.IEnumerable{BEditor.Graphics.ImageInfo}})">
+        <member name="M:BEditor.Primitive.Effects.ImageSplit.Apply(BEditor.Data.EffectApplyArgs{System.Collections.Generic.IEnumerable{BEditor.Graphics.Texture}})">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Primitive.Effects.ImageSplit.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
@@ -1524,7 +1936,7 @@
         </member>
         <member name="P:BEditor.Primitive.Effects.Mask.X">
             <summary>
-            Get the X coordinate.
+            Gets the X coordinate.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Effects.Mask.Y">
@@ -1606,17 +2018,17 @@
         </member>
         <member name="P:BEditor.Primitive.Effects.MultipleControls.Coordinate">
             <summary>
-            Get the coordinates.
+            Gets the coordinates.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Effects.MultipleControls.Scale">
             <summary>
-            Get the scale.
+            Gets the scale.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Effects.MultipleControls.Rotate">
             <summary>
-            Get the angle.
+            Gets the angle.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Effects.MultipleControls.Index">
@@ -1624,7 +2036,7 @@
             Gets the index of the image to be controlled.
             </summary>
         </member>
-        <member name="M:BEditor.Primitive.Effects.MultipleControls.Apply(BEditor.Data.EffectApplyArgs{System.Collections.Generic.IEnumerable{BEditor.Graphics.ImageInfo}})">
+        <member name="M:BEditor.Primitive.Effects.MultipleControls.Apply(BEditor.Data.EffectApplyArgs{System.Collections.Generic.IEnumerable{BEditor.Graphics.Texture}})">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Primitive.Effects.MultipleControls.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
@@ -1687,9 +2099,24 @@
             Noise effect.
             </summary>
         </member>
-        <member name="F:BEditor.Primitive.Effects.Noise.ValueProperty">
+        <member name="F:BEditor.Primitive.Effects.Noise.FrequencyXProperty">
             <summary>
-            Defines the <see cref="P:BEditor.Primitive.Effects.Noise.Value"/> property.
+            Defines the <see cref="P:BEditor.Primitive.Effects.Noise.FrequencyX"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.Noise.FrequencyYProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.Noise.FrequencyY"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.Noise.NumberOfOctavesProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.Noise.NumberOfOctaves"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.Noise.TypeProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.Noise.Type"/> property.
             </summary>
         </member>
         <member name="M:BEditor.Primitive.Effects.Noise.#ctor">
@@ -1700,15 +2127,47 @@
         <member name="P:BEditor.Primitive.Effects.Noise.Name">
             <inheritdoc/>
         </member>
-        <member name="P:BEditor.Primitive.Effects.Noise.Value">
+        <member name="P:BEditor.Primitive.Effects.Noise.FrequencyX">
             <summary>
-            Gets the threshold value.
+            Gets the frequency in the x-direction.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.Noise.FrequencyY">
+            <summary>
+            Gets the frequency in the y-direction.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.Noise.NumberOfOctaves">
+            <summary>
+            Gets the number of octaves.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.Noise.Type">
+            <summary>
+            Gets the type of noise.
             </summary>
         </member>
         <member name="M:BEditor.Primitive.Effects.Noise.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Primitive.Effects.Noise.GetProperties">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Primitive.Effects.PartsDisassembly">
+            <summary>
+            This effect decomposes the pearl in an image.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.PartsDisassembly.Name">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.PartsDisassembly.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.PartsDisassembly.Apply(BEditor.Data.EffectApplyArgs{System.Collections.Generic.IEnumerable{BEditor.Graphics.Texture}})">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.PartsDisassembly.GetProperties">
             <inheritdoc/>
         </member>
         <member name="T:BEditor.Primitive.Effects.PointLightDiffuse">
@@ -1877,14 +2336,14 @@
             Represents the <see cref="T:BEditor.Data.Primitive.ImageEffect"/> that sets the alignment.
             </summary>
         </member>
-        <member name="F:BEditor.Primitive.Effects.SetAlignment.VerticalAlignProperty">
-            <summary>
-            Defines the <see cref="P:BEditor.Primitive.Effects.SetAlignment.VerticalAlign"/> property.
-            </summary>
-        </member>
         <member name="F:BEditor.Primitive.Effects.SetAlignment.HorizontalAlignProperty">
             <summary>
             Defines the <see cref="P:BEditor.Primitive.Effects.SetAlignment.HorizontalAlign"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.SetAlignment.VerticalAlignProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.SetAlignment.VerticalAlign"/> property.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Effects.SetAlignment.Name">
@@ -1899,6 +2358,9 @@
             <summary>
             Gets the vertical alignment.
             </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.SetAlignment.Apply(BEditor.Data.EffectApplyArgs{System.Collections.Generic.IEnumerable{BEditor.Graphics.Texture}})">
+            <inheritdoc/>
         </member>
         <member name="M:BEditor.Primitive.Effects.SetAlignment.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
             <inheritdoc/>
@@ -2004,75 +2466,6 @@
         <member name="M:BEditor.Primitive.Effects.Shadow.GetProperties">
             <inheritdoc/>
         </member>
-        <member name="T:BEditor.Primitive.Effects.StrokeText">
-            <summary>
-            Represents the <see cref="T:BEditor.Data.Primitive.ImageEffect"/> that adds a border to the image.
-            </summary>
-        </member>
-        <member name="F:BEditor.Primitive.Effects.StrokeText.CenterXProperty">
-            <summary>
-            Defines the <see cref="P:BEditor.Primitive.Effects.StrokeText.CenterX"/> property.
-            </summary>
-        </member>
-        <member name="F:BEditor.Primitive.Effects.StrokeText.CenterYProperty">
-            <summary>
-            Defines the <see cref="P:BEditor.Primitive.Effects.StrokeText.CenterY"/> property.
-            </summary>
-        </member>
-        <member name="F:BEditor.Primitive.Effects.StrokeText.LineSpacingProperty">
-            <summary>
-            Defines the <see cref="P:BEditor.Primitive.Effects.StrokeText.LineSpacing"/> property.
-            </summary>
-        </member>
-        <member name="F:BEditor.Primitive.Effects.StrokeText.SizeProperty">
-            <summary>
-            Defines the <see cref="P:BEditor.Primitive.Effects.StrokeText.Size"/> property.
-            </summary>
-        </member>
-        <member name="F:BEditor.Primitive.Effects.StrokeText.ColorProperty">
-            <summary>
-            Defines the <see cref="P:BEditor.Primitive.Effects.StrokeText.Color"/> property.
-            </summary>
-        </member>
-        <member name="M:BEditor.Primitive.Effects.StrokeText.#ctor">
-            <summary>
-            Initializes a new instance of the <see cref="T:BEditor.Primitive.Effects.StrokeText"/> class.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Effects.StrokeText.Name">
-            <inheritdoc/>
-        </member>
-        <member name="P:BEditor.Primitive.Effects.StrokeText.CenterX">
-            <summary>
-            Gets the X coordinate.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Effects.StrokeText.CenterY">
-            <summary>
-            Gets the Y coordinate.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Effects.StrokeText.LineSpacing">
-            <summary>
-            Gets the line spacing of the string to be drawn.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Effects.StrokeText.Size">
-            <summary>
-            Gets the size of the edge.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Effects.StrokeText.Color">
-            <summary>
-            Gets the edge color.
-            </summary>
-        </member>
-        <member name="M:BEditor.Primitive.Effects.StrokeText.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Primitive.Effects.StrokeText.GetProperties">
-            <inheritdoc/>
-        </member>
         <member name="T:BEditor.Primitive.Effects.Xor">
             <summary>
             Represents an <see cref="T:BEditor.Data.Primitive.ImageEffect"/> that transforms an image into XOR colors.
@@ -2117,22 +2510,12 @@
         </member>
         <member name="P:BEditor.Primitive.Objects.AudioFile.Start">
             <summary>
-            Get the <see cref="T:BEditor.Data.Property.EaseProperty"/> that represents the start position.
+            Gets the <see cref="T:BEditor.Data.Property.EaseProperty"/> that represents the start position.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Objects.AudioFile.File">
             <summary>
-            Get the <see cref="F:BEditor.Primitive.Objects.AudioFile.FileProperty"/> to select the file to reference.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Objects.AudioFile.Decoder">
-            <summary>
-            Gets the opened decoder.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Objects.AudioFile.Loaded">
-            <summary>
-            Gets the loaded audio data.
+            Gets the <see cref="F:BEditor.Primitive.Objects.AudioFile.FileProperty"/> to select the file to reference.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Objects.AudioFile.Length">
@@ -2402,95 +2785,6 @@
         <member name="M:BEditor.Primitive.Objects.GL3DObject.GetProperties">
             <inheritdoc/>
         </member>
-        <member name="T:BEditor.Primitive.Objects.ListenerObject">
-            <summary>
-            Represents an <see cref="T:BEditor.Data.ObjectElement"/> that sets the listener for OpenAL.
-            </summary>
-        </member>
-        <member name="F:BEditor.Primitive.Objects.ListenerObject.XProperty">
-            <summary>
-            Defines the <see cref="P:BEditor.Primitive.Objects.ListenerObject.X"/> property.
-            </summary>
-        </member>
-        <member name="F:BEditor.Primitive.Objects.ListenerObject.YProperty">
-            <summary>
-            Defines the <see cref="P:BEditor.Primitive.Objects.ListenerObject.Y"/> property.
-            </summary>
-        </member>
-        <member name="F:BEditor.Primitive.Objects.ListenerObject.ZProperty">
-            <summary>
-            Defines the <see cref="P:BEditor.Primitive.Objects.ListenerObject.Z"/> property.
-            </summary>
-        </member>
-        <member name="F:BEditor.Primitive.Objects.ListenerObject.TargetXProperty">
-            <summary>
-            Defines the <see cref="P:BEditor.Primitive.Objects.ListenerObject.TargetX"/> property.
-            </summary>
-        </member>
-        <member name="F:BEditor.Primitive.Objects.ListenerObject.TargetYProperty">
-            <summary>
-            Defines the <see cref="P:BEditor.Primitive.Objects.ListenerObject.TargetY"/> property.
-            </summary>
-        </member>
-        <member name="F:BEditor.Primitive.Objects.ListenerObject.TargetZProperty">
-            <summary>
-            Defines the <see cref="P:BEditor.Primitive.Objects.ListenerObject.TargetZ"/> property.
-            </summary>
-        </member>
-        <member name="F:BEditor.Primitive.Objects.ListenerObject.GainProperty">
-            <summary>
-            Defines the <see cref="P:BEditor.Primitive.Objects.ListenerObject.Gain"/> property.
-            </summary>
-        </member>
-        <member name="M:BEditor.Primitive.Objects.ListenerObject.#ctor">
-            <summary>
-            Initializes a new instance of the <see cref="T:BEditor.Primitive.Objects.ListenerObject"/> class.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Objects.ListenerObject.Name">
-            <inheritdoc/>
-        </member>
-        <member name="P:BEditor.Primitive.Objects.ListenerObject.X">
-            <summary>
-            Gets the X coordinate of the listener.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Objects.ListenerObject.Y">
-            <summary>
-            Gets the Y coordinate of the listener.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Objects.ListenerObject.Z">
-            <summary>
-            Gets the Z coordinate of the listener.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Objects.ListenerObject.TargetX">
-            <summary>
-            Gets the X coordinate of the listener's target position.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Objects.ListenerObject.TargetY">
-            <summary>
-            Gets the Y coordinate of the listener's target position.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Objects.ListenerObject.TargetZ">
-            <summary>
-            Gets the Z coordinate of the listener's target position.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Objects.ListenerObject.Gain">
-            <summary>
-            Gets the gain.
-            </summary>
-        </member>
-        <member name="M:BEditor.Primitive.Objects.ListenerObject.Apply(BEditor.Data.EffectApplyArgs)">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Primitive.Objects.ListenerObject.GetProperties">
-            <inheritdoc/>
-        </member>
         <member name="T:BEditor.Primitive.Objects.Framebuffer">
             <summary>
             Represents an image object that draws a frame buffer.
@@ -2545,7 +2839,7 @@
         </member>
         <member name="P:BEditor.Primitive.Objects.ImageFile.File">
             <summary>
-            Get the <see cref="F:BEditor.Primitive.Objects.ImageFile.FileProperty"/> to select the image file to reference.
+            Gets the <see cref="F:BEditor.Primitive.Objects.ImageFile.FileProperty"/> to select the image file to reference.
             </summary>
         </member>
         <member name="M:BEditor.Primitive.Objects.ImageFile.IsSupported(System.String)">
@@ -2614,7 +2908,7 @@
         </member>
         <member name="P:BEditor.Primitive.Objects.Polygon.Width">
             <summary>
-            Gest the width of the polygon.
+            Gets the width of the polygon.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Objects.Polygon.Height">
@@ -2634,7 +2928,7 @@
         </member>
         <member name="P:BEditor.Primitive.Objects.Polygon.Color">
             <summary>
-            Get the color of the polygon.
+            Gets the color of the polygon.
             </summary>
         </member>
         <member name="M:BEditor.Primitive.Objects.Polygon.GetProperties">
@@ -2698,42 +2992,42 @@
         </member>
         <member name="P:BEditor.Primitive.Objects.RoundRect.Width">
             <summary>
-            Get the width of the shape.
+            Gets the width of the shape.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Objects.RoundRect.Height">
             <summary>
-            Get the width of the shape.
+            Gets the width of the shape.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Objects.RoundRect.TopLeftRadius">
             <summary>
-            Get the roundness of the shape.
+            Gets the roundness of the shape.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Objects.RoundRect.TopRightRadius">
             <summary>
-            Get the roundness of the shape.
+            Gets the roundness of the shape.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Objects.RoundRect.BottomLeftRadius">
             <summary>
-            Get the roundness of the shape.
+            Gets the roundness of the shape.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Objects.RoundRect.BottomRightRadius">
             <summary>
-            Get the roundness of the shape.
+            Gets the roundness of the shape.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Objects.RoundRect.Line">
             <summary>
-            Get the line width of the shape.
+            Gets the line width of the shape.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Objects.RoundRect.Color">
             <summary>
-            Get the type of the shape.
+            Gets the type of the shape.
             </summary>
         </member>
         <member name="M:BEditor.Primitive.Objects.RoundRect.GetProperties">
@@ -2773,7 +3067,7 @@
         <member name="M:BEditor.Primitive.Objects.SceneObject.GetProperties">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Primitive.Objects.SceneObject.SetObjectData(System.Text.Json.JsonElement)">
+        <member name="M:BEditor.Primitive.Objects.SceneObject.SetObjectData(BEditor.Data.DeserializeContext)">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Primitive.Objects.SceneObject.GetObjectData(System.Text.Json.Utf8JsonWriter)">
@@ -2862,6 +3156,11 @@
             Represents an <see cref="T:BEditor.Data.Primitive.ImageObject"/> to draw a string.
             </summary>
         </member>
+        <member name="F:BEditor.Primitive.Objects.Text.StrokeProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Objects.Text.Size"/> property.
+            </summary>
+        </member>
         <member name="F:BEditor.Primitive.Objects.Text.SizeProperty">
             <summary>
             Defines the <see cref="P:BEditor.Primitive.Objects.Text.Size"/> property.
@@ -2870,6 +3169,11 @@
         <member name="F:BEditor.Primitive.Objects.Text.LineSpacingProperty">
             <summary>
             Defines the <see cref="P:BEditor.Primitive.Objects.Text.LineSpacing"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Objects.Text.CharacterSpacingProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Objects.Text.CharacterSpacing"/> property.
             </summary>
         </member>
         <member name="F:BEditor.Primitive.Objects.Text.ColorProperty">
@@ -2882,19 +3186,24 @@
             Defines the <see cref="P:BEditor.Primitive.Objects.Text.Color"/> property.
             </summary>
         </member>
-        <member name="F:BEditor.Primitive.Objects.Text.HorizontalAlignProperty">
+        <member name="F:BEditor.Primitive.Objects.Text.TextAlignmentProperty">
             <summary>
-            Defines the <see cref="P:BEditor.Primitive.Objects.Text.HorizontalAlign"/> property.
-            </summary>
-        </member>
-        <member name="F:BEditor.Primitive.Objects.Text.VerticalAlignProperty">
-            <summary>
-            Defines the <see cref="P:BEditor.Primitive.Objects.Text.VerticalAlign"/> property.
+            Defines the <see cref="P:BEditor.Primitive.Objects.Text.TextAlignment"/> property.
             </summary>
         </member>
         <member name="F:BEditor.Primitive.Objects.Text.DocumentProperty">
             <summary>
             Defines the <see cref="P:BEditor.Primitive.Objects.Text.Document"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Objects.Text.IsMultipleProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Objects.Text.IsMultiple"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Objects.Text.AlignBaselineProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Objects.Text.AlignBaseline"/> property.
             </summary>
         </member>
         <member name="M:BEditor.Primitive.Objects.Text.#ctor">
@@ -2905,45 +3214,148 @@
         <member name="P:BEditor.Primitive.Objects.Text.Name">
             <inheritdoc/>
         </member>
+        <member name="P:BEditor.Primitive.Objects.Text.Stroke">
+            <summary>
+            Gets the stroke info.
+            </summary>
+        </member>
         <member name="P:BEditor.Primitive.Objects.Text.Size">
             <summary>
-            Gets the size of the string to be drawn.
+            Gets the size of the text.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Objects.Text.LineSpacing">
             <summary>
-            Gets the line spacing of the string to be drawn.
+            Gets the line spacing of the text.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Objects.Text.CharacterSpacing">
+            <summary>
+            Gets the character spacing of the text.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Objects.Text.Color">
             <summary>
-            Gets the color of string to be drawn.
+            Gets the color of text.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Objects.Text.Font">
             <summary>
-            Gets the font of the string to be drawn.
+            Gets the font of the text.
             </summary>
         </member>
-        <member name="P:BEditor.Primitive.Objects.Text.HorizontalAlign">
+        <member name="P:BEditor.Primitive.Objects.Text.TextAlignment">
             <summary>
-            Gets the horizontal alignment of the string to be drawn.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Objects.Text.VerticalAlign">
-            <summary>
-            Gets the vertical alignment of the string to be drawn.
+            Gets the horizontal alignment of the text.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Objects.Text.Document">
             <summary>
-            Gets the string to be drawn.
+            Gets the text.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Objects.Text.IsMultiple">
+            <summary>
+            Gets the text.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Objects.Text.AlignBaseline">
+            <summary>
+            Gets the align to the baseline.
             </summary>
         </member>
         <member name="M:BEditor.Primitive.Objects.Text.GetProperties">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Primitive.Objects.Text.OnRender(BEditor.Data.EffectApplyArgs)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Objects.Text.OnRender(BEditor.Data.EffectApplyArgs{System.Collections.Generic.IEnumerable{BEditor.Graphics.Texture}})">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Objects.Text.OnLoad">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Objects.Text.OnUnload">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Primitive.Objects.Text.StrokeInfoMetadata">
+            <summary>
+            The metadata of <see cref="T:BEditor.Primitive.Objects.Text.StrokeInfo"/>.
+            </summary>
+            <param name="Name">The string displayed in the property header.</param>
+        </member>
+        <member name="M:BEditor.Primitive.Objects.Text.StrokeInfoMetadata.#ctor(System.String)">
+            <summary>
+            The metadata of <see cref="T:BEditor.Primitive.Objects.Text.StrokeInfo"/>.
+            </summary>
+            <param name="Name">The string displayed in the property header.</param>
+        </member>
+        <member name="M:BEditor.Primitive.Objects.Text.StrokeInfoMetadata.Create">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Primitive.Objects.Text.StrokeInfo">
+            <summary>
+            Represents stroke information.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Objects.Text.StrokeInfo.IsEnabledProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Objects.Text.StrokeInfo.IsEnabled"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Objects.Text.StrokeInfo.ColorProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Objects.Text.StrokeInfo.Color"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Objects.Text.StrokeInfo.WidthProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Objects.Text.StrokeInfo.Width"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Objects.Text.StrokeInfo.JoinProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Objects.Text.StrokeInfo.Join"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Objects.Text.StrokeInfo.MiterLimitProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Objects.Text.StrokeInfo.MiterLimit"/> property.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Objects.Text.StrokeInfo.#ctor(BEditor.Data.Property.PropertyElementMetadata)">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Primitive.Objects.Text.StrokeInfo"/> class.
+            </summary>
+            <param name="metadata">Metadata of this property.</param>
+        </member>
+        <member name="P:BEditor.Primitive.Objects.Text.StrokeInfo.IsEnabled">
+            <summary>
+            Gets if this stroke is enabled.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Objects.Text.StrokeInfo.Color">
+            <summary>
+            Gets the stroke color.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Objects.Text.StrokeInfo.Width">
+            <summary>
+            Gets the stroke width.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Objects.Text.StrokeInfo.Join">
+            <summary>
+            Gets the stroke join.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Objects.Text.StrokeInfo.MiterLimit">
+            <summary>
+            Gets the stroke miter.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Objects.Text.StrokeInfo.GetProperties">
             <inheritdoc/>
         </member>
         <member name="T:BEditor.Primitive.Objects.VideoFile">
@@ -3145,775 +3557,881 @@
             </summary>
             <returns>Returns the effect metadata contained in BEditor.Primitive.</returns>
         </member>
+        <member name="M:BEditor.Primitive.PrimitiveTypes.EnumerateAllEasingMetadata">
+            <summary>
+            Enumerate all easings.
+            </summary>
+            <returns>Returns the easing metadata contained in BEditor.Primitive.</returns>
+        </member>
         <member name="T:BEditor.Primitive.Resources.Strings">
             <summary>
-              A strongly-typed resource class, for looking up localized strings, etc.
+              ローカライズされた文字列などを検索するための、厳密に型指定されたリソース クラスです。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.ResourceManager">
             <summary>
-              Returns the cached ResourceManager instance used by this class.
+              このクラスで使用されているキャッシュされた ResourceManager インスタンスを返します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Culture">
             <summary>
-              Overrides the current thread's CurrentUICulture property for all
-              resource lookups using this strongly typed resource class.
+              すべてについて、現在のスレッドの CurrentUICulture プロパティをオーバーライドします
+              現在のスレッドの CurrentUICulture プロパティをオーバーライドします。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.AdjustCoordinates">
             <summary>
-              Looks up a localized string similar to Adjust coordinates.
+              Adjust coordinates に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Alignment">
+            <summary>
+              Alignment に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.AlignToBaseline">
+            <summary>
+              Align to baseline に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Anchors">
             <summary>
-              Looks up a localized string similar to Anchors.
+              Anchors に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Angle">
             <summary>
-              Looks up a localized string similar to Angle.
+              Angle に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.ApplyLookupTable">
             <summary>
-              Looks up a localized string similar to Apply Lookup table.
+              Apply Lookup table に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.AreaExpansion">
             <summary>
-              Looks up a localized string similar to Area expansion.
+              Area expansion に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.AttenuationRate">
             <summary>
-              Looks up a localized string similar to Attenuation rate.
+              Attenuation rate に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Audio">
             <summary>
-              Looks up a localized string similar to Audio.
+              Audio に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.AudioEffect">
             <summary>
-              Looks up a localized string similar to Audio effect.
+              Audio effect に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.AudioFile">
             <summary>
-              Looks up a localized string similar to Audio file.
+              Audio file に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Ball">
             <summary>
-              Looks up a localized string similar to Ball.
+              Ball に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Bevel">
+            <summary>
+              Beval に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Binarization">
             <summary>
-              Looks up a localized string similar to Binarization.
+              Binarization に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Blue">
             <summary>
-              Looks up a localized string similar to Blue.
+              Blue に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Blur">
             <summary>
-              Looks up a localized string similar to Blur.
+              Blur に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.BlurBorderOfTransparency">
             <summary>
-              Looks up a localized string similar to Blurs the borders of transparency.
+              Blurs the borders of transparency に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Border">
             <summary>
-              Looks up a localized string similar to Border.
+              Border に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Bottom">
             <summary>
-              Looks up a localized string similar to Bottom.
+              Bottom に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.BottomLeft">
             <summary>
-              Looks up a localized string similar to Lower left.
+              Lower left に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.BottomRight">
             <summary>
-              Looks up a localized string similar to Lower right.
+              Lower right に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Brightness">
             <summary>
-              Looks up a localized string similar to Brightness.
+              Brightness に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.BrightnessCorrection">
             <summary>
-              Looks up a localized string similar to Brightness correction.
+              Brightness correction に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Camera">
             <summary>
-              Looks up a localized string similar to Camera.
+              Camera に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Center">
             <summary>
-              Looks up a localized string similar to Center.
+              Center に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.CenterX">
             <summary>
-              Looks up a localized string similar to Center x.
+              Center x に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.CenterY">
             <summary>
-              Looks up a localized string similar to Center y.
+              Center y に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.CharacterSpacing">
+            <summary>
+              Character spacing に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.ChromaKey">
             <summary>
-              Looks up a localized string similar to Chroma key.
+              Chroma key に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.CircularGradient">
             <summary>
-              Looks up a localized string similar to Circular gradient.
+              Circular gradient に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Clamp">
             <summary>
-              Looks up a localized string similar to Clamp.
+              Clamp に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.ClearFramebuffer">
             <summary>
-              Looks up a localized string similar to Clear the frame buffer.
+              Clear the frame buffer に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Clipping">
             <summary>
-              Looks up a localized string similar to Clipping.
+              Clipping に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Color">
             <summary>
-              Looks up a localized string similar to Color.
+              Color に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.ColorDifferenceRange">
             <summary>
-              Looks up a localized string similar to Color difference range.
+              Color difference range に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.ColorKey">
             <summary>
-              Looks up a localized string similar to Color key.
+              Color key に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Colors">
             <summary>
-              Looks up a localized string similar to Colors.
+              Colors に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Contrast">
             <summary>
-              Looks up a localized string similar to Contrast.
+              Contrast に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.ContrastCorrection">
             <summary>
-              Looks up a localized string similar to Contrast correction.
+              Contrast correction に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Coordinate">
             <summary>
-              Looks up a localized string similar to Coordinate.
+              Coordinate に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.CropTransparentArea">
+            <summary>
+              Crop the transparent area. に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Cube">
             <summary>
-              Looks up a localized string similar to Cube.
+              Cube に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.CubeFile">
             <summary>
-              Looks up a localized string similar to Cube file.
+              Cube file に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Cycle">
             <summary>
-              Looks up a localized string similar to Cycle.
+              Cycle に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Decal">
             <summary>
-              Looks up a localized string similar to Decal.
+              Decal に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.DecoderNotFound">
             <summary>
-              Looks up a localized string similar to Decoder not found..
+              Decoder not found. に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Delay">
             <summary>
-              Looks up a localized string similar to Delay.
+              Delay に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.DelayTime">
             <summary>
-              Looks up a localized string similar to Delay time.
+              Delay time に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Depth">
             <summary>
-              Looks up a localized string similar to Depth.
+              Depth に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.DepthFunction">
             <summary>
-              Looks up a localized string similar to Depth function.
+              Depth function に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.DepthTest">
             <summary>
-              Looks up a localized string similar to Depth test.
+              Depth test に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.DepthTestEnable">
             <summary>
-              Looks up a localized string similar to Enable Depth Testing.
+              Enable Depth Testing に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Diffusion">
             <summary>
-              Looks up a localized string similar to Diffusion.
+              Diffusion に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Dilate">
             <summary>
-              Looks up a localized string similar to Dilate.
+              Dilate に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.DoNotInvertMask">
             <summary>
-              Looks up a localized string similar to Do not invert the mask.
+              Do not invert the mask に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.DropShadow">
             <summary>
-              Looks up a localized string similar to Drop shadow.
+              Drop shadow に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.EdgeBlur">
             <summary>
-              Looks up a localized string similar to Edge blur.
+              Edge blur に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Ellipse">
             <summary>
-              Looks up a localized string similar to Ellipse.
+              Ellipse に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.EnableMultipleObjects">
             <summary>
-              Looks up a localized string similar to Enable multiple objects.
+              Enable multiple objects に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.EnableStroke">
+            <summary>
+              Enable stroke に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.EndPoint">
             <summary>
-              Looks up a localized string similar to End point.
+              End point に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Erode">
             <summary>
-              Looks up a localized string similar to Erode.
+              Erode に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.FailedToLoad">
             <summary>
-              Looks up a localized string similar to {0} failed to load..
+              {0} failed to load. に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.File">
             <summary>
-              Looks up a localized string similar to File.
+              File に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.FitToOriginalSize">
             <summary>
-              Looks up a localized string similar to Fit to original size.
+              Fit to original size に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.FixSize">
             <summary>
-              Looks up a localized string similar to Fix the size.
+              Fix the size に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.FlatShadow">
+            <summary>
+              Flat Shadow に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Fov">
             <summary>
-              Looks up a localized string similar to viewing angle.
+              viewing angle に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Fractal">
+            <summary>
+              Fractal に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Framebuffer">
             <summary>
-              Looks up a localized string similar to Framebuffer.
+              Framebuffer に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Frequency">
             <summary>
-              Looks up a localized string similar to Frequency.
+              Frequency に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.FrequencyX">
+            <summary>
+              Frequency X に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.FrequencyY">
+            <summary>
+              Frequency Y に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Gamma">
             <summary>
-              Looks up a localized string similar to Gamma.
+              Gamma に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.GammaCorrection">
             <summary>
-              Looks up a localized string similar to Gamma correction.
+              Gamma correction に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.GaussianBlur">
             <summary>
-              Looks up a localized string similar to Gaussian blur.
+              Gaussian blur に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.GL3DObject">
             <summary>
-              Looks up a localized string similar to 3D object.
+              3D object に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Grayscale">
             <summary>
-              Looks up a localized string similar to Grayscale.
+              Grayscale に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Green">
             <summary>
-              Looks up a localized string similar to Green.
+              Green に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Height">
             <summary>
-              Looks up a localized string similar to Height.
+              Height に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.HorizontalAlignment">
             <summary>
-              Looks up a localized string similar to Horizontal alignment.
+              Horizontal alignment に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.HueRange">
             <summary>
-              Looks up a localized string similar to Hue range.
+              Hue range に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Image">
             <summary>
-              Looks up a localized string similar to Image.
+              Image に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.ImageEffects">
             <summary>
-              Looks up a localized string similar to Image effects.
+              Image effects に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.ImageFile">
             <summary>
-              Looks up a localized string similar to Image file.
+              Image file に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.ImageSplit">
             <summary>
-              Looks up a localized string similar to Image splitting.
+              Image splitting に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.InnerShadow">
             <summary>
-              Looks up a localized string similar to Inner Shadow.
+              Inner Shadow に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.InvertMask">
             <summary>
-              Looks up a localized string similar to Invert Mask.
+              Invert Mask に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.JoinType">
+            <summary>
+              Join type に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.KernelHeight">
             <summary>
-              Looks up a localized string similar to Kernel height.
+              Kernel height に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.KernelWidth">
             <summary>
-              Looks up a localized string similar to Kernel width.
+              Kernel width に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Left">
             <summary>
-              Looks up a localized string similar to Left.
+              Left に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Length">
+            <summary>
+              Length に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.LinearGradient">
             <summary>
-              Looks up a localized string similar to Liear gradient.
+              Liear gradient に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.LineSpacing">
             <summary>
-              Looks up a localized string similar to Line spacing.
+              Line spacing に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.LineWidth">
             <summary>
-              Looks up a localized string similar to line width.
+              line width に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Listener">
             <summary>
-              Looks up a localized string similar to Listener.
+              Listener に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.LookupTable">
             <summary>
-              Looks up a localized string similar to Lookup table.
+              Lookup table に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Mask">
             <summary>
-              Looks up a localized string similar to Mask.
+              Mask に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.MaskType">
             <summary>
-              Looks up a localized string similar to Mask type.
+              Mask type に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.MedianBlur">
             <summary>
-              Looks up a localized string similar to Median blur.
+              Median blur に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Mirror">
             <summary>
-              Looks up a localized string similar to Mirror.
+              Mirror に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.MiterLimit">
+            <summary>
+              Miter limit に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Mode">
             <summary>
-              Looks up a localized string similar to Mode.
+              Mode に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Monoc">
             <summary>
-              Looks up a localized string similar to Monochromatic.
+              Monochromatic に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.MultipleImageControls">
             <summary>
-              Looks up a localized string similar to Multiple Image Control.
+              Multiple Image Control に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Negaposi">
             <summary>
-              Looks up a localized string similar to Negaposi.
+              Negaposi に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Noise">
             <summary>
-              Looks up a localized string similar to Noise.
+              Noise に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.NumberOfHorizontalDivisions">
             <summary>
-              Looks up a localized string similar to Number of horizontal divisions.
+              Number of horizontal divisions に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.NumberOfOctaves">
+            <summary>
+              Number of octaves に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.NumberOfRepetitions">
             <summary>
-              Looks up a localized string similar to Number of repetitions.
+              Number of repetitions に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.NumberOfVerticalDivisions">
             <summary>
-              Looks up a localized string similar to Number of vertical divisions.
+              Number of vertical divisions に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Opacity">
             <summary>
-              Looks up a localized string similar to Opacity.
+              Opacity に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.PartsDisassembly">
+            <summary>
+              Parts disassembly に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.PathToImageObject">
             <summary>
-              Looks up a localized string similar to Path to the image object.
+              Path to the image object に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Perspective">
             <summary>
-              Looks up a localized string similar to Perspective.
+              Perspective に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Pitch">
             <summary>
-              Looks up a localized string similar to Pitch.
+              Pitch に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.PointLightDiffuse">
             <summary>
-              Looks up a localized string similar to Point light diffuse.
+              Point light diffuse に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.PointLightSource">
             <summary>
-              Looks up a localized string similar to Point light source.
+              Point light source に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Polygon">
             <summary>
-              Looks up a localized string similar to Polygon.
+              Polygon に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Radius">
             <summary>
-              Looks up a localized string similar to Radius.
+              Radius に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Rectangle">
             <summary>
-              Looks up a localized string similar to Rectangle.
+              Rectangle に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Red">
             <summary>
-              Looks up a localized string similar to Red.
+              Red に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Repeat">
             <summary>
-              Looks up a localized string similar to Repeat.
+              Repeat に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Resize">
             <summary>
-              Looks up a localized string similar to Resize.
+              Resize に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.ReverseOpacity">
             <summary>
-              Looks up a localized string similar to Reverse opacity.
+              Reverse opacity に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.RGBColorCorrection">
             <summary>
-              Looks up a localized string similar to RGB correction.
+              RGB correction に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Right">
             <summary>
-              Looks up a localized string similar to Right.
+              Right に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Rotate">
             <summary>
-              Looks up a localized string similar to Rotate.
+              Rotate に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Round">
+            <summary>
+              Round に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.RoundRect">
             <summary>
-              Looks up a localized string similar to Round rect.
+              Round rect に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.SaturationRange">
             <summary>
-              Looks up a localized string similar to Saturation range.
+              Saturation range に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Scene">
             <summary>
-              Looks up a localized string similar to Scene.
+              Scene に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Scenes">
             <summary>
-              Looks up a localized string similar to Scenes.
+              Scenes に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.SearchForDecoder">
+            <summary>
+              Search for the decoder に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Sepia">
             <summary>
-              Looks up a localized string similar to Sepia.
+              Sepia に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.SetAlignment">
             <summary>
-              Looks up a localized string similar to Set alignment.
+              Set alignment に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Shape">
             <summary>
-              Looks up a localized string similar to Shape.
+              Shape に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Sharp">
+            <summary>
+              Sharp に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.SigmaX">
             <summary>
-              Looks up a localized string similar to Sigma x.
+              Sigma x に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.SigmaY">
             <summary>
-              Looks up a localized string similar to Sigma y.
+              Sigma y に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Size">
             <summary>
-              Looks up a localized string similar to Size.
+              Size に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Solarisation">
             <summary>
-              Looks up a localized string similar to Solarisation.
+              Solarisation に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Speed">
             <summary>
-              Looks up a localized string similar to Speed.
+              Speed に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Start">
             <summary>
-              Looks up a localized string similar to Start.
+              Start に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.StartPoint">
             <summary>
-              Looks up a localized string similar to Start point.
+              Start point に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Strength">
             <summary>
-              Looks up a localized string similar to Strength.
+              Strength に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Stroke">
+            <summary>
+              Stroke に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.TargetX">
             <summary>
-              Looks up a localized string similar to Target x.
+              Target x に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.TargetY">
             <summary>
-              Looks up a localized string similar to Target y.
+              Target y に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.TargetZ">
             <summary>
-              Looks up a localized string similar to Target z.
+              Target z に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Text">
             <summary>
-              Looks up a localized string similar to Text.
+              Text に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.ThresholdValue">
             <summary>
-              Looks up a localized string similar to Threshold value.
+              Threshold value に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Top">
             <summary>
-              Looks up a localized string similar to Top.
+              Top に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.TopLeft">
             <summary>
-              Looks up a localized string similar to Upper left.
+              Upper left に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.TopRight">
             <summary>
-              Looks up a localized string similar to Upper right.
+              Upper right に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Turbulence">
+            <summary>
+              Turbulence に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Type">
             <summary>
-              Looks up a localized string similar to Type.
+              Type に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Unspecified">
             <summary>
-              Looks up a localized string similar to Unspecified.
+              Unspecified に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.VerticalAlignment">
             <summary>
-              Looks up a localized string similar to Vertical alignment.
+              Vertical alignment に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Video">
             <summary>
-              Looks up a localized string similar to Video.
+              Video に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.VideoFile">
             <summary>
-              Looks up a localized string similar to Video file.
+              Video file に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Volume">
             <summary>
-              Looks up a localized string similar to Volume.
+              Volume に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.WarpPolar">
             <summary>
-              Looks up a localized string similar to Warp Polar.
+              Warp Polar に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Width">
             <summary>
-              Looks up a localized string similar to Width.
+              Width に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.X">
             <summary>
-              Looks up a localized string similar to X.
+              X に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Xor">
             <summary>
-              Looks up a localized string similar to Xor.
+              Xor に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Y">
             <summary>
-              Looks up a localized string similar to Y.
+              Y に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Z">
             <summary>
-              Looks up a localized string similar to Z.
+              Z に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.ZFar">
             <summary>
-              Looks up a localized string similar to ZFar.
+              ZFar に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.ZNear">
             <summary>
-              Looks up a localized string similar to ZNear.
+              ZNear に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
     </members>

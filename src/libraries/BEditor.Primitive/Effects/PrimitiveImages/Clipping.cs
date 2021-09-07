@@ -7,12 +7,17 @@
 
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.Linq;
+using System.Numerics;
+using System.Threading.Tasks;
 
 using BEditor.Data;
 using BEditor.Data.Primitive;
 using BEditor.Data.Property;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
+using BEditor.Graphics;
+using BEditor.Media;
 using BEditor.Primitive.Resources;
 
 namespace BEditor.Primitive.Effects
@@ -68,6 +73,15 @@ namespace BEditor.Primitive.Effects
             EditingPropertyOptions<CheckProperty>.Create(new CheckPropertyMetadata(Strings.AdjustCoordinates)).Serialize());
 
         /// <summary>
+        /// Defines the <see cref="CropTransparentArea"/> property.
+        /// </summary>
+        public static readonly DirectProperty<Clipping, CheckProperty> CropTransparentAreaProperty = EditingProperty.RegisterDirect<CheckProperty, Clipping>(
+            nameof(CropTransparentArea),
+            owner => owner.CropTransparentArea,
+            (owner, obj) => owner.CropTransparentArea = obj,
+            EditingPropertyOptions<CheckProperty>.Create(new CheckPropertyMetadata(Strings.CropTransparentArea)).Serialize());
+
+        /// <summary>
         /// Initializes a new instance of the <see cref="Clipping"/> class.
         /// </summary>
         public Clipping()
@@ -107,37 +121,49 @@ namespace BEditor.Primitive.Effects
         [AllowNull]
         public CheckProperty AdjustCoordinates { get; private set; }
 
+        /// <summary>
+        /// Gets whether or not to crop the transparent area.
+        /// </summary>
+        [AllowNull]
+        public CheckProperty CropTransparentArea { get; private set; }
+
+        /// <inheritdoc/>
+        public override void Apply(EffectApplyArgs<IEnumerable<Texture>> args)
+        {
+            args.Value = args.Value.Select(texture =>
+            {
+                using var image = texture.ToImage();
+                var rect = GetRect(image, args.Frame);
+
+                if (rect.Width < 0 || rect.Height < 0)
+                {
+                    using var empty = new Image<BGRA32>(1, 1, default(BGRA32));
+                    texture.Update(empty);
+
+                    return texture;
+                }
+
+                if (AdjustCoordinates.Value)
+                {
+                    var transform = texture.Transform;
+
+                    transform.Center += new Vector3(
+                        (rect.X / 2F) - ((image.Width - rect.Right) / 2F),
+                        ((image.Height - rect.Bottom) / 2F) - (rect.Y / 2F),
+                        0);
+                    texture.Transform = transform;
+                }
+
+                using var img1 = image[rect];
+                texture.Update(img1);
+
+                return texture;
+            });
+        }
+
         /// <inheritdoc/>
         public override void Apply(EffectApplyArgs<Image<BGRA32>> args)
         {
-            var top = (int)Top.GetValue(args.Frame);
-            var bottom = (int)Bottom.GetValue(args.Frame);
-            var left = (int)Left.GetValue(args.Frame);
-            var right = (int)Right.GetValue(args.Frame);
-            var img = args.Value;
-
-            if (AdjustCoordinates.Value && Parent!.Effect[0] is ImageObject image)
-            {
-                image.Coordinate.CenterX.Optional += -(right / 2) + (left / 2);
-                image.Coordinate.CenterY.Optional += -(top / 2) + (bottom / 2);
-            }
-
-            if (img.Width <= left + right || img.Height <= top + bottom)
-            {
-                img.Dispose();
-                args.Value = new(1, 1, default(BGRA32));
-                return;
-            }
-
-            var width = img.Width - left - right;
-            var height = img.Height - top - bottom;
-            var x = left;
-            var y = top;
-
-            var img1 = img[new Rectangle(x, y, width, height)];
-            img.Dispose();
-
-            args.Value = img1;
         }
 
         /// <inheritdoc/>
@@ -148,6 +174,54 @@ namespace BEditor.Primitive.Effects
             yield return Left;
             yield return Right;
             yield return AdjustCoordinates;
+            yield return CropTransparentArea;
+        }
+
+        private static unsafe Rectangle FindRect(Image<BGRA32> image)
+        {
+            var x0 = image.Width;
+            var y0 = image.Height;
+            var x1 = 0;
+            var y1 = 0;
+
+            // 透明でないピクセルを探す
+            Parallel.For(0, image.Data.Length, i =>
+            {
+                if (image.Data[i].A != 0)
+                {
+                    var x = i % image.Width;
+                    var y = i / image.Width;
+
+                    if (x0 > x) x0 = x;
+                    if (y0 > y) y0 = y;
+                    if (x1 < x) x1 = x;
+                    if (y1 < y) y1 = y;
+                }
+            });
+
+            return new Rectangle(x0, y0, x1 - x0, y1 - y0);
+        }
+
+        private Rectangle GetRect(Image<BGRA32> image, Frame frame)
+        {
+            if (CropTransparentArea.Value)
+            {
+                return FindRect(image);
+            }
+            else
+            {
+                var top = Top[frame];
+                var bottom = Bottom[frame];
+                var left = Left[frame];
+                var right = Right[frame];
+
+                var width = image.Width - left - right;
+                var height = image.Height - top - bottom;
+                var x = left;
+                var y = top;
+
+                return new Rectangle((int)x, (int)y, (int)width, (int)height);
+            }
         }
     }
 }

@@ -4,7 +4,7 @@ using Avalonia.Markup.Xaml;
 
 namespace BEditor.Views.Settings
 {
-    public partial class KeyBindings : UserControl
+    public sealed class KeyBindings : UserControl
     {
         public KeyBindings()
         {

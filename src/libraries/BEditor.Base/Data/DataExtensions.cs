@@ -187,7 +187,19 @@ namespace BEditor.Data
         {
             return options.Serialize(
                 (writer, value) => writer.WriteStringValue(value),
-                element => element.GetString() ?? string.Empty);
+                ctx => ctx.Element.GetString() ?? string.Empty);
+        }
+
+        /// <summary>
+        /// Specifies the serializer for the property.
+        /// </summary>
+        /// <param name="options">The options to be specified.</param>
+        /// <returns>An <see cref="EditingPropertyOptions{TValue}"/> instance.</returns>
+        public static EditingPropertyOptions<bool> Serialize(this EditingPropertyOptions<bool> options)
+        {
+            return options.Serialize(
+                (writer, value) => writer.WriteBooleanValue(value),
+                ctx => ctx.Element.GetBoolean());
         }
 
         /// <summary>
@@ -199,7 +211,7 @@ namespace BEditor.Data
         {
             return options.Serialize(
                 (writer, value) => writer.WriteNumberValue(value),
-                element => element.GetInt32());
+                ctx => ctx.Element.GetInt32());
         }
 
         /// <summary>
@@ -211,7 +223,7 @@ namespace BEditor.Data
         {
             return options.Serialize(
                 (writer, value) => writer.WriteNumberValue(value),
-                element => element.GetInt64());
+                ctx => ctx.Element.GetInt64());
         }
 
         /// <summary>
@@ -223,7 +235,7 @@ namespace BEditor.Data
         {
             return options.Serialize(
                 (writer, value) => writer.WriteNumberValue(value),
-                element => element.GetUInt32());
+                ctx => ctx.Element.GetUInt32());
         }
 
         /// <summary>
@@ -235,7 +247,7 @@ namespace BEditor.Data
         {
             return options.Serialize(
                 (writer, value) => writer.WriteNumberValue(value),
-                element => element.GetUInt64());
+                ctx => ctx.Element.GetUInt64());
         }
 
         /// <summary>
@@ -247,7 +259,7 @@ namespace BEditor.Data
         {
             return options.Serialize(
                 (writer, value) => writer.WriteNumberValue(value),
-                element => element.GetSingle());
+                ctx => ctx.Element.GetSingle());
         }
 
         /// <summary>
@@ -259,7 +271,7 @@ namespace BEditor.Data
         {
             return options.Serialize(
                 (writer, value) => writer.WriteNumberValue(value),
-                element => element.GetDouble());
+                ctx => ctx.Element.GetDouble());
         }
 
         /// <summary>
@@ -271,7 +283,7 @@ namespace BEditor.Data
         {
             return options.Serialize(
                 (writer, value) => writer.WriteNumberValue(value),
-                element => element.GetDecimal());
+                ctx => ctx.Element.GetDecimal());
         }
 
         /// <summary>
@@ -283,7 +295,7 @@ namespace BEditor.Data
         {
             return options.Serialize(
                 (writer, value) => writer.WriteStringValue(value),
-                element => element.GetGuid());
+                ctx => ctx.Element.GetGuid());
         }
 
         /// <summary>
@@ -295,7 +307,7 @@ namespace BEditor.Data
         {
             return options.Serialize(
                 (writer, value) => writer.WriteStringValue(value),
-                element => element.GetDateTime());
+                ctx => ctx.Element.GetDateTime());
         }
 
         /// <summary>
@@ -307,7 +319,42 @@ namespace BEditor.Data
         {
             return options.Serialize(
                 (writer, value) => writer.WriteStringValue(value),
-                element => element.GetDateTimeOffset());
+                ctx => ctx.Element.GetDateTimeOffset());
+        }
+
+        /// <summary>
+        /// Specifies the serializer for the property.
+        /// </summary>
+        /// <typeparam name="TCollection">The type of the collection.</typeparam>
+        /// <typeparam name="TElement">The type of the element.</typeparam>
+        /// <param name="options">The options to be specified.</param>
+        /// <param name="func">Get the element serializer.</param>
+        /// <returns>An <see cref="EditingPropertyOptions{TValue}"/> instance.</returns>
+        public static EditingPropertyOptions<TCollection> Serialize<TCollection, TElement>(this EditingPropertyOptions<TCollection> options, Func<EditingPropertyOptions<TElement>, EditingPropertyOptions<TElement>> func)
+            where TCollection : ICollection<TElement>, new()
+        {
+            var inner = func(EditingPropertyOptions<TElement>.Create());
+            return options.Serialize(
+                (writer, value) =>
+                {
+                    writer.WriteStartArray();
+                    foreach (var item in value)
+                    {
+                        inner.Serializer?.Write(writer, item);
+                    }
+
+                    writer.WriteEndArray();
+                },
+                ctx =>
+                {
+                    var list = new TCollection();
+                    foreach (var item in ctx.Element.EnumerateArray())
+                    {
+                        list.Add(inner.Serializer!.Read(ctx.WithElement(item).WithParent(list)));
+                    }
+
+                    return list;
+                });
         }
 
         /// <summary>

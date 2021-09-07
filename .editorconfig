@@ -297,3 +297,16 @@ dotnet_diagnostic.RCS0052.severity=warning
 dotnet_diagnostic.RCS0052i.severity=warning
 dotnet_diagnostic.RCS0055.severity=warning
 dotnet_diagnostic.RCS0056.severity=silent
+
+# StyleCop
+dotnet_diagnostic.SA1309.severity=silent
+dotnet_diagnostic.SA1101.severity=silent
+dotnet_diagnostic.SA1200.severity=silent
+dotnet_diagnostic.SA1503.severity=silent
+dotnet_diagnostic.SA1519.severity=silent
+dotnet_diagnostic.SA1516.severity=silent
+dotnet_diagnostic.SA1403.severity=silent
+dotnet_diagnostic.SA1649.severity=silent
+dotnet_diagnostic.SA1118.severity=silent
+dotnet_diagnostic.SA1117.severity=silent
+dotnet_diagnostic.SA1625.severity=silent

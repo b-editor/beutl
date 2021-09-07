@@ -1,7 +1,4 @@
-using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Controls.Chrome;
-using Avalonia.Dialogs;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
@@ -21,13 +18,9 @@ namespace BEditor.Views.ManagePlugins
             {
                 await Dispatcher.UIThread.InvokeAsync(() =>
                 {
-                    if (DataContext is SigninViewModel vm && Parent is TabItem item && item.Parent is TabControl tab)
+                    if (DataContext is SigninViewModel vm && Parent is FluentAvalonia.UI.Controls.Frame item)
                     {
                         item.Content = new User();
-
-                        // VisualTreeを更新
-                        tab.SelectedItem = null;
-                        tab.SelectedItem = item;
                     }
                 });
             });
@@ -36,13 +29,9 @@ namespace BEditor.Views.ManagePlugins
 
         public void Signup(object s, RoutedEventArgs e)
         {
-            if (Parent is TabItem item && item.Parent is TabControl tab)
+            if (Parent is FluentAvalonia.UI.Controls.Frame item)
             {
                 item.Content = new Signup();
-
-                // VisualTreeを更新
-                tab.SelectedItem = null;
-                tab.SelectedItem = item;
             }
         }
 

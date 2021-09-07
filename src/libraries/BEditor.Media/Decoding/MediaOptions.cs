@@ -10,7 +10,7 @@ namespace BEditor.Media.Decoding
     /// <summary>
     /// Represents the multimedia file container options.
     /// </summary>
-    public class MediaOptions
+    public sealed class MediaOptions
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="MediaOptions"/> class.

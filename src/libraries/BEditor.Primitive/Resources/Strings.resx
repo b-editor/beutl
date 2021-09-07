@@ -694,4 +694,64 @@
   <data name="DecoderNotFound" xml:space="preserve">
     <value>Decoder not found.</value>
   </data>
+  <data name="AlignToBaseline" xml:space="preserve">
+    <value>Align to baseline</value>
+  </data>
+  <data name="CharacterSpacing" xml:space="preserve">
+    <value>Character spacing</value>
+  </data>
+  <data name="Alignment" xml:space="preserve">
+    <value>Alignment</value>
+  </data>
+  <data name="PartsDisassembly" xml:space="preserve">
+    <value>Parts disassembly</value>
+  </data>
+  <data name="Length" xml:space="preserve">
+    <value>Length</value>
+  </data>
+  <data name="FlatShadow" xml:space="preserve">
+    <value>Flat Shadow</value>
+  </data>
+  <data name="EnableStroke" xml:space="preserve">
+    <value>Enable stroke</value>
+  </data>
+  <data name="MiterLimit" xml:space="preserve">
+    <value>Miter limit</value>
+  </data>
+  <data name="JoinType" xml:space="preserve">
+    <value>Join type</value>
+  </data>
+  <data name="Sharp" xml:space="preserve">
+    <value>Sharp</value>
+  </data>
+  <data name="Round" xml:space="preserve">
+    <value>Round</value>
+  </data>
+  <data name="Bevel" xml:space="preserve">
+    <value>Beval</value>
+  </data>
+  <data name="Stroke" xml:space="preserve">
+    <value>Stroke</value>
+  </data>
+  <data name="FrequencyX" xml:space="preserve">
+    <value>Frequency X</value>
+  </data>
+  <data name="FrequencyY" xml:space="preserve">
+    <value>Frequency Y</value>
+  </data>
+  <data name="NumberOfOctaves" xml:space="preserve">
+    <value>Number of octaves</value>
+  </data>
+  <data name="Fractal" xml:space="preserve">
+    <value>Fractal</value>
+  </data>
+  <data name="Turbulence" xml:space="preserve">
+    <value>Turbulence</value>
+  </data>
+  <data name="SearchForDecoder" xml:space="preserve">
+    <value>Search for the decoder</value>
+  </data>
+  <data name="CropTransparentArea" xml:space="preserve">
+    <value>Crop the transparent area.</value>
+  </data>
 </root>

@@ -29,13 +29,17 @@ using Reactive.Bindings.Extensions;
 
 namespace BEditor.Views.Timelines
 {
-    public class Timeline : UserControl
+    public sealed class Timeline : UserControl
     {
         private readonly ScrollViewer _scrollLine;
         private readonly ScrollViewer _scrollLabel;
+        private readonly ScrollViewer _scrollScale;
         private readonly StackPanel _layerLabel;
-        internal readonly Grid _timelineGrid;
+        private readonly Panel _timelinePanel;
+        private readonly Panel _scalePanel;
         private readonly ContextMenu _timelineMenu;
+        private readonly Border _createdCacheBorder;
+        private readonly Border _buildingCacheBorder;
         private bool _isFirst = true;
 
         public Timeline()
@@ -44,11 +48,13 @@ namespace BEditor.Views.Timelines
 
             _scrollLine = this.FindControl<ScrollViewer>("ScrollLine");
             _scrollLabel = this.FindControl<ScrollViewer>("ScrollLabel");
+            _scrollScale = this.FindControl<ScrollViewer>("ScrollScale");
             _layerLabel = this.FindControl<StackPanel>("LayerLabel");
-            _timelineGrid = this.FindControl<Grid>("timelinegrid");
+            _timelinePanel = this.FindControl<Panel>("TimelinePanel");
+            _scalePanel = this.FindControl<Panel>("ScalePanel");
             _timelineMenu = this.FindControl<ContextMenu>("TimelineMenu");
-
-            throw new Exception();
+            _createdCacheBorder = this.FindControl<Border>("CreatedCacheBorder");
+            _buildingCacheBorder = this.FindControl<Border>("BuildingCacheBorder");
         }
 
         public Timeline(Scene scene)
@@ -85,24 +91,34 @@ namespace BEditor.Views.Timelines
 
             _scrollLine = this.FindControl<ScrollViewer>("ScrollLine");
             _scrollLabel = this.FindControl<ScrollViewer>("ScrollLabel");
+            _scrollScale = this.FindControl<ScrollViewer>("ScrollScale");
             _layerLabel = this.FindControl<StackPanel>("LayerLabel");
-            _timelineGrid = this.FindControl<Grid>("timelinegrid");
+            _timelinePanel = this.FindControl<Panel>("TimelinePanel");
+            _scalePanel = this.FindControl<Panel>("ScalePanel");
             _timelineMenu = this.FindControl<ContextMenu>("TimelineMenu");
+            _createdCacheBorder = this.FindControl<Border>("CreatedCacheBorder");
+            _buildingCacheBorder = this.FindControl<Border>("BuildingCacheBorder");
+
             AddAllClip(scene.Datas);
 
             InitializeContextMenu();
+            //LayerThinBorderBrush
+            var borderBrush = BEditor.Settings.Default.LayerBorder switch
+            {
+                LayerBorder.None => null,
+                LayerBorder.Strong => App.Current.FindResource("LayerStrongBorderBrush") as IBrush,
+                LayerBorder.Thin => App.Current.FindResource("LayerThinBorderBrush") as IBrush,
+                _ => null,
+            };
 
-            // レイヤー名追加for
             for (var l = 1; l <= 100; l++)
             {
+                // レイヤー名追加
                 var toggle = new ToggleButton
                 {
                     ContextMenu = CreateMenu(l),
-                    HorizontalAlignment = HorizontalAlignment.Stretch,
-                    VerticalAlignment = VerticalAlignment.Top,
-                    HorizontalContentAlignment = HorizontalAlignment.Center,
                     VerticalContentAlignment = VerticalAlignment.Center,
-                    Padding = new(0),
+                    Padding = default,
                     Background = null,
                     BorderThickness = default,
                     Content = l,
@@ -127,6 +143,20 @@ namespace BEditor.Views.Timelines
                 };
 
                 _layerLabel.Children.Add(toggle);
+
+                // レイヤーの線を追加
+                var border = new Border
+                {
+                    Background = borderBrush,
+                    HorizontalAlignment = HorizontalAlignment.Stretch,
+                    VerticalAlignment = VerticalAlignment.Top,
+                    Height = 1,
+                    ZIndex = 2,
+                    Margin = new Thickness(0, l * ConstantSettings.ClipHeight, 0, 0),
+                    Tag = "LayerBorder",
+                };
+
+                _timelinePanel.Children.Add(border);
             }
 
             foreach (var l in scene.HideLayer)
@@ -136,20 +166,26 @@ namespace BEditor.Views.Timelines
 
             // AddHandler
             Scene.Datas.CollectionChanged += ClipsCollectionChanged;
-            _scrollLine.ScrollChanged += ScrollLine_ScrollChanged1;
+
             _scrollLabel.ScrollChanged += ScrollLabel_ScrollChanged;
-            _timelineGrid.PointerMoved += TimelineGrid_PointerMoved;
-            _timelineGrid.PointerReleased += TimelineGrid_PointerReleased;
-            _timelineGrid.PointerPressed += TimelineGrid_PointerPressed;
-            _timelineGrid.PointerLeave += TimelineGrid_PointerLeave;
-            _timelineGrid.AddHandler(DragDrop.DragOverEvent, TimelineGrid_DragOver);
-            _timelineGrid.AddHandler(DragDrop.DropEvent, TimelineGrid_Drop);
-            DragDrop.SetAllowDrop(_timelineGrid, true);
-
-            // WPF の Preview* イベント
+            _scrollLine.ScrollChanged += ScrollLine_ScrollChanged;
             _scrollLine.AddHandler(PointerWheelChangedEvent, ScrollLine_PointerWheel, RoutingStrategies.Tunnel);
+            _scrollScale.AddHandler(PointerWheelChangedEvent, ScrollLine_PointerWheel, RoutingStrategies.Tunnel);
 
-            viewmodel.GetLayerMousePosition = (e) => e.GetPosition(_timelineGrid);
+            _scalePanel.PointerMoved += ScalePanel_PointerMoved;
+            _scalePanel.PointerReleased += ScalePanel_PointerReleased;
+            _scalePanel.PointerPressed += ScalePanel_PointerPressed;
+            _scalePanel.PointerLeave += ScalePanel_PointerLeave;
+
+            _timelinePanel.PointerMoved += TimelinePanel_PointerMoved;
+            _timelinePanel.PointerReleased += TimelinePanel_PointerReleased;
+            _timelinePanel.PointerPressed += TimelinePanel_PointerPressed;
+            _timelinePanel.PointerLeave += TimelinePanel_PointerLeave;
+            _timelinePanel.AddHandler(DragDrop.DragOverEvent, TimelinePanel_DragOver);
+            _timelinePanel.AddHandler(DragDrop.DropEvent, TimelinePanel_Drop);
+            DragDrop.SetAllowDrop(_timelinePanel, true);
+
+            viewmodel.GetLayerMousePosition = (e) => e.GetPosition(_timelinePanel);
             //viewmodel.ResetScale = ResetScale;
             viewmodel.ClipLayerMoveCommand = (clip, layer) =>
             {
@@ -158,23 +194,70 @@ namespace BEditor.Views.Timelines
                 vm.MarginTop = TimelineViewModel.ToLayerPixel(layer);
             };
 
-            if (OperatingSystem.IsWindows())
+            // シークバーを自動追跡
+            viewmodel.SeekbarMargin.Subscribe(margin =>
             {
-                _scrollLine.GetObservable(BoundsProperty).Subscribe(_ =>
+                Dispatcher.UIThread.InvokeAsync(() =>
                 {
-                    if (VisualRoot is not Window win || win.Content is not Layoutable content) return;
-                    var grid = ((Grid)_scrollLine.Content);
-
-                    if (grid.Bounds.Width >= _scrollLine.Viewport.Width)
+                    // 編集中の場合単純な追跡
+                    if (AppModel.Current.AppStatus is Status.Edit)
                     {
-                        content.Margin = new(0, 0, 8, 0);
+                        // シークバーがViewportの右側
+                        if (margin.Left > _scrollLine.Viewport.Width + _scrollLine.Offset.X)
+                        {
+                            _scrollLine.Offset = _scrollLine.Offset.WithX(margin.Left - _scrollLine.Viewport.Width + 1);
+                        }
+                        else if (_scrollLine.Offset.X > margin.Left)
+                        {
+                            // シークバーがViewportの左側
+                            _scrollLine.Offset = _scrollLine.Offset.WithX(margin.Left - 1);
+                        }
                     }
-                    else
+                    else if (AppModel.Current.AppStatus is Status.Playing && BEditor.Settings.Default.FixSeekbar)
                     {
-                        content.Margin = default;
+                        _scrollLine.Offset = _scrollLine.Offset.WithX(margin.Left - 100);
+                    }
+                    else if (AppModel.Current.AppStatus is Status.Playing)
+                    {
+                        if (margin.Left > _scrollLine.Viewport.Width + _scrollLine.Offset.X)
+                        {
+                            _scrollLine.Offset = _scrollLine.Offset.WithX(margin.Left - 100);
+                        }
+                        else if (_scrollLine.Offset.X > margin.Left)
+                        {
+                            _scrollLine.Offset = _scrollLine.Offset.WithX(margin.Left - _scrollLine.Viewport.Width - 100);
+                        }
                     }
                 });
-            }
+            });
+
+            Scene.Cache.Updated += Cache_Updated;
+            Scene.Cache.Building += Cache_Building;
+        }
+
+        private void Cache_Building(object? sender, Range e)
+        {
+            Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                _buildingCacheBorder.Margin = new Thickness(Scene.ToPixel(e.Start.Value), 0, 0, 0);
+                _buildingCacheBorder.Width = Scene.ToPixel(e.End.Value - e.Start.Value);
+
+                _createdCacheBorder.IsVisible = false;
+                _buildingCacheBorder.IsVisible = true;
+            });
+        }
+
+        private void Cache_Updated(object? sender, EventArgs e)
+        {
+            Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                var cache = Scene.Cache;
+                _createdCacheBorder.Margin = new Thickness(Scene.ToPixel(cache.Start), 0, 0, 0);
+                _createdCacheBorder.Width = Scene.ToPixel(cache.Length);
+
+                _createdCacheBorder.IsVisible = true;
+                _buildingCacheBorder.IsVisible = false;
+            });
         }
 
         private TimelineViewModel ViewModel => (TimelineViewModel)DataContext!;
@@ -185,22 +268,11 @@ namespace BEditor.Views.Timelines
         {
             base.OnInitialized();
 
-            Scene.ObserveProperty(s => s.TimeLineZoom)
+            Scene.ObserveProperty(s => s.TimeLineScale)
                 .Subscribe(_ =>
                 {
                     var viewmodel = ViewModel;
                     var scene = viewmodel.Scene;
-
-                    if (scene.TimeLineZoom <= 0)
-                    {
-                        scene.TimeLineZoom = 1;
-                        return;
-                    }
-                    if (scene.TimeLineZoom >= 201)
-                    {
-                        scene.TimeLineZoom = 200;
-                        return;
-                    }
 
                     var l = scene.TotalFrame;
 
@@ -246,12 +318,48 @@ namespace BEditor.Views.Timelines
             }
         }
 
-        private void TimelineGrid_PointerLeave(object? sender, PointerEventArgs e)
+        private void ScalePanel_PointerLeave(object? sender, PointerEventArgs e)
         {
             ViewModel.PointerLeaved();
         }
 
-        private void TimelineGrid_PointerPressed(object? sender, PointerPressedEventArgs e)
+        private void ScalePanel_PointerPressed(object? sender, PointerPressedEventArgs e)
+        {
+            var visual = (IVisual?)sender;
+            var point = e.GetCurrentPoint(visual);
+            var pos = point.Position;
+            var vm = ViewModel;
+
+            vm.ClickedFrame = Scene.ToFrame(pos.X);
+
+            if (point.Properties.IsLeftButtonPressed)
+            {
+                vm.PointerLeftPressed();
+            }
+        }
+
+        private void ScalePanel_PointerReleased(object? sender, PointerReleasedEventArgs e)
+        {
+            var visual = (IVisual?)sender;
+            var point = e.GetCurrentPoint(visual);
+
+            if (point.Properties.PointerUpdateKind is PointerUpdateKind.LeftButtonReleased)
+            {
+                ViewModel.PointerLeftReleased();
+            }
+        }
+
+        private void ScalePanel_PointerMoved(object? sender, PointerEventArgs e)
+        {
+            ViewModel.ScalePointerMoved(e.GetPosition((IVisual?)sender));
+        }
+
+        private void TimelinePanel_PointerLeave(object? sender, PointerEventArgs e)
+        {
+            ViewModel.PointerLeaved();
+        }
+
+        private void TimelinePanel_PointerPressed(object? sender, PointerPressedEventArgs e)
         {
             var visual = (IVisual?)sender;
             var point = e.GetCurrentPoint(visual);
@@ -267,7 +375,7 @@ namespace BEditor.Views.Timelines
             }
         }
 
-        private void TimelineGrid_PointerReleased(object? sender, PointerReleasedEventArgs e)
+        private void TimelinePanel_PointerReleased(object? sender, PointerReleasedEventArgs e)
         {
             var visual = (IVisual?)sender;
             var point = e.GetCurrentPoint(visual);
@@ -278,18 +386,18 @@ namespace BEditor.Views.Timelines
             }
         }
 
-        private void TimelineGrid_PointerMoved(object? sender, PointerEventArgs e)
+        private void TimelinePanel_PointerMoved(object? sender, PointerEventArgs e)
         {
             ViewModel.PointerMoved(e.GetPosition((IVisual?)sender));
         }
 
-        private void TimelineGrid_DragOver(object? sender, DragEventArgs e)
+        private void TimelinePanel_DragOver(object? sender, DragEventArgs e)
         {
             ViewModel.LayerCursor.Value = StandardCursorType.DragCopy;
             e.DragEffects = e.Data.Contains("ObjectMetadata") || (e.Data.GetFileNames()?.Any() ?? false) ? DragDropEffects.Copy : DragDropEffects.None;
         }
 
-        private async void TimelineGrid_Drop(object? sender, DragEventArgs e)
+        private async void TimelinePanel_Drop(object? sender, DragEventArgs e)
         {
             ViewModel.LayerCursor.Value = StandardCursorType.Arrow;
             var vm = ViewModel;
@@ -310,7 +418,7 @@ namespace BEditor.Views.Timelines
                 var ext = Path.GetExtension(file);
                 if (!Scene.InRange(vm.ClickedFrame, vm.ClickedFrame + 180, vm.ClickedLayer))
                 {
-                    mes.Snackbar(Strings.ClipExistsInTheSpecifiedLocation);
+                    mes.Snackbar(Strings.ClipExistsInTheSpecifiedLocation, string.Empty);
                     return;
                 }
 
@@ -319,7 +427,10 @@ namespace BEditor.Views.Timelines
                     var efct = await Serialize.LoadFromFileAsync<EffectWrapper>(file);
                     if (efct?.Effect is not ObjectElement obj)
                     {
-                        mes?.Snackbar(Strings.FailedToLoad);
+                        mes?.Snackbar(
+                            string.Format(Strings.FailedToLoad, file),
+                            string.Empty,
+                            IMessage.IconType.Error);
                         return;
                     }
                     obj.Load();
@@ -352,8 +463,20 @@ namespace BEditor.Views.Timelines
             }
         }
 
-        private void ScrollLine_ScrollChanged1(object? sender, ScrollChangedEventArgs e)
+        private void ScrollLine_ScrollChanged(object? sender, ScrollChangedEventArgs e)
         {
+            if (_isFirst)
+            {
+                _scrollLine.Offset = new(Scene.TimeLineHorizonOffset, Scene.TimeLineVerticalOffset);
+                _scrollLabel.Offset = new(0, Scene.TimeLineVerticalOffset);
+
+                _isFirst = false;
+            }
+
+            Scene.TimeLineHorizonOffset = _scrollLine.Offset.X;
+            Scene.TimeLineVerticalOffset = _scrollLine.Offset.Y;
+
+            _scrollScale.Offset = new(_scrollLine.Offset.X, 0);
             _scrollLabel.Offset = _scrollLabel.Offset.WithY(_scrollLine.Offset.Y);
         }
 
@@ -370,7 +493,7 @@ namespace BEditor.Views.Timelines
                 {
                     var item = Scene.Datas[e.NewStartingIndex];
 
-                    _timelineGrid.Children.Add(item.GetCreateClipViewSafe());
+                    _timelinePanel.Children.Add(item.GetCreateClipViewSafe());
                 }
                 else if (e.Action == NotifyCollectionChangedAction.Remove)
                 {
@@ -397,7 +520,7 @@ namespace BEditor.Views.Timelines
             {
                 var clip = clips[i];
 
-                _timelineGrid.Children.Add(clip.GetCreateClipView());
+                _timelinePanel.Children.Add(clip.GetCreateClipView());
             }
         }
 
@@ -415,13 +538,29 @@ namespace BEditor.Views.Timelines
             await dialog.ShowDialog(App.GetMainWindow());
         }
 
-        public void ScrollLine_PointerWheel(object? sender, PointerWheelEventArgs e)
+        public void UpdateLayerBorderColor()
+        {
+            var borderBrush = BEditor.Settings.Default.LayerBorder switch
+            {
+                LayerBorder.None => null,
+                LayerBorder.Strong => App.Current.FindResource("LayerStrongBorderBrush") as IBrush,
+                LayerBorder.Thin => App.Current.FindResource("LayerThinBorderBrush") as IBrush,
+                _ => null,
+            };
+
+            foreach (var item in _timelinePanel.Children.OfType<Border>().Where(i => i.Tag is string tag && tag == "LayerBorder"))
+            {
+                item.Background = borderBrush;
+            }
+        }
+
+        private void ScrollLine_PointerWheel(object? sender, PointerWheelEventArgs e)
         {
             if (e.KeyModifiers is KeyModifiers.Control)
             {
                 var offset = _scrollLine.Offset.X;
                 var frame = Scene.ToFrame(offset);
-                Scene.TimeLineZoom += (float)(e.Delta.Y / 120) * 5 * Scene.TimeLineZoom;
+                Scene.TimeLineScale += (float)(e.Delta.Y / 120) * 10 * Scene.TimeLineScale;
 
                 _scrollLine.Offset = _scrollLine.Offset.WithX(Scene.ToPixel(frame));
             }
@@ -441,19 +580,6 @@ namespace BEditor.Views.Timelines
             }
 
             e.Handled = true;
-        }
-
-        public void ScrollLine_ScrollChanged(object sender, ScrollChangedEventArgs e)
-        {
-            if (_isFirst)
-            {
-                _scrollLine.Offset = new(Scene.TimeLineHorizonOffset, Scene.TimeLineVerticalOffset);
-                _scrollLabel.Offset = new(0, Scene.TimeLineVerticalOffset);
-
-                _isFirst = false;
-            }
-            Scene.TimeLineHorizonOffset = _scrollLine.Offset.X;
-            Scene.TimeLineVerticalOffset = _scrollLine.Offset.Y;
         }
     }
 }

@@ -69,11 +69,11 @@ namespace BEditor.Primitive.Objects
         }
 
         /// <inheritdoc/>
-        public override void SetObjectData(JsonElement element)
+        public override void SetObjectData(DeserializeContext context)
         {
-            base.SetObjectData(element);
+            base.SetObjectData(context);
             SelectScene = (SelectorProperty)FormatterServices.GetUninitializedObject(typeof(SelectorProperty));
-            SelectScene.SetObjectData(element.GetProperty(nameof(SelectScene)));
+            SelectScene.SetObjectData(context.WithElement(context.Element.GetProperty(nameof(SelectScene))).WithParent(this));
         }
 
         /// <inheritdoc/>

@@ -45,7 +45,7 @@ namespace BEditor.Primitive.Effects
         /// Gets the brightness.
         /// </summary>
         [AllowNull]
-        public EaseProperty Brightness { get; set; }
+        public EaseProperty Brightness { get; private set; }
 
         /// <inheritdoc/>
         public override void Apply(EffectApplyArgs<Image<BGRA32>> args)

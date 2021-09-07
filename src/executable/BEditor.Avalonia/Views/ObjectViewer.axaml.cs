@@ -17,7 +17,7 @@ using static BEditor.IMessage;
 
 namespace BEditor.Views
 {
-    public partial class ObjectViewer : UserControl
+    public sealed class ObjectViewer : UserControl
     {
         private static IMessage Message => AppModel.Current.Message;
 
@@ -28,7 +28,7 @@ namespace BEditor.Views
 
         public static IEnumerable<string> Empty { get; } = Enumerable.Empty<string>();
 
-        private async void CopyID_Click(object sender, RoutedEventArgs e)
+        public async void CopyID_Click(object sender, RoutedEventArgs e)
         {
             if (this.FindControl<TreeView>("TreeView").SelectedItem is IEditingObject obj)
             {
@@ -66,7 +66,7 @@ namespace BEditor.Views
                 if (scene is null) return;
                 if (scene is { SceneName: "root" })
                 {
-                    Message.Snackbar("RootScene ÇÕçÌèúÇ∑ÇÈÇ±Ç∆Ç™Ç≈Ç´Ç‹ÇπÇÒ");
+                    Message.Snackbar("RootScene ÇÕçÌèúÇ∑ÇÈÇ±Ç∆Ç™Ç≈Ç´Ç‹ÇπÇÒ", string.Empty);
                     return;
                 }
 
@@ -83,7 +83,7 @@ namespace BEditor.Views
             }
             catch (IndexOutOfRangeException)
             {
-                Message.Snackbar(string.Format(Strings.ErrorObjectViewer1, nameof(Scene)));
+                Message.Snackbar(string.Format(Strings.ErrorObjectViewer1, nameof(Scene)), string.Empty, IconType.Error);
             }
         }
 
@@ -97,7 +97,7 @@ namespace BEditor.Views
             }
             catch (IndexOutOfRangeException)
             {
-                Message.Snackbar(string.Format(Strings.ErrorObjectViewer1, nameof(ClipElement)));
+                Message.Snackbar(string.Format(Strings.ErrorObjectViewer1, nameof(ClipElement)), string.Empty, IconType.Error);
             }
         }
 
@@ -111,7 +111,7 @@ namespace BEditor.Views
             }
             catch (IndexOutOfRangeException)
             {
-                Message.Snackbar(string.Format(Strings.ErrorObjectViewer1, nameof(EffectElement)));
+                Message.Snackbar(string.Format(Strings.ErrorObjectViewer1, nameof(EffectElement)), string.Empty, IconType.Error);
             }
         }
 

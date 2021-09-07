@@ -5,6 +5,7 @@
 // This software may be modified and distributed under the terms
 // of the MIT license. See the LICENSE file for details.
 
+using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
@@ -52,6 +53,15 @@ namespace BEditor.Primitive.Objects
             "heif",
         };
 
+        // リソース
+        private ResourceItem? _resource;
+
+        // リソースへの参照を切る
+        private IDisposable? _disposable;
+
+        // File.Subscribe
+        private IDisposable? _disposable1;
+
         static ImageFile()
         {
             FileProperty = EditingProperty.RegisterDirect<FileProperty, ImageFile>(
@@ -72,12 +82,10 @@ namespace BEditor.Primitive.Objects
         public override string Name => Strings.Image;
 
         /// <summary>
-        /// Get the <see cref="FileProperty"/> to select the image file to reference.
+        /// Gets the <see cref="FileProperty"/> to select the image file to reference.
         /// </summary>
         [AllowNull]
         public FileProperty File { get; private set; }
-
-        private ReactiveProperty<Image<BGRA32>?>? Source { get; set; }
 
         /// <summary>
         /// Gets whether the file name is supported.
@@ -120,7 +128,7 @@ namespace BEditor.Primitive.Objects
         /// <inheritdoc/>
         protected override Image<BGRA32>? OnRender(EffectApplyArgs args)
         {
-            return Source?.Value?.Clone();
+            return (_resource?.Value as Image<BGRA32>)?.Clone();
         }
 
         /// <inheritdoc/>
@@ -128,23 +136,36 @@ namespace BEditor.Primitive.Objects
         {
             base.OnLoad();
 
-            Source = File.Where(file => System.IO.File.Exists(file))
-                .Select(f =>
-                {
-                    Source?.Value?.Dispose();
+            _disposable1 = File.Subscribe(f =>
+            {
+                _disposable?.Dispose();
 
-                    return Image<BGRA32>.FromFile(f);
-                })
-                .ToReactiveProperty();
+                if (System.IO.File.Exists(File.Value))
+                {
+                    var project = this.GetRequiredParent<Project>();
+                    _resource = new("Image " + f, () => Image<BGRA32>.FromFile(f));
+                    _resource = project.Resources.RegisterResource(_resource);
+                    _disposable = _resource.MakeReference(this);
+
+                    _resource.Build();
+                }
+                else
+                {
+                    _disposable = null;
+                    _resource = null;
+                }
+            });
         }
 
         /// <inheritdoc/>
         protected override void OnUnload()
         {
             base.OnUnload();
-
-            Source?.Value?.Dispose();
-            Source?.Dispose();
+            _disposable?.Dispose();
+            _disposable1?.Dispose();
+            _disposable = null;
+            _disposable1 = null;
+            _resource = null;
         }
     }
 }

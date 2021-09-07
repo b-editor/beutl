@@ -33,7 +33,7 @@ namespace BEditor
     /// <summary>
     /// Represents the record to be used when showing the Save File dialog.
     /// </summary>
-    public record SaveFileRecord : FileDialogRecord
+    public sealed record SaveFileRecord : FileDialogRecord
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="SaveFileRecord"/> class.
@@ -59,7 +59,7 @@ namespace BEditor
     /// <summary>
     /// Represents the record to be used when showing the Open File dialog.
     /// </summary>
-    public record OpenFileRecord : FileDialogRecord
+    public sealed record OpenFileRecord : FileDialogRecord
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="OpenFileRecord"/> class.
@@ -83,7 +83,7 @@ namespace BEditor
     /// <summary>
     /// Represents the filter of the file dialog.
     /// </summary>
-    public record FileFilter
+    public sealed record FileFilter
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="FileFilter"/> class.
@@ -91,6 +91,17 @@ namespace BEditor
         /// <param name="name">The filter name.</param>
         /// <param name="extensions">The filter extensions.</param>
         public FileFilter(string name, IEnumerable<string> extensions)
+        {
+            Name = name;
+            Extensions = extensions;
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="FileFilter"/> class.
+        /// </summary>
+        /// <param name="name">The filter name.</param>
+        /// <param name="extensions">The filter extensions.</param>
+        public FileFilter(string name, params string[] extensions)
         {
             Name = name;
             Extensions = extensions;

@@ -13,7 +13,7 @@ using Svg.Skia;
 
 namespace BEditor.Extensions.Svg
 {
-    public class SvgImage : ImageObject
+    public sealed class SvgImage : ImageObject
     {
         public static new readonly DirectProperty<SvgImage, EaseProperty> ScaleProperty = EditingProperty.RegisterDirect<EaseProperty, SvgImage>(
             nameof(SvgScale),

@@ -113,7 +113,7 @@ namespace BEditor.Data.Primitive
         {
             if (args.Type is ApplyType.Audio) return;
 
-            var imgs_args = new EffectApplyArgs<IEnumerable<ImageInfo>>(args.Frame, Enumerable.Empty<ImageInfo>(), args.Type);
+            var imgs_args = new EffectApplyArgs<IEnumerable<Texture>>(args.Frame, Enumerable.Empty<Texture>(), args.Type);
             OnRender(imgs_args);
 
             var list = Parent!.Effect.Where(x => x.IsEnabled).ToArray();
@@ -127,7 +127,7 @@ namespace BEditor.Data.Primitive
             {
                 Draw(img, imgs_args);
 
-                img.Source.Dispose();
+                img.Dispose();
             }
 
             ResetOptional();
@@ -220,19 +220,39 @@ namespace BEditor.Data.Primitive
         protected abstract Image<BGRA32>? OnRender(EffectApplyArgs args);
 
         /// <inheritdoc cref="Apply(EffectApplyArgs)"/>
-        protected virtual void OnRender(EffectApplyArgs<IEnumerable<ImageInfo>> args)
+        protected virtual void OnRender(EffectApplyArgs<IEnumerable<Texture>> args)
         {
-            var img = OnRender(args as EffectApplyArgs);
+            using var img = OnRender(args as EffectApplyArgs);
 
             if (img is null)
             {
-                args.Value = Enumerable.Empty<ImageInfo>();
+                args.Value = Enumerable.Empty<Texture>();
             }
             else
             {
-                args.Value = new ImageInfo[]
+                var texture = Texture.FromImage(img);
+                var frame = args.Frame;
+
+                // Materialを設定
+                var ambient = Material.Ambient[frame];
+                var diffuse = Material.Diffuse[frame];
+                var specular = Material.Specular[frame];
+                var shininess = Material.Shininess[frame];
+                texture.Material = new(ambient, diffuse, specular, shininess);
+
+                // Blend を設定
+                var alpha = Blend.Opacity[frame] / 100f;
+                var color = Blend.Color[frame];
+                color.A = (byte)(color.A * alpha);
+                texture.Color = color;
+                texture.BlendMode = (BlendMode)Blend.BlendType.Index;
+
+                // Transformを設定
+                texture.Transform += GetTransform(frame);
+
+                args.Value = new Texture[]
                 {
-                    new(img, _ => default),
+                    texture,
                 };
             }
         }
@@ -245,7 +265,7 @@ namespace BEditor.Data.Primitive
             Blend.ResetOptional();
         }
 
-        private void LoadEffect(EffectApplyArgs<IEnumerable<ImageInfo>> args, EffectElement[] list)
+        private void LoadEffect(EffectApplyArgs<IEnumerable<Texture>> args, EffectElement[] list)
         {
             for (var i = 0; i < list.Length; i++)
             {
@@ -272,7 +292,7 @@ namespace BEditor.Data.Primitive
             }
         }
 
-        private void Draw(ImageInfo image, EffectApplyArgs args)
+        private void Draw(Texture texture, EffectApplyArgs args)
         {
             static void DrawLine(GraphicsContext context, float width, float height, Transform trans)
             {
@@ -289,37 +309,19 @@ namespace BEditor.Data.Primitive
                 context.DrawLine(new(-width, height, 0), new(width, height, 0), 1.5f, trans, Colors.White);
             }
 
-            if (image.Source.IsDisposed || args.Handled)
+            if (texture.IsDisposed || args.Handled)
             {
                 return;
             }
 
-            var frame = args.Frame;
-
-            var alpha = (float)(Blend.Opacity.GetValue(frame) / 100);
-
-            var ambient = Material.Ambient[frame];
-            var diffuse = Material.Diffuse[frame];
-            var specular = Material.Specular[frame];
-            var shininess = Material.Shininess[frame];
-            var color = Blend.Color[frame];
-            color.A = (byte)(color.A * alpha);
-
-            var trans = GetTransform(frame) + image.Transform;
             var context = Parent!.Parent.GraphicsContext!;
 
             if (args.Type is ApplyType.Edit && Parent.Parent.SelectItem == Parent)
             {
-                var wHalf = (image.Source.Width / 2f) + 10;
-                var hHalf = (image.Source.Height / 2f) + 10;
-                DrawLine(context, wHalf, hHalf, trans);
+                var wHalf = (texture.Width / 2f) + 10;
+                var hHalf = (texture.Height / 2f) + 10;
+                DrawLine(context, wHalf, hHalf, texture.Transform);
             }
-
-            using var texture = Texture.FromImage(image.Source);
-            texture.Material = new(ambient, diffuse, specular, shininess);
-            texture.Transform = trans;
-            texture.Color = color;
-            texture.BlendMode = (BlendMode)Blend.BlendType.Index;
 
             context.DrawTexture(texture);
         }

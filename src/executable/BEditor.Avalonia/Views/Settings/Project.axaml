@@ -6,6 +6,8 @@
              xmlns:data="clr-namespace:BEditor;assembly=BEditor.Settings"
              xmlns:resource="using:BEditor.Properties"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:uip="using:FluentAvalonia.UI.Controls.Primitives"
              x:DataType="vm:ProjectViewModel"
              x:Class="BEditor.Views.Settings.Project">
     <UserControl.DataContext>
@@ -16,13 +18,13 @@
 
             <TextBlock Text="{x:Static resource:Strings.Project}" Classes="SettingsHeader"/>
 
-            <Label Content="{x:Static resource:Strings.UseAutoBackup}" Classes="SettingsItemHeader"/>
+            <TextBlock Text="{x:Static resource:Strings.UseAutoBackup}" Classes="SettingsItemHeader"/>
 
             <ToggleSwitch IsChecked="{Binding AutoBackUp, Source={x:Static data:Settings.Default}, Mode=TwoWay}" Classes="SettingsToggleSwitch"/>
 
             <Separator Height="16" />
 
-            <Label Content="{x:Static resource:Strings.UsingGPUForImageProcessing}" Classes="SettingsItemHeader"/>
+            <TextBlock Text="{x:Static resource:Strings.UsingGPUForImageProcessing}" Classes="SettingsItemHeader"/>
 
             <ToggleSwitch
                 ToolTip.Tip="{x:Static resource:Strings.TheChangesWillBeAppliedAfterRestarting}"
@@ -31,21 +33,33 @@
 
             <Separator Height="16" />
 
-            <Label Content="{x:Static resource:Strings.GraphicsProfile}" Classes="SettingsItemHeader"/>
+            <TextBlock Text="{x:Static resource:Strings.AudioProfile}" Classes="SettingsItemHeader"/>
+
+            <ComboBox
+                ToolTip.Tip="{x:Static resource:Strings.TheChangesWillBeAppliedAfterRestarting}"
+                Items="{CompiledBinding AudioProfiles, Mode=OneTime}"
+                SelectedItem="{Binding AudioProfile, Source={x:Static data:Settings.Default}, Mode=TwoWay}"
+                Classes="SettingsComboBox"/>
+            
+            <Separator Height="16" />
+
+            <TextBlock Text="{x:Static resource:Strings.GraphicsProfile}" Classes="SettingsItemHeader"/>
 
             <ComboBox
                 ToolTip.Tip="{x:Static resource:Strings.TheChangesWillBeAppliedAfterRestarting}"
                 Items="{CompiledBinding Profiles, Mode=OneTime}"
-                SelectedItem="{CompiledBinding GraphicsProfile, Source={x:Static data:Settings.Default}, Mode=TwoWay}"
+                SelectedItem="{Binding GraphicsProfile, Source={x:Static data:Settings.Default}, Mode=TwoWay}"
                 Classes="SettingsComboBox"/>
             
             <TextBlock
                 Text="{x:Static resource:Strings.GraphicsProfileDescription}"
                 Margin="32,16" />
 
-            <Label Content="{x:Static resource:Strings.BackupInterval}" Classes="SettingsItemHeader"/>
+            <TextBlock Text="{x:Static resource:Strings.BackupInterval}" Classes="SettingsItemHeader"/>
 
-            <NumericUpDown Value="{Binding BackUpInterval, Mode=TwoWay, Source={x:Static data:Settings.Default}}" Classes="SettingsNumericUpDown"/>
+            <NumericUpDown
+                Value="{Binding BackUpInterval, Mode=TwoWay, Source={x:Static data:Settings.Default}}"
+                Classes="SettingsNumericUpDown"/>
 
         </VirtualizingStackPanel>
     </ScrollViewer>

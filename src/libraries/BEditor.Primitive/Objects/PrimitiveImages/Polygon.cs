@@ -71,7 +71,7 @@ namespace BEditor.Primitive.Objects
         public override string Name => Strings.Polygon;
 
         /// <summary>
-        /// Gest the width of the polygon.
+        /// Gets the width of the polygon.
         /// </summary>
         [AllowNull]
         public EaseProperty Width { get; private set; }
@@ -95,7 +95,7 @@ namespace BEditor.Primitive.Objects
         public ValueProperty Number { get; private set; }
 
         /// <summary>
-        /// Get the color of the polygon.
+        /// Gets the color of the polygon.
         /// </summary>
         [AllowNull]
         public ColorProperty Color { get; private set; }

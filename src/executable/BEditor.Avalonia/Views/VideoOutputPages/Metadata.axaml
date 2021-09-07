@@ -1,0 +1,108 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:vm="using:BEditor.ViewModels"
+    xmlns:prop="using:BEditor.Properties"
+    xmlns:ui="using:FluentAvalonia.UI.Controls"
+    x:DataType="vm:VideoOutputViewModel"
+    mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+    x:Class="BEditor.Views.VideoOutputPages.Metadata">
+    <ScrollViewer>
+        <VirtualizingStackPanel>
+
+            <TextBlock Text="{x:Static prop:Strings.Metadata}" Classes="SettingsHeader"/>
+
+
+            <!--Title-->
+            <TextBlock Text="Title" Classes="SettingsItemHeader"/>
+
+            <TextBox
+                Text="{CompiledBinding Title.Value, Mode=TwoWay}"
+                Classes="SettingsTextBox" />
+
+            <Separator Height="16" />
+
+            <!--Author-->
+            <TextBlock Text="Author" Classes="SettingsItemHeader"/>
+
+            <TextBox
+                Text="{CompiledBinding Author.Value, Mode=TwoWay}"
+                Classes="SettingsTextBox" />
+
+            <Separator Height="16" />
+
+            <!--Album-->
+            <TextBlock Text="Album" Classes="SettingsItemHeader"/>
+
+            <TextBox
+                Text="{CompiledBinding Album.Value, Mode=TwoWay}"
+                Classes="SettingsTextBox" />
+
+            <Separator Height="16" />
+
+            <!--Year-->
+            <TextBlock Text="Year" Classes="SettingsItemHeader"/>
+
+            <TextBox
+                Text="{CompiledBinding Year.Value, Mode=TwoWay}"
+                Classes="SettingsTextBox" />
+
+            <Separator Height="16" />
+
+            <!--Genre-->
+            <TextBlock Text="Genre" Classes="SettingsItemHeader"/>
+
+            <TextBox
+                Text="{CompiledBinding Genre.Value, Mode=TwoWay}"
+                Classes="SettingsTextBox" />
+
+            <Separator Height="16" />
+
+            <!--Description-->
+            <TextBlock Text="Description" Classes="SettingsItemHeader"/>
+
+            <TextBox
+                Text="{CompiledBinding Description.Value, Mode=TwoWay}"
+                Classes="SettingsTextBox" />
+
+            <Separator Height="16" />
+
+            <!--Language-->
+            <TextBlock Text="Language" Classes="SettingsItemHeader"/>
+
+            <TextBox
+                Text="{CompiledBinding Language.Value, Mode=TwoWay}"
+                Classes="SettingsTextBox" />
+
+            <Separator Height="16" />
+
+            <!--Copyright-->
+            <TextBlock Text="Copyright" Classes="SettingsItemHeader"/>
+
+            <TextBox
+                Text="{CompiledBinding Copyright.Value, Mode=TwoWay}"
+                Classes="SettingsTextBox" />
+
+            <Separator Height="16" />
+
+            <!--Rating-->
+            <TextBlock Text="Rating" Classes="SettingsItemHeader"/>
+
+            <TextBox
+                Text="{CompiledBinding Rating.Value, Mode=TwoWay}"
+                Classes="SettingsTextBox" />
+
+            <Separator Height="16" />
+
+            <!--TrackNumber-->
+            <TextBlock Text="TrackNumber" Classes="SettingsItemHeader"/>
+
+            <TextBox
+                Text="{CompiledBinding TrackNumber.Value, Mode=TwoWay}"
+                Classes="SettingsTextBox" />
+
+        </VirtualizingStackPanel>
+    </ScrollViewer>
+</UserControl>

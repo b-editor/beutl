@@ -12,7 +12,7 @@ using Reactive.Bindings.Extensions;
 
 namespace BEditor.Views
 {
-    public partial class VolumeView : UserControl
+    public sealed class VolumeView : UserControl
     {
         private readonly Border _leftBorder;
         private readonly Border _rightBorder;

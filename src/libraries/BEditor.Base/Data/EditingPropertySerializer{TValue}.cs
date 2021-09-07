@@ -17,14 +17,26 @@ namespace BEditor.Data
     public class EditingPropertySerializer<TValue> : IEditingPropertySerializer<TValue>
     {
         private readonly Action<Utf8JsonWriter, TValue> _write;
-        private readonly Func<JsonElement, TValue> _read;
+        private readonly Func<DeserializeContext, TValue> _read;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="EditingPropertySerializer{TValue}"/> class.
         /// </summary>
         /// <param name="write">Writes the value to <see cref="Utf8JsonWriter"/>.</param>
         /// <param name="read">Reads the value from <see cref="JsonElement"/>.</param>
+        [Obsolete("Obsolete")]
         public EditingPropertySerializer(Action<Utf8JsonWriter, TValue> write, Func<JsonElement, TValue> read)
+        {
+            _write = write;
+            _read = (c) => read(c.Element);
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="EditingPropertySerializer{TValue}"/> class.
+        /// </summary>
+        /// <param name="write">Writes the value to <see cref="Utf8JsonWriter"/>.</param>
+        /// <param name="read">Reads the value from <see cref="DeserializeContext"/>.</param>
+        public EditingPropertySerializer(Action<Utf8JsonWriter, TValue> write, Func<DeserializeContext, TValue> read)
         {
             (_write, _read) = (write, read);
         }
@@ -36,9 +48,9 @@ namespace BEditor.Data
         }
 
         /// <inheritdoc/>
-        public TValue Read(JsonElement element)
+        public TValue Read(DeserializeContext context)
         {
-            return _read(element);
+            return _read(context);
         }
     }
 }

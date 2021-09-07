@@ -5,6 +5,7 @@
 // This software may be modified and distributed under the terms
 // of the MIT license. See the LICENSE file for details.
 
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
@@ -17,10 +18,11 @@ namespace BEditor.Data
     /// <summary>
     /// Represents a data of a clip to be placed in the timeline.
     /// </summary>
-    public partial class ClipElement : EditingObject, IParent<EffectElement>, IChild<Scene>
+    public sealed partial class ClipElement : EditingObject, IParent<EffectElement>, IChild<Scene>
     {
         private static readonly PropertyChangedEventArgs _startArgs = new(nameof(Start));
         private static readonly PropertyChangedEventArgs _endArgs = new(nameof(End));
+        private static readonly PropertyChangedEventArgs _lengthArgs = new(nameof(Length));
         private static readonly PropertyChangedEventArgs _layerArgs = new(nameof(Layer));
         private static readonly PropertyChangedEventArgs _textArgs = new(nameof(LabelText));
         private string? _name;
@@ -28,8 +30,8 @@ namespace BEditor.Data
         private Frame _end;
         private int _layer;
         private string _labelText = string.Empty;
-        private Scene _parent;
         private ObservableCollection<EffectElement> _effect;
+        private Scene _parent;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="ClipElement"/> class.
@@ -48,6 +50,7 @@ namespace BEditor.Data
             Metadata = metadata;
             Parent = _parent = scene;
             LabelText = Name;
+            _effect[0].Parent = this;
         }
 
         /// <summary>
@@ -70,6 +73,21 @@ namespace BEditor.Data
         }
 
         /// <summary>
+        /// Occurs when a clip is moved.
+        /// </summary>
+        public event EventHandler<ClipMovedEventArgs>? Moved;
+
+        /// <summary>
+        /// Occurs when the length of the clip is changing.
+        /// </summary>
+        public event EventHandler<ClipLengthChangingEventArgs>? LengthChanging;
+
+        /// <summary>
+        /// Occurs when the length of the clip is changed.
+        /// </summary>
+        public event EventHandler<ClipLengthChangedEventArgs>? LengthChanged;
+
+        /// <summary>
         /// Gets the name of this <see cref="ClipElement"/>.
         /// </summary>
         public string Name => _name ??= Effect[0].GetType().Name;
@@ -80,7 +98,13 @@ namespace BEditor.Data
         public Frame Start
         {
             get => _start;
-            set => SetAndRaise(value, ref _start, _startArgs);
+            set
+            {
+                if (SetAndRaise(value, ref _start, _startArgs))
+                {
+                    RaisePropertyChanged(_lengthArgs);
+                }
+            }
         }
 
         /// <summary>
@@ -89,7 +113,13 @@ namespace BEditor.Data
         public Frame End
         {
             get => _end;
-            set => SetAndRaise(value, ref _end, _endArgs);
+            set
+            {
+                if (SetAndRaise(value, ref _end, _endArgs))
+                {
+                    RaisePropertyChanged(_lengthArgs);
+                }
+            }
         }
 
         /// <summary>
@@ -126,11 +156,7 @@ namespace BEditor.Data
             set
             {
                 _parent = value;
-
-                foreach (var prop in Children)
-                {
-                    prop.Parent = this;
-                }
+                Children.SetParent<ClipElement, EffectElement>(i => i.Parent = this);
             }
         }
 

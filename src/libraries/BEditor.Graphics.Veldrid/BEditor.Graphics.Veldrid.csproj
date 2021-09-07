@@ -4,8 +4,6 @@
         <TargetFramework>net5.0</TargetFramework>
     </PropertyGroup>
 
-    <Import Project="..\Shared\Shared.projitems" Label="Shared" />
-
     <ItemGroup>
         <EmbeddedResource Include="Resources\*.frag" />
         <EmbeddedResource Include="Resources\*.vert" />

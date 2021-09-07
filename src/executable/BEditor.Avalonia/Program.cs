@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Linq;
 
 using Avalonia;
+using Avalonia.Skia;
 
 namespace BEditor
 {

@@ -8,5 +8,5 @@ using BEditor.Media.Decoding;
 
 namespace BEditor.Models.Tool
 {
-    public record ConvertVideoSource(VideoStreamInfo VideoInfo, AudioStreamInfo AudioInfo, string File);
+    public sealed record ConvertVideoSource(VideoStreamInfo VideoInfo, AudioStreamInfo AudioInfo, string File);
 }

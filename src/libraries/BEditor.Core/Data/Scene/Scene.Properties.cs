@@ -23,6 +23,8 @@ namespace BEditor.Data
     /// </summary>
     public partial class Scene : IParent<ClipElement>, IChild<Project>
     {
+        private bool _useCache = true;
+
         /// <summary>
         /// Gets the width of the frame buffer.
         /// </summary>
@@ -36,7 +38,7 @@ namespace BEditor.Data
         /// <summary>
         /// Gets or sets the name of this <see cref="Scene"/>.
         /// </summary>
-        public virtual string SceneName
+        public string SceneName
         {
             get => _sceneName;
             set => SetAndRaise(value, ref _sceneName, _sceneNameArgs);
@@ -60,6 +62,27 @@ namespace BEditor.Data
         /// Gets the <see cref="ClipElement"/> contained in this <see cref="Scene"/>.
         /// </summary>
         public ObservableCollection<ClipElement> Datas { get; private set; }
+
+        /// <summary>
+        /// Gets the cache of this scene.
+        /// </summary>
+        public SceneCache Cache { get; private set; }
+
+        /// <summary>
+        /// Gets or sets a value indicating whether to use the cache or not.
+        /// </summary>
+        public bool UseCache
+        {
+            get => _useCache;
+            set
+            {
+                _useCache = value;
+                if (!value)
+                {
+                    Cache.Clear();
+                }
+            }
+        }
 
         /// <summary>
         /// Gets or sets the selected <see cref="ClipElement"/>.
@@ -107,10 +130,28 @@ namespace BEditor.Data
         /// <summary>
         /// Gets or sets the scale of the timeline.
         /// </summary>
+        [Obsolete("Use TimeLineScale")]
         public float TimeLineZoom
         {
-            get => _timeLineZoom;
-            set => SetAndRaise(Math.Clamp(value, 1, 200), ref _timeLineZoom, _zoomArgs);
+            get => TimeLineScale * 200;
+            set => TimeLineScale = value / 200;
+        }
+
+        /// <summary>
+        /// Gets or sets the scale of the timeline.
+        /// </summary>
+        public float TimeLineScale
+        {
+            get => _timeLineScale;
+            set
+            {
+                if (SetAndRaise(Math.Clamp(value, 0.1f, 1), ref _timeLineScale, _scaleArgs))
+                {
+#pragma warning disable CS0612
+                    RaisePropertyChanged(_zoomArgs);
+#pragma warning restore CS0612
+                }
+            }
         }
 
         /// <summary>
@@ -141,11 +182,7 @@ namespace BEditor.Data
             set
             {
                 _parent = value;
-
-                foreach (var prop in Children)
-                {
-                    prop.Parent = this;
-                }
+                Children.SetParent<Scene, ClipElement>(i => i.Parent = this);
             }
         }
 

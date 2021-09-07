@@ -2,5 +2,5 @@
 
 namespace BEditor.Models.ManagePlugins
 {
-    public record PluginUpdateOrInstall(Package Target, PackageVersion Version, PluginChangeType Type);
+    public sealed record PluginUpdateOrInstall(Package Target, PackageVersion Version, PluginChangeType Type);
 }

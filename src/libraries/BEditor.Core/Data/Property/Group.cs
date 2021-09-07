@@ -9,6 +9,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Text.Json;
 
 using BEditor.Command;
 using BEditor.Data.Property.Easing;
@@ -21,10 +22,8 @@ namespace BEditor.Data.Property
     /// </summary>
     public abstract class Group : PropertyElement, IKeyframeProperty, IEasingProperty, IParent<PropertyElement>
     {
-        private IEnumerable<PropertyElement>? _cachedList;
-
         /// <inheritdoc/>
-        event Action<float, int>? IKeyframeProperty.Added
+        event Action<PositionInfo>? IKeyframeProperty.Added
         {
             add
             {
@@ -35,11 +34,12 @@ namespace BEditor.Data.Property
         }
 
         /// <inheritdoc/>
-        event Action<int>? IKeyframeProperty.Removed
+        event Action<PositionInfo>? IKeyframeProperty.Removed
         {
             add
             {
             }
+
             remove
             {
             }
@@ -51,13 +51,14 @@ namespace BEditor.Data.Property
             add
             {
             }
+
             remove
             {
             }
         }
 
         /// <inheritdoc/>
-        public IEnumerable<PropertyElement> Children => _cachedList ??= GetProperties().ToArray();
+        public IEnumerable<PropertyElement> Children => GetProperties();
 
         /// <inheritdoc/>
         public override EffectElement Parent
@@ -67,9 +68,13 @@ namespace BEditor.Data.Property
             {
                 base.Parent = value;
 
-                foreach (var item in Children)
+                if (Children != null)
                 {
-                    item.Parent = value;
+                    foreach (var item in Children)
+                    {
+                        if (item is not null)
+                            item.Parent = Parent;
+                    }
                 }
             }
         }
@@ -77,28 +82,46 @@ namespace BEditor.Data.Property
         /// <inheritdoc/>
         EasingFunc? IKeyframeProperty.EasingType => null;
 
-        /// <inheritdoc/>
-        IRecordCommand IKeyframeProperty.AddFrame(float frame)
-        {
-            return RecordCommand.Empty;
-        }
-
-        /// <inheritdoc/>
-        IRecordCommand IKeyframeProperty.MoveFrame(int fromIndex, float toFrame)
-        {
-            return RecordCommand.Empty;
-        }
-
-        /// <inheritdoc/>
-        IRecordCommand IKeyframeProperty.RemoveFrame(float frame)
-        {
-            return RecordCommand.Empty;
-        }
-
         /// <summary>
         /// Gets the <see cref="PropertyElement"/> to display on the GUI.
         /// </summary>
         /// <returns>Returns the <see cref="PropertyElement"/> to display on the GUI.</returns>
         public abstract IEnumerable<PropertyElement> GetProperties();
+
+        /// <inheritdoc/>
+        IRecordCommand IKeyframeProperty.AddFrame(PositionInfo frame)
+        {
+            throw new NotSupportedException();
+        }
+
+        /// <inheritdoc/>
+        IEnumerable<PositionInfo> IKeyframeProperty.Enumerate()
+        {
+            throw new NotSupportedException();
+        }
+
+        /// <inheritdoc/>
+        int IKeyframeProperty.IndexOf(PositionInfo position)
+        {
+            throw new NotSupportedException();
+        }
+
+        /// <inheritdoc/>
+        IRecordCommand IKeyframeProperty.MoveFrame(int fromIndex, PositionInfo toFrame)
+        {
+            throw new NotSupportedException();
+        }
+
+        /// <inheritdoc/>
+        IRecordCommand IKeyframeProperty.RemoveFrame(PositionInfo frame)
+        {
+            throw new NotSupportedException();
+        }
+
+        /// <inheritdoc/>
+        IRecordCommand IKeyframeProperty.UpdatePositionInfo(int index, PositionInfo position)
+        {
+            throw new NotSupportedException();
+        }
     }
 }

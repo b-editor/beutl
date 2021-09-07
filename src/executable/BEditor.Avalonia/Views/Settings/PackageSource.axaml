@@ -7,6 +7,8 @@
     xmlns:package="clr-namespace:BEditor.Packaging;assembly=BEditor.Packaging"
     xmlns:properties="using:BEditor.Properties"
     xmlns:vm="using:BEditor.ViewModels.Settings"
+    xmlns:ui="using:FluentAvalonia.UI.Controls"
+    xmlns:uip="using:FluentAvalonia.UI.Controls.Primitives"
     mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
     x:DataType="vm:PackageSourceViewModel"
     x:Class="BEditor.Views.Settings.PackageSource">
@@ -18,13 +20,13 @@
         <ListBox
             SelectionMode="AlwaysSelected"
             Background="Transparent"
-            Items="{CompiledBinding PackageSources, Source={x:Static setting:Settings.Default}}"
+            Items="{Binding PackageSources, Source={x:Static setting:Settings.Default}}"
             SelectedItem="{CompiledBinding SelectedItem.Value, Mode=TwoWay}">
             <ListBox.ItemTemplate>
-                <DataTemplate x:DataType="package:PackageSourceInfo">
+                <DataTemplate>
                     <StackPanel Orientation="Vertical" Spacing="8">
-                        <TextBlock Text="{CompiledBinding Name}" FontSize="16" />
-                        <TextBlock Text="{CompiledBinding Url.OriginalString}" />
+                        <TextBlock Text="{Binding Name}" FontSize="16" />
+                        <TextBlock Text="{Binding Url.OriginalString}" />
                     </StackPanel>
                 </DataTemplate>
             </ListBox.ItemTemplate>
@@ -46,18 +48,24 @@
 
             </StackPanel>
 
-            <StackPanel Spacing="8" Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Bottom">
+            <StackPanel
+                Spacing="8"
+                Grid.Column="1"
+                Orientation="Horizontal"
+                VerticalAlignment="Bottom">
+                <StackPanel.Styles>
+                    <Style Selector="Button">
+                        <Setter Property="BorderThickness" Value="0" />
+                    </Style>
+                </StackPanel.Styles>
                 <Button
-                    Background="Transparent"
                     Content="{x:Static properties:Strings.Add}"
                     Command="{CompiledBinding Add, Mode=OneTime}" />
                 <Button
-                    Background="Transparent"
                     Content="{x:Static properties:Strings.Apply}"
                     IsEnabled="{CompiledBinding IsSelected.Value, Mode=OneWay}"
                     Command="{CompiledBinding Apply, Mode=OneTime}" />
                 <Button
-                    Background="Transparent"
                     IsEnabled="{CompiledBinding IsSelected.Value, Mode=OneWay}"
                     Content="{x:Static properties:Strings.Remove}"
                     Command="{CompiledBinding Remove, Mode=OneTime}" />

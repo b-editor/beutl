@@ -21,7 +21,7 @@ namespace BEditor.Primitive.Effects
     /// <summary>
     /// Point light diffusion effect.
     /// </summary>
-    public class PointLightDiffuse : ImageEffect
+    public sealed class PointLightDiffuse : ImageEffect
     {
         /// <summary>
         /// Defines the <see cref="X"/> property.
@@ -51,7 +51,7 @@ namespace BEditor.Primitive.Effects
             nameof(LightColor),
             owner => owner.LightColor,
             (owner, obj) => owner.LightColor = obj,
-            EditingPropertyOptions<ColorProperty>.Create(new ColorPropertyMetadata("Light color", Colors.White, true)).Serialize());
+            EditingPropertyOptions<ColorProperty>.Create(new ColorPropertyMetadata("Light color", Colors.White)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="SurfaceScale"/> property.

@@ -9,10 +9,12 @@ using Avalonia.Controls.Shapes;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
+using Avalonia.LogicalTree;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 
 using BEditor.Data;
 using BEditor.Data.Property;
@@ -20,15 +22,15 @@ using BEditor.Extensions;
 using BEditor.Properties;
 using BEditor.ViewModels.Timelines;
 
+using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 
 namespace BEditor.Views.Timelines
 {
-    public class KeyframeView : UserControl
+    public sealed class KeyframeView : UserControl
     {
         private readonly Grid _grid;
         private readonly TextBlock _text;
-        private readonly CompositeDisposable _disposable = new();
         private readonly Animation _anm = new()
         {
             Duration = TimeSpan.FromSeconds(0.15),
@@ -54,6 +56,7 @@ namespace BEditor.Views.Timelines
         };
         private Media.Frame _startpos;
         private Shape? _select;
+        private Size _recentSize;
 
 #pragma warning disable CS8618
         public KeyframeView()
@@ -76,13 +79,14 @@ namespace BEditor.Views.Timelines
             _grid.AddHandler(PointerPressedEvent, Grid_PointerRightPressedTunnel, RoutingStrategies.Tunnel);
             _grid.AddHandler(PointerReleasedEvent, Grid_PointerReleasedTunnel, RoutingStrategies.Tunnel);
 
-            viewmodel.AddKeyFrameIcon = (frame, index) =>
+            viewmodel.AddKeyFrameIcon = pos =>
             {
                 Dispatcher.UIThread.InvokeAsync(() =>
                 {
+                    var index = Property.IndexOf(pos);
                     index--;
                     var length = Property.GetRequiredParent<ClipElement>().Length;
-                    var x = Scene.ToPixel((Media.Frame)(frame * length));
+                    var x = Scene.ToPixel((Media.Frame)(pos.GetAbsolutePosition(length)));
                     var icon = new Rectangle
                     {
                         HorizontalAlignment = HorizontalAlignment.Left,
@@ -91,27 +95,38 @@ namespace BEditor.Views.Timelines
                         Width = 8,
                         Height = 8,
                         RenderTransform = new RotateTransform { Angle = 45 },
-                        Fill = (IBrush?)Application.Current.FindResource("SystemControlForegroundBaseMediumHighBrush")
+                        Fill = (IBrush?)Application.Current.FindResource("TextControlForeground"),
+                        Tag = pos,
                     };
 
                     Add_Handler_Icon(icon);
 
-                    icon.ContextMenu = new ContextMenu
-                    {
-                        Items = new MenuItem[] { CreateMenu() }
-                    };
+                    icon.ContextMenu = CreateContextMenu(pos);
 
                     _grid.Children.Insert(index, icon);
                 });
             };
-            viewmodel.RemoveKeyFrameIcon = (index) => Dispatcher.UIThread.InvokeAsync(() => _grid.Children.RemoveAt(index - 1));
+            viewmodel.RemoveKeyFrameIcon = (pos) => Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                foreach (var item in _grid.Children)
+                {
+                    if (item is Shape shape && shape.Tag is PositionInfo pi && pi == pos)
+                    {
+                        _grid.Children.Remove(item);
+                        break;
+                    }
+                }
+            });
             viewmodel.MoveKeyFrameIcon = (from, to) =>
             {
                 Dispatcher.UIThread.InvokeAsync(() =>
                 {
+                    var tag = Property.Enumerate().ElementAt(to);
                     from--;
                     to--;
-                    var icon = _grid.Children[from];
+                    var icon = (Shape)_grid.Children[from];
+                    icon.Tag = tag;
+
                     _grid.Children.RemoveAt(from);
                     _grid.Children.Insert(to, icon);
                 });
@@ -119,30 +134,12 @@ namespace BEditor.Views.Timelines
 
             _grid.Children.Clear();
 
-            if (Property is IKeyframeProperty<float> f)
+            var array = Property.Enumerate().ToArray();
+            for (var i = 1; i < array.Length - 1; i++)
             {
-                for (var index = 1; index < f.Pairs.Count - 1; index++)
-                {
-                    viewmodel.AddKeyFrameIcon(f.Pairs[index].Key, index);
-                }
+                var item = array[i];
+                viewmodel.AddKeyFrameIcon(item);
             }
-            else if (Property is IKeyframeProperty<Color> c)
-            {
-                for (var index = 1; index < c.Pairs.Count - 1; index++)
-                {
-                    viewmodel.AddKeyFrameIcon(c.Pairs[index].Key, index);
-                }
-            }
-
-            var tmp = Scene.ToPixel(Property.GetParent<ClipElement>()!.Length);
-            if (tmp > 0)
-            {
-                Width = tmp;
-            }
-
-            Scene.ObserveProperty(p => p.TimeLineZoom)
-                .Subscribe(_ => ZoomChange())
-                .AddTo(_disposable);
 
             // StoryBoardを設定
             {
@@ -164,8 +161,31 @@ namespace BEditor.Views.Timelines
         }
 
         private Scene Scene => Property.GetParent<Scene>()!;
-        private IKeyframePropertyViewModel ViewModel => (IKeyframePropertyViewModel)DataContext!;
+        private KeyframeViewModel ViewModel => (KeyframeViewModel)DataContext!;
         private IKeyframeProperty Property => ViewModel.Property;
+
+        // サイズ変更
+        protected override Size MeasureOverride(Size availableSize)
+        {
+            if (_recentSize != availableSize)
+            {
+                var length = Scene.ToFrame(availableSize.Width);
+                var array = Property.Enumerate().ToArray();
+                for (var i = 0; i < array.Length - 2; i++)
+                {
+                    if (_grid.Children.Count <= i) break;
+
+                    if (_grid.Children[i] is Shape icon)
+                    {
+                        icon.Margin = new Thickness(Scene.ToPixel((Media.Frame)array[i + 1].GetAbsolutePosition(length)), 0, 0, 0);
+                    }
+                }
+
+                _recentSize = availableSize;
+            }
+
+            return base.MeasureOverride(availableSize);
+        }
 
         // iconのイベントを追加
         private void Add_Handler_Icon(Shape icon)
@@ -185,58 +205,10 @@ namespace BEditor.Views.Timelines
             icon.PointerLeave -= Icon_PointerLeave;
         }
 
-        // タイムラインのスケール変更
-        private void ZoomChange()
-        {
-            if (Property is IKeyframeProperty<float> f)
-            {
-                var length = Property.GetRequiredParent<ClipElement>().Length;
-                for (var frame = 0; frame < f.Pairs.Count - 2; frame++)
-                {
-                    if (_grid.Children.Count <= frame) break;
-
-                    if (_grid.Children[frame] is Shape icon)
-                    {
-                        icon.Margin = new Thickness(Scene.ToPixel((Media.Frame)(f.Pairs[frame + 1].Key * length)), 0, 0, 0);
-                    }
-                }
-
-                Width = Scene.ToPixel(length);
-            }
-            else if (Property is IKeyframeProperty<Color> c)
-            {
-                var length = Property.GetRequiredParent<ClipElement>().Length;
-                for (var frame = 0; frame < c.Pairs.Count - 2; frame++)
-                {
-                    if (_grid.Children.Count <= frame) break;
-
-                    if (_grid.Children[frame] is Shape icon)
-                    {
-                        icon.Margin = new Thickness(Scene.ToPixel((Media.Frame)(c.Pairs[frame + 1].Key * length)), 0, 0, 0);
-                    }
-                }
-
-                Width = Scene.ToPixel(length);
-            }
-        }
-
         // キーフレームを追加
         public void Add_Frame(object sender, RoutedEventArgs e)
         {
-            ViewModel.AddKeyFrameCommand.Execute(_startpos / (float)Property.GetRequiredParent<ClipElement>().Length);
-        }
-
-        // キーフレームを削除
-        private void Remove_Click(object? sender, RoutedEventArgs e)
-        {
-            if (Property is IKeyframeProperty<float> f)
-            {
-                ViewModel.RemoveKeyFrameCommand.Execute(f.Pairs[_grid.Children.IndexOf(_select) + 1].Key);
-            }
-            else if (Property is IKeyframeProperty<Color> c)
-            {
-                ViewModel.RemoveKeyFrameCommand.Execute(c.Pairs[_grid.Children.IndexOf(_select) + 1].Key);
-            }
+            ViewModel.AddKeyFrameCommand.Execute(new(_startpos / (float)Property.GetRequiredParent<ClipElement>().Length, PositionType.Percentage));
         }
 
         // IconのPointerPressedイベント
@@ -399,21 +371,119 @@ namespace BEditor.Views.Timelines
         }
 
         // Iconのメニューを作成
-        private MenuItem CreateMenu()
+        private ContextMenu CreateContextMenu(PositionInfo position)
         {
+            var context = new ContextMenu();
+
             var removeMenu = new MenuItem
             {
-                Icon = new PathIcon
+                Icon = new FluentAvalonia.UI.Controls.SymbolIcon
                 {
-                    Data = (Geometry)Application.Current.FindResource("Delete20Regular")!,
-                    Margin = new Thickness(5, 0, 5, 0)
+                    Symbol = FluentAvalonia.UI.Controls.Symbol.Delete,
+                    FontSize = 20,
                 },
                 Header = Strings.Remove
             };
 
             removeMenu.Click += Remove_Click;
 
-            return removeMenu;
+            var saveAsFrameNumberMenu = new MenuItem
+            {
+                Header = Strings.SavePositionAsFrameNumber
+            };
+
+            saveAsFrameNumberMenu.Click += SaveAsFrameNumber_Click;
+
+            var saveAsPercentageMenu = new MenuItem
+            {
+                Header = Strings.SavePositionAsPercentage
+            };
+
+            saveAsPercentageMenu.Click += SaveAsPercentage_Click;
+
+            var icon = new FluentAvalonia.UI.Controls.PathIcon
+            {
+                Data = StreamGeometry.Parse("M0,2a2,2 0 1,0 4,0a2,2 0 1,0 -4,0"),
+                UseLayoutRounding = false,
+                VerticalAlignment = VerticalAlignment.Center,
+                HorizontalAlignment = HorizontalAlignment.Center,
+            };
+
+            if (position.Type == PositionType.Percentage)
+            {
+                saveAsPercentageMenu.Icon = icon;
+            }
+            else
+            {
+                saveAsFrameNumberMenu.Icon = icon;
+            }
+
+            saveAsPercentageMenu.Tag = saveAsFrameNumberMenu;
+            saveAsFrameNumberMenu.Tag = saveAsPercentageMenu;
+
+            context.Items = new object[]
+            {
+                removeMenu,
+                saveAsFrameNumberMenu,
+                saveAsPercentageMenu
+            };
+
+            return context;
+        }
+
+        // PositionTypeをPercentageに変更
+        private void SaveAsPercentage_Click(object? sender, RoutedEventArgs e)
+        {
+            if (sender is MenuItem menu && menu.Tag is MenuItem menu1)
+            {
+                var shape = menu.FindLogicalAncestorOfType<Shape>();
+                if (shape.Tag is PositionInfo pos && pos.Type != PositionType.Percentage)
+                {
+                    var index = Property.IndexOf(pos);
+                    pos = pos.WithType(PositionType.Percentage, Property.GetRequiredParent<ClipElement>().Length);
+                    Property.UpdatePositionInfo(index, pos).Execute();
+                    shape.Tag = pos;
+
+                    // アイコン変更
+                    var icon = menu1.Icon;
+                    menu1.Icon = null!;
+                    menu.Icon = icon;
+                }
+            }
+        }
+
+        // PositionTypeをAbsに変更
+        private void SaveAsFrameNumber_Click(object? sender, RoutedEventArgs e)
+        {
+            if (sender is MenuItem menu && menu.Tag is MenuItem menu1)
+            {
+                var shape = menu.FindLogicalAncestorOfType<Shape>();
+                if (shape.Tag is PositionInfo pos && pos.Type != PositionType.Absolute)
+                {
+                    var index = Property.IndexOf(pos);
+                    pos = pos.WithType(PositionType.Absolute, Property.GetRequiredParent<ClipElement>().Length);
+                    Property.UpdatePositionInfo(index, pos).Execute();
+                    shape.Tag = pos;
+
+                    // アイコン変更
+                    var icon = menu1.Icon;
+                    menu1.Icon = null!;
+                    menu.Icon = icon;
+                }
+            }
+        }
+
+        // キーフレームを削除
+        private void Remove_Click(object? sender, RoutedEventArgs e)
+        {
+            if (sender is MenuItem menu)
+            {
+                var shape = menu.FindLogicalAncestorOfType<Shape>();
+                if (shape.Tag is PositionInfo pos)
+                {
+                    ViewModel.RemoveKeyFrameCommand.Execute(pos);
+                }
+            }
         }
 
         private void InitializeComponent()

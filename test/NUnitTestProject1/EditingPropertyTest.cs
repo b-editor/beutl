@@ -3,6 +3,8 @@ using System.Linq;
 
 using BEditor.Data;
 using BEditor.Data.Property;
+using BEditor.Data.Property.Easing;
+using BEditor.Primitive;
 
 using NUnit.Framework;
 
@@ -15,7 +17,21 @@ namespace NUnitTestProject1
         [SetUp]
         public void Setup()
         {
+            foreach (var obj in PrimitiveTypes.EnumerateAllObjectMetadata())
+            {
+                ObjectMetadata.LoadedObjects.Add(obj);
+            }
 
+            foreach (var effect in PrimitiveTypes.EnumerateAllEffectMetadata())
+            {
+                EffectMetadata.LoadedEffects.Add(effect);
+            }
+
+            foreach (var ease in PrimitiveTypes.EnumerateAllEasingMetadata())
+            {
+                EasingMetadata.LoadedEasingFunc.Add(ease);
+            }
+            EasingMetadata.LoadedEasingFunc.Add(EasingMetadata.Create<PrimitiveEasing>(""));
         }
 
         [Test]

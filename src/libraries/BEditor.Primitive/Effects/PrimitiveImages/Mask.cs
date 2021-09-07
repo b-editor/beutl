@@ -109,7 +109,7 @@ namespace BEditor.Primitive.Effects
         public override string Name => Strings.Mask;
 
         /// <summary>
-        /// Get the X coordinate.
+        /// Gets the X coordinate.
         /// </summary>
         [AllowNull]
         public EaseProperty X { get; private set; }

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -7,6 +8,7 @@ using System.Text;
 using System.Threading.Tasks;
 
 using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Threading;
 
 using BEditor.Command;
@@ -14,11 +16,14 @@ using BEditor.Data;
 using BEditor.Drawing;
 using BEditor.Extensions;
 using BEditor.Models;
+using BEditor.Plugin;
 using BEditor.Primitive;
 using BEditor.Primitive.Objects;
 using BEditor.Properties;
+using BEditor.ViewModels.Dialogs;
 using BEditor.Views;
 using BEditor.Views.DialogContent;
+using BEditor.Views.Dialogs;
 
 using Microsoft.Extensions.Logging;
 
@@ -27,7 +32,7 @@ using Reactive.Bindings.Extensions;
 
 namespace BEditor.ViewModels
 {
-    public class MainWindowViewModel
+    public sealed class MainWindowViewModel
     {
         public static readonly MainWindowViewModel Current = new();
 
@@ -39,7 +44,7 @@ namespace BEditor.ViewModels
                 {
                     Filters =
                     {
-                        new(Strings.ProjectFile, new[] { "bedit" }),
+                        new(Strings.ProjectFile, new[] { "bedit", "beproj" }),
                         new(Strings.BackupFile, new[] { "backup" }),
                     }
                 };
@@ -65,7 +70,7 @@ namespace BEditor.ViewModels
                         App.AppStatus = Status.Idle;
 
                         var msg = string.Format(Strings.FailedToLoad, Strings.Project);
-                        App.Message.Snackbar(msg);
+                        App.Message.Snackbar(msg, string.Empty, IMessage.IconType.Error);
 
                         BEditor.App.Logger?.LogError(e, msg);
                     }
@@ -179,7 +184,7 @@ namespace BEditor.ViewModels
 
                         if (!timeline.Scene.InRange(clip.Start, clip.End, clip.Layer))
                         {
-                            mes?.Snackbar(Strings.ClipExistsInTheSpecifiedLocation);
+                            mes?.Snackbar(Strings.ClipExistsInTheSpecifiedLocation, string.Empty);
                             BEditor.App.Logger.LogInformation("{0} Start: {0} End: {1} Layer: {2}", Strings.ClipExistsInTheSpecifiedLocation, clip.Start, clip.End, clip.Layer);
 
                             return;
@@ -196,7 +201,7 @@ namespace BEditor.ViewModels
 
                         if (!timeline.Scene.InRange(start, end, layer))
                         {
-                            mes?.Snackbar(Strings.ClipExistsInTheSpecifiedLocation);
+                            mes?.Snackbar(Strings.ClipExistsInTheSpecifiedLocation, string.Empty);
                             return;
                         }
 
@@ -205,7 +210,7 @@ namespace BEditor.ViewModels
                             var efct = await Serialize.LoadFromFileAsync<EffectWrapper>(text);
                             if (efct?.Effect is not ObjectElement obj)
                             {
-                                mes?.Snackbar(Strings.FailedToLoad);
+                                mes?.Snackbar(Strings.FailedToLoad, string.Empty, IMessage.IconType.Error);
                                 return;
                             }
 
@@ -319,7 +324,34 @@ namespace BEditor.ViewModels
         {
             var app = AppModel.Current;
             app.Project?.Unload();
-            var project = Project.FromFile(filename, app);
+            Project? project = null;
+
+            if (Path.GetExtension(filename) is ".beproj")
+            {
+                var dialog = new OpenFolderDialog
+                {
+                    Title = Strings.SelectLocationToUnpackProject
+                };
+                var dir = await dialog.ShowAsync(BEditor.App.GetMainWindow());
+
+                if (!Directory.Exists(dir)) return;
+
+                var viewModel = new OpenProjectPackageViewModel(filename);
+                var openDialog = new OpenProjectPackage
+                {
+                    DataContext = viewModel,
+                };
+                var result = await openDialog.ShowDialog<OpenProjectPackageViewModel.State>(BEditor.App.GetMainWindow());
+
+                if (result == OpenProjectPackageViewModel.State.Open)
+                {
+                    project = ProjectPackage.OpenFile(filename, dir);
+                }
+            }
+            else
+            {
+                project = Project.FromFile(filename, app);
+            }
 
             if (project is null) return;
 

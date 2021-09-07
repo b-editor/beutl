@@ -53,6 +53,11 @@ namespace BEditor.Data
         public Frame CurrentFrame { get; }
 
         /// <summary>
+        /// Gets or sets the speed of this <see cref="IPlayer"/>.
+        /// </summary>
+        public double Speed { get; set; }
+
+        /// <summary>
         /// Start playing.
         /// </summary>
         public void Play();
@@ -66,7 +71,7 @@ namespace BEditor.Data
     /// <summary>
     /// Represents the event argument at the start of playback.
     /// </summary>
-    public class PlayingEventArgs : EventArgs
+    public sealed class PlayingEventArgs : EventArgs
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="PlayingEventArgs"/> class.
@@ -78,7 +83,7 @@ namespace BEditor.Data
         }
 
         /// <summary>
-        /// Get the frame at the start of playback.
+        /// Gets the frame at the start of playback.
         /// </summary>
         public Frame StartFrame { get; }
     }

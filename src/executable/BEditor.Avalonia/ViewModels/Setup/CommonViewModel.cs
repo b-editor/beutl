@@ -11,9 +11,9 @@ namespace BEditor.ViewModels.Setup
 {
     public sealed class CommonViewModel
     {
-        public record SupportedLangage(string Name, string Culture);
+        public sealed record SupportedLangage(string Name, string Culture);
 
-        public record GraphicsProfile(string Name, string Description);
+        public sealed record GraphicsProfile(string Name, string Description);
 
         public CommonViewModel()
         {

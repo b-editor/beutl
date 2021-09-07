@@ -32,15 +32,16 @@ namespace BEditor.Data
         }
 
         /// <summary>
-        /// Gets or sets the accent color.
+        /// Gets the accent color.
         /// </summary>
         public Color AccentColor { get; init; } = Color.FromUInt32(0xff304fee);
 
         /// <summary>
-        /// Gets or sets the path data of an icon.
+        /// Gets the path data of an icon.
         /// </summary>
         public string PathIcon { get; init; } = string.Empty;
 
+#pragma warning disable SA1623 // Property summary documentation should match accessors
         /// <summary>
         /// Creates an instance from a file name.
         /// </summary>
@@ -50,24 +51,12 @@ namespace BEditor.Data
         /// Check to see if the file name is supported.
         /// </summary>
         public Func<string, bool>? IsSupported { get; init; }
+#pragma warning restore SA1623 // Property summary documentation should match accessors
 
         /// <summary>
         /// Gets the loaded <see cref="ObjectMetadata"/>.
         /// </summary>
         public static ObservableCollection<ObjectMetadata> LoadedObjects { get; } = new();
-
-        /// <summary>
-        /// Create the <see cref="ObjectMetadata"/>.
-        /// </summary>
-        /// <typeparam name="T">The type of object that inherits from <see cref="ObjectElement"/>.</typeparam>
-        /// <param name="name">The name of the object element.</param>
-        /// <returns>A new instance of <see cref="ObjectMetadata"/>.</returns>
-        [Obsolete("Use Create{T}(string, Color?, string, Func{string, T}).")]
-        public static ObjectMetadata Create<T>(string name)
-            where T : ObjectElement, new()
-        {
-            return new(name, () => new T(), typeof(T));
-        }
 
         /// <summary>
         /// Create the <see cref="ObjectMetadata"/>.

@@ -17,6 +17,7 @@ using Avalonia.Styling;
 using Avalonia.Threading;
 
 using BEditor.Data;
+using BEditor.Data.Property.Easing;
 using BEditor.Extensions;
 using BEditor.Graphics.Platform;
 using BEditor.Models;
@@ -37,7 +38,7 @@ using Reactive.Bindings;
 
 namespace BEditor
 {
-    public class App : Application
+    public sealed class App : Application
     {
         public static readonly ILogger Logger = AppModel.Current.LoggingFactory.CreateLogger<App>();
         public static readonly DispatcherTimer BackupTimer = new()
@@ -162,12 +163,16 @@ namespace BEditor
                 });
             }
 
-            AppModel.Current.AudioContext?.Dispose();
+            if (app.AudioContext is IDisposable disposable)
+                disposable.Dispose();
         }
 
         private void CurrentDomain_UnhandledException(object sender, UnhandledExceptionEventArgs e)
         {
-            AppModel.Current.Message.Snackbar(string.Format(Strings.ExceptionWasThrown, e.ExceptionObject.ToString()));
+            AppModel.Current.Message.Snackbar(
+                string.Format(Strings.ExceptionWasThrown, e.ExceptionObject.ToString()),
+                string.Empty,
+                icon: IMessage.IconType.Error);
 
             AppModel.Current.User?.Save(Path.Combine(ServicesLocator.GetUserFolder(), "token"));
             Logger?.LogError(e.ExceptionObject as Exception, "UnhandledException was thrown.");
@@ -222,6 +227,12 @@ namespace BEditor
             {
                 EffectMetadata.LoadedEffects.Add(effect);
             }
+
+            foreach (var ease in PrimitiveTypes.EnumerateAllEasingMetadata())
+            {
+                EasingMetadata.LoadedEasingFunc.Add(ease);
+            }
+            EasingMetadata.LoadedEasingFunc.Add(EasingMetadata.Create<PrimitiveEasing>(Strings.PrimitiveEasing));
         }
 
         private static async ValueTask InitialPluginsAsync()
@@ -246,7 +257,7 @@ namespace BEditor
                     if (item is PluginException ex)
                     {
                         sb.Append('\n');
-                        sb.Append("* ");
+                        sb.Append("- ");
                         sb.Append(ex.PluginName);
                     }
                 }
@@ -254,14 +265,14 @@ namespace BEditor
                 await app.Message.DialogAsync(sb.ToString());
             }
 
-            if (PluginManager.Default._tasks.Count is not 0)
+            if (PluginManager.Default.Tasks.Count is not 0)
             {
                 await Dispatcher.UIThread.InvokeAsync(async () =>
                 {
                     var dialog = new ProgressDialog();
                     dialog.Maximum.Value = 100;
                     _ = dialog.ShowDialog(GetMainWindow());
-                    foreach (var (plugin, tasks) in PluginManager.Default._tasks)
+                    foreach (var (plugin, tasks) in PluginManager.Default.Tasks)
                     {
                         for (var i = 0; i < tasks.Count; i++)
                         {
@@ -281,14 +292,21 @@ namespace BEditor
 
         private static async Task CheckOpenALAsync()
         {
-            try
+            if (Settings.Default.AudioProfile is "XAudio2" && OperatingSystem.IsWindows())
             {
-                AppModel.Current.AudioContext ??= new();
+                AppModel.Current.AudioContext ??= new Audio.XAudio2.XAudioContext();
             }
-            catch
+            else
             {
-                await AppModel.Current.Message.DialogAsync(Strings.OpenALNotFound);
-                App.Shutdown(1);
+                try
+                {
+                    AppModel.Current.AudioContext ??= new Audio.AudioContext();
+                }
+                catch
+                {
+                    await AppModel.Current.Message.DialogAsync(Strings.OpenALNotFound);
+                    App.Shutdown(1);
+                }
             }
         }
 

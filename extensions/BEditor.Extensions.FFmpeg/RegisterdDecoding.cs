@@ -6,7 +6,7 @@ using BEditor.Media.Decoding;
 
 namespace BEditor.Extensions.FFmpeg
 {
-    public class RegisterdDecoding : IRegisterdDecoding
+    public sealed class RegisterdDecoding : IRegisterdDecoding
     {
         public string Name => "FFmpeg";
 
