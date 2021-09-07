@@ -28,8 +28,11 @@ namespace BEditor.Views.ManagePlugins
 
         public void ShowSettings(object s, RoutedEventArgs e)
         {
-            if (s is CommandBarButton button && button.DataContext is PluginObject plugin)
+            if (s is CommandBarButton button
+                && button.DataContext is PluginObject plugin
+                && DataContext is LoadedPluginsViewModel vm)
             {
+                vm.SelectPlugin.Value = plugin;
                 _pluginSettings.Content = (StackPanel?)PluginSettingsUIBuilder.Create(plugin.Settings);
                 _pluginSettings.IsVisible = true;
                 _applySettingsButton.IsVisible = true;
@@ -58,7 +61,7 @@ namespace BEditor.Views.ManagePlugins
             {
                 var ctr = (StackPanel)_pluginSettings.Content!;
 
-                vm.SelectPlugin.Value.Settings = (Plugin.SettingRecord)PluginSettingsUIBuilder.GetValue(ctr, vm.SelectPlugin.Value.Settings.GetType());
+                vm.SelectPlugin.Value.Settings = (SettingRecord)PluginSettingsUIBuilder.GetValue(ctr, vm.SelectPlugin.Value.Settings.GetType());
             }
         }
 
