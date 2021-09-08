@@ -6,7 +6,7 @@ namespace BEditor.Audio.XAudio2
 {
     public sealed class XAudioBuffer : IDisposable
     {
-        private UnmanagedArray<byte>?_stream;
+        private UnmanagedArray<byte>? _stream;
 
         public XAudioBuffer()
         {
@@ -16,7 +16,7 @@ namespace BEditor.Audio.XAudio2
         public Vortice.XAudio2.AudioBuffer Buffer { get; }
 
         public int SizeInBytes { get; private set; }
-        
+
         public WaveFormat? Format { get; private set; }
 
         public unsafe void BufferData<T>(Span<T> buffer, WaveFormat format)

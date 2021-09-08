@@ -156,7 +156,7 @@ namespace BEditor
             get => GetValue(FixSeekbarProperty);
             set => SetValue(FixSeekbarProperty, value);
         }
-        
+
         public LayerBorder LayerBorder
         {
             get => GetValue(LayerBorderProperty);
