@@ -51,12 +51,11 @@ namespace BEditor.Extensions
 #if DEBUG
                 var start = DateTime.Now;
 #endif
-                using var img = await Task.Run(() => project.CurrentScene.Render(type));
+                var (img, snd) = await Task.Run(() => (project.CurrentScene.Render(type), project.CurrentScene.Sample()))
+                    .ConfigureAwait(false);
 #if DEBUG
                 var end = DateTime.Now;
 #endif
-                var snd = project.CurrentScene.Sample();
-
                 await Dispatcher.UIThread.InvokeAsync(() =>
                 {
                     var viewmodel = MainWindowViewModel.Current.Previewer;
@@ -82,12 +81,12 @@ namespace BEditor.Extensions
                         }
                     }
 
+                    img.Dispose();
                     buf.Dispose();
                     viewmodel.NotifyImageChanged();
 
                     viewmodel.PreviewAudio.Value?.Dispose();
                     viewmodel.PreviewAudio.Value = snd;
-
 #if DEBUG
                     var sec = (float)(end - start).TotalSeconds;
                     var fps = 1 / sec;
@@ -103,7 +102,7 @@ namespace BEditor.Extensions
                     viewmodel.MaxFps.Value = string.Format("Max: {0:N2} FPS", _maxFps);
                     viewmodel.AvgFps.Value = string.Format("Avg: {0:N2} FPS", _avgFps);
 #endif
-                });
+                }).ConfigureAwait(false);
 
                 PreviewIsEnabled = true;
             }
