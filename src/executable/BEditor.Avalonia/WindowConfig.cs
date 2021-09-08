@@ -74,7 +74,7 @@ namespace BEditor
                     var json = File.ReadAllText(path);
 
                     var obj = JsonSerializer.Deserialize<Config>(json, Packaging.PackageFile._serializerOptions);
-                    if (obj is null) return;
+                    if (obj is null || ((WindowState)obj.State) == WindowState.Minimized) return;
 
                     if (win.WindowStartupLocation is WindowStartupLocation.Manual)
                     {
@@ -87,8 +87,8 @@ namespace BEditor
 
                     if (state is WindowState.Normal)
                     {
-                        win.Width = obj.Width;
-                        win.Height = obj.Height;
+                        win.Width = obj.Width < 800 ? win.Width : obj.Width;
+                        win.Height = obj.Height < 450 ? win.Height : obj.Height;
                     }
 
                     win.WindowState = state;
