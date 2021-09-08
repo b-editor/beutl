@@ -44,6 +44,7 @@ namespace BEditor.Audio.XAudio2
 
         public void Dispose()
         {
+            Buffer.Dispose();
             _stream?.Dispose();
         }
     }

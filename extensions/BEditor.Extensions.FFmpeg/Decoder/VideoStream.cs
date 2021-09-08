@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
+using BEditor.Media;
 using BEditor.Media.Decoding;
 
 using FFMediaToolkit.Graphics;
@@ -22,11 +23,11 @@ namespace BEditor.Extensions.FFmpeg.Decoder
             _stream = stream;
             Info = new(
                 stream.Info.CodecName,
-                Media.MediaType.Video,
+                MediaType.Video,
                 stream.Info.Duration - stream.Info.StartTime ?? default,
                 new(stream.Info.FrameSize.Width, stream.Info.FrameSize.Height),
                 (int)stream.Info.NumberOfFrames!,
-                (int)stream.Info.AvgFrameRate);
+                new Rational(stream.Info.RealFrameRate.num, stream.Info.RealFrameRate.den));
         }
 
         public VideoStreamInfo Info { get; }

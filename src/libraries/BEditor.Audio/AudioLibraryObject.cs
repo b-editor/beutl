@@ -2,6 +2,7 @@
 
 namespace BEditor.Audio
 {
+    [Obsolete("To be addded.")]
     public abstract class AudioLibraryObject : IDisposable
     {
         ~AudioLibraryObject()
