@@ -27,6 +27,7 @@ namespace BEditor.Data.Internals
     /// </summary>
     internal sealed class ScenePlayer : IPlayer
     {
+        private const int _streamingBufferSize = 1;
         private readonly Timer _timer;
         private readonly double _frameRate;
         private DateTime _startTime;
@@ -101,6 +102,8 @@ namespace BEditor.Data.Internals
         public void Stop()
         {
             State = PlayerState.Stop;
+            if (Scene.GetParent<IApplication>() is IApplication app)
+                app.AppStatus = Status.Edit;
 
             _timer.Stop();
 
@@ -116,13 +119,20 @@ namespace BEditor.Data.Internals
             GC.SuppressFinalize(this);
         }
 
+        private static void Swap<T>(ref T x, ref T y)
+        {
+            var temp = x;
+            x = y;
+            y = temp;
+        }
+
         private void PlayWithAudio2(XAudioContext audioContext)
         {
             var context = Scene.SamplingContext!;
             context.Clear();
             int f = Scene.PreviewFrame;
-            var primary = new Sound<StereoPCM16>(Scene.Parent.Samplingrate, Scene.Parent.Samplingrate);
-            var secondary = new Sound<StereoPCM16>(Scene.Parent.Samplingrate, Scene.Parent.Samplingrate);
+            var primary = new Sound<StereoPCM16>(Scene.Parent.Samplingrate, Scene.Parent.Samplingrate * _streamingBufferSize);
+            var secondary = new Sound<StereoPCM16>(Scene.Parent.Samplingrate, Scene.Parent.Samplingrate * _streamingBufferSize);
             var fmt = new WaveFormat(Scene.Parent.Samplingrate, 2);
             var source = new XAudioSource(audioContext);
             var primaryBuffer = new XAudioBuffer();
@@ -134,14 +144,13 @@ namespace BEditor.Data.Internals
             source.QueueBuffer(primaryBuffer);
             source.Play();
 
-            f += (Frame)(Scene.Parent.Framerate * Speed);
-
             while (f < Scene.TotalFrame)
             {
                 if (State is PlayerState.Stop) break;
 
+                f += (Frame)(Scene.Parent.Framerate * Speed * _streamingBufferSize);
+
                 FillAudioData(secondary, f);
-                f += (Frame)(Scene.Parent.Framerate * Speed);
 
                 source.Flush();
 
@@ -154,13 +163,8 @@ namespace BEditor.Data.Internals
                 source.QueueBuffer(secondaryBuffer);
 
                 // バッファを入れ替える
-                var a = secondary;
-                secondary = primary;
-                primary = a;
-
-                var b = secondaryBuffer;
-                secondaryBuffer = primaryBuffer;
-                primaryBuffer = b;
+                Swap(ref primary, ref secondary);
+                Swap(ref primaryBuffer, ref secondaryBuffer);
             }
 
             primary.Dispose();
@@ -170,59 +174,66 @@ namespace BEditor.Data.Internals
             secondaryBuffer.Dispose();
         }
 
-        private void PlayWithOpenAL(AudioContext audioContext)
+        private async void PlayWithOpenAL(AudioContext audioContext)
         {
             audioContext.MakeCurrent();
 
             var context = Scene.SamplingContext!;
             context.Clear();
             int f = Scene.PreviewFrame;
-            var sound = new Sound<StereoPCMFloat>(Scene.Parent.Samplingrate, Scene.Parent.Samplingrate);
-            using var buffer = new AudioBuffer();
-            using var source = new AudioSource();
-            source.QueueBuffer(buffer);
-            source.Play();
-            var state = 0;
+            var sound = new Sound<StereoPCM16>(Scene.Parent.Samplingrate, Scene.Parent.Samplingrate * _streamingBufferSize);
+            var buffers = AL.GenBuffers(2);
+            var source = AL.GenSource();
 
-            while (f < Scene.TotalFrame)
+            foreach (var buffer in buffers)
             {
-                if (State is PlayerState.Stop) break;
-                state = source.BuffersProcessed;
+                FillAudioData(sound, f);
 
-                if (state == 1)
+                f += (Frame)(Scene.Parent.Framerate * Speed * _streamingBufferSize);
+
+                AL.BufferData(buffer, ALFormat.Stereo16, sound.Data, sound.SampleRate);
+                AL.SourceQueueBuffer(source, buffer);
+            }
+
+            AL.SourcePlay(source);
+
+            while (State == PlayerState.Playing)
+            {
+                AL.GetSource(source, ALGetSourcei.BuffersProcessed, out var processed);
+                while (processed > 0)
                 {
-                    var bid = source.UnqueueBuffer();
                     FillAudioData(sound, f);
+                    f += (Frame)(Scene.Parent.Framerate * Speed * _streamingBufferSize);
 
-                    buffer.BufferData(sound);
-                    source.QueueBuffer(buffer);
-                    source.Play();
-
-                    f += (Frame)(Scene.Parent.Framerate * Speed);
+                    var buffer = AL.SourceUnqueueBuffer(source);
+                    AL.BufferData(buffer, ALFormat.Stereo16, sound.Data, sound.SampleRate);
+                    AL.SourceQueueBuffer(source, buffer);
+                    processed--;
                 }
-            }
-        }
 
-        private void FillAudioData(Sound<StereoPCMFloat> sound, Frame f)
-        {
-            var context = Scene.SamplingContext!;
-            var spf = context.SamplePerFrame;
-            for (var i = 0; i < Scene.Parent.Framerate; i++)
-            {
-                using var tmp = Scene.Sample(f + i);
-                tmp.Data.CopyTo(sound.Data.Slice(i * spf, spf));
+                if (f > Scene.TotalFrame)
+                    break;
             }
+
+            while (AL.GetSourceState(source) == ALSourceState.Playing)
+            {
+                await Task.Delay(100);
+            }
+
+            sound.Dispose();
+            AL.DeleteBuffers(buffers);
+            AL.DeleteSource(source);
         }
 
         private void FillAudioData(Sound<StereoPCM16> sound, Frame f)
         {
             var context = Scene.SamplingContext!;
-            var spf = context.SamplePerFrame;
-            for (var i = 0; i < Scene.Parent.Framerate; i++)
+            var spf = context.SpfRational;
+            for (var i = 0; i < Scene.Parent.Framerate * _streamingBufferSize; i++)
             {
                 using var tmp = Scene.Sample(f + i);
                 using var converted = tmp.Convert<StereoPCM16>();
-                converted.Data.CopyTo(sound.Data.Slice(i * spf, spf));
+                converted.Data.CopyTo(sound.Data.Slice(new Rational(i) * spf, spf));
             }
         }
 

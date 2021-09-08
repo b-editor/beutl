@@ -131,6 +131,7 @@ namespace BEditor.Data
         public void Render(Image<BGRA32> image, Frame frame, ApplyType renderType = ApplyType.Edit)
         {
             if (!IsLoaded) return;
+            if (frame > TotalFrame) return;
 
             image.ThrowIfDisposed();
             if (image.Width != Width) throw new ArgumentException(null, nameof(image));
@@ -197,7 +198,7 @@ namespace BEditor.Data
         /// <returns>Returns the result of sampling.</returns>
         public Sound<StereoPCMFloat> Sample(Frame frame, ApplyType applyType = ApplyType.Audio)
         {
-            if (!IsLoaded)
+            if (!IsLoaded || frame > TotalFrame)
             {
                 return new(Parent.Samplingrate, Parent.Samplingrate / Parent.Framerate);
             }
