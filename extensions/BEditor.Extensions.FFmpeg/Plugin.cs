@@ -32,7 +32,7 @@ namespace BEditor.Extensions.FFmpeg
         {
             var builder = PluginBuilder.Configure<Plugin>();
 
-            var dir = Path.Combine(Directory.GetParent(Assembly.GetExecutingAssembly().Location)!.FullName, "ffmpeg");
+            var dir = Path.Combine(Directory.GetParent(Assembly.GetExecutingAssembly().Location)!.FullName, Environment.Is64BitProcess ? "ffmpeg" : "ffmpeg_32");
             var installer = new FFmpegInstaller
             {
                 BasePath = dir
@@ -70,12 +70,13 @@ namespace BEditor.Extensions.FFmpeg
 
         private static async ValueTask DownloadFFmpeg(IProgressDialog progress, string file)
         {
-            const string url = "https://beditor.net/repo/ffmpeg.zip";
+            const string url_64 = "https://beditor.net/repo/ffmpeg.zip";
+            const string url_32 = "https://beditor.net/repo/ffmpeg_32.zip";
 
             using var client = new HttpClient();
             using var fs = new FileStream(file, FileMode.Create);
             client.DefaultRequestHeaders.ExpectContinue = false;
-            var response = await client.GetAsync(url, HttpCompletionOption.ResponseHeadersRead);
+            var response = await client.GetAsync(Environment.Is64BitProcess ? url_64 : url_32, HttpCompletionOption.ResponseHeadersRead);
 
             if (response.Content.Headers.ContentLength != null)
             {
