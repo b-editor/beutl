@@ -52,7 +52,16 @@ namespace BEditor.Media.Encoding
         /// <summary>
         /// Gets or sets video frame rate (FPS) value. The default value is 30 frames/s.
         /// </summary>
-        public int Framerate { get; set; }
+        public int Framerate
+        {
+            get => (int)FramerateRational;
+            set => FramerateRational = new(value);
+        }
+
+        /// <summary>
+        /// Gets or sets video frame rate (FPS) value. The default value is 30 frames/s.
+        /// </summary>
+        public Rational FramerateRational { get; set; }
 
         /// <summary>
         /// Gets or sets the dictionary with custom codec options.

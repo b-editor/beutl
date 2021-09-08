@@ -106,5 +106,24 @@ namespace BEditor.Plugin
                 throw new AggregateException(exceptions);
             }
         }
+
+        /// <summary>
+        /// Gets the plugin of the specified type.
+        /// </summary>
+        /// <typeparam name="T">The type of plugin.</typeparam>
+        /// <returns>Returns the plugin.</returns>
+        public T Get<T>()
+            where T : PluginObject
+        {
+            foreach (var item in Loaded)
+            {
+                if (item is T t)
+                {
+                    return t;
+                }
+            }
+
+            throw new Exception("Not found.");
+        }
     }
 }

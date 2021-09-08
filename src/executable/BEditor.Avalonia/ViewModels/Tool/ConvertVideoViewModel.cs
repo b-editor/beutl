@@ -34,13 +34,13 @@ namespace BEditor.ViewModels.Tool
             _source = source;
             Width.Value = source.VideoInfo.FrameSize.Width;
             Height.Value = source.VideoInfo.FrameSize.Height;
-            FrameRate.Value = source.VideoInfo.FrameRate;
+            FrameRate.Value = (int)source.VideoInfo.AvgFrameRate;
             SampleRate.Value = source.AudioInfo.SampleRate;
             LengthFrame.Value = source.VideoInfo.NumberOfFrames;
             TotalFrame.Value = source.VideoInfo.NumberOfFrames;
-            StartTime = StartFrame.Select(i => ((Frame)i).ToTimeSpan(_source.VideoInfo.FrameRate))
+            StartTime = StartFrame.Select(i => ((Frame)i).ToTimeSpan(_source.VideoInfo.AvgFrameRate))
                 .ToReadOnlyReactivePropertySlim();
-            LengthTime = LengthFrame.Select(i => ((Frame)i).ToTimeSpan(_source.VideoInfo.FrameRate))
+            LengthTime = LengthFrame.Select(i => ((Frame)i).ToTimeSpan(_source.VideoInfo.AvgFrameRate))
                 .ToReadOnlyReactivePropertySlim();
 
             SaveFileDialog.Subscribe(async () =>
@@ -155,7 +155,7 @@ namespace BEditor.ViewModels.Tool
                             dialog.NowValue.Value = frame;
 
                             Image<BGRA32>? img = null;
-                            if ((input.Video?.TryGetFrame(frame.ToTimeSpan(_source.VideoInfo.FrameRate), out img) ?? false) && img != null)
+                            if ((input.Video?.TryGetFrame(frame.ToTimeSpan(_source.VideoInfo.AvgFrameRate), out img) ?? false) && img != null)
                             {
                                 // リサイズ
                                 if (img.Size != new Size(Width.Value, Height.Value))
@@ -171,7 +171,7 @@ namespace BEditor.ViewModels.Tool
                         }
 
                         // Audio
-                        var rate = _source.AudioInfo.SampleRate / _source.VideoInfo.FrameRate;
+                        var rate = (int)MathF.Round(_source.AudioInfo.SampleRate / _source.VideoInfo.AvgFrameRate, MidpointRounding.AwayFromZero);
                         for (Frame frame = StartFrame.Value; frame < LengthFrame.Value; frame++)
                         {
                             if (t)
@@ -181,7 +181,7 @@ namespace BEditor.ViewModels.Tool
                             }
 
                             dialog.NowValue.Value = frame;
-                            var snd = input.Audio?.GetFrame(frame.ToTimeSpan(_source.VideoInfo.FrameRate), rate);
+                            var snd = input.Audio?.GetFrame(frame.ToTimeSpan(_source.VideoInfo.AvgFrameRate), rate);
 
                             if (snd is not null)
                             {

@@ -42,8 +42,13 @@ namespace BEditor.Extensions.FFmpeg.Encoding
         public void AddVideoStream(VideoEncoderSettings config)
         {
             _videoConfig.Add(config);
-            MediaBuilder.WithVideo(new(config.VideoWidth, config.VideoHeight, config.Framerate)
+            MediaBuilder.WithVideo(new(config.VideoWidth, config.VideoHeight)
             {
+                FramerateRational = new global::FFmpeg.AutoGen.AVRational
+                {
+                    num = config.FramerateRational.Numerator,
+                    den = config.FramerateRational.Denominator,
+                },
                 Bitrate = config.Bitrate,
                 KeyframeRate = config.KeyframeRate,
                 VideoFormat = config.CodecOptions.TryGetValue("Format", out var fmt) ? (ImagePixelFormat)fmt : ImagePixelFormat.Bgra32,
