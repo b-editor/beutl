@@ -100,7 +100,8 @@ namespace BEditor.Views.ManagePlugins
                 _navView.SelectedItem = viewItem;
                 _navView.AlwaysShowHeader = true;
                 _navView.Header = model.Name;
-                view.DataContext ??= new PackageViewModel(model);
+                view.DataContext = null;
+                view.DataContext = new PackageViewModel(model);
                 return;
             }
 
