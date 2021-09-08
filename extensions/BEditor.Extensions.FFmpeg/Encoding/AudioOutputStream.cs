@@ -38,7 +38,7 @@ namespace BEditor.Extensions.FFmpeg.Encoding
         {
             unsafe
             {
-                fixed(void* ptr = sound.Data)
+                fixed (void* ptr = sound.Data)
                 {
                     _stream.Write(new Span<byte>(ptr, sound.DataSize));
                 }
