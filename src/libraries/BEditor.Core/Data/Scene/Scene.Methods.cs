@@ -33,6 +33,9 @@ namespace BEditor.Data
     /// </summary>
     public partial class Scene : IElementObject, IJsonObject
     {
+        private object? _samplingLockObject;
+        private object? _renderingLockObject;
+
         /// <inheritdoc/>
         public override void GetObjectData(Utf8JsonWriter writer)
         {
@@ -133,43 +136,46 @@ namespace BEditor.Data
             if (image.Width != Width) throw new ArgumentException(null, nameof(image));
             if (image.Height != Height) throw new ArgumentException(null, nameof(image));
 
-            if (UseCache && Cache != null && Cache.Start <= frame && frame < (Cache.Start + Cache.Length))
+            lock (_renderingLockObject!)
             {
-                var caheImage = Cache.ReadImage(frame);
-                caheImage.Data.CopyTo(image.Data);
+                if (UseCache && Cache != null && Cache.Start <= frame && frame < (Cache.Start + Cache.Length))
+                {
+                    var caheImage = Cache.ReadImage(frame);
+                    caheImage.Data.CopyTo(image.Data);
 
-                caheImage.Dispose();
-                return;
+                    caheImage.Dispose();
+                    return;
+                }
+
+                var layer = GetFrame(frame);
+
+                if (GraphicsContext!.Camera is OrthographicCamera orthographic)
+                {
+                    orthographic.Width = Width;
+                    orthographic.Height = Height;
+                    orthographic.Near = 0.1f;
+                    orthographic.Far = 20000;
+                    orthographic.Fov = MathF.PI / 2;
+                    orthographic.Target = default;
+                    orthographic.Position = new(0, 0, 1024);
+                }
+                else
+                {
+                    GraphicsContext.Camera = new OrthographicCamera(new(0, 0, 1024), Width, Height);
+                }
+
+                GraphicsContext.Light = null;
+                GraphicsContext.Clear();
+
+                var args = new ClipApplyArgs(frame, renderType);
+
+                // Preview
+                for (var i = 0; i < layer.Length; i++) layer[i].PreviewApply(args);
+
+                for (var i = 0; i < layer.Length; i++) layer[i].Apply(args);
+
+                GraphicsContext.ReadImage(image);
             }
-
-            var layer = GetFrame(frame);
-
-            if (GraphicsContext!.Camera is OrthographicCamera orthographic)
-            {
-                orthographic.Width = Width;
-                orthographic.Height = Height;
-                orthographic.Near = 0.1f;
-                orthographic.Far = 20000;
-                orthographic.Fov = MathF.PI / 2;
-                orthographic.Target = default;
-                orthographic.Position = new(0, 0, 1024);
-            }
-            else
-            {
-                GraphicsContext.Camera = new OrthographicCamera(new(0, 0, 1024), Width, Height);
-            }
-
-            GraphicsContext.Light = null;
-            GraphicsContext.Clear();
-
-            var args = new ClipApplyArgs(frame, renderType);
-
-            // Preview
-            for (var i = 0; i < layer.Length; i++) layer[i].PreviewApply(args);
-
-            for (var i = 0; i < layer.Length; i++) layer[i].Apply(args);
-
-            GraphicsContext.ReadImage(image);
         }
 
         /// <summary>
@@ -193,20 +199,23 @@ namespace BEditor.Data
         {
             if (!IsLoaded)
             {
-                return new(Width, Height);
+                return new(Parent.Samplingrate, Parent.Samplingrate / Parent.Framerate);
             }
 
-            SamplingContext!.Clear();
-            var layer = GetFrame(frame);
+            lock (_samplingLockObject!)
+            {
+                SamplingContext!.Clear();
+                var layer = GetFrame(frame);
 
-            var args = new ClipApplyArgs(frame, applyType);
+                var args = new ClipApplyArgs(frame, applyType);
 
-            // Preview
-            for (var i = 0; i < layer.Length; i++) layer[i].PreviewApply(args);
+                // Preview
+                for (var i = 0; i < layer.Length; i++) layer[i].PreviewApply(args);
 
-            for (var i = 0; i < layer.Length; i++) layer[i].Apply(args);
+                for (var i = 0; i < layer.Length; i++) layer[i].Apply(args);
 
-            return SamplingContext.ReadSamples();
+                return SamplingContext.ReadSamples();
+            }
         }
 
         /// <summary>
@@ -385,6 +394,8 @@ namespace BEditor.Data
             GraphicsContext = new GraphicsContext(Width, Height);
             SamplingContext = new SamplingContext(Parent.Samplingrate, Parent.Framerate);
             Cache ??= new(this);
+            _samplingLockObject ??= new();
+            _renderingLockObject ??= new();
 
             if (BEditor.Settings.Default.PrioritizeGPU)
             {
