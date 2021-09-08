@@ -92,7 +92,10 @@ namespace BEditor.Primitive.Objects
         public FileProperty File { get; private set; }
 
         /// <inheritdoc/>
-        public TimeSpan? Length => (_resource?.Value as Sound<StereoPCMFloat>)?.Duration;
+        public TimeSpan? Length
+            => (_resource?.Value as Sound<StereoPCMFloat>)?.DurationRational is Rational duration
+                ? TimeSpan.FromSeconds(duration)
+                : null;
 
         /// <summary>
         /// Gets whether the file name is supported.
@@ -138,18 +141,22 @@ namespace BEditor.Primitive.Objects
 
             var proj = Parent.Parent.Parent;
             var context = Parent.Parent.SamplingContext!;
-            var start = (args.Frame - Parent.Start).ToTimeSpan(proj.Framerate);
-            start = start.Add(TimeSpan.FromMilliseconds(Start.Value));
-            var length = TimeSpan.FromSeconds(context.SamplePerFrame / (double)proj.Samplingrate);
 
-            if (start >= TimeSpan.Zero)
+            // ここではフレーム数
+            var start = new Rational(args.Frame - Parent.Start, 1);
+            start.Numerator += Frame.FromMilliseconds(Start.Value, proj.Framerate);
+
+            // サンプル数に変換
+            start *= context.SpfRational;
+
+            if (start >= 0)
             {
                 // 開始位置がZero以上
-                return sound.Slice(start, length).Clone();
+                return sound.Slice(start, context.SpfRational).Clone();
             }
             else
             {
-                return new Sound<StereoPCMFloat>(proj.Samplingrate, length);
+                return new Sound<StereoPCMFloat>(proj.Samplingrate, context.SpfRational);
             }
         }
 
@@ -224,7 +231,7 @@ namespace BEditor.Primitive.Objects
 
         private static Sound<StereoPCMFloat> GetAllFrame(IAudioStream stream)
         {
-            return stream.GetFrame(TimeSpan.Zero, stream.Info.Duration);
+            return stream.GetFrame(TimeSpan.Zero, stream.Info.NumSamples);
         }
     }
 }

@@ -87,6 +87,7 @@ namespace BEditor.Media.Decoding
         /// <param name="time">The frame timestamp.</param>
         /// <param name="duration">The audio duration.</param>
         /// <returns>The decoded audio frame.</returns>
+        [Obsolete("To be added.")]
         public Sound<StereoPCMFloat> GetFrame(TimeSpan time, TimeSpan duration)
         {
             var sound = new Sound<StereoPCMFloat>(Info.SampleRate, duration);

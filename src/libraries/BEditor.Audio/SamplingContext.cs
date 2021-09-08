@@ -17,10 +17,10 @@ namespace BEditor.Audio
 
         public SamplingContext(int samplerate, int framerate)
         {
-            SamplePerFrame = samplerate / framerate;
+            SpfRational = new(samplerate, framerate);
             SampleRate = samplerate;
 
-            _buffer = new(samplerate, SamplePerFrame);
+            _buffer = new(samplerate, SpfRational);
         }
 
         ~SamplingContext()
@@ -31,7 +31,12 @@ namespace BEditor.Audio
         /// <summary>
         /// Get the number of samples per frame.
         /// </summary>
-        public int SamplePerFrame { get; }
+        [Obsolete("Use AvgSpf.")]
+        public int SamplePerFrame => (int)AvgSpf;
+
+        public double AvgSpf => SpfRational;
+
+        public Rational SpfRational { get; }
 
         /// <summary>
         /// Gets the sample rate.

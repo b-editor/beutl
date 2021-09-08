@@ -16,7 +16,7 @@ namespace BEditor.Media
     /// <summary>
     /// The rational.
     /// </summary>
-    public readonly struct Rational : IEquatable<Rational>
+    public struct Rational : IEquatable<Rational>
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="Rational"/> struct.
@@ -44,14 +44,14 @@ namespace BEditor.Media
         }
 
         /// <summary>
-        /// Gets the numerator.
+        /// Gets or sets the numerator.
         /// </summary>
-        public int Numerator { get; }
+        public int Numerator { readonly get; set; }
 
         /// <summary>
-        /// Gets the denominator.
+        /// Gets or sets the denominator.
         /// </summary>
-        public int Denominator { get; }
+        public int Denominator { readonly get; set; }
 
         /// <summary>
         /// Converts the <see cref="Rational"/> to a <see cref="double"/>.
@@ -69,6 +69,15 @@ namespace BEditor.Media
         public static implicit operator float(Rational value)
         {
             return value.Numerator / (float)value.Denominator;
+        }
+
+        /// <summary>
+        /// Converts the <see cref="Rational"/> to a <see cref="int"/>.
+        /// </summary>
+        /// <param name="value">A value.</param>
+        public static implicit operator int(Rational value)
+        {
+            return value.Numerator / value.Denominator;
         }
 
         /// <summary>
@@ -121,7 +130,7 @@ namespace BEditor.Media
         }
 
         /// <inheritdoc/>
-        public override string ToString()
+        public override readonly string ToString()
         {
             if (Denominator == 1) return Numerator.ToString();
 
@@ -129,20 +138,20 @@ namespace BEditor.Media
         }
 
         /// <inheritdoc/>
-        public override bool Equals(object? obj)
+        public override readonly bool Equals(object? obj)
         {
             return obj is Rational rational && Equals(rational);
         }
 
         /// <inheritdoc/>
-        public bool Equals(Rational other)
+        public readonly bool Equals(Rational other)
         {
             return Numerator == other.Numerator &&
                    Denominator == other.Denominator;
         }
 
         /// <inheritdoc/>
-        public override int GetHashCode()
+        public override readonly int GetHashCode()
         {
             return HashCode.Combine(Numerator, Denominator);
         }
