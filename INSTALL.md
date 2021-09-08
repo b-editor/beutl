@@ -41,7 +41,7 @@ sudo apt install beditor_x.x.x-1_amd64.deb
 ### Windows
 #### Zipファイルから使う場合
 
-[OpenAL](https://www.openal.org/) をインストールします。  
+~~[OpenAL](https://www.openal.org/) をインストールします。~~  
 **beditor_win-x64.zip** をダウンロードし展開  
 **beditor_win-x64** 内の **beditor.exe** を実行します。
 
