@@ -47,7 +47,7 @@ namespace BEditor.Audio
         {
             AL.SourceQueueBuffers(Handle, buffer.Select(i => i.Handle).ToArray());
         }
-        
+
         public int UnqueueBuffer()
         {
             return AL.SourceUnqueueBuffer(Handle);
