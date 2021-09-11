@@ -4117,81 +4117,6 @@
             Builds this resource.
             </summary>
         </member>
-        <member name="T:BEditor.Data.SceneCache">
-            <summary>
-            Represents the scene cache.
-            </summary>
-        </member>
-        <member name="M:BEditor.Data.SceneCache.#ctor(BEditor.Data.Scene)">
-            <summary>
-            Initializes a new instance of the <see cref="T:BEditor.Data.SceneCache"/> class.
-            </summary>
-            <param name="scene">The scene.</param>
-        </member>
-        <member name="E:BEditor.Data.SceneCache.Updated">
-            <summary>
-            Occurs when the cache is updated.
-            </summary>
-        </member>
-        <member name="E:BEditor.Data.SceneCache.Building">
-            <summary>
-            Occurs when the cache is building.
-            </summary>
-        </member>
-        <member name="P:BEditor.Data.SceneCache.Width">
-            <summary>
-            Gets the width of the cache.
-            </summary>
-        </member>
-        <member name="P:BEditor.Data.SceneCache.Height">
-            <summary>
-            Gets the height of the cache.
-            </summary>
-        </member>
-        <member name="P:BEditor.Data.SceneCache.Start">
-            <summary>
-            Gets the starting position of the cache.
-            </summary>
-        </member>
-        <member name="P:BEditor.Data.SceneCache.Length">
-            <summary>
-            Gets the length of the cache.
-            </summary>
-        </member>
-        <member name="P:BEditor.Data.SceneCache.LowColor">
-            <summary>
-            Gets a value indicating whether the color reproduction is reduced.
-            </summary>
-        </member>
-        <member name="P:BEditor.Data.SceneCache.LowResolution">
-            <summary>
-            Gets a value indicating whether or not to lower the resolution.
-            </summary>
-        </member>
-        <member name="M:BEditor.Data.SceneCache.Dispose">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Data.SceneCache.Create(BEditor.Media.Frame,BEditor.Media.Frame,System.Boolean,System.Boolean)">
-            <summary>
-            Creates a cache for the specified range.
-            </summary>
-            <param name="start">The starting position of the cache.</param>
-            <param name="length">The length of the cache.</param>
-            <param name="lowColor">Whether the color reproduction is reduced.</param>
-            <param name="lowResolution">Whether or not to lower the resolution.</param>
-        </member>
-        <member name="M:BEditor.Data.SceneCache.Clear">
-            <summary>
-            Clear the cache.
-            </summary>
-        </member>
-        <member name="M:BEditor.Data.SceneCache.ReadImage(BEditor.Media.Frame)">
-            <summary>
-            Read the image from the cache.
-            </summary>
-            <param name="frame">The frame to read.</param>
-            <returns>Returns the image that was read.</returns>
-        </member>
         <member name="T:BEditor.Data.Scene">
             <summary>
             Represents a scene to be included in the <see cref="T:BEditor.Data.Project"/>.
@@ -4478,6 +4403,81 @@
             Gets the name.
             </summary>
         </member>
+        <member name="T:BEditor.Data.SceneCache">
+            <summary>
+            Represents the scene cache.
+            </summary>
+        </member>
+        <member name="M:BEditor.Data.SceneCache.#ctor(BEditor.Data.Scene)">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Data.SceneCache"/> class.
+            </summary>
+            <param name="scene">The scene.</param>
+        </member>
+        <member name="E:BEditor.Data.SceneCache.Updated">
+            <summary>
+            Occurs when the cache is updated.
+            </summary>
+        </member>
+        <member name="E:BEditor.Data.SceneCache.Building">
+            <summary>
+            Occurs when the cache is building.
+            </summary>
+        </member>
+        <member name="P:BEditor.Data.SceneCache.Width">
+            <summary>
+            Gets the width of the cache.
+            </summary>
+        </member>
+        <member name="P:BEditor.Data.SceneCache.Height">
+            <summary>
+            Gets the height of the cache.
+            </summary>
+        </member>
+        <member name="P:BEditor.Data.SceneCache.Start">
+            <summary>
+            Gets the starting position of the cache.
+            </summary>
+        </member>
+        <member name="P:BEditor.Data.SceneCache.Length">
+            <summary>
+            Gets the length of the cache.
+            </summary>
+        </member>
+        <member name="P:BEditor.Data.SceneCache.LowColor">
+            <summary>
+            Gets a value indicating whether the color reproduction is reduced.
+            </summary>
+        </member>
+        <member name="P:BEditor.Data.SceneCache.LowResolution">
+            <summary>
+            Gets a value indicating whether or not to lower the resolution.
+            </summary>
+        </member>
+        <member name="M:BEditor.Data.SceneCache.Dispose">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Data.SceneCache.Create(BEditor.Media.Frame,BEditor.Media.Frame,System.Boolean,System.Boolean)">
+            <summary>
+            Creates a cache for the specified range.
+            </summary>
+            <param name="start">The starting position of the cache.</param>
+            <param name="length">The length of the cache.</param>
+            <param name="lowColor">Whether the color reproduction is reduced.</param>
+            <param name="lowResolution">Whether or not to lower the resolution.</param>
+        </member>
+        <member name="M:BEditor.Data.SceneCache.Clear">
+            <summary>
+            Clear the cache.
+            </summary>
+        </member>
+        <member name="M:BEditor.Data.SceneCache.ReadImage(BEditor.Media.Frame)">
+            <summary>
+            Read the image from the cache.
+            </summary>
+            <param name="frame">The frame to read.</param>
+            <returns>Returns the image that was read.</returns>
+        </member>
         <member name="T:BEditor.IFileDialogService">
             <summary>
             Represents a service in a file dialog.
@@ -4762,61 +4762,6 @@
             <summary>
             Gets or sets a value indicating whether the progress bar shows actual values or generic, continuous progress feedback.
             </summary>
-        </member>
-        <member name="T:BEditor.PluginTask">
-            <summary>
-            Represents the task to be executed after the plugin is loaded.
-            </summary>
-        </member>
-        <member name="M:BEditor.PluginTask.#ctor(System.Func{BEditor.IProgressDialog,System.Threading.Tasks.ValueTask},System.String)">
-            <summary>
-            Initializes a new instance of the <see cref="T:BEditor.PluginTask"/> struct.
-            </summary>
-            <param name="task">The function to run.</param>
-            <param name="name">The name of the <see cref="T:BEditor.PluginTask"/>.</param>
-            <exception cref="T:System.ArgumentNullException"><paramref name="task"/> or <paramref name="name"/> is <see langword="null"/>.</exception>
-        </member>
-        <member name="P:BEditor.PluginTask.Name">
-            <summary>
-            Gets the name of this <see cref="T:BEditor.PluginTask"/>.
-            </summary>
-        </member>
-        <member name="P:BEditor.PluginTask.IsExecuted">
-            <summary>
-            Gets a value indicating whether the task has been executed.
-            </summary>
-        </member>
-        <member name="M:BEditor.PluginTask.op_Equality(BEditor.PluginTask,BEditor.PluginTask)">
-            <summary>
-            Compares two <see cref="T:BEditor.PluginTask"/> structures. The result specifies whether the two <see cref="T:BEditor.PluginTask"/> structures are equal.
-            </summary>
-            <param name="left">A <see cref="T:BEditor.PluginTask"/> to compare.</param>
-            <param name="right">A <see cref="T:BEditor.PluginTask"/> to compare.</param>
-            <returns>true if the left and right <see cref="T:BEditor.PluginTask"/> structures are equal; otherwise, false.</returns>
-        </member>
-        <member name="M:BEditor.PluginTask.op_Inequality(BEditor.PluginTask,BEditor.PluginTask)">
-            <summary>
-            Determines whether the coordinates of the specified points are not equal.
-            </summary>
-            <param name="left">A <see cref="T:BEditor.PluginTask"/> to compare.</param>
-            <param name="right">A <see cref="T:BEditor.PluginTask"/> to compare.</param>
-            <returns>true if the left and right <see cref="T:BEditor.PluginTask"/> structures differ; otherwise, false.</returns>
-        </member>
-        <member name="M:BEditor.PluginTask.Equals(System.Object)">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.PluginTask.Equals(BEditor.PluginTask)">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.PluginTask.GetHashCode">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.PluginTask.RunTaskAsync(BEditor.IProgressDialog)">
-            <summary>
-            Run the task.
-            </summary>
-            <param name="progress">The progress of this <see cref="T:BEditor.PluginTask"/>.</param>
-            <returns>A <see cref="T:System.Threading.Tasks.ValueTask"/> representing the result of the asynchronous operation.</returns>
         </member>
         <member name="T:BEditor.Plugin.ICustomMenu">
             <summary>
@@ -5155,6 +5100,61 @@
             <typeparam name="T">Type of the object to be loaded.</typeparam>
             <param name="filename">The name of the file to load.</param>
             <returns>Returns the restored object on success, <see langword="null"/> otherwise.</returns>
+        </member>
+        <member name="T:BEditor.PluginTask">
+            <summary>
+            Represents the task to be executed after the plugin is loaded.
+            </summary>
+        </member>
+        <member name="M:BEditor.PluginTask.#ctor(System.Func{BEditor.IProgressDialog,System.Threading.Tasks.ValueTask},System.String)">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.PluginTask"/> struct.
+            </summary>
+            <param name="task">The function to run.</param>
+            <param name="name">The name of the <see cref="T:BEditor.PluginTask"/>.</param>
+            <exception cref="T:System.ArgumentNullException"><paramref name="task"/> or <paramref name="name"/> is <see langword="null"/>.</exception>
+        </member>
+        <member name="P:BEditor.PluginTask.Name">
+            <summary>
+            Gets the name of this <see cref="T:BEditor.PluginTask"/>.
+            </summary>
+        </member>
+        <member name="P:BEditor.PluginTask.IsExecuted">
+            <summary>
+            Gets a value indicating whether the task has been executed.
+            </summary>
+        </member>
+        <member name="M:BEditor.PluginTask.op_Equality(BEditor.PluginTask,BEditor.PluginTask)">
+            <summary>
+            Compares two <see cref="T:BEditor.PluginTask"/> structures. The result specifies whether the two <see cref="T:BEditor.PluginTask"/> structures are equal.
+            </summary>
+            <param name="left">A <see cref="T:BEditor.PluginTask"/> to compare.</param>
+            <param name="right">A <see cref="T:BEditor.PluginTask"/> to compare.</param>
+            <returns>true if the left and right <see cref="T:BEditor.PluginTask"/> structures are equal; otherwise, false.</returns>
+        </member>
+        <member name="M:BEditor.PluginTask.op_Inequality(BEditor.PluginTask,BEditor.PluginTask)">
+            <summary>
+            Determines whether the coordinates of the specified points are not equal.
+            </summary>
+            <param name="left">A <see cref="T:BEditor.PluginTask"/> to compare.</param>
+            <param name="right">A <see cref="T:BEditor.PluginTask"/> to compare.</param>
+            <returns>true if the left and right <see cref="T:BEditor.PluginTask"/> structures differ; otherwise, false.</returns>
+        </member>
+        <member name="M:BEditor.PluginTask.Equals(System.Object)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.PluginTask.Equals(BEditor.PluginTask)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.PluginTask.GetHashCode">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.PluginTask.RunTaskAsync(BEditor.IProgressDialog)">
+            <summary>
+            Run the task.
+            </summary>
+            <param name="progress">The progress of this <see cref="T:BEditor.PluginTask"/>.</param>
+            <returns>A <see cref="T:System.Threading.Tasks.ValueTask"/> representing the result of the asynchronous operation.</returns>
         </member>
         <member name="T:BEditor.ProjectOpenedEventArgs">
             <summary>

@@ -94,38 +94,6 @@
             <param name="info">The <see cref="T:System.Runtime.Serialization.SerializationInfo"/> that holds the serialized object data about the exception being thrown.</param>
             <param name="context">The <see cref="T:System.Runtime.Serialization.StreamingContext"/> that contains contextual information about the source or destination.</param>
         </member>
-        <member name="T:BEditor.Media.DecodingRegistory">
-            <summary>
-            Register and record supported decoding.
-            </summary>
-        </member>
-        <member name="M:BEditor.Media.DecodingRegistory.EnumerateDecodings">
-            <summary>
-            Enumerate the registered decodings.
-            </summary>
-            <returns>Returns the registered decodings.</returns>
-        </member>
-        <member name="M:BEditor.Media.DecodingRegistory.Open(System.String,BEditor.Media.Decoding.MediaOptions)">
-            <summary>
-            Open the media file by specifying the file name and options.
-            </summary>
-            <param name="file">The media file to be opened.</param>
-            <param name="options">The option used to open the media file.</param>
-            <returns>Returns the input container opened by this method.</returns>
-        </member>
-        <member name="M:BEditor.Media.DecodingRegistory.GuessDecodings(System.String)">
-            <summary>
-            Guess decoding from file name.
-            </summary>
-            <param name="file">The file name to guess.</param>
-            <returns>Returns the guessed decodings.</returns>
-        </member>
-        <member name="M:BEditor.Media.DecodingRegistory.Register(BEditor.Media.IRegisterdDecoding)">
-            <summary>
-            Register the decoding.
-            </summary>
-            <param name="decoding">The decoding to register.</param>
-        </member>
         <member name="T:BEditor.Media.Decoding.AudioStreamInfo">
             <summary>
             Represents informations about the audio stream.
@@ -541,44 +509,37 @@
             Gets the video frame dimensions.
             </summary>
         </member>
-        <member name="T:BEditor.Media.EncodingRegistory">
+        <member name="T:BEditor.Media.DecodingRegistory">
             <summary>
-            Register and record supported encoding.
+            Register and record supported decoding.
             </summary>
         </member>
-        <member name="M:BEditor.Media.EncodingRegistory.EnumerateEncodings">
+        <member name="M:BEditor.Media.DecodingRegistory.EnumerateDecodings">
             <summary>
-            Enumerate the registered encoding.
+            Enumerate the registered decodings.
             </summary>
-            <returns>Returns the registered encodings.</returns>
+            <returns>Returns the registered decodings.</returns>
         </member>
-        <member name="M:BEditor.Media.EncodingRegistory.Create(System.String)">
+        <member name="M:BEditor.Media.DecodingRegistory.Open(System.String,BEditor.Media.Decoding.MediaOptions)">
             <summary>
-            Create a container from the name of the file to be output.
+            Open the media file by specifying the file name and options.
             </summary>
-            <param name="file">The file name to output.</param>
-            <returns>Returns the output container created by this method.</returns>
+            <param name="file">The media file to be opened.</param>
+            <param name="options">The option used to open the media file.</param>
+            <returns>Returns the input container opened by this method.</returns>
         </member>
-        <member name="M:BEditor.Media.EncodingRegistory.Create(System.String,BEditor.Media.Encoding.IOutputContainer@,BEditor.Media.IRegisterdEncoding@)">
+        <member name="M:BEditor.Media.DecodingRegistory.GuessDecodings(System.String)">
             <summary>
-            Create a container from the name of the file to be output.
-            </summary>
-            <param name="file">The file name to output.</param>
-            <param name="container">Returns the output container created by this method.</param>
-            <param name="encoding">The encoding.</param>
-        </member>
-        <member name="M:BEditor.Media.EncodingRegistory.GuessEncodings(System.String)">
-            <summary>
-            Guess encoding from file name.
+            Guess decoding from file name.
             </summary>
             <param name="file">The file name to guess.</param>
-            <returns>Returns the guessed encodings.</returns>
+            <returns>Returns the guessed decodings.</returns>
         </member>
-        <member name="M:BEditor.Media.EncodingRegistory.Register(BEditor.Media.IRegisterdEncoding)">
+        <member name="M:BEditor.Media.DecodingRegistory.Register(BEditor.Media.IRegisterdDecoding)">
             <summary>
-            Register the encoding.
+            Register the decoding.
             </summary>
-            <param name="encoding">The encoding to register.</param>
+            <param name="decoding">The decoding to register.</param>
         </member>
         <member name="T:BEditor.Media.Encoding.AudioEncoderSettings">
             <summary>
@@ -841,6 +802,45 @@
             <summary>
             Gets or sets the dictionary with custom codec options.
             </summary>
+        </member>
+        <member name="T:BEditor.Media.EncodingRegistory">
+            <summary>
+            Register and record supported encoding.
+            </summary>
+        </member>
+        <member name="M:BEditor.Media.EncodingRegistory.EnumerateEncodings">
+            <summary>
+            Enumerate the registered encoding.
+            </summary>
+            <returns>Returns the registered encodings.</returns>
+        </member>
+        <member name="M:BEditor.Media.EncodingRegistory.Create(System.String)">
+            <summary>
+            Create a container from the name of the file to be output.
+            </summary>
+            <param name="file">The file name to output.</param>
+            <returns>Returns the output container created by this method.</returns>
+        </member>
+        <member name="M:BEditor.Media.EncodingRegistory.Create(System.String,BEditor.Media.Encoding.IOutputContainer@,BEditor.Media.IRegisterdEncoding@)">
+            <summary>
+            Create a container from the name of the file to be output.
+            </summary>
+            <param name="file">The file name to output.</param>
+            <param name="container">Returns the output container created by this method.</param>
+            <param name="encoding">The encoding.</param>
+        </member>
+        <member name="M:BEditor.Media.EncodingRegistory.GuessEncodings(System.String)">
+            <summary>
+            Guess encoding from file name.
+            </summary>
+            <param name="file">The file name to guess.</param>
+            <returns>Returns the guessed encodings.</returns>
+        </member>
+        <member name="M:BEditor.Media.EncodingRegistory.Register(BEditor.Media.IRegisterdEncoding)">
+            <summary>
+            Register the encoding.
+            </summary>
+            <param name="encoding">The encoding to register.</param>
         </member>
         <member name="T:BEditor.Media.Frame">
             <summary>
