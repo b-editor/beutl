@@ -13,7 +13,7 @@
     Height="40"
     Background="Transparent"
     x:Class="BEditor.Views.Properties.ColorAnimationPropertyView">
-    <Grid>
+    <Grid ColumnDefinitions="120,40,40,*">
         <Grid.Styles>
             <Style Selector="Button">
                 <Setter Property="Width" Value="32" />
@@ -30,21 +30,15 @@
                 <Setter Property="Padding" Value="0" />
             </Style>
         </Grid.Styles>
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="120*" MinWidth="50" MaxWidth="100" />
-            <ColumnDefinition Width="40" />
-            <ColumnDefinition Width="40" />
-            <ColumnDefinition Width="*" MinWidth="100" />
-        </Grid.ColumnDefinitions>
 
         <ContentControl
             Margin="10,0,0,0"
             Height="40"
+            ToolTip.Tip="{CompiledBinding Property.PropertyMetadata.Name, Mode=OneTime}"
+            Content="{CompiledBinding Property.PropertyMetadata.Name, Mode=OneTime}"
             VerticalAlignment="Top"
             HorizontalAlignment="Left"
-            VerticalContentAlignment="Center">
-            <TextBlock FontSize="13" Text="{CompiledBinding Property.PropertyMetadata.Name, Mode=OneTime}" />
-        </ContentControl>
+            VerticalContentAlignment="Center" />
 
         <Button
             Grid.Column="1"

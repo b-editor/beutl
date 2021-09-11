@@ -9,7 +9,7 @@
         x:Name="scrollview"
         HorizontalContentAlignment="Stretch"
         VerticalScrollBarVisibility="Hidden">
-        <StackPanel HorizontalAlignment="Stretch">
+        <VirtualizingStackPanel HorizontalAlignment="Stretch">
             <ItemsControl
                 HorizontalAlignment="Stretch"
                 x:Name="itemsControl"
@@ -25,7 +25,12 @@
                             Content="{Binding Converter={StaticResource EffectPropertyConverter}}" />
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <VirtualizingStackPanel />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
             </ItemsControl>
-        </StackPanel>
+        </VirtualizingStackPanel>
     </ScrollViewer>
 </UserControl>

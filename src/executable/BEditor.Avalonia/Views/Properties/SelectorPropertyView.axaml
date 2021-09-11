@@ -20,19 +20,13 @@
             <MenuItem Header="{x:Static prop:Strings.CopyID}" Command="{CompiledBinding CopyID, Mode=OneTime}" />
         </ContextMenu>
     </UserControl.ContextMenu>
-    <Grid>
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="120*" MaxWidth="100" MinWidth="50"/>
-            <ColumnDefinition Width="40"/>
-            <ColumnDefinition Width="40"/>
-            <ColumnDefinition Width="*" MinWidth="100"/>
-        </Grid.ColumnDefinitions>
+    <Grid ColumnDefinitions="200,*">
 
         <TextBlock
             Margin="10,0,0,0"
             HorizontalAlignment="Left"
             VerticalAlignment="Center"
-            FontSize="13"
+            ToolTip.Tip="{Binding Property.PropertyMetadata.Name, Mode=OneTime}"
             Text="{Binding Property.PropertyMetadata.Name, Mode=OneTime}" />
 
         <!--Combo box-->
@@ -44,7 +38,7 @@
             SelectionChanged="ComboBox_SelectionChanged"
             HorizontalAlignment="Stretch"
             VerticalAlignment="Center"
-            Grid.Column="3"
+            Grid.Column="1"
             Margin="8,0" />
     </Grid>
 </UserControl>
