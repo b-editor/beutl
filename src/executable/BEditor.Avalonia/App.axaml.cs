@@ -18,6 +18,7 @@ using Avalonia.Threading;
 
 using BEditor.Data;
 using BEditor.Data.Property.Easing;
+using BEditor.Drawing;
 using BEditor.Extensions;
 using BEditor.Graphics.Platform;
 using BEditor.Models;
@@ -125,6 +126,9 @@ namespace BEditor
                     await CheckOpenALAsync();
                     await SetupAsync();
                     await ArgumentsContext.ExecuteAsync();
+
+                    // ÉtÉHÉìÉgÇÃì«Ç›çûÇ›
+                    _ = FontManager.Default;
                 }));
                 AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
 

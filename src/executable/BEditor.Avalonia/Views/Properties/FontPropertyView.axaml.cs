@@ -4,6 +4,7 @@ using System.Globalization;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Layout;
 using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
 
@@ -17,7 +18,7 @@ namespace BEditor.Views.Properties
 {
     public sealed class FontPropertyView : UserControl, IDisposable
     {
-        private bool _mouseDown = false;
+        private bool _mouseDown;
 
         public FontPropertyView()
         {
