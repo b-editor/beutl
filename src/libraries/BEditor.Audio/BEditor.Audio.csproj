@@ -2,7 +2,7 @@
 
     <ItemGroup>
         <ProjectReference Include="..\BEditor.Media\BEditor.Media.csproj" />
-        <PackageReference Include="OpenTK.OpenAL" Version="4.6.4" />
+        <PackageReference Include="OpenTK.OpenAL" Version="4.6.7" />
         <PackageReference Include="Vortice.XAudio2" Version="1.9.87" />
     </ItemGroup>
 
