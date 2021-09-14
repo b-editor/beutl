@@ -14,7 +14,8 @@ using SkiaSharp;
 namespace BEditor.PackageInstaller
 {
     internal sealed class CustomFontManagerImpl : IFontManagerImpl
-    {private readonly Typeface[] _customTypefaces;
+    {
+        private readonly Typeface[] _customTypefaces;
         private readonly string _defaultFamilyName;
 
         //Load font resources in the project, you can load multiple font resources
