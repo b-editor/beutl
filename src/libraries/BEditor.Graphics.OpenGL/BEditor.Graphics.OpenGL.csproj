@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <ItemGroup>
-        <PackageReference Include="OpenTK.Graphics" Version="4.6.4" />
+        <PackageReference Include="OpenTK.Graphics" Version="4.6.7" />
         <PackageReference Include="OpenTK.Windowing.GraphicsLibraryFramework" Version="4.6.4" />
     </ItemGroup>
 
