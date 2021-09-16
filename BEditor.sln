@@ -17,8 +17,21 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "generator", "generator", "{
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "props", "props", "{9D217EAA-DF88-42D7-A0CA-02E5B7F9CD05}"
 	ProjectSection(SolutionItems) = preProject
-		props\analyzer.props = props\analyzer.props
+		props\Avalonia.props = props\Avalonia.props
+		props\Microsoft.Extensions.DependencyInjection.props = props\Microsoft.Extensions.DependencyInjection.props
+		props\Microsoft.Extensions.Logging.props = props\Microsoft.Extensions.Logging.props
+		props\OpenAL.props = props\OpenAL.props
+		props\OpenCvSharp4.props = props\OpenCvSharp4.props
+		props\OpenGL.props = props\OpenGL.props
 		props\plugin.props = props\plugin.props
+		props\ReactiveProperty.props = props\ReactiveProperty.props
+		props\Roslynator.props = props\Roslynator.props
+		props\Serilog.props = props\Serilog.props
+		props\SkiaSharp.props = props\SkiaSharp.props
+		props\StyleCop.props = props\StyleCop.props
+		props\System.Reactive.props = props\System.Reactive.props
+		props\Veldrid.props = props\Veldrid.props
+		props\XAudio2.props = props\XAudio2.props
 	EndProjectSection
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "test", "test", "{F406E94E-67F5-43BA-AD63-6CC5E526BA89}"
@@ -94,7 +107,7 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BEditor.Graphics.Skia", "sr
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BEditor.Graphics.Veldrid", "src\libraries\BEditor.Graphics.Veldrid\BEditor.Graphics.Veldrid.csproj", "{BB2E2B01-5EBD-44F7-97CD-614C08A6AF01}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BEditor.Extensions.MotionTrack", "extensions\BEditor.Extensions.MotionTrack\BEditor.Extensions.MotionTrack.csproj", "{0465A88A-4553-4763-AA2E-7697819D9487}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BEditor.Extensions.MotionTrack", "extensions\BEditor.Extensions.MotionTrack\BEditor.Extensions.MotionTrack.csproj", "{0465A88A-4553-4763-AA2E-7697819D9487}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

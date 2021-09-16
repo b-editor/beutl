@@ -4,25 +4,26 @@
         <DocumentationFile>BEditor.Graphics.OpenGL.xml</DocumentationFile>
     </PropertyGroup>
 
-    <Import Project="..\..\..\props\analyzer.props" />
+    <Import Project="..\..\..\props\Roslynator.props" />
+    <Import Project="..\..\..\props\StyleCop.props" />
 
     <ItemGroup>
         <ProjectReference Include="..\BEditor.Drawing\BEditor.Drawing.csproj" />
     </ItemGroup>
 
     <ItemGroup>
-      <Compile Update="Resources\Strings.Designer.cs">
-        <DesignTime>True</DesignTime>
-        <AutoGen>True</AutoGen>
-        <DependentUpon>Strings.resx</DependentUpon>
-      </Compile>
+        <Compile Update="Resources\Strings.Designer.cs">
+            <DesignTime>True</DesignTime>
+            <AutoGen>True</AutoGen>
+            <DependentUpon>Strings.resx</DependentUpon>
+        </Compile>
     </ItemGroup>
 
     <ItemGroup>
-      <EmbeddedResource Update="Resources\Strings.resx">
-        <Generator>ResXFileCodeGenerator</Generator>
-        <LastGenOutput>Strings.Designer.cs</LastGenOutput>
-      </EmbeddedResource>
+        <EmbeddedResource Update="Resources\Strings.resx">
+            <Generator>ResXFileCodeGenerator</Generator>
+            <LastGenOutput>Strings.Designer.cs</LastGenOutput>
+        </EmbeddedResource>
     </ItemGroup>
 
 </Project>

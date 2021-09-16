@@ -1,0 +1,7 @@
+<Project>
+
+    <ItemGroup>
+        <PackageReference Include="Vortice.XAudio2" Version="1.9.87" />
+    </ItemGroup>
+
+</Project>

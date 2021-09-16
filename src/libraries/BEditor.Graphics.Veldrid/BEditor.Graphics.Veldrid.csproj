@@ -1,20 +1,11 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-    <PropertyGroup>
-        <TargetFramework>net5.0</TargetFramework>
-    </PropertyGroup>
-
     <ItemGroup>
         <EmbeddedResource Include="Resources\*.frag" />
         <EmbeddedResource Include="Resources\*.vert" />
     </ItemGroup>
 
-    <ItemGroup>
-        <PackageReference Include="Veldrid" Version="4.8.0" />
-        <PackageReference Include="Veldrid.SPIRV" Version="1.0.14" />
-        <PackageReference Include="Veldrid.StartupUtilities" Version="4.8.0" />
-        <PackageReference Include="Veldrid.Utilities" Version="4.8.0" />
-    </ItemGroup>
+    <Import Project="..\..\..\props\Veldrid.props" />
 
     <ItemGroup>
         <ProjectReference Include="..\BEditor.Drawing\BEditor.Drawing.csproj" />

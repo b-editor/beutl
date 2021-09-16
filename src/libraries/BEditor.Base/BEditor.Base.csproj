@@ -5,13 +5,11 @@
         <RootNamespace>BEditor</RootNamespace>
     </PropertyGroup>
 
-    <Import Project="..\..\..\props\analyzer.props" />
-
-    <ItemGroup>
-        <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="5.0.2" />
-        <PackageReference Include="Microsoft.Extensions.Logging" Version="5.0.0" />
-        <PackageReference Include="System.Reactive" Version="5.0.0" />
-    </ItemGroup>
+    <Import Project="..\..\..\props\Roslynator.props" />
+    <Import Project="..\..\..\props\StyleCop.props" />
+    <Import Project="..\..\..\props\Microsoft.Extensions.DependencyInjection.props" />
+    <Import Project="..\..\..\props\Microsoft.Extensions.Logging.props" />
+    <Import Project="..\..\..\props\System.Reactive.props" />
 
     <ItemGroup>
         <Compile Update="Resources\Strings.Designer.cs">

@@ -8,7 +8,8 @@
         <ProjectReference Include="..\BEditor.Drawing\BEditor.Drawing.csproj" />
     </ItemGroup>
 
-    <Import Project="..\..\..\props\analyzer.props" />
+    <Import Project="..\..\..\props\Roslynator.props" />
+    <Import Project="..\..\..\props\StyleCop.props" />
 
     <ItemGroup>
         <Compile Update="Resources\Strings.Designer.cs">

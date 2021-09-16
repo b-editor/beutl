@@ -1,12 +1,12 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <AssemblyName>BEditor.Primitive</AssemblyName>
         <DocumentationFile>BEditor.Primitive.xml</DocumentationFile>
-        <RootNamespace>BEditor.Primitive</RootNamespace>
     </PropertyGroup>
 
-    <Import Project="..\..\..\props\analyzer.props" />
+    <Import Project="..\..\..\props\Roslynator.props" />
+    <Import Project="..\..\..\props\StyleCop.props" />
+    <Import Project="..\..\..\props\ReactiveProperty.props" />
 
     <ItemGroup>
         <PackageReference Include="ReactiveProperty" Version="7.12.0" />

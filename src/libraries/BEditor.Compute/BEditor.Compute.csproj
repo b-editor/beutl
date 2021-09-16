@@ -1,5 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-    <Import Project="..\..\..\props\analyzer.props" />
+    <Import Project="..\..\..\props\Roslynator.props" />
+    <Import Project="..\..\..\props\StyleCop.props" />
 
 </Project>

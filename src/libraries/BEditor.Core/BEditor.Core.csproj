@@ -6,7 +6,8 @@
         <RootNamespace>BEditor</RootNamespace>
     </PropertyGroup>
 
-    <Import Project="..\..\..\props\analyzer.props" />
+    <Import Project="..\..\..\props\Roslynator.props" />
+    <Import Project="..\..\..\props\StyleCop.props" />
 
     <ItemGroup>
         <ProjectReference Include="..\BEditor.Base\BEditor.Base.csproj" />

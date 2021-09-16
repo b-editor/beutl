@@ -1,9 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-    <ItemGroup>
-        <PackageReference Include="OpenTK.Windowing.GraphicsLibraryFramework" Version="4.6.7" />
-        <PackageReference Include="OpenTK.Graphics" Version="4.6.7" />
-    </ItemGroup>
+    <Import Project="..\..\..\props\OpenGL.props" />
 
     <ItemGroup>
         <ProjectReference Include="..\BEditor.Drawing\BEditor.Drawing.csproj" />
