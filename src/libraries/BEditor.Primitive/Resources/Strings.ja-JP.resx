@@ -757,4 +757,10 @@
   <data name="RoundClipping" xml:space="preserve">
     <value>角丸クリッピング</value>
   </data>
+  <data name="Scale" xml:space="preserve">
+    <value>スケール</value>
+  </data>
+  <data name="Quality" xml:space="preserve">
+    <value>品質</value>
+  </data>
 </root>

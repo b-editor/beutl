@@ -2249,6 +2249,60 @@
         <member name="M:BEditor.Primitive.Effects.PointLightDiffuse.GetProperties">
             <inheritdoc/>
         </member>
+        <member name="T:BEditor.Primitive.Effects.Resize">
+            <summary>
+            The resize.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.Resize.ScaleProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.Resize.Scale"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.Resize.ScaleXProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.Resize.ScaleX"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.Resize.ScaleYProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.Resize.ScaleY"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.Resize.QualityProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.Resize.Quality"/> property.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.Resize.Name">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.Resize.Scale">
+            <summary>
+            Gets the EaseProperty representing the scale.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.Resize.ScaleX">
+            <summary>
+            Gets the scale in the Z-axis direction.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.Resize.ScaleY">
+            <summary>
+            Gets the scale in the Y-axis direction.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.Resize.Quality">
+            <summary>
+            Gets the quality.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.Resize.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.Resize.GetProperties">
+            <inheritdoc/>
+        </member>
         <member name="T:BEditor.Primitive.Effects.ReverseOpacity">
             <summary>
             Represents an effect that reverses the opacity of an image.
@@ -4301,6 +4355,11 @@
               Polygon に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Quality">
+            <summary>
+              Quality に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Radius">
             <summary>
               Radius に類似しているローカライズされた文字列を検索します。
@@ -4364,6 +4423,11 @@
         <member name="P:BEditor.Primitive.Resources.Strings.SaturationRange">
             <summary>
               Saturation range に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Scale">
+            <summary>
+              Scale に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Scene">

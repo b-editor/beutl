@@ -757,4 +757,10 @@
   <data name="RoundClipping" xml:space="preserve">
     <value>Round clipping</value>
   </data>
+  <data name="Scale" xml:space="preserve">
+    <value>Scale</value>
+  </data>
+  <data name="Quality" xml:space="preserve">
+    <value>Quality</value>
+  </data>
 </root>

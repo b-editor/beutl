@@ -225,6 +225,7 @@ namespace BEditor.Primitive
                     EffectMetadata.Create<Effects.PartsDisassembly>(Strings.PartsDisassembly),
                     EffectMetadata.Create<Effects.FlatShadow>(Strings.FlatShadow),
                     EffectMetadata.Create<Effects.RoundClipping>(Strings.RoundClipping),
+                    EffectMetadata.Create<Effects.Resize>(Strings.Resize),
                 },
             };
 
