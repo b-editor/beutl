@@ -754,4 +754,7 @@
   <data name="CropTransparentArea" xml:space="preserve">
     <value>Crop the transparent area.</value>
   </data>
+  <data name="RoundClipping" xml:space="preserve">
+    <value>Round clipping</value>
+  </data>
 </root>

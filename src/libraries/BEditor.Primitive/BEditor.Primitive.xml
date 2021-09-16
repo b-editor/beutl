@@ -2312,6 +2312,128 @@
         <member name="M:BEditor.Primitive.Effects.RGBColor.GetProperties">
             <inheritdoc/>
         </member>
+        <member name="T:BEditor.Primitive.Effects.RoundClipping">
+            <summary>
+            Represents the <see cref="T:BEditor.Data.Primitive.ImageEffect"/> that cripping the image.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.RoundClipping.TopProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.RoundClipping.Top"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.RoundClipping.BottomProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.RoundClipping.Bottom"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.RoundClipping.LeftProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.RoundClipping.Left"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.RoundClipping.RightProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.RoundClipping.Right"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.RoundClipping.TopLeftRadiusProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.RoundClipping.TopLeftRadius"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.RoundClipping.TopRightRadiusProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.RoundClipping.TopRightRadius"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.RoundClipping.BottomLeftRadiusProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.RoundClipping.BottomLeftRadius"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.RoundClipping.BottomRightRadiusProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.RoundClipping.BottomRightRadius"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.RoundClipping.AdjustCoordinatesProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.RoundClipping.AdjustCoordinates"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.RoundClipping.CropTransparentAreaProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.RoundClipping.CropTransparentArea"/> property.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.RoundClipping.#ctor">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Primitive.Effects.RoundClipping"/> class.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.RoundClipping.Name">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.RoundClipping.Top">
+            <summary>
+            Gets the range to be clipped.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.RoundClipping.Bottom">
+            <summary>
+            Gets the range to be clipped.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.RoundClipping.Left">
+            <summary>
+            Gets the range to be clipped.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.RoundClipping.Right">
+            <summary>
+            Gets the range to be clipped.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.RoundClipping.TopLeftRadius">
+            <summary>
+            Gets the roundness of the shape.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.RoundClipping.TopRightRadius">
+            <summary>
+            Gets the roundness of the shape.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.RoundClipping.BottomLeftRadius">
+            <summary>
+            Gets the roundness of the shape.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.RoundClipping.BottomRightRadius">
+            <summary>
+            Gets the roundness of the shape.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.RoundClipping.AdjustCoordinates">
+            <summary>
+            Gets whether or not to adjust the coordinates.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.RoundClipping.CropTransparentArea">
+            <summary>
+            Gets whether or not to crop the transparent area.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.RoundClipping.Apply(BEditor.Data.EffectApplyArgs{System.Collections.Generic.IEnumerable{BEditor.Graphics.Texture}})">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.RoundClipping.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.RoundClipping.GetProperties">
+            <inheritdoc/>
+        </member>
         <member name="T:BEditor.Primitive.Effects.Sepia">
             <summary>
             Represents an effect that turns an image into a sepia tone.
@@ -4227,6 +4349,11 @@
         <member name="P:BEditor.Primitive.Resources.Strings.Round">
             <summary>
               Round に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.RoundClipping">
+            <summary>
+              Round clipping に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.RoundRect">

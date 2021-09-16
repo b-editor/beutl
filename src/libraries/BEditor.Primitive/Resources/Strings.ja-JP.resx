@@ -754,4 +754,7 @@
   <data name="CropTransparentArea" xml:space="preserve">
     <value>透過な領域をクロップします。</value>
   </data>
+  <data name="RoundClipping" xml:space="preserve">
+    <value>角丸クリッピング</value>
+  </data>
 </root>

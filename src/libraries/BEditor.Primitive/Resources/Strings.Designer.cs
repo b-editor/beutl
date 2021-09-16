@@ -1231,6 +1231,15 @@ namespace BEditor.Primitive.Resources {
         }
         
         /// <summary>
+        ///   Round clipping に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string RoundClipping {
+            get {
+                return ResourceManager.GetString("RoundClipping", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Round rect に類似しているローカライズされた文字列を検索します。
         /// </summary>
         internal static string RoundRect {
