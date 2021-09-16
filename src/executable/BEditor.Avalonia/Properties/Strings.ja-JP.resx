@@ -946,4 +946,7 @@ Vulkan:
     <value>ファイルが存在しません。
 リストから削除しますか？</value>
   </data>
+  <data name="XAudio2IsUsedAsAudioProfile" xml:space="preserve">
+    <value>音声プロファイルにXAudio2が使われています。</value>
+  </data>
 </root>

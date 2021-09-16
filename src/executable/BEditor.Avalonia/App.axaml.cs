@@ -123,7 +123,7 @@ namespace BEditor
                         Path.Combine(ServicesLocator.GetUserFolder(), "token"),
                         AppModel.Current.ServiceProvider.GetRequiredService<IAuthenticationProvider>());
 
-                    await CheckOpenALAsync();
+                    await SetupAudioContextAsync();
                     await SetupAsync();
                     await ArgumentsContext.ExecuteAsync();
 
@@ -281,7 +281,7 @@ namespace BEditor
                         for (var i = 0; i < tasks.Count; i++)
                         {
                             var task = tasks[i];
-                            dialog.Text.Value = string.Format(Strings.IsLoading, plugin.PluginName) + $"  :{task.Name}";
+                            dialog.Text.Value = $"{string.Format(Strings.IsLoading, plugin.PluginName)}  :{task.Name}";
 
                             await task.RunTaskAsync(dialog);
                             dialog.Report(0);
@@ -291,10 +291,11 @@ namespace BEditor
                     dialog.Close();
                 });
             }
+
             app.ServiceProvider = app.Services.BuildServiceProvider();
         }
 
-        private static async Task CheckOpenALAsync()
+        private static async Task SetupAudioContextAsync()
         {
             if (Settings.Default.AudioProfile is "XAudio2" && OperatingSystem.IsWindows())
             {
@@ -308,6 +309,15 @@ namespace BEditor
                 }
                 catch
                 {
+                    // Windows‚Ìê‡XAudio2‚ðŽg‚¤
+                    if (OperatingSystem.IsWindows())
+                    {
+                        AppModel.Current.AudioContext ??= new Audio.XAudio2.XAudioContext();
+                        Settings.Default.AudioProfile = "XAudio2";
+                        AppModel.Current.Message.Snackbar(Strings.XAudio2IsUsedAsAudioProfile);
+                        return;
+                    }
+
                     await AppModel.Current.Message.DialogAsync(Strings.OpenALNotFound);
                     App.Shutdown(1);
                 }
