@@ -6,6 +6,7 @@
 // of the MIT license. See the LICENSE file for details.
 
 using System;
+using System.Reflection;
 
 namespace BEditor.Plugin
 {
@@ -59,5 +60,10 @@ namespace BEditor.Plugin
         /// Gets or sets the plugin name.
         /// </summary>
         public string PluginName { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Gets or sets the plugin assembly.
+        /// </summary>
+        public Assembly? Assembly { get; set; }
     }
 }
