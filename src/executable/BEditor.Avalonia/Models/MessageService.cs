@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using Avalonia.Controls;
 using Avalonia.Threading;
 
+using BEditor.ViewModels;
 using BEditor.Views;
 using BEditor.Views.DialogContent;
 
@@ -95,6 +96,7 @@ namespace BEditor.Models
                     if (info.IsOpen)
                     {
                         main._stackNotifications.Children.Add(info);
+                        MainWindowViewModel.Current.NoticeCount.Value = main._stackNotifications.Children.Count;
 
                         info.Closed += (s, _) =>
                         {
@@ -102,6 +104,7 @@ namespace BEditor.Models
                                 && infoBar.Parent is Panel panel)
                             {
                                 panel.Children.Remove(infoBar);
+                                MainWindowViewModel.Current.NoticeCount.Value = panel.Children.Count;
                             }
                         };
                     }

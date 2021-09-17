@@ -288,8 +288,27 @@
                     IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}"
                     Text="{Binding App.Project.CurrentScene.PreviewFrame, Mode=OneWay, Converter={StaticResource FrameToTimeConverter}}" />
 
-                <Button Click="ShowNotifications">
-                    <ui:SymbolIcon Symbol="Alert" />
+                <Button Click="ShowNotifications" Padding="0">
+                    <Panel>
+                        <ui:SymbolIcon Symbol="Alert" Margin="8" />
+
+                        <Border
+                            IsVisible="{CompiledBinding NoticeIsVisible.Value, Mode=OneWay}"
+                            Background="{StaticResource InfoBarErrorSeverityIconBackground}"
+                            CornerRadius="16"
+                            Width="16"
+                            Height="16"
+                            Margin="4"
+                            VerticalAlignment="Bottom"
+                            HorizontalAlignment="Right">
+                            <TextBlock
+                                Foreground="{StaticResource InfoBarErrorSeverityIconForeground}"
+                                Text="{CompiledBinding NoticeCount.Value, Mode=OneWay}"
+                                FontSize="10"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center" />
+                        </Border>
+                    </Panel>
                 </Button>
 
                 <Popup WindowManagerAddShadowHint="False" x:Name="NotificationsPopup" StaysOpen="False">

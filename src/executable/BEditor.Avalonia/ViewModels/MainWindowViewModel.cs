@@ -281,6 +281,8 @@ namespace BEditor.ViewModels
             });
 
             Previewer = new(IsOpened);
+
+            NoticeIsVisible = NoticeCount.Select(i => i > 0).ToReadOnlyReactivePropertySlim();
         }
 
         public ReactiveCommand Open { get; } = new();
@@ -315,6 +317,10 @@ namespace BEditor.ViewModels
             .ObserveProperty(p => p.Project)
             .Select(p => p is not null)
             .ToReadOnlyReactivePropertySlim();
+
+        public ReactivePropertySlim<int> NoticeCount { get; } = new();
+        
+        public ReadOnlyReactivePropertySlim<bool> NoticeIsVisible { get; }
 
         public PreviewerViewModel Previewer { get; }
 
