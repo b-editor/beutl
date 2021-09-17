@@ -17,9 +17,7 @@
         <convert:FrameToDoubleConverter x:Key="FrameToDoubleConverter"/>
     </UserControl.Resources>
     <Grid RowDefinitions="*,Auto">
-        <Panel
-            IsHitTestVisible="False"
-            Margin="0">
+        <Panel Margin="0">
             <view:PreviewerBackground
                 ClipToBounds="True"
                 Width="{Binding #image.Bounds.Width}"

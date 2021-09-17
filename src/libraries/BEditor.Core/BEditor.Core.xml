@@ -22,6 +22,14 @@
             <param name="command">The command to execute.</param>
             <param name="manager">The command manager for executing commands.</param>
         </member>
+        <member name="M:BEditor.CommandExtensions.Combine(BEditor.Command.IRecordCommand,BEditor.Command.IRecordCommand)">
+            <summary>
+            Combine the two commands.
+            </summary>
+            <param name="first">The first command.</param>
+            <param name="second">The second command.</param>
+            <returns>The command.</returns>
+        </member>
         <member name="T:BEditor.Command.CommandType">
             <summary>
             Indicates the type of command.
@@ -2247,9 +2255,9 @@
         </member>
         <member name="M:BEditor.Data.Property.EaseProperty.ChangeValue(System.Int32,System.Single)">
             <summary>
-            Create a command to change the color of this <see cref="P:BEditor.Data.Property.EaseProperty.Pairs"/>.
+            Create a command to change the value of this <see cref="P:BEditor.Data.Property.EaseProperty.Pairs"/>.
             </summary>
-            <param name="index">Index of colors to be changed.</param>
+            <param name="index">Index of values to be changed.</param>
             <param name="value">New Value.</param>
             <returns>Created <see cref="T:BEditor.Command.IRecordCommand"/>.</returns>
         </member>
