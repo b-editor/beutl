@@ -49,7 +49,7 @@
             SelectionMode="Toggle"
             x:Name="PluginList"
             Background="Transparent"
-            Items="{Binding Plugins, Source={x:Static plugin:PluginManager.Default}}"
+            Items="{CompiledBinding Plugins, Mode=OneWay}"
             SelectedItem="{CompiledBinding SelectPlugin.Value, Mode=TwoWay}">
             <ListBox.ItemTemplate>
                 <DataTemplate>
