@@ -2131,6 +2131,15 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   There is a newer version of &quot;{0}&quot;. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string ThereIsANewerVersionOf {
+            get {
+                return ResourceManager.GetString("ThereIsANewerVersionOf", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   There is no project. に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string ThereIsNoProject {

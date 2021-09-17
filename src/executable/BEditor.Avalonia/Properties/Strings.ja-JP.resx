@@ -949,4 +949,7 @@ Vulkan:
   <data name="XAudio2IsUsedAsAudioProfile" xml:space="preserve">
     <value>音声プロファイルにXAudio2が使われています。</value>
   </data>
+  <data name="ThereIsANewerVersionOf" xml:space="preserve">
+    <value>"{0}"の新しいバージョンがあります。</value>
+  </data>
 </root>

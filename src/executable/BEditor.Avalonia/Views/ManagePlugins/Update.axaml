@@ -5,6 +5,7 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:props="using:BEditor.Properties"
     xmlns:vm="using:BEditor.ViewModels.ManagePlugins"
+    xmlns:ui="using:FluentAvalonia.UI.Controls"
     x:DataType="vm:UpdateViewModel"
     mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
     x:Class="BEditor.Views.ManagePlugins.Update">
@@ -17,7 +18,6 @@
         <Grid RowDefinitions="Auto,Auto,*" Grid.Column="2">
             <ComboBox
                 HorizontalAlignment="Stretch"
-                PlaceholderText="{x:Static props:Strings.LatestVersion}"
                 IsVisible="{CompiledBinding !IsScheduled.Value, Mode=OneWay}"
                 Items="{CompiledBinding SelectedItem.Value.Package.Versions, Mode=OneWay}"
                 SelectedItem="{CompiledBinding SelectedVersion.Value, Mode=TwoWay}">
@@ -28,26 +28,27 @@
                 </ComboBox.ItemTemplate>
             </ComboBox>
 
-            <Button
-                Grid.Row="1"
-                HorizontalAlignment="Stretch"
-                HorizontalContentAlignment="Center"
-                IsVisible="{CompiledBinding !IsScheduled.Value, Mode=OneWay}"
-                Background="Transparent"
-                Content="{x:Static props:Strings.Update}"
-                Command="{CompiledBinding Update, Mode=OneTime}"/>
-            <Button
-                Grid.Row="1"
-                HorizontalAlignment="Stretch"
-                HorizontalContentAlignment="Center"
-                Background="Transparent"
-                IsVisible="{CompiledBinding IsScheduled.Value, Mode=OneWay}"
-                Content="{x:Static props:Strings.Cancel}"
-                Command="{CompiledBinding Cancel, Mode=OneTime}"/>
+            <Grid Grid.Row="1" ColumnDefinitions="*,Auto">
+
+                <Button
+                    HorizontalAlignment="Stretch"
+                    IsVisible="{CompiledBinding !IsScheduled.Value, Mode=OneWay}"
+                    Content="{x:Static props:Strings.Update}"
+                    Command="{CompiledBinding Update, Mode=OneTime}"/>
+                <Button
+                    HorizontalAlignment="Stretch"
+                    IsVisible="{CompiledBinding IsScheduled.Value, Mode=OneWay}"
+                    Content="{x:Static props:Strings.Cancel}"
+                    Command="{CompiledBinding Cancel, Mode=OneTime}"/>
+
+                <Button Grid.Column="1" Command="{CompiledBinding Refresh, Mode=OneTime}">
+                    <ui:SymbolIcon FontSize="20" Symbol="Refresh" />
+                </Button>
+            </Grid>
 
             <ScrollViewer Grid.Row="2">
                 <StackPanel Orientation="Vertical" Spacing="8">
-    
+
                     <TextBlock Text="{Binding Source={x:Static props:Strings.UpdateNote}, StringFormat='{}{0}: '}" />
                     <TextBlock
                         Margin="8,0,0,0"
@@ -65,7 +66,7 @@
 
         <!--Left-->
         <ListBox
-            Items="{CompiledBinding Items, Mode=OneTime}"
+            Items="{CompiledBinding UpdateService.Updates, Mode=OneTime}"
             SelectedItem="{CompiledBinding SelectedItem.Value, Mode=TwoWay}">
             <ListBox.ItemTemplate>
                 <DataTemplate>
@@ -82,8 +83,9 @@
                 </DataTemplate>
             </ListBox.ItemTemplate>
         </ListBox>
-        
+
         <ProgressBar
+            Margin="4"
             VerticalAlignment="Bottom"
             IsIndeterminate="True"
             IsVisible="{CompiledBinding IsLoading.Value}" />

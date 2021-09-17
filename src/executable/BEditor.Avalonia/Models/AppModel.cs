@@ -14,6 +14,7 @@ using BEditor.Data;
 using BEditor.Drawing;
 using BEditor.Extensions;
 using BEditor.Models.Authentication;
+using BEditor.Models.ManagePlugins;
 using BEditor.Packaging;
 using BEditor.ViewModels.Dialogs;
 using BEditor.Views;
@@ -107,7 +108,8 @@ namespace BEditor.Models
                 .AddSingleton(_ => Message)
                 .AddSingleton(_ => LoggingFactory)
                 .AddSingleton<Microsoft.Extensions.Logging.ILogger>(_ => LoggingFactory.CreateLogger<IApplication>())
-                .AddSingleton<HttpClient>();
+                .AddSingleton<HttpClient>()
+                .AddSingleton<PluginUpdateService>();
 
             if (Settings.Default.PrioritizeGPU)
             {

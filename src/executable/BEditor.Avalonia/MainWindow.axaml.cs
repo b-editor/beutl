@@ -19,6 +19,7 @@ using Avalonia.Threading;
 
 using BEditor.Data;
 using BEditor.Models;
+using BEditor.Models.ManagePlugins;
 using BEditor.Properties;
 using BEditor.ViewModels;
 using BEditor.ViewModels.DialogContent;
@@ -27,6 +28,8 @@ using BEditor.Views;
 using BEditor.Views.CustomTitlebars;
 using BEditor.Views.DialogContent;
 using BEditor.Views.Dialogs;
+
+using Microsoft.Extensions.DependencyInjection;
 
 using OpenTK.Audio.OpenAL;
 
@@ -116,6 +119,7 @@ namespace BEditor
 
             await App.StartupTask;
             App.StartupTask = default;
+            await CheckPluginUpdateAsync();
 
             this.FindControl<Library>("Library").InitializeTreeView();
 
@@ -170,6 +174,25 @@ namespace BEditor
         private void InitializeComponent()
         {
             AvaloniaXamlLoader.Load(this);
+        }
+
+        private static async Task CheckPluginUpdateAsync()
+        {
+            var service = AppModel.Current.ServiceProvider.GetRequiredService<PluginUpdateService>();
+            var message = AppModel.Current.ServiceProvider.GetRequiredService<IMessage>();
+            await service.CheckUpdateAsync();
+
+            await Task.Yield();
+
+            foreach (var item in service.Updates)
+            {
+                message.Snackbar(
+                    string.Format(Strings.ThereIsANewerVersionOf, item.Plugin.PluginName),
+                    string.Empty,
+                    IMessage.IconType.None,
+                    action: _ => AppModel.Current.Navigate(new Uri("beditor://manage-plugin/update")),
+                    actionName: Strings.Update);
+            }
         }
     }
 }
