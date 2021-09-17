@@ -225,6 +225,15 @@ namespace BEditor.Extensions
             }
             return clip.GetValue(ClipViewModelProperty);
         }
+        
+        public static ClipPropertyViewModel GetCreateClipPropertyViewModel(this ClipElement clip)
+        {
+            if (clip[ClipPropertyViewModelProperty] is null)
+            {
+                clip[ClipPropertyViewModelProperty] = new ClipPropertyViewModel(clip);
+            }
+            return clip.GetValue(ClipPropertyViewModelProperty);
+        }
 
         public static Control GetCreatePropertyElementView(this PropertyElement property)
         {
@@ -547,6 +556,7 @@ namespace BEditor.Extensions
                 {
                     DataContext = effect,
                     BorderThickness = default,
+                    Background = null,
                     Content = new FluentAvalonia.UI.Controls.SymbolIcon
                     {
                         Symbol = FluentAvalonia.UI.Controls.Symbol.ChevronUp,
@@ -557,6 +567,7 @@ namespace BEditor.Extensions
                 {
                     DataContext = effect,
                     BorderThickness = default,
+                    Background = null,
                     Content = new FluentAvalonia.UI.Controls.SymbolIcon
                     {
                         Symbol = FluentAvalonia.UI.Controls.Symbol.ChevronDown,

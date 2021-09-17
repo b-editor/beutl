@@ -80,6 +80,7 @@ namespace BEditor.Views.Properties
             {
                 [AttachmentProperty.IntProperty] = index,
                 Value = _property.Pairs[index].Value,
+                Increment = 10,
             };
 
             num.GotFocus += NumericUpDown_GotFocus;
