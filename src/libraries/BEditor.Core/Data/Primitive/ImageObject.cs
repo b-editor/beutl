@@ -113,7 +113,7 @@ namespace BEditor.Data.Primitive
         {
             if (args.Type is ApplyType.Audio) return;
 
-            var imgs_args = new EffectApplyArgs<IEnumerable<Texture>>(args.Frame, Enumerable.Empty<Texture>(), args.Type);
+            var imgs_args = new EffectApplyArgs<IEnumerable<Texture>>(args.Frame, Enumerable.Empty<Texture>(), args.Contexts, args.Type);
             OnRender(imgs_args);
 
             var list = Parent!.Effect.Where(x => x.IsEnabled).ToArray();
@@ -178,7 +178,7 @@ namespace BEditor.Data.Primitive
                 return;
             }
 
-            var imageArgs = new EffectApplyArgs<Image<BGRA32>>(args.Frame, base_img, args.Type);
+            var imageArgs = new EffectApplyArgs<Image<BGRA32>>(args.Frame, base_img, args.Contexts, args.Type);
 
             var list = Parent!.Effect.Where(x => x.IsEnabled).ToArray();
             for (var i = 1; i < list.Length; i++)

@@ -167,7 +167,7 @@ namespace BEditor.Primitive.Effects
 
             var imgobj = (ImageObject)ClipProperty.Value.Effect[0];
             imgobj.Render(
-                new EffectApplyArgs(f - Parent.Start + ClipProperty.Value.Start, args.Type),
+                new EffectApplyArgs(f - Parent.Start + ClipProperty.Value.Start, args.Contexts, args.Type),
                 out var img);
             imgobj.Coordinate.ResetOptional();
 
@@ -185,7 +185,7 @@ namespace BEditor.Primitive.Effects
             if (w is 0 || h is 0) return;
             using var resizedimg = img.Resize(w, h, Quality.Medium);
 
-            args.Value.Mask(resizedimg, new PointF(X[f], Y[f]), MaskRotate[f], !InvertMask.Value, Parent.Parent.DrawingContext);
+            args.Value.Mask(resizedimg, new PointF(X[f], Y[f]), MaskRotate[f], !InvertMask.Value, args.Contexts.Drawing);
             img.Dispose();
         }
 

@@ -105,7 +105,8 @@ namespace BEditor.Data
         /// <summary>
         /// Gets drawing context.
         /// </summary>
-        public DrawingContext? DrawingContext { get; private set; }
+        [Obsolete("Use IApplication.DrawingContext.")]
+        public DrawingContext? DrawingContext => this.GetParent<IApplication>()?.DrawingContext;
 
         /// <summary>
         /// Gets sampling context.

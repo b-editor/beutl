@@ -130,7 +130,7 @@ namespace BEditor.Primitive.Effects
         /// <inheritdoc/>
         public override void Apply(EffectApplyArgs<Image<BGRA32>> args)
         {
-            var img = args.Value.Border((int)Size!.GetValue(args.Frame), Color!.Value);
+            var img = args.Value.Border((int)Size.GetValue(args.Frame), Color.Value);
             args.Value.Dispose();
 
             args.Value = img;
@@ -139,7 +139,7 @@ namespace BEditor.Primitive.Effects
         /// <inheritdoc/>
         public override void Apply(EffectApplyArgs<IEnumerable<Texture>> args)
         {
-            args.Value = args.Value.SelectMany(i => Selector(i, args.Frame));
+            args.Value = args.Value.SelectMany(i => Selector(i, args));
         }
 
         /// <inheritdoc/>
@@ -153,8 +153,9 @@ namespace BEditor.Primitive.Effects
             yield return Mask;
         }
 
-        private IEnumerable<Texture> Selector(Texture texture, Frame frame)
+        private IEnumerable<Texture> Selector(Texture texture, EffectApplyArgs args)
         {
+            var frame = args.Frame;
             var color = Color.Value;
             var size = (int)Size.GetValue(frame);
             color.A = (byte)(color.A * (Opacity[frame] / 100));
@@ -164,7 +165,7 @@ namespace BEditor.Primitive.Effects
 
             if (Mask.Value is 1 or 2)
             {
-                border.Mask(source, default, 0, Mask.Value is 2, Parent.Parent.DrawingContext);
+                border.Mask(source, default, 0, Mask.Value == 2, args.Contexts.Drawing);
             }
 
             var borderTexture = Texture.FromImage(border);

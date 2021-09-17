@@ -225,7 +225,7 @@ namespace BEditor.Primitive.Effects
                 }
 
                 using var img1 = image[rect];
-                img1.Mask(roundrect, default, 0, false, Parent.Parent.DrawingContext);
+                img1.Mask(roundrect, default, 0, false, args.Contexts.Drawing);
 
                 texture.Update(img1);
 

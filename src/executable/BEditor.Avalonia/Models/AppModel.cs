@@ -11,6 +11,7 @@ using Avalonia.Threading;
 using BEditor.Audio;
 using BEditor.Command;
 using BEditor.Data;
+using BEditor.Drawing;
 using BEditor.Extensions;
 using BEditor.Models.Authentication;
 using BEditor.Packaging;
@@ -108,6 +109,12 @@ namespace BEditor.Models
                 .AddSingleton<Microsoft.Extensions.Logging.ILogger>(_ => LoggingFactory.CreateLogger<IApplication>())
                 .AddSingleton<HttpClient>();
 
+            if (Settings.Default.PrioritizeGPU)
+            {
+                DrawingContext = DrawingContext.Create(0);
+                Services = Services.AddSingleton(_ => DrawingContext);
+            }
+
             // 設定が変更されたときにUIに変更を適用
             Settings.Default.PropertyChanged += Settings_PropertyChanged;
         }
@@ -172,6 +179,8 @@ namespace BEditor.Models
         Project IParentSingle<Project>.Child => Project;
 
         public object AudioContext { get; set; }
+
+        public DrawingContext DrawingContext { get; }
 
         public event EventHandler<ProjectOpenedEventArgs> ProjectOpened;
         public event EventHandler Exit;

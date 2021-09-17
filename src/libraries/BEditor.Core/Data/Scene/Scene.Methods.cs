@@ -168,7 +168,7 @@ namespace BEditor.Data
                 GraphicsContext.Light = null;
                 GraphicsContext.Clear();
 
-                var args = new ClipApplyArgs(frame, renderType);
+                var args = new ClipApplyArgs(frame, GraphicsContext, SamplingContext!, Parent?.Parent?.DrawingContext, renderType);
 
                 // Preview
                 for (var i = 0; i < layer.Length; i++) layer[i].PreviewApply(args);
@@ -208,7 +208,7 @@ namespace BEditor.Data
                 SamplingContext!.Clear();
                 var layer = GetFrame(frame);
 
-                var args = new ClipApplyArgs(frame, applyType);
+                var args = new ClipApplyArgs(frame, GraphicsContext!, SamplingContext!, Parent?.Parent?.DrawingContext, applyType);
 
                 // Preview
                 for (var i = 0; i < layer.Length; i++) layer[i].PreviewApply(args);
@@ -397,23 +397,12 @@ namespace BEditor.Data
             Cache ??= new(this);
             _samplingLockObject ??= new();
             _renderingLockObject ??= new();
-
-            if (BEditor.Settings.Default.PrioritizeGPU)
-            {
-                DrawingContext = DrawingContext.Create(0);
-
-                if (DrawingContext is not null)
-                {
-                    ServiceProvider?.GetService<ILogger>()?.LogInformation("{0}はGpuを使用した画像処理が有効です。", SceneName);
-                }
-            }
         }
 
         /// <inheritdoc/>
         protected override void OnUnload()
         {
             GraphicsContext?.Dispose();
-            DrawingContext?.Dispose();
             SamplingContext?.Dispose();
             Cache.Clear();
         }

@@ -170,7 +170,7 @@ namespace BEditor.Data
         {
             try
             {
-                var loadargs = new EffectApplyArgs(args.Frame, args.Type);
+                var loadargs = new EffectApplyArgs(args.Frame, args.Contexts.Graphics, args.Contexts.Sampling, args.Contexts.Drawing, args.Type);
 
                 if (Effect[0] is ObjectElement obj)
                 {
@@ -195,7 +195,7 @@ namespace BEditor.Data
             try
             {
                 var enableEffects = Effect.Where(x => x.IsEnabled);
-                var loadargs = new EffectApplyArgs(args.Frame, args.Type);
+                var loadargs = new EffectApplyArgs(args.Frame, args.Contexts.Graphics, args.Contexts.Sampling, args.Contexts.Drawing, args.Type);
 
                 foreach (var item in enableEffects)
                 {

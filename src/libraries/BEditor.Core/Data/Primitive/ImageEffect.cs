@@ -27,7 +27,7 @@ namespace BEditor.Data.Primitive
         {
             args.Value = args.Value.Select(tex =>
             {
-                var innerArgs = new EffectApplyArgs<Image<BGRA32>>(args.Frame, tex.ToImage(), args.Type);
+                var innerArgs = new EffectApplyArgs<Image<BGRA32>>(args.Frame, tex.ToImage(), args.Contexts, args.Type);
 
                 // エフェクトを適用
                 Apply(innerArgs);
