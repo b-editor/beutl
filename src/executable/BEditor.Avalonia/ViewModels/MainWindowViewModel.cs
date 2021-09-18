@@ -319,7 +319,7 @@ namespace BEditor.ViewModels
             .ToReadOnlyReactivePropertySlim();
 
         public ReactivePropertySlim<int> NoticeCount { get; } = new();
-        
+
         public ReadOnlyReactivePropertySlim<bool> NoticeIsVisible { get; }
 
         public PreviewerViewModel Previewer { get; }
