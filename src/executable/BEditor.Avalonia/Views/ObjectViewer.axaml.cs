@@ -1,4 +1,6 @@
+using System;
 using System.IO;
+using System.Reactive.Linq;
 
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
@@ -6,27 +8,39 @@ using Avalonia.Markup.Xaml;
 using BEditor.Controls;
 using BEditor.Models;
 
+using Reactive.Bindings.Extensions;
+
 namespace BEditor.Views
 {
     public sealed class ObjectViewer : UserControl
     {
         private readonly ScrollViewer _scrollViewer;
-        private readonly TreeView _treeView;
-        private readonly FileSystemWatcher _watcher;
+        private FileSystemWatcher? _watcher;
 
         public ObjectViewer()
         {
-            _watcher = new FileSystemWatcher(AppModel.Current.Project.DirectoryName)
-            {
-                EnableRaisingEvents = true,
-                IncludeSubdirectories = true,
-            };
-
             InitializeComponent();
 
             _scrollViewer = this.FindControl<ScrollViewer>("scrollViewer");
-            _treeView = new ProjectTreeView(AppModel.Current.Project, _watcher);
-            _scrollViewer.Content = _treeView;
+
+            AppModel.Current.ObserveProperty(p => p.Project)
+                .Subscribe(proj =>
+                {
+                    if (proj != null)
+                    {
+                        _watcher = new FileSystemWatcher(proj.DirectoryName)
+                        {
+                            EnableRaisingEvents = true,
+                            IncludeSubdirectories = true,
+                        };
+
+                        _scrollViewer.Content = new ProjectTreeView(proj, _watcher);
+                    }
+                    else
+                    {
+                        _watcher?.Dispose();
+                    }
+                });
         }
 
         private void InitializeComponent()

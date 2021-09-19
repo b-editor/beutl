@@ -772,7 +772,7 @@
         </member>
         <member name="P:BEditor.Data.IEditingObject.Name">
             <summary>
-            Gets the name.
+            Gets or sets the name.
             </summary>
         </member>
         <member name="P:BEditor.Data.IEditingObject.Item(BEditor.Data.EditingProperty)">

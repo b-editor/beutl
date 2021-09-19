@@ -47,6 +47,7 @@ namespace BEditor.Data
             Metadata = metadata;
             Parent = _parent = scene;
             _effect[0].Parent = this;
+            Name = Metadata.Type.Name;
         }
 
         /// <summary>
@@ -65,6 +66,7 @@ namespace BEditor.Data
             _effect = new() { obj };
             Metadata = ObjectMetadata.LoadedObjects.First(i => i.Type == Effect[0].GetType());
             Parent = _parent = scene;
+            Name = Metadata.Type.Name;
         }
 
         /// <summary>
@@ -141,7 +143,7 @@ namespace BEditor.Data
             {
                 var old = Name;
                 Name = value;
-                if (old == value)
+                if (old != value)
                 {
                     RaisePropertyChanged(new PropertyChangedEventArgs(nameof(LabelText)));
                 }

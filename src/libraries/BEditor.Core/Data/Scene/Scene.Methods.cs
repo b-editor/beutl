@@ -88,7 +88,7 @@ namespace BEditor.Data
             UseCache = !element.TryGetProperty(nameof(UseCache), out var useCache) || useCache.GetBoolean();
 
             // Todo: 互換性
-            Name = element.TryGetProperty("SceneName", out var sceneName) ? sceneName.GetString() ?? string.Empty : string.Empty;
+            Name = element.TryGetProperty("SceneName", out var sceneName) ? sceneName.GetString() ?? Name : Name;
         }
 
         /// <summary>

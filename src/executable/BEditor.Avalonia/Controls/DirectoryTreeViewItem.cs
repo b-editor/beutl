@@ -13,6 +13,7 @@ using Avalonia.Controls.Templates;
 using Avalonia.Data;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.LogicalTree;
 using Avalonia.Markup.Xaml.Templates;
 using Avalonia.Styling;
 using Avalonia.Threading;
@@ -353,9 +354,14 @@ namespace BEditor.Controls
                 if (parent == _directoryInfo.FullName)
                 {
                     var item = _items.FirstOrDefault(i => i.Header is string str && str == oldFilename);
-                    if (item != null)
+                    if (item is DirectoryTreeItem dir)
                     {
-                        item.Header = newFilename;
+                        dir.Info = new DirectoryInfo(e.FullPath);
+                    }
+
+                    if (item is FileTreeItem file)
+                    {
+                        file.Info = new FileInfo(e.FullPath);
                     }
                 }
             });
@@ -406,22 +412,33 @@ namespace BEditor.Controls
 
     public sealed class FileTreeItem : TreeViewItem, IStyleable
     {
+        private FileInfo _info;
+
         public FileTreeItem(FileInfo info)
         {
-            Info = info;
+            _info = info;
             Header = Info.Name;
             DoubleTapped += FileTreeItem_DoubleTapped;
         }
 
         private void FileTreeItem_DoubleTapped(object? sender, RoutedEventArgs e)
         {
+            Refresh();
             Process.Start(new ProcessStartInfo(Info.FullName)
             {
                 UseShellExecute = true,
             });
         }
 
-        public FileInfo Info { get; }
+        public FileInfo Info
+        {
+            get => _info;
+            set
+            {
+                _info = value;
+                Header = _info.Name;
+            }
+        }
 
         Type IStyleable.StyleKey => typeof(TreeViewItem);
 
@@ -430,6 +447,10 @@ namespace BEditor.Controls
             base.OnPointerPressed(e);
             if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
             {
+                var parent = this.FindLogicalAncestorOfType<TreeView>();
+                parent.SelectedItem = this;
+                Refresh();
+
                 var dataObject = new DataObject();
                 dataObject.Set(DataFormats.FileNames, new string[] { Info.FullName });
 
@@ -450,10 +471,11 @@ namespace BEditor.Controls
         private readonly AvaloniaList<TreeViewItem> _items = new();
         private readonly FileSystemWatcher _watcher;
         private bool _isAdd;//サブフォルダを作成済みかどうか
+        private DirectoryInfo _info;
 
         public DirectoryTreeItem(DirectoryInfo info, FileSystemWatcher watcher)
         {
-            Info = info;
+            _info = info;
             Header = info.Name;
             Items = _items;
             _watcher = watcher;
@@ -469,12 +491,27 @@ namespace BEditor.Controls
             _watcher.Created += Watcher_Created;
         }
 
-        public DirectoryInfo Info { get; }
+        public DirectoryInfo Info
+        {
+            get => _info;
+            set
+            {
+                _info = value;
+                Header = _info.Name;
+            }
+        }
+
+        public void Refresh()
+        {
+            Info.Refresh();
+            Header = Info.Name;
+        }
 
         private void Watcher_Created(object? sender, FileSystemEventArgs e)
         {
             Dispatcher.UIThread.InvokeAsync(() =>
             {
+                Refresh();
                 var parent = Path.GetDirectoryName(e.FullPath);
 
                 if (parent == Info.FullName)
@@ -505,6 +542,7 @@ namespace BEditor.Controls
         {
             Dispatcher.UIThread.InvokeAsync(() =>
             {
+                Refresh();
                 var parent = Path.GetDirectoryName(e.FullPath);
                 var filename = Path.GetFileName(e.Name);
 
@@ -523,6 +561,7 @@ namespace BEditor.Controls
         {
             Dispatcher.UIThread.InvokeAsync(() =>
             {
+                Refresh();
                 var parent = Path.GetDirectoryName(e.FullPath);
                 var oldFilename = Path.GetFileName(e.OldName);
                 var newFilename = Path.GetFileName(e.Name);
@@ -530,9 +569,14 @@ namespace BEditor.Controls
                 if (parent == Info.FullName)
                 {
                     var item = _items.FirstOrDefault(i => i.Header is string str && str == oldFilename);
-                    if (item != null)
+                    if (item is DirectoryTreeItem dir)
                     {
-                        item.Header = newFilename;
+                        dir.Info = new DirectoryInfo(e.FullPath);
+                    }
+
+                    if (item is FileTreeItem file)
+                    {
+                        file.Info = new FileInfo(e.FullPath);
                     }
                 }
             });
@@ -543,6 +587,7 @@ namespace BEditor.Controls
         //サブフォルダツリー追加
         public void AddSubDirectory()
         {
+            Refresh();
             //すべてのサブフォルダを追加
             foreach (var item in Info.GetDirectories().Where(i => !i.Attributes.HasAnyFlag(FileAttributes.Hidden | FileAttributes.System)))
             {
