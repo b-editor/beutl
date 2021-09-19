@@ -44,7 +44,10 @@ namespace BEditor.Views.Properties
                 }
             }
         };
+        private bool _isMouseDown;
         private float _oldvalue;
+        private Point _startPoint;
+        private int _clickCount;
 
 #pragma warning disable CS8618
         public EasePropertyView()
@@ -88,6 +91,10 @@ namespace BEditor.Views.Properties
             num.ValueChanged += NumericUpDown_ValueChanged;
             num.AddHandler(KeyUpEvent, NumericUpDown_KeyUp, RoutingStrategies.Tunnel);
             num.AddHandler(KeyDownEvent, NumericUpDown_KeyDown, RoutingStrategies.Tunnel);
+            num.AddHandler(PointerMovedEvent, NumericUpDown_PointerMoved, RoutingStrategies.Tunnel);
+            num.AddHandler(PointerReleasedEvent, NumericUpDown_PointerReleased, RoutingStrategies.Tunnel);
+            num.AddHandler(PointerPressedEvent, NumericUpDown_PointerPressed, RoutingStrategies.Tunnel);
+            num.AddHandler(PointerLeaveEvent, NumericUpDown_PointerLeave, RoutingStrategies.Tunnel);
 
             if (_property.PropertyMetadata == null) return num;
 
@@ -104,6 +111,62 @@ namespace BEditor.Views.Properties
             }
 
             return num;
+        }
+
+        private void NumericUpDown_PointerLeave(object? sender, PointerEventArgs e)
+        {
+            _isMouseDown = false;
+            _clickCount = 0;
+        }
+
+        private void NumericUpDown_PointerPressed(object? sender, PointerPressedEventArgs e)
+        {
+            _clickCount++;
+            _isMouseDown = true;
+            _startPoint = e.GetPosition(this);
+
+            var num = (NumericUpDown)sender!;
+            var index = num.GetValue(AttachmentProperty.IntProperty);
+
+            _oldvalue = _property.Pairs[index].Value;
+
+            if (_clickCount == 1)
+            {
+                e.Handled = true;
+            }
+            else
+            {
+                _clickCount = 0;
+            }
+        }
+
+        private void NumericUpDown_PointerReleased(object? sender, PointerReleasedEventArgs e)
+        {
+            var num = (NumericUpDown)sender!;
+            _isMouseDown = false;
+
+            var index = num.GetValue(AttachmentProperty.IntProperty);
+            var newValue = (float)num.Value;
+
+            _property.Pairs[index] = _property.Pairs[index].WithValue(_oldvalue);
+
+            if (newValue != _oldvalue)
+                _property.ChangeValue(index, newValue).Execute();
+        }
+
+        private void NumericUpDown_PointerMoved(object? sender, PointerEventArgs e)
+        {
+            var num = (NumericUpDown)sender!;
+            if (!num.IsKeyboardFocusWithin && _isMouseDown)
+            {
+                var point = e.GetPosition(this);
+                var move = point - _startPoint;
+
+                num.Value += move.X;
+
+                _startPoint = point;
+                _clickCount = 0;
+            }
         }
 
         private void ResetIndex()
@@ -181,11 +244,12 @@ namespace BEditor.Views.Properties
         {
             var num = (NumericUpDown)sender!;
             var index = num.GetValue(AttachmentProperty.IntProperty);
-            var newValue = num.Value;
+            var newValue = (float)num.Value;
 
             _property.Pairs[index] = _property.Pairs[index].WithValue(_oldvalue);
 
-            _property.ChangeValue(index, (float)newValue).Execute();
+            if (newValue != _oldvalue)
+                _property.ChangeValue(index, newValue).Execute();
         }
 
         public async void NumericUpDown_ValueChanged(object? sender, NumericUpDownValueChangedEventArgs e)
