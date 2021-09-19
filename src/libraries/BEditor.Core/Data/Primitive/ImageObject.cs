@@ -129,8 +129,6 @@ namespace BEditor.Data.Primitive
 
                 img.Dispose();
             }
-
-            ResetOptional();
         }
 
         /// <summary>
@@ -173,7 +171,6 @@ namespace BEditor.Data.Primitive
 
             if (base_img is null)
             {
-                ResetOptional();
                 image = null;
                 return;
             }
@@ -196,7 +193,6 @@ namespace BEditor.Data.Primitive
 
                 if (args.Handled)
                 {
-                    ResetOptional();
                     image = imageArgs.Value;
                     return;
                 }
@@ -257,15 +253,7 @@ namespace BEditor.Data.Primitive
             }
         }
 
-        private void ResetOptional()
-        {
-            Coordinate.ResetOptional();
-            Rotate.ResetOptional();
-            Scale.ResetOptional();
-            Blend.ResetOptional();
-        }
-
-        private void LoadEffect(EffectApplyArgs<IEnumerable<Texture>> args, EffectElement[] list)
+        private static void LoadEffect(EffectApplyArgs<IEnumerable<Texture>> args, EffectElement[] list)
         {
             for (var i = 0; i < list.Length; i++)
             {
@@ -286,7 +274,6 @@ namespace BEditor.Data.Primitive
 
                 if (args.Handled)
                 {
-                    ResetOptional();
                     return;
                 }
             }

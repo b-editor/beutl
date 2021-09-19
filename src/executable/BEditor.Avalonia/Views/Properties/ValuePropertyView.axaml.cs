@@ -31,6 +31,10 @@ namespace BEditor.Views.Properties
             _property = property;
             DataContext = new ValuePropertyViewModel(property);
             InitializeComponent();
+
+            var num = this.FindControl<NumericUpDown>("Numeric");
+            num.AddHandler(KeyUpEvent, NumericUpDown_KeyUp, RoutingStrategies.Tunnel);
+            num.AddHandler(KeyDownEvent, NumericUpDown_KeyDown, RoutingStrategies.Tunnel);
         }
 
         ~ValuePropertyView()
@@ -69,6 +73,22 @@ namespace BEditor.Views.Properties
             _property.Value = _property.Clamp((float)e.NewValue);
 
             await (AppModel.Current.Project!).PreviewUpdateAsync(_property.GetParent<ClipElement>()!);
+        }
+
+        private void NumericUpDown_KeyDown(object? sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.LeftShift && sender is NumericUpDown numeric)
+            {
+                numeric.Increment = 1;
+            }
+        }
+
+        private void NumericUpDown_KeyUp(object? sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.LeftShift && sender is NumericUpDown numeric)
+            {
+                numeric.Increment = 10;
+            }
         }
 
         private void InitializeComponent()

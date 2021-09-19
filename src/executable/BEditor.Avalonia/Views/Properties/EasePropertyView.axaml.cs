@@ -86,8 +86,12 @@ namespace BEditor.Views.Properties
             num.GotFocus += NumericUpDown_GotFocus;
             num.LostFocus += NumericUpDown_LostFocus;
             num.ValueChanged += NumericUpDown_ValueChanged;
+            num.AddHandler(KeyUpEvent, NumericUpDown_KeyUp, RoutingStrategies.Tunnel);
+            num.AddHandler(KeyDownEvent, NumericUpDown_KeyDown, RoutingStrategies.Tunnel);
 
-            if (_property.PropertyMetadata is null) return num;
+            if (_property.PropertyMetadata == null) return num;
+
+            num.FormatString = _property.PropertyMetadata.FormatString;
 
             if (!float.IsNaN(_property.PropertyMetadata.Max))
             {
@@ -192,6 +196,22 @@ namespace BEditor.Views.Properties
             _property.Pairs[index] = _property.Pairs[index].WithValue(_property.Clamp((float)e.NewValue));
 
             await (AppModel.Current.Project!).PreviewUpdateAsync(_property.GetParent<ClipElement>()!);
+        }
+
+        private void NumericUpDown_KeyDown(object? sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.LeftShift && sender is NumericUpDown numeric)
+            {
+                numeric.Increment = 1;
+            }
+        }
+
+        private void NumericUpDown_KeyUp(object? sender, KeyEventArgs e)
+        {
+            if (e.Key == Key.LeftShift && sender is NumericUpDown numeric)
+            {
+                numeric.Increment = 10;
+            }
         }
 
         public void Dispose()

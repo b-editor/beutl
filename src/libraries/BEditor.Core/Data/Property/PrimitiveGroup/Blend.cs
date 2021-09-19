@@ -26,7 +26,7 @@ namespace BEditor.Data.Property.PrimitiveGroup
             nameof(Opacity),
             owner => owner.Opacity,
             (owner, obj) => owner.Opacity = obj,
-            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Opacity, 100, 100, 0, useOptional: true)).Serialize());
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Opacity, 100, 100, 0)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="Color"/> property.
@@ -85,6 +85,7 @@ namespace BEditor.Data.Property.PrimitiveGroup
         /// <summary>
         /// Reset the <see cref="Opacity"/> Optionals.
         /// </summary>
+        [Obsolete("To be added.")]
         public void ResetOptional()
         {
             Opacity.Optional = 0;

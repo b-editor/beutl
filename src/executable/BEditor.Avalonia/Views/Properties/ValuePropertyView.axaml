@@ -31,6 +31,8 @@
         <NumericUpDown
             Grid.Column="1"
             Increment="10"
+            x:Name="Numeric"
+            FormatString="{CompiledBinding Property.PropertyMetadata.FormatString, Mode=OneWay}"
             Value="{CompiledBinding Property.Value, Mode=OneWay}"
             Maximum="{CompiledBinding Maximum, Mode=OneTime}"
             Minimum="{CompiledBinding Minimum, Mode=OneTime}"

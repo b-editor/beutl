@@ -169,7 +169,6 @@ namespace BEditor.Primitive.Effects
             imgobj.Render(
                 new EffectApplyArgs(f - Parent.Start + ClipProperty.Value.Start, args.Contexts, args.Type),
                 out var img);
-            imgobj.Coordinate.ResetOptional();
 
             if (img is null) return;
 

@@ -104,6 +104,7 @@ namespace BEditor.Data.Property
         /// <summary>
         /// Gets or sets an optional value.
         /// </summary>
+        [Obsolete("To be added.")]
         public float Optional { get; set; }
 
         /// <summary>
@@ -172,11 +173,6 @@ namespace BEditor.Data.Property
             int now = frame - start;
 
             var out_ = EasingType.EaseFunc(now, end - start, startPair.Value, endPair.Value);
-
-            if (PropertyMetadata?.UseOptional ?? false)
-            {
-                return Clamp(out_ + Optional);
-            }
 
             return Clamp(out_);
         }
