@@ -2,11 +2,11 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
 
-namespace BEditor.Views.Settings
+namespace BEditor.Views.Dialogs
 {
-    public sealed class Infomation : Window
+    public partial class AboutBEditor : FluentWindow
     {
-        public Infomation()
+        public AboutBEditor()
         {
             InitializeComponent();
 #if DEBUG
