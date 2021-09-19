@@ -121,11 +121,13 @@ namespace BEditor.Views.Properties
 
         private void NumericUpDown_PointerPressed(object? sender, PointerPressedEventArgs e)
         {
+            var num = (NumericUpDown)sender!;
+            if (num.IsKeyboardFocusWithin) return;
+
             _clickCount++;
             _isMouseDown = true;
             _startPoint = e.GetPosition(this);
 
-            var num = (NumericUpDown)sender!;
             var index = num.GetValue(AttachmentProperty.IntProperty);
 
             _oldvalue = _property.Pairs[index].Value;

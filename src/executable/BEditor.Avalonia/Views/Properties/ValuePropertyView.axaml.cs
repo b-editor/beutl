@@ -70,6 +70,8 @@ namespace BEditor.Views.Properties
 
         private void NumericUpDown_PointerPressed(object? sender, PointerPressedEventArgs e)
         {
+            var num = (NumericUpDown)sender!;
+            if (num.IsKeyboardFocusWithin) return;
             _clickCount++;
             _isMouseDown = true;
             _startPoint = e.GetPosition(this);
