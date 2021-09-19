@@ -229,7 +229,7 @@ namespace BEditor.Models
 
                 foreach (var scene in project.SceneList)
                 {
-                    var sceneCache = Path.Combine(sceneCacheDir, scene.SceneName + ".cache");
+                    var sceneCache = Path.Combine(sceneCacheDir, scene.Name + ".cache");
                     var cacheObj = new SceneCache
                     {
                         Select = scene.SelectItem?.Name,
@@ -283,7 +283,7 @@ namespace BEditor.Models
 
                 foreach (var scene in project.SceneList)
                 {
-                    var sceneCache = Path.Combine(sceneCacheDir, scene.SceneName + ".cache");
+                    var sceneCache = Path.Combine(sceneCacheDir, scene.Name + ".cache");
 
                     if (!File.Exists(sceneCache)) continue;
                     Stream stream = null;

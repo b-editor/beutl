@@ -594,11 +594,6 @@
             Occurs when the length of the clip is changed.
             </summary>
         </member>
-        <member name="P:BEditor.Data.ClipElement.Name">
-            <summary>
-            Gets the name of this <see cref="T:BEditor.Data.ClipElement"/>.
-            </summary>
-        </member>
         <member name="P:BEditor.Data.ClipElement.Start">
             <summary>
             Gets or sets the starting frame of this <see cref="T:BEditor.Data.ClipElement"/>.
@@ -941,6 +936,9 @@
             <remarks><see langword="true"/> if the expander is open, otherwise <see langword="false"/>.</remarks>
         </member>
         <member name="P:BEditor.Data.EffectElement.Parent">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Data.EffectElement.BEditor#Data#IEditingObject#Name">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Data.EffectElement.GetProperties">
@@ -1473,11 +1471,6 @@
             Defines the <see cref="P:BEditor.Data.Project.CurrentSceneIndex"/> property.
             </summary>
         </member>
-        <member name="F:BEditor.Data.Project.NameProperty">
-            <summary>
-            Defines the <see cref="P:BEditor.Data.Project.Name"/> property.
-            </summary>
-        </member>
         <member name="F:BEditor.Data.Project.DirectoryNameProperty">
             <summary>
             Defines the <see cref="P:BEditor.Data.Project.DirectoryName"/> property.
@@ -1535,11 +1528,6 @@
         <member name="P:BEditor.Data.Project.Parent">
             <inheritdoc/>
         </member>
-        <member name="P:BEditor.Data.Project.Name">
-            <summary>
-            Gets or sets the name of project.
-            </summary>
-        </member>
         <member name="P:BEditor.Data.Project.DirectoryName">
             <summary>
             Gets or sets the directory name of this <see cref="T:BEditor.Data.Project"/>.
@@ -1570,14 +1558,14 @@
             <summary>
             Save this <see cref="T:BEditor.Data.Project"/>.
             </summary>
-            <remarks>If <see cref="P:BEditor.Data.Project.Name"/> is <see langword="null"/>, a dialog will appear.</remarks>
+            <remarks>If <see cref="P:BEditor.Data.EditingObject.Name"/> is <see langword="null"/>, a dialog will appear.</remarks>
             <returns><see langword="true"/> if the save is successful, otherwise <see langword="false"/>.</returns>
         </member>
         <member name="M:BEditor.Data.Project.SaveAsync">
             <summary>
             Save this <see cref="T:BEditor.Data.Project"/>.
             </summary>
-            <remarks>If <see cref="P:BEditor.Data.Project.Name"/> is <see langword="null"/>, a dialog will appear.</remarks>
+            <remarks>If <see cref="P:BEditor.Data.EditingObject.Name"/> is <see langword="null"/>, a dialog will appear.</remarks>
             <returns><see langword="true"/> if the save is successful, otherwise <see langword="false"/>.</returns>
         </member>
         <member name="M:BEditor.Data.Project.Save(System.String)">
@@ -2303,6 +2291,9 @@
         <member name="P:BEditor.Data.Property.Easing.EasingFunc.Parent">
             <inheritdoc/>
         </member>
+        <member name="P:BEditor.Data.Property.Easing.EasingFunc.Name">
+            <inheritdoc/>
+        </member>
         <member name="M:BEditor.Data.Property.Easing.EasingFunc.GetProperties">
             <summary>
             Gets the <see cref="T:BEditor.Data.Property.PropertyElement"/> to display on the GUI.
@@ -2901,6 +2892,9 @@
             <summary>
             Gets or sets the metadata for this <see cref="T:BEditor.Data.Property.IPropertyElement"/>.
             </summary>
+        </member>
+        <member name="P:BEditor.Data.Property.IPropertyElement.BEditor#Data#IEditingObject#Name">
+            <inheritdoc/>
         </member>
         <member name="T:BEditor.Data.Property.KeyFramePair`1">
             <summary>
@@ -3839,6 +3833,9 @@
             Gets or sets the metadata for this <see cref="T:BEditor.Data.Property.PropertyElement"/>.
             </summary>
         </member>
+        <member name="P:BEditor.Data.Property.PropertyElement.Name">
+            <inheritdoc/>
+        </member>
         <member name="P:BEditor.Data.Property.PropertyElement.BEditor#Data#IHasMetadata#Metadata">
             <inheritdoc/>
         </member>
@@ -4288,9 +4285,9 @@
         </member>
         <member name="P:BEditor.Data.Scene.Item(System.String)">
             <summary>
-            Gets the <see cref="T:BEditor.Data.ClipElement"/> from its <see cref="P:BEditor.Data.ClipElement.Name"/>.
+            Gets the <see cref="T:BEditor.Data.ClipElement"/> from its <see cref="P:BEditor.Data.EditingObject.Name"/>.
             </summary>
-            <param name="name">Value of <see cref="P:BEditor.Data.ClipElement.Name"/>.</param>
+            <param name="name">Value of <see cref="P:BEditor.Data.EditingObject.Name"/>.</param>
         </member>
         <member name="M:BEditor.Data.Scene.GetObjectData(System.Text.Json.Utf8JsonWriter)">
             <inheritdoc/>

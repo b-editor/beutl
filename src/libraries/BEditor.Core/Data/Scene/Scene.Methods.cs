@@ -42,7 +42,6 @@ namespace BEditor.Data
             base.GetObjectData(writer);
             writer.WriteNumber(nameof(Width), Width);
             writer.WriteNumber(nameof(Height), Height);
-            writer.WriteString(nameof(SceneName), SceneName);
             writer.WriteNumber(nameof(TotalFrame), TotalFrame);
             writer.WriteBoolean(nameof(UseCache), UseCache);
             writer.WriteStartArray(nameof(HideLayer));
@@ -76,7 +75,6 @@ namespace BEditor.Data
             TimeLineScale = 0.75f;
             Width = element.GetProperty(nameof(Width)).GetInt32();
             Height = element.GetProperty(nameof(Height)).GetInt32();
-            SceneName = element.GetProperty(nameof(SceneName)).GetString() ?? string.Empty;
             TotalFrame = element.GetProperty(nameof(TotalFrame)).GetInt32();
             HideLayer = element.GetProperty(nameof(HideLayer)).EnumerateArray().Select(i => i.GetInt32()).ToList();
             Datas = new(element.GetProperty("Clips").EnumerateArray().Select(i =>
@@ -88,6 +86,9 @@ namespace BEditor.Data
             }));
 
             UseCache = !element.TryGetProperty(nameof(UseCache), out var useCache) || useCache.GetBoolean();
+
+            // Todo: 互換性
+            Name = element.TryGetProperty("SceneName", out var sceneName) ? sceneName.GetString() ?? string.Empty : string.Empty;
         }
 
         /// <summary>

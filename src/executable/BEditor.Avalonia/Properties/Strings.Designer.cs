@@ -703,6 +703,24 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Do you want to remove this directory? に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string DoYouWantToRemoveThisDirectory {
+            get {
+                return ResourceManager.GetString("DoYouWantToRemoveThisDirectory", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Do you want to remove this file? に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string DoYouWantToRemoveThisFile {
+            get {
+                return ResourceManager.GetString("DoYouWantToRemoveThisFile", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Edit に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Edit {

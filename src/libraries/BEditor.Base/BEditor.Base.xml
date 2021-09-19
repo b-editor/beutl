@@ -321,6 +321,11 @@
             Defines the <see cref="P:BEditor.Data.EditingObject.Id"/> property.
             </summary>
         </member>
+        <member name="F:BEditor.Data.EditingObject.NameProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Data.EditingObject.Name"/> property.
+            </summary>
+        </member>
         <member name="M:BEditor.Data.EditingObject.#ctor">
             <summary>
             Initializes a new instance of the <see cref="T:BEditor.Data.EditingObject"/> class.
@@ -333,6 +338,9 @@
             <inheritdoc/>
         </member>
         <member name="P:BEditor.Data.EditingObject.Id">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Data.EditingObject.Name">
             <inheritdoc/>
         </member>
         <member name="P:BEditor.Data.EditingObject.Item(BEditor.Data.EditingProperty)">
@@ -760,6 +768,11 @@
         <member name="P:BEditor.Data.IEditingObject.Id">
             <summary>
             Gets the ID.
+            </summary>
+        </member>
+        <member name="P:BEditor.Data.IEditingObject.Name">
+            <summary>
+            Gets the name.
             </summary>
         </member>
         <member name="P:BEditor.Data.IEditingObject.Item(BEditor.Data.EditingProperty)">

@@ -952,4 +952,10 @@ Do you want to remove it from the list?</value>
   <data name="ThereIsANewerVersionOf" xml:space="preserve">
     <value>There is a newer version of "{0}".</value>
   </data>
+  <data name="DoYouWantToRemoveThisDirectory" xml:space="preserve">
+    <value>Do you want to remove this directory?</value>
+  </data>
+  <data name="DoYouWantToRemoveThisFile" xml:space="preserve">
+    <value>Do you want to remove this file?</value>
+  </data>
 </root>

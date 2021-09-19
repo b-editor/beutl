@@ -47,7 +47,7 @@ namespace BEditor.ViewModels.DialogContent
 
                 Scene.Value.AddClip(Start.Value, Layer.Value, Selected.Value, out var data).Execute();
 
-                if (Name.Value != string.Empty) data.LabelText = Name.Value;
+                if (Name.Value != string.Empty) data.Name = Name.Value;
 
                 data.End = Start.Value + Length.Value;
             });

@@ -38,10 +38,19 @@ namespace BEditor.Data
         /// <summary>
         /// Gets or sets the name of this <see cref="Scene"/>.
         /// </summary>
+        [Obsolete("Use Name.")]
         public string SceneName
         {
-            get => _sceneName;
-            set => SetAndRaise(value, ref _sceneName, _sceneNameArgs);
+            get => Name;
+            set
+            {
+                var old = Name;
+                Name = value;
+                if (old == value)
+                {
+                    RaisePropertyChanged(new System.ComponentModel.PropertyChangedEventArgs(nameof(SceneName)));
+                }
+            }
         }
 
         /// <summary>
@@ -192,12 +201,12 @@ namespace BEditor.Data
         /// </summary>
         public SceneSettings Settings
         {
-            get => new(Width, Height, SceneName);
+            get => new(Width, Height, Name);
             set
             {
                 Width = value.Width;
                 Height = value.Height;
-                SceneName = value.Name;
+                Name = value.Name;
 
                 GraphicsContext?.Dispose();
                 GraphicsContext = new(Width, Height);

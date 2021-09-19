@@ -20,10 +20,10 @@ namespace BEditor.ViewModels.Timelines
             _scene = scene;
             Width = new((uint)scene.Width);
             Height = new((uint)scene.Height);
-            Name = new ReactiveProperty<string>(scene.SceneName)
+            Name = new ReactiveProperty<string>(scene.Name)
                 .SetValidateNotifyError(name =>
                 {
-                    if (_scene.Parent.SceneList.Any(s => s != _scene && s.SceneName == name))
+                    if (_scene.Parent.SceneList.Any(s => s != _scene && s.Name == name))
                     {
                         return Strings.ThisNameAlreadyExists;
                     }

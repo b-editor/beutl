@@ -19,7 +19,6 @@
         <convert:StringToGeometoryConverter x:Key="StringToGeometoryConverter" />
         <convert:EnumerableTakeConverter x:Key="EnumerableTakeConverter" />
         <convert:EffectToKeyframeConverter x:Key="EffectToKeyframeConverter" />
-        <convert:GetNameConverter x:Key="GetNameConverter" />
         <convert:PathToImageSourceConverter x:Key="PathToImageSourceConverter" />
         <convert:ConfigurationViewModelConverter x:Key="ConfigurationViewModelConverter" />
         <convert:BackgroundTypeConverter x:Key="BackgroundTypeConverter" />

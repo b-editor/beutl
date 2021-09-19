@@ -39,7 +39,6 @@ namespace BEditor.Data
             writer.WriteNumber(nameof(Start), Start);
             writer.WriteNumber(nameof(End), End);
             writer.WriteNumber(nameof(Layer), Layer);
-            writer.WriteString("Text", LabelText);
 
             writer.WriteStartArray("Effects");
             foreach (var effect in Effect)
@@ -66,7 +65,6 @@ namespace BEditor.Data
             Start = element.GetProperty(nameof(Start)).GetInt32();
             End = element.GetProperty(nameof(End)).GetInt32();
             Layer = element.GetProperty(nameof(Layer)).GetInt32();
-            LabelText = element.GetProperty("Text").GetString() ?? string.Empty;
             var effects = element.GetProperty("Effects");
             _effect = new();
             foreach (var effect in effects.EnumerateArray())
@@ -82,6 +80,9 @@ namespace BEditor.Data
             }
 
             Metadata = ObjectMetadata.LoadedObjects.First(i => i.Type == Effect[0].GetType());
+
+            // Todo: 互換性
+            Name = element.TryGetProperty("Text", out var txt) ? txt.GetString() ?? string.Empty : string.Empty;
         }
 
         /// <summary>

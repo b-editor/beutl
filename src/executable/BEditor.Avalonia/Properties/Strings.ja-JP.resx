@@ -952,4 +952,10 @@ Vulkan:
   <data name="ThereIsANewerVersionOf" xml:space="preserve">
     <value>"{0}"の新しいバージョンがあります。</value>
   </data>
+  <data name="DoYouWantToRemoveThisDirectory" xml:space="preserve">
+    <value>このディレクトリを削除しますか？</value>
+  </data>
+  <data name="DoYouWantToRemoveThisFile" xml:space="preserve">
+    <value>このファイルを削除しますか？</value>
+  </data>
 </root>
