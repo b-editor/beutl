@@ -958,4 +958,13 @@ Vulkan:
   <data name="DoYouWantToRemoveThisFile" xml:space="preserve">
     <value>このファイルを削除しますか？</value>
   </data>
+  <data name="Maximize" xml:space="preserve">
+    <value>最大化</value>
+  </data>
+  <data name="RestoreDown" xml:space="preserve">
+    <value>元に戻す</value>
+  </data>
+  <data name="Minimize" xml:space="preserve">
+    <value>最小化</value>
+  </data>
 </root>

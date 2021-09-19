@@ -958,4 +958,13 @@ Do you want to remove it from the list?</value>
   <data name="DoYouWantToRemoveThisFile" xml:space="preserve">
     <value>Do you want to remove this file?</value>
   </data>
+  <data name="Maximize" xml:space="preserve">
+    <value>Maximize</value>
+  </data>
+  <data name="RestoreDown" xml:space="preserve">
+    <value>Restore Down</value>
+  </data>
+  <data name="Minimize" xml:space="preserve">
+    <value>Minimize</value>
+  </data>
 </root>

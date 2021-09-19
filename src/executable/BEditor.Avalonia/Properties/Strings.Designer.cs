@@ -1284,6 +1284,15 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Maximize に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Maximize {
+            get {
+                return ResourceManager.GetString("Maximize", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Memory release に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string MemoryRelease {
@@ -1298,6 +1307,15 @@ namespace BEditor.Properties {
         public static string Metadata {
             get {
                 return ResourceManager.GetString("Metadata", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Minimize に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Minimize {
+            get {
+                return ResourceManager.GetString("Minimize", resourceCulture);
             }
         }
         
@@ -1830,6 +1848,15 @@ namespace BEditor.Properties {
         public static string ResetLayout {
             get {
                 return ResourceManager.GetString("ResetLayout", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Restore Down に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string RestoreDown {
+            get {
+                return ResourceManager.GetString("RestoreDown", resourceCulture);
             }
         }
         
