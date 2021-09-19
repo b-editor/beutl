@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.Numerics;
 
 using Avalonia;
 using Avalonia.Controls;
@@ -8,6 +9,7 @@ using Avalonia.Markup.Xaml;
 using BEditor.Data;
 using BEditor.Data.Property;
 using BEditor.Data.Property.PrimitiveGroup;
+using BEditor.Graphics;
 using BEditor.Media;
 using BEditor.Models;
 using BEditor.ViewModels;
@@ -21,8 +23,10 @@ namespace BEditor.Views
         private Point _startPoint;
         private int _xIndex;
         private int _yIndex;
+        private int _zIndex;
         private KeyFramePair<float> _xPair;
         private KeyFramePair<float> _yPair;
+        private KeyFramePair<float> _zPair;
         private Scene? _scene;
         private ClipElement? _clip;
 
@@ -44,22 +48,30 @@ namespace BEditor.Views
 
         private void Image_PointerMoved(object? sender, Avalonia.Input.PointerEventArgs e)
         {
-            if (_isMouseDown && _clip != null && _scene != null)
+            if (_isMouseDown && _clip != null && _scene?.GraphicsContext != null)
             {
                 var point = e.GetPosition(_image);
 
                 // à⁄ìÆó 
-                var move = (point - _startPoint) * 2;
+                var move = point - _startPoint;
                 var items = _clip.Effect[0].GetAllChildren<Coordinate>();
+                var xRatio = _scene.Width / _image.Bounds.Width;
+                var yRatio = _scene.Height / _image.Bounds.Height;
+                move = move.WithX(move.X * xRatio).WithY(move.Y * yRatio);
 
                 if (items.Any())
                 {
                     var item = items.First();
                     var xP = item.X.Pairs[_xIndex];
                     var yP = item.Y.Pairs[_yIndex];
+                    var zP = item.Z.Pairs[_zIndex];
 
-                    item.X.Pairs[_xIndex] = xP.WithValue(xP.Value + (float)move.X);
-                    item.Y.Pairs[_yIndex] = yP.WithValue(yP.Value - (float)move.Y);
+                    // à⁄ìÆó ÅiÉJÉÅÉâÇ…çáÇÌÇπÇΩÅj
+                    var vector = GetTransform(move, _scene.GraphicsContext);
+
+                    item.X.Pairs[_xIndex] = xP.WithValue(xP.Value + vector.X);
+                    item.Y.Pairs[_yIndex] = yP.WithValue(yP.Value - vector.Y);
+                    item.Z.Pairs[_zIndex] = zP.WithValue(zP.Value - vector.Z);
                 }
 
                 _startPoint = point;
@@ -79,11 +91,14 @@ namespace BEditor.Views
                     var item = items.First();
                     var xTmp = item.X.Pairs[_xIndex];
                     var yTmp = item.Y.Pairs[_yIndex];
+                    var zTmp = item.Z.Pairs[_zIndex];
                     item.X.Pairs[_xIndex] = _xPair;
                     item.Y.Pairs[_yIndex] = _yPair;
+                    item.Z.Pairs[_zIndex] = _zPair;
 
                     item.X.ChangeValue(_xIndex, xTmp.Value)
                         .Combine(item.Y.ChangeValue(_yIndex, yTmp.Value))
+                        .Combine(item.Z.ChangeValue(_zIndex, zTmp.Value))
                         .Execute();
                 }
             }
@@ -106,8 +121,10 @@ namespace BEditor.Views
                     var item = items.First();
                     _xIndex = FindIndex(item.X, _scene.PreviewFrame);
                     _yIndex = FindIndex(item.Y, _scene.PreviewFrame);
+                    _zIndex = FindIndex(item.Z, _scene.PreviewFrame);
                     _xPair = item.X.Pairs[_xIndex];
                     _yPair = item.Y.Pairs[_yIndex];
+                    _zPair = item.Z.Pairs[_zIndex];
                 }
             }
         }
@@ -159,6 +176,15 @@ namespace BEditor.Views
             }
 
             throw new Exception();
+        }
+
+        private static Vector3 GetTransform(Point point, GraphicsContext context)
+        {
+            var view = context.Camera.GetViewMatrix();
+            var model = Matrix4x4.CreateTranslation(new((float)point.X, (float)point.Y, 0));
+
+            var mat = (model * view) - view;
+            return mat.Translation;
         }
     }
 }
