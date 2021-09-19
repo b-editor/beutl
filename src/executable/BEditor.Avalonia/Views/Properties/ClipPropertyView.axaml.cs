@@ -9,6 +9,7 @@ using BEditor.Data;
 using BEditor.Extensions;
 using BEditor.Models;
 using BEditor.Properties;
+using BEditor.ViewModels.Properties;
 using BEditor.ViewModels.Timelines;
 
 namespace BEditor.Views.Properties
@@ -36,7 +37,7 @@ namespace BEditor.Views.Properties
 
         private async void UserControl_Drop(object? sender, DragEventArgs e)
         {
-            if (DataContext is not ClipViewModel clipVm) return;
+            if (DataContext is not ClipPropertyViewModel clipVm) return;
 
             var clip = clipVm.ClipElement;
             if (e.Data.Get("EffectMetadata") is EffectMetadata metadata)
