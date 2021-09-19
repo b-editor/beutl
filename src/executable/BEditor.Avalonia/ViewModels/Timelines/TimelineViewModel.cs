@@ -1,8 +1,12 @@
 ﻿using System;
+using System.Reactive.Concurrency;
 using System.Reactive.Linq;
+using System.Threading.Tasks;
 
 using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Media;
 
 using BEditor.Data;
 using BEditor.Extensions;
@@ -35,6 +39,7 @@ namespace BEditor.ViewModels.Timelines
         public TimelineViewModel(Scene scene)
         {
             Scene = scene;
+            SelectedClip = scene.SelectItem;
 
             TrackWidth.Value = scene.ToPixel(scene.TotalFrame);
 
@@ -51,6 +56,26 @@ namespace BEditor.ViewModels.Timelines
 
             scene.ObserveProperty(s => s.TotalFrame)
                 .Subscribe(_ => TrackWidth.Value = Scene.ToPixel(Scene.TotalFrame));
+
+            scene.ObserveProperty(s => s.SelectItem)
+                .Subscribe(clip =>
+                {
+                    var clips = Scene.Datas;
+                    for (var i = 0; i < clips.Count; i++)
+                    {
+                        var item = clips[i];
+                        var vm = item.GetCreateClipViewModelSafe();
+
+                        if (item == clip)
+                        {
+                            vm.BorderBrush.Value = (IBrush)Application.Current.FindResource("TextControlForeground")!;
+                        }
+                        else
+                        {
+                            vm.BorderBrush.Value = vm.ClipColor.Value;
+                        }
+                    }
+                });
 
             AddClip.Subscribe(meta =>
             {
