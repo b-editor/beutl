@@ -20,7 +20,7 @@
             Grid.Row="1"
             x:Name="NavView"
             IsBackButtonVisible="True"
-            PaneDisplayMode="Top"
+            PaneDisplayMode="Left"
             IsSettingsVisible="False"
             IsBackEnabled="{Binding #FrameView.CanGoBack}">
             <ui:Frame x:Name="FrameView" />
