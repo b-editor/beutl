@@ -243,6 +243,7 @@ namespace BEditor.Data
                     File.Copy(prop.Value, dstFilename);
                 }
 
+                File.SetAttributes(dstFilename, FileAttributes.Normal);
                 prop.Value = dstFilename;
                 prop.Mode = FilePathType.FromProject;
             }
@@ -282,6 +283,7 @@ namespace BEditor.Data
                         File.Copy(font.Value.Filename, dstFilename);
                     }
 
+                    File.SetAttributes(dstFilename, FileAttributes.Normal);
                     font.Value = new(dstFilename);
                     font.Mode = FontProperty.FontSaveMode.FromProject;
                 }
@@ -331,6 +333,8 @@ namespace BEditor.Data
 
                     File.Copy(file, dstFilename);
                 }
+
+                File.SetAttributes(dstFilename, FileAttributes.Normal);
             }
         }
     }
