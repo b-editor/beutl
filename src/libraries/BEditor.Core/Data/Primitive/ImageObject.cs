@@ -301,13 +301,11 @@ namespace BEditor.Data.Primitive
                 return;
             }
 
-            var context = Parent!.Parent.GraphicsContext!;
+            var context = args.Contexts.Graphics;
 
             if (args.Type is ApplyType.Edit && Parent.Parent.SelectItem == Parent)
             {
-                var wHalf = (texture.Width / 2f) + 10;
-                var hHalf = (texture.Height / 2f) + 10;
-                DrawLine(context, wHalf, hHalf, texture.Transform);
+                DrawLine(context, texture.Width / 2f, texture.Height / 2f, texture.Transform);
             }
 
             context.DrawTexture(texture);
