@@ -17,7 +17,6 @@ using BEditor.Data.Property.PrimitiveGroup;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
 using BEditor.Graphics;
-using BEditor.Media;
 using BEditor.Primitive.Resources;
 
 namespace BEditor.Primitive.Effects
@@ -82,6 +81,13 @@ namespace BEditor.Primitive.Effects
             })).Serialize());
 
         /// <summary>
+        /// Defines the <see cref="IsMultiple"/> property.
+        /// </summary>
+        public static readonly DirectProperty<Border, CheckProperty> IsMultipleProperty = Objects.Text.IsMultipleProperty.WithOwner<Border>(
+            owner => owner.IsMultiple,
+            (owner, obj) => owner.IsMultiple = obj);
+
+        /// <summary>
         /// Initializes a new instance of the <see cref="Border"/> class.
         /// </summary>
         public Border()
@@ -127,6 +133,12 @@ namespace BEditor.Primitive.Effects
         [AllowNull]
         public SelectorProperty Mask { get; private set; }
 
+        /// <summary>
+        /// Gets the text.
+        /// </summary>
+        [AllowNull]
+        public CheckProperty IsMultiple { get; private set; }
+
         /// <inheritdoc/>
         public override void Apply(EffectApplyArgs<Image<BGRA32>> args)
         {
@@ -139,7 +151,14 @@ namespace BEditor.Primitive.Effects
         /// <inheritdoc/>
         public override void Apply(EffectApplyArgs<IEnumerable<Texture>> args)
         {
-            args.Value = args.Value.SelectMany(i => Selector(i, args));
+            if (IsMultiple.Value)
+            {
+                args.Value = args.Value.SelectMany(i => SelectorMultiple(i, args));
+            }
+            else
+            {
+                args.Value = args.Value.Select(i => Selector(i, args));
+            }
         }
 
         /// <inheritdoc/>
@@ -151,9 +170,10 @@ namespace BEditor.Primitive.Effects
             yield return Opacity;
             yield return Color;
             yield return Mask;
+            yield return IsMultiple;
         }
 
-        private IEnumerable<Texture> Selector(Texture texture, EffectApplyArgs args)
+        private IEnumerable<Texture> SelectorMultiple(Texture texture, EffectApplyArgs args)
         {
             var frame = args.Frame;
             var color = Color.Value;
@@ -178,6 +198,30 @@ namespace BEditor.Primitive.Effects
 
             yield return borderTexture;
             yield return texture;
+        }
+
+        private Texture Selector(Texture texture, EffectApplyArgs args)
+        {
+            var frame = args.Frame;
+            var color = Color.Value;
+            var size = (int)Size.GetValue(frame);
+            color.A = (byte)(color.A * (Opacity[frame] / 100));
+
+            using var source = texture.ToImage();
+            using var border = source.Border(size, color);
+
+            if (Mask.Value is 1 or 2)
+            {
+                border.Mask(source, default, 0, Mask.Value == 2, args.Contexts.Drawing);
+            }
+
+            border.DrawImage(new Point((border.Width / 2) - (source.Width / 2), (border.Height / 2) - (source.Height / 2)), source, args.Contexts.Drawing);
+
+            var borderTexture = Texture.FromImage(border);
+            borderTexture.Synchronize(texture);
+            texture.Dispose();
+
+            return borderTexture;
         }
     }
 }

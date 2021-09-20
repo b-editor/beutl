@@ -1130,6 +1130,11 @@
             Defines the <see cref="P:BEditor.Primitive.Effects.Border.Mask"/> property.
             </summary>
         </member>
+        <member name="F:BEditor.Primitive.Effects.Border.IsMultipleProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.Border.IsMultiple"/> property.
+            </summary>
+        </member>
         <member name="M:BEditor.Primitive.Effects.Border.#ctor">
             <summary>
             Initializes a new instance of the <see cref="T:BEditor.Primitive.Effects.Border"/> class.
@@ -1166,6 +1171,11 @@
         <member name="P:BEditor.Primitive.Effects.Border.Mask">
             <summary>
             Gets the mask type.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.Border.IsMultiple">
+            <summary>
+            Gets the text.
             </summary>
         </member>
         <member name="M:BEditor.Primitive.Effects.Border.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
