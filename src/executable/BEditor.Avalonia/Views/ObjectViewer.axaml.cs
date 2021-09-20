@@ -24,6 +24,7 @@ namespace BEditor.Views
             _scrollViewer = this.FindControl<ScrollViewer>("scrollViewer");
 
             AppModel.Current.ObserveProperty(p => p.Project)
+                .ObserveOnUIDispatcher()
                 .Subscribe(proj =>
                 {
                     if (proj != null)

@@ -177,13 +177,6 @@
                     </MenuItem.Icon>
                 </MenuItem>
 
-                <!--動画を変換-->
-                <MenuItem Click="ConvertVideo" Header="{x:Static prop:Strings.ConvertVideo}">
-                    <MenuItem.Icon>
-                        <ui:SymbolIcon Symbol="Video" />
-                    </MenuItem.Icon>
-                </MenuItem>
-
                 <!--拡大表示-->
                 <MenuItem Click="ZoomIn" Header="{x:Static prop:Strings.ZoomIn}" />
 

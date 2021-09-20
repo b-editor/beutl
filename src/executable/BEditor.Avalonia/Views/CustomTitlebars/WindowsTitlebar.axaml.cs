@@ -20,7 +20,6 @@ using BEditor.ViewModels.DialogContent;
 using BEditor.Views.DialogContent;
 using BEditor.Views.Dialogs;
 using BEditor.Views.ManagePlugins;
-using BEditor.Views.Tool;
 
 namespace BEditor.Views.CustomTitlebars
 {
@@ -184,15 +183,6 @@ namespace BEditor.Views.CustomTitlebars
                 {
                     File.Delete(item);
                 }
-            }
-        }
-
-        public async void ConvertVideo(object s, RoutedEventArgs e)
-        {
-            if (VisualRoot is Window window)
-            {
-                var dialog = new ConvertVideo();
-                await dialog.ShowDialog(window);
             }
         }
 

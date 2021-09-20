@@ -30,7 +30,7 @@
             <Setter Property="HorizontalAlignment" Value="Center" />
         </Style>
     </UserControl.Styles>
-    <Grid RowDefinitions="Auto,*">
+    <Grid RowDefinitions="Auto,Auto,*">
         <ui:CommandBar DefaultLabelPosition="Right">
             <ui:CommandBar.PrimaryCommands>
                 <ui:CommandBarButton
@@ -126,7 +126,14 @@
             </ui:CommandBar.PrimaryCommands>
         </ui:CommandBar>
 
-        <ScrollViewer Grid.Row="1" IsVisible="{CompiledBinding CardViewIsVisible.Value, Mode=OneWay}">
+        <TextBlock
+            Grid.Row="1"
+            Text="{x:Static props:Strings.RecentProject}"
+            Margin="8,16,8,8"
+            FontSize="20"
+            FontWeight="SemiBold" />
+        
+        <ScrollViewer Grid.Row="2" IsVisible="{CompiledBinding CardViewIsVisible.Value, Mode=OneWay}">
             <ItemsControl Items="{CompiledBinding Projects, Mode=OneTime}">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="model:ProjectModel">
@@ -134,8 +141,8 @@
                             CommandParameter="{CompiledBinding}"
                             Command="{Binding #root.DataContext.OpenItem, Mode=OneTime}"
                             Background="{StaticResource ButtonBackgroundPointerOver}"
-                            Width="180"
-                            Height="200"
+                            Width="240"
+                            Height="220"
                             Margin="8"
                             Padding="0">
                             <Button.ContextMenu>
@@ -152,7 +159,7 @@
                                 </ContextMenu>
                             </Button.ContextMenu>
                             <Grid RowDefinitions="2*,Auto">
-                                <ContentControl Background="{StaticResource ButtonBackgroundDisabled}" Padding="0">
+                                <ContentControl Background="Black" Padding="0">
                                     <Image
                                         HorizontalAlignment="Center"
                                         VerticalAlignment="Center"
@@ -179,7 +186,7 @@
             </ItemsControl>
         </ScrollViewer>
 
-        <ScrollViewer Grid.Row="1" IsVisible="{CompiledBinding ListViewIsVisible.Value, Mode=OneWay}">
+        <ScrollViewer Grid.Row="2" IsVisible="{CompiledBinding ListViewIsVisible.Value, Mode=OneWay}">
             <ItemsControl Items="{CompiledBinding Projects, Mode=OneTime}">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="model:ProjectModel">
@@ -212,10 +219,10 @@
             </ItemsControl>
         </ScrollViewer>
 
-        <StackPanel Grid.Row="1" IsVisible="{CompiledBinding IsEmpty.Value, Mode=OneWay}" Classes="center">
+        <StackPanel Grid.Row="2" IsVisible="{CompiledBinding IsEmpty.Value, Mode=OneWay}" Classes="center">
             <TextBlock
                 Classes="center"
-                FontSize="40"
+                FontSize="56"
                 FontWeight="Bold"
                 Text="¯\_(ツ)_/¯" />
             <TextBlock
@@ -230,7 +237,7 @@
         </StackPanel>
         
         <ProgressBar
-            Grid.Row="1"
+            Grid.Row="2"
             VerticalAlignment="Bottom"
             IsVisible="{CompiledBinding IsLoading.Value, Mode=OneWay}"
             IsIndeterminate="True" />

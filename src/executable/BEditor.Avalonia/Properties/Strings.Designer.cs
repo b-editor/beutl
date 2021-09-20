@@ -1798,6 +1798,15 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   RecentProject に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string RecentProject {
+            get {
+                return ResourceManager.GetString("RecentProject", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Redo に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Redo {
