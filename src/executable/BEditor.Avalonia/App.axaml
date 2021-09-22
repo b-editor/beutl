@@ -149,5 +149,12 @@
                 </ControlTemplate>
             </Setter>
         </Style>
+
+        <Style Selector="Border.card">
+            <Setter Property="BorderBrush" Value="{DynamicResource ControlElevationBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="{DynamicResource OverlayCornerRadius}" />
+            <Setter Property="Background" Value="{DynamicResource NavigationViewContentBackground}" />
+        </Style>
     </Application.Styles>
 </Application>
