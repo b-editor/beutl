@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.Diagnostics;
@@ -7,15 +6,12 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 
-using Avalonia;
 using Avalonia.Collections;
 using Avalonia.Controls;
-using Avalonia.Controls.Shapes;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
 
-using BEditor.Data;
 using BEditor.Models;
 using BEditor.Plugin;
 using BEditor.Properties;
@@ -24,8 +20,6 @@ using BEditor.ViewModels.DialogContent;
 using BEditor.Views.DialogContent;
 using BEditor.Views.Dialogs;
 using BEditor.Views.ManagePlugins;
-using BEditor.Views.Settings;
-using BEditor.Views.Tool;
 
 namespace BEditor.Views.CustomTitlebars
 {
@@ -192,15 +186,6 @@ namespace BEditor.Views.CustomTitlebars
             }
         }
 
-        public async void ConvertVideo(object s, RoutedEventArgs e)
-        {
-            if (VisualRoot is Window window)
-            {
-                var dialog = new ConvertVideo();
-                await dialog.ShowDialog(window);
-            }
-        }
-
         public void ZoomIn(object s, RoutedEventArgs e)
         {
             if (VisualRoot is Window window)
@@ -222,7 +207,7 @@ namespace BEditor.Views.CustomTitlebars
         {
             if (VisualRoot is Window window)
             {
-                await new Infomation().ShowDialog(window);
+                await new AboutBEditor().ShowDialog(window);
             }
         }
 

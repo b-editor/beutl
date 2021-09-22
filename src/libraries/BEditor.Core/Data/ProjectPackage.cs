@@ -6,16 +6,12 @@
 // of the MIT license. See the LICENSE file for details.
 
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
-using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-using BEditor.Data.Property;
-using BEditor.Drawing;
 using BEditor.Packaging;
 using BEditor.Plugin;
 

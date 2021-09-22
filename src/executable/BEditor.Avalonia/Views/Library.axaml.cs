@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Threading.Tasks;
 
 using Avalonia.Collections;
@@ -24,7 +25,6 @@ namespace BEditor.Views
                 SelectionMode = SelectionMode.Single,
                 [Grid.RowProperty] = 1,
             };
-            _tree.AddHandler(PointerPressedEvent, TreeViewPointerPressed, RoutingStrategies.Tunnel);
             DataContext = new LibraryViewModel(_tree);
         }
 
@@ -43,6 +43,7 @@ namespace BEditor.Views
                     DataContext = item,
                 };
                 treelist.Add(treeitem);
+                treeitem.AddHandler(PointerPressedEvent, TreeViewPointerPressed, RoutingStrategies.Tunnel);
 
                 Add(treeitem, item);
             }
@@ -65,6 +66,7 @@ namespace BEditor.Views
                         DataContext = item,
                     };
                     alist.Add(treeitem2);
+                    treeitem2.AddHandler(PointerPressedEvent, TreeViewPointerPressed, RoutingStrategies.Tunnel);
 
                     Add(treeitem2, item);
                 }
@@ -75,10 +77,11 @@ namespace BEditor.Views
         {
             if (e.GetCurrentPoint(_tree).Properties.IsLeftButtonPressed)
             {
-                if (_tree.SelectedItem is not TreeViewItem select ||
+                if (s is not TreeViewItem select ||
                     select.DataContext is not EffectMetadata metadata ||
-                    metadata.Type == null) return;
+                    (metadata.Children?.Any() ?? false)) return;
 
+                _tree.SelectedItem = select;
                 await Task.Delay(10);
 
                 var dataObject = new DataObject();
@@ -86,8 +89,6 @@ namespace BEditor.Views
 
                 // ドラッグ開始
                 await DragDrop.DoDragDrop(e, dataObject, DragDropEffects.Copy);
-
-                _tree.SelectedItem = null;
             }
         }
 

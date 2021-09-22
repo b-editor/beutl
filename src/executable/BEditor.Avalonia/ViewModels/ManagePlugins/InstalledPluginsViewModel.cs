@@ -4,6 +4,7 @@ using System.Reactive.Linq;
 
 using BEditor.Models.ManagePlugins;
 using BEditor.Plugin;
+using BEditor.Properties;
 
 using Reactive.Bindings;
 
@@ -13,6 +14,12 @@ namespace BEditor.ViewModels.ManagePlugins
     {
         public LoadedPluginsViewModel()
         {
+            Plugins = new();
+            Plugins.AddRangeOnScheduler(PluginManager.Default.Plugins);
+
+            Plugins.AddRangeOnScheduler(PluginManager.Default.Failed.Select(
+                asm => new DummyPlugin(PluginBuilder.Config!, asm.GetName().Name ?? string.Empty, string.Format(Strings.FailedToLoad, Strings.Plugin), Guid.Empty, asm)));
+
             IsSelected = SelectPlugin.Select(plugin => plugin is not null).ToReadOnlyReactivePropertySlim();
 
             Uninstall.Where(_ => IsSelected.Value)
@@ -37,6 +44,8 @@ namespace BEditor.ViewModels.ManagePlugins
                 .Select(i => PluginChangeSchedule.Uninstall.Contains(i) && IsSelected.Value)
                 .ToReadOnlyReactivePropertySlim();
         }
+
+        public ReactiveCollection<PluginObject> Plugins { get; }
 
         public ReactiveProperty<PluginObject> SelectPlugin { get; } = new();
 

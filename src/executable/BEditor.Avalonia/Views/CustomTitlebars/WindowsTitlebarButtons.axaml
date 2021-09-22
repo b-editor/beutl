@@ -2,6 +2,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:props="using:BEditor.Properties"
              mc:Ignorable="d"
              d:DesignWidth="800"
              d:DesignHeight="32"
@@ -86,7 +87,7 @@
             VerticalContentAlignment="Center"
             BorderThickness="0"
             Name="MinimizeButton"
-            ToolTip.Tip="Minimize">
+            ToolTip.Tip="{x:Static props:Strings.Minimize}">
             <Button.Styles>
                 <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
                     <Setter Property="Background"
@@ -139,7 +140,7 @@
             VerticalContentAlignment="Center"
             BorderThickness="0"
             Name="CloseButton"
-            ToolTip.Tip="Close">
+            ToolTip.Tip="{x:Static props:Strings.Close}">
             <Button.Styles>
                 <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
                     <Setter Property="Background"

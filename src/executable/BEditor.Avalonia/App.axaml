@@ -19,7 +19,6 @@
         <convert:StringToGeometoryConverter x:Key="StringToGeometoryConverter" />
         <convert:EnumerableTakeConverter x:Key="EnumerableTakeConverter" />
         <convert:EffectToKeyframeConverter x:Key="EffectToKeyframeConverter" />
-        <convert:GetNameConverter x:Key="GetNameConverter" />
         <convert:PathToImageSourceConverter x:Key="PathToImageSourceConverter" />
         <convert:ConfigurationViewModelConverter x:Key="ConfigurationViewModelConverter" />
         <convert:BackgroundTypeConverter x:Key="BackgroundTypeConverter" />
@@ -149,6 +148,13 @@
                     </Border>
                 </ControlTemplate>
             </Setter>
+        </Style>
+
+        <Style Selector="Border.card">
+            <Setter Property="BorderBrush" Value="{DynamicResource ControlElevationBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="{DynamicResource OverlayCornerRadius}" />
+            <Setter Property="Background" Value="{DynamicResource NavigationViewContentBackground}" />
         </Style>
     </Application.Styles>
 </Application>

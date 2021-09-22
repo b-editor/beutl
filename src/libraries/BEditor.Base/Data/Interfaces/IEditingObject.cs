@@ -26,6 +26,11 @@ namespace BEditor.Data
         public Guid Id { get; }
 
         /// <summary>
+        /// Gets or sets the name.
+        /// </summary>
+        public string Name { get; set; }
+
+        /// <summary>
         /// Gets or sets the local value of <see cref="EditingProperty"/>.
         /// </summary>
         /// <param name="property">The <see cref="EditingProperty"/> identifier of the property whose value is to be set or retrieved.</param>

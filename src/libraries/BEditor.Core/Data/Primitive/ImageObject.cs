@@ -113,7 +113,7 @@ namespace BEditor.Data.Primitive
         {
             if (args.Type is ApplyType.Audio) return;
 
-            var imgs_args = new EffectApplyArgs<IEnumerable<Texture>>(args.Frame, Enumerable.Empty<Texture>(), args.Type);
+            var imgs_args = new EffectApplyArgs<IEnumerable<Texture>>(args.Frame, Enumerable.Empty<Texture>(), args.Contexts, args.Type);
             OnRender(imgs_args);
 
             var list = Parent!.Effect.Where(x => x.IsEnabled).ToArray();
@@ -129,8 +129,6 @@ namespace BEditor.Data.Primitive
 
                 img.Dispose();
             }
-
-            ResetOptional();
         }
 
         /// <summary>
@@ -173,12 +171,11 @@ namespace BEditor.Data.Primitive
 
             if (base_img is null)
             {
-                ResetOptional();
                 image = null;
                 return;
             }
 
-            var imageArgs = new EffectApplyArgs<Image<BGRA32>>(args.Frame, base_img, args.Type);
+            var imageArgs = new EffectApplyArgs<Image<BGRA32>>(args.Frame, base_img, args.Contexts, args.Type);
 
             var list = Parent!.Effect.Where(x => x.IsEnabled).ToArray();
             for (var i = 1; i < list.Length; i++)
@@ -196,7 +193,6 @@ namespace BEditor.Data.Primitive
 
                 if (args.Handled)
                 {
-                    ResetOptional();
                     image = imageArgs.Value;
                     return;
                 }
@@ -257,15 +253,7 @@ namespace BEditor.Data.Primitive
             }
         }
 
-        private void ResetOptional()
-        {
-            Coordinate.ResetOptional();
-            Rotate.ResetOptional();
-            Scale.ResetOptional();
-            Blend.ResetOptional();
-        }
-
-        private void LoadEffect(EffectApplyArgs<IEnumerable<Texture>> args, EffectElement[] list)
+        private static void LoadEffect(EffectApplyArgs<IEnumerable<Texture>> args, EffectElement[] list)
         {
             for (var i = 0; i < list.Length; i++)
             {
@@ -286,7 +274,6 @@ namespace BEditor.Data.Primitive
 
                 if (args.Handled)
                 {
-                    ResetOptional();
                     return;
                 }
             }
@@ -314,13 +301,11 @@ namespace BEditor.Data.Primitive
                 return;
             }
 
-            var context = Parent!.Parent.GraphicsContext!;
+            var context = args.Contexts.Graphics;
 
             if (args.Type is ApplyType.Edit && Parent.Parent.SelectItem == Parent)
             {
-                var wHalf = (texture.Width / 2f) + 10;
-                var hHalf = (texture.Height / 2f) + 10;
-                DrawLine(context, wHalf, hHalf, texture.Transform);
+                DrawLine(context, texture.Width / 2f, texture.Height / 2f, texture.Transform);
             }
 
             context.DrawTexture(texture);

@@ -9,6 +9,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using System.Numerics;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -17,6 +18,7 @@ using BEditor.Data.Primitive;
 using BEditor.Data.Property;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
+using BEditor.Graphics;
 using BEditor.Primitive.Resources;
 
 namespace BEditor.Primitive.Effects
@@ -80,21 +82,29 @@ namespace BEditor.Primitive.Effects
         /// <inheritdoc/>
         public override void Apply(EffectApplyArgs<Image<BGRA32>> args)
         {
-            var length = Length[args.Frame];
-            var angle = Angle[args.Frame];
-            var tmp = args.Value.FlatShadow(Color.Value, angle, length);
-            args.Value.Dispose();
-            args.Value = tmp;
+        }
 
-            var radian = angle * (MathF.PI / 180);
-            var x2 = (int)(length * MathF.Cos(radian));
-            var y2 = (int)(length * MathF.Sin(radian));
-
-            if (Parent.Effect[0] is ImageObject imgObj)
+        /// <inheritdoc/>
+        public override void Apply(EffectApplyArgs<IEnumerable<Texture>> args)
+        {
+            args.Value = args.Value.Select(texture =>
             {
-                imgObj.Coordinate.CenterX.Optional += x2 / 2;
-                imgObj.Coordinate.CenterY.Optional -= y2 / 2;
-            }
+                using var image = texture.ToImage();
+
+                var length = Length[args.Frame];
+                var angle = Angle[args.Frame];
+                using var tmp = image.FlatShadow(Color.Value, angle, length);
+                texture.Update(tmp);
+
+                var radian = angle * (MathF.PI / 180);
+                var x2 = (int)(length * MathF.Cos(radian));
+                var y2 = (int)(length * MathF.Sin(radian));
+
+                var transform = texture.Transform;
+                transform.Center = new Vector3(transform.Center.X + (x2 / 2), transform.Center.Y - (y2 / 2), transform.Center.Z);
+                texture.Transform = transform;
+                return texture;
+            });
         }
 
         /// <inheritdoc/>

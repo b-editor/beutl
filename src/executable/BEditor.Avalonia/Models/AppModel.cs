@@ -11,8 +11,10 @@ using Avalonia.Threading;
 using BEditor.Audio;
 using BEditor.Command;
 using BEditor.Data;
+using BEditor.Drawing;
 using BEditor.Extensions;
 using BEditor.Models.Authentication;
+using BEditor.Models.ManagePlugins;
 using BEditor.Packaging;
 using BEditor.ViewModels.Dialogs;
 using BEditor.Views;
@@ -106,7 +108,14 @@ namespace BEditor.Models
                 .AddSingleton(_ => Message)
                 .AddSingleton(_ => LoggingFactory)
                 .AddSingleton<Microsoft.Extensions.Logging.ILogger>(_ => LoggingFactory.CreateLogger<IApplication>())
-                .AddSingleton<HttpClient>();
+                .AddSingleton<HttpClient>()
+                .AddSingleton<PluginUpdateService>();
+
+            if (Settings.Default.PrioritizeGPU)
+            {
+                DrawingContext = DrawingContext.Create(0);
+                Services = Services.AddSingleton(_ => DrawingContext);
+            }
 
             // 設定が変更されたときにUIに変更を適用
             Settings.Default.PropertyChanged += Settings_PropertyChanged;
@@ -173,6 +182,8 @@ namespace BEditor.Models
 
         public object AudioContext { get; set; }
 
+        public DrawingContext DrawingContext { get; }
+
         public event EventHandler<ProjectOpenedEventArgs> ProjectOpened;
         public event EventHandler Exit;
 
@@ -218,7 +229,7 @@ namespace BEditor.Models
 
                 foreach (var scene in project.SceneList)
                 {
-                    var sceneCache = Path.Combine(sceneCacheDir, scene.SceneName + ".cache");
+                    var sceneCache = Path.Combine(sceneCacheDir, scene.Name + ".cache");
                     var cacheObj = new SceneCache
                     {
                         Select = scene.SelectItem?.Name,
@@ -272,7 +283,7 @@ namespace BEditor.Models
 
                 foreach (var scene in project.SceneList)
                 {
-                    var sceneCache = Path.Combine(sceneCacheDir, scene.SceneName + ".cache");
+                    var sceneCache = Path.Combine(sceneCacheDir, scene.Name + ".cache");
 
                     if (!File.Exists(sceneCache)) continue;
                     Stream stream = null;

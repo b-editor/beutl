@@ -56,7 +56,7 @@ namespace BEditor.Primitive.Effects
         /// <inheritdoc/>
         public override void Apply(EffectApplyArgs<Image<BGRA32>> args)
         {
-            args.Value.Binarization((byte)Value[args.Frame], Parent.Parent.DrawingContext);
+            args.Value.Binarization((byte)Value[args.Frame], args.Contexts.Drawing);
         }
     }
 }

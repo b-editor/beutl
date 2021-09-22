@@ -1141,6 +1141,15 @@ namespace BEditor.Primitive.Resources {
         }
         
         /// <summary>
+        ///   Quality に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string Quality {
+            get {
+                return ResourceManager.GetString("Quality", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Radius に類似しているローカライズされた文字列を検索します。
         /// </summary>
         internal static string Radius {
@@ -1231,6 +1240,15 @@ namespace BEditor.Primitive.Resources {
         }
         
         /// <summary>
+        ///   Round clipping に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string RoundClipping {
+            get {
+                return ResourceManager.GetString("RoundClipping", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Round rect に類似しているローカライズされた文字列を検索します。
         /// </summary>
         internal static string RoundRect {
@@ -1245,6 +1263,15 @@ namespace BEditor.Primitive.Resources {
         internal static string SaturationRange {
             get {
                 return ResourceManager.GetString("SaturationRange", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Scale に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string Scale {
+            get {
+                return ResourceManager.GetString("Scale", resourceCulture);
             }
         }
         

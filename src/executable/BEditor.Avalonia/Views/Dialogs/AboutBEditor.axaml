@@ -1,21 +1,21 @@
-<Window
+<views:FluentWindow
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-    xmlns:vm="using:BEditor.ViewModels.Settings"
-    x:DataType="vm:InfomationViewModel"
-    mc:Ignorable="d"
+    xmlns:views="using:BEditor.Views"
+    xmlns:vm="using:BEditor.ViewModels.Dialogs"
+    mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+    Classes="fluent"
     SizeToContent="WidthAndHeight"
-    Background="White"
-    Foreground="Black"
-    CanResize="False"
-    x:Class="BEditor.Views.Settings.Infomation">
+    WindowStartupLocation="CenterScreen"
+    x:DataType="vm:AboutBEditorViewModel"
+    x:Class="BEditor.Views.Dialogs.AboutBEditor">
     <Window.DataContext>
-        <vm:InfomationViewModel />
+        <vm:AboutBEditorViewModel />
     </Window.DataContext>
     <Grid ColumnDefinitions="*,Auto">
-        
+
         <Viewbox Grid.Column="1" Stretch="Fill" Width="240" Height="240" Margin="0,-32,32,32">
             <Panel>
                 <Path Fill="#7c4dff" Data="M 362.50,223.00
@@ -41,4 +41,4 @@
             <TextBlock FontSize="16" Text="{CompiledBinding Framework, Mode=OneTime, StringFormat=Framework : {0}}" />
         </StackPanel>
     </Grid>
-</Window>
+</views:FluentWindow>

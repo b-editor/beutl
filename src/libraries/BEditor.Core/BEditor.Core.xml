@@ -22,6 +22,14 @@
             <param name="command">The command to execute.</param>
             <param name="manager">The command manager for executing commands.</param>
         </member>
+        <member name="M:BEditor.CommandExtensions.Combine(BEditor.Command.IRecordCommand,BEditor.Command.IRecordCommand)">
+            <summary>
+            Combine the two commands.
+            </summary>
+            <param name="first">The first command.</param>
+            <param name="second">The second command.</param>
+            <returns>The command.</returns>
+        </member>
         <member name="T:BEditor.Command.CommandType">
             <summary>
             Indicates the type of command.
@@ -371,6 +379,16 @@
             <param name="frame">The frame to apply.</param>
             <param name="type">The apply type.</param>
         </member>
+        <member name="M:BEditor.Data.ClipApplyArgs.#ctor(BEditor.Media.Frame,BEditor.Graphics.GraphicsContext,BEditor.Audio.SamplingContext,BEditor.Drawing.DrawingContext,BEditor.Data.ApplyType)">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Data.ClipApplyArgs"/> class.
+            </summary>
+            <param name="frame">The frame to render.</param>
+            <param name="graphicsContext">The graphics context.</param>
+            <param name="samplingContext">The sampling context.</param>
+            <param name="drawingContext">The drawing context.</param>
+            <param name="type">The rendering type.</param>
+        </member>
         <member name="P:BEditor.Data.ClipApplyArgs.Frame">
             <summary>
             Gets the frame to render.
@@ -384,6 +402,11 @@
         <member name="P:BEditor.Data.ClipApplyArgs.Type">
             <summary>
             Gets the rendering type.
+            </summary>
+        </member>
+        <member name="P:BEditor.Data.ClipApplyArgs.Contexts">
+            <summary>
+            Gets the contexts.
             </summary>
         </member>
         <member name="T:BEditor.Data.ClipElement">
@@ -569,11 +592,6 @@
         <member name="E:BEditor.Data.ClipElement.LengthChanged">
             <summary>
             Occurs when the length of the clip is changed.
-            </summary>
-        </member>
-        <member name="P:BEditor.Data.ClipElement.Name">
-            <summary>
-            Gets the name of this <see cref="T:BEditor.Data.ClipElement"/>.
             </summary>
         </member>
         <member name="P:BEditor.Data.ClipElement.Start">
@@ -815,6 +833,24 @@
             <param name="frame">The frame to render.</param>
             <param name="type">The rendering type.</param>
         </member>
+        <member name="M:BEditor.Data.EffectApplyArgs.#ctor(BEditor.Media.Frame,System.ValueTuple{BEditor.Graphics.GraphicsContext,BEditor.Audio.SamplingContext,BEditor.Drawing.DrawingContext},BEditor.Data.ApplyType)">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Data.EffectApplyArgs"/> class.
+            </summary>
+            <param name="frame">The frame to render.</param>
+            <param name="contexts">The contexts.</param>
+            <param name="type">The rendering type.</param>
+        </member>
+        <member name="M:BEditor.Data.EffectApplyArgs.#ctor(BEditor.Media.Frame,BEditor.Graphics.GraphicsContext,BEditor.Audio.SamplingContext,BEditor.Drawing.DrawingContext,BEditor.Data.ApplyType)">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Data.EffectApplyArgs"/> class.
+            </summary>
+            <param name="frame">The frame to render.</param>
+            <param name="graphicsContext">The graphics context.</param>
+            <param name="samplingContext">The sampling context.</param>
+            <param name="drawingContext">The drawing context.</param>
+            <param name="type">The rendering type.</param>
+        </member>
         <member name="P:BEditor.Data.EffectApplyArgs.Frame">
             <summary>
             Gets the frame to render.
@@ -830,6 +866,11 @@
             Gets the rendering type.
             </summary>
         </member>
+        <member name="P:BEditor.Data.EffectApplyArgs.Contexts">
+            <summary>
+            Gets the contexts.
+            </summary>
+        </member>
         <member name="T:BEditor.Data.EffectApplyArgs`1">
             <summary>
             Represents data that is passed to <see cref="T:BEditor.Data.EffectElement"/> when it is applied.
@@ -842,6 +883,26 @@
             </summary>
             <param name="frame">The frame to render.</param>
             <param name="value">The value used to apply the effect.</param>
+            <param name="type">The rendering type.</param>
+        </member>
+        <member name="M:BEditor.Data.EffectApplyArgs`1.#ctor(BEditor.Media.Frame,`0,System.ValueTuple{BEditor.Graphics.GraphicsContext,BEditor.Audio.SamplingContext,BEditor.Drawing.DrawingContext},BEditor.Data.ApplyType)">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Data.EffectApplyArgs`1"/> class.
+            </summary>
+            <param name="frame">The frame to render.</param>
+            <param name="value">The value used to apply the effect.</param>
+            <param name="contexts">The contexts.</param>
+            <param name="type">The rendering type.</param>
+        </member>
+        <member name="M:BEditor.Data.EffectApplyArgs`1.#ctor(BEditor.Media.Frame,`0,BEditor.Graphics.GraphicsContext,BEditor.Audio.SamplingContext,BEditor.Drawing.DrawingContext,BEditor.Data.ApplyType)">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Data.EffectApplyArgs`1"/> class.
+            </summary>
+            <param name="frame">The frame to render.</param>
+            <param name="value">The value used to apply the effect.</param>
+            <param name="graphicsContext">The graphics context.</param>
+            <param name="samplingContext">The sampling context.</param>
+            <param name="drawingContext">The drawing context.</param>
             <param name="type">The rendering type.</param>
         </member>
         <member name="P:BEditor.Data.EffectApplyArgs`1.Value">
@@ -875,6 +936,9 @@
             <remarks><see langword="true"/> if the expander is open, otherwise <see langword="false"/>.</remarks>
         </member>
         <member name="P:BEditor.Data.EffectElement.Parent">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Data.EffectElement.BEditor#Data#IEditingObject#Name">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Data.EffectElement.GetProperties">
@@ -1407,11 +1471,6 @@
             Defines the <see cref="P:BEditor.Data.Project.CurrentSceneIndex"/> property.
             </summary>
         </member>
-        <member name="F:BEditor.Data.Project.NameProperty">
-            <summary>
-            Defines the <see cref="P:BEditor.Data.Project.Name"/> property.
-            </summary>
-        </member>
         <member name="F:BEditor.Data.Project.DirectoryNameProperty">
             <summary>
             Defines the <see cref="P:BEditor.Data.Project.DirectoryName"/> property.
@@ -1469,11 +1528,6 @@
         <member name="P:BEditor.Data.Project.Parent">
             <inheritdoc/>
         </member>
-        <member name="P:BEditor.Data.Project.Name">
-            <summary>
-            Gets or sets the name of project.
-            </summary>
-        </member>
         <member name="P:BEditor.Data.Project.DirectoryName">
             <summary>
             Gets or sets the directory name of this <see cref="T:BEditor.Data.Project"/>.
@@ -1504,14 +1558,14 @@
             <summary>
             Save this <see cref="T:BEditor.Data.Project"/>.
             </summary>
-            <remarks>If <see cref="P:BEditor.Data.Project.Name"/> is <see langword="null"/>, a dialog will appear.</remarks>
+            <remarks>If <see cref="P:BEditor.Data.EditingObject.Name"/> is <see langword="null"/>, a dialog will appear.</remarks>
             <returns><see langword="true"/> if the save is successful, otherwise <see langword="false"/>.</returns>
         </member>
         <member name="M:BEditor.Data.Project.SaveAsync">
             <summary>
             Save this <see cref="T:BEditor.Data.Project"/>.
             </summary>
-            <remarks>If <see cref="P:BEditor.Data.Project.Name"/> is <see langword="null"/>, a dialog will appear.</remarks>
+            <remarks>If <see cref="P:BEditor.Data.EditingObject.Name"/> is <see langword="null"/>, a dialog will appear.</remarks>
             <returns><see langword="true"/> if the save is successful, otherwise <see langword="false"/>.</returns>
         </member>
         <member name="M:BEditor.Data.Project.Save(System.String)">
@@ -2189,9 +2243,9 @@
         </member>
         <member name="M:BEditor.Data.Property.EaseProperty.ChangeValue(System.Int32,System.Single)">
             <summary>
-            Create a command to change the color of this <see cref="P:BEditor.Data.Property.EaseProperty.Pairs"/>.
+            Create a command to change the value of this <see cref="P:BEditor.Data.Property.EaseProperty.Pairs"/>.
             </summary>
-            <param name="index">Index of colors to be changed.</param>
+            <param name="index">Index of values to be changed.</param>
             <param name="value">New Value.</param>
             <returns>Created <see cref="T:BEditor.Command.IRecordCommand"/>.</returns>
         </member>
@@ -2235,6 +2289,9 @@
             <inheritdoc/>
         </member>
         <member name="P:BEditor.Data.Property.Easing.EasingFunc.Parent">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Data.Property.Easing.EasingFunc.Name">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Data.Property.Easing.EasingFunc.GetProperties">
@@ -2836,6 +2893,9 @@
             Gets or sets the metadata for this <see cref="T:BEditor.Data.Property.IPropertyElement"/>.
             </summary>
         </member>
+        <member name="P:BEditor.Data.Property.IPropertyElement.BEditor#Data#IEditingObject#Name">
+            <inheritdoc/>
+        </member>
         <member name="T:BEditor.Data.Property.KeyFramePair`1">
             <summary>
             Represents a position and value pair.
@@ -3096,6 +3156,11 @@
             <param name="min">The minimum value.</param>
             <param name="useOptional">The bool of whether to use the Optional value.</param>
         </member>
+        <member name="P:BEditor.Data.Property.EasePropertyMetadata.FormatString">
+            <summary>
+            Gets the format string.
+            </summary>
+        </member>
         <member name="M:BEditor.Data.Property.EasePropertyMetadata.Create">
             <inheritdoc/>
         </member>
@@ -3259,6 +3324,11 @@
             <param name="DefaultValue">The default value.</param>
             <param name="Max">The maximum value.</param>
             <param name="Min">The minimum value.</param>
+        </member>
+        <member name="P:BEditor.Data.Property.ValuePropertyMetadata.FormatString">
+            <summary>
+            Gets the format string.
+            </summary>
         </member>
         <member name="M:BEditor.Data.Property.ValuePropertyMetadata.Create">
             <inheritdoc/>
@@ -3763,6 +3833,9 @@
             Gets or sets the metadata for this <see cref="T:BEditor.Data.Property.PropertyElement"/>.
             </summary>
         </member>
+        <member name="P:BEditor.Data.Property.PropertyElement.Name">
+            <inheritdoc/>
+        </member>
         <member name="P:BEditor.Data.Property.PropertyElement.BEditor#Data#IHasMetadata#Metadata">
             <inheritdoc/>
         </member>
@@ -4212,9 +4285,9 @@
         </member>
         <member name="P:BEditor.Data.Scene.Item(System.String)">
             <summary>
-            Gets the <see cref="T:BEditor.Data.ClipElement"/> from its <see cref="P:BEditor.Data.ClipElement.Name"/>.
+            Gets the <see cref="T:BEditor.Data.ClipElement"/> from its <see cref="P:BEditor.Data.EditingObject.Name"/>.
             </summary>
-            <param name="name">Value of <see cref="P:BEditor.Data.ClipElement.Name"/>.</param>
+            <param name="name">Value of <see cref="P:BEditor.Data.EditingObject.Name"/>.</param>
         </member>
         <member name="M:BEditor.Data.Scene.GetObjectData(System.Text.Json.Utf8JsonWriter)">
             <inheritdoc/>
@@ -4606,6 +4679,11 @@
         <member name="P:BEditor.IApplication.AudioContext">
             <summary>
             Gets audio context.
+            </summary>
+        </member>
+        <member name="P:BEditor.IApplication.DrawingContext">
+            <summary>
+            Gets drawing context.
             </summary>
         </member>
         <member name="M:BEditor.IApplication.RestoreAppConfig(BEditor.Data.Project,System.String)">
@@ -5000,6 +5078,11 @@
             Gets or sets the plugin name.
             </summary>
         </member>
+        <member name="P:BEditor.Plugin.PluginException.Assembly">
+            <summary>
+            Gets or sets the plugin assembly.
+            </summary>
+        </member>
         <member name="T:BEditor.Plugin.PluginManager">
             <summary>
             Represents the class that manages the plugin.
@@ -5018,6 +5101,11 @@
         <member name="P:BEditor.Plugin.PluginManager.Plugins">
             <summary>
             Gets the loaded plugins.
+            </summary>
+        </member>
+        <member name="P:BEditor.Plugin.PluginManager.Failed">
+            <summary>
+            Gets the plugins that failed to load.
             </summary>
         </member>
         <member name="P:BEditor.Plugin.PluginManager.BaseDirectory">

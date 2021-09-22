@@ -206,8 +206,6 @@ namespace BEditor.Primitive.Objects
 
                 Parent.Parent.GraphicsContext!.DrawBall(ball);
             }
-
-            ResetOptional();
         }
 
         /// <inheritdoc/>
@@ -222,14 +220,6 @@ namespace BEditor.Primitive.Objects
             yield return Width;
             yield return Height;
             yield return Depth;
-        }
-
-        private void ResetOptional()
-        {
-            Coordinate.ResetOptional();
-            Rotate.ResetOptional();
-            Scale.ResetOptional();
-            Blend.ResetOptional();
         }
     }
 }

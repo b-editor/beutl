@@ -61,12 +61,17 @@ namespace BEditor.PackageInstaller.ViewModels
                             Status.Value = Strings.ExtractingFiles;
                             await PackageFile.OpenPackageAsync(downloadFile, directory, progress);
 
+                            Status.Value = Strings.Installing;
                             var afterInstall = Path.Combine(directory, "AFTER_INSTALL");
                             if (File.Exists(afterInstall))
                             {
                                 var code = await File.ReadAllTextAsync(afterInstall);
-                                await CSharpScript.RunAsync(code, ScriptOptions.Default.WithFilePath(afterInstall));
+                                await CSharpScript.RunAsync(
+                                    code,
+                                    ScriptOptions.Default.WithFilePath(afterInstall),
+                                    new ScriptContext(this, AppContext.BaseDirectory, directory));
                             }
+                            Status.Value = Strings.Installing;
 
                             _successfulChanges.Add(package);
                         }
@@ -83,13 +88,18 @@ namespace BEditor.PackageInstaller.ViewModels
                     {
                         try
                         {
+                            Status.Value = Strings.Uninstalling;
                             var beforUninstall = Path.Combine(directory, "BEFOR_UNINSTALL");
                             if (File.Exists(beforUninstall))
                             {
                                 var code = await File.ReadAllTextAsync(beforUninstall);
-                                await CSharpScript.RunAsync(code, ScriptOptions.Default.WithFilePath(beforUninstall));
+                                await CSharpScript.RunAsync(
+                                    code,
+                                    ScriptOptions.Default.WithFilePath(beforUninstall),
+                                    new ScriptContext(this, AppContext.BaseDirectory, directory));
                             }
 
+                            Status.Value = Strings.Uninstalling;
                             if (Directory.Exists(directory))
                             {
                                 Directory.Delete(directory, true);
@@ -116,8 +126,6 @@ namespace BEditor.PackageInstaller.ViewModels
         public ReactivePropertySlim<string> Status { get; } = new();
 
         public ReactivePropertySlim<double> Max { get; } = new();
-
-        public ReactivePropertySlim<double> Min { get; } = new();
 
         public ReactivePropertySlim<double> Progress { get; } = new();
 

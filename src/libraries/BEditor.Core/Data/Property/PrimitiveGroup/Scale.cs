@@ -25,7 +25,7 @@ namespace BEditor.Data.Property.PrimitiveGroup
             nameof(Scale1),
             owner => owner.Scale1,
             (owner, obj) => owner.Scale1 = obj,
-            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Scale, 100, useOptional: true)).Serialize());
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Scale, 100) { FormatString = "{0:F}" }).Serialize());
 
         /// <summary>
         /// Defines the <see cref="ScaleX"/> property.
@@ -34,7 +34,7 @@ namespace BEditor.Data.Property.PrimitiveGroup
             nameof(ScaleX),
             owner => owner.ScaleX,
             (owner, obj) => owner.ScaleX = obj,
-            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.X, 100, useOptional: true)).Serialize());
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.X, 100) { FormatString = "{0:F}" }).Serialize());
 
         /// <summary>
         /// Defines the <see cref="ScaleY"/> property.
@@ -43,7 +43,7 @@ namespace BEditor.Data.Property.PrimitiveGroup
             nameof(ScaleY),
             owner => owner.ScaleY,
             (owner, obj) => owner.ScaleY = obj,
-            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Y, 100, useOptional: true)).Serialize());
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Y, 100) { FormatString = "{0:F}" }).Serialize());
 
         /// <summary>
         /// Defines the <see cref="ScaleZ"/> property.
@@ -52,7 +52,7 @@ namespace BEditor.Data.Property.PrimitiveGroup
             nameof(ScaleZ),
             owner => owner.ScaleZ,
             (owner, obj) => owner.ScaleZ = obj,
-            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Z, 100, useOptional: true)).Serialize());
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Z, 100) { FormatString = "{0:F}" }).Serialize());
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Scale"/> class.
@@ -100,6 +100,7 @@ namespace BEditor.Data.Property.PrimitiveGroup
         /// <summary>
         /// Reset the <see cref="Scale1"/>, <see cref="ScaleX"/>, <see cref="ScaleY"/>, and <see cref="ScaleZ"/> Optionals.
         /// </summary>
+        [Obsolete("To be added.")]
         public void ResetOptional()
         {
             Scale1.Optional = 0;

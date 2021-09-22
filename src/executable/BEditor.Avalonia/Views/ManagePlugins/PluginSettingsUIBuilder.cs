@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 
 using Avalonia.Controls;
 using Avalonia.Layout;
+using Avalonia.LogicalTree;
 
 namespace BEditor.Views.ManagePlugins
 {
@@ -15,7 +16,7 @@ namespace BEditor.Views.ManagePlugins
         private static readonly (Func<string, Type, Control> create, Func<Control, Type, object> getValue, Action<Control, object> setValue, Type type)[] _typeTo =
         {
             #region Boolean
-
+            // Todo: Style
             ((header, _) => new Panel
             {
                 Children =
@@ -40,34 +41,33 @@ namespace BEditor.Views.ManagePlugins
 
             ((header, _) =>
             {
-                return new StackPanel
+                return new Border
                 {
-                    Spacing = 0,
-                    Orientation = Orientation.Vertical,
-                    Children =
+                    Classes = { "Item" },
+                    Child = new Panel
                     {
-                        new TextBlock
+                        Children =
                         {
-                            Text = header,
-                            Classes =
+                            new TextBlock
                             {
-                                "SettingsItemHeader"
-                            }
-                        },
-                        new NumericUpDown
-                        {
-                            Maximum = byte.MaxValue,
-                            Minimum = byte.MinValue,
-                            Classes =
+                                Text = header,
+                                VerticalAlignment = VerticalAlignment.Center,
+                            },
+                            new NumericUpDown
                             {
-                                "SettingsNumericUpDown"
+                                Maximum = byte.MaxValue,
+                                Minimum = byte.MinValue,
+                                Classes =
+                                {
+                                    "Editor"
+                                }
                             }
                         }
                     }
                 };
             },
-            (ui, _) => (byte)((ui as StackPanel)!.Children[1] as NumericUpDown)!.Value,
-            (ui, value) => ((ui as StackPanel)!.Children[1] as NumericUpDown)!.Value = (byte)value,
+            (ui, _) => (byte)(((Panel)(ui as Border)!.Child).Children[1] as NumericUpDown)!.Value,
+            (ui, value) => (((Panel)(ui as Border)!.Child).Children[1] as NumericUpDown)!.Value = (byte)value,
             typeof(byte)),
 
             #endregion
@@ -76,34 +76,33 @@ namespace BEditor.Views.ManagePlugins
 
             ((header, _) =>
             {
-                return new StackPanel
+                return new Border
                 {
-                    Spacing = 0,
-                    Orientation = Orientation.Vertical,
-                    Children =
+                    Classes = { "Item" },
+                    Child = new Panel
                     {
-                        new TextBlock
+                        Children =
                         {
-                            Text = header,
-                            Classes =
+                            new TextBlock
                             {
-                                "SettingsItemHeader"
-                            }
-                        },
-                        new NumericUpDown
-                        {
-                            Maximum = sbyte.MaxValue,
-                            Minimum = sbyte.MinValue,
-                            Classes =
+                                Text = header,
+                                VerticalAlignment = VerticalAlignment.Center,
+                            },
+                            new NumericUpDown
                             {
-                                "SettingsNumericUpDown"
+                                Maximum = sbyte.MaxValue,
+                                Minimum = sbyte.MinValue,
+                                Classes =
+                                {
+                                    "Editor"
+                                }
                             }
                         }
                     }
                 };
             },
-            (ui, _) => (sbyte)((ui as StackPanel)!.Children[1] as NumericUpDown)!.Value,
-            (ui, value) => ((ui as StackPanel)!.Children[1] as NumericUpDown)!.Value = (sbyte)value,
+            (ui, _) => (sbyte)(((Panel)(ui as Border)!.Child).Children[1] as NumericUpDown)!.Value,
+            (ui, value) => (((Panel)(ui as Border)!.Child).Children[1] as NumericUpDown)!.Value = (sbyte)value,
             typeof(sbyte)),
 
             #endregion
@@ -112,27 +111,33 @@ namespace BEditor.Views.ManagePlugins
 
             ((header, _) =>
             {
-                return new StackPanel
+                return new Border
                 {
-                    Spacing = 0,
-                    Orientation = Orientation.Vertical,
-                    Children =
+                    Classes = { "Item" },
+                    Child = new Panel
                     {
-                        new TextBlock { Text = header, Classes = { "SettingsItemHeader" } },
-                        new NumericUpDown
+                        Children =
                         {
-                            Maximum = short.MaxValue,
-                            Minimum = short.MinValue,
-                            Classes =
+                            new TextBlock
                             {
-                                "SettingsNumericUpDown"
+                                Text = header,
+                                VerticalAlignment = VerticalAlignment.Center,
+                            },
+                            new NumericUpDown
+                            {
+                                Maximum = short.MaxValue,
+                                Minimum = short.MinValue,
+                                Classes =
+                                {
+                                    "Editor"
+                                }
                             }
                         }
                     }
                 };
             },
-            (ui, _) => (short)((ui as StackPanel)!.Children[1] as NumericUpDown)!.Value,
-            (ui, value) => ((ui as StackPanel)!.Children[1] as NumericUpDown)!.Value = (short)value,
+            (ui, _) => (short)(((Panel)(ui as Border)!.Child).Children[1] as NumericUpDown)!.Value,
+            (ui, value) => (((Panel)(ui as Border)!.Child).Children[1] as NumericUpDown)!.Value = (short)value,
             typeof(short)),
 
             #endregion
@@ -141,27 +146,33 @@ namespace BEditor.Views.ManagePlugins
 
             ((header, _) =>
             {
-                return new StackPanel
+                return new Border
                 {
-                    Spacing = 0,
-                    Orientation = Orientation.Vertical,
-                    Children =
+                    Classes = { "Item" },
+                    Child = new Panel
                     {
-                        new TextBlock { Text = header, Classes = { "SettingsItemHeader" } },
-                        new NumericUpDown
+                        Children =
                         {
-                            Maximum = ushort.MaxValue,
-                            Minimum = ushort.MinValue,
-                            Classes =
+                            new TextBlock
                             {
-                                "SettingsNumericUpDown"
+                                Text = header,
+                                VerticalAlignment = VerticalAlignment.Center,
+                            },
+                            new NumericUpDown
+                            {
+                                Maximum = ushort.MaxValue,
+                                Minimum = ushort.MinValue,
+                                Classes =
+                                {
+                                    "Editor"
+                                }
                             }
                         }
                     }
                 };
             },
-            (ui, _) => (ushort)((ui as StackPanel)!.Children[1] as NumericUpDown)!.Value,
-            (ui, value) => ((ui as StackPanel)!.Children[1] as NumericUpDown)!.Value = (ushort)value,
+            (ui, _) => (ushort)(((Panel)(ui as Border)!.Child).Children[1] as NumericUpDown)!.Value,
+            (ui, value) => (((Panel)(ui as Border)!.Child).Children[1] as NumericUpDown)!.Value = (ushort)value,
             typeof(ushort)),
 
             #endregion
@@ -170,27 +181,33 @@ namespace BEditor.Views.ManagePlugins
 
             ((header, _) =>
             {
-                return new StackPanel
+                return new Border
                 {
-                    Spacing = 0,
-                    Orientation = Orientation.Vertical,
-                    Children =
+                    Classes = { "Item" },
+                    Child = new Panel
                     {
-                        new TextBlock { Text = header, Classes = { "SettingsItemHeader" } },
-                        new NumericUpDown
+                        Children =
                         {
-                            Maximum = int.MaxValue,
-                            Minimum = int.MinValue,
-                            Classes =
+                            new TextBlock
                             {
-                                "SettingsNumericUpDown"
+                                Text = header,
+                                VerticalAlignment = VerticalAlignment.Center,
+                            },
+                            new NumericUpDown
+                            {
+                                Maximum = int.MaxValue,
+                                Minimum = int.MinValue,
+                                Classes =
+                                {
+                                    "Editor"
+                                }
                             }
                         }
                     }
                 };
             },
-            (ui, _) => (int)((ui as StackPanel)!.Children[1] as NumericUpDown)!.Value,
-            (ui, value) => ((ui as StackPanel)!.Children[1] as NumericUpDown)!.Value = (int)value,
+            (ui, _) => (int)(((Panel)(ui as Border)!.Child).Children[1] as NumericUpDown)!.Value,
+            (ui, value) => (((Panel)(ui as Border)!.Child).Children[1] as NumericUpDown)!.Value = (int)value,
             typeof(int)),
 
             #endregion
@@ -199,27 +216,33 @@ namespace BEditor.Views.ManagePlugins
 
             ((header, _) =>
             {
-                return new StackPanel
+                return new Border
                 {
-                    Spacing = 0,
-                    Orientation = Orientation.Vertical,
-                    Children =
+                    Classes = { "Item" },
+                    Child = new Panel
                     {
-                        new TextBlock { Text = header, Classes = { "SettingsItemHeader" } },
-                        new NumericUpDown
+                        Children =
                         {
-                            Maximum = uint.MaxValue,
-                            Minimum = uint.MinValue,
-                            Classes =
+                            new TextBlock
                             {
-                                "SettingsNumericUpDown"
+                                Text = header,
+                                VerticalAlignment = VerticalAlignment.Center,
+                            },
+                            new NumericUpDown
+                            {
+                                Maximum = uint.MaxValue,
+                                Minimum = uint.MinValue,
+                                Classes =
+                                {
+                                    "Editor"
+                                }
                             }
                         }
                     }
                 };
             },
-            (ui, _) => (uint)((ui as StackPanel)!.Children[1] as NumericUpDown)!.Value,
-            (ui, value) => ((ui as StackPanel)!.Children[1] as NumericUpDown)!.Value = (uint)value,
+            (ui, _) => (uint)(((Panel)(ui as Border)!.Child).Children[1] as NumericUpDown)!.Value,
+            (ui, value) => (((Panel)(ui as Border)!.Child).Children[1] as NumericUpDown)!.Value = (uint)value,
             typeof(uint)),
 
             #endregion
@@ -228,27 +251,33 @@ namespace BEditor.Views.ManagePlugins
 
             ((header, _) =>
             {
-                return new StackPanel
+                return new Border
                 {
-                    Spacing = 0,
-                    Orientation = Orientation.Vertical,
-                    Children =
+                    Classes = { "Item" },
+                    Child = new Panel
                     {
-                        new TextBlock { Text = header, Classes = { "SettingsItemHeader" } },
-                        new NumericUpDown
+                        Children =
                         {
-                            Maximum = long.MaxValue,
-                            Minimum = long.MinValue,
-                            Classes =
+                            new TextBlock
                             {
-                                "SettingsNumericUpDown"
+                                Text = header,
+                                VerticalAlignment = VerticalAlignment.Center,
+                            },
+                            new NumericUpDown
+                            {
+                                Maximum = long.MaxValue,
+                                Minimum = long.MinValue,
+                                Classes =
+                                {
+                                    "Editor"
+                                }
                             }
                         }
                     }
                 };
             },
-            (ui, _) => (long)((ui as StackPanel)!.Children[1] as NumericUpDown)!.Value,
-            (ui, value) => ((ui as StackPanel)!.Children[1] as NumericUpDown)!.Value = (long)value,
+            (ui, _) => (long)(((Panel)(ui as Border)!.Child).Children[1] as NumericUpDown)!.Value,
+            (ui, value) => (((Panel)(ui as Border)!.Child).Children[1] as NumericUpDown)!.Value = (long)value,
             typeof(long)),
 
             #endregion
@@ -257,27 +286,33 @@ namespace BEditor.Views.ManagePlugins
 
             ((header, _) =>
             {
-                return new StackPanel
+                return new Border
                 {
-                    Spacing = 0,
-                    Orientation = Orientation.Vertical,
-                    Children =
+                    Classes = { "Item" },
+                    Child = new Panel
                     {
-                        new TextBlock { Text = header, Classes = { "SettingsItemHeader" } },
-                        new NumericUpDown
+                        Children =
                         {
-                            Maximum = ulong.MaxValue,
-                            Minimum = ulong.MinValue,
-                            Classes =
+                            new TextBlock
                             {
-                                "SettingsNumericUpDown"
+                                Text = header,
+                                VerticalAlignment = VerticalAlignment.Center,
+                            },
+                            new NumericUpDown
+                            {
+                                Maximum = ulong.MaxValue,
+                                Minimum = ulong.MinValue,
+                                Classes =
+                                {
+                                    "Editor"
+                                }
                             }
                         }
                     }
                 };
             },
-            (ui, _) => (ulong)((ui as StackPanel)!.Children[1] as NumericUpDown)!.Value,
-            (ui, value) => ((ui as StackPanel)!.Children[1] as NumericUpDown)!.Value = (ulong)value,
+            (ui, _) => (ulong)(((Panel)(ui as Border)!.Child).Children[1] as NumericUpDown)!.Value,
+            (ui, value) => (((Panel)(ui as Border)!.Child).Children[1] as NumericUpDown)!.Value = (ulong)value,
             typeof(ulong)),
 
             #endregion
@@ -286,26 +321,32 @@ namespace BEditor.Views.ManagePlugins
 
             ((header, _) =>
             {
-                return new StackPanel
+                return new Border
                 {
-                    Spacing = 0,
-                    Orientation = Orientation.Vertical,
-                    Children =
+                    Classes = { "Item" },
+                    Child = new Panel
                     {
-                        new TextBlock { Text = header, Classes = { "SettingsItemHeader" } },
-                        new TextBox
+                        Children =
                         {
-                            MaxLength = 1,
-                            Classes =
+                            new TextBlock
                             {
-                                "SettingsTextBox"
+                                Text = header,
+                                VerticalAlignment = VerticalAlignment.Center,
+                            },
+                            new TextBox
+                            {
+                                MaxLength = 1,
+                                Classes =
+                                {
+                                    "Editor"
+                                }
                             }
                         }
                     }
                 };
             },
-            (ui, _) => ((ui as StackPanel)!.Children[1] as TextBox)!.Text[0],
-            (ui, value) => ((ui as StackPanel)!.Children[1] as TextBox)!.Text = value.ToString(),
+            (ui, _) => (((Panel)(ui as Border)!.Child).Children[1] as TextBox)!.Text[0],
+            (ui, value) => (((Panel)(ui as Border)!.Child).Children[1] as TextBox)!.Text = value.ToString(),
             typeof(char)),
 
             #endregion
@@ -314,25 +355,31 @@ namespace BEditor.Views.ManagePlugins
 
             ((header, _) =>
             {
-                return new StackPanel
+                return new Border
                 {
-                    Spacing = 0,
-                    Orientation = Orientation.Vertical,
-                    Children =
+                    Classes = { "Item" },
+                    Child = new Panel
                     {
-                        new TextBlock { Text = header, Classes = { "SettingsItemHeader" } },
-                        new NumericUpDown
+                        Children =
                         {
-                            Classes =
+                            new TextBlock
                             {
-                                "SettingsNumericUpDown"
+                                Text = header,
+                                VerticalAlignment = VerticalAlignment.Center,
+                            },
+                            new NumericUpDown
+                            {
+                                Classes =
+                                {
+                                    "Editor"
+                                }
                             }
                         }
                     }
                 };
             },
-            (ui, _) => (double)((ui as StackPanel)!.Children[1] as NumericUpDown)!.Value,
-            (ui, value) => ((ui as StackPanel)!.Children[1] as NumericUpDown)!.Value = (double)value,
+            (ui, _) => (double)(((Panel)(ui as Border)!.Child).Children[1] as NumericUpDown)!.Value,
+            (ui, value) => (((Panel)(ui as Border)!.Child).Children[1] as NumericUpDown)!.Value = (double)value,
             typeof(double)),
 
             #endregion
@@ -341,27 +388,33 @@ namespace BEditor.Views.ManagePlugins
 
             ((header, _) =>
             {
-                return new StackPanel
+                return new Border
                 {
-                    Spacing = 0,
-                    Orientation = Orientation.Vertical,
-                    Children =
+                    Classes = { "Item" },
+                    Child = new Panel
                     {
-                        new TextBlock { Text = header, Classes = { "SettingsItemHeader" } },
-                        new NumericUpDown
+                        Children =
                         {
-                            Maximum = float.MaxValue,
-                            Minimum = float.MinValue,
-                            Classes =
+                            new TextBlock
                             {
-                                "SettingsNumericUpDown"
+                                Text = header,
+                                VerticalAlignment = VerticalAlignment.Center,
+                            },
+                            new NumericUpDown
+                            {
+                                Maximum = float.MaxValue,
+                                Minimum = float.MinValue,
+                                Classes =
+                                {
+                                    "Editor"
+                                }
                             }
                         }
                     }
                 };
             },
-            (ui, _) => (float)((ui as StackPanel)!.Children[1] as NumericUpDown)!.Value,
-            (ui, value) => ((ui as StackPanel)!.Children[1] as NumericUpDown)!.Value = (float)value,
+            (ui, _) => (float)(((Panel)(ui as Border)!.Child).Children[1] as NumericUpDown)!.Value,
+            (ui, value) => (((Panel)(ui as Border)!.Child).Children[1] as NumericUpDown)!.Value = (float)value,
             typeof(float)),
 
             #endregion
@@ -370,19 +423,25 @@ namespace BEditor.Views.ManagePlugins
 
             ((header, _) =>
             {
-                return new StackPanel
+                return new Border
                 {
-                    Spacing = 0,
-                    Orientation = Orientation.Vertical,
-                    Children =
+                    Classes = { "Item" },
+                    Child = new Panel
                     {
-                        new TextBlock { Text = header, Classes = { "SettingsItemHeader" } },
-                        new DatePicker()
+                        Children =
+                        {
+                            new TextBlock
+                            {
+                                Text = header,
+                                VerticalAlignment = VerticalAlignment.Center,
+                            },
+                            new DatePicker()
+                        }
                     }
                 };
             },
-            (ui, _) => ((DateTimeOffset)((ui as StackPanel)!.Children[1] as DatePicker)!.SelectedDate!).DateTime,
-            (ui, value) => ((ui as StackPanel)!.Children[1] as DatePicker)!.SelectedDate = new DateTimeOffset((DateTime)value),
+            (ui, _) => ui.FindLogicalDescendantOfType<DatePicker>().SelectedDate!.Value.DateTime,
+            (ui, value) => ui.FindLogicalDescendantOfType<DatePicker>().SelectedDate = new DateTimeOffset((DateTime)value),
             typeof(DateTime)),
 
             #endregion
@@ -391,19 +450,25 @@ namespace BEditor.Views.ManagePlugins
 
             ((header, _) =>
             {
-                return new StackPanel
+                return new Border
                 {
-                    Spacing = 0,
-                    Orientation = Orientation.Vertical,
-                    Children =
+                    Classes = { "Item" },
+                    Child = new Panel
                     {
-                        new TextBlock { Text = header, Classes = { "SettingsItemHeader" } },
-                        new DatePicker()
+                        Children =
+                        {
+                            new TextBlock
+                            {
+                                Text = header,
+                                VerticalAlignment = VerticalAlignment.Center,
+                            },
+                            new DatePicker()
+                        }
                     }
                 };
             },
-            (ui, _) => (DateTimeOffset)((ui as StackPanel)!.Children[1] as DatePicker)!.SelectedDate!,
-            (ui, value) => ((ui as StackPanel)!.Children[1] as DatePicker)!.SelectedDate = (DateTimeOffset?)value,
+            (ui, _) => ui.FindLogicalDescendantOfType<DatePicker>().SelectedDate!,
+            (ui, value) => ui.FindLogicalDescendantOfType<DatePicker>().SelectedDate = (DateTimeOffset?)value,
             typeof(DateTimeOffset)),
 
             #endregion
@@ -412,25 +477,31 @@ namespace BEditor.Views.ManagePlugins
 
             ((header, _) =>
             {
-                return new StackPanel
+                return new Border
                 {
-                    Spacing = 0,
-                    Orientation = Orientation.Vertical,
-                    Children =
+                    Classes = { "Item" },
+                    Child = new Panel
                     {
-                        new TextBlock { Text = header, Classes = { "SettingsItemHeader" } },
-                        new TextBox
+                        Children =
                         {
-                            Classes =
+                            new TextBlock
                             {
-                                "SettingsTextBox"
+                                Text = header,
+                                VerticalAlignment = VerticalAlignment.Center,
+                            },
+                            new TextBox
+                            {
+                                Classes =
+                                {
+                                    "Editor"
+                                }
                             }
                         }
                     }
                 };
             },
-            (ui, _) => Guid.TryParse(((ui as StackPanel)!.Children[1] as TextBox)!.Text, out var result) ? result : Guid.Empty,
-            (ui, value) => ((ui as StackPanel)!.Children[1] as TextBox)!.Text = value.ToString(),
+            (ui, _) => Guid.TryParse(ui.FindLogicalDescendantOfType<TextBox>().Text, out var result) ? result : Guid.Empty,
+            (ui, value) => ui.FindLogicalDescendantOfType<TextBox>().Text = value.ToString(),
             typeof(Guid)),
 
             #endregion
@@ -439,25 +510,31 @@ namespace BEditor.Views.ManagePlugins
 
             ((header, _) =>
             {
-                return new StackPanel
+                return new Border
                 {
-                    Spacing = 0,
-                    Orientation = Orientation.Vertical,
-                    Children =
+                    Classes = { "Item" },
+                    Child = new Panel
                     {
-                        new TextBlock { Text = header, Classes = { "SettingsItemHeader" } },
-                        new TextBox
+                        Children =
                         {
-                            Classes =
+                            new TextBlock
                             {
-                                "SettingsTextBox"
+                                Text = header,
+                                VerticalAlignment = VerticalAlignment.Center,
+                            },
+                            new TextBox
+                            {
+                                Classes =
+                                {
+                                    "Editor"
+                                }
                             }
                         }
                     }
                 };
             },
-            (ui, _) => ((ui as StackPanel)!.Children[1] as TextBox)!.Text,
-            (ui, value) => ((ui as StackPanel)!.Children[1] as TextBox)!.Text = (string)value,
+            (ui, _) => ui.FindLogicalDescendantOfType<TextBox>().Text,
+            (ui, value) => ui.FindLogicalDescendantOfType<TextBox>().Text = (string)value,
             typeof(string)),
 
             #endregion
@@ -466,26 +543,32 @@ namespace BEditor.Views.ManagePlugins
 
             ((header, type) =>
             {
-                return new StackPanel
+                return new Border
                 {
-                    Spacing = 0,
-                    Orientation = Orientation.Vertical,
-                    Children =
+                    Classes = { "Item" },
+                    Child = new Panel
                     {
-                        new TextBlock { Text = header, Classes = { "SettingsItemHeader" } },
-                        new ComboBox
+                        Children =
                         {
-                            Classes =
+                            new TextBlock
                             {
-                                "SettingsComboBox"
+                                Text = header,
+                                VerticalAlignment = VerticalAlignment.Center,
                             },
-                            Items = Enum.GetValues(type)
+                            new ComboBox
+                            {
+                                Items = Enum.GetValues(type),
+                                Classes =
+                                {
+                                    "Editor"
+                                }
+                            }
                         }
                     }
                 };
             },
-            (ui, _) => ((ui as StackPanel)!.Children[1] as ComboBox)!.SelectedItem!,
-            (ui, value) => ((ui as StackPanel)!.Children[1] as ComboBox)!.SelectedItem = value,
+            (ui, _) => ui.FindLogicalDescendantOfType<ComboBox>().SelectedItem!,
+            (ui, value) => ui.FindLogicalDescendantOfType<ComboBox>().SelectedItem = value,
             typeof(Enum)),
 
         	#endregion
@@ -495,7 +578,8 @@ namespace BEditor.Views.ManagePlugins
         {
             var stack = new StackPanel
             {
-                Spacing = 0,
+                Margin = new(16, 8),
+                Spacing = 8,
                 Orientation = Orientation.Vertical
             };
             var type = record.GetType();
@@ -521,7 +605,6 @@ namespace BEditor.Views.ManagePlugins
 
                     var ui = item.create(name, param.ParameterType);
                     ToolTip.SetTip(ui, description);
-                    ui.Margin = new(ui.Margin.Left, ui.Margin.Top, ui.Margin.Right, 16);
 
                     item.setValue(ui, prop.GetValue(record)!);
 
@@ -535,7 +618,8 @@ namespace BEditor.Views.ManagePlugins
         {
             var stack = new StackPanel
             {
-                Spacing = 0,
+                Margin = new(16, 8),
+                Spacing = 8,
                 Orientation = Orientation.Vertical
             };
 
@@ -545,7 +629,6 @@ namespace BEditor.Views.ManagePlugins
                 var item = Find(value.GetType());
 
                 var ui = item.create(key, type);
-                ui.Margin = new(ui.Margin.Left, ui.Margin.Top, ui.Margin.Right, 16);
 
                 item.setValue(ui, value);
 

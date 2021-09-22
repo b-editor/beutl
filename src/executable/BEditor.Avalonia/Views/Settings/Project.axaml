@@ -14,52 +14,57 @@
         <vm:ProjectViewModel/>
     </UserControl.DataContext>
     <ScrollViewer>
-        <VirtualizingStackPanel>
+        <VirtualizingStackPanel Spacing="8" Margin="16,8">
 
-            <TextBlock Text="{x:Static resource:Strings.Project}" Classes="SettingsHeader"/>
+            <TextBlock Text="{x:Static resource:Strings.Project}" Classes="Header"/>
 
-            <TextBlock Text="{x:Static resource:Strings.UseAutoBackup}" Classes="SettingsItemHeader"/>
+            <Border Classes="Item">
+                <CheckBox
+                    Content="{x:Static resource:Strings.UseAutoBackup}"
+                    IsChecked="{Binding AutoBackUp, Source={x:Static data:Settings.Default}, Mode=TwoWay}" />
+            </Border>
 
-            <ToggleSwitch IsChecked="{Binding AutoBackUp, Source={x:Static data:Settings.Default}, Mode=TwoWay}" Classes="SettingsToggleSwitch"/>
+            <Border Classes="Item" ToolTip.Tip="{x:Static resource:Strings.TheChangesWillBeAppliedAfterRestarting}">
+                <CheckBox
+                    Content="{x:Static resource:Strings.UsingGPUForImageProcessing}"
+                    IsChecked="{Binding PrioritizeGPU, Source={x:Static data:Settings.Default}, Mode=TwoWay}" />
+            </Border>
 
-            <Separator Height="16" />
+            <Border Classes="Item">
+                <Panel>
+                    <TextBlock Text="{x:Static resource:Strings.BackupInterval}" VerticalAlignment="Center" />
 
-            <TextBlock Text="{x:Static resource:Strings.UsingGPUForImageProcessing}" Classes="SettingsItemHeader"/>
+                    <NumericUpDown
+                        Value="{Binding BackUpInterval, Mode=TwoWay, Source={x:Static data:Settings.Default}}"
+                        Classes="Editor"/>
+                </Panel>
+            </Border>
 
-            <ToggleSwitch
-                ToolTip.Tip="{x:Static resource:Strings.TheChangesWillBeAppliedAfterRestarting}"
-                IsChecked="{Binding PrioritizeGPU, Source={x:Static data:Settings.Default}, Mode=TwoWay}"
-                Classes="SettingsToggleSwitch"/>
+            <Border Classes="Item" ToolTip.Tip="{x:Static resource:Strings.TheChangesWillBeAppliedAfterRestarting}">
+                <Panel>
+                    <TextBlock Text="{x:Static resource:Strings.AudioProfile}" VerticalAlignment="Center" />
 
-            <Separator Height="16" />
+                    <ComboBox
+                        Items="{CompiledBinding AudioProfiles, Mode=OneTime}"
+                        SelectedItem="{Binding AudioProfile, Source={x:Static data:Settings.Default}, Mode=TwoWay}"
+                        Classes="Editor"/>
+                </Panel>
+            </Border>
 
-            <TextBlock Text="{x:Static resource:Strings.AudioProfile}" Classes="SettingsItemHeader"/>
+            <Border Classes="Item" ToolTip.Tip="{x:Static resource:Strings.TheChangesWillBeAppliedAfterRestarting}">
+                <Panel>
+                    <TextBlock Text="{x:Static resource:Strings.GraphicsProfile}" VerticalAlignment="Center" />
 
-            <ComboBox
-                ToolTip.Tip="{x:Static resource:Strings.TheChangesWillBeAppliedAfterRestarting}"
-                Items="{CompiledBinding AudioProfiles, Mode=OneTime}"
-                SelectedItem="{Binding AudioProfile, Source={x:Static data:Settings.Default}, Mode=TwoWay}"
-                Classes="SettingsComboBox"/>
-            
-            <Separator Height="16" />
+                    <ComboBox
+                        Items="{CompiledBinding Profiles, Mode=OneTime}"
+                        SelectedItem="{Binding GraphicsProfile, Source={x:Static data:Settings.Default}, Mode=TwoWay}"
+                        Classes="Editor"/>
+                </Panel>
+            </Border>
 
-            <TextBlock Text="{x:Static resource:Strings.GraphicsProfile}" Classes="SettingsItemHeader"/>
-
-            <ComboBox
-                ToolTip.Tip="{x:Static resource:Strings.TheChangesWillBeAppliedAfterRestarting}"
-                Items="{CompiledBinding Profiles, Mode=OneTime}"
-                SelectedItem="{Binding GraphicsProfile, Source={x:Static data:Settings.Default}, Mode=TwoWay}"
-                Classes="SettingsComboBox"/>
-            
             <TextBlock
                 Text="{x:Static resource:Strings.GraphicsProfileDescription}"
-                Margin="32,16" />
-
-            <TextBlock Text="{x:Static resource:Strings.BackupInterval}" Classes="SettingsItemHeader"/>
-
-            <NumericUpDown
-                Value="{Binding BackUpInterval, Mode=TwoWay, Source={x:Static data:Settings.Default}}"
-                Classes="SettingsNumericUpDown"/>
+                Margin="16,0" />
 
         </VirtualizingStackPanel>
     </ScrollViewer>

@@ -6,8 +6,11 @@ using Avalonia.Input;
 using Avalonia.Markup.Xaml;
 
 using BEditor.Data;
+using BEditor.Extensions;
 using BEditor.Models;
 using BEditor.Properties;
+using BEditor.ViewModels.Properties;
+using BEditor.ViewModels.Timelines;
 
 namespace BEditor.Views.Properties
 {
@@ -23,7 +26,7 @@ namespace BEditor.Views.Properties
             DragDrop.SetAllowDrop(this, true);
             AddHandler(DragDrop.DragOverEvent, UserControl_DragOver);
             AddHandler(DragDrop.DropEvent, UserControl_Drop);
-            DataContext = clip;
+            DataContext = clip.GetCreateClipPropertyViewModel();
             InitializeComponent();
         }
 
@@ -34,8 +37,9 @@ namespace BEditor.Views.Properties
 
         private async void UserControl_Drop(object? sender, DragEventArgs e)
         {
-            if (DataContext is not ClipElement clip) return;
+            if (DataContext is not ClipPropertyViewModel clipVm) return;
 
+            var clip = clipVm.ClipElement;
             if (e.Data.Get("EffectMetadata") is EffectMetadata metadata)
             {
                 clip.AddEffect(metadata.CreateFunc()).Execute();

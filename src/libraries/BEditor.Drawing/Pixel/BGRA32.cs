@@ -75,7 +75,7 @@ namespace BEditor.Drawing.Pixel
             dst.B = (byte)(((mask.B * mask.A) + (B * (255 - mask.A) * A / 255)) / blendA);
             dst.G = (byte)(((mask.G * mask.A) + (G * (255 - mask.A) * A / 255)) / blendA);
             dst.R = (byte)(((mask.R * mask.A) + (R * (255 - mask.A) * A / 255)) / blendA);
-            dst.A = A;
+            dst.A = (byte)blendA;
 
             return dst;
         }
@@ -117,7 +117,7 @@ __kernel void blend(__global unsigned char* src, __global unsigned char* mask)
     src[pos] = (unsigned char)(((mask_b * mask_a) + (b * (255 - mask_a) * a / 255)) / blendA);
     src[pos + 1] = (unsigned char)(((mask_g * mask_a) + (g * (255 - mask_a) * a / 255)) / blendA);
     src[pos + 2] = (unsigned char)(((mask_r * mask_a) + (r * (255 - mask_a) * a / 255)) / blendA);
-    src[pos + 3] = a;
+    src[pos + 3] = (unsigned char)blendA;
 }";
         }
 

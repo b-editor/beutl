@@ -24,7 +24,7 @@ namespace BEditor.ViewModels.DialogContent
             Name = new ReactiveProperty<string>($"{Strings.Scene}{_project.SceneList.Count}")
                 .SetValidateNotifyError(name =>
                 {
-                    if (_project.SceneList.Any(s => s.SceneName == name))
+                    if (_project.SceneList.Any(s => s.Name == name))
                     {
                         return Strings.ThisNameAlreadyExists;
                     }
@@ -38,7 +38,7 @@ namespace BEditor.ViewModels.DialogContent
             {
                 var scene = new Scene((int)Width.Value, (int)Height.Value)
                 {
-                    SceneName = Name.Value,
+                    Name = Name.Value,
                     Parent = _project
                 };
 

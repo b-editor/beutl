@@ -84,7 +84,7 @@ namespace BEditor.Primitive.Effects
                 (short)Red[args.Frame],
                 (short)Green[args.Frame],
                 (short)Blue[args.Frame],
-                Parent.Parent.DrawingContext);
+                args.Contexts.Drawing);
         }
 
         /// <inheritdoc/>

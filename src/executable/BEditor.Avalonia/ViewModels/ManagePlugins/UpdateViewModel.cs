@@ -22,20 +22,9 @@ namespace BEditor.ViewModels.ManagePlugins
 {
     public sealed class UpdateViewModel
     {
-        private readonly HttpClient _client;
-
-        public sealed record UpdateTarget(PluginObject Plugin, Package Package)
-        {
-            public string OldVersion => GetVersion(Plugin)!.ToString(3);
-
-            public string NewVersion => Package.Versions.First().Version;
-
-            public PackageVersion NewerVersion => Package.Versions.First();
-        }
-
         public UpdateViewModel()
         {
-            _client = ServicesLocator.Current.Provider.GetRequiredService<HttpClient>();
+            UpdateService = ServicesLocator.Current.Provider.GetRequiredService<PluginUpdateService>();
 
             IsSelected = SelectedItem.Select(i => i is not null)
                 .ToReadOnlyReactivePropertySlim();
@@ -76,16 +65,20 @@ namespace BEditor.ViewModels.ManagePlugins
                     SelectedItem.ForceNotify();
                 });
 
-            Load();
+            Refresh.Subscribe(() =>
+            {
+                IsLoading.Value = true;
+                UpdateService.CheckUpdateAsync().ContinueWith(_ => IsLoading.Value = false);
+            });
+
+            UpdateService.CheckUpdateAsync().ContinueWith(_ => IsLoading.Value = false);
         }
 
         public ReadOnlyReactivePropertySlim<bool> IsSelected { get; }
 
         public ReactivePropertySlim<bool> IsLoading { get; } = new(true);
 
-        public ReactivePropertySlim<UpdateTarget> SelectedItem { get; } = new();
-
-        public ReactiveCollection<UpdateTarget> Items { get; } = new();
+        public ReactivePropertySlim<PluginUpdateService.UpdateTarget> SelectedItem { get; } = new();
 
         public ReactiveProperty<PackageVersion> SelectedVersion { get; } = new();
 
@@ -93,33 +86,10 @@ namespace BEditor.ViewModels.ManagePlugins
 
         public ReactiveCommand Cancel { get; } = new();
 
+        public ReactiveCommand Refresh { get; } = new();
+
         public ReadOnlyReactivePropertySlim<bool> IsScheduled { get; }
 
-        private async void Load()
-        {
-            foreach (var item in BEditor.Settings.Default.PackageSources)
-            {
-                var repos = await item.ToRepositoryAsync(_client);
-                if (repos is null) continue;
-
-                foreach (var package in repos.Packages)
-                {
-                    var plugin = PluginManager.Default.Plugins.FirstOrDefault(p => p.Id == package.Id);
-
-                    if (plugin is not null
-                        && package.Versions.FirstOrDefault() is PackageVersion packageVersion
-                        && GetVersion(plugin) < new Version(packageVersion.Version))
-                    {
-                        Items.AddOnScheduler(new UpdateTarget(plugin, package));
-                    }
-                }
-            }
-            IsLoading.Value = false;
-        }
-
-        private static Version? GetVersion(PluginObject plugin)
-        {
-            return plugin.GetType().Assembly.GetName().Version;
-        }
+        public PluginUpdateService UpdateService { get; }
     }
 }

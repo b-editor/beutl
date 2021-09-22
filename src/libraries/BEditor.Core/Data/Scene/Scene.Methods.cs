@@ -42,7 +42,6 @@ namespace BEditor.Data
             base.GetObjectData(writer);
             writer.WriteNumber(nameof(Width), Width);
             writer.WriteNumber(nameof(Height), Height);
-            writer.WriteString(nameof(SceneName), SceneName);
             writer.WriteNumber(nameof(TotalFrame), TotalFrame);
             writer.WriteBoolean(nameof(UseCache), UseCache);
             writer.WriteStartArray(nameof(HideLayer));
@@ -76,7 +75,6 @@ namespace BEditor.Data
             TimeLineScale = 0.75f;
             Width = element.GetProperty(nameof(Width)).GetInt32();
             Height = element.GetProperty(nameof(Height)).GetInt32();
-            SceneName = element.GetProperty(nameof(SceneName)).GetString() ?? string.Empty;
             TotalFrame = element.GetProperty(nameof(TotalFrame)).GetInt32();
             HideLayer = element.GetProperty(nameof(HideLayer)).EnumerateArray().Select(i => i.GetInt32()).ToList();
             Datas = new(element.GetProperty("Clips").EnumerateArray().Select(i =>
@@ -88,6 +86,9 @@ namespace BEditor.Data
             }));
 
             UseCache = !element.TryGetProperty(nameof(UseCache), out var useCache) || useCache.GetBoolean();
+
+            // Todo: 互換性
+            Name = element.TryGetProperty("SceneName", out var sceneName) ? sceneName.GetString() ?? Name : Name;
         }
 
         /// <summary>
@@ -168,7 +169,7 @@ namespace BEditor.Data
                 GraphicsContext.Light = null;
                 GraphicsContext.Clear();
 
-                var args = new ClipApplyArgs(frame, renderType);
+                var args = new ClipApplyArgs(frame, GraphicsContext, SamplingContext!, Parent?.Parent?.DrawingContext, renderType);
 
                 // Preview
                 for (var i = 0; i < layer.Length; i++) layer[i].PreviewApply(args);
@@ -208,7 +209,7 @@ namespace BEditor.Data
                 SamplingContext!.Clear();
                 var layer = GetFrame(frame);
 
-                var args = new ClipApplyArgs(frame, applyType);
+                var args = new ClipApplyArgs(frame, GraphicsContext!, SamplingContext!, Parent?.Parent?.DrawingContext, applyType);
 
                 // Preview
                 for (var i = 0; i < layer.Length; i++) layer[i].PreviewApply(args);
@@ -397,23 +398,12 @@ namespace BEditor.Data
             Cache ??= new(this);
             _samplingLockObject ??= new();
             _renderingLockObject ??= new();
-
-            if (BEditor.Settings.Default.PrioritizeGPU)
-            {
-                DrawingContext = DrawingContext.Create(0);
-
-                if (DrawingContext is not null)
-                {
-                    ServiceProvider?.GetService<ILogger>()?.LogInformation("{0}はGpuを使用した画像処理が有効です。", SceneName);
-                }
-            }
         }
 
         /// <inheritdoc/>
         protected override void OnUnload()
         {
             GraphicsContext?.Dispose();
-            DrawingContext?.Dispose();
             SamplingContext?.Dispose();
             Cache.Clear();
         }

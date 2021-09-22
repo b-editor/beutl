@@ -703,6 +703,24 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Do you want to remove this directory? に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string DoYouWantToRemoveThisDirectory {
+            get {
+                return ResourceManager.GetString("DoYouWantToRemoveThisDirectory", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Do you want to remove this file? に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string DoYouWantToRemoveThisFile {
+            get {
+                return ResourceManager.GetString("DoYouWantToRemoveThisFile", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Edit に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Edit {
@@ -1266,6 +1284,15 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Maximize に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Maximize {
+            get {
+                return ResourceManager.GetString("Maximize", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Memory release に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string MemoryRelease {
@@ -1280,6 +1307,15 @@ namespace BEditor.Properties {
         public static string Metadata {
             get {
                 return ResourceManager.GetString("Metadata", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Minimize に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Minimize {
+            get {
+                return ResourceManager.GetString("Minimize", resourceCulture);
             }
         }
         
@@ -1762,6 +1798,15 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   RecentProject に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string RecentProject {
+            get {
+                return ResourceManager.GetString("RecentProject", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Redo に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Redo {
@@ -1812,6 +1857,15 @@ namespace BEditor.Properties {
         public static string ResetLayout {
             get {
                 return ResourceManager.GetString("ResetLayout", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Restore Down に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string RestoreDown {
+            get {
+                return ResourceManager.GetString("RestoreDown", resourceCulture);
             }
         }
         
@@ -2127,6 +2181,15 @@ namespace BEditor.Properties {
         public static string ThePackageHasBeenCreated {
             get {
                 return ResourceManager.GetString("ThePackageHasBeenCreated", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   There is a newer version of &quot;{0}&quot;. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string ThereIsANewerVersionOf {
+            get {
+                return ResourceManager.GetString("ThereIsANewerVersionOf", resourceCulture);
             }
         }
         

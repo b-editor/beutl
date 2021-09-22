@@ -17,9 +17,7 @@
         <convert:FrameToDoubleConverter x:Key="FrameToDoubleConverter"/>
     </UserControl.Resources>
     <Grid RowDefinitions="*,Auto">
-        <Panel
-            IsHitTestVisible="False"
-            Margin="0">
+        <Panel Margin="0">
             <view:PreviewerBackground
                 ClipToBounds="True"
                 Width="{Binding #image.Bounds.Width}"
@@ -91,10 +89,7 @@
                 <ui:SymbolIcon Symbol="Upload">
                     <ui:SymbolIcon.RenderTransform>
                         <TransformGroup>
-                            <ScaleTransform />
-                            <SkewTransform />
                             <RotateTransform Angle="-90" />
-                            <TranslateTransform />
                         </TransformGroup>
                     </ui:SymbolIcon.RenderTransform>
                 </ui:SymbolIcon>
@@ -144,10 +139,7 @@
                 <ui:SymbolIcon Symbol="Upload">
                     <ui:SymbolIcon.RenderTransform>
                         <TransformGroup>
-                            <ScaleTransform />
-                            <SkewTransform />
                             <RotateTransform Angle="90" />
-                            <TranslateTransform />
                         </TransformGroup>
                     </ui:SymbolIcon.RenderTransform>
                 </ui:SymbolIcon>

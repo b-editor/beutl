@@ -104,6 +104,7 @@ namespace BEditor.Data.Property
         /// <summary>
         /// Gets or sets an optional value.
         /// </summary>
+        [Obsolete("To be added.")]
         public float Optional { get; set; }
 
         /// <summary>
@@ -173,11 +174,6 @@ namespace BEditor.Data.Property
 
             var out_ = EasingType.EaseFunc(now, end - start, startPair.Value, endPair.Value);
 
-            if (PropertyMetadata?.UseOptional ?? false)
-            {
-                return Clamp(out_ + Optional);
-            }
-
             return Clamp(out_);
         }
 
@@ -220,7 +216,10 @@ namespace BEditor.Data.Property
                 var current = Pairs[i];
                 var nextIdx = i + 1;
                 var next = Pairs[nextIdx];
-                if (current.Position.GetPercentagePosition(Length) <= ps && ps <= next.Position.GetPercentagePosition(Length))
+                var curPs = current.Position.GetPercentagePosition(Length);
+                var nextPs = next.Position.GetPercentagePosition(Length);
+
+                if (curPs <= ps && ps <= nextPs)
                 {
                     Pairs.Insert(nextIdx, item);
                     return nextIdx;
@@ -331,9 +330,9 @@ namespace BEditor.Data.Property
         }
 
         /// <summary>
-        /// Create a command to change the color of this <see cref="Pairs"/>.
+        /// Create a command to change the value of this <see cref="Pairs"/>.
         /// </summary>
-        /// <param name="index">Index of colors to be changed.</param>
+        /// <param name="index">Index of values to be changed.</param>
         /// <param name="value">New Value.</param>
         /// <returns>Created <see cref="IRecordCommand"/>.</returns>
         [Pure]

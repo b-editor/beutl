@@ -50,7 +50,7 @@ namespace BEditor.Primitive.Effects
         /// <inheritdoc/>
         public override void Apply(EffectApplyArgs<Image<BGRA32>> args)
         {
-            args.Value.Brightness((short)Brightness[args.Frame], Parent.Parent.DrawingContext);
+            args.Value.Brightness((short)Brightness[args.Frame], args.Contexts.Drawing);
         }
 
         /// <inheritdoc/>

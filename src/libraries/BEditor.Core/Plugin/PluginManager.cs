@@ -11,6 +11,7 @@ using System.IO;
 using System.Linq;
 using System.Reactive.Linq;
 using System.Reflection;
+using System.Reflection.Metadata;
 using System.Threading.Tasks;
 
 using BEditor.Resources;
@@ -38,6 +39,11 @@ namespace BEditor.Plugin
         /// Gets the loaded plugins.
         /// </summary>
         public IEnumerable<PluginObject> Plugins => Loaded;
+
+        /// <summary>
+        /// Gets the plugins that failed to load.
+        /// </summary>
+        public IEnumerable<Assembly> Failed { get; private set; } = Enumerable.Empty<Assembly>();
 
         /// <summary>
         /// Gets the base directory from which to retrieve plugins.
@@ -83,6 +89,7 @@ namespace BEditor.Plugin
                 .Select(static f => Assembly.LoadFrom(f))
                 .ToArray();
             var exceptions = new List<Exception>();
+            var failed = new List<Assembly>();
 
             foreach (var asm in plugins)
             {
@@ -97,9 +104,14 @@ namespace BEditor.Plugin
                     exceptions.Add(new PluginException(string.Format(Strings.FailedToLoad, name), e)
                     {
                         PluginName = name,
+                        Assembly = asm,
                     });
+
+                    failed.Add(asm);
                 }
             }
+
+            Failed = failed;
 
             if (exceptions.Count is not 0)
             {

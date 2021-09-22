@@ -21,7 +21,7 @@ namespace BEditor.Data
     /// <summary>
     /// Represents a base class of the effect.
     /// </summary>
-    public abstract class EffectElement : EditingObject, IChild<ClipElement>, IParent<PropertyElement>, ICloneable
+    public abstract class EffectElement : EditingObject, IChild<ClipElement>, IParent<PropertyElement>, ICloneable, IEditingObject
     {
         private static readonly PropertyChangedEventArgs _isEnabledArgs = new(nameof(IsEnabled));
         private static readonly PropertyChangedEventArgs _isExpandedArgs = new(nameof(IsExpanded));
@@ -35,7 +35,7 @@ namespace BEditor.Data
         /// <summary>
         /// Gets the name of this <see cref="EffectElement"/>.
         /// </summary>
-        public abstract string Name { get; }
+        public new abstract string Name { get; }
 
         /// <summary>
         /// Gets or sets a value indicating whether if this <see cref="EffectElement"/> is enabled.
@@ -66,6 +66,13 @@ namespace BEditor.Data
                 _parent = value;
                 Children.SetParent<EffectElement, PropertyElement>(i => i.Parent = this);
             }
+        }
+
+        /// <inheritdoc/>
+        string IEditingObject.Name
+        {
+            get => Name;
+            set { }
         }
 
         /// <summary>

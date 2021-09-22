@@ -119,7 +119,7 @@
                                 Icon="Save"
                                 Text="{x:Static prop:Strings.Save}"
                                 Command="{CompiledBinding Save, Mode=OneTime}" />
-                            
+
                             <ui:MenuFlyoutItem
                                 Icon="SaveAsCopy"
                                 Text="{x:Static prop:Strings.SaveAs}"
@@ -325,35 +325,45 @@
             </StackPanel>
         </Grid>
 
-        <Border
-            Margin="4,0,0,4"
-            BorderBrush="{StaticResource ControlElevationBorderBrush}"
-            BorderThickness="1"
-            CornerRadius="{StaticResource OverlayCornerRadius}"
+        <Grid
             Grid.Row="2"
             Grid.RowSpan="3"
-            Background="{StaticResource NavigationViewContentBackground}"
-            IsHitTestVisible="False">
-        </Border>
+            ColumnDefinitions="Auto,*">
+            <!--<StackPanel Spacing="8">
+                <StackPanel.Styles>
+                    <Style Selector="Button">
+                        <Setter Property="BorderBrush" Value="Transparent" />
+                        <Setter Property="Background" Value="Transparent" />
+                    </Style>
+                </StackPanel.Styles>
+                <LayoutTransformControl>
+                    <LayoutTransformControl.LayoutTransform>
+                        <RotateTransform Angle="270" />
+                    </LayoutTransformControl.LayoutTransform>
+                    <Button Content="AAA" />
+                </LayoutTransformControl>
+                <LayoutTransformControl>
+                    <LayoutTransformControl.LayoutTransform>
+                        <RotateTransform Angle="270" />
+                    </LayoutTransformControl.LayoutTransform>
+                    <Button Content="BBB" />
+                </LayoutTransformControl>
+            </StackPanel>-->
 
-        <ContentControl
-            Grid.Row="2"
-            Grid.RowSpan="3"
-            Padding="0"
-            Margin="4,0,0,4"
-            HorizontalContentAlignment="Stretch"
-            VerticalContentAlignment="Stretch"
-            IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}"
-            Content="{Binding App.Project.CurrentScene.SelectItem, Converter={StaticResource ClipPropertyConverter}, Mode=OneWay}" />
+            <Border
+                Grid.Column="1"
+                Margin="4,0,0,4"
+                Classes="card"
+                IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}"
+                Child="{Binding App.Project.CurrentScene.SelectItem, Converter={StaticResource ClipPropertyConverter}, Mode=OneWay}">
+            </Border>
+        </Grid>
 
         <GridSplitter Background="Transparent" Grid.Row="2" Grid.RowSpan="3" Grid.Column="1"/>
 
         <Border
             Margin="0,0,4,4"
-            BorderBrush="{StaticResource ControlElevationBorderBrush}"
-            BorderThickness="1"
-            CornerRadius="{StaticResource OverlayCornerRadius}"
-            Background="{StaticResource NavigationViewContentBackground}"
+            Classes="card"
             Grid.Row="4"
             Grid.Column="2"
             Grid.ColumnSpan="4"
@@ -395,6 +405,7 @@
                 <views:Library x:Name="Library" />
             </TabItem>
             <TabItem
+                IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}"
                 Header="{x:Static prop:Strings.Objects}"
                 FontSize="16"
                 Padding="8" >

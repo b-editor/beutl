@@ -6,10 +6,9 @@
 // of the MIT license. See the LICENSE file for details.
 
 using System;
-using System.Threading;
 
-using BEditor.Audio;
 using BEditor.Data;
+using BEditor.Drawing;
 
 namespace BEditor
 {
@@ -37,6 +36,11 @@ namespace BEditor
         /// Gets audio context.
         /// </summary>
         public object? AudioContext { get; }
+
+        /// <summary>
+        /// Gets drawing context.
+        /// </summary>
+        public DrawingContext? DrawingContext { get; }
 
         /// <summary>
         /// Restore the application configuration.
