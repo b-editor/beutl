@@ -159,13 +159,17 @@
                                 </ContextMenu>
                             </Button.ContextMenu>
                             <Grid RowDefinitions="2*,Auto">
-                                <ContentControl Background="Black" Padding="0">
+                                <Border
+                                    CornerRadius="6,0"
+                                    Background="Black"
+                                    Padding="0"
+                                    ClipToBounds="True">
                                     <Image
                                         HorizontalAlignment="Center"
                                         VerticalAlignment="Center"
                                         Source="{CompiledBinding Thumbnail, Converter={StaticResource PathToImageSourceConverter}}"
                                         Stretch="UniformToFill" />
-                                </ContentControl>
+                                </Border>
 
                                 <StackPanel Grid.Row="1" Margin="8">
                                     <TextBlock FontSize="24" FontWeight="SemiBold" Text="{CompiledBinding Name, Mode=OneTime}" />
