@@ -405,6 +405,7 @@
                 <views:Library x:Name="Library" />
             </TabItem>
             <TabItem
+                IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}"
                 Header="{x:Static prop:Strings.Objects}"
                 FontSize="16"
                 Padding="8" >

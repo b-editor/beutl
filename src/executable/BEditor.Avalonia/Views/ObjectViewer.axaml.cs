@@ -40,6 +40,7 @@ namespace BEditor.Views
                     else
                     {
                         _watcher?.Dispose();
+                        _scrollViewer.Content = null;
                     }
                 });
         }
