@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
@@ -390,6 +391,10 @@ namespace BEditor.Extensions.AviUtl
                     .AddSingleton(_ => Loader.Global)
                     .AddSingleton(_ => Loader))
                 .With(CreateEffectMetadata(items.Where(i => i.Type is ScriptType.Animation)))
+                .SetCustomMenu("Luaスクリプト", new ICustomMenu[]
+                {
+                    new CustomMenu("スクリプトフォルダーを開く", () => Process.Start(new ProcessStartInfo(Loader.BaseDirectory) { UseShellExecute = true }))
+                })
                 .Register();
         }
 
