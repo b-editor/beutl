@@ -349,7 +349,7 @@ namespace BEditor.Drawing
             alphaMat.FindContours(out var points, out var h, RetrievalModes.List, ContourApproximationModes.ApproxSimple);
 
             // 検出した輪郭を描画
-            borderMat.DrawContours(points, -1, new(color.B, color.G, color.R, color.A), size, LineTypes.Link8, h);
+            borderMat.DrawContours(points, -1, new(color.B, color.G, color.R, color.A), size, LineTypes.AntiAlias, h);
 
             self.Dispose();
             return border;
@@ -612,7 +612,7 @@ namespace BEditor.Drawing
                 mask.Clear();
 
                 // 検出した輪郭を描画
-                maskMat.DrawContours(points, i1, new Scalar(255, 255, 255, 255), -1, LineTypes.Link8, h);
+                maskMat.DrawContours(points, i1, new Scalar(255, 255, 255, 255), -1, LineTypes.AntiAlias, h);
 
                 var rect = Rectangle.FromLTRB(x0, y0, x1, y1);
                 var partMask = mask[rect];
