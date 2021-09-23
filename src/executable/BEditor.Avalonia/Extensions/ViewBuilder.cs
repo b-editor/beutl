@@ -225,7 +225,7 @@ namespace BEditor.Extensions
             }
             return clip.GetValue(ClipViewModelProperty);
         }
-        
+
         public static ClipPropertyViewModel GetCreateClipPropertyViewModel(this ClipElement clip)
         {
             if (clip[ClipPropertyViewModelProperty] is null)
