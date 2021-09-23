@@ -49,7 +49,7 @@ namespace BEditor.Views.Timelines
             for (var i = 0; i < length; i++)
             {
                 var abs = i + _audio.Parent.Start;
-                var sound = _audio.OnSample(new(abs, ApplyType.Audio));
+                var sound = _audio.OnSample(new(abs, _audio.Parent.Parent.GraphicsContext!, _audio.Parent.Parent.SamplingContext!, AppModel.Current.DrawingContext, ApplyType.Audio));
                 if (sound is null) continue;
                 var (Left, Right) = sound.RMS();
                 sound.Dispose();

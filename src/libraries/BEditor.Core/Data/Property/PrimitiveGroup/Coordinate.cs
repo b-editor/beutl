@@ -25,7 +25,7 @@ namespace BEditor.Data.Property.PrimitiveGroup
             nameof(X),
             owner => owner.X,
             (owner, obj) => owner.X = obj,
-            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.X, 0)).Serialize());
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.X, 0) { FormatString = "{0:F}" }).Serialize());
 
         /// <summary>
         /// Defines the <see cref="Y"/> property.
@@ -34,7 +34,7 @@ namespace BEditor.Data.Property.PrimitiveGroup
             nameof(Y),
             owner => owner.Y,
             (owner, obj) => owner.Y = obj,
-            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Y, 0)).Serialize());
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Y, 0) { FormatString = "{0:F}" }).Serialize());
 
         /// <summary>
         /// Defines the <see cref="Z"/> property.
@@ -43,7 +43,7 @@ namespace BEditor.Data.Property.PrimitiveGroup
             nameof(Z),
             owner => owner.Z,
             (owner, obj) => owner.Z = obj,
-            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Z, 0)).Serialize());
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Z, 0) { FormatString = "{0:F}" }).Serialize());
 
         /// <summary>
         /// Defines the <see cref="CenterX"/> property.
@@ -52,7 +52,7 @@ namespace BEditor.Data.Property.PrimitiveGroup
             nameof(CenterX),
             owner => owner.CenterX,
             (owner, obj) => owner.CenterX = obj,
-            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.CenterX, 0, float.NaN, float.NaN, true)).Serialize());
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.CenterX, 0, float.NaN, float.NaN) { FormatString = "{0:F}" }).Serialize());
 
         /// <summary>
         /// Defines the <see cref="CenterY"/> property.
@@ -61,7 +61,7 @@ namespace BEditor.Data.Property.PrimitiveGroup
             nameof(CenterY),
             owner => owner.CenterY,
             (owner, obj) => owner.CenterY = obj,
-            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.CenterY, 0, float.NaN, float.NaN, true)).Serialize());
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.CenterY, 0, float.NaN, float.NaN) { FormatString = "{0:F}" }).Serialize());
 
         /// <summary>
         /// Defines the <see cref="CenterZ"/> property.
@@ -70,7 +70,7 @@ namespace BEditor.Data.Property.PrimitiveGroup
             nameof(CenterZ),
             owner => owner.CenterZ,
             (owner, obj) => owner.CenterZ = obj,
-            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.CenterZ, 0, float.NaN, float.NaN, true)).Serialize());
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.CenterZ, 0, float.NaN, float.NaN) { FormatString = "{0:F}" }).Serialize());
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Coordinate"/> class.
@@ -132,6 +132,7 @@ namespace BEditor.Data.Property.PrimitiveGroup
         /// <summary>
         /// Reset the <see cref="CenterX"/>, <see cref="CenterY"/>, and <see cref="CenterZ"/> Optionals.
         /// </summary>
+        [Obsolete("To be added.")]
         public void ResetOptional()
         {
             CenterX.Optional = 0;

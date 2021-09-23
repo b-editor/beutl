@@ -174,6 +174,8 @@ namespace BEditor.Plugin
         /// <param name="manager"><see cref="PluginManager"/> to register.</param>
         public void Register(PluginManager manager)
         {
+            var instance = _plugin();
+
             // Effects
             foreach (var meta in _effects)
             {
@@ -197,7 +199,6 @@ namespace BEditor.Plugin
                 manager.Menus.Add(_menus!);
             }
 
-            var instance = _plugin();
             if (_task.Count is not 0)
             {
                 manager.Tasks.Add((instance, _task));

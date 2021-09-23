@@ -556,7 +556,7 @@ namespace BEditor.Views.Timelines
 
         private void ScrollLine_PointerWheel(object? sender, PointerWheelEventArgs e)
         {
-            if (e.KeyModifiers is KeyModifiers.Control)
+            if (e.KeyModifiers == KeyModifiers.Control)
             {
                 var offset = _scrollLine.Offset.X;
                 var frame = Scene.ToFrame(offset);
@@ -564,19 +564,13 @@ namespace BEditor.Views.Timelines
 
                 _scrollLine.Offset = _scrollLine.Offset.WithX(Scene.ToPixel(frame));
             }
-            else if (e.Delta.Y > 0)
+            else if (e.KeyModifiers == KeyModifiers.Shift)
             {
-                for (var i = 0; i < 4; i++)
-                {
-                    _scrollLine.LineLeft();
-                }
+                _scrollLine.Offset = _scrollLine.Offset.WithY(_scrollLine.Offset.Y - (e.Delta.Y * 50));
             }
             else
             {
-                for (var i = 0; i < 4; i++)
-                {
-                    _scrollLine.LineRight();
-                }
+                _scrollLine.Offset = _scrollLine.Offset.WithX(_scrollLine.Offset.X - (e.Delta.Y * 50));
             }
 
             e.Handled = true;

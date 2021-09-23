@@ -17,6 +17,8 @@
     x:Class="BEditor.Views.Timelines.ClipView">
     <StackPanel>
         <Border
+            BorderBrush="{CompiledBinding BorderBrush.Value}"
+            BorderThickness="1"
             x:Name="border"
             CornerRadius="3"
             Background="{CompiledBinding ClipColor.Value}"

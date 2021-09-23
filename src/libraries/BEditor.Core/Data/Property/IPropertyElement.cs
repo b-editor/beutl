@@ -16,5 +16,12 @@ namespace BEditor.Data.Property
         /// Gets or sets the metadata for this <see cref="IPropertyElement"/>.
         /// </summary>
         public PropertyElementMetadata? PropertyMetadata { get; set; }
+
+        /// <inheritdoc/>
+        string IEditingObject.Name
+        {
+            get => PropertyMetadata?.Name ?? string.Empty;
+            set { }
+        }
     }
 }

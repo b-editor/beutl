@@ -14,8 +14,10 @@
     DataContext="{x:Static vm:MainWindowViewModel.Current}"
     x:DataType="vm:MainWindowViewModel"
     x:Class="BEditor.Views.CustomTitlebars.WindowsTitlebar">
-    <Grid ColumnDefinitions="Auto,*">
-        <Menu Name="menu">
+    <Grid ColumnDefinitions="Auto,Auto,*">
+        <Image Source="avares://beditor/Assets/Images/icon.png" Width="32" Height="32" />
+        
+        <Menu Name="menu" Grid.Column="1">
             <Menu.Styles>
                 <Style Selector="ui|SymbolIcon">
                     <Setter Property="FontSize" Value="20" />
@@ -175,13 +177,6 @@
                     </MenuItem.Icon>
                 </MenuItem>
 
-                <!--動画を変換-->
-                <MenuItem Click="ConvertVideo" Header="{x:Static prop:Strings.ConvertVideo}">
-                    <MenuItem.Icon>
-                        <ui:SymbolIcon Symbol="Video" />
-                    </MenuItem.Icon>
-                </MenuItem>
-
                 <!--拡大表示-->
                 <MenuItem Click="ZoomIn" Header="{x:Static prop:Strings.ZoomIn}" />
 
@@ -234,7 +229,7 @@
             </MenuItem>
         </Menu>
 
-        <titlebar:WindowsTitlebarButtons x:Name="titlebarbuttons" Grid.Column="1" Margin="2" />
+        <titlebar:WindowsTitlebarButtons x:Name="titlebarbuttons" Grid.Column="2" Margin="2" />
     </Grid>
 
 </UserControl>

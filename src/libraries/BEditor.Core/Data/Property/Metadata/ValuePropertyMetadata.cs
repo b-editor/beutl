@@ -17,6 +17,11 @@ namespace BEditor.Data.Property
     public record ValuePropertyMetadata(string Name, float DefaultValue = 0, float Max = float.NaN, float Min = float.NaN)
         : PropertyElementMetadata(Name), IEditingPropertyInitializer<ValueProperty>
     {
+        /// <summary>
+        /// Gets the format string.
+        /// </summary>
+        public string FormatString { get; init; } = "{0}";
+
         /// <inheritdoc/>
         public ValueProperty Create()
         {

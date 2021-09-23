@@ -49,7 +49,7 @@ namespace BEditor.Models.ManagePlugins
 
             foreach (var item in Uninstall)
             {
-                var asm = item.GetType().Assembly;
+                var asm = item is DummyPlugin dummy ? dummy.Assembly : item.GetType().Assembly;
                 var asmName = asm.GetName()!;
                 var company = asm.GetCustomAttribute<AssemblyCompanyAttribute>()?.Company ?? string.Empty;
                 var license = asm.GetCustomAttribute<AssemblyCopyrightAttribute>()?.Copyright ?? string.Empty;

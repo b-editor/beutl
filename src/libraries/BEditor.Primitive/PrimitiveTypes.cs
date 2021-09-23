@@ -27,56 +27,67 @@ namespace BEditor.Primitive
         /// <summary>
         /// <see cref="Type"/> of <see cref="VideoFile"/> class.
         /// </summary>
+        [Obsolete("Do not use.")]
         public static readonly Type Video = typeof(VideoFile);
 
         /// <summary>
         /// <see cref="Type"/> of <see cref="AudioFile"/> class.
         /// </summary>
+        [Obsolete("Do not use.")]
         public static readonly Type Audio = typeof(AudioFile);
 
         /// <summary>
         /// <see cref="Type"/> of <see cref="ImageFile"/> class.
         /// </summary>
+        [Obsolete("Do not use.")]
         public static readonly Type Image = typeof(ImageFile);
 
         /// <summary>
         /// <see cref="Type"/> of <see cref="Objects.Text"/> class.
         /// </summary>
+        [Obsolete("Do not use.")]
         public static readonly Type Text = typeof(Text);
 
         /// <summary>
         /// <see cref="Type"/> of <see cref="Objects.Shape"/> class.
         /// </summary>
+        [Obsolete("Do not use.")]
         public static readonly Type Shape = typeof(Shape);
 
         /// <summary>
         /// <see cref="Type"/> of <see cref="Objects.Polygon"/> class.
         /// </summary>
+        [Obsolete("Do not use.")]
         public static readonly Type Polygon = typeof(Polygon);
 
         /// <summary>
         /// <see cref="Type"/> of <see cref="Objects.RoundRect"/> class.
         /// </summary>
+        [Obsolete("Do not use.")]
         public static readonly Type RoundRect = typeof(RoundRect);
 
         /// <summary>
         /// <see cref="Type"/> of <see cref="CameraObject"/> class.
         /// </summary>
+        [Obsolete("Do not use.")]
         public static readonly Type Camera = typeof(CameraObject);
 
         /// <summary>
         /// <see cref="Type"/> of <see cref="Objects.GL3DObject"/> class.
         /// </summary>
+        [Obsolete("Do not use.")]
         public static readonly Type GL3DObject = typeof(GL3DObject);
 
         /// <summary>
         /// <see cref="Type"/> of <see cref="SceneObject"/> class.
         /// </summary>
+        [Obsolete("Do not use.")]
         public static readonly Type Scene = typeof(SceneObject);
 
         /// <summary>
         /// <see cref="Type"/> of <see cref="Framebuffer"/> class.
         /// </summary>
+        [Obsolete("Do not use.")]
         public static readonly Type Framebuffer = typeof(Framebuffer);
 
         /// <summary>
@@ -224,6 +235,8 @@ namespace BEditor.Primitive
                     EffectMetadata.Create<Effects.PointLightDiffuse>(Strings.PointLightDiffuse),
                     EffectMetadata.Create<Effects.PartsDisassembly>(Strings.PartsDisassembly),
                     EffectMetadata.Create<Effects.FlatShadow>(Strings.FlatShadow),
+                    EffectMetadata.Create<Effects.RoundClipping>(Strings.RoundClipping),
+                    EffectMetadata.Create<Effects.Resize>(Strings.Resize),
                 },
             };
 

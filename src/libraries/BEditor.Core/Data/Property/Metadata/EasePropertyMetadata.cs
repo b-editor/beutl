@@ -5,6 +5,8 @@
 // This software may be modified and distributed under the terms
 // of the MIT license. See the LICENSE file for details.
 
+using System;
+
 using BEditor.Data.Property.Easing;
 
 namespace BEditor.Data.Property
@@ -18,7 +20,7 @@ namespace BEditor.Data.Property
     /// <param name="Max">The maximum value.</param>
     /// <param name="Min">The minimum value.</param>
     /// <param name="UseOptional">The bool of whether to use the Optional value.</param>
-    public record EasePropertyMetadata(string Name, EasingMetadata DefaultEase, float DefaultValue = 0, float Max = float.NaN, float Min = float.NaN, bool UseOptional = false)
+    public record EasePropertyMetadata(string Name, EasingMetadata DefaultEase, float DefaultValue = 0, float Max = float.NaN, float Min = float.NaN, [property: Obsolete("To be added.")] bool UseOptional = false)
         : PropertyElementMetadata(Name), IEditingPropertyInitializer<EaseProperty>
     {
         /// <summary>
@@ -33,6 +35,11 @@ namespace BEditor.Data.Property
             : this(name, EasingMetadata.GetDefault(), defaultValue, max, min, useOptional)
         {
         }
+
+        /// <summary>
+        /// Gets the format string.
+        /// </summary>
+        public string FormatString { get; init; } = "{0}";
 
         /// <inheritdoc/>
         public EaseProperty Create()

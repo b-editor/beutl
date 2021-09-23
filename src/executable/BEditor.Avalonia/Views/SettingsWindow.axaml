@@ -10,7 +10,7 @@
     xmlns:ui="using:FluentAvalonia.UI.Controls"
     xmlns:uip="using:FluentAvalonia.UI.Controls.Primitives"
     mc:Ignorable="d"
-    Height="450" Width="800"
+    Height="800" Width="1200"
     WindowStartupLocation="CenterScreen"
     x:Class="BEditor.Views.SettingsWindow"
     Title="SettingsWindow">
@@ -20,6 +20,7 @@
         <ui:NavigationView
             Grid.Row="1"
             x:Name="NavView"
+            PaneDisplayMode="Left"
             IsSettingsVisible="False"
             IsBackButtonVisible="True"
             IsBackEnabled="{Binding #FrameView.CanGoBack}">

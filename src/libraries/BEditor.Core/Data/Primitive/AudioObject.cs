@@ -55,7 +55,7 @@ namespace BEditor.Data.Primitive
             {
                 sound.Gain(Volume[f] / 100);
 
-                var args2 = new EffectApplyArgs<Sound<StereoPCMFloat>>(f, sound, args.Type);
+                var args2 = new EffectApplyArgs<Sound<StereoPCMFloat>>(f, sound, args.Contexts, args.Type);
                 foreach (var item in Parent.Effect.Skip(1).Where(i => i.IsEnabled))
                 {
                     if (item is AudioEffect audioEffect)

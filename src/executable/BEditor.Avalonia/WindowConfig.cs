@@ -31,6 +31,9 @@ namespace BEditor
 
             [JsonPropertyName("state")]
             public int State { get; set; }
+
+            [JsonPropertyName("version")]
+            public string Version { get; set; } = "0.0.0";
         }
 
         public static readonly AttachedProperty<bool> SaveProperty = AvaloniaProperty.RegisterAttached<WindowConfig, Window, bool>(
@@ -55,6 +58,8 @@ namespace BEditor
                 return value;
             });
 
+        private static readonly Version _currentVersion = typeof(WindowConfig).Assembly.GetName().Version ?? new Version(0, 0);
+
         public static string GetFolder()
         {
             var path = Path.Combine(ServicesLocator.GetUserFolder(), "window");
@@ -74,7 +79,9 @@ namespace BEditor
                     var json = File.ReadAllText(path);
 
                     var obj = JsonSerializer.Deserialize<Config>(json, Packaging.PackageFile._serializerOptions);
-                    if (obj is null || ((WindowState)obj.State) == WindowState.Minimized) return;
+                    if (obj is null ||
+                        obj.Version != _currentVersion.ToString(3) ||
+                        ((WindowState)obj.State) == WindowState.Minimized) return;
 
                     if (win.WindowStartupLocation is WindowStartupLocation.Manual)
                     {
@@ -113,6 +120,7 @@ namespace BEditor
                         Width = (int)win.Width,
                         Height = (int)win.Height,
                         State = (int)win.WindowState,
+                        Version = _currentVersion.ToString(3),
                     }, Packaging.PackageFile._serializerOptions);
 
                     File.WriteAllText(path, json);

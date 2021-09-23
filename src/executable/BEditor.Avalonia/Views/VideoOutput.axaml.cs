@@ -64,7 +64,7 @@ namespace BEditor.Views
                 },
                 new NavigationViewItem
                 {
-                    Content = Strings.Project,
+                    Content = Strings.Audio,
                     Icon = new SymbolIcon { Symbol = Symbol.Speaker2 },
                     Tag = new VideoOutputPages.Audio()
                 },

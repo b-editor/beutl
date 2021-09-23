@@ -32,6 +32,13 @@ namespace BEditor.Data.Property
         }
 
         /// <inheritdoc/>
+        public override string Name
+        {
+            get => PropertyMetadata?.Name ?? string.Empty;
+            set { }
+        }
+
+        /// <inheritdoc/>
         object? IHasMetadata.Metadata
         {
             get => PropertyMetadata;

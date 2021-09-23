@@ -37,9 +37,19 @@ namespace BEditor.Data
                 .Serialize()
                 .Initialize(() => Guid.NewGuid()));
 
+        /// <summary>
+        /// Defines the <see cref="Name"/> property.
+        /// </summary>
+        public static readonly DirectProperty<EditingObject, string> NameProperty = EditingProperty.RegisterDirect<string, EditingObject>(
+            nameof(Name),
+            owner => owner.Name,
+            (owner, obj) => owner.Name = obj,
+            EditingPropertyOptions<string>.Create().DefaultValue(string.Empty).Notify(true)!.Serialize()!);
+
         private Dictionary<int, object?>? _values = new();
 
         private Type? _ownerType;
+        private string _name = string.Empty;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="EditingObject"/> class.
@@ -67,6 +77,13 @@ namespace BEditor.Data
 
         /// <inheritdoc/>
         public Guid Id { get; protected set; } = Guid.NewGuid();
+
+        /// <inheritdoc/>
+        public virtual string Name
+        {
+            get => _name;
+            set => SetAndRaise(NameProperty, ref _name, value);
+        }
 
         private Dictionary<int, object?> Values => _values ??= new();
 

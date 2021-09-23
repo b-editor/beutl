@@ -5,6 +5,7 @@ using System.Reflection;
 
 using Avalonia.Data.Converters;
 
+using BEditor.Models.ManagePlugins;
 using BEditor.Plugin;
 
 namespace BEditor.Converters
@@ -15,7 +16,7 @@ namespace BEditor.Converters
         {
             if (value is PluginObject plugin)
             {
-                var assembly = plugin.GetType().Assembly;
+                var assembly = plugin is DummyPlugin dummy ? dummy.Assembly : plugin.GetType().Assembly;
 
                 var attributes = assembly.CustomAttributes.ToArray();
 

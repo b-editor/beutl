@@ -9,14 +9,20 @@
     xmlns:titlebar="using:BEditor.Views.CustomTitlebars"
     xmlns:ui="using:FluentAvalonia.UI.Controls"
     mc:Ignorable="d"
-    Height="450" Width="800"
+    Height="700" Width="1100"
     WindowStartupLocation="CenterScreen"
     x:Class="BEditor.Views.StartWindow"
     Title="StartWindow">
     <Grid RowDefinitions="Auto,*">
         <titlebar:WindowsTitlebarButtons />
 
-        <ui:NavigationView Grid.Row="1" x:Name="NavView" IsSettingsVisible="False">
+        <ui:NavigationView
+            Grid.Row="1"
+            x:Name="NavView"
+            IsBackButtonVisible="True"
+            PaneDisplayMode="Left"
+            IsSettingsVisible="False"
+            IsBackEnabled="{Binding #FrameView.CanGoBack}">
             <ui:Frame x:Name="FrameView" />
         </ui:NavigationView>
     </Grid>

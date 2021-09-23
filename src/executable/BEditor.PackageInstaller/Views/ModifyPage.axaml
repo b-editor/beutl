@@ -27,7 +27,6 @@
 
             <ProgressBar
                 Maximum="{CompiledBinding Max.Value, Mode=OneWay}"
-                Minimum="{CompiledBinding Min.Value, Mode=OneWay}"
                 Value="{CompiledBinding Progress.Value, Mode=OneWay}"
                 IsIndeterminate="{CompiledBinding IsIndeterminate.Value, Mode=OneWay}" />
         </StackPanel>

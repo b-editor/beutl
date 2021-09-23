@@ -42,6 +42,13 @@ namespace BEditor.Data.Property.Easing
             }
         }
 
+        /// <inheritdoc/>
+        public override string Name
+        {
+            get => base.Name ??= GetType().Name;
+            set => base.Name = value;
+        }
+
         /// <summary>
         /// Gets the <see cref="PropertyElement"/> to display on the GUI.
         /// </summary>

@@ -28,7 +28,7 @@ namespace BEditor.Primitive.Effects
         /// <inheritdoc/>
         public override void Apply(EffectApplyArgs<Image<BGRA32>> args)
         {
-            args.Value.ReverseOpacity(Parent.Parent.DrawingContext);
+            args.Value.ReverseOpacity(args.Contexts.Drawing);
         }
 
         /// <inheritdoc/>

@@ -9,63 +9,75 @@
     mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
     x:Class="BEditor.Views.VideoOutputPages.Infomation">
     <ScrollViewer>
-        <VirtualizingStackPanel>
+        <VirtualizingStackPanel Spacing="8" Margin="16,8">
             <!--情報-->
-            <TextBlock Text="{x:Static prop:Strings.Infomation}" Classes="SettingsHeader"/>
+            <TextBlock Text="{x:Static prop:Strings.Infomation}" Classes="Header" />
 
             <!--シーン-->
-            <TextBlock Text="{x:Static prop:Strings.Scene}" Classes="SettingsItemHeader"/>
+            <Border Classes="Item">
+                <Panel>
+                    <TextBlock Text="{x:Static prop:Strings.Scene}" VerticalAlignment="Center" />
 
-            <ComboBox
-                Items="{CompiledBinding Project.SceneList, Mode=OneTime}"
-                SelectedItem="{CompiledBinding SelectedScene.Value, Mode=TwoWay}"
-                Classes="SettingsComboBox">
-                <ComboBox.ItemTemplate>
-                    <DataTemplate>
-                        <TextBlock Text="{Binding SceneName}" />
-                    </DataTemplate>
-                </ComboBox.ItemTemplate>
-            </ComboBox>
-
-            <Separator Height="16" />
+                    <ComboBox
+                        Classes="Editor"
+                        Items="{CompiledBinding Project.SceneList, Mode=OneTime}"
+                        SelectedItem="{CompiledBinding SelectedScene.Value, Mode=TwoWay}">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding SceneName}" />
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                </Panel>
+            </Border>
 
             <!--横幅-->
-            <TextBlock Text="{x:Static prop:Strings.Width}" Classes="SettingsItemHeader"/>
+            <Border Classes="Item">
+                <Panel>
+                    <TextBlock Text="{x:Static prop:Strings.Width}" VerticalAlignment="Center" />
 
-            <TextBox
-                IsReadOnly="True"
-                Text="{CompiledBinding SelectedScene.Value.Width, Mode=OneWay}"
-                Classes="SettingsTextBox"/>
-
-            <Separator Height="16" />
+                    <TextBox
+                        Classes="Editor"
+                        IsReadOnly="True"
+                        Text="{CompiledBinding SelectedScene.Value.Width, Mode=OneWay}" />
+                </Panel>
+            </Border>
 
             <!--高さ-->
-            <TextBlock Text="{x:Static prop:Strings.Height}" Classes="SettingsItemHeader"/>
+            <Border Classes="Item">
+                <Panel>
+                    <TextBlock Text="{x:Static prop:Strings.Height}" VerticalAlignment="Center" />
 
-            <TextBox
-                IsReadOnly="True"
-                Text="{CompiledBinding SelectedScene.Value.Height, Mode=OneWay}"
-                Classes="SettingsTextBox"/>
-
-            <Separator Height="16" />
+                    <TextBox
+                        Classes="Editor"
+                        IsReadOnly="True"
+                        Text="{CompiledBinding SelectedScene.Value.Height, Mode=OneWay}" />
+                </Panel>
+            </Border>
 
             <!--フレームレート-->
-            <TextBlock Text="{x:Static prop:Strings.Framerate}" Classes="SettingsItemHeader"/>
+            <Border Classes="Item">
+                <Panel>
+                    <TextBlock Text="{x:Static prop:Strings.Framerate}" VerticalAlignment="Center" />
 
-            <TextBox
-                IsReadOnly="True"
-                Text="{CompiledBinding Project.Framerate, Mode=OneWay}"
-                Classes="SettingsTextBox"/>
-
-            <Separator Height="16" />
+                    <TextBox
+                        Classes="Editor"
+                        IsReadOnly="True"
+                        Text="{CompiledBinding Project.Framerate, Mode=OneWay}" />
+                </Panel>
+            </Border>
 
             <!--サンプリングレート-->
-            <TextBlock Text="{x:Static prop:Strings.Samplingrate}" Classes="SettingsItemHeader"/>
+            <Border Classes="Item">
+                <Panel>
+                    <TextBlock Text="{x:Static prop:Strings.Samplingrate}" VerticalAlignment="Center" />
 
-            <TextBox
-                IsReadOnly="True"
-                Text="{CompiledBinding Project.Samplingrate, Mode=OneWay}"
-                Classes="SettingsTextBox"/>
+                    <TextBox
+                        Classes="Editor"
+                        IsReadOnly="True"
+                        Text="{CompiledBinding Project.Samplingrate, Mode=OneWay}" />
+                </Panel>
+            </Border>
 
         </VirtualizingStackPanel>
     </ScrollViewer>
