@@ -5,9 +5,11 @@
 // This software may be modified and distributed under the terms
 // of the MIT license. See the LICENSE file for details.
 
+using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using System.Numerics;
 
 using BEditor.Data.Property.PrimitiveGroup;
 using BEditor.Drawing;
@@ -281,19 +283,35 @@ namespace BEditor.Data.Primitive
 
         private void Draw(Texture texture, EffectApplyArgs args)
         {
+            const float lineWidth = 1.5F;
+            static Cube CreateCube(float width, float height, float cx, float cy, Transform trans)
+            {
+                trans.Center += new Vector3(cx, cy, 0);
+                return new Cube(MathF.Max(width, 1), MathF.Max(height, 1), lineWidth)
+                {
+                    Color = Colors.White,
+                    Transform = trans,
+                };
+            }
+
             static void DrawLine(GraphicsContext context, float width, float height, Transform trans)
             {
+                using var cube1 = CreateCube(lineWidth, height, width / 2, 0, trans);
+                using var cube2 = CreateCube(width, lineWidth, 0, -height / 2, trans);
+                using var cube3 = CreateCube(lineWidth, height, -width / 2, 0, trans);
+                using var cube4 = CreateCube(width, lineWidth, 0, height / 2, trans);
+
                 // 右上～右下
-                context.DrawLine(new(width, height, 0), new(width, -height, 0), 1.5f, trans, Colors.White);
+                context.DrawCube(cube1);
 
                 // 右下～左下
-                context.DrawLine(new(width, -height, 0), new(-width, -height, 0), 1.5f, trans, Colors.White);
+                context.DrawCube(cube2);
 
                 // 左下～左上
-                context.DrawLine(new(-width, -height, 0), new(-width, height, 0), 1.5f, trans, Colors.White);
+                context.DrawCube(cube3);
 
                 // 左上～右上
-                context.DrawLine(new(-width, height, 0), new(width, height, 0), 1.5f, trans, Colors.White);
+                context.DrawCube(cube4);
             }
 
             if (texture.IsDisposed || args.Handled)
@@ -305,7 +323,7 @@ namespace BEditor.Data.Primitive
 
             if (args.Type is ApplyType.Edit && Parent.Parent.SelectItem == Parent)
             {
-                DrawLine(context, texture.Width / 2f, texture.Height / 2f, texture.Transform);
+                DrawLine(context, texture.Width, texture.Height, texture.Transform);
             }
 
             context.DrawTexture(texture);

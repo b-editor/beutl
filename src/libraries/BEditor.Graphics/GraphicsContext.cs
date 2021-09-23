@@ -143,6 +143,7 @@ namespace BEditor.Graphics
         /// <param name="transform">The transformation matrix for drawing the line.</param>
         /// <param name="color">The color of the line.</param>
         /// <exception cref="GraphicsException">Platform is not set.</exception>
+        [Obsolete("Don't use.")]
         public void DrawLine(Vector3 start, Vector3 end, float width, Transform transform, Color color)
         {
             using var line = new Line(start, end, width)
@@ -157,6 +158,7 @@ namespace BEditor.Graphics
         /// Draws the line into the frame buffer.
         /// </summary>
         /// <param name="line">The line to be drawn.</param>
+        [Obsolete("Don't use.")]
         public void DrawLine(Line line)
         {
             PlatformImpl.DrawLine(line);
