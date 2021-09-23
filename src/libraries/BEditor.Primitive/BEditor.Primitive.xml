@@ -2974,6 +2974,90 @@
         <member name="M:BEditor.Primitive.Objects.GL3DObject.GetProperties">
             <inheritdoc/>
         </member>
+        <member name="T:BEditor.Primitive.Objects.Arc">
+            <summary>
+            The arc.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Objects.Arc.WidthProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Objects.Arc.Width"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Objects.Arc.HeightProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Objects.Arc.Height"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Objects.Arc.LineProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Objects.Arc.Line"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Objects.Arc.ColorProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Objects.Arc.Color"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Objects.Arc.StartAngleProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Objects.Arc.StartAngle"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Objects.Arc.SweepAngleProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Objects.Arc.SweepAngle"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Objects.Arc.UseCenterProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Objects.Arc.SweepAngle"/> property.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Objects.Arc.Name">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Primitive.Objects.Arc.Width">
+            <summary>
+            Gets the width of the shape.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Objects.Arc.Height">
+            <summary>
+            Gets the height of the shape.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Objects.Arc.Line">
+            <summary>
+            Gets the line width of the shape.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Objects.Arc.StartAngle">
+            <summary>
+            Gets the line width of the shape.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Objects.Arc.SweepAngle">
+            <summary>
+            Gets the line width of the shape.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Objects.Arc.UseCenter">
+            <summary>
+            Gets the line width of the shape.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Objects.Arc.Color">
+            <summary>
+            Gets the color of the shape.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Objects.Arc.GetProperties">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Objects.Arc.OnRender(BEditor.Data.EffectApplyArgs)">
+            <inheritdoc/>
+        </member>
         <member name="T:BEditor.Primitive.Objects.Framebuffer">
             <summary>
             Represents an image object that draws a frame buffer.
@@ -3734,6 +3818,11 @@
             Metadata of <see cref="F:BEditor.Primitive.PrimitiveTypes.Framebuffer"/> class.
             </summary>
         </member>
+        <member name="F:BEditor.Primitive.PrimitiveTypes.ArcMetadata">
+            <summary>
+            Metadata of <see cref="T:BEditor.Primitive.Objects.Arc"/> class.
+            </summary>
+        </member>
         <member name="M:BEditor.Primitive.PrimitiveTypes.EnumerateAllObjectMetadata">
             <summary>
             Enumerate all objects.
@@ -3796,6 +3885,11 @@
         <member name="P:BEditor.Primitive.Resources.Strings.ApplyLookupTable">
             <summary>
               Apply Lookup table に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Arc">
+            <summary>
+              Arc に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.AreaExpansion">
@@ -4508,6 +4602,11 @@
               Start に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.StartAngle">
+            <summary>
+              Start angle に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
         <member name="P:BEditor.Primitive.Resources.Strings.StartPoint">
             <summary>
               Start point に類似しているローカライズされた文字列を検索します。
@@ -4521,6 +4620,11 @@
         <member name="P:BEditor.Primitive.Resources.Strings.Stroke">
             <summary>
               Stroke に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.SweepAngle">
+            <summary>
+              Sweep angle に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.TargetX">
@@ -4576,6 +4680,11 @@
         <member name="P:BEditor.Primitive.Resources.Strings.Unspecified">
             <summary>
               Unspecified に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.UseCenter">
+            <summary>
+              Use center に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.VerticalAlignment">

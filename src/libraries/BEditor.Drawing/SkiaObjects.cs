@@ -150,6 +150,47 @@ namespace BEditor.Drawing
         }
 
         /// <summary>
+        /// Generates an image with an arc drawn on it.
+        /// </summary>
+        /// <param name="width">The width of the arc.</param>
+        /// <param name="height">The height of the arc.</param>
+        /// <param name="startAngle">The start angle.</param>
+        /// <param name="sweepAngle">The sweep angle.</param>
+        /// <param name="useCenter">Use center.</param>
+        /// <param name="brush">A brush used to draw an arc.</param>
+        /// <returns>Returns an image with an arc drawn on it.</returns>
+        public static Image<BGRA32> Arc(int width, int height, float startAngle, float sweepAngle, bool useCenter, Brush brush)
+        {
+            var line = brush.StrokeWidth;
+            var color = brush.Color;
+
+            if (line >= Math.Min(width, height) / 2)
+                line = Math.Min(width, height) / 2;
+
+            var min = Math.Min(width, height);
+
+            if (line < min) min = line;
+            if (min < 0) min = 0;
+
+            using var bmp = new SKBitmap(new SKImageInfo(width, height, SKColorType.Bgra8888));
+            using var canvas = new SKCanvas(bmp);
+
+            using var paint = new SKPaint
+            {
+                Color = new SKColor(color.R, color.G, color.B, color.A),
+                IsAntialias = brush.IsAntialias,
+                Style = (SKPaintStyle)brush.Style,
+                StrokeWidth = min,
+            };
+
+            var w = width - min;
+            var h = height - min;
+            canvas.DrawArc(SKRect.Create(min / 2, min / 2, w, h), startAngle, sweepAngle, useCenter, paint);
+
+            return bmp.ToImage32();
+        }
+
+        /// <summary>
         /// Generates an image with an polygon drawn on it.
         /// </summary>
         /// <param name="number">The number of corners of the polygon.</param>

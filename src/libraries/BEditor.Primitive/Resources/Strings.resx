@@ -1,17 +1,17 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <root>
-  <!--
-    Microsoft ResX Schema
-
+  <!-- 
+    Microsoft ResX Schema 
+    
     Version 2.0
-
-    The primary goals of this format is to allow a simple XML format
-    that is mostly human readable. The generation and parsing of the
-    various data types are done through the TypeConverter classes
+    
+    The primary goals of this format is to allow a simple XML format 
+    that is mostly human readable. The generation and parsing of the 
+    various data types are done through the TypeConverter classes 
     associated with the data types.
-
+    
     Example:
-
+    
     ... ado.net/XML headers & schema ...
     <resheader name="resmimetype">text/microsoft-resx</resheader>
     <resheader name="version">2.0</resheader>
@@ -26,36 +26,36 @@
         <value>[base64 mime encoded string representing a byte array form of the .NET Framework object]</value>
         <comment>This is a comment</comment>
     </data>
-
-    There are any number of "resheader" rows that contain simple
+                
+    There are any number of "resheader" rows that contain simple 
     name/value pairs.
-
-    Each data row contains a name, and value. The row also contains a
-    type or mimetype. Type corresponds to a .NET class that support
-    text/value conversion through the TypeConverter architecture.
-    Classes that don't support this are serialized and stored with the
+    
+    Each data row contains a name, and value. The row also contains a 
+    type or mimetype. Type corresponds to a .NET class that support 
+    text/value conversion through the TypeConverter architecture. 
+    Classes that don't support this are serialized and stored with the 
     mimetype set.
-
-    The mimetype is used for serialized objects, and tells the
-    ResXResourceReader how to depersist the object. This is currently not
+    
+    The mimetype is used for serialized objects, and tells the 
+    ResXResourceReader how to depersist the object. This is currently not 
     extensible. For a given mimetype the value must be set accordingly:
-
-    Note - application/x-microsoft.net.object.binary.base64 is the format
-    that the ResXResourceWriter will generate, however the reader can
+    
+    Note - application/x-microsoft.net.object.binary.base64 is the format 
+    that the ResXResourceWriter will generate, however the reader can 
     read any of the formats listed below.
-
+    
     mimetype: application/x-microsoft.net.object.binary.base64
-    value   : The object must be serialized with
+    value   : The object must be serialized with 
             : System.Runtime.Serialization.Formatters.Binary.BinaryFormatter
             : and then encoded with base64 encoding.
-
+    
     mimetype: application/x-microsoft.net.object.soap.base64
-    value   : The object must be serialized with
+    value   : The object must be serialized with 
             : System.Runtime.Serialization.Formatters.Soap.SoapFormatter
             : and then encoded with base64 encoding.
 
     mimetype: application/x-microsoft.net.object.bytearray.base64
-    value   : The object must be serialized into a byte array
+    value   : The object must be serialized into a byte array 
             : using a System.ComponentModel.TypeConverter
             : and then encoded with base64 encoding.
     -->
@@ -119,499 +119,375 @@
   </resheader>
   <data name="Video" xml:space="preserve">
     <value>Video</value>
-    <comment />
   </data>
   <data name="Audio" xml:space="preserve">
     <value>Audio</value>
-    <comment />
   </data>
   <data name="Image" xml:space="preserve">
     <value>Image</value>
-    <comment />
   </data>
   <data name="Text" xml:space="preserve">
     <value>Text</value>
-    <comment />
   </data>
   <data name="Shape" xml:space="preserve">
     <value>Shape</value>
-    <comment />
   </data>
   <data name="Polygon" xml:space="preserve">
     <value>Polygon</value>
-    <comment />
   </data>
   <data name="RoundRect" xml:space="preserve">
     <value>Round rect</value>
-    <comment />
   </data>
   <data name="Camera" xml:space="preserve">
     <value>Camera</value>
-    <comment />
   </data>
   <data name="GL3DObject" xml:space="preserve">
     <value>3D object</value>
-    <comment />
   </data>
   <data name="Scene" xml:space="preserve">
     <value>Scene</value>
-    <comment />
   </data>
   <data name="Framebuffer" xml:space="preserve">
     <value>Framebuffer</value>
-    <comment />
   </data>
   <data name="Listener" xml:space="preserve">
     <value>Listener</value>
-    <comment />
   </data>
   <data name="Cube" xml:space="preserve">
     <value>Cube</value>
-    <comment />
   </data>
   <data name="Ball" xml:space="preserve">
     <value>Ball</value>
-    <comment />
   </data>
   <data name="Depth" xml:space="preserve">
     <value>Depth</value>
-    <comment />
   </data>
   <data name="Type" xml:space="preserve">
     <value>Type</value>
-    <comment />
   </data>
   <data name="X" xml:space="preserve">
     <value>X</value>
-    <comment />
   </data>
   <data name="Y" xml:space="preserve">
     <value>Y</value>
-    <comment />
   </data>
   <data name="Z" xml:space="preserve">
     <value>Z</value>
-    <comment />
   </data>
   <data name="TargetX" xml:space="preserve">
     <value>Target x</value>
-    <comment />
   </data>
   <data name="TargetY" xml:space="preserve">
     <value>Target y</value>
-    <comment />
   </data>
   <data name="TargetZ" xml:space="preserve">
     <value>Target z</value>
-    <comment />
   </data>
   <data name="ZNear" xml:space="preserve">
     <value>ZNear</value>
-    <comment />
   </data>
   <data name="ZFar" xml:space="preserve">
     <value>ZFar</value>
-    <comment />
   </data>
   <data name="Angle" xml:space="preserve">
     <value>Angle</value>
-    <comment />
   </data>
   <data name="Fov" xml:space="preserve">
     <value>viewing angle</value>
-    <comment />
   </data>
   <data name="Perspective" xml:space="preserve">
     <value>Perspective</value>
-    <comment />
   </data>
   <data name="Volume" xml:space="preserve">
     <value>Volume</value>
-    <comment />
   </data>
   <data name="Pitch" xml:space="preserve">
     <value>Pitch</value>
-    <comment />
   </data>
   <data name="Start" xml:space="preserve">
     <value>Start</value>
-    <comment />
   </data>
   <data name="ClearFramebuffer" xml:space="preserve">
     <value>Clear the frame buffer</value>
-    <comment />
   </data>
   <data name="File" xml:space="preserve">
     <value>File</value>
-    <comment />
   </data>
   <data name="ImageFile" xml:space="preserve">
     <value>Image file</value>
-    <comment />
   </data>
   <data name="Radius" xml:space="preserve">
     <value>Radius</value>
-    <comment />
   </data>
   <data name="Scenes" xml:space="preserve">
     <value>Scenes</value>
-    <comment />
   </data>
   <data name="Width" xml:space="preserve">
     <value>Width</value>
-    <comment />
   </data>
   <data name="Height" xml:space="preserve">
     <value>Height</value>
-    <comment />
   </data>
   <data name="LineWidth" xml:space="preserve">
     <value>line width</value>
-    <comment />
   </data>
   <data name="Color" xml:space="preserve">
     <value>Color</value>
-    <comment />
   </data>
   <data name="Ellipse" xml:space="preserve">
     <value>Ellipse</value>
-    <comment />
   </data>
   <data name="Rectangle" xml:space="preserve">
     <value>Rectangle</value>
-    <comment />
   </data>
   <data name="Size" xml:space="preserve">
     <value>Size</value>
-    <comment />
   </data>
   <data name="EnableMultipleObjects" xml:space="preserve">
     <value>Enable multiple objects</value>
-    <comment />
   </data>
   <data name="Speed" xml:space="preserve">
     <value>Speed</value>
-    <comment />
   </data>
   <data name="VideoFile" xml:space="preserve">
     <value>Video file</value>
-    <comment />
   </data>
   <data name="FailedToLoad" xml:space="preserve">
     <value>{0} failed to load.</value>
-    <comment />
   </data>
   <data name="AreaExpansion" xml:space="preserve">
     <value>Area expansion</value>
-    <comment />
   </data>
   <data name="Blur" xml:space="preserve">
     <value>Blur</value>
-    <comment />
   </data>
   <data name="Border" xml:space="preserve">
     <value>Border</value>
-    <comment />
   </data>
   <data name="ThresholdValue" xml:space="preserve">
     <value>Threshold value</value>
-    <comment />
   </data>
   <data name="ChromaKey" xml:space="preserve">
     <value>Chroma key</value>
-    <comment />
   </data>
   <data name="CenterX" xml:space="preserve">
     <value>Center x</value>
-    <comment />
   </data>
   <data name="CenterY" xml:space="preserve">
     <value>Center y</value>
-    <comment />
   </data>
   <data name="Colors" xml:space="preserve">
     <value>Colors</value>
-    <comment />
   </data>
   <data name="Anchors" xml:space="preserve">
     <value>Anchors</value>
-    <comment />
   </data>
   <data name="CircularGradient" xml:space="preserve">
     <value>Circular gradient</value>
-    <comment />
   </data>
   <data name="Top" xml:space="preserve">
     <value>Top</value>
-    <comment />
   </data>
   <data name="Bottom" xml:space="preserve">
     <value>Bottom</value>
-    <comment />
   </data>
   <data name="Left" xml:space="preserve">
     <value>Left</value>
-    <comment />
   </data>
   <data name="Right" xml:space="preserve">
     <value>Right</value>
-    <comment />
   </data>
   <data name="AdjustCoordinates" xml:space="preserve">
     <value>Adjust coordinates</value>
-    <comment />
   </data>
   <data name="Clipping" xml:space="preserve">
     <value>Clipping</value>
-    <comment />
   </data>
   <data name="ColorKey" xml:space="preserve">
     <value>Color key</value>
-    <comment />
   </data>
   <data name="Frequency" xml:space="preserve">
     <value>Frequency</value>
-    <comment />
   </data>
   <data name="Resize" xml:space="preserve">
     <value>Resize</value>
-    <comment />
   </data>
   <data name="Dilate" xml:space="preserve">
     <value>Dilate</value>
-    <comment />
   </data>
   <data name="Erode" xml:space="preserve">
     <value>Erode</value>
-    <comment />
   </data>
   <data name="ImageSplit" xml:space="preserve">
     <value>Image splitting</value>
-    <comment />
   </data>
   <data name="NumberOfHorizontalDivisions" xml:space="preserve">
     <value>Number of horizontal divisions</value>
-    <comment />
   </data>
   <data name="NumberOfVerticalDivisions" xml:space="preserve">
     <value>Number of vertical divisions</value>
-    <comment />
   </data>
   <data name="StartPoint" xml:space="preserve">
     <value>Start point</value>
-    <comment />
   </data>
   <data name="EndPoint" xml:space="preserve">
     <value>End point</value>
-    <comment />
   </data>
   <data name="Mode" xml:space="preserve">
     <value>Mode</value>
-    <comment />
   </data>
   <data name="Clamp" xml:space="preserve">
     <value>Clamp</value>
-    <comment />
   </data>
   <data name="Repeat" xml:space="preserve">
     <value>Repeat</value>
-    <comment />
   </data>
   <data name="Mirror" xml:space="preserve">
     <value>Mirror</value>
-    <comment />
   </data>
   <data name="Decal" xml:space="preserve">
     <value>Decal</value>
-    <comment />
   </data>
   <data name="LinearGradient" xml:space="preserve">
     <value>Liear gradient</value>
-    <comment />
   </data>
   <data name="Rotate" xml:space="preserve">
     <value>Rotate</value>
-    <comment />
   </data>
   <data name="PathToImageObject" xml:space="preserve">
     <value>Path to the image object</value>
-    <comment />
   </data>
   <data name="InvertMask" xml:space="preserve">
     <value>Invert Mask</value>
-    <comment />
   </data>
   <data name="FitToOriginalSize" xml:space="preserve">
     <value>Fit to original size</value>
-    <comment />
   </data>
   <data name="Mask" xml:space="preserve">
     <value>Mask</value>
-    <comment />
   </data>
   <data name="Monoc" xml:space="preserve">
     <value>Monochromatic</value>
-    <comment />
   </data>
   <data name="MultipleImageControls" xml:space="preserve">
     <value>Multiple Image Control</value>
-    <comment />
   </data>
   <data name="PointLightDiffuse" xml:space="preserve">
     <value>Point light diffuse</value>
-    <comment />
   </data>
   <data name="Opacity" xml:space="preserve">
     <value>Opacity</value>
-    <comment />
   </data>
   <data name="DropShadow" xml:space="preserve">
     <value>Drop shadow</value>
-    <comment />
   </data>
   <data name="DepthTestEnable" xml:space="preserve">
     <value>Enable Depth Testing</value>
-    <comment />
   </data>
   <data name="DepthFunction" xml:space="preserve">
     <value>Depth function</value>
-    <comment />
   </data>
   <data name="DepthTest" xml:space="preserve">
     <value>Depth test</value>
-    <comment />
   </data>
   <data name="PointLightSource" xml:space="preserve">
     <value>Point light source</value>
-    <comment />
   </data>
   <data name="ImageEffects" xml:space="preserve">
     <value>Image effects</value>
-    <comment />
   </data>
   <data name="Grayscale" xml:space="preserve">
     <value>Grayscale</value>
-    <comment />
   </data>
   <data name="Sepia" xml:space="preserve">
     <value>Sepia</value>
-    <comment />
   </data>
   <data name="Negaposi" xml:space="preserve">
     <value>Negaposi</value>
-    <comment />
   </data>
   <data name="Xor" xml:space="preserve">
     <value>Xor</value>
-    <comment />
   </data>
   <data name="Red" xml:space="preserve">
     <value>Red</value>
-    <comment />
   </data>
   <data name="Green" xml:space="preserve">
     <value>Green</value>
-    <comment />
   </data>
   <data name="Blue" xml:space="preserve">
     <value>Blue</value>
-    <comment />
   </data>
   <data name="BrightnessCorrection" xml:space="preserve">
     <value>Brightness correction</value>
-    <comment />
   </data>
   <data name="Brightness" xml:space="preserve">
     <value>Brightness</value>
-    <comment />
   </data>
   <data name="ContrastCorrection" xml:space="preserve">
     <value>Contrast correction</value>
-    <comment />
   </data>
   <data name="Contrast" xml:space="preserve">
     <value>Contrast</value>
-    <comment />
   </data>
   <data name="GammaCorrection" xml:space="preserve">
     <value>Gamma correction</value>
-    <comment />
   </data>
   <data name="Gamma" xml:space="preserve">
     <value>Gamma</value>
-    <comment />
   </data>
   <data name="RGBColorCorrection" xml:space="preserve">
     <value>RGB correction</value>
-    <comment />
   </data>
   <data name="Binarization" xml:space="preserve">
     <value>Binarization</value>
-    <comment />
   </data>
   <data name="Noise" xml:space="preserve">
     <value>Noise</value>
-    <comment />
   </data>
   <data name="Diffusion" xml:space="preserve">
     <value>Diffusion</value>
-    <comment />
   </data>
   <data name="HorizontalAlignment" xml:space="preserve">
     <value>Horizontal alignment</value>
-    <comment />
   </data>
   <data name="VerticalAlignment" xml:space="preserve">
     <value>Vertical alignment</value>
-    <comment />
   </data>
   <data name="Center" xml:space="preserve">
     <value>Center</value>
-    <comment />
   </data>
   <data name="LineSpacing" xml:space="preserve">
     <value>Line spacing</value>
-    <comment />
   </data>
   <data name="Coordinate" xml:space="preserve">
     <value>Coordinate</value>
-    <comment />
   </data>
   <data name="TopLeft" xml:space="preserve">
     <value>Upper left</value>
-    <comment />
   </data>
   <data name="TopRight" xml:space="preserve">
     <value>Upper right</value>
-    <comment />
   </data>
   <data name="BottomLeft" xml:space="preserve">
     <value>Lower left</value>
-    <comment />
   </data>
   <data name="BottomRight" xml:space="preserve">
     <value>Lower right</value>
-    <comment />
   </data>
   <data name="ReverseOpacity" xml:space="preserve">
     <value>Reverse opacity</value>
-    <comment />
   </data>
   <data name="GaussianBlur" xml:space="preserve">
     <value>Gaussian blur</value>
-    <comment />
   </data>
   <data name="MedianBlur" xml:space="preserve">
     <value>Median blur</value>
-    <comment />
   </data>
   <data name="InnerShadow" xml:space="preserve">
     <value>Inner Shadow</value>
-    <comment />
   </data>
   <data name="SetAlignment" xml:space="preserve">
     <value>Set alignment</value>
-    <comment />
   </data>
   <data name="WarpPolar" xml:space="preserve">
     <value>Warp Polar</value>
@@ -762,5 +638,17 @@
   </data>
   <data name="Quality" xml:space="preserve">
     <value>Quality</value>
+  </data>
+  <data name="Arc" xml:space="preserve">
+    <value>Arc</value>
+  </data>
+  <data name="StartAngle" xml:space="preserve">
+    <value>Start angle</value>
+  </data>
+  <data name="SweepAngle" xml:space="preserve">
+    <value>Sweep angle</value>
+  </data>
+  <data name="UseCenter" xml:space="preserve">
+    <value>Use center</value>
   </data>
 </root>

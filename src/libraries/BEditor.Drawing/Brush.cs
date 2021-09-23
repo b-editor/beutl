@@ -20,7 +20,7 @@ namespace BEditor.Drawing
         /// <summary>
         /// Gets or sets a value indicating whether anti-aliasing is enabled.
         /// </summary>
-        public bool IsAntialias { get; set; }
+        public bool IsAntialias { get; set; } = true;
 
         /// <summary>
         /// Gets or sets the style of the brush.

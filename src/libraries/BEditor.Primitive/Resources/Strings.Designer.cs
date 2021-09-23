@@ -115,6 +115,15 @@ namespace BEditor.Primitive.Resources {
         }
         
         /// <summary>
+        ///   Arc に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string Arc {
+            get {
+                return ResourceManager.GetString("Arc", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Area expansion に類似しているローカライズされた文字列を検索します。
         /// </summary>
         internal static string AreaExpansion {
@@ -1393,6 +1402,15 @@ namespace BEditor.Primitive.Resources {
         }
         
         /// <summary>
+        ///   Start angle に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string StartAngle {
+            get {
+                return ResourceManager.GetString("StartAngle", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Start point に類似しているローカライズされた文字列を検索します。
         /// </summary>
         internal static string StartPoint {
@@ -1416,6 +1434,15 @@ namespace BEditor.Primitive.Resources {
         internal static string Stroke {
             get {
                 return ResourceManager.GetString("Stroke", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Sweep angle に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string SweepAngle {
+            get {
+                return ResourceManager.GetString("SweepAngle", resourceCulture);
             }
         }
         
@@ -1515,6 +1542,15 @@ namespace BEditor.Primitive.Resources {
         internal static string Unspecified {
             get {
                 return ResourceManager.GetString("Unspecified", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Use center に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string UseCenter {
+            get {
+                return ResourceManager.GetString("UseCenter", resourceCulture);
             }
         }
         
