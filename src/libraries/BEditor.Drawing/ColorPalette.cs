@@ -31,24 +31,9 @@ namespace BEditor.Drawing
                 EditingPropertyOptions<Dictionary<string, Color>>.Create().Initialize(InitializeDictionary).Serialize(WriteDictionary, ReadDictionary));
 
         /// <summary>
-        /// Defines the <see cref="Name"/> property.
-        /// </summary>
-        public static readonly EditingProperty<string?> NameProperty
-            = EditingProperty.Register<string?, ColorPalette>(nameof(Name), EditingPropertyOptions<string?>.Create().Notify(true));
-
-        /// <summary>
         /// Gets the colors of this color palette.
         /// </summary>
         public Dictionary<string, Color> Colors => GetValue(ColorsProperty);
-
-        /// <summary>
-        /// Gets or sets the name of this color palette.
-        /// </summary>
-        public string? Name
-        {
-            get => GetValue(NameProperty);
-            set => SetValue(NameProperty, value);
-        }
 
         /// <inheritdoc/>
         public override void GetObjectData(Utf8JsonWriter writer)
