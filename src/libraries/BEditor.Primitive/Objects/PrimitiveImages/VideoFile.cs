@@ -47,7 +47,7 @@ namespace BEditor.Primitive.Objects
             nameof(Start),
             owner => owner.Start,
             (owner, obj) => owner.Start = obj,
-            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Start, 1, float.NaN, 0)).Serialize());
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Start, 0, float.NaN, 0)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="File"/> property.
