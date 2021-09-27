@@ -99,6 +99,8 @@ namespace BEditor.ViewModels.Properties
                 record.Filters.Add(filter);
             }
 
+            record.Filters.Add(new FileFilter("Any File", "*"));
+
             // ダイアログを表示する
             if (await dialog.ShowOpenFileDialogAsync(record))
             {

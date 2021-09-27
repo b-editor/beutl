@@ -54,7 +54,7 @@ namespace BEditor.Primitive.Objects
                 new FilePropertyMetadata(
                     Strings.File,
                     Filter: new(Strings.AudioFile, DecodingRegistory.EnumerateDecodings()
-                        .SelectMany(i => i.SupportExtensions())
+                        .SelectMany(i => i.GetSupportedAudioExt())
                         .Distinct()
                         .Select(i => i.Trim('.'))
                         .ToArray())))
@@ -106,7 +106,7 @@ namespace BEditor.Primitive.Objects
         {
             var ext = Path.GetExtension(file);
             return DecodingRegistory.EnumerateDecodings()
-                .SelectMany(i => i.SupportExtensions())
+                .SelectMany(i => i.GetSupportedAudioExt())
                 .Contains(ext);
         }
 

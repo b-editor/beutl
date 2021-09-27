@@ -5,6 +5,7 @@
 // This software may be modified and distributed under the terms
 // of the MIT license. See the LICENSE file for details.
 
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -38,13 +39,29 @@ namespace BEditor.Media
         /// <returns>Returns a value if the specified media file is supported.</returns>
         public bool IsSupported(string file)
         {
-            return SupportExtensions().Contains(Path.GetExtension(file));
+            return GetSupportedAudioExt().Concat(GetSupportedVideoExt()).Contains(Path.GetExtension(file));
         }
 
         /// <summary>
         /// Gets the supported extensions.
         /// </summary>
         /// <returns>Returns the supported extensions.</returns>
-        public IEnumerable<string> SupportExtensions();
+        [Obsolete("Use 'GetSupportedVideoExt' and 'GetSupportedAudioExt'")]
+        public IEnumerable<string> SupportExtensions()
+        {
+            return GetSupportedAudioExt().Concat(GetSupportedVideoExt()).Distinct();
+        }
+
+        /// <summary>
+        /// Gets the supported video file extensions.
+        /// </summary>
+        /// <returns>Returns the supported extensions.</returns>
+        public IEnumerable<string> GetSupportedVideoExt();
+
+        /// <summary>
+        /// Gets the supported audio file extensions.
+        /// </summary>
+        /// <returns>Returns the supported extensions.</returns>
+        public IEnumerable<string> GetSupportedAudioExt();
     }
 }

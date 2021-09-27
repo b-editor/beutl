@@ -57,7 +57,7 @@ namespace BEditor.Primitive.Objects
             owner => owner.File,
             (owner, obj) => owner.File = obj,
             EditingPropertyOptions<FileProperty>.Create(new FilePropertyMetadata(Strings.File, string.Empty, new(Strings.VideoFile, DecodingRegistory.EnumerateDecodings()
-                .SelectMany(i => i.SupportExtensions())
+                .SelectMany(i => i.GetSupportedVideoExt())
                 .Distinct()
                 .Select(i => i.Trim('.'))
                 .ToArray()))).Serialize());
@@ -116,7 +116,7 @@ namespace BEditor.Primitive.Objects
         {
             var ext = Path.GetExtension(file);
             return DecodingRegistory.EnumerateDecodings()
-                .SelectMany(i => i.SupportExtensions())
+                .SelectMany(i => i.GetSupportedVideoExt())
                 .Contains(ext);
         }
 

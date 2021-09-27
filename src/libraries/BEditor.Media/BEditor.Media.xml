@@ -1083,6 +1083,18 @@
             </summary>
             <returns>Returns the supported extensions.</returns>
         </member>
+        <member name="M:BEditor.Media.IRegisterdDecoding.GetSupportedVideoExt">
+            <summary>
+            Gets the supported video file extensions.
+            </summary>
+            <returns>Returns the supported extensions.</returns>
+        </member>
+        <member name="M:BEditor.Media.IRegisterdDecoding.GetSupportedAudioExt">
+            <summary>
+            Gets the supported audio file extensions.
+            </summary>
+            <returns>Returns the supported extensions.</returns>
+        </member>
         <member name="T:BEditor.Media.IRegisterdEncoding">
             <summary>
             Provides the ability to create a encoder.
