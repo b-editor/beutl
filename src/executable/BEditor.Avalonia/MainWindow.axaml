@@ -13,6 +13,7 @@
     xmlns:ctr="using:BEditor.Controls"
     xmlns:ui="using:FluentAvalonia.UI.Controls"
     xmlns:uip="using:FluentAvalonia.UI.Controls.Primitives"
+    xmlns:viewProperty="using:BEditor.Views.Properties"
     mc:Ignorable="d"
     d:DesignWidth="1440"
     d:DesignHeight="760"
@@ -354,8 +355,10 @@
                 Grid.Column="1"
                 Margin="4,0,0,4"
                 Classes="card"
-                IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}"
-                Child="{Binding App.Project.CurrentScene.SelectItem, Converter={StaticResource ClipPropertyConverter}, Mode=OneWay}">
+                IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}">
+                <viewProperty:PropertyPanel
+                    SelectedClip="{Binding App.Project.CurrentScene.SelectItem, Mode=OneWay}"
+                    Scene="{Binding App.Project.CurrentScene, Mode=OneWay}" />
             </Border>
         </Grid>
 
