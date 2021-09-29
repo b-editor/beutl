@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
@@ -16,6 +17,7 @@ using BEditor.Extensions;
 using BEditor.Models.Authentication;
 using BEditor.Models.ManagePlugins;
 using BEditor.Packaging;
+using BEditor.Plugin;
 using BEditor.ViewModels.Dialogs;
 using BEditor.Views;
 using BEditor.Views.Dialogs;
@@ -184,7 +186,10 @@ namespace BEditor.Models
 
         public DrawingContext DrawingContext { get; }
 
+        public ObservableCollection<BasePluginMenu> DisplayedMenus { get; } = new();
+
         public event EventHandler<ProjectOpenedEventArgs> ProjectOpened;
+
         public event EventHandler Exit;
 
         public void RaiseExit()
@@ -211,6 +216,27 @@ namespace BEditor.Models
 
             IfNotExistCreateDir(cache);
 
+            // 表示されているメニューの設定
+            {
+                using var stream = new FileStream(Path.Combine(directory, "displayedMenus.config"), FileMode.Create);
+                using var writer = new Utf8JsonWriter(stream, Serialize._options);
+
+                writer.WriteStartArray();
+
+                foreach (var item in DisplayedMenus)
+                {
+                    var type = item.GetType();
+
+                    writer.WriteStartObject();
+                    writer.WriteString("type", $"{type.FullName}, {type.Assembly.GetName().Name}");
+                    writer.WriteString("location", item.MenuLocation.ToString());
+                    writer.WriteEndObject();
+                }
+
+                writer.WriteEndArray();
+            }
+
+            // プロジェクトの設定
             {
                 var projConfig = new ProjectConfig
                 {
@@ -223,6 +249,7 @@ namespace BEditor.Models
                 writer.Write(json);
             }
 
+            // シーンの設定
             {
                 var sceneCacheDir = Path.Combine(cache, "scene");
                 IfNotExistCreateDir(sceneCacheDir);
@@ -260,6 +287,35 @@ namespace BEditor.Models
 
             IfNotExistCreateDir(cache);
 
+            // 表示されているメニューの設定
+            DisplayedMenus.Clear();
+            var menusFile = Path.Combine(directory, "displayedMenus.config");
+            if (File.Exists(menusFile))
+            {
+                using var stream = new FileStream(menusFile, FileMode.Open);
+                using var doc = JsonDocument.Parse(stream);
+
+                foreach (var item in doc.RootElement.EnumerateArray()
+                    .Select(i =>
+                    {
+                        var type = Type.GetType(i.GetProperty("type").GetString());
+                        if (type == null)
+                            return null;
+                        var location = Enum.Parse<MenuLocation>(i.GetProperty("location").GetString());
+
+                        var instance = Activator.CreateInstance(type);
+                        if (instance is not BasePluginMenu menu)
+                            return null;
+
+                        menu.MenuLocation = location;
+                        return menu;
+                    }))
+                {
+                    DisplayedMenus.Add(item);
+                }
+            }
+
+            // プロジェクトの設定
             {
                 var file = Path.Combine(directory, ".config");
                 if (!File.Exists(file))
@@ -277,6 +333,7 @@ namespace BEditor.Models
                 }
             }
 
+            // シーンの設定
             {
                 var sceneCacheDir = Path.Combine(cache, "scene");
                 IfNotExistCreateDir(sceneCacheDir);

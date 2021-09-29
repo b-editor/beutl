@@ -6,9 +6,11 @@
 // of the MIT license. See the LICENSE file for details.
 
 using System;
+using System.Collections.ObjectModel;
 
 using BEditor.Data;
 using BEditor.Drawing;
+using BEditor.Plugin;
 
 namespace BEditor
 {
@@ -41,6 +43,11 @@ namespace BEditor
         /// Gets drawing context.
         /// </summary>
         public DrawingContext? DrawingContext { get; }
+
+        /// <summary>
+        /// Gets the displayed menus.
+        /// </summary>
+        public ObservableCollection<BasePluginMenu> DisplayedMenus { get; }
 
         /// <summary>
         /// Restore the application configuration.

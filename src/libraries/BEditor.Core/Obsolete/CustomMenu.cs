@@ -1,4 +1,4 @@
-﻿// ICustomMenu.cs
+﻿// CustomMenu.cs
 //
 // Copyright (C) BEditor
 //
@@ -9,23 +9,8 @@ using System;
 
 namespace BEditor.Plugin
 {
-    /// <summary>
-    /// Represents a menu.
-    /// </summary>
-    public interface ICustomMenu
-    {
-        /// <summary>
-        /// Gets the string to be displayed in the UI.
-        /// </summary>
-        public string Name { get; }
-
-        /// <summary>
-        /// Execute when the menu is clicked.
-        /// </summary>
-        public void Execute();
-    }
-
     /// <inheritdoc cref="ICustomMenu"/>
+    [Obsolete("Use BasePluginMenu.")]
     public sealed class CustomMenu : ICustomMenu
     {
         /// <summary>

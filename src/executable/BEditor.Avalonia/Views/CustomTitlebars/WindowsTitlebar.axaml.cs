@@ -11,6 +11,7 @@ using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 
 using BEditor.Models;
 using BEditor.Plugin;
@@ -148,9 +149,15 @@ namespace BEditor.Views.CustomTitlebars
                             };
                             item.Click += (s, e) =>
                             {
-                                if (s is MenuItem item && item.DataContext is ICustomMenu cmenu)
+                                if (s is MenuItem item && item.DataContext is BasePluginMenu cmenu)
                                 {
+                                    cmenu.MainWindow = item.GetVisualRoot();
                                     cmenu.Execute();
+
+                                    if (cmenu.MenuLocation != MenuLocation.Default)
+                                    {
+                                        AppModel.Current.DisplayedMenus.Add(cmenu);
+                                    }
                                 }
                             };
 

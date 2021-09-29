@@ -391,10 +391,7 @@ namespace BEditor.Extensions.AviUtl
                     .AddSingleton(_ => Loader.Global)
                     .AddSingleton(_ => Loader))
                 .With(CreateEffectMetadata(items.Where(i => i.Type is ScriptType.Animation)))
-                .SetCustomMenu("Luaスクリプト", new ICustomMenu[]
-                {
-                    new CustomMenu("スクリプトフォルダーを開く", () => Process.Start(new ProcessStartInfo(Loader.BaseDirectory) { UseShellExecute = true }))
-                })
+                .PluginMenu("Luaスクリプト", new OpenScriptDirectory())
                 .Register();
         }
 
@@ -434,6 +431,20 @@ namespace BEditor.Extensions.AviUtl
                 .Select(i => new EffectMetadata(i.Name, () => new AnimationEffect(i), typeof(AnimationEffect))));
 
             return metadata;
+        }
+
+        private sealed class OpenScriptDirectory : BasePluginMenu
+        {
+            public OpenScriptDirectory()
+            {
+                Name = "スクリプトフォルダーを開く";
+                MenuLocation = MenuLocation.Left;
+            }
+
+            protected override void OnExecute()
+            {
+                Process.Start(new ProcessStartInfo(Loader.BaseDirectory) { UseShellExecute = true });
+            }
         }
     }
 

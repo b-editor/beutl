@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Specialized;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
@@ -9,29 +10,30 @@ using System.Threading.Tasks;
 
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Controls.Notifications;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
-using Avalonia.Layout;
 using Avalonia.Markup.Xaml;
-using Avalonia.Threading;
 
 using BEditor.Data;
 using BEditor.Models;
 using BEditor.Models.ManagePlugins;
+using BEditor.Plugin;
 using BEditor.Properties;
 using BEditor.ViewModels;
-using BEditor.ViewModels.DialogContent;
 using BEditor.ViewModels.Dialogs;
 using BEditor.Views;
 using BEditor.Views.CustomTitlebars;
-using BEditor.Views.DialogContent;
 using BEditor.Views.Dialogs;
+
+using FluentAvalonia.UI.Controls;
 
 using Microsoft.Extensions.DependencyInjection;
 
-using OpenTK.Audio.OpenAL;
+using Reactive.Bindings;
+
+using Button = Avalonia.Controls.Button;
+using MenuFlyout = FluentAvalonia.UI.Controls.MenuFlyout;
 
 namespace BEditor
 {
@@ -39,15 +41,51 @@ namespace BEditor
     {
         internal readonly StackPanel _notifications;
         internal readonly StackPanel _stackNotifications;
+        internal readonly StackPanel _leftMenuBar;
+        internal readonly StackPanel _rightMenuBar;
+        internal readonly StackPanel _bottomMenuBar;
         internal readonly Popup _notificationsPopup;
+        private static readonly ReactiveCommand<BasePluginMenu> _closeMenuCommand = new();
+        private static readonly ReactiveCommand<BasePluginMenu> _openMenuCommand = new();
+        private static readonly ReactiveCommand<(RadioMenuFlyoutItem Menu, BasePluginMenu PluginMenu)> _leftMenuCommand = new();
+        private static readonly ReactiveCommand<(RadioMenuFlyoutItem Menu, BasePluginMenu PluginMenu)> _rightMenuCommand = new();
+        private static readonly ReactiveCommand<(RadioMenuFlyoutItem Menu, BasePluginMenu PluginMenu)> _bottomMenuCommand = new();
 
         private sealed class LayoutConfig
         {
             [JsonPropertyName("columnDefinitions")]
-            public string ColumnDefinitions { get; set; } = "425,Auto,*,Auto,2*";
+            public string ColumnDefinitions { get; set; } = "Auto,425,Auto,*,Auto,2*,Auto";
 
             [JsonPropertyName("rowDefinitions")]
             public string RowDefinitions { get; set; } = "Auto,Auto,*,Auto,*,Auto";
+        }
+
+        static MainWindow()
+        {
+            _closeMenuCommand.Subscribe(menu => AppModel.Current.DisplayedMenus.Remove(menu));
+
+            _openMenuCommand.Subscribe(menu => menu.Execute());
+
+            _leftMenuCommand.Subscribe(i =>
+            {
+                AppModel.Current.DisplayedMenus.Remove(i.PluginMenu);
+                i.PluginMenu.MenuLocation = MenuLocation.Left;
+                AppModel.Current.DisplayedMenus.Add(i.PluginMenu);
+            });
+
+            _rightMenuCommand.Subscribe(i =>
+            {
+                AppModel.Current.DisplayedMenus.Remove(i.PluginMenu);
+                i.PluginMenu.MenuLocation = MenuLocation.Right;
+                AppModel.Current.DisplayedMenus.Add(i.PluginMenu);
+            });
+
+            _bottomMenuCommand.Subscribe(i =>
+            {
+                AppModel.Current.DisplayedMenus.Remove(i.PluginMenu);
+                i.PluginMenu.MenuLocation = MenuLocation.Bottom;
+                AppModel.Current.DisplayedMenus.Add(i.PluginMenu);
+            });
         }
 
         public MainWindow()
@@ -60,6 +98,9 @@ namespace BEditor
 
             _notifications = this.FindControl<StackPanel>("Notifications");
             _stackNotifications = this.FindControl<StackPanel>("NotificationsPanel");
+            _leftMenuBar = this.FindControl<StackPanel>("LeftMenuBar");
+            _rightMenuBar = this.FindControl<StackPanel>("RightMenuBar");
+            _bottomMenuBar = this.FindControl<StackPanel>("BottomMenuBar");
             _notificationsPopup = this.FindControl<Popup>("NotificationsPopup");
             ApplyConfig();
 #if DEBUG
@@ -124,6 +165,8 @@ namespace BEditor
             this.FindControl<Library>("Library").InitializeTreeView();
 
             this.FindControl<WindowsTitlebar>("Titlebar").InitializePluginMenu();
+
+            AppModel.Current.DisplayedMenus.CollectionChanged += DisplayedMenus_CollectionChanged;
         }
 
         protected override void OnClosing(CancelEventArgs e)
@@ -149,6 +192,124 @@ namespace BEditor
             }
         }
 
+        private void DisplayedMenus_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+        {
+            static MenuFlyout CreateMenu(BasePluginMenu menu)
+            {
+                var close = new MenuFlyoutItem
+                {
+                    Text = Strings.Close,
+                    CommandParameter = menu,
+                    Command = _closeMenuCommand,
+                };
+                var show = new MenuFlyoutItem
+                {
+                    Text = Strings.Show,
+                    CommandParameter = menu,
+                    Command = _openMenuCommand,
+                };
+                var left = new RadioMenuFlyoutItem
+                {
+                    IsChecked = menu.MenuLocation == MenuLocation.Left,
+                    Text = "Left",
+                    Command = _leftMenuCommand,
+                    GroupName = "Group1",
+                };
+                var right = new RadioMenuFlyoutItem
+                {
+                    IsChecked = menu.MenuLocation == MenuLocation.Right,
+                    Text = "Right",
+                    Command = _rightMenuCommand,
+                    GroupName = "Group1",
+                };
+                var bottom = new RadioMenuFlyoutItem
+                {
+                    IsChecked = menu.MenuLocation == MenuLocation.Bottom,
+                    Text = "Bottom",
+                    Command = _bottomMenuCommand,
+                    GroupName = "Group1",
+                };
+
+                left.CommandParameter = (left, menu);
+                right.CommandParameter = (right, menu);
+                bottom.CommandParameter = (bottom, menu);
+
+                return new MenuFlyout
+                {
+                    Items = new MenuFlyoutItemBase[]
+                    {
+                        show,
+                        close,
+                        new MenuFlyoutSeparator(),
+                        left,
+                        right,
+                        bottom,
+                    },
+                };
+            }
+
+            var items = AppModel.Current.DisplayedMenus;
+            if (e.Action == NotifyCollectionChangedAction.Add)
+            {
+                var item = items[e.NewStartingIndex];
+                var panel = item.MenuLocation switch
+                {
+                    MenuLocation.Default => null,
+                    MenuLocation.Left => _leftMenuBar,
+                    MenuLocation.Right => _rightMenuBar,
+                    MenuLocation.Bottom => _bottomMenuBar,
+                    _ => null,
+                };
+
+                if (panel == null) return;
+
+                var layout = new LayoutTransformControl
+                {
+                    DataContext = item,
+                };
+                var button = new Button
+                {
+                    Content = item.Name,
+                    DataContext = item,
+                    ContextFlyout = CreateMenu(item),
+                };
+
+                button.Click += (s, e) =>
+                {
+                    if (s is Button button && button.DataContext is BasePluginMenu pluginMenu)
+                    {
+                        pluginMenu.Execute();
+                    }
+                };
+
+                layout.Child = button;
+                panel.Children.Add(layout);
+            }
+            else if (e.Action == NotifyCollectionChangedAction.Remove)
+            {
+                var item = (BasePluginMenu)e.OldItems![e.OldStartingIndex]!;
+                var panel = item.MenuLocation switch
+                {
+                    MenuLocation.Default => null,
+                    MenuLocation.Left => _leftMenuBar,
+                    MenuLocation.Right => _rightMenuBar,
+                    MenuLocation.Bottom => _bottomMenuBar,
+                    _ => null,
+                };
+
+                if (panel?.Children?.FirstOrDefault(i => i.DataContext == item) is IControl ctrl)
+                {
+                    panel.Children.Remove(ctrl);
+                }
+            }
+            else if (e.Action == NotifyCollectionChangedAction.Reset)
+            {
+                _leftMenuBar.Children.Clear();
+                _rightMenuBar.Children.Clear();
+                _bottomMenuBar.Children.Clear();
+            }
+        }
+
         private void ApplyConfig()
         {
             if (Content is Grid grid)
@@ -162,8 +323,17 @@ namespace BEditor
                     var obj = JsonSerializer.Deserialize<LayoutConfig>(json, Packaging.PackageFile._serializerOptions);
                     if (obj is null) return;
 
-                    grid.ColumnDefinitions = new(obj.ColumnDefinitions);
-                    grid.RowDefinitions = new(obj.RowDefinitions);
+                    var columnDef = new ColumnDefinitions(obj.ColumnDefinitions);
+                    var rowDef = new RowDefinitions(obj.RowDefinitions);
+                    if (grid.ColumnDefinitions.Count == columnDef.Count)
+                    {
+                        grid.ColumnDefinitions = new(obj.ColumnDefinitions);
+                    }
+
+                    if (grid.RowDefinitions.Count == rowDef.Count)
+                    {
+                        grid.RowDefinitions = new(obj.RowDefinitions);
+                    }
                 }
                 catch
                 {
