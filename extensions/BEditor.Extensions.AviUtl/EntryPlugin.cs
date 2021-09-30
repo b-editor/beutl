@@ -9,9 +9,12 @@ using System.Reflection;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
+using Avalonia.Controls;
+
 using BEditor.Data;
 using BEditor.Data.Property;
 using BEditor.Drawing;
+using BEditor.Extensions.AviUtl.Views;
 using BEditor.Plugin;
 
 using Microsoft.Extensions.DependencyInjection;
@@ -391,7 +394,7 @@ namespace BEditor.Extensions.AviUtl
                     .AddSingleton(_ => Loader.Global)
                     .AddSingleton(_ => Loader))
                 .With(CreateEffectMetadata(items.Where(i => i.Type is ScriptType.Animation)))
-                .PluginMenu("Luaスクリプト", new OpenScriptDirectory())
+                .PluginMenu("Luaスクリプト", new OpenScriptDirectory(), new AllScriptsMenu())
                 .Register();
         }
 
@@ -444,6 +447,49 @@ namespace BEditor.Extensions.AviUtl
             protected override void OnExecute()
             {
                 Process.Start(new ProcessStartInfo(Loader.BaseDirectory) { UseShellExecute = true });
+            }
+        }
+
+        private sealed class AllScriptsMenu : BasePluginMenu
+        {
+            private AllScripts? _window;
+
+            public AllScriptsMenu()
+            {
+                Name = "全てのスクリプト";
+                MenuLocation = MenuLocation.Bottom;
+            }
+
+            protected override void OnExecute()
+            {
+                if (_window != null)
+                {
+                    _window.Activate();
+                }
+                else
+                {
+                    _window = new AllScripts();
+
+                    if (MainWindow is Window parent)
+                    {
+                        _window.Show(parent);
+                    }
+                    else
+                    {
+                        _window.Show();
+                    }
+
+                    _window.Closed += Window_Closed;
+                }
+            }
+
+            private void Window_Closed(object? sender, EventArgs e)
+            {
+                if (_window == null) return;
+
+                _window.Closed -= Window_Closed;
+
+                _window = null;
             }
         }
     }

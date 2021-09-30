@@ -1,0 +1,28 @@
+<ctr:FluentWindow
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:ctr="using:BEditor.Controls"
+    xmlns:vm="using:BEditor.Extensions.AviUtl.ViewModels"
+    mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+    x:Class="BEditor.Extensions.AviUtl.Views.AllScripts"
+    x:DataType="vm:AllScriptsViewModel"
+    Classes="fluent">
+    <ctr:FluentWindow.DataContext>
+        <vm:AllScriptsViewModel />
+    </ctr:FluentWindow.DataContext>
+    <DataGrid
+        x:Name="DataGrid"
+        Items="{CompiledBinding Items}"
+        AutoGenerateColumns="False"
+        IsReadOnly="True"
+        CanUserResizeColumns="True"
+        CanUserReorderColumns="True">
+        <DataGrid.Columns>
+            <DataGridTextColumn Header="Name" Binding="{Binding Name}"/>
+            <DataGridTextColumn Header="GroupName" Binding="{Binding GroupName}" />
+            <DataGridTextColumn Header="File" Binding="{Binding File}" />
+        </DataGrid.Columns>
+    </DataGrid>
+</ctr:FluentWindow>
