@@ -6,6 +6,7 @@ using Avalonia.Controls.PanAndZoom;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 
+using BEditor.Controls;
 using BEditor.ViewModels;
 
 namespace BEditor.Views

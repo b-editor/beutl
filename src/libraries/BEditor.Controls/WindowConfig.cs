@@ -1,17 +1,13 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
-using System.Linq;
-using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using System.Threading.Tasks;
 
 using Avalonia;
 using Avalonia.Controls;
 
-namespace BEditor
+namespace BEditor.Controls
 {
     public sealed class WindowConfig : AvaloniaObject
     {
@@ -94,8 +90,8 @@ namespace BEditor
 
                     if (state is WindowState.Normal)
                     {
-                        win.Width = obj.Width < 800 ? win.Width : obj.Width;
-                        win.Height = obj.Height < 450 ? win.Height : obj.Height;
+                        win.Width = obj.Width < 100 ? win.Width : obj.Width;
+                        win.Height = obj.Height < 100 ? win.Height : obj.Height;
                     }
 
                     win.WindowState = state;

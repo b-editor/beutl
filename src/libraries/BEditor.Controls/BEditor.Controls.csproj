@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <Import Project="..\..\..\props\Avalonia.props" />
+
+    <ItemGroup>
+        <ProjectReference Include="..\BEditor.Base\BEditor.Base.csproj" />
+        <ProjectReference Include="..\BEditor.Packaging\BEditor.Packaging.csproj" />
+    </ItemGroup>
+
+</Project>

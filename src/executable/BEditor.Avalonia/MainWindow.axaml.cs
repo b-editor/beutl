@@ -16,6 +16,7 @@ using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using Avalonia.VisualTree;
 
+using BEditor.Controls;
 using BEditor.Data;
 using BEditor.Models;
 using BEditor.Models.ManagePlugins;
@@ -172,6 +173,43 @@ namespace BEditor
             this.FindControl<WindowsTitlebar>("Titlebar").InitializePluginMenu();
 
             AppModel.Current.DisplayedMenus.CollectionChanged += DisplayedMenus_CollectionChanged;
+
+            foreach (var item in AppModel.Current.DisplayedMenus)
+            {
+                var panel = item.MenuLocation switch
+                {
+                    MenuLocation.Default => null,
+                    MenuLocation.Left => _leftMenuBar,
+                    MenuLocation.Right => _rightMenuBar,
+                    MenuLocation.Bottom => _bottomMenuBar,
+                    _ => null,
+                };
+
+                if (panel == null) return;
+
+                var layout = new LayoutTransformControl
+                {
+                    DataContext = item,
+                };
+                var button = new Button
+                {
+                    Content = item.Name,
+                    DataContext = item,
+                    ContextFlyout = CreateMenu(item),
+                };
+
+                button.Click += (s, e) =>
+                {
+                    if (s is Button button && button.DataContext is BasePluginMenu pluginMenu)
+                    {
+                        pluginMenu.MainWindow = button.GetVisualRoot();
+                        pluginMenu.Execute();
+                    }
+                };
+
+                layout.Child = button;
+                panel.Children.Add(layout);
+            }
         }
 
         protected override void OnClosing(CancelEventArgs e)
@@ -197,62 +235,62 @@ namespace BEditor
             }
         }
 
-        private void DisplayedMenus_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+        private static MenuFlyout CreateMenu(BasePluginMenu menu)
         {
-            static MenuFlyout CreateMenu(BasePluginMenu menu)
+            var close = new MenuFlyoutItem
             {
-                var close = new MenuFlyoutItem
-                {
-                    Text = Strings.Close,
-                    CommandParameter = menu,
-                    Command = _closeMenuCommand,
-                };
-                var show = new MenuFlyoutItem
-                {
-                    Text = Strings.Show,
-                    CommandParameter = menu,
-                    Command = _openMenuCommand,
-                };
-                var left = new RadioMenuFlyoutItem
-                {
-                    IsChecked = menu.MenuLocation == MenuLocation.Left,
-                    Text = "Left",
-                    Command = _leftMenuCommand,
-                    GroupName = "Group1",
-                };
-                var right = new RadioMenuFlyoutItem
-                {
-                    IsChecked = menu.MenuLocation == MenuLocation.Right,
-                    Text = "Right",
-                    Command = _rightMenuCommand,
-                    GroupName = "Group1",
-                };
-                var bottom = new RadioMenuFlyoutItem
-                {
-                    IsChecked = menu.MenuLocation == MenuLocation.Bottom,
-                    Text = "Bottom",
-                    Command = _bottomMenuCommand,
-                    GroupName = "Group1",
-                };
+                Text = Strings.Close,
+                CommandParameter = menu,
+                Command = _closeMenuCommand,
+            };
+            var show = new MenuFlyoutItem
+            {
+                Text = Strings.Show,
+                CommandParameter = menu,
+                Command = _openMenuCommand,
+            };
+            var left = new RadioMenuFlyoutItem
+            {
+                IsChecked = menu.MenuLocation == MenuLocation.Left,
+                Text = "Left",
+                Command = _leftMenuCommand,
+                GroupName = "Group1",
+            };
+            var right = new RadioMenuFlyoutItem
+            {
+                IsChecked = menu.MenuLocation == MenuLocation.Right,
+                Text = "Right",
+                Command = _rightMenuCommand,
+                GroupName = "Group1",
+            };
+            var bottom = new RadioMenuFlyoutItem
+            {
+                IsChecked = menu.MenuLocation == MenuLocation.Bottom,
+                Text = "Bottom",
+                Command = _bottomMenuCommand,
+                GroupName = "Group1",
+            };
 
-                left.CommandParameter = (left, menu);
-                right.CommandParameter = (right, menu);
-                bottom.CommandParameter = (bottom, menu);
+            left.CommandParameter = (left, menu);
+            right.CommandParameter = (right, menu);
+            bottom.CommandParameter = (bottom, menu);
 
-                return new MenuFlyout
+            return new MenuFlyout
+            {
+                Items = new MenuFlyoutItemBase[]
                 {
-                    Items = new MenuFlyoutItemBase[]
-                    {
                         show,
                         close,
                         new MenuFlyoutSeparator(),
                         left,
                         right,
                         bottom,
-                    },
-                };
-            }
+                },
+            };
+        }
 
+        private void DisplayedMenus_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+        {
             var items = AppModel.Current.DisplayedMenus;
             if (e.Action == NotifyCollectionChangedAction.Add)
             {
@@ -293,7 +331,7 @@ namespace BEditor
             }
             else if (e.Action == NotifyCollectionChangedAction.Remove)
             {
-                var item = (BasePluginMenu)e.OldItems![e.OldStartingIndex]!;
+                var item = (BasePluginMenu)e.OldItems![0]!;
                 var panel = item.MenuLocation switch
                 {
                     MenuLocation.Default => null,

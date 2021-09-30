@@ -8,6 +8,7 @@ using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
 using Avalonia.Markup.Xaml;
 
+using BEditor.Controls;
 using BEditor.Data.Property;
 using BEditor.Drawing;
 using BEditor.Extensions;

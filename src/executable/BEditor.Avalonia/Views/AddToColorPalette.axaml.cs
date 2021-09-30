@@ -4,6 +4,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 
+using BEditor.Controls;
 using BEditor.Drawing;
 using BEditor.ViewModels;
 

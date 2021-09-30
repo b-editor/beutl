@@ -64,6 +64,8 @@ namespace BEditor.Packaging
             "BEditor.Compute.dll",
             "BEditor.Compute.pdb",
             "BEditor.Compute.xml",
+            "BEditor.Controls.dll",
+            "BEditor.Controls.pdb",
             "BEditor.Core.dll",
             "BEditor.Core.pdb",
             "BEditor.Core.xml",

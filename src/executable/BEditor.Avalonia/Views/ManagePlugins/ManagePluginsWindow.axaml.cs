@@ -6,6 +6,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
 
+using BEditor.Controls;
 using BEditor.Packaging;
 using BEditor.Properties;
 using BEditor.ViewModels.ManagePlugins;
