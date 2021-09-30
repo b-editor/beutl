@@ -129,6 +129,8 @@ namespace BEditor
 
                     // ÉtÉHÉìÉgÇÃì«Ç›çûÇ›
                     _ = FontManager.Default;
+
+                    AppModel.Current.RestoreDisplayedMenus();
                 }));
                 AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
 
@@ -143,6 +145,7 @@ namespace BEditor
         private void Desktop_Exit(object? sender, ControlledApplicationLifetimeExitEventArgs e)
         {
             Settings.Default.Save();
+            AppModel.Current.SaveDisplayedMenus();
             KeyBindingModel.Save();
 
             BackupTimer.Stop();

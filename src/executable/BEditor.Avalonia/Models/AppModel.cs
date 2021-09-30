@@ -202,6 +202,58 @@ namespace BEditor.Models
             ProjectOpened?.Invoke(this, new(project));
         }
 
+        // 表示されているメニューを保存
+        public void SaveDisplayedMenus()
+        {
+            using var stream = new FileStream(Path.Combine(ServicesLocator.GetUserFolder(), "displayedMenus.config"), FileMode.Create);
+            using var writer = new Utf8JsonWriter(stream, Serialize._options);
+
+            writer.WriteStartArray();
+
+            foreach (var item in DisplayedMenus)
+            {
+                var type = item.GetType();
+
+                writer.WriteStartObject();
+                writer.WriteString("type", $"{type.FullName}, {type.Assembly.GetName().Name}");
+                writer.WriteString("location", item.MenuLocation.ToString());
+                writer.WriteEndObject();
+            }
+
+            writer.WriteEndArray();
+        }
+
+        // 表示されているメニューを復元
+        public void RestoreDisplayedMenus()
+        {
+            DisplayedMenus.Clear();
+            var menusFile = Path.Combine(ServicesLocator.GetUserFolder(), "displayedMenus.config");
+            if (File.Exists(menusFile))
+            {
+                using var stream = new FileStream(menusFile, FileMode.Open);
+                using var doc = JsonDocument.Parse(stream);
+
+                foreach (var item in doc.RootElement.EnumerateArray()
+                    .Select(i =>
+                    {
+                        var type = Type.GetType(i.GetProperty("type").GetString());
+                        if (type == null)
+                            return null;
+                        var location = Enum.Parse<MenuLocation>(i.GetProperty("location").GetString());
+
+                        var instance = Activator.CreateInstance(type);
+                        if (instance is not BasePluginMenu menu)
+                            return null;
+
+                        menu.MenuLocation = location;
+                        return menu;
+                    }))
+                {
+                    DisplayedMenus.Add(item);
+                }
+            }
+        }
+
         public void SaveAppConfig(Project project, string directory)
         {
             static void IfNotExistCreateDir(string dir)
@@ -215,26 +267,6 @@ namespace BEditor.Models
             var cache = Path.Combine(directory, "cache");
 
             IfNotExistCreateDir(cache);
-
-            // 表示されているメニューの設定
-            {
-                using var stream = new FileStream(Path.Combine(directory, "displayedMenus.config"), FileMode.Create);
-                using var writer = new Utf8JsonWriter(stream, Serialize._options);
-
-                writer.WriteStartArray();
-
-                foreach (var item in DisplayedMenus)
-                {
-                    var type = item.GetType();
-
-                    writer.WriteStartObject();
-                    writer.WriteString("type", $"{type.FullName}, {type.Assembly.GetName().Name}");
-                    writer.WriteString("location", item.MenuLocation.ToString());
-                    writer.WriteEndObject();
-                }
-
-                writer.WriteEndArray();
-            }
 
             // プロジェクトの設定
             {
@@ -286,34 +318,6 @@ namespace BEditor.Models
             var cache = Path.Combine(directory, "cache");
 
             IfNotExistCreateDir(cache);
-
-            // 表示されているメニューの設定
-            DisplayedMenus.Clear();
-            var menusFile = Path.Combine(directory, "displayedMenus.config");
-            if (File.Exists(menusFile))
-            {
-                using var stream = new FileStream(menusFile, FileMode.Open);
-                using var doc = JsonDocument.Parse(stream);
-
-                foreach (var item in doc.RootElement.EnumerateArray()
-                    .Select(i =>
-                    {
-                        var type = Type.GetType(i.GetProperty("type").GetString());
-                        if (type == null)
-                            return null;
-                        var location = Enum.Parse<MenuLocation>(i.GetProperty("location").GetString());
-
-                        var instance = Activator.CreateInstance(type);
-                        if (instance is not BasePluginMenu menu)
-                            return null;
-
-                        menu.MenuLocation = location;
-                        return menu;
-                    }))
-                {
-                    DisplayedMenus.Add(item);
-                }
-            }
 
             // プロジェクトの設定
             {

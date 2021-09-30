@@ -438,7 +438,7 @@ namespace BEditor.Extensions.AviUtl
             public OpenScriptDirectory()
             {
                 Name = "スクリプトフォルダーを開く";
-                MenuLocation = MenuLocation.Left;
+                MenuLocation = MenuLocation.Default;
             }
 
             protected override void OnExecute()

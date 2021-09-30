@@ -14,6 +14,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
+using Avalonia.VisualTree;
 
 using BEditor.Data;
 using BEditor.Models;
@@ -64,7 +65,11 @@ namespace BEditor
         {
             _closeMenuCommand.Subscribe(menu => AppModel.Current.DisplayedMenus.Remove(menu));
 
-            _openMenuCommand.Subscribe(menu => menu.Execute());
+            _openMenuCommand.Subscribe(menu =>
+            {
+                menu.MainWindow = App.GetMainWindow();
+                menu.Execute();
+            });
 
             _leftMenuCommand.Subscribe(i =>
             {
@@ -278,6 +283,7 @@ namespace BEditor
                 {
                     if (s is Button button && button.DataContext is BasePluginMenu pluginMenu)
                     {
+                        pluginMenu.MainWindow = button.GetVisualRoot();
                         pluginMenu.Execute();
                     }
                 };
