@@ -222,7 +222,7 @@
                 <!--情報-->
                 <MenuItem Click="ShowInfomation" Header="{x:Static prop:Strings.Infomation}">
                     <MenuItem.Icon>
-                        <ui:SymbolIcon Symbol="Help" />
+                        <PathIcon Data="{StaticResource Info24Regular}" />
                     </MenuItem.Icon>
                 </MenuItem>
 

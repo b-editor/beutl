@@ -12,8 +12,7 @@
     CanResize="False"
     Background="{StaticResource NavigationViewDefaultPaneBackground}"
     x:DataType="viewModels:OpenProjectPackageViewModel"
-    x:Class="BEditor.Views.Dialogs.OpenProjectPackage"
-    Title="OpenProjectPackage">
+    x:Class="BEditor.Views.Dialogs.OpenProjectPackage">
     <views:FluentWindow.Styles>
         <Style Selector="Border.card">
             <Setter Property="BorderBrush" Value="{StaticResource ControlElevationBorderBrush}" />

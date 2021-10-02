@@ -10,6 +10,11 @@
     <Import Project="..\..\props\Avalonia.props" />
 
     <ItemGroup>
+        <EmbeddedResource Include="Resources\Lua.xshd" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Avalonia.AvaloniaEdit" Version="0.10.4" />
         <PackageReference Include="Microsoft.Extensions.Configuration" Version="5.0.0" />
         <PackageReference Include="Microsoft.Extensions.Configuration.Binder" Version="5.0.0" />
         <PackageReference Include="NeoLua" Version="1.3.13" />
