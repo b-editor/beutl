@@ -144,6 +144,7 @@ namespace BEditor.Controls
                 && sender is MenuItem menuItem
                 && menuItem.DataContext is FileMenu fileMenu)
             {
+                fileMenu.MainWindow = VisualRoot;
                 fileMenu.Execute(fileTree.Info.FullName);
             }
         }
