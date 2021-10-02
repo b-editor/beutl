@@ -1,0 +1,252 @@
+<ctr:FluentWindow
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:ctr="using:BEditor.Controls"
+    Classes="fluent"
+    Width="400"
+    Height="700"
+    mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+    x:Class="BEditor.Extensions.FFmpeg.Views.MediaInfo">
+    <TabControl>
+        <TabControl.Styles>
+            <Style Selector="TabItem">
+                <Setter Property="FontSize" Value="16" />
+                <Setter Property="Padding" Value="8" />
+            </Style>
+        </TabControl.Styles>
+        <TabItem Header="Streams">
+            <ScrollViewer>
+                <ItemsControl Items="{Binding Streams}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Expander Header="{Binding CodecType}" Background="{DynamicResource ControlFillColorDefaultBrush}">
+                                <StackPanel Margin="8" Spacing="16">
+
+                                    <Panel>
+                                        <TextBlock Text="Index" VerticalAlignment="Center" />
+
+                                        <TextBox
+                                            IsReadOnly="True"
+                                            Text="{Binding Index}"
+                                            Classes="Editor"/>
+                                    </Panel>
+
+                                    <Panel>
+                                        <TextBlock Text="AvgFrameRate" VerticalAlignment="Center" />
+
+                                        <TextBox
+                                            IsReadOnly="True"
+                                            Text="{Binding AvgFrameRate}"
+                                            Classes="Editor"/>
+                                    </Panel>
+
+                                    <Panel>
+                                        <TextBlock Text="BitsPerRawSample" VerticalAlignment="Center" />
+
+                                        <TextBox
+                                            IsReadOnly="True"
+                                            Text="{Binding BitsPerRawSample}"
+                                            Classes="Editor"/>
+                                    </Panel>
+
+                                    <Panel>
+                                        <TextBlock Text="BitRate" VerticalAlignment="Center" />
+
+                                        <TextBox
+                                            IsReadOnly="True"
+                                            Text="{Binding BitRate}"
+                                            Classes="Editor"/>
+                                    </Panel>
+
+                                    <Panel>
+                                        <TextBlock Text="Channels" VerticalAlignment="Center" />
+
+                                        <TextBox
+                                            IsReadOnly="True"
+                                            Text="{Binding Channels}"
+                                            Classes="Editor"/>
+                                    </Panel>
+
+                                    <Panel>
+                                        <TextBlock Text="ChannelLayout" VerticalAlignment="Center" />
+
+                                        <TextBox
+                                            IsReadOnly="True"
+                                            Text="{Binding ChannelLayout}"
+                                            Classes="Editor"/>
+                                    </Panel>
+
+                                    <Panel>
+                                        <TextBlock Text="CodecType" VerticalAlignment="Center" />
+
+                                        <TextBox
+                                            IsReadOnly="True"
+                                            Text="{Binding CodecType}"
+                                            Classes="Editor"/>
+                                    </Panel>
+
+                                    <Panel>
+                                        <TextBlock Text="CodecName" VerticalAlignment="Center" />
+
+                                        <TextBox
+                                            IsReadOnly="True"
+                                            Text="{Binding CodecName}"
+                                            Classes="Editor"/>
+                                    </Panel>
+
+                                    <Panel>
+                                        <TextBlock Text="CodecLongName" VerticalAlignment="Center" />
+
+                                        <TextBox
+                                            IsReadOnly="True"
+                                            Text="{Binding CodecLongName}"
+                                            Classes="Editor"/>
+                                    </Panel>
+
+                                    <Panel>
+                                        <TextBlock Text="CodecTag" VerticalAlignment="Center" />
+
+                                        <TextBox
+                                            IsReadOnly="True"
+                                            Text="{Binding CodecTag}"
+                                            Classes="Editor"/>
+                                    </Panel>
+
+                                    <Panel>
+                                        <TextBlock Text="CodecTagString" VerticalAlignment="Center" />
+
+                                        <TextBox
+                                            IsReadOnly="True"
+                                            Text="{Binding CodecTagString}"
+                                            Classes="Editor"/>
+                                    </Panel>
+
+                                    <Panel>
+                                        <TextBlock Text="DisplayAspectRatio" VerticalAlignment="Center" />
+
+                                        <TextBox
+                                            IsReadOnly="True"
+                                            Text="{Binding DisplayAspectRatio}"
+                                            Classes="Editor"/>
+                                    </Panel>
+
+                                    <Panel>
+                                        <TextBlock Text="Duration" VerticalAlignment="Center" />
+
+                                        <TextBox
+                                            IsReadOnly="True"
+                                            Text="{Binding Duration}"
+                                            Classes="Editor"/>
+                                    </Panel>
+
+                                    <Panel>
+                                        <TextBlock Text="Profile" VerticalAlignment="Center" />
+
+                                        <TextBox
+                                            IsReadOnly="True"
+                                            Text="{Binding Profile}"
+                                            Classes="Editor"/>
+                                    </Panel>
+
+                                    <Panel>
+                                        <TextBlock Text="Width" VerticalAlignment="Center" />
+
+                                        <TextBox
+                                            IsReadOnly="True"
+                                            Text="{Binding Width}"
+                                            Classes="Editor"/>
+                                    </Panel>
+
+                                    <Panel>
+                                        <TextBlock Text="Height" VerticalAlignment="Center" />
+
+                                        <TextBox
+                                            IsReadOnly="True"
+                                            Text="{Binding Height}"
+                                            Classes="Editor"/>
+                                    </Panel>
+
+                                    <Panel>
+                                        <TextBlock Text="FrameRate" VerticalAlignment="Center" />
+
+                                        <TextBox
+                                            IsReadOnly="True"
+                                            Text="{Binding FrameRate}"
+                                            Classes="Editor"/>
+                                    </Panel>
+
+                                    <Panel>
+                                        <TextBlock Text="PixelFormat" VerticalAlignment="Center" />
+
+                                        <TextBox
+                                            IsReadOnly="True"
+                                            Text="{Binding PixelFormat}"
+                                            Classes="Editor"/>
+                                    </Panel>
+
+                                    <Panel>
+                                        <TextBlock Text="SampleRate" VerticalAlignment="Center" />
+
+                                        <TextBox
+                                            IsReadOnly="True"
+                                            Text="{Binding SampleRate}"
+                                            Classes="Editor"/>
+                                    </Panel>
+
+                                    <TextBlock Text="Disposition" VerticalAlignment="Center" Classes="Header2" />
+
+                                    <ItemsControl Items="{Binding Disposition}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Panel>
+                                                    <TextBlock Text="{Binding Key}" VerticalAlignment="Center" />
+
+                                                    <TextBox
+                                                        IsReadOnly="True"
+                                                        Text="{Binding Value}"
+                                                        Classes="Editor"/>
+                                                </Panel>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <StackPanel Spacing="16" />
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                    </ItemsControl>
+
+                                    <TextBlock Text="Tags" VerticalAlignment="Center" Classes="Header2" />
+
+                                    <ItemsControl Items="{Binding Tags}">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Panel>
+                                                    <TextBlock Text="{Binding Key}" VerticalAlignment="Center" />
+
+                                                    <TextBox
+                                                        IsReadOnly="True"
+                                                        Text="{Binding Value}"
+                                                        Classes="Editor"/>
+                                                </Panel>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <StackPanel Spacing="16" />
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                    </ItemsControl>
+                                </StackPanel>
+                            </Expander>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+        </TabItem>
+        <TabItem Header="Format">
+
+        </TabItem>
+    </TabControl>
+</ctr:FluentWindow>

@@ -7,14 +7,15 @@
     </PropertyGroup>
 
     <Import Project="..\..\props\plugin.props" />
+    <Import Project="..\..\props\Avalonia.props" />
 
     <ItemGroup>
         <PackageReference Include="FFMediaToolkit" Version="4.1.1" />
     </ItemGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\..\src\libraries\BEditor.Media\BEditor.Media.csproj" />
         <ProjectReference Include="..\..\src\libraries\BEditor.Core\BEditor.Core.csproj" />
+        <ProjectReference Include="..\..\src\libraries\BEditor.Controls\BEditor.Controls.csproj" />
     </ItemGroup>
 
 </Project>

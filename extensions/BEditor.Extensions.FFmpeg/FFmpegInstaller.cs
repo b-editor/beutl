@@ -77,6 +77,8 @@ namespace BEditor.Extensions.FFmpeg
                 "swresample-3.dll",
                 "swscale-5.dll",
                 "ffmpeg.exe",
+                "ffprobe.exe",
+                "ffplay.exe",
             };
 
             foreach (var dll in dlls)
