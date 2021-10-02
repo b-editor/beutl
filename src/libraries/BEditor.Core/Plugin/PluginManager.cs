@@ -53,7 +53,7 @@ namespace BEditor.Plugin
         /// <summary>
         /// Gets the menus.
         /// </summary>
-        internal List<(string Header, IEnumerable<ICustomMenu> Items)> Menus { get; } = new();
+        internal List<(string Header, IEnumerable<BasePluginMenu> Items)> Menus { get; } = new();
 
         /// <summary>
         /// Gets the tasks.

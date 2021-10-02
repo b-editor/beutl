@@ -46,7 +46,7 @@ namespace BEditor.Data
                 writer.WriteStartObject();
 
                 var type = effect.GetType();
-                writer.WriteString("_type", type.FullName + ", " + type.Assembly.GetName().Name);
+                writer.WriteString("_type", $"{type.FullName}, {type.Assembly.GetName().Name}");
                 effect.GetObjectData(writer);
 
                 writer.WriteEndObject();

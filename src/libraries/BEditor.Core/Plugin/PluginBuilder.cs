@@ -28,7 +28,7 @@ namespace BEditor.Plugin
         private readonly List<ObjectMetadata> _objects = new();
         private readonly List<EasingMetadata> _eases = new();
         private readonly List<PluginTask> _task = new();
-        private (string?, IEnumerable<ICustomMenu>?) _menus;
+        private readonly List<(string, IEnumerable<BasePluginMenu>)> _menus = new();
 
         private PluginBuilder(Func<PluginObject> create)
         {
@@ -149,9 +149,23 @@ namespace BEditor.Plugin
         /// <param name="header">The string to display in the menu header.</param>
         /// <param name="menus">Menu to be set.</param>
         /// <returns>The same instance of the <see cref="PluginBuilder"/> for chaining.</returns>
+        [Obsolete("To be added.")]
         public PluginBuilder SetCustomMenu(string header, IEnumerable<ICustomMenu> menus)
         {
-            _menus = (header, menus);
+            _menus.Add((header, menus.Select(i => new PluginMenuImpl(i)).ToArray()));
+
+            return this;
+        }
+
+        /// <summary>
+        /// Add the menu.
+        /// </summary>
+        /// <param name="header">The string to display in the menu header.</param>
+        /// <param name="menus">Menu to be set.</param>
+        /// <returns>The same instance of the <see cref="PluginBuilder"/> for chaining.</returns>
+        public PluginBuilder PluginMenu(string header, params BasePluginMenu[] menus)
+        {
+            _menus.Add((header, menus));
 
             return this;
         }
@@ -194,9 +208,9 @@ namespace BEditor.Plugin
                 EasingMetadata.LoadedEasingFunc.Add(meta);
             }
 
-            if (_menus.Item1 is not null && _menus.Item2 is not null)
+            foreach (var menu in _menus)
             {
-                manager.Menus.Add(_menus!);
+                manager.Menus.Add(menu);
             }
 
             if (_task.Count is not 0)
@@ -213,6 +227,23 @@ namespace BEditor.Plugin
         public void Register()
         {
             Register(PluginManager.Default);
+        }
+
+        [Obsolete("To be added.")]
+        private sealed class PluginMenuImpl : BasePluginMenu
+        {
+            private readonly ICustomMenu _menu;
+
+            public PluginMenuImpl(ICustomMenu menu)
+            {
+                _menu = menu;
+                Name = menu.Name;
+            }
+
+            protected override void OnExecute()
+            {
+                _menu.Execute();
+            }
         }
     }
 }

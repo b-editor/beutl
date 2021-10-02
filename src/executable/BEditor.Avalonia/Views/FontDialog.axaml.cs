@@ -4,6 +4,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
 
+using BEditor.Controls;
 using BEditor.ViewModels;
 
 using Reactive.Bindings.Extensions;

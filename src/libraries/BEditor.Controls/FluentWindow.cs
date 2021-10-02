@@ -6,7 +6,7 @@ using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Avalonia.Styling;
 
-namespace BEditor.Views
+namespace BEditor.Controls
 {
     public class FluentWindow : Window, IStyleable
     {
@@ -24,7 +24,7 @@ namespace BEditor.Views
             {
                 TransparencyLevelHint = WindowTransparencyLevel.AcrylicBlur;
                 ExtendClientAreaToDecorationsHint = true;
-                ExtendClientAreaChromeHints = Avalonia.Platform.ExtendClientAreaChromeHints.NoChrome;
+                ExtendClientAreaChromeHints = ExtendClientAreaChromeHints.NoChrome;
                 ExtendClientAreaTitleBarHeightHint = -1;
             }
         }

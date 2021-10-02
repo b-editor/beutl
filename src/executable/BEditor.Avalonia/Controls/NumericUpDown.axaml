@@ -21,6 +21,11 @@
         <Thickness x:Key="NumericUpDownPopupIndicatorMargin">0,0,8,0</Thickness>
     </Styles.Resources>
 
+    <!--https://github.com/amwx/FluentAvalonia/blob/master/FluentAvalonia/Styling/Controls/NumberBoxStyle.axaml#L74-->
+    <Style Selector="TextBox.NumberBoxTextBoxStyle">
+        <Setter Property="Foreground" Value="{DynamicResource TextControlForeground}" />
+    </Style>
+
     <Style Selector="RepeatButton.NumericUpDownSpinButtonStyle">
         <Setter Property="MinWidth" Value="32" />
         <Setter Property="Padding" Value="0" />

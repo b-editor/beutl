@@ -6,6 +6,7 @@ using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
 
+using BEditor.Controls;
 using BEditor.ViewModels.Dialogs;
 
 namespace BEditor.Views.Dialogs

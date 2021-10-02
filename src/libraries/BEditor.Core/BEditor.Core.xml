@@ -4686,6 +4686,11 @@
             Gets drawing context.
             </summary>
         </member>
+        <member name="P:BEditor.IApplication.DisplayedMenus">
+            <summary>
+            Gets the displayed menus.
+            </summary>
+        </member>
         <member name="M:BEditor.IApplication.RestoreAppConfig(BEditor.Data.Project,System.String)">
             <summary>
             Restore the application configuration.
@@ -4841,76 +4846,6 @@
             Gets or sets a value indicating whether the progress bar shows actual values or generic, continuous progress feedback.
             </summary>
         </member>
-        <member name="T:BEditor.PluginTask">
-            <summary>
-            Represents the task to be executed after the plugin is loaded.
-            </summary>
-        </member>
-        <member name="M:BEditor.PluginTask.#ctor(System.Func{BEditor.IProgressDialog,System.Threading.Tasks.ValueTask},System.String)">
-            <summary>
-            Initializes a new instance of the <see cref="T:BEditor.PluginTask"/> struct.
-            </summary>
-            <param name="task">The function to run.</param>
-            <param name="name">The name of the <see cref="T:BEditor.PluginTask"/>.</param>
-            <exception cref="T:System.ArgumentNullException"><paramref name="task"/> or <paramref name="name"/> is <see langword="null"/>.</exception>
-        </member>
-        <member name="P:BEditor.PluginTask.Name">
-            <summary>
-            Gets the name of this <see cref="T:BEditor.PluginTask"/>.
-            </summary>
-        </member>
-        <member name="P:BEditor.PluginTask.IsExecuted">
-            <summary>
-            Gets a value indicating whether the task has been executed.
-            </summary>
-        </member>
-        <member name="M:BEditor.PluginTask.op_Equality(BEditor.PluginTask,BEditor.PluginTask)">
-            <summary>
-            Compares two <see cref="T:BEditor.PluginTask"/> structures. The result specifies whether the two <see cref="T:BEditor.PluginTask"/> structures are equal.
-            </summary>
-            <param name="left">A <see cref="T:BEditor.PluginTask"/> to compare.</param>
-            <param name="right">A <see cref="T:BEditor.PluginTask"/> to compare.</param>
-            <returns>true if the left and right <see cref="T:BEditor.PluginTask"/> structures are equal; otherwise, false.</returns>
-        </member>
-        <member name="M:BEditor.PluginTask.op_Inequality(BEditor.PluginTask,BEditor.PluginTask)">
-            <summary>
-            Determines whether the coordinates of the specified points are not equal.
-            </summary>
-            <param name="left">A <see cref="T:BEditor.PluginTask"/> to compare.</param>
-            <param name="right">A <see cref="T:BEditor.PluginTask"/> to compare.</param>
-            <returns>true if the left and right <see cref="T:BEditor.PluginTask"/> structures differ; otherwise, false.</returns>
-        </member>
-        <member name="M:BEditor.PluginTask.Equals(System.Object)">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.PluginTask.Equals(BEditor.PluginTask)">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.PluginTask.GetHashCode">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.PluginTask.RunTaskAsync(BEditor.IProgressDialog)">
-            <summary>
-            Run the task.
-            </summary>
-            <param name="progress">The progress of this <see cref="T:BEditor.PluginTask"/>.</param>
-            <returns>A <see cref="T:System.Threading.Tasks.ValueTask"/> representing the result of the asynchronous operation.</returns>
-        </member>
-        <member name="T:BEditor.Plugin.ICustomMenu">
-            <summary>
-            Represents a menu.
-            </summary>
-        </member>
-        <member name="P:BEditor.Plugin.ICustomMenu.Name">
-            <summary>
-            Gets the string to be displayed in the UI.
-            </summary>
-        </member>
-        <member name="M:BEditor.Plugin.ICustomMenu.Execute">
-            <summary>
-            Execute when the menu is clicked.
-            </summary>
-        </member>
         <member name="T:BEditor.Plugin.CustomMenu">
             <inheritdoc cref="T:BEditor.Plugin.ICustomMenu"/>
         </member>
@@ -4931,6 +4866,86 @@
         </member>
         <member name="M:BEditor.Plugin.CustomMenu.BEditor#Plugin#ICustomMenu#Execute">
             <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Plugin.ICustomMenu">
+            <summary>
+            Represents a menu.
+            </summary>
+        </member>
+        <member name="P:BEditor.Plugin.ICustomMenu.Name">
+            <summary>
+            Gets the string to be displayed in the UI.
+            </summary>
+        </member>
+        <member name="M:BEditor.Plugin.ICustomMenu.Execute">
+            <summary>
+            Execute when the menu is clicked.
+            </summary>
+        </member>
+        <member name="T:BEditor.Plugin.MenuLocation">
+            <summary>
+            Menu Location.
+            </summary>
+        </member>
+        <member name="F:BEditor.Plugin.MenuLocation.Default">
+            <summary>
+            The default.
+            </summary>
+        </member>
+        <member name="F:BEditor.Plugin.MenuLocation.Left">
+            <summary>
+            The menu will be placed on the left side.
+            </summary>
+        </member>
+        <member name="F:BEditor.Plugin.MenuLocation.Right">
+            <summary>
+            The menu will be placed on the right side.
+            </summary>
+        </member>
+        <member name="F:BEditor.Plugin.MenuLocation.Bottom">
+            <summary>
+            The menu will be placed below.
+            </summary>
+        </member>
+        <member name="T:BEditor.Plugin.BasePluginMenu">
+            <summary>
+            Base class for the plugin menu.
+            </summary>
+        </member>
+        <member name="F:BEditor.Plugin.BasePluginMenu.MainWindowProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Plugin.BasePluginMenu.MainWindow"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Plugin.BasePluginMenu.MenuLocationProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Plugin.BasePluginMenu.MenuLocation"/> property.
+            </summary>
+        </member>
+        <member name="E:BEditor.Plugin.BasePluginMenu.Executed">
+            <summary>
+            Occurs after the execution.
+            </summary>
+        </member>
+        <member name="P:BEditor.Plugin.BasePluginMenu.MainWindow">
+            <summary>
+            Gets or sets the main window.
+            </summary>
+        </member>
+        <member name="P:BEditor.Plugin.BasePluginMenu.MenuLocation">
+            <summary>
+            Gets or sets the menu location.
+            </summary>
+        </member>
+        <member name="M:BEditor.Plugin.BasePluginMenu.Execute">
+            <summary>
+            Execute when the menu is clicked.
+            </summary>
+        </member>
+        <member name="M:BEditor.Plugin.BasePluginMenu.OnExecute">
+            <summary>
+            Execute when the menu is clicked.
+            </summary>
         </member>
         <member name="T:BEditor.Plugin.PluginBuilder">
             <summary>
@@ -5002,6 +5017,14 @@
         <member name="M:BEditor.Plugin.PluginBuilder.SetCustomMenu(System.String,System.Collections.Generic.IEnumerable{BEditor.Plugin.ICustomMenu})">
             <summary>
             Set the menu.
+            </summary>
+            <param name="header">The string to display in the menu header.</param>
+            <param name="menus">Menu to be set.</param>
+            <returns>The same instance of the <see cref="T:BEditor.Plugin.PluginBuilder"/> for chaining.</returns>
+        </member>
+        <member name="M:BEditor.Plugin.PluginBuilder.PluginMenu(System.String,BEditor.Plugin.BasePluginMenu[])">
+            <summary>
+            Add the menu.
             </summary>
             <param name="header">The string to display in the menu header.</param>
             <param name="menus">Menu to be set.</param>
@@ -5243,6 +5266,61 @@
             <typeparam name="T">Type of the object to be loaded.</typeparam>
             <param name="filename">The name of the file to load.</param>
             <returns>Returns the restored object on success, <see langword="null"/> otherwise.</returns>
+        </member>
+        <member name="T:BEditor.PluginTask">
+            <summary>
+            Represents the task to be executed after the plugin is loaded.
+            </summary>
+        </member>
+        <member name="M:BEditor.PluginTask.#ctor(System.Func{BEditor.IProgressDialog,System.Threading.Tasks.ValueTask},System.String)">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.PluginTask"/> struct.
+            </summary>
+            <param name="task">The function to run.</param>
+            <param name="name">The name of the <see cref="T:BEditor.PluginTask"/>.</param>
+            <exception cref="T:System.ArgumentNullException"><paramref name="task"/> or <paramref name="name"/> is <see langword="null"/>.</exception>
+        </member>
+        <member name="P:BEditor.PluginTask.Name">
+            <summary>
+            Gets the name of this <see cref="T:BEditor.PluginTask"/>.
+            </summary>
+        </member>
+        <member name="P:BEditor.PluginTask.IsExecuted">
+            <summary>
+            Gets a value indicating whether the task has been executed.
+            </summary>
+        </member>
+        <member name="M:BEditor.PluginTask.op_Equality(BEditor.PluginTask,BEditor.PluginTask)">
+            <summary>
+            Compares two <see cref="T:BEditor.PluginTask"/> structures. The result specifies whether the two <see cref="T:BEditor.PluginTask"/> structures are equal.
+            </summary>
+            <param name="left">A <see cref="T:BEditor.PluginTask"/> to compare.</param>
+            <param name="right">A <see cref="T:BEditor.PluginTask"/> to compare.</param>
+            <returns>true if the left and right <see cref="T:BEditor.PluginTask"/> structures are equal; otherwise, false.</returns>
+        </member>
+        <member name="M:BEditor.PluginTask.op_Inequality(BEditor.PluginTask,BEditor.PluginTask)">
+            <summary>
+            Determines whether the coordinates of the specified points are not equal.
+            </summary>
+            <param name="left">A <see cref="T:BEditor.PluginTask"/> to compare.</param>
+            <param name="right">A <see cref="T:BEditor.PluginTask"/> to compare.</param>
+            <returns>true if the left and right <see cref="T:BEditor.PluginTask"/> structures differ; otherwise, false.</returns>
+        </member>
+        <member name="M:BEditor.PluginTask.Equals(System.Object)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.PluginTask.Equals(BEditor.PluginTask)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.PluginTask.GetHashCode">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.PluginTask.RunTaskAsync(BEditor.IProgressDialog)">
+            <summary>
+            Run the task.
+            </summary>
+            <param name="progress">The progress of this <see cref="T:BEditor.PluginTask"/>.</param>
+            <returns>A <see cref="T:System.Threading.Tasks.ValueTask"/> representing the result of the asynchronous operation.</returns>
         </member>
         <member name="T:BEditor.ProjectOpenedEventArgs">
             <summary>

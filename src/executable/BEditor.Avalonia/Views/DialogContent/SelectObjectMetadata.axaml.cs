@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 
+using BEditor.Controls;
 using BEditor.Data;
 
 namespace BEditor.Views.DialogContent

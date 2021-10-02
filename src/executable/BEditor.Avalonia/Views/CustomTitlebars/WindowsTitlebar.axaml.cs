@@ -11,7 +11,9 @@ using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 
+using BEditor.Controls;
 using BEditor.Models;
 using BEditor.Plugin;
 using BEditor.Properties;
@@ -148,9 +150,15 @@ namespace BEditor.Views.CustomTitlebars
                             };
                             item.Click += (s, e) =>
                             {
-                                if (s is MenuItem item && item.DataContext is ICustomMenu cmenu)
+                                if (s is MenuItem item && item.DataContext is BasePluginMenu cmenu)
                                 {
+                                    cmenu.MainWindow = VisualRoot;
                                     cmenu.Execute();
+
+                                    if (cmenu.MenuLocation != MenuLocation.Default)
+                                    {
+                                        AppModel.Current.DisplayedMenus.Add(cmenu);
+                                    }
                                 }
                             };
 
@@ -175,7 +183,7 @@ namespace BEditor.Views.CustomTitlebars
         {
             if (VisualRoot is MainWindow window && window.Content is Grid grid)
             {
-                grid.ColumnDefinitions = new("425,Auto,*,Auto,2*");
+                grid.ColumnDefinitions = new("Auto,425,Auto,*,Auto,2*,Auto");
                 grid.RowDefinitions = new("Auto,Auto,*,Auto,*,Auto");
 
                 foreach (var item in Directory.EnumerateFiles(WindowConfig.GetFolder())

@@ -2,6 +2,8 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
 
+using BEditor.Controls;
+
 namespace BEditor.Views.Dialogs
 {
     public partial class AboutBEditor : FluentWindow

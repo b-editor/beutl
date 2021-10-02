@@ -11,8 +11,7 @@
     mc:Ignorable="d" Height="450" Width="800"
     x:Class="BEditor.Views.Timelines.SceneSettings"
     WindowStartupLocation="CenterScreen"
-    x:DataType="vm:SceneSettingsViewModel"
-    Title="SceneSettings">
+    x:DataType="vm:SceneSettingsViewModel">
     <Grid RowDefinitions="Auto,*">
         <titlebar:WindowsTitlebarButtons CanResize="False"/>
 

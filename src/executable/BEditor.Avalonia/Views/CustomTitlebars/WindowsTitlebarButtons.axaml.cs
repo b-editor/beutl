@@ -20,6 +20,7 @@ namespace BEditor.Views.CustomTitlebars
                 titlebar._maximizeButton.IsVisible = value;
             }
         });
+        public static readonly StyledProperty<string> TitleProperty = AvaloniaProperty.Register<WindowsTitlebarButtons, string>(nameof(Title), string.Empty);
         private readonly Button _minimizeButton;
         private readonly Button _maximizeButton;
         private readonly Path _maximizeIcon;
@@ -56,6 +57,12 @@ namespace BEditor.Views.CustomTitlebars
         {
             get => GetValue(CanResizeProperty);
             set => SetValue(CanResizeProperty, value);
+        }
+
+        public string Title
+        {
+            get => GetValue(TitleProperty);
+            set => SetValue(TitleProperty, value);
         }
 
         private void Titlebar_PointerPressed(object? sender, Avalonia.Input.PointerPressedEventArgs e)

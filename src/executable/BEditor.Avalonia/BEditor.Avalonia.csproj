@@ -22,6 +22,7 @@
     </ItemGroup>
 
     <ItemGroup>
+        <ProjectReference Include="..\..\libraries\BEditor.Controls\BEditor.Controls.csproj" />
         <ProjectReference Include="..\..\libraries\BEditor.Core\BEditor.Core.csproj" />
         <ProjectReference Include="..\..\libraries\BEditor.Primitive\BEditor.Primitive.csproj" />
         <ProjectReference Include="..\..\libraries\BEditor.Graphics.Veldrid\BEditor.Graphics.Veldrid.csproj" />

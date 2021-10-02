@@ -1,0 +1,21 @@
+<ctr:FluentWindow
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:ctr="using:BEditor.Controls"
+    xmlns:aedit="using:AvaloniaEdit"
+    mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+    x:Class="BEditor.Extensions.AviUtl.Views.CodeWindow"
+    Classes="fluent">
+    <ctr:FluentWindow.Styles>
+        <StyleInclude Source="avares://AvaloniaEdit/AvaloniaEdit.xaml" />
+    </ctr:FluentWindow.Styles>
+
+    <aedit:TextEditor
+        FontFamily="Cascadia Code, Yu Gothic UI, Segoe UI, Hiragino Sans, Helvetica Neue, Ubuntu"
+        Name="Editor" 
+        IsReadOnly="True"
+        ShowLineNumbers="True"
+        SyntaxHighlighting="Lua" />
+</ctr:FluentWindow>
