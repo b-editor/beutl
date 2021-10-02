@@ -32,7 +32,7 @@ namespace BEditor.Drawing
 
             if (context?.IsDisposed == false)
             {
-                image.PixelOperate<NegaposiOperation, byte, byte, byte>(context, red, green, blue);
+                image.PixelOperate<NegaposiOperation>(context, red, green, blue);
             }
             else
             {
@@ -55,7 +55,7 @@ namespace BEditor.Drawing.PixelOperation
     /// <summary>
     /// Reverses the pixels to negative or positive.
     /// </summary>
-    public readonly unsafe struct NegaposiOperation : IPixelOperation, IGpuPixelOperation<byte, byte, byte>
+    public readonly unsafe struct NegaposiOperation : IPixelOperation, IGpuPixelOperation
     {
         private readonly BGRA32* _src;
         private readonly BGRA32* _dst;

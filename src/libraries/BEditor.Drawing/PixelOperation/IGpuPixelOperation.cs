@@ -5,6 +5,8 @@
 // This software may be modified and distributed under the terms
 // of the MIT license. See the LICENSE file for details.
 
+using System;
+
 namespace BEditor.Drawing.PixelOperation
 {
     /// <summary>
@@ -29,6 +31,7 @@ namespace BEditor.Drawing.PixelOperation
 
     /// <inheritdoc cref="IGpuPixelOperation"/>
     /// <typeparam name="T">The type of first argument.</typeparam>
+    [Obsolete("Use IGpuPixelOperation.")]
     public interface IGpuPixelOperation<T>
         where T : notnull
     {
@@ -42,6 +45,7 @@ namespace BEditor.Drawing.PixelOperation
     /// <inheritdoc cref="IGpuPixelOperation"/>
     /// <typeparam name="T1">The type of first argument.</typeparam>
     /// <typeparam name="T2">The type of second argument.</typeparam>
+    [Obsolete("Use IGpuPixelOperation.")]
     public interface IGpuPixelOperation<T1, T2>
         where T1 : notnull
         where T2 : notnull
@@ -57,6 +61,7 @@ namespace BEditor.Drawing.PixelOperation
     /// <typeparam name="T1">The type of first argument.</typeparam>
     /// <typeparam name="T2">The type of second argument.</typeparam>
     /// <typeparam name="T3">The type of third argument.</typeparam>
+    [Obsolete("Use IGpuPixelOperation.")]
     public interface IGpuPixelOperation<T1, T2, T3>
         where T1 : notnull
         where T2 : notnull
@@ -74,6 +79,7 @@ namespace BEditor.Drawing.PixelOperation
     /// <typeparam name="T2">The type of second argument.</typeparam>
     /// <typeparam name="T3">The type of third argument.</typeparam>
     /// <typeparam name="T4">The type of fourth argument.</typeparam>
+    [Obsolete("Use IGpuPixelOperation.")]
     public interface IGpuPixelOperation<T1, T2, T3, T4>
         where T1 : notnull
         where T2 : notnull

@@ -35,7 +35,7 @@ namespace BEditor.Drawing
             {
                 using var maskMem = context.Context.CreateMappingMemory(mask.Data, mask.DataSize);
 
-                image.PixelOperate<AlphaSubtractOperation, AbstractMemory>(context, maskMem);
+                image.PixelOperate<AlphaSubtractOperation>(context, maskMem);
             }
             else
             {
@@ -59,7 +59,7 @@ namespace BEditor.Drawing.PixelOperation
     /// <summary>
     /// Subtracts Alpha values only.
     /// </summary>
-    public readonly unsafe struct AlphaSubtractOperation : IPixelOperation, IGpuPixelOperation<AbstractMemory>
+    public readonly unsafe struct AlphaSubtractOperation : IPixelOperation, IGpuPixelOperation
     {
         private readonly BGRA32* _data;
         private readonly BGRA32* _mask;

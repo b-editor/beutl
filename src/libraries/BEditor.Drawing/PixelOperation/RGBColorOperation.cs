@@ -37,7 +37,7 @@ namespace BEditor.Drawing
 
             if (context?.IsDisposed == false)
             {
-                image.PixelOperate<RGBColorOperation, short, short, short>(context, red, green, blue);
+                image.PixelOperate<RGBColorOperation>(context, red, green, blue);
             }
             else
             {
@@ -60,7 +60,7 @@ namespace BEditor.Drawing.PixelOperation
     /// <summary>
     /// Adjusts the RGB color tone.
     /// </summary>
-    public readonly unsafe struct RGBColorOperation : IPixelOperation, IGpuPixelOperation<short, short, short>
+    public readonly unsafe struct RGBColorOperation : IPixelOperation, IGpuPixelOperation
     {
         private readonly BGRA32* _src;
         private readonly BGRA32* _dst;

@@ -33,7 +33,7 @@ namespace BEditor.Drawing
 
             if (context?.IsDisposed == false)
             {
-                image.PixelOperate<BrightnessOperation, short>(context, brightness);
+                image.PixelOperate<BrightnessOperation>(context, brightness);
             }
             else
             {
@@ -56,7 +56,7 @@ namespace BEditor.Drawing.PixelOperation
     /// <summary>
     /// Adjusts the brightness of the pixels.
     /// </summary>
-    public readonly unsafe struct BrightnessOperation : IPixelOperation, IGpuPixelOperation<short>
+    public readonly unsafe struct BrightnessOperation : IPixelOperation, IGpuPixelOperation
     {
         private readonly BGRA32* _src;
         private readonly BGRA32* _dst;

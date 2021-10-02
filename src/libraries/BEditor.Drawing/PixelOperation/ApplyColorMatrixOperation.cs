@@ -36,7 +36,7 @@ namespace BEditor.Drawing
             {
                 if (context?.IsDisposed == false)
                 {
-                    image.PixelOperate<ApplyColorMatrixOperation, Float5x5>(context, new Float5x5(
+                    image.PixelOperate<ApplyColorMatrixOperation>(context, new Float5x5(
                         matrix.M00, matrix.M01, matrix.M02, matrix.M03, matrix.M04,
                         matrix.M10, matrix.M11, matrix.M12, matrix.M13, matrix.M14,
                         matrix.M20, matrix.M21, matrix.M22, matrix.M23, matrix.M24,
@@ -57,7 +57,7 @@ namespace BEditor.Drawing.PixelOperation
     /// <summary>
     /// Applies the color matrix.
     /// </summary>
-    public readonly unsafe struct ApplyColorMatrixOperation : IPixelOperation, IGpuPixelOperation<Float5x5>
+    public readonly unsafe struct ApplyColorMatrixOperation : IPixelOperation, IGpuPixelOperation
     {
         private readonly BGRA32* _src;
         private readonly BGRA32* _dst;

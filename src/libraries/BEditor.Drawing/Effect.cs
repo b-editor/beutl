@@ -112,6 +112,50 @@ namespace BEditor.Drawing
         /// <typeparam name="TOperation">The type of operation.</typeparam>
         /// <param name="image">The image to be operated.</param>
         /// <param name="context">A valid DrawingContext.</param>
+        /// <param name="args">The arguments.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="image"/> is <see langword="null"/>.</exception>
+        /// <exception cref="ObjectDisposedException">Cannot access a disposed object.</exception>
+        public static void PixelOperate<TOperation>(this Image<BGRA32> image, DrawingContext context, params object[] args)
+            where TOperation : struct, IGpuPixelOperation
+        {
+            if (image is null) throw new ArgumentNullException(nameof(image));
+            image.ThrowIfDisposed();
+
+            CLProgram program;
+            var operation = (TOperation)default;
+            var key = operation.GetType().Name;
+            if (!context.Programs.ContainsKey(key))
+            {
+                program = context.Context.CreateProgram(operation.GetSource());
+                context.Programs.Add(key, program);
+            }
+            else
+            {
+                program = context.Programs[key];
+            }
+
+            using var kernel = program.CreateKernel(operation.GetKernel());
+            var args1 = new object[args.Length + 1];
+            for (var i = 0; i < args.Length; i++)
+            {
+                args1[i + 1] = args[i];
+            }
+
+            var dataSize = image.DataSize;
+            using var buf = context.Context.CreateMappingMemory(image.Data, dataSize);
+            args1[0] = buf;
+
+            kernel.NDRange(context.CommandQueue, new long[] { image.Width, image.Height }, args1);
+            context.CommandQueue.WaitFinish();
+            buf.Read(context.CommandQueue, true, image.Data, 0, dataSize).Wait();
+        }
+
+        /// <summary>
+        /// Start the specified pixel operation using the Gpu.
+        /// </summary>
+        /// <typeparam name="TOperation">The type of operation.</typeparam>
+        /// <param name="image">The image to be operated.</param>
+        /// <param name="context">A valid DrawingContext.</param>
         /// <exception cref="ArgumentNullException"><paramref name="image"/> is <see langword="null"/>.</exception>
         /// <exception cref="ObjectDisposedException">Cannot access a disposed object.</exception>
         public static void PixelOperate<TOperation>(this Image<BGRA32> image, DrawingContext context)
@@ -152,9 +196,10 @@ namespace BEditor.Drawing
         /// <param name="arg">The first argument passed to the kernel.</param>
         /// <exception cref="ArgumentNullException"><paramref name="image"/> is <see langword="null"/>.</exception>
         /// <exception cref="ObjectDisposedException">Cannot access a disposed object.</exception>
+        [Obsolete("Use PixelOperate<TOperation>.")]
         public static void PixelOperate<TOperation, TArg>(this Image<BGRA32> image, DrawingContext context, TArg arg)
-            where TOperation : struct, IGpuPixelOperation<TArg>
-            where TArg : notnull
+                where TOperation : struct, IGpuPixelOperation<TArg>
+                where TArg : notnull
         {
             if (image is null) throw new ArgumentNullException(nameof(image));
             image.ThrowIfDisposed();
@@ -193,6 +238,7 @@ namespace BEditor.Drawing
         /// <param name="arg2">The second argument passed to the kernel.</param>
         /// <exception cref="ArgumentNullException"><paramref name="image"/> is <see langword="null"/>.</exception>
         /// <exception cref="ObjectDisposedException">Cannot access a disposed object.</exception>
+        [Obsolete("Use PixelOperate<TOperation>.")]
         public static void PixelOperate<TOperation, TArg1, TArg2>(this Image<BGRA32> image, DrawingContext context, TArg1 arg1, TArg2 arg2)
             where TOperation : struct, IGpuPixelOperation<TArg1, TArg2>
             where TArg1 : notnull
@@ -237,6 +283,7 @@ namespace BEditor.Drawing
         /// <param name="arg3">The third argument passed to the kernel.</param>
         /// <exception cref="ArgumentNullException"><paramref name="image"/> is <see langword="null"/>.</exception>
         /// <exception cref="ObjectDisposedException">Cannot access a disposed object.</exception>
+        [Obsolete("Use PixelOperate<TOperation>.")]
         public static void PixelOperate<TOperation, TArg1, TArg2, TArg3>(this Image<BGRA32> image, DrawingContext context, TArg1 arg1, TArg2 arg2, TArg3 arg3)
             where TOperation : struct, IGpuPixelOperation<TArg1, TArg2, TArg3>
             where TArg1 : notnull
@@ -284,6 +331,7 @@ namespace BEditor.Drawing
         /// <param name="arg4">The fourth argument passed to the kernel.</param>
         /// <exception cref="ArgumentNullException"><paramref name="image"/> is <see langword="null"/>.</exception>
         /// <exception cref="ObjectDisposedException">Cannot access a disposed object.</exception>
+        [Obsolete("Use PixelOperate<TOperation>.")]
         public static void PixelOperate<TOperation, TArg1, TArg2, TArg3, TArg4>(this Image<BGRA32> image, DrawingContext context, TArg1 arg1, TArg2 arg2, TArg3 arg3, TArg4 arg4)
             where TOperation : struct, IGpuPixelOperation<TArg1, TArg2, TArg3, TArg4>
             where TArg1 : notnull
