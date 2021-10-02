@@ -4882,6 +4882,39 @@
             Execute when the menu is clicked.
             </summary>
         </member>
+        <member name="T:BEditor.Plugin.BaseMenu`1">
+            <summary>
+            Represents the custom file menu.
+            </summary>
+            <typeparam name="T">The type of argument.</typeparam>
+        </member>
+        <member name="F:BEditor.Plugin.BaseMenu`1.MainWindowProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Plugin.BaseMenu`1.MainWindow"/> property.
+            </summary>
+        </member>
+        <member name="E:BEditor.Plugin.BaseMenu`1.Clicked">
+            <summary>
+            Occurs when the menu is clicked.
+            </summary>
+        </member>
+        <member name="P:BEditor.Plugin.BaseMenu`1.MainWindow">
+            <summary>
+            Gets or sets the main window.
+            </summary>
+        </member>
+        <member name="M:BEditor.Plugin.BaseMenu`1.Execute(`0)">
+            <summary>
+            Execute this menu.
+            </summary>
+            <param name="arg">The argument.</param>
+        </member>
+        <member name="M:BEditor.Plugin.BaseMenu`1.OnExecute(`0)">
+            <summary>
+            Execute this menu.
+            </summary>
+            <param name="arg">The argument.</param>
+        </member>
         <member name="T:BEditor.Plugin.MenuLocation">
             <summary>
             Menu Location.
@@ -4912,24 +4945,9 @@
             Base class for the plugin menu.
             </summary>
         </member>
-        <member name="F:BEditor.Plugin.BasePluginMenu.MainWindowProperty">
-            <summary>
-            Defines the <see cref="P:BEditor.Plugin.BasePluginMenu.MainWindow"/> property.
-            </summary>
-        </member>
         <member name="F:BEditor.Plugin.BasePluginMenu.MenuLocationProperty">
             <summary>
             Defines the <see cref="P:BEditor.Plugin.BasePluginMenu.MenuLocation"/> property.
-            </summary>
-        </member>
-        <member name="E:BEditor.Plugin.BasePluginMenu.Executed">
-            <summary>
-            Occurs after the execution.
-            </summary>
-        </member>
-        <member name="P:BEditor.Plugin.BasePluginMenu.MainWindow">
-            <summary>
-            Gets or sets the main window.
             </summary>
         </member>
         <member name="P:BEditor.Plugin.BasePluginMenu.MenuLocation">
@@ -4946,6 +4964,31 @@
             <summary>
             Execute when the menu is clicked.
             </summary>
+        </member>
+        <member name="M:BEditor.Plugin.BasePluginMenu.OnExecute(System.Object)">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Plugin.FileMenu">
+            <summary>
+            Represents the custom file menu.
+            </summary>
+        </member>
+        <member name="F:BEditor.Plugin.FileMenu.SupportedExtensionsProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Plugin.FileMenu.SupportedExtensions"/> property.
+            </summary>
+        </member>
+        <member name="P:BEditor.Plugin.FileMenu.SupportedExtensions">
+            <summary>
+            Gets or sets the supported file extensions.
+            </summary>
+        </member>
+        <member name="M:BEditor.Plugin.FileMenu.IsMatch(System.String)">
+            <summary>
+            Check if the file matches.
+            </summary>
+            <param name="file">The name of file.</param>
+            <returns>true if the regular expression finds a match; otherwise, false.</returns>
         </member>
         <member name="T:BEditor.Plugin.PluginBuilder">
             <summary>
@@ -5027,6 +5070,13 @@
             Add the menu.
             </summary>
             <param name="header">The string to display in the menu header.</param>
+            <param name="menus">Menu to be set.</param>
+            <returns>The same instance of the <see cref="T:BEditor.Plugin.PluginBuilder"/> for chaining.</returns>
+        </member>
+        <member name="M:BEditor.Plugin.PluginBuilder.FileMenu(BEditor.Plugin.FileMenu)">
+            <summary>
+            Add the file menu.
+            </summary>
             <param name="menus">Menu to be set.</param>
             <returns>The same instance of the <see cref="T:BEditor.Plugin.PluginBuilder"/> for chaining.</returns>
         </member>
@@ -5134,6 +5184,11 @@
         <member name="P:BEditor.Plugin.PluginManager.BaseDirectory">
             <summary>
             Gets the base directory from which to retrieve plugins.
+            </summary>
+        </member>
+        <member name="P:BEditor.Plugin.PluginManager.FileMenus">
+            <summary>
+            Gets the file menus.
             </summary>
         </member>
         <member name="P:BEditor.Plugin.PluginManager.Menus">

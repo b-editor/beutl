@@ -29,6 +29,7 @@ namespace BEditor.Plugin
         private readonly List<EasingMetadata> _eases = new();
         private readonly List<PluginTask> _task = new();
         private readonly List<(string, IEnumerable<BasePluginMenu>)> _menus = new();
+        private readonly List<FileMenu> _fileMenus = new();
 
         private PluginBuilder(Func<PluginObject> create)
         {
@@ -171,6 +172,18 @@ namespace BEditor.Plugin
         }
 
         /// <summary>
+        /// Add the file menu.
+        /// </summary>
+        /// <param name="menus">Menu to be set.</param>
+        /// <returns>The same instance of the <see cref="PluginBuilder"/> for chaining.</returns>
+        public PluginBuilder FileMenu(FileMenu menus)
+        {
+            _fileMenus.Add(menus);
+
+            return this;
+        }
+
+        /// <summary>
         /// Register services into the <see cref="IServiceCollection"/>.
         /// </summary>
         /// <param name="configureServices">A delegate for configuring the <see cref="IServiceCollection"/>.</param>
@@ -208,10 +221,12 @@ namespace BEditor.Plugin
                 EasingMetadata.LoadedEasingFunc.Add(meta);
             }
 
-            foreach (var menu in _menus)
-            {
-                manager.Menus.Add(menu);
-            }
+            // プラグインメニューを追加
+            manager.Menus.AddRange(_menus);
+
+            // ファイルメニューを追加
+            if (_fileMenus.Count > 0)
+                manager.FileMenus.Add((instance.GetType().Assembly, _fileMenus));
 
             if (_task.Count is not 0)
             {

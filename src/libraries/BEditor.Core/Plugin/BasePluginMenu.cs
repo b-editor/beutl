@@ -5,8 +5,6 @@
 // This software may be modified and distributed under the terms
 // of the MIT license. See the LICENSE file for details.
 
-using System;
-
 using BEditor.Data;
 
 namespace BEditor.Plugin
@@ -40,33 +38,13 @@ namespace BEditor.Plugin
     /// <summary>
     /// Base class for the plugin menu.
     /// </summary>
-    public abstract class BasePluginMenu : EditingObject
+    public abstract class BasePluginMenu : BaseMenu<object?>
     {
-        /// <summary>
-        /// Defines the <see cref="MainWindow"/> property.
-        /// </summary>
-        public static readonly EditingProperty<object?> MainWindowProperty
-            = EditingProperty.Register<object?, BasePluginMenu>("MainWindow", EditingPropertyOptions<object?>.Create().Notify(true));
-
         /// <summary>
         /// Defines the <see cref="MenuLocation"/> property.
         /// </summary>
         public static readonly EditingProperty<MenuLocation> MenuLocationProperty
             = EditingProperty.Register<MenuLocation, BasePluginMenu>("MenuLocation", EditingPropertyOptions<MenuLocation>.Create().Notify(true));
-
-        /// <summary>
-        /// Occurs after the execution.
-        /// </summary>
-        public event EventHandler? Executed;
-
-        /// <summary>
-        /// Gets or sets the main window.
-        /// </summary>
-        public object? MainWindow
-        {
-            get => GetValue(MainWindowProperty);
-            set => SetValue(MainWindowProperty, value);
-        }
 
         /// <summary>
         /// Gets or sets the menu location.
@@ -82,13 +60,19 @@ namespace BEditor.Plugin
         /// </summary>
         public void Execute()
         {
-            OnExecute();
-            Executed?.Invoke(this, EventArgs.Empty);
+            Execute(null);
         }
 
         /// <summary>
         /// Execute when the menu is clicked.
         /// </summary>
         protected abstract void OnExecute();
+
+        /// <inheritdoc/>
+        protected sealed override void OnExecute(object? arg)
+        {
+            base.OnExecute(arg);
+            OnExecute();
+        }
     }
 }

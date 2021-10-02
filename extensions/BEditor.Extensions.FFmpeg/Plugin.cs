@@ -65,6 +65,7 @@ namespace BEditor.Extensions.FFmpeg
 
             builder.With(new RegisterdEncoding())
                 .With(new RegisterdDecoding())
+                .FileMenu(new OpenMediaInfo())
                 .Register();
         }
 
@@ -134,6 +135,43 @@ namespace BEditor.Extensions.FFmpeg
                 FFmpegLoader.FFmpegPath = dir;
                 FFmpegLoader.LoadFFmpeg();
             };
+        }
+
+        private sealed class OpenMediaInfo : FileMenu
+        {
+            public OpenMediaInfo()
+            {
+                Name = "Open media info";
+                SupportedExtensions = new string[]
+                {
+                    "*.mp3",
+                    "*.ogg",
+                    "*.wav",
+                    "*.aac",
+                    "*.wma",
+                    "*.m4a",
+                    "*.opus",
+
+                    "*.avi",
+                    "*.mov",
+                    "*.wmv",
+                    "*.mp4",
+                    "*.webm",
+                    "*.mkv",
+                    "*.flv",
+                    "*.264",
+                    "*.mpeg",
+                    "*.ts",
+                    "*.mts",
+                    "*.m2ts",
+                };
+            }
+
+            protected override void OnExecute(string arg)
+            {
+                base.OnExecute(arg);
+
+            }
         }
     }
 }

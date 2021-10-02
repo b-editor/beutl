@@ -51,6 +51,11 @@ namespace BEditor.Plugin
         public string BaseDirectory { get; } = ServicesLocator.GetPluginsFolder();
 
         /// <summary>
+        /// Gets the file menus.
+        /// </summary>
+        internal List<(Assembly Assembly, List<FileMenu> Menus)> FileMenus { get; } = new();
+
+        /// <summary>
         /// Gets the menus.
         /// </summary>
         internal List<(string Header, IEnumerable<BasePluginMenu> Items)> Menus { get; } = new();
