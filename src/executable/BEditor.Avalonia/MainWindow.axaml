@@ -56,7 +56,7 @@
                     <Setter Property="Background" Value="Transparent" />
                 </Style>
 
-                <Style Selector="PathIcon.objectmetadata">
+                <!--<Style Selector="PathIcon.objectmetadata">
                     <Setter Property="VerticalAlignment" Value="Center" />
                     <Setter Property="Template">
                         <ControlTemplate>
@@ -75,7 +75,7 @@
                 </Style>
                 <Style Selector="PathIcon.objectmetadata:pointerover">
                     <Setter Property="Background" Value="{DynamicResource ButtonBackgroundPointerOver}" />
-                </Style>
+                </Style>-->
 
                 <Style Selector="ComboBox">
                     <Setter Property="BorderBrush" Value="Transparent" />
@@ -188,11 +188,17 @@
                 <ItemsControl Items="{Binding Source={x:Static data:ObjectMetadata.LoadedObjects}, Converter={StaticResource EnumerableTakeConverter}, ConverterParameter=8}">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
-                            <PathIcon
-                                PointerPressed="ObjectStartDrag"
-                                Foreground="{Binding AccentColor, Converter={StaticResource ColorToSolidColorBrushConverter}, Mode=OneTime}"
-                                Classes="objectmetadata"
-                                Data="{Binding PathIcon, Mode=OneTime, Converter={StaticResource StringToGeometoryConverter}}" />
+                            <Border Padding="8" CornerRadius="{DynamicResource ControlCornerRadius}" Classes="Overlay">
+                                <Border.Styles>
+                                    <Style Selector="Border.Overlay:pointerover">
+                                        <Setter Property="Background" Value="{DynamicResource ButtonBackgroundPointerOver}" />
+                                    </Style>
+                                </Border.Styles>
+                                <PathIcon
+                                    PointerPressed="ObjectStartDrag"
+                                    Foreground="{Binding AccentColor, Converter={StaticResource ColorToSolidColorBrushConverter}, Mode=OneTime}"
+                                    Data="{Binding PathIcon, Mode=OneTime, Converter={StaticResource StringToGeometoryConverter}}" />
+                            </Border>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                     <ItemsControl.ItemsPanel>
@@ -226,24 +232,6 @@
                                             </Style>
                                             <Style Selector="Grid:pointerover">
                                                 <Setter Property="Background" Value="{DynamicResource ButtonBackgroundPointerOver}" />
-                                            </Style>
-                                            <Style Selector="PathIcon">
-                                                <Setter Property="Foreground" Value="{DynamicResource TextControlForeground}" />
-                                                <Setter Property="Background" Value="Transparent" />
-                                                <Setter Property="Height" Value="{DynamicResource IconElementThemeHeight}" />
-                                                <Setter Property="Width" Value="{DynamicResource IconElementThemeWidth}" />
-                                                <Setter Property="Template">
-                                                    <ControlTemplate>
-                                                        <Border Background="{TemplateBinding Background}">
-                                                            <Viewbox Height="{TemplateBinding Height}"
-                                                                     Width="{TemplateBinding Width}">
-                                                                <Path Fill="{TemplateBinding Foreground}"
-                                                                      Data="{TemplateBinding Data}"
-                                                                      Stretch="Uniform" />
-                                                            </Viewbox>
-                                                        </Border>
-                                                    </ControlTemplate>
-                                                </Setter>
                                             </Style>
                                         </Grid.Styles>
 

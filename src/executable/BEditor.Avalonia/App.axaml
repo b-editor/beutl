@@ -103,52 +103,6 @@
             </Setter>
         </Style>
 
-        <!--https://github.com/amwx/FluentAvalonia/blob/master/FluentAvalonia/Styling/Controls/NumberBoxStyle.axaml#L74-->
-        <Style Selector="TextBox.NumberBoxTextBoxStyle">
-            <Setter Property="Foreground" Value="{DynamicResource TextControlForeground}" />
-        </Style>
-
-        <Style Selector="ContextMenu">
-
-            <Style.Resources>
-                <!-- Added missing resource -->
-                <Thickness x:Key="MenuFlyoutScrollerMargin">4</Thickness>
-            </Style.Resources>
-
-            <Setter Property="Background" Value="{DynamicResource MenuFlyoutPresenterBackground}" />
-            <Setter Property="BorderBrush" Value="{DynamicResource MenuFlyoutPresenterBorderBrush}" />
-            <Setter Property="BorderThickness" Value="{DynamicResource MenuFlyoutPresenterBorderThemeThickness}" />
-            <Setter Property="MaxWidth" Value="{DynamicResource FlyoutThemeMaxWidth}" />
-            <Setter Property="MinHeight" Value="{DynamicResource MenuFlyoutThemeMinHeight}" />
-            <Setter Property="Padding" Value="{DynamicResource MenuFlyoutPresenterThemePadding}" />
-            <Setter Property="HorizontalAlignment" Value="Stretch" />
-            <Setter Property="TextBlock.FontSize" Value="{DynamicResource ControlContentThemeFontSize}" />
-            <Setter Property="TextBlock.FontWeight" Value="Normal" />
-            <Setter Property="WindowManagerAddShadowHint" Value="False" />
-            <Setter Property="Template">
-                <ControlTemplate>
-                    <Border Background="{TemplateBinding Background}"
-                            BorderBrush="{TemplateBinding BorderBrush}"
-                            BorderThickness="{TemplateBinding BorderThickness}"
-                            Padding="{TemplateBinding Padding}"
-                            MaxWidth="{TemplateBinding MaxWidth}"
-                            MinHeight="{TemplateBinding MinHeight}"
-                            HorizontalAlignment="{TemplateBinding HorizontalAlignment}"
-                            CornerRadius="{DynamicResource OverlayCornerRadius}">
-                        <ScrollViewer Classes="menuscroller">
-                            <ItemsPresenter Name="PART_ItemsPresenter"
-                                            Items="{TemplateBinding Items}"
-                                            ItemsPanel="{TemplateBinding ItemsPanel}"
-                                            ItemTemplate="{TemplateBinding ItemTemplate}"
-                                            Margin="{DynamicResource MenuFlyoutScrollerMargin}"
-                                            KeyboardNavigation.TabNavigation="Continue"
-                                            Grid.IsSharedSizeScope="True" />
-                        </ScrollViewer>
-                    </Border>
-                </ControlTemplate>
-            </Setter>
-        </Style>
-
         <Style Selector="Border.card">
             <Setter Property="BorderBrush" Value="{DynamicResource ControlElevationBorderBrush}" />
             <Setter Property="BorderThickness" Value="1" />

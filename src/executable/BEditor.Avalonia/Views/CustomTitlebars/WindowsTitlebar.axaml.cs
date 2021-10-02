@@ -152,7 +152,7 @@ namespace BEditor.Views.CustomTitlebars
                             {
                                 if (s is MenuItem item && item.DataContext is BasePluginMenu cmenu)
                                 {
-                                    cmenu.MainWindow = item.GetVisualRoot();
+                                    cmenu.MainWindow = VisualRoot;
                                     cmenu.Execute();
 
                                     if (cmenu.MenuLocation != MenuLocation.Default)
