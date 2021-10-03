@@ -15,6 +15,9 @@
                 <Setter Property="FontSize" Value="16" />
                 <Setter Property="Padding" Value="8" />
             </Style>
+            <Style Selector="TextBox.Editor">
+                <Setter Property="MaxWidth" Value="180"/>
+            </Style>
         </TabControl.Styles>
         <TabItem Header="Streams">
             <ScrollViewer>
@@ -245,8 +248,123 @@
                 </ItemsControl>
             </ScrollViewer>
         </TabItem>
-        <TabItem Header="Format">
+        <TabItem Header="Format" DataContext="{Binding Format}">
+            <ScrollViewer Background="{DynamicResource ControlFillColorDefaultBrush}">
+                <StackPanel Margin="8" Spacing="16">
 
+                    <Panel>
+                        <TextBlock Text="Filename" VerticalAlignment="Center" />
+
+                        <TextBox
+                            IsReadOnly="True"
+                            Text="{Binding Format.Filename}"
+                            Classes="Editor"/>
+                    </Panel>
+
+                    <Panel>
+                        <TextBlock Text="NbStreams" VerticalAlignment="Center" />
+
+                        <TextBox
+                            IsReadOnly="True"
+                            Text="{Binding Format.NbStreams}"
+                            Classes="Editor"/>
+                    </Panel>
+
+                    <Panel>
+                        <TextBlock Text="NbPrograms" VerticalAlignment="Center" />
+
+                        <TextBox
+                            IsReadOnly="True"
+                            Text="{Binding Format.NbPrograms}"
+                            Classes="Editor"/>
+                    </Panel>
+
+                    <Panel>
+                        <TextBlock Text="FormatName" VerticalAlignment="Center" />
+
+                        <TextBox
+                            IsReadOnly="True"
+                            Text="{Binding Format.FormatName}"
+                            Classes="Editor"/>
+                    </Panel>
+
+                    <Panel>
+                        <TextBlock Text="FormatLongName" VerticalAlignment="Center" />
+
+                        <TextBox
+                            IsReadOnly="True"
+                            Text="{Binding Format.FormatLongName}"
+                            Classes="Editor"/>
+                    </Panel>
+
+                    <Panel>
+                        <TextBlock Text="StartTime" VerticalAlignment="Center" />
+
+                        <TextBox
+                            IsReadOnly="True"
+                            Text="{Binding Format.StartTime}"
+                            Classes="Editor"/>
+                    </Panel>
+
+                    <Panel>
+                        <TextBlock Text="Duration" VerticalAlignment="Center" />
+
+                        <TextBox
+                            IsReadOnly="True"
+                            Text="{Binding Format.Duration}"
+                            Classes="Editor"/>
+                    </Panel>
+
+                    <Panel>
+                        <TextBlock Text="Size" VerticalAlignment="Center" />
+
+                        <TextBox
+                            IsReadOnly="True"
+                            Text="{Binding Format.Size}"
+                            Classes="Editor"/>
+                    </Panel>
+
+                    <Panel>
+                        <TextBlock Text="BitRate" VerticalAlignment="Center" />
+
+                        <TextBox
+                            IsReadOnly="True"
+                            Text="{Binding Format.BitRate}"
+                            Classes="Editor"/>
+                    </Panel>
+
+                    <Panel>
+                        <TextBlock Text="ProbeScore" VerticalAlignment="Center" />
+
+                        <TextBox
+                            IsReadOnly="True"
+                            Text="{Binding Format.ProbeScore}"
+                            Classes="Editor"/>
+                    </Panel>
+
+                    <TextBlock Text="Tags" VerticalAlignment="Center" Classes="Header2" />
+
+                    <ItemsControl Items="{Binding Format.Tags}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Panel>
+                                    <TextBlock Text="{Binding Key}" VerticalAlignment="Center" />
+
+                                    <TextBox
+                                        IsReadOnly="True"
+                                        Text="{Binding Value}"
+                                        Classes="Editor"/>
+                                </Panel>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Spacing="16" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                    </ItemsControl>
+                </StackPanel>
+            </ScrollViewer>
         </TabItem>
     </TabControl>
 </ctr:FluentWindow>
