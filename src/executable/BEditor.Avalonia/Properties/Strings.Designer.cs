@@ -559,6 +559,15 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Could not create folder. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string CouldNotCreateFolder {
+            get {
+                return ResourceManager.GetString("CouldNotCreateFolder", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Could not create the package. に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string CouldNotCreatePackage {
@@ -1379,6 +1388,15 @@ namespace BEditor.Properties {
         public static string New {
             get {
                 return ResourceManager.GetString("New", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   New folder に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string NewFolder {
+            get {
+                return ResourceManager.GetString("NewFolder", resourceCulture);
             }
         }
         

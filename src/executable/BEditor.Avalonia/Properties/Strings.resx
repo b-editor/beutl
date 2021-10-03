@@ -970,4 +970,10 @@ Do you want to remove it from the list?</value>
   <data name="RecentProject" xml:space="preserve">
     <value>RecentProject</value>
   </data>
+  <data name="CouldNotCreateFolder" xml:space="preserve">
+    <value>Could not create folder.</value>
+  </data>
+  <data name="NewFolder" xml:space="preserve">
+    <value>New folder</value>
+  </data>
 </root>

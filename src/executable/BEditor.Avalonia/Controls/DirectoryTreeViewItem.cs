@@ -27,7 +27,11 @@ using BEditor.Views.DialogContent;
 
 using FluentAvalonia.UI.Controls;
 
+using Microsoft.Extensions.Logging;
+
 using static BEditor.IMessage;
+
+using Button = Avalonia.Controls.Button;
 
 namespace BEditor.Controls
 {
@@ -43,6 +47,7 @@ namespace BEditor.Controls
         private readonly MenuItem _addScene;
         private readonly MenuItem _addClip;
         private readonly MenuItem _addEffect;
+        private readonly MenuItem _addfolder;
         private readonly List<object> _menuItem;
 
         public ProjectTreeView(Project project, FileSystemWatcher watcher)
@@ -56,6 +61,10 @@ namespace BEditor.Controls
             _watcher.Renamed += Watcher_Renamed;
             _watcher.Deleted += Watcher_Deleted;
             _watcher.Created += Watcher_Created;
+
+            AddHandler(DragDrop.DropEvent, ProjectTreeView_Drop);
+            AddHandler(DragDrop.DragOverEvent, ProjectTreeView_DragOver);
+            DragDrop.SetAllowDrop(this, true);
 
             _open = new MenuItem
             {
@@ -84,9 +93,18 @@ namespace BEditor.Controls
                     FontSize = 20,
                 }
             };
-            _addScene = new MenuItem { Header = Strings.AddScene };
-            _addClip = new MenuItem { Header = Strings.AddClip };
-            _addEffect = new MenuItem { Header = Strings.AddEffect };
+            _addScene = new MenuItem { Header = Strings.Scene };
+            _addClip = new MenuItem { Header = Strings.Clip };
+            _addEffect = new MenuItem { Header = Strings.Effect };
+            _addfolder = new MenuItem
+            {
+                Header = Strings.NewFolder,
+                Icon = new SymbolIcon
+                {
+                    Symbol = Symbol.Folder,
+                    FontSize = 20,
+                }
+            };
 
             _open.Click += Open;
             _copy.Click += Copy;
@@ -94,6 +112,7 @@ namespace BEditor.Controls
             _addScene.Click += AddScene;
             _addClip.Click += AddClip;
             _addEffect.Click += AddEffect;
+            _addfolder.Click += AddDirectory;
 
             _menuItem = new List<object>
             {
@@ -106,6 +125,7 @@ namespace BEditor.Controls
                         _addScene,
                         _addClip,
                         _addEffect,
+                        _addfolder,
                     },
                 },
                 _copy,
@@ -311,6 +331,44 @@ namespace BEditor.Controls
             }
         }
 
+        private async void AddDirectory(object? sender, RoutedEventArgs e)
+        {
+            var baseDir = _directoryInfo.FullName;
+            if (SelectedItem is DirectoryTreeItem directoryTree)
+            {
+                baseDir = directoryTree.Info.FullName;
+            }
+            else if (SelectedItem is FileTreeItem fileTree && fileTree.Info.DirectoryName != null)
+            {
+                baseDir = fileTree.Info.DirectoryName;
+            }
+
+            var count = 1;
+            foreach (var item in Directory.EnumerateDirectories(baseDir))
+            {
+                if (Path.GetFileNameWithoutExtension(item) == $"Directory{count}")
+                {
+                    count++;
+                }
+            }
+
+            var dialog = new AddDirectoryDialog(Path.GetRelativePath(_directoryInfo.FullName, Path.Combine(baseDir, $"Directory{count}")));
+            var dir = await dialog.ShowDialog<string?>((Window)VisualRoot!);
+
+            if (dir != null)
+            {
+                try
+                {
+                    Directory.CreateDirectory(Path.GetFullPath(dir, _directoryInfo.FullName));
+                }
+                catch (Exception ex)
+                {
+                    AppModel.Current.Message.Snackbar(Strings.CouldNotCreateFolder, string.Empty, icon: IconType.Error);
+                    ServicesLocator.Current.Logger.LogError(ex, Strings.CouldNotCreateFolder);
+                }
+            }
+        }
+
         private async void AddScene(object? s, RoutedEventArgs e)
         {
             if (VisualRoot is Window window)
@@ -422,6 +480,36 @@ namespace BEditor.Controls
             });
         }
 
+        private void ProjectTreeView_DragOver(object? sender, DragEventArgs e)
+        {
+            if (e.Data.Contains(DataFormats.FileNames))
+            {
+                e.DragEffects = DragDropEffects.Copy;
+            }
+        }
+
+        private void ProjectTreeView_Drop(object? sender, DragEventArgs e)
+        {
+            if (e.Data.Contains(DataFormats.FileNames) && e.Source is ILogical logical)
+            {
+                e.DragEffects = DragDropEffects.Copy;
+
+                var treeViewItem = logical.FindLogicalAncestorOfType<TreeViewItem>();
+                var baseDir = _directoryInfo.FullName;
+
+                if (treeViewItem is DirectoryTreeItem directoryTreeItem)
+                    baseDir = directoryTreeItem.Info.FullName;
+                else if (treeViewItem is FileTreeItem fileTree && fileTree.Info.DirectoryName != null)
+                    baseDir = fileTree.Info.DirectoryName;
+
+                foreach (var src in e.Data.GetFileNames() ?? Enumerable.Empty<string>())
+                {
+                    var dst = Path.Combine(baseDir, Path.GetFileName(src));
+                    File.Copy(src, dst);
+                }
+            }
+        }
+
         //サブフォルダツリー追加
         public void AddSubDirectory()
         {
@@ -470,7 +558,7 @@ namespace BEditor.Controls
             {
                 if (i.Header is string header)
                     return header;
-                
+
                 else if (i.Header is TextBlock tb)
                     return tb.Text;
 
@@ -480,7 +568,7 @@ namespace BEditor.Controls
             {
                 if (i.Header is string header)
                     return header;
-                
+
                 else if (i.Header is TextBlock tb)
                     return tb.Text;
 
@@ -493,6 +581,71 @@ namespace BEditor.Controls
             foreach (var item in dirArray.OfType<DirectoryTreeItem>())
             {
                 item.Sort();
+            }
+        }
+
+        private sealed class AddDirectoryDialog : FluentWindow
+        {
+            private readonly TextBox _textBox;
+
+            public AddDirectoryDialog(string text)
+            {
+                CanResize = false;
+                Classes.Add("fluent");
+                SizeToContent = SizeToContent.WidthAndHeight;
+
+                var addButton = new Button
+                {
+                    Classes = { "accent" },
+                    Content = Strings.Add,
+                };
+                var cancelButton = new Button
+                {
+                    Content = Strings.Cancel,
+                };
+                _textBox = new TextBox
+                {
+                    HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch,
+                    Text = text,
+                    Margin = new(8),
+                };
+                Content = new Grid
+                {
+                    RowDefinitions =
+                    {
+                        new RowDefinition(),
+                        new RowDefinition(),
+                    },
+                    Children =
+                    {
+                        _textBox,
+                        new StackPanel
+                        {
+                            [Grid.RowProperty] = 1,
+                            Orientation = Avalonia.Layout.Orientation.Horizontal,
+                            Spacing = 8,
+                            Margin = new(8),
+                            Children =
+                            {
+                                addButton,
+                                cancelButton,
+                            }
+                        }
+                    }
+                };
+
+                addButton.Click += AddButton_Click;
+                cancelButton.Click += CancelButton_Click;
+            }
+
+            private void CancelButton_Click(object? sender, RoutedEventArgs e)
+            {
+                Close(null);
+            }
+
+            private void AddButton_Click(object? sender, RoutedEventArgs e)
+            {
+                Close(_textBox.Text);
             }
         }
     }
@@ -508,15 +661,6 @@ namespace BEditor.Controls
             DoubleTapped += FileTreeItem_DoubleTapped;
         }
 
-        private void FileTreeItem_DoubleTapped(object? sender, RoutedEventArgs e)
-        {
-            Refresh();
-            Process.Start(new ProcessStartInfo(Info.FullName)
-            {
-                UseShellExecute = true,
-            });
-        }
-
         public FileInfo Info
         {
             get => _info;
@@ -528,6 +672,12 @@ namespace BEditor.Controls
         }
 
         Type IStyleable.StyleKey => typeof(TreeViewItem);
+
+        public void Refresh()
+        {
+            Info.Refresh();
+            Header = Info.Name;
+        }
 
         protected override void OnPointerPressed(PointerPressedEventArgs e)
         {
@@ -546,10 +696,13 @@ namespace BEditor.Controls
             }
         }
 
-        public void Refresh()
+        private void FileTreeItem_DoubleTapped(object? sender, RoutedEventArgs e)
         {
-            Info.Refresh();
-            Header = Info.Name;
+            Refresh();
+            Process.Start(new ProcessStartInfo(Info.FullName)
+            {
+                UseShellExecute = true,
+            });
         }
     }
 
@@ -585,6 +738,59 @@ namespace BEditor.Controls
             {
                 _info = value;
                 Header = _info.Name;
+            }
+        }
+
+        Type IStyleable.StyleKey => typeof(TreeViewItem);
+
+        //サブフォルダツリー追加
+        public void AddSubDirectory()
+        {
+            Refresh();
+            //すべてのサブフォルダを追加
+            foreach (var item in Info.GetDirectories().Where(i => !i.Attributes.HasAnyFlag(FileAttributes.Hidden | FileAttributes.System)))
+            {
+                _items.Add(new DirectoryTreeItem(item, _watcher));
+            }
+
+            // 全てのファイル追加
+            foreach (var item in Info.GetFiles().Where(i => !i.Attributes.HasAnyFlag(FileAttributes.Hidden | FileAttributes.System)))
+            {
+                _items.Add(new FileTreeItem(item));
+            }
+
+            _isAdd = true;
+        }
+
+        public void Sort()
+        {
+            var fileArray = _items.Where(i => i is not DirectoryTreeItem).OrderBy(i =>
+            {
+                if (i.Header is string header)
+                    return header;
+
+                else if (i.Header is TextBlock tb)
+                    return tb.Text;
+
+                return i.Header.ToString();
+            }).ToArray();
+            var dirArray = _items.Where(i => i is DirectoryTreeItem).OrderBy(i =>
+            {
+                if (i.Header is string header)
+                    return header;
+
+                else if (i.Header is TextBlock tb)
+                    return tb.Text;
+
+                return i.Header.ToString();
+            }).ToArray();
+            _items.Clear();
+            _items.AddRange(dirArray);
+            _items.AddRange(fileArray);
+
+            foreach (var item in dirArray.OfType<DirectoryTreeItem>())
+            {
+                item.Sort();
             }
         }
 
@@ -671,59 +877,6 @@ namespace BEditor.Controls
 
                 Sort();
             });
-        }
-
-        Type IStyleable.StyleKey => typeof(TreeViewItem);
-
-        //サブフォルダツリー追加
-        public void AddSubDirectory()
-        {
-            Refresh();
-            //すべてのサブフォルダを追加
-            foreach (var item in Info.GetDirectories().Where(i => !i.Attributes.HasAnyFlag(FileAttributes.Hidden | FileAttributes.System)))
-            {
-                _items.Add(new DirectoryTreeItem(item, _watcher));
-            }
-
-            // 全てのファイル追加
-            foreach (var item in Info.GetFiles().Where(i => !i.Attributes.HasAnyFlag(FileAttributes.Hidden | FileAttributes.System)))
-            {
-                _items.Add(new FileTreeItem(item));
-            }
-
-            _isAdd = true;
-        }
-
-        public void Sort()
-        {
-            var fileArray = _items.Where(i => i is not DirectoryTreeItem).OrderBy(i =>
-            {
-                if (i.Header is string header)
-                    return header;
-
-                else if (i.Header is TextBlock tb)
-                    return tb.Text;
-
-                return i.Header.ToString();
-            }).ToArray();
-            var dirArray = _items.Where(i => i is DirectoryTreeItem).OrderBy(i =>
-            {
-                if (i.Header is string header)
-                    return header;
-
-                else if (i.Header is TextBlock tb)
-                    return tb.Text;
-
-                return i.Header.ToString();
-            }).ToArray();
-            _items.Clear();
-            _items.AddRange(dirArray);
-            _items.AddRange(fileArray);
-
-            foreach (var item in dirArray.OfType<DirectoryTreeItem>())
-            {
-                item.Sort();
-            }
         }
     }
 }

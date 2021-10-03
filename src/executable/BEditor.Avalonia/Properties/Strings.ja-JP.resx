@@ -970,4 +970,10 @@ Vulkan:
   <data name="RecentProject" xml:space="preserve">
     <value>最近使ったプロジェクト</value>
   </data>
+  <data name="CouldNotCreateFolder" xml:space="preserve">
+    <value>フォルダーを作成できませんでした。</value>
+  </data>
+  <data name="NewFolder" xml:space="preserve">
+    <value>新しいフォルダー</value>
+  </data>
 </root>
