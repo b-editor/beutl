@@ -1,13 +1,19 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Net.Http;
 using System.Reflection;
 using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
 
+using Avalonia.Controls;
+
+using BEditor.Extensions.FFmpeg.FFProbe;
+using BEditor.Extensions.FFmpeg.Views;
 using BEditor.Plugin;
 
 using FFMediaToolkit;
@@ -65,6 +71,7 @@ namespace BEditor.Extensions.FFmpeg
 
             builder.With(new RegisterdEncoding())
                 .With(new RegisterdDecoding())
+                .FileMenu(new OpenMediaInfo())
                 .Register();
         }
 
@@ -134,6 +141,69 @@ namespace BEditor.Extensions.FFmpeg
                 FFmpegLoader.FFmpegPath = dir;
                 FFmpegLoader.LoadFFmpeg();
             };
+        }
+
+        private sealed class OpenMediaInfo : FileMenu
+        {
+            public OpenMediaInfo()
+            {
+                Name = "Open media info";
+                SupportedExtensions = new string[]
+                {
+                    "*.mp3",
+                    "*.ogg",
+                    "*.wav",
+                    "*.aac",
+                    "*.wma",
+                    "*.m4a",
+                    "*.opus",
+
+                    "*.avi",
+                    "*.mov",
+                    "*.wmv",
+                    "*.mp4",
+                    "*.webm",
+                    "*.mkv",
+                    "*.flv",
+                    "*.264",
+                    "*.mpeg",
+                    "*.ts",
+                    "*.mts",
+                    "*.m2ts",
+                };
+            }
+
+            protected override void OnExecute(string arg)
+            {
+                base.OnExecute(arg);
+
+                var bin = FFmpegExecutable.GetFFprobe();
+                var startInfo = new ProcessStartInfo(
+                    bin,
+                    $"-loglevel error -print_format json -show_format -sexagesimal -show_streams \"{arg}\"")
+                {
+                    CreateNoWindow = true,
+                    RedirectStandardOutput = true,
+                };
+
+                var process = Process.Start(startInfo);
+                if (process != null)
+                {
+                    var analysis = JsonSerializer.Deserialize<FFProbeAnalysis>(process.StandardOutput.ReadToEnd());
+                    if (analysis != null)
+                    {
+                        var window = new MediaInfo()
+                        {
+                            DataContext = analysis
+                        };
+
+                        if (MainWindow is Window parent)
+                            window.Show(parent);
+                        else
+                            window.Show();
+                    }
+                }
+            }
         }
     }
 }

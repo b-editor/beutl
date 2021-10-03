@@ -9,7 +9,6 @@
     WindowStartupLocation="CenterScreen"
     CanResize="False"
     Classes="fluent"
-    Background="{StaticResource NavigationViewContentBackground}"
     x:Class="BEditor.Views.DialogContent.ProgressDialog">
     <Grid RowDefinitions="*,*,Auto">
 

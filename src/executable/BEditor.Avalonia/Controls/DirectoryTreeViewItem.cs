@@ -20,6 +20,7 @@ using Avalonia.Threading;
 
 using BEditor.Data;
 using BEditor.Models;
+using BEditor.Plugin;
 using BEditor.Properties;
 using BEditor.ViewModels.DialogContent;
 using BEditor.Views.DialogContent;
@@ -42,6 +43,7 @@ namespace BEditor.Controls
         private readonly MenuItem _addScene;
         private readonly MenuItem _addClip;
         private readonly MenuItem _addEffect;
+        private readonly List<object> _menuItem;
 
         public ProjectTreeView(Project project, FileSystemWatcher watcher)
         {
@@ -93,33 +95,82 @@ namespace BEditor.Controls
             _addClip.Click += AddClip;
             _addEffect.Click += AddEffect;
 
+            _menuItem = new List<object>
+            {
+                _open,
+                new MenuItem
+                {
+                    Header = Strings.Add,
+                    Items = new object[]
+                    {
+                        _addScene,
+                        _addClip,
+                        _addEffect,
+                    },
+                },
+                _copy,
+                _remove,
+            };
+
+            _menuItem.Add(new Separator());
+
+            foreach (var (asm, menus) in PluginManager.Default.FileMenus)
+            {
+                foreach (var menu in menus)
+                {
+                    var menuItem = new MenuItem
+                    {
+                        Header = menu.Name,
+                        DataContext = menu,
+                    };
+
+                    menuItem.Click += PluginFileMenu_Click;
+
+                    _menuItem.Add(menuItem);
+                }
+            }
+
             ContextMenu = new ContextMenu
             {
-                Items = new object[]
-                {
-                    _open,
-                    new MenuItem
-                    {
-                        Header = Strings.Add,
-                        Items = new object[]
-                        {
-                            _addScene,
-                            _addClip,
-                            _addEffect,
-                        },
-                    },
-                    _copy,
-                    _remove,
-                }
+                Items = _menuItem
             };
 
             ContextMenu.ContextMenuOpening += ContextMenu_ContextMenuOpening;
+        }
+
+        private void PluginFileMenu_Click(object? sender, RoutedEventArgs e)
+        {
+            if (SelectedItem is FileTreeItem fileTree
+                && sender is MenuItem menuItem
+                && menuItem.DataContext is FileMenu fileMenu)
+            {
+                fileMenu.MainWindow = VisualRoot;
+                fileMenu.Execute(fileTree.Info.FullName);
+            }
         }
 
         private void ContextMenu_ContextMenuOpening(object sender, System.ComponentModel.CancelEventArgs e)
         {
             _remove.IsEnabled = CanRemove();
             _open.IsEnabled = CanOpen();
+
+            if (SelectedItem is FileTreeItem fileTree)
+            {
+                foreach (var (menu, model) in _menuItem.OfType<MenuItem>()
+                    .Where(i => i.DataContext is FileMenu)
+                    .Select(i => (Menu: i, Model: (FileMenu)i.DataContext!)))
+                {
+                    menu.IsVisible = model.IsMatch(fileTree.Info.FullName);
+                }
+            }
+            else
+            {
+                foreach (var menu in _menuItem.OfType<MenuItem>()
+                    .Where(i => i.DataContext is FileMenu))
+                {
+                    menu.IsVisible = false;
+                }
+            }
         }
 
         Type IStyleable.StyleKey => typeof(TreeView);
@@ -322,6 +373,8 @@ namespace BEditor.Controls
                         _items.Add(new FileTreeItem(new FileInfo(e.FullPath)));
                     }
                 }
+
+                Sort();
             });
         }
 
@@ -364,6 +417,8 @@ namespace BEditor.Controls
                         file.Info = new FileInfo(e.FullPath);
                     }
                 }
+
+                Sort();
             });
         }
 
@@ -406,6 +461,38 @@ namespace BEditor.Controls
                 {
                     _items.Add(new FileTreeItem(item));
                 }
+            }
+        }
+
+        public void Sort()
+        {
+            var fileArray = _items.Where(i => i is not DirectoryTreeItem).OrderBy(i =>
+            {
+                if (i.Header is string header)
+                    return header;
+                
+                else if (i.Header is TextBlock tb)
+                    return tb.Text;
+
+                return i.Header.ToString();
+            }).ToArray();
+            var dirArray = _items.Where(i => i is DirectoryTreeItem).OrderBy(i =>
+            {
+                if (i.Header is string header)
+                    return header;
+                
+                else if (i.Header is TextBlock tb)
+                    return tb.Text;
+
+                return i.Header.ToString();
+            }).ToArray();
+            _items.Clear();
+            _items.AddRange(dirArray);
+            _items.AddRange(fileArray);
+
+            foreach (var item in dirArray.OfType<DirectoryTreeItem>())
+            {
+                item.Sort();
             }
         }
     }
@@ -534,6 +621,8 @@ namespace BEditor.Controls
                     {
                         _items.Add(new FileTreeItem(new FileInfo(e.FullPath)));
                     }
+
+                    Sort();
                 }
             });
         }
@@ -579,6 +668,8 @@ namespace BEditor.Controls
                         file.Info = new FileInfo(e.FullPath);
                     }
                 }
+
+                Sort();
             });
         }
 
@@ -601,6 +692,38 @@ namespace BEditor.Controls
             }
 
             _isAdd = true;
+        }
+
+        public void Sort()
+        {
+            var fileArray = _items.Where(i => i is not DirectoryTreeItem).OrderBy(i =>
+            {
+                if (i.Header is string header)
+                    return header;
+
+                else if (i.Header is TextBlock tb)
+                    return tb.Text;
+
+                return i.Header.ToString();
+            }).ToArray();
+            var dirArray = _items.Where(i => i is DirectoryTreeItem).OrderBy(i =>
+            {
+                if (i.Header is string header)
+                    return header;
+
+                else if (i.Header is TextBlock tb)
+                    return tb.Text;
+
+                return i.Header.ToString();
+            }).ToArray();
+            _items.Clear();
+            _items.AddRange(dirArray);
+            _items.AddRange(fileArray);
+
+            foreach (var item in dirArray.OfType<DirectoryTreeItem>())
+            {
+                item.Sort();
+            }
         }
     }
 }
