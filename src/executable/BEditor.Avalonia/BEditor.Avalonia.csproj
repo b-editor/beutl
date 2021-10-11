@@ -18,7 +18,7 @@
     <Import Project="..\..\..\props\Roslynator.props" />
 
     <ItemGroup>
-        <PackageReference Include="Avalonia.Controls.PanAndZoom" Version="4.0.0" />
+        <PackageReference Include="Avalonia.Controls.PanAndZoom" Version="4.2.0" />
     </ItemGroup>
 
     <ItemGroup>

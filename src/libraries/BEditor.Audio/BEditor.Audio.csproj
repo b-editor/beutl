@@ -22,4 +22,8 @@
         </EmbeddedResource>
     </ItemGroup>
 
+    <ItemGroup>
+      <PackageReference Update="Vortice.XAudio2" Version="1.9.143" />
+    </ItemGroup>
+
 </Project>
