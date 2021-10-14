@@ -8,9 +8,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
-using Avalonia.Layout;
 using Avalonia.Markup.Xaml;
-using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
@@ -197,7 +195,10 @@ namespace BEditor.Views.Properties
             else if (e.Action is NotifyCollectionChangedAction.Replace)
             {
                 var num = (NumericUpDown)_stackPanel.Children[e.NewStartingIndex];
-                num.Value = _property.Pairs[e.NewStartingIndex].Value;
+                var value = _property.Pairs[e.NewStartingIndex].Value;
+
+                if (num.Value != value)
+                    num.Value = value;
             }
         }
 
@@ -258,8 +259,10 @@ namespace BEditor.Views.Properties
         {
             var num = (NumericUpDown)sender!;
             var index = num.GetValue(AttachmentProperty.IntProperty);
+            var value = _property.Clamp((float)e.NewValue);
 
-            _property.Pairs[index] = _property.Pairs[index].WithValue(_property.Clamp((float)e.NewValue));
+            if (_property.Pairs[index].Value != value)
+                _property.Pairs[index] = _property.Pairs[index].WithValue(value);
 
             await (AppModel.Current.Project!).PreviewUpdateAsync(_property.GetParent<ClipElement>()!);
         }
