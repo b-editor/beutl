@@ -272,10 +272,6 @@
             </StackPanel>
 
             <StackPanel HorizontalAlignment="Right" Grid.Column="1" Spacing="4" Orientation="Horizontal">
-                <TextBlock
-                    VerticalAlignment="Center"
-                    IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}"
-                    Text="{Binding App.Project.CurrentScene.PreviewFrame, Mode=OneWay, Converter={StaticResource FrameToTimeConverter}}" />
 
                 <Button Click="ShowNotifications" Padding="0">
                     <Panel>

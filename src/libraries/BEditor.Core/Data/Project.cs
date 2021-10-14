@@ -142,7 +142,7 @@ namespace BEditor.Data
         /// </summary>
         public Scene CurrentScene
         {
-            get => _currentScene ??= SceneList[CurrentSceneIndex];
+            get => _currentScene ??= CurrentSceneIndex >= 0 ? SceneList[CurrentSceneIndex] : SceneList.First();
             set
             {
                 SetAndRaise(CurrentSceneProperty, ref _currentScene!, value);
