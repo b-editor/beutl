@@ -216,6 +216,12 @@ namespace BEditor.Primitive.Objects
                     _resource = null;
                 }
             });
+
+            var clip = this.GetParent<ClipElement>();
+            if (clip != null)
+            {
+                clip.Splitted += Clip_Splitted;
+            }
         }
 
         /// <inheritdoc/>
@@ -227,11 +233,28 @@ namespace BEditor.Primitive.Objects
             _disposable = null;
             _disposable1 = null;
             _resource = null;
+
+            var clip = this.GetParent<ClipElement>();
+            if (clip != null)
+            {
+                clip.Splitted -= Clip_Splitted;
+            }
         }
 
         private static Sound<StereoPCMFloat> GetAllFrame(IAudioStream stream)
         {
             return stream.GetFrame(TimeSpan.Zero, stream.Info.NumSamples);
+        }
+
+        private void Clip_Splitted(object? sender, ClipSplittedEventArgs e)
+        {
+            if (e.After.Effect[0] is VideoFile after)
+            {
+                var sub = (float)e.Before.Length.ToMilliseconds(this.GetRequiredParent<Project>().Framerate);
+                var astart = after.Start.Pairs[0];
+
+                after.Start.Pairs[0] = astart.WithValue(astart.Value + sub);
+            }
         }
     }
 }
