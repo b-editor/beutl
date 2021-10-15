@@ -6,8 +6,8 @@
         <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
     </PropertyGroup>
 
-    <Import Project="..\..\props\plugin.props" />
-    <Import Project="..\..\props\Avalonia.props" />
+    <Import Project="..\..\..\props\plugin.props" />
+    <Import Project="..\..\..\props\Avalonia.props" />
 
     <ItemGroup>
         <EmbeddedResource Include="Resources\Lua.xshd" />
@@ -21,8 +21,8 @@
     </ItemGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\..\src\libraries\BEditor.Primitive\BEditor.Primitive.csproj" />
-        <ProjectReference Include="..\..\src\libraries\BEditor.Controls\BEditor.Controls.csproj" />
+        <ProjectReference Include="..\..\libraries\BEditor.Primitive\BEditor.Primitive.csproj" />
+        <ProjectReference Include="..\..\libraries\BEditor.Controls\BEditor.Controls.csproj" />
     </ItemGroup>
 
     <ItemGroup>

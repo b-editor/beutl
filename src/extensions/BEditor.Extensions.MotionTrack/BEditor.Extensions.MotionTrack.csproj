@@ -1,6 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
-    <Import Project="..\..\props\plugin.props" />
+    <Import Project="..\..\..\props\plugin.props" />
 
     <PropertyGroup>
         <Company>b-editor</Company>
@@ -9,7 +9,7 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\..\src\libraries\BEditor.Core\BEditor.Core.csproj" />
+        <ProjectReference Include="..\..\libraries\BEditor.Core\BEditor.Core.csproj" />
     </ItemGroup>
 
     <ItemGroup>

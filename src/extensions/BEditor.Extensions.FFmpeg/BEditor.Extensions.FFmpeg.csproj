@@ -6,16 +6,16 @@
         <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
     </PropertyGroup>
 
-    <Import Project="..\..\props\plugin.props" />
-    <Import Project="..\..\props\Avalonia.props" />
+    <Import Project="..\..\..\props\plugin.props" />
+    <Import Project="..\..\..\props\Avalonia.props" />
 
     <ItemGroup>
         <PackageReference Include="FFMediaToolkit" Version="4.1.2" />
     </ItemGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\..\src\libraries\BEditor.Core\BEditor.Core.csproj" />
-        <ProjectReference Include="..\..\src\libraries\BEditor.Controls\BEditor.Controls.csproj" />
+        <ProjectReference Include="..\..\libraries\BEditor.Core\BEditor.Core.csproj" />
+        <ProjectReference Include="..\..\libraries\BEditor.Controls\BEditor.Controls.csproj" />
     </ItemGroup>
 
 </Project>
