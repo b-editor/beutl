@@ -594,6 +594,11 @@
             Occurs when the length of the clip is changed.
             </summary>
         </member>
+        <member name="E:BEditor.Data.ClipElement.Splitted">
+            <summary>
+            Occurs when a clip is splitted.
+            </summary>
+        </member>
         <member name="P:BEditor.Data.ClipElement.Start">
             <summary>
             Gets or sets the starting frame of this <see cref="T:BEditor.Data.ClipElement"/>.
@@ -819,6 +824,28 @@
         <member name="P:BEditor.Data.ClipMovedEventArgs.OldStart">
             <summary>
             Gets the old starting frame.
+            </summary>
+        </member>
+        <member name="T:BEditor.Data.ClipSplittedEventArgs">
+            <summary>
+            Provides data for the <see cref="E:BEditor.Data.ClipElement.Splitted"/> event.
+            </summary>
+        </member>
+        <member name="M:BEditor.Data.ClipSplittedEventArgs.#ctor(BEditor.Data.ClipElement,BEditor.Data.ClipElement)">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Data.ClipSplittedEventArgs"/> class.
+            </summary>
+            <param name="before">The clip before the split frame.</param>
+            <param name="after">the clip after the split frame.</param>
+        </member>
+        <member name="P:BEditor.Data.ClipSplittedEventArgs.Before">
+            <summary>
+            Gets the clip before the split frame.
+            </summary>
+        </member>
+        <member name="P:BEditor.Data.ClipSplittedEventArgs.After">
+            <summary>
+            Gets the clip after the split frame.
             </summary>
         </member>
         <member name="T:BEditor.Data.EffectApplyArgs">

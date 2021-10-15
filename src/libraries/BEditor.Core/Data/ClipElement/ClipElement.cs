@@ -85,6 +85,11 @@ namespace BEditor.Data
         public event EventHandler<ClipLengthChangedEventArgs>? LengthChanged;
 
         /// <summary>
+        /// Occurs when a clip is splitted.
+        /// </summary>
+        public event EventHandler<ClipSplittedEventArgs>? Splitted;
+
+        /// <summary>
         /// Gets or sets the starting frame of this <see cref="ClipElement"/>.
         /// </summary>
         public Frame Start

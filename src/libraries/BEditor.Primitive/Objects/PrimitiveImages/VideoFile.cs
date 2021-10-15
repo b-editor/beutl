@@ -47,7 +47,7 @@ namespace BEditor.Primitive.Objects
             nameof(Start),
             owner => owner.Start,
             (owner, obj) => owner.Start = obj,
-            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Start, 1, float.NaN, 0)).Serialize());
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Start, 0, float.NaN, 0)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="File"/> property.
@@ -214,6 +214,12 @@ namespace BEditor.Primitive.Objects
                     _resource = null;
                 }
             });
+
+            var clip = this.GetParent<ClipElement>();
+            if (clip != null)
+            {
+                clip.Splitted += Clip_Splitted;
+            }
         }
 
         /// <inheritdoc/>
@@ -225,6 +231,23 @@ namespace BEditor.Primitive.Objects
             _disposable = null;
             _disposable1 = null;
             _resource = null;
+
+            var clip = this.GetParent<ClipElement>();
+            if (clip != null)
+            {
+                clip.Splitted -= Clip_Splitted;
+            }
+        }
+
+        private void Clip_Splitted(object? sender, ClipSplittedEventArgs e)
+        {
+            if (e.After.Effect[0] is VideoFile after)
+            {
+                var sub = e.Before.Length;
+                var astart = after.Start.Pairs[0];
+
+                after.Start.Pairs[0] = astart.WithValue(astart.Value + sub);
+            }
         }
     }
 }
