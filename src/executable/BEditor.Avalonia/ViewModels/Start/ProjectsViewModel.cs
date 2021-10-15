@@ -23,6 +23,7 @@ namespace BEditor.ViewModels.Start
         {
             Projects = new(_settings.RecentFiles
                 .Where(i => Path.GetExtension(i) is ".bedit")
+                .Reverse()
                 .Select(i => new ProjectModel(
                     Path.GetFileNameWithoutExtension(i),
                     Path.Combine(Directory.GetParent(i)!.FullName, "thumbnail.png"),
@@ -104,7 +105,7 @@ namespace BEditor.ViewModels.Start
                 {
                     _settings.RecentFiles.Remove(dialog.FileName);
                     _settings.RecentFiles.Add(dialog.FileName);
-                    Projects.Add(new(
+                    Projects.Insert(0, new(
                         Path.GetFileNameWithoutExtension(dialog.FileName),
                         Path.Combine(Directory.GetParent(dialog.FileName)!.FullName, "thumbnail.png"),
                         dialog.FileName));
