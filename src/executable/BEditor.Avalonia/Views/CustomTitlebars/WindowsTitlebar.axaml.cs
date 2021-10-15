@@ -170,15 +170,6 @@ namespace BEditor.Views.CustomTitlebars
             }
         }
 
-        public async void PackingProject(object s, RoutedEventArgs e)
-        {
-            if (VisualRoot is Window window)
-            {
-                var dialog = new CreateProjectPackage();
-                await dialog.ShowDialog(window);
-            }
-        }
-
         public void ResetLayout(object s, RoutedEventArgs e)
         {
             if (VisualRoot is MainWindow window && window.Content is Grid grid)

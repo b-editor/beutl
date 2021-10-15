@@ -16,7 +16,7 @@
     x:Class="BEditor.Views.CustomTitlebars.WindowsTitlebar">
     <Grid ColumnDefinitions="Auto,Auto,*">
         <Image Source="avares://beditor/Assets/Images/icon.png" Width="32" Height="32" />
-        
+
         <Menu Name="menu" Grid.Column="1">
             <Menu.Styles>
                 <Style Selector="ui|SymbolIcon">
@@ -151,19 +151,19 @@
                     Click="CreateScene"
                     Header="{x:Static prop:Strings.CreateScene}"
                     IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}"/>
-                
+
                 <!--Clipを作成-->
                 <MenuItem
                     Click="CreateClip"
                     Header="{x:Static prop:Strings.AddClip}"
                     IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}"/>
-                
+
                 <!--Effectを追加-->
                 <MenuItem
                     Click="AddEffect"
                     Header="{x:Static prop:Strings.AddEffect}"
                     IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}"/>
-                
+
             </MenuItem>
             <MenuItem Header="{x:Static prop:Strings.View}">
                 <MenuItem Click="ResetLayout" Header="{x:Static prop:Strings.ResetLayout}" />
@@ -181,10 +181,10 @@
                 <MenuItem Click="ZoomIn" Header="{x:Static prop:Strings.ZoomIn}" />
 
                 <MenuItem
-                    Click="PackingProject"
+                    Command="{CompiledBinding PackProject, Mode=OneTime}"
                     Header="{x:Static prop:Strings.PackingTheProject}"
                     IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}" />
-                
+
             </MenuItem>
             <MenuItem Header="{x:Static prop:Strings.Plugins}" x:Name="Plugins">
 
@@ -205,7 +205,7 @@
                         <ui:SymbolIcon Symbol="Video" />
                     </MenuItem.Icon>
                 </MenuItem>
-                
+
                 <!--画像-->
                 <MenuItem
                     IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}"
@@ -215,7 +215,7 @@
                         <ui:SymbolIcon Symbol="Image" />
                     </MenuItem.Icon>
                 </MenuItem>
-                
+
             </MenuItem>
             <MenuItem Header="{x:Static prop:Strings.Help}">
 

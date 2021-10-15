@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Interactivity;
 using Avalonia.Threading;
 
 using BEditor.Command;
@@ -103,6 +104,12 @@ namespace BEditor.ViewModels
                         await p.SaveAsync(record.FileName);
                     }
                 });
+
+            PackProject.Subscribe(async () =>
+            {
+                var dialog = new CreateProjectPackage();
+                await dialog.ShowDialog(BEditor.App.GetMainWindow());
+            });
 
             Close.Select(_ => App)
                 .Where(app => app.Project is not null)
@@ -290,6 +297,8 @@ namespace BEditor.ViewModels
         public ReactiveCommand Save { get; } = new();
 
         public ReactiveCommand SaveAs { get; } = new();
+
+        public ReactiveCommand PackProject { get; } = new();
 
         public ReactiveCommand Close { get; } = new();
 

@@ -56,27 +56,6 @@
                     <Setter Property="Background" Value="Transparent" />
                 </Style>
 
-                <!--<Style Selector="PathIcon.objectmetadata">
-                    <Setter Property="VerticalAlignment" Value="Center" />
-                    <Setter Property="Template">
-                        <ControlTemplate>
-                            <Border
-                                Padding="8"
-                                Background="{TemplateBinding Background}"
-                                CornerRadius="{DynamicResource ControlCornerRadius}">
-                                <Viewbox Height="{TemplateBinding Height}" Width="{TemplateBinding Width}">
-                                    <Path Fill="{TemplateBinding Foreground}"
-                                          Data="{TemplateBinding Data}"
-                                          Stretch="Uniform" />
-                                </Viewbox>
-                            </Border>
-                        </ControlTemplate>
-                    </Setter>
-                </Style>
-                <Style Selector="PathIcon.objectmetadata:pointerover">
-                    <Setter Property="Background" Value="{DynamicResource ButtonBackgroundPointerOver}" />
-                </Style>-->
-
                 <Style Selector="ComboBox">
                     <Setter Property="BorderBrush" Value="Transparent" />
                     <Setter Property="Background" Value="Transparent" />
@@ -125,6 +104,10 @@
                                 Icon="SaveAsCopy"
                                 Text="{x:Static prop:Strings.SaveAs}"
                                 Command="{CompiledBinding SaveAs, Mode=OneTime}" />
+
+                            <ui:MenuFlyoutItem
+                                Text="{x:Static prop:Strings.PackingTheProject}"
+                                Command="{CompiledBinding PackProject, Mode=OneTime}" />
                         </ui:MenuFlyout>
                     </ui:SplitButton.Flyout>
                     <ui:SymbolIcon Symbol="Save" />
