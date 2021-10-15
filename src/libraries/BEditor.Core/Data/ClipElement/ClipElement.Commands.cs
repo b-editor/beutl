@@ -355,6 +355,7 @@ namespace BEditor.Data
             {
                 After.Load();
                 Before.Load();
+                _source.Splitted?.Invoke(_source, new ClipSplittedEventArgs(Before, After));
 
                 new RemoveCommand(_source).Do();
                 After.UpdateId();

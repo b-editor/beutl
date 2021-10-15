@@ -26,23 +26,23 @@
                     Classes="accent"
                     Content="{x:Static props:Strings.Install}"
                     IsVisible="{CompiledBinding CanInstall.Value, Mode=OneWay}"
-                    Command="{CompiledBinding Install, Mode=OneTime}" />
+                    Command="{CompiledBinding Install, Mode=OneWay}" />
 
                 <Button
                     Classes="accent"
                     Content="{x:Static props:Strings.Update}"
                     IsVisible="{CompiledBinding CanUpdate.Value, Mode=OneWay}"
-                    Command="{CompiledBinding Update, Mode=OneTime}" />
+                    Command="{CompiledBinding Update, Mode=OneWay}" />
 
                 <Button
                     Content="{x:Static props:Strings.Uninstall}"
                     IsVisible="{CompiledBinding CanUninstall.Value, Mode=OneWay}"
-                    Command="{CompiledBinding Uninstall, Mode=OneTime}" />
+                    Command="{CompiledBinding Uninstall, Mode=OneWay}" />
 
                 <Button
                     Content="{x:Static props:Strings.Cancel}"
                     IsVisible="{CompiledBinding CanCancel.Value, Mode=OneWay}"
-                    Command="{CompiledBinding CancelChange, Mode=OneTime}" />
+                    Command="{CompiledBinding CancelChange, Mode=OneWay}" />
                 
                 <ComboBox
                     IsVisible="{CompiledBinding CanSelectVersion.Value, Mode=OneWay}"
@@ -72,7 +72,7 @@
             <TextBlock Text="{Binding Source={x:Static props:Strings.Tag}, StringFormat='{}{0}: '}" />
             <TextBlock Classes="content" Text="{CompiledBinding Package.Value.Tag}" />
 
-            <ctrs:HyperLink Text="{x:Static props:Strings.WebSite}" Command="{CompiledBinding OpenHomePage, Mode=OneTime}" />
+            <ctrs:HyperLink Text="{x:Static props:Strings.WebSite}" Command="{CompiledBinding OpenHomePage, Mode=OneWay}" />
 
         </StackPanel>
     </ScrollViewer>

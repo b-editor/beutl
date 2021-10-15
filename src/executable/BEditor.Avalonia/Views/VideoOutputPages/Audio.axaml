@@ -10,23 +10,27 @@
     mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
     x:Class="BEditor.Views.VideoOutputPages.Audio">
     <ScrollViewer>
-        <VirtualizingStackPanel>
+        <VirtualizingStackPanel Spacing="8" Margin="16,8">
 
-            <TextBlock Text="{x:Static prop:Strings.Audio}" Classes="SettingsHeader"/>
+            <TextBlock Text="{x:Static prop:Strings.Audio}" Classes="Header"/>
 
             <!--ビットレート-->
-            <TextBlock Text="Bitrate" Classes="SettingsItemHeader"/>
+            <Border Classes="Item">
+                <Panel>
+                    <TextBlock Text="Bitrate" VerticalAlignment="Center" />
 
-            <NumericUpDown Value="{CompiledBinding AudioBitrate.Value, Mode=TwoWay}" Classes="SettingsNumericUpDown"/>
-
-            <Separator Height="16" />
+                    <NumericUpDown
+                        Value="{CompiledBinding AudioBitrate.Value, Mode=TwoWay}"
+                        Classes="Editor"/>
+                </Panel>
+            </Border>
 
             <TextBlock
                 Margin="16,0"
                 Text="{x:Static prop:Strings.EncoderIsNotSet}"
                 IsVisible="{CompiledBinding !OutputIsEnabled.Value}" />
 
-            <ContentPresenter x:Name="AudioEncoderSettings" />
+            <ContentPresenter x:Name="AudioEncoderSettings" Margin="-16,-8" />
 
         </VirtualizingStackPanel>
     </ScrollViewer>

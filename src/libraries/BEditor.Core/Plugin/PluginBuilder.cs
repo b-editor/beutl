@@ -28,7 +28,8 @@ namespace BEditor.Plugin
         private readonly List<ObjectMetadata> _objects = new();
         private readonly List<EasingMetadata> _eases = new();
         private readonly List<PluginTask> _task = new();
-        private (string?, IEnumerable<ICustomMenu>?) _menus;
+        private readonly List<(string, IEnumerable<BasePluginMenu>)> _menus = new();
+        private readonly List<FileMenu> _fileMenus = new();
 
         private PluginBuilder(Func<PluginObject> create)
         {
@@ -149,9 +150,35 @@ namespace BEditor.Plugin
         /// <param name="header">The string to display in the menu header.</param>
         /// <param name="menus">Menu to be set.</param>
         /// <returns>The same instance of the <see cref="PluginBuilder"/> for chaining.</returns>
+        [Obsolete("To be added.")]
         public PluginBuilder SetCustomMenu(string header, IEnumerable<ICustomMenu> menus)
         {
-            _menus = (header, menus);
+            _menus.Add((header, menus.Select(i => new PluginMenuImpl(i)).ToArray()));
+
+            return this;
+        }
+
+        /// <summary>
+        /// Add the menu.
+        /// </summary>
+        /// <param name="header">The string to display in the menu header.</param>
+        /// <param name="menus">Menu to be set.</param>
+        /// <returns>The same instance of the <see cref="PluginBuilder"/> for chaining.</returns>
+        public PluginBuilder PluginMenu(string header, params BasePluginMenu[] menus)
+        {
+            _menus.Add((header, menus));
+
+            return this;
+        }
+
+        /// <summary>
+        /// Add the file menu.
+        /// </summary>
+        /// <param name="menus">Menu to be set.</param>
+        /// <returns>The same instance of the <see cref="PluginBuilder"/> for chaining.</returns>
+        public PluginBuilder FileMenu(FileMenu menus)
+        {
+            _fileMenus.Add(menus);
 
             return this;
         }
@@ -174,6 +201,8 @@ namespace BEditor.Plugin
         /// <param name="manager"><see cref="PluginManager"/> to register.</param>
         public void Register(PluginManager manager)
         {
+            var instance = _plugin();
+
             // Effects
             foreach (var meta in _effects)
             {
@@ -192,12 +221,13 @@ namespace BEditor.Plugin
                 EasingMetadata.LoadedEasingFunc.Add(meta);
             }
 
-            if (_menus.Item1 is not null && _menus.Item2 is not null)
-            {
-                manager.Menus.Add(_menus!);
-            }
+            // プラグインメニューを追加
+            manager.Menus.AddRange(_menus);
 
-            var instance = _plugin();
+            // ファイルメニューを追加
+            if (_fileMenus.Count > 0)
+                manager.FileMenus.Add((instance.GetType().Assembly, _fileMenus));
+
             if (_task.Count is not 0)
             {
                 manager.Tasks.Add((instance, _task));
@@ -212,6 +242,23 @@ namespace BEditor.Plugin
         public void Register()
         {
             Register(PluginManager.Default);
+        }
+
+        [Obsolete("To be added.")]
+        private sealed class PluginMenuImpl : BasePluginMenu
+        {
+            private readonly ICustomMenu _menu;
+
+            public PluginMenuImpl(ICustomMenu menu)
+            {
+                _menu = menu;
+                Name = menu.Name;
+            }
+
+            protected override void OnExecute()
+            {
+                _menu.Execute();
+            }
         }
     }
 }

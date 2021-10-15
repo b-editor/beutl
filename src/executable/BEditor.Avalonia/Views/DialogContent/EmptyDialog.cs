@@ -2,6 +2,8 @@
 using Avalonia.Controls;
 using Avalonia.Media;
 
+using BEditor.Controls;
+
 namespace BEditor.Views.DialogContent
 {
     public sealed class EmptyDialog : FluentWindow

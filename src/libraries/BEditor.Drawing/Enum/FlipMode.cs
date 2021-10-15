@@ -18,11 +18,11 @@ namespace BEditor.Drawing
         /// <summary>
         /// Specifies to flip horizontally.
         /// </summary>
-        X = 0,
+        X = 1,
 
         /// <summary>
         /// Specifies to flip vertically.
         /// </summary>
-        Y = 1,
+        Y = 2,
     }
 }

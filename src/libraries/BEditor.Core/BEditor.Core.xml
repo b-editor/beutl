@@ -22,6 +22,14 @@
             <param name="command">The command to execute.</param>
             <param name="manager">The command manager for executing commands.</param>
         </member>
+        <member name="M:BEditor.CommandExtensions.Combine(BEditor.Command.IRecordCommand,BEditor.Command.IRecordCommand)">
+            <summary>
+            Combine the two commands.
+            </summary>
+            <param name="first">The first command.</param>
+            <param name="second">The second command.</param>
+            <returns>The command.</returns>
+        </member>
         <member name="T:BEditor.Command.CommandType">
             <summary>
             Indicates the type of command.
@@ -371,6 +379,16 @@
             <param name="frame">The frame to apply.</param>
             <param name="type">The apply type.</param>
         </member>
+        <member name="M:BEditor.Data.ClipApplyArgs.#ctor(BEditor.Media.Frame,BEditor.Graphics.GraphicsContext,BEditor.Audio.SamplingContext,BEditor.Drawing.DrawingContext,BEditor.Data.ApplyType)">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Data.ClipApplyArgs"/> class.
+            </summary>
+            <param name="frame">The frame to render.</param>
+            <param name="graphicsContext">The graphics context.</param>
+            <param name="samplingContext">The sampling context.</param>
+            <param name="drawingContext">The drawing context.</param>
+            <param name="type">The rendering type.</param>
+        </member>
         <member name="P:BEditor.Data.ClipApplyArgs.Frame">
             <summary>
             Gets the frame to render.
@@ -384,6 +402,11 @@
         <member name="P:BEditor.Data.ClipApplyArgs.Type">
             <summary>
             Gets the rendering type.
+            </summary>
+        </member>
+        <member name="P:BEditor.Data.ClipApplyArgs.Contexts">
+            <summary>
+            Gets the contexts.
             </summary>
         </member>
         <member name="T:BEditor.Data.ClipElement">
@@ -571,9 +594,9 @@
             Occurs when the length of the clip is changed.
             </summary>
         </member>
-        <member name="P:BEditor.Data.ClipElement.Name">
+        <member name="E:BEditor.Data.ClipElement.Splitted">
             <summary>
-            Gets the name of this <see cref="T:BEditor.Data.ClipElement"/>.
+            Occurs when a clip is splitted.
             </summary>
         </member>
         <member name="P:BEditor.Data.ClipElement.Start">
@@ -803,6 +826,28 @@
             Gets the old starting frame.
             </summary>
         </member>
+        <member name="T:BEditor.Data.ClipSplittedEventArgs">
+            <summary>
+            Provides data for the <see cref="E:BEditor.Data.ClipElement.Splitted"/> event.
+            </summary>
+        </member>
+        <member name="M:BEditor.Data.ClipSplittedEventArgs.#ctor(BEditor.Data.ClipElement,BEditor.Data.ClipElement)">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Data.ClipSplittedEventArgs"/> class.
+            </summary>
+            <param name="before">The clip before the split frame.</param>
+            <param name="after">the clip after the split frame.</param>
+        </member>
+        <member name="P:BEditor.Data.ClipSplittedEventArgs.Before">
+            <summary>
+            Gets the clip before the split frame.
+            </summary>
+        </member>
+        <member name="P:BEditor.Data.ClipSplittedEventArgs.After">
+            <summary>
+            Gets the clip after the split frame.
+            </summary>
+        </member>
         <member name="T:BEditor.Data.EffectApplyArgs">
             <summary>
             Represents data that is passed to <see cref="T:BEditor.Data.EffectElement"/> when it is applied.
@@ -813,6 +858,24 @@
             Initializes a new instance of the <see cref="T:BEditor.Data.EffectApplyArgs"/> class.
             </summary>
             <param name="frame">The frame to render.</param>
+            <param name="type">The rendering type.</param>
+        </member>
+        <member name="M:BEditor.Data.EffectApplyArgs.#ctor(BEditor.Media.Frame,System.ValueTuple{BEditor.Graphics.GraphicsContext,BEditor.Audio.SamplingContext,BEditor.Drawing.DrawingContext},BEditor.Data.ApplyType)">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Data.EffectApplyArgs"/> class.
+            </summary>
+            <param name="frame">The frame to render.</param>
+            <param name="contexts">The contexts.</param>
+            <param name="type">The rendering type.</param>
+        </member>
+        <member name="M:BEditor.Data.EffectApplyArgs.#ctor(BEditor.Media.Frame,BEditor.Graphics.GraphicsContext,BEditor.Audio.SamplingContext,BEditor.Drawing.DrawingContext,BEditor.Data.ApplyType)">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Data.EffectApplyArgs"/> class.
+            </summary>
+            <param name="frame">The frame to render.</param>
+            <param name="graphicsContext">The graphics context.</param>
+            <param name="samplingContext">The sampling context.</param>
+            <param name="drawingContext">The drawing context.</param>
             <param name="type">The rendering type.</param>
         </member>
         <member name="P:BEditor.Data.EffectApplyArgs.Frame">
@@ -830,6 +893,11 @@
             Gets the rendering type.
             </summary>
         </member>
+        <member name="P:BEditor.Data.EffectApplyArgs.Contexts">
+            <summary>
+            Gets the contexts.
+            </summary>
+        </member>
         <member name="T:BEditor.Data.EffectApplyArgs`1">
             <summary>
             Represents data that is passed to <see cref="T:BEditor.Data.EffectElement"/> when it is applied.
@@ -842,6 +910,26 @@
             </summary>
             <param name="frame">The frame to render.</param>
             <param name="value">The value used to apply the effect.</param>
+            <param name="type">The rendering type.</param>
+        </member>
+        <member name="M:BEditor.Data.EffectApplyArgs`1.#ctor(BEditor.Media.Frame,`0,System.ValueTuple{BEditor.Graphics.GraphicsContext,BEditor.Audio.SamplingContext,BEditor.Drawing.DrawingContext},BEditor.Data.ApplyType)">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Data.EffectApplyArgs`1"/> class.
+            </summary>
+            <param name="frame">The frame to render.</param>
+            <param name="value">The value used to apply the effect.</param>
+            <param name="contexts">The contexts.</param>
+            <param name="type">The rendering type.</param>
+        </member>
+        <member name="M:BEditor.Data.EffectApplyArgs`1.#ctor(BEditor.Media.Frame,`0,BEditor.Graphics.GraphicsContext,BEditor.Audio.SamplingContext,BEditor.Drawing.DrawingContext,BEditor.Data.ApplyType)">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Data.EffectApplyArgs`1"/> class.
+            </summary>
+            <param name="frame">The frame to render.</param>
+            <param name="value">The value used to apply the effect.</param>
+            <param name="graphicsContext">The graphics context.</param>
+            <param name="samplingContext">The sampling context.</param>
+            <param name="drawingContext">The drawing context.</param>
             <param name="type">The rendering type.</param>
         </member>
         <member name="P:BEditor.Data.EffectApplyArgs`1.Value">
@@ -875,6 +963,9 @@
             <remarks><see langword="true"/> if the expander is open, otherwise <see langword="false"/>.</remarks>
         </member>
         <member name="P:BEditor.Data.EffectElement.Parent">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Data.EffectElement.BEditor#Data#IEditingObject#Name">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Data.EffectElement.GetProperties">
@@ -1407,11 +1498,6 @@
             Defines the <see cref="P:BEditor.Data.Project.CurrentSceneIndex"/> property.
             </summary>
         </member>
-        <member name="F:BEditor.Data.Project.NameProperty">
-            <summary>
-            Defines the <see cref="P:BEditor.Data.Project.Name"/> property.
-            </summary>
-        </member>
         <member name="F:BEditor.Data.Project.DirectoryNameProperty">
             <summary>
             Defines the <see cref="P:BEditor.Data.Project.DirectoryName"/> property.
@@ -1469,11 +1555,6 @@
         <member name="P:BEditor.Data.Project.Parent">
             <inheritdoc/>
         </member>
-        <member name="P:BEditor.Data.Project.Name">
-            <summary>
-            Gets or sets the name of project.
-            </summary>
-        </member>
         <member name="P:BEditor.Data.Project.DirectoryName">
             <summary>
             Gets or sets the directory name of this <see cref="T:BEditor.Data.Project"/>.
@@ -1504,14 +1585,14 @@
             <summary>
             Save this <see cref="T:BEditor.Data.Project"/>.
             </summary>
-            <remarks>If <see cref="P:BEditor.Data.Project.Name"/> is <see langword="null"/>, a dialog will appear.</remarks>
+            <remarks>If <see cref="P:BEditor.Data.EditingObject.Name"/> is <see langword="null"/>, a dialog will appear.</remarks>
             <returns><see langword="true"/> if the save is successful, otherwise <see langword="false"/>.</returns>
         </member>
         <member name="M:BEditor.Data.Project.SaveAsync">
             <summary>
             Save this <see cref="T:BEditor.Data.Project"/>.
             </summary>
-            <remarks>If <see cref="P:BEditor.Data.Project.Name"/> is <see langword="null"/>, a dialog will appear.</remarks>
+            <remarks>If <see cref="P:BEditor.Data.EditingObject.Name"/> is <see langword="null"/>, a dialog will appear.</remarks>
             <returns><see langword="true"/> if the save is successful, otherwise <see langword="false"/>.</returns>
         </member>
         <member name="M:BEditor.Data.Project.Save(System.String)">
@@ -2189,9 +2270,9 @@
         </member>
         <member name="M:BEditor.Data.Property.EaseProperty.ChangeValue(System.Int32,System.Single)">
             <summary>
-            Create a command to change the color of this <see cref="P:BEditor.Data.Property.EaseProperty.Pairs"/>.
+            Create a command to change the value of this <see cref="P:BEditor.Data.Property.EaseProperty.Pairs"/>.
             </summary>
-            <param name="index">Index of colors to be changed.</param>
+            <param name="index">Index of values to be changed.</param>
             <param name="value">New Value.</param>
             <returns>Created <see cref="T:BEditor.Command.IRecordCommand"/>.</returns>
         </member>
@@ -2235,6 +2316,9 @@
             <inheritdoc/>
         </member>
         <member name="P:BEditor.Data.Property.Easing.EasingFunc.Parent">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Data.Property.Easing.EasingFunc.Name">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Data.Property.Easing.EasingFunc.GetProperties">
@@ -2836,6 +2920,9 @@
             Gets or sets the metadata for this <see cref="T:BEditor.Data.Property.IPropertyElement"/>.
             </summary>
         </member>
+        <member name="P:BEditor.Data.Property.IPropertyElement.BEditor#Data#IEditingObject#Name">
+            <inheritdoc/>
+        </member>
         <member name="T:BEditor.Data.Property.KeyFramePair`1">
             <summary>
             Represents a position and value pair.
@@ -3096,6 +3183,11 @@
             <param name="min">The minimum value.</param>
             <param name="useOptional">The bool of whether to use the Optional value.</param>
         </member>
+        <member name="P:BEditor.Data.Property.EasePropertyMetadata.FormatString">
+            <summary>
+            Gets the format string.
+            </summary>
+        </member>
         <member name="M:BEditor.Data.Property.EasePropertyMetadata.Create">
             <inheritdoc/>
         </member>
@@ -3259,6 +3351,11 @@
             <param name="DefaultValue">The default value.</param>
             <param name="Max">The maximum value.</param>
             <param name="Min">The minimum value.</param>
+        </member>
+        <member name="P:BEditor.Data.Property.ValuePropertyMetadata.FormatString">
+            <summary>
+            Gets the format string.
+            </summary>
         </member>
         <member name="M:BEditor.Data.Property.ValuePropertyMetadata.Create">
             <inheritdoc/>
@@ -3763,6 +3860,9 @@
             Gets or sets the metadata for this <see cref="T:BEditor.Data.Property.PropertyElement"/>.
             </summary>
         </member>
+        <member name="P:BEditor.Data.Property.PropertyElement.Name">
+            <inheritdoc/>
+        </member>
         <member name="P:BEditor.Data.Property.PropertyElement.BEditor#Data#IHasMetadata#Metadata">
             <inheritdoc/>
         </member>
@@ -4212,9 +4312,9 @@
         </member>
         <member name="P:BEditor.Data.Scene.Item(System.String)">
             <summary>
-            Gets the <see cref="T:BEditor.Data.ClipElement"/> from its <see cref="P:BEditor.Data.ClipElement.Name"/>.
+            Gets the <see cref="T:BEditor.Data.ClipElement"/> from its <see cref="P:BEditor.Data.EditingObject.Name"/>.
             </summary>
-            <param name="name">Value of <see cref="P:BEditor.Data.ClipElement.Name"/>.</param>
+            <param name="name">Value of <see cref="P:BEditor.Data.EditingObject.Name"/>.</param>
         </member>
         <member name="M:BEditor.Data.Scene.GetObjectData(System.Text.Json.Utf8JsonWriter)">
             <inheritdoc/>
@@ -4608,6 +4708,16 @@
             Gets audio context.
             </summary>
         </member>
+        <member name="P:BEditor.IApplication.DrawingContext">
+            <summary>
+            Gets drawing context.
+            </summary>
+        </member>
+        <member name="P:BEditor.IApplication.DisplayedMenus">
+            <summary>
+            Gets the displayed menus.
+            </summary>
+        </member>
         <member name="M:BEditor.IApplication.RestoreAppConfig(BEditor.Data.Project,System.String)">
             <summary>
             Restore the application configuration.
@@ -4763,76 +4873,6 @@
             Gets or sets a value indicating whether the progress bar shows actual values or generic, continuous progress feedback.
             </summary>
         </member>
-        <member name="T:BEditor.PluginTask">
-            <summary>
-            Represents the task to be executed after the plugin is loaded.
-            </summary>
-        </member>
-        <member name="M:BEditor.PluginTask.#ctor(System.Func{BEditor.IProgressDialog,System.Threading.Tasks.ValueTask},System.String)">
-            <summary>
-            Initializes a new instance of the <see cref="T:BEditor.PluginTask"/> struct.
-            </summary>
-            <param name="task">The function to run.</param>
-            <param name="name">The name of the <see cref="T:BEditor.PluginTask"/>.</param>
-            <exception cref="T:System.ArgumentNullException"><paramref name="task"/> or <paramref name="name"/> is <see langword="null"/>.</exception>
-        </member>
-        <member name="P:BEditor.PluginTask.Name">
-            <summary>
-            Gets the name of this <see cref="T:BEditor.PluginTask"/>.
-            </summary>
-        </member>
-        <member name="P:BEditor.PluginTask.IsExecuted">
-            <summary>
-            Gets a value indicating whether the task has been executed.
-            </summary>
-        </member>
-        <member name="M:BEditor.PluginTask.op_Equality(BEditor.PluginTask,BEditor.PluginTask)">
-            <summary>
-            Compares two <see cref="T:BEditor.PluginTask"/> structures. The result specifies whether the two <see cref="T:BEditor.PluginTask"/> structures are equal.
-            </summary>
-            <param name="left">A <see cref="T:BEditor.PluginTask"/> to compare.</param>
-            <param name="right">A <see cref="T:BEditor.PluginTask"/> to compare.</param>
-            <returns>true if the left and right <see cref="T:BEditor.PluginTask"/> structures are equal; otherwise, false.</returns>
-        </member>
-        <member name="M:BEditor.PluginTask.op_Inequality(BEditor.PluginTask,BEditor.PluginTask)">
-            <summary>
-            Determines whether the coordinates of the specified points are not equal.
-            </summary>
-            <param name="left">A <see cref="T:BEditor.PluginTask"/> to compare.</param>
-            <param name="right">A <see cref="T:BEditor.PluginTask"/> to compare.</param>
-            <returns>true if the left and right <see cref="T:BEditor.PluginTask"/> structures differ; otherwise, false.</returns>
-        </member>
-        <member name="M:BEditor.PluginTask.Equals(System.Object)">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.PluginTask.Equals(BEditor.PluginTask)">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.PluginTask.GetHashCode">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.PluginTask.RunTaskAsync(BEditor.IProgressDialog)">
-            <summary>
-            Run the task.
-            </summary>
-            <param name="progress">The progress of this <see cref="T:BEditor.PluginTask"/>.</param>
-            <returns>A <see cref="T:System.Threading.Tasks.ValueTask"/> representing the result of the asynchronous operation.</returns>
-        </member>
-        <member name="T:BEditor.Plugin.ICustomMenu">
-            <summary>
-            Represents a menu.
-            </summary>
-        </member>
-        <member name="P:BEditor.Plugin.ICustomMenu.Name">
-            <summary>
-            Gets the string to be displayed in the UI.
-            </summary>
-        </member>
-        <member name="M:BEditor.Plugin.ICustomMenu.Execute">
-            <summary>
-            Execute when the menu is clicked.
-            </summary>
-        </member>
         <member name="T:BEditor.Plugin.CustomMenu">
             <inheritdoc cref="T:BEditor.Plugin.ICustomMenu"/>
         </member>
@@ -4853,6 +4893,129 @@
         </member>
         <member name="M:BEditor.Plugin.CustomMenu.BEditor#Plugin#ICustomMenu#Execute">
             <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Plugin.ICustomMenu">
+            <summary>
+            Represents a menu.
+            </summary>
+        </member>
+        <member name="P:BEditor.Plugin.ICustomMenu.Name">
+            <summary>
+            Gets the string to be displayed in the UI.
+            </summary>
+        </member>
+        <member name="M:BEditor.Plugin.ICustomMenu.Execute">
+            <summary>
+            Execute when the menu is clicked.
+            </summary>
+        </member>
+        <member name="T:BEditor.Plugin.BaseMenu`1">
+            <summary>
+            Represents the custom file menu.
+            </summary>
+            <typeparam name="T">The type of argument.</typeparam>
+        </member>
+        <member name="F:BEditor.Plugin.BaseMenu`1.MainWindowProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Plugin.BaseMenu`1.MainWindow"/> property.
+            </summary>
+        </member>
+        <member name="E:BEditor.Plugin.BaseMenu`1.Clicked">
+            <summary>
+            Occurs when the menu is clicked.
+            </summary>
+        </member>
+        <member name="P:BEditor.Plugin.BaseMenu`1.MainWindow">
+            <summary>
+            Gets or sets the main window.
+            </summary>
+        </member>
+        <member name="M:BEditor.Plugin.BaseMenu`1.Execute(`0)">
+            <summary>
+            Execute this menu.
+            </summary>
+            <param name="arg">The argument.</param>
+        </member>
+        <member name="M:BEditor.Plugin.BaseMenu`1.OnExecute(`0)">
+            <summary>
+            Execute this menu.
+            </summary>
+            <param name="arg">The argument.</param>
+        </member>
+        <member name="T:BEditor.Plugin.MenuLocation">
+            <summary>
+            Menu Location.
+            </summary>
+        </member>
+        <member name="F:BEditor.Plugin.MenuLocation.Default">
+            <summary>
+            The default.
+            </summary>
+        </member>
+        <member name="F:BEditor.Plugin.MenuLocation.Left">
+            <summary>
+            The menu will be placed on the left side.
+            </summary>
+        </member>
+        <member name="F:BEditor.Plugin.MenuLocation.Right">
+            <summary>
+            The menu will be placed on the right side.
+            </summary>
+        </member>
+        <member name="F:BEditor.Plugin.MenuLocation.Bottom">
+            <summary>
+            The menu will be placed below.
+            </summary>
+        </member>
+        <member name="T:BEditor.Plugin.BasePluginMenu">
+            <summary>
+            Base class for the plugin menu.
+            </summary>
+        </member>
+        <member name="F:BEditor.Plugin.BasePluginMenu.MenuLocationProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Plugin.BasePluginMenu.MenuLocation"/> property.
+            </summary>
+        </member>
+        <member name="P:BEditor.Plugin.BasePluginMenu.MenuLocation">
+            <summary>
+            Gets or sets the menu location.
+            </summary>
+        </member>
+        <member name="M:BEditor.Plugin.BasePluginMenu.Execute">
+            <summary>
+            Execute when the menu is clicked.
+            </summary>
+        </member>
+        <member name="M:BEditor.Plugin.BasePluginMenu.OnExecute">
+            <summary>
+            Execute when the menu is clicked.
+            </summary>
+        </member>
+        <member name="M:BEditor.Plugin.BasePluginMenu.OnExecute(System.Object)">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Plugin.FileMenu">
+            <summary>
+            Represents the custom file menu.
+            </summary>
+        </member>
+        <member name="F:BEditor.Plugin.FileMenu.SupportedExtensionsProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Plugin.FileMenu.SupportedExtensions"/> property.
+            </summary>
+        </member>
+        <member name="P:BEditor.Plugin.FileMenu.SupportedExtensions">
+            <summary>
+            Gets or sets the supported file extensions.
+            </summary>
+        </member>
+        <member name="M:BEditor.Plugin.FileMenu.IsMatch(System.String)">
+            <summary>
+            Check if the file matches.
+            </summary>
+            <param name="file">The name of file.</param>
+            <returns>true if the regular expression finds a match; otherwise, false.</returns>
         </member>
         <member name="T:BEditor.Plugin.PluginBuilder">
             <summary>
@@ -4929,6 +5092,21 @@
             <param name="menus">Menu to be set.</param>
             <returns>The same instance of the <see cref="T:BEditor.Plugin.PluginBuilder"/> for chaining.</returns>
         </member>
+        <member name="M:BEditor.Plugin.PluginBuilder.PluginMenu(System.String,BEditor.Plugin.BasePluginMenu[])">
+            <summary>
+            Add the menu.
+            </summary>
+            <param name="header">The string to display in the menu header.</param>
+            <param name="menus">Menu to be set.</param>
+            <returns>The same instance of the <see cref="T:BEditor.Plugin.PluginBuilder"/> for chaining.</returns>
+        </member>
+        <member name="M:BEditor.Plugin.PluginBuilder.FileMenu(BEditor.Plugin.FileMenu)">
+            <summary>
+            Add the file menu.
+            </summary>
+            <param name="menus">Menu to be set.</param>
+            <returns>The same instance of the <see cref="T:BEditor.Plugin.PluginBuilder"/> for chaining.</returns>
+        </member>
         <member name="M:BEditor.Plugin.PluginBuilder.ConfigureServices(System.Action{Microsoft.Extensions.DependencyInjection.IServiceCollection})">
             <summary>
             Register services into the <see cref="T:Microsoft.Extensions.DependencyInjection.IServiceCollection"/>.
@@ -5000,6 +5178,11 @@
             Gets or sets the plugin name.
             </summary>
         </member>
+        <member name="P:BEditor.Plugin.PluginException.Assembly">
+            <summary>
+            Gets or sets the plugin assembly.
+            </summary>
+        </member>
         <member name="T:BEditor.Plugin.PluginManager">
             <summary>
             Represents the class that manages the plugin.
@@ -5020,9 +5203,19 @@
             Gets the loaded plugins.
             </summary>
         </member>
+        <member name="P:BEditor.Plugin.PluginManager.Failed">
+            <summary>
+            Gets the plugins that failed to load.
+            </summary>
+        </member>
         <member name="P:BEditor.Plugin.PluginManager.BaseDirectory">
             <summary>
             Gets the base directory from which to retrieve plugins.
+            </summary>
+        </member>
+        <member name="P:BEditor.Plugin.PluginManager.FileMenus">
+            <summary>
+            Gets the file menus.
             </summary>
         </member>
         <member name="P:BEditor.Plugin.PluginManager.Menus">
@@ -5052,6 +5245,13 @@
             </summary>
             <param name="pluginName">The name of the plugin to load.</param>
             <exception cref="T:System.AggregateException">Plugin failded to load.</exception>
+        </member>
+        <member name="M:BEditor.Plugin.PluginManager.Get``1">
+            <summary>
+            Gets the plugin of the specified type.
+            </summary>
+            <typeparam name="T">The type of plugin.</typeparam>
+            <returns>Returns the plugin.</returns>
         </member>
         <member name="T:BEditor.Plugin.PluginObject">
             <summary>
@@ -5148,6 +5348,61 @@
             <typeparam name="T">Type of the object to be loaded.</typeparam>
             <param name="filename">The name of the file to load.</param>
             <returns>Returns the restored object on success, <see langword="null"/> otherwise.</returns>
+        </member>
+        <member name="T:BEditor.PluginTask">
+            <summary>
+            Represents the task to be executed after the plugin is loaded.
+            </summary>
+        </member>
+        <member name="M:BEditor.PluginTask.#ctor(System.Func{BEditor.IProgressDialog,System.Threading.Tasks.ValueTask},System.String)">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.PluginTask"/> struct.
+            </summary>
+            <param name="task">The function to run.</param>
+            <param name="name">The name of the <see cref="T:BEditor.PluginTask"/>.</param>
+            <exception cref="T:System.ArgumentNullException"><paramref name="task"/> or <paramref name="name"/> is <see langword="null"/>.</exception>
+        </member>
+        <member name="P:BEditor.PluginTask.Name">
+            <summary>
+            Gets the name of this <see cref="T:BEditor.PluginTask"/>.
+            </summary>
+        </member>
+        <member name="P:BEditor.PluginTask.IsExecuted">
+            <summary>
+            Gets a value indicating whether the task has been executed.
+            </summary>
+        </member>
+        <member name="M:BEditor.PluginTask.op_Equality(BEditor.PluginTask,BEditor.PluginTask)">
+            <summary>
+            Compares two <see cref="T:BEditor.PluginTask"/> structures. The result specifies whether the two <see cref="T:BEditor.PluginTask"/> structures are equal.
+            </summary>
+            <param name="left">A <see cref="T:BEditor.PluginTask"/> to compare.</param>
+            <param name="right">A <see cref="T:BEditor.PluginTask"/> to compare.</param>
+            <returns>true if the left and right <see cref="T:BEditor.PluginTask"/> structures are equal; otherwise, false.</returns>
+        </member>
+        <member name="M:BEditor.PluginTask.op_Inequality(BEditor.PluginTask,BEditor.PluginTask)">
+            <summary>
+            Determines whether the coordinates of the specified points are not equal.
+            </summary>
+            <param name="left">A <see cref="T:BEditor.PluginTask"/> to compare.</param>
+            <param name="right">A <see cref="T:BEditor.PluginTask"/> to compare.</param>
+            <returns>true if the left and right <see cref="T:BEditor.PluginTask"/> structures differ; otherwise, false.</returns>
+        </member>
+        <member name="M:BEditor.PluginTask.Equals(System.Object)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.PluginTask.Equals(BEditor.PluginTask)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.PluginTask.GetHashCode">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.PluginTask.RunTaskAsync(BEditor.IProgressDialog)">
+            <summary>
+            Run the task.
+            </summary>
+            <param name="progress">The progress of this <see cref="T:BEditor.PluginTask"/>.</param>
+            <returns>A <see cref="T:System.Threading.Tasks.ValueTask"/> representing the result of the asynchronous operation.</returns>
         </member>
         <member name="T:BEditor.ProjectOpenedEventArgs">
             <summary>

@@ -78,7 +78,7 @@ namespace BEditor.Primitive.Effects
         /// <inheritdoc/>
         public override void Apply(EffectApplyArgs<Image<BGRA32>> args)
         {
-            args.Value.ChromaKey(Color.Value, (int)HueRange[args.Frame], (int)SaturationRange[args.Frame], Parent.Parent.DrawingContext);
+            args.Value.ChromaKey(Color.Value, (int)HueRange[args.Frame], (int)SaturationRange[args.Frame], args.Contexts.Drawing);
         }
 
         /// <inheritdoc/>

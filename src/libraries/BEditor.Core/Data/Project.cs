@@ -70,16 +70,6 @@ namespace BEditor.Data
                 EditingPropertyOptions<int>.Create().Notify(true).Serialize());
 
         /// <summary>
-        /// Defines the <see cref="Name"/> property.
-        /// </summary>
-        public static readonly DirectProperty<Project, string> NameProperty
-            = EditingProperty.RegisterDirect<string, Project>(
-                nameof(Name),
-                owner => owner.Name,
-                (owner, obj) => owner.Name = obj,
-                EditingPropertyOptions<string>.Create().Notify(true));
-
-        /// <summary>
         /// Defines the <see cref="DirectoryName"/> property.
         /// </summary>
         public static readonly DirectProperty<Project, string> DirectoryNameProperty
@@ -100,7 +90,6 @@ namespace BEditor.Data
         private const string CurrentProjectVersion = "0.2.0";
         private ProjectResources? _resources;
         private Scene? _currentScene;
-        private string _name;
         private string _dirname;
         private int _currentSceneIndex;
         private IApplication? _parent;
@@ -119,12 +108,12 @@ namespace BEditor.Data
             Parent = Parent = app;
             Framerate = framerate;
             Samplingrate = samplingrate;
-            Name = _name = Path.GetFileNameWithoutExtension(filename)!;
+            Name = Path.GetFileNameWithoutExtension(filename)!;
             DirectoryName = _dirname = Path.GetDirectoryName(filename)!;
             SceneList.Add(new Scene(width, height)
             {
                 Parent = this,
-                SceneName = "root",
+                Name = "root",
             });
         }
 
@@ -153,7 +142,7 @@ namespace BEditor.Data
         /// </summary>
         public Scene CurrentScene
         {
-            get => _currentScene ??= SceneList[CurrentSceneIndex];
+            get => _currentScene ??= CurrentSceneIndex >= 0 ? SceneList[CurrentSceneIndex] : SceneList.First();
             set
             {
                 SetAndRaise(CurrentSceneProperty, ref _currentScene!, value);
@@ -182,15 +171,6 @@ namespace BEditor.Data
                 _parent = value;
                 Children.SetParent<Project, Scene>(i => i.Parent = this);
             }
-        }
-
-        /// <summary>
-        /// Gets or sets the name of project.
-        /// </summary>
-        public string Name
-        {
-            get => _name;
-            set => SetAndRaise(NameProperty, ref _name, value);
         }
 
         /// <summary>
@@ -304,7 +284,7 @@ namespace BEditor.Data
         /// <summary>
         /// Save this <see cref="Project"/>.
         /// </summary>
-        /// <remarks>If <see cref="Name"/> is <see langword="null"/>, a dialog will appear.</remarks>
+        /// <remarks>If <see cref="EditingObject.Name"/> is <see langword="null"/>, a dialog will appear.</remarks>
         /// <returns><see langword="true"/> if the save is successful, otherwise <see langword="false"/>.</returns>
         public bool Save()
         {
@@ -319,7 +299,7 @@ namespace BEditor.Data
         /// <summary>
         /// Save this <see cref="Project"/>.
         /// </summary>
-        /// <remarks>If <see cref="Name"/> is <see langword="null"/>, a dialog will appear.</remarks>
+        /// <remarks>If <see cref="EditingObject.Name"/> is <see langword="null"/>, a dialog will appear.</remarks>
         /// <returns><see langword="true"/> if the save is successful, otherwise <see langword="false"/>.</returns>
         public async Task<bool> SaveAsync()
         {
@@ -591,6 +571,7 @@ namespace BEditor.Data
 
                 using var doc = await JsonDocument.ParseAsync(stream);
                 obj.SetObjectData(new DeserializeContext(doc.RootElement, application));
+                obj.Name = Path.GetFileNameWithoutExtension(file);
 
                 return obj;
             }
@@ -614,6 +595,7 @@ namespace BEditor.Data
 
                 using var doc = JsonDocument.Parse(stream);
                 obj.SetObjectData(new(doc.RootElement, application));
+                obj.Name = Path.GetFileNameWithoutExtension(file);
 
                 return obj;
             }

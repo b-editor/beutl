@@ -2,167 +2,172 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:props="using:BEditor.Properties"
              mc:Ignorable="d"
              d:DesignWidth="800"
              d:DesignHeight="32"
              HorizontalAlignment="Stretch"
              Background="Transparent"
              Height="32"
+             x:Name="root"
              x:Class="BEditor.Views.CustomTitlebars.WindowsTitlebarButtons">
-    <StackPanel
-        HorizontalAlignment="Right"
-        x:Name="titlebarbuttons"
-        Grid.Column="1"
-        Orientation="Horizontal"
-        Spacing="0">
-        <StackPanel.Resources>
-            <Thickness x:Key="ButtonPadding">8,5,8,6</Thickness>
-        </StackPanel.Resources>
-        <StackPanel.Styles>
-            <Style Selector="Button">
-                <Setter Property="Background" Value="{DynamicResource ButtonBackground}" />
-                <Setter Property="Foreground" Value="{DynamicResource ButtonForeground}" />
-                <Setter Property="BorderBrush" Value="{DynamicResource ButtonBorderBrush}" />
-                <Setter Property="BorderThickness" Value="{DynamicResource ButtonBorderThemeThickness}" />
-                <Setter Property="Padding" Value="{DynamicResource ButtonPadding}" />
-                <Setter Property="HorizontalAlignment" Value="Left" />
-                <Setter Property="VerticalAlignment" Value="Center" />
-                <Setter Property="FontWeight" Value="Normal" />
-                <Setter Property="FontSize" Value="{DynamicResource ControlContentThemeFontSize}" />
-                <Setter Property="Template">
-                    <ControlTemplate>
-                        <ContentPresenter x:Name="PART_ContentPresenter"
-                                          Background="{TemplateBinding Background}"
-                                          BorderBrush="{TemplateBinding BorderBrush}"
-                                          BorderThickness="{TemplateBinding BorderThickness}"
-                                          Content="{TemplateBinding Content}"
-                                          ContentTemplate="{TemplateBinding ContentTemplate}"
-                                          Padding="{TemplateBinding Padding}"
-                                          HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
-                                          VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}" />
-                    </ControlTemplate>
-                </Setter>
-            </Style>
+    <Panel>
+        <TextBlock Text="{Binding #root.Title}" VerticalAlignment="Center" Margin="8,0" />
+        
+        <StackPanel
+            HorizontalAlignment="Right"
+            x:Name="titlebarbuttons"
+            Orientation="Horizontal"
+            Spacing="0">
+            <StackPanel.Resources>
+                <Thickness x:Key="ButtonPadding">8,5,8,6</Thickness>
+            </StackPanel.Resources>
+            <StackPanel.Styles>
+                <Style Selector="Button">
+                    <Setter Property="Background" Value="{DynamicResource ButtonBackground}" />
+                    <Setter Property="Foreground" Value="{DynamicResource ButtonForeground}" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource ButtonBorderBrush}" />
+                    <Setter Property="BorderThickness" Value="{DynamicResource ButtonBorderThemeThickness}" />
+                    <Setter Property="Padding" Value="{DynamicResource ButtonPadding}" />
+                    <Setter Property="HorizontalAlignment" Value="Left" />
+                    <Setter Property="VerticalAlignment" Value="Center" />
+                    <Setter Property="FontWeight" Value="Normal" />
+                    <Setter Property="FontSize" Value="{DynamicResource ControlContentThemeFontSize}" />
+                    <Setter Property="Template">
+                        <ControlTemplate>
+                            <ContentPresenter x:Name="PART_ContentPresenter"
+                                              Background="{TemplateBinding Background}"
+                                              BorderBrush="{TemplateBinding BorderBrush}"
+                                              BorderThickness="{TemplateBinding BorderThickness}"
+                                              Content="{TemplateBinding Content}"
+                                              ContentTemplate="{TemplateBinding ContentTemplate}"
+                                              Padding="{TemplateBinding Padding}"
+                                              HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}" />
+                        </ControlTemplate>
+                    </Setter>
+                </Style>
 
-            <!-- PointerOverState -->
-            <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-                <Setter Property="Background" Value="{DynamicResource ButtonBackgroundPointerOver}" />
-                <Setter Property="BorderBrush" Value="{DynamicResource ButtonBorderBrushPointerOver}" />
-                <Setter Property="TextBlock.Foreground" Value="{DynamicResource ButtonForegroundPointerOver}" />
-            </Style>
-
-            <Style Selector="Button:pressed  /template/ ContentPresenter#PART_ContentPresenter">
-                <Setter Property="Background" Value="{DynamicResource ButtonBackgroundPressed}" />
-                <Setter Property="BorderBrush" Value="{DynamicResource ButtonBorderBrushPressed}" />
-                <Setter Property="TextBlock.Foreground" Value="{DynamicResource ButtonForegroundPressed}" />
-            </Style>
-
-            <Style Selector="Button:disabled /template/ ContentPresenter#PART_ContentPresenter">
-                <Setter Property="Background" Value="{DynamicResource ButtonBackgroundDisabled}" />
-                <Setter Property="BorderBrush" Value="{DynamicResource ButtonBorderBrushDisabled}" />
-                <Setter Property="TextBlock.Foreground" Value="{DynamicResource ButtonForegroundDisabled}" />
-            </Style>
-
-            <Style Selector="Button, RepeatButton, ToggleButton">
-                <Setter Property="RenderTransform" Value="none" />
-                <Setter Property="Transitions">
-                    <Transitions>
-                        <TransformOperationsTransition Property="RenderTransform" Duration="0:0:.075" />
-                    </Transitions>
-                </Setter>
-            </Style>
-
-            <Style Selector="Button:pressed, RepeatButton:pressed, ToggleButton:pressed">
-                <Setter Property="RenderTransform" Value="scale(0.98)" />
-            </Style>
-
-            <Style Selector="Button /template/ ContentPresenter#PART_ContentPresenter">
-                <Setter Property="CornerRadius" Value="{DynamicResource ControlCornerRadius}" />
-            </Style>
-        </StackPanel.Styles>
-        <Button
-            Width="46"
-            VerticalAlignment="Stretch"
-            VerticalContentAlignment="Center"
-            BorderThickness="0"
-            Name="MinimizeButton"
-            ToolTip.Tip="Minimize">
-            <Button.Styles>
+                <!-- PointerOverState -->
                 <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-                    <Setter Property="Background"
-                            Value="#44AAAAAA"/>
+                    <Setter Property="Background" Value="{DynamicResource ButtonBackgroundPointerOver}" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource ButtonBorderBrushPointerOver}" />
+                    <Setter Property="TextBlock.Foreground" Value="{DynamicResource ButtonForegroundPointerOver}" />
                 </Style>
-                <Style Selector="Button:not(:pointerover) /template/ ContentPresenter#PART_ContentPresenter">
-                    <Setter Property="Background"
-                            Value="Transparent"/>
-                </Style>
-            </Button.Styles>
-            <Path
-                Margin="10,0,10,0"
-                Stretch="Uniform"
-                Fill="{DynamicResource TextControlForeground}"
-                Data="M2048 1229v-205h-2048v205h2048z"></Path>
-        </Button>
 
-        <Button
-            Width="46"
-            VerticalAlignment="Stretch"
-            VerticalContentAlignment="Center"
-            BorderThickness="0"
-            Name="MaximizeButton">
-            <ToolTip.Tip>
-                <ToolTip Content="Maximize"
-                         Name="MaximizeToolTip"></ToolTip>
-            </ToolTip.Tip>
+                <Style Selector="Button:pressed  /template/ ContentPresenter#PART_ContentPresenter">
+                    <Setter Property="Background" Value="{DynamicResource ButtonBackgroundPressed}" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource ButtonBorderBrushPressed}" />
+                    <Setter Property="TextBlock.Foreground" Value="{DynamicResource ButtonForegroundPressed}" />
+                </Style>
 
-            <Button.Styles>
-                <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-                    <Setter Property="Background"
-                            Value="#44AAAAAA"/>
+                <Style Selector="Button:disabled /template/ ContentPresenter#PART_ContentPresenter">
+                    <Setter Property="Background" Value="{DynamicResource ButtonBackgroundDisabled}" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource ButtonBorderBrushDisabled}" />
+                    <Setter Property="TextBlock.Foreground" Value="{DynamicResource ButtonForegroundDisabled}" />
                 </Style>
-                <Style Selector="Button:not(:pointerover) /template/ ContentPresenter#PART_ContentPresenter">
-                    <Setter Property="Background"
-                            Value="Transparent"/>
-                </Style>
-            </Button.Styles>
-            <Path
-                Margin="10,0,10,0"
-                Stretch="Uniform"
-                Fill="{DynamicResource TextControlForeground}"
-                Name="MaximizeIcon"
-                Data="M2048 2048v-2048h-2048v2048h2048zM1843 1843h-1638v-1638h1638v1638z"></Path>
-        </Button>
 
-        <Button
-            Width="46"
-            VerticalAlignment="Stretch"
-            VerticalContentAlignment="Center"
-            BorderThickness="0"
-            Name="CloseButton"
-            ToolTip.Tip="Close">
-            <Button.Styles>
-                <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-                    <Setter Property="Background"
-                            Value="Red"/>
+                <Style Selector="Button, RepeatButton, ToggleButton">
+                    <Setter Property="RenderTransform" Value="none" />
+                    <Setter Property="Transitions">
+                        <Transitions>
+                            <TransformOperationsTransition Property="RenderTransform" Duration="0:0:.075" />
+                        </Transitions>
+                    </Setter>
                 </Style>
-                <Style Selector="Button:not(:pointerover) /template/ ContentPresenter#PART_ContentPresenter">
-                    <Setter Property="Background"
-                            Value="Transparent"/>
-                </Style>
-                <Style Selector="Button:pointerover > Path">
-                    <Setter Property="Fill"
-                            Value="White"/>
-                </Style>
-                <Style Selector="Button:not(:pointerover) > Path">
-                    <Setter Property="Fill"
-                            Value="{DynamicResource TextControlForeground}"/>
-                </Style>
-            </Button.Styles>
-            <Path
-                Margin="10,0,10,0"
-                Stretch="Uniform"
-                Data="M1169 1024l879 -879l-145 -145l-879 879l-879 -879l-145 145l879 879l-879 879l145 145l879 -879l879 879l145 -145z"></Path>
-        </Button>
 
-    </StackPanel>
+                <Style Selector="Button:pressed, RepeatButton:pressed, ToggleButton:pressed">
+                    <Setter Property="RenderTransform" Value="scale(0.98)" />
+                </Style>
+
+                <Style Selector="Button /template/ ContentPresenter#PART_ContentPresenter">
+                    <Setter Property="CornerRadius" Value="{DynamicResource ControlCornerRadius}" />
+                </Style>
+            </StackPanel.Styles>
+            <Button
+                Width="46"
+                VerticalAlignment="Stretch"
+                VerticalContentAlignment="Center"
+                BorderThickness="0"
+                Name="MinimizeButton"
+                ToolTip.Tip="{x:Static props:Strings.Minimize}">
+                <Button.Styles>
+                    <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+                        <Setter Property="Background"
+                                Value="#44AAAAAA"/>
+                    </Style>
+                    <Style Selector="Button:not(:pointerover) /template/ ContentPresenter#PART_ContentPresenter">
+                        <Setter Property="Background"
+                                Value="Transparent"/>
+                    </Style>
+                </Button.Styles>
+                <Path
+                    Margin="10,0,10,0"
+                    Stretch="Uniform"
+                    Fill="{DynamicResource TextControlForeground}"
+                    Data="M2048 1229v-205h-2048v205h2048z"></Path>
+            </Button>
+
+            <Button
+                Width="46"
+                VerticalAlignment="Stretch"
+                VerticalContentAlignment="Center"
+                BorderThickness="0"
+                Name="MaximizeButton">
+                <ToolTip.Tip>
+                    <ToolTip Content="Maximize"
+                             Name="MaximizeToolTip"></ToolTip>
+                </ToolTip.Tip>
+
+                <Button.Styles>
+                    <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+                        <Setter Property="Background"
+                                Value="#44AAAAAA"/>
+                    </Style>
+                    <Style Selector="Button:not(:pointerover) /template/ ContentPresenter#PART_ContentPresenter">
+                        <Setter Property="Background"
+                                Value="Transparent"/>
+                    </Style>
+                </Button.Styles>
+                <Path
+                    Margin="10,0,10,0"
+                    Stretch="Uniform"
+                    Fill="{DynamicResource TextControlForeground}"
+                    Name="MaximizeIcon"
+                    Data="M2048 2048v-2048h-2048v2048h2048zM1843 1843h-1638v-1638h1638v1638z"></Path>
+            </Button>
+
+            <Button
+                Width="46"
+                VerticalAlignment="Stretch"
+                VerticalContentAlignment="Center"
+                BorderThickness="0"
+                Name="CloseButton"
+                ToolTip.Tip="{x:Static props:Strings.Close}">
+                <Button.Styles>
+                    <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+                        <Setter Property="Background"
+                                Value="Red"/>
+                    </Style>
+                    <Style Selector="Button:not(:pointerover) /template/ ContentPresenter#PART_ContentPresenter">
+                        <Setter Property="Background"
+                                Value="Transparent"/>
+                    </Style>
+                    <Style Selector="Button:pointerover > Path">
+                        <Setter Property="Fill"
+                                Value="White"/>
+                    </Style>
+                    <Style Selector="Button:not(:pointerover) > Path">
+                        <Setter Property="Fill"
+                                Value="{DynamicResource TextControlForeground}"/>
+                    </Style>
+                </Button.Styles>
+                <Path
+                    Margin="10,0,10,0"
+                    Stretch="Uniform"
+                    Data="M1169 1024l879 -879l-145 -145l-879 879l-879 -879l-145 145l879 879l-879 879l145 145l879 -879l879 879l145 -145z"></Path>
+            </Button>
+
+        </StackPanel>
+    </Panel>
 </UserControl>

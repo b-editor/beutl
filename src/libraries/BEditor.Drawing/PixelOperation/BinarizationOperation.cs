@@ -30,7 +30,7 @@ namespace BEditor.Drawing
 
             if (context?.IsDisposed == false)
             {
-                image.PixelOperate<BinarizationOperation, byte>(context, value);
+                image.PixelOperate<BinarizationOperation>(context, value);
             }
             else
             {
@@ -53,7 +53,7 @@ namespace BEditor.Drawing.PixelOperation
     /// <summary>
     /// Binarizes the pixels.
     /// </summary>
-    public readonly unsafe struct BinarizationOperation : IPixelOperation, IGpuPixelOperation<byte>
+    public readonly unsafe struct BinarizationOperation : IPixelOperation, IGpuPixelOperation
     {
         private readonly BGRA32* _src;
         private readonly BGRA32* _dst;

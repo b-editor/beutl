@@ -3,6 +3,8 @@ using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 
+using BEditor.Controls;
+
 namespace BEditor.Views.Properties
 {
     public sealed class SetBinding : FluentWindow

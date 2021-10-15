@@ -21,7 +21,7 @@ namespace BEditor.ViewModels
 
         static FontDialogViewModel()
         {
-            LoadUsedFonts();
+            LoadRecentFonts();
         }
 
         public FontDialogViewModel(Font selected)
@@ -34,7 +34,7 @@ namespace BEditor.ViewModels
                 font.IsVisible.Value = true;
             }
 
-            foreach (var font_ in UsedFonts)
+            foreach (var font_ in RecentFonts)
             {
                 font_.IsChecked.Value = false;
                 font_.IsVisible.Value = true;
@@ -70,7 +70,7 @@ namespace BEditor.ViewModels
                 {
                     item.IsVisible.Value = false;
                 }
-                foreach (var item in UsedFonts.Where(item => !regex.IsMatch(item.Font.Name.ToLowerInvariant())).ToArray())
+                foreach (var item in RecentFonts.Where(item => !regex.IsMatch(item.Font.Name.ToLowerInvariant())).ToArray())
                 {
                     item.IsVisible.Value = false;
                 }
@@ -78,8 +78,8 @@ namespace BEditor.ViewModels
             OKCommand.Subscribe(() =>
             {
                 OKIsClicked = true;
-                UsedFonts.Remove(SelectedItem.Value);
-                UsedFonts.Insert(0, SelectedItem.Value);
+                RecentFonts.Remove(SelectedItem.Value);
+                RecentFonts.Insert(0, SelectedItem.Value);
 
                 WindowClose.Execute();
             }).AddTo(_disposables);
@@ -99,7 +99,7 @@ namespace BEditor.ViewModels
 
         public static List<FontItem> FontItems { get; } = FontManager.Default.LoadedFonts.Select(i => new FontItem(i)).ToList();
 
-        public static List<FontItem> UsedFonts { get; } = new();
+        public static List<FontItem> RecentFonts { get; } = new();
 
         public ReactivePropertySlim<FontItem> SelectedItem { get; }
 
@@ -122,7 +122,7 @@ namespace BEditor.ViewModels
                 item.IsVisible.Value = true;
             }
 
-            foreach (var item in UsedFonts)
+            foreach (var item in RecentFonts)
             {
                 item.IsVisible.Value = true;
             }
@@ -135,7 +135,7 @@ namespace BEditor.ViewModels
                 item.IsChecked.Value = value;
             }
 
-            foreach (var item in UsedFonts)
+            foreach (var item in RecentFonts)
             {
                 item.IsChecked.Value = value;
             }
@@ -144,13 +144,13 @@ namespace BEditor.ViewModels
         public void Dispose()
         {
             _disposables.Dispose();
-
+            SaveRecentFonts();
             GC.SuppressFinalize(this);
         }
 
-        private static void LoadUsedFonts()
+        private static void LoadRecentFonts()
         {
-            var jsonFile = Path.Combine(ServicesLocator.GetUserFolder(), "usedFonts.json");
+            var jsonFile = Path.Combine(ServicesLocator.GetUserFolder(), "recentFonts.json");
 
             if (!File.Exists(jsonFile))
             {
@@ -161,8 +161,24 @@ namespace BEditor.ViewModels
 
             foreach (var item in JsonSerializer.Deserialize<IEnumerable<string>>(json, PackageFile._serializerOptions)?.Select(i => new Font(i)) ?? Array.Empty<Font>())
             {
-                UsedFonts.Add(new(item));
+                RecentFonts.Add(new(item));
             }
+        }
+
+        private static void SaveRecentFonts()
+        {
+            var jsonFile = Path.Combine(ServicesLocator.GetUserFolder(), "recentFonts.json");
+            using var stream = new FileStream(jsonFile, FileMode.Create);
+            using var writer = new Utf8JsonWriter(stream, Serialize._options);
+
+            writer.WriteStartArray();
+
+            foreach (var item in RecentFonts)
+            {
+                writer.WriteStringValue(item.Font.Filename);
+            }
+
+            writer.WriteEndArray();
         }
 
         public record FontItem(Font Font)

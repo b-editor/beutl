@@ -1130,6 +1130,11 @@
             Defines the <see cref="P:BEditor.Primitive.Effects.Border.Mask"/> property.
             </summary>
         </member>
+        <member name="F:BEditor.Primitive.Effects.Border.IsMultipleProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.Border.IsMultiple"/> property.
+            </summary>
+        </member>
         <member name="M:BEditor.Primitive.Effects.Border.#ctor">
             <summary>
             Initializes a new instance of the <see cref="T:BEditor.Primitive.Effects.Border"/> class.
@@ -1166,6 +1171,11 @@
         <member name="P:BEditor.Primitive.Effects.Border.Mask">
             <summary>
             Gets the mask type.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.Border.IsMultiple">
+            <summary>
+            Gets the text.
             </summary>
         </member>
         <member name="M:BEditor.Primitive.Effects.Border.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
@@ -1656,6 +1666,9 @@
             </summary>
         </member>
         <member name="M:BEditor.Primitive.Effects.FlatShadow.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.FlatShadow.Apply(BEditor.Data.EffectApplyArgs{System.Collections.Generic.IEnumerable{BEditor.Graphics.Texture}})">
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Primitive.Effects.FlatShadow.GetProperties">
@@ -2249,6 +2262,60 @@
         <member name="M:BEditor.Primitive.Effects.PointLightDiffuse.GetProperties">
             <inheritdoc/>
         </member>
+        <member name="T:BEditor.Primitive.Effects.Resize">
+            <summary>
+            The resize.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.Resize.ScaleProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.Resize.Scale"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.Resize.ScaleXProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.Resize.ScaleX"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.Resize.ScaleYProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.Resize.ScaleY"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.Resize.QualityProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.Resize.Quality"/> property.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.Resize.Name">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.Resize.Scale">
+            <summary>
+            Gets the EaseProperty representing the scale.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.Resize.ScaleX">
+            <summary>
+            Gets the scale in the Z-axis direction.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.Resize.ScaleY">
+            <summary>
+            Gets the scale in the Y-axis direction.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.Resize.Quality">
+            <summary>
+            Gets the quality.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.Resize.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.Resize.GetProperties">
+            <inheritdoc/>
+        </member>
         <member name="T:BEditor.Primitive.Effects.ReverseOpacity">
             <summary>
             Represents an effect that reverses the opacity of an image.
@@ -2310,6 +2377,128 @@
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Primitive.Effects.RGBColor.GetProperties">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Primitive.Effects.RoundClipping">
+            <summary>
+            Represents the <see cref="T:BEditor.Data.Primitive.ImageEffect"/> that cripping the image.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.RoundClipping.TopProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.RoundClipping.Top"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.RoundClipping.BottomProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.RoundClipping.Bottom"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.RoundClipping.LeftProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.RoundClipping.Left"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.RoundClipping.RightProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.RoundClipping.Right"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.RoundClipping.TopLeftRadiusProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.RoundClipping.TopLeftRadius"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.RoundClipping.TopRightRadiusProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.RoundClipping.TopRightRadius"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.RoundClipping.BottomLeftRadiusProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.RoundClipping.BottomLeftRadius"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.RoundClipping.BottomRightRadiusProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.RoundClipping.BottomRightRadius"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.RoundClipping.AdjustCoordinatesProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.RoundClipping.AdjustCoordinates"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.RoundClipping.CropTransparentAreaProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.RoundClipping.CropTransparentArea"/> property.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.RoundClipping.#ctor">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Primitive.Effects.RoundClipping"/> class.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.RoundClipping.Name">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.RoundClipping.Top">
+            <summary>
+            Gets the range to be clipped.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.RoundClipping.Bottom">
+            <summary>
+            Gets the range to be clipped.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.RoundClipping.Left">
+            <summary>
+            Gets the range to be clipped.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.RoundClipping.Right">
+            <summary>
+            Gets the range to be clipped.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.RoundClipping.TopLeftRadius">
+            <summary>
+            Gets the roundness of the shape.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.RoundClipping.TopRightRadius">
+            <summary>
+            Gets the roundness of the shape.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.RoundClipping.BottomLeftRadius">
+            <summary>
+            Gets the roundness of the shape.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.RoundClipping.BottomRightRadius">
+            <summary>
+            Gets the roundness of the shape.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.RoundClipping.AdjustCoordinates">
+            <summary>
+            Gets whether or not to adjust the coordinates.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.RoundClipping.CropTransparentArea">
+            <summary>
+            Gets whether or not to crop the transparent area.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.RoundClipping.Apply(BEditor.Data.EffectApplyArgs{System.Collections.Generic.IEnumerable{BEditor.Graphics.Texture}})">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.RoundClipping.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.RoundClipping.GetProperties">
             <inheritdoc/>
         </member>
         <member name="T:BEditor.Primitive.Effects.Sepia">
@@ -2783,6 +2972,90 @@
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Primitive.Objects.GL3DObject.GetProperties">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Primitive.Objects.Arc">
+            <summary>
+            The arc.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Objects.Arc.WidthProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Objects.Arc.Width"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Objects.Arc.HeightProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Objects.Arc.Height"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Objects.Arc.LineProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Objects.Arc.Line"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Objects.Arc.ColorProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Objects.Arc.Color"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Objects.Arc.StartAngleProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Objects.Arc.StartAngle"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Objects.Arc.SweepAngleProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Objects.Arc.SweepAngle"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Objects.Arc.UseCenterProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Objects.Arc.SweepAngle"/> property.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Objects.Arc.Name">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Primitive.Objects.Arc.Width">
+            <summary>
+            Gets the width of the shape.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Objects.Arc.Height">
+            <summary>
+            Gets the height of the shape.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Objects.Arc.Line">
+            <summary>
+            Gets the line width of the shape.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Objects.Arc.StartAngle">
+            <summary>
+            Gets the line width of the shape.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Objects.Arc.SweepAngle">
+            <summary>
+            Gets the line width of the shape.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Objects.Arc.UseCenter">
+            <summary>
+            Gets the line width of the shape.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Objects.Arc.Color">
+            <summary>
+            Gets the color of the shape.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Objects.Arc.GetProperties">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Objects.Arc.OnRender(BEditor.Data.EffectApplyArgs)">
             <inheritdoc/>
         </member>
         <member name="T:BEditor.Primitive.Objects.Framebuffer">
@@ -3545,6 +3818,11 @@
             Metadata of <see cref="F:BEditor.Primitive.PrimitiveTypes.Framebuffer"/> class.
             </summary>
         </member>
+        <member name="F:BEditor.Primitive.PrimitiveTypes.ArcMetadata">
+            <summary>
+            Metadata of <see cref="T:BEditor.Primitive.Objects.Arc"/> class.
+            </summary>
+        </member>
         <member name="M:BEditor.Primitive.PrimitiveTypes.EnumerateAllObjectMetadata">
             <summary>
             Enumerate all objects.
@@ -3607,6 +3885,11 @@
         <member name="P:BEditor.Primitive.Resources.Strings.ApplyLookupTable">
             <summary>
               Apply Lookup table に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Arc">
+            <summary>
+              Arc に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.AreaExpansion">
@@ -4179,6 +4462,11 @@
               Polygon に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Quality">
+            <summary>
+              Quality に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Radius">
             <summary>
               Radius に類似しているローカライズされた文字列を検索します。
@@ -4229,6 +4517,11 @@
               Round に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.RoundClipping">
+            <summary>
+              Round clipping に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
         <member name="P:BEditor.Primitive.Resources.Strings.RoundRect">
             <summary>
               Round rect に類似しているローカライズされた文字列を検索します。
@@ -4237,6 +4530,11 @@
         <member name="P:BEditor.Primitive.Resources.Strings.SaturationRange">
             <summary>
               Saturation range に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Scale">
+            <summary>
+              Scale に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Scene">
@@ -4304,6 +4602,11 @@
               Start に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.StartAngle">
+            <summary>
+              Start angle に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
         <member name="P:BEditor.Primitive.Resources.Strings.StartPoint">
             <summary>
               Start point に類似しているローカライズされた文字列を検索します。
@@ -4317,6 +4620,11 @@
         <member name="P:BEditor.Primitive.Resources.Strings.Stroke">
             <summary>
               Stroke に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.SweepAngle">
+            <summary>
+              Sweep angle に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.TargetX">
@@ -4372,6 +4680,11 @@
         <member name="P:BEditor.Primitive.Resources.Strings.Unspecified">
             <summary>
               Unspecified に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.UseCenter">
+            <summary>
+              Use center に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.VerticalAlignment">

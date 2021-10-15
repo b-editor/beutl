@@ -307,6 +307,15 @@ namespace BEditor.Drawing
             }
         }
 
+        internal static void CopyTo(byte[] src, Span<BGRA32> dst, int length)
+        {
+            fixed (void* srcPtr = src)
+            fixed (BGRA32* dstPtr = dst)
+            {
+                Buffer.MemoryCopy(srcPtr, dstPtr, length, length);
+            }
+        }
+
         internal static EncodedImageFormat ToImageFormat(string filename)
         {
             var ex = Path.GetExtension(filename);

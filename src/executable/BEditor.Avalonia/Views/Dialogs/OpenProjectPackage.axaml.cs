@@ -1,10 +1,12 @@
 using System;
+
 using Avalonia;
-using Avalonia.Threading;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
+using Avalonia.Threading;
 
+using BEditor.Controls;
 using BEditor.ViewModels.Dialogs;
 
 namespace BEditor.Views.Dialogs

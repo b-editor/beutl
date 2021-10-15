@@ -35,7 +35,7 @@ namespace BEditor.Primitive.Effects
         /// <inheritdoc/>
         public override void Apply(EffectApplyArgs<Image<BGRA32>> args)
         {
-            args.Value.Xor(Parent.Parent.DrawingContext);
+            args.Value.Xor(args.Contexts.Drawing);
         }
 
         /// <inheritdoc/>

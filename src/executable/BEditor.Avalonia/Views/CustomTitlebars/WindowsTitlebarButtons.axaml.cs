@@ -7,6 +7,8 @@ using Avalonia.Controls.Shapes;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 
+using BEditor.Properties;
+
 namespace BEditor.Views.CustomTitlebars
 {
     public sealed class WindowsTitlebarButtons : UserControl
@@ -18,6 +20,7 @@ namespace BEditor.Views.CustomTitlebars
                 titlebar._maximizeButton.IsVisible = value;
             }
         });
+        public static readonly StyledProperty<string> TitleProperty = AvaloniaProperty.Register<WindowsTitlebarButtons, string>(nameof(Title), string.Empty);
         private readonly Button _minimizeButton;
         private readonly Button _maximizeButton;
         private readonly Path _maximizeIcon;
@@ -56,6 +59,12 @@ namespace BEditor.Views.CustomTitlebars
             set => SetValue(CanResizeProperty, value);
         }
 
+        public string Title
+        {
+            get => GetValue(TitleProperty);
+            set => SetValue(TitleProperty, value);
+        }
+
         private void Titlebar_PointerPressed(object? sender, Avalonia.Input.PointerPressedEventArgs e)
         {
             if (VisualRoot is Window window)
@@ -85,13 +94,13 @@ namespace BEditor.Views.CustomTitlebars
                 {
                     _maximizeIcon.Data = Avalonia.Media.Geometry.Parse("M2048 2048v-2048h-2048v2048h2048zM1843 1843h-1638v-1638h1638v1638z");
                     window.Padding = new Thickness(0, 0, 0, 0);
-                    _maximizeToolTip.Content = "Maximize";
+                    _maximizeToolTip.Content = Strings.Maximize;
                 }
                 if (s is WindowState.Maximized)
                 {
                     _maximizeIcon.Data = Avalonia.Media.Geometry.Parse("M2048 1638h-410v410h-1638v-1638h410v-410h1638v1638zm-614-1024h-1229v1229h1229v-1229zm409-409h-1229v205h1024v1024h205v-1229z");
                     window.Padding = new Thickness(7, 7, 7, 7);
-                    _maximizeToolTip.Content = "Restore Down";
+                    _maximizeToolTip.Content = Strings.RestoreDown;
                 }
             });
         }

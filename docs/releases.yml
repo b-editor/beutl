@@ -1,3 +1,12 @@
+- version: "0.2.2"
+  url: "https://github.com/b-editor/BEditor/releases/tag/v0.2.2"
+
+- version: "0.2.1"
+  url: "https://github.com/b-editor/BEditor/releases/tag/v0.2.1"
+
+- version: "0.2.0"
+  url: "https://github.com/b-editor/BEditor/releases/tag/v0.2.0-2"
+
 - version: "0.1.4"
   url: "https://github.com/b-editor/BEditor/releases/tag/v0.1.4"
 

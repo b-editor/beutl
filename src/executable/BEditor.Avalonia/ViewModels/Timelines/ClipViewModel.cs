@@ -5,6 +5,7 @@ using System.Reactive.Linq;
 using System.Text;
 
 using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media;
 
@@ -107,6 +108,11 @@ namespace BEditor.ViewModels.Timelines
                     }
                 });
             }
+
+            if (clip.Parent.SelectItem == clip)
+            {
+                BorderBrush.Value = Brushes.White;
+            }
         }
 
         ~ClipViewModel()
@@ -124,13 +130,15 @@ namespace BEditor.ViewModels.Timelines
 
         public ReactivePropertySlim<string> ClipText { get; set; } = new();
 
-        public ReactivePropertySlim<Brush> ClipColor { get; set; } = new();
+        public ReactivePropertySlim<IBrush> ClipColor { get; set; } = new();
 
         public static double TrackHeight => ConstantSettings.ClipHeight;
 
         public ReactivePropertySlim<double> WidthProperty { get; } = new();
 
         public ReactivePropertySlim<Thickness> MarginProperty { get; } = new();
+
+        public ReactivePropertySlim<IBrush> BorderBrush { get; } = new();
 
         public double MarginTop
         {
@@ -174,13 +182,11 @@ namespace BEditor.ViewModels.Timelines
         {
             var timeline = TimelineViewModel;
             timeline.ClipMouseDown = true;
-
             timeline.ClipStartAbs = timeline.GetLayerMousePosition?.Invoke(e) ?? throw new Exception();
             timeline.ClipStartRel = point;
-
             timeline.SelectedClip = ClipElement;
 
-            if (timeline.SelectedClip.GetCreateClipViewModel().ClipCursor.Value == StandardCursorType.SizeWestEast)
+            if (ClipCursor.Value == StandardCursorType.SizeWestEast)
             {
                 timeline.LayerCursor.Value = StandardCursorType.SizeWestEast;
             }

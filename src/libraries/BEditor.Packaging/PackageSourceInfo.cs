@@ -36,7 +36,7 @@ namespace BEditor.Packaging
         /// <summary>
         /// Defines the <see cref="Name"/> property.
         /// </summary>
-        public static readonly EditingProperty<string> NameProperty
+        public static new readonly EditingProperty<string> NameProperty
             = EditingProperty.Register<string, PackageSourceInfo>(
                 "name,Name",
                 EditingPropertyOptions<string>.Create().DefaultValue(string.Empty)!.Serialize()!);
@@ -55,7 +55,7 @@ namespace BEditor.Packaging
         /// Gets or sets the name.
         /// </summary>
         [JsonPropertyName("Name")]
-        public string Name
+        public override string Name
         {
             get => GetValue(NameProperty);
             set => SetValue(NameProperty, value);

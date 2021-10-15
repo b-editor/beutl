@@ -312,8 +312,17 @@ namespace BEditor.Drawing
             if (file is null) throw new ArgumentNullException(nameof(file));
             if (!File.Exists(file)) throw new FileNotFoundException(null, file);
 
-            using var stream = new FileStream(file, FileMode.Open);
-            return FromStream(stream);
+            using var bmp = SKBitmap.Decode(file);
+            var image = bmp.ToImage32();
+
+            if (default(T) is BGRA32)
+            {
+                return (Image<T>)(object)image;
+            }
+
+            var converted = image.Convert<T>();
+            image.Dispose();
+            return converted;
         }
 
         /// <summary>

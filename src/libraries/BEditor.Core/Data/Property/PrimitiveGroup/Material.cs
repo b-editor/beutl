@@ -53,7 +53,7 @@ namespace BEditor.Data.Property.PrimitiveGroup
             nameof(Shininess),
             owner => owner.Shininess,
             (owner, obj) => owner.Shininess = obj,
-            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Shininess, 10, float.NaN, 1)).Serialize());
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Shininess, 10, float.NaN, 1) { FormatString = "{0:F}" }).Serialize());
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Material"/> class.

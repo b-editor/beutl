@@ -14,20 +14,16 @@
         <AvaloniaResource Include="Assets\**" />
     </ItemGroup>
 
+    <Import Project="..\..\..\props\Avalonia.props" />
+    <Import Project="..\..\..\props\Serilog.props" />
+    <Import Project="..\..\..\props\Roslynator.props" />
+
     <ItemGroup>
-        <PackageReference Include="Avalonia" Version="0.10.7" />
         <PackageReference Include="Avalonia.Controls.PanAndZoom" Version="4.0.0" />
-        <PackageReference Include="Avalonia.Desktop" Version="0.10.7" />
-        <PackageReference Include="Avalonia.Diagnostics" Version="0.10.7" />
-        <PackageReference Include="FluentAvaloniaUI" Version="1.1.1" />
-        <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="5.0.0" />
-        <PackageReference Include="ReactiveProperty" Version="7.12.0" />
-        <PackageReference Include="Serilog.Extensions.Logging" Version="3.0.1" />
-        <PackageReference Include="Serilog.Sinks.File" Version="5.0.0" />
-        <PackageReference Include="Roslynator.Analyzers" Version="3.2.2" PrivateAssets="all" />
     </ItemGroup>
 
     <ItemGroup>
+        <ProjectReference Include="..\..\libraries\BEditor.Controls\BEditor.Controls.csproj" />
         <ProjectReference Include="..\..\libraries\BEditor.Core\BEditor.Core.csproj" />
         <ProjectReference Include="..\..\libraries\BEditor.Primitive\BEditor.Primitive.csproj" />
         <ProjectReference Include="..\..\libraries\BEditor.Graphics.Veldrid\BEditor.Graphics.Veldrid.csproj" />

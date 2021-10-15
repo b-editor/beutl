@@ -5,6 +5,7 @@ using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 
+using BEditor.Controls;
 using BEditor.Data.Property.Easing;
 using BEditor.ViewModels.Properties;
 

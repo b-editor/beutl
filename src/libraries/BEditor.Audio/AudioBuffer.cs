@@ -1,15 +1,13 @@
 ﻿using System;
-using System.Collections.Generic;
 
 using BEditor.Media;
 using BEditor.Media.PCM;
 
 using OpenTK.Audio.OpenAL;
 
-using static BEditor.Audio.AudioSource;
-
 namespace BEditor.Audio
 {
+    [Obsolete("To be addded.")]
     public sealed class AudioBuffer : AudioLibraryObject
     {
         public AudioBuffer(Sound<PCM16> sound)
@@ -71,7 +69,7 @@ namespace BEditor.Audio
             {
                 ThrowIfDisposed();
                 Tool.GetBuffer(Handle, ALGetBufferi.Frequency, out var v);
-                CheckError();
+                AudioSource.CheckError();
 
                 return v;
             }
@@ -87,7 +85,7 @@ namespace BEditor.Audio
             {
                 ThrowIfDisposed();
                 Tool.GetBuffer(Handle, ALGetBufferi.Bits, out var v);
-                CheckError();
+                AudioSource.CheckError();
 
                 return v;
             }

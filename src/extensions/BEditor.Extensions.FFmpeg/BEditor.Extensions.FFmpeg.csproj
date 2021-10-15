@@ -1,0 +1,22 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <Company>b-editor</Company>
+        <Copyright>GNU General Public License (GPL) version 2</Copyright>
+        <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+        <Version>0.2.1</Version>
+    </PropertyGroup>
+
+    <Import Project="..\..\..\props\plugin.props" />
+    <Import Project="..\..\..\props\Avalonia.props" />
+
+    <ItemGroup>
+        <PackageReference Include="FFMediaToolkit" Version="4.1.2" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\libraries\BEditor.Core\BEditor.Core.csproj" />
+        <ProjectReference Include="..\..\libraries\BEditor.Controls\BEditor.Controls.csproj" />
+    </ItemGroup>
+
+</Project>

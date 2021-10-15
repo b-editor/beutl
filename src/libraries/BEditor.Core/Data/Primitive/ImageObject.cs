@@ -5,9 +5,11 @@
 // This software may be modified and distributed under the terms
 // of the MIT license. See the LICENSE file for details.
 
+using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using System.Numerics;
 
 using BEditor.Data.Property.PrimitiveGroup;
 using BEditor.Drawing;
@@ -113,7 +115,7 @@ namespace BEditor.Data.Primitive
         {
             if (args.Type is ApplyType.Audio) return;
 
-            var imgs_args = new EffectApplyArgs<IEnumerable<Texture>>(args.Frame, Enumerable.Empty<Texture>(), args.Type);
+            var imgs_args = new EffectApplyArgs<IEnumerable<Texture>>(args.Frame, Enumerable.Empty<Texture>(), args.Contexts, args.Type);
             OnRender(imgs_args);
 
             var list = Parent!.Effect.Where(x => x.IsEnabled).ToArray();
@@ -129,8 +131,6 @@ namespace BEditor.Data.Primitive
 
                 img.Dispose();
             }
-
-            ResetOptional();
         }
 
         /// <summary>
@@ -173,12 +173,11 @@ namespace BEditor.Data.Primitive
 
             if (base_img is null)
             {
-                ResetOptional();
                 image = null;
                 return;
             }
 
-            var imageArgs = new EffectApplyArgs<Image<BGRA32>>(args.Frame, base_img, args.Type);
+            var imageArgs = new EffectApplyArgs<Image<BGRA32>>(args.Frame, base_img, args.Contexts, args.Type);
 
             var list = Parent!.Effect.Where(x => x.IsEnabled).ToArray();
             for (var i = 1; i < list.Length; i++)
@@ -196,7 +195,6 @@ namespace BEditor.Data.Primitive
 
                 if (args.Handled)
                 {
-                    ResetOptional();
                     image = imageArgs.Value;
                     return;
                 }
@@ -257,15 +255,7 @@ namespace BEditor.Data.Primitive
             }
         }
 
-        private void ResetOptional()
-        {
-            Coordinate.ResetOptional();
-            Rotate.ResetOptional();
-            Scale.ResetOptional();
-            Blend.ResetOptional();
-        }
-
-        private void LoadEffect(EffectApplyArgs<IEnumerable<Texture>> args, EffectElement[] list)
+        private static void LoadEffect(EffectApplyArgs<IEnumerable<Texture>> args, EffectElement[] list)
         {
             for (var i = 0; i < list.Length; i++)
             {
@@ -286,7 +276,6 @@ namespace BEditor.Data.Primitive
 
                 if (args.Handled)
                 {
-                    ResetOptional();
                     return;
                 }
             }
@@ -294,19 +283,35 @@ namespace BEditor.Data.Primitive
 
         private void Draw(Texture texture, EffectApplyArgs args)
         {
+            const float lineWidth = 1.5F;
+            static Cube CreateCube(float width, float height, float cx, float cy, Transform trans)
+            {
+                trans.Center += new Vector3(cx, cy, 0);
+                return new Cube(MathF.Max(width, 1), MathF.Max(height, 1), lineWidth)
+                {
+                    Color = Colors.White,
+                    Transform = trans,
+                };
+            }
+
             static void DrawLine(GraphicsContext context, float width, float height, Transform trans)
             {
+                using var cube1 = CreateCube(lineWidth, height, width / 2, 0, trans);
+                using var cube2 = CreateCube(width, lineWidth, 0, -height / 2, trans);
+                using var cube3 = CreateCube(lineWidth, height, -width / 2, 0, trans);
+                using var cube4 = CreateCube(width, lineWidth, 0, height / 2, trans);
+
                 // 右上～右下
-                context.DrawLine(new(width, height, 0), new(width, -height, 0), 1.5f, trans, Colors.White);
+                context.DrawCube(cube1);
 
                 // 右下～左下
-                context.DrawLine(new(width, -height, 0), new(-width, -height, 0), 1.5f, trans, Colors.White);
+                context.DrawCube(cube2);
 
                 // 左下～左上
-                context.DrawLine(new(-width, -height, 0), new(-width, height, 0), 1.5f, trans, Colors.White);
+                context.DrawCube(cube3);
 
                 // 左上～右上
-                context.DrawLine(new(-width, height, 0), new(width, height, 0), 1.5f, trans, Colors.White);
+                context.DrawCube(cube4);
             }
 
             if (texture.IsDisposed || args.Handled)
@@ -314,13 +319,11 @@ namespace BEditor.Data.Primitive
                 return;
             }
 
-            var context = Parent!.Parent.GraphicsContext!;
+            var context = args.Contexts.Graphics;
 
             if (args.Type is ApplyType.Edit && Parent.Parent.SelectItem == Parent)
             {
-                var wHalf = (texture.Width / 2f) + 10;
-                var hHalf = (texture.Height / 2f) + 10;
-                DrawLine(context, wHalf, hHalf, texture.Transform);
+                DrawLine(context, texture.Width, texture.Height, texture.Transform);
             }
 
             context.DrawTexture(texture);

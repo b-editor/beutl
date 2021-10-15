@@ -24,12 +24,9 @@ namespace BEditor.Data
         private static readonly PropertyChangedEventArgs _endArgs = new(nameof(End));
         private static readonly PropertyChangedEventArgs _lengthArgs = new(nameof(Length));
         private static readonly PropertyChangedEventArgs _layerArgs = new(nameof(Layer));
-        private static readonly PropertyChangedEventArgs _textArgs = new(nameof(LabelText));
-        private string? _name;
         private Frame _start;
         private Frame _end;
         private int _layer;
-        private string _labelText = string.Empty;
         private ObservableCollection<EffectElement> _effect;
         private Scene _parent;
 
@@ -49,8 +46,8 @@ namespace BEditor.Data
             _effect = new() { metadata.CreateFunc() };
             Metadata = metadata;
             Parent = _parent = scene;
-            LabelText = Name;
             _effect[0].Parent = this;
+            Name = Metadata.Type.Name;
         }
 
         /// <summary>
@@ -69,7 +66,7 @@ namespace BEditor.Data
             _effect = new() { obj };
             Metadata = ObjectMetadata.LoadedObjects.First(i => i.Type == Effect[0].GetType());
             Parent = _parent = scene;
-            LabelText = Name;
+            Name = Metadata.Type.Name;
         }
 
         /// <summary>
@@ -88,9 +85,9 @@ namespace BEditor.Data
         public event EventHandler<ClipLengthChangedEventArgs>? LengthChanged;
 
         /// <summary>
-        /// Gets the name of this <see cref="ClipElement"/>.
+        /// Occurs when a clip is splitted.
         /// </summary>
-        public string Name => _name ??= Effect[0].GetType().Name;
+        public event EventHandler<ClipSplittedEventArgs>? Splitted;
 
         /// <summary>
         /// Gets or sets the starting frame of this <see cref="ClipElement"/>.
@@ -143,10 +140,19 @@ namespace BEditor.Data
         /// <summary>
         /// Gets or sets the character displayed in this <see cref="ClipElement"/>.
         /// </summary>
+        [Obsolete("Use Name.")]
         public string LabelText
         {
-            get => _labelText;
-            set => SetAndRaise(value, ref _labelText, _textArgs);
+            get => Name;
+            set
+            {
+                var old = Name;
+                Name = value;
+                if (old != value)
+                {
+                    RaisePropertyChanged(new PropertyChangedEventArgs(nameof(LabelText)));
+                }
+            }
         }
 
         /// <inheritdoc/>

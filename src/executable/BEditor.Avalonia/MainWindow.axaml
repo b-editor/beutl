@@ -13,6 +13,7 @@
     xmlns:ctr="using:BEditor.Controls"
     xmlns:ui="using:FluentAvalonia.UI.Controls"
     xmlns:uip="using:FluentAvalonia.UI.Controls.Primitives"
+    xmlns:viewProperty="using:BEditor.Views.Properties"
     mc:Ignorable="d"
     d:DesignWidth="1440"
     d:DesignHeight="760"
@@ -21,14 +22,14 @@
     DataContext="{x:Static vm:MainWindowViewModel.Current}"
     Focusable="True"
     x:Class="BEditor.MainWindow">
-    <Grid RowDefinitions="Auto,Auto,*,Auto,*,Auto" ColumnDefinitions="425,Auto,*,Auto,2*">
+    <Grid RowDefinitions="Auto,Auto,*,Auto,*,Auto" ColumnDefinitions="Auto,425,Auto,*,Auto,2*,Auto">
 
         <titlebar:WindowsTitlebar
             Grid.Row="0"
-            Grid.ColumnSpan="5"
+            Grid.ColumnSpan="7"
             x:Name="Titlebar" />
 
-        <Grid Margin="4" Grid.Row="1" Grid.ColumnSpan="5" ColumnDefinitions="Auto,*">
+        <Grid Margin="4" Grid.Row="1" Grid.ColumnSpan="7" ColumnDefinitions="Auto,*">
             <Grid.Styles>
                 <Style Selector="Separator">
                     <Setter Property="Width" Value="1" />
@@ -55,7 +56,7 @@
                     <Setter Property="Background" Value="Transparent" />
                 </Style>
 
-                <Style Selector="PathIcon.objectmetadata">
+                <!--<Style Selector="PathIcon.objectmetadata">
                     <Setter Property="VerticalAlignment" Value="Center" />
                     <Setter Property="Template">
                         <ControlTemplate>
@@ -74,7 +75,7 @@
                 </Style>
                 <Style Selector="PathIcon.objectmetadata:pointerover">
                     <Setter Property="Background" Value="{DynamicResource ButtonBackgroundPointerOver}" />
-                </Style>
+                </Style>-->
 
                 <Style Selector="ComboBox">
                     <Setter Property="BorderBrush" Value="Transparent" />
@@ -119,7 +120,7 @@
                                 Icon="Save"
                                 Text="{x:Static prop:Strings.Save}"
                                 Command="{CompiledBinding Save, Mode=OneTime}" />
-                            
+
                             <ui:MenuFlyoutItem
                                 Icon="SaveAsCopy"
                                 Text="{x:Static prop:Strings.SaveAs}"
@@ -187,11 +188,17 @@
                 <ItemsControl Items="{Binding Source={x:Static data:ObjectMetadata.LoadedObjects}, Converter={StaticResource EnumerableTakeConverter}, ConverterParameter=8}">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
-                            <PathIcon
-                                PointerPressed="ObjectStartDrag"
-                                Foreground="{Binding AccentColor, Converter={StaticResource ColorToSolidColorBrushConverter}, Mode=OneTime}"
-                                Classes="objectmetadata"
-                                Data="{Binding PathIcon, Mode=OneTime, Converter={StaticResource StringToGeometoryConverter}}" />
+                            <Border Padding="8" CornerRadius="{DynamicResource ControlCornerRadius}" Classes="Overlay">
+                                <Border.Styles>
+                                    <Style Selector="Border.Overlay:pointerover">
+                                        <Setter Property="Background" Value="{DynamicResource ButtonBackgroundPointerOver}" />
+                                    </Style>
+                                </Border.Styles>
+                                <PathIcon
+                                    PointerPressed="ObjectStartDrag"
+                                    Foreground="{Binding AccentColor, Converter={StaticResource ColorToSolidColorBrushConverter}, Mode=OneTime}"
+                                    Data="{Binding PathIcon, Mode=OneTime, Converter={StaticResource StringToGeometoryConverter}}" />
+                            </Border>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
                     <ItemsControl.ItemsPanel>
@@ -225,24 +232,6 @@
                                             </Style>
                                             <Style Selector="Grid:pointerover">
                                                 <Setter Property="Background" Value="{DynamicResource ButtonBackgroundPointerOver}" />
-                                            </Style>
-                                            <Style Selector="PathIcon">
-                                                <Setter Property="Foreground" Value="{DynamicResource TextControlForeground}" />
-                                                <Setter Property="Background" Value="Transparent" />
-                                                <Setter Property="Height" Value="{DynamicResource IconElementThemeHeight}" />
-                                                <Setter Property="Width" Value="{DynamicResource IconElementThemeWidth}" />
-                                                <Setter Property="Template">
-                                                    <ControlTemplate>
-                                                        <Border Background="{TemplateBinding Background}">
-                                                            <Viewbox Height="{TemplateBinding Height}"
-                                                                     Width="{TemplateBinding Width}">
-                                                                <Path Fill="{TemplateBinding Foreground}"
-                                                                      Data="{TemplateBinding Data}"
-                                                                      Stretch="Uniform" />
-                                                            </Viewbox>
-                                                        </Border>
-                                                    </ControlTemplate>
-                                                </Setter>
                                             </Style>
                                         </Grid.Styles>
 
@@ -283,13 +272,28 @@
             </StackPanel>
 
             <StackPanel HorizontalAlignment="Right" Grid.Column="1" Spacing="4" Orientation="Horizontal">
-                <TextBlock
-                    VerticalAlignment="Center"
-                    IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}"
-                    Text="{Binding App.Project.CurrentScene.PreviewFrame, Mode=OneWay, Converter={StaticResource FrameToTimeConverter}}" />
 
-                <Button Click="ShowNotifications">
-                    <ui:SymbolIcon Symbol="Alert" />
+                <Button Click="ShowNotifications" Padding="0">
+                    <Panel>
+                        <ui:SymbolIcon Symbol="Alert" Margin="8" />
+
+                        <Border
+                            IsVisible="{CompiledBinding NoticeIsVisible.Value, Mode=OneWay}"
+                            Background="{StaticResource InfoBarErrorSeverityIconBackground}"
+                            CornerRadius="16"
+                            Width="16"
+                            Height="16"
+                            Margin="4"
+                            VerticalAlignment="Bottom"
+                            HorizontalAlignment="Right">
+                            <TextBlock
+                                Foreground="{StaticResource InfoBarErrorSeverityIconForeground}"
+                                Text="{CompiledBinding NoticeCount.Value, Mode=OneWay}"
+                                FontSize="10"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center" />
+                        </Border>
+                    </Panel>
                 </Button>
 
                 <Popup WindowManagerAddShadowHint="False" x:Name="NotificationsPopup" StaysOpen="False">
@@ -307,37 +311,25 @@
         </Grid>
 
         <Border
-            Margin="4,0,0,4"
-            BorderBrush="{StaticResource ControlElevationBorderBrush}"
-            BorderThickness="1"
-            CornerRadius="{StaticResource OverlayCornerRadius}"
             Grid.Row="2"
             Grid.RowSpan="3"
-            Background="{StaticResource NavigationViewContentBackground}"
-            IsHitTestVisible="False">
+            Grid.Column="1"
+            Margin="4,0,0,4"
+            Classes="card"
+            IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}">
+            <viewProperty:PropertyPanel
+                SelectedClip="{Binding App.Project.CurrentScene.SelectItem, Mode=OneWay}"
+                Scene="{Binding App.Project.CurrentScene, Mode=OneWay}" />
         </Border>
 
-        <ContentControl
-            Grid.Row="2"
-            Grid.RowSpan="3"
-            Padding="0"
-            Margin="4,0,0,4"
-            HorizontalContentAlignment="Stretch"
-            VerticalContentAlignment="Stretch"
-            IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}"
-            Content="{Binding App.Project.CurrentScene.SelectItem, Converter={StaticResource ClipPropertyConverter}, Mode=OneWay}" />
-
-        <GridSplitter Background="Transparent" Grid.Row="2" Grid.RowSpan="3" Grid.Column="1"/>
+        <GridSplitter Background="Transparent" Grid.Row="2" Grid.RowSpan="3" Grid.Column="2"/>
 
         <Border
             Margin="0,0,4,4"
-            BorderBrush="{StaticResource ControlElevationBorderBrush}"
-            BorderThickness="1"
-            CornerRadius="{StaticResource OverlayCornerRadius}"
-            Background="{StaticResource NavigationViewContentBackground}"
+            Classes="card"
             Grid.Row="4"
-            Grid.Column="2"
-            Grid.ColumnSpan="4"
+            Grid.Column="3"
+            Grid.ColumnSpan="3"
             Padding="0">
             <Grid ColumnDefinitions="*,Auto">
                 <ContentControl
@@ -348,20 +340,66 @@
             </Grid>
         </Border>
 
-        <GridSplitter Background="Transparent" Grid.Row="3" Grid.Column="2" Grid.ColumnSpan="3"/>
+        <GridSplitter Background="Transparent" Grid.Row="3" Grid.Column="3" Grid.ColumnSpan="3"/>
 
         <!--例外がスローされる-->
         <views:Previewer
             x:Name="previewer"
             DataContext="{CompiledBinding Previewer, Mode=OneTime}"
             Grid.Row="2"
-            Grid.Column="4"/>
+            Grid.Column="5"/>
 
-        <GridSplitter Background="Transparent" Grid.Row="2" Grid.Column="3"/>
+        <GridSplitter Background="Transparent" Grid.Row="2" Grid.Column="4"/>
+
+        <StackPanel Grid.Row="2" Grid.RowSpan="4" Spacing="8" x:Name="LeftMenuBar">
+            <StackPanel.Styles>
+                <Style Selector="Button">
+                    <Setter Property="BorderBrush" Value="Transparent" />
+                    <Setter Property="Background" Value="Transparent" />
+                </Style>
+
+                <Style Selector="LayoutTransformControl">
+                    <Setter Property="LayoutTransform">
+                        <RotateTransform Angle="90" />
+                    </Setter>
+                </Style>
+            </StackPanel.Styles>
+        </StackPanel>
+
+        <StackPanel Grid.Column="6" Grid.Row="2" Grid.RowSpan="4" Spacing="8" x:Name="RightMenuBar">
+            <StackPanel.Styles>
+                <Style Selector="Button">
+                    <Setter Property="BorderBrush" Value="Transparent" />
+                    <Setter Property="Background" Value="Transparent" />
+                </Style>
+
+                <Style Selector="LayoutTransformControl">
+                    <Setter Property="LayoutTransform">
+                        <RotateTransform Angle="270" />
+                    </Setter>
+                </Style>
+            </StackPanel.Styles>
+        </StackPanel>
+
+        <StackPanel
+            Grid.Row="5"
+            Grid.Column="1"
+            Grid.ColumnSpan="5"
+            Margin="4,0"
+            Spacing="8"
+            x:Name="BottomMenuBar"
+            Orientation="Horizontal">
+            <StackPanel.Styles>
+                <Style Selector="Button">
+                    <Setter Property="BorderBrush" Value="Transparent" />
+                    <Setter Property="Background" Value="Transparent" />
+                </Style>
+            </StackPanel.Styles>
+        </StackPanel>
 
         <TabControl
             Grid.Row="2"
-            Grid.Column="2"
+            Grid.Column="3"
             Padding="0"
             Margin="0,-4">
             <TabControl.ItemsPanel>
@@ -376,6 +414,7 @@
                 <views:Library x:Name="Library" />
             </TabItem>
             <TabItem
+                IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}"
                 Header="{x:Static prop:Strings.Objects}"
                 FontSize="16"
                 Padding="8" >
@@ -395,7 +434,7 @@
             Orientation="Vertical"
             Margin="8"
             Grid.RowSpan="6"
-            Grid.ColumnSpan="5"
+            Grid.ColumnSpan="6"
             HorizontalAlignment="Left"
             VerticalAlignment="Bottom"
             x:Name="Notifications">

@@ -141,6 +141,17 @@
             <param name="samplerate">The number of samples per second of the audio stream.</param>
             <param name="numchannels">The number of audio channels stored in the stream.</param>
         </member>
+        <member name="M:BEditor.Media.Decoding.AudioStreamInfo.#ctor(System.String,BEditor.Media.MediaType,System.TimeSpan,System.Int32,System.Int32,System.Int32)">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Media.Decoding.AudioStreamInfo"/> class.
+            </summary>
+            <param name="codecName">The codec name of the stream.</param>
+            <param name="type">The media type of the stream.</param>
+            <param name="duration">The duration of the stream.</param>
+            <param name="samplerate">The number of samples per second of the audio stream.</param>
+            <param name="numchannels">The number of audio channels stored in the stream.</param>
+            <param name="numsamples">The number of audio samples stored in the stream.</param>
+        </member>
         <member name="P:BEditor.Media.Decoding.AudioStreamInfo.SampleRate">
             <summary>
             Gets the number of samples per second of the audio stream.
@@ -149,6 +160,11 @@
         <member name="P:BEditor.Media.Decoding.AudioStreamInfo.NumChannels">
             <summary>
             Gets the number of audio channels stored in the stream.
+            </summary>
+        </member>
+        <member name="P:BEditor.Media.Decoding.AudioStreamInfo.NumSamples">
+            <summary>
+            Gets the number of audio samples stored in the stream.
             </summary>
         </member>
         <member name="T:BEditor.Media.Decoding.IAudioStream">
@@ -489,7 +505,28 @@
             <param name="framenum">The number of frames.</param>
             <param name="framerate">The frame rate.</param>
         </member>
+        <member name="M:BEditor.Media.Decoding.VideoStreamInfo.#ctor(System.String,BEditor.Media.MediaType,System.TimeSpan,BEditor.Drawing.Size,System.Int32,BEditor.Media.Rational)">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Media.Decoding.VideoStreamInfo"/> class.
+            </summary>
+            <param name="codecName">The codec name of the stream.</param>
+            <param name="type">The media type of the stream.</param>
+            <param name="duration">The duration of the stream.</param>
+            <param name="framesize">The video frame dimensions.</param>
+            <param name="framenum">The number of frames.</param>
+            <param name="framerate">The frame rate.</param>
+        </member>
         <member name="P:BEditor.Media.Decoding.VideoStreamInfo.FrameRate">
+            <summary>
+            Gets the frame rate.
+            </summary>
+        </member>
+        <member name="P:BEditor.Media.Decoding.VideoStreamInfo.AvgFrameRate">
+            <summary>
+            Gets the average frame rate.
+            </summary>
+        </member>
+        <member name="P:BEditor.Media.Decoding.VideoStreamInfo.RealFrameRate">
             <summary>
             Gets the frame rate.
             </summary>
@@ -795,6 +832,11 @@
             Gets or sets video frame rate (FPS) value. The default value is 30 frames/s.
             </summary>
         </member>
+        <member name="P:BEditor.Media.Encoding.VideoEncoderSettings.FramerateRational">
+            <summary>
+            Gets or sets video frame rate (FPS) value. The default value is 30 frames/s.
+            </summary>
+        </member>
         <member name="P:BEditor.Media.Encoding.VideoEncoderSettings.CodecOptions">
             <summary>
             Gets or sets the dictionary with custom codec options.
@@ -1038,6 +1080,18 @@
         <member name="M:BEditor.Media.IRegisterdDecoding.SupportExtensions">
             <summary>
             Gets the supported extensions.
+            </summary>
+            <returns>Returns the supported extensions.</returns>
+        </member>
+        <member name="M:BEditor.Media.IRegisterdDecoding.GetSupportedVideoExt">
+            <summary>
+            Gets the supported video file extensions.
+            </summary>
+            <returns>Returns the supported extensions.</returns>
+        </member>
+        <member name="M:BEditor.Media.IRegisterdDecoding.GetSupportedAudioExt">
+            <summary>
+            Gets the supported audio file extensions.
             </summary>
             <returns>Returns the supported extensions.</returns>
         </member>
@@ -1388,6 +1442,96 @@
         <member name="M:BEditor.Media.PCM.StereoPCMFloat.ToString">
             <inheritdoc/>
         </member>
+        <member name="T:BEditor.Media.Rational">
+            <summary>
+            The rational.
+            </summary>
+        </member>
+        <member name="M:BEditor.Media.Rational.#ctor(System.Int32)">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Media.Rational"/> struct.
+            </summary>
+            <param name="value">The value.</param>
+        </member>
+        <member name="M:BEditor.Media.Rational.#ctor(System.Int32,System.Int32)">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Media.Rational"/> struct.
+            </summary>
+            <param name="numerator">The numerator.</param>
+            <param name="denominator">The denominator.</param>
+        </member>
+        <member name="P:BEditor.Media.Rational.Numerator">
+            <summary>
+            Gets or sets the numerator.
+            </summary>
+        </member>
+        <member name="P:BEditor.Media.Rational.Denominator">
+            <summary>
+            Gets or sets the denominator.
+            </summary>
+        </member>
+        <member name="M:BEditor.Media.Rational.op_Implicit(BEditor.Media.Rational)~System.Double">
+            <summary>
+            Converts the <see cref="T:BEditor.Media.Rational"/> to a <see cref="T:System.Double"/>.
+            </summary>
+            <param name="value">A value.</param>
+        </member>
+        <member name="M:BEditor.Media.Rational.op_Implicit(BEditor.Media.Rational)~System.Single">
+            <summary>
+            Converts the <see cref="T:BEditor.Media.Rational"/> to a <see cref="T:System.Single"/>.
+            </summary>
+            <param name="value">A value.</param>
+        </member>
+        <member name="M:BEditor.Media.Rational.op_Implicit(BEditor.Media.Rational)~System.Int32">
+            <summary>
+            Converts the <see cref="T:BEditor.Media.Rational"/> to a <see cref="T:System.Int32"/>.
+            </summary>
+            <param name="value">A value.</param>
+        </member>
+        <member name="M:BEditor.Media.Rational.op_Multiply(BEditor.Media.Rational,BEditor.Media.Rational)">
+            <summary>
+            Returns a new <see cref="T:BEditor.Media.Rational"/> object whose value is the result of multiplying the specified <see cref="T:BEditor.Media.Rational"/> instance and the specified factor.
+            </summary>
+            <param name="left">The value to be multiplied.</param>
+            <param name="right">The value to be multiplied by.</param>
+            <returns>A new object that represents the value of the specified <see cref="T:BEditor.Media.Rational"/> instance multiplied by the value of the specified factor.</returns>
+        </member>
+        <member name="M:BEditor.Media.Rational.op_Division(BEditor.Media.Rational,BEditor.Media.Rational)">
+            <summary>
+            Returns a new <see cref="T:BEditor.Media.Rational"/> value which is the result of division of <paramref name="left"/> instance and the specified <paramref name="right"/>.
+            </summary>
+            <param name="left">Divident or the value to be divided.</param>
+            <param name="right">The value to be divided by.</param>
+            <returns>A new value that represents result of division of <paramref name="left"/> instance by the value of the <paramref name="right"/>.</returns>
+        </member>
+        <member name="M:BEditor.Media.Rational.op_Equality(BEditor.Media.Rational,BEditor.Media.Rational)">
+            <summary>
+            Indicates whether two <see cref="T:BEditor.Media.Rational"/> instances are equal.
+            </summary>
+            <param name="left">The first rational to compare.</param>
+            <param name="right">The second rational to compare.</param>
+            <returns>true if the values of <paramref name="left"/> and <paramref name="right"/> are equal; otherwise, false.</returns>
+        </member>
+        <member name="M:BEditor.Media.Rational.op_Inequality(BEditor.Media.Rational,BEditor.Media.Rational)">
+            <summary>
+            Indicates whether two <see cref="T:BEditor.Media.Rational"/> instances are not equal.
+            </summary>
+            <param name="left">The first rational to compare.</param>
+            <param name="right">The second rational to compare.</param>
+            <returns>true if the values of <paramref name="left"/> and <paramref name="right"/> are not equal; otherwise, false.</returns>
+        </member>
+        <member name="M:BEditor.Media.Rational.ToString">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Media.Rational.Equals(System.Object)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Media.Rational.Equals(BEditor.Media.Rational)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Media.Rational.GetHashCode">
+            <inheritdoc/>
+        </member>
         <member name="T:BEditor.Media.Resources.Strings">
             <summary>
               A strongly-typed resource class, for looking up localized strings, etc.
@@ -1416,6 +1560,13 @@
             </summary>
             <param name="rate">The sample rate.</param>
             <param name="duration">The audio duration.</param>
+        </member>
+        <member name="M:BEditor.Media.Sound`1.#ctor(System.Int32,BEditor.Media.Rational)">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Media.Sound`1"/> class.
+            </summary>
+            <param name="rate">The sample rate.</param>
+            <param name="samples">The number of samples.</param>
         </member>
         <member name="M:BEditor.Media.Sound`1.#ctor(System.Int32,System.Int32)">
             <summary>
@@ -1473,6 +1624,11 @@
             Gets the sound duration.
             </summary>
         </member>
+        <member name="P:BEditor.Media.Sound`1.DurationRational">
+            <summary>
+            Gets the number of seconds of sound.
+            </summary>
+        </member>
         <member name="P:BEditor.Media.Sound`1.DataSize">
             <summary>
             Gets the data size of <see cref="T:BEditor.Media.Sound`1"/>.
@@ -1513,6 +1669,21 @@
             Forms a slice of the specified length from the current <see cref="T:BEditor.Media.Sound`1"/> starting at the specified time.
             </summary>
             <param name="start">The time at which to begin this slice.</param>
+            <param name="length">The desired length for the slice.</param>
+            <returns>A sound that consists of length elements from the current sound starting at start.</returns>
+        </member>
+        <member name="M:BEditor.Media.Sound`1.Slice(BEditor.Media.Rational)">
+            <summary>
+            Forms a slice of the current <see cref="T:BEditor.Media.Sound`1"/>, starting at the specified index.
+            </summary>
+            <param name="start">The index at which to begin the slice.</param>
+            <returns>A sound that consists of all elements of the current sound from start to the end of the sound.</returns>
+        </member>
+        <member name="M:BEditor.Media.Sound`1.Slice(BEditor.Media.Rational,BEditor.Media.Rational)">
+            <summary>
+            Forms a slice out of the current <see cref="T:BEditor.Media.Sound`1"/> starting at a specified index for a specified length.
+            </summary>
+            <param name="start">The index at which to begin this slice.</param>
             <param name="length">The desired length for the slice.</param>
             <returns>A sound that consists of length elements from the current sound starting at start.</returns>
         </member>

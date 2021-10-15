@@ -1,4 +1,5 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -6,6 +7,7 @@ using OpenTK.Audio.OpenAL;
 
 namespace BEditor.Audio
 {
+    [Obsolete("To be addded.")]
     public sealed partial class AudioSource : AudioLibraryObject
     {
         public AudioSource()
@@ -47,7 +49,7 @@ namespace BEditor.Audio
         {
             AL.SourceQueueBuffers(Handle, buffer.Select(i => i.Handle).ToArray());
         }
-        
+
         public int UnqueueBuffer()
         {
             return AL.SourceUnqueueBuffer(Handle);

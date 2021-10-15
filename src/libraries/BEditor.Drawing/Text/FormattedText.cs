@@ -7,8 +7,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
-using System.Linq;
 
 using BEditor.Drawing.Pixel;
 
@@ -65,7 +63,7 @@ namespace BEditor.Drawing
                 TextEncoding = SKTextEncoding.Utf16,
                 IsStroke = false,
                 IsAntialias = true,
-                LcdRenderText = true,
+                LcdRenderText = false,
                 SubpixelText = true,
                 IsLinearText = true,
                 Typeface = font.GetTypeface(),

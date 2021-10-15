@@ -19,23 +19,20 @@
             <MenuItem Header="{x:Static prop:Strings.CopyID}" Command="{CompiledBinding CopyID, Mode=OneTime}" />
         </ContextMenu>
     </UserControl.ContextMenu>
-    <Grid>
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="120*" MinWidth="50" MaxWidth="100" />
-            <ColumnDefinition Width="40" />
-            <ColumnDefinition Width="40" />
-            <ColumnDefinition Width="*" MinWidth="100" />
-        </Grid.ColumnDefinitions>
+    <Grid ColumnDefinitions="200,*">
 
         <TextBlock
             Margin="10,0,0,0"
             HorizontalAlignment="Left"
             VerticalAlignment="Center"
-            FontSize="13"
-            Text="{Binding Property.PropertyMetadata.Name, Mode=OneTime}" />
+            ToolTip.Tip="{CompiledBinding Property.PropertyMetadata.Name, Mode=OneTime}"
+            Text="{CompiledBinding Property.PropertyMetadata.Name, Mode=OneTime}" />
 
         <NumericUpDown
-            Grid.Column="3"
+            Grid.Column="1"
+            Increment="10"
+            x:Name="Numeric"
+            FormatString="{CompiledBinding Property.PropertyMetadata.FormatString, Mode=OneWay}"
             Value="{CompiledBinding Property.Value, Mode=OneWay}"
             Maximum="{CompiledBinding Maximum, Mode=OneTime}"
             Minimum="{CompiledBinding Minimum, Mode=OneTime}"
@@ -44,7 +41,6 @@
             ValueChanged="NumericUpDown_ValueChanged">
             <NumericUpDown.Styles>
                 <Style Selector="NumericUpDown">
-                    <Setter Property="Background" Value="White" />
                     <Setter Property="Margin" Value="8,4" />
                     <Setter Property="HorizontalAlignment" Value="Stretch" />
                     <Setter Property="VerticalAlignment" Value="Stretch" />
@@ -57,8 +53,14 @@
                     <Setter Property="BorderThickness" Value="0,1,0,0" />
                 </Style>
 
+                <Style Selector="ButtonSpinner.NumericUpDownButtonSpinnerStyle:pointerover">
+                    <Setter Property="Background" Value="{DynamicResource TextControlBackgroundPointerOver}" />
+                </Style>
+
                 <Style Selector="NumericUpDown[IsKeyboardFocusWithin=true] /template/ ButtonSpinner#PART_Spinner">
-                    <Setter Property="BorderThickness" Value="0,2,0,0" />
+                    <Setter Property="Background" Value="{DynamicResource TextControlBackgroundFocused}"/>
+                    <Setter Property="BorderBrush" Value="{DynamicResource TextControlBorderBrushFocused}"/>
+                    <Setter Property="BorderThickness" Value="{DynamicResource TextControlBorderThemeThicknessFocused}" />
                 </Style>
             </NumericUpDown.Styles>
         </NumericUpDown>

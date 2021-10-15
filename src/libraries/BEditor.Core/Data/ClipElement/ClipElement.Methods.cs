@@ -39,7 +39,6 @@ namespace BEditor.Data
             writer.WriteNumber(nameof(Start), Start);
             writer.WriteNumber(nameof(End), End);
             writer.WriteNumber(nameof(Layer), Layer);
-            writer.WriteString("Text", LabelText);
 
             writer.WriteStartArray("Effects");
             foreach (var effect in Effect)
@@ -47,7 +46,7 @@ namespace BEditor.Data
                 writer.WriteStartObject();
 
                 var type = effect.GetType();
-                writer.WriteString("_type", type.FullName + ", " + type.Assembly.GetName().Name);
+                writer.WriteString("_type", $"{type.FullName}, {type.Assembly.GetName().Name}");
                 effect.GetObjectData(writer);
 
                 writer.WriteEndObject();
@@ -66,7 +65,6 @@ namespace BEditor.Data
             Start = element.GetProperty(nameof(Start)).GetInt32();
             End = element.GetProperty(nameof(End)).GetInt32();
             Layer = element.GetProperty(nameof(Layer)).GetInt32();
-            LabelText = element.GetProperty("Text").GetString() ?? string.Empty;
             var effects = element.GetProperty("Effects");
             _effect = new();
             foreach (var effect in effects.EnumerateArray())
@@ -82,6 +80,9 @@ namespace BEditor.Data
             }
 
             Metadata = ObjectMetadata.LoadedObjects.First(i => i.Type == Effect[0].GetType());
+
+            // Todo: 互換性
+            Name = element.TryGetProperty("Text", out var txt) ? txt.GetString() ?? string.Empty : string.Empty;
         }
 
         /// <summary>
@@ -170,7 +171,7 @@ namespace BEditor.Data
         {
             try
             {
-                var loadargs = new EffectApplyArgs(args.Frame, args.Type);
+                var loadargs = new EffectApplyArgs(args.Frame, args.Contexts.Graphics, args.Contexts.Sampling, args.Contexts.Drawing, args.Type);
 
                 if (Effect[0] is ObjectElement obj)
                 {
@@ -195,7 +196,7 @@ namespace BEditor.Data
             try
             {
                 var enableEffects = Effect.Where(x => x.IsEnabled);
-                var loadargs = new EffectApplyArgs(args.Frame, args.Type);
+                var loadargs = new EffectApplyArgs(args.Frame, args.Contexts.Graphics, args.Contexts.Sampling, args.Contexts.Drawing, args.Type);
 
                 foreach (var item in enableEffects)
                 {

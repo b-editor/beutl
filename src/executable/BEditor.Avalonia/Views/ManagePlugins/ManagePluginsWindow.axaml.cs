@@ -6,6 +6,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
 
+using BEditor.Controls;
 using BEditor.Packaging;
 using BEditor.Properties;
 using BEditor.ViewModels.ManagePlugins;
@@ -36,7 +37,7 @@ namespace BEditor.Views.ManagePlugins
             AddNavigationViewMenuItems();
             _frame.Navigated += OnFrameNavigated;
 
-            _frame.Navigate(typeof(LoadedPlugins));
+            _frame.Navigate(typeof(Search));
         }
 
         public ManagePluginsWindow Navigate(Type type, object? parameter)
@@ -100,7 +101,8 @@ namespace BEditor.Views.ManagePlugins
                 _navView.SelectedItem = viewItem;
                 _navView.AlwaysShowHeader = true;
                 _navView.Header = model.Name;
-                view.DataContext ??= new PackageViewModel(model);
+                view.DataContext = null;
+                view.DataContext = new PackageViewModel(model);
                 return;
             }
 
@@ -134,15 +136,15 @@ namespace BEditor.Views.ManagePlugins
             {
                 new NavigationViewItem
                 {
-                    Content = Strings.Installed,
-                    Icon = new SymbolIcon { Symbol = Symbol.Download },
-                    Tag = typeof(LoadedPlugins)
-                },
-                new NavigationViewItem
-                {
                     Content = Strings.Search,
                     Icon = new SymbolIcon { Symbol = Symbol.Library },
                     Tag = typeof(Search)
+                },
+                new NavigationViewItem
+                {
+                    Content = Strings.Installed,
+                    Icon = new SymbolIcon { Symbol = Symbol.Download },
+                    Tag = typeof(LoadedPlugins)
                 },
                 new NavigationViewItem
                 {

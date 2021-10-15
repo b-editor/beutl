@@ -1,0 +1,19 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <Import Project="..\..\..\props\plugin.props" />
+
+    <PropertyGroup>
+        <Company>b-editor</Company>
+        <Copyright>MIT License</Copyright>
+        <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\libraries\BEditor.Core\BEditor.Core.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Svg.Skia" Version="0.5.8" />
+    </ItemGroup>
+
+</Project>

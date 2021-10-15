@@ -1,153 +1,48 @@
 using System;
-using System.Collections.Generic;
-using System.Linq;
+using System.IO;
+using System.Reactive.Linq;
 
-using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 
-using BEditor.Data;
+using BEditor.Controls;
 using BEditor.Models;
-using BEditor.Properties;
-using BEditor.ViewModels.DialogContent;
-using BEditor.Views.DialogContent;
 
-using static BEditor.IMessage;
+using Reactive.Bindings.Extensions;
 
 namespace BEditor.Views
 {
     public sealed class ObjectViewer : UserControl
     {
-        private static IMessage Message => AppModel.Current.Message;
+        private readonly ScrollViewer _scrollViewer;
+        private FileSystemWatcher? _watcher;
 
         public ObjectViewer()
         {
             InitializeComponent();
-        }
 
-        public static IEnumerable<string> Empty { get; } = Enumerable.Empty<string>();
+            _scrollViewer = this.FindControl<ScrollViewer>("scrollViewer");
 
-        public async void CopyID_Click(object sender, RoutedEventArgs e)
-        {
-            if (this.FindControl<TreeView>("TreeView").SelectedItem is IEditingObject obj)
-            {
-                await Application.Current.Clipboard.SetTextAsync(obj.Id.ToString());
-            }
-            else
-            {
-                await Message.DialogAsync(string.Format(Strings.ErrorObjectViewer2, nameof(IEditingObject)));
-            }
-        }
-
-        private Scene? GetScene()
-        {
-            if (this.FindControl<TreeView>("TreeView").SelectedItem is IChild<object> obj) return obj.GetParent<Scene>();
-            else return AppModel.Current.Project.CurrentScene;
-        }
-
-        private ClipElement? GetClip()
-        {
-            if (this.FindControl<TreeView>("TreeView").SelectedItem is IChild<object> obj) return obj.GetParent<ClipElement>();
-            else return AppModel.Current.Project.CurrentScene.SelectItem;
-        }
-
-        private EffectElement? GetEffect()
-        {
-            if (this.FindControl<TreeView>("TreeView").SelectedItem is IChild<object> obj) return obj.GetParent<EffectElement>();
-            else return null;
-        }
-
-        public async void DeleteScene(object sender, RoutedEventArgs e)
-        {
-            try
-            {
-                var scene = GetScene();
-                if (scene is null) return;
-                if (scene is { SceneName: "root" })
+            AppModel.Current.ObserveProperty(p => p.Project)
+                .ObserveOnUIDispatcher()
+                .Subscribe(proj =>
                 {
-                    Message.Snackbar("RootScene ÇÕçÌèúÇ∑ÇÈÇ±Ç∆Ç™Ç≈Ç´Ç‹ÇπÇÒ", string.Empty);
-                    return;
-                }
+                    if (proj != null)
+                    {
+                        _watcher = new FileSystemWatcher(proj.DirectoryName)
+                        {
+                            EnableRaisingEvents = true,
+                            IncludeSubdirectories = true,
+                        };
 
-                if (await Message.DialogAsync(
-                    Strings.CommandQ1,
-                    types: new ButtonType[] { ButtonType.Yes, ButtonType.No }) == ButtonType.Yes)
-                {
-                    scene.Parent!.CurrentScene = scene.Parent!.SceneList[0];
-                    scene.Parent.SceneList.Remove(scene);
-                    scene.Unload();
-
-                    scene.ClearDisposable();
-                }
-            }
-            catch (IndexOutOfRangeException)
-            {
-                Message.Snackbar(string.Format(Strings.ErrorObjectViewer1, nameof(Scene)), string.Empty, IconType.Error);
-            }
-        }
-
-        public void RemoveClip(object sender, RoutedEventArgs e)
-        {
-            try
-            {
-                var clip = GetClip();
-                if (clip is null) return;
-                clip.Parent.RemoveClip(clip).Execute();
-            }
-            catch (IndexOutOfRangeException)
-            {
-                Message.Snackbar(string.Format(Strings.ErrorObjectViewer1, nameof(ClipElement)), string.Empty, IconType.Error);
-            }
-        }
-
-        public void RemoveEffect(object sender, RoutedEventArgs e)
-        {
-            try
-            {
-                var effect = GetEffect();
-                if (effect is null) return;
-                effect.Parent!.RemoveEffect(effect).Execute();
-            }
-            catch (IndexOutOfRangeException)
-            {
-                Message.Snackbar(string.Format(Strings.ErrorObjectViewer1, nameof(EffectElement)), string.Empty, IconType.Error);
-            }
-        }
-
-        public async void CreateScene(object s, RoutedEventArgs e)
-        {
-            if (VisualRoot is Window window)
-            {
-                var dialog = new CreateScene { DataContext = new CreateSceneViewModel() };
-                await dialog.ShowDialog(window);
-            }
-        }
-
-        public async void CreateClip(object s, RoutedEventArgs e)
-        {
-            if (VisualRoot is Window window)
-            {
-                var vm = new CreateClipViewModel();
-                var guess = GetScene();
-                if (guess is not null) vm.Scene.Value = guess;
-
-                var dialog = new CreateClip { DataContext = vm };
-                await dialog.ShowDialog(window);
-            }
-        }
-
-        public async void AddEffect(object s, RoutedEventArgs e)
-        {
-            if (VisualRoot is Window window)
-            {
-                var vm = new AddEffectViewModel();
-                var guess = GetClip();
-                if (guess is not null) vm.ClipId.Value = guess.Id.ToString();
-
-                var dialog = new AddEffect { DataContext = vm };
-                await dialog.ShowDialog(window);
-            }
+                        _scrollViewer.Content = new ProjectTreeView(proj, _watcher);
+                    }
+                    else
+                    {
+                        _watcher?.Dispose();
+                        _scrollViewer.Content = null;
+                    }
+                });
         }
 
         private void InitializeComponent()

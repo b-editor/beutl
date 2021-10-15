@@ -27,7 +27,7 @@ namespace BEditor.Data.Property.PrimitiveGroup
             nameof(RotateX),
             owner => owner.RotateX,
             (owner, obj) => owner.RotateX = obj,
-            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.RotateX, useOptional: true)).Serialize());
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.RotateX) { FormatString = "{0:F}" }).Serialize());
 
         /// <summary>
         /// Defines the <see cref="RotateY"/> property.
@@ -36,7 +36,7 @@ namespace BEditor.Data.Property.PrimitiveGroup
             nameof(RotateY),
             owner => owner.RotateY,
             (owner, obj) => owner.RotateY = obj,
-            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.RotateY, useOptional: true)).Serialize());
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.RotateY) { FormatString = "{0:F}" }).Serialize());
 
         /// <summary>
         /// Defines the <see cref="RotateZ"/> property.
@@ -45,7 +45,7 @@ namespace BEditor.Data.Property.PrimitiveGroup
             nameof(RotateZ),
             owner => owner.RotateZ,
             (owner, obj) => owner.RotateZ = obj,
-            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.RotateZ, useOptional: true)).Serialize());
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.RotateZ) { FormatString = "{0:F}" }).Serialize());
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Rotate"/> class.
@@ -86,6 +86,7 @@ namespace BEditor.Data.Property.PrimitiveGroup
         /// <summary>
         /// Reset the <see cref="RotateX"/>, <see cref="RotateY"/>, and <see cref="RotateZ"/> Optionals.
         /// </summary>
+        [Obsolete("To be added.")]
         public void ResetOptional()
         {
             RotateX.Optional = 0;

@@ -9,7 +9,6 @@
     Classes="fluent"
     CanResize="False"
     WindowStartupLocation="CenterScreen"
-    x:Class="BEditor.Views.Setup.SetupWindow"
-    Title="SetupWindow">
+    x:Class="BEditor.Views.Setup.SetupWindow">
     <local:Common/>
 </views:FluentWindow>

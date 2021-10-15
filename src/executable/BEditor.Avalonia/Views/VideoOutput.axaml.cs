@@ -10,6 +10,7 @@ using Avalonia.Markup.Xaml;
 using Avalonia.Media;
 using Avalonia.Threading;
 
+using BEditor.Controls;
 using BEditor.Properties;
 using BEditor.ViewModels;
 using BEditor.Views.ManagePlugins;
@@ -64,7 +65,7 @@ namespace BEditor.Views
                 },
                 new NavigationViewItem
                 {
-                    Content = Strings.Project,
+                    Content = Strings.Audio,
                     Icon = new SymbolIcon { Symbol = Symbol.Speaker2 },
                     Tag = new VideoOutputPages.Audio()
                 },

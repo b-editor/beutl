@@ -11,32 +11,35 @@
     IsEnabled="{Binding IsOpened.Value, Mode=OneWay, Source={x:Static vm:MainWindowViewModel.Current}}"
     x:Class="BEditor.Views.ObjectViewer">
     <ScrollViewer x:Name="scrollViewer">
-        <TreeView
-            x:Name="TreeView"
-            Items="{Binding Project.SceneList, Source={x:Static model:AppModel.Current}}">
-            <TreeView.DataTemplates>
-                <TreeDataTemplate ItemsSource="{Binding Children, TargetNullValue={x:Static local:ObjectViewer.Empty}}">
-                    <TextBlock Text="{Binding Converter={StaticResource GetNameConverter}}" Margin="3,2" />
-                </TreeDataTemplate>
-            </TreeView.DataTemplates>
-            <TreeView.ContextMenu>
-                <ContextMenu>
-                    <MenuItem Click="CopyID_Click" Header="{x:Static prop:Strings.CopyID}" />
-                    <Separator />
-                    <MenuItem Header="{x:Static prop:Strings.Scene}">
-                        <MenuItem Click="DeleteScene" Header="{x:Static prop:Strings.Delete}" />
-                        <MenuItem Click="CreateScene" Header="{x:Static prop:Strings.Create}" />
-                    </MenuItem>
-                    <MenuItem Header="{x:Static prop:Strings.Clip}">
-                        <MenuItem Click="RemoveClip" Header="{x:Static prop:Strings.Remove}" />
-                        <MenuItem Click="CreateClip" Header="{x:Static prop:Strings.Create}" />
-                    </MenuItem>
-                    <MenuItem Header="{x:Static prop:Strings.Effect}">
-                        <MenuItem Click="RemoveEffect" Header="{x:Static prop:Strings.Remove}" />
-                        <MenuItem Click="AddEffect" Header="{x:Static prop:Strings.Add}" />
-                    </MenuItem>
-                </ContextMenu>
-            </TreeView.ContextMenu>
-        </TreeView>
+        <!--<TreeView x:Name="TreeView">
+            <TreeViewItem Items="{Binding Project.SceneList, Source={x:Static model:AppModel.Current}}">
+                <TreeViewItem.DataTemplates>
+                    <TreeDataTemplate ItemsSource="{Binding Children, TargetNullValue={x:Static local:ObjectViewer.Empty}}">
+                        <TextBlock Text="{Binding Converter={StaticResource GetNameConverter}}" Margin="3,2" />
+                    </TreeDataTemplate>
+                </TreeViewItem.DataTemplates>
+                <TreeViewItem.Header>
+                    <TextBlock Text="{Binding Project.Name, Source={x:Static model:AppModel.Current}}" />
+                </TreeViewItem.Header>
+                <TreeViewItem.ContextMenu>
+                    <ContextMenu>
+                        <MenuItem Click="CopyID_Click" Header="{x:Static prop:Strings.CopyID}" />
+                        <Separator />
+                        <MenuItem Header="{x:Static prop:Strings.Scene}">
+                            <MenuItem Click="DeleteScene" Header="{x:Static prop:Strings.Delete}" />
+                            <MenuItem Click="CreateScene" Header="{x:Static prop:Strings.Create}" />
+                        </MenuItem>
+                        <MenuItem Header="{x:Static prop:Strings.Clip}">
+                            <MenuItem Click="RemoveClip" Header="{x:Static prop:Strings.Remove}" />
+                            <MenuItem Click="CreateClip" Header="{x:Static prop:Strings.Create}" />
+                        </MenuItem>
+                        <MenuItem Header="{x:Static prop:Strings.Effect}">
+                            <MenuItem Click="RemoveEffect" Header="{x:Static prop:Strings.Remove}" />
+                            <MenuItem Click="AddEffect" Header="{x:Static prop:Strings.Add}" />
+                        </MenuItem>
+                    </ContextMenu>
+                </TreeViewItem.ContextMenu>
+            </TreeViewItem>
+        </TreeView>-->
     </ScrollViewer>
 </UserControl>

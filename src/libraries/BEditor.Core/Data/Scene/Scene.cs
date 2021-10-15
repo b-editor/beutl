@@ -32,14 +32,12 @@ namespace BEditor.Data
         private static readonly PropertyChangedEventArgs _scaleArgs = new(nameof(TimeLineScale));
         private static readonly PropertyChangedEventArgs _hoffsetArgs = new(nameof(TimeLineHorizonOffset));
         private static readonly PropertyChangedEventArgs _voffsetArgs = new(nameof(TimeLineVerticalOffset));
-        private static readonly PropertyChangedEventArgs _sceneNameArgs = new(nameof(SceneName));
         private ClipElement? _selectItem;
         private Frame _previewframe;
         private Frame _totalframe = 1000;
         private float _timeLineScale = 0.75F;
         private double _timeLineHorizonOffset;
         private double _timeLineVerticalOffset;
-        private string _sceneName = string.Empty;
         private IPlayer? _player;
         private Project? _parent;
 
@@ -57,9 +55,9 @@ namespace BEditor.Data
         }
 
         /// <summary>
-        /// Gets the <see cref="ClipElement"/> from its <see cref="ClipElement.Name"/>.
+        /// Gets the <see cref="ClipElement"/> from its <see cref="EditingObject.Name"/>.
         /// </summary>
-        /// <param name="name">Value of <see cref="ClipElement.Name"/>.</param>
+        /// <param name="name">Value of <see cref="EditingObject.Name"/>.</param>
         public ClipElement? this[string? name]
         {
             [return: NotNullIfNotNull("name")]

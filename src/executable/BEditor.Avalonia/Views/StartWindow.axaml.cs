@@ -5,6 +5,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
 
+using BEditor.Controls;
 using BEditor.Properties;
 
 using FluentAvalonia.Core;
@@ -27,6 +28,7 @@ namespace BEditor.Views
             _navView = this.Find<NavigationView>("NavView");
             _frame = this.Find<Frame>("FrameView");
 
+            _navView.BackRequested += NavView_BackRequested;
             _navView.ItemInvoked += NavView_ItemInvoked;
 
             AddNavigationViewMenuItems();
@@ -57,6 +59,11 @@ namespace BEditor.Views
             }
 
             return null;
+        }
+
+        private void NavView_BackRequested(object? sender, NavigationViewBackRequestedEventArgs e)
+        {
+            _frame?.GoBack();
         }
 
         private void OnFrameNavigated(object? sender, NavigationEventArgs e)

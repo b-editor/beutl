@@ -68,6 +68,11 @@ namespace BEditor.Graphics.Skia
 
         public void DrawCube(Cube cube)
         {
+            SetTransform(cube);
+
+            _canvas.DrawRect(-cube.Width / 2, -cube.Height / 2, cube.Width, cube.Height, _paint);
+
+            ResetTransform();
         }
 
         public void DrawLine(Line line)

@@ -17,18 +17,27 @@
         <ListBox.ItemTemplate>
             <DataTemplate>
                 <Panel>
-                    <Grid RowDefinitions="Auto,*">
+                    <Grid RowDefinitions="Auto,*" Margin="8">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock FontSize="16" Text="{Binding Name}" />
 
-                            <TextBlock FontSize="12" VerticalAlignment="Center" Margin="16,0,0,0" Text="{Binding Type}"/>
+                            <TextBlock
+                                FontSize="12"
+                                VerticalAlignment="Center"
+                                Margin="16,0,0,0"
+                                Text="{Binding Type}"/>
                         </StackPanel>
 
-                        <TextBlock FontSize="12" Margin="0,10,0,0" Text="{Binding Description}" Grid.Row="1" />
+                        <TextBlock
+                            FontSize="12"
+                            Margin="0,10,0,0"
+                            Text="{Binding Description}"
+                            Grid.Row="1" />
                     </Grid>
 
                     <ui:CommandBarButton
                         HorizontalAlignment="Right"
+                        VerticalAlignment="Center"
                         Icon="Dismiss"
                         Label="{x:Static props:Strings.Cancel}"
                         CommandParameter="{Binding $self.DataContext}"

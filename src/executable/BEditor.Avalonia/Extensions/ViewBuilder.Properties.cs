@@ -4,6 +4,7 @@ using Avalonia.Controls;
 using BEditor.Data;
 using BEditor.Data.Property;
 using BEditor.Data.Property.Easing;
+using BEditor.ViewModels.Properties;
 using BEditor.ViewModels.Timelines;
 using BEditor.Views.Properties;
 using BEditor.Views.Timelines;
@@ -26,6 +27,9 @@ namespace BEditor.Extensions
 
         public static readonly AttachedProperty<ClipViewModel> ClipViewModelProperty
             = EditingProperty.RegisterAttached<ClipViewModel, ClipElement>("GetClipViewModel", EditingPropertyOptions<ClipViewModel>.Create(isDisposable: true));
+
+        public static readonly AttachedProperty<ClipPropertyViewModel> ClipPropertyViewModelProperty
+            = EditingProperty.RegisterAttached<ClipPropertyViewModel, ClipElement>("GetClipPropertyViewModel", EditingPropertyOptions<ClipPropertyViewModel>.Create(isDisposable: true));
 
         public static readonly AttachedProperty<Control> EffectElementViewProperty
             = EditingProperty.RegisterAttached<Control, EffectElement>("GetPropertyView", EditingPropertyOptions<Control>.Create(isDisposable: true));

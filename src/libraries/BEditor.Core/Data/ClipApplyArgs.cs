@@ -5,6 +5,11 @@
 // This software may be modified and distributed under the terms
 // of the MIT license. See the LICENSE file for details.
 
+using System;
+
+using BEditor.Audio;
+using BEditor.Drawing;
+using BEditor.Graphics;
 using BEditor.Media;
 
 namespace BEditor.Data
@@ -19,10 +24,26 @@ namespace BEditor.Data
         /// </summary>
         /// <param name="frame">The frame to apply.</param>
         /// <param name="type">The apply type.</param>
+        [Obsolete("Do not use.")]
         public ClipApplyArgs(Frame frame, ApplyType type = ApplyType.Edit)
         {
             Frame = frame;
             Type = type;
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="ClipApplyArgs"/> class.
+        /// </summary>
+        /// <param name="frame">The frame to render.</param>
+        /// <param name="graphicsContext">The graphics context.</param>
+        /// <param name="samplingContext">The sampling context.</param>
+        /// <param name="drawingContext">The drawing context.</param>
+        /// <param name="type">The rendering type.</param>
+        public ClipApplyArgs(Frame frame, GraphicsContext graphicsContext, SamplingContext samplingContext, DrawingContext? drawingContext = null, ApplyType type = ApplyType.Edit)
+        {
+            Frame = frame;
+            Type = type;
+            Contexts = (graphicsContext, samplingContext, drawingContext);
         }
 
         /// <summary>
@@ -39,5 +60,10 @@ namespace BEditor.Data
         /// Gets the rendering type.
         /// </summary>
         public ApplyType Type { get; }
+
+        /// <summary>
+        /// Gets the contexts.
+        /// </summary>
+        public (GraphicsContext Graphics, SamplingContext Sampling, DrawingContext? Drawing) Contexts { get; }
     }
 }

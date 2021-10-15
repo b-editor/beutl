@@ -40,18 +40,13 @@
             <Setter Property="BorderThickness" Value="0,1,0,0" />
         </Style>
     </Window.Styles>
-    <Grid>
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition />
-            <ColumnDefinition Width="10" />
-            <ColumnDefinition />
-        </Grid.ColumnDefinitions>
+    <Grid ColumnDefinitions="*,10,*">
 
         <ScrollViewer Grid.Column="0">
             <VirtualizingStackPanel>
                 <TextBlock Margin="8" Text="{x:Static props:Strings.RecentFonts}" />
 
-                <ItemsControl Items="{Binding UsedFonts, Mode=OneTime}" HorizontalAlignment="Stretch">
+                <ItemsControl Items="{Binding RecentFonts, Mode=OneTime}" HorizontalAlignment="Stretch">
                     <ItemsControl.ItemTemplate>
                         <DataTemplate>
                             <ToggleButton
@@ -63,6 +58,11 @@
                                 IsVisible="{Binding IsVisible.Value, Mode=OneWay}" />
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <VirtualizingStackPanel />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
                 </ItemsControl>
 
                 <Separator Margin="8" />
@@ -79,6 +79,11 @@
                                 IsVisible="{Binding IsVisible.Value, Mode=OneWay}" />
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <VirtualizingStackPanel />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
                 </ItemsControl>
             </VirtualizingStackPanel>
         </ScrollViewer>
@@ -90,13 +95,10 @@
             VerticalAlignment="Stretch"
             Background="Transparent" />
 
-        <Grid Grid.Column="2">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
-                <RowDefinition />
-            </Grid.RowDefinitions>
+        <Grid Grid.Column="2" RowDefinitions="Auto,*">
 
             <TextBox
+                TabIndex="0"
                 Watermark="{x:Static props:Strings.Search}"
                 Margin="8"
                 Text="{CompiledBinding Search.Value, Mode=TwoWay}">
@@ -107,6 +109,7 @@
 
             <StackPanel Grid.Row="1">
                 <TextBox
+                    TabIndex="1"
                     Margin="8"
                     VerticalContentAlignment="Center"
                     Text="{CompiledBinding SampleText.Value}" />
@@ -132,16 +135,18 @@
 
             <StackPanel
                 Grid.Row="1"
-                Margin="0,8"
+                Margin="8"
                 Spacing="8"
                 HorizontalAlignment="Right"
                 VerticalAlignment="Bottom"
                 Orientation="Horizontal">
                 <Button
+                    TabIndex="2"
                     Classes="accent"
                     Command="{CompiledBinding OKCommand, Mode=OneTime}"
                     Content="{x:Static props:Strings.OK}" />
                 <Button
+                    TabIndex="3"
                     x:Name="cancel"
                     Command="{CompiledBinding WindowClose, Mode=OneTime}"
                     Content="{x:Static props:Strings.Cancel}" />

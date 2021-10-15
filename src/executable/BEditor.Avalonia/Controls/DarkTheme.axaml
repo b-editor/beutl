@@ -8,6 +8,7 @@
         <SolidColorBrush x:Key="LayerThinBorderBrush" Color="#18FFFFFF" />
     </Styles.Resources>
 
+    <FluentTheme Mode="Dark" />
     <sty:FluentAvaloniaTheme
         ControlsVersion="2"
         DefaultToUserTheme="False"

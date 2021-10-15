@@ -1,5 +1,8 @@
-﻿namespace BEditor.Audio
+﻿using System;
+
+namespace BEditor.Audio
 {
+    [Obsolete("To be addded.")]
     public enum AudioSourceState
     {
         /// <summary>

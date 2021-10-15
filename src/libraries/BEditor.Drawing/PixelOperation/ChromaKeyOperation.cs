@@ -37,7 +37,7 @@ namespace BEditor.Drawing
             if (context?.IsDisposed == false)
             {
                 var hsv = ((Color)color).ToHsv();
-                image.PixelOperate<ChromaKeyOperation, Double2, int, int>(
+                image.PixelOperate<ChromaKeyOperation>(
                     context,
                     new Double2(hsv.H, hsv.S),
                     hueRange,
@@ -64,7 +64,7 @@ namespace BEditor.Drawing.PixelOperation
     /// <summary>
     /// Makes the specific color transparent.
     /// </summary>
-    public unsafe readonly struct ChromaKeyOperation : IPixelOperation, IGpuPixelOperation<Double2, int, int>
+    public unsafe readonly struct ChromaKeyOperation : IPixelOperation, IGpuPixelOperation
     {
         private readonly BGRA32* _dst;
         private readonly BGRA32* _src;

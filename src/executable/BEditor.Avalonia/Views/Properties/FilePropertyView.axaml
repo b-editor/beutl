@@ -30,23 +30,17 @@
                 GroupName="Group1" />
         </ui:MenuFlyout>
     </UserControl.ContextFlyout>
-    <Grid>
-        <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="120*" MinWidth="50" MaxWidth="100" />
-            <ColumnDefinition Width="40" />
-            <ColumnDefinition Width="40" />
-            <ColumnDefinition Width="*" MinWidth="100" />
-        </Grid.ColumnDefinitions>
+    <Grid ColumnDefinitions="160,40,*">
 
         <TextBlock
             Margin="10,0,0,0"
             HorizontalAlignment="Left"
             VerticalAlignment="Center"
-            FontSize="13"
-            Text="{Binding Property.PropertyMetadata.Name, Mode=OneTime}" />
+            ToolTip.Tip="{CompiledBinding Property.PropertyMetadata.Name, Mode=OneTime}"
+            Text="{CompiledBinding Property.PropertyMetadata.Name, Mode=OneTime}" />
 
         <Button
-            Grid.Column="2"
+            Grid.Column="1"
             Width="32"
             Height="32"
             Margin="0,4"
@@ -61,7 +55,7 @@
         <TextBox
             BorderThickness="0,1,0,0"
             Background="Transparent"
-            Grid.Column="3"
+            Grid.Column="2"
             Margin="8,4"
             HorizontalAlignment="Stretch"
             VerticalAlignment="Stretch"

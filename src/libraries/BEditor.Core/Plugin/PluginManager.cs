@@ -11,6 +11,7 @@ using System.IO;
 using System.Linq;
 using System.Reactive.Linq;
 using System.Reflection;
+using System.Reflection.Metadata;
 using System.Threading.Tasks;
 
 using BEditor.Resources;
@@ -40,14 +41,24 @@ namespace BEditor.Plugin
         public IEnumerable<PluginObject> Plugins => Loaded;
 
         /// <summary>
+        /// Gets the plugins that failed to load.
+        /// </summary>
+        public IEnumerable<Assembly> Failed { get; private set; } = Enumerable.Empty<Assembly>();
+
+        /// <summary>
         /// Gets the base directory from which to retrieve plugins.
         /// </summary>
         public string BaseDirectory { get; } = ServicesLocator.GetPluginsFolder();
 
         /// <summary>
+        /// Gets the file menus.
+        /// </summary>
+        internal List<(Assembly Assembly, List<FileMenu> Menus)> FileMenus { get; } = new();
+
+        /// <summary>
         /// Gets the menus.
         /// </summary>
-        internal List<(string Header, IEnumerable<ICustomMenu> Items)> Menus { get; } = new();
+        internal List<(string Header, IEnumerable<BasePluginMenu> Items)> Menus { get; } = new();
 
         /// <summary>
         /// Gets the tasks.
@@ -83,6 +94,7 @@ namespace BEditor.Plugin
                 .Select(static f => Assembly.LoadFrom(f))
                 .ToArray();
             var exceptions = new List<Exception>();
+            var failed = new List<Assembly>();
 
             foreach (var asm in plugins)
             {
@@ -97,14 +109,38 @@ namespace BEditor.Plugin
                     exceptions.Add(new PluginException(string.Format(Strings.FailedToLoad, name), e)
                     {
                         PluginName = name,
+                        Assembly = asm,
                     });
+
+                    failed.Add(asm);
                 }
             }
+
+            Failed = failed;
 
             if (exceptions.Count is not 0)
             {
                 throw new AggregateException(exceptions);
             }
+        }
+
+        /// <summary>
+        /// Gets the plugin of the specified type.
+        /// </summary>
+        /// <typeparam name="T">The type of plugin.</typeparam>
+        /// <returns>Returns the plugin.</returns>
+        public T Get<T>()
+            where T : PluginObject
+        {
+            foreach (var item in Loaded)
+            {
+                if (item is T t)
+                {
+                    return t;
+                }
+            }
+
+            throw new Exception("Not found.");
         }
     }
 }

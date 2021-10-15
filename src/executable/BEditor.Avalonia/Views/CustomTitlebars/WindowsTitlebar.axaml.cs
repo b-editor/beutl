@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using System.Diagnostics;
@@ -7,15 +6,14 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 
-using Avalonia;
 using Avalonia.Collections;
 using Avalonia.Controls;
-using Avalonia.Controls.Shapes;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 
-using BEditor.Data;
+using BEditor.Controls;
 using BEditor.Models;
 using BEditor.Plugin;
 using BEditor.Properties;
@@ -24,8 +22,6 @@ using BEditor.ViewModels.DialogContent;
 using BEditor.Views.DialogContent;
 using BEditor.Views.Dialogs;
 using BEditor.Views.ManagePlugins;
-using BEditor.Views.Settings;
-using BEditor.Views.Tool;
 
 namespace BEditor.Views.CustomTitlebars
 {
@@ -154,9 +150,15 @@ namespace BEditor.Views.CustomTitlebars
                             };
                             item.Click += (s, e) =>
                             {
-                                if (s is MenuItem item && item.DataContext is ICustomMenu cmenu)
+                                if (s is MenuItem item && item.DataContext is BasePluginMenu cmenu)
                                 {
+                                    cmenu.MainWindow = VisualRoot;
                                     cmenu.Execute();
+
+                                    if (cmenu.MenuLocation != MenuLocation.Default)
+                                    {
+                                        AppModel.Current.DisplayedMenus.Add(cmenu);
+                                    }
                                 }
                             };
 
@@ -181,7 +183,7 @@ namespace BEditor.Views.CustomTitlebars
         {
             if (VisualRoot is MainWindow window && window.Content is Grid grid)
             {
-                grid.ColumnDefinitions = new("425,Auto,*,Auto,2*");
+                grid.ColumnDefinitions = new("Auto,425,Auto,*,Auto,2*,Auto");
                 grid.RowDefinitions = new("Auto,Auto,*,Auto,*,Auto");
 
                 foreach (var item in Directory.EnumerateFiles(WindowConfig.GetFolder())
@@ -189,15 +191,6 @@ namespace BEditor.Views.CustomTitlebars
                 {
                     File.Delete(item);
                 }
-            }
-        }
-
-        public async void ConvertVideo(object s, RoutedEventArgs e)
-        {
-            if (VisualRoot is Window window)
-            {
-                var dialog = new ConvertVideo();
-                await dialog.ShowDialog(window);
             }
         }
 
@@ -222,7 +215,7 @@ namespace BEditor.Views.CustomTitlebars
         {
             if (VisualRoot is Window window)
             {
-                await new Infomation().ShowDialog(window);
+                await new AboutBEditor().ShowDialog(window);
             }
         }
 

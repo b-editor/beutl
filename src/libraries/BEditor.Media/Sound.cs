@@ -22,6 +22,7 @@ namespace BEditor.Media
         where T : unmanaged, IPCM<T>
     {
         private readonly bool _requireDispose = true;
+        private readonly Rational _numSamples;
         private T* _pointer;
         private T[]? _array;
 
@@ -30,10 +31,25 @@ namespace BEditor.Media
         /// </summary>
         /// <param name="rate">The sample rate.</param>
         /// <param name="duration">The audio duration.</param>
+        [Obsolete("To be added.")]
         public Sound(int rate, TimeSpan duration)
         {
             SampleRate = rate;
-            NumSamples = (int)Math.Round(duration.TotalSeconds * rate, MidpointRounding.AwayFromZero);
+            _numSamples = new((int)Math.Round(duration.TotalSeconds * rate, MidpointRounding.AwayFromZero));
+
+            _pointer = (T*)Marshal.AllocCoTaskMem(DataSize);
+            Data.Fill(default);
+        }
+
+        /// <summary>
+        /// Initializes a new instance of the <see cref="Sound{T}"/> class.
+        /// </summary>
+        /// <param name="rate">The sample rate.</param>
+        /// <param name="samples">The number of samples.</param>
+        public Sound(int rate, Rational samples)
+        {
+            SampleRate = rate;
+            _numSamples = samples;
 
             _pointer = (T*)Marshal.AllocCoTaskMem(DataSize);
             Data.Fill(default);
@@ -47,7 +63,7 @@ namespace BEditor.Media
         public Sound(int rate, int samples)
         {
             SampleRate = rate;
-            NumSamples = samples;
+            _numSamples = new(samples);
 
             _pointer = (T*)Marshal.AllocCoTaskMem(DataSize);
             Data.Fill(default);
@@ -63,7 +79,7 @@ namespace BEditor.Media
         {
             _requireDispose = false;
             SampleRate = rate;
-            NumSamples = samples;
+            _numSamples = new(samples);
 
             _array = data;
         }
@@ -78,7 +94,7 @@ namespace BEditor.Media
         {
             _requireDispose = false;
             SampleRate = rate;
-            NumSamples = samples;
+            _numSamples = new(samples);
 
             _pointer = data;
         }
@@ -93,7 +109,7 @@ namespace BEditor.Media
         {
             _requireDispose = false;
             SampleRate = rate;
-            NumSamples = length;
+            _numSamples = new(length);
 
             _pointer = (T*)data;
         }
@@ -127,12 +143,17 @@ namespace BEditor.Media
         /// <summary>
         /// Gets the number of samples.
         /// </summary>
-        public int NumSamples { get; }
+        public int NumSamples => _numSamples.Numerator / _numSamples.Denominator;
 
         /// <summary>
         /// Gets the sound duration.
         /// </summary>
         public TimeSpan Duration => TimeSpan.FromSeconds(NumSamples / (double)SampleRate);
+
+        /// <summary>
+        /// Gets the number of seconds of sound.
+        /// </summary>
+        public Rational DurationRational => new(NumSamples, SampleRate);
 
         /// <summary>
         /// Gets the data size of <see cref="Sound{T}"/>.
@@ -199,6 +220,7 @@ namespace BEditor.Media
         /// </summary>
         /// <param name="start">The time at which to begin the slice.</param>
         /// <returns>A sound that consists of all elements of the current sound from start to the end of the sound.</returns>
+        [Obsolete("To be addded.")]
         public Sound<T> Slice(TimeSpan start)
         {
             var data = Data[(int)(start.TotalSeconds * SampleRate)..];
@@ -215,12 +237,44 @@ namespace BEditor.Media
         /// <param name="start">The time at which to begin this slice.</param>
         /// <param name="length">The desired length for the slice.</param>
         /// <returns>A sound that consists of length elements from the current sound starting at start.</returns>
+        [Obsolete("To be addded.")]
         public Sound<T> Slice(TimeSpan start, TimeSpan length)
         {
             var startI = (int)(start.TotalSeconds * SampleRate);
             var lengthI = (int)Math.Round(length.TotalSeconds * SampleRate, MidpointRounding.AwayFromZero);
 
             var data = Data.Slice(startI, lengthI);
+
+            fixed (T* dataPtr = data)
+            {
+                return new(SampleRate, data.Length, dataPtr);
+            }
+        }
+
+        /// <summary>
+        /// Forms a slice of the current <see cref="Sound{T}"/>, starting at the specified index.
+        /// </summary>
+        /// <param name="start">The index at which to begin the slice.</param>
+        /// <returns>A sound that consists of all elements of the current sound from start to the end of the sound.</returns>
+        public Sound<T> Slice(Rational start)
+        {
+            var data = Data[(int)start..];
+
+            fixed (T* dataPtr = data)
+            {
+                return new(SampleRate, data.Length, dataPtr);
+            }
+        }
+
+        /// <summary>
+        /// Forms a slice out of the current <see cref="Sound{T}"/> starting at a specified index for a specified length.
+        /// </summary>
+        /// <param name="start">The index at which to begin this slice.</param>
+        /// <param name="length">The desired length for the slice.</param>
+        /// <returns>A sound that consists of length elements from the current sound starting at start.</returns>
+        public Sound<T> Slice(Rational start, Rational length)
+        {
+            var data = Data.Slice(start, length);
 
             fixed (T* dataPtr = data)
             {
@@ -283,9 +337,9 @@ namespace BEditor.Media
             var ratio = SampleRate / (float)frequency;
 
             // 1チャンネルのサイズ
-            var size = frequency * Duration.TotalSeconds;
+            var size = frequency * DurationRational;
 
-            using var tmp = new UnmanagedArray<T>((int)Math.Floor((double)size));
+            using var tmp = new UnmanagedArray<T>(size);
             var index = 0f;
             for (var i = 0; i < tmp.Length; i++)
             {

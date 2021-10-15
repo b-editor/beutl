@@ -3,17 +3,28 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:props="using:BEditor.Properties"
+    xmlns:vm="using:BEditor.ViewModels.Properties"
+    x:DataType="vm:ClipPropertyViewModel"
     mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
     x:Class="BEditor.Views.Properties.ClipPropertyView">
     <ScrollViewer
         x:Name="scrollview"
         HorizontalContentAlignment="Stretch"
         VerticalScrollBarVisibility="Hidden">
-        <StackPanel HorizontalAlignment="Stretch">
+        <VirtualizingStackPanel HorizontalAlignment="Stretch">
+            <Expander Header="{x:Static props:Strings.Clip}" Classes="property">
+                <VirtualizingStackPanel Spacing="8" Margin="8,0">
+                    <TextBlock Text="{x:Static props:Strings.Name}" />
+                    
+                    <TextBox Text="{CompiledBinding ClipElement.LabelText, Mode=TwoWay}" />
+                </VirtualizingStackPanel>
+            </Expander>
+            
             <ItemsControl
                 HorizontalAlignment="Stretch"
                 x:Name="itemsControl"
-                Items="{Binding Effect, Mode=OneWay}">
+                Items="{CompiledBinding ClipElement.Effect, Mode=OneWay}">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
                         <ContentControl
@@ -25,7 +36,12 @@
                             Content="{Binding Converter={StaticResource EffectPropertyConverter}}" />
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <VirtualizingStackPanel />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
             </ItemsControl>
-        </StackPanel>
+        </VirtualizingStackPanel>
     </ScrollViewer>
 </UserControl>

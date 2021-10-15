@@ -27,56 +27,67 @@ namespace BEditor.Primitive
         /// <summary>
         /// <see cref="Type"/> of <see cref="VideoFile"/> class.
         /// </summary>
+        [Obsolete("Do not use.")]
         public static readonly Type Video = typeof(VideoFile);
 
         /// <summary>
         /// <see cref="Type"/> of <see cref="AudioFile"/> class.
         /// </summary>
+        [Obsolete("Do not use.")]
         public static readonly Type Audio = typeof(AudioFile);
 
         /// <summary>
         /// <see cref="Type"/> of <see cref="ImageFile"/> class.
         /// </summary>
+        [Obsolete("Do not use.")]
         public static readonly Type Image = typeof(ImageFile);
 
         /// <summary>
         /// <see cref="Type"/> of <see cref="Objects.Text"/> class.
         /// </summary>
+        [Obsolete("Do not use.")]
         public static readonly Type Text = typeof(Text);
 
         /// <summary>
         /// <see cref="Type"/> of <see cref="Objects.Shape"/> class.
         /// </summary>
+        [Obsolete("Do not use.")]
         public static readonly Type Shape = typeof(Shape);
 
         /// <summary>
         /// <see cref="Type"/> of <see cref="Objects.Polygon"/> class.
         /// </summary>
+        [Obsolete("Do not use.")]
         public static readonly Type Polygon = typeof(Polygon);
 
         /// <summary>
         /// <see cref="Type"/> of <see cref="Objects.RoundRect"/> class.
         /// </summary>
+        [Obsolete("Do not use.")]
         public static readonly Type RoundRect = typeof(RoundRect);
 
         /// <summary>
         /// <see cref="Type"/> of <see cref="CameraObject"/> class.
         /// </summary>
+        [Obsolete("Do not use.")]
         public static readonly Type Camera = typeof(CameraObject);
 
         /// <summary>
         /// <see cref="Type"/> of <see cref="Objects.GL3DObject"/> class.
         /// </summary>
+        [Obsolete("Do not use.")]
         public static readonly Type GL3DObject = typeof(GL3DObject);
 
         /// <summary>
         /// <see cref="Type"/> of <see cref="SceneObject"/> class.
         /// </summary>
+        [Obsolete("Do not use.")]
         public static readonly Type Scene = typeof(SceneObject);
 
         /// <summary>
         /// <see cref="Type"/> of <see cref="Framebuffer"/> class.
         /// </summary>
+        [Obsolete("Do not use.")]
         public static readonly Type Framebuffer = typeof(Framebuffer);
 
         /// <summary>
@@ -162,6 +173,13 @@ namespace BEditor.Primitive
         public static readonly ObjectMetadata FramebufferMetadata = ObjectMetadata.Create<Framebuffer>(Strings.Framebuffer, null);
 
         /// <summary>
+        /// Metadata of <see cref="Arc"/> class.
+        /// </summary>
+        public static readonly ObjectMetadata ArcMetadata = ObjectMetadata.Create<Arc>(
+            Strings.Arc,
+            pathIcon: "M10.25 4.25C10.6642 4.25 11 4.58579 11 5V13H19C19.3797 13 19.6935 13.2822 19.7432 13.6482L19.75 13.75C19.75 18.7206 15.7206 22.25 10.75 22.25C5.77944 22.25 1.75 18.2206 1.75 13.25C1.75 8.27944 5.27944 4.25 10.25 4.25ZM9.5 5.787L9.29109 5.81073C5.6018 6.28155 3.25 9.43274 3.25 13.25C3.25 17.3921 6.60786 20.75 10.75 20.75C14.5673 20.75 17.7185 18.3982 18.1893 14.7089L18.212 14.5H10.25C9.8703 14.5 9.55651 14.2178 9.50685 13.8518L9.5 13.75V5.787ZM13.25 1.75Z");
+
+        /// <summary>
         /// Enumerate all objects.
         /// </summary>
         /// <returns>Returns the object metadata contained in BEditor.Primitive.</returns>
@@ -178,6 +196,7 @@ namespace BEditor.Primitive
             yield return SceneMetadata;
             yield return PolygonMetadata;
             yield return FramebufferMetadata;
+            yield return ArcMetadata;
 #if DEBUG
             yield return ObjectMetadata.Create<PropertyTest>("PropertyTest", null);
 #endif
@@ -224,6 +243,8 @@ namespace BEditor.Primitive
                     EffectMetadata.Create<Effects.PointLightDiffuse>(Strings.PointLightDiffuse),
                     EffectMetadata.Create<Effects.PartsDisassembly>(Strings.PartsDisassembly),
                     EffectMetadata.Create<Effects.FlatShadow>(Strings.FlatShadow),
+                    EffectMetadata.Create<Effects.RoundClipping>(Strings.RoundClipping),
+                    EffectMetadata.Create<Effects.Resize>(Strings.Resize),
                 },
             };
 

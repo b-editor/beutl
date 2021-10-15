@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Globalization;
+using System.Reflection;
 
 using Avalonia.Media;
 using Avalonia.Platform;
@@ -40,7 +41,7 @@ namespace BEditor.PackageInstaller
             return SKFontManager.Default.FontFamilies;
         }
 
-        private readonly string[] _bcp47 = { CultureInfo.CurrentCulture.ThreeLetterISOLanguageName, CultureInfo.CurrentCulture.TwoLetterISOLanguageName };
+        private readonly string[] _bcp47 = { CultureInfo.CurrentUICulture.ThreeLetterISOLanguageName, CultureInfo.CurrentUICulture.TwoLetterISOLanguageName };
 
         public bool TryMatchCharacter(int codepoint, FontStyle fontStyle, FontWeight fontWeight, FontFamily fontFamily,
             CultureInfo culture, out Typeface typeface)
@@ -82,7 +83,7 @@ namespace BEditor.PackageInstaller
                 }
             }
 
-            using var stream = typeof(CustomFontManagerImpl).Assembly.GetManifestResourceStream("BEditor.Assets.Fonts.NotoSansJP-Regular.otf");
+            using var stream = Assembly.GetExecutingAssembly()!.GetManifestResourceStream("BEditor.PackageInstaller.Assets.Fonts.NotoSansJP-Regular.otf");
 
             return new GlyphTypefaceImpl(SKTypeface.FromStream(stream));
         }
@@ -116,7 +117,7 @@ namespace BEditor.PackageInstaller
                 }
             }
 
-            using var stream = typeof(CustomFontManagerImpl).Assembly.GetManifestResourceStream("BEditor.PackageInstaller.Assets.Fonts.NotoSansJP-Regular.otf");
+            using var stream = Assembly.GetExecutingAssembly()!.GetManifestResourceStream("BEditor.PackageInstaller.Assets.Fonts.NotoSansJP-Regular.otf");
 
             return SKTypeface.FromStream(stream);
         }

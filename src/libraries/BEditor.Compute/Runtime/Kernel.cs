@@ -91,61 +91,13 @@ namespace BEditor.Compute.Runtime
                 {
                     CL.SetKernelArgSVMPointer(Pointer, i, buf.Pointer).CheckError();
                 }
-                else if (arg is byte barg)
+                else if (arg is ValueType)
                 {
-                    CL.SetKernelArg(Pointer, i, sizeof(byte), &barg).CheckError();
-                }
-                else if (arg is char carg)
-                {
-                    CL.SetKernelArg(Pointer, i, sizeof(char), &carg).CheckError();
-                }
-                else if (arg is short sarg)
-                {
-                    CL.SetKernelArg(Pointer, i, sizeof(short), &sarg).CheckError();
-                }
-                else if (arg is int iarg)
-                {
-                    CL.SetKernelArg(Pointer, i, sizeof(int), &iarg).CheckError();
-                }
-                else if (arg is long larg)
-                {
-                    CL.SetKernelArg(Pointer, i, sizeof(long), &larg).CheckError();
-                }
-                else if (arg is float farg)
-                {
-                    CL.SetKernelArg(Pointer, i, sizeof(float), &farg).CheckError();
-                }
-                else if (arg is double darg)
-                {
-                    CL.SetKernelArg(Pointer, i, sizeof(double), &darg).CheckError();
-                }
-                else if (arg is Double2 d2)
-                {
-                    CL.SetKernelArg(Pointer, i, sizeof(Double2), &d2).CheckError();
-                }
-                else if (arg is Double3 d3)
-                {
-                    CL.SetKernelArg(Pointer, i, sizeof(Double3), &d3).CheckError();
-                }
-                else if (arg is Double4 d4)
-                {
-                    CL.SetKernelArg(Pointer, i, sizeof(Double4), &d4).CheckError();
-                }
-                else if (arg is Float2 f2)
-                {
-                    CL.SetKernelArg(Pointer, i, sizeof(Float2), &f2).CheckError();
-                }
-                else if (arg is Float3 f3)
-                {
-                    CL.SetKernelArg(Pointer, i, sizeof(Float3), &f3).CheckError();
-                }
-                else if (arg is Float4 f4)
-                {
-                    CL.SetKernelArg(Pointer, i, sizeof(Float4), &f4).CheckError();
-                }
-                else if (arg is Float5x5 f5x5)
-                {
-                    CL.SetKernelArg(Pointer, i, sizeof(Float5x5), &f5x5).CheckError();
+                    var size = Marshal.SizeOf(arg);
+                    var ptr = Marshal.AllocCoTaskMem(size);
+                    Marshal.StructureToPtr(arg, ptr, false);
+                    CL.SetKernelArg(Pointer, i, size, (void*)ptr).CheckError();
+                    _args[i] = (void*)ptr;
                 }
             }
         }

@@ -37,7 +37,7 @@ namespace BEditor.Drawing
                     (color.R * 0.11448) +
                     (color.G * 0.58661) +
                     (color.B * 0.29891));
-                image.PixelOperate<ColorKeyOperation, double, int>(context, colorNtsc, range);
+                image.PixelOperate<ColorKeyOperation>(context, colorNtsc, range);
             }
             else
             {
@@ -60,7 +60,7 @@ namespace BEditor.Drawing.PixelOperation
     /// <summary>
     /// Makes a specific color component of the image transparent.
     /// </summary>
-    public unsafe readonly struct ColorKeyOperation : IPixelOperation, IGpuPixelOperation<double, int>
+    public unsafe readonly struct ColorKeyOperation : IPixelOperation, IGpuPixelOperation
     {
         private readonly BGRA32* _dst;
         private readonly BGRA32* _src;

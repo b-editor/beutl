@@ -1,3 +1,6 @@
+using System;
+using System.Net.NetworkInformation;
+
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
@@ -14,7 +17,11 @@ namespace BEditor.PackageInstaller.Views
 
             Content = new MainPage();
             var thm = AvaloniaLocator.Current.GetService<FluentAvaloniaTheme>();
-            thm.ForceNativeTitleBarToTheme(this);
+
+            if (OperatingSystem.IsWindows())
+            {
+                thm.ForceNativeTitleBarToTheme(this);
+            }
 #if DEBUG
             this.AttachDevTools();
 #endif
