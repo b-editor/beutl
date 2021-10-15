@@ -57,11 +57,11 @@ namespace BEditor.Extensions.AviUtl
 
             if (_sharedGraphics is null)
             {
-                _sharedGraphics = new(_img.Width, _img.Height);
+                _sharedGraphics = new(Math.Max(_img.Width, 1), Math.Max(_img.Height, 1));
             }
             else
             {
-                _sharedGraphics.SetSize(_img.Size);
+                _sharedGraphics.SetSize(new(Math.Max(_img.Width, 1), Math.Max(_img.Height, 1)));
             }
         }
 
