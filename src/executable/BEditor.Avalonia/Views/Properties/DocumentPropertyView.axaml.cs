@@ -1,4 +1,5 @@
 using System;
+using System.Threading.Tasks;
 
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -33,8 +34,10 @@ namespace BEditor.Views.Properties
             Dispatcher.UIThread.InvokeAsync(Dispose);
         }
 
-        public void TextBox_KeyDown(object? sender, KeyEventArgs e)
+        public async void TextBox_KeyDown(object? sender, KeyEventArgs e)
         {
+            await Task.Delay(10);
+
             if (DataContext is DocumentPropertyViewModel vm && sender is TextBox tb)
             {
                 vm.TextChanged.Execute(tb.Text);
