@@ -1017,6 +1017,65 @@
         <member name="M:BEditor.Primitive.Effects.AreaExpansion.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
             <inheritdoc/>
         </member>
+        <member name="F:BEditor.Primitive.Effects.BackgroundColor.ColorProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.BackgroundColor.Color"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.BackgroundColor.PaddingLeftProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.BackgroundColor.PaddingLeft"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.BackgroundColor.PaddingTopProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.BackgroundColor.PaddingTop"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.BackgroundColor.PaddingRightProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.BackgroundColor.PaddingRight"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.BackgroundColor.PaddingBottomProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.BackgroundColor.PaddingBottom"/> property.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.BackgroundColor.Color">
+            <summary>
+            Gets the background color.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.BackgroundColor.PaddingLeft">
+            <summary>
+            Gets the left padding.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.BackgroundColor.PaddingTop">
+            <summary>
+            Gets the top padding.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.BackgroundColor.PaddingRight">
+            <summary>
+            Gets the left padding.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.BackgroundColor.PaddingBottom">
+            <summary>
+            Gets the bottom padding.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.BackgroundColor.Name">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.BackgroundColor.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.BackgroundColor.GetProperties">
+            <inheritdoc/>
+        </member>
         <member name="T:BEditor.Primitive.Effects.Binarization">
             <summary>
             Represents the <see cref="T:BEditor.Data.Primitive.ImageEffect"/> of binarizing an image.
@@ -4425,6 +4484,26 @@
         <member name="P:BEditor.Primitive.Resources.Strings.Opacity">
             <summary>
               Opacity に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.PaddingBottom">
+            <summary>
+                            : Bottom に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.PaddingLeft">
+            <summary>
+              Padding: Left に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.PaddingRight">
+            <summary>
+                            : Right に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.PaddingTop">
+            <summary>
+                            : Top に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.PartsDisassembly">

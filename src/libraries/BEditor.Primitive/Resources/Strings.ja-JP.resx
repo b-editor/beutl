@@ -651,4 +651,19 @@
   <data name="UseCenter" xml:space="preserve">
     <value>中心を使う</value>
   </data>
+  <data name="PaddingLeft" xml:space="preserve">
+    <value>余白: 左</value>
+  </data>
+  <data name="PaddingTop" xml:space="preserve">
+    <value>　　: 上</value>
+  </data>
+  <data name="PaddingRight" xml:space="preserve">
+    <value>　　: 右</value>
+  </data>
+  <data name="PaddingBottom" xml:space="preserve">
+    <value>　　: 下</value>
+  </data>
+  <data name="BackgroundColor" xml:space="preserve">
+    <value>背景色</value>
+  </data>
 </root>

@@ -2,10 +2,7 @@
 
     <Import Project="..\..\..\props\Avalonia.props" />
     <Import Project="..\..\..\props\ReactiveProperty.props" />
-
-    <ItemGroup>
-        <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Scripting" Version="3.11.0" />
-    </ItemGroup>
+    <Import Project="..\..\..\props\Microsoft.CodeAnalysis.CSharp.Scripting.props" />
 
     <ItemGroup>
         <EmbeddedResource Include="Assets\Fonts\*.otf" />

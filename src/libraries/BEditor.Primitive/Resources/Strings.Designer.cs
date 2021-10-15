@@ -169,6 +169,15 @@ namespace BEditor.Primitive.Resources {
         }
         
         /// <summary>
+        ///   Background color に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string BackgroundColor {
+            get {
+                return ResourceManager.GetString("BackgroundColor", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Ball に類似しているローカライズされた文字列を検索します。
         /// </summary>
         internal static string Ball {
@@ -1083,6 +1092,42 @@ namespace BEditor.Primitive.Resources {
         internal static string Opacity {
             get {
                 return ResourceManager.GetString("Opacity", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///                 : Bottom に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string PaddingBottom {
+            get {
+                return ResourceManager.GetString("PaddingBottom", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Padding: Left に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string PaddingLeft {
+            get {
+                return ResourceManager.GetString("PaddingLeft", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///                 : Right に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string PaddingRight {
+            get {
+                return ResourceManager.GetString("PaddingRight", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///                 : Top に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string PaddingTop {
+            get {
+                return ResourceManager.GetString("PaddingTop", resourceCulture);
             }
         }
         

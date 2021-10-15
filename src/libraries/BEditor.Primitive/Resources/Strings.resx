@@ -651,4 +651,19 @@
   <data name="UseCenter" xml:space="preserve">
     <value>Use center</value>
   </data>
+  <data name="PaddingLeft" xml:space="preserve">
+    <value>Padding: Left</value>
+  </data>
+  <data name="PaddingTop" xml:space="preserve">
+    <value>              : Top</value>
+  </data>
+  <data name="PaddingRight" xml:space="preserve">
+    <value>              : Right</value>
+  </data>
+  <data name="PaddingBottom" xml:space="preserve">
+    <value>              : Bottom</value>
+  </data>
+  <data name="BackgroundColor" xml:space="preserve">
+    <value>Background color</value>
+  </data>
 </root>

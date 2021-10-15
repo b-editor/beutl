@@ -162,7 +162,7 @@ namespace BEditor.Views.Properties
                 var point = e.GetPosition(this);
                 var move = point - _startPoint;
 
-                num.Value += move.X;
+                num.Value = _property.Clamp((float)(move.X + num.Value));
 
                 _startPoint = point;
                 _clickCount = 0;
