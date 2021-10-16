@@ -248,12 +248,10 @@ namespace BEditor.Primitive.Objects
 
         private void Clip_Splitted(object? sender, ClipSplittedEventArgs e)
         {
-            if (e.After.Effect[0] is VideoFile after)
+            if (e.After.Effect[0] is AudioFile after)
             {
                 var sub = (float)e.Before.Length.ToMilliseconds(this.GetRequiredParent<Project>().Framerate);
-                var astart = after.Start.Pairs[0];
-
-                after.Start.Pairs[0] = astart.WithValue(astart.Value + sub);
+                after.Start.Value += sub;
             }
         }
     }
