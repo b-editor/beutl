@@ -1,0 +1,44 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:ui="using:FluentAvalonia.UI.Controls"
+    xmlns:props="using:BEditor.Properties"
+    mc:Ignorable="d" d:DesignWidth="250" d:DesignHeight="40"
+    Height="32"
+    Margin="8,4"
+    x:Class="BEditor.Views.Properties.GradientEditor">
+    <UserControl.ContextMenu>
+        <ContextMenu>
+            <MenuItem Header="{x:Static props:Strings.Remove}" Click="Remove_Click">
+                <MenuItem.Icon>
+                    <ui:SymbolIcon Symbol="Delete" />
+                </MenuItem.Icon>
+            </MenuItem>
+        </ContextMenu>
+    </UserControl.ContextMenu>
+    <Grid ColumnDefinitions="*,8,*">
+        <NumericUpDown
+            ShowButtonSpinner="False"
+            Increment="10"
+            x:Name="Numeric"
+            GotFocus="NumericUpDown_GotFocus"
+            LostFocus="NumericUpDown_LostFocus"
+            ValueChanged="NumericUpDown_ValueChanged"
+            FormatString="{}{0}%"
+            Minimum="0"
+            Maximum="100" />
+
+        <Border
+            PointerPressed="Border_PointerPressed"
+            x:Name="border"
+            Height="24"
+            CornerRadius="4"
+            Grid.Column="2"
+            HorizontalAlignment="Stretch"
+            VerticalAlignment="Stretch">
+            
+        </Border>
+    </Grid>
+</UserControl>
