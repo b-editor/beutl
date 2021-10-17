@@ -91,6 +91,11 @@ namespace BEditor.ViewModels.Timelines
             {
                 var frame = ClipElement.Parent.ToFrame(_mouseRightPoint.X) + ClipElement.Start;
 
+                if (ClipElement.Start < Scene.PreviewFrame && Scene.PreviewFrame < ClipElement.End)
+                {
+                    frame = Scene.PreviewFrame;
+                }
+
                 ClipElement.Split(frame).Execute();
             });
 
