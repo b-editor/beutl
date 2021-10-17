@@ -1,6 +1,14 @@
-﻿using System;
+﻿// GradientProperty.cs
+//
+// Copyright (C) BEditor
+//
+// This software may be modified and distributed under the terms
+// of the MIT license. See the LICENSE file for details.
+
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Diagnostics.Contracts;
 using System.Linq;
 using System.Runtime.Intrinsics.X86;
 using System.Runtime.Serialization;
@@ -14,7 +22,10 @@ using BEditor.Drawing;
 
 namespace BEditor.Data.Property
 {
-    public struct GradientKeyPoint
+    /// <summary>
+    /// Represents the point of the gradient.
+    /// </summary>
+    public readonly struct GradientKeyPoint
     {
         /// <summary>
         /// Initializes a new instance of the <see cref="GradientKeyPoint"/> struct.
@@ -99,8 +110,16 @@ namespace BEditor.Data.Property
         }
     }
 
+    /// <summary>
+    /// The property that sets the gradient.
+    /// </summary>
     public sealed class GradientProperty : PropertyElement<GradientPropertyMetadata>
     {
+        /// <summary>
+        /// Initializes a new instance of the <see cref="GradientProperty"/> class.
+        /// </summary>
+        /// <param name="metadata">Metadata of this property.</param>
+        /// <exception cref="ArgumentNullException"><paramref name="metadata"/> is <see langword="null"/>.</exception>
         public GradientProperty(GradientPropertyMetadata metadata)
         {
             PropertyMetadata = metadata ?? throw new ArgumentNullException(nameof(metadata));
@@ -111,18 +130,40 @@ namespace BEditor.Data.Property
             };
         }
 
+        /// <summary>
+        /// Gets the key points.
+        /// </summary>
         public ObservableCollection<GradientKeyPoint> KeyPoints { get; private set; }
 
+        /// <summary>
+        /// Creates a command to add a point.
+        /// </summary>
+        /// <param name="keyPoint">A point to add.</param>
+        /// <returns>Created <see cref="IRecordCommand"/>.</returns>
+        [Pure]
         public IRecordCommand AddPoint(GradientKeyPoint keyPoint)
         {
             return new AddPointCommand(this, keyPoint);
         }
 
+        /// <summary>
+        /// Creates a command to remove a point.
+        /// </summary>
+        /// <param name="keyPoint">A point to remove.</param>
+        /// <returns>Created <see cref="IRecordCommand"/>.</returns>
+        [Pure]
         public IRecordCommand RemovePoint(GradientKeyPoint keyPoint)
         {
             return new RemovePointCommand(this, keyPoint);
         }
 
+        /// <summary>
+        /// Creates a command to update a point.
+        /// </summary>
+        /// <param name="index">Index of a point to be updated.</param>
+        /// <param name="keyPoint">New point.</param>
+        /// <returns>Created <see cref="IRecordCommand"/>.</returns>
+        [Pure]
         public IRecordCommand UpdatePoint(int index, GradientKeyPoint keyPoint)
         {
             return new UpdatePointCommand(this, index, keyPoint);
