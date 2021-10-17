@@ -2770,6 +2770,48 @@
         <member name="M:BEditor.Data.Property.FontProperty.ChangeSelectCommand.Undo">
             <inheritdoc/>
         </member>
+        <member name="M:BEditor.Data.Property.GradientKeyPoint.#ctor(BEditor.Drawing.Color,System.Single)">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Data.Property.GradientKeyPoint"/> struct.
+            </summary>
+            <param name="color">The color.</param>
+            <param name="position">The position.</param>
+        </member>
+        <member name="P:BEditor.Data.Property.GradientKeyPoint.Color">
+            <summary>
+            Gets the color.
+            </summary>
+        </member>
+        <member name="P:BEditor.Data.Property.GradientKeyPoint.Position">
+            <summary>
+            Gets the position.
+            </summary>
+        </member>
+        <member name="M:BEditor.Data.Property.GradientKeyPoint.Parse(System.String)">
+            <summary>
+            Parses a <see cref="T:BEditor.Data.Property.GradientKeyPoint"/> string.
+            </summary>
+            <param name="s">The string.</param>
+            <returns>The parsed <see cref="T:BEditor.Data.Property.GradientKeyPoint"/>.</returns>
+        </member>
+        <member name="M:BEditor.Data.Property.GradientKeyPoint.TryParse(System.String,BEditor.Data.Property.GradientKeyPoint@)">
+            <summary>
+            Parses a <see cref="T:BEditor.Data.Property.GradientKeyPoint"/> string.
+            A return value indicates whether the conversion succeeded or failed.
+            </summary>
+            <param name="s">The string.</param>
+            <param name="result">The parsed <see cref="T:BEditor.Data.Property.GradientKeyPoint"/>.</param>
+            <returns>true if s was parsed successfully; otherwise, false.</returns>
+        </member>
+        <member name="M:BEditor.Data.Property.GradientKeyPoint.ToString">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Data.Property.GradientProperty.GetObjectData(System.Text.Json.Utf8JsonWriter)">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Data.Property.GradientProperty.SetObjectData(BEditor.Data.DeserializeContext)">
+            <inheritdoc/>
+        </member>
         <member name="T:BEditor.Data.Property.Group">
             <summary>
             Represents a base class for grouping <see cref="T:BEditor.Data.Property.PropertyElement"/>.
