@@ -6,19 +6,14 @@
 // of the MIT license. See the LICENSE file for details.
 
 using System;
-using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics.Contracts;
 using System.Linq;
-using System.Runtime.Intrinsics.X86;
-using System.Runtime.Serialization;
-using System.Text;
 using System.Text.Json;
-using System.Threading.Tasks;
 
 using BEditor.Command;
-using BEditor.Data.Property.Easing;
 using BEditor.Drawing;
+using BEditor.Resources;
 
 namespace BEditor.Data.Property
 {
@@ -223,7 +218,7 @@ namespace BEditor.Data.Property
                 _index = property.KeyPoints.Count - 1;
             }
 
-            public string Name => "グラデーションを追加";
+            public string Name => Strings.AddGradient;
 
             public void Do()
             {
@@ -260,7 +255,7 @@ namespace BEditor.Data.Property
                 _index = property.KeyPoints.IndexOf(keyPoint);
             }
 
-            public string Name => "グラデーションを削除";
+            public string Name => Strings.RemoveGradient;
 
             public void Do()
             {
@@ -299,7 +294,7 @@ namespace BEditor.Data.Property
                 _index = index;
             }
 
-            public string Name => "グラデーションを変更";
+            public string Name => Strings.ChangeGradient;
 
             public void Do()
             {

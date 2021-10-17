@@ -305,4 +305,13 @@
   <data name="RemoveTarget" xml:space="preserve">
     <value>対象を削除</value>
   </data>
+  <data name="AddGradient" xml:space="preserve">
+    <value>グラデーションを追加</value>
+  </data>
+  <data name="RemoveGradient" xml:space="preserve">
+    <value>グラデーションを削除</value>
+  </data>
+  <data name="ChangeGradient" xml:space="preserve">
+    <value>グラデーションを変更</value>
+  </data>
 </root>
