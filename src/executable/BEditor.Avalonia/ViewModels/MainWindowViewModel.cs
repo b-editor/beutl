@@ -83,11 +83,11 @@ namespace BEditor.ViewModels
             });
 
             Save.Select(_ => App.Project)
-                .Where(p => p is not null)
+                .Where(p => p != null)
                 .Subscribe(async p => await p!.SaveAsync());
 
             SaveAs.Select(_ => App.Project)
-                .Where(p => p is not null)
+                .Where(p => p != null)
                 .Subscribe(async p =>
                 {
                     var record = new SaveFileRecord
@@ -112,7 +112,7 @@ namespace BEditor.ViewModels
             });
 
             Close.Select(_ => App)
-                .Where(app => app.Project is not null)
+                .Where(app => app.Project != null)
                 .Subscribe(app =>
                 {
                     app.Project?.Unload();
@@ -140,14 +140,19 @@ namespace BEditor.ViewModels
                     AppModel.Current.AppStatus = Status.Edit;
                 });
 
-            Remove.Where(_ => App.Project is not null)
+            Split.Where(_ => App.Project != null)
                 .Select(_ => App.Project!.CurrentScene.SelectItem)
-                .Where(c => c is not null)
+                .Where(c => c != null)
+                .Subscribe(clip => clip!.GetCreateClipViewModel().Split.Execute());
+
+            Remove.Where(_ => App.Project != null)
+                .Select(_ => App.Project!.CurrentScene.SelectItem)
+                .Where(c => c != null)
                 .Subscribe(clip => clip!.Parent.RemoveClip(clip).Execute());
 
-            Copy.Where(_ => App.Project is not null)
+            Copy.Where(_ => App.Project != null)
                 .Select(_ => App.Project!.CurrentScene.SelectItem)
-                .Where(clip => clip is not null)
+                .Where(clip => clip != null)
                 .Subscribe(async clip =>
                 {
                     await using var memory = new MemoryStream();
@@ -157,9 +162,9 @@ namespace BEditor.ViewModels
                     await Application.Current.Clipboard.SetTextAsync(json);
                 });
 
-            Cut.Where(_ => App.Project is not null)
+            Cut.Where(_ => App.Project != null)
                 .Select(_ => App.Project!.CurrentScene.SelectItem)
-                .Where(clip => clip is not null)
+                .Where(clip => clip != null)
                 .Subscribe(async clip =>
                 {
                     clip!.Parent.RemoveClip(clip).Execute();
@@ -171,7 +176,7 @@ namespace BEditor.ViewModels
                     await Application.Current.Clipboard.SetTextAsync(json);
                 });
 
-            Paste.Where(_ => App.Project is not null)
+            Paste.Where(_ => App.Project != null)
                 .Select(_ => App.Project!.CurrentScene.GetCreateTimelineViewModel())
                 .Subscribe(async timeline =>
                 {
@@ -261,7 +266,7 @@ namespace BEditor.ViewModels
                 }
             });
 
-            ImageOutput.Where(_ => App.Project is not null).Subscribe(async _ =>
+            ImageOutput.Where(_ => App.Project != null).Subscribe(async _ =>
             {
                 var scene = AppModel.Current.Project.CurrentScene!;
 
@@ -281,7 +286,7 @@ namespace BEditor.ViewModels
                 }
             });
 
-            VideoOutput.Where(_ => App.Project is not null).Subscribe(async _ =>
+            VideoOutput.Where(_ => App.Project != null).Subscribe(async _ =>
             {
                 var dialog = new VideoOutput();
                 await dialog.ShowDialog(BEditor.App.GetMainWindow());
@@ -307,6 +312,8 @@ namespace BEditor.ViewModels
         public ReactiveCommand Undo { get; } = new();
 
         public ReactiveCommand Redo { get; } = new();
+
+        public ReactiveCommand Split { get; } = new();
 
         public ReactiveCommand Remove { get; } = new();
 

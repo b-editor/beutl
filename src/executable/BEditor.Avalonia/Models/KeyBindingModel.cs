@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
+using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading.Tasks;
@@ -32,7 +33,17 @@ namespace BEditor.Models
             else
             {
                 using var reader = new StreamReader(file);
-                Bindings = new(JsonSerializer.Deserialize<IEnumerable<KeyBindingModel>>(reader.ReadToEnd(), Packaging.PackageFile._serializerOptions) ?? CreateDefault());
+                var defaults = CreateDefault().ToArray();
+                Bindings = new(JsonSerializer.Deserialize<IEnumerable<KeyBindingModel>>(reader.ReadToEnd(), Packaging.PackageFile._serializerOptions) ?? defaults);
+
+                // 後方互換のため存在しないショートカットはデフォルトのを使う
+                foreach (var item in defaults)
+                {
+                    if (!Bindings.Any(i => i.CommandName == item.CommandName))
+                    {
+                        Bindings.Add(item);
+                    }
+                }
             }
         }
 
@@ -54,6 +65,7 @@ namespace BEditor.Models
             new("SAVE", CommandNames.SAVE, MainWindowViewModel.Current.Save),
             new("UNDO", CommandNames.UNDO, MainWindowViewModel.Current.Undo),
             new("REDO", CommandNames.REDO, MainWindowViewModel.Current.Redo),
+            new("SPLIT", CommandNames.SPLIT, MainWindowViewModel.Current.Split),
             new("REMOVE", CommandNames.REMOVE, MainWindowViewModel.Current.Remove),
             new("COPY", CommandNames.COPY, MainWindowViewModel.Current.Copy),
             new("CUT", CommandNames.CUT, MainWindowViewModel.Current.Cut),
@@ -108,6 +120,7 @@ namespace BEditor.Models
             yield return new("Ctrl+S", "SAVE");
             yield return new("Ctrl+Z", "UNDO");
             yield return new("Ctrl+Y", "REDO");
+            yield return new("Ctrl+K", "SPLIT");
             yield return new("Delete", "REMOVE");
             yield return new("Ctrl+C", "COPY");
             yield return new("Ctrl+X", "CUT");

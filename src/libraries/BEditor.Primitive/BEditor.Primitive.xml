@@ -1017,6 +1017,11 @@
         <member name="M:BEditor.Primitive.Effects.AreaExpansion.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
             <inheritdoc/>
         </member>
+        <member name="T:BEditor.Primitive.Effects.BackgroundColor">
+            <summary>
+            Effects for painting the background color.
+            </summary>
+        </member>
         <member name="F:BEditor.Primitive.Effects.BackgroundColor.ColorProperty">
             <summary>
             Defines the <see cref="P:BEditor.Primitive.Effects.BackgroundColor.Color"/> property.
@@ -3974,6 +3979,11 @@
         <member name="P:BEditor.Primitive.Resources.Strings.AudioFile">
             <summary>
               Audio file に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.BackgroundColor">
+            <summary>
+              Background color に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Ball">

@@ -145,4 +145,7 @@
   <data name="IMAGE_OUT" xml:space="preserve">
     <value>画像出力</value>
   </data>
+  <data name="SPLIT" xml:space="preserve">
+    <value>分割</value>
+  </data>
 </root>
