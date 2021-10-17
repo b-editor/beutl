@@ -505,7 +505,10 @@ namespace BEditor.Controls
                 foreach (var src in e.Data.GetFileNames() ?? Enumerable.Empty<string>())
                 {
                     var dst = Path.Combine(baseDir, Path.GetFileName(src));
-                    File.Copy(src, dst);
+                    if (!File.Exists(dst))
+                    {
+                        File.Copy(src, dst);
+                    }
                 }
             }
         }
