@@ -63,22 +63,13 @@ namespace BEditor.Primitive.Effects
             EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.EndPoint + " Y (%)", 100f, 100f, 0)).Serialize());
 
         /// <summary>
-        /// Defines the <see cref="Colors"/> property.
+        /// Defines the <see cref="Gradient"/> property.
         /// </summary>
-        public static readonly DirectProperty<LinearGradient, TextProperty> ColorsProperty = EditingProperty.RegisterDirect<TextProperty, LinearGradient>(
-            nameof(Colors),
-            owner => owner.Colors,
-            (owner, obj) => owner.Colors = obj,
-            EditingPropertyOptions<TextProperty>.Create(new TextPropertyMetadata(Strings.Colors, "#FFFF0000,#FF0000FF")).Serialize());
-
-        /// <summary>
-        /// Defines the <see cref="Anchors"/> property.
-        /// </summary>
-        public static readonly DirectProperty<LinearGradient, TextProperty> AnchorsProperty = EditingProperty.RegisterDirect<TextProperty, LinearGradient>(
-            nameof(Anchors),
-            owner => owner.Anchors,
-            (owner, obj) => owner.Anchors = obj,
-            EditingPropertyOptions<TextProperty>.Create(new TextPropertyMetadata(Strings.Anchors, "0,1")).Serialize());
+        public static readonly DirectProperty<LinearGradient, GradientProperty> GradientProperty = EditingProperty.RegisterDirect<GradientProperty, LinearGradient>(
+            nameof(Gradient),
+            owner => owner.Gradient,
+            (owner, obj) => owner.Gradient = obj,
+            EditingPropertyOptions<GradientProperty>.Create(new GradientPropertyMetadata(Strings.Gradient, Colors.Red, Colors.Blue)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="Mode"/> property.
@@ -96,10 +87,6 @@ namespace BEditor.Primitive.Effects
             ShaderTileMode.Mirror,
             ShaderTileMode.Decal,
         };
-
-        private ReactiveProperty<Color[]>? _colorsProp;
-
-        private ReactiveProperty<float[]>? _pointsProp;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="LinearGradient"/> class.
@@ -136,16 +123,10 @@ namespace BEditor.Primitive.Effects
         public EaseProperty EndY { get; private set; }
 
         /// <summary>
-        /// Gets the colors.
+        /// Gets the gradient.
         /// </summary>
         [AllowNull]
-        public TextProperty Colors { get; private set; }
-
-        /// <summary>
-        /// Gets the anchors.
-        /// </summary>
-        [AllowNull]
-        public TextProperty Anchors { get; private set; }
+        public GradientProperty Gradient { get; private set; }
 
         /// <summary>
         /// Gets the <see cref="SelectorProperty"/> that selects the gradient mode.
@@ -153,36 +134,16 @@ namespace BEditor.Primitive.Effects
         [AllowNull]
         public SelectorProperty Mode { get; private set; }
 
-        private ReactiveProperty<Color[]> ColorsProp => _colorsProp ??= new();
-
-        private ReactiveProperty<float[]> PointsProp => _pointsProp ??= new();
-
         /// <inheritdoc/>
         public override void Apply(EffectApplyArgs<Image<BGRA32>> args)
         {
             var f = args.Frame;
-            var colors = ColorsProp.Value;
-            var points = PointsProp.Value;
-
-            // 色とアンカーの長さが合わない場合
-            // どちらかに長さを合わせる
-            while (colors.Length != points.Length)
-            {
-                if (colors.Length < points.Length)
-                {
-                    colors = colors.Append(default).ToArray();
-                }
-                else if (colors.Length > points.Length)
-                {
-                    points = points.Append(default).ToArray();
-                }
-            }
 
             args.Value.LinerGradient(
                 new PointF(StartX[f], StartY[f]),
                 new PointF(EndX[f], EndY[f]),
-                colors,
-                points,
+                Gradient.KeyPoints.Select(i => i.Color),
+                Gradient.KeyPoints.Select(i => i.Position),
                 _tiles[Mode.Index]);
         }
 
@@ -193,37 +154,31 @@ namespace BEditor.Primitive.Effects
             yield return StartY;
             yield return EndX;
             yield return EndY;
-            yield return Colors;
-            yield return Anchors;
+            yield return Gradient;
             yield return Mode;
         }
 
         /// <inheritdoc/>
-        protected override void OnLoad()
+        public override void SetObjectData(DeserializeContext context)
         {
-            _colorsProp = Colors
-                .Select(str =>
-                    str.Replace(" ", string.Empty)
-                        .Split(',')
-                        .Select(s => Color.Parse(s))
-                        .ToArray())
-                .ToReactiveProperty()!;
+            base.SetObjectData(context);
+            var element = context.Element;
 
-            _pointsProp = Anchors
-                .Select(str =>
-                    str.Replace(" ", string.Empty)
-                        .Split(',')
-                        .Where(s => float.TryParse(s, out _))
-                        .Select(s => float.Parse(s))
-                        .ToArray())
-                .ToReactiveProperty()!;
-        }
+            if (element.TryGetProperty("Colors", out var colors) &&
+                element.TryGetProperty("Anchors", out var anchors))
+            {
+                var colorsArray = colors.GetProperty("Value").GetString()?.Split(',')?.Select(i => Color.Parse(i));
+                var anchorsArray = anchors.GetProperty("Value").GetString()?.Split(',')?.Select(i => float.Parse(i));
 
-        /// <inheritdoc/>
-        protected override void OnUnload()
-        {
-            _colorsProp?.Dispose();
-            _pointsProp?.Dispose();
+                if (colorsArray != null && anchorsArray != null)
+                {
+                    Gradient.KeyPoints.Clear();
+                    foreach (var (color, anchor) in colorsArray.Zip(anchorsArray))
+                    {
+                        Gradient.KeyPoints.Add(new GradientKeyPoint(color, anchor));
+                    }
+                }
+            }
         }
     }
 }

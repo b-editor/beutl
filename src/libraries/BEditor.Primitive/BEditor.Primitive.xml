@@ -1349,14 +1349,9 @@
             Defines the <see cref="P:BEditor.Primitive.Effects.CircularGradient.Radius"/> property.
             </summary>
         </member>
-        <member name="F:BEditor.Primitive.Effects.CircularGradient.ColorsProperty">
+        <member name="F:BEditor.Primitive.Effects.CircularGradient.GradientProperty">
             <summary>
-            Defines the <see cref="P:BEditor.Primitive.Effects.CircularGradient.Colors"/> property.
-            </summary>
-        </member>
-        <member name="F:BEditor.Primitive.Effects.CircularGradient.AnchorsProperty">
-            <summary>
-            Defines the <see cref="P:BEditor.Primitive.Effects.CircularGradient.Anchors"/> property.
+            Defines the <see cref="P:BEditor.Primitive.Effects.CircularGradient.Gradient"/> property.
             </summary>
         </member>
         <member name="F:BEditor.Primitive.Effects.CircularGradient.ModeProperty">
@@ -1387,14 +1382,9 @@
             Gets the radius.
             </summary>
         </member>
-        <member name="P:BEditor.Primitive.Effects.CircularGradient.Colors">
+        <member name="P:BEditor.Primitive.Effects.CircularGradient.Gradient">
             <summary>
-            Gets the colors.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Effects.CircularGradient.Anchors">
-            <summary>
-            Gets the anchors.
+            Gets the gradient.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Effects.CircularGradient.Mode">
@@ -1406,12 +1396,6 @@
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Primitive.Effects.CircularGradient.GetProperties">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Primitive.Effects.CircularGradient.OnLoad">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Primitive.Effects.CircularGradient.OnUnload">
             <inheritdoc/>
         </member>
         <member name="T:BEditor.Primitive.Effects.Clipping">
@@ -1888,14 +1872,9 @@
             Defines the <see cref="P:BEditor.Primitive.Effects.LinearGradient.EndY"/> property.
             </summary>
         </member>
-        <member name="F:BEditor.Primitive.Effects.LinearGradient.ColorsProperty">
+        <member name="F:BEditor.Primitive.Effects.LinearGradient.GradientProperty">
             <summary>
-            Defines the <see cref="P:BEditor.Primitive.Effects.LinearGradient.Colors"/> property.
-            </summary>
-        </member>
-        <member name="F:BEditor.Primitive.Effects.LinearGradient.AnchorsProperty">
-            <summary>
-            Defines the <see cref="P:BEditor.Primitive.Effects.LinearGradient.Anchors"/> property.
+            Defines the <see cref="P:BEditor.Primitive.Effects.LinearGradient.Gradient"/> property.
             </summary>
         </member>
         <member name="F:BEditor.Primitive.Effects.LinearGradient.ModeProperty">
@@ -1931,14 +1910,9 @@
             Gets the end position of the Y axis.
             </summary>
         </member>
-        <member name="P:BEditor.Primitive.Effects.LinearGradient.Colors">
+        <member name="P:BEditor.Primitive.Effects.LinearGradient.Gradient">
             <summary>
-            Gets the colors.
-            </summary>
-        </member>
-        <member name="P:BEditor.Primitive.Effects.LinearGradient.Anchors">
-            <summary>
-            Gets the anchors.
+            Gets the gradient.
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Effects.LinearGradient.Mode">
@@ -1950,12 +1924,6 @@
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Primitive.Effects.LinearGradient.GetProperties">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Primitive.Effects.LinearGradient.OnLoad">
-            <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Primitive.Effects.LinearGradient.OnUnload">
             <inheritdoc/>
         </member>
         <member name="T:BEditor.Primitive.Effects.Mask">

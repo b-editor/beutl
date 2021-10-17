@@ -666,4 +666,7 @@
   <data name="BackgroundColor" xml:space="preserve">
     <value>背景色</value>
   </data>
+  <data name="Gradient" xml:space="preserve">
+    <value>グラデーション</value>
+  </data>
 </root>

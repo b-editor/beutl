@@ -772,6 +772,15 @@ namespace BEditor.Primitive.Resources {
         }
         
         /// <summary>
+        ///   Gradient に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        internal static string Gradient {
+            get {
+                return ResourceManager.GetString("Gradient", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Grayscale に類似しているローカライズされた文字列を検索します。
         /// </summary>
         internal static string Grayscale {
