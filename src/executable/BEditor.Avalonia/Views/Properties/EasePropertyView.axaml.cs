@@ -46,6 +46,7 @@ namespace BEditor.Views.Properties
         private float _oldvalue;
         private Point _startPoint;
         private int _clickCount;
+        private DateTime _time;
 
 #pragma warning disable CS8618
         public EasePropertyView()
@@ -130,9 +131,10 @@ namespace BEditor.Views.Properties
 
             _oldvalue = _property.Pairs[index].Value;
 
-            if (_clickCount == 1)
+            if (_clickCount == 1 || (DateTime.UtcNow - _time) > TimeSpan.FromSeconds(1))
             {
                 e.Handled = true;
+                _time = DateTime.UtcNow;
             }
             else
             {
