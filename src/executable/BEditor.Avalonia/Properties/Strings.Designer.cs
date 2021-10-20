@@ -315,6 +315,15 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Cannot delete any more. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string CannotDeleteAnyMore {
+            get {
+                return ResourceManager.GetString("CannotDeleteAnyMore", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Category に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Category {

@@ -51,18 +51,11 @@ namespace BEditor.Primitive.Effects
             EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Radius, 100)).Serialize());
 
         /// <summary>
-        /// Defines the <see cref="Colors"/> property.
+        /// Defines the <see cref="Gradient"/> property.
         /// </summary>
-        public static readonly DirectProperty<CircularGradient, TextProperty> ColorsProperty = LinearGradient.ColorsProperty.WithOwner<CircularGradient>(
-            owner => owner.Colors,
-            (owner, obj) => owner.Colors = obj);
-
-        /// <summary>
-        /// Defines the <see cref="Anchors"/> property.
-        /// </summary>
-        public static readonly DirectProperty<CircularGradient, TextProperty> AnchorsProperty = LinearGradient.AnchorsProperty.WithOwner<CircularGradient>(
-            owner => owner.Anchors,
-            (owner, obj) => owner.Anchors = obj);
+        public static readonly DirectProperty<CircularGradient, GradientProperty> GradientProperty = LinearGradient.GradientProperty.WithOwner<CircularGradient>(
+            owner => owner.Gradient,
+            (owner, obj) => owner.Gradient = obj);
 
         /// <summary>
         /// Defines the <see cref="Mode"/> property.
@@ -70,10 +63,6 @@ namespace BEditor.Primitive.Effects
         public static readonly DirectProperty<CircularGradient, SelectorProperty> ModeProperty = LinearGradient.ModeProperty.WithOwner<CircularGradient>(
             owner => owner.Mode,
             (owner, obj) => owner.Mode = obj);
-
-        private ReactiveProperty<Color[]>? _colorsProp;
-
-        private ReactiveProperty<float[]>? _pointsProp;
 
         /// <summary>
         /// Initializes a new instance of the <see cref="CircularGradient"/> class.
@@ -104,16 +93,10 @@ namespace BEditor.Primitive.Effects
         public EaseProperty Radius { get; private set; }
 
         /// <summary>
-        /// Gets the colors.
+        /// Gets the gradient.
         /// </summary>
         [AllowNull]
-        public TextProperty Colors { get; private set; }
-
-        /// <summary>
-        /// Gets the anchors.
-        /// </summary>
-        [AllowNull]
-        public TextProperty Anchors { get; private set; }
+        public GradientProperty Gradient { get; private set; }
 
         /// <summary>
         /// Gets the <see cref="SelectorProperty"/> that selects the gradient mode.
@@ -121,35 +104,16 @@ namespace BEditor.Primitive.Effects
         [AllowNull]
         public SelectorProperty Mode { get; private set; }
 
-        private ReactiveProperty<Color[]> ColorsProp => _colorsProp ??= new();
-
-        private ReactiveProperty<float[]> PointsProp => _pointsProp ??= new();
-
         /// <inheritdoc/>
         public override void Apply(EffectApplyArgs<Image<BGRA32>> args)
         {
             var f = args.Frame;
-            var colors = ColorsProp.Value;
-            var points = PointsProp.Value;
-
-            // LinearGradient参照
-            while (colors.Length != points.Length)
-            {
-                if (colors.Length < points.Length)
-                {
-                    colors = colors.Append(default).ToArray();
-                }
-                else if (colors.Length > points.Length)
-                {
-                    points = points.Append(default).ToArray();
-                }
-            }
 
             args.Value.CircularGradient(
                 new PointF(CenterX[f], CenterY[f]),
                 Radius[f],
-                colors,
-                points,
+                Gradient.KeyPoints.Select(i => i.Color),
+                Gradient.KeyPoints.Select(i => i.Position),
                 LinearGradient._tiles[Mode.Index]);
         }
 
@@ -159,37 +123,31 @@ namespace BEditor.Primitive.Effects
             yield return CenterX;
             yield return CenterY;
             yield return Radius;
-            yield return Colors;
-            yield return Anchors;
+            yield return Gradient;
             yield return Mode;
         }
 
         /// <inheritdoc/>
-        protected override void OnLoad()
+        public override void SetObjectData(DeserializeContext context)
         {
-            _colorsProp = Colors
-                .Select(str =>
-                    str.Replace(" ", string.Empty)
-                        .Split(',')
-                        .Select(s => Color.Parse(s))
-                        .ToArray())
-                .ToReactiveProperty()!;
+            base.SetObjectData(context);
+            var element = context.Element;
 
-            _pointsProp = Anchors
-                .Select(str =>
-                    str.Replace(" ", string.Empty)
-                        .Split(',')
-                        .Where(s => float.TryParse(s, out _))
-                        .Select(s => float.Parse(s))
-                        .ToArray())
-                .ToReactiveProperty()!;
-        }
+            if (element.TryGetProperty("Colors", out var colors) &&
+                element.TryGetProperty("Anchors", out var anchors))
+            {
+                var colorsArray = colors.GetProperty("Value").GetString()?.Split(',')?.Select(i => Color.Parse(i));
+                var anchorsArray = anchors.GetProperty("Value").GetString()?.Split(',')?.Select(i => float.Parse(i));
 
-        /// <inheritdoc/>
-        protected override void OnUnload()
-        {
-            _colorsProp?.Dispose();
-            _pointsProp?.Dispose();
+                if (colorsArray != null && anchorsArray != null)
+                {
+                    Gradient.KeyPoints.Clear();
+                    foreach (var (color, anchor) in colorsArray.Zip(anchorsArray))
+                    {
+                        Gradient.KeyPoints.Add(new GradientKeyPoint(color, anchor));
+                    }
+                }
+            }
         }
     }
 }
