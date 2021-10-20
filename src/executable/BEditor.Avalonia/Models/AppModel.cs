@@ -291,7 +291,7 @@ namespace BEditor.Models
                     var sceneCache = Path.Combine(sceneCacheDir, scene.Name + ".cache");
                     var cacheObj = new SceneCache
                     {
-                        Select = scene.SelectItem?.Name,
+                        Select = scene.SelectItem?.Id.ToString(),
                         PreviewFrame = scene.PreviewFrame,
                         TimelineScale = scene.TimeLineScale,
                         TimelineHorizonOffset = scene.TimeLineHorizonOffset,
@@ -361,7 +361,11 @@ namespace BEditor.Models
 
                         if (cacheObj is not null)
                         {
-                            scene.SelectItem = scene[cacheObj.Select];
+                            if (Guid.TryParse(cacheObj.Select, out var clipId))
+                            {
+                                scene.SelectItem = scene.Find(clipId);
+                            }
+
                             scene.PreviewFrame = cacheObj.PreviewFrame;
                             scene.TimeLineScale = cacheObj.TimelineScale;
                             scene.TimeLineHorizonOffset = cacheObj.TimelineHorizonOffset;
