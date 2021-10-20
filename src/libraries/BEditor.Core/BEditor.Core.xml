@@ -2770,6 +2770,11 @@
         <member name="M:BEditor.Data.Property.FontProperty.ChangeSelectCommand.Undo">
             <inheritdoc/>
         </member>
+        <member name="T:BEditor.Data.Property.GradientKeyPoint">
+            <summary>
+            Represents the point of the gradient.
+            </summary>
+        </member>
         <member name="M:BEditor.Data.Property.GradientKeyPoint.#ctor(BEditor.Drawing.Color,System.Single)">
             <summary>
             Initializes a new instance of the <see cref="T:BEditor.Data.Property.GradientKeyPoint"/> struct.
@@ -2805,6 +2810,45 @@
         </member>
         <member name="M:BEditor.Data.Property.GradientKeyPoint.ToString">
             <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Data.Property.GradientProperty">
+            <summary>
+            The property that sets the gradient.
+            </summary>
+        </member>
+        <member name="M:BEditor.Data.Property.GradientProperty.#ctor(BEditor.Data.Property.GradientPropertyMetadata)">
+            <summary>
+            Initializes a new instance of the <see cref="T:BEditor.Data.Property.GradientProperty"/> class.
+            </summary>
+            <param name="metadata">Metadata of this property.</param>
+            <exception cref="T:System.ArgumentNullException"><paramref name="metadata"/> is <see langword="null"/>.</exception>
+        </member>
+        <member name="P:BEditor.Data.Property.GradientProperty.KeyPoints">
+            <summary>
+            Gets the key points.
+            </summary>
+        </member>
+        <member name="M:BEditor.Data.Property.GradientProperty.AddPoint(BEditor.Data.Property.GradientKeyPoint)">
+            <summary>
+            Creates a command to add a point.
+            </summary>
+            <param name="keyPoint">A point to add.</param>
+            <returns>Created <see cref="T:BEditor.Command.IRecordCommand"/>.</returns>
+        </member>
+        <member name="M:BEditor.Data.Property.GradientProperty.RemovePoint(BEditor.Data.Property.GradientKeyPoint)">
+            <summary>
+            Creates a command to remove a point.
+            </summary>
+            <param name="keyPoint">A point to remove.</param>
+            <returns>Created <see cref="T:BEditor.Command.IRecordCommand"/>.</returns>
+        </member>
+        <member name="M:BEditor.Data.Property.GradientProperty.UpdatePoint(System.Int32,BEditor.Data.Property.GradientKeyPoint)">
+            <summary>
+            Creates a command to update a point.
+            </summary>
+            <param name="index">Index of a point to be updated.</param>
+            <param name="keyPoint">New point.</param>
+            <returns>Created <see cref="T:BEditor.Command.IRecordCommand"/>.</returns>
         </member>
         <member name="M:BEditor.Data.Property.GradientProperty.GetObjectData(System.Text.Json.Utf8JsonWriter)">
             <inheritdoc/>
@@ -3285,6 +3329,25 @@
             </summary>
         </member>
         <member name="M:BEditor.Data.Property.FontPropertyMetadata.Create">
+            <inheritdoc/>
+        </member>
+        <member name="T:BEditor.Data.Property.GradientPropertyMetadata">
+            <summary>
+            The metadata of <see cref="T:BEditor.Data.Property.ColorAnimationProperty"/>.
+            </summary>
+            <param name="Name">The string displayed in the property header.</param>
+            <param name="Color1">The first color.</param>
+            <param name="Color2">The second color.</param>
+        </member>
+        <member name="M:BEditor.Data.Property.GradientPropertyMetadata.#ctor(System.String,BEditor.Drawing.Color,BEditor.Drawing.Color)">
+            <summary>
+            The metadata of <see cref="T:BEditor.Data.Property.ColorAnimationProperty"/>.
+            </summary>
+            <param name="Name">The string displayed in the property header.</param>
+            <param name="Color1">The first color.</param>
+            <param name="Color2">The second color.</param>
+        </member>
+        <member name="M:BEditor.Data.Property.GradientPropertyMetadata.Create">
             <inheritdoc/>
         </member>
         <member name="T:BEditor.Data.Property.LabelComponentMetadata">
@@ -5464,364 +5527,379 @@
         </member>
         <member name="T:BEditor.Resources.Strings">
             <summary>
-              A strongly-typed resource class, for looking up localized strings, etc.
+              ローカライズされた文字列などを検索するための、厳密に型指定されたリソース クラスです。
             </summary>
         </member>
         <member name="P:BEditor.Resources.Strings.ResourceManager">
             <summary>
-              Returns the cached ResourceManager instance used by this class.
+              このクラスで使用されているキャッシュされた ResourceManager インスタンスを返します。
             </summary>
         </member>
         <member name="P:BEditor.Resources.Strings.Culture">
             <summary>
-              Overrides the current thread's CurrentUICulture property for all
-              resource lookups using this strongly typed resource class.
+              すべてについて、現在のスレッドの CurrentUICulture プロパティをオーバーライドします
+              現在のスレッドの CurrentUICulture プロパティをオーバーライドします。
             </summary>
         </member>
         <member name="P:BEditor.Resources.Strings.AddClip">
             <summary>
-              Looks up a localized string similar to Add a new clip.
+              Add a new clip に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Resources.Strings.AddEffect">
             <summary>
-              Looks up a localized string similar to Add a new effect.
+              Add a new effect に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Resources.Strings.AddGradient">
+            <summary>
+              Add gradient に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Resources.Strings.Additive">
             <summary>
-              Looks up a localized string similar to Additive.
+              Additive に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Resources.Strings.AddKeyframe">
             <summary>
-              Looks up a localized string similar to Add a keyframe.
+              Add a keyframe に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Resources.Strings.AlphaBlend">
             <summary>
-              Looks up a localized string similar to Alpha blend.
+              Alpha blend に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Resources.Strings.Ambient">
             <summary>
-              Looks up a localized string similar to Ambient.
+              Ambient に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Resources.Strings.BindCommand">
             <summary>
-              Looks up a localized string similar to Bind the value of the property.
+              Bind the value of the property に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Resources.Strings.Blend">
             <summary>
-              Looks up a localized string similar to Blend.
+              Blend に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Resources.Strings.CenterX">
             <summary>
-              Looks up a localized string similar to Center x.
+              Center x に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Resources.Strings.CenterY">
             <summary>
-              Looks up a localized string similar to Center y.
+              Center y に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Resources.Strings.CenterZ">
             <summary>
-              Looks up a localized string similar to Center z.
+              Center z に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Resources.Strings.ChangeColor">
             <summary>
-              Looks up a localized string similar to Change color.
+              Change color に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Resources.Strings.ChangeEasing">
             <summary>
-              Looks up a localized string similar to Change easing.
+              Change easing に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Resources.Strings.ChangeFile">
             <summary>
-              Looks up a localized string similar to Change file.
+              Change file に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Resources.Strings.ChangeFolder">
             <summary>
-              Looks up a localized string similar to Change folder.
+              Change folder に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Resources.Strings.ChangeFont">
             <summary>
-              Looks up a localized string similar to Change font.
+              Change font に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Resources.Strings.ChangeGradient">
+            <summary>
+              Change gradient に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Resources.Strings.ChangeIsChecked">
             <summary>
-              Looks up a localized string similar to Change the state of the checkbox.
+              Change the state of the checkbox に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Resources.Strings.ChangeLength">
             <summary>
-              Looks up a localized string similar to Change length.
+              Change length に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Resources.Strings.ChangeSelectItem">
             <summary>
-              Looks up a localized string similar to Change selected item.
+              Change selected item に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Resources.Strings.ChangeText">
             <summary>
-              Looks up a localized string similar to Change text.
+              Change text に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Resources.Strings.ChangeValue">
             <summary>
-              Looks up a localized string similar to Change value.
+              Change value に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Resources.Strings.ChildElementsNotFound">
             <summary>
-              Looks up a localized string similar to Child elements not found..
+              Child elements not found. に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Resources.Strings.Color">
             <summary>
-              Looks up a localized string similar to Color.
+              Color に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Resources.Strings.Coordinate">
             <summary>
-              Looks up a localized string similar to Coordinate.
+              Coordinate に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Resources.Strings.Diffuse">
             <summary>
-              Looks up a localized string similar to Diffuse.
+              Diffuse に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Resources.Strings.Disconnect">
             <summary>
-              Looks up a localized string similar to Disconnect property value.
+              Disconnect property value に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Resources.Strings.DownEffect">
             <summary>
-              Looks up a localized string similar to Change the order of the effects (below).
+              Change the order of the effects (below) に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Resources.Strings.EnableDisableEffect">
             <summary>
-              Looks up a localized string similar to Enable/Disable effects.
+              Enable/Disable effects に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Resources.Strings.FailedToConvertValue">
             <summary>
-              Looks up a localized string similar to Failed to convert value..
+              Failed to convert value. に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Resources.Strings.FailedToLoad">
             <summary>
-              Looks up a localized string similar to {0} failed to load..
+              {0} failed to load. に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Resources.Strings.FailedToRemove">
             <summary>
-              Looks up a localized string similar to Failed to remove..
+              Failed to remove. に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Resources.Strings.Font">
             <summary>
-              Looks up a localized string similar to Font.
+              Font に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Resources.Strings.KeyframeHasBeenMovedOutOfRange">
              <summary>
-               Looks up a localized string similar to The keyframe has been moved out of range.
-            {0} -&gt; {1}.
+               The keyframe has been moved out of range.
+            {0} -&gt; {1} に類似しているローカライズされた文字列を検索します。
              </summary>
         </member>
         <member name="P:BEditor.Resources.Strings.KeyHasAlreadyBeenRegisterd">
             <summary>
-              Looks up a localized string similar to This key has already been registered..
+              This key has already been registered. に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Resources.Strings.Material">
             <summary>
-              Looks up a localized string similar to Material.
+              Material に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Resources.Strings.MessageBy">
             <summary>
-              Looks up a localized string similar to Message by {0}.
+              Message by {0} に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Resources.Strings.MoveClip">
             <summary>
-              Looks up a localized string similar to Move clip.
+              Move clip に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Resources.Strings.MoveKeyframe">
             <summary>
-              Looks up a localized string similar to Move keyframe.
+              Move keyframe に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Resources.Strings.Multiplication">
             <summary>
-              Looks up a localized string similar to Multiplication.
+              Multiplication に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Resources.Strings.Opacity">
             <summary>
-              Looks up a localized string similar to Opacity.
+              Opacity に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Resources.Strings.ParentElementNotFound">
             <summary>
-              Looks up a localized string similar to Parent element not found..
+              Parent element not found. に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Resources.Strings.Pitch">
             <summary>
-              Looks up a localized string similar to Pitch.
+              Pitch に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Resources.Strings.Primitive">
             <summary>
-              Looks up a localized string similar to Primitive.
+              Primitive に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Resources.Strings.ProjectFile">
             <summary>
-              Looks up a localized string similar to Project file.
+              Project file に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Resources.Strings.RemoveClip">
             <summary>
-              Looks up a localized string similar to Remove clip.
+              Remove clip に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Resources.Strings.RemoveEffect">
             <summary>
-              Looks up a localized string similar to Remove effect.
+              Remove effect に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Resources.Strings.RemoveGradient">
+            <summary>
+              Remove gradient に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Resources.Strings.RemoveKeyframe">
             <summary>
-              Looks up a localized string similar to Remove keyframe.
+              Remove keyframe に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Resources.Strings.RemoveLayer">
             <summary>
-              Looks up a localized string similar to Remove layer.
+              Remove layer に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Resources.Strings.RemoveTarget">
             <summary>
-              Looks up a localized string similar to Remove target.
+              Remove target に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Resources.Strings.Rotate">
             <summary>
-              Looks up a localized string similar to Rotate.
+              Rotate に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Resources.Strings.RotateX">
             <summary>
-              Looks up a localized string similar to Rotate x.
+              Rotate x に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Resources.Strings.RotateY">
             <summary>
-              Looks up a localized string similar to Rotate y.
+              Rotate y に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Resources.Strings.RotateZ">
             <summary>
-              Looks up a localized string similar to Rotate z.
+              Rotate z に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Resources.Strings.Scale">
             <summary>
-              Looks up a localized string similar to Scale.
+              Scale に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Resources.Strings.Shininess">
             <summary>
-              Looks up a localized string similar to Shininess.
+              Shininess に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Resources.Strings.Specular">
             <summary>
-              Looks up a localized string similar to Specular.
+              Specular に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Resources.Strings.SplitClip">
             <summary>
-              Looks up a localized string similar to Split a clip.
+              Split a clip に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Resources.Strings.Start">
             <summary>
-              Looks up a localized string similar to Start.
+              Start に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Resources.Strings.Subtract">
             <summary>
-              Looks up a localized string similar to Subtract.
+              Subtract に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Resources.Strings.TheOwnerTypeDoesNotMatch">
             <summary>
-              Looks up a localized string similar to The type of the owner of the property does not match the type of this object..
+              The type of the owner of the property does not match the type of this object. に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Resources.Strings.TheValueWasNotTypeButType">
             <summary>
-              Looks up a localized string similar to The value was not {0} type, but {1} type..
+              The value was not {0} type, but {1} type. に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Resources.Strings.Type">
             <summary>
-              Looks up a localized string similar to Type.
+              Type に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Resources.Strings.UnknownCommand">
             <summary>
-              Looks up a localized string similar to Unknown command.
+              Unknown command に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Resources.Strings.UpdatePosition">
             <summary>
-              Looks up a localized string similar to Update the position.
+              Update the position に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Resources.Strings.UpEffect">
             <summary>
-              Looks up a localized string similar to Change the order of the effects (top).
+              Change the order of the effects (top) に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Resources.Strings.Volume">
             <summary>
-              Looks up a localized string similar to Volume.
+              Volume に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Resources.Strings.X">
             <summary>
-              Looks up a localized string similar to X.
+              X に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Resources.Strings.Y">
             <summary>
-              Looks up a localized string similar to Y.
+              Y に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Resources.Strings.Z">
             <summary>
-              Looks up a localized string similar to Z.
+              Z に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="T:BEditor.Serialize">

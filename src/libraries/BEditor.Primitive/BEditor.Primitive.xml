@@ -1398,6 +1398,9 @@
         <member name="M:BEditor.Primitive.Effects.CircularGradient.GetProperties">
             <inheritdoc/>
         </member>
+        <member name="M:BEditor.Primitive.Effects.CircularGradient.SetObjectData(BEditor.Data.DeserializeContext)">
+            <inheritdoc/>
+        </member>
         <member name="T:BEditor.Primitive.Effects.Clipping">
             <summary>
             Represents the <see cref="T:BEditor.Data.Primitive.ImageEffect"/> that cripping the image.
@@ -1924,6 +1927,9 @@
             <inheritdoc/>
         </member>
         <member name="M:BEditor.Primitive.Effects.LinearGradient.GetProperties">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.LinearGradient.SetObjectData(BEditor.Data.DeserializeContext)">
             <inheritdoc/>
         </member>
         <member name="T:BEditor.Primitive.Effects.Mask">
@@ -4282,6 +4288,11 @@
         <member name="P:BEditor.Primitive.Resources.Strings.GL3DObject">
             <summary>
               3D object に類似しているローカライズされた文字列を検索します。
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Resources.Strings.Gradient">
+            <summary>
+              Gradient に類似しているローカライズされた文字列を検索します。
             </summary>
         </member>
         <member name="P:BEditor.Primitive.Resources.Strings.Grayscale">

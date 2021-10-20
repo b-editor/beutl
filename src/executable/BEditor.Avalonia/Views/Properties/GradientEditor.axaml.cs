@@ -1,3 +1,5 @@
+using System.Diagnostics;
+
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -16,7 +18,6 @@ namespace BEditor.Views.Properties
     public sealed class GradientEditor : UserControl
     {
         private readonly GradientProperty _property;
-        private readonly int _index;
         private readonly NumericUpDown _num;
         private readonly Border _border;
         private float _oldvalue;
@@ -31,7 +32,7 @@ namespace BEditor.Views.Properties
         public GradientEditor(GradientProperty property, int index)
         {
             _property = property;
-            _index = index;
+            Index = index;
             InitializeComponent();
 
             _num = this.FindControl<NumericUpDown>("Numeric");
@@ -39,13 +40,18 @@ namespace BEditor.Views.Properties
             _num.AddHandler(KeyUpEvent, NumericUpDown_KeyUp, RoutingStrategies.Tunnel);
             _num.AddHandler(KeyDownEvent, NumericUpDown_KeyDown, RoutingStrategies.Tunnel);
 
-            _num.Value = property.KeyPoints[index].Position * 100;
+            _num.FormatString = "{0:p}";
+            _num.Value = property.KeyPoints[index].Position;
             _border.Background = new SolidColorBrush(property.KeyPoints[index].Color.ToAvalonia());
         }
 
+        public int Index { get; set; }
+
         public void NumericUpDown_GotFocus(object? sender, GotFocusEventArgs e)
         {
-            _oldvalue = _property.KeyPoints[_index].Position * 100;
+            _oldvalue = _property.KeyPoints[Index].Position;
+            Debug.WriteLine("NumericUpDown_GotFocus");
+            Debug.WriteLine($"oldValue: {_oldvalue}");
         }
 
         public void NumericUpDown_LostFocus(object? sender, RoutedEventArgs e)
@@ -53,19 +59,31 @@ namespace BEditor.Views.Properties
             var num = (NumericUpDown)sender!;
             var newValue = num.Value;
 
-            _property.KeyPoints[_index] = new(_property.KeyPoints[_index].Color, _oldvalue / 100);
+            if (_oldvalue != newValue)
+            {
+                _property.KeyPoints[Index] = new(_property.KeyPoints[Index].Color, _oldvalue);
+                _property.UpdatePoint(Index, new(_property.KeyPoints[Index].Color, (float)newValue)).Execute();
 
-            _property.UpdatePoint(_index, new(_property.KeyPoints[_index].Color, (float)newValue / 100));
+                Debug.WriteLine("NumericUpDown_LostFocus");
+                Debug.WriteLine($"oldValue: {_oldvalue}");
+                Debug.WriteLine($"newValue: {newValue}");
+            }
         }
 
         public async void NumericUpDown_ValueChanged(object sender, NumericUpDownValueChangedEventArgs e)
         {
-            var newValue = (float)e.NewValue / 100;
-            var oldValue = _property.KeyPoints[_index].Position;
+            var newValue = (float)e.NewValue;
+            var oldValue = _property.KeyPoints[Index].Position;
             if (newValue != oldValue)
-                _property.KeyPoints[_index] = new(_property.KeyPoints[_index].Color, newValue);
+            {
+                _property.KeyPoints[Index] = new(_property.KeyPoints[Index].Color, newValue);
 
-            await (AppModel.Current.Project!).PreviewUpdateAsync(_property.GetParent<ClipElement>()!);
+                await (AppModel.Current.Project!).PreviewUpdateAsync(_property.GetParent<ClipElement>()!);
+
+                Debug.WriteLine("NumericUpDown_ValueChanged");
+                Debug.WriteLine($"oldValue: {oldValue}");
+                Debug.WriteLine($"newValue: {newValue}");
+            }
         }
 
         public void Remove_Click(object s, RoutedEventArgs e)
@@ -76,64 +94,15 @@ namespace BEditor.Views.Properties
             }
             else
             {
-                _property.RemovePoint(_property.KeyPoints[_index]).Execute();
+                _property.RemovePoint(_property.KeyPoints[Index]).Execute();
             }
         }
 
-        protected override void OnAttachedToLogicalTree(LogicalTreeAttachmentEventArgs e)
-        {
-            base.OnAttachedToLogicalTree(e);
-            _property.KeyPoints.CollectionChanged += KeyPoints_CollectionChanged;
-
-            var value = _property.KeyPoints[_index].Position * 100;
-
-            if (_num.Value != value)
-                _num.Value = value;
-
-            if (_border.Background is SolidColorBrush brush)
-            {
-                brush.Color = _property.KeyPoints[_index].Color.ToAvalonia();
-            }
-        }
-
-        protected override void OnDetachedFromLogicalTree(LogicalTreeAttachmentEventArgs e)
-        {
-            base.OnDetachedFromLogicalTree(e);
-            _property.KeyPoints.CollectionChanged -= KeyPoints_CollectionChanged;
-
-            var value = _property.KeyPoints[_index].Position * 100;
-
-            if (_num.Value != value)
-                _num.Value = value;
-
-            if (_border.Background is SolidColorBrush brush)
-            {
-                brush.Color = _property.KeyPoints[_index].Color.ToAvalonia();
-            }
-        }
-
-        private void KeyPoints_CollectionChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
-        {
-            if (e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Replace &&
-                e.NewStartingIndex == _index)
-            {
-                var value = _property.KeyPoints[_index].Position * 100;
-
-                if (_num.Value != value)
-                    _num.Value = value;
-
-                if (_border.Background is SolidColorBrush brush)
-                {
-                    brush.Color = _property.KeyPoints[_index].Color.ToAvalonia();
-                }
-            }
-        }
-
-        private async void Border_PointerPressed(object? sender, PointerPressedEventArgs e)
+        public async void Border_PointerPressed(object? sender, PointerPressedEventArgs e)
         {
             if (sender is Border border && e.GetCurrentPoint(border).Properties.IsLeftButtonPressed)
             {
-                var item = _property.KeyPoints[_index];
+                var item = _property.KeyPoints[Index];
                 var dialog = new ColorDialog();
 
                 dialog.col.Color = item.Color.ToAvalonia();
@@ -142,10 +111,63 @@ namespace BEditor.Views.Properties
                 dialog.Command = (d) =>
                 {
                     var color = Drawing.Color.FromArgb(d.col.Color.A, d.col.Color.R, d.col.Color.G, d.col.Color.B);
-                    _property.UpdatePoint(_index, new GradientKeyPoint(color, _property.KeyPoints[_index].Position)).Execute();
+                    _property.UpdatePoint(Index, new GradientKeyPoint(color, _property.KeyPoints[Index].Position)).Execute();
                 };
 
                 await dialog.ShowDialog(App.GetMainWindow());
+            }
+        }
+
+        protected override void OnAttachedToLogicalTree(LogicalTreeAttachmentEventArgs e)
+        {
+            base.OnAttachedToLogicalTree(e);
+            _property.KeyPoints.CollectionChanged += KeyPoints_CollectionChanged;
+
+            var value = _property.KeyPoints[Index].Position;
+
+            if (_num.Value != value)
+                _num.Value = value;
+
+            if (_border.Background is SolidColorBrush brush)
+            {
+                brush.Color = _property.KeyPoints[Index].Color.ToAvalonia();
+            }
+        }
+
+        protected override void OnDetachedFromLogicalTree(LogicalTreeAttachmentEventArgs e)
+        {
+            base.OnDetachedFromLogicalTree(e);
+            _property.KeyPoints.CollectionChanged -= KeyPoints_CollectionChanged;
+
+            var value = _property.KeyPoints[Index].Position;
+
+            if (_num.Value != value)
+                _num.Value = value;
+
+            if (_border.Background is SolidColorBrush brush)
+            {
+                brush.Color = _property.KeyPoints[Index].Color.ToAvalonia();
+            }
+        }
+
+        private void KeyPoints_CollectionChanged(object? sender, System.Collections.Specialized.NotifyCollectionChangedEventArgs e)
+        {
+            if (e.Action == System.Collections.Specialized.NotifyCollectionChangedAction.Replace &&
+                e.NewStartingIndex == Index)
+            {
+                var value = _property.KeyPoints[Index].Position;
+
+                if (_num.Value != value)
+                    _num.Value = value;
+
+                if (_border.Background is SolidColorBrush brush)
+                {
+                    brush.Color = _property.KeyPoints[Index].Color.ToAvalonia();
+                }
+
+                //Debug.WriteLine("KeyPoints_CollectionChanged");
+                //Debug.WriteLine($"_num.Value: {_num.Value}");
+                //Debug.WriteLine($"value: {value}");
             }
         }
 
@@ -153,7 +175,7 @@ namespace BEditor.Views.Properties
         {
             if (e.Key == Key.LeftShift && sender is NumericUpDown numeric)
             {
-                numeric.Increment = 1;
+                numeric.Increment = 0.01;
             }
         }
 
@@ -161,7 +183,7 @@ namespace BEditor.Views.Properties
         {
             if (e.Key == Key.LeftShift && sender is NumericUpDown numeric)
             {
-                numeric.Increment = 10;
+                numeric.Increment = 0.1;
             }
         }
 

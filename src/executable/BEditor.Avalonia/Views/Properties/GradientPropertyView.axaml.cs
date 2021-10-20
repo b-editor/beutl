@@ -68,9 +68,9 @@ namespace BEditor.Views.Properties
         {
             for (var i = 0; i < _stackPanel.Children.Count; i++)
             {
-                if (_stackPanel.Children[i] is AvaloniaObject obj)
+                if (_stackPanel.Children[i] is GradientEditor obj)
                 {
-                    obj.SetValue(AttachmentProperty.IntProperty, i);
+                    obj.Index = i;
                 }
             }
         }
