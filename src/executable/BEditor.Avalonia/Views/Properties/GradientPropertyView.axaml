@@ -1,0 +1,53 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:views="using:BEditor.Views"
+    xmlns:props="using:BEditor.Properties"
+    xmlns:vm="using:BEditor.ViewModels.Properties"
+    x:DataType="vm:GradientPropertyViewModel"
+    xmlns:ui="using:FluentAvalonia.UI.Controls"
+    xmlns:uip="using:FluentAvalonia.UI.Controls.Primitives"
+    mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+    x:Class="BEditor.Views.Properties.GradientPropertyView">
+    <Grid ColumnDefinitions="120,*">
+        <ContentControl
+            Margin="10,0,0,0"
+            Height="40"
+            ToolTip.Tip="{CompiledBinding Property.PropertyMetadata.Name, Mode=OneTime}"
+            Content="{CompiledBinding Property.PropertyMetadata.Name, Mode=OneTime}"
+            VerticalAlignment="Top"
+            HorizontalAlignment="Left"
+            VerticalContentAlignment="Center" />
+
+        <StackPanel Grid.Column="1">
+            <StackPanel x:Name="stackPanel">
+                <StackPanel.Styles>
+                    <Style Selector="ButtonSpinner.NumericUpDownButtonSpinnerStyle">
+                        <Setter Property="Background" Value="Transparent" />
+                        <Setter Property="BorderThickness" Value="0,1,0,0" />
+                    </Style>
+
+                    <Style Selector="ButtonSpinner.NumericUpDownButtonSpinnerStyle:pointerover">
+                        <Setter Property="Background" Value="{DynamicResource TextControlBackgroundPointerOver}" />
+                    </Style>
+
+                    <Style Selector="NumericUpDown[IsKeyboardFocusWithin=true] /template/ ButtonSpinner#PART_Spinner">
+                        <Setter Property="Background" Value="{DynamicResource TextControlBackgroundFocused}"/>
+                        <Setter Property="BorderBrush" Value="{DynamicResource TextControlBorderBrushFocused}"/>
+                        <Setter Property="BorderThickness" Value="{DynamicResource TextControlBorderThemeThicknessFocused}" />
+                    </Style>
+                </StackPanel.Styles>
+            </StackPanel>
+
+            <Button Click="Add_Click" HorizontalAlignment="Stretch" Margin="8">
+                <StackPanel Spacing="8" Orientation="Horizontal">
+                    <ui:SymbolIcon Symbol="Add" />
+                    <TextBlock Text="{x:Static props:Strings.Add}" />
+                </StackPanel>
+            </Button>
+
+        </StackPanel>
+    </Grid>
+</UserControl>

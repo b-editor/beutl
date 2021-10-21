@@ -976,4 +976,7 @@ Vulkan:
   <data name="NewFolder" xml:space="preserve">
     <value>新しいフォルダー</value>
   </data>
+  <data name="CannotDeleteAnyMore" xml:space="preserve">
+    <value>これ以上削除できません。</value>
+  </data>
 </root>

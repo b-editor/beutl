@@ -46,6 +46,7 @@ namespace BEditor.Extensions
             PropertyViewBuilder.Create<FolderProperty>(p => new FolderPropertyView(p)),
             PropertyViewBuilder.Create<ColorAnimationProperty>(p => new ColorAnimationPropertyView(p)),
             PropertyViewBuilder.Create<ButtonComponent>(p => new ButtonCompornentView(p)),
+            PropertyViewBuilder.Create<GradientProperty>(p => new GradientPropertyView(p)),
             PropertyViewBuilder.Create<LabelComponent>(p =>
             {
                 var label = new ContentControl

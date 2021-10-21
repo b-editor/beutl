@@ -305,4 +305,13 @@
   <data name="RemoveTarget" xml:space="preserve">
     <value>Remove target</value>
   </data>
+  <data name="AddGradient" xml:space="preserve">
+    <value>Add gradient</value>
+  </data>
+  <data name="RemoveGradient" xml:space="preserve">
+    <value>Remove gradient</value>
+  </data>
+  <data name="ChangeGradient" xml:space="preserve">
+    <value>Change gradient</value>
+  </data>
 </root>
