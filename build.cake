@@ -2,7 +2,7 @@
 
 using System;
 var target = Argument("target", "Default");
-var runtime = Argument("runtime", "win-x64;linux-x64;osx-x64");
+var runtime = Argument("runtime", "win-x64;ubuntu.18.04-x64;osx-x64");
 var configuration = Argument("configuration", "Release");
 var publishDir = DirectoryPath.FromString("./publish");
 CreateDirectory(publishDir);
@@ -21,7 +21,7 @@ void Publish(string rid)
     {
         Configuration = configuration,
         SelfContained = true,
-        Runtime = rid == "linux-x64" ? "ubuntu.18.04-x64" : rid,
+        Runtime = rid,
         Framework = "net5.0",
         OutputDirectory = binaryPath,
         PublishReadyToRun = rid == "win-x64",

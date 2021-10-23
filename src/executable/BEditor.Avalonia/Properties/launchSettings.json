@@ -3,10 +3,15 @@
     "BEditor.Avalonia": {
       "commandName": "Project"
     },
-    "WSL 2": {
+    "WSL 2 (Ubuntu-20.04)": {
       "commandName": "WSL2",
       "environmentVariables": {},
-      "distributionName": ""
+      "distributionName": "Ubuntu-20.04"
+    },
+    "WSL 2 (Ubuntu-18.04)": {
+      "commandName": "WSL2",
+      "environmentVariables": {},
+      "distributionName": "Ubuntu-18.04"
     }
   }
 }
