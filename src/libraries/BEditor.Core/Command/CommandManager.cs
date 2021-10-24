@@ -76,6 +76,11 @@ namespace BEditor.Command
         public Stack<IRecordCommand> RedoStack { get; } = new();
 
         /// <summary>
+        /// Gets the time when the command was last executed.
+        /// </summary>
+        public DateTime LastExecutedTime { get; private set; }
+
+        /// <summary>
         /// Gets a value indicating whether or not Undo is enabled.
         /// </summary>
         public bool CanUndo
@@ -123,6 +128,7 @@ namespace BEditor.Command
             }
 
             _process = true;
+            LastExecutedTime = DateTime.UtcNow;
             Executed?.Invoke(command, CommandType.Do);
         }
 
@@ -151,7 +157,7 @@ namespace BEditor.Command
                 }
 
                 _process = true;
-
+                LastExecutedTime = DateTime.UtcNow;
                 Executed?.Invoke(command, CommandType.Undo);
             }
         }
@@ -181,6 +187,7 @@ namespace BEditor.Command
                 }
 
                 _process = true;
+                LastExecutedTime = DateTime.UtcNow;
                 Executed?.Invoke(command, CommandType.Redo);
             }
         }
