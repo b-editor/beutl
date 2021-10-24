@@ -238,7 +238,7 @@ namespace BEditor
             }
 
             var app = AppModel.Current;
-            if (app.Project.LastSavedTime < CommandManager.Default.LastExecutedTime)
+            if (app.Project != null && app.Project.LastSavedTime < CommandManager.Default.LastExecutedTime)
             {
                 e.Cancel = true;
                 var dialog = new ProjectClosing();
