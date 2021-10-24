@@ -694,6 +694,15 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Don&apos;t save に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string DontSave {
+            get {
+                return ResourceManager.GetString("DontSave", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Download に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Download {
@@ -735,6 +744,15 @@ namespace BEditor.Properties {
         public static string DoYouWantToRemoveThisFile {
             get {
                 return ResourceManager.GetString("DoYouWantToRemoveThisFile", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Do you want to save your changes to {0}? に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string DoYouWantToSaveYourChangesTo {
+            get {
+                return ResourceManager.GetString("DoYouWantToSaveYourChangesTo", resourceCulture);
             }
         }
         

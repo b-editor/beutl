@@ -113,8 +113,17 @@ namespace BEditor.ViewModels
 
             Close.Select(_ => App)
                 .Where(app => app.Project != null)
-                .Subscribe(app =>
+                .Subscribe(async app =>
                 {
+                    if (app.Project.LastSavedTime < CommandManager.Default.LastExecutedTime)
+                    {
+                        var dialog = new ProjectClosing();
+                        if (!await dialog.ShowDialog<bool>(BEditor.App.GetMainWindow()))
+                        {
+                            return;
+                        }
+                    }
+
                     app.Project?.Unload();
                     app.Project = null;
                     app.AppStatus = Status.Idle;

@@ -16,10 +16,12 @@ using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using Avalonia.VisualTree;
 
+using BEditor.Command;
 using BEditor.Controls;
 using BEditor.Data;
 using BEditor.Models;
 using BEditor.Models.ManagePlugins;
+using BEditor.PackageInstaller;
 using BEditor.Plugin;
 using BEditor.Properties;
 using BEditor.ViewModels;
@@ -213,7 +215,7 @@ namespace BEditor
             }
         }
 
-        protected override void OnClosing(CancelEventArgs e)
+        protected override async void OnClosing(CancelEventArgs e)
         {
             base.OnClosing(e);
 
@@ -232,6 +234,17 @@ namespace BEditor
                 }
                 catch
                 {
+                }
+            }
+
+            var app = AppModel.Current;
+            if (app.Project.LastSavedTime < CommandManager.Default.LastExecutedTime)
+            {
+                e.Cancel = true;
+                var dialog = new ProjectClosing();
+                if (await dialog.ShowDialog<bool>(this))
+                {
+                    Close();
                 }
             }
         }

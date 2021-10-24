@@ -85,6 +85,11 @@
             Gets the <see cref="T:System.Collections.Generic.Stack`1"/> to be recorded after the Undo.
             </summary>
         </member>
+        <member name="P:BEditor.Command.CommandManager.LastExecutedTime">
+            <summary>
+            Gets the time when the command was last executed.
+            </summary>
+        </member>
         <member name="P:BEditor.Command.CommandManager.CanUndo">
             <summary>
             Gets a value indicating whether or not Undo is enabled.
@@ -1508,6 +1513,11 @@
             Defines the ProjectVersion property.
             </summary>
         </member>
+        <member name="F:BEditor.Data.Project.LastSavedTimeProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Data.Project.LastSavedTime"/> property.
+            </summary>
+        </member>
         <member name="M:BEditor.Data.Project.#ctor(System.Int32,System.Int32,System.Int32,System.Int32,BEditor.IApplication,System.String)">
             <summary>
             Initializes a new instance of the <see cref="T:BEditor.Data.Project"/> class.
@@ -1563,6 +1573,11 @@
         <member name="P:BEditor.Data.Project.Resources">
             <summary>
             Gets the class that manages the resources used by the project.
+            </summary>
+        </member>
+        <member name="P:BEditor.Data.Project.LastSavedTime">
+            <summary>
+            Gets the time when the project was last saved.
             </summary>
         </member>
         <member name="M:BEditor.Data.Project.FromFileAsync(System.String,BEditor.IApplication)">

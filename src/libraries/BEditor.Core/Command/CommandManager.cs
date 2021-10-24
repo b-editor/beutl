@@ -197,6 +197,7 @@ namespace BEditor.Command
         /// </summary>
         public void Clear()
         {
+            LastExecutedTime = DateTime.MinValue;
             UndoStack.Clear();
             RedoStack.Clear();
             CanUndo = false;
