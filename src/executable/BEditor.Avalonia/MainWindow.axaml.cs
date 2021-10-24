@@ -116,8 +116,9 @@ namespace BEditor
 
         private void Window_KeyDown(object? sender, KeyEventArgs e)
         {
-            if (e.Source != this) return;
+            if (e.Source is TextBox or NumericUpDown) return;
 
+            Focus();
             for (var i = 0; i < KeyBindingModel.Bindings.Count; i++)
             {
                 var kb = KeyBindingModel.Bindings[i];
