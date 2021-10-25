@@ -1,0 +1,32 @@
+<views:FluentWindow
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:views="using:BEditor.Views"
+    xmlns:props="using:BEditor.Properties"
+    mc:Ignorable="d" Width="480" Height="160"
+    Classes="fluent"
+    CanResize="False"
+    WindowStartupLocation="CenterScreen"
+    Title="BEditor"
+    x:Class="BEditor.Views.Dialogs.ProjectClosing">
+    <Grid RowDefinitions="*,Auto">
+        <TextBlock x:Name="tb" Margin="16" />
+
+
+        <Border Grid.Row="1" Classes="card">
+            <StackPanel
+                HorizontalAlignment="Right"
+                Spacing="8"
+                Margin="8"
+                Orientation="Horizontal">
+                <Button Classes="accent" Content="{x:Static props:Strings.Save}" Click="Save" />
+
+                <Button Content="{x:Static props:Strings.DontSave}" Click="DontSave" />
+
+                <Button Content="{x:Static props:Strings.Cancel}" Click="Cancel" />
+            </StackPanel>
+        </Border>
+    </Grid>
+</views:FluentWindow>

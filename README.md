@@ -47,7 +47,7 @@ Windows以外では [OpenAL](https://www.openal.org/)
 * 以下のコマンドを実行すると `./publish` に出力されます。
 ```
 dotnet restore
-dotnet cake --runtime win-x64;linux-x64
+dotnet cake --runtime win-x64;ubuntu.18.04-x64;osx-x64
 ```
 
 ## Patrons

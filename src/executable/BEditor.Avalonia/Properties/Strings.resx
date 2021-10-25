@@ -982,4 +982,10 @@ Do you want to remove it from the list?</value>
   <data name="SaveToStorage" xml:space="preserve">
     <value>Save to storage</value>
   </data>
+  <data name="DoYouWantToSaveYourChangesTo" xml:space="preserve">
+    <value>Do you want to save your changes to {0}?</value>
+  </data>
+  <data name="DontSave" xml:space="preserve">
+    <value>Don't save</value>
+  </data>
 </root>

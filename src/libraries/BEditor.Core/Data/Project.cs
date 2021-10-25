@@ -26,6 +26,8 @@ using BEditor.Resources;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
+using OpenCvSharp;
+
 namespace BEditor.Data
 {
     /// <summary>
@@ -86,6 +88,14 @@ namespace BEditor.Data
             = EditingProperty.Register<string, Project>(
                 "ProjectVersion",
                 EditingPropertyOptions<string>.Create().DefaultValue(CurrentProjectVersion)!.Serialize()!);
+
+        /// <summary>
+        /// Defines the <see cref="LastSavedTime"/> property.
+        /// </summary>
+        public static readonly EditingProperty<DateTime> LastSavedTimeProperty
+            = EditingProperty.Register<DateTime, Project>(
+                "LastSavedTime",
+                EditingPropertyOptions<DateTime>.Create()!.Notify(true)!);
 
         private const string CurrentProjectVersion = "0.2.0";
         private ProjectResources? _resources;
@@ -186,6 +196,15 @@ namespace BEditor.Data
         /// Gets the class that manages the resources used by the project.
         /// </summary>
         public ProjectResources Resources => _resources ?? throw new Exception("The project is invalid.");
+
+        /// <summary>
+        /// Gets the time when the project was last saved.
+        /// </summary>
+        public DateTime LastSavedTime
+        {
+            get => GetValue(LastSavedTimeProperty);
+            private set => SetValue(LastSavedTimeProperty, value);
+        }
 
         /// <summary>
         /// Load a <see cref="Project"/> from a file.
@@ -367,6 +386,7 @@ namespace BEditor.Data
                     Parent.SaveAppConfig(this, appDir);
                 }
 
+                LastSavedTime = DateTime.UtcNow;
                 return true;
             }
 
@@ -429,6 +449,7 @@ namespace BEditor.Data
                     Parent.SaveAppConfig(this, appDir);
                 }
 
+                LastSavedTime = DateTime.UtcNow;
                 return true;
             }
 
