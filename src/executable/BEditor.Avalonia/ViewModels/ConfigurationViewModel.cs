@@ -76,7 +76,14 @@ namespace BEditor.ViewModels
                 var st = Frame.FromTimeSpan(Start.Value, _project.Framerate);
                 var ed = Frame.FromTimeSpan(End.Value, _project.Framerate);
 
-                await Task.Run(() => scene.Cache.Create(st, ed - st, LowColor.Value, LowResolution.Value));
+                if (SaveToStorage.Value)
+                {
+                    await Task.Run(() => scene.Cache.CreateStorage(st, ed - st, LowColor.Value, LowResolution.Value));
+                }
+                else
+                {
+                    await Task.Run(() => scene.Cache.Create(st, ed - st, LowColor.Value, LowResolution.Value));
+                }
             });
 
             ClearCache.Subscribe(() => _project.CurrentScene.Cache.Clear());
@@ -109,6 +116,8 @@ namespace BEditor.ViewModels
         public ReactiveProperty<bool> LowColor { get; } = new();
 
         public ReactiveProperty<bool> LowResolution { get; } = new();
+        
+        public ReactiveProperty<bool> SaveToStorage { get; } = new();
 
         public ReactivePropertySlim<string> PresumedUsageCapacity { get; } = new();
 

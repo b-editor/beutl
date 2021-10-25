@@ -979,6 +979,9 @@ Vulkan:
   <data name="CannotDeleteAnyMore" xml:space="preserve">
     <value>これ以上削除できません。</value>
   </data>
+  <data name="SaveToStorage" xml:space="preserve">
+    <value>ストレージに保存する</value>
+  </data>
   <data name="DoYouWantToSaveYourChangesTo" xml:space="preserve">
     <value>{0} への変更内容を保存しますか？</value>
   </data>

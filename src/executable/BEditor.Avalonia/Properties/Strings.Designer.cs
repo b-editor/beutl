@@ -1987,6 +1987,15 @@ namespace BEditor.Properties {
         }
         
         /// <summary>
+        ///   Save to storage に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string SaveToStorage {
+            get {
+                return ResourceManager.GetString("SaveToStorage", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Scene に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Scene {

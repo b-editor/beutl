@@ -4400,6 +4400,15 @@
             <param name="lowColor">Whether the color reproduction is reduced.</param>
             <param name="lowResolution">Whether or not to lower the resolution.</param>
         </member>
+        <member name="M:BEditor.Data.SceneCache.CreateStorage(BEditor.Media.Frame,BEditor.Media.Frame,System.Boolean,System.Boolean)">
+            <summary>
+            Creates a cache for the specified range.
+            </summary>
+            <param name="start">The starting position of the cache.</param>
+            <param name="length">The length of the cache.</param>
+            <param name="lowColor">Whether the color reproduction is reduced.</param>
+            <param name="lowResolution">Whether or not to lower the resolution.</param>
+        </member>
         <member name="M:BEditor.Data.SceneCache.Clear">
             <summary>
             Clear the cache.
