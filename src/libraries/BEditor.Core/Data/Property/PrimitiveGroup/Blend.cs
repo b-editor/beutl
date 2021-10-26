@@ -10,7 +10,7 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 
 using BEditor.Drawing;
-using BEditor.Resources;
+using BEditor.LangResources;
 
 namespace BEditor.Data.Property.PrimitiveGroup
 {

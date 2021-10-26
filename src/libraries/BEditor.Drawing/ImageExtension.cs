@@ -12,7 +12,7 @@ using System.Linq;
 
 using BEditor.Compute.Runtime;
 using BEditor.Drawing.Pixel;
-using BEditor.Drawing.Resources;
+using BEditor.LangResources;
 
 using SkiaSharp;
 

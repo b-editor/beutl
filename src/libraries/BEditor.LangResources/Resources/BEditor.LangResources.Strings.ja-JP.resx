@@ -1,64 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <root>
-  <!-- 
-    Microsoft ResX Schema 
-    
-    Version 2.0
-    
-    The primary goals of this format is to allow a simple XML format 
-    that is mostly human readable. The generation and parsing of the 
-    various data types are done through the TypeConverter classes 
-    associated with the data types.
-    
-    Example:
-    
-    ... ado.net/XML headers & schema ...
-    <resheader name="resmimetype">text/microsoft-resx</resheader>
-    <resheader name="version">2.0</resheader>
-    <resheader name="reader">System.Resources.ResXResourceReader, System.Windows.Forms, ...</resheader>
-    <resheader name="writer">System.Resources.ResXResourceWriter, System.Windows.Forms, ...</resheader>
-    <data name="Name1"><value>this is my long string</value><comment>this is a comment</comment></data>
-    <data name="Color1" type="System.Drawing.Color, System.Drawing">Blue</data>
-    <data name="Bitmap1" mimetype="application/x-microsoft.net.object.binary.base64">
-        <value>[base64 mime encoded serialized .NET Framework object]</value>
-    </data>
-    <data name="Icon1" type="System.Drawing.Icon, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
-        <value>[base64 mime encoded string representing a byte array form of the .NET Framework object]</value>
-        <comment>This is a comment</comment>
-    </data>
-                
-    There are any number of "resheader" rows that contain simple 
-    name/value pairs.
-    
-    Each data row contains a name, and value. The row also contains a 
-    type or mimetype. Type corresponds to a .NET class that support 
-    text/value conversion through the TypeConverter architecture. 
-    Classes that don't support this are serialized and stored with the 
-    mimetype set.
-    
-    The mimetype is used for serialized objects, and tells the 
-    ResXResourceReader how to depersist the object. This is currently not 
-    extensible. For a given mimetype the value must be set accordingly:
-    
-    Note - application/x-microsoft.net.object.binary.base64 is the format 
-    that the ResXResourceWriter will generate, however the reader can 
-    read any of the formats listed below.
-    
-    mimetype: application/x-microsoft.net.object.binary.base64
-    value   : The object must be serialized with 
-            : System.Runtime.Serialization.Formatters.Binary.BinaryFormatter
-            : and then encoded with base64 encoding.
-    
-    mimetype: application/x-microsoft.net.object.soap.base64
-    value   : The object must be serialized with 
-            : System.Runtime.Serialization.Formatters.Soap.SoapFormatter
-            : and then encoded with base64 encoding.
-
-    mimetype: application/x-microsoft.net.object.bytearray.base64
-    value   : The object must be serialized into a byte array 
-            : using a System.ComponentModel.TypeConverter
-            : and then encoded with base64 encoding.
-    -->
   <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
     <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
     <xsd:element name="root" msdata:IsDataSet="true">
@@ -112,11 +53,351 @@
     <value>2.0</value>
   </resheader>
   <resheader name="reader">
-    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=5.0.11.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <resheader name="writer">
-    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=5.0.11.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
+  <data name="BufferDataInvalidEnum" xml:space="preserve">
+    <value>指定されたフォーマットは存在しません。</value>
+  </data>
+  <data name="BufferDataInvalidValue" xml:space="preserve">
+    <value>size パラメータが指定されたフォーマットに対して有効でない、バッファが使用中である、またはデータが NULL ポインタです。</value>
+  </data>
+  <data name="BufferDataOutOfMemory" xml:space="preserve">
+    <value>このバッファを作成するのに十分なメモリがありません。</value>
+  </data>
+  <data name="DeleteBufferInvalidName" xml:space="preserve">
+    <value>バッファ名が無効です。</value>
+  </data>
+  <data name="DeleteBufferInvalidOperation" xml:space="preserve">
+    <value>このバッファはまだ使用されており、削除することはできません。</value>
+  </data>
+  <data name="DeleteBufferInvalidValue" xml:space="preserve">
+    <value>要求された数のバッファは削除できません。</value>
+  </data>
+  <data name="DeleteSourceInvalidName" xml:space="preserve">
+    <value>少なくとも1つの指定されたソースが有効でないか、または存在するよりも多くのソースを削除しようとしています。</value>
+  </data>
+  <data name="DeleteSourceInvalidOperation" xml:space="preserve">
+    <value>現在のコンテキストはありません。</value>
+  </data>
+  <data name="GenBufferInvalidValue" xml:space="preserve">
+    <value>バッファ配列が、要求された数のバッファを格納するのに十分な大きさではありません。</value>
+  </data>
+  <data name="GenBufferOutOfMemory" xml:space="preserve">
+    <value>要求されたすべてのバッファを生成するのに十分なメモリがありません。</value>
+  </data>
+  <data name="GenSourceInvalidOperation" xml:space="preserve">
+    <value>ソースを作成するためのコンテキストがありません。</value>
+  </data>
+  <data name="GenSourceInvalidValue" xml:space="preserve">
+    <value>要求されたすべてのソースを作成するための非メモリリソースが不足しているか、または配列ポインタが有効ではありません。</value>
+  </data>
+  <data name="GenSourceOutOfMemory" xml:space="preserve">
+    <value>要求されたすべてのソースを生成するのに十分なメモリがありません。</value>
+  </data>
+  <data name="GetBufferInvalidEnum" xml:space="preserve">
+    <value>指定されたパラメータは無効です。</value>
+  </data>
+  <data name="GetBufferInvalidName" xml:space="preserve">
+    <value>指定されたバッファにパラメータがない（NULLバッファ）、または存在していません。</value>
+  </data>
+  <data name="GetBufferInvalidValue" xml:space="preserve">
+    <value>指定された値のポインタが有効ではありません。</value>
+  </data>
+  <data name="SourcePauseInvalidName" xml:space="preserve">
+    <value>指定されたソース名は有効ではありません。</value>
+  </data>
+  <data name="SourcePauseInvalidOperation" xml:space="preserve">
+    <value>現在のコンテキストはありません。</value>
+  </data>
+  <data name="SourcePlayInvalidOperation" xml:space="preserve">
+    <value>現在のコンテキストはありません。</value>
+  </data>
+  <data name="SourceStopInvalidOperation" xml:space="preserve">
+    <value>現在のコンテキストはありません。</value>
+  </data>
+  <data name="SourceStopInvalidName" xml:space="preserve">
+    <value>指定されたソース名は有効ではありません。</value>
+  </data>
+  <data name="SourcePlayInvalidName" xml:space="preserve">
+    <value>指定されたソース名は有効ではありません。</value>
+  </data>
+  <data name="ThrowErrorInvalidEnum" xml:space="preserve">
+    <value>指定されたパラメータは無効です。</value>
+  </data>
+  <data name="ThrowErrorInvalidName" xml:space="preserve">
+    <value>指定されたソース名は有効ではありません。</value>
+  </data>
+  <data name="ThrowErrorInvalidOperation" xml:space="preserve">
+    <value>現在のコンテキストはありません。</value>
+  </data>
+  <data name="ThrowErrorInvalidValue" xml:space="preserve">
+    <value>指定された値は範囲外です。</value>
+  </data>
+  <data name="UnknownCommand" xml:space="preserve">
+    <value>不明なコマンド</value>
+  </data>
+  <data name="Ambient" xml:space="preserve">
+    <value>環境</value>
+  </data>
+  <data name="Blend" xml:space="preserve">
+    <value>合成</value>
+  </data>
+  <data name="CenterX" xml:space="preserve">
+    <value>中心X</value>
+  </data>
+  <data name="CenterY" xml:space="preserve">
+    <value>中心Y</value>
+  </data>
+  <data name="CenterZ" xml:space="preserve">
+    <value>中心Z</value>
+  </data>
+  <data name="Color" xml:space="preserve">
+    <value>色</value>
+  </data>
+  <data name="Coordinate" xml:space="preserve">
+    <value>座標</value>
+  </data>
+  <data name="Diffuse" xml:space="preserve">
+    <value>拡散</value>
+  </data>
+  <data name="FailedToLoad" xml:space="preserve">
+    <value>{0} の読み込みに失敗しました。</value>
+  </data>
+  <data name="Font" xml:space="preserve">
+    <value>フォント</value>
+  </data>
+  <data name="Material" xml:space="preserve">
+    <value>マテリアル</value>
+  </data>
+  <data name="Opacity" xml:space="preserve">
+    <value>不透明度</value>
+  </data>
+  <data name="ProjectFile" xml:space="preserve">
+    <value>プロジェクトファイル</value>
+  </data>
+  <data name="Rotate" xml:space="preserve">
+    <value>回転</value>
+  </data>
+  <data name="RotateX" xml:space="preserve">
+    <value>回転X</value>
+  </data>
+  <data name="RotateY" xml:space="preserve">
+    <value>回転Y</value>
+  </data>
+  <data name="RotateZ" xml:space="preserve">
+    <value>回転Z</value>
+  </data>
+  <data name="Scale" xml:space="preserve">
+    <value>スケール</value>
+  </data>
+  <data name="Shininess" xml:space="preserve">
+    <value>輝き</value>
+  </data>
+  <data name="Specular" xml:space="preserve">
+    <value>鏡面反射</value>
+  </data>
+  <data name="Z" xml:space="preserve">
+    <value>Z</value>
+  </data>
+  <data name="Y" xml:space="preserve">
+    <value>Y</value>
+  </data>
+  <data name="X" xml:space="preserve">
+    <value>X</value>
+  </data>
+  <data name="ChildElementsNotFound" xml:space="preserve">
+    <value>子要素が見つかりませんでした。</value>
+  </data>
+  <data name="FailedToConvertValue" xml:space="preserve">
+    <value>値を変換できませんでした。</value>
+  </data>
+  <data name="KeyHasAlreadyBeenRegisterd" xml:space="preserve">
+    <value>このキーは既に登録済みです。</value>
+  </data>
+  <data name="ParentElementNotFound" xml:space="preserve">
+    <value>親要素が見つかりませんでした。</value>
+  </data>
+  <data name="TheValueWasNotTypeButType" xml:space="preserve">
+    <value>値は{0}型ではなく、{1}型でした。</value>
+  </data>
+  <data name="AddClip" xml:space="preserve">
+    <value>クリップを追加</value>
+  </data>
+  <data name="AddEffect" xml:space="preserve">
+    <value>エフェクトを追加</value>
+  </data>
+  <data name="AddKeyframe" xml:space="preserve">
+    <value>キーフレームを追加</value>
+  </data>
+  <data name="BindCommand" xml:space="preserve">
+    <value>プロパティの値をバインド</value>
+  </data>
+  <data name="ChangeColor" xml:space="preserve">
+    <value>色を変更</value>
+  </data>
+  <data name="ChangeEasing" xml:space="preserve">
+    <value>イージングを変更</value>
+  </data>
+  <data name="ChangeFile" xml:space="preserve">
+    <value>ファイルを変更</value>
+  </data>
+  <data name="ChangeFolder" xml:space="preserve">
+    <value>フォルダーを変更</value>
+  </data>
+  <data name="ChangeFont" xml:space="preserve">
+    <value>フォントを変更</value>
+  </data>
+  <data name="ChangeIsChecked" xml:space="preserve">
+    <value>チェックボックスの状態を変更</value>
+  </data>
+  <data name="ChangeLength" xml:space="preserve">
+    <value>長さを変更</value>
+  </data>
+  <data name="ChangeSelectItem" xml:space="preserve">
+    <value>選択中のアイテムを変更</value>
+  </data>
+  <data name="ChangeText" xml:space="preserve">
+    <value>テキストを変更</value>
+  </data>
+  <data name="ChangeValue" xml:space="preserve">
+    <value>値を変更</value>
+  </data>
+  <data name="Disconnect" xml:space="preserve">
+    <value>プロパティの値を切断</value>
+  </data>
+  <data name="DownEffect" xml:space="preserve">
+    <value>エフェクトの順番を変更 (下)</value>
+  </data>
+  <data name="EnableDisableEffect" xml:space="preserve">
+    <value>エフェクトを有効化/無効化</value>
+  </data>
+  <data name="MoveClip" xml:space="preserve">
+    <value>クリップを移動</value>
+  </data>
+  <data name="MoveKeyframe" xml:space="preserve">
+    <value>キーフレームを移動エフェクトを有効化/無効化</value>
+  </data>
+  <data name="RemoveClip" xml:space="preserve">
+    <value>クリップを移動</value>
+  </data>
+  <data name="RemoveEffect" xml:space="preserve">
+    <value>エフェクトを削除</value>
+  </data>
+  <data name="RemoveKeyframe" xml:space="preserve">
+    <value>キーフレームを削除</value>
+  </data>
+  <data name="RemoveLayer" xml:space="preserve">
+    <value>レイヤーを削除</value>
+  </data>
+  <data name="SplitClip" xml:space="preserve">
+    <value>クリップを分割</value>
+  </data>
+  <data name="UpEffect" xml:space="preserve">
+    <value>エフェクトの順番を変更 (上)</value>
+  </data>
+  <data name="TheOwnerTypeDoesNotMatch" xml:space="preserve">
+    <value>プロパティのオーナーの型とこのオブジェクトの型が一致しません。</value>
+  </data>
+  <data name="Volume" xml:space="preserve">
+    <value>音量</value>
+  </data>
+  <data name="Pitch" xml:space="preserve">
+    <value>ピッチ</value>
+  </data>
+  <data name="Start" xml:space="preserve">
+    <value>開始フレーム</value>
+  </data>
+  <data name="FailedToRemove" xml:space="preserve">
+    <value>削除に失敗しました。</value>
+  </data>
+  <data name="AlphaBlend" xml:space="preserve">
+    <value>アルファブレンド</value>
+  </data>
+  <data name="Additive" xml:space="preserve">
+    <value>加算</value>
+  </data>
+  <data name="Subtract" xml:space="preserve">
+    <value>減算</value>
+  </data>
+  <data name="Multiplication" xml:space="preserve">
+    <value>乗算</value>
+  </data>
+  <data name="Type" xml:space="preserve">
+    <value>種類</value>
+  </data>
+  <data name="Primitive" xml:space="preserve">
+    <value>プリミティブ</value>
+  </data>
+  <data name="UpdatePosition" xml:space="preserve">
+    <value>位置を更新</value>
+  </data>
+  <data name="KeyframeHasBeenMovedOutOfRange" xml:space="preserve">
+    <value>キーフレームが範囲外に移動しています。
+{0} -&gt; {1}</value>
+  </data>
+  <data name="MessageBy" xml:space="preserve">
+    <value>{0} によるメッセージ</value>
+  </data>
+  <data name="RemoveTarget" xml:space="preserve">
+    <value>対象を削除</value>
+  </data>
+  <data name="AddGradient" xml:space="preserve">
+    <value>グラデーションを追加</value>
+  </data>
+  <data name="RemoveGradient" xml:space="preserve">
+    <value>グラデーションを削除</value>
+  </data>
+  <data name="ChangeGradient" xml:space="preserve">
+    <value>グラデーションを変更</value>
+  </data>
+  <data name="FileExtension" xml:space="preserve">
+    <value>拡張子を指定してください。</value>
+  </data>
+  <data name="FontException" xml:space="preserve">
+    <value>対応していないフォントファイルの可能性があります。</value>
+  </data>
+  <data name="FormetException" xml:space="preserve">
+    <value>{0} 形式の文字列はサポートされません。</value>
+  </data>
+  <data name="LessThan" xml:space="preserve">
+    <value>{0} が {1} 以下です。</value>
+  </data>
+  <data name="MoreThan" xml:space="preserve">
+    <value>{0} が {1}以上です。</value>
+  </data>
+  <data name="PlatformIsNotSet" xml:space="preserve">
+    <value>プラットフォームが設定されていません。</value>
+  </data>
+  <data name="ErrorOccurredWhilistCompilingShader" xml:space="preserve">
+    <value>Shader({0}) のコンパイル中にエラーが発生しました。\n\n{1}</value>
+  </data>
+  <data name="ErrorOccurredWhilstLinkingProgram" xml:space="preserve">
+    <value>Program({0}) のリンク中にエラーが発生しました。</value>
+  </data>
+  <data name="SynchronizationContextIsNull" xml:space="preserve">
+    <value>現在のスレッドのSynchronizationContextがnullでした。</value>
+  </data>
+  <data name="InvalidEnum" xml:space="preserve">
+    <value>列挙された引数に許容できない値が指定されています。</value>
+  </data>
+  <data name="InvalidValue" xml:space="preserve">
+    <value>数値の引数が範囲外です。</value>
+  </data>
+  <data name="InvalidOperation" xml:space="preserve">
+    <value>指定された操作は、現在の状態では許可されていません。</value>
+  </data>
+  <data name="OutOfMemory" xml:space="preserve">
+    <value>コマンドを実行するのに十分なメモリが残っていません。</value>
+  </data>
+  <data name="InvalildFramebufferOperation" xml:space="preserve">
+    <value>フレームバッファ・オブジェクトは完全ではありません。</value>
+  </data>
+  <data name="TableTooLarge" xml:space="preserve">
+    <value>指定されたテーブルが、実装でサポートされているテーブルの最大サイズを超えています。</value>
+  </data>
   <data name="AdjustCoordinates" xml:space="preserve">
     <value>座標の調整</value>
   </data>
@@ -147,12 +428,6 @@
   <data name="Camera" xml:space="preserve">
     <value>カメラ</value>
   </data>
-  <data name="CenterX" xml:space="preserve">
-    <value>中心X</value>
-  </data>
-  <data name="CenterY" xml:space="preserve">
-    <value>中心Y</value>
-  </data>
   <data name="ChromaKey" xml:space="preserve">
     <value>クロマキー</value>
   </data>
@@ -167,9 +442,6 @@
   </data>
   <data name="Clipping" xml:space="preserve">
     <value>クリッピング</value>
-  </data>
-  <data name="Color" xml:space="preserve">
-    <value>色</value>
   </data>
   <data name="ColorKey" xml:space="preserve">
     <value>カラーキー</value>
@@ -212,9 +484,6 @@
   </data>
   <data name="Erode" xml:space="preserve">
     <value>収縮</value>
-  </data>
-  <data name="FailedToLoad" xml:space="preserve">
-    <value>{0} の読み込みに失敗しました。</value>
   </data>
   <data name="File" xml:space="preserve">
     <value>ファイル</value>
@@ -282,17 +551,11 @@
   <data name="NumberOfVerticalDivisions" xml:space="preserve">
     <value>縦分割数</value>
   </data>
-  <data name="Opacity" xml:space="preserve">
-    <value>不透明度</value>
-  </data>
   <data name="PathToImageObject" xml:space="preserve">
     <value>画像オブジェクトへのパス</value>
   </data>
   <data name="Perspective" xml:space="preserve">
     <value>遠近法</value>
-  </data>
-  <data name="Pitch" xml:space="preserve">
-    <value>ピッチ</value>
   </data>
   <data name="PointLightDiffuse" xml:space="preserve">
     <value>ポイントライト拡散</value>
@@ -318,9 +581,6 @@
   <data name="Right" xml:space="preserve">
     <value>右</value>
   </data>
-  <data name="Rotate" xml:space="preserve">
-    <value>回転</value>
-  </data>
   <data name="RoundRect" xml:space="preserve">
     <value>角丸矩形</value>
   </data>
@@ -338,9 +598,6 @@
   </data>
   <data name="Speed" xml:space="preserve">
     <value>速度</value>
-  </data>
-  <data name="Start" xml:space="preserve">
-    <value>開始フレーム</value>
   </data>
   <data name="StartPoint" xml:space="preserve">
     <value>開始位置</value>
@@ -363,29 +620,14 @@
   <data name="Top" xml:space="preserve">
     <value>上</value>
   </data>
-  <data name="Type" xml:space="preserve">
-    <value>種類</value>
-  </data>
   <data name="Video" xml:space="preserve">
     <value>動画</value>
   </data>
   <data name="VideoFile" xml:space="preserve">
     <value>動画ファイル</value>
   </data>
-  <data name="Volume" xml:space="preserve">
-    <value>音量</value>
-  </data>
   <data name="Width" xml:space="preserve">
     <value>幅</value>
-  </data>
-  <data name="X" xml:space="preserve">
-    <value>X</value>
-  </data>
-  <data name="Y" xml:space="preserve">
-    <value>Y</value>
-  </data>
-  <data name="Z" xml:space="preserve">
-    <value>Z</value>
   </data>
   <data name="ZFar" xml:space="preserve">
     <value>ZFar</value>
@@ -458,9 +700,6 @@
   </data>
   <data name="LineSpacing" xml:space="preserve">
     <value>行間</value>
-  </data>
-  <data name="Coordinate" xml:space="preserve">
-    <value>座標</value>
   </data>
   <data name="TopLeft" xml:space="preserve">
     <value>左上</value>
@@ -632,9 +871,6 @@
   </data>
   <data name="RoundClipping" xml:space="preserve">
     <value>角丸クリッピング</value>
-  </data>
-  <data name="Scale" xml:space="preserve">
-    <value>スケール</value>
   </data>
   <data name="Quality" xml:space="preserve">
     <value>品質</value>

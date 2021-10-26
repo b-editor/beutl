@@ -17,7 +17,7 @@ using BEditor.Data.Property;
 using BEditor.Data.Property.PrimitiveGroup;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
-using BEditor.Primitive.Resources;
+using BEditor.LangResources;
 
 using Reactive.Bindings;
 

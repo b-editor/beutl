@@ -8,7 +8,7 @@
 using System.Linq;
 
 using BEditor.Drawing;
-using BEditor.Resources;
+using BEditor.LangResources;
 
 namespace BEditor.Data.Property
 {

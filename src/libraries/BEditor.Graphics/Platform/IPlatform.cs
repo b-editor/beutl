@@ -14,7 +14,7 @@ using System.Threading.Tasks;
 
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
-using BEditor.Graphics.Resources;
+using BEditor.LangResources;
 
 namespace BEditor.Graphics.Platform
 {

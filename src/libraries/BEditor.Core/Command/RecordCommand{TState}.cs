@@ -7,7 +7,7 @@
 
 using System;
 
-using BEditor.Resources;
+using BEditor.LangResources;
 
 namespace BEditor.Command
 {

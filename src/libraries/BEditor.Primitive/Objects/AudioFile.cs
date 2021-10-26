@@ -22,7 +22,7 @@ using BEditor.Media;
 using BEditor.Media.Decoding;
 using BEditor.Media.Encoding;
 using BEditor.Media.PCM;
-using BEditor.Primitive.Resources;
+using BEditor.LangResources;
 
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;

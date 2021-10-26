@@ -9,7 +9,7 @@ using System;
 using System.Diagnostics.CodeAnalysis;
 
 using BEditor.Command;
-using BEditor.Resources;
+using BEditor.LangResources;
 
 namespace BEditor.Data.Bindings
 {

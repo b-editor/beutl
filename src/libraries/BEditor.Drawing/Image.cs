@@ -17,7 +17,7 @@ using System.Threading.Tasks;
 
 using BEditor.Drawing.Pixel;
 using BEditor.Drawing.PixelOperation;
-using BEditor.Drawing.Resources;
+using BEditor.LangResources;
 using BEditor.Drawing.RowOperation;
 
 using OpenCvSharp;

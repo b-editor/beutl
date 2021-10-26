@@ -5,7 +5,7 @@
 // This software may be modified and distributed under the terms
 // of the MIT license. See the LICENSE file for details.
 
-using BEditor.Graphics.OpenGL.Resources;
+using BEditor.LangResources;
 
 using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;

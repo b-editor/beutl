@@ -8,7 +8,7 @@
 using System;
 using System.Runtime.Serialization;
 
-using BEditor.Drawing.Resources;
+using BEditor.LangResources;
 
 namespace BEditor.Drawing
 {

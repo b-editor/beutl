@@ -16,7 +16,7 @@ using BEditor.Data.Primitive;
 using BEditor.Data.Property;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
-using BEditor.Primitive.Resources;
+using BEditor.LangResources;
 
 namespace BEditor.Primitive.Objects
 {

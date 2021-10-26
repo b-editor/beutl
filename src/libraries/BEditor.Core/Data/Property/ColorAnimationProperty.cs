@@ -21,7 +21,7 @@ using BEditor.Command;
 using BEditor.Data.Property.Easing;
 using BEditor.Drawing;
 using BEditor.Media;
-using BEditor.Resources;
+using BEditor.LangResources;
 
 using Microsoft.Extensions.DependencyInjection;
 

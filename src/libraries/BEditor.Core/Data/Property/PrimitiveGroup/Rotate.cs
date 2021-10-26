@@ -11,7 +11,7 @@ using System.Diagnostics.CodeAnalysis;
 
 using BEditor.Data;
 
-using BEditor.Resources;
+using BEditor.LangResources;
 
 namespace BEditor.Data.Property.PrimitiveGroup
 {

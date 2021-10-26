@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Numerics;
 
-using BEditor.Audio.Resources;
+using BEditor.LangResources;
 
 using OpenTK.Audio.OpenAL;
 

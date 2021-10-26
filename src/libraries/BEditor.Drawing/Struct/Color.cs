@@ -11,7 +11,7 @@ using System.Numerics;
 using System.Runtime.Serialization;
 
 using BEditor.Drawing.Pixel;
-using BEditor.Drawing.Resources;
+using BEditor.LangResources;
 
 namespace BEditor.Drawing
 {
