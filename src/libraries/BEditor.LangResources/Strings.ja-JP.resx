@@ -917,11 +917,11 @@
   <data name="Appearance" xml:space="preserve">
     <value>外観</value>
   </data>
-  <data name="An exception was thrown during rendering preview" xml:space="preserve">
+  <data name="AnExceptionWasThrownDuringRenderingPreview" xml:space="preserve">
     <value>レンダリング中に例外がスローされたので、一時的にプレビューを停止しました。
 5秒後に解除されます。</value>
   </data>
-  <data name="An exception was thrown during rendering" xml:space="preserve">
+  <data name="AnExceptionWasThrownDuringRendering" xml:space="preserve">
     <value>レンダリング中に例外がスローされたので、
 再生をストップしました。</value>
   </data>

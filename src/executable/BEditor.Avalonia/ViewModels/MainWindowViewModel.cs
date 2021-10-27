@@ -124,6 +124,12 @@ namespace BEditor.ViewModels
                         }
                     }
 
+                    if (app.Project != null)
+                    {
+                        app.Project.Unload();
+                        app.Project = null;
+                    }
+
                     app.AppStatus = Status.Idle;
                 });
 

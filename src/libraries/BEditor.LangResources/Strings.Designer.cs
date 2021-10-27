@@ -214,12 +214,21 @@ namespace BEditor.LangResources {
         }
         
         /// <summary>
+        ///   Anchors に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Anchors {
+            get {
+                return ResourceManager.GetString("Anchors", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   An exception was thrown during rendering,
         ///so playback was stopped. に類似しているローカライズされた文字列を検索します。
         /// </summary>
-        public static string An_exception_was_thrown_during_rendering {
+        public static string AnExceptionWasThrownDuringRendering {
             get {
-                return ResourceManager.GetString("An exception was thrown during rendering", resourceCulture);
+                return ResourceManager.GetString("AnExceptionWasThrownDuringRendering", resourceCulture);
             }
         }
         
@@ -227,18 +236,9 @@ namespace BEditor.LangResources {
         ///   An exception was thrown during rendering, so the preview was temporarily stopped,
         ///and will be released after 5 seconds. に類似しているローカライズされた文字列を検索します。
         /// </summary>
-        public static string An_exception_was_thrown_during_rendering_preview {
+        public static string AnExceptionWasThrownDuringRenderingPreview {
             get {
-                return ResourceManager.GetString("An exception was thrown during rendering preview", resourceCulture);
-            }
-        }
-        
-        /// <summary>
-        ///   Anchors に類似しているローカライズされた文字列を検索します。
-        /// </summary>
-        public static string Anchors {
-            get {
-                return ResourceManager.GetString("Anchors", resourceCulture);
+                return ResourceManager.GetString("AnExceptionWasThrownDuringRenderingPreview", resourceCulture);
             }
         }
         
