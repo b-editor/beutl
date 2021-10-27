@@ -9,7 +9,7 @@ using System;
 
 using BEditor.Command;
 using BEditor.Media;
-using BEditor.Resources;
+using BEditor.LangResources;
 
 using Microsoft.Extensions.DependencyInjection;
 

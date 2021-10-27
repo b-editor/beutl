@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Threading;
 
-using BEditor.Graphics.OpenGL.Resources;
+using BEditor.LangResources;
 
 namespace BEditor.Graphics.OpenGL
 {

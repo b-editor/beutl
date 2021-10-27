@@ -17,7 +17,7 @@ using System.Text.Json;
 using BEditor.Command;
 using BEditor.Data.Bindings;
 using BEditor.Drawing;
-using BEditor.Resources;
+using BEditor.LangResources;
 
 namespace BEditor.Data.Property
 {

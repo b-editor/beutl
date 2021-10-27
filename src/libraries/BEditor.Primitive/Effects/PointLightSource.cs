@@ -11,7 +11,7 @@ using System.Diagnostics.CodeAnalysis;
 using BEditor.Data;
 using BEditor.Data.Property;
 using BEditor.Data.Property.PrimitiveGroup;
-using BEditor.Primitive.Resources;
+using BEditor.LangResources;
 
 namespace BEditor.Primitive.Effects
 {

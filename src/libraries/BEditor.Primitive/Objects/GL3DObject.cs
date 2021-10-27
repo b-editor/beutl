@@ -13,7 +13,7 @@ using BEditor.Data.Primitive;
 using BEditor.Data.Property;
 using BEditor.Data.Property.PrimitiveGroup;
 using BEditor.Graphics;
-using BEditor.Primitive.Resources;
+using BEditor.LangResources;
 
 using GLColor = OpenTK.Mathematics.Color4;
 using Material = BEditor.Data.Property.PrimitiveGroup.Material;

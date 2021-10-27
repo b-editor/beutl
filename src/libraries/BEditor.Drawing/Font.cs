@@ -11,7 +11,7 @@ using System.IO;
 using System.Runtime.Serialization;
 using System.Text;
 
-using BEditor.Drawing.Resources;
+using BEditor.LangResources;
 
 using SkiaSharp;
 

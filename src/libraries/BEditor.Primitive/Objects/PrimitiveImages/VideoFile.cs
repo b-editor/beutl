@@ -19,7 +19,7 @@ using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
 using BEditor.Media;
 using BEditor.Media.Decoding;
-using BEditor.Primitive.Resources;
+using BEditor.LangResources;
 
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;

@@ -14,7 +14,7 @@ using System.Reflection;
 using System.Reflection.Metadata;
 using System.Threading.Tasks;
 
-using BEditor.Resources;
+using BEditor.LangResources;
 
 namespace BEditor.Plugin
 {

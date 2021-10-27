@@ -6,7 +6,7 @@ using System.IO;
 using System.Numerics;
 using System.Threading;
 
-using BEditor.Graphics.OpenGL.Resources;
+using BEditor.LangResources;
 
 using OpenTK.Graphics.OpenGL4;
 

@@ -12,7 +12,7 @@ using System.Text;
 using System.Threading.Tasks;
 
 using BEditor.Drawing.Pixel;
-using BEditor.Drawing.Resources;
+using BEditor.LangResources;
 
 using OpenCvSharp;
 

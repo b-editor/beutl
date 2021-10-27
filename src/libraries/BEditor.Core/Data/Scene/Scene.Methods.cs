@@ -21,7 +21,7 @@ using BEditor.Drawing.Pixel;
 using BEditor.Graphics;
 using BEditor.Media;
 using BEditor.Media.PCM;
-using BEditor.Resources;
+using BEditor.LangResources;
 
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;

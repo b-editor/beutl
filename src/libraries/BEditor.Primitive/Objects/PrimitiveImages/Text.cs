@@ -17,7 +17,7 @@ using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
 using BEditor.Graphics;
 using BEditor.Media;
-using BEditor.Primitive.Resources;
+using BEditor.LangResources;
 
 namespace BEditor.Primitive.Objects
 {

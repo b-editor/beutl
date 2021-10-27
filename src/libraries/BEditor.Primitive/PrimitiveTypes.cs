@@ -13,7 +13,7 @@ using BEditor.Data;
 using BEditor.Data.Property.Easing;
 using BEditor.Drawing;
 using BEditor.Primitive.Objects;
-using BEditor.Primitive.Resources;
+using BEditor.LangResources;
 
 [assembly: InternalsVisibleTo("NUnitTestProject1")]
 

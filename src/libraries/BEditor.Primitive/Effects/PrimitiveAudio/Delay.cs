@@ -13,7 +13,7 @@ using BEditor.Data.Primitive;
 using BEditor.Data.Property;
 using BEditor.Media;
 using BEditor.Media.PCM;
-using BEditor.Primitive.Resources;
+using BEditor.LangResources;
 
 namespace BEditor.Primitive.Effects
 {

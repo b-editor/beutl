@@ -1,6 +1,6 @@
 ﻿using System;
 
-using BEditor.Audio.Resources;
+using BEditor.LangResources;
 
 using OpenTK.Audio.OpenAL;
 using OpenTK.Mathematics;

@@ -12,18 +12,7 @@
     <Import Project="..\..\..\props\System.Reactive.props" />
 
     <ItemGroup>
-        <Compile Update="Resources\Strings.Designer.cs">
-            <DependentUpon>Strings.resx</DependentUpon>
-            <DesignTime>True</DesignTime>
-            <AutoGen>True</AutoGen>
-        </Compile>
-    </ItemGroup>
-
-    <ItemGroup>
-        <EmbeddedResource Update="Resources\Strings.resx">
-            <LastGenOutput>Strings.Designer.cs</LastGenOutput>
-            <Generator>ResXFileCodeGenerator</Generator>
-        </EmbeddedResource>
+        <ProjectReference Include="..\BEditor.LangResources\BEditor.LangResources.csproj" />
     </ItemGroup>
 
 </Project>

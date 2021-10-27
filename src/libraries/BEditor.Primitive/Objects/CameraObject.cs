@@ -12,7 +12,7 @@ using System.Linq;
 using BEditor.Data;
 using BEditor.Data.Property;
 using BEditor.Graphics;
-using BEditor.Primitive.Resources;
+using BEditor.LangResources;
 
 namespace BEditor.Primitive.Objects
 {

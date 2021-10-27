@@ -21,7 +21,7 @@ using BEditor.Data.Property;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
 using BEditor.Plugin;
-using BEditor.Resources;
+using BEditor.LangResources;
 
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;

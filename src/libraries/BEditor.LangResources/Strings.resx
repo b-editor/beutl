@@ -1,64 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <root>
-  <!-- 
-    Microsoft ResX Schema 
-    
-    Version 2.0
-    
-    The primary goals of this format is to allow a simple XML format 
-    that is mostly human readable. The generation and parsing of the 
-    various data types are done through the TypeConverter classes 
-    associated with the data types.
-    
-    Example:
-    
-    ... ado.net/XML headers & schema ...
-    <resheader name="resmimetype">text/microsoft-resx</resheader>
-    <resheader name="version">2.0</resheader>
-    <resheader name="reader">System.Resources.ResXResourceReader, System.Windows.Forms, ...</resheader>
-    <resheader name="writer">System.Resources.ResXResourceWriter, System.Windows.Forms, ...</resheader>
-    <data name="Name1"><value>this is my long string</value><comment>this is a comment</comment></data>
-    <data name="Color1" type="System.Drawing.Color, System.Drawing">Blue</data>
-    <data name="Bitmap1" mimetype="application/x-microsoft.net.object.binary.base64">
-        <value>[base64 mime encoded serialized .NET Framework object]</value>
-    </data>
-    <data name="Icon1" type="System.Drawing.Icon, System.Drawing" mimetype="application/x-microsoft.net.object.bytearray.base64">
-        <value>[base64 mime encoded string representing a byte array form of the .NET Framework object]</value>
-        <comment>This is a comment</comment>
-    </data>
-                
-    There are any number of "resheader" rows that contain simple 
-    name/value pairs.
-    
-    Each data row contains a name, and value. The row also contains a 
-    type or mimetype. Type corresponds to a .NET class that support 
-    text/value conversion through the TypeConverter architecture. 
-    Classes that don't support this are serialized and stored with the 
-    mimetype set.
-    
-    The mimetype is used for serialized objects, and tells the 
-    ResXResourceReader how to depersist the object. This is currently not 
-    extensible. For a given mimetype the value must be set accordingly:
-    
-    Note - application/x-microsoft.net.object.binary.base64 is the format 
-    that the ResXResourceWriter will generate, however the reader can 
-    read any of the formats listed below.
-    
-    mimetype: application/x-microsoft.net.object.binary.base64
-    value   : The object must be serialized with 
-            : System.Runtime.Serialization.Formatters.Binary.BinaryFormatter
-            : and then encoded with base64 encoding.
-    
-    mimetype: application/x-microsoft.net.object.soap.base64
-    value   : The object must be serialized with 
-            : System.Runtime.Serialization.Formatters.Soap.SoapFormatter
-            : and then encoded with base64 encoding.
-
-    mimetype: application/x-microsoft.net.object.bytearray.base64
-    value   : The object must be serialized into a byte array 
-            : using a System.ComponentModel.TypeConverter
-            : and then encoded with base64 encoding.
-    -->
   <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
     <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
     <xsd:element name="root" msdata:IsDataSet="true">
@@ -112,11 +53,351 @@
     <value>2.0</value>
   </resheader>
   <resheader name="reader">
-    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=5.0.11.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <resheader name="writer">
-    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=5.0.11.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
+  <data name="SourcePauseInvalidName" xml:space="preserve">
+    <value>The specified source name is not valid.</value>
+  </data>
+  <data name="SourcePauseInvalidOperation" xml:space="preserve">
+    <value>There is no current context.</value>
+  </data>
+  <data name="SourceStopInvalidName" xml:space="preserve">
+    <value>The specified source name is not valid.</value>
+  </data>
+  <data name="SourceStopInvalidOperation" xml:space="preserve">
+    <value>There is no current context.</value>
+  </data>
+  <data name="SourcePlayInvalidName" xml:space="preserve">
+    <value>The specified source name is not valid.</value>
+  </data>
+  <data name="SourcePlayInvalidOperation" xml:space="preserve">
+    <value>There is no current context.</value>
+  </data>
+  <data name="GetBufferInvalidEnum" xml:space="preserve">
+    <value>The specified parameter is not valid.</value>
+  </data>
+  <data name="GetBufferInvalidName" xml:space="preserve">
+    <value>The specified buffer doesn't have parameters (the NULL buffer), or doesn't exist.</value>
+  </data>
+  <data name="GetBufferInvalidValue" xml:space="preserve">
+    <value>The specified value pointer is not valid.</value>
+  </data>
+  <data name="BufferDataOutOfMemory" xml:space="preserve">
+    <value>There is not enough memory available to create this buffer.</value>
+  </data>
+  <data name="BufferDataInvalidValue" xml:space="preserve">
+    <value>The size parameter is not valid for the format specified, the buffer is in use, or the data is a NULL pointer.</value>
+  </data>
+  <data name="BufferDataInvalidEnum" xml:space="preserve">
+    <value>The specified format does not exist.</value>
+  </data>
+  <data name="DeleteSourceInvalidName" xml:space="preserve">
+    <value>At least one specified source is not valid, or an attempt is being made to delete more sources than exist.</value>
+  </data>
+  <data name="DeleteSourceInvalidOperation" xml:space="preserve">
+    <value>There is no current context.</value>
+  </data>
+  <data name="DeleteBufferInvalidName" xml:space="preserve">
+    <value>A buffer name is invalid.</value>
+  </data>
+  <data name="DeleteBufferInvalidValue" xml:space="preserve">
+    <value>The requested number of buffers can not be deleted.</value>
+  </data>
+  <data name="DeleteBufferInvalidOperation" xml:space="preserve">
+    <value>The buffer is still in use and can not be deleted.</value>
+  </data>
+  <data name="GenSourceOutOfMemory" xml:space="preserve">
+    <value>There is not enough memory to generate all the requested sources.</value>
+  </data>
+  <data name="GenSourceInvalidValue" xml:space="preserve">
+    <value>There are not enough non-memory resources to create all the requested sources, or the array pointer is not valid.</value>
+  </data>
+  <data name="GenSourceInvalidOperation" xml:space="preserve">
+    <value>There is no context to create sources in.</value>
+  </data>
+  <data name="GenBufferInvalidValue" xml:space="preserve">
+    <value>The buffer array isn't large enough to hold the number of buffers requested.</value>
+  </data>
+  <data name="GenBufferOutOfMemory" xml:space="preserve">
+    <value>There is not enough memory available to generate all the buffers requested.</value>
+  </data>
+  <data name="ThrowErrorInvalidValue" xml:space="preserve">
+    <value>The value given is out of range.</value>
+  </data>
+  <data name="ThrowErrorInvalidEnum" xml:space="preserve">
+    <value>The specified parameter is not valid.</value>
+  </data>
+  <data name="ThrowErrorInvalidName" xml:space="preserve">
+    <value>The specified source name is not valid.</value>
+  </data>
+  <data name="ThrowErrorInvalidOperation" xml:space="preserve">
+    <value>There is no current context.</value>
+  </data>
+  <data name="UnknownCommand" xml:space="preserve">
+    <value>Unknown command</value>
+  </data>
+  <data name="FailedToLoad" xml:space="preserve">
+    <value>{0} failed to load.</value>
+  </data>
+  <data name="Z" xml:space="preserve">
+    <value>Z</value>
+  </data>
+  <data name="Y" xml:space="preserve">
+    <value>Y</value>
+  </data>
+  <data name="X" xml:space="preserve">
+    <value>X</value>
+  </data>
+  <data name="Shininess" xml:space="preserve">
+    <value>Shininess</value>
+  </data>
+  <data name="Specular" xml:space="preserve">
+    <value>Specular</value>
+  </data>
+  <data name="Diffuse" xml:space="preserve">
+    <value>Diffuse</value>
+  </data>
+  <data name="Ambient" xml:space="preserve">
+    <value>Ambient</value>
+  </data>
+  <data name="CenterZ" xml:space="preserve">
+    <value>Center z</value>
+  </data>
+  <data name="CenterX" xml:space="preserve">
+    <value>Center x</value>
+  </data>
+  <data name="CenterY" xml:space="preserve">
+    <value>Center y</value>
+  </data>
+  <data name="Blend" xml:space="preserve">
+    <value>Blend</value>
+  </data>
+  <data name="Color" xml:space="preserve">
+    <value>Color</value>
+  </data>
+  <data name="Opacity" xml:space="preserve">
+    <value>Opacity</value>
+  </data>
+  <data name="Coordinate" xml:space="preserve">
+    <value>Coordinate</value>
+  </data>
+  <data name="Scale" xml:space="preserve">
+    <value>Scale</value>
+  </data>
+  <data name="Rotate" xml:space="preserve">
+    <value>Rotate</value>
+  </data>
+  <data name="Material" xml:space="preserve">
+    <value>Material</value>
+  </data>
+  <data name="RotateX" xml:space="preserve">
+    <value>Rotate x</value>
+  </data>
+  <data name="RotateY" xml:space="preserve">
+    <value>Rotate y</value>
+  </data>
+  <data name="RotateZ" xml:space="preserve">
+    <value>Rotate z</value>
+  </data>
+  <data name="Font" xml:space="preserve">
+    <value>Font</value>
+  </data>
+  <data name="ProjectFile" xml:space="preserve">
+    <value>Project file</value>
+  </data>
+  <data name="ChildElementsNotFound" xml:space="preserve">
+    <value>Child elements not found.</value>
+  </data>
+  <data name="FailedToConvertValue" xml:space="preserve">
+    <value>Failed to convert value.</value>
+  </data>
+  <data name="KeyHasAlreadyBeenRegisterd" xml:space="preserve">
+    <value>This key has already been registered.</value>
+  </data>
+  <data name="ParentElementNotFound" xml:space="preserve">
+    <value>Parent element not found.</value>
+  </data>
+  <data name="TheValueWasNotTypeButType" xml:space="preserve">
+    <value>The value was not {0} type, but {1} type.</value>
+  </data>
+  <data name="AddClip" xml:space="preserve">
+    <value>Add a new clip</value>
+  </data>
+  <data name="AddEffect" xml:space="preserve">
+    <value>Add a new effect</value>
+  </data>
+  <data name="AddKeyframe" xml:space="preserve">
+    <value>Add a keyframe</value>
+  </data>
+  <data name="BindCommand" xml:space="preserve">
+    <value>Bind the value of the property</value>
+  </data>
+  <data name="ChangeColor" xml:space="preserve">
+    <value>Change color</value>
+  </data>
+  <data name="ChangeEasing" xml:space="preserve">
+    <value>Change easing</value>
+  </data>
+  <data name="ChangeFile" xml:space="preserve">
+    <value>Change file</value>
+  </data>
+  <data name="ChangeFolder" xml:space="preserve">
+    <value>Change folder</value>
+  </data>
+  <data name="ChangeFont" xml:space="preserve">
+    <value>Change font</value>
+  </data>
+  <data name="ChangeIsChecked" xml:space="preserve">
+    <value>Change the state of the checkbox</value>
+  </data>
+  <data name="ChangeLength" xml:space="preserve">
+    <value>Change length</value>
+  </data>
+  <data name="ChangeSelectItem" xml:space="preserve">
+    <value>Change selected item</value>
+  </data>
+  <data name="ChangeText" xml:space="preserve">
+    <value>Change text</value>
+  </data>
+  <data name="ChangeValue" xml:space="preserve">
+    <value>Change value</value>
+  </data>
+  <data name="Disconnect" xml:space="preserve">
+    <value>Disconnect property value</value>
+  </data>
+  <data name="DownEffect" xml:space="preserve">
+    <value>Change the order of the effects (below)</value>
+  </data>
+  <data name="EnableDisableEffect" xml:space="preserve">
+    <value>Enable/Disable effects</value>
+  </data>
+  <data name="MoveClip" xml:space="preserve">
+    <value>Move clip</value>
+  </data>
+  <data name="MoveKeyframe" xml:space="preserve">
+    <value>Move keyframe</value>
+  </data>
+  <data name="RemoveClip" xml:space="preserve">
+    <value>Remove clip</value>
+  </data>
+  <data name="RemoveEffect" xml:space="preserve">
+    <value>Remove effect</value>
+  </data>
+  <data name="RemoveKeyframe" xml:space="preserve">
+    <value>Remove keyframe</value>
+  </data>
+  <data name="RemoveLayer" xml:space="preserve">
+    <value>Remove layer</value>
+  </data>
+  <data name="SplitClip" xml:space="preserve">
+    <value>Split a clip</value>
+  </data>
+  <data name="UpEffect" xml:space="preserve">
+    <value>Change the order of the effects (top)</value>
+  </data>
+  <data name="TheOwnerTypeDoesNotMatch" xml:space="preserve">
+    <value>The type of the owner of the property does not match the type of this object.</value>
+  </data>
+  <data name="Volume" xml:space="preserve">
+    <value>Volume</value>
+  </data>
+  <data name="Pitch" xml:space="preserve">
+    <value>Pitch</value>
+  </data>
+  <data name="Start" xml:space="preserve">
+    <value>Start</value>
+  </data>
+  <data name="FailedToRemove" xml:space="preserve">
+    <value>Failed to remove.</value>
+  </data>
+  <data name="AlphaBlend" xml:space="preserve">
+    <value>Alpha blend</value>
+  </data>
+  <data name="Additive" xml:space="preserve">
+    <value>Additive</value>
+  </data>
+  <data name="Subtract" xml:space="preserve">
+    <value>Subtract</value>
+  </data>
+  <data name="Multiplication" xml:space="preserve">
+    <value>Multiplication</value>
+  </data>
+  <data name="Type" xml:space="preserve">
+    <value>Type</value>
+  </data>
+  <data name="Primitive" xml:space="preserve">
+    <value>Primitive</value>
+  </data>
+  <data name="UpdatePosition" xml:space="preserve">
+    <value>Update the position</value>
+  </data>
+  <data name="KeyframeHasBeenMovedOutOfRange" xml:space="preserve">
+    <value>The keyframe has been moved out of range.
+{0} -&gt; {1}</value>
+  </data>
+  <data name="MessageBy" xml:space="preserve">
+    <value>Message by {0}</value>
+  </data>
+  <data name="RemoveTarget" xml:space="preserve">
+    <value>Remove target</value>
+  </data>
+  <data name="AddGradient" xml:space="preserve">
+    <value>Add gradient</value>
+  </data>
+  <data name="RemoveGradient" xml:space="preserve">
+    <value>Remove gradient</value>
+  </data>
+  <data name="ChangeGradient" xml:space="preserve">
+    <value>Change gradient</value>
+  </data>
+  <data name="FileExtension" xml:space="preserve">
+    <value>Please specify the extension.</value>
+  </data>
+  <data name="FontException" xml:space="preserve">
+    <value>May be an unsupported font file.</value>
+  </data>
+  <data name="FormetException" xml:space="preserve">
+    <value>The {0} format string is not supported.</value>
+  </data>
+  <data name="LessThan" xml:space="preserve">
+    <value>{0} is less than {1}.</value>
+  </data>
+  <data name="MoreThan" xml:space="preserve">
+    <value>{0} is more than {1}.</value>
+  </data>
+  <data name="PlatformIsNotSet" xml:space="preserve">
+    <value>Platform is not set.</value>
+  </data>
+  <data name="ErrorOccurredWhilistCompilingShader" xml:space="preserve">
+    <value>Error occurred whilst compiling Shader({0}).\n\n{1}</value>
+  </data>
+  <data name="ErrorOccurredWhilstLinkingProgram" xml:space="preserve">
+    <value>Error occurred whilst linking Program({0}).</value>
+  </data>
+  <data name="SynchronizationContextIsNull" xml:space="preserve">
+    <value>The SynchronizationContext of the current thread was null.</value>
+  </data>
+  <data name="InvalidEnum" xml:space="preserve">
+    <value>An unacceptable value is specified for an enumerated argument.</value>
+  </data>
+  <data name="InvalidValue" xml:space="preserve">
+    <value>A numeric argument is out of range.</value>
+  </data>
+  <data name="InvalidOperation" xml:space="preserve">
+    <value>The specified operation is not allowed in the current state.</value>
+  </data>
+  <data name="OutOfMemory" xml:space="preserve">
+    <value>There is not enough memory left to execute the command.</value>
+  </data>
+  <data name="InvalildFramebufferOperation" xml:space="preserve">
+    <value>The framebuffer object is not complete.</value>
+  </data>
+  <data name="TableTooLarge" xml:space="preserve">
+    <value>The specified table exceeds the implementation's maximum supported table size.</value>
+  </data>
   <data name="Video" xml:space="preserve">
     <value>Video</value>
   </data>
@@ -162,18 +443,6 @@
   <data name="Depth" xml:space="preserve">
     <value>Depth</value>
   </data>
-  <data name="Type" xml:space="preserve">
-    <value>Type</value>
-  </data>
-  <data name="X" xml:space="preserve">
-    <value>X</value>
-  </data>
-  <data name="Y" xml:space="preserve">
-    <value>Y</value>
-  </data>
-  <data name="Z" xml:space="preserve">
-    <value>Z</value>
-  </data>
   <data name="TargetX" xml:space="preserve">
     <value>Target x</value>
   </data>
@@ -197,15 +466,6 @@
   </data>
   <data name="Perspective" xml:space="preserve">
     <value>Perspective</value>
-  </data>
-  <data name="Volume" xml:space="preserve">
-    <value>Volume</value>
-  </data>
-  <data name="Pitch" xml:space="preserve">
-    <value>Pitch</value>
-  </data>
-  <data name="Start" xml:space="preserve">
-    <value>Start</value>
   </data>
   <data name="ClearFramebuffer" xml:space="preserve">
     <value>Clear the frame buffer</value>
@@ -231,9 +491,6 @@
   <data name="LineWidth" xml:space="preserve">
     <value>line width</value>
   </data>
-  <data name="Color" xml:space="preserve">
-    <value>Color</value>
-  </data>
   <data name="Ellipse" xml:space="preserve">
     <value>Ellipse</value>
   </data>
@@ -252,9 +509,6 @@
   <data name="VideoFile" xml:space="preserve">
     <value>Video file</value>
   </data>
-  <data name="FailedToLoad" xml:space="preserve">
-    <value>{0} failed to load.</value>
-  </data>
   <data name="AreaExpansion" xml:space="preserve">
     <value>Area expansion</value>
   </data>
@@ -269,12 +523,6 @@
   </data>
   <data name="ChromaKey" xml:space="preserve">
     <value>Chroma key</value>
-  </data>
-  <data name="CenterX" xml:space="preserve">
-    <value>Center x</value>
-  </data>
-  <data name="CenterY" xml:space="preserve">
-    <value>Center y</value>
   </data>
   <data name="Colors" xml:space="preserve">
     <value>Colors</value>
@@ -351,9 +599,6 @@
   <data name="LinearGradient" xml:space="preserve">
     <value>Liear gradient</value>
   </data>
-  <data name="Rotate" xml:space="preserve">
-    <value>Rotate</value>
-  </data>
   <data name="PathToImageObject" xml:space="preserve">
     <value>Path to the image object</value>
   </data>
@@ -374,9 +619,6 @@
   </data>
   <data name="PointLightDiffuse" xml:space="preserve">
     <value>Point light diffuse</value>
-  </data>
-  <data name="Opacity" xml:space="preserve">
-    <value>Opacity</value>
   </data>
   <data name="DropShadow" xml:space="preserve">
     <value>Drop shadow</value>
@@ -458,9 +700,6 @@
   </data>
   <data name="LineSpacing" xml:space="preserve">
     <value>Line spacing</value>
-  </data>
-  <data name="Coordinate" xml:space="preserve">
-    <value>Coordinate</value>
   </data>
   <data name="TopLeft" xml:space="preserve">
     <value>Upper left</value>
@@ -632,9 +871,6 @@
   </data>
   <data name="RoundClipping" xml:space="preserve">
     <value>Round clipping</value>
-  </data>
-  <data name="Scale" xml:space="preserve">
-    <value>Scale</value>
   </data>
   <data name="Quality" xml:space="preserve">
     <value>Quality</value>

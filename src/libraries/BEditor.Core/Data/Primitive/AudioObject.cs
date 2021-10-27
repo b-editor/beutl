@@ -11,7 +11,7 @@ using System.Linq;
 using BEditor.Data.Property;
 using BEditor.Media;
 using BEditor.Media.PCM;
-using BEditor.Resources;
+using BEditor.LangResources;
 
 namespace BEditor.Data.Primitive
 {
