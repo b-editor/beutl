@@ -26,6 +26,8 @@ namespace BEditor.Views.Dialogs
         public void Save(object s, RoutedEventArgs e)
         {
             _project.Save();
+            _project.Unload();
+            AppModel.Current.Project = null;
 
             // プロジェクトを閉じる場合trueを返す。
             Close(true);
@@ -33,6 +35,8 @@ namespace BEditor.Views.Dialogs
 
         public void DontSave(object s, RoutedEventArgs e)
         {
+            _project.Unload();
+            AppModel.Current.Project = null;
             Close(true);
         }
 
