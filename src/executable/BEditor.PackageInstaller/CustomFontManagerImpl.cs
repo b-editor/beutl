@@ -69,8 +69,7 @@ namespace BEditor.PackageInstaller
         public IGlyphTypefaceImpl CreateGlyphTypeface(Typeface typeface)
         {
             if (typeface.FontFamily.Name is "Inter") return new GlyphTypefaceImpl(MatchFace());
-            if (typeface.FontFamily.Name is "FluentSystemIcons-Regular") return new GlyphTypefaceImpl(GetRegularIcon());
-            if (typeface.FontFamily.Name is "FluentSystemIcons-Filled") return new GlyphTypefaceImpl(GetFilledIcon());
+            if (typeface.FontFamily.Name is "Symbols") return new GlyphTypefaceImpl(GetIcon());
 
             foreach (var name in GetInstalledFontFamilyNames())
             {
@@ -88,18 +87,10 @@ namespace BEditor.PackageInstaller
             return new GlyphTypefaceImpl(SKTypeface.FromStream(stream));
         }
 
-        public static SKTypeface GetRegularIcon()
+        public static SKTypeface GetIcon()
         {
             var loader = new AssetLoader(typeof(FluentAvaloniaTheme).Assembly);
-            using var stream = loader.Open(new("avares://FluentAvalonia/Fonts/FluentSystemIcons-Regular.ttf"));
-
-            return SKTypeface.FromStream(stream);
-        }
-
-        public static SKTypeface GetFilledIcon()
-        {
-            var loader = new AssetLoader(typeof(FluentAvaloniaTheme).Assembly);
-            using var stream = loader.Open(new("avares://FluentAvalonia/Fonts/FluentSystemIcons-Filled.ttf"));
+            using var stream = loader.Open(new("avares://FluentAvalonia/Fonts/FluentAvalonia.ttf"));
 
             return SKTypeface.FromStream(stream);
         }
