@@ -14,17 +14,12 @@
     WindowStartupLocation="CenterScreen"
     x:Class="BEditor.Views.SettingsWindow"
     Title="SettingsWindow">
-    <Grid RowDefinitions="Auto,*">
-        <titlebar:WindowsTitlebarButtons />
-
-        <ui:NavigationView
-            Grid.Row="1"
-            x:Name="NavView"
-            PaneDisplayMode="Left"
-            IsSettingsVisible="False"
-            IsBackButtonVisible="True"
-            IsBackEnabled="{Binding #FrameView.CanGoBack}">
-            <ui:Frame x:Name="FrameView" />
-        </ui:NavigationView>
-    </Grid>
+    <ui:NavigationView
+        x:Name="NavView"
+        PaneDisplayMode="Left"
+        IsSettingsVisible="False"
+        IsBackButtonVisible="True"
+        IsBackEnabled="{Binding #FrameView.CanGoBack}">
+        <ui:Frame x:Name="FrameView" />
+    </ui:NavigationView>
 </views:FluentWindow>

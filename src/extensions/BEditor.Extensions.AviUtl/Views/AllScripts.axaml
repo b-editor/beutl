@@ -8,8 +8,7 @@
     mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
     x:Class="BEditor.Extensions.AviUtl.Views.AllScripts"
     x:DataType="vm:AllScriptsViewModel"
-    x:Name="root"
-    Classes="fluent">
+    x:Name="root">
     <ctr:FluentWindow.DataContext>
         <vm:AllScriptsViewModel />
     </ctr:FluentWindow.DataContext>

@@ -10,7 +10,6 @@
     xmlns:model="using:BEditor.Models"
     xmlns:dialogvm="using:BEditor.ViewModels.DialogContent"
     mc:Ignorable="d" Height="450" Width="400"
-    Classes="fluent"
     CanResize="False"
     WindowStartupLocation="CenterScreen"
     x:Class="BEditor.Views.DialogContent.SelectObjectMetadata">

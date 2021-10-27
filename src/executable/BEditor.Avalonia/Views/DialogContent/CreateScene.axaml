@@ -10,9 +10,9 @@
     xmlns:ui="using:FluentAvalonia.UI.Controls"
     mc:Ignorable="d" Width="800" Height="450"
     WindowStartupLocation="CenterScreen"
+    Padding="0"
     x:Class="BEditor.Views.DialogContent.CreateScene"
-    x:DataType="dialogvm:CreateSceneViewModel"
-    Classes="fluent">
+    x:DataType="dialogvm:CreateSceneViewModel">
     <Grid>
         <StackPanel Margin="8">
             <TextBlock

@@ -11,7 +11,6 @@
     mc:Ignorable="d"
     Width="640"
     Height="400"
-    Classes="fluent"
     Background="{DynamicResource ColorPickerBackground}"
     x:Class="BEditor.Views.ColorDialog">
     <Grid RowDefinitions="*,Auto">

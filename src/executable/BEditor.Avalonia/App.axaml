@@ -29,6 +29,7 @@
         <StyleInclude Source="avares://beditor/Controls/FluentUiIcons_Filled.axaml" />
         <StyleInclude Source="avares://beditor/Controls/FluentUiIcons_Regular.axaml" />
         <StyleInclude Source="avares://beditor/Views/Settings/SettingsResources.axaml" />
+        <StyleInclude Source="avares://BEditor.Controls/Styles.axaml" />
 
         <Style Selector="Expander">
             <Setter Property="Padding" Value="0" />
@@ -85,22 +86,6 @@
         </Style>
         <Style Selector="TemplatedControl">
             <Setter Property="FontFamily" Value="Yu Gothic UI, Segoe UI, Hiragino Sans, Helvetica Neue, Ubuntu" />
-        </Style>
-
-        <Style Selector="Window.fluent">
-            <Setter Property="Title" Value="" />
-            <Setter Property="Template">
-                <ControlTemplate>
-                    <Border Background="{TemplateBinding Background}">
-                        <Grid RowDefinitions="Auto,*">
-
-                            <titlebar:WindowsTitlebarButtons Title="{TemplateBinding Title}" CanResize="{TemplateBinding CanResize}" />
-
-                            <ContentPresenter Grid.Row="1" Content="{TemplateBinding Content}"/>
-                        </Grid>
-                    </Border>
-                </ControlTemplate>
-            </Setter>
         </Style>
 
         <Style Selector="Border.card">

@@ -13,15 +13,10 @@
     Height="800" Width="1200"
     WindowStartupLocation="CenterScreen"
     x:Class="BEditor.Views.VideoOutput">
-    <Grid RowDefinitions="Auto,*">
-        <titlebar:WindowsTitlebarButtons />
-
-        <ui:NavigationView
-            Grid.Row="1"
-            PaneDisplayMode="Left"
-            x:Name="NavView"
-            IsSettingsVisible="False">
-            <ui:Frame x:Name="FrameView" />
-        </ui:NavigationView>
-    </Grid>
+    <ui:NavigationView
+        PaneDisplayMode="Left"
+        x:Name="NavView"
+        IsSettingsVisible="False">
+        <ui:Frame x:Name="FrameView" />
+    </ui:NavigationView>
 </views:FluentWindow>

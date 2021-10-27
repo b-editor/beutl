@@ -15,11 +15,9 @@
     WindowStartupLocation="CenterScreen"
     x:DataType="dialogvm:CreateClipViewModel"
     x:Class="BEditor.Views.DialogContent.CreateClip">
-    <Grid RowDefinitions="Auto,*" ColumnDefinitions="*,2*">
+    <Grid ColumnDefinitions="*,2*">
 
         <ListBox
-            Grid.RowSpan="2"
-            Padding="0,32,0,0"
             Items="{CompiledBinding TypeItems, Mode=OneTime}"
             SelectedItem="{CompiledBinding Selected.Value, Mode=TwoWay}">
             <ListBox.ItemTemplate>
@@ -54,10 +52,8 @@
                 </DataTemplate>
             </ListBox.ItemTemplate>
         </ListBox>
-        <titlebar:WindowsTitlebarButtons CanResize="False" Grid.ColumnSpan="2"/>
 
         <Border
-            Grid.Row="1"
             Grid.Column="1"
             BorderBrush="{StaticResource ControlElevationBorderBrush}"
             BorderThickness="1"

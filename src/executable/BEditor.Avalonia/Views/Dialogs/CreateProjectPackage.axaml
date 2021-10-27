@@ -10,15 +10,14 @@
     mc:Ignorable="d" Width="800" Height="450"
     WindowStartupLocation="CenterScreen"
     CanResize="False"
-    Title="{x:Static props:Strings.PackingTheProject}"
     Background="{StaticResource NavigationViewDefaultPaneBackground}"
     x:DataType="viewModels:CreateProjectPackageViewModel"
     x:Class="BEditor.Views.Dialogs.CreateProjectPackage">
-    <Grid RowDefinitions="Auto,*" ColumnDefinitions="*,2*">
+    <Grid ColumnDefinitions="*,2*">
 
-        <Grid Grid.RowSpan="2" RowDefinitions="Auto,*">
+        <Grid RowDefinitions="Auto,*">
             <TextBlock
-                Margin="16,32,16,8"
+                Margin="16"
                 FontSize="16"
                 Text="{x:Static props:Strings.Dependency}" />
 
@@ -71,10 +70,7 @@
             </TreeView>
         </Grid>
 
-        <titlebar:WindowsTitlebarButtons CanResize="False" Grid.ColumnSpan="2"/>
-
         <Border
-            Grid.Row="1"
             Grid.Column="1"
             BorderBrush="{StaticResource ControlElevationBorderBrush}"
             BorderThickness="1"

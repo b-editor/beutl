@@ -9,7 +9,6 @@
     xmlns:vm="using:BEditor.ViewModels"
     xmlns:ui="using:FluentAvalonia.UI.Controls"
     xmlns:uip="using:FluentAvalonia.UI.Controls.Primitives"
-    Classes="fluent"
     mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
     x:Class="BEditor.Views.FontDialog"
     x:Name="root"

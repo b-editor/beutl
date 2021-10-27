@@ -28,10 +28,7 @@ namespace BEditor.Views.DialogContent
             CanResize = false;
             SizeToContent = SizeToContent.WidthAndHeight;
 
-            _border = new Border
-            {
-                Background = (IBrush)App.Current.FindResource("NavigationViewContentBackground")!,
-            };
+            _border = new Border();
 
             Content = _border;
 

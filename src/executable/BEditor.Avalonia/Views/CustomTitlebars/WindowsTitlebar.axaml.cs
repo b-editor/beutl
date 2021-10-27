@@ -27,19 +27,13 @@ namespace BEditor.Views.CustomTitlebars
     public sealed class WindowsTitlebar : UserControl
     {
         private readonly MenuItem _recentFiles;
-        private readonly WindowsTitlebarButtons _titlebarbuttons;
 
         public WindowsTitlebar()
         {
             InitializeComponent();
             _recentFiles = this.FindControl<MenuItem>("RecentFiles");
-            _titlebarbuttons = this.FindControl<WindowsTitlebarButtons>("titlebarbuttons");
 
             SetRecentUsedFiles();
-            if (!OperatingSystem.IsWindows())
-            {
-                _titlebarbuttons.IsVisible = false;
-            }
         }
 
         private void SetRecentUsedFiles()
@@ -127,6 +121,14 @@ namespace BEditor.Views.CustomTitlebars
                     }
                 });
             };
+        }
+
+        public void Titlebar_PointerPressed(object? sender, Avalonia.Input.PointerPressedEventArgs e)
+        {
+            if (VisualRoot is Window window)
+            {
+                window.BeginMoveDrag(e);
+            }
         }
 
         public void InitializePluginMenu()

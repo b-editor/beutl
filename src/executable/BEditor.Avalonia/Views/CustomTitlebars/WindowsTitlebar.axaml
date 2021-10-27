@@ -229,7 +229,10 @@
             </MenuItem>
         </Menu>
 
-        <titlebar:WindowsTitlebarButtons x:Name="titlebarbuttons" Grid.Column="2" Margin="2" />
+        <Panel
+            Grid.Column="2"
+            Background="Transparent"
+            PointerPressed="Titlebar_PointerPressed" />
     </Grid>
 
 </UserControl>

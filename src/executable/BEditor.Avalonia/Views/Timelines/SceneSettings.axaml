@@ -12,10 +12,9 @@
     x:Class="BEditor.Views.Timelines.SceneSettings"
     WindowStartupLocation="CenterScreen"
     x:DataType="vm:SceneSettingsViewModel">
-    <Grid RowDefinitions="Auto,*">
-        <titlebar:WindowsTitlebarButtons CanResize="False"/>
+    <Grid>
 
-        <StackPanel Grid.Row="1" Margin="8">
+        <StackPanel Margin="8">
             <TextBlock
                 Margin="0,0,0,16"
                 FontSize="24"
@@ -26,6 +25,7 @@
                 <TextBlock Text="{x:Static props:Strings.Width}" />
 
                 <NumericUpDown
+                    HorizontalAlignment="Left"
                     MinWidth="240"
                     Margin="0,8"
                     Value="{CompiledBinding Width.Value, Mode=TwoWay}" />
@@ -36,6 +36,7 @@
                 <TextBlock Text="{x:Static props:Strings.Height}" />
 
                 <NumericUpDown
+                    HorizontalAlignment="Left"
                     MinWidth="240"
                     Margin="0,8"
                     Value="{CompiledBinding Height.Value, Mode=TwoWay}" />

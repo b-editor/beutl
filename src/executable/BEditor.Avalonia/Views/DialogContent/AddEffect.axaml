@@ -16,10 +16,8 @@
     Background="{StaticResource NavigationViewDefaultPaneBackground}"
     x:DataType="dialogvm:AddEffectViewModel"
     x:Class="BEditor.Views.DialogContent.AddEffect">
-    <Grid RowDefinitions="Auto,*" ColumnDefinitions="*,2*">
+    <Grid ColumnDefinitions="*,2*">
         <TreeView
-            Grid.RowSpan="2"
-            Padding="0,32,0,0"
             SelectionMode="Single"
             SelectedItem="{CompiledBinding Effect.Value, Mode=TwoWay}"
             Items="{x:Static data:EffectMetadata.LoadedEffects}" >
@@ -30,10 +28,7 @@
             </TreeView.DataTemplates>
         </TreeView>
 
-        <titlebar:WindowsTitlebarButtons CanResize="False" Grid.ColumnSpan="2"/>
-
         <Border
-            Grid.Row="1"
             Grid.Column="1"
             BorderBrush="{StaticResource ControlElevationBorderBrush}"
             BorderThickness="1"

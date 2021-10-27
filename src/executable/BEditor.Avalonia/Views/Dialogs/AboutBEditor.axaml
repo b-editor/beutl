@@ -6,7 +6,6 @@
     xmlns:views="using:BEditor.Views"
     xmlns:vm="using:BEditor.ViewModels.Dialogs"
     mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-    Classes="fluent"
     SizeToContent="WidthAndHeight"
     WindowStartupLocation="CenterScreen"
     x:DataType="vm:AboutBEditorViewModel"

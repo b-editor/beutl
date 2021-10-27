@@ -16,10 +16,9 @@
     Background="{StaticResource NavigationViewContentBackground}"
     x:DataType="vm:AddToColorPaletteViewModel"
     x:Class="BEditor.Views.AddToColorPalette">
-    <Grid RowDefinitions="Auto,*" ColumnDefinitions="*,2*">
+    <Grid ColumnDefinitions="*,2*">
 
         <Border
-            Grid.RowSpan="2"
             BorderBrush="{StaticResource ControlElevationBorderBrush}"
             BorderThickness="1"
             CornerRadius="{StaticResource OverlayCornerRadius}"
@@ -63,9 +62,7 @@
             <TextBox Text="{CompiledBinding NewPaletteName.Value, Mode=TwoWay}" />
         </ui:ContentDialog>
 
-        <titlebar:WindowsTitlebarButtons CanResize="False" Grid.ColumnSpan="2"/>
-
-        <ScrollViewer Grid.Row="1" Grid.Column="1" Padding="16">
+        <ScrollViewer Grid.Column="1" Padding="16">
             <ScrollViewer.Styles>
                 <Style Selector="TextBox">
                     <Setter Property="Width" Value="240" />
@@ -88,7 +85,6 @@
         </ScrollViewer>
 
         <VirtualizingStackPanel
-            Grid.Row="1"
             Grid.Column="1"
             Margin="8"
             Spacing="8"

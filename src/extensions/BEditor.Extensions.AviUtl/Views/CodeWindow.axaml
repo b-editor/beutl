@@ -6,8 +6,7 @@
     xmlns:ctr="using:BEditor.Controls"
     xmlns:aedit="using:AvaloniaEdit"
     mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-    x:Class="BEditor.Extensions.AviUtl.Views.CodeWindow"
-    Classes="fluent">
+    x:Class="BEditor.Extensions.AviUtl.Views.CodeWindow">
     <ctr:FluentWindow.Styles>
         <StyleInclude Source="avares://AvaloniaEdit/AvaloniaEdit.xaml" />
     </ctr:FluentWindow.Styles>

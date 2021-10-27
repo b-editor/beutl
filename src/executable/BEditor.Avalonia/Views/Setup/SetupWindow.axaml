@@ -6,7 +6,6 @@
     xmlns:views="using:BEditor.Views"
     xmlns:local="using:BEditor.Views.Setup"
     mc:Ignorable="d" Width="640" Height="480"
-    Classes="fluent"
     CanResize="False"
     WindowStartupLocation="CenterScreen"
     x:Class="BEditor.Views.Setup.SetupWindow">

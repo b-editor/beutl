@@ -6,7 +6,6 @@
     xmlns:views="using:BEditor.Views"
     xmlns:props="using:BEditor.LangResources"
     mc:Ignorable="d" Width="480" Height="160"
-    Classes="fluent"
     CanResize="False"
     WindowStartupLocation="CenterScreen"
     Title="BEditor"

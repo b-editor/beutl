@@ -9,8 +9,6 @@
     xmlns:props="using:BEditor.LangResources"
     xmlns:convert="using:BEditor.Converters"
     mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-    Classes="fluent"
-    Title="{x:Static props:Strings.ZoomIn}"
     x:Name="root"
     x:DataType="vm:PreviewerViewModel"
     x:Class="BEditor.Views.ZoomWindow">

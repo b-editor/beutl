@@ -13,12 +13,10 @@
     WindowStartupLocation="CenterScreen"
     Background="{StaticResource NavigationViewDefaultPaneBackground}"
     x:Class="BEditor.Views.Properties.EasingPropertyView">
-    <Grid RowDefinitions="Auto,*" ColumnDefinitions="*,Auto,2*">
+    <Grid ColumnDefinitions="*,Auto,2*">
         <TreeView
             x:Name="Tree"
             AutoScrollToSelectedItem="True"
-            Grid.RowSpan="2"
-            Padding="0,32,0,0"
             SelectionMode="Single"
             SelectionChanged="TreeView_SelectionChanged"
             Items="{x:Static easing:EasingMetadata.LoadedEasingFunc}"
@@ -30,12 +28,9 @@
             </TreeView.DataTemplates>
         </TreeView>
 
-        <GridSplitter Grid.Column="1" Grid.Row="1" Background="Transparent" />
-
-        <titlebar:WindowsTitlebarButtons CanResize="False" Grid.ColumnSpan="3"/>
+        <GridSplitter Grid.Column="1" Background="Transparent" />
 
         <Border
-            Grid.Row="1"
             Grid.Column="2"
             BorderBrush="{StaticResource ControlElevationBorderBrush}"
             BorderThickness="1"

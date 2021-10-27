@@ -22,7 +22,7 @@
         </Style>
     </views:FluentWindow.Styles>
     <Grid RowDefinitions="Auto,*">
-        <titlebar:WindowsTitlebarButtons />
+        <!--<titlebar:WindowsTitlebarButtons />-->
 
         <TabControl Classes="sidebar" Grid.Row="1" SelectedIndex="{CompiledBinding TabIndex.Value, Mode=OneWay}">
             <TabControl.Styles>

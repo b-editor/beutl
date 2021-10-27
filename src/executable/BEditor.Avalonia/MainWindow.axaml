@@ -21,6 +21,8 @@
     Background="{StaticResource NavigationViewDefaultPaneBackground}"
     DataContext="{x:Static vm:MainWindowViewModel.Current}"
     Focusable="True"
+    Padding="0"
+    DisableDefaultTitleBar="True"
     x:Class="BEditor.MainWindow">
     <Grid RowDefinitions="Auto,Auto,*,Auto,*,Auto" ColumnDefinitions="Auto,425,Auto,*,Auto,2*,Auto">
 

@@ -1,6 +1,7 @@
 using System;
 
 using Avalonia.Controls;
+using Avalonia.Controls.Presenters;
 using Avalonia.Markup.Xaml;
 
 using BEditor.Data;
@@ -44,25 +45,25 @@ namespace BEditor.Views.Properties
             {
                 if (property[DialogProperty] is null)
                 {
-                    var child = _builder.CreateFunc(property);
-                    Grid.SetRow(child, 1);
-
-                    property[DialogProperty] = new Grid
-                    {
-                        RowDefinitions =
-                        {
-                            new(1, GridUnitType.Auto),
-                            new(1, GridUnitType.Star)
-                        },
-                        Children =
-                        {
-                            new WindowsTitlebarButtons { CanResize = false },
-                            child
-                        }
-                    };
+                    property[DialogProperty] = _builder.CreateFunc(property);
                 }
                 var content = property.GetValue(DialogProperty);
-                if (content.Parent is Decorator parent) parent.Child = null;
+                if (content.Parent is Decorator parent)
+                {
+                    parent.Child = null;
+                }
+                else if (content.Parent is ContentControl parent2)
+                {
+                    parent2.Content = null;
+                }
+                else if (content.Parent is ContentPresenter parent3)
+                {
+                    parent3.Content = null;
+                }
+                else if (content.Parent is Panel parent4)
+                {
+                    parent4.Children.Remove(content);
+                }
 
                 return new EmptyDialog(content)
                 {
