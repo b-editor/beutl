@@ -109,6 +109,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SourceGenerator", "src\gene
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SourceGenerator.Tests", "src\generator\SourceGenerator.Tests\SourceGenerator.Tests.csproj", "{37089079-1563-48EF-A685-86A6C2CAB3CD}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BEditor.LangResources", "src\libraries\BEditor.LangResources\BEditor.LangResources.csproj", "{6717DF31-29A9-484C-9923-9CAAA9FDA395}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -219,6 +221,10 @@ Global
 		{37089079-1563-48EF-A685-86A6C2CAB3CD}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{37089079-1563-48EF-A685-86A6C2CAB3CD}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{37089079-1563-48EF-A685-86A6C2CAB3CD}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6717DF31-29A9-484C-9923-9CAAA9FDA395}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6717DF31-29A9-484C-9923-9CAAA9FDA395}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6717DF31-29A9-484C-9923-9CAAA9FDA395}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6717DF31-29A9-484C-9923-9CAAA9FDA395}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -254,6 +260,7 @@ Global
 		{8AB0AA6D-982A-408B-BC2F-618EA2B43076} = {7FE512B7-E1B4-4275-9FBA-916877D3509F}
 		{FD203C11-5F17-4120-B75D-C8E8ABD41C12} = {8AB0AA6D-982A-408B-BC2F-618EA2B43076}
 		{37089079-1563-48EF-A685-86A6C2CAB3CD} = {8AB0AA6D-982A-408B-BC2F-618EA2B43076}
+		{6717DF31-29A9-484C-9923-9CAAA9FDA395} = {C8421BCD-75F3-47F8-85C8-FD47D2807F9C}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {3B52C4A6-734E-450D-8986-22485F07D198}
