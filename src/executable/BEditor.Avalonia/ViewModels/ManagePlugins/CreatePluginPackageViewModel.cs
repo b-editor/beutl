@@ -30,7 +30,7 @@ namespace BEditor.ViewModels.ManagePlugins
             PickDirectory.Subscribe(async () =>
             {
                 var dialog = new OpenFolderDialog();
-                if (await dialog.ShowAsync(App.GetMainWindow()) is var dir && Directory.Exists(dir))
+                if (await dialog.ShowAsync(App.GetMainWindow()) is string dir && Directory.Exists(dir))
                 {
                     OutputDirectory.Value = dir;
                 }

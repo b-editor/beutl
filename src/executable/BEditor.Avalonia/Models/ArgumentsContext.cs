@@ -99,7 +99,7 @@ namespace BEditor.Models
                 };
                 var dir = await dialog.ShowAsync(App.GetMainWindow());
 
-                if (!Directory.Exists(dir)) return;
+                if (!Directory.Exists(dir) || dir == null) return;
 
                 var viewModel = new OpenProjectPackageViewModel(filename);
                 var openDialog = new OpenProjectPackage

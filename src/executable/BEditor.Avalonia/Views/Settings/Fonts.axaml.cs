@@ -20,7 +20,7 @@ namespace BEditor.Views.Settings
                 var dialog = new OpenFolderDialog();
                 var dir = await dialog.ShowAsync(window);
 
-                if (Directory.Exists(dir))
+                if (Directory.Exists(dir) && dir != null)
                 {
                     BEditor.Settings.Default.IncludeFontDir.Add(dir);
                 }

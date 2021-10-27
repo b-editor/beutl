@@ -363,7 +363,7 @@ namespace BEditor.ViewModels
                 };
                 var dir = await dialog.ShowAsync(BEditor.App.GetMainWindow());
 
-                if (!Directory.Exists(dir)) return;
+                if (!Directory.Exists(dir) || dir == null) return;
 
                 var viewModel = new OpenProjectPackageViewModel(filename);
                 var openDialog = new OpenProjectPackage

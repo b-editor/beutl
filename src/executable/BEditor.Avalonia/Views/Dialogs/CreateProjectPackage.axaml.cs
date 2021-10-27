@@ -27,6 +27,8 @@ namespace BEditor.Views.Dialogs
                 };
                 var files = await dialog.ShowAsync(this);
 
+                if (files == null) return;
+
                 foreach (var item in files)
                 {
                     var exist = false;
@@ -50,7 +52,7 @@ namespace BEditor.Views.Dialogs
                 var dialog = new OpenFolderDialog();
                 var folder = await dialog.ShowAsync(App.GetMainWindow());
 
-                if (Directory.Exists(folder))
+                if (Directory.Exists(folder) && folder != null)
                 {
                     vm.Folder.Value = folder;
                     var settings = BEditor.Settings.Default;

@@ -72,7 +72,9 @@
             <TextBlock Text="{Binding Source={x:Static props:Strings.Tag}, StringFormat='{}{0}: '}" />
             <TextBlock Classes="content" Text="{CompiledBinding Package.Value.Tag}" />
 
-            <ctrs:HyperLink Text="{x:Static props:Strings.WebSite}" Command="{CompiledBinding OpenHomePage, Mode=OneWay}" />
+            <ui:HyperlinkButton
+                Content="{x:Static props:Strings.WebSite}"
+                NavigateUri="{CompiledBinding Package.Value.HomePage, Mode=OneWay, Converter={StaticResource StringToUriConverter}}" />
 
         </StackPanel>
     </ScrollViewer>

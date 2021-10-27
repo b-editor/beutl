@@ -62,7 +62,7 @@
                     Command="{CompiledBinding SaveAs, Mode=OneTime}"
                     IsEnabled="{CompiledBinding IsOpened.Value, Mode=OneWay}">
                     <MenuItem.Icon>
-                        <ui:SymbolIcon Symbol="SaveAsCopy" />
+                        <ui:SymbolIcon Symbol="SaveAs" />
                     </MenuItem.Icon>
                 </MenuItem>
 

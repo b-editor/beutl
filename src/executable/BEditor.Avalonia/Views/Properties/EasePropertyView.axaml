@@ -57,21 +57,6 @@
                     <Setter Property="Height" Value="32" />
                     <Setter Property="ShowButtonSpinner" Value="False" />
                 </Style>
-
-                <Style Selector="ButtonSpinner.NumericUpDownButtonSpinnerStyle">
-                    <Setter Property="Background" Value="Transparent" />
-                    <Setter Property="BorderThickness" Value="0,1,0,0" />
-                </Style>
-
-                <Style Selector="ButtonSpinner.NumericUpDownButtonSpinnerStyle:pointerover">
-                    <Setter Property="Background" Value="{DynamicResource TextControlBackgroundPointerOver}" />
-                </Style>
-
-                <Style Selector="NumericUpDown[IsKeyboardFocusWithin=true] /template/ ButtonSpinner#PART_Spinner">
-                    <Setter Property="Background" Value="{DynamicResource TextControlBackgroundFocused}"/>
-                    <Setter Property="BorderBrush" Value="{DynamicResource TextControlBorderBrushFocused}"/>
-                    <Setter Property="BorderThickness" Value="{DynamicResource TextControlBorderThemeThicknessFocused}" />
-                </Style>
             </StackPanel.Styles>
         </StackPanel>
 

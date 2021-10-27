@@ -22,14 +22,13 @@
         <convert:ConfigurationViewModelConverter x:Key="ConfigurationViewModelConverter" />
         <convert:BackgroundTypeConverter x:Key="BackgroundTypeConverter" />
         <convert:FrameToTimeConverter x:Key="FrameToTimeConverter" />
+        <convert:StringToUriConverter x:Key="StringToUriConverter" />
     </Application.Resources>
     <Application.Styles>
         <StyleInclude Source="avares://beditor/Controls/Sidebar.axaml" />
         <StyleInclude Source="avares://beditor/Controls/FluentUiIcons_Filled.axaml" />
         <StyleInclude Source="avares://beditor/Controls/FluentUiIcons_Regular.axaml" />
         <StyleInclude Source="avares://beditor/Views/Settings/SettingsResources.axaml" />
-        <StyleInclude Source="avares://beditor/Controls/HyperLink.axaml" />
-        <StyleInclude Source="avares://beditor/Controls/NumericUpDown.axaml" />
 
         <Style Selector="Expander">
             <Setter Property="Padding" Value="0" />

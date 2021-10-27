@@ -93,7 +93,7 @@ namespace BEditor.ViewModels.Dialogs
             var dialog = new OpenFolderDialog();
             var folder = await dialog.ShowAsync(App.GetMainWindow());
 
-            if (Directory.Exists(folder))
+            if (Directory.Exists(folder) && folder != null)
             {
                 Folder.Value = folder;
                 var settings = BEditor.Settings.Default;

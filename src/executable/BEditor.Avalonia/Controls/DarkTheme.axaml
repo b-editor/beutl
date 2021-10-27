@@ -10,7 +10,6 @@
 
     <FluentTheme Mode="Dark" />
     <sty:FluentAvaloniaTheme
-        ControlsVersion="2"
         DefaultToUserTheme="False"
         GetUserAccentColor="True"
         RequestedTheme="Dark" />

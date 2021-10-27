@@ -36,6 +36,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 using Reactive.Bindings;
+using FluentAvalonia.UI.Controls;
+using FluentAvalonia.Styling;
 
 namespace BEditor
 {

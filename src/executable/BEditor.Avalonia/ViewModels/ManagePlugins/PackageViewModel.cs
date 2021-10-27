@@ -2,8 +2,6 @@
 using System.Linq;
 using System.Reactive.Linq;
 
-using Avalonia.Dialogs;
-
 using BEditor.Models.ManagePlugins;
 using BEditor.Packaging;
 using BEditor.Plugin;
@@ -38,8 +36,6 @@ namespace BEditor.ViewModels.ManagePlugins
                 .ToReadOnlyReactivePropertySlim();
 
             CanSelectVersion = Package.Select(_ => CanInstall.Value || CanUpdate.Value).ToReadOnlyReactivePropertySlim();
-
-            OpenHomePage.Subscribe(_ => AboutAvaloniaDialog.OpenBrowser(Package.Value.HomePage));
 
             SelectedVersion.Value = Package.Value.Versions[0];
 
@@ -95,8 +91,6 @@ namespace BEditor.ViewModels.ManagePlugins
         public ReadOnlyReactivePropertySlim<bool> CanUninstall { get; }
 
         public ReadOnlyReactivePropertySlim<bool> CanSelectVersion { get; }
-
-        public ReactiveCommand OpenHomePage { get; } = new();
 
         public ReactiveProperty<PackageVersion?> SelectedVersion { get; } = new();
 

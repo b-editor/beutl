@@ -11,12 +11,11 @@ using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
-using Avalonia.VisualTree;
 
 using BEditor.Controls;
+using BEditor.LangResources;
 using BEditor.Models;
 using BEditor.Plugin;
-using BEditor.LangResources;
 using BEditor.ViewModels;
 using BEditor.ViewModels.DialogContent;
 using BEditor.Views.DialogContent;

@@ -101,7 +101,7 @@
                                 Command="{CompiledBinding Save, Mode=OneTime}" />
 
                             <ui:MenuFlyoutItem
-                                Icon="SaveAsCopy"
+                                Icon="SaveAs"
                                 Text="{x:Static prop:Strings.SaveAs}"
                                 Command="{CompiledBinding SaveAs, Mode=OneTime}" />
 
