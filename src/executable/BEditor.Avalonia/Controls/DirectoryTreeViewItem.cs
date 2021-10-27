@@ -21,7 +21,7 @@ using Avalonia.Threading;
 using BEditor.Data;
 using BEditor.Models;
 using BEditor.Plugin;
-using BEditor.Properties;
+using BEditor.LangResources;
 using BEditor.ViewModels.DialogContent;
 using BEditor.Views.DialogContent;
 

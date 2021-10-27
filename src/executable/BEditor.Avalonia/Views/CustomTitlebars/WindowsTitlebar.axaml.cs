@@ -16,7 +16,7 @@ using Avalonia.VisualTree;
 using BEditor.Controls;
 using BEditor.Models;
 using BEditor.Plugin;
-using BEditor.Properties;
+using BEditor.LangResources;
 using BEditor.ViewModels;
 using BEditor.ViewModels.DialogContent;
 using BEditor.Views.DialogContent;

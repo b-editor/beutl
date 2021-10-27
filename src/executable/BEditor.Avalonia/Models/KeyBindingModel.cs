@@ -12,7 +12,7 @@ using Avalonia.Input;
 
 using BEditor.ViewModels;
 
-using CommandNames = BEditor.Properties.CommandName;
+using CommandNames = BEditor.LangResources.CommandName;
 using KeyGesture = Avalonia.Input.KeyGesture;
 
 namespace BEditor.Models

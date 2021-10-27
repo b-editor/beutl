@@ -5,7 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 
 using BEditor.Data;
-using BEditor.Properties;
+using BEditor.LangResources;
 
 using Reactive.Bindings;
 

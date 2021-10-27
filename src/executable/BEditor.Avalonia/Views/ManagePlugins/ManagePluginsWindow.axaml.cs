@@ -8,7 +8,7 @@ using Avalonia.Markup.Xaml;
 
 using BEditor.Controls;
 using BEditor.Packaging;
-using BEditor.Properties;
+using BEditor.LangResources;
 using BEditor.ViewModels.ManagePlugins;
 
 using FluentAvalonia.Core;

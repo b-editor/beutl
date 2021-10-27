@@ -19,7 +19,7 @@ namespace BEditor.LangResources {
     // または Visual Studio のようなツールを使用して自動生成されました。
     // メンバーを追加または削除するには、.ResX ファイルを編集して、/str オプションと共に
     // ResGen を実行し直すか、または VS プロジェクトをビルドし直します。
-    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "4.0.0.0")]
+    [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "16.0.0.0")]
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
     public class Strings {
@@ -47,7 +47,7 @@ namespace BEditor.LangResources {
         }
         
         /// <summary>
-        ///   厳密に型指定されたこのリソース クラスを使用して、すべての検索リソースに対し、
+        ///   すべてについて、現在のスレッドの CurrentUICulture プロパティをオーバーライドします
         ///   現在のスレッドの CurrentUICulture プロパティをオーバーライドします。
         /// </summary>
         [global::System.ComponentModel.EditorBrowsableAttribute(global::System.ComponentModel.EditorBrowsableState.Advanced)]
@@ -57,6 +57,15 @@ namespace BEditor.LangResources {
             }
             set {
                 resourceCulture = value;
+            }
+        }
+        
+        /// <summary>
+        ///   Add に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Add {
+            get {
+                return ResourceManager.GetString("Add", resourceCulture);
             }
         }
         
@@ -106,11 +115,56 @@ namespace BEditor.LangResources {
         }
         
         /// <summary>
+        ///   Add a new palette に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string AddNewPalette {
+            get {
+                return ResourceManager.GetString("AddNewPalette", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Add a new scene に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string AddScene {
+            get {
+                return ResourceManager.GetString("AddScene", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Add to color palette に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string AddToColorPalette {
+            get {
+                return ResourceManager.GetString("AddToColorPalette", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Add to list に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string AddToList {
+            get {
+                return ResourceManager.GetString("AddToList", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Adjust coordinates に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string AdjustCoordinates {
             get {
                 return ResourceManager.GetString("AdjustCoordinates", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Adjust length に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string AdjustLengthOfClip {
+            get {
+                return ResourceManager.GetString("AdjustLengthOfClip", resourceCulture);
             }
         }
         
@@ -142,11 +196,40 @@ namespace BEditor.LangResources {
         }
         
         /// <summary>
+        ///   Already cancelled. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string AlreadyCancelled {
+            get {
+                return ResourceManager.GetString("AlreadyCancelled", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Ambient に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Ambient {
             get {
                 return ResourceManager.GetString("Ambient", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   An exception was thrown during rendering,
+        ///so playback was stopped. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string An_exception_was_thrown_during_rendering {
+            get {
+                return ResourceManager.GetString("An exception was thrown during rendering", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   An exception was thrown during rendering, so the preview was temporarily stopped,
+        ///and will be released after 5 seconds. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string An_exception_was_thrown_during_rendering_preview {
+            get {
+                return ResourceManager.GetString("An exception was thrown during rendering preview", resourceCulture);
             }
         }
         
@@ -165,6 +248,24 @@ namespace BEditor.LangResources {
         public static string Angle {
             get {
                 return ResourceManager.GetString("Angle", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Appearance に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Appearance {
+            get {
+                return ResourceManager.GetString("Appearance", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Apply に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Apply {
+            get {
+                return ResourceManager.GetString("Apply", resourceCulture);
             }
         }
         
@@ -192,6 +293,15 @@ namespace BEditor.LangResources {
         public static string AreaExpansion {
             get {
                 return ResourceManager.GetString("AreaExpansion", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Assembly File に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string AssemblyFile {
+            get {
+                return ResourceManager.GetString("AssemblyFile", resourceCulture);
             }
         }
         
@@ -232,11 +342,74 @@ namespace BEditor.LangResources {
         }
         
         /// <summary>
+        ///   Audio files に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string AudioFiles {
+            get {
+                return ResourceManager.GetString("AudioFiles", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Audio profile に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string AudioProfile {
+            get {
+                return ResourceManager.GetString("AudioProfile", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Author に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Author {
+            get {
+                return ResourceManager.GetString("Author", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Back に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Back {
+            get {
+                return ResourceManager.GetString("Back", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Background に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Background {
+            get {
+                return ResourceManager.GetString("Background", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Background color に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string BackgroundColor {
             get {
                 return ResourceManager.GetString("BackgroundColor", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Backup file に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string BackupFile {
+            get {
+                return ResourceManager.GetString("BackupFile", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Backup interval (min) に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string BackupInterval {
+            get {
+                return ResourceManager.GetString("BackupInterval", resourceCulture);
             }
         }
         
@@ -268,11 +441,29 @@ namespace BEditor.LangResources {
         }
         
         /// <summary>
+        ///   Bind に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Bind {
+            get {
+                return ResourceManager.GetString("Bind", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Bind the value of the property に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string BindCommand {
             get {
                 return ResourceManager.GetString("BindCommand", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Black に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Black {
+            get {
+                return ResourceManager.GetString("Black", resourceCulture);
             }
         }
         
@@ -394,11 +585,56 @@ namespace BEditor.LangResources {
         }
         
         /// <summary>
+        ///   By clicking &quot;Modify&quot;, you agree with the above license terms (if any) and the installation of any prerequisites. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string ByClickingModify {
+            get {
+                return ResourceManager.GetString("ByClickingModify", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Cache に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Cache {
+            get {
+                return ResourceManager.GetString("Cache", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Camera に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Camera {
             get {
                 return ResourceManager.GetString("Camera", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Cancel に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Cancel {
+            get {
+                return ResourceManager.GetString("Cancel", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Cannot delete any more. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string CannotDeleteAnyMore {
+            get {
+                return ResourceManager.GetString("CannotDeleteAnyMore", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Category に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Category {
+            get {
+                return ResourceManager.GetString("Category", resourceCulture);
             }
         }
         
@@ -457,6 +693,15 @@ namespace BEditor.LangResources {
         }
         
         /// <summary>
+        ///   Change failed. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string ChangeFailed {
+            get {
+                return ResourceManager.GetString("ChangeFailed", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Change file に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string ChangeFile {
@@ -511,11 +756,38 @@ namespace BEditor.LangResources {
         }
         
         /// <summary>
+        ///   Change password に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string ChangePassword {
+            get {
+                return ResourceManager.GetString("ChangePassword", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Changes に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Changes {
+            get {
+                return ResourceManager.GetString("Changes", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Change selected item に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string ChangeSelectItem {
             get {
                 return ResourceManager.GetString("ChangeSelectItem", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Change succeeded. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string ChangeSucceeded {
+            get {
+                return ResourceManager.GetString("ChangeSucceeded", resourceCulture);
             }
         }
         
@@ -543,6 +815,24 @@ namespace BEditor.LangResources {
         public static string CharacterSpacing {
             get {
                 return ResourceManager.GetString("CharacterSpacing", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Checkered (Dark) に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string CheckDark {
+            get {
+                return ResourceManager.GetString("CheckDark", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Checkered (Light) に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string CheckLight {
+            get {
+                return ResourceManager.GetString("CheckLight", resourceCulture);
             }
         }
         
@@ -583,6 +873,15 @@ namespace BEditor.LangResources {
         }
         
         /// <summary>
+        ///   Clear cache に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string ClearCache {
+            get {
+                return ResourceManager.GetString("ClearCache", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Clear the frame buffer に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string ClearFramebuffer {
@@ -592,11 +891,74 @@ namespace BEditor.LangResources {
         }
         
         /// <summary>
+        ///   Clip に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Clip {
+            get {
+                return ResourceManager.GetString("Clip", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Cannot place a new clip because a clip already exists in the specified location. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string ClipExistsInTheSpecifiedLocation {
+            get {
+                return ResourceManager.GetString("ClipExistsInTheSpecifiedLocation", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Clip height に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string ClipHeight {
+            get {
+                return ResourceManager.GetString("ClipHeight", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Id of the clip に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string ClipId {
+            get {
+                return ResourceManager.GetString("ClipId", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Clip infomation に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string ClipInfo {
+            get {
+                return ResourceManager.GetString("ClipInfo", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Clipping に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Clipping {
             get {
                 return ResourceManager.GetString("Clipping", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Close に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Close {
+            get {
+                return ResourceManager.GetString("Close", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Codec に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Codec {
+            get {
+                return ResourceManager.GetString("Codec", resourceCulture);
             }
         }
         
@@ -628,11 +990,85 @@ namespace BEditor.LangResources {
         }
         
         /// <summary>
+        ///   Color palette に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string ColorPalette {
+            get {
+                return ResourceManager.GetString("ColorPalette", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Color picker に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string ColorPicker {
+            get {
+                return ResourceManager.GetString("ColorPicker", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Colors に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Colors {
             get {
                 return ResourceManager.GetString("Colors", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   This operation can not be undone
+        ///Do you want to perform the operation? に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string CommandQ1 {
+            get {
+                return ResourceManager.GetString("CommandQ1", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   The change has been completed.
+        ///Click &quot;Close&quot; to exit. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string CompleteChangesClickToExit {
+            get {
+                return ResourceManager.GetString("CompleteChangesClickToExit", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Component is extracted and placed. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string ComponentIsExtractedAndPlaced {
+            get {
+                return ResourceManager.GetString("ComponentIsExtractedAndPlaced", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Configuration に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Configuration {
+            get {
+                return ResourceManager.GetString("Configuration", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Confirm new password に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string ConfirmNewPassword {
+            get {
+                return ResourceManager.GetString("ConfirmNewPassword", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Container format に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string ContainerFormat {
+            get {
+                return ResourceManager.GetString("ContainerFormat", resourceCulture);
             }
         }
         
@@ -655,11 +1091,119 @@ namespace BEditor.LangResources {
         }
         
         /// <summary>
+        ///   Convert to json format に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string ConvertJson {
+            get {
+                return ResourceManager.GetString("ConvertJson", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Convert video に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string ConvertVideo {
+            get {
+                return ResourceManager.GetString("ConvertVideo", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Coordinate に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Coordinate {
             get {
                 return ResourceManager.GetString("Coordinate", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Copy に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Copy {
+            get {
+                return ResourceManager.GetString("Copy", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Copy the ID に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string CopyID {
+            get {
+                return ResourceManager.GetString("CopyID", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Could not create folder. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string CouldNotCreateFolder {
+            get {
+                return ResourceManager.GetString("CouldNotCreateFolder", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Could not create the package. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string CouldNotCreatePackage {
+            get {
+                return ResourceManager.GetString("CouldNotCreatePackage", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Create に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Create {
+            get {
+                return ResourceManager.GetString("Create", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Create cache に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string CreateCache {
+            get {
+                return ResourceManager.GetString("CreateCache", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Create from backup file に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string CreateFromBackup {
+            get {
+                return ResourceManager.GetString("CreateFromBackup", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Create a plugin package に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string CreatePluginPackage {
+            get {
+                return ResourceManager.GetString("CreatePluginPackage", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Create a project に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string CreateProject {
+            get {
+                return ResourceManager.GetString("CreateProject", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Create a scene に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string CreateScene {
+            get {
+                return ResourceManager.GetString("CreateScene", resourceCulture);
             }
         }
         
@@ -687,6 +1231,15 @@ namespace BEditor.LangResources {
         public static string CubeFile {
             get {
                 return ResourceManager.GetString("CubeFile", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Cut に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Cut {
+            get {
+                return ResourceManager.GetString("Cut", resourceCulture);
             }
         }
         
@@ -736,6 +1289,15 @@ namespace BEditor.LangResources {
         }
         
         /// <summary>
+        ///   Delete に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Delete {
+            get {
+                return ResourceManager.GetString("Delete", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   A buffer name is invalid. に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string DeleteBufferInvalidName {
@@ -763,6 +1325,15 @@ namespace BEditor.LangResources {
         }
         
         /// <summary>
+        ///   Delet recorded commands に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string DeleteCommand {
+            get {
+                return ResourceManager.GetString("DeleteCommand", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   At least one specified source is not valid, or an attempt is being made to delete more sources than exist. に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string DeleteSourceInvalidName {
@@ -777,6 +1348,15 @@ namespace BEditor.LangResources {
         public static string DeleteSourceInvalidOperation {
             get {
                 return ResourceManager.GetString("DeleteSourceInvalidOperation", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Dependency に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Dependency {
+            get {
+                return ResourceManager.GetString("Dependency", resourceCulture);
             }
         }
         
@@ -817,6 +1397,15 @@ namespace BEditor.LangResources {
         }
         
         /// <summary>
+        ///   Description に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Description {
+            get {
+                return ResourceManager.GetString("Description", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Diffuse に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Diffuse {
@@ -844,7 +1433,7 @@ namespace BEditor.LangResources {
         }
         
         /// <summary>
-        ///   Disconnect property value に類似しているローカライズされた文字列を検索します。
+        ///   Disconnect に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Disconnect {
             get {
@@ -862,11 +1451,83 @@ namespace BEditor.LangResources {
         }
         
         /// <summary>
+        ///   Don&apos;t save に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string DontSave {
+            get {
+                return ResourceManager.GetString("DontSave", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Change the order of the effects (below) に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string DownEffect {
             get {
                 return ResourceManager.GetString("DownEffect", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Download に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Download {
+            get {
+                return ResourceManager.GetString("Download", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Downloading に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Downloading {
+            get {
+                return ResourceManager.GetString("Downloading", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Downloading the required components. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string DownloadingRequiredComponents {
+            get {
+                return ResourceManager.GetString("DownloadingRequiredComponents", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Do you want to delete the palette? に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string DoYouWantToDeleteThePalette {
+            get {
+                return ResourceManager.GetString("DoYouWantToDeleteThePalette", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Do you want to remove this directory? に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string DoYouWantToRemoveThisDirectory {
+            get {
+                return ResourceManager.GetString("DoYouWantToRemoveThisDirectory", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Do you want to remove this file? に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string DoYouWantToRemoveThisFile {
+            get {
+                return ResourceManager.GetString("DoYouWantToRemoveThisFile", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Do you want to save your changes to {0}? に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string DoYouWantToSaveYourChangesTo {
+            get {
+                return ResourceManager.GetString("DoYouWantToSaveYourChangesTo", resourceCulture);
             }
         }
         
@@ -889,11 +1550,47 @@ namespace BEditor.LangResources {
         }
         
         /// <summary>
+        ///   Edit に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Edit {
+            get {
+                return ResourceManager.GetString("Edit", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Effect に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Effect {
+            get {
+                return ResourceManager.GetString("Effect", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Effect file に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string EffectFile {
+            get {
+                return ResourceManager.GetString("EffectFile", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Ellipse に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Ellipse {
             get {
                 return ResourceManager.GetString("Ellipse", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Email に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Email {
+            get {
+                return ResourceManager.GetString("Email", resourceCulture);
             }
         }
         
@@ -925,6 +1622,52 @@ namespace BEditor.LangResources {
         }
         
         /// <summary>
+        ///   Encoder に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Encoder {
+            get {
+                return ResourceManager.GetString("Encoder", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   The encoder is not set.
+        ///After the encoder is set, the detailed settings will be displayed. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string EncoderIsNotSet {
+            get {
+                return ResourceManager.GetString("EncoderIsNotSet", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Encoder not found. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string EncoderNotFound {
+            get {
+                return ResourceManager.GetString("EncoderNotFound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Encoder settings に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string EncoderSettings {
+            get {
+                return ResourceManager.GetString("EncoderSettings", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   End frame に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string End {
+            get {
+                return ResourceManager.GetString("End", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   End point に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string EndPoint {
@@ -939,6 +1682,24 @@ namespace BEditor.LangResources {
         public static string Erode {
             get {
                 return ResourceManager.GetString("Erode", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Select a {0} or its child elements に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string ErrorObjectViewer1 {
+            get {
+                return ResourceManager.GetString("ErrorObjectViewer1", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Please select {0} に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string ErrorObjectViewer2 {
+            get {
+                return ResourceManager.GetString("ErrorObjectViewer2", resourceCulture);
             }
         }
         
@@ -961,11 +1722,56 @@ namespace BEditor.LangResources {
         }
         
         /// <summary>
+        ///   {0} was thrown. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string ExceptionWasThrown {
+            get {
+                return ResourceManager.GetString("ExceptionWasThrown", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Extracting files に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string ExtractingFiles {
+            get {
+                return ResourceManager.GetString("ExtractingFiles", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Failed changes に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string FailedChanges {
+            get {
+                return ResourceManager.GetString("FailedChanges", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Failed to {0}. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string FailedTo {
+            get {
+                return ResourceManager.GetString("FailedTo", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Failed to convert value. に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string FailedToConvertValue {
             get {
                 return ResourceManager.GetString("FailedToConvertValue", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Failed to install {0}. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string FailedToInstall {
+            get {
+                return ResourceManager.GetString("FailedToInstall", resourceCulture);
             }
         }
         
@@ -979,11 +1785,29 @@ namespace BEditor.LangResources {
         }
         
         /// <summary>
+        ///   Failed to pack project に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string FailedToPackProject {
+            get {
+                return ResourceManager.GetString("FailedToPackProject", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Failed to remove. に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string FailedToRemove {
             get {
                 return ResourceManager.GetString("FailedToRemove", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Failed to save. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string FailedToSave {
+            get {
+                return ResourceManager.GetString("FailedToSave", resourceCulture);
             }
         }
         
@@ -997,6 +1821,16 @@ namespace BEditor.LangResources {
         }
         
         /// <summary>
+        ///   The file does not exist.
+        ///Do you want to remove it from the list? に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string FileDoesNotExistRemoveItFromList {
+            get {
+                return ResourceManager.GetString("FileDoesNotExistRemoveItFromList", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Please specify the extension. に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string FileExtension {
@@ -1006,11 +1840,38 @@ namespace BEditor.LangResources {
         }
         
         /// <summary>
+        ///   File not found. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string FileNotFound {
+            get {
+                return ResourceManager.GetString("FileNotFound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   The file has been saved に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string FileSaved {
+            get {
+                return ResourceManager.GetString("FileSaved", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Fit to original size に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string FitToOriginalSize {
             get {
                 return ResourceManager.GetString("FitToOriginalSize", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Fix the seek bar during playback に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string FixSeekbar {
+            get {
+                return ResourceManager.GetString("FixSeekbar", resourceCulture);
             }
         }
         
@@ -1051,6 +1912,24 @@ namespace BEditor.LangResources {
         }
         
         /// <summary>
+        ///   Forgot your password? に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string ForgotYourPassword {
+            get {
+                return ResourceManager.GetString("ForgotYourPassword", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Format に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Format {
+            get {
+                return ResourceManager.GetString("Format", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   The {0} format string is not supported. に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string FormetException {
@@ -1083,6 +1962,15 @@ namespace BEditor.LangResources {
         public static string Framebuffer {
             get {
                 return ResourceManager.GetString("Framebuffer", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Framerate に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Framerate {
+            get {
+                return ResourceManager.GetString("Framerate", resourceCulture);
             }
         }
         
@@ -1159,6 +2047,15 @@ namespace BEditor.LangResources {
         }
         
         /// <summary>
+        ///   General に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string General {
+            get {
+                return ResourceManager.GetString("General", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   There is no context to create sources in. に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string GenSourceInvalidOperation {
@@ -1213,6 +2110,15 @@ namespace BEditor.LangResources {
         }
         
         /// <summary>
+        ///   Get the path に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string GetPath {
+            get {
+                return ResourceManager.GetString("GetPath", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   3D object に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string GL3DObject {
@@ -1222,11 +2128,58 @@ namespace BEditor.LangResources {
         }
         
         /// <summary>
+        ///   Go to main window に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string GoToMainWindow {
+            get {
+                return ResourceManager.GetString("GoToMainWindow", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Gradient に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Gradient {
             get {
                 return ResourceManager.GetString("Gradient", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Graphics profile に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string GraphicsProfile {
+            get {
+                return ResourceManager.GetString("GraphicsProfile", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   OpenGL: 
+        ///- Renders using &quot;OpenGL&quot;.
+        ///
+        ///Skia:
+        ///- Renders using &quot;Skia&quot;.
+        ///- 3D drawing is not supported.
+        ///- Materials, lights, and cameras are not available.
+        ///
+        ///Direct3D 11:
+        ///- Renders using &quot;Direct3D 11&quot;.
+        ///- For Windows.
+        ///- The lighting is not yet implemented.
+        ///
+        ///Metal:
+        ///- Renders using &quot;Metal&quot;.
+        ///- For macOS.
+        ///- The lighting is not yet implemented.
+        ///
+        ///Vulkan: 
+        ///- Renders using &quot;Vulkan&quot;.
+        ///- The lighting is not yet implemented. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string GraphicsProfileDescription {
+            get {
+                return ResourceManager.GetString("GraphicsProfileDescription", resourceCulture);
             }
         }
         
@@ -1254,6 +2207,15 @@ namespace BEditor.LangResources {
         public static string Height {
             get {
                 return ResourceManager.GetString("Height", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Help に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Help {
+            get {
+                return ResourceManager.GetString("Help", resourceCulture);
             }
         }
         
@@ -1303,11 +2265,29 @@ namespace BEditor.LangResources {
         }
         
         /// <summary>
+        ///   Image output に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string ImageOutput {
+            get {
+                return ResourceManager.GetString("ImageOutput", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Image splitting に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string ImageSplit {
             get {
                 return ResourceManager.GetString("ImageSplit", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Infomation に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Infomation {
+            get {
+                return ResourceManager.GetString("Infomation", resourceCulture);
             }
         }
         
@@ -1321,11 +2301,75 @@ namespace BEditor.LangResources {
         }
         
         /// <summary>
+        ///   Install に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Install {
+            get {
+                return ResourceManager.GetString("Install", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Installed に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Installed {
+            get {
+                return ResourceManager.GetString("Installed", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Installing に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Installing {
+            get {
+                return ResourceManager.GetString("Installing", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Install later に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string InstallLater {
+            get {
+                return ResourceManager.GetString("InstallLater", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Install now に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string InstallNow {
+            get {
+                return ResourceManager.GetString("InstallNow", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Install the required plugins に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string InstallRequiredPlugins {
+            get {
+                return ResourceManager.GetString("InstallRequiredPlugins", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   An unacceptable value is specified for an enumerated argument. に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string InvalidEnum {
             get {
                 return ResourceManager.GetString("InvalidEnum", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Invalid Id.
+        ///GUID and UUID can be used for Id. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string InvalidIdCanUseGUIDAndUUID {
+            get {
+                return ResourceManager.GetString("InvalidIdCanUseGUIDAndUUID", resourceCulture);
             }
         }
         
@@ -1366,6 +2410,24 @@ namespace BEditor.LangResources {
         }
         
         /// <summary>
+        ///   {0} is checking. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string IsChecking {
+            get {
+                return ResourceManager.GetString("IsChecking", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   {0} is loading. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string IsLoading {
+            get {
+                return ResourceManager.GetString("IsLoading", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Join type に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string JoinType {
@@ -1393,6 +2455,24 @@ namespace BEditor.LangResources {
         }
         
         /// <summary>
+        ///   Key に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Key {
+            get {
+                return ResourceManager.GetString("Key", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Key bindings に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string KeyBindings {
+            get {
+                return ResourceManager.GetString("KeyBindings", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   The keyframe has been moved out of range.
         ///{0} -&gt; {1} に類似しているローカライズされた文字列を検索します。
         /// </summary>
@@ -1408,6 +2488,51 @@ namespace BEditor.LangResources {
         public static string KeyHasAlreadyBeenRegisterd {
             get {
                 return ResourceManager.GetString("KeyHasAlreadyBeenRegisterd", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Language に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Language {
+            get {
+                return ResourceManager.GetString("Language", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Latest version に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string LatestVersion {
+            get {
+                return ResourceManager.GetString("LatestVersion", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Layer に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Layer {
+            get {
+                return ResourceManager.GetString("Layer", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Layer Thickness に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string LayerThickness {
+            get {
+                return ResourceManager.GetString("LayerThickness", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Learn how to use に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string LearnHowToUse {
+            get {
+                return ResourceManager.GetString("LearnHowToUse", resourceCulture);
             }
         }
         
@@ -1435,6 +2560,24 @@ namespace BEditor.LangResources {
         public static string LessThan {
             get {
                 return ResourceManager.GetString("LessThan", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Library に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Library {
+            get {
+                return ResourceManager.GetString("Library", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   License に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string License {
+            get {
+                return ResourceManager.GetString("License", resourceCulture);
             }
         }
         
@@ -1475,11 +2618,65 @@ namespace BEditor.LangResources {
         }
         
         /// <summary>
+        ///   Location に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Location {
+            get {
+                return ResourceManager.GetString("Location", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Log に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Log {
+            get {
+                return ResourceManager.GetString("Log", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Lookup table に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string LookupTable {
             get {
                 return ResourceManager.GetString("LookupTable", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Lower color reproduction に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string LowerColorReproduction {
+            get {
+                return ResourceManager.GetString("LowerColorReproduction", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Lower resolution に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string LowerResolution {
+            get {
+                return ResourceManager.GetString("LowerResolution", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Machine translation に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string MachineTranslation {
+            get {
+                return ResourceManager.GetString("MachineTranslation", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Manage Plugins に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string ManagePlugins {
+            get {
+                return ResourceManager.GetString("ManagePlugins", resourceCulture);
             }
         }
         
@@ -1511,6 +2708,15 @@ namespace BEditor.LangResources {
         }
         
         /// <summary>
+        ///   Maximize に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Maximize {
+            get {
+                return ResourceManager.GetString("Maximize", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Median blur に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string MedianBlur {
@@ -1520,11 +2726,38 @@ namespace BEditor.LangResources {
         }
         
         /// <summary>
+        ///   Memory release に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string MemoryRelease {
+            get {
+                return ResourceManager.GetString("MemoryRelease", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Message by {0} に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string MessageBy {
             get {
                 return ResourceManager.GetString("MessageBy", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Metadata に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Metadata {
+            get {
+                return ResourceManager.GetString("Metadata", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Minimize に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Minimize {
+            get {
+                return ResourceManager.GetString("Minimize", resourceCulture);
             }
         }
         
@@ -1552,6 +2785,15 @@ namespace BEditor.LangResources {
         public static string Mode {
             get {
                 return ResourceManager.GetString("Mode", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Modify に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Modify {
+            get {
+                return ResourceManager.GetString("Modify", resourceCulture);
             }
         }
         
@@ -1592,6 +2834,51 @@ namespace BEditor.LangResources {
         }
         
         /// <summary>
+        ///   Move to end に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string MoveToEnd {
+            get {
+                return ResourceManager.GetString("MoveToEnd", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Move to the next frame に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string MoveToNextFrame {
+            get {
+                return ResourceManager.GetString("MoveToNextFrame", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Move to previous frame に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string MoveToPreviousFrame {
+            get {
+                return ResourceManager.GetString("MoveToPreviousFrame", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Move to the specified frame. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string MoveToSpecifiedFrame {
+            get {
+                return ResourceManager.GetString("MoveToSpecifiedFrame", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Move to top に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string MoveToTop {
+            get {
+                return ResourceManager.GetString("MoveToTop", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Multiple Image Control に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string MultipleImageControls {
@@ -1610,6 +2897,15 @@ namespace BEditor.LangResources {
         }
         
         /// <summary>
+        ///   Name に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Name {
+            get {
+                return ResourceManager.GetString("Name", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Negaposi に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Negaposi {
@@ -1619,11 +2915,92 @@ namespace BEditor.LangResources {
         }
         
         /// <summary>
+        ///   New に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string New {
+            get {
+                return ResourceManager.GetString("New", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   New folder に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string NewFolder {
+            get {
+                return ResourceManager.GetString("NewFolder", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   New password に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string NewPassword {
+            get {
+                return ResourceManager.GetString("NewPassword", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Next に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Next {
+            get {
+                return ResourceManager.GetString("Next", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   No に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string No {
+            get {
+                return ResourceManager.GetString("No", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   No clip is selected. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string NoClipIsSelected {
+            get {
+                return ResourceManager.GetString("NoClipIsSelected", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Noise に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Noise {
             get {
                 return ResourceManager.GetString("Noise", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   None に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string None {
+            get {
+                return ResourceManager.GetString("None", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   The package was not found in the registered package sources. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string NotFoundPackageFromRegisteredPackageSource {
+            get {
+                return ResourceManager.GetString("NotFoundPackageFromRegisteredPackageSource", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Not supported formats. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string NotSupportedFormats {
+            get {
+                return ResourceManager.GetString("NotSupportedFormats", resourceCulture);
             }
         }
         
@@ -1664,6 +3041,33 @@ namespace BEditor.LangResources {
         }
         
         /// <summary>
+        ///   Object file に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string ObjectFile {
+            get {
+                return ResourceManager.GetString("ObjectFile", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Objects に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Objects {
+            get {
+                return ResourceManager.GetString("Objects", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   OK に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string OK {
+            get {
+                return ResourceManager.GetString("OK", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Opacity に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Opacity {
@@ -1673,11 +3077,111 @@ namespace BEditor.LangResources {
         }
         
         /// <summary>
+        ///   Open に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Open {
+            get {
+                return ResourceManager.GetString("Open", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   OpenAL was not found.
+        ///Please install it. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string OpenALNotFound {
+            get {
+                return ResourceManager.GetString("OpenALNotFound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Operate に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Operate {
+            get {
+                return ResourceManager.GetString("Operate", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Optimization に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Optimization {
+            get {
+                return ResourceManager.GetString("Optimization", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Others に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Others {
+            get {
+                return ResourceManager.GetString("Others", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Output に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Out {
+            get {
+                return ResourceManager.GetString("Out", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   There is not enough memory left to execute the command. に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string OutOfMemory {
             get {
                 return ResourceManager.GetString("OutOfMemory", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Output に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Output {
+            get {
+                return ResourceManager.GetString("Output", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Output directory に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string OutputDirectory {
+            get {
+                return ResourceManager.GetString("OutputDirectory", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Outputs に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Outputs {
+            get {
+                return ResourceManager.GetString("Outputs", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Package source に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string PackageSource {
+            get {
+                return ResourceManager.GetString("PackageSource", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Packing the project に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string PackingTheProject {
+            get {
+                return ResourceManager.GetString("PackingTheProject", resourceCulture);
             }
         }
         
@@ -1718,6 +3222,15 @@ namespace BEditor.LangResources {
         }
         
         /// <summary>
+        ///   Palette not selected に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string PaletteNotSelected {
+            get {
+                return ResourceManager.GetString("PaletteNotSelected", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Parent element not found. に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string ParentElementNotFound {
@@ -1736,11 +3249,56 @@ namespace BEditor.LangResources {
         }
         
         /// <summary>
+        ///   Password に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Password {
+            get {
+                return ResourceManager.GetString("Password", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Password are not matching に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string PasswordAreNotMatching {
+            get {
+                return ResourceManager.GetString("PasswordAreNotMatching", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Paste に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Paste {
+            get {
+                return ResourceManager.GetString("Paste", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Path に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Path {
+            get {
+                return ResourceManager.GetString("Path", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Path to the image object に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string PathToImageObject {
             get {
                 return ResourceManager.GetString("PathToImageObject", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Pause に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Pause {
+            get {
+                return ResourceManager.GetString("Pause", resourceCulture);
             }
         }
         
@@ -1772,6 +3330,60 @@ namespace BEditor.LangResources {
         }
         
         /// <summary>
+        ///   Play に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Play {
+            get {
+                return ResourceManager.GetString("Play", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Playing に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Playing {
+            get {
+                return ResourceManager.GetString("Playing", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Play/Pause に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string PlayPause {
+            get {
+                return ResourceManager.GetString("PlayPause", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Please enter {0}. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string PleaseEnter {
+            get {
+                return ResourceManager.GetString("PleaseEnter", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Plugin に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Plugin {
+            get {
+                return ResourceManager.GetString("Plugin", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Plugins に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Plugins {
+            get {
+                return ResourceManager.GetString("Plugins", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Point light diffuse に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string PointLightDiffuse {
@@ -1799,6 +3411,24 @@ namespace BEditor.LangResources {
         }
         
         /// <summary>
+        ///   Preset に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Preset {
+            get {
+                return ResourceManager.GetString("Preset", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Preview に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Preview {
+            get {
+                return ResourceManager.GetString("Preview", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Primitive に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Primitive {
@@ -1808,11 +3438,74 @@ namespace BEditor.LangResources {
         }
         
         /// <summary>
+        ///   Primitive (deprecated) に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string PrimitiveEasing {
+            get {
+                return ResourceManager.GetString("PrimitiveEasing", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Project に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Project {
+            get {
+                return ResourceManager.GetString("Project", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Project file に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string ProjectFile {
             get {
                 return ResourceManager.GetString("ProjectFile", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Project Location に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string ProjectLocation {
+            get {
+                return ResourceManager.GetString("ProjectLocation", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Project package に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string ProjectPackage {
+            get {
+                return ResourceManager.GetString("ProjectPackage", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Projects に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Projects {
+            get {
+                return ResourceManager.GetString("Projects", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Show/hide property に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string PropertyShowHide {
+            get {
+                return ResourceManager.GetString("PropertyShowHide", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Publish に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Publish {
+            get {
+                return ResourceManager.GetString("Publish", resourceCulture);
             }
         }
         
@@ -1835,6 +3528,42 @@ namespace BEditor.LangResources {
         }
         
         /// <summary>
+        ///   Enter a value of {0} or greater. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string RangeAbove {
+            get {
+                return ResourceManager.GetString("RangeAbove", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Recent files に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string RecentFiles {
+            get {
+                return ResourceManager.GetString("RecentFiles", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Recent fonts に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string RecentFonts {
+            get {
+                return ResourceManager.GetString("RecentFonts", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   RecentProject に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string RecentProject {
+            get {
+                return ResourceManager.GetString("RecentProject", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Rectangle に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Rectangle {
@@ -1849,6 +3578,33 @@ namespace BEditor.LangResources {
         public static string Red {
             get {
                 return ResourceManager.GetString("Red", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Redo に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Redo {
+            get {
+                return ResourceManager.GetString("Redo", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Reload に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Reload {
+            get {
+                return ResourceManager.GetString("Reload", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Remove に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Remove {
+            get {
+                return ResourceManager.GetString("Remove", resourceCulture);
             }
         }
         
@@ -1916,11 +3672,56 @@ namespace BEditor.LangResources {
         }
         
         /// <summary>
+        ///   Required plugins に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string RequiredPlugins {
+            get {
+                return ResourceManager.GetString("RequiredPlugins", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Reset に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Reset {
+            get {
+                return ResourceManager.GetString("Reset", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Reset layout に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string ResetLayout {
+            get {
+                return ResourceManager.GetString("ResetLayout", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Resize に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Resize {
             get {
                 return ResourceManager.GetString("Resize", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Restore Down に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string RestoreDown {
+            get {
+                return ResourceManager.GetString("RestoreDown", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Retry に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Retry {
+            get {
+                return ResourceManager.GetString("Retry", resourceCulture);
             }
         }
         
@@ -2015,11 +3816,83 @@ namespace BEditor.LangResources {
         }
         
         /// <summary>
+        ///   Samplingrate に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Samplingrate {
+            get {
+                return ResourceManager.GetString("Samplingrate", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Saturation range に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string SaturationRange {
             get {
                 return ResourceManager.GetString("SaturationRange", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Save に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Save {
+            get {
+                return ResourceManager.GetString("Save", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Save as に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string SaveAs {
+            get {
+                return ResourceManager.GetString("SaveAs", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Save full path に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string SaveFullPath {
+            get {
+                return ResourceManager.GetString("SaveFullPath", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Save the path relative to the selected path from the project に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string SavePathRelativeToSelectedPathFromProject {
+            get {
+                return ResourceManager.GetString("SavePathRelativeToSelectedPathFromProject", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Save the position as a frame number に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string SavePositionAsFrameNumber {
+            get {
+                return ResourceManager.GetString("SavePositionAsFrameNumber", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Save the position as a percentage に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string SavePositionAsPercentage {
+            get {
+                return ResourceManager.GetString("SavePositionAsPercentage", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Save to storage に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string SaveToStorage {
+            get {
+                return ResourceManager.GetString("SaveToStorage", resourceCulture);
             }
         }
         
@@ -2051,11 +3924,47 @@ namespace BEditor.LangResources {
         }
         
         /// <summary>
+        ///   Setting the current scene に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string SceneSettings {
+            get {
+                return ResourceManager.GetString("SceneSettings", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Seach に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Search {
+            get {
+                return ResourceManager.GetString("Search", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Search for the decoder に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string SearchForDecoder {
             get {
                 return ResourceManager.GetString("SearchForDecoder", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Select a location to unpack the project に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string SelectLocationToUnpackProject {
+            get {
+                return ResourceManager.GetString("SelectLocationToUnpackProject", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Separate に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Separate {
+            get {
+                return ResourceManager.GetString("Separate", resourceCulture);
             }
         }
         
@@ -2074,6 +3983,33 @@ namespace BEditor.LangResources {
         public static string SetAlignment {
             get {
                 return ResourceManager.GetString("SetAlignment", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Set maximum frame に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string SetMaximumFrame {
+            get {
+                return ResourceManager.GetString("SetMaximumFrame", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Settings に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Settings {
+            get {
+                return ResourceManager.GetString("Settings", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Setup に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Setup {
+            get {
+                return ResourceManager.GetString("Setup", resourceCulture);
             }
         }
         
@@ -2105,6 +4041,51 @@ namespace BEditor.LangResources {
         }
         
         /// <summary>
+        ///   Short Description に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string ShortDescription {
+            get {
+                return ResourceManager.GetString("ShortDescription", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Short Update Notes に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string ShortUpdateNote {
+            get {
+                return ResourceManager.GetString("ShortUpdateNote", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Show に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Show {
+            get {
+                return ResourceManager.GetString("Show", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Show start window. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string ShowStartWindow {
+            get {
+                return ResourceManager.GetString("ShowStartWindow", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Shutdown に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Shutdown {
+            get {
+                return ResourceManager.GetString("Shutdown", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Sigma x に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string SigmaX {
@@ -2123,6 +4104,33 @@ namespace BEditor.LangResources {
         }
         
         /// <summary>
+        ///   Signin に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Signin {
+            get {
+                return ResourceManager.GetString("Signin", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Signout に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Signout {
+            get {
+                return ResourceManager.GetString("Signout", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Signup に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Signup {
+            get {
+                return ResourceManager.GetString("Signup", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Size に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Size {
@@ -2137,6 +4145,15 @@ namespace BEditor.LangResources {
         public static string Solarisation {
             get {
                 return ResourceManager.GetString("Solarisation", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Some functions are not available. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string SomeFunctionsAreNotAvailable_ {
+            get {
+                return ResourceManager.GetString("SomeFunctionsAreNotAvailable.", resourceCulture);
             }
         }
         
@@ -2195,6 +4212,15 @@ namespace BEditor.LangResources {
         }
         
         /// <summary>
+        ///   The specified clip is not found. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string SpecifiedClipIsNotFound {
+            get {
+                return ResourceManager.GetString("SpecifiedClipIsNotFound", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Specular に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Specular {
@@ -2222,7 +4248,7 @@ namespace BEditor.LangResources {
         }
         
         /// <summary>
-        ///   Start に類似しているローカライズされた文字列を検索します。
+        ///   Start frame に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Start {
             get {
@@ -2267,11 +4293,29 @@ namespace BEditor.LangResources {
         }
         
         /// <summary>
+        ///   Strong に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Strong {
+            get {
+                return ResourceManager.GetString("Strong", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Subtract に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Subtract {
             get {
                 return ResourceManager.GetString("Subtract", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Successful changes に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string SuccessfulChanges {
+            get {
+                return ResourceManager.GetString("SuccessfulChanges", resourceCulture);
             }
         }
         
@@ -2303,6 +4347,15 @@ namespace BEditor.LangResources {
         }
         
         /// <summary>
+        ///   Tag に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Tag {
+            get {
+                return ResourceManager.GetString("Tag", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Target x に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string TargetX {
@@ -2330,11 +4383,38 @@ namespace BEditor.LangResources {
         }
         
         /// <summary>
+        ///   Template に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Template {
+            get {
+                return ResourceManager.GetString("Template", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Text に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Text {
             get {
                 return ResourceManager.GetString("Text", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   The changes will be applied after restarting. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string TheChangesWillBeAppliedAfterRestarting {
+            get {
+                return ResourceManager.GetString("TheChangesWillBeAppliedAfterRestarting", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   The following plug-ins are required to open this project. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string TheFollowingPluginsAreRrequiredToOpenProject {
+            get {
+                return ResourceManager.GetString("TheFollowingPluginsAreRrequiredToOpenProject", resourceCulture);
             }
         }
         
@@ -2348,11 +4428,74 @@ namespace BEditor.LangResources {
         }
         
         /// <summary>
+        ///   The package has been created に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string ThePackageHasBeenCreated {
+            get {
+                return ResourceManager.GetString("ThePackageHasBeenCreated", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   There is a newer version of &quot;{0}&quot;. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string ThereIsANewerVersionOf {
+            get {
+                return ResourceManager.GetString("ThereIsANewerVersionOf", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   There is no project. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string ThereIsNoProject {
+            get {
+                return ResourceManager.GetString("ThereIsNoProject", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   The value was not {0} type, but {1} type. に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string TheValueWasNotTypeButType {
             get {
                 return ResourceManager.GetString("TheValueWasNotTypeButType", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Thin に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Thin {
+            get {
+                return ResourceManager.GetString("Thin", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   This file cannot be converted. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string ThisFileCannotBeConverted {
+            get {
+                return ResourceManager.GetString("ThisFileCannotBeConverted", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   This item cannot be changed. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string ThisItemCannotBeChanged {
+            get {
+                return ResourceManager.GetString("ThisItemCannotBeChanged", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   This name already exists. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string ThisNameAlreadyExists {
+            get {
+                return ResourceManager.GetString("ThisNameAlreadyExists", resourceCulture);
             }
         }
         
@@ -2402,6 +4545,51 @@ namespace BEditor.LangResources {
         }
         
         /// <summary>
+        ///   Timeline に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Timeline {
+            get {
+                return ResourceManager.GetString("Timeline", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Show/hide timeline に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string TimelineShowHide {
+            get {
+                return ResourceManager.GetString("TimelineShowHide", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Time remaining に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string TimeRemaining {
+            get {
+                return ResourceManager.GetString("TimeRemaining", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   If you want to create a project, click New. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string ToCreateProjectClickNew {
+            get {
+                return ResourceManager.GetString("ToCreateProjectClickNew", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Tool に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Tool {
+            get {
+                return ResourceManager.GetString("Tool", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Top に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Top {
@@ -2429,6 +4617,24 @@ namespace BEditor.LangResources {
         }
         
         /// <summary>
+        ///   Transparent に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Transparent {
+            get {
+                return ResourceManager.GetString("Transparent", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Trying to open project package に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string TryingToOpenProjectPackage {
+            get {
+                return ResourceManager.GetString("TryingToOpenProjectPackage", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Turbulence に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Turbulence {
@@ -2443,6 +4649,42 @@ namespace BEditor.LangResources {
         public static string Type {
             get {
                 return ResourceManager.GetString("Type", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Undo に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Undo {
+            get {
+                return ResourceManager.GetString("Undo", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Uninstall に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Uninstall {
+            get {
+                return ResourceManager.GetString("Uninstall", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Uninstalling に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Uninstalling {
+            get {
+                return ResourceManager.GetString("Uninstalling", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Unknown に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Unknown {
+            get {
+                return ResourceManager.GetString("Unknown", resourceCulture);
             }
         }
         
@@ -2465,6 +4707,33 @@ namespace BEditor.LangResources {
         }
         
         /// <summary>
+        ///   Update に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Update {
+            get {
+                return ResourceManager.GetString("Update", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Update Notes に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string UpdateNote {
+            get {
+                return ResourceManager.GetString("UpdateNote", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Update password に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string UpdatePassword {
+            get {
+                return ResourceManager.GetString("UpdatePassword", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Update the position に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string UpdatePosition {
@@ -2483,11 +4752,92 @@ namespace BEditor.LangResources {
         }
         
         /// <summary>
+        ///   Use automatic backups に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string UseAutoBackup {
+            get {
+                return ResourceManager.GetString("UseAutoBackup", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Use cache に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string UseCache {
+            get {
+                return ResourceManager.GetString("UseCache", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Use center に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string UseCenter {
             get {
                 return ResourceManager.GetString("UseCenter", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Use current frame に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string UseCurrentFrame {
+            get {
+                return ResourceManager.GetString("UseCurrentFrame", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Use dark mode に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string UseDarkMode {
+            get {
+                return ResourceManager.GetString("UseDarkMode", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   User に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string User {
+            get {
+                return ResourceManager.GetString("User", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   User name に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string UserName {
+            get {
+                return ResourceManager.GetString("UserName", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Using the GPU for image processing に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string UsingGPUForImageProcessing {
+            get {
+                return ResourceManager.GetString("UsingGPUForImageProcessing", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Validation に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Validation {
+            get {
+                return ResourceManager.GetString("Validation", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Version に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Version {
+            get {
+                return ResourceManager.GetString("Version", resourceCulture);
             }
         }
         
@@ -2519,6 +4869,24 @@ namespace BEditor.LangResources {
         }
         
         /// <summary>
+        ///   Video output に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string VideoOutput {
+            get {
+                return ResourceManager.GetString("VideoOutput", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   View に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string View {
+            get {
+                return ResourceManager.GetString("View", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Volume に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Volume {
@@ -2537,6 +4905,33 @@ namespace BEditor.LangResources {
         }
         
         /// <summary>
+        ///   Web Site に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string WebSite {
+            get {
+                return ResourceManager.GetString("WebSite", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   When you close the application, the changes will begin. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string WhenYouCloseTheApplicationTheChangesWillBegin {
+            get {
+                return ResourceManager.GetString("WhenYouCloseTheApplicationTheChangesWillBegin", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   White に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string White {
+            get {
+                return ResourceManager.GetString("White", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Width に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Width {
@@ -2546,11 +4941,29 @@ namespace BEditor.LangResources {
         }
         
         /// <summary>
+        ///   Width of 1 frame に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string WidthOf1Frame {
+            get {
+                return ResourceManager.GetString("WidthOf1Frame", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   X に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string X {
             get {
                 return ResourceManager.GetString("X", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   XAudio2 is used as the audio profile. に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string XAudio2IsUsedAsAudioProfile {
+            get {
+                return ResourceManager.GetString("XAudio2IsUsedAsAudioProfile", resourceCulture);
             }
         }
         
@@ -2569,6 +4982,25 @@ namespace BEditor.LangResources {
         public static string Y {
             get {
                 return ResourceManager.GetString("Y", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Yes に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Yes {
+            get {
+                return ResourceManager.GetString("Yes", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   You do not have the required plugins installed.
+        ///Do you want to install it now? に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string YouDoNotHaveTheRequiredPluginsInstalled {
+            get {
+                return ResourceManager.GetString("YouDoNotHaveTheRequiredPluginsInstalled", resourceCulture);
             }
         }
         
@@ -2596,6 +5028,15 @@ namespace BEditor.LangResources {
         public static string ZNear {
             get {
                 return ResourceManager.GetString("ZNear", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Zoom in に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string ZoomIn {
+            get {
+                return ResourceManager.GetString("ZoomIn", resourceCulture);
             }
         }
     }

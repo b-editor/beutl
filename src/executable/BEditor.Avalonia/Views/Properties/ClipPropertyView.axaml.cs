@@ -8,7 +8,7 @@ using Avalonia.Markup.Xaml;
 using BEditor.Data;
 using BEditor.Extensions;
 using BEditor.Models;
-using BEditor.Properties;
+using BEditor.LangResources;
 using BEditor.ViewModels.Properties;
 using BEditor.ViewModels.Timelines;
 

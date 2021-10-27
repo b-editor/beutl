@@ -20,7 +20,7 @@ using BEditor.Models;
 using BEditor.Plugin;
 using BEditor.Primitive;
 using BEditor.Primitive.Objects;
-using BEditor.Properties;
+using BEditor.LangResources;
 using BEditor.ViewModels.Dialogs;
 using BEditor.Views;
 using BEditor.Views.DialogContent;

@@ -2,7 +2,7 @@
 using System.Globalization;
 using System.Linq;
 
-using BEditor.Properties;
+using BEditor.LangResources;
 using BEditor.ViewModels.Settings;
 
 using Reactive.Bindings;

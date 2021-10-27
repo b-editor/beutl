@@ -5,7 +5,7 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:vm="using:BEditor.ViewModels.Timelines"
     xmlns:model="using:BEditor.Models"
-    xmlns:prop="using:BEditor.Properties"
+    xmlns:prop="using:BEditor.LangResources"
     x:DataType="vm:KeyframeViewModel"
     Height="{x:Static model:ConstantSettings.ClipHeight}"
     Background="Transparent"

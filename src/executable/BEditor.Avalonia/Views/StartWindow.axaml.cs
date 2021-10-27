@@ -6,7 +6,7 @@ using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
 
 using BEditor.Controls;
-using BEditor.Properties;
+using BEditor.LangResources;
 
 using FluentAvalonia.Core;
 using FluentAvalonia.UI.Controls;

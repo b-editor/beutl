@@ -14,7 +14,7 @@ using BEditor.Media.Encoding;
 using BEditor.Media.PCM;
 using BEditor.Models;
 using BEditor.Primitive.Objects;
-using BEditor.Properties;
+using BEditor.LangResources;
 using BEditor.Views.DialogContent;
 
 using Microsoft.Extensions.Logging;

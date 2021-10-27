@@ -12,7 +12,7 @@ using BEditor.Models;
 using BEditor.Models.ManagePlugins;
 using BEditor.Packaging;
 using BEditor.Plugin;
-using BEditor.Properties;
+using BEditor.LangResources;
 
 using Microsoft.Extensions.DependencyInjection;
 

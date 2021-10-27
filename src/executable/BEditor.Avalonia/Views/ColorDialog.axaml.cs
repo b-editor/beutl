@@ -13,7 +13,7 @@ using BEditor.Data.Property;
 using BEditor.Drawing;
 using BEditor.Extensions;
 using BEditor.Models;
-using BEditor.Properties;
+using BEditor.LangResources;
 using BEditor.ViewModels.Properties;
 
 using ColorPicker = FluentAvalonia.UI.Controls.ColorPicker;

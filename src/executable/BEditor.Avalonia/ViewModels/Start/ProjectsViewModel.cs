@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 using BEditor.Data;
 using BEditor.Models;
 using BEditor.Models.Start;
-using BEditor.Properties;
+using BEditor.LangResources;
 
 using Microsoft.Extensions.Logging;
 

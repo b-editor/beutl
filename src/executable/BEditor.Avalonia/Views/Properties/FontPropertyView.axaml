@@ -5,7 +5,7 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
     xmlns:vm="using:BEditor.ViewModels.Properties"
-    xmlns:prop="using:BEditor.Properties"
+    xmlns:prop="using:BEditor.LangResources"
     xmlns:ui="using:FluentAvalonia.UI.Controls"
     xmlns:uip="using:FluentAvalonia.UI.Controls.Primitives"
     x:DataType="vm:FontPropertyViewModel"

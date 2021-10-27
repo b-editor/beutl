@@ -5,7 +5,7 @@ using System.Reactive.Linq;
 
 using BEditor.Drawing;
 using BEditor.Models;
-using BEditor.Properties;
+using BEditor.LangResources;
 
 using Reactive.Bindings;
 

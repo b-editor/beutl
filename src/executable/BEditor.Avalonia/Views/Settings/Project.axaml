@@ -4,7 +4,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="using:BEditor.ViewModels.Settings"
              xmlns:data="clr-namespace:BEditor;assembly=BEditor.Settings"
-             xmlns:resource="using:BEditor.Properties"
+             xmlns:resource="using:BEditor.LangResources"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:uip="using:FluentAvalonia.UI.Controls.Primitives"

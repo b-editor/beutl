@@ -11,7 +11,7 @@ using BEditor.Data;
 using BEditor.Data.Property;
 using BEditor.Extensions;
 using BEditor.Models;
-using BEditor.Properties;
+using BEditor.LangResources;
 
 namespace BEditor.Views.Properties
 {

@@ -26,7 +26,7 @@ using BEditor.Models.ManagePlugins;
 using BEditor.Packaging;
 using BEditor.Plugin;
 using BEditor.Primitive;
-using BEditor.Properties;
+using BEditor.LangResources;
 using BEditor.ViewModels.Settings;
 using BEditor.Views;
 using BEditor.Views.DialogContent;

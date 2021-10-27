@@ -5,7 +5,7 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:local="using:BEditor.Views.ManagePlugins"
     xmlns:titlebar="using:BEditor.Views.CustomTitlebars"
-    xmlns:prop="using:BEditor.Properties"
+    xmlns:prop="using:BEditor.LangResources"
     xmlns:views="using:BEditor.Views"
     xmlns:vm="using:BEditor.ViewModels"
     xmlns:ui="using:FluentAvalonia.UI.Controls"

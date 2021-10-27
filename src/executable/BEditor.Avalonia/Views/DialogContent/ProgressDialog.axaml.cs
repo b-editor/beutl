@@ -6,7 +6,7 @@ using Avalonia.Markup.Xaml;
 using Avalonia.Media;
 
 using BEditor.Controls;
-using BEditor.Properties;
+using BEditor.LangResources;
 
 using Reactive.Bindings;
 

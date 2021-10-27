@@ -4,7 +4,7 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-    xmlns:props="using:BEditor.Properties"
+    xmlns:props="using:BEditor.LangResources"
     xmlns:vm="using:BEditor.ViewModels.ManagePlugins"
     x:DataType="vm:SignupViewModel"
     x:Class="BEditor.Views.ManagePlugins.Signup">

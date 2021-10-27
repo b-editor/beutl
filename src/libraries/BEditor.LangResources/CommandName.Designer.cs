@@ -8,7 +8,7 @@
 // </auto-generated>
 //------------------------------------------------------------------------------
 
-namespace BEditor.Properties {
+namespace BEditor.LangResources {
     using System;
     
     
@@ -22,7 +22,7 @@ namespace BEditor.Properties {
     [global::System.CodeDom.Compiler.GeneratedCodeAttribute("System.Resources.Tools.StronglyTypedResourceBuilder", "16.0.0.0")]
     [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
     [global::System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
-    internal class CommandName {
+    public class CommandName {
         
         private static global::System.Resources.ResourceManager resourceMan;
         
@@ -36,10 +36,10 @@ namespace BEditor.Properties {
         ///   このクラスで使用されているキャッシュされた ResourceManager インスタンスを返します。
         /// </summary>
         [global::System.ComponentModel.EditorBrowsableAttribute(global::System.ComponentModel.EditorBrowsableState.Advanced)]
-        internal static global::System.Resources.ResourceManager ResourceManager {
+        public static global::System.Resources.ResourceManager ResourceManager {
             get {
                 if (object.ReferenceEquals(resourceMan, null)) {
-                    global::System.Resources.ResourceManager temp = new global::System.Resources.ResourceManager("BEditor.Properties.CommandName", typeof(CommandName).Assembly);
+                    global::System.Resources.ResourceManager temp = new global::System.Resources.ResourceManager("BEditor.LangResources.CommandName", typeof(CommandName).Assembly);
                     resourceMan = temp;
                 }
                 return resourceMan;
@@ -51,7 +51,7 @@ namespace BEditor.Properties {
         ///   現在のスレッドの CurrentUICulture プロパティをオーバーライドします。
         /// </summary>
         [global::System.ComponentModel.EditorBrowsableAttribute(global::System.ComponentModel.EditorBrowsableState.Advanced)]
-        internal static global::System.Globalization.CultureInfo Culture {
+        public static global::System.Globalization.CultureInfo Culture {
             get {
                 return resourceCulture;
             }
@@ -63,7 +63,7 @@ namespace BEditor.Properties {
         /// <summary>
         ///   Copy the clip に類似しているローカライズされた文字列を検索します。
         /// </summary>
-        internal static string COPY {
+        public static string COPY {
             get {
                 return ResourceManager.GetString("COPY", resourceCulture);
             }
@@ -72,7 +72,7 @@ namespace BEditor.Properties {
         /// <summary>
         ///   Cut out the clip に類似しているローカライズされた文字列を検索します。
         /// </summary>
-        internal static string CUT {
+        public static string CUT {
             get {
                 return ResourceManager.GetString("CUT", resourceCulture);
             }
@@ -81,7 +81,7 @@ namespace BEditor.Properties {
         /// <summary>
         ///   Move to end に類似しているローカライズされた文字列を検索します。
         /// </summary>
-        internal static string END {
+        public static string END {
             get {
                 return ResourceManager.GetString("END", resourceCulture);
             }
@@ -90,7 +90,7 @@ namespace BEditor.Properties {
         /// <summary>
         ///   Image output に類似しているローカライズされた文字列を検索します。
         /// </summary>
-        internal static string IMAGE_OUT {
+        public static string IMAGE_OUT {
             get {
                 return ResourceManager.GetString("IMAGE_OUT", resourceCulture);
             }
@@ -99,7 +99,7 @@ namespace BEditor.Properties {
         /// <summary>
         ///   Create a project に類似しているローカライズされた文字列を検索します。
         /// </summary>
-        internal static string NEW {
+        public static string NEW {
             get {
                 return ResourceManager.GetString("NEW", resourceCulture);
             }
@@ -108,7 +108,7 @@ namespace BEditor.Properties {
         /// <summary>
         ///   Move to next frame に類似しているローカライズされた文字列を検索します。
         /// </summary>
-        internal static string NEXT {
+        public static string NEXT {
             get {
                 return ResourceManager.GetString("NEXT", resourceCulture);
             }
@@ -117,7 +117,7 @@ namespace BEditor.Properties {
         /// <summary>
         ///   Open the project に類似しているローカライズされた文字列を検索します。
         /// </summary>
-        internal static string OPEN {
+        public static string OPEN {
             get {
                 return ResourceManager.GetString("OPEN", resourceCulture);
             }
@@ -126,7 +126,7 @@ namespace BEditor.Properties {
         /// <summary>
         ///   Paste the clip に類似しているローカライズされた文字列を検索します。
         /// </summary>
-        internal static string PASTE {
+        public static string PASTE {
             get {
                 return ResourceManager.GetString("PASTE", resourceCulture);
             }
@@ -135,7 +135,7 @@ namespace BEditor.Properties {
         /// <summary>
         ///   Play / Pause に類似しているローカライズされた文字列を検索します。
         /// </summary>
-        internal static string PLAY_PAUSE {
+        public static string PLAY_PAUSE {
             get {
                 return ResourceManager.GetString("PLAY_PAUSE", resourceCulture);
             }
@@ -144,7 +144,7 @@ namespace BEditor.Properties {
         /// <summary>
         ///   Move to previous frame に類似しているローカライズされた文字列を検索します。
         /// </summary>
-        internal static string PREVIOUS {
+        public static string PREVIOUS {
             get {
                 return ResourceManager.GetString("PREVIOUS", resourceCulture);
             }
@@ -153,7 +153,7 @@ namespace BEditor.Properties {
         /// <summary>
         ///   Redo に類似しているローカライズされた文字列を検索します。
         /// </summary>
-        internal static string REDO {
+        public static string REDO {
             get {
                 return ResourceManager.GetString("REDO", resourceCulture);
             }
@@ -162,7 +162,7 @@ namespace BEditor.Properties {
         /// <summary>
         ///   Remove the clip に類似しているローカライズされた文字列を検索します。
         /// </summary>
-        internal static string REMOVE {
+        public static string REMOVE {
             get {
                 return ResourceManager.GetString("REMOVE", resourceCulture);
             }
@@ -171,7 +171,7 @@ namespace BEditor.Properties {
         /// <summary>
         ///   Save a project に類似しているローカライズされた文字列を検索します。
         /// </summary>
-        internal static string SAVE {
+        public static string SAVE {
             get {
                 return ResourceManager.GetString("SAVE", resourceCulture);
             }
@@ -180,7 +180,7 @@ namespace BEditor.Properties {
         /// <summary>
         ///   Split に類似しているローカライズされた文字列を検索します。
         /// </summary>
-        internal static string SPLIT {
+        public static string SPLIT {
             get {
                 return ResourceManager.GetString("SPLIT", resourceCulture);
             }
@@ -189,7 +189,7 @@ namespace BEditor.Properties {
         /// <summary>
         ///   Mode to top に類似しているローカライズされた文字列を検索します。
         /// </summary>
-        internal static string TOP {
+        public static string TOP {
             get {
                 return ResourceManager.GetString("TOP", resourceCulture);
             }
@@ -198,7 +198,7 @@ namespace BEditor.Properties {
         /// <summary>
         ///   Undo に類似しているローカライズされた文字列を検索します。
         /// </summary>
-        internal static string UNDO {
+        public static string UNDO {
             get {
                 return ResourceManager.GetString("UNDO", resourceCulture);
             }
@@ -207,7 +207,7 @@ namespace BEditor.Properties {
         /// <summary>
         ///   Video output に類似しているローカライズされた文字列を検索します。
         /// </summary>
-        internal static string VIDEO_OUT {
+        public static string VIDEO_OUT {
             get {
                 return ResourceManager.GetString("VIDEO_OUT", resourceCulture);
             }

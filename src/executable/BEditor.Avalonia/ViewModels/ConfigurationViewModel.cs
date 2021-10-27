@@ -11,7 +11,7 @@ using BEditor.Data;
 using BEditor.Drawing.Pixel;
 using BEditor.Media;
 using BEditor.Models;
-using BEditor.Properties;
+using BEditor.LangResources;
 
 using Reactive.Bindings;
 

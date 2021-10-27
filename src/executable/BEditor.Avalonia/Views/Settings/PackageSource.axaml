@@ -5,7 +5,7 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:setting="clr-namespace:BEditor;assembly=BEditor.Settings"
     xmlns:package="clr-namespace:BEditor.Packaging;assembly=BEditor.Packaging"
-    xmlns:properties="using:BEditor.Properties"
+    xmlns:properties="using:BEditor.LangResources"
     xmlns:vm="using:BEditor.ViewModels.Settings"
     xmlns:ui="using:FluentAvalonia.UI.Controls"
     xmlns:uip="using:FluentAvalonia.UI.Controls.Primitives"

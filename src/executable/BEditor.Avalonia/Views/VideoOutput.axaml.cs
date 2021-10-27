@@ -11,7 +11,7 @@ using Avalonia.Media;
 using Avalonia.Threading;
 
 using BEditor.Controls;
-using BEditor.Properties;
+using BEditor.LangResources;
 using BEditor.ViewModels;
 using BEditor.Views.ManagePlugins;
 

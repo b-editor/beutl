@@ -9,7 +9,7 @@
     xmlns:command="clr-namespace:BEditor.Command;assembly=BEditor.Core"
     xmlns:ui="using:FluentAvalonia.UI.Controls"
     mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-    xmlns:properties="clr-namespace:BEditor.Properties"
+    xmlns:properties="clr-namespace:BEditor.LangResources;assembly=BEditor.LangResources"
     x:DataType="vm:TimelineViewModel"
     x:Class="BEditor.Views.Timelines.Timeline">
     <Grid ColumnDefinitions="200,*" RowDefinitions="Auto,*">

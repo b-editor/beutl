@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 
 using BEditor.Models.ManagePlugins;
 using BEditor.Plugin;
-using BEditor.Properties;
+using BEditor.LangResources;
 
 using Reactive.Bindings;
 

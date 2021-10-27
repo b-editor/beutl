@@ -4,7 +4,7 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:vm="using:BEditor.ViewModels.Properties"
-    xmlns:prop="using:BEditor.Properties"
+    xmlns:prop="using:BEditor.LangResources"
     xmlns:ui="using:FluentAvalonia.UI.Controls"
     xmlns:uip="using:FluentAvalonia.UI.Controls.Primitives"
     x:DataType="vm:CheckPropertyViewModel"

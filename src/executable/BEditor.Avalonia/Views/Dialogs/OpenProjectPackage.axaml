@@ -6,7 +6,7 @@
     xmlns:views="using:BEditor.Views"
     xmlns:viewModels="using:BEditor.ViewModels.Dialogs"
     xmlns:titlebar="using:BEditor.Views.CustomTitlebars"
-    xmlns:props="using:BEditor.Properties"
+    xmlns:props="using:BEditor.LangResources"
     mc:Ignorable="d" Width="800" Height="450"
     WindowStartupLocation="CenterScreen"
     CanResize="False"

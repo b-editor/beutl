@@ -8,7 +8,7 @@ using Avalonia.Controls;
 
 using BEditor.Models;
 using BEditor.Packaging;
-using BEditor.Properties;
+using BEditor.LangResources;
 using BEditor.Views.DialogContent;
 
 using Microsoft.Extensions.DependencyInjection;

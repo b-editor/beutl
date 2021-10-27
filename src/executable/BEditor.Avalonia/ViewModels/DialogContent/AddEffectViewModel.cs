@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 using BEditor.Data;
 using BEditor.Models;
-using BEditor.Properties;
+using BEditor.LangResources;
 
 using Reactive.Bindings;
 

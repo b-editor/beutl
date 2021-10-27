@@ -4,7 +4,7 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:vm="using:BEditor.PackageInstaller.ViewModels"
-    xmlns:res="using:BEditor.PackageInstaller.Resources"
+    xmlns:res="using:BEditor.LangResources"
     x:DataType="vm:MainPageViewModel"
     mc:Ignorable="d" d:DesignWidth="450" d:DesignHeight="400"
     x:Class="BEditor.PackageInstaller.Views.MainPage">

@@ -19,7 +19,7 @@ using Avalonia.VisualTree;
 using BEditor.Data;
 using BEditor.Extensions;
 using BEditor.Models;
-using BEditor.Properties;
+using BEditor.LangResources;
 using BEditor.ViewModels.Timelines;
 using BEditor.Views.DialogContent;
 

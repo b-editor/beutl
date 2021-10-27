@@ -266,7 +266,7 @@
     <value>値を変更</value>
   </data>
   <data name="Disconnect" xml:space="preserve">
-    <value>プロパティの値を切断</value>
+    <value>切断</value>
   </data>
   <data name="DownEffect" xml:space="preserve">
     <value>エフェクトの順番を変更 (下)</value>
@@ -597,7 +597,7 @@
     <value>サイズ</value>
   </data>
   <data name="Speed" xml:space="preserve">
-    <value>速度</value>
+    <value>スピード</value>
   </data>
   <data name="StartPoint" xml:space="preserve">
     <value>開始位置</value>
@@ -627,7 +627,7 @@
     <value>動画ファイル</value>
   </data>
   <data name="Width" xml:space="preserve">
-    <value>幅</value>
+    <value>横幅</value>
   </data>
   <data name="ZFar" xml:space="preserve">
     <value>ZFar</value>
@@ -904,5 +904,838 @@
   </data>
   <data name="Gradient" xml:space="preserve">
     <value>グラデーション</value>
+  </data>
+  <data name="Add" xml:space="preserve">
+    <value>追加</value>
+  </data>
+  <data name="AssemblyFile" xml:space="preserve">
+    <value>アセンブリファイル</value>
+  </data>
+  <data name="Apply" xml:space="preserve">
+    <value>適用</value>
+  </data>
+  <data name="Appearance" xml:space="preserve">
+    <value>外観</value>
+  </data>
+  <data name="An exception was thrown during rendering preview" xml:space="preserve">
+    <value>レンダリング中に例外がスローされたので、一時的にプレビューを停止しました。
+5秒後に解除されます。</value>
+  </data>
+  <data name="An exception was thrown during rendering" xml:space="preserve">
+    <value>レンダリング中に例外がスローされたので、
+再生をストップしました。</value>
+  </data>
+  <data name="AlreadyCancelled" xml:space="preserve">
+    <value>すでにキャンセルされています。</value>
+  </data>
+  <data name="AdjustLengthOfClip" xml:space="preserve">
+    <value>長さを調整</value>
+  </data>
+  <data name="AddToList" xml:space="preserve">
+    <value>リストに追加</value>
+  </data>
+  <data name="AddToColorPalette" xml:space="preserve">
+    <value>カラーパレットに追加</value>
+  </data>
+  <data name="AddScene" xml:space="preserve">
+    <value>シーンを追加</value>
+  </data>
+  <data name="AddNewPalette" xml:space="preserve">
+    <value>新しいパレットを追加</value>
+  </data>
+  <data name="AudioFiles" xml:space="preserve">
+    <value>音声ファイル</value>
+  </data>
+  <data name="AudioProfile" xml:space="preserve">
+    <value>オーディオプロファイル</value>
+  </data>
+  <data name="Author" xml:space="preserve">
+    <value>著者</value>
+  </data>
+  <data name="Back" xml:space="preserve">
+    <value>戻る</value>
+  </data>
+  <data name="Background" xml:space="preserve">
+    <value>背景</value>
+  </data>
+  <data name="BackupFile" xml:space="preserve">
+    <value>バックアップファイル</value>
+  </data>
+  <data name="BackupInterval" xml:space="preserve">
+    <value>バックアップの間隔 (分)</value>
+  </data>
+  <data name="Bind" xml:space="preserve">
+    <value>バインド</value>
+  </data>
+  <data name="Black" xml:space="preserve">
+    <value>黒</value>
+  </data>
+  <data name="Cache" xml:space="preserve">
+    <value>キャッシュ</value>
+  </data>
+  <data name="Cancel" xml:space="preserve">
+    <value>キャンセル</value>
+  </data>
+  <data name="CannotDeleteAnyMore" xml:space="preserve">
+    <value>これ以上削除できません。</value>
+  </data>
+  <data name="Category" xml:space="preserve">
+    <value>カテゴリー</value>
+  </data>
+  <data name="ChangeFailed" xml:space="preserve">
+    <value>変更できませんでした。</value>
+  </data>
+  <data name="ChangePassword" xml:space="preserve">
+    <value>パスワードを変更</value>
+  </data>
+  <data name="Changes" xml:space="preserve">
+    <value>変更</value>
+  </data>
+  <data name="ChangeSucceeded" xml:space="preserve">
+    <value>変更しました。</value>
+  </data>
+  <data name="CheckDark" xml:space="preserve">
+    <value>チェック柄 (ダーク)</value>
+  </data>
+  <data name="CheckLight" xml:space="preserve">
+    <value>チェック柄 (ライト)</value>
+  </data>
+  <data name="ClearCache" xml:space="preserve">
+    <value>キャッシュをクリア</value>
+  </data>
+  <data name="Clip" xml:space="preserve">
+    <value>クリップ</value>
+  </data>
+  <data name="ClipExistsInTheSpecifiedLocation" xml:space="preserve">
+    <value>指定した場所にクリップが存在しているため、新しいクリップを配置できません。</value>
+  </data>
+  <data name="ClipHeight" xml:space="preserve">
+    <value>クリップの高さ</value>
+  </data>
+  <data name="ClipId" xml:space="preserve">
+    <value>クリップのId</value>
+  </data>
+  <data name="ClipInfo" xml:space="preserve">
+    <value>クリップの情報</value>
+  </data>
+  <data name="Close" xml:space="preserve">
+    <value>閉じる</value>
+  </data>
+  <data name="Codec" xml:space="preserve">
+    <value>コーデック</value>
+  </data>
+  <data name="ColorPalette" xml:space="preserve">
+    <value>カラーパレット</value>
+  </data>
+  <data name="ColorPicker" xml:space="preserve">
+    <value>カラーピッカー</value>
+  </data>
+  <data name="CommandQ1" xml:space="preserve">
+    <value>この操作はもとに戻すことができません
+操作を実行しますか？</value>
+  </data>
+  <data name="ComponentIsExtractedAndPlaced" xml:space="preserve">
+    <value>コンポーネントを展開し配置しています。</value>
+  </data>
+  <data name="Configuration" xml:space="preserve">
+    <value>構成</value>
+  </data>
+  <data name="ConfirmNewPassword" xml:space="preserve">
+    <value>新しいパスワードの確認</value>
+  </data>
+  <data name="ContainerFormat" xml:space="preserve">
+    <value>コンテナーフォーマット</value>
+  </data>
+  <data name="ConvertJson" xml:space="preserve">
+    <value>Jsonに変換</value>
+  </data>
+  <data name="ConvertVideo" xml:space="preserve">
+    <value>動画を変換</value>
+  </data>
+  <data name="Copy" xml:space="preserve">
+    <value>コピー</value>
+  </data>
+  <data name="CopyID" xml:space="preserve">
+    <value>IDをコピー</value>
+  </data>
+  <data name="CouldNotCreateFolder" xml:space="preserve">
+    <value>フォルダーを作成できませんでした。</value>
+  </data>
+  <data name="CouldNotCreatePackage" xml:space="preserve">
+    <value>パッケージを作成できませんでした。</value>
+  </data>
+  <data name="Create" xml:space="preserve">
+    <value>作成</value>
+  </data>
+  <data name="CreateCache" xml:space="preserve">
+    <value>キャッシュを作成</value>
+  </data>
+  <data name="CreateFromBackup" xml:space="preserve">
+    <value>バックアップから作成</value>
+  </data>
+  <data name="CreatePluginPackage" xml:space="preserve">
+    <value>プラグインのパッケージを作成</value>
+  </data>
+  <data name="CreateProject" xml:space="preserve">
+    <value>プロジェクトを作成</value>
+  </data>
+  <data name="CreateScene" xml:space="preserve">
+    <value>シーンを作成</value>
+  </data>
+  <data name="Cut" xml:space="preserve">
+    <value>カット</value>
+  </data>
+  <data name="Delete" xml:space="preserve">
+    <value>消去</value>
+  </data>
+  <data name="DeleteCommand" xml:space="preserve">
+    <value>記録したコマンドの消去</value>
+  </data>
+  <data name="Dependency" xml:space="preserve">
+    <value>依存関係</value>
+  </data>
+  <data name="Description" xml:space="preserve">
+    <value>説明</value>
+  </data>
+  <data name="DontSave" xml:space="preserve">
+    <value>保存しない</value>
+  </data>
+  <data name="Download" xml:space="preserve">
+    <value>ダウンロード</value>
+  </data>
+  <data name="DownloadingRequiredComponents" xml:space="preserve">
+    <value>必要なコンポーネントをダウンロードしています。</value>
+  </data>
+  <data name="DoYouWantToDeleteThePalette" xml:space="preserve">
+    <value>パレットを削除しますか？</value>
+  </data>
+  <data name="DoYouWantToRemoveThisDirectory" xml:space="preserve">
+    <value>このディレクトリを削除しますか？</value>
+  </data>
+  <data name="DoYouWantToRemoveThisFile" xml:space="preserve">
+    <value>このファイルを削除しますか？</value>
+  </data>
+  <data name="DoYouWantToSaveYourChangesTo" xml:space="preserve">
+    <value>{0} への変更内容を保存しますか？</value>
+  </data>
+  <data name="Edit" xml:space="preserve">
+    <value>編集</value>
+  </data>
+  <data name="Effect" xml:space="preserve">
+    <value>エフェクト</value>
+  </data>
+  <data name="EffectFile" xml:space="preserve">
+    <value>エフェクトファイル</value>
+  </data>
+  <data name="Email" xml:space="preserve">
+    <value>メールアドレス</value>
+  </data>
+  <data name="Encoder" xml:space="preserve">
+    <value>エンコーダー</value>
+  </data>
+  <data name="EncoderIsNotSet" xml:space="preserve">
+    <value>エンコーダが設定されていません。
+エンコーダが設定されると、詳細設定が表示されます。</value>
+  </data>
+  <data name="EncoderNotFound" xml:space="preserve">
+    <value>エンコーダーが見つかりません。</value>
+  </data>
+  <data name="EncoderSettings" xml:space="preserve">
+    <value>エンコーダーの設定</value>
+  </data>
+  <data name="End" xml:space="preserve">
+    <value>終了フレーム</value>
+  </data>
+  <data name="ErrorObjectViewer1" xml:space="preserve">
+    <value>{0} またはその子要素を選択してください</value>
+  </data>
+  <data name="ErrorObjectViewer2" xml:space="preserve">
+    <value>{0} を選択してください</value>
+  </data>
+  <data name="ExceptionWasThrown" xml:space="preserve">
+    <value>{0}がスローされました。</value>
+  </data>
+  <data name="FailedTo" xml:space="preserve">
+    <value>{0}に失敗しました。</value>
+  </data>
+  <data name="FailedToInstall" xml:space="preserve">
+    <value>{0}のインストールに失敗しました。</value>
+  </data>
+  <data name="FailedToPackProject" xml:space="preserve">
+    <value>プロジェクトの梱包に失敗しました</value>
+  </data>
+  <data name="FailedToSave" xml:space="preserve">
+    <value>保存できませんでした。</value>
+  </data>
+  <data name="FileDoesNotExistRemoveItFromList" xml:space="preserve">
+    <value>ファイルが存在しません。
+リストから削除しますか？</value>
+  </data>
+  <data name="FileNotFound" xml:space="preserve">
+    <value>ファイルが見つかりません。</value>
+  </data>
+  <data name="FileSaved" xml:space="preserve">
+    <value>ファイルが保存されました</value>
+  </data>
+  <data name="FixSeekbar" xml:space="preserve">
+    <value>再生時にシークバーを固定する</value>
+  </data>
+  <data name="ForgotYourPassword" xml:space="preserve">
+    <value>パスワードをお忘れですか?</value>
+  </data>
+  <data name="Format" xml:space="preserve">
+    <value>フォーマット</value>
+  </data>
+  <data name="Framerate" xml:space="preserve">
+    <value>フレームレート</value>
+  </data>
+  <data name="General" xml:space="preserve">
+    <value>全般</value>
+  </data>
+  <data name="GetPath" xml:space="preserve">
+    <value>パスを取得</value>
+  </data>
+  <data name="GoToMainWindow" xml:space="preserve">
+    <value>メインウィンドウへ移動</value>
+  </data>
+  <data name="GraphicsProfile" xml:space="preserve">
+    <value>グラフィックプロファイル</value>
+  </data>
+  <data name="GraphicsProfileDescription" xml:space="preserve">
+    <value>OpenGL: 
+- "OpenGL" を利用してレンダリングします。
+
+Skia:
+- "Skia" を利用してレンダリングします。
+- 3D描画には対応していません。
+- マテリアル、ライト、カメラは使えません。
+
+Direct3D 11:
+- "Direct3D 11" を利用してレンダリングします。
+- Windows向け
+- ライティングが未実装です。
+
+Metal:
+- "Metal" を利用してレンダリングします。
+- macOS向け
+- ライティングが未実装です。
+
+Vulkan:
+- "Vulkan" を利用してレンダリングします。
+- ライティングが未実装です。</value>
+  </data>
+  <data name="Help" xml:space="preserve">
+    <value>ヘルプ</value>
+  </data>
+  <data name="ImageOutput" xml:space="preserve">
+    <value>画像出力</value>
+  </data>
+  <data name="Infomation" xml:space="preserve">
+    <value>情報</value>
+  </data>
+  <data name="Install" xml:space="preserve">
+    <value>インストール</value>
+  </data>
+  <data name="Installed" xml:space="preserve">
+    <value>インストール済み</value>
+  </data>
+  <data name="InstallLater" xml:space="preserve">
+    <value>後でインストール</value>
+  </data>
+  <data name="InstallNow" xml:space="preserve">
+    <value>今すぐインストール</value>
+  </data>
+  <data name="InstallRequiredPlugins" xml:space="preserve">
+    <value>必要なプラグインをインストール</value>
+  </data>
+  <data name="InvalidIdCanUseGUIDAndUUID" xml:space="preserve">
+    <value>無効なIdです。
+IdにはGUID, UUIDが使えます。</value>
+  </data>
+  <data name="IsChecking" xml:space="preserve">
+    <value>{0}を確認中。</value>
+  </data>
+  <data name="IsLoading" xml:space="preserve">
+    <value>{0}を読み込み中。</value>
+  </data>
+  <data name="Key" xml:space="preserve">
+    <value>キー</value>
+  </data>
+  <data name="KeyBindings" xml:space="preserve">
+    <value>キーバインディング</value>
+  </data>
+  <data name="Language" xml:space="preserve">
+    <value>言語</value>
+  </data>
+  <data name="LatestVersion" xml:space="preserve">
+    <value>最新バージョン</value>
+  </data>
+  <data name="Layer" xml:space="preserve">
+    <value>レイヤー</value>
+  </data>
+  <data name="LayerThickness" xml:space="preserve">
+    <value>レイヤーの線の濃さ</value>
+  </data>
+  <data name="LearnHowToUse" xml:space="preserve">
+    <value>使い方を学ぶ</value>
+  </data>
+  <data name="Library" xml:space="preserve">
+    <value>ライブラリ</value>
+  </data>
+  <data name="License" xml:space="preserve">
+    <value>ライセンス</value>
+  </data>
+  <data name="Location" xml:space="preserve">
+    <value>場所</value>
+  </data>
+  <data name="Log" xml:space="preserve">
+    <value>ログ</value>
+  </data>
+  <data name="LowerColorReproduction" xml:space="preserve">
+    <value>色の再現性を低くする</value>
+  </data>
+  <data name="LowerResolution" xml:space="preserve">
+    <value>解像度を下げる</value>
+  </data>
+  <data name="MachineTranslation" xml:space="preserve">
+    <value>機械翻訳</value>
+  </data>
+  <data name="ManagePlugins" xml:space="preserve">
+    <value>プラグインを管理</value>
+  </data>
+  <data name="Maximize" xml:space="preserve">
+    <value>最大化</value>
+  </data>
+  <data name="MemoryRelease" xml:space="preserve">
+    <value>メモリ解放</value>
+  </data>
+  <data name="Metadata" xml:space="preserve">
+    <value>メタデータ</value>
+  </data>
+  <data name="Minimize" xml:space="preserve">
+    <value>最小化</value>
+  </data>
+  <data name="MoveToEnd" xml:space="preserve">
+    <value>末尾に移動</value>
+  </data>
+  <data name="MoveToNextFrame" xml:space="preserve">
+    <value>次のフレームへ移動</value>
+  </data>
+  <data name="MoveToPreviousFrame" xml:space="preserve">
+    <value>前のフレームへ移動</value>
+  </data>
+  <data name="MoveToSpecifiedFrame" xml:space="preserve">
+    <value>指定フレームに移動。</value>
+  </data>
+  <data name="MoveToTop" xml:space="preserve">
+    <value>先頭に移動</value>
+  </data>
+  <data name="Name" xml:space="preserve">
+    <value>名前</value>
+  </data>
+  <data name="New" xml:space="preserve">
+    <value>新規作成</value>
+  </data>
+  <data name="NewFolder" xml:space="preserve">
+    <value>新しいフォルダー</value>
+  </data>
+  <data name="NewPassword" xml:space="preserve">
+    <value>新しいパスワード</value>
+  </data>
+  <data name="Next" xml:space="preserve">
+    <value>次</value>
+  </data>
+  <data name="No" xml:space="preserve">
+    <value>いいえ</value>
+  </data>
+  <data name="NoClipIsSelected" xml:space="preserve">
+    <value>クリップが選択されていません。</value>
+  </data>
+  <data name="None" xml:space="preserve">
+    <value>無し</value>
+  </data>
+  <data name="NotFoundPackageFromRegisteredPackageSource" xml:space="preserve">
+    <value>登録されているパッケージソースからパッケージがみつかりませんでした。</value>
+  </data>
+  <data name="NotSupportedFormats" xml:space="preserve">
+    <value>対応していないフォーマットです。</value>
+  </data>
+  <data name="ObjectFile" xml:space="preserve">
+    <value>オブジェクトファイル</value>
+  </data>
+  <data name="Objects" xml:space="preserve">
+    <value>オブジェクト</value>
+  </data>
+  <data name="OK" xml:space="preserve">
+    <value>OK</value>
+  </data>
+  <data name="Open" xml:space="preserve">
+    <value>開く</value>
+  </data>
+  <data name="OpenALNotFound" xml:space="preserve">
+    <value>OpenALが見つかりませんでした。
+インストールしてください。</value>
+  </data>
+  <data name="Operate" xml:space="preserve">
+    <value>操作</value>
+  </data>
+  <data name="Optimization" xml:space="preserve">
+    <value>最適化</value>
+  </data>
+  <data name="Others" xml:space="preserve">
+    <value>その他</value>
+  </data>
+  <data name="Out" xml:space="preserve">
+    <value>出力</value>
+  </data>
+  <data name="Output" xml:space="preserve">
+    <value>出力</value>
+  </data>
+  <data name="OutputDirectory" xml:space="preserve">
+    <value>出力先のディレクトリ</value>
+  </data>
+  <data name="Outputs" xml:space="preserve">
+    <value>出力</value>
+  </data>
+  <data name="PackageSource" xml:space="preserve">
+    <value>パッケージソース</value>
+  </data>
+  <data name="PackingTheProject" xml:space="preserve">
+    <value>プロジェクトを梱包</value>
+  </data>
+  <data name="PaletteNotSelected" xml:space="preserve">
+    <value>パレットが選択されていません</value>
+  </data>
+  <data name="Password" xml:space="preserve">
+    <value>パスワード</value>
+  </data>
+  <data name="PasswordAreNotMatching" xml:space="preserve">
+    <value>パスワードが一致しません</value>
+  </data>
+  <data name="Paste" xml:space="preserve">
+    <value>ペースト</value>
+  </data>
+  <data name="Path" xml:space="preserve">
+    <value>パス</value>
+  </data>
+  <data name="Pause" xml:space="preserve">
+    <value>一時停止</value>
+  </data>
+  <data name="Play" xml:space="preserve">
+    <value>再生</value>
+  </data>
+  <data name="Playing" xml:space="preserve">
+    <value>再生中</value>
+  </data>
+  <data name="PlayPause" xml:space="preserve">
+    <value>再生/一時停止</value>
+  </data>
+  <data name="PleaseEnter" xml:space="preserve">
+    <value>{0}を入力してください。</value>
+  </data>
+  <data name="Plugin" xml:space="preserve">
+    <value>プラグイン</value>
+  </data>
+  <data name="Plugins" xml:space="preserve">
+    <value>プラグイン</value>
+  </data>
+  <data name="Preset" xml:space="preserve">
+    <value>プリセット</value>
+  </data>
+  <data name="Preview" xml:space="preserve">
+    <value>プレビュー</value>
+  </data>
+  <data name="PrimitiveEasing" xml:space="preserve">
+    <value>プリミティブ (非推奨)</value>
+  </data>
+  <data name="Project" xml:space="preserve">
+    <value>プロジェクト</value>
+  </data>
+  <data name="ProjectLocation" xml:space="preserve">
+    <value>プロジェクトの場所</value>
+  </data>
+  <data name="ProjectPackage" xml:space="preserve">
+    <value>プロジェクトパッケージ</value>
+  </data>
+  <data name="Projects" xml:space="preserve">
+    <value>プロジェクト</value>
+  </data>
+  <data name="PropertyShowHide" xml:space="preserve">
+    <value>プロパティを表示/非表示</value>
+  </data>
+  <data name="Publish" xml:space="preserve">
+    <value>公開</value>
+  </data>
+  <data name="RangeAbove" xml:space="preserve">
+    <value>{0} 以上の値を入力してください。</value>
+  </data>
+  <data name="RecentFiles" xml:space="preserve">
+    <value>最近使ったファイル</value>
+  </data>
+  <data name="RecentFonts" xml:space="preserve">
+    <value>最近使ったフォント</value>
+  </data>
+  <data name="RecentProject" xml:space="preserve">
+    <value>最近使ったプロジェクト</value>
+  </data>
+  <data name="Redo" xml:space="preserve">
+    <value>元に戻す</value>
+  </data>
+  <data name="Reload" xml:space="preserve">
+    <value>リロード</value>
+  </data>
+  <data name="Remove" xml:space="preserve">
+    <value>削除</value>
+  </data>
+  <data name="RequiredPlugins" xml:space="preserve">
+    <value>必要なプラグイン</value>
+  </data>
+  <data name="Reset" xml:space="preserve">
+    <value>リセット</value>
+  </data>
+  <data name="ResetLayout" xml:space="preserve">
+    <value>レイアウトをリセット</value>
+  </data>
+  <data name="RestoreDown" xml:space="preserve">
+    <value>元に戻す</value>
+  </data>
+  <data name="Retry" xml:space="preserve">
+    <value>再試行</value>
+  </data>
+  <data name="Samplingrate" xml:space="preserve">
+    <value>サンプリングレート</value>
+  </data>
+  <data name="Save" xml:space="preserve">
+    <value>上書き保存</value>
+  </data>
+  <data name="SaveAs" xml:space="preserve">
+    <value>名前を付けて保存</value>
+  </data>
+  <data name="SaveFullPath" xml:space="preserve">
+    <value>フルパスを保存</value>
+  </data>
+  <data name="SavePathRelativeToSelectedPathFromProject" xml:space="preserve">
+    <value>プロジェクトから選択されたパスの相対パスを保存</value>
+  </data>
+  <data name="SavePositionAsFrameNumber" xml:space="preserve">
+    <value>位置をフレーム番号で保存</value>
+  </data>
+  <data name="SavePositionAsPercentage" xml:space="preserve">
+    <value>位置を割合で保存</value>
+  </data>
+  <data name="SaveToStorage" xml:space="preserve">
+    <value>ストレージに保存する</value>
+  </data>
+  <data name="SceneSettings" xml:space="preserve">
+    <value>シーンの設定</value>
+  </data>
+  <data name="Search" xml:space="preserve">
+    <value>検索</value>
+  </data>
+  <data name="SelectLocationToUnpackProject" xml:space="preserve">
+    <value>プロジェクトを解凍する場所の選択</value>
+  </data>
+  <data name="Separate" xml:space="preserve">
+    <value>分割</value>
+  </data>
+  <data name="SetMaximumFrame" xml:space="preserve">
+    <value>最大フレームを設定</value>
+  </data>
+  <data name="Settings" xml:space="preserve">
+    <value>設定</value>
+  </data>
+  <data name="Setup" xml:space="preserve">
+    <value>セットアップ</value>
+  </data>
+  <data name="ShortDescription" xml:space="preserve">
+    <value>短い説明</value>
+  </data>
+  <data name="ShortUpdateNote" xml:space="preserve">
+    <value>短い更新ノート</value>
+  </data>
+  <data name="Show" xml:space="preserve">
+    <value>表示</value>
+  </data>
+  <data name="ShowStartWindow" xml:space="preserve">
+    <value>スタートウィンドウを表示する。</value>
+  </data>
+  <data name="Shutdown" xml:space="preserve">
+    <value>終了</value>
+  </data>
+  <data name="Signin" xml:space="preserve">
+    <value>サインイン</value>
+  </data>
+  <data name="Signout" xml:space="preserve">
+    <value>サインアウト</value>
+  </data>
+  <data name="Signup" xml:space="preserve">
+    <value>サインアップ</value>
+  </data>
+  <data name="SomeFunctionsAreNotAvailable." xml:space="preserve">
+    <value>一部の機能が使えません。</value>
+  </data>
+  <data name="SpecifiedClipIsNotFound" xml:space="preserve">
+    <value>指定されたクリップが見つかりません。</value>
+  </data>
+  <data name="Strong" xml:space="preserve">
+    <value>濃い</value>
+  </data>
+  <data name="Tag" xml:space="preserve">
+    <value>タグ</value>
+  </data>
+  <data name="Template" xml:space="preserve">
+    <value>テンプレート</value>
+  </data>
+  <data name="TheChangesWillBeAppliedAfterRestarting" xml:space="preserve">
+    <value>変更内容は、再起動後に適用されます。</value>
+  </data>
+  <data name="TheFollowingPluginsAreRrequiredToOpenProject" xml:space="preserve">
+    <value>このプロジェクトを開くには、以下のプラグインが必要です。</value>
+  </data>
+  <data name="ThePackageHasBeenCreated" xml:space="preserve">
+    <value>パッケージが作成されました</value>
+  </data>
+  <data name="ThereIsANewerVersionOf" xml:space="preserve">
+    <value>"{0}"の新しいバージョンがあります。</value>
+  </data>
+  <data name="ThereIsNoProject" xml:space="preserve">
+    <value>プロジェクトがありません。</value>
+  </data>
+  <data name="Thin" xml:space="preserve">
+    <value>薄い</value>
+  </data>
+  <data name="ThisFileCannotBeConverted" xml:space="preserve">
+    <value>このファイルは変換できません。</value>
+  </data>
+  <data name="ThisItemCannotBeChanged" xml:space="preserve">
+    <value>この項目は変更できません。</value>
+  </data>
+  <data name="ThisNameAlreadyExists" xml:space="preserve">
+    <value>この名前は既に存在しています。</value>
+  </data>
+  <data name="Timeline" xml:space="preserve">
+    <value>タイムライン</value>
+  </data>
+  <data name="TimelineShowHide" xml:space="preserve">
+    <value>タイムラインを表示/非表示</value>
+  </data>
+  <data name="TimeRemaining" xml:space="preserve">
+    <value>残り時間</value>
+  </data>
+  <data name="ToCreateProjectClickNew" xml:space="preserve">
+    <value>プロジェクトを作成する場合は新規作成をクリックします。</value>
+  </data>
+  <data name="Tool" xml:space="preserve">
+    <value>ツール</value>
+  </data>
+  <data name="Transparent" xml:space="preserve">
+    <value>透明</value>
+  </data>
+  <data name="TryingToOpenProjectPackage" xml:space="preserve">
+    <value>プロジェクトパッケージを開こうとしています</value>
+  </data>
+  <data name="Undo" xml:space="preserve">
+    <value>やり直す</value>
+  </data>
+  <data name="Uninstall" xml:space="preserve">
+    <value>アンインストール</value>
+  </data>
+  <data name="Unknown" xml:space="preserve">
+    <value>不明</value>
+  </data>
+  <data name="Update" xml:space="preserve">
+    <value>更新</value>
+  </data>
+  <data name="UpdateNote" xml:space="preserve">
+    <value>更新ノート</value>
+  </data>
+  <data name="UpdatePassword" xml:space="preserve">
+    <value>パスワードを更新</value>
+  </data>
+  <data name="UseAutoBackup" xml:space="preserve">
+    <value>自動バックアップを使う</value>
+  </data>
+  <data name="UseCache" xml:space="preserve">
+    <value>キャッシュを使う</value>
+  </data>
+  <data name="UseCurrentFrame" xml:space="preserve">
+    <value>現在のフレームを使用</value>
+  </data>
+  <data name="UseDarkMode" xml:space="preserve">
+    <value>ダークモードを使う</value>
+  </data>
+  <data name="User" xml:space="preserve">
+    <value>ユーザー</value>
+  </data>
+  <data name="UserName" xml:space="preserve">
+    <value>ユーザー名</value>
+  </data>
+  <data name="UsingGPUForImageProcessing" xml:space="preserve">
+    <value>画像処理にGPUを使う</value>
+  </data>
+  <data name="Validation" xml:space="preserve">
+    <value>有効化</value>
+  </data>
+  <data name="Version" xml:space="preserve">
+    <value>バージョン</value>
+  </data>
+  <data name="VideoOutput" xml:space="preserve">
+    <value>動画出力</value>
+  </data>
+  <data name="View" xml:space="preserve">
+    <value>表示</value>
+  </data>
+  <data name="WebSite" xml:space="preserve">
+    <value>ウェブサイト</value>
+  </data>
+  <data name="WhenYouCloseTheApplicationTheChangesWillBegin" xml:space="preserve">
+    <value>アプリケーションを終了すると、変更が開始されます。</value>
+  </data>
+  <data name="White" xml:space="preserve">
+    <value>白</value>
+  </data>
+  <data name="WidthOf1Frame" xml:space="preserve">
+    <value>1フレームあたりの横幅</value>
+  </data>
+  <data name="XAudio2IsUsedAsAudioProfile" xml:space="preserve">
+    <value>音声プロファイルにXAudio2が使われています。</value>
+  </data>
+  <data name="Yes" xml:space="preserve">
+    <value>はい</value>
+  </data>
+  <data name="YouDoNotHaveTheRequiredPluginsInstalled" xml:space="preserve">
+    <value>必要なプラグインがインストールされていません。
+今すぐインストールしますか?</value>
+  </data>
+  <data name="ZoomIn" xml:space="preserve">
+    <value>拡大表示</value>
+  </data>
+  <data name="ByClickingModify" xml:space="preserve">
+    <value>"変更を適用"をクリックすると、上記のライセンス条項（存在する場合）に合意したものと見なされます。</value>
+  </data>
+  <data name="CompleteChangesClickToExit" xml:space="preserve">
+    <value>変更が完了しました。
+"閉じる"をクリックして終了します。</value>
+  </data>
+  <data name="Downloading" xml:space="preserve">
+    <value>ダウンロード中</value>
+  </data>
+  <data name="ExtractingFiles" xml:space="preserve">
+    <value>ファイルを展開中</value>
+  </data>
+  <data name="FailedChanges" xml:space="preserve">
+    <value>失敗した変更</value>
+  </data>
+  <data name="Installing" xml:space="preserve">
+    <value>インストール中</value>
+  </data>
+  <data name="Modify" xml:space="preserve">
+    <value>変更を適用</value>
+  </data>
+  <data name="SuccessfulChanges" xml:space="preserve">
+    <value>成功した変更</value>
+  </data>
+  <data name="Uninstalling" xml:space="preserve">
+    <value>アンインストール中</value>
   </data>
 </root>

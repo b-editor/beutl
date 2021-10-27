@@ -19,7 +19,7 @@ using Avalonia.VisualTree;
 using BEditor.Data;
 using BEditor.Data.Property;
 using BEditor.Extensions;
-using BEditor.Properties;
+using BEditor.LangResources;
 using BEditor.ViewModels.Timelines;
 
 using Reactive.Bindings;

@@ -3,7 +3,7 @@ using System;
 
 using BEditor.Models;
 using BEditor.Packaging;
-using BEditor.Properties;
+using BEditor.LangResources;
 
 using Microsoft.Extensions.DependencyInjection;
 

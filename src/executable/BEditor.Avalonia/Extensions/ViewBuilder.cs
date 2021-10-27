@@ -15,7 +15,7 @@ using BEditor.Data;
 using BEditor.Data.Property;
 using BEditor.Data.Property.Easing;
 using BEditor.Models;
-using BEditor.Properties;
+using BEditor.LangResources;
 using BEditor.ViewModels.Properties;
 using BEditor.ViewModels.Timelines;
 using BEditor.Views.Properties;

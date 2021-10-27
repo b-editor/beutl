@@ -7,7 +7,7 @@ using Avalonia.Controls.Shapes;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 
-using BEditor.Properties;
+using BEditor.LangResources;
 
 namespace BEditor.Views.CustomTitlebars
 {

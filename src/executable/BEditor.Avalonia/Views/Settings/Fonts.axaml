@@ -7,7 +7,7 @@
              xmlns:uip="using:FluentAvalonia.UI.Controls.Primitives"
              x:DataType="vm:FontsViewModel"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-             xmlns:properties="using:BEditor.Properties"
+             xmlns:properties="using:BEditor.LangResources"
              xmlns:setting="clr-namespace:BEditor;assembly=BEditor.Settings"
              x:Name="root"
              x:Class="BEditor.Views.Settings.Fonts">

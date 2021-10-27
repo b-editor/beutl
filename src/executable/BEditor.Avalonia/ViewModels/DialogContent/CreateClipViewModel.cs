@@ -11,7 +11,7 @@ using Avalonia.Controls;
 using BEditor.Data;
 using BEditor.Extensions;
 using BEditor.Models;
-using BEditor.Properties;
+using BEditor.LangResources;
 
 using Microsoft.Extensions.DependencyInjection;
 

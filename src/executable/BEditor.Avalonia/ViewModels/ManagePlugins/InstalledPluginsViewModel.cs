@@ -4,7 +4,7 @@ using System.Reactive.Linq;
 
 using BEditor.Models.ManagePlugins;
 using BEditor.Plugin;
-using BEditor.Properties;
+using BEditor.LangResources;
 
 using Reactive.Bindings;
 

@@ -12,7 +12,7 @@ using BEditor.Media;
 using BEditor.Media.Encoding;
 using BEditor.Models;
 using BEditor.Packaging;
-using BEditor.Properties;
+using BEditor.LangResources;
 using BEditor.ViewModels;
 using BEditor.Views;
 

@@ -6,7 +6,7 @@ using Avalonia.Layout;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media;
 
-using BEditor.Properties;
+using BEditor.LangResources;
 
 using static BEditor.IMessage;
 

@@ -31,28 +31,4 @@
         <ProjectReference Include="..\BEditor.PackageInstaller\BEditor.PackageInstaller.csproj" />
     </ItemGroup>
 
-    <ItemGroup>
-        <Compile Update="Properties\CommandName.Designer.cs">
-            <DesignTime>True</DesignTime>
-            <AutoGen>True</AutoGen>
-            <DependentUpon>CommandName.resx</DependentUpon>
-        </Compile>
-        <Compile Update="Properties\Strings.Designer.cs">
-            <DesignTime>True</DesignTime>
-            <AutoGen>True</AutoGen>
-            <DependentUpon>Strings.resx</DependentUpon>
-        </Compile>
-    </ItemGroup>
-
-    <ItemGroup>
-        <EmbeddedResource Update="Properties\CommandName.resx">
-            <Generator>ResXFileCodeGenerator</Generator>
-            <LastGenOutput>CommandName.Designer.cs</LastGenOutput>
-        </EmbeddedResource>
-        <EmbeddedResource Update="Properties\Strings.resx">
-            <Generator>PublicResXFileCodeGenerator</Generator>
-            <LastGenOutput>Strings.Designer.cs</LastGenOutput>
-        </EmbeddedResource>
-    </ItemGroup>
-
 </Project>

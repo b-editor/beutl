@@ -23,7 +23,7 @@ using BEditor.Models;
 using BEditor.Models.ManagePlugins;
 using BEditor.PackageInstaller;
 using BEditor.Plugin;
-using BEditor.Properties;
+using BEditor.LangResources;
 using BEditor.ViewModels;
 using BEditor.ViewModels.Dialogs;
 using BEditor.Views;

@@ -9,7 +9,7 @@ using Avalonia.Controls;
 
 using BEditor.Data;
 using BEditor.Models;
-using BEditor.Properties;
+using BEditor.LangResources;
 using BEditor.Views.DialogContent;
 
 using Reactive.Bindings;

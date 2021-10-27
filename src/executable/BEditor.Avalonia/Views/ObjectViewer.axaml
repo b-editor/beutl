@@ -5,7 +5,7 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:local="using:BEditor.Views"
     xmlns:model="using:BEditor.Models"
-    xmlns:prop="using:BEditor.Properties"
+    xmlns:prop="using:BEditor.LangResources"
     xmlns:vm="using:BEditor.ViewModels"
     mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
     IsEnabled="{Binding IsOpened.Value, Mode=OneWay, Source={x:Static vm:MainWindowViewModel.Current}}"

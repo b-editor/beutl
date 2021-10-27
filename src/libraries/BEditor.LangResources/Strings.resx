@@ -266,7 +266,7 @@
     <value>Change value</value>
   </data>
   <data name="Disconnect" xml:space="preserve">
-    <value>Disconnect property value</value>
+    <value>Disconnect</value>
   </data>
   <data name="DownEffect" xml:space="preserve">
     <value>Change the order of the effects (below)</value>
@@ -308,7 +308,7 @@
     <value>Pitch</value>
   </data>
   <data name="Start" xml:space="preserve">
-    <value>Start</value>
+    <value>Start frame</value>
   </data>
   <data name="FailedToRemove" xml:space="preserve">
     <value>Failed to remove.</value>
@@ -904,5 +904,838 @@
   </data>
   <data name="Gradient" xml:space="preserve">
     <value>Gradient</value>
+  </data>
+  <data name="Add" xml:space="preserve">
+    <value>Add</value>
+  </data>
+  <data name="AssemblyFile" xml:space="preserve">
+    <value>Assembly File</value>
+  </data>
+  <data name="Apply" xml:space="preserve">
+    <value>Apply</value>
+  </data>
+  <data name="Appearance" xml:space="preserve">
+    <value>Appearance</value>
+  </data>
+  <data name="An exception was thrown during rendering preview" xml:space="preserve">
+    <value>An exception was thrown during rendering, so the preview was temporarily stopped,
+and will be released after 5 seconds.</value>
+  </data>
+  <data name="An exception was thrown during rendering" xml:space="preserve">
+    <value>An exception was thrown during rendering,
+so playback was stopped.</value>
+  </data>
+  <data name="AlreadyCancelled" xml:space="preserve">
+    <value>Already cancelled.</value>
+  </data>
+  <data name="AdjustLengthOfClip" xml:space="preserve">
+    <value>Adjust length</value>
+  </data>
+  <data name="AddToList" xml:space="preserve">
+    <value>Add to list</value>
+  </data>
+  <data name="AddToColorPalette" xml:space="preserve">
+    <value>Add to color palette</value>
+  </data>
+  <data name="AddScene" xml:space="preserve">
+    <value>Add a new scene</value>
+  </data>
+  <data name="AddNewPalette" xml:space="preserve">
+    <value>Add a new palette</value>
+  </data>
+  <data name="AudioFiles" xml:space="preserve">
+    <value>Audio files</value>
+  </data>
+  <data name="AudioProfile" xml:space="preserve">
+    <value>Audio profile</value>
+  </data>
+  <data name="Author" xml:space="preserve">
+    <value>Author</value>
+  </data>
+  <data name="Back" xml:space="preserve">
+    <value>Back</value>
+  </data>
+  <data name="Background" xml:space="preserve">
+    <value>Background</value>
+  </data>
+  <data name="BackupFile" xml:space="preserve">
+    <value>Backup file</value>
+  </data>
+  <data name="BackupInterval" xml:space="preserve">
+    <value>Backup interval (min)</value>
+  </data>
+  <data name="Bind" xml:space="preserve">
+    <value>Bind</value>
+  </data>
+  <data name="Black" xml:space="preserve">
+    <value>Black</value>
+  </data>
+  <data name="Cache" xml:space="preserve">
+    <value>Cache</value>
+  </data>
+  <data name="Cancel" xml:space="preserve">
+    <value>Cancel</value>
+  </data>
+  <data name="CannotDeleteAnyMore" xml:space="preserve">
+    <value>Cannot delete any more.</value>
+  </data>
+  <data name="Category" xml:space="preserve">
+    <value>Category</value>
+  </data>
+  <data name="ChangeFailed" xml:space="preserve">
+    <value>Change failed.</value>
+  </data>
+  <data name="ChangePassword" xml:space="preserve">
+    <value>Change password</value>
+  </data>
+  <data name="Changes" xml:space="preserve">
+    <value>Changes</value>
+  </data>
+  <data name="ChangeSucceeded" xml:space="preserve">
+    <value>Change succeeded.</value>
+  </data>
+  <data name="CheckDark" xml:space="preserve">
+    <value>Checkered (Dark)</value>
+  </data>
+  <data name="CheckLight" xml:space="preserve">
+    <value>Checkered (Light)</value>
+  </data>
+  <data name="ClearCache" xml:space="preserve">
+    <value>Clear cache</value>
+  </data>
+  <data name="Clip" xml:space="preserve">
+    <value>Clip</value>
+  </data>
+  <data name="ClipExistsInTheSpecifiedLocation" xml:space="preserve">
+    <value>Cannot place a new clip because a clip already exists in the specified location.</value>
+  </data>
+  <data name="ClipHeight" xml:space="preserve">
+    <value>Clip height</value>
+  </data>
+  <data name="ClipId" xml:space="preserve">
+    <value>Id of the clip</value>
+  </data>
+  <data name="ClipInfo" xml:space="preserve">
+    <value>Clip infomation</value>
+  </data>
+  <data name="Close" xml:space="preserve">
+    <value>Close</value>
+  </data>
+  <data name="Codec" xml:space="preserve">
+    <value>Codec</value>
+  </data>
+  <data name="ColorPalette" xml:space="preserve">
+    <value>Color palette</value>
+  </data>
+  <data name="ColorPicker" xml:space="preserve">
+    <value>Color picker</value>
+  </data>
+  <data name="CommandQ1" xml:space="preserve">
+    <value>This operation can not be undone
+Do you want to perform the operation?</value>
+  </data>
+  <data name="ComponentIsExtractedAndPlaced" xml:space="preserve">
+    <value>Component is extracted and placed.</value>
+  </data>
+  <data name="Configuration" xml:space="preserve">
+    <value>Configuration</value>
+  </data>
+  <data name="ConfirmNewPassword" xml:space="preserve">
+    <value>Confirm new password</value>
+  </data>
+  <data name="ContainerFormat" xml:space="preserve">
+    <value>Container format</value>
+  </data>
+  <data name="ConvertJson" xml:space="preserve">
+    <value>Convert to json format</value>
+  </data>
+  <data name="ConvertVideo" xml:space="preserve">
+    <value>Convert video</value>
+  </data>
+  <data name="Copy" xml:space="preserve">
+    <value>Copy</value>
+  </data>
+  <data name="CopyID" xml:space="preserve">
+    <value>Copy the ID</value>
+  </data>
+  <data name="CouldNotCreateFolder" xml:space="preserve">
+    <value>Could not create folder.</value>
+  </data>
+  <data name="CouldNotCreatePackage" xml:space="preserve">
+    <value>Could not create the package.</value>
+  </data>
+  <data name="Create" xml:space="preserve">
+    <value>Create</value>
+  </data>
+  <data name="CreateCache" xml:space="preserve">
+    <value>Create cache</value>
+  </data>
+  <data name="CreateFromBackup" xml:space="preserve">
+    <value>Create from backup file</value>
+  </data>
+  <data name="CreatePluginPackage" xml:space="preserve">
+    <value>Create a plugin package</value>
+  </data>
+  <data name="CreateProject" xml:space="preserve">
+    <value>Create a project</value>
+  </data>
+  <data name="CreateScene" xml:space="preserve">
+    <value>Create a scene</value>
+  </data>
+  <data name="Cut" xml:space="preserve">
+    <value>Cut</value>
+  </data>
+  <data name="Delete" xml:space="preserve">
+    <value>Delete</value>
+  </data>
+  <data name="DeleteCommand" xml:space="preserve">
+    <value>Delet recorded commands</value>
+  </data>
+  <data name="Dependency" xml:space="preserve">
+    <value>Dependency</value>
+  </data>
+  <data name="Description" xml:space="preserve">
+    <value>Description</value>
+  </data>
+  <data name="DontSave" xml:space="preserve">
+    <value>Don't save</value>
+  </data>
+  <data name="Download" xml:space="preserve">
+    <value>Download</value>
+  </data>
+  <data name="DownloadingRequiredComponents" xml:space="preserve">
+    <value>Downloading the required components.</value>
+  </data>
+  <data name="DoYouWantToDeleteThePalette" xml:space="preserve">
+    <value>Do you want to delete the palette?</value>
+  </data>
+  <data name="DoYouWantToRemoveThisDirectory" xml:space="preserve">
+    <value>Do you want to remove this directory?</value>
+  </data>
+  <data name="DoYouWantToRemoveThisFile" xml:space="preserve">
+    <value>Do you want to remove this file?</value>
+  </data>
+  <data name="DoYouWantToSaveYourChangesTo" xml:space="preserve">
+    <value>Do you want to save your changes to {0}?</value>
+  </data>
+  <data name="Edit" xml:space="preserve">
+    <value>Edit</value>
+  </data>
+  <data name="Effect" xml:space="preserve">
+    <value>Effect</value>
+  </data>
+  <data name="EffectFile" xml:space="preserve">
+    <value>Effect file</value>
+  </data>
+  <data name="Email" xml:space="preserve">
+    <value>Email</value>
+  </data>
+  <data name="Encoder" xml:space="preserve">
+    <value>Encoder</value>
+  </data>
+  <data name="EncoderIsNotSet" xml:space="preserve">
+    <value>The encoder is not set.
+After the encoder is set, the detailed settings will be displayed.</value>
+  </data>
+  <data name="EncoderNotFound" xml:space="preserve">
+    <value>Encoder not found.</value>
+  </data>
+  <data name="EncoderSettings" xml:space="preserve">
+    <value>Encoder settings</value>
+  </data>
+  <data name="End" xml:space="preserve">
+    <value>End frame</value>
+  </data>
+  <data name="ErrorObjectViewer1" xml:space="preserve">
+    <value>Select a {0} or its child elements</value>
+  </data>
+  <data name="ErrorObjectViewer2" xml:space="preserve">
+    <value>Please select {0}</value>
+  </data>
+  <data name="ExceptionWasThrown" xml:space="preserve">
+    <value>{0} was thrown.</value>
+  </data>
+  <data name="FailedTo" xml:space="preserve">
+    <value>Failed to {0}.</value>
+  </data>
+  <data name="FailedToInstall" xml:space="preserve">
+    <value>Failed to install {0}.</value>
+  </data>
+  <data name="FailedToPackProject" xml:space="preserve">
+    <value>Failed to pack project</value>
+  </data>
+  <data name="FailedToSave" xml:space="preserve">
+    <value>Failed to save.</value>
+  </data>
+  <data name="FileDoesNotExistRemoveItFromList" xml:space="preserve">
+    <value>The file does not exist.
+Do you want to remove it from the list?</value>
+  </data>
+  <data name="FileNotFound" xml:space="preserve">
+    <value>File not found.</value>
+  </data>
+  <data name="FileSaved" xml:space="preserve">
+    <value>The file has been saved</value>
+  </data>
+  <data name="FixSeekbar" xml:space="preserve">
+    <value>Fix the seek bar during playback</value>
+  </data>
+  <data name="ForgotYourPassword" xml:space="preserve">
+    <value>Forgot your password?</value>
+  </data>
+  <data name="Format" xml:space="preserve">
+    <value>Format</value>
+  </data>
+  <data name="Framerate" xml:space="preserve">
+    <value>Framerate</value>
+  </data>
+  <data name="General" xml:space="preserve">
+    <value>General</value>
+  </data>
+  <data name="GetPath" xml:space="preserve">
+    <value>Get the path</value>
+  </data>
+  <data name="GoToMainWindow" xml:space="preserve">
+    <value>Go to main window</value>
+  </data>
+  <data name="GraphicsProfile" xml:space="preserve">
+    <value>Graphics profile</value>
+  </data>
+  <data name="GraphicsProfileDescription" xml:space="preserve">
+    <value>OpenGL: 
+- Renders using "OpenGL".
+
+Skia:
+- Renders using "Skia".
+- 3D drawing is not supported.
+- Materials, lights, and cameras are not available.
+
+Direct3D 11:
+- Renders using "Direct3D 11".
+- For Windows.
+- The lighting is not yet implemented.
+
+Metal:
+- Renders using "Metal".
+- For macOS.
+- The lighting is not yet implemented.
+
+Vulkan: 
+- Renders using "Vulkan".
+- The lighting is not yet implemented.</value>
+  </data>
+  <data name="Help" xml:space="preserve">
+    <value>Help</value>
+  </data>
+  <data name="ImageOutput" xml:space="preserve">
+    <value>Image output</value>
+  </data>
+  <data name="Infomation" xml:space="preserve">
+    <value>Infomation</value>
+  </data>
+  <data name="Install" xml:space="preserve">
+    <value>Install</value>
+  </data>
+  <data name="Installed" xml:space="preserve">
+    <value>Installed</value>
+  </data>
+  <data name="InstallLater" xml:space="preserve">
+    <value>Install later</value>
+  </data>
+  <data name="InstallNow" xml:space="preserve">
+    <value>Install now</value>
+  </data>
+  <data name="InstallRequiredPlugins" xml:space="preserve">
+    <value>Install the required plugins</value>
+  </data>
+  <data name="InvalidIdCanUseGUIDAndUUID" xml:space="preserve">
+    <value>Invalid Id.
+GUID and UUID can be used for Id.</value>
+  </data>
+  <data name="IsChecking" xml:space="preserve">
+    <value>{0} is checking.</value>
+  </data>
+  <data name="IsLoading" xml:space="preserve">
+    <value>{0} is loading.</value>
+  </data>
+  <data name="Key" xml:space="preserve">
+    <value>Key</value>
+  </data>
+  <data name="KeyBindings" xml:space="preserve">
+    <value>Key bindings</value>
+  </data>
+  <data name="Language" xml:space="preserve">
+    <value>Language</value>
+  </data>
+  <data name="LatestVersion" xml:space="preserve">
+    <value>Latest version</value>
+  </data>
+  <data name="Layer" xml:space="preserve">
+    <value>Layer</value>
+  </data>
+  <data name="LayerThickness" xml:space="preserve">
+    <value>Layer Thickness</value>
+  </data>
+  <data name="LearnHowToUse" xml:space="preserve">
+    <value>Learn how to use</value>
+  </data>
+  <data name="Library" xml:space="preserve">
+    <value>Library</value>
+  </data>
+  <data name="License" xml:space="preserve">
+    <value>License</value>
+  </data>
+  <data name="Location" xml:space="preserve">
+    <value>Location</value>
+  </data>
+  <data name="Log" xml:space="preserve">
+    <value>Log</value>
+  </data>
+  <data name="LowerColorReproduction" xml:space="preserve">
+    <value>Lower color reproduction</value>
+  </data>
+  <data name="LowerResolution" xml:space="preserve">
+    <value>Lower resolution</value>
+  </data>
+  <data name="MachineTranslation" xml:space="preserve">
+    <value>Machine translation</value>
+  </data>
+  <data name="ManagePlugins" xml:space="preserve">
+    <value>Manage Plugins</value>
+  </data>
+  <data name="Maximize" xml:space="preserve">
+    <value>Maximize</value>
+  </data>
+  <data name="MemoryRelease" xml:space="preserve">
+    <value>Memory release</value>
+  </data>
+  <data name="Metadata" xml:space="preserve">
+    <value>Metadata</value>
+  </data>
+  <data name="Minimize" xml:space="preserve">
+    <value>Minimize</value>
+  </data>
+  <data name="MoveToEnd" xml:space="preserve">
+    <value>Move to end</value>
+  </data>
+  <data name="MoveToNextFrame" xml:space="preserve">
+    <value>Move to the next frame</value>
+  </data>
+  <data name="MoveToPreviousFrame" xml:space="preserve">
+    <value>Move to previous frame</value>
+  </data>
+  <data name="MoveToSpecifiedFrame" xml:space="preserve">
+    <value>Move to the specified frame.</value>
+  </data>
+  <data name="MoveToTop" xml:space="preserve">
+    <value>Move to top</value>
+  </data>
+  <data name="Name" xml:space="preserve">
+    <value>Name</value>
+  </data>
+  <data name="New" xml:space="preserve">
+    <value>New</value>
+  </data>
+  <data name="NewFolder" xml:space="preserve">
+    <value>New folder</value>
+  </data>
+  <data name="NewPassword" xml:space="preserve">
+    <value>New password</value>
+  </data>
+  <data name="Next" xml:space="preserve">
+    <value>Next</value>
+  </data>
+  <data name="No" xml:space="preserve">
+    <value>No</value>
+  </data>
+  <data name="NoClipIsSelected" xml:space="preserve">
+    <value>No clip is selected.</value>
+  </data>
+  <data name="None" xml:space="preserve">
+    <value>None</value>
+  </data>
+  <data name="NotFoundPackageFromRegisteredPackageSource" xml:space="preserve">
+    <value>The package was not found in the registered package sources.</value>
+  </data>
+  <data name="NotSupportedFormats" xml:space="preserve">
+    <value>Not supported formats.</value>
+  </data>
+  <data name="ObjectFile" xml:space="preserve">
+    <value>Object file</value>
+  </data>
+  <data name="Objects" xml:space="preserve">
+    <value>Objects</value>
+  </data>
+  <data name="OK" xml:space="preserve">
+    <value>OK</value>
+  </data>
+  <data name="Open" xml:space="preserve">
+    <value>Open</value>
+  </data>
+  <data name="OpenALNotFound" xml:space="preserve">
+    <value>OpenAL was not found.
+Please install it.</value>
+  </data>
+  <data name="Operate" xml:space="preserve">
+    <value>Operate</value>
+  </data>
+  <data name="Optimization" xml:space="preserve">
+    <value>Optimization</value>
+  </data>
+  <data name="Others" xml:space="preserve">
+    <value>Others</value>
+  </data>
+  <data name="Out" xml:space="preserve">
+    <value>Output</value>
+  </data>
+  <data name="Output" xml:space="preserve">
+    <value>Output</value>
+  </data>
+  <data name="OutputDirectory" xml:space="preserve">
+    <value>Output directory</value>
+  </data>
+  <data name="Outputs" xml:space="preserve">
+    <value>Outputs</value>
+  </data>
+  <data name="PackageSource" xml:space="preserve">
+    <value>Package source</value>
+  </data>
+  <data name="PackingTheProject" xml:space="preserve">
+    <value>Packing the project</value>
+  </data>
+  <data name="PaletteNotSelected" xml:space="preserve">
+    <value>Palette not selected</value>
+  </data>
+  <data name="Password" xml:space="preserve">
+    <value>Password</value>
+  </data>
+  <data name="PasswordAreNotMatching" xml:space="preserve">
+    <value>Password are not matching</value>
+  </data>
+  <data name="Paste" xml:space="preserve">
+    <value>Paste</value>
+  </data>
+  <data name="Path" xml:space="preserve">
+    <value>Path</value>
+  </data>
+  <data name="Pause" xml:space="preserve">
+    <value>Pause</value>
+  </data>
+  <data name="Play" xml:space="preserve">
+    <value>Play</value>
+  </data>
+  <data name="Playing" xml:space="preserve">
+    <value>Playing</value>
+  </data>
+  <data name="PlayPause" xml:space="preserve">
+    <value>Play/Pause</value>
+  </data>
+  <data name="PleaseEnter" xml:space="preserve">
+    <value>Please enter {0}.</value>
+  </data>
+  <data name="Plugin" xml:space="preserve">
+    <value>Plugin</value>
+  </data>
+  <data name="Plugins" xml:space="preserve">
+    <value>Plugins</value>
+  </data>
+  <data name="Preset" xml:space="preserve">
+    <value>Preset</value>
+  </data>
+  <data name="Preview" xml:space="preserve">
+    <value>Preview</value>
+  </data>
+  <data name="PrimitiveEasing" xml:space="preserve">
+    <value>Primitive (deprecated)</value>
+  </data>
+  <data name="Project" xml:space="preserve">
+    <value>Project</value>
+  </data>
+  <data name="ProjectLocation" xml:space="preserve">
+    <value>Project Location</value>
+  </data>
+  <data name="ProjectPackage" xml:space="preserve">
+    <value>Project package</value>
+  </data>
+  <data name="Projects" xml:space="preserve">
+    <value>Projects</value>
+  </data>
+  <data name="PropertyShowHide" xml:space="preserve">
+    <value>Show/hide property</value>
+  </data>
+  <data name="Publish" xml:space="preserve">
+    <value>Publish</value>
+  </data>
+  <data name="RangeAbove" xml:space="preserve">
+    <value>Enter a value of {0} or greater.</value>
+  </data>
+  <data name="RecentFiles" xml:space="preserve">
+    <value>Recent files</value>
+  </data>
+  <data name="RecentFonts" xml:space="preserve">
+    <value>Recent fonts</value>
+  </data>
+  <data name="RecentProject" xml:space="preserve">
+    <value>RecentProject</value>
+  </data>
+  <data name="Redo" xml:space="preserve">
+    <value>Redo</value>
+  </data>
+  <data name="Reload" xml:space="preserve">
+    <value>Reload</value>
+  </data>
+  <data name="Remove" xml:space="preserve">
+    <value>Remove</value>
+  </data>
+  <data name="RequiredPlugins" xml:space="preserve">
+    <value>Required plugins</value>
+  </data>
+  <data name="Reset" xml:space="preserve">
+    <value>Reset</value>
+  </data>
+  <data name="ResetLayout" xml:space="preserve">
+    <value>Reset layout</value>
+  </data>
+  <data name="RestoreDown" xml:space="preserve">
+    <value>Restore Down</value>
+  </data>
+  <data name="Retry" xml:space="preserve">
+    <value>Retry</value>
+  </data>
+  <data name="Samplingrate" xml:space="preserve">
+    <value>Samplingrate</value>
+  </data>
+  <data name="Save" xml:space="preserve">
+    <value>Save</value>
+  </data>
+  <data name="SaveAs" xml:space="preserve">
+    <value>Save as</value>
+  </data>
+  <data name="SaveFullPath" xml:space="preserve">
+    <value>Save full path</value>
+  </data>
+  <data name="SavePathRelativeToSelectedPathFromProject" xml:space="preserve">
+    <value>Save the path relative to the selected path from the project</value>
+  </data>
+  <data name="SavePositionAsFrameNumber" xml:space="preserve">
+    <value>Save the position as a frame number</value>
+  </data>
+  <data name="SavePositionAsPercentage" xml:space="preserve">
+    <value>Save the position as a percentage</value>
+  </data>
+  <data name="SaveToStorage" xml:space="preserve">
+    <value>Save to storage</value>
+  </data>
+  <data name="SceneSettings" xml:space="preserve">
+    <value>Setting the current scene</value>
+  </data>
+  <data name="Search" xml:space="preserve">
+    <value>Seach</value>
+  </data>
+  <data name="SelectLocationToUnpackProject" xml:space="preserve">
+    <value>Select a location to unpack the project</value>
+  </data>
+  <data name="Separate" xml:space="preserve">
+    <value>Separate</value>
+  </data>
+  <data name="SetMaximumFrame" xml:space="preserve">
+    <value>Set maximum frame</value>
+  </data>
+  <data name="Settings" xml:space="preserve">
+    <value>Settings</value>
+  </data>
+  <data name="Setup" xml:space="preserve">
+    <value>Setup</value>
+  </data>
+  <data name="ShortDescription" xml:space="preserve">
+    <value>Short Description</value>
+  </data>
+  <data name="ShortUpdateNote" xml:space="preserve">
+    <value>Short Update Notes</value>
+  </data>
+  <data name="Show" xml:space="preserve">
+    <value>Show</value>
+  </data>
+  <data name="ShowStartWindow" xml:space="preserve">
+    <value>Show start window.</value>
+  </data>
+  <data name="Shutdown" xml:space="preserve">
+    <value>Shutdown</value>
+  </data>
+  <data name="Signin" xml:space="preserve">
+    <value>Signin</value>
+  </data>
+  <data name="Signout" xml:space="preserve">
+    <value>Signout</value>
+  </data>
+  <data name="Signup" xml:space="preserve">
+    <value>Signup</value>
+  </data>
+  <data name="SomeFunctionsAreNotAvailable." xml:space="preserve">
+    <value>Some functions are not available.</value>
+  </data>
+  <data name="SpecifiedClipIsNotFound" xml:space="preserve">
+    <value>The specified clip is not found.</value>
+  </data>
+  <data name="Strong" xml:space="preserve">
+    <value>Strong</value>
+  </data>
+  <data name="Tag" xml:space="preserve">
+    <value>Tag</value>
+  </data>
+  <data name="Template" xml:space="preserve">
+    <value>Template</value>
+  </data>
+  <data name="TheChangesWillBeAppliedAfterRestarting" xml:space="preserve">
+    <value>The changes will be applied after restarting.</value>
+  </data>
+  <data name="TheFollowingPluginsAreRrequiredToOpenProject" xml:space="preserve">
+    <value>The following plug-ins are required to open this project.</value>
+  </data>
+  <data name="ThePackageHasBeenCreated" xml:space="preserve">
+    <value>The package has been created</value>
+  </data>
+  <data name="ThereIsANewerVersionOf" xml:space="preserve">
+    <value>There is a newer version of "{0}".</value>
+  </data>
+  <data name="ThereIsNoProject" xml:space="preserve">
+    <value>There is no project.</value>
+  </data>
+  <data name="Thin" xml:space="preserve">
+    <value>Thin</value>
+  </data>
+  <data name="ThisFileCannotBeConverted" xml:space="preserve">
+    <value>This file cannot be converted.</value>
+  </data>
+  <data name="ThisItemCannotBeChanged" xml:space="preserve">
+    <value>This item cannot be changed.</value>
+  </data>
+  <data name="ThisNameAlreadyExists" xml:space="preserve">
+    <value>This name already exists.</value>
+  </data>
+  <data name="Timeline" xml:space="preserve">
+    <value>Timeline</value>
+  </data>
+  <data name="TimelineShowHide" xml:space="preserve">
+    <value>Show/hide timeline</value>
+  </data>
+  <data name="TimeRemaining" xml:space="preserve">
+    <value>Time remaining</value>
+  </data>
+  <data name="ToCreateProjectClickNew" xml:space="preserve">
+    <value>If you want to create a project, click New.</value>
+  </data>
+  <data name="Tool" xml:space="preserve">
+    <value>Tool</value>
+  </data>
+  <data name="Transparent" xml:space="preserve">
+    <value>Transparent</value>
+  </data>
+  <data name="TryingToOpenProjectPackage" xml:space="preserve">
+    <value>Trying to open project package</value>
+  </data>
+  <data name="Undo" xml:space="preserve">
+    <value>Undo</value>
+  </data>
+  <data name="Uninstall" xml:space="preserve">
+    <value>Uninstall</value>
+  </data>
+  <data name="Unknown" xml:space="preserve">
+    <value>Unknown</value>
+  </data>
+  <data name="Update" xml:space="preserve">
+    <value>Update</value>
+  </data>
+  <data name="UpdateNote" xml:space="preserve">
+    <value>Update Notes</value>
+  </data>
+  <data name="UpdatePassword" xml:space="preserve">
+    <value>Update password</value>
+  </data>
+  <data name="UseAutoBackup" xml:space="preserve">
+    <value>Use automatic backups</value>
+  </data>
+  <data name="UseCache" xml:space="preserve">
+    <value>Use cache</value>
+  </data>
+  <data name="UseCurrentFrame" xml:space="preserve">
+    <value>Use current frame</value>
+  </data>
+  <data name="UseDarkMode" xml:space="preserve">
+    <value>Use dark mode</value>
+  </data>
+  <data name="User" xml:space="preserve">
+    <value>User</value>
+  </data>
+  <data name="UserName" xml:space="preserve">
+    <value>User name</value>
+  </data>
+  <data name="UsingGPUForImageProcessing" xml:space="preserve">
+    <value>Using the GPU for image processing</value>
+  </data>
+  <data name="Validation" xml:space="preserve">
+    <value>Validation</value>
+  </data>
+  <data name="Version" xml:space="preserve">
+    <value>Version</value>
+  </data>
+  <data name="VideoOutput" xml:space="preserve">
+    <value>Video output</value>
+  </data>
+  <data name="View" xml:space="preserve">
+    <value>View</value>
+  </data>
+  <data name="WebSite" xml:space="preserve">
+    <value>Web Site</value>
+  </data>
+  <data name="WhenYouCloseTheApplicationTheChangesWillBegin" xml:space="preserve">
+    <value>When you close the application, the changes will begin.</value>
+  </data>
+  <data name="White" xml:space="preserve">
+    <value>White</value>
+  </data>
+  <data name="WidthOf1Frame" xml:space="preserve">
+    <value>Width of 1 frame</value>
+  </data>
+  <data name="XAudio2IsUsedAsAudioProfile" xml:space="preserve">
+    <value>XAudio2 is used as the audio profile.</value>
+  </data>
+  <data name="Yes" xml:space="preserve">
+    <value>Yes</value>
+  </data>
+  <data name="YouDoNotHaveTheRequiredPluginsInstalled" xml:space="preserve">
+    <value>You do not have the required plugins installed.
+Do you want to install it now?</value>
+  </data>
+  <data name="ZoomIn" xml:space="preserve">
+    <value>Zoom in</value>
+  </data>
+  <data name="ByClickingModify" xml:space="preserve">
+    <value>By clicking "Modify", you agree with the above license terms (if any) and the installation of any prerequisites.</value>
+  </data>
+  <data name="CompleteChangesClickToExit" xml:space="preserve">
+    <value>The change has been completed.
+Click "Close" to exit.</value>
+  </data>
+  <data name="Downloading" xml:space="preserve">
+    <value>Downloading</value>
+  </data>
+  <data name="ExtractingFiles" xml:space="preserve">
+    <value>Extracting files</value>
+  </data>
+  <data name="FailedChanges" xml:space="preserve">
+    <value>Failed changes</value>
+  </data>
+  <data name="Installing" xml:space="preserve">
+    <value>Installing</value>
+  </data>
+  <data name="Modify" xml:space="preserve">
+    <value>Modify</value>
+  </data>
+  <data name="SuccessfulChanges" xml:space="preserve">
+    <value>Successful changes</value>
+  </data>
+  <data name="Uninstalling" xml:space="preserve">
+    <value>Uninstalling</value>
   </data>
 </root>

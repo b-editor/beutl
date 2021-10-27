@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Linq;
 
-using BEditor.Properties;
+using BEditor.LangResources;
 
 using Reactive.Bindings;
 
