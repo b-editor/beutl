@@ -1,8 +1,0 @@
-{
-  "profiles": {
-    "BEditor.Extensions.AviUtl": {
-      "commandName": "Executable",
-      "executablePath": "C:\\github.com\\b-editor\\BEditor\\src\\BEditor.Avalonia\\bin\\Debug\\net5.0\\beditor.exe"
-    }
-  }
-}

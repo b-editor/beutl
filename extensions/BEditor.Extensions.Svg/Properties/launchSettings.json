@@ -1,8 +1,0 @@
-{
-  "profiles": {
-    "BEditor.Extensions.Svg": {
-      "commandName": "Executable",
-      "executablePath": "E:\\github.com\\b-editor\\BEditor\\src\\BEditor.WPF\\bin\\x64\\Debug\\net5.0-windows\\BEditor.exe"
-    }
-  }
-}
