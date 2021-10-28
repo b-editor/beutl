@@ -35,24 +35,6 @@ namespace BEditor.Data
         public int Height { get; private set; }
 
         /// <summary>
-        /// Gets or sets the name of this <see cref="Scene"/>.
-        /// </summary>
-        [Obsolete("Use Name.")]
-        public string SceneName
-        {
-            get => Name;
-            set
-            {
-                var old = Name;
-                Name = value;
-                if (old == value)
-                {
-                    RaisePropertyChanged(new System.ComponentModel.PropertyChangedEventArgs(nameof(SceneName)));
-                }
-            }
-        }
-
-        /// <summary>
         /// Gets or sets the total frame.
         /// </summary>
         public Frame TotalFrame
@@ -111,12 +93,6 @@ namespace BEditor.Data
         public GraphicsContext? GraphicsContext { get; private set; }
 
         /// <summary>
-        /// Gets drawing context.
-        /// </summary>
-        [Obsolete("Use IApplication.DrawingContext.")]
-        public DrawingContext? DrawingContext => this.GetParent<IApplication>()?.DrawingContext;
-
-        /// <summary>
         /// Gets sampling context.
         /// </summary>
         public SamplingContext? SamplingContext { get; private set; }
@@ -139,28 +115,10 @@ namespace BEditor.Data
         /// <summary>
         /// Gets or sets the scale of the timeline.
         /// </summary>
-        [Obsolete("Use TimeLineScale")]
-        public float TimeLineZoom
-        {
-            get => TimeLineScale * 200;
-            set => TimeLineScale = value / 200;
-        }
-
-        /// <summary>
-        /// Gets or sets the scale of the timeline.
-        /// </summary>
         public float TimeLineScale
         {
             get => _timeLineScale;
-            set
-            {
-                if (SetAndRaise(Math.Clamp(value, 0.1f, 1), ref _timeLineScale, _scaleArgs))
-                {
-#pragma warning disable CS0612
-                    RaisePropertyChanged(_zoomArgs);
-#pragma warning restore CS0612
-                }
-            }
+            set => SetAndRaise(Math.Clamp(value, 0.1f, 1), ref _timeLineScale, _scaleArgs);
         }
 
         /// <summary>

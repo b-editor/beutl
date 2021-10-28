@@ -1061,11 +1061,6 @@
             Gets or sets the relative position.
             </summary>
         </member>
-        <member name="P:BEditor.Graphics.Transform.Coordinate">
-            <summary>
-            Gets or sets the position.
-            </summary>
-        </member>
         <member name="P:BEditor.Graphics.Transform.Center">
             <summary>
             Gets or sets the center coordinates.
@@ -1074,11 +1069,6 @@
         <member name="P:BEditor.Graphics.Transform.Rotation">
             <summary>
             Gets or sets the rotation.
-            </summary>
-        </member>
-        <member name="P:BEditor.Graphics.Transform.Rotate">
-            <summary>
-            Gets or sets the position.
             </summary>
         </member>
         <member name="P:BEditor.Graphics.Transform.Scale">

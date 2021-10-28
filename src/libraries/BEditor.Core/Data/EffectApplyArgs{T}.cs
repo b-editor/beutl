@@ -25,19 +25,6 @@ namespace BEditor.Data
         /// </summary>
         /// <param name="frame">The frame to render.</param>
         /// <param name="value">The value used to apply the effect.</param>
-        /// <param name="type">The rendering type.</param>
-        [Obsolete("Do not use.")]
-        public EffectApplyArgs(Frame frame, T value, ApplyType type = ApplyType.Edit)
-            : base(frame, type)
-        {
-            Value = value;
-        }
-
-        /// <summary>
-        /// Initializes a new instance of the <see cref="EffectApplyArgs{T}"/> class.
-        /// </summary>
-        /// <param name="frame">The frame to render.</param>
-        /// <param name="value">The value used to apply the effect.</param>
         /// <param name="contexts">The contexts.</param>
         /// <param name="type">The rendering type.</param>
         public EffectApplyArgs(Frame frame, T value, (GraphicsContext Graphics, SamplingContext Sampling, DrawingContext? Drawing) contexts, ApplyType type = ApplyType.Edit)

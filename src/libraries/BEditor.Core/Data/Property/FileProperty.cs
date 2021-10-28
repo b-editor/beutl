@@ -45,12 +45,6 @@ namespace BEditor.Data.Property
         }
 
         /// <summary>
-        /// Gets the name of the selected file.
-        /// </summary>
-        [Obsolete("Obsolete")]
-        public string RawValue => _value ??= string.Empty;
-
-        /// <summary>
         /// Gets or sets the name of the selected file.
         /// </summary>
         public string Value

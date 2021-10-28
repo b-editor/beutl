@@ -102,7 +102,7 @@
                         VerticalAlignment="Center"
                         FontSize="12"
                         Foreground="White"
-                        Text="{CompiledBinding ClipElement.LabelText, Mode=OneWay}" />
+                        Text="{Binding ClipElement.Name, Mode=OneWay}" />
                 </VirtualizingStackPanel>
             </Grid>
         </Border>

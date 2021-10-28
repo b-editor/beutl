@@ -81,15 +81,6 @@ namespace BEditor.Data.Property.PrimitiveGroup
             yield return Color;
             yield return BlendType;
         }
-
-        /// <summary>
-        /// Reset the <see cref="Opacity"/> Optionals.
-        /// </summary>
-        [Obsolete("To be added.")]
-        public void ResetOptional()
-        {
-            Opacity.Optional = 0;
-        }
     }
 
     /// <summary>

@@ -210,14 +210,6 @@
             <param name="samples">The audio duration.</param>
             <returns>The decoded audio frame.</returns>
         </member>
-        <member name="M:BEditor.Media.Decoding.IAudioStream.GetFrame(System.TimeSpan,System.TimeSpan)">
-            <summary>
-            Reads the video frame found at the specified timestamp.
-            </summary>
-            <param name="time">The frame timestamp.</param>
-            <param name="duration">The audio duration.</param>
-            <returns>The decoded audio frame.</returns>
-        </member>
         <member name="M:BEditor.Media.Decoding.IAudioStream.TryGetFrame(System.TimeSpan,BEditor.Media.Sound{BEditor.Media.PCM.StereoPCMFloat}@)">
             <summary>
             Reads the audio data found at the specified timestamp.
@@ -494,17 +486,6 @@
             Represents informations about the video stream.
             </summary>
         </member>
-        <member name="M:BEditor.Media.Decoding.VideoStreamInfo.#ctor(System.String,BEditor.Media.MediaType,System.TimeSpan,BEditor.Drawing.Size,System.Int32,System.Int32)">
-            <summary>
-            Initializes a new instance of the <see cref="T:BEditor.Media.Decoding.VideoStreamInfo"/> class.
-            </summary>
-            <param name="codecName">The codec name of the stream.</param>
-            <param name="type">The media type of the stream.</param>
-            <param name="duration">The duration of the stream.</param>
-            <param name="framesize">The video frame dimensions.</param>
-            <param name="framenum">The number of frames.</param>
-            <param name="framerate">The frame rate.</param>
-        </member>
         <member name="M:BEditor.Media.Decoding.VideoStreamInfo.#ctor(System.String,BEditor.Media.MediaType,System.TimeSpan,BEditor.Drawing.Size,System.Int32,BEditor.Media.Rational)">
             <summary>
             Initializes a new instance of the <see cref="T:BEditor.Media.Decoding.VideoStreamInfo"/> class.
@@ -515,11 +496,6 @@
             <param name="framesize">The video frame dimensions.</param>
             <param name="framenum">The number of frames.</param>
             <param name="framerate">The frame rate.</param>
-        </member>
-        <member name="P:BEditor.Media.Decoding.VideoStreamInfo.FrameRate">
-            <summary>
-            Gets the frame rate.
-            </summary>
         </member>
         <member name="P:BEditor.Media.Decoding.VideoStreamInfo.AvgFrameRate">
             <summary>
@@ -1538,13 +1514,6 @@
             </summary>
             <typeparam name="T">The type of audio data.</typeparam>
         </member>
-        <member name="M:BEditor.Media.Sound`1.#ctor(System.Int32,System.TimeSpan)">
-            <summary>
-            Initializes a new instance of the <see cref="T:BEditor.Media.Sound`1"/> class.
-            </summary>
-            <param name="rate">The sample rate.</param>
-            <param name="duration">The audio duration.</param>
-        </member>
         <member name="M:BEditor.Media.Sound`1.#ctor(System.Int32,BEditor.Media.Rational)">
             <summary>
             Initializes a new instance of the <see cref="T:BEditor.Media.Sound`1"/> class.
@@ -1640,21 +1609,6 @@
         </member>
         <member name="M:BEditor.Media.Sound`1.Clone">
             <inheritdoc cref="M:System.ICloneable.Clone"/>
-        </member>
-        <member name="M:BEditor.Media.Sound`1.Slice(System.TimeSpan)">
-            <summary>
-            Forms a slice of the current <see cref="T:BEditor.Media.Sound`1"/>, starting at the specified time.
-            </summary>
-            <param name="start">The time at which to begin the slice.</param>
-            <returns>A sound that consists of all elements of the current sound from start to the end of the sound.</returns>
-        </member>
-        <member name="M:BEditor.Media.Sound`1.Slice(System.TimeSpan,System.TimeSpan)">
-            <summary>
-            Forms a slice of the specified length from the current <see cref="T:BEditor.Media.Sound`1"/> starting at the specified time.
-            </summary>
-            <param name="start">The time at which to begin this slice.</param>
-            <param name="length">The desired length for the slice.</param>
-            <returns>A sound that consists of length elements from the current sound starting at start.</returns>
         </member>
         <member name="M:BEditor.Media.Sound`1.Slice(BEditor.Media.Rational)">
             <summary>

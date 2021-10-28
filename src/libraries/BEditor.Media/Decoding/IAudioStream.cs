@@ -78,39 +78,6 @@ namespace BEditor.Media.Decoding
         }
 
         /// <summary>
-        /// Reads the video frame found at the specified timestamp.
-        /// </summary>
-        /// <param name="time">The frame timestamp.</param>
-        /// <param name="duration">The audio duration.</param>
-        /// <returns>The decoded audio frame.</returns>
-        [Obsolete("To be added.")]
-        public Sound<StereoPCMFloat> GetFrame(TimeSpan time, TimeSpan duration)
-        {
-            var sound = new Sound<StereoPCMFloat>(Info.SampleRate, duration);
-            if (TryGetFrame(time, out var first))
-            {
-                // デコードしたサンプル数
-                var decoded = first.NumSamples;
-                first.Data.CopyTo(sound.Data.Slice(0, first.NumSamples));
-                first.Dispose();
-
-                while (decoded < sound.NumSamples && TryGetNextFrame(out var data))
-                {
-                    var length = sound.NumSamples > data.NumSamples + decoded
-                        ? data.NumSamples
-                        : sound.Data.Length - decoded;
-                    data.Data.Slice(0, length).CopyTo(sound.Data.Slice(decoded, length));
-
-                    decoded += length;
-
-                    data.Dispose();
-                }
-            }
-
-            return sound;
-        }
-
-        /// <summary>
         /// Reads the audio data found at the specified timestamp.
         /// A <see langword="false"/> return value indicates that reached end of stream.
         /// The method throws exception if another error has occurred.

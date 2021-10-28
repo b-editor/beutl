@@ -80,9 +80,6 @@ namespace BEditor.Data
             }
 
             Metadata = ObjectMetadata.LoadedObjects.First(i => i.Type == Effect[0].GetType());
-
-            // Todo: 互換性
-            Name = element.TryGetProperty("Text", out var txt) ? txt.GetString() ?? string.Empty : string.Empty;
         }
 
         /// <summary>
@@ -124,19 +121,6 @@ namespace BEditor.Data
         public IRecordCommand MoveFrameLayer(Frame newframe, int newlayer)
         {
             return new MoveCommand(this, newframe, newlayer);
-        }
-
-        /// <summary>
-        /// Create a command to change the length of this <see cref="ClipElement"/>.
-        /// </summary>
-        /// <param name="start">The new starting frame of this <see cref="ClipElement"/>.</param>
-        /// <param name="end">The new ending frame of this <see cref="ClipElement"/>.</param>
-        /// <returns>Created <see cref="IRecordCommand"/>.</returns>
-        /// <exception cref="ArgumentOutOfRangeException"><paramref name="start"/> or <paramref name="end"/> is less than 0.</exception>
-        [Obsolete("Use ChangeLength(ClipLengthChangeAnchor, Frame).", error: true)]
-        public IRecordCommand ChangeLength(Frame start, Frame end)
-        {
-            throw new NotSupportedException();
         }
 
         /// <summary>

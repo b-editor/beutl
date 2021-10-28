@@ -167,7 +167,7 @@ namespace BEditor.Controls
             }
         }
 
-        private void ContextMenu_ContextMenuOpening(object sender, System.ComponentModel.CancelEventArgs e)
+        private void ContextMenu_ContextMenuOpening(object? sender, System.ComponentModel.CancelEventArgs e)
         {
             _remove.IsEnabled = CanRemove();
             _open.IsEnabled = CanOpen();
@@ -362,7 +362,7 @@ namespace BEditor.Controls
                 catch (Exception ex)
                 {
                     AppModel.Current.Message.Snackbar(Strings.CouldNotCreateFolder, string.Empty, icon: IconType.Error);
-                    ServicesLocator.Current.Logger.LogError(ex, Strings.CouldNotCreateFolder);
+                    ServicesLocator.Current.Logger.LogError(ex, "Could not create folder.");
                 }
             }
         }

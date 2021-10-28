@@ -30,21 +30,6 @@ namespace BEditor.Media
         /// Initializes a new instance of the <see cref="Sound{T}"/> class.
         /// </summary>
         /// <param name="rate">The sample rate.</param>
-        /// <param name="duration">The audio duration.</param>
-        [Obsolete("To be added.")]
-        public Sound(int rate, TimeSpan duration)
-        {
-            SampleRate = rate;
-            _numSamples = new((int)Math.Round(duration.TotalSeconds * rate, MidpointRounding.AwayFromZero));
-
-            _pointer = (T*)NativeMemory.Alloc((nuint)DataSize);
-            Data.Fill(default);
-        }
-
-        /// <summary>
-        /// Initializes a new instance of the <see cref="Sound{T}"/> class.
-        /// </summary>
-        /// <param name="rate">The sample rate.</param>
         /// <param name="samples">The number of samples.</param>
         public Sound(int rate, Rational samples)
         {
@@ -213,42 +198,6 @@ namespace BEditor.Media
             Data.CopyTo(img.Data);
 
             return img;
-        }
-
-        /// <summary>
-        /// Forms a slice of the current <see cref="Sound{T}"/>, starting at the specified time.
-        /// </summary>
-        /// <param name="start">The time at which to begin the slice.</param>
-        /// <returns>A sound that consists of all elements of the current sound from start to the end of the sound.</returns>
-        [Obsolete("To be addded.")]
-        public Sound<T> Slice(TimeSpan start)
-        {
-            var data = Data[(int)(start.TotalSeconds * SampleRate)..];
-
-            fixed (T* dataPtr = data)
-            {
-                return new(SampleRate, data.Length, dataPtr);
-            }
-        }
-
-        /// <summary>
-        /// Forms a slice of the specified length from the current <see cref="Sound{T}"/> starting at the specified time.
-        /// </summary>
-        /// <param name="start">The time at which to begin this slice.</param>
-        /// <param name="length">The desired length for the slice.</param>
-        /// <returns>A sound that consists of length elements from the current sound starting at start.</returns>
-        [Obsolete("To be addded.")]
-        public Sound<T> Slice(TimeSpan start, TimeSpan length)
-        {
-            var startI = (int)(start.TotalSeconds * SampleRate);
-            var lengthI = (int)Math.Round(length.TotalSeconds * SampleRate, MidpointRounding.AwayFromZero);
-
-            var data = Data.Slice(startI, lengthI);
-
-            fixed (T* dataPtr = data)
-            {
-                return new(SampleRate, data.Length, dataPtr);
-            }
         }
 
         /// <summary>

@@ -17,7 +17,7 @@
                 <VirtualizingStackPanel Spacing="8" Margin="8,0">
                     <TextBlock Text="{x:Static props:Strings.Name}" />
                     
-                    <TextBox Text="{CompiledBinding ClipElement.LabelText, Mode=TwoWay}" />
+                    <TextBox Text="{Binding ClipElement.Name, Mode=TwoWay}" />
                 </VirtualizingStackPanel>
             </Expander>
             

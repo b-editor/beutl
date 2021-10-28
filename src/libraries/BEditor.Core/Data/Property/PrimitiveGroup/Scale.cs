@@ -96,18 +96,6 @@ namespace BEditor.Data.Property.PrimitiveGroup
             yield return ScaleY;
             yield return ScaleZ;
         }
-
-        /// <summary>
-        /// Reset the <see cref="Scale1"/>, <see cref="ScaleX"/>, <see cref="ScaleY"/>, and <see cref="ScaleZ"/> Optionals.
-        /// </summary>
-        [Obsolete("To be added.")]
-        public void ResetOptional()
-        {
-            Scale1.Optional = 0;
-            ScaleX.Optional = 0;
-            ScaleY.Optional = 0;
-            ScaleZ.Optional = 0;
-        }
     }
 
     /// <summary>

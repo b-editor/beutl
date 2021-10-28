@@ -128,17 +128,6 @@ namespace BEditor.Data.Property.PrimitiveGroup
             yield return CenterY;
             yield return CenterZ;
         }
-
-        /// <summary>
-        /// Reset the <see cref="CenterX"/>, <see cref="CenterY"/>, and <see cref="CenterZ"/> Optionals.
-        /// </summary>
-        [Obsolete("To be added.")]
-        public void ResetOptional()
-        {
-            CenterX.Optional = 0;
-            CenterY.Optional = 0;
-            CenterZ.Optional = 0;
-        }
     }
 
     /// <summary>

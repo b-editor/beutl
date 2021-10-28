@@ -3746,61 +3746,6 @@
             Standard clip types.
             </summary>
         </member>
-        <member name="F:BEditor.Primitive.PrimitiveTypes.Video">
-            <summary>
-            <see cref="T:System.Type"/> of <see cref="T:BEditor.Primitive.Objects.VideoFile"/> class.
-            </summary>
-        </member>
-        <member name="F:BEditor.Primitive.PrimitiveTypes.Audio">
-            <summary>
-            <see cref="T:System.Type"/> of <see cref="T:BEditor.Primitive.Objects.AudioFile"/> class.
-            </summary>
-        </member>
-        <member name="F:BEditor.Primitive.PrimitiveTypes.Image">
-            <summary>
-            <see cref="T:System.Type"/> of <see cref="T:BEditor.Primitive.Objects.ImageFile"/> class.
-            </summary>
-        </member>
-        <member name="F:BEditor.Primitive.PrimitiveTypes.Text">
-            <summary>
-            <see cref="T:System.Type"/> of <see cref="T:BEditor.Primitive.Objects.Text"/> class.
-            </summary>
-        </member>
-        <member name="F:BEditor.Primitive.PrimitiveTypes.Shape">
-            <summary>
-            <see cref="T:System.Type"/> of <see cref="T:BEditor.Primitive.Objects.Shape"/> class.
-            </summary>
-        </member>
-        <member name="F:BEditor.Primitive.PrimitiveTypes.Polygon">
-            <summary>
-            <see cref="T:System.Type"/> of <see cref="T:BEditor.Primitive.Objects.Polygon"/> class.
-            </summary>
-        </member>
-        <member name="F:BEditor.Primitive.PrimitiveTypes.RoundRect">
-            <summary>
-            <see cref="T:System.Type"/> of <see cref="T:BEditor.Primitive.Objects.RoundRect"/> class.
-            </summary>
-        </member>
-        <member name="F:BEditor.Primitive.PrimitiveTypes.Camera">
-            <summary>
-            <see cref="T:System.Type"/> of <see cref="T:BEditor.Primitive.Objects.CameraObject"/> class.
-            </summary>
-        </member>
-        <member name="F:BEditor.Primitive.PrimitiveTypes.GL3DObject">
-            <summary>
-            <see cref="T:System.Type"/> of <see cref="T:BEditor.Primitive.Objects.GL3DObject"/> class.
-            </summary>
-        </member>
-        <member name="F:BEditor.Primitive.PrimitiveTypes.Scene">
-            <summary>
-            <see cref="T:System.Type"/> of <see cref="T:BEditor.Primitive.Objects.SceneObject"/> class.
-            </summary>
-        </member>
-        <member name="F:BEditor.Primitive.PrimitiveTypes.Framebuffer">
-            <summary>
-            <see cref="T:System.Type"/> of <see cref="F:BEditor.Primitive.PrimitiveTypes.Framebuffer"/> class.
-            </summary>
-        </member>
         <member name="F:BEditor.Primitive.PrimitiveTypes.VideoMetadata">
             <summary>
             Metadata of <see cref="T:BEditor.Primitive.Objects.VideoFile"/> class.
@@ -3853,7 +3798,7 @@
         </member>
         <member name="F:BEditor.Primitive.PrimitiveTypes.FramebufferMetadata">
             <summary>
-            Metadata of <see cref="F:BEditor.Primitive.PrimitiveTypes.Framebuffer"/> class.
+            Metadata of <see cref="T:BEditor.Primitive.Objects.Framebuffer"/> class.
             </summary>
         </member>
         <member name="F:BEditor.Primitive.PrimitiveTypes.ArcMetadata">

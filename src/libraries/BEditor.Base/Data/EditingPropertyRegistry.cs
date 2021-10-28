@@ -143,7 +143,7 @@ namespace BEditor.Data
         {
             if (type is null) throw new ArgumentNullException(nameof(type));
             if (name is null) throw new ArgumentNullException(nameof(name));
-            if (name.Contains("."))
+            if (name.Contains('.'))
             {
                 throw new InvalidOperationException("Attached properties not supported.");
             }

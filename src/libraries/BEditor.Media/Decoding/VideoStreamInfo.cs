@@ -25,24 +25,6 @@ namespace BEditor.Media.Decoding
         /// <param name="framesize">The video frame dimensions.</param>
         /// <param name="framenum">The number of frames.</param>
         /// <param name="framerate">The frame rate.</param>
-        [Obsolete("To be addded.")]
-        public VideoStreamInfo(string codecName, MediaType type, TimeSpan duration, Size framesize, int framenum, int framerate)
-            : base(codecName, type, duration)
-        {
-            RealFrameRate = new(framerate);
-            NumberOfFrames = framenum;
-            FrameSize = framesize;
-        }
-
-        /// <summary>
-        /// Initializes a new instance of the <see cref="VideoStreamInfo"/> class.
-        /// </summary>
-        /// <param name="codecName">The codec name of the stream.</param>
-        /// <param name="type">The media type of the stream.</param>
-        /// <param name="duration">The duration of the stream.</param>
-        /// <param name="framesize">The video frame dimensions.</param>
-        /// <param name="framenum">The number of frames.</param>
-        /// <param name="framerate">The frame rate.</param>
         public VideoStreamInfo(string codecName, MediaType type, TimeSpan duration, Size framesize, int framenum, Rational framerate)
             : base(codecName, type, duration)
         {
@@ -50,12 +32,6 @@ namespace BEditor.Media.Decoding
             NumberOfFrames = framenum;
             FrameSize = framesize;
         }
-
-        /// <summary>
-        /// Gets the frame rate.
-        /// </summary>
-        [Obsolete("Use AvgFrameRate.")]
-        public int FrameRate => (int)AvgFrameRate;
 
         /// <summary>
         /// Gets the average frame rate.

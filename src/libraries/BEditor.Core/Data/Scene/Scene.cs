@@ -27,8 +27,6 @@ namespace BEditor.Data
         private static readonly PropertyChangedEventArgs _selectItemArgs = new(nameof(SelectItem));
         private static readonly PropertyChangedEventArgs _previreFrameArgs = new(nameof(PreviewFrame));
         private static readonly PropertyChangedEventArgs _totalFrameArgs = new(nameof(TotalFrame));
-        [Obsolete]
-        private static readonly PropertyChangedEventArgs _zoomArgs = new(nameof(TimeLineZoom));
         private static readonly PropertyChangedEventArgs _scaleArgs = new(nameof(TimeLineScale));
         private static readonly PropertyChangedEventArgs _hoffsetArgs = new(nameof(TimeLineHorizonOffset));
         private static readonly PropertyChangedEventArgs _voffsetArgs = new(nameof(TimeLineVerticalOffset));

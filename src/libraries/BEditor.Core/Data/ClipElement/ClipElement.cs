@@ -137,24 +137,6 @@ namespace BEditor.Data
             }
         }
 
-        /// <summary>
-        /// Gets or sets the character displayed in this <see cref="ClipElement"/>.
-        /// </summary>
-        [Obsolete("Use Name.")]
-        public string LabelText
-        {
-            get => Name;
-            set
-            {
-                var old = Name;
-                Name = value;
-                if (old != value)
-                {
-                    RaisePropertyChanged(new PropertyChangedEventArgs(nameof(LabelText)));
-                }
-            }
-        }
-
         /// <inheritdoc/>
         public Scene Parent
         {

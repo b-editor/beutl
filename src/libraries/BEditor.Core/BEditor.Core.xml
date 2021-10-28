@@ -377,13 +377,6 @@
             Represents a data to be passed to the <see cref="T:BEditor.Data.ClipElement"/> at applying time.
             </summary>
         </member>
-        <member name="M:BEditor.Data.ClipApplyArgs.#ctor(BEditor.Media.Frame,BEditor.Data.ApplyType)">
-            <summary>
-            Initializes a new instance of the <see cref="T:BEditor.Data.ClipApplyArgs"/> class.
-            </summary>
-            <param name="frame">The frame to apply.</param>
-            <param name="type">The apply type.</param>
-        </member>
         <member name="M:BEditor.Data.ClipApplyArgs.#ctor(BEditor.Media.Frame,BEditor.Graphics.GraphicsContext,BEditor.Audio.SamplingContext,BEditor.Drawing.DrawingContext,BEditor.Data.ApplyType)">
             <summary>
             Initializes a new instance of the <see cref="T:BEditor.Data.ClipApplyArgs"/> class.
@@ -624,11 +617,6 @@
             Gets or sets the layer where this <see cref="T:BEditor.Data.ClipElement"/> will be placed.
             </summary>
         </member>
-        <member name="P:BEditor.Data.ClipElement.LabelText">
-            <summary>
-            Gets or sets the character displayed in this <see cref="T:BEditor.Data.ClipElement"/>.
-            </summary>
-        </member>
         <member name="P:BEditor.Data.ClipElement.Parent">
             <inheritdoc/>
         </member>
@@ -678,15 +666,6 @@
             <param name="newlayer">The new layer of this <see cref="T:BEditor.Data.ClipElement"/>.</param>
             <returns>Created <see cref="T:BEditor.Command.IRecordCommand"/>.</returns>
             <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="newframe"/> or <paramref name="newlayer"/> is less than 0.</exception>
-        </member>
-        <member name="M:BEditor.Data.ClipElement.ChangeLength(BEditor.Media.Frame,BEditor.Media.Frame)">
-            <summary>
-            Create a command to change the length of this <see cref="T:BEditor.Data.ClipElement"/>.
-            </summary>
-            <param name="start">The new starting frame of this <see cref="T:BEditor.Data.ClipElement"/>.</param>
-            <param name="end">The new ending frame of this <see cref="T:BEditor.Data.ClipElement"/>.</param>
-            <returns>Created <see cref="T:BEditor.Command.IRecordCommand"/>.</returns>
-            <exception cref="T:System.ArgumentOutOfRangeException"><paramref name="start"/> or <paramref name="end"/> is less than 0.</exception>
         </member>
         <member name="M:BEditor.Data.ClipElement.ChangeLength(BEditor.Data.ClipLengthChangeAnchor,BEditor.Media.Frame)">
             <summary>
@@ -858,13 +837,6 @@
             Represents data that is passed to <see cref="T:BEditor.Data.EffectElement"/> when it is applied.
             </summary>
         </member>
-        <member name="M:BEditor.Data.EffectApplyArgs.#ctor(BEditor.Media.Frame,BEditor.Data.ApplyType)">
-            <summary>
-            Initializes a new instance of the <see cref="T:BEditor.Data.EffectApplyArgs"/> class.
-            </summary>
-            <param name="frame">The frame to render.</param>
-            <param name="type">The rendering type.</param>
-        </member>
         <member name="M:BEditor.Data.EffectApplyArgs.#ctor(BEditor.Media.Frame,System.ValueTuple{BEditor.Graphics.GraphicsContext,BEditor.Audio.SamplingContext,BEditor.Drawing.DrawingContext},BEditor.Data.ApplyType)">
             <summary>
             Initializes a new instance of the <see cref="T:BEditor.Data.EffectApplyArgs"/> class.
@@ -908,14 +880,6 @@
             Represents data that is passed to <see cref="T:BEditor.Data.EffectElement"/> when it is applied.
             </summary>
             <typeparam name="T">The type of value to pass to the <see cref="M:BEditor.Data.EffectElement.Apply(BEditor.Data.EffectApplyArgs)"/> method.</typeparam>
-        </member>
-        <member name="M:BEditor.Data.EffectApplyArgs`1.#ctor(BEditor.Media.Frame,`0,BEditor.Data.ApplyType)">
-            <summary>
-            Initializes a new instance of the <see cref="T:BEditor.Data.EffectApplyArgs`1"/> class.
-            </summary>
-            <param name="frame">The frame to render.</param>
-            <param name="value">The value used to apply the effect.</param>
-            <param name="type">The rendering type.</param>
         </member>
         <member name="M:BEditor.Data.EffectApplyArgs`1.#ctor(BEditor.Media.Frame,`0,System.ValueTuple{BEditor.Graphics.GraphicsContext,BEditor.Audio.SamplingContext,BEditor.Drawing.DrawingContext},BEditor.Data.ApplyType)">
             <summary>
@@ -2218,11 +2182,6 @@
         <member name="P:BEditor.Data.Property.EaseProperty.Parent">
             <inheritdoc/>
         </member>
-        <member name="P:BEditor.Data.Property.EaseProperty.Optional">
-            <summary>
-            Gets or sets an optional value.
-            </summary>
-        </member>
         <member name="P:BEditor.Data.Property.EaseProperty.EasingData">
             <summary>
             Gets or sets the metadata for <see cref="P:BEditor.Data.Property.EaseProperty.EasingType"/>.
@@ -2533,11 +2492,6 @@
             <param name="metadata">Metadata of this property.</param>
             <exception cref="T:System.ArgumentNullException"><paramref name="metadata"/> is <see langword="null"/>.</exception>
         </member>
-        <member name="P:BEditor.Data.Property.FileProperty.RawValue">
-            <summary>
-            Gets the name of the selected file.
-            </summary>
-        </member>
         <member name="P:BEditor.Data.Property.FileProperty.Value">
             <summary>
             Gets or sets the name of the selected file.
@@ -2615,11 +2569,6 @@
             </summary>
             <param name="metadata">Metadata of this property.</param>
             <exception cref="T:System.ArgumentNullException"><paramref name="metadata"/> is <see langword="null"/>.</exception>
-        </member>
-        <member name="P:BEditor.Data.Property.FolderProperty.RawValue">
-            <summary>
-            Gets the name of the selected folder.
-            </summary>
         </member>
         <member name="P:BEditor.Data.Property.FolderProperty.Value">
             <summary>
@@ -3261,9 +3210,8 @@
             <param name="DefaultValue">The default value.</param>
             <param name="Max">The maximum value.</param>
             <param name="Min">The minimum value.</param>
-            <param name="UseOptional">The bool of whether to use the Optional value.</param>
         </member>
-        <member name="M:BEditor.Data.Property.EasePropertyMetadata.#ctor(System.String,BEditor.Data.Property.Easing.EasingMetadata,System.Single,System.Single,System.Single,System.Boolean)">
+        <member name="M:BEditor.Data.Property.EasePropertyMetadata.#ctor(System.String,BEditor.Data.Property.Easing.EasingMetadata,System.Single,System.Single,System.Single)">
             <summary>
             The metadata of <see cref="T:BEditor.Data.Property.EaseProperty"/>.
             </summary>
@@ -3272,9 +3220,8 @@
             <param name="DefaultValue">The default value.</param>
             <param name="Max">The maximum value.</param>
             <param name="Min">The minimum value.</param>
-            <param name="UseOptional">The bool of whether to use the Optional value.</param>
         </member>
-        <member name="M:BEditor.Data.Property.EasePropertyMetadata.#ctor(System.String,System.Single,System.Single,System.Single,System.Boolean)">
+        <member name="M:BEditor.Data.Property.EasePropertyMetadata.#ctor(System.String,System.Single,System.Single,System.Single)">
             <summary>
             Initializes a new instance of the <see cref="T:BEditor.Data.Property.EasePropertyMetadata"/> class.
             </summary>
@@ -3282,7 +3229,6 @@
             <param name="defaultValue">The default value.</param>
             <param name="max">The maximum value.</param>
             <param name="min">The minimum value.</param>
-            <param name="useOptional">The bool of whether to use the Optional value.</param>
         </member>
         <member name="P:BEditor.Data.Property.EasePropertyMetadata.FormatString">
             <summary>
@@ -3642,11 +3588,6 @@
         <member name="M:BEditor.Data.Property.PrimitiveGroup.Blend.GetProperties">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Data.Property.PrimitiveGroup.Blend.ResetOptional">
-            <summary>
-            Reset the <see cref="P:BEditor.Data.Property.PrimitiveGroup.Blend.Opacity"/> Optionals.
-            </summary>
-        </member>
         <member name="T:BEditor.Data.Property.PrimitiveGroup.BlendMetadata">
             <summary>
             The metadata of <see cref="T:BEditor.Data.Property.PrimitiveGroup.Blend"/>.
@@ -3736,11 +3677,6 @@
         </member>
         <member name="M:BEditor.Data.Property.PrimitiveGroup.Coordinate.GetProperties">
             <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Data.Property.PrimitiveGroup.Coordinate.ResetOptional">
-            <summary>
-            Reset the <see cref="P:BEditor.Data.Property.PrimitiveGroup.Coordinate.CenterX"/>, <see cref="P:BEditor.Data.Property.PrimitiveGroup.Coordinate.CenterY"/>, and <see cref="P:BEditor.Data.Property.PrimitiveGroup.Coordinate.CenterZ"/> Optionals.
-            </summary>
         </member>
         <member name="T:BEditor.Data.Property.PrimitiveGroup.CoordinateMetadata">
             <summary>
@@ -3872,11 +3808,6 @@
         <member name="M:BEditor.Data.Property.PrimitiveGroup.Rotate.GetProperties">
             <inheritdoc/>
         </member>
-        <member name="M:BEditor.Data.Property.PrimitiveGroup.Rotate.ResetOptional">
-            <summary>
-            Reset the <see cref="P:BEditor.Data.Property.PrimitiveGroup.Rotate.RotateX"/>, <see cref="P:BEditor.Data.Property.PrimitiveGroup.Rotate.RotateY"/>, and <see cref="P:BEditor.Data.Property.PrimitiveGroup.Rotate.RotateZ"/> Optionals.
-            </summary>
-        </member>
         <member name="T:BEditor.Data.Property.PrimitiveGroup.RotateMetadata">
             <summary>
             The metadata of <see cref="T:BEditor.Data.Property.PrimitiveGroup.Rotate"/>.
@@ -3946,11 +3877,6 @@
         </member>
         <member name="M:BEditor.Data.Property.PrimitiveGroup.Scale.GetProperties">
             <inheritdoc/>
-        </member>
-        <member name="M:BEditor.Data.Property.PrimitiveGroup.Scale.ResetOptional">
-            <summary>
-            Reset the <see cref="P:BEditor.Data.Property.PrimitiveGroup.Scale.Scale1"/>, <see cref="P:BEditor.Data.Property.PrimitiveGroup.Scale.ScaleX"/>, <see cref="P:BEditor.Data.Property.PrimitiveGroup.Scale.ScaleY"/>, and <see cref="P:BEditor.Data.Property.PrimitiveGroup.Scale.ScaleZ"/> Optionals.
-            </summary>
         </member>
         <member name="T:BEditor.Data.Property.PrimitiveGroup.ScaleMetadata">
             <summary>
@@ -4588,11 +4514,6 @@
             Gets the height of the frame buffer.
             </summary>
         </member>
-        <member name="P:BEditor.Data.Scene.SceneName">
-            <summary>
-            Gets or sets the name of this <see cref="T:BEditor.Data.Scene"/>.
-            </summary>
-        </member>
         <member name="P:BEditor.Data.Scene.TotalFrame">
             <summary>
             Gets or sets the total frame.
@@ -4628,11 +4549,6 @@
             Gets graphic context.
             </summary>
         </member>
-        <member name="P:BEditor.Data.Scene.DrawingContext">
-            <summary>
-            Gets drawing context.
-            </summary>
-        </member>
         <member name="P:BEditor.Data.Scene.SamplingContext">
             <summary>
             Gets sampling context.
@@ -4646,11 +4562,6 @@
         <member name="P:BEditor.Data.Scene.PreviewFrame">
             <summary>
             Gets or sets the frame number during preview.
-            </summary>
-        </member>
-        <member name="P:BEditor.Data.Scene.TimeLineZoom">
-            <summary>
-            Gets or sets the scale of the timeline.
             </summary>
         </member>
         <member name="P:BEditor.Data.Scene.TimeLineScale">

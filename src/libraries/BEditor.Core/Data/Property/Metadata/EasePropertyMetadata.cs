@@ -19,8 +19,7 @@ namespace BEditor.Data.Property
     /// <param name="DefaultValue">The default value.</param>
     /// <param name="Max">The maximum value.</param>
     /// <param name="Min">The minimum value.</param>
-    /// <param name="UseOptional">The bool of whether to use the Optional value.</param>
-    public record EasePropertyMetadata(string Name, EasingMetadata DefaultEase, float DefaultValue = 0, float Max = float.NaN, float Min = float.NaN, [property: Obsolete("To be added.")] bool UseOptional = false)
+    public record EasePropertyMetadata(string Name, EasingMetadata DefaultEase, float DefaultValue = 0, float Max = float.NaN, float Min = float.NaN)
         : PropertyElementMetadata(Name), IEditingPropertyInitializer<EaseProperty>
     {
         /// <summary>
@@ -30,9 +29,8 @@ namespace BEditor.Data.Property
         /// <param name="defaultValue">The default value.</param>
         /// <param name="max">The maximum value.</param>
         /// <param name="min">The minimum value.</param>
-        /// <param name="useOptional">The bool of whether to use the Optional value.</param>
-        public EasePropertyMetadata(string name, float defaultValue = 0, float max = float.NaN, float min = float.NaN, bool useOptional = false)
-            : this(name, EasingMetadata.GetDefault(), defaultValue, max, min, useOptional)
+        public EasePropertyMetadata(string name, float defaultValue = 0, float max = float.NaN, float min = float.NaN)
+            : this(name, EasingMetadata.GetDefault(), defaultValue, max, min)
         {
         }
 

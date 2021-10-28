@@ -28,7 +28,7 @@ namespace BEditor.Primitive.Objects
             nameof(X),
             owner => owner.X,
             (owner, obj) => owner.X = obj,
-            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.X, 0, useOptional: true)).Serialize());
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.X, 0)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="Y"/> property.
@@ -37,7 +37,7 @@ namespace BEditor.Primitive.Objects
             nameof(Y),
             owner => owner.Y,
             (owner, obj) => owner.Y = obj,
-            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Y, 0, useOptional: true)).Serialize());
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Y, 0)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="Z"/> property.
@@ -46,7 +46,7 @@ namespace BEditor.Primitive.Objects
             nameof(Z),
             owner => owner.Z,
             (owner, obj) => owner.Z = obj,
-            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Z, 1024, useOptional: true)).Serialize());
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Z, 1024)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="TargetX"/> property.
@@ -55,7 +55,7 @@ namespace BEditor.Primitive.Objects
             nameof(TargetX),
             owner => owner.TargetX,
             (owner, obj) => owner.TargetX = obj,
-            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.TargetX, 0, useOptional: true)).Serialize());
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.TargetX, 0)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="TargetY"/> property.
@@ -64,7 +64,7 @@ namespace BEditor.Primitive.Objects
             nameof(TargetY),
             owner => owner.TargetY,
             (owner, obj) => owner.TargetY = obj,
-            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.TargetY, 0, useOptional: true)).Serialize());
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.TargetY, 0)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="TargetZ"/> property.
@@ -73,7 +73,7 @@ namespace BEditor.Primitive.Objects
             nameof(TargetZ),
             owner => owner.TargetZ,
             (owner, obj) => owner.TargetZ = obj,
-            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.TargetZ, 0, useOptional: true)).Serialize());
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.TargetZ, 0)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="ZNear"/> property.
@@ -82,7 +82,7 @@ namespace BEditor.Primitive.Objects
             nameof(ZNear),
             owner => owner.ZNear,
             (owner, obj) => owner.ZNear = obj,
-            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.ZNear, 0.1F, min: 0.1F, useOptional: true)).Serialize());
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.ZNear, 0.1F, min: 0.1F)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="ZFar"/> property.
@@ -91,7 +91,7 @@ namespace BEditor.Primitive.Objects
             nameof(ZFar),
             owner => owner.ZFar,
             (owner, obj) => owner.ZFar = obj,
-            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.ZFar, 20000, useOptional: true)).Serialize());
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.ZFar, 20000)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="Angle"/> property.
@@ -100,7 +100,7 @@ namespace BEditor.Primitive.Objects
             nameof(Angle),
             owner => owner.Angle,
             (owner, obj) => owner.Angle = obj,
-            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Angle, 0, useOptional: true)).Serialize());
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Angle, 0)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="Fov"/> property.
@@ -109,7 +109,7 @@ namespace BEditor.Primitive.Objects
             nameof(Fov),
             owner => owner.Fov,
             (owner, obj) => owner.Fov = obj,
-            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Fov, 45, 179, 1, useOptional: true)).Serialize());
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.Fov, 45, 179, 1)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="Mode"/> property.

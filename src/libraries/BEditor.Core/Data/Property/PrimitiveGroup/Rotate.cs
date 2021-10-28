@@ -80,17 +80,6 @@ namespace BEditor.Data.Property.PrimitiveGroup
             yield return RotateY;
             yield return RotateZ;
         }
-
-        /// <summary>
-        /// Reset the <see cref="RotateX"/>, <see cref="RotateY"/>, and <see cref="RotateZ"/> Optionals.
-        /// </summary>
-        [Obsolete("To be added.")]
-        public void ResetOptional()
-        {
-            RotateX.Optional = 0;
-            RotateY.Optional = 0;
-            RotateZ.Optional = 0;
-        }
     }
 
     /// <summary>

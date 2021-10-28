@@ -23,18 +23,6 @@ namespace BEditor.Data
         /// Initializes a new instance of the <see cref="EditingPropertySerializer{TValue}"/> class.
         /// </summary>
         /// <param name="write">Writes the value to <see cref="Utf8JsonWriter"/>.</param>
-        /// <param name="read">Reads the value from <see cref="JsonElement"/>.</param>
-        [Obsolete("Obsolete")]
-        public EditingPropertySerializer(Action<Utf8JsonWriter, TValue> write, Func<JsonElement, TValue> read)
-        {
-            _write = write;
-            _read = (c) => read(c.Element);
-        }
-
-        /// <summary>
-        /// Initializes a new instance of the <see cref="EditingPropertySerializer{TValue}"/> class.
-        /// </summary>
-        /// <param name="write">Writes the value to <see cref="Utf8JsonWriter"/>.</param>
         /// <param name="read">Reads the value from <see cref="DeserializeContext"/>.</param>
         public EditingPropertySerializer(Action<Utf8JsonWriter, TValue> write, Func<DeserializeContext, TValue> read)
         {

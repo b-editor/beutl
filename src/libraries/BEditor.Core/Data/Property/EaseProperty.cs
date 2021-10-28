@@ -101,12 +101,6 @@ namespace BEditor.Data.Property
         }
 
         /// <summary>
-        /// Gets or sets an optional value.
-        /// </summary>
-        [Obsolete("To be added.")]
-        public float Optional { get; set; }
-
-        /// <summary>
         /// Gets or sets the metadata for <see cref="EasingType"/>.
         /// </summary>
         public EasingMetadata EasingData

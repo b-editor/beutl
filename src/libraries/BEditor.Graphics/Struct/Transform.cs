@@ -69,16 +69,6 @@ namespace BEditor.Graphics
         public Vector3 Relative { get; set; }
 
         /// <summary>
-        /// Gets or sets the position.
-        /// </summary>
-        [Obsolete("Use Position.")]
-        public Vector3 Coordinate
-        {
-            get => Position;
-            set => Position = value;
-        }
-
-        /// <summary>
         /// Gets or sets the center coordinates.
         /// </summary>
         public Vector3 Center { get; set; }
@@ -87,16 +77,6 @@ namespace BEditor.Graphics
         /// Gets or sets the rotation.
         /// </summary>
         public Vector3 Rotation { get; set; }
-
-        /// <summary>
-        /// Gets or sets the position.
-        /// </summary>
-        [Obsolete("Use Rotation.")]
-        public Vector3 Rotate
-        {
-            get => Rotation;
-            set => Rotation = value;
-        }
 
         /// <summary>
         /// Gets or sets the scale.

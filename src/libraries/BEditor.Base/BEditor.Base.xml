@@ -559,14 +559,6 @@
             <param name="initialize">Create a new instance.</param>
             <returns>An <see cref="T:BEditor.Data.EditingPropertyOptions`1"/> instance.</returns>
         </member>
-        <member name="M:BEditor.Data.EditingPropertyOptions`1.Serialize(System.Action{System.Text.Json.Utf8JsonWriter,`0},System.Func{System.Text.Json.JsonElement,`0})">
-            <summary>
-            Sets the <see cref="T:BEditor.Data.IEditingPropertySerializer`1"/> to serialize this property.
-            </summary>
-            <param name="write">Writes the value to <see cref="T:System.Text.Json.Utf8JsonWriter"/>.</param>
-            <param name="read">Reads the value from <see cref="T:System.Text.Json.JsonElement"/>.</param>
-            <returns>An <see cref="T:BEditor.Data.EditingPropertyOptions`1"/> instance.</returns>
-        </member>
         <member name="M:BEditor.Data.EditingPropertyOptions`1.Serialize(System.Action{System.Text.Json.Utf8JsonWriter,`0},System.Func{BEditor.Data.DeserializeContext,`0})">
             <summary>
             Sets the <see cref="T:BEditor.Data.IEditingPropertySerializer`1"/> to serialize this property.
@@ -700,13 +692,6 @@
             Represents the serializer of <see cref="T:BEditor.Data.IEditingProperty"/>.
             </summary>
             <typeparam name="TValue">The type of the local value.</typeparam>
-        </member>
-        <member name="M:BEditor.Data.EditingPropertySerializer`1.#ctor(System.Action{System.Text.Json.Utf8JsonWriter,`0},System.Func{System.Text.Json.JsonElement,`0})">
-            <summary>
-            Initializes a new instance of the <see cref="T:BEditor.Data.EditingPropertySerializer`1"/> class.
-            </summary>
-            <param name="write">Writes the value to <see cref="T:System.Text.Json.Utf8JsonWriter"/>.</param>
-            <param name="read">Reads the value from <see cref="T:System.Text.Json.JsonElement"/>.</param>
         </member>
         <member name="M:BEditor.Data.EditingPropertySerializer`1.#ctor(System.Action{System.Text.Json.Utf8JsonWriter,`0},System.Func{BEditor.Data.DeserializeContext,`0})">
             <summary>
