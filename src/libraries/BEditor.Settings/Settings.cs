@@ -4,6 +4,8 @@ using System.Collections.ObjectModel;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Reflection;
+using System.Runtime.Serialization;
 using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.Json;
@@ -11,6 +13,7 @@ using System.Text.Unicode;
 using System.Threading.Tasks;
 
 using BEditor.Data;
+using BEditor.LangResources;
 using BEditor.Packaging;
 
 namespace BEditor
@@ -82,6 +85,13 @@ namespace BEditor
                     .Initialize(InitIncludeFontDir)
                     .Serialize(WriteIncludeFontDir, ReadIncludeFontDir));
 
+        public static readonly EditingProperty<ObservableCollection<SupportedLanguage>> SupportedLanguagesProperty
+            = EditingProperty.Register<ObservableCollection<SupportedLanguage>, Settings>(
+                "SupportedLanguages",
+                EditingPropertyOptions<ObservableCollection<SupportedLanguage>>.Create()
+                    .Initialize(InitSupportedLanguages)
+                    .Serialize(WriteSupportedLanguages, ReadSupportedLanguages));
+
         public static readonly EditingProperty<ObservableCollection<PackageSourceInfo>> PackageSourcesProperty
             = EditingProperty.Register<ObservableCollection<PackageSourceInfo>, Settings>(
                 "PackageSources",
@@ -89,10 +99,10 @@ namespace BEditor
                     .Initialize(InitPackageSources)
                     .Serialize(WritePackageSources, ReadPackageSources));
 
-        public static readonly EditingProperty<string> LanguageProperty
-            = EditingProperty.Register<string, Settings>(
+        public static readonly EditingProperty<SupportedLanguage> LanguageProperty
+            = EditingProperty.Register<SupportedLanguage, Settings>(
                 "Language",
-                EditingPropertyOptions<string>.Create().DefaultValue(CultureInfo.CurrentCulture.Name)!.Serialize()!);
+                EditingPropertyOptions<SupportedLanguage>.Create()!.Initialize(InitLanguage).Serialize(WriteLanguage, ReadLanguage)!);
 
         public static readonly EditingProperty<bool> ShowStartWindowProperty
             = EditingProperty.Register<bool, Settings>(
@@ -205,7 +215,7 @@ namespace BEditor
             set => SetValue(PackageSourcesProperty, value);
         }
 
-        public string Language
+        public SupportedLanguage Language
         {
             get => GetValue(LanguageProperty);
             set => SetValue(LanguageProperty, value);
@@ -235,6 +245,12 @@ namespace BEditor
             set => SetValue(AudioProfileProperty, value);
         }
 
+        public ObservableCollection<SupportedLanguage> SupportedLanguages
+        {
+            get => GetValue(SupportedLanguagesProperty);
+            set => SetValue(SupportedLanguagesProperty, value);
+        }
+
         public void Save()
         {
             var path = Path.Combine(ServicesLocator.GetUserFolder(), "settings.json");
@@ -259,6 +275,79 @@ namespace BEditor
             await writer.FlushAsync();
         }
 
+        private static SupportedLanguage InitLanguage()
+        {
+            var current = CultureInfo.CurrentCulture;
+            var langs = InitSupportedLanguages();
+            foreach (var item in langs)
+            {
+                if (item.Culture.Equals(current))
+                {
+                    return item;
+                }
+            }
+
+            return langs.Single(i => i.Culture.Name == "en-US");
+        }
+
+        private static void WriteLanguage(Utf8JsonWriter arg1, SupportedLanguage arg2)
+        {
+            arg1.WriteStartObject();
+            arg2.GetObjectData(arg1);
+            arg1.WriteEndObject();
+        }
+
+        private static SupportedLanguage ReadLanguage(DeserializeContext arg)
+        {
+            try
+            {
+                var obj = (SupportedLanguage)FormatterServices.GetUninitializedObject(typeof(SupportedLanguage));
+                obj.SetObjectData(arg);
+                return obj;
+            }
+            catch
+            {
+                return InitLanguage();
+            }
+        }
+
+        // 対応している言語を読み取る
+        private static ObservableCollection<SupportedLanguage> ReadSupportedLanguages(DeserializeContext arg)
+        {
+            return new ObservableCollection<SupportedLanguage>(arg.Element.EnumerateArray()
+                .Select(i =>
+                {
+                    var obj = new SupportedLanguage(CultureInfo.InvariantCulture, string.Empty, string.Empty, Assembly.GetExecutingAssembly());
+                    obj.SetObjectData(new DeserializeContext(i, null));
+                    return obj;
+                })!);
+        }
+
+        // 対応している言語を書き込む
+        private static void WriteSupportedLanguages(Utf8JsonWriter arg1, ObservableCollection<SupportedLanguage> arg2)
+        {
+            arg1.WriteStartArray();
+
+            foreach (var item in arg2)
+            {
+                arg1.WriteStartObject();
+                item.GetObjectData(arg1);
+                arg1.WriteEndObject();
+            }
+
+            arg1.WriteEndArray();
+        }
+
+        private static ObservableCollection<SupportedLanguage> InitSupportedLanguages()
+        {
+            return new()
+            {
+                new SupportedLanguage(new CultureInfo("ja-JP"), Strings.Japanese, "BEditor.LangResources.Strings", typeof(Strings).Assembly),
+                new SupportedLanguage(new CultureInfo("en-US"), $"{Strings.English} ({Strings.MachineTranslation})", "BEditor.LangResources.Strings", typeof(Strings).Assembly),
+            };
+        }
+
+        // 最近使ったファイルを書き込む
         private static void WriteRecentFiles(Utf8JsonWriter writer, ObservableCollection<string> obj)
         {
             writer.WriteStartArray();
@@ -271,6 +360,7 @@ namespace BEditor
             writer.WriteEndArray();
         }
 
+        // 最近使ったファイルを読み取る
         private static ObservableCollection<string> ReadRecentFiles(DeserializeContext ctx)
         {
             return new ObservableCollection<string>(ctx.Element.EnumerateArray()
