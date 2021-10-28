@@ -278,10 +278,10 @@
     <value>クリップを移動</value>
   </data>
   <data name="MoveKeyframe" xml:space="preserve">
-    <value>キーフレームを移動エフェクトを有効化/無効化</value>
+    <value>キーフレームを移動</value>
   </data>
   <data name="RemoveClip" xml:space="preserve">
-    <value>クリップを移動</value>
+    <value>クリップを削除</value>
   </data>
   <data name="RemoveEffect" xml:space="preserve">
     <value>エフェクトを削除</value>

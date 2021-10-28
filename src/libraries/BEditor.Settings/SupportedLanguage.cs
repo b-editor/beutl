@@ -5,6 +5,7 @@ using System.Reflection;
 using System.Text.Json;
 
 using BEditor.Data;
+using BEditor.LangResources;
 
 namespace BEditor
 {
@@ -37,6 +38,8 @@ namespace BEditor
             BaseName = baseName;
             Assembly = assembly;
         }
+
+        public static SupportedLanguage Default { get; } = new(CultureInfo.InvariantCulture, string.Empty, "BEditor.LangResources.Strings", typeof(Strings).Assembly);
 
         public CultureInfo Culture
         {

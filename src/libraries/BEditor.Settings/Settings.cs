@@ -317,10 +317,18 @@ namespace BEditor
             return new ObservableCollection<SupportedLanguage>(arg.Element.EnumerateArray()
                 .Select(i =>
                 {
-                    var obj = new SupportedLanguage(CultureInfo.InvariantCulture, string.Empty, string.Empty, Assembly.GetExecutingAssembly());
-                    obj.SetObjectData(new DeserializeContext(i, null));
-                    return obj;
-                })!);
+                    try
+                    {
+                        var obj = new SupportedLanguage(CultureInfo.InvariantCulture, string.Empty, string.Empty, Assembly.GetExecutingAssembly());
+                        obj.SetObjectData(new DeserializeContext(i, null));
+                        return obj;
+                    }
+                    catch
+                    {
+                        return null;
+                    }
+                })
+                .Where(i => i != null)!);
         }
 
         // 対応している言語を書き込む
