@@ -4,7 +4,6 @@
              x:Class="BEditor.PackageInstaller.App">
     <Application.Styles>
         <sty:FluentAvaloniaTheme
-            ControlsVersion="2"
             GetUserAccentColor="True" />
     </Application.Styles>
 </Application>

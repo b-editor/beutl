@@ -21,12 +21,12 @@ using BEditor.Data.Property.Easing;
 using BEditor.Drawing;
 using BEditor.Extensions;
 using BEditor.Graphics.Platform;
+using BEditor.LangResources;
 using BEditor.Models;
 using BEditor.Models.ManagePlugins;
 using BEditor.Packaging;
 using BEditor.Plugin;
 using BEditor.Primitive;
-using BEditor.LangResources;
 using BEditor.ViewModels.Settings;
 using BEditor.Views;
 using BEditor.Views.DialogContent;
@@ -36,8 +36,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 using Reactive.Bindings;
-using FluentAvalonia.UI.Controls;
-using FluentAvalonia.Styling;
 
 namespace BEditor
 {
@@ -146,6 +144,23 @@ namespace BEditor
 
         private void Desktop_Exit(object? sender, ControlledApplicationLifetimeExitEventArgs e)
         {
+            // 現在使われている言語がアンインストールするプラグインによって提供されている場合、
+            // インストーラーの起動前に言語設定をデフォルトに変更する。
+            for (var i = 0; i < Settings.Default.SupportedLanguages.Count; i++)
+            {
+                var lang = Settings.Default.SupportedLanguages[i];
+                var asmName = lang.Assembly.GetName().Name;
+
+                if (PluginChangeSchedule.Uninstall.Any(item => item.AssemblyName == asmName) ||
+                    PluginChangeSchedule.UpdateOrInstall.Any(item => item.Type == PluginChangeType.Update && item.Target.MainAssembly == asmName))
+                {
+                    i--;
+                    Settings.Default.SupportedLanguages.Remove(lang);
+                    Settings.Default.Language = Settings.LanguageProperty.Initializer!.Create();
+                }
+            }
+
+            // 設定を保存
             Settings.Default.Save();
             AppModel.Current.SaveDisplayedMenus();
             KeyBindingModel.Save();
