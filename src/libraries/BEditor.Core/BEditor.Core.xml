@@ -5236,6 +5236,13 @@
             <param name="menus">Menu to be set.</param>
             <returns>The same instance of the <see cref="T:BEditor.Plugin.PluginBuilder"/> for chaining.</returns>
         </member>
+        <member name="M:BEditor.Plugin.PluginBuilder.Language(BEditor.SupportedLanguage)">
+            <summary>
+            Add languages to be added by the plugin.
+            </summary>
+            <param name="supportedLanguage">The language to be added.</param>
+            <returns>The same instance of the <see cref="T:BEditor.Plugin.PluginBuilder"/> for chaining.</returns>
+        </member>
         <member name="M:BEditor.Plugin.PluginBuilder.ConfigureServices(System.Action{Microsoft.Extensions.DependencyInjection.IServiceCollection})">
             <summary>
             Register services into the <see cref="T:Microsoft.Extensions.DependencyInjection.IServiceCollection"/>.

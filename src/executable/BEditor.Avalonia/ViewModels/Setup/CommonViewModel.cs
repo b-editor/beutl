@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Linq;
 
@@ -11,22 +12,16 @@ namespace BEditor.ViewModels.Setup
 {
     public sealed class CommonViewModel
     {
-        public sealed record SupportedLangage(string Name, string Culture);
-
         public sealed record GraphicsProfile(string Name, string Description);
 
         public CommonViewModel()
         {
-            Languages = new SupportedLangage[]
-            {
-                new("Japanese", "ja-JP"),
-                new($"English ({Strings.MachineTranslation})", "en-US"),
-            };
-            SelectedLanguage.Value = Array.Find(Languages, l => l.Culture == CultureInfo.CurrentCulture.Name) ?? Languages[0];
+            Languages = BEditor.Settings.Default.SupportedLanguages;
+            SelectedLanguage.Value = BEditor.Settings.Default.Language;
 
             SelectedLanguage.Subscribe(lang =>
             {
-                if (CultureInfo.CurrentUICulture.Name != lang.Culture)
+                if (!CultureInfo.CurrentUICulture.Equals(lang.Culture))
                 {
                     LanguageRemark.Value = Strings.TheChangesWillBeAppliedAfterRestarting;
                 }
@@ -35,15 +30,15 @@ namespace BEditor.ViewModels.Setup
                     LanguageRemark.Value = "";
                 }
 
-                BEditor.Settings.Default.Language = lang.Culture;
+                BEditor.Settings.Default.Language = lang;
             });
 
             SelectedProfile.Subscribe(p => BEditor.Settings.Default.GraphicsProfile = p);
         }
 
-        public SupportedLangage[] Languages { get; }
+        public ObservableCollection<SupportedLanguage> Languages { get; }
 
-        public ReactiveProperty<SupportedLangage> SelectedLanguage { get; } = new();
+        public ReactiveProperty<SupportedLanguage> SelectedLanguage { get; } = new();
 
         public ReactivePropertySlim<string> LanguageRemark { get; } = new("");
 

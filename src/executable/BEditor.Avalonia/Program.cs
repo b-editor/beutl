@@ -1,9 +1,12 @@
 using System;
 using System.Globalization;
 using System.Linq;
+using System.Reflection;
+using System.Resources;
 
 using Avalonia;
-using Avalonia.Skia;
+
+using BEditor.LangResources;
 
 namespace BEditor
 {
@@ -15,7 +18,8 @@ namespace BEditor
         [STAThread]
         public static void Main(string[] args)
         {
-            CultureInfo.CurrentUICulture = new(Settings.Default.Language);
+            CultureInfo.CurrentUICulture = Settings.Default.Language.Culture;
+            SetResourceManager(Settings.Default.Language);
 
             if (args.ElementAtOrDefault(0) == "package-install")
             {
@@ -37,5 +41,13 @@ namespace BEditor
                 })
                 .UsePlatformDetect()
                 .LogToTrace();
+
+        private static void SetResourceManager(SupportedLanguage supportedLanguage)
+        {
+            var manager = new ResourceManager(supportedLanguage.BaseName, supportedLanguage.Assembly);
+            var field = typeof(Strings).GetField("resourceMan", BindingFlags.NonPublic | BindingFlags.SetField | BindingFlags.Static);
+
+            field?.SetValue(null, manager);
+        }
     }
 }
