@@ -111,6 +111,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SourceGenerator.Tests", "sr
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BEditor.LangResources", "src\libraries\BEditor.LangResources\BEditor.LangResources.csproj", "{6717DF31-29A9-484C-9923-9CAAA9FDA395}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BEditor.Languages.Chinese", "src\extensions\BEditor.Languages.Chinese\BEditor.Languages.Chinese.csproj", "{5887A157-4542-4A19-B02A-39786702A596}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -225,6 +227,10 @@ Global
 		{6717DF31-29A9-484C-9923-9CAAA9FDA395}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{6717DF31-29A9-484C-9923-9CAAA9FDA395}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{6717DF31-29A9-484C-9923-9CAAA9FDA395}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5887A157-4542-4A19-B02A-39786702A596}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5887A157-4542-4A19-B02A-39786702A596}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5887A157-4542-4A19-B02A-39786702A596}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5887A157-4542-4A19-B02A-39786702A596}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -261,6 +267,7 @@ Global
 		{FD203C11-5F17-4120-B75D-C8E8ABD41C12} = {8AB0AA6D-982A-408B-BC2F-618EA2B43076}
 		{37089079-1563-48EF-A685-86A6C2CAB3CD} = {8AB0AA6D-982A-408B-BC2F-618EA2B43076}
 		{6717DF31-29A9-484C-9923-9CAAA9FDA395} = {C8421BCD-75F3-47F8-85C8-FD47D2807F9C}
+		{5887A157-4542-4A19-B02A-39786702A596} = {11A99CDE-86A3-411D-831E-B2B3C2EF5B70}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {3B52C4A6-734E-450D-8986-22485F07D198}

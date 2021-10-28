@@ -1,0 +1,1747 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<root>
+	<xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+		<xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+		<xsd:element name="root" msdata:IsDataSet="true">
+			<xsd:complexType>
+				<xsd:choice maxOccurs="unbounded">
+					<xsd:element name="metadata">
+						<xsd:complexType>
+							<xsd:sequence>
+								<xsd:element name="value" type="xsd:string" minOccurs="0" />
+							</xsd:sequence>
+							<xsd:attribute name="name" use="required" type="xsd:string" />
+							<xsd:attribute name="type" type="xsd:string" />
+							<xsd:attribute name="mimetype" type="xsd:string" />
+							<xsd:attribute ref="xml:space" />
+						</xsd:complexType>
+					</xsd:element>
+					<xsd:element name="assembly">
+						<xsd:complexType>
+							<xsd:attribute name="alias" type="xsd:string" />
+							<xsd:attribute name="name" type="xsd:string" />
+						</xsd:complexType>
+					</xsd:element>
+					<xsd:element name="data">
+						<xsd:complexType>
+							<xsd:sequence>
+								<xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+								<xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+							</xsd:sequence>
+							<xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+							<xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+							<xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+							<xsd:attribute ref="xml:space" />
+						</xsd:complexType>
+					</xsd:element>
+					<xsd:element name="resheader">
+						<xsd:complexType>
+							<xsd:sequence>
+								<xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+							</xsd:sequence>
+							<xsd:attribute name="name" type="xsd:string" use="required" />
+						</xsd:complexType>
+					</xsd:element>
+				</xsd:choice>
+			</xsd:complexType>
+		</xsd:element>
+	</xsd:schema>
+	<resheader name="resmimetype">
+		<value>text/microsoft-resx</value>
+	</resheader>
+	<resheader name="version">
+		<value>2.0</value>
+	</resheader>
+	<resheader name="reader">
+		<value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=5.0.11.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+	</resheader>
+	<resheader name="writer">
+		<value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=5.0.11.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+	</resheader>
+	<data name="BufferDataInvalidEnum" xml:space="preserve">
+		<value>指定的格式不存在。</value>
+	</data>
+	<data name="BufferDataInvalidValue" xml:space="preserve">
+		<value>size参数对给定的格式无效，缓冲区正在使用中，或者数据是一个空指针。</value>
+	</data>
+	<data name="BufferDataOutOfMemory" xml:space="preserve">
+		<value>没有足够的内存来创建这个缓冲区。</value>
+	</data>
+	<data name="DeleteBufferInvalidName" xml:space="preserve">
+		<value>缓冲区名称无效。</value>
+	</data>
+	<data name="DeleteBufferInvalidOperation" xml:space="preserve">
+		<value>这个缓冲区仍在使用中，不能被删除。</value>
+	</data>
+	<data name="DeleteBufferInvalidValue" xml:space="preserve">
+		<value>要求的缓冲区数量不能被删除。</value>
+	</data>
+	<data name="DeleteSourceInvalidName" xml:space="preserve">
+		<value>至少有一个指定的来源是无效的，或者你试图删除的来源比存在的多。</value>
+	</data>
+	<data name="DeleteSourceInvalidOperation" xml:space="preserve">
+		<value>没有当前的背景。</value>
+	</data>
+	<data name="GenBufferInvalidValue" xml:space="preserve">
+		<value>缓冲区阵列不够大，无法容纳所要求的缓冲区数量。</value>
+	</data>
+	<data name="GenBufferOutOfMemory" xml:space="preserve">
+		<value>没有足够的内存来生成所有要求的缓冲区。</value>
+	</data>
+	<data name="GenSourceInvalidOperation" xml:space="preserve">
+		<value>没有创建来源的背景。</value>
+	</data>
+	<data name="GenSourceInvalidValue" xml:space="preserve">
+		<value>没有足够的非内存资源来创建所有请求的源，或者阵列指针无效。</value>
+	</data>
+	<data name="GenSourceOutOfMemory" xml:space="preserve">
+		<value>没有足够的内存来生成所有要求的来源。</value>
+	</data>
+	<data name="GetBufferInvalidEnum" xml:space="preserve">
+		<value>指定的参数是无效的。</value>
+	</data>
+	<data name="GetBufferInvalidName" xml:space="preserve">
+		<value>指定的缓冲区没有参数（NULL缓冲区）或不存在。</value>
+	</data>
+	<data name="GetBufferInvalidValue" xml:space="preserve">
+		<value>指向指定值的指针是无效的。</value>
+	</data>
+	<data name="SourcePauseInvalidName" xml:space="preserve">
+		<value>指定的源名称是无效的。</value>
+	</data>
+	<data name="SourcePauseInvalidOperation" xml:space="preserve">
+		<value>没有当前的背景。</value>
+	</data>
+	<data name="SourcePlayInvalidOperation" xml:space="preserve">
+		<value>没有当前的背景。</value>
+	</data>
+	<data name="SourceStopInvalidOperation" xml:space="preserve">
+		<value>没有当前的背景。</value>
+	</data>
+	<data name="SourceStopInvalidName" xml:space="preserve">
+		<value>指定的源名称是无效的。</value>
+	</data>
+	<data name="SourcePlayInvalidName" xml:space="preserve">
+		<value>指定的源名称是无效的。</value>
+	</data>
+	<data name="ThrowErrorInvalidEnum" xml:space="preserve">
+		<value>指定的参数是无效的。</value>
+	</data>
+	<data name="ThrowErrorInvalidName" xml:space="preserve">
+		<value>指定的源名称是无效的。</value>
+	</data>
+	<data name="ThrowErrorInvalidOperation" xml:space="preserve">
+		<value>没有当前的背景。</value>
+	</data>
+	<data name="ThrowErrorInvalidValue" xml:space="preserve">
+		<value>指定的值超出了范围。</value>
+	</data>
+	<data name="UnknownCommand" xml:space="preserve">
+		<value>未知的命令</value>
+	</data>
+	<data name="Ambient" xml:space="preserve">
+		<value>周围</value>
+	</data>
+	<data name="Blend" xml:space="preserve">
+		<value>合并</value>
+	</data>
+	<data name="CenterX" xml:space="preserve">
+		<value>中心X</value>
+	</data>
+	<data name="CenterY" xml:space="preserve">
+		<value>中心Y</value>
+	</data>
+	<data name="CenterZ" xml:space="preserve">
+		<value>中心Z</value>
+	</data>
+	<data name="Color" xml:space="preserve">
+		<value>颜色</value>
+	</data>
+	<data name="Coordinate" xml:space="preserve">
+		<value>坐标</value>
+	</data>
+	<data name="Diffuse" xml:space="preserve">
+		<value>扩散</value>
+	</data>
+	<data name="FailedToLoad" xml:space="preserve">
+		<value>加载{0}失败。</value>
+	</data>
+	<data name="Font" xml:space="preserve">
+		<value>字体</value>
+	</data>
+	<data name="Material" xml:space="preserve">
+		<value>材料</value>
+	</data>
+	<data name="Opacity" xml:space="preserve">
+		<value>不透明性</value>
+	</data>
+	<data name="ProjectFile" xml:space="preserve">
+		<value>项目文件</value>
+	</data>
+	<data name="Rotate" xml:space="preserve">
+		<value>旋转</value>
+	</data>
+	<data name="RotateX" xml:space="preserve">
+		<value>旋转X</value>
+	</data>
+	<data name="RotateY" xml:space="preserve">
+		<value>旋转Y</value>
+	</data>
+	<data name="RotateZ" xml:space="preserve">
+		<value>旋转Z</value>
+	</data>
+	<data name="Scale" xml:space="preserve">
+		<value>规模</value>
+	</data>
+	<data name="Shininess" xml:space="preserve">
+		<value>光泽</value>
+	</data>
+	<data name="Specular" xml:space="preserve">
+		<value>镜面反射</value>
+	</data>
+	<data name="Z" xml:space="preserve">
+		<value>Z</value>
+	</data>
+	<data name="Y" xml:space="preserve">
+		<value>Y</value>
+	</data>
+	<data name="X" xml:space="preserve">
+		<value>X</value>
+	</data>
+	<data name="ChildElementsNotFound" xml:space="preserve">
+		<value>没有发现任何子元素。</value>
+	</data>
+	<data name="FailedToConvertValue" xml:space="preserve">
+		<value>该值不能被转换。</value>
+	</data>
+	<data name="KeyHasAlreadyBeenRegisterd" xml:space="preserve">
+		<value>这把钥匙已经被注册了。</value>
+	</data>
+	<data name="ParentElementNotFound" xml:space="preserve">
+		<value>没有找到父元素。</value>
+	</data>
+	<data name="TheValueWasNotTypeButType" xml:space="preserve">
+		<value>该值不是{0}的类型，而是{1}的类型。</value>
+	</data>
+	<data name="AddClip" xml:space="preserve">
+		<value>添加一个素材</value>
+	</data>
+	<data name="AddEffect" xml:space="preserve">
+		<value>添加效果</value>
+	</data>
+	<data name="AddKeyframe" xml:space="preserve">
+		<value>添加一个关键帧</value>
+	</data>
+	<data name="BindCommand" xml:space="preserve">
+		<value>绑定属性的值</value>
+	</data>
+	<data name="ChangeColor" xml:space="preserve">
+		<value>改变颜色</value>
+	</data>
+	<data name="ChangeEasing" xml:space="preserve">
+		<value>改变宽松</value>
+	</data>
+	<data name="ChangeFile" xml:space="preserve">
+		<value>更改文件</value>
+	</data>
+	<data name="ChangeFolder" xml:space="preserve">
+		<value>更改文件夹</value>
+	</data>
+	<data name="ChangeFont" xml:space="preserve">
+		<value>改变字体</value>
+	</data>
+	<data name="ChangeIsChecked" xml:space="preserve">
+		<value>改变复选框的状态</value>
+	</data>
+	<data name="ChangeLength" xml:space="preserve">
+		<value>改变长度</value>
+	</data>
+	<data name="ChangeSelectItem" xml:space="preserve">
+		<value>改变所选项目</value>
+	</data>
+	<data name="ChangeText" xml:space="preserve">
+		<value>更改文本</value>
+	</data>
+	<data name="ChangeValue" xml:space="preserve">
+		<value>改変値</value>
+	</data>
+	<data name="Disconnect" xml:space="preserve">
+		<value>断开</value>
+	</data>
+	<data name="DownEffect" xml:space="preserve">
+		<value>改变效果的顺序（向下）。</value>
+	</data>
+	<data name="EnableDisableEffect" xml:space="preserve">
+		<value>激活/停用效果</value>
+	</data>
+	<data name="MoveClip" xml:space="preserve">
+		<value>改变素材的位置</value>
+	</data>
+	<data name="MoveKeyframe" xml:space="preserve">
+		<value>移动关键帧</value>
+	</data>
+	<data name="RemoveClip" xml:space="preserve">
+		<value>删除一个素材</value>
+	</data>
+	<data name="RemoveEffect" xml:space="preserve">
+		<value>删除影响</value>
+	</data>
+	<data name="RemoveKeyframe" xml:space="preserve">
+		<value>删除关键帧</value>
+	</data>
+	<data name="RemoveLayer" xml:space="preserve">
+		<value>删除图层</value>
+	</data>
+	<data name="SplitClip" xml:space="preserve">
+		<value>分割一个素材</value>
+	</data>
+	<data name="UpEffect" xml:space="preserve">
+		<value>改变效果的顺序 (向上)</value>
+	</data>
+	<data name="TheOwnerTypeDoesNotMatch" xml:space="preserve">
+		<value>财产所有者的类型与此对象的类型不匹配。</value>
+	</data>
+	<data name="Volume" xml:space="preserve">
+		<value>卷宗</value>
+	</data>
+	<data name="Pitch" xml:space="preserve">
+		<value>ピッチ</value>
+	</data>
+	<data name="Start" xml:space="preserve">
+		<value>起始帧</value>
+	</data>
+	<data name="FailedToRemove" xml:space="preserve">
+		<value>删除失败。</value>
+	</data>
+	<data name="AlphaBlend" xml:space="preserve">
+		<value>阿尔法混合</value>
+	</data>
+	<data name="Additive" xml:space="preserve">
+		<value>添加</value>
+	</data>
+	<data name="Subtract" xml:space="preserve">
+		<value>减法</value>
+	</data>
+	<data name="Multiplication" xml:space="preserve">
+		<value>乘法</value>
+	</data>
+	<data name="Type" xml:space="preserve">
+		<value>类型</value>
+	</data>
+	<data name="Primitive" xml:space="preserve">
+		<value>基本的</value>
+	</data>
+	<data name="UpdatePosition" xml:space="preserve">
+		<value>更新位置</value>
+	</data>
+	<data name="KeyframeHasBeenMovedOutOfRange" xml:space="preserve">
+		<value>关键帧已被移出范围。
+{0} -&gt; {1}</value>
+	</data>
+	<data name="MessageBy" xml:space="preserve">
+		<value>留言者：{0}</value>
+	</data>
+	<data name="RemoveTarget" xml:space="preserve">
+		<value>删除目标</value>
+	</data>
+	<data name="AddGradient" xml:space="preserve">
+		<value>添加一个梯度</value>
+	</data>
+	<data name="RemoveGradient" xml:space="preserve">
+		<value>去除梯度</value>
+	</data>
+	<data name="ChangeGradient" xml:space="preserve">
+		<value>改变梯度</value>
+	</data>
+	<data name="FileExtension" xml:space="preserve">
+		<value>请指定扩展。</value>
+	</data>
+	<data name="FontException" xml:space="preserve">
+		<value>它可能是一个不支持的字体文件。</value>
+	</data>
+	<data name="FormetException" xml:space="preserve">
+		<value>不支持{0}形式的字符串。</value>
+	</data>
+	<data name="LessThan" xml:space="preserve">
+		<value>{0}小于或等于{1}。</value>
+	</data>
+	<data name="MoreThan" xml:space="preserve">
+		<value>{0}大于或等于{1}。</value>
+	</data>
+	<data name="PlatformIsNotSet" xml:space="preserve">
+		<value>该平台没有设置。</value>
+	</data>
+	<data name="ErrorOccurredWhilistCompilingShader" xml:space="preserve">
+		<value>在编译Shader({0})的过程中发生了一个错误。\n\n{1}</value>
+	</data>
+	<data name="ErrorOccurredWhilstLinkingProgram" xml:space="preserve">
+		<value>在连接Program({0})的过程中发生了一个错误。</value>
+	</data>
+	<data name="SynchronizationContextIsNull" xml:space="preserve">
+		<value>当前线程的SynchronizationContext为空。</value>
+	</data>
+	<data name="InvalidEnum" xml:space="preserve">
+		<value>为一个列举的参数指定了一个不可接受的值。</value>
+	</data>
+	<data name="InvalidValue" xml:space="preserve">
+		<value>数字参数超出了范围。</value>
+	</data>
+	<data name="InvalidOperation" xml:space="preserve">
+		<value>指定的操作在当前状态下是不允许的。</value>
+	</data>
+	<data name="OutOfMemory" xml:space="preserve">
+		<value>没有足够的内存来运行该命令。</value>
+	</data>
+	<data name="InvalildFramebufferOperation" xml:space="preserve">
+		<value>帧缓冲器对象不完整。</value>
+	</data>
+	<data name="TableTooLarge" xml:space="preserve">
+		<value>指定的表超过了实现所支持的表的最大尺寸。</value>
+	</data>
+	<data name="AdjustCoordinates" xml:space="preserve">
+		<value>调整坐标</value>
+	</data>
+	<data name="Anchors" xml:space="preserve">
+		<value>锚点</value>
+	</data>
+	<data name="Angle" xml:space="preserve">
+		<value>角度</value>
+	</data>
+	<data name="AreaExpansion" xml:space="preserve">
+		<value>地区扩展</value>
+	</data>
+	<data name="Audio" xml:space="preserve">
+		<value>语音</value>
+	</data>
+	<data name="Ball" xml:space="preserve">
+		<value>球类</value>
+	</data>
+	<data name="Blur" xml:space="preserve">
+		<value>模糊不清</value>
+	</data>
+	<data name="Border" xml:space="preserve">
+		<value>边界</value>
+	</data>
+	<data name="Bottom" xml:space="preserve">
+		<value>底部</value>
+	</data>
+	<data name="Camera" xml:space="preserve">
+		<value>摄像机</value>
+	</data>
+	<data name="ChromaKey" xml:space="preserve">
+		<value>色度键</value>
+	</data>
+	<data name="CircularGradient" xml:space="preserve">
+		<value>圆形梯度</value>
+	</data>
+	<data name="Clamp" xml:space="preserve">
+		<value>Clamp</value>
+	</data>
+	<data name="ClearFramebuffer" xml:space="preserve">
+		<value>清除帧缓冲区</value>
+	</data>
+	<data name="Clipping" xml:space="preserve">
+		<value>剪切</value>
+	</data>
+	<data name="ColorKey" xml:space="preserve">
+		<value>色键</value>
+	</data>
+	<data name="Colors" xml:space="preserve">
+		<value>颜色</value>
+	</data>
+	<data name="Cube" xml:space="preserve">
+		<value>立方体</value>
+	</data>
+	<data name="Decal" xml:space="preserve">
+		<value>Decal</value>
+	</data>
+	<data name="Depth" xml:space="preserve">
+		<value>深度</value>
+	</data>
+	<data name="DepthFunction" xml:space="preserve">
+		<value>Depth function</value>
+	</data>
+	<data name="DepthTest" xml:space="preserve">
+		<value>深度测试</value>
+	</data>
+	<data name="DepthTestEnable" xml:space="preserve">
+		<value>启用深度测试</value>
+	</data>
+	<data name="Dilate" xml:space="preserve">
+		<value>扩张</value>
+	</data>
+	<data name="DropShadow" xml:space="preserve">
+		<value>跌落阴影</value>
+	</data>
+	<data name="Ellipse" xml:space="preserve">
+		<value>椭圆形</value>
+	</data>
+	<data name="EnableMultipleObjects" xml:space="preserve">
+		<value>启用多个对象</value>
+	</data>
+	<data name="EndPoint" xml:space="preserve">
+		<value>结束位置</value>
+	</data>
+	<data name="Erode" xml:space="preserve">
+		<value>侵蚀</value>
+	</data>
+	<data name="File" xml:space="preserve">
+		<value>文件</value>
+	</data>
+	<data name="FitToOriginalSize" xml:space="preserve">
+		<value>适合原始尺寸</value>
+	</data>
+	<data name="Fov" xml:space="preserve">
+		<value>视角</value>
+	</data>
+	<data name="Framebuffer" xml:space="preserve">
+		<value>帧缓冲器</value>
+	</data>
+	<data name="Frequency" xml:space="preserve">
+		<value>次数</value>
+	</data>
+	<data name="GL3DObject" xml:space="preserve">
+		<value>立体物体</value>
+	</data>
+	<data name="Height" xml:space="preserve">
+		<value>高度</value>
+	</data>
+	<data name="Image" xml:space="preserve">
+		<value>图片</value>
+	</data>
+	<data name="ImageFile" xml:space="preserve">
+		<value>图像文件</value>
+	</data>
+	<data name="ImageSplit" xml:space="preserve">
+		<value>分割图像</value>
+	</data>
+	<data name="InvertMask" xml:space="preserve">
+		<value>反转面具</value>
+	</data>
+	<data name="Left" xml:space="preserve">
+		<value>左边</value>
+	</data>
+	<data name="LinearGradient" xml:space="preserve">
+		<value>线性梯度</value>
+	</data>
+	<data name="LineWidth" xml:space="preserve">
+		<value>线条宽度</value>
+	</data>
+	<data name="Listener" xml:space="preserve">
+		<value>听众</value>
+	</data>
+	<data name="Mask" xml:space="preserve">
+		<value>面具</value>
+	</data>
+	<data name="Mirror" xml:space="preserve">
+		<value>Mirror</value>
+	</data>
+	<data name="Mode" xml:space="preserve">
+		<value>模式</value>
+	</data>
+	<data name="Monoc" xml:space="preserve">
+		<value>单色化</value>
+	</data>
+	<data name="MultipleImageControls" xml:space="preserve">
+		<value>多图像控制</value>
+	</data>
+	<data name="NumberOfHorizontalDivisions" xml:space="preserve">
+		<value>横向划分的数量</value>
+	</data>
+	<data name="NumberOfVerticalDivisions" xml:space="preserve">
+		<value>纵向划分的数量</value>
+	</data>
+	<data name="PathToImageObject" xml:space="preserve">
+		<value>图像对象的路径</value>
+	</data>
+	<data name="Perspective" xml:space="preserve">
+		<value>透视</value>
+	</data>
+	<data name="PointLightDiffuse" xml:space="preserve">
+		<value>点状光扩散</value>
+	</data>
+	<data name="PointLightSource" xml:space="preserve">
+		<value>点源</value>
+	</data>
+	<data name="Polygon" xml:space="preserve">
+		<value>多角形</value>
+	</data>
+	<data name="Radius" xml:space="preserve">
+		<value>半径</value>
+	</data>
+	<data name="Rectangle" xml:space="preserve">
+		<value>长方形</value>
+	</data>
+	<data name="Repeat" xml:space="preserve">
+		<value>重复</value>
+	</data>
+	<data name="Resize" xml:space="preserve">
+		<value>调整大小</value>
+	</data>
+	<data name="Right" xml:space="preserve">
+		<value>对</value>
+	</data>
+	<data name="RoundRect" xml:space="preserve">
+		<value>圆角矩形</value>
+	</data>
+	<data name="Scene" xml:space="preserve">
+		<value>场景</value>
+	</data>
+	<data name="Scenes" xml:space="preserve">
+		<value>场景</value>
+	</data>
+	<data name="Shape" xml:space="preserve">
+		<value>形状</value>
+	</data>
+	<data name="Size" xml:space="preserve">
+		<value>尺寸</value>
+	</data>
+	<data name="Speed" xml:space="preserve">
+		<value>速度</value>
+	</data>
+	<data name="StartPoint" xml:space="preserve">
+		<value>起始位置</value>
+	</data>
+	<data name="TargetX" xml:space="preserve">
+		<value>目标X</value>
+	</data>
+	<data name="TargetY" xml:space="preserve">
+		<value>目标Y</value>
+	</data>
+	<data name="TargetZ" xml:space="preserve">
+		<value>目标Z</value>
+	</data>
+	<data name="Text" xml:space="preserve">
+		<value>文本</value>
+	</data>
+	<data name="ThresholdValue" xml:space="preserve">
+		<value>阈值</value>
+	</data>
+	<data name="Top" xml:space="preserve">
+		<value>上</value>
+	</data>
+	<data name="Video" xml:space="preserve">
+		<value>视频</value>
+	</data>
+	<data name="VideoFile" xml:space="preserve">
+		<value>视频文件</value>
+	</data>
+	<data name="Width" xml:space="preserve">
+		<value>宽度</value>
+	</data>
+	<data name="ZFar" xml:space="preserve">
+		<value>ZFar</value>
+	</data>
+	<data name="ImageEffects" xml:space="preserve">
+		<value>图像效果</value>
+	</data>
+	<data name="ZNear" xml:space="preserve">
+		<value>ZNear</value>
+	</data>
+	<data name="Grayscale" xml:space="preserve">
+		<value>灰度</value>
+	</data>
+	<data name="Sepia" xml:space="preserve">
+		<value>深褐色</value>
+	</data>
+	<data name="Negaposi" xml:space="preserve">
+		<value>负面和正面因素</value>
+	</data>
+	<data name="Xor" xml:space="preserve">
+		<value>Xor</value>
+	</data>
+	<data name="Red" xml:space="preserve">
+		<value>红色</value>
+	</data>
+	<data name="Green" xml:space="preserve">
+		<value>绿色</value>
+	</data>
+	<data name="Blue" xml:space="preserve">
+		<value>蓝色</value>
+	</data>
+	<data name="BrightnessCorrection" xml:space="preserve">
+		<value>亮度校正</value>
+	</data>
+	<data name="Brightness" xml:space="preserve">
+		<value>亮度</value>
+	</data>
+	<data name="ContrastCorrection" xml:space="preserve">
+		<value>对比度校正</value>
+	</data>
+	<data name="Contrast" xml:space="preserve">
+		<value>对比</value>
+	</data>
+	<data name="GammaCorrection" xml:space="preserve">
+		<value>伽马校正</value>
+	</data>
+	<data name="Gamma" xml:space="preserve">
+		<value>伽玛</value>
+	</data>
+	<data name="RGBColorCorrection" xml:space="preserve">
+		<value>RGB调整</value>
+	</data>
+	<data name="Binarization" xml:space="preserve">
+		<value>二进制化</value>
+	</data>
+	<data name="Noise" xml:space="preserve">
+		<value>噪声</value>
+	</data>
+	<data name="Diffusion" xml:space="preserve">
+		<value>扩散</value>
+	</data>
+	<data name="HorizontalAlignment" xml:space="preserve">
+		<value>横向排列</value>
+	</data>
+	<data name="VerticalAlignment" xml:space="preserve">
+		<value>垂直排列</value>
+	</data>
+	<data name="Center" xml:space="preserve">
+		<value>中心</value>
+	</data>
+	<data name="LineSpacing" xml:space="preserve">
+		<value>行距</value>
+	</data>
+	<data name="TopLeft" xml:space="preserve">
+		<value>左上角</value>
+	</data>
+	<data name="TopRight" xml:space="preserve">
+		<value>右上方</value>
+	</data>
+	<data name="BottomLeft" xml:space="preserve">
+		<value>左下角</value>
+	</data>
+	<data name="BottomRight" xml:space="preserve">
+		<value>右下角</value>
+	</data>
+	<data name="ReverseOpacity" xml:space="preserve">
+		<value>反转不透明度</value>
+	</data>
+	<data name="GaussianBlur" xml:space="preserve">
+		<value>高斯模糊</value>
+	</data>
+	<data name="MedianBlur" xml:space="preserve">
+		<value>中位数的模糊</value>
+	</data>
+	<data name="InnerShadow" xml:space="preserve">
+		<value>内心阴影</value>
+	</data>
+	<data name="SetAlignment" xml:space="preserve">
+		<value>设置对齐</value>
+	</data>
+	<data name="WarpPolar" xml:space="preserve">
+		<value>极坐标转换</value>
+	</data>
+	<data name="CubeFile" xml:space="preserve">
+		<value>方块文件</value>
+	</data>
+	<data name="Strength" xml:space="preserve">
+		<value>强度</value>
+	</data>
+	<data name="ApplyLookupTable" xml:space="preserve">
+		<value>应用查找表</value>
+	</data>
+	<data name="LookupTable" xml:space="preserve">
+		<value>查找表</value>
+	</data>
+	<data name="Solarisation" xml:space="preserve">
+		<value>太阳能化</value>
+	</data>
+	<data name="Cycle" xml:space="preserve">
+		<value>周期</value>
+	</data>
+	<data name="AudioFile" xml:space="preserve">
+		<value>音频文件</value>
+	</data>
+	<data name="AudioEffect" xml:space="preserve">
+		<value>声音效果</value>
+	</data>
+	<data name="Delay" xml:space="preserve">
+		<value>延迟</value>
+	</data>
+	<data name="AttenuationRate" xml:space="preserve">
+		<value>衰减率</value>
+	</data>
+	<data name="DelayTime" xml:space="preserve">
+		<value>延迟时间</value>
+	</data>
+	<data name="NumberOfRepetitions" xml:space="preserve">
+		<value>重复次数</value>
+	</data>
+	<data name="ColorDifferenceRange" xml:space="preserve">
+		<value>色差范围</value>
+	</data>
+	<data name="HueRange" xml:space="preserve">
+		<value>色调范围</value>
+	</data>
+	<data name="SaturationRange" xml:space="preserve">
+		<value>饱和度范围</value>
+	</data>
+	<data name="MaskType" xml:space="preserve">
+		<value>面具</value>
+	</data>
+	<data name="Unspecified" xml:space="preserve">
+		<value>未说明</value>
+	</data>
+	<data name="DoNotInvertMask" xml:space="preserve">
+		<value>不要反转面具</value>
+	</data>
+	<data name="SigmaX" xml:space="preserve">
+		<value>西格玛X</value>
+	</data>
+	<data name="SigmaY" xml:space="preserve">
+		<value>西格玛Y</value>
+	</data>
+	<data name="FixSize" xml:space="preserve">
+		<value>固定尺寸</value>
+	</data>
+	<data name="KernelWidth" xml:space="preserve">
+		<value>内核宽度</value>
+	</data>
+	<data name="KernelHeight" xml:space="preserve">
+		<value>内核高度</value>
+	</data>
+	<data name="EdgeBlur" xml:space="preserve">
+		<value>边界模糊</value>
+	</data>
+	<data name="BlurBorderOfTransparency" xml:space="preserve">
+		<value>模糊透明度的界限</value>
+	</data>
+	<data name="DecoderNotFound" xml:space="preserve">
+		<value>没有发现解码器。</value>
+	</data>
+	<data name="AlignToBaseline" xml:space="preserve">
+		<value>向基线看齐</value>
+	</data>
+	<data name="CharacterSpacing" xml:space="preserve">
+		<value>字符间距</value>
+	</data>
+	<data name="Alignment" xml:space="preserve">
+		<value>对齐</value>
+	</data>
+	<data name="PartsDisassembly" xml:space="preserve">
+		<value>零件拆解</value>
+	</data>
+	<data name="Length" xml:space="preserve">
+		<value>长度</value>
+	</data>
+	<data name="FlatShadow" xml:space="preserve">
+		<value>平坦的阴影</value>
+	</data>
+	<data name="EnableStroke" xml:space="preserve">
+		<value>使能够中风</value>
+	</data>
+	<data name="MiterLimit" xml:space="preserve">
+		<value>斜接限制</value>
+	</data>
+	<data name="JoinType" xml:space="preserve">
+		<value>加盟类型</value>
+	</data>
+	<data name="Sharp" xml:space="preserve">
+		<value>锋利的</value>
+	</data>
+	<data name="Round" xml:space="preserve">
+		<value>圆形的</value>
+	</data>
+	<data name="Stroke" xml:space="preserve">
+		<value>中风</value>
+	</data>
+	<data name="Bevel" xml:space="preserve">
+		<value>斜角</value>
+	</data>
+	<data name="FrequencyX" xml:space="preserve">
+		<value>频率X</value>
+	</data>
+	<data name="FrequencyY" xml:space="preserve">
+		<value>频率Y</value>
+	</data>
+	<data name="NumberOfOctaves" xml:space="preserve">
+		<value>八度数</value>
+	</data>
+	<data name="Fractal" xml:space="preserve">
+		<value>分形</value>
+	</data>
+	<data name="Turbulence" xml:space="preserve">
+		<value>湍流</value>
+	</data>
+	<data name="SearchForDecoder" xml:space="preserve">
+		<value>寻找解码器</value>
+	</data>
+	<data name="CropTransparentArea" xml:space="preserve">
+		<value>切出一个透明的区域</value>
+	</data>
+	<data name="RoundClipping" xml:space="preserve">
+		<value>圆角剪切</value>
+	</data>
+	<data name="Quality" xml:space="preserve">
+		<value>质量</value>
+	</data>
+	<data name="Arc" xml:space="preserve">
+		<value>弧形</value>
+	</data>
+	<data name="StartAngle" xml:space="preserve">
+		<value>起始角度</value>
+	</data>
+	<data name="SweepAngle" xml:space="preserve">
+		<value>延伸角度</value>
+	</data>
+	<data name="UseCenter" xml:space="preserve">
+		<value>使用中心</value>
+	</data>
+	<data name="PaddingLeft" xml:space="preserve">
+		<value>边缘地带: 左边</value>
+	</data>
+	<data name="PaddingTop" xml:space="preserve">
+		<value>　　　　: 上</value>
+	</data>
+	<data name="PaddingRight" xml:space="preserve">
+		<value>　　　　: 对</value>
+	</data>
+	<data name="PaddingBottom" xml:space="preserve">
+		<value>　　　　: 下降</value>
+	</data>
+	<data name="BackgroundColor" xml:space="preserve">
+		<value>背景颜色</value>
+	</data>
+	<data name="Gradient" xml:space="preserve">
+		<value>梯度</value>
+	</data>
+	<data name="Add" xml:space="preserve">
+		<value>添加</value>
+	</data>
+	<data name="AssemblyFile" xml:space="preserve">
+		<value>装配式文件</value>
+	</data>
+	<data name="Apply" xml:space="preserve">
+		<value>应用</value>
+	</data>
+	<data name="Appearance" xml:space="preserve">
+		<value>外观</value>
+	</data>
+	<data name="AnExceptionWasThrownDuringRenderingPreview" xml:space="preserve">
+		<value>在渲染过程中抛出了一个异常，所以预览被暂时停止。
+它将在5秒后被释放。</value>
+	</data>
+	<data name="AnExceptionWasThrownDuringRendering" xml:space="preserve">
+		<value>渲染时抛出了一个异常，所以
+播放被停止。</value>
+	</data>
+	<data name="AlreadyCancelled" xml:space="preserve">
+		<value>它已经被取消了。</value>
+	</data>
+	<data name="AdjustLengthOfClip" xml:space="preserve">
+		<value>调整长度</value>
+	</data>
+	<data name="AddToList" xml:space="preserve">
+		<value>添加到列表</value>
+	</data>
+	<data name="AddToColorPalette" xml:space="preserve">
+		<value>添加到调色板中</value>
+	</data>
+	<data name="AddScene" xml:space="preserve">
+		<value>添加一个场景</value>
+	</data>
+	<data name="AddNewPalette" xml:space="preserve">
+		<value>添加一个新的调色板</value>
+	</data>
+	<data name="AudioFiles" xml:space="preserve">
+		<value>音频文件</value>
+	</data>
+	<data name="AudioProfile" xml:space="preserve">
+		<value>音频配置文件</value>
+	</data>
+	<data name="Author" xml:space="preserve">
+		<value>作者</value>
+	</data>
+	<data name="Back" xml:space="preserve">
+		<value>返回到</value>
+	</data>
+	<data name="Background" xml:space="preserve">
+		<value>背景介绍</value>
+	</data>
+	<data name="BackupFile" xml:space="preserve">
+		<value>备份文件</value>
+	</data>
+	<data name="BackupInterval" xml:space="preserve">
+		<value>备份时间间隔（分钟</value>
+	</data>
+	<data name="Bind" xml:space="preserve">
+		<value>捆绑</value>
+	</data>
+	<data name="Black" xml:space="preserve">
+		<value>黑色</value>
+	</data>
+	<data name="Cache" xml:space="preserve">
+		<value>缓存</value>
+	</data>
+	<data name="Cancel" xml:space="preserve">
+		<value>取消</value>
+	</data>
+	<data name="CannotDeleteAnyMore" xml:space="preserve">
+		<value>你不能再删除了。</value>
+	</data>
+	<data name="Category" xml:space="preserve">
+		<value>类别</value>
+	</data>
+	<data name="ChangeFailed" xml:space="preserve">
+		<value>无法更改。</value>
+	</data>
+	<data name="ChangePassword" xml:space="preserve">
+		<value>更改密码</value>
+	</data>
+	<data name="Changes" xml:space="preserve">
+		<value>变化</value>
+	</data>
+	<data name="ChangeSucceeded" xml:space="preserve">
+		<value>改变了。</value>
+	</data>
+	<data name="CheckDark" xml:space="preserve">
+		<value>检查模式 (深色)</value>
+	</data>
+	<data name="CheckLight" xml:space="preserve">
+		<value>检查模式 (光)</value>
+	</data>
+	<data name="ClearCache" xml:space="preserve">
+		<value>清除缓存</value>
+	</data>
+	<data name="Clip" xml:space="preserve">
+		<value>素材</value>
+	</data>
+	<data name="ClipExistsInTheSpecifiedLocation" xml:space="preserve">
+		<value>不能放置一个新的素材，因为在指定的位置已经存在一个素材。</value>
+	</data>
+	<data name="ClipHeight" xml:space="preserve">
+		<value>素材的高度</value>
+	</data>
+	<data name="ClipId" xml:space="preserve">
+		<value>素材ID</value>
+	</data>
+	<data name="ClipInfo" xml:space="preserve">
+		<value>素材信息</value>
+	</data>
+	<data name="Close" xml:space="preserve">
+		<value>关闭</value>
+	</data>
+	<data name="Codec" xml:space="preserve">
+		<value>编解码器</value>
+	</data>
+	<data name="ColorPalette" xml:space="preserve">
+		<value>调色板</value>
+	</data>
+	<data name="ColorPicker" xml:space="preserve">
+		<value>颜色选择器</value>
+	</data>
+	<data name="CommandQ1" xml:space="preserve">
+		<value>该操作不能被撤销
+你想执行这个行动吗？</value>
+	</data>
+	<data name="ComponentIsExtractedAndPlaced" xml:space="preserve">
+		<value>组件被拆开包装并放置。</value>
+	</data>
+	<data name="Configuration" xml:space="preserve">
+		<value>构成</value>
+	</data>
+	<data name="ConfirmNewPassword" xml:space="preserve">
+		<value>确认你的新密码</value>
+	</data>
+	<data name="ContainerFormat" xml:space="preserve">
+		<value>容器格式</value>
+	</data>
+	<data name="ConvertJson" xml:space="preserve">
+		<value>转换为Json</value>
+	</data>
+	<data name="ConvertVideo" xml:space="preserve">
+		<value>转换视频</value>
+	</data>
+	<data name="Copy" xml:space="preserve">
+		<value>拷贝</value>
+	</data>
+	<data name="CopyID" xml:space="preserve">
+		<value>拷贝ID</value>
+	</data>
+	<data name="CouldNotCreateFolder" xml:space="preserve">
+		<value>文件夹不能被创建。</value>
+	</data>
+	<data name="CouldNotCreatePackage" xml:space="preserve">
+		<value>该软件包无法被创建。</value>
+	</data>
+	<data name="Create" xml:space="preserve">
+		<value>创建</value>
+	</data>
+	<data name="CreateCache" xml:space="preserve">
+		<value>创建缓存</value>
+	</data>
+	<data name="CreateFromBackup" xml:space="preserve">
+		<value>从备份中创建</value>
+	</data>
+	<data name="CreatePluginPackage" xml:space="preserve">
+		<value>创建一个插件包</value>
+	</data>
+	<data name="CreateProject" xml:space="preserve">
+		<value>创建一个项目</value>
+	</data>
+	<data name="CreateScene" xml:space="preserve">
+		<value>创建一个场景</value>
+	</data>
+	<data name="Cut" xml:space="preserve">
+		<value>切出</value>
+	</data>
+	<data name="Delete" xml:space="preserve">
+		<value>删除</value>
+	</data>
+	<data name="DeleteCommand" xml:space="preserve">
+		<value>删除记录的命令</value>
+	</data>
+	<data name="Dependency" xml:space="preserve">
+		<value>依赖性</value>
+	</data>
+	<data name="Description" xml:space="preserve">
+		<value>描述</value>
+	</data>
+	<data name="DontSave" xml:space="preserve">
+		<value>勿保存</value>
+	</data>
+	<data name="Download" xml:space="preserve">
+		<value>下载</value>
+	</data>
+	<data name="DownloadingRequiredComponents" xml:space="preserve">
+		<value>我们已经下载了必要的组件。</value>
+	</data>
+	<data name="DoYouWantToDeleteThePalette" xml:space="preserve">
+		<value>你想删除一个调色板吗？</value>
+	</data>
+	<data name="DoYouWantToRemoveThisDirectory" xml:space="preserve">
+		<value>你想删除这个目录吗？</value>
+	</data>
+	<data name="DoYouWantToRemoveThisFile" xml:space="preserve">
+		<value>你想删除这个文件吗？</value>
+	</data>
+	<data name="DoYouWantToSaveYourChangesTo" xml:space="preserve">
+		<value>是否要保存{0}变化?</value>
+	</data>
+	<data name="Edit" xml:space="preserve">
+		<value>编辑</value>
+	</data>
+	<data name="Effect" xml:space="preserve">
+		<value>效果</value>
+	</data>
+	<data name="EffectFile" xml:space="preserve">
+		<value>效果文件</value>
+	</data>
+	<data name="Email" xml:space="preserve">
+		<value>电子邮件地址</value>
+	</data>
+	<data name="Encoder" xml:space="preserve">
+		<value>编码器</value>
+	</data>
+	<data name="EncoderIsNotSet" xml:space="preserve">
+		<value>编码器未被设置。
+当编码器被设置后，将显示高级设置。</value>
+	</data>
+	<data name="EncoderNotFound" xml:space="preserve">
+		<value>没有找到编码器。</value>
+	</data>
+	<data name="EncoderSettings" xml:space="preserve">
+		<value>编码器设置</value>
+	</data>
+	<data name="End" xml:space="preserve">
+		<value>端部帧</value>
+	</data>
+	<data name="ErrorObjectViewer1" xml:space="preserve">
+		<value>选择{0}或其任何一个子元素</value>
+	</data>
+	<data name="ErrorObjectViewer2" xml:space="preserve">
+		<value>请选择{0}。</value>
+	</data>
+	<data name="ExceptionWasThrown" xml:space="preserve">
+		<value>{0}已被抛出。</value>
+	</data>
+	<data name="FailedTo" xml:space="preserve">
+		<value>{0}已经失败。</value>
+	</data>
+	<data name="FailedToInstall" xml:space="preserve">
+		<value>{0}的安装已经失败。</value>
+	</data>
+	<data name="FailedToPackProject" xml:space="preserve">
+		<value>打包项目失败</value>
+	</data>
+	<data name="FailedToSave" xml:space="preserve">
+		<value>我无法保存。</value>
+	</data>
+	<data name="FileDoesNotExistRemoveItFromList" xml:space="preserve">
+		<value>该文件不存在。
+你想把它从列表中删除吗？</value>
+	</data>
+	<data name="FileNotFound" xml:space="preserve">
+		<value>没有找到文件。</value>
+	</data>
+	<data name="FileSaved" xml:space="preserve">
+		<value>您的文件已被保存!</value>
+	</data>
+	<data name="FixSeekbar" xml:space="preserve">
+		<value>修复播放期间的搜索栏</value>
+	</data>
+	<data name="ForgotYourPassword" xml:space="preserve">
+		<value>忘记密码了吗？</value>
+	</data>
+	<data name="Format" xml:space="preserve">
+		<value>格式</value>
+	</data>
+	<data name="Framerate" xml:space="preserve">
+		<value>帧率</value>
+	</data>
+	<data name="General" xml:space="preserve">
+		<value>一般</value>
+	</data>
+	<data name="GetPath" xml:space="preserve">
+		<value>获取路径</value>
+	</data>
+	<data name="GoToMainWindow" xml:space="preserve">
+		<value>转到主窗口</value>
+	</data>
+	<data name="GraphicsProfile" xml:space="preserve">
+		<value>图文配置文件</value>
+	</data>
+	<data name="GraphicsProfileDescription" xml:space="preserve">
+		<value>OpenGL: 
+- "OpenGL"被用于渲染。
+
+Skia:
+- "Skia"被用于渲染。
+- 不支持3D渲染。
+- 不提供材料、灯光和相机。
+
+Direct3D 11:
+- "Direct3D 11"被用于渲染。
+- 对于Windows
+- 光源尚未实现。
+
+Metal:
+- "Metal"被用于渲染。
+- 对于MacOS
+- 光源尚未实现。
+
+Vulkan:
+- "Vulkan"被用于渲染。
+- 光源尚未实现。</value>
+	</data>
+	<data name="Help" xml:space="preserve">
+		<value>帮助</value>
+	</data>
+	<data name="ImageOutput" xml:space="preserve">
+		<value>图像输出</value>
+	</data>
+	<data name="Infomation" xml:space="preserve">
+		<value>信息</value>
+	</data>
+	<data name="Install" xml:space="preserve">
+		<value>安装</value>
+	</data>
+	<data name="Installed" xml:space="preserve">
+		<value>已安装</value>
+	</data>
+	<data name="InstallLater" xml:space="preserve">
+		<value>稍后安装</value>
+	</data>
+	<data name="InstallNow" xml:space="preserve">
+		<value>现在安装</value>
+	</data>
+	<data name="InstallRequiredPlugins" xml:space="preserve">
+		<value>安装必要的插件</value>
+	</data>
+	<data name="InvalidIdCanUseGUIDAndUUID" xml:space="preserve">
+		<value>无效身份。
+GUID和UUID可用于Id。</value>
+	</data>
+	<data name="IsChecking" xml:space="preserve">
+		<value>{0}正在被检查。</value>
+	</data>
+	<data name="IsLoading" xml:space="preserve">
+		<value>{0}正在加载。</value>
+	</data>
+	<data name="Key" xml:space="preserve">
+		<value>钥匙</value>
+	</data>
+	<data name="KeyBindings" xml:space="preserve">
+		<value>捷径</value>
+	</data>
+	<data name="Language" xml:space="preserve">
+		<value>语言</value>
+	</data>
+	<data name="LatestVersion" xml:space="preserve">
+		<value>最新版本</value>
+	</data>
+	<data name="Layer" xml:space="preserve">
+		<value>分层</value>
+	</data>
+	<data name="LayerThickness" xml:space="preserve">
+		<value>该层的线条厚度</value>
+	</data>
+	<data name="LearnHowToUse" xml:space="preserve">
+		<value>了解如何使用</value>
+	</data>
+	<data name="Library" xml:space="preserve">
+		<value>图书馆</value>
+	</data>
+	<data name="License" xml:space="preserve">
+		<value>执照</value>
+	</data>
+	<data name="Location" xml:space="preserve">
+		<value>地点</value>
+	</data>
+	<data name="Log" xml:space="preserve">
+		<value>纪录</value>
+	</data>
+	<data name="LowerColorReproduction" xml:space="preserve">
+		<value>较低的色彩还原度</value>
+	</data>
+	<data name="LowerResolution" xml:space="preserve">
+		<value>降低分辨率</value>
+	</data>
+	<data name="MachineTranslation" xml:space="preserve">
+		<value>机器翻译</value>
+	</data>
+	<data name="ManagePlugins" xml:space="preserve">
+		<value>管理你的插件</value>
+	</data>
+	<data name="Maximize" xml:space="preserve">
+		<value>最大化</value>
+	</data>
+	<data name="MemoryRelease" xml:space="preserve">
+		<value>记忆释放</value>
+	</data>
+	<data name="Metadata" xml:space="preserve">
+		<value>元数据</value>
+	</data>
+	<data name="Minimize" xml:space="preserve">
+		<value>最小化</value>
+	</data>
+	<data name="MoveToEnd" xml:space="preserve">
+		<value>移至页尾</value>
+	</data>
+	<data name="MoveToNextFrame" xml:space="preserve">
+		<value>转到下一帧</value>
+	</data>
+	<data name="MoveToPreviousFrame" xml:space="preserve">
+		<value>转到上一帧</value>
+	</data>
+	<data name="MoveToSpecifiedFrame" xml:space="preserve">
+		<value>移动到指定的框架。</value>
+	</data>
+	<data name="MoveToTop" xml:space="preserve">
+		<value>移至顶部</value>
+	</data>
+	<data name="Name" xml:space="preserve">
+		<value>命名</value>
+	</data>
+	<data name="New" xml:space="preserve">
+		<value>创建新的</value>
+	</data>
+	<data name="NewFolder" xml:space="preserve">
+		<value>新文件夹</value>
+	</data>
+	<data name="NewPassword" xml:space="preserve">
+		<value>新密码</value>
+	</data>
+	<data name="Next" xml:space="preserve">
+		<value>下一页</value>
+	</data>
+	<data name="No" xml:space="preserve">
+		<value>没有</value>
+	</data>
+	<data name="NoClipIsSelected" xml:space="preserve">
+		<value>该片段未被选中。</value>
+	</data>
+	<data name="None" xml:space="preserve">
+		<value>没有</value>
+	</data>
+	<data name="NotFoundPackageFromRegisteredPackageSource" xml:space="preserve">
+		<value>在注册的包源中没有找到该包。</value>
+	</data>
+	<data name="NotSupportedFormats" xml:space="preserve">
+		<value>不支持这种格式。</value>
+	</data>
+	<data name="ObjectFile" xml:space="preserve">
+		<value>物质文件</value>
+	</data>
+	<data name="Objects" xml:space="preserve">
+		<value>物质</value>
+	</data>
+	<data name="OK" xml:space="preserve">
+		<value>认可</value>
+	</data>
+	<data name="Open" xml:space="preserve">
+		<value>开放式</value>
+	</data>
+	<data name="OpenALNotFound" xml:space="preserve">
+		<value>没有找到OpenAL。
+安装它。</value>
+	</data>
+	<data name="Operate" xml:space="preserve">
+		<value>运作</value>
+	</data>
+	<data name="Optimization" xml:space="preserve">
+		<value>优化</value>
+	</data>
+	<data name="Others" xml:space="preserve">
+		<value>其他</value>
+	</data>
+	<data name="Out" xml:space="preserve">
+		<value>输出</value>
+	</data>
+	<data name="Output" xml:space="preserve">
+		<value>输出</value>
+	</data>
+	<data name="OutputDirectory" xml:space="preserve">
+		<value>输出目标目录</value>
+	</data>
+	<data name="Outputs" xml:space="preserve">
+		<value>输出</value>
+	</data>
+	<data name="PackageSource" xml:space="preserve">
+		<value>包装来源</value>
+	</data>
+	<data name="PackingTheProject" xml:space="preserve">
+		<value>包装你的项目</value>
+	</data>
+	<data name="PaletteNotSelected" xml:space="preserve">
+		<value>没有选择调色板</value>
+	</data>
+	<data name="Password" xml:space="preserve">
+		<value>密码</value>
+	</data>
+	<data name="PasswordAreNotMatching" xml:space="preserve">
+		<value>密码不匹配</value>
+	</data>
+	<data name="Paste" xml:space="preserve">
+		<value>粘贴</value>
+	</data>
+	<data name="Path" xml:space="preserve">
+		<value>路径</value>
+	</data>
+	<data name="Pause" xml:space="preserve">
+		<value>暂停</value>
+	</data>
+	<data name="Play" xml:space="preserve">
+		<value>播放</value>
+	</data>
+	<data name="Playing" xml:space="preserve">
+		<value>正在播放</value>
+	</data>
+	<data name="PlayPause" xml:space="preserve">
+		<value>播放/暂停</value>
+	</data>
+	<data name="PleaseEnter" xml:space="preserve">
+		<value>请输入{0}。</value>
+	</data>
+	<data name="Plugin" xml:space="preserve">
+		<value>插件</value>
+	</data>
+	<data name="Plugins" xml:space="preserve">
+		<value>插件</value>
+	</data>
+	<data name="Preset" xml:space="preserve">
+		<value>预设</value>
+	</data>
+	<data name="Preview" xml:space="preserve">
+		<value>预览</value>
+	</data>
+	<data name="PrimitiveEasing" xml:space="preserve">
+		<value>基元 (已弃用)</value>
+	</data>
+	<data name="Project" xml:space="preserve">
+		<value>项目</value>
+	</data>
+	<data name="ProjectLocation" xml:space="preserve">
+		<value>项目地点</value>
+	</data>
+	<data name="ProjectPackage" xml:space="preserve">
+		<value>项目包</value>
+	</data>
+	<data name="Projects" xml:space="preserve">
+		<value>项目</value>
+	</data>
+	<data name="PropertyShowHide" xml:space="preserve">
+		<value>显示/隐藏属性</value>
+	</data>
+	<data name="Publish" xml:space="preserve">
+		<value>发布</value>
+	</data>
+	<data name="RangeAbove" xml:space="preserve">
+		<value>请输入一个大于或等于{0}的数值。</value>
+	</data>
+	<data name="RecentFiles" xml:space="preserve">
+		<value>最近使用的文件</value>
+	</data>
+	<data name="RecentFonts" xml:space="preserve">
+		<value>最近使用的字体</value>
+	</data>
+	<data name="RecentProject" xml:space="preserve">
+		<value>最近使用的项目</value>
+	</data>
+	<data name="Redo" xml:space="preserve">
+		<value>重做</value>
+	</data>
+	<data name="Reload" xml:space="preserve">
+		<value>重新加载</value>
+	</data>
+	<data name="Remove" xml:space="preserve">
+		<value>删除</value>
+	</data>
+	<data name="RequiredPlugins" xml:space="preserve">
+		<value>所需的插件</value>
+	</data>
+	<data name="Reset" xml:space="preserve">
+		<value>复位</value>
+	</data>
+	<data name="ResetLayout" xml:space="preserve">
+		<value>重置布局</value>
+	</data>
+	<data name="RestoreDown" xml:space="preserve">
+		<value>撤消</value>
+	</data>
+	<data name="Retry" xml:space="preserve">
+		<value>重试</value>
+	</data>
+	<data name="Samplingrate" xml:space="preserve">
+		<value>采样率</value>
+	</data>
+	<data name="Save" xml:space="preserve">
+		<value>保存</value>
+	</data>
+	<data name="SaveAs" xml:space="preserve">
+		<value>保存为</value>
+	</data>
+	<data name="SaveFullPath" xml:space="preserve">
+		<value>保存绝对路径</value>
+	</data>
+	<data name="SavePathRelativeToSelectedPathFromProject" xml:space="preserve">
+		<value>保存相对路径</value>
+	</data>
+	<data name="SavePositionAsFrameNumber" xml:space="preserve">
+		<value>将位置保存为帧号</value>
+	</data>
+	<data name="SavePositionAsPercentage" xml:space="preserve">
+		<value>将你的位置保存为一个百分比</value>
+	</data>
+	<data name="SaveToStorage" xml:space="preserve">
+		<value>保存到仓库</value>
+	</data>
+	<data name="SceneSettings" xml:space="preserve">
+		<value>设定场景</value>
+	</data>
+	<data name="Search" xml:space="preserve">
+		<value>搜索</value>
+	</data>
+	<data name="SelectLocationToUnpackProject" xml:space="preserve">
+		<value>选择解压项目的地方</value>
+	</data>
+	<data name="Separate" xml:space="preserve">
+		<value>分割</value>
+	</data>
+	<data name="SetMaximumFrame" xml:space="preserve">
+		<value>设置最大帧</value>
+	</data>
+	<data name="Settings" xml:space="preserve">
+		<value>设置</value>
+	</data>
+	<data name="Setup" xml:space="preserve">
+		<value>设置</value>
+	</data>
+	<data name="ShortDescription" xml:space="preserve">
+		<value>简要说明</value>
+	</data>
+	<data name="ShortUpdateNote" xml:space="preserve">
+		<value>简短的更新说明</value>
+	</data>
+	<data name="Show" xml:space="preserve">
+		<value>显示</value>
+	</data>
+	<data name="ShowStartWindow" xml:space="preserve">
+		<value>显示启动窗口。</value>
+	</data>
+	<data name="Shutdown" xml:space="preserve">
+		<value>退出</value>
+	</data>
+	<data name="Signin" xml:space="preserve">
+		<value>签入</value>
+	</data>
+	<data name="Signout" xml:space="preserve">
+		<value>签出</value>
+	</data>
+	<data name="Signup" xml:space="preserve">
+		<value>注册</value>
+	</data>
+	<data name="SomeFunctionsAreNotAvailable." xml:space="preserve">
+		<value>有些功能无法使用。</value>
+	</data>
+	<data name="SpecifiedClipIsNotFound" xml:space="preserve">
+		<value>没有找到指定的素材。</value>
+	</data>
+	<data name="Strong" xml:space="preserve">
+		<value>Strong</value>
+	</data>
+	<data name="Tag" xml:space="preserve">
+		<value>标签</value>
+	</data>
+	<data name="Template" xml:space="preserve">
+		<value>模板</value>
+	</data>
+	<data name="TheChangesWillBeAppliedAfterRestarting" xml:space="preserve">
+		<value>这些变化将在重启后应用。</value>
+	</data>
+	<data name="TheFollowingPluginsAreRrequiredToOpenProject" xml:space="preserve">
+		<value>要打开这个项目，你将需要以下插件</value>
+	</data>
+	<data name="ThePackageHasBeenCreated" xml:space="preserve">
+		<value>包裹已经被创建了!</value>
+	</data>
+	<data name="ThereIsANewerVersionOf" xml:space="preserve">
+		<value>新版本的"{0}"已经问世。</value>
+	</data>
+	<data name="ThereIsNoProject" xml:space="preserve">
+		<value>没有任何项目。</value>
+	</data>
+	<data name="Thin" xml:space="preserve">
+		<value>薄</value>
+	</data>
+	<data name="ThisFileCannotBeConverted" xml:space="preserve">
+		<value>这个文件不能被转换。</value>
+	</data>
+	<data name="ThisItemCannotBeChanged" xml:space="preserve">
+		<value>这个字段不能被改变。</value>
+	</data>
+	<data name="ThisNameAlreadyExists" xml:space="preserve">
+		<value>这个名字已经存在。</value>
+	</data>
+	<data name="Timeline" xml:space="preserve">
+		<value>时间轴</value>
+	</data>
+	<data name="TimelineShowHide" xml:space="preserve">
+		<value>显示/隐藏时间线</value>
+	</data>
+	<data name="TimeRemaining" xml:space="preserve">
+		<value>剩余时间</value>
+	</data>
+	<data name="ToCreateProjectClickNew" xml:space="preserve">
+		<value>要创建一个项目，请点击新建。</value>
+	</data>
+	<data name="Tool" xml:space="preserve">
+		<value>工具</value>
+	</data>
+	<data name="Transparent" xml:space="preserve">
+		<value>透明</value>
+	</data>
+	<data name="TryingToOpenProjectPackage" xml:space="preserve">
+		<value>我正试图打开一个项目包</value>
+	</data>
+	<data name="Undo" xml:space="preserve">
+		<value>撤销</value>
+	</data>
+	<data name="Uninstall" xml:space="preserve">
+		<value>卸载</value>
+	</data>
+	<data name="Unknown" xml:space="preserve">
+		<value>不详</value>
+	</data>
+	<data name="Update" xml:space="preserve">
+		<value>更新</value>
+	</data>
+	<data name="UpdateNote" xml:space="preserve">
+		<value>更新说明</value>
+	</data>
+	<data name="UpdatePassword" xml:space="preserve">
+		<value>更新你的密码</value>
+	</data>
+	<data name="UseAutoBackup" xml:space="preserve">
+		<value>使用自动备份</value>
+	</data>
+	<data name="UseCache" xml:space="preserve">
+		<value>使用缓存</value>
+	</data>
+	<data name="UseCurrentFrame" xml:space="preserve">
+		<value>使用当前帧</value>
+	</data>
+	<data name="UseDarkMode" xml:space="preserve">
+		<value>使用黑暗模式</value>
+	</data>
+	<data name="User" xml:space="preserve">
+		<value>用户</value>
+	</data>
+	<data name="UserName" xml:space="preserve">
+		<value>用户名称</value>
+	</data>
+	<data name="UsingGPUForImageProcessing" xml:space="preserve">
+		<value>使用GPU进行图像处理</value>
+	</data>
+	<data name="Validation" xml:space="preserve">
+		<value>激活</value>
+	</data>
+	<data name="Version" xml:space="preserve">
+		<value>版本</value>
+	</data>
+	<data name="VideoOutput" xml:space="preserve">
+		<value>视频输出</value>
+	</data>
+	<data name="View" xml:space="preserve">
+		<value>查看</value>
+	</data>
+	<data name="WebSite" xml:space="preserve">
+		<value>网站</value>
+	</data>
+	<data name="WhenYouCloseTheApplicationTheChangesWillBegin" xml:space="preserve">
+		<value>当你退出应用程序时，将开始进行更改。</value>
+	</data>
+	<data name="White" xml:space="preserve">
+		<value>白</value>
+	</data>
+	<data name="WidthOf1Frame" xml:space="preserve">
+		<value>每一帧的宽度</value>
+	</data>
+	<data name="XAudio2IsUsedAsAudioProfile" xml:space="preserve">
+		<value>XAudio2被用于音频配置文件。</value>
+	</data>
+	<data name="Yes" xml:space="preserve">
+		<value>是</value>
+	</data>
+	<data name="YouDoNotHaveTheRequiredPluginsInstalled" xml:space="preserve">
+		<value>你没有安装所需的插件。
+你想现在安装它吗？</value>
+	</data>
+	<data name="ZoomIn" xml:space="preserve">
+		<value>放大</value>
+	</data>
+	<data name="ByClickingModify" xml:space="preserve">
+		<value>通过点击 "应用更改"，你同意上述许可条款（如果有的话）。</value>
+	</data>
+	<data name="CompleteChangesClickToExit" xml:space="preserve">
+		<value>你的修改现在已经完成。
+点击 "关闭 "即可退出。</value>
+	</data>
+	<data name="Downloading" xml:space="preserve">
+		<value>下载进行中</value>
+	</data>
+	<data name="ExtractingFiles" xml:space="preserve">
+		<value>解压文件</value>
+	</data>
+	<data name="FailedChanges" xml:space="preserve">
+		<value>失败的变革</value>
+	</data>
+	<data name="Installing" xml:space="preserve">
+		<value>在安装过程中</value>
+	</data>
+	<data name="Modify" xml:space="preserve">
+		<value>修改</value>
+	</data>
+	<data name="SuccessfulChanges" xml:space="preserve">
+		<value>成功的变革</value>
+	</data>
+	<data name="Uninstalling" xml:space="preserve">
+		<value>卸载过程中</value>
+	</data>
+	<data name="Japanese" xml:space="preserve">
+		<value>日本</value>
+	</data>
+	<data name="English" xml:space="preserve">
+		<value>英语</value>
+	</data>
+</root>
