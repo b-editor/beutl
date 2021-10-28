@@ -8,6 +8,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
 
 using BEditor.Data;
@@ -30,6 +31,7 @@ namespace BEditor.Plugin
         private readonly List<PluginTask> _task = new();
         private readonly List<(string, IEnumerable<BasePluginMenu>)> _menus = new();
         private readonly List<FileMenu> _fileMenus = new();
+        private readonly List<SupportedLanguage> _supportedLanguages = new();
 
         private PluginBuilder(Func<PluginObject> create)
         {
@@ -184,6 +186,19 @@ namespace BEditor.Plugin
         }
 
         /// <summary>
+        /// Add languages to be added by the plugin.
+        /// </summary>
+        /// <param name="supportedLanguage">The language to be added.</param>
+        /// <returns>The same instance of the <see cref="PluginBuilder"/> for chaining.</returns>
+        public PluginBuilder Language(SupportedLanguage supportedLanguage)
+        {
+            if (!_supportedLanguages.Contains(supportedLanguage))
+                _supportedLanguages.Add(supportedLanguage);
+
+            return this;
+        }
+
+        /// <summary>
         /// Register services into the <see cref="IServiceCollection"/>.
         /// </summary>
         /// <param name="configureServices">A delegate for configuring the <see cref="IServiceCollection"/>.</param>
@@ -227,6 +242,12 @@ namespace BEditor.Plugin
             // ファイルメニューを追加
             if (_fileMenus.Count > 0)
                 manager.FileMenus.Add((instance.GetType().Assembly, _fileMenus));
+
+            foreach (var item in _supportedLanguages)
+            {
+                if (!Settings.Default.SupportedLanguages.Contains(item))
+                    Settings.Default.SupportedLanguages.Add(item);
+            }
 
             if (_task.Count is not 0)
             {

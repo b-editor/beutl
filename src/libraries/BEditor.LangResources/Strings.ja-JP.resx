@@ -1738,4 +1738,10 @@ IdにはGUID, UUIDが使えます。</value>
   <data name="Uninstalling" xml:space="preserve">
     <value>アンインストール中</value>
   </data>
+  <data name="Japanese" xml:space="preserve">
+    <value>日本語</value>
+  </data>
+  <data name="English" xml:space="preserve">
+    <value>英語</value>
+  </data>
 </root>

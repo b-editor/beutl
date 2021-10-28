@@ -1738,4 +1738,10 @@ Click "Close" to exit.</value>
   <data name="Uninstalling" xml:space="preserve">
     <value>Uninstalling</value>
   </data>
+  <data name="Japanese" xml:space="preserve">
+    <value>Japanese</value>
+  </data>
+  <data name="English" xml:space="preserve">
+    <value>English</value>
+  </data>
 </root>

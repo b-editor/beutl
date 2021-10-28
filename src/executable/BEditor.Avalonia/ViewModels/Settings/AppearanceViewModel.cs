@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.ObjectModel;
 using System.Linq;
 
 using BEditor.LangResources;
@@ -27,10 +28,6 @@ namespace BEditor.ViewModels.Settings
 
         public ReactivePropertySlim<LayerBorderItem> SelectedLayerBorder { get; }
 
-        public ReactiveCollection<string> Langs { get; } = new()
-        {
-            "ja-JP",
-            "en-US",
-        };
+        public ObservableCollection<SupportedLanguage> Langs { get; } =BEditor.Settings.Default.SupportedLanguages;
     }
 }

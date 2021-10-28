@@ -38,7 +38,13 @@
                         ToolTip.Tip="{x:Static resources:Strings.TheChangesWillBeAppliedAfterRestarting}"
                         Items="{CompiledBinding Langs, Mode=OneTime}"
                         SelectedItem="{Binding Language, Source={x:Static root:Settings.Default}, Mode=TwoWay}"
-                        Classes="Editor"/>
+                        Classes="Editor">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding DisplayName}" />
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
                 </Panel>
             </Border>
 

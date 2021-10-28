@@ -1677,6 +1677,15 @@ namespace BEditor.LangResources {
         }
         
         /// <summary>
+        ///   English に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string English {
+            get {
+                return ResourceManager.GetString("English", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Erode に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Erode {
@@ -2424,6 +2433,15 @@ namespace BEditor.LangResources {
         public static string IsLoading {
             get {
                 return ResourceManager.GetString("IsLoading", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Japanese に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Japanese {
+            get {
+                return ResourceManager.GetString("Japanese", resourceCulture);
             }
         }
         
