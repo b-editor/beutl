@@ -8,7 +8,6 @@ using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 
-using BEditor.Data;
 using BEditor.Data.Property;
 using BEditor.Views.Properties;
 

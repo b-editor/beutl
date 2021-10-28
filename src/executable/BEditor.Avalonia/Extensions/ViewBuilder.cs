@@ -7,15 +7,14 @@ using Avalonia.Controls;
 using Avalonia.Controls.Presenters;
 using Avalonia.Controls.Primitives;
 using Avalonia.Data;
-using Avalonia.Data.Converters;
 using Avalonia.Layout;
 using Avalonia.Media;
 
 using BEditor.Data;
 using BEditor.Data.Property;
 using BEditor.Data.Property.Easing;
-using BEditor.Models;
 using BEditor.LangResources;
+using BEditor.Models;
 using BEditor.ViewModels.Properties;
 using BEditor.ViewModels.Timelines;
 using BEditor.Views.Properties;

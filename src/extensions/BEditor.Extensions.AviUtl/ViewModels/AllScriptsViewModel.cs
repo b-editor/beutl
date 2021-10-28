@@ -1,7 +1,5 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 
-using Reactive.Bindings;
-
 namespace BEditor.Extensions.AviUtl.ViewModels
 {
     public sealed class AllScriptsViewModel

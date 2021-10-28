@@ -15,17 +15,17 @@ namespace BEditor
             = EditingProperty.Register<CultureInfo, SupportedLanguage>(
                 nameof(Culture),
                 EditingPropertyOptions<CultureInfo>.Create().Serialize(Write_Culture, Read_Culture));
-        
+
         public static readonly EditingProperty<string> DisplayNameProperty
             = EditingProperty.Register<string, SupportedLanguage>(
                 nameof(DisplayName),
                 EditingPropertyOptions<string>.Create()!.Serialize()!);
-        
+
         public static readonly EditingProperty<string> BaseNameProperty
             = EditingProperty.Register<string, SupportedLanguage>(
                 nameof(BaseName),
                 EditingPropertyOptions<string>.Create()!.Serialize()!);
-        
+
         public static readonly EditingProperty<Assembly> AssemblyProperty
             = EditingProperty.Register<Assembly, SupportedLanguage>(
                 nameof(Assembly),
@@ -46,19 +46,19 @@ namespace BEditor
             get => GetValue(CultureProperty);
             private set => SetValue(CultureProperty, value);
         }
-        
+
         public string DisplayName
         {
             get => GetValue(DisplayNameProperty);
             private set => SetValue(DisplayNameProperty, value);
         }
-        
+
         public string BaseName
         {
             get => GetValue(BaseNameProperty);
             private set => SetValue(BaseNameProperty, value);
         }
-        
+
         public Assembly Assembly
         {
             get => GetValue(AssemblyProperty);

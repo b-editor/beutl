@@ -1,9 +1,9 @@
 ﻿
 using System;
 
+using BEditor.LangResources;
 using BEditor.Models;
 using BEditor.Packaging;
-using BEditor.LangResources;
 
 using Microsoft.Extensions.DependencyInjection;
 

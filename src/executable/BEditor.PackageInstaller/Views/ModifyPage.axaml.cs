@@ -1,16 +1,12 @@
 using System;
 using System.Reactive.Linq;
 
-using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
 
 using BEditor.PackageInstaller.ViewModels;
-
-using Reactive.Bindings;
-using Reactive.Bindings.Extensions;
 
 namespace BEditor.PackageInstaller.Views
 {

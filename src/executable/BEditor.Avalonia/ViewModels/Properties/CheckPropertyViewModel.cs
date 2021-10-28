@@ -4,7 +4,6 @@ using System.Reactive.Linq;
 
 using Avalonia;
 
-using BEditor.Data;
 using BEditor.Data.Property;
 using BEditor.Views.Properties;
 

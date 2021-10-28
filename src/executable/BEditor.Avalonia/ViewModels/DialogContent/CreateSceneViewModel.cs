@@ -1,12 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Linq;
 
 using BEditor.Data;
-using BEditor.Models;
 using BEditor.LangResources;
+using BEditor.Models;
 
 using Reactive.Bindings;
 

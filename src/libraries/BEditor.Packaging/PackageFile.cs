@@ -6,11 +6,9 @@
 // of the MIT license. See the LICENSE file for details.
 
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
-using System.Linq.Expressions;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Unicode;

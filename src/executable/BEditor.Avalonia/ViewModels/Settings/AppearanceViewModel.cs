@@ -28,6 +28,6 @@ namespace BEditor.ViewModels.Settings
 
         public ReactivePropertySlim<LayerBorderItem> SelectedLayerBorder { get; }
 
-        public ObservableCollection<SupportedLanguage> Langs { get; } =BEditor.Settings.Default.SupportedLanguages;
+        public ObservableCollection<SupportedLanguage> Langs { get; } = BEditor.Settings.Default.SupportedLanguages;
     }
 }

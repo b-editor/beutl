@@ -7,22 +7,18 @@
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using System.Reactive.Linq;
-using System.Threading.Tasks;
 
-using BEditor.Audio;
 using BEditor.Data;
 using BEditor.Data.Primitive;
 using BEditor.Data.Property;
+using BEditor.LangResources;
 using BEditor.Media;
 using BEditor.Media.Decoding;
-using BEditor.Media.Encoding;
 using BEditor.Media.PCM;
-using BEditor.LangResources;
 
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;

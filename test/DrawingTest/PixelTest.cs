@@ -1,5 +1,4 @@
-﻿using System.Reflection;
-
+﻿
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
 

@@ -4,8 +4,8 @@ using System.Linq;
 using System.Reactive.Linq;
 
 using BEditor.Drawing;
-using BEditor.Models;
 using BEditor.LangResources;
+using BEditor.Models;
 
 using Reactive.Bindings;
 

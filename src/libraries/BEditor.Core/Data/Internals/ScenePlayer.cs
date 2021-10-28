@@ -237,7 +237,7 @@ namespace BEditor.Data.Internals
             }
         }
 
-        private void Timer_Elapsed(object sender, ElapsedEventArgs e)
+        private void Timer_Elapsed(object? sender, ElapsedEventArgs e)
         {
             var time = e.SignalTime - _startTime;
             var frame = Frame.FromTimeSpan(time, Scene.Parent.Framerate);

@@ -5,8 +5,8 @@ using Avalonia.Markup.Xaml;
 
 using BEditor.Controls;
 using BEditor.Data;
-using BEditor.Models;
 using BEditor.LangResources;
+using BEditor.Models;
 
 namespace BEditor.Views.Dialogs
 {

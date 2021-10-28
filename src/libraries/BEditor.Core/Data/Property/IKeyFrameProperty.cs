@@ -11,7 +11,6 @@ using System.Collections.ObjectModel;
 
 using BEditor.Command;
 using BEditor.Data.Property.Easing;
-using BEditor.Media;
 
 namespace BEditor.Data.Property
 {

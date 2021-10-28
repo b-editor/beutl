@@ -13,8 +13,8 @@ using BEditor.Data.Primitive;
 using BEditor.Data.Property;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
-using BEditor.Primitive.Effects.OpenCv;
 using BEditor.LangResources;
+using BEditor.Primitive.Effects.OpenCv;
 
 namespace BEditor.Primitive.Effects
 {

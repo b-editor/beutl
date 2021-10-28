@@ -7,13 +7,10 @@
 
 using System;
 using System.IO;
-using System.Linq;
 using System.Numerics;
 using System.Text.RegularExpressions;
 
 using BEditor.Drawing.LookupTables;
-
-using OpenCvSharp;
 
 namespace BEditor.Drawing
 {

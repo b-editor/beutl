@@ -18,12 +18,10 @@ using Avalonia.VisualTree;
 
 using BEditor.Data;
 using BEditor.Extensions;
-using BEditor.Models;
 using BEditor.LangResources;
+using BEditor.Models;
 using BEditor.ViewModels.Timelines;
 using BEditor.Views.DialogContent;
-
-using Microsoft.Extensions.DependencyInjection;
 
 using Reactive.Bindings.Extensions;
 

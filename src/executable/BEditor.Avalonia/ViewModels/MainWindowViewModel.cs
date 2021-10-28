@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -9,18 +8,13 @@ using System.Threading.Tasks;
 
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Interactivity;
-using Avalonia.Threading;
 
 using BEditor.Command;
 using BEditor.Data;
-using BEditor.Drawing;
 using BEditor.Extensions;
-using BEditor.Models;
-using BEditor.Plugin;
-using BEditor.Primitive;
-using BEditor.Primitive.Objects;
 using BEditor.LangResources;
+using BEditor.Models;
+using BEditor.Primitive.Objects;
 using BEditor.ViewModels.Dialogs;
 using BEditor.Views;
 using BEditor.Views.DialogContent;

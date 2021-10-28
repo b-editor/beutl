@@ -1,23 +1,16 @@
-using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Controls.Presenters;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media;
-using Avalonia.Threading;
 
 using BEditor.Controls;
 using BEditor.LangResources;
 using BEditor.ViewModels;
-using BEditor.Views.ManagePlugins;
 
-using FluentAvalonia.Core;
 using FluentAvalonia.UI.Controls;
-using FluentAvalonia.UI.Navigation;
 
 namespace BEditor.Views
 {

@@ -4,11 +4,9 @@ using System.Globalization;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
-using Avalonia.Layout;
 using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
 
-using BEditor.Data;
 using BEditor.Data.Property;
 using BEditor.Primitive.Objects;
 using BEditor.ViewModels;

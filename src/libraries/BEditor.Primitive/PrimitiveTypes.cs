@@ -12,8 +12,8 @@ using System.Runtime.CompilerServices;
 using BEditor.Data;
 using BEditor.Data.Property.Easing;
 using BEditor.Drawing;
-using BEditor.Primitive.Objects;
 using BEditor.LangResources;
+using BEditor.Primitive.Objects;
 
 [assembly: InternalsVisibleTo("NUnitTestProject1")]
 

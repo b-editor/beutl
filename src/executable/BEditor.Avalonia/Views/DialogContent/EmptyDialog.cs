@@ -1,6 +1,5 @@
 ﻿
 using Avalonia.Controls;
-using Avalonia.Media;
 
 using BEditor.Controls;
 

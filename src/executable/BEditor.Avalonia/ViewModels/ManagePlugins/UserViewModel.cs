@@ -3,9 +3,9 @@ using System.Linq;
 using System.Reactive.Linq;
 using System.Threading.Tasks;
 
+using BEditor.LangResources;
 using BEditor.Models;
 using BEditor.Packaging;
-using BEditor.LangResources;
 
 using Reactive.Bindings;
 

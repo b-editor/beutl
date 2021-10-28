@@ -9,8 +9,6 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 
-using BEditor.Data;
-
 using BEditor.LangResources;
 
 namespace BEditor.Data.Property.PrimitiveGroup

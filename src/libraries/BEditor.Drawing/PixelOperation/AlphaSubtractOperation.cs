@@ -7,7 +7,6 @@
 
 using System;
 
-using BEditor.Compute.Memory;
 using BEditor.Drawing.Pixel;
 using BEditor.Drawing.PixelOperation;
 

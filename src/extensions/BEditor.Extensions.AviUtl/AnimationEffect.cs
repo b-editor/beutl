@@ -2,9 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Runtime.CompilerServices;
 using System.Text;
-using System.Text.Json;
 
 using BEditor.Data;
 using BEditor.Data.Primitive;
@@ -17,8 +15,6 @@ using BEditor.Media;
 
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-
-using Neo.IronLua;
 
 namespace BEditor.Extensions.AviUtl
 {

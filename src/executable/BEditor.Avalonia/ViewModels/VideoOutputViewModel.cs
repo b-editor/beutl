@@ -9,12 +9,10 @@ using Avalonia.Threading;
 
 using BEditor.Data;
 using BEditor.Extensions;
+using BEditor.LangResources;
 using BEditor.Media;
 using BEditor.Media.Encoding;
-using BEditor.Media.PCM;
 using BEditor.Models;
-using BEditor.Primitive.Objects;
-using BEditor.LangResources;
 using BEditor.Views.DialogContent;
 
 using Microsoft.Extensions.Logging;

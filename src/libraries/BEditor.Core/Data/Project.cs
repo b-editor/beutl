@@ -8,7 +8,6 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -16,17 +15,11 @@ using System.Runtime.Serialization;
 using System.Text.Json;
 using System.Threading.Tasks;
 
-using BEditor.Audio;
-using BEditor.Data.Property;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
 using BEditor.Plugin;
-using BEditor.LangResources;
 
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-
-using OpenCvSharp;
 
 namespace BEditor.Data
 {

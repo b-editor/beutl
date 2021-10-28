@@ -1,18 +1,11 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Collections.ObjectModel;
-using System.Diagnostics.CodeAnalysis;
 using System.Linq;
-using System.Net.Http;
 using System.Reactive.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
+using BEditor.LangResources;
 using BEditor.Models;
 using BEditor.Models.ManagePlugins;
 using BEditor.Packaging;
-using BEditor.Plugin;
-using BEditor.LangResources;
 
 using Microsoft.Extensions.DependencyInjection;
 

@@ -9,8 +9,8 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 
-using BEditor.Media;
 using BEditor.LangResources;
+using BEditor.Media;
 
 namespace BEditor.Data.Property.Easing
 {

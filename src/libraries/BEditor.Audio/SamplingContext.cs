@@ -1,11 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
-using BEditor.Drawing.PixelOperation;
 using BEditor.Media;
 using BEditor.Media.PCM;
 

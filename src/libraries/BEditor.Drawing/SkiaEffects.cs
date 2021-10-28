@@ -8,13 +8,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 using BEditor.Drawing.Pixel;
-using BEditor.LangResources;
-
-using OpenCvSharp;
 
 using SkiaSharp;
 

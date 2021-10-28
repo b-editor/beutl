@@ -11,8 +11,6 @@ using System.IO;
 using System.Linq;
 using System.Reactive.Linq;
 using System.Reflection;
-using System.Reflection.Metadata;
-using System.Threading.Tasks;
 
 using BEditor.LangResources;
 

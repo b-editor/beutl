@@ -10,8 +10,8 @@ using Avalonia.Media;
 using BEditor.Data;
 using BEditor.Data.Property;
 using BEditor.Extensions;
-using BEditor.Models;
 using BEditor.LangResources;
+using BEditor.Models;
 
 namespace BEditor.Views.Properties
 {

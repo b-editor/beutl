@@ -8,7 +8,6 @@ using BEditor.Data;
 using BEditor.Data.Property;
 using BEditor.Extensions;
 using BEditor.ViewModels.Properties;
-using BEditor.Views.CustomTitlebars;
 using BEditor.Views.DialogContent;
 
 namespace BEditor.Views.Properties

@@ -8,8 +8,8 @@
 using System;
 
 using BEditor.Command;
-using BEditor.Media;
 using BEditor.LangResources;
+using BEditor.Media;
 
 using Microsoft.Extensions.DependencyInjection;
 

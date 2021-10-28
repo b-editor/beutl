@@ -1,13 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Numerics;
-using System.Text;
-using System.Threading.Tasks;
-
-using BEditor.Drawing;
-using BEditor.Drawing.Pixel;
-using BEditor.Graphics.Platform;
+﻿using BEditor.Graphics.Platform;
 
 namespace BEditor.Graphics.OpenGL
 {

@@ -6,13 +6,10 @@
 // of the MIT license. See the LICENSE file for details.
 
 using System;
-using System.Runtime.InteropServices;
 
 using BEditor.Compute;
 using BEditor.Drawing.Pixel;
 using BEditor.Drawing.PixelOperation;
-
-using static BEditor.Drawing.PixelOperation.ChromaKeyOperation;
 
 namespace BEditor.Drawing
 {

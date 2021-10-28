@@ -7,9 +7,6 @@
 
 using System;
 
-using BEditor.Data.Internals;
-using BEditor.LangResources;
-
 namespace BEditor.Data
 {
     /// <summary>

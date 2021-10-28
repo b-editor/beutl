@@ -7,13 +7,9 @@
 
 using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
-using System.Linq;
-using System.Text.Json;
 
 using BEditor.Command;
 using BEditor.Data.Property.Easing;
-using BEditor.Media;
 
 namespace BEditor.Data.Property
 {

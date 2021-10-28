@@ -4,7 +4,6 @@ using System.Reactive.Disposables;
 
 using BEditor.Data;
 using BEditor.Data.Property;
-using BEditor.Media;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;

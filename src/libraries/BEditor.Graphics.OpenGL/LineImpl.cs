@@ -1,8 +1,6 @@
 ﻿using System;
 using System.Numerics;
 
-using BEditor.Graphics.Platform;
-
 using OpenTK.Graphics.OpenGL4;
 
 namespace BEditor.Graphics.OpenGL

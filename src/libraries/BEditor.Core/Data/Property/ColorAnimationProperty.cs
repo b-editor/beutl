@@ -15,13 +15,12 @@ using System.Linq;
 using System.Reactive.Linq;
 using System.Runtime.Serialization;
 using System.Text.Json;
-using System.Threading;
 
 using BEditor.Command;
 using BEditor.Data.Property.Easing;
 using BEditor.Drawing;
-using BEditor.Media;
 using BEditor.LangResources;
+using BEditor.Media;
 
 using Microsoft.Extensions.DependencyInjection;
 

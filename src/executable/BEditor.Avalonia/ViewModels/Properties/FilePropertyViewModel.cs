@@ -6,7 +6,6 @@ using System.Threading.Tasks;
 
 using Avalonia;
 
-using BEditor.Data;
 using BEditor.Data.Property;
 using BEditor.Views.Properties;
 

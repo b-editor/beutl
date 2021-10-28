@@ -1,17 +1,13 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Reactive.Linq;
-using System.Text;
 using System.Threading.Tasks;
-
-using Avalonia.Media;
 
 using BEditor.Data;
 using BEditor.Drawing.Pixel;
+using BEditor.LangResources;
 using BEditor.Media;
 using BEditor.Models;
-using BEditor.LangResources;
 
 using Reactive.Bindings;
 
@@ -116,7 +112,7 @@ namespace BEditor.ViewModels
         public ReactiveProperty<bool> LowColor { get; } = new();
 
         public ReactiveProperty<bool> LowResolution { get; } = new();
-        
+
         public ReactiveProperty<bool> SaveToStorage { get; } = new();
 
         public ReactivePropertySlim<string> PresumedUsageCapacity { get; } = new();

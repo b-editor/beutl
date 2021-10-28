@@ -5,8 +5,6 @@ using Avalonia.Controls;
 using Avalonia.LogicalTree;
 using Avalonia.Media;
 
-using BEditor.Data;
-using BEditor.Extensions;
 using BEditor.Models;
 
 namespace BEditor.Views.Timelines

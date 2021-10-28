@@ -3,18 +3,16 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 
-using Avalonia.Controls;
 using Avalonia.Platform;
 using Avalonia.Threading;
 
 using BEditor.Data;
+using BEditor.LangResources;
 using BEditor.Media;
 using BEditor.Media.Encoding;
 using BEditor.Models;
 using BEditor.Packaging;
-using BEditor.LangResources;
 using BEditor.ViewModels;
-using BEditor.Views;
 
 using Microsoft.Extensions.Logging;
 

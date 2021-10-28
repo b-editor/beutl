@@ -8,9 +8,6 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 using BEditor.Data;
 using BEditor.Data.Primitive;
@@ -18,8 +15,8 @@ using BEditor.Data.Property;
 using BEditor.Data.Property.PrimitiveGroup;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
-using BEditor.Primitive.Objects;
 using BEditor.LangResources;
+using BEditor.Primitive.Objects;
 
 using OpenCvSharp;
 

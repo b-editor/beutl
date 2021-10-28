@@ -8,7 +8,6 @@
 using System;
 using System.Buffers;
 using System.Collections.ObjectModel;
-using System.Diagnostics.CodeAnalysis;
 using System.Diagnostics.Contracts;
 using System.Linq;
 using System.Runtime.Serialization;
@@ -19,12 +18,9 @@ using BEditor.Command;
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
 using BEditor.Graphics;
+using BEditor.LangResources;
 using BEditor.Media;
 using BEditor.Media.PCM;
-using BEditor.LangResources;
-
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
 
 namespace BEditor.Data
 {

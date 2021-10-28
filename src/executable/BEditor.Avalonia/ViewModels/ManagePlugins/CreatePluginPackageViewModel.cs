@@ -6,9 +6,9 @@ using System.Threading.Tasks;
 
 using Avalonia.Controls;
 
+using BEditor.LangResources;
 using BEditor.Models;
 using BEditor.Packaging;
-using BEditor.LangResources;
 using BEditor.Views.DialogContent;
 
 using Microsoft.Extensions.DependencyInjection;

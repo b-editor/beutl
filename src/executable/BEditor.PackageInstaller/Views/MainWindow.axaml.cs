@@ -1,5 +1,4 @@
 using System;
-using System.Net.NetworkInformation;
 
 using Avalonia;
 using Avalonia.Controls;

@@ -7,10 +7,9 @@ using Avalonia.Markup.Xaml;
 
 using BEditor.Data;
 using BEditor.Extensions;
-using BEditor.Models;
 using BEditor.LangResources;
+using BEditor.Models;
 using BEditor.ViewModels.Properties;
-using BEditor.ViewModels.Timelines;
 
 namespace BEditor.Views.Properties
 {

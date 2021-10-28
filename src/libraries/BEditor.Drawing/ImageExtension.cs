@@ -8,7 +8,6 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 
 using BEditor.Compute.Runtime;
 using BEditor.Drawing.Pixel;

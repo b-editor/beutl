@@ -6,16 +6,9 @@
 // of the MIT license. See the LICENSE file for details.
 
 using System;
-using System.Collections.Generic;
-using System.IO;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 using BEditor.Drawing.Pixel;
-using BEditor.Drawing.PixelOperation;
-
-using OpenCvSharp;
 
 using SkiaSharp;
 

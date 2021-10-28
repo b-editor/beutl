@@ -4,13 +4,10 @@ using System.Linq;
 using System.Reflection;
 
 using Avalonia;
-using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
 
 using BEditor.Controls;
 using BEditor.Drawing;
-
-using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace BEditor.Views.Setup
 {

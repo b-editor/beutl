@@ -1,17 +1,11 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Collections.ObjectModel;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Collections.ObjectModel;
 
 using Avalonia;
-using Avalonia.Controls;
 
 using BEditor.Data;
 using BEditor.Extensions;
-using BEditor.Models;
 using BEditor.LangResources;
+using BEditor.Models;
 
 using Microsoft.Extensions.DependencyInjection;
 

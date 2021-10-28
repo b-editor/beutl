@@ -19,8 +19,6 @@ using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
 using BEditor.LangResources;
 
-using Reactive.Bindings;
-
 namespace BEditor.Primitive.Objects
 {
     /// <summary>

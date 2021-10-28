@@ -1,19 +1,15 @@
 ﻿using System;
 using System.ComponentModel;
 using System.IO;
-using System.Linq;
 using System.Threading.Tasks;
 
 using Avalonia.Controls;
 using Avalonia.Threading;
 
 using BEditor.Data;
-using BEditor.Plugin;
 using BEditor.LangResources;
-using BEditor.ViewModels.DialogContent;
 using BEditor.ViewModels.Dialogs;
 using BEditor.Views;
-using BEditor.Views.DialogContent;
 using BEditor.Views.Dialogs;
 
 namespace BEditor.Models

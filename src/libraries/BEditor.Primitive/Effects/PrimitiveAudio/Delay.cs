@@ -11,9 +11,9 @@ using System.Diagnostics.CodeAnalysis;
 using BEditor.Data;
 using BEditor.Data.Primitive;
 using BEditor.Data.Property;
+using BEditor.LangResources;
 using BEditor.Media;
 using BEditor.Media.PCM;
-using BEditor.LangResources;
 
 namespace BEditor.Primitive.Effects
 {

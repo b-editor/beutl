@@ -1,15 +1,11 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 
 using BEditor.Media;
-using BEditor.Media.Decoding;
 using BEditor.Media.Encoding;
 
-using AudioCodec = FFMediaToolkit.Encoding.AudioCodec;
 using EncoderPreset = FFMediaToolkit.Encoding.EncoderPreset;
 using ImagePixelFormat = FFMediaToolkit.Graphics.ImagePixelFormat;
-using SampleFormat = FFMediaToolkit.Audio.SampleFormat;
 using VideoCodec = FFMediaToolkit.Encoding.VideoCodec;
 
 namespace BEditor.Extensions.FFmpeg.Encoding

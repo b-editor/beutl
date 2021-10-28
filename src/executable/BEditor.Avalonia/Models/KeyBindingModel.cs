@@ -8,8 +8,6 @@ using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 using System.Windows.Input;
 
-using Avalonia.Input;
-
 using BEditor.ViewModels;
 
 using CommandNames = BEditor.LangResources.CommandName;

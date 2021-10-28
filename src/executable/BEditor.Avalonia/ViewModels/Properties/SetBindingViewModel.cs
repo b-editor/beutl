@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Reactive.Disposables;
 
-using BEditor.Data;
 using BEditor.Data.Bindings;
 
 using Reactive.Bindings;

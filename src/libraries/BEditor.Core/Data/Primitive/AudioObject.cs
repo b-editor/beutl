@@ -9,9 +9,9 @@ using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 
 using BEditor.Data.Property;
+using BEditor.LangResources;
 using BEditor.Media;
 using BEditor.Media.PCM;
-using BEditor.LangResources;
 
 namespace BEditor.Data.Primitive
 {

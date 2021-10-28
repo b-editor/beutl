@@ -3,8 +3,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 using Avalonia;
 using Avalonia.Collections;
@@ -19,9 +17,9 @@ using Avalonia.Styling;
 using Avalonia.Threading;
 
 using BEditor.Data;
+using BEditor.LangResources;
 using BEditor.Models;
 using BEditor.Plugin;
-using BEditor.LangResources;
 using BEditor.ViewModels.DialogContent;
 using BEditor.Views.DialogContent;
 

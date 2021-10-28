@@ -1,6 +1,5 @@
 ﻿using System;
 
-using BEditor.Data;
 using BEditor.Plugin;
 
 namespace BEditor.Languages.Chinese

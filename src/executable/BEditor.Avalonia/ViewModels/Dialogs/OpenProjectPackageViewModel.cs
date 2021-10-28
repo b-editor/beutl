@@ -6,11 +6,11 @@ using System.Net.Http;
 using System.Threading.Tasks;
 
 using BEditor.Data;
+using BEditor.LangResources;
 using BEditor.Models;
 using BEditor.Models.ManagePlugins;
 using BEditor.Packaging;
 using BEditor.Plugin;
-using BEditor.LangResources;
 
 using Microsoft.Extensions.DependencyInjection;
 

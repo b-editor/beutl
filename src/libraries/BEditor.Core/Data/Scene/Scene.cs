@@ -14,8 +14,8 @@ using System.Linq;
 using System.Reactive.Linq;
 
 using BEditor.Command;
-using BEditor.Media;
 using BEditor.LangResources;
+using BEditor.Media;
 
 namespace BEditor.Data
 {

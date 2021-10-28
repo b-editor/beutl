@@ -8,8 +8,8 @@ using System.Threading.Tasks;
 using Avalonia.Controls;
 
 using BEditor.Data;
-using BEditor.Models;
 using BEditor.LangResources;
+using BEditor.Models;
 using BEditor.Views.DialogContent;
 
 using Reactive.Bindings;

@@ -3,7 +3,6 @@ using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 
 using BEditor.Plugin;
-using BEditor.LangResources;
 using BEditor.ViewModels.ManagePlugins;
 
 using FluentAvalonia.UI.Controls;

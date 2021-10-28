@@ -6,12 +6,9 @@
 // of the MIT license. See the LICENSE file for details.
 
 using System;
-using System.Drawing.Printing;
 using System.Numerics;
 using System.Runtime.CompilerServices;
-using System.Threading.Tasks;
 
-using BEditor.Compute.Memory;
 using BEditor.Drawing.Pixel;
 using BEditor.Drawing.PixelOperation;
 

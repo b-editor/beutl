@@ -9,7 +9,6 @@ using System.Threading;
 
 using Avalonia.Threading;
 
-using BEditor.Audio;
 using BEditor.Command;
 using BEditor.Data;
 using BEditor.Drawing;

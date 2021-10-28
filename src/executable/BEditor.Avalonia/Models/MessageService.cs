@@ -5,11 +5,9 @@ using Avalonia.Controls;
 using Avalonia.Threading;
 
 using BEditor.ViewModels;
-using BEditor.Views;
 using BEditor.Views.DialogContent;
 
 using FluentAvalonia.UI.Controls;
-using FluentAvalonia.UI.Controls.Primitives;
 
 using Reactive.Bindings;
 

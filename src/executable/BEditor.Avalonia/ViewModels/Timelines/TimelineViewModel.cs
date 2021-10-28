@@ -1,7 +1,5 @@
 ﻿using System;
-using System.Reactive.Concurrency;
 using System.Reactive.Linq;
-using System.Threading.Tasks;
 
 using Avalonia;
 using Avalonia.Controls;
@@ -10,9 +8,9 @@ using Avalonia.Media;
 
 using BEditor.Data;
 using BEditor.Extensions;
+using BEditor.LangResources;
 using BEditor.Media;
 using BEditor.Models;
-using BEditor.LangResources;
 
 using Microsoft.Extensions.DependencyInjection;
 

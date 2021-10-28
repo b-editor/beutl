@@ -6,10 +6,8 @@
 // of the MIT license. See the LICENSE file for details.
 
 using System;
-using System.ComponentModel;
 using System.IO;
 using System.Net.Http;
-using System.Runtime.Serialization;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading.Tasks;

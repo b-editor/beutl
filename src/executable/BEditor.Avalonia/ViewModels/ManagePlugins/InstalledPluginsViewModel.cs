@@ -2,9 +2,9 @@
 using System.Linq;
 using System.Reactive.Linq;
 
+using BEditor.LangResources;
 using BEditor.Models.ManagePlugins;
 using BEditor.Plugin;
-using BEditor.LangResources;
 
 using Reactive.Bindings;
 

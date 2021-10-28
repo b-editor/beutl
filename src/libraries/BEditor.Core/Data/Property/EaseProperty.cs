@@ -7,7 +7,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Collections.Immutable;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
@@ -18,8 +17,8 @@ using System.Text.Json;
 
 using BEditor.Command;
 using BEditor.Data.Property.Easing;
-using BEditor.Media;
 using BEditor.LangResources;
+using BEditor.Media;
 
 using Microsoft.Extensions.DependencyInjection;
 

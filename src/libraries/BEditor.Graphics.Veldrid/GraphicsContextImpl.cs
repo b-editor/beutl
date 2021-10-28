@@ -1,7 +1,6 @@
 ﻿using System;
 using System.IO;
 using System.Numerics;
-using System.Runtime.InteropServices;
 using System.Text;
 
 using BEditor.Drawing;
@@ -9,10 +8,7 @@ using BEditor.Drawing.Pixel;
 using BEditor.Graphics.Platform;
 
 using Veldrid;
-using Veldrid.OpenGLBinding;
-using Veldrid.Sdl2;
 using Veldrid.SPIRV;
-using Veldrid.StartupUtilities;
 using Veldrid.Utilities;
 
 using TextureVeldrid = Veldrid.Texture;
