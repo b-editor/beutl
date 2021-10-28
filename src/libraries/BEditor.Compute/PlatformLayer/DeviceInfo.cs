@@ -29,7 +29,7 @@ namespace BEditor.Compute.PlatformLayer
             // get a device
             uint count = 0;
             CL.GetDeviceIDs(platform, (long)CLDeviceType.CL_DEVICE_TYPE_ALL, 0, null, &count).CheckError();
-            var devices = (void**)Marshal.AllocCoTaskMem((int)(count * IntPtr.Size));
+            var devices = (void**)NativeMemory.Alloc((nuint)(count * IntPtr.Size));
             try
             {
                 CL.GetDeviceIDs(platform, (long)CLDeviceType.CL_DEVICE_TYPE_ALL, count, devices, &count).CheckError();
@@ -50,7 +50,7 @@ namespace BEditor.Compute.PlatformLayer
             }
             finally
             {
-                Marshal.FreeCoTaskMem(new IntPtr(devices));
+                NativeMemory.Free(devices);
             }
         }
 

@@ -37,7 +37,7 @@ namespace BEditor.Media
             SampleRate = rate;
             _numSamples = new((int)Math.Round(duration.TotalSeconds * rate, MidpointRounding.AwayFromZero));
 
-            _pointer = (T*)Marshal.AllocCoTaskMem(DataSize);
+            _pointer = (T*)NativeMemory.Alloc((nuint)DataSize);
             Data.Fill(default);
         }
 
@@ -51,7 +51,7 @@ namespace BEditor.Media
             SampleRate = rate;
             _numSamples = samples;
 
-            _pointer = (T*)Marshal.AllocCoTaskMem(DataSize);
+            _pointer = (T*)NativeMemory.Alloc((nuint)DataSize);
             Data.Fill(default);
         }
 
@@ -65,7 +65,7 @@ namespace BEditor.Media
             SampleRate = rate;
             _numSamples = new(samples);
 
-            _pointer = (T*)Marshal.AllocCoTaskMem(DataSize);
+            _pointer = (T*)NativeMemory.Alloc((nuint)DataSize);
             Data.Fill(default);
         }
 
@@ -194,7 +194,7 @@ namespace BEditor.Media
         {
             if (!IsDisposed && _requireDispose)
             {
-                if (_pointer != null) Marshal.FreeCoTaskMem((IntPtr)_pointer);
+                if (_pointer != null) NativeMemory.Free(_pointer);
 
                 _pointer = null;
                 _array = null;

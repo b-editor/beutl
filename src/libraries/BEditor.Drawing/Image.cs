@@ -7,7 +7,6 @@
 
 using System;
 using System.Buffers;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -17,10 +16,8 @@ using System.Threading.Tasks;
 
 using BEditor.Drawing.Pixel;
 using BEditor.Drawing.PixelOperation;
-using BEditor.LangResources;
 using BEditor.Drawing.RowOperation;
-
-using OpenCvSharp;
+using BEditor.LangResources;
 
 using SkiaSharp;
 
@@ -64,7 +61,7 @@ namespace BEditor.Drawing
 
             _width = width;
             _height = height;
-            _pointer = (T*)Marshal.AllocCoTaskMem(DataSize);
+            _pointer = (T*)NativeMemory.AllocZeroed((nuint)DataSize);
         }
 
         /// <summary>
@@ -567,7 +564,7 @@ namespace BEditor.Drawing
         {
             if (!IsDisposed && _requireDispose)
             {
-                if (_pointer != null) Marshal.FreeCoTaskMem((IntPtr)_pointer);
+                if (_pointer != null) NativeMemory.Free(_pointer);
 
                 _pointer = null;
                 _array = null;

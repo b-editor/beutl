@@ -28,7 +28,7 @@ namespace BEditor.Compute.PlatformLayer
             Devices = devices;
 
             var status = (int)CLStatusCode.CL_SUCCESS;
-            var devicePointers = (void**)Marshal.AllocCoTaskMem(devices.Length * IntPtr.Size);
+            var devicePointers = (void**)NativeMemory.Alloc((nuint)(devices.Length * IntPtr.Size));
             for (var i = 0; i < devices.Length; i++)
             {
                 devicePointers[i] = devices[i].Pointer;

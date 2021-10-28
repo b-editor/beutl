@@ -29,7 +29,7 @@ namespace BEditor.Compute.PlatformLayer
             // get a platform
             uint count = 0;
             CL.GetPlatformIDs(0, null, &count).CheckError();
-            var platforms = (void**)Marshal.AllocCoTaskMem((int)(count * IntPtr.Size));
+            var platforms = (void**)NativeMemory.Alloc((nuint)(count * IntPtr.Size));
             void* platform;
             try
             {
@@ -38,7 +38,7 @@ namespace BEditor.Compute.PlatformLayer
             }
             finally
             {
-                Marshal.FreeCoTaskMem(new IntPtr(platforms));
+                NativeMemory.Free(platforms);
             }
 
             // get platform infos

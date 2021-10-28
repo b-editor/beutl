@@ -21,7 +21,7 @@ namespace BEditor
         public UnmanagedArray(int length)
         {
             _length = length;
-            _ptr = (T*)Marshal.AllocCoTaskMem(sizeof(T) * length);
+            _ptr = (T*)NativeMemory.Alloc((nuint)(sizeof(T) * length));
         }
 
         ~UnmanagedArray()
@@ -70,6 +70,7 @@ namespace BEditor
         {
             if (IsDisposed) return;
 
+            NativeMemory.Free(_ptr);
             GC.SuppressFinalize(this);
 
             IsDisposed = true;

@@ -21,7 +21,7 @@ namespace BEditor.Compute.Runtime
     /// </summary>
     public unsafe class Kernel : ComputeObject
     {
-        private readonly IntPtr* _workSizes = (IntPtr*)Marshal.AllocCoTaskMem(3 * IntPtr.Size);
+        private readonly IntPtr* _workSizes = (IntPtr*)NativeMemory.Alloc((nuint)(3 * IntPtr.Size));
         private void*[] _args = new void*[0];
         private uint _dimention = 1;
 
@@ -68,7 +68,7 @@ namespace BEditor.Compute.Runtime
         {
             foreach (var arg in _args)
             {
-                Marshal.FreeCoTaskMem(new IntPtr(arg));
+                NativeMemory.Free(arg);
             }
 
             _args = new void*[args.Length];
@@ -82,7 +82,7 @@ namespace BEditor.Compute.Runtime
                 }
                 else if (arg is AbstractMemory mem)
                 {
-                    var argPointer = (void*)Marshal.AllocCoTaskMem(IntPtr.Size);
+                    var argPointer = NativeMemory.Alloc((nuint)IntPtr.Size);
                     Marshal.WriteIntPtr(new IntPtr(argPointer), new IntPtr(mem.Pointer));
                     CL.SetKernelArg(Pointer, i, IntPtr.Size, argPointer).CheckError();
                     _args[i] = argPointer;
@@ -94,10 +94,10 @@ namespace BEditor.Compute.Runtime
                 else if (arg is ValueType)
                 {
                     var size = Marshal.SizeOf(arg);
-                    var ptr = Marshal.AllocCoTaskMem(size);
-                    Marshal.StructureToPtr(arg, ptr, false);
-                    CL.SetKernelArg(Pointer, i, size, (void*)ptr).CheckError();
-                    _args[i] = (void*)ptr;
+                    var ptr = NativeMemory.Alloc((nuint)size);
+                    Marshal.StructureToPtr(arg, (IntPtr)ptr, false);
+                    CL.SetKernelArg(Pointer, i, size, ptr).CheckError();
+                    _args[i] = ptr;
                 }
             }
         }
@@ -174,7 +174,7 @@ namespace BEditor.Compute.Runtime
 
             foreach (var arg in _args)
             {
-                Marshal.FreeCoTaskMem(new IntPtr(arg));
+                NativeMemory.Free(arg);
             }
 
             CL.ReleaseKernel(Pointer).CheckError();
