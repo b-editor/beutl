@@ -22,7 +22,7 @@ void Publish(string rid)
         Configuration = configuration,
         SelfContained = true,
         Runtime = rid,
-        Framework = "net5.0",
+        Framework = "net6.0",
         OutputDirectory = binaryPath,
         PublishReadyToRun = rid == "win-x64",
     });
