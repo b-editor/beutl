@@ -52,4 +52,5 @@ dotnet cake --runtime win-x64;ubuntu.18.04-x64;osx-x64
 
 ## Patrons
 
-* [Bony_Chops](https://www.patreon.com/user/creators?u=52944861)
+- [Bony_Chops](https://www.patreon.com/user/creators?u=52944861)
+- [Hayashi Tomonari](https://www.patreon.com/user/creators?u=62872137)
