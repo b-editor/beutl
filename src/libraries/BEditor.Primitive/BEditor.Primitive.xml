@@ -2693,6 +2693,16 @@
         <member name="M:BEditor.Primitive.Effects.Shadow.GetProperties">
             <inheritdoc/>
         </member>
+        <member name="F:BEditor.Primitive.Effects.Skew.AngleProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.Skew.Angle"/> property.
+            </summary>
+        </member>
+        <member name="F:BEditor.Primitive.Effects.Skew.DirectionProperty">
+            <summary>
+            Defines the <see cref="P:BEditor.Primitive.Effects.Skew.Direction"/> property.
+            </summary>
+        </member>
         <member name="T:BEditor.Primitive.Effects.Xor">
             <summary>
             Represents an <see cref="T:BEditor.Data.Primitive.ImageEffect"/> that transforms an image into XOR colors.

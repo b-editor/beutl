@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Linq;
+using System.Runtime.InteropServices;
 
 using BEditor.Drawing;
 using BEditor.Drawing.Pixel;
@@ -10,6 +12,9 @@ namespace BEditor.Graphics.Skia
 {
     public sealed class GraphicsContextImpl : IGraphicsContextImpl
     {
+        private readonly SKColor[] _textureColors = new SKColor[4];
+        private readonly SKPoint[] _textureVertices = new SKPoint[4];
+        private readonly SKPoint[] _textureTexs = new SKPoint[4];
         private readonly SKPaint _paint;
         private SKCanvas _canvas;
         private SKBitmap _bmp;
@@ -24,6 +29,8 @@ namespace BEditor.Graphics.Skia
             _canvas = new(_bmp);
             _paint = new();
             _canvas.Translate(width / 2, height / 2);
+
+            Array.Fill(_textureColors, SKColors.White);
         }
 
         public int Width { get; private set; }
@@ -86,13 +93,33 @@ namespace BEditor.Graphics.Skia
 
         public void DrawTexture(Texture texture)
         {
-            using var image = texture.ToImage();
-            using var bmp = image.ToSKBitmap();
-            SetTransform(texture);
+            lock (this)
+            {
+                using var image = texture.ToImage();
+                using var bmp = image.ToSKBitmap();
+                using var shader = SKShader.CreateBitmap(bmp);
 
-            _canvas.DrawBitmap(bmp, -texture.Width / 2, -texture.Height / 2, _paint);
+                for (var i = 0; i < 4; i++)
+                {
+                    ref var item = ref texture.Vertices[i];
+                    ref var vertex = ref _textureVertices[i];
+                    ref var tex = ref _textureTexs[i];
+                    vertex.X = item.PosX;
+                    vertex.Y = -item.PosY;
 
-            ResetTransform();
+                    tex.X = item.TexU * texture.Width;
+                    tex.Y = item.TexV * texture.Height;
+                }
+
+                _paint.Shader = shader;
+
+                SetTransform(texture);
+
+                _canvas.DrawVertices(SKVertexMode.TriangleFan, _textureVertices, _textureTexs, _textureColors, _paint);
+
+                ResetTransform();
+                _paint.Shader = null;
+            }
         }
 
         public void MakeCurrent()

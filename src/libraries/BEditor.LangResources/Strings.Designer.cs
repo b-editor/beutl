@@ -1433,6 +1433,15 @@ namespace BEditor.LangResources {
         }
         
         /// <summary>
+        ///   Direction に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Direction {
+            get {
+                return ResourceManager.GetString("Direction", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Disconnect に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Disconnect {
@@ -2234,6 +2243,15 @@ namespace BEditor.LangResources {
         public static string HorizontalAlignment {
             get {
                 return ResourceManager.GetString("HorizontalAlignment", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Horizontal direction に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string HorizontalDirection {
+            get {
+                return ResourceManager.GetString("HorizontalDirection", resourceCulture);
             }
         }
         
@@ -4158,6 +4176,15 @@ namespace BEditor.LangResources {
         }
         
         /// <summary>
+        ///   Skew に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string Skew {
+            get {
+                return ResourceManager.GetString("Skew", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   Solarisation に類似しているローカライズされた文字列を検索します。
         /// </summary>
         public static string Solarisation {
@@ -4865,6 +4892,15 @@ namespace BEditor.LangResources {
         public static string VerticalAlignment {
             get {
                 return ResourceManager.GetString("VerticalAlignment", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Vertical direction に類似しているローカライズされた文字列を検索します。
+        /// </summary>
+        public static string VerticalDirection {
+            get {
+                return ResourceManager.GetString("VerticalDirection", resourceCulture);
             }
         }
         
