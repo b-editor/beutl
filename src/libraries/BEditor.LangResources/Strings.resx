@@ -1630,7 +1630,7 @@ Please install it.</value>
   <data name="Signup" xml:space="preserve">
     <value>Signup</value>
   </data>
-  <data name="SomeFunctionsAreNotAvailable." xml:space="preserve">
+  <data name="SomeFunctionsAreNotAvailable" xml:space="preserve">
     <value>Some functions are not available.</value>
   </data>
   <data name="SpecifiedClipIsNotFound" xml:space="preserve">

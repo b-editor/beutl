@@ -18,8 +18,9 @@ namespace BEditor
         [STAThread]
         public static void Main(string[] args)
         {
-            CultureInfo.CurrentUICulture = Settings.Default.Language.Culture;
-            SetResourceManager(Settings.Default.Language);
+            var lang = Settings.Default.Language;
+            CultureInfo.CurrentUICulture = lang.Culture;
+            Strings.ResourceManager = new ResourceManager(lang.BaseName, lang.Assembly);
 
             if (args.ElementAtOrDefault(0) == "package-install")
             {
@@ -41,13 +42,5 @@ namespace BEditor
                 })
                 .UsePlatformDetect()
                 .LogToTrace();
-
-        private static void SetResourceManager(SupportedLanguage supportedLanguage)
-        {
-            var manager = new ResourceManager(supportedLanguage.BaseName, supportedLanguage.Assembly);
-            var field = typeof(Strings).GetField("resourceMan", BindingFlags.NonPublic | BindingFlags.SetField | BindingFlags.Static);
-
-            field?.SetValue(null, manager);
-        }
     }
 }

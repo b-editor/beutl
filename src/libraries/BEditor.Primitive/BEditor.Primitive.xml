@@ -2693,6 +2693,11 @@
         <member name="M:BEditor.Primitive.Effects.Shadow.GetProperties">
             <inheritdoc/>
         </member>
+        <member name="T:BEditor.Primitive.Effects.Skew">
+            <summary>
+            The effect of skewing the image.
+            </summary>
+        </member>
         <member name="F:BEditor.Primitive.Effects.Skew.AngleProperty">
             <summary>
             Defines the <see cref="P:BEditor.Primitive.Effects.Skew.Angle"/> property.
@@ -2702,6 +2707,28 @@
             <summary>
             Defines the <see cref="P:BEditor.Primitive.Effects.Skew.Direction"/> property.
             </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.Skew.Name">
+            <inheritdoc/>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.Skew.Angle">
+            <summary>
+            Gets the angle of inclination.
+            </summary>
+        </member>
+        <member name="P:BEditor.Primitive.Effects.Skew.Direction">
+            <summary>
+            Gets the direction of inclination.
+            </summary>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.Skew.Apply(BEditor.Data.EffectApplyArgs{BEditor.Drawing.Image{BEditor.Drawing.Pixel.BGRA32}})">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.Skew.Apply(BEditor.Data.EffectApplyArgs{System.Collections.Generic.IEnumerable{BEditor.Graphics.Texture}})">
+            <inheritdoc/>
+        </member>
+        <member name="M:BEditor.Primitive.Effects.Skew.GetProperties">
+            <inheritdoc/>
         </member>
         <member name="T:BEditor.Primitive.Effects.Xor">
             <summary>

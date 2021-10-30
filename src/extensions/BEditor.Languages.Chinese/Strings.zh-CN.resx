@@ -1571,7 +1571,7 @@ GUID和UUID可用于Id。</value>
 	<data name="Signup" xml:space="preserve">
 		<value>注册</value>
 	</data>
-	<data name="SomeFunctionsAreNotAvailable." xml:space="preserve">
+	<data name="SomeFunctionsAreNotAvailable" xml:space="preserve">
 		<value>有些功能无法使用。</value>
 	</data>
 	<data name="SpecifiedClipIsNotFound" xml:space="preserve">

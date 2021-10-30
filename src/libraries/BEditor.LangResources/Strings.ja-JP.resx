@@ -1630,7 +1630,7 @@ IdにはGUID, UUIDが使えます。</value>
   <data name="Signup" xml:space="preserve">
     <value>サインアップ</value>
   </data>
-  <data name="SomeFunctionsAreNotAvailable." xml:space="preserve">
+  <data name="SomeFunctionsAreNotAvailable" xml:space="preserve">
     <value>一部の機能が使えません。</value>
   </data>
   <data name="SpecifiedClipIsNotFound" xml:space="preserve">
