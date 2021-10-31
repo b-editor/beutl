@@ -64,7 +64,7 @@ namespace BEditor.ViewModels.ManagePlugins
             },
             async e =>
             {
-                App.Logger.LogError(e, Strings.CouldNotCreatePackage);
+                App.Logger.LogError(e, "Could not create the package.");
                 await AppModel.Current.Message.DialogAsync(Strings.CouldNotCreatePackage + $"\nmessage: {e.Message}");
             });
 

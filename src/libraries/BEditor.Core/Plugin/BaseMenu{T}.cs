@@ -17,11 +17,13 @@ namespace BEditor.Plugin
     /// <typeparam name="T">The type of argument.</typeparam>
     public abstract class BaseMenu<T> : EditingObject
     {
+#pragma warning disable RCS1158
         /// <summary>
         /// Defines the <see cref="MainWindow"/> property.
         /// </summary>
         public static readonly EditingProperty<object?> MainWindowProperty
             = EditingProperty.Register<object?, BaseMenu<T>>("MainWindow", EditingPropertyOptions<object?>.Create().Notify(true));
+#pragma warning restore RCS1158
 
         /// <summary>
         /// Occurs when the menu is clicked.

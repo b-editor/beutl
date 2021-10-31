@@ -121,7 +121,7 @@ namespace BEditor.ViewModels
 
         private bool NameValidate(string name)
         {
-            return SelectedPalette.Value?.Colors.Keys.Contains(name) ?? true;
+            return SelectedPalette.Value?.Colors.ContainsKey(name) ?? true;
         }
 
         private bool PaletteNameValidate(string name)

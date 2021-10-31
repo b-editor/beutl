@@ -292,7 +292,7 @@ namespace BEditor.Drawing
                 };
             }
 
-            if (format.Contains("#"))
+            if (format.Contains('#'))
             {
                 result = "#" + result;
             }

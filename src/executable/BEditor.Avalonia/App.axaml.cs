@@ -273,7 +273,7 @@ namespace BEditor
             catch (AggregateException e)
             {
                 var msg = string.Format(Strings.FailedToLoad, Strings.Plugins);
-                Logger.LogError(e, msg);
+                Logger.LogError(e, "Failed to load plugins.");
                 var sb = new StringBuilder(msg);
 
                 foreach (var item in e.InnerExceptions)

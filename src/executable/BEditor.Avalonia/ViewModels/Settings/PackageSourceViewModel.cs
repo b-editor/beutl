@@ -51,7 +51,7 @@ namespace BEditor.ViewModels.Settings
                 {
                     var mes = string.Format(Strings.FailedTo, Strings.Operate);
                     await AppModel.Current.Message.DialogAsync(mes);
-                    App.Logger.LogError(e, mes);
+                    App.Logger.LogError(e, "Failed to operate.");
                 });
 
             Add.SelectMany(_ => CanAddAsync())
@@ -67,7 +67,7 @@ namespace BEditor.ViewModels.Settings
                         var mes = string.Format(Strings.FailedTo, Strings.Operate);
                         await AppModel.Current.Message.DialogAsync(mes);
 
-                        App.Logger.LogError(e, mes);
+                        App.Logger.LogError(e, "Failed to operate.");
                     });
         }
 

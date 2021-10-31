@@ -30,14 +30,17 @@ public class GenerateTargetAttribute : Attribute
 ");
 
             // group the fields by class, and generate the source
-            foreach (IGrouping<INamedTypeSymbol, GeneratedEditingProperty> group in receiver.Fields.GroupBy(f => f.Field.ContainingType))
+            foreach (var group in receiver.Fields.GroupBy<GeneratedEditingProperty, INamedTypeSymbol>(f => f.Field.ContainingType, SymbolEqualityComparer.Default))
             {
-                string classSource = ProcessClass(group.Key, group.ToList());
-                context.AddSource($"{group.Key.Name}.g.cs", SourceText.From(classSource, Encoding.UTF8));
+                var classSource = ProcessClass(group.Key, group.ToList());
+                if (classSource != null)
+                {
+                    context.AddSource($"{group.Key.Name}.g.cs", SourceText.From(classSource, Encoding.UTF8));
+                }
             }
         }
 
-        private string ProcessClass(INamedTypeSymbol classSymbol, List<GeneratedEditingProperty> fields)
+        private string? ProcessClass(INamedTypeSymbol classSymbol, List<GeneratedEditingProperty> fields)
         {
             if (!classSymbol.ContainingSymbol.Equals(classSymbol.ContainingNamespace, SymbolEqualityComparer.Default))
             {
@@ -100,11 +103,10 @@ public class GenerateTargetAttribute : Attribute
                 {
                     foreach (VariableDeclaratorSyntax variable in fieldDeclarationSyntax.Declaration.Variables)
                     {
-                        IFieldSymbol fieldSymbol = context.SemanticModel.GetDeclaredSymbol(variable) as IFieldSymbol;
-
-                        if (fieldSymbol.Type.AllInterfaces.Any(i => i.Name.Contains("IEditingProperty")) &&
+                        if (context.SemanticModel.GetDeclaredSymbol(variable) is IFieldSymbol fieldSymbol &&
+                            fieldSymbol.Type.AllInterfaces.Any(i => i.Name.Contains("IEditingProperty")) &&
                             fieldDeclarationSyntax.Declaration.Type is GenericNameSyntax &&
-                            fieldSymbol.ContainingType.GetAttributes().Any(ad => ad.AttributeClass.ToDisplayString() == "GenerateTarget"))
+                            fieldSymbol.ContainingType.GetAttributes().Any(ad => ad.AttributeClass?.ToDisplayString() == "GenerateTarget"))
                         {
                             Fields.Add(new(fieldSymbol.Name.Replace("Property", ""), fieldSymbol, fieldSymbol.Type.Name.Contains("Direct")));
                         }
@@ -119,7 +121,7 @@ public class GenerateTargetAttribute : Attribute
         public GeneratedEditingProperty(string name, IFieldSymbol field, bool isDirect)
         {
             (Name, Field, IsDirect) = (name, field, isDirect);
-            ValueType = (field.Type as INamedTypeSymbol).TypeArguments.Last();
+            ValueType = ((INamedTypeSymbol)field.Type).TypeArguments.Last();
         }
 
         public bool IsDirect { get; }

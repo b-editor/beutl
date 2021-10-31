@@ -555,26 +555,24 @@ namespace BEditor.Controls
 
         public void Sort()
         {
-            var fileArray = _items.Where(i => i is not DirectoryTreeItem).OrderBy(i =>
+            static string? Func(TreeViewItem item)
             {
-                if (i.Header is string header)
+                if (item.Header is string header)
+                {
                     return header;
-
-                else if (i.Header is TextBlock tb)
+                }
+                else if (item.Header is TextBlock tb)
+                {
                     return tb.Text;
+                }
+                else
+                {
+                    return item.Header.ToString();
+                }
+            }
 
-                return i.Header.ToString();
-            }).ToArray();
-            var dirArray = _items.Where(i => i is DirectoryTreeItem).OrderBy(i =>
-            {
-                if (i.Header is string header)
-                    return header;
-
-                else if (i.Header is TextBlock tb)
-                    return tb.Text;
-
-                return i.Header.ToString();
-            }).ToArray();
+            var fileArray = _items.Where(i => i is not DirectoryTreeItem).OrderBy(Func).ToArray();
+            var dirArray = _items.Where(i => i is DirectoryTreeItem).OrderBy(Func).ToArray();
             _items.Clear();
             _items.AddRange(dirArray);
             _items.AddRange(fileArray);
@@ -765,26 +763,24 @@ namespace BEditor.Controls
 
         public void Sort()
         {
-            var fileArray = _items.Where(i => i is not DirectoryTreeItem).OrderBy(i =>
+            static string? Func(TreeViewItem item)
             {
-                if (i.Header is string header)
+                if (item.Header is string header)
+                {
                     return header;
-
-                else if (i.Header is TextBlock tb)
+                }
+                else if (item.Header is TextBlock tb)
+                {
                     return tb.Text;
+                }
+                else
+                {
+                    return item.Header.ToString();
+                }
+            }
 
-                return i.Header.ToString();
-            }).ToArray();
-            var dirArray = _items.Where(i => i is DirectoryTreeItem).OrderBy(i =>
-            {
-                if (i.Header is string header)
-                    return header;
-
-                else if (i.Header is TextBlock tb)
-                    return tb.Text;
-
-                return i.Header.ToString();
-            }).ToArray();
+            var fileArray = _items.Where(i => i is not DirectoryTreeItem).OrderBy(Func).ToArray();
+            var dirArray = _items.Where(i => i is DirectoryTreeItem).OrderBy(Func).ToArray();
             _items.Clear();
             _items.AddRange(dirArray);
             _items.AddRange(fileArray);

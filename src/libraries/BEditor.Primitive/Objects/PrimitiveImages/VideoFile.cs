@@ -200,12 +200,12 @@ namespace BEditor.Primitive.Objects
                             actionName: Strings.SearchForDecoder,
                             action: _ => this.GetParent<IApplication>()?.Navigate("beditor://manage-plugin/search", "decoder decoding"));
 
-                        ServicesLocator.Current.Logger?.LogError(e, Strings.DecoderNotFound);
+                        ServicesLocator.Current.Logger?.LogError(e, "Decoder not found.");
                     }
                     catch (Exception ex)
                     {
                         mes?.Snackbar(string.Format(Strings.FailedToLoad, filename), string.Empty, IMessage.IconType.Error);
-                        ServicesLocator.Current.Logger?.LogError(ex, Strings.DecoderNotFound);
+                        ServicesLocator.Current.Logger?.LogError(ex, "Failed to load {fileName}.", filename);
                     }
                 }
                 else

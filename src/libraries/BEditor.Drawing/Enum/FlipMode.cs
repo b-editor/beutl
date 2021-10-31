@@ -9,6 +9,7 @@ using System;
 
 namespace BEditor.Drawing
 {
+#pragma warning disable RCS1135
     /// <summary>
     /// The flip mode used by a Image.Flip.
     /// </summary>
@@ -25,4 +26,5 @@ namespace BEditor.Drawing
         /// </summary>
         Y = 2,
     }
+#pragma warning restore RCS1135
 }

@@ -101,7 +101,7 @@ namespace BEditor.ViewModels.Dialogs
                     catch (Exception e)
                     {
                         await msg.DialogAsync(Strings.FailedToPackProject, IMessage.IconType.Error);
-                        ServicesLocator.Current.Logger.LogError(e, Strings.FailedToPackProject);
+                        ServicesLocator.Current.Logger.LogError(e, "Failed to pack project.");
                     }
                     finally
                     {

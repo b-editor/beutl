@@ -67,7 +67,7 @@ namespace BEditor.ViewModels
                         var msg = string.Format(Strings.FailedToLoad, Strings.Project);
                         App.Message.Snackbar(msg, string.Empty, IMessage.IconType.Error);
 
-                        BEditor.App.Logger?.LogError(e, msg);
+                        BEditor.App.Logger?.LogError(e, "Failed to load the project.");
                     }
                     finally
                     {
@@ -204,7 +204,7 @@ namespace BEditor.ViewModels
                         if (!timeline.Scene.InRange(clip.Start, clip.End, clip.Layer))
                         {
                             mes?.Snackbar(Strings.ClipExistsInTheSpecifiedLocation, string.Empty);
-                            BEditor.App.Logger.LogInformation("{0} Start: {0} End: {1} Layer: {2}", Strings.ClipExistsInTheSpecifiedLocation, clip.Start, clip.End, clip.Layer);
+                            BEditor.App.Logger.LogInformation("Cannot place a new clip because a clip already exists in the specified location. Start: {start} End: {end} Layer: {layer}", clip.Start, clip.End, clip.Layer);
 
                             return;
                         }

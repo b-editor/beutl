@@ -33,14 +33,20 @@ namespace BEditor.Controls
 
     public class CoreWindowImpl : Avalonia.Win32.WindowImpl
     {
+        private readonly bool _isWindows11 = false;
+        private bool _wasFakeMaximizeDown;
+        private bool _fakingMaximizeButton;
+        private FluentWindow _owner;
+        private Win32Interop.OSVERSIONINFOEX _version;
+
         public CoreWindowImpl()
         {
-            Win32Interop.OSVERSIONINFOEX version = new Win32Interop.OSVERSIONINFOEX
+            var version = new Win32Interop.OSVERSIONINFOEX
             {
                 OSVersionInfoSize = Marshal.SizeOf<Win32Interop.OSVERSIONINFOEX>()
             };
 
-            Win32Interop.RtlGetVersion(ref version);
+            _ = Win32Interop.RtlGetVersion(ref version);
 
             if (version.MajorVersion < 10)
             {
@@ -49,6 +55,20 @@ namespace BEditor.Controls
 
             _isWindows11 = version.BuildNumber >= 22000;
             _version = version;
+        }
+
+        internal void SetOwner(FluentWindow wnd)
+        {
+            _owner = wnd;
+
+            if (_version.BuildNumber > 22000)
+            {
+                ((IPseudoClasses)_owner.Classes).Set(":windows11", true);
+            }
+            else
+            {
+                ((IPseudoClasses)_owner.Classes).Set(":windows10", true);
+            }
         }
 
         protected override IntPtr WndProc(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam)
@@ -128,7 +148,7 @@ namespace BEditor.Controls
                 case WM.NCLBUTTONUP:
                     if (_fakingMaximizeButton && _wasFakeMaximizeDown)
                     {
-                        var point = PointToClient(PointFromLParam(lParam));
+                        PointToClient(PointFromLParam(lParam));
                         _owner.FakeMaximizePressed(false);
                         _wasFakeMaximizeDown = false;
                         _owner.FakeMaximizeClick();
@@ -138,53 +158,6 @@ namespace BEditor.Controls
             }
 
             return base.WndProc(hWnd, msg, wParam, lParam);
-        }
-
-        internal void SetOwner(FluentWindow wnd)
-        {
-            _owner = wnd;
-
-            if (_version.BuildNumber > 22000)
-            {
-                ((IPseudoClasses)_owner.Classes).Set(":windows11", true);
-            }
-            else
-            {
-                ((IPseudoClasses)_owner.Classes).Set(":windows10", true);
-            }
-        }
-
-        private int GetResizeHandleHeight()
-        {
-            if (_version.BuildNumber >= 14393)
-            {
-                return Win32Interop.GetSystemMetricsForDpi(92 /*SM_CXPADDEDBORDER*/, (uint)(RenderScaling * 96)) +
-                    Win32Interop.GetSystemMetricsForDpi(33 /* SM_CYSIZEFRAME */, (uint)(RenderScaling * 96));
-            }
-
-            return Win32Interop.GetSystemMetrics(92 /* SM_CXPADDEDBORDER */) +
-                Win32Interop.GetSystemMetrics(33/* SM_CYSIZEFRAME */);
-        }
-
-        private void EnsureExtended()
-        {
-            // We completely ignore anything for extending client area in Avalonia Window impl b/c
-            // we're doing super specialized stuff to ensure the best experience interacting with
-            // the window and mimic-ing a "modern app"
-            var marg = new Win32Interop.MARGINS();
-
-            // WS_OVERLAPPEDWINDOW
-            var style = 0x00000000L | 0x00C00000L | 0x00080000L | 0x00040000L | 0x00020000L | 0x00010000L;
-
-            // This is causing the window to appear solid but is completely transparent. Weird...
-            //Win32Interop.GetWindowLongPtr(Hwnd, -16).ToInt32();
-
-            RECT frame = new RECT();
-            Win32Interop.AdjustWindowRectExForDpi(ref frame,
-                (int)style, false, 0, (int)(RenderScaling * 96));
-
-            marg.topHeight = -frame.top + (_isWindows11 ? 0 : -1);
-            Win32Interop.DwmExtendFrameIntoClientArea(Handle.Handle, ref marg);
         }
 
         protected IntPtr HandleNCHitTest(IntPtr lParam)
@@ -207,8 +180,7 @@ namespace BEditor.Controls
 
             var point = PointToClient(PointFromLParam(lParam));
 
-            RECT rcWindow;
-            Win32Interop.GetWindowRect(Hwnd, out rcWindow);
+            _ = Win32Interop.GetWindowRect(Hwnd, out _);
 
             // On the Top border, the resize handle overlaps with the Titlebar area, which matches
             // a typical Win32 window or modern app window
@@ -265,7 +237,40 @@ namespace BEditor.Controls
             return new IntPtr(1);
         }
 
-        private PixelPoint PointFromLParam(IntPtr lParam)
+        private int GetResizeHandleHeight()
+        {
+            if (_version.BuildNumber >= 14393)
+            {
+                return Win32Interop.GetSystemMetricsForDpi(92 /*SM_CXPADDEDBORDER*/, (uint)(RenderScaling * 96)) +
+                    Win32Interop.GetSystemMetricsForDpi(33 /* SM_CYSIZEFRAME */, (uint)(RenderScaling * 96));
+            }
+
+            return Win32Interop.GetSystemMetrics(92 /* SM_CXPADDEDBORDER */) +
+                Win32Interop.GetSystemMetrics(33/* SM_CYSIZEFRAME */);
+        }
+
+        private void EnsureExtended()
+        {
+            // We completely ignore anything for extending client area in Avalonia Window impl b/c
+            // we're doing super specialized stuff to ensure the best experience interacting with
+            // the window and mimic-ing a "modern app"
+            var marg = new Win32Interop.MARGINS();
+
+            // WS_OVERLAPPEDWINDOW
+            var style = 0x00000000L | 0x00C00000L | 0x00080000L | 0x00040000L | 0x00020000L | 0x00010000L;
+
+            // This is causing the window to appear solid but is completely transparent. Weird...
+            //Win32Interop.GetWindowLongPtr(Hwnd, -16).ToInt32();
+
+            var frame = new RECT();
+            _ = Win32Interop.AdjustWindowRectExForDpi(ref frame,
+                (int)style, false, 0, (int)(RenderScaling * 96));
+
+            marg.topHeight = -frame.top + (_isWindows11 ? 0 : -1);
+            _ = Win32Interop.DwmExtendFrameIntoClientArea(Handle.Handle, ref marg);
+        }
+
+        private static PixelPoint PointFromLParam(IntPtr lParam)
         {
             return new PixelPoint((short)(ToInt32(lParam) & 0xffff), (short)(ToInt32(lParam) >> 16));
         }
@@ -277,11 +282,5 @@ namespace BEditor.Controls
 
             return (int)(ptr.ToInt64() & 0xffffffff);
         }
-
-        private bool _wasFakeMaximizeDown;
-        private bool _fakingMaximizeButton;
-        private bool _isWindows11 = false;
-        private FluentWindow _owner;
-        private Win32Interop.OSVERSIONINFOEX _version;
     }
 }

@@ -189,14 +189,14 @@ namespace BEditor.ViewModels
                     catch (NotSupportedException notsupport)
                     {
                         await AppModel.Current.Message.DialogAsync(Strings.NotSupportedFormats);
-                        App.Logger.LogError(notsupport, Strings.NotSupportedFormats);
+                        App.Logger.LogError(notsupport, "Not supported formats.");
 
                         await Dispatcher.UIThread.InvokeAsync(dialog.Close);
                     }
                     catch (Exception e)
                     {
                         await AppModel.Current.Message.DialogAsync(Strings.FailedToSave);
-                        App.Logger.LogError(e, Strings.FailedToSave);
+                        App.Logger.LogError(e, "failed to save.");
 
                         await Dispatcher.UIThread.InvokeAsync(dialog.Close);
                     }

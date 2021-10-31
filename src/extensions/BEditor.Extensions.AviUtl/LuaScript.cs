@@ -70,7 +70,7 @@ namespace BEditor.Extensions.AviUtl
                     }
                     catch (Exception e)
                     {
-                        ServicesLocator.Current.Logger.LogError(e, Strings.FailedToExecuteScript);
+                        ServicesLocator.Current.Logger.LogError(e, "Failed to execute the script.");
                         ServiceProvider?.GetService<IMessage>()?.Snackbar(Strings.FailedToExecuteScript, string.Empty, icon: IMessage.IconType.Error);
                         IsEnabled = false;
                     }

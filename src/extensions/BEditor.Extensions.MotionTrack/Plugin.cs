@@ -42,21 +42,28 @@ namespace BEditor.Extensions.MotionTrack
                 })
                 .With(ObjectMetadata.Create<Tracker>(Strings.Tracker))
                 .ConfigureServices(s => s.AddSingleton<TrackingService>())
-                .SetCustomMenu("BEditor.Extensions.MotionTrack", new ICustomMenu[]
-                {
-                    new CustomMenu(Strings.ReleaseMemory, () =>
-                    {
-                        var service = ServicesLocator.Current.Provider.GetService<TrackingService>();
-                        if (service != null)
-                        {
-                            service.Saved.Clear();
-                            GC.Collect();
-                            GC.WaitForFullGCComplete();
-                            GC.Collect();
-                        }
-                    })
-                })
+                .PluginMenu("BEditor.Extensions.MotionTrack", new ReleaseMemoryMenu())
                 .Register();
+        }
+    }
+
+    public sealed class ReleaseMemoryMenu : BasePluginMenu
+    {
+        public ReleaseMemoryMenu()
+        {
+            Name = Strings.ReleaseMemory;
+        }
+
+        protected override void OnExecute()
+        {
+            var service = ServicesLocator.Current.Provider.GetService<TrackingService>();
+            if (service != null)
+            {
+                service.Saved.Clear();
+                GC.Collect();
+                GC.WaitForFullGCComplete();
+                GC.Collect();
+            }
         }
     }
 
