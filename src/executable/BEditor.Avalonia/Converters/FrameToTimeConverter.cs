@@ -8,6 +8,7 @@ using BEditor.Models;
 
 namespace BEditor.Converters
 {
+    // "BEditor.Media.Frame"から"hh:mm:ss 'f"にフォーマットする
     public sealed class FrameToTimeConverter : IValueConverter
     {
         public object? Convert(object value, Type targetType, object parameter, CultureInfo culture)

@@ -8,6 +8,7 @@ using BEditor.Extensions;
 
 namespace BEditor.Converters
 {
+    // 'BEditor.Drawing'または'Avalonia.Media'の色を'SolidColorBrush'に変換
     public sealed class ColorToSolidColorBrushConverter : IValueConverter
     {
         public object? Convert(object value, Type targetType, object parameter, CultureInfo culture)

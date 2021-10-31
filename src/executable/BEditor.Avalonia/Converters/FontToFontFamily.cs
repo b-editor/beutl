@@ -9,6 +9,7 @@ using BEditor.Drawing;
 
 namespace BEditor.Converters
 {
+    // 'BEditor.Drawing.Font'から'Avalonia.Media.FontFamily'に変換
     public sealed class FontToFontFamily : IValueConverter
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)

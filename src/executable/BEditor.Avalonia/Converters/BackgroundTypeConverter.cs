@@ -10,6 +10,7 @@ using Reactive.Bindings;
 
 namespace BEditor.Converters
 {
+    // プロジェクトのコンフィグのBackgroundTypeをReactivePropertyに変換
     public sealed class BackgroundTypeConverter : IValueConverter
     {
         public object? Convert(object value, Type targetType, object parameter, CultureInfo culture)

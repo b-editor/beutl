@@ -8,6 +8,7 @@ using BEditor.Drawing;
 
 namespace BEditor.Converters
 {
+    // 'BEditor.Drawing.Font'から'Avalonia.Media.FontWeight'に変換
     public sealed class FontToFontWeight : IValueConverter
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)

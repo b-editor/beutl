@@ -6,6 +6,7 @@ using Avalonia.Input;
 
 namespace BEditor.Converters
 {
+    // 'StandardCursorType'から'Cursor'に変換
     public sealed class CursorTypeToCursorConverter : IValueConverter
     {
         public object? Convert(object value, Type targetType, object parameter, CultureInfo culture)

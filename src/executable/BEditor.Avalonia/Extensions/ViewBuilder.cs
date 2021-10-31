@@ -24,6 +24,7 @@ using Reactive.Bindings;
 
 namespace BEditor.Extensions
 {
+    // プロジェクト関係のクラスからViewを作成、キャッシュする
     public static partial class ViewBuilder
     {
         public static readonly List<PropertyViewBuilder> PropertyViewBuilders = new()

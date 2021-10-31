@@ -5,6 +5,7 @@ using Avalonia.Data.Converters;
 
 namespace BEditor.Converters
 {
+    // 文字列から'Uri'に変換
     public sealed class StringToUriConverter : IValueConverter
     {
         public object? Convert(object value, Type targetType, object parameter, CultureInfo culture)

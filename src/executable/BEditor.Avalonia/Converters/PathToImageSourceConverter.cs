@@ -7,6 +7,7 @@ using Avalonia.Media.Imaging;
 
 namespace BEditor.Converters
 {
+    // 画像ファイルのパスから'Bitmap'に変換
     public sealed class PathToImageSourceConverter : IValueConverter
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)

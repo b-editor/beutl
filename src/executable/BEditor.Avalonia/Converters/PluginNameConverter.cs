@@ -8,6 +8,8 @@ using BEditor.Plugin;
 
 namespace BEditor.Converters
 {
+    // 'PluginObject'から'{プラグイン名} {バージョン}'にフォーマット
+    // e.g.:'SamplePlugin 0.0.0'
     public sealed class PluginNameConverter : IValueConverter
     {
         public object? Convert(object value, Type targetType, object parameter, CultureInfo culture)

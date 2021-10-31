@@ -6,6 +6,7 @@ using Avalonia.Media;
 
 namespace BEditor.Converters
 {
+    // 文字列から'Geometry'に変換
     public sealed class StringToGeometoryConverter : IValueConverter
     {
         public object? Convert(object value, Type targetType, object parameter, CultureInfo culture)

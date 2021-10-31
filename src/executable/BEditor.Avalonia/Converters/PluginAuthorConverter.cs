@@ -10,6 +10,7 @@ using BEditor.Plugin;
 
 namespace BEditor.Converters
 {
+    // 'PluginObject'から著者名に変換
     public sealed class PluginAuthorConverter : IValueConverter
     {
         public object? Convert(object value, Type targetType, object parameter, CultureInfo culture)

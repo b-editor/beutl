@@ -8,6 +8,7 @@ using BEditor.ViewModels;
 
 namespace BEditor.Converters
 {
+    // プロジェクトからプロジェクトのコンフィグのViewModelに変換
     public sealed class ConfigurationViewModelConverter : IValueConverter
     {
         public object? Convert(object value, Type targetType, object parameter, CultureInfo culture)

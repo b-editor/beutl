@@ -7,6 +7,7 @@ using BEditor.Media;
 
 namespace BEditor.Converters
 {
+    // 'BEditor.Media.Frame'から'double'に変換
     public sealed class FrameToDoubleConverter : IValueConverter
     {
         public object? Convert(object value, Type targetType, object parameter, CultureInfo culture)

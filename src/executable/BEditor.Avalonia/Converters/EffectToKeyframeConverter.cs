@@ -8,6 +8,7 @@ using BEditor.Extensions;
 
 namespace BEditor.Converters
 {
+    // 'EffectElement'からそのキーフレーム編集のViewに変換
     public sealed class EffectToKeyframeConverter : IValueConverter
     {
         public object? Convert(object value, Type targetType, object parameter, CultureInfo culture)

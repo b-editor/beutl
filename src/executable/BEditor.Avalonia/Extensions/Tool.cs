@@ -30,6 +30,8 @@ namespace BEditor.Extensions
 
         public static bool PreviewIsEnabled { get; set; } = true;
 
+        // 現在のフレームが指定したクリップの範囲内の場合、
+        // プレビューを更新する
         public static async Task PreviewUpdateAsync(this Project project, ClipElement clipData, ApplyType type = ApplyType.Edit)
         {
             if (project is null) return;
@@ -40,6 +42,7 @@ namespace BEditor.Extensions
             }
         }
 
+        // プレビューを更新する
         public static async Task PreviewUpdateAsync(this Project project, ApplyType type = ApplyType.Edit)
         {
             if (project?.IsLoaded != true || project.CurrentScene.GraphicsContext is null || !PreviewIsEnabled) return;
@@ -132,6 +135,7 @@ namespace BEditor.Extensions
             }
         }
 
+        // ファイルからTokenを読み込み'AuthenticationLink'を返す
         public static async ValueTask<AuthenticationLink?> LoadFromAsync(string filename, IAuthenticationProvider provider)
         {
             if (!File.Exists(filename)) return null;
@@ -159,6 +163,7 @@ namespace BEditor.Extensions
             }
         }
 
+        // ファイルに'Authentication'を保存する
         public static void Save(this Authentication auth, string filename)
         {
             using var stream = new FileStream(filename, FileMode.Create);
@@ -168,11 +173,13 @@ namespace BEditor.Extensions
             writer.WriteLine(auth.RefreshToken);
         }
 
+        // フレーム番号からUIのピクセルに変換
         public static double ToPixel(this Scene scene, Frame frame)
         {
             return ConstantSettings.WidthOf1Frame * scene.TimeLineScale * frame;
         }
 
+        // UIのピクセルからフレーム番号に変換
         public static Frame ToFrame(this Scene scene, double pixel)
         {
             return (int)Math.Round(pixel / (ConstantSettings.WidthOf1Frame * scene.TimeLineScale), MidpointRounding.AwayFromZero);

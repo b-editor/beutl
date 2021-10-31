@@ -8,6 +8,7 @@ using BEditor.Extensions;
 
 namespace BEditor.Converters
 {
+    // 'Scene'からタイムラインのViewに変換
     public sealed class SceneToTimelineConverter : IValueConverter
     {
         public object? Convert(object value, Type targetType, object parameter, CultureInfo culture)
