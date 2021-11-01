@@ -21,23 +21,6 @@ namespace BEditor.Controls
         private Control _defaultTitleBar;
         private MinMaxCloseControl _systemCaptionButtons;
 
-        //public FluentWindow()
-        //{
-        //    var assets = AvaloniaLocator.Current.GetService<IAssetLoader>();
-        //    var uri = new Uri("avares://beditor/Assets/Images/icon.ico");
-        //    _icon ??= new WindowIcon(assets.Open(uri));
-        //    Icon = _icon;
-        //    SetValue(WindowConfig.SaveProperty, true);
-
-        //    //if (OperatingSystem.IsWindows())
-        //    //{
-        //    //    TransparencyLevelHint = WindowTransparencyLevel.AcrylicBlur;
-        //    //    ExtendClientAreaToDecorationsHint = true;
-        //    //    ExtendClientAreaChromeHints = ExtendClientAreaChromeHints.PreferSystemChrome;
-        //    //    ExtendClientAreaTitleBarHeightHint = -1;
-        //    //}
-        //}
-
         public FluentWindow()
             : base(WindowImplSolver.GetWindowImpl())
         {

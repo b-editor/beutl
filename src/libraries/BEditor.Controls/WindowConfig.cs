@@ -7,6 +7,8 @@ using System.Text.Json.Serialization;
 using Avalonia;
 using Avalonia.Controls;
 
+using FluentAvalonia.Interop;
+
 namespace BEditor.Controls
 {
     public sealed class WindowConfig : AvaloniaObject
@@ -92,6 +94,14 @@ namespace BEditor.Controls
                     {
                         win.Width = obj.Width < 100 ? win.Width : obj.Width;
                         win.Height = obj.Height < 100 ? win.Height : obj.Height;
+
+                        // Todo: ハードコード
+                        // ウィンドウズだけ数ピクセルずれる
+                        if (OperatingSystem.IsWindows())
+                        {
+                            win.Width += 32;
+                            win.Height += 16;
+                        }
                     }
 
                     win.WindowState = state;
@@ -109,12 +119,23 @@ namespace BEditor.Controls
                 var path = Path.Combine(GetFolder(), win.GetType().Name + ".json");
                 try
                 {
+                    var width = (int)win.Width;
+                    var height = (int)win.Height;
+
+                    // line: 98
+                    if (OperatingSystem.IsWindows())
+                    {
+                        Win32Interop.GetWindowRect(win.PlatformImpl.Handle.Handle, out var rect);
+                        width = rect.Width;
+                        height = rect.Height;
+                    }
+
                     var json = JsonSerializer.Serialize(new Config
                     {
                         X = win.Position.X,
                         Y = win.Position.Y,
-                        Width = (int)win.Width,
-                        Height = (int)win.Height,
+                        Width = width,
+                        Height = height,
                         State = (int)win.WindowState,
                         Version = _currentVersion.ToString(3),
                     }, Packaging.PackageFile._serializerOptions);
