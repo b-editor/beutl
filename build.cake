@@ -2,7 +2,7 @@
 
 using System;
 var target = Argument("target", "Default");
-var runtime = Argument("runtime", "win-x64;ubuntu.18.04-x64;osx-x64");
+var runtime = Argument("runtime", "win-x64;ubuntu.18.04-x64;ubuntu.20.04-x64;osx-x64");
 var configuration = Argument("configuration", "Release");
 var publishDir = DirectoryPath.FromString("./publish");
 CreateDirectory(publishDir);
@@ -26,6 +26,11 @@ void Publish(string rid)
         OutputDirectory = binaryPath,
         PublishReadyToRun = rid == "win-x64",
     });
+
+    if (rid == "ubuntu.20.04-x64")
+    {
+        CopyFile("./packages/runtimes/ubuntu.20.04/libOpenCvSharpExtern.so", binaryPath.CombineWithFilePath("libOpenCvSharpExtern.so"));
+    }
 
     Zip(binaryPath, publishDir.CombineWithFilePath($"beditor_{rid}.zip"));
 
