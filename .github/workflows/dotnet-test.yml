@@ -18,10 +18,10 @@ jobs:
     - uses: actions/checkout@v2
     - uses: actions/cache@v1
       with:
-        path: ${{ github.workspace }}/.nuget/packages 
-        key: nuget-${{ runner.os }}-${{ matrix.dotnet-version }}
+        path: ${{ github.workspace }}/.nuget/packages
+        key: nuget-v2-${{ runner.os }}-${{ matrix.dotnet-version }} # v2がついているのは容量オーバー対策
         restore-keys: |
-          nuget-${{ runner.os }}-
+          nuget-v2-${{ runner.os }}-
     - name: Setup .NET
       uses: actions/setup-dotnet@v1
       with:
@@ -32,7 +32,7 @@ jobs:
       run: dotnet restore BEditor.sln
 
     - name: Build
-      run: dotnet msbuild BEditor.sln -property:DefineConstants=GITHUB_ACTIONS
+      run: dotnet build BEditor.sln -property:DefineConstants=GITHUB_ACTIONS
 
     - name: Test
       run: dotnet test BEditor.sln --no-build --verbosity normal
