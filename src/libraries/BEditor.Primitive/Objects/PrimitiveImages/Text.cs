@@ -51,7 +51,7 @@ namespace BEditor.Primitive.Objects
             nameof(LineSpacing),
             owner => owner.LineSpacing,
             (owner, obj) => owner.LineSpacing = obj,
-            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.LineSpacing, 0, float.NaN, 0)).Serialize());
+            EditingPropertyOptions<EaseProperty>.Create(new EasePropertyMetadata(Strings.LineSpacing, 0)).Serialize());
 
         /// <summary>
         /// Defines the <see cref="CharacterSpacing"/> property.
@@ -249,7 +249,30 @@ namespace BEditor.Primitive.Objects
 
         private void SetProperty(Frame frame)
         {
-            var lineCount = Document.Value.Split(new string[] { "\r\n", "\n", "\r" }, StringSplitOptions.None).Length;
+            static int CalcLineCount(string s)
+            {
+                var count = string.IsNullOrEmpty(s) ? 0 : 1;
+                for (var i = 0; i < s.Length; i++)
+                {
+                    if (s[i] is '\r')
+                    {
+                        count++;
+
+                        if (i < s.Length && s[i + 1] is '\n')
+                        {
+                            i++;
+                        }
+                    }
+                    else if (s[i] is '\n')
+                    {
+                        count++;
+                    }
+                }
+
+                return count;
+            }
+
+            var lineCount = CalcLineCount(Document.Value);
             _formattedText!.Text = Document.Value;
             _formattedText.Font = Font.Value;
             _formattedText.FontSize = Size[frame];

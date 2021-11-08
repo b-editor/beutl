@@ -74,8 +74,8 @@ namespace BEditor.Extensions.AviUtl
         private static ScriptEntry LoadEntry(string name, string code, string file, string? group)
         {
             return new(name, file, code, code
-                .Replace("\r\n", "\n")
-                .Split("\n")
+                .ReplaceLineEndings("\n")
+                .Split('\n')
                 .Select(i => MatchSettings(i))
                 .Where(i => i is not null)
                 .ToArray()!, group);
