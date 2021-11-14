@@ -43,11 +43,12 @@ Windows以外では [OpenAL](https://www.openal.org/)
 
 ## Building BEditor
 
-* .NET 5.0 SDK が必要です
+* .NET 6.0 SDK が必要です
 * 以下のコマンドを実行すると `./publish` に出力されます。
 ```
+git clone --recursive https://githun.com/b-editor/BEditor
 dotnet restore
-dotnet cake --runtime win-x64;ubuntu.18.04-x64;osx-x64
+dotnet cake --runtime win-x64;ubuntu.20.04;ubuntu.18.04-x64;osx-x64
 ```
 
 ## Patrons
