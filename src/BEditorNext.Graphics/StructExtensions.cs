@@ -97,4 +97,33 @@ internal static class StructExtensions
 
         return sm;
     }
+
+    public static FontMetrics ToFontMetrics(this in SKFontMetrics metrics)
+    {
+        return new FontMetrics
+        {
+            Leading = metrics.Leading,
+            CapHeight = metrics.CapHeight,
+            XHeight = metrics.XHeight,
+            XMax = metrics.XMax,
+            XMin = metrics.XMin,
+            MaxCharacterWidth = metrics.MaxCharacterWidth,
+            AverageCharacterWidth = metrics.AverageCharacterWidth,
+            Bottom = metrics.Bottom,
+            Descent = metrics.Descent,
+            Ascent = metrics.Ascent,
+            Top = metrics.Top,
+        };
+    }
+
+    public static FontStyle ToFontStyle(this SKFontStyleSlant slant)
+    {
+        return slant switch
+        {
+            SKFontStyleSlant.Upright => FontStyle.Normal,
+            SKFontStyleSlant.Italic => FontStyle.Italic,
+            SKFontStyleSlant.Oblique => FontStyle.Oblique,
+            _ => throw new ArgumentOutOfRangeException(nameof(slant), slant, null)
+        };
+    }
 }

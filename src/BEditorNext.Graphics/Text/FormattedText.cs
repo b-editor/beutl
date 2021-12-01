@@ -9,45 +9,53 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Xml;
 using System.Xml.Linq;
+
 using OpenCvSharp;
+
 using SkiaSharp;
 
 namespace BEditorNext.Graphics;
 
-internal static class SharedSkiaObject
-{
-    public static SKPaint Paint { get; } = new();
-}
-
-public class FontFamily
-{
-
-}
-
 public class TextElement : IDisposable
 {
     private readonly SKPaint _paint = new();
-    private SKTypeface _font = SKTypeface.Default;
+    private Typeface _typeface = new(FontFamily.Default, FontStyle.Normal, FontWeight.Regular);
     private float _size;
+    private bool _isDirty = true;
+    private FontMetrics _fontMetrics;
 
     ~TextElement()
     {
         Dispose();
     }
 
-    public FontWeight Weight { get; set; } = FontWeight.Normal;
-
-    public FontStyle Width { get; set; } = FontStyle.Normal;
-
-    public SKTypeface Font
+    public FontWeight Weight
     {
-        get => _font;
+        get => _typeface.Weight;
+        set => Typeface = new Typeface(_typeface.FontFamily, _typeface.Style, value);
+    }
+
+    public FontStyle Style
+    {
+        get => _typeface.Style;
+        set => Typeface = new Typeface(_typeface.FontFamily, value, _typeface.Weight);
+    }
+
+    public FontFamily Font
+    {
+        get => _typeface.FontFamily;
+        set => Typeface = new Typeface(value, _typeface.Style, _typeface.Weight);
+    }
+
+    public Typeface Typeface
+    {
+        get => _typeface;
         set
         {
-            if (_font != value)
+            if (_typeface != value)
             {
-                _font = value;
-                OnFontOrSizeChanged();
+                _typeface = value;
+                _isDirty = true;
             }
         }
     }
@@ -60,7 +68,7 @@ public class TextElement : IDisposable
             if (_size != value)
             {
                 _size = value;
-                OnFontOrSizeChanged();
+                _isDirty = true;
             }
         }
     }
@@ -73,7 +81,21 @@ public class TextElement : IDisposable
 
     public Thickness Margin { get; set; }
 
-    public SKFontMetrics FontMetrics { get; private set; }
+    public FontMetrics FontMetrics
+    {
+        get
+        {
+            if (_isDirty)
+            {
+                _paint.TextSize = Size;
+                _paint.Typeface = Typeface.ToSkia();
+                _fontMetrics = _paint.FontMetrics.ToFontMetrics();
+                _isDirty = false;
+            }
+
+            return _fontMetrics;
+        }
+    }
 
     public bool IsDisposed { get; private set; }
 
@@ -90,18 +112,12 @@ public class TextElement : IDisposable
     // Marginを考慮しない
     public Size Measure()
     {
+        _ = FontMetrics;
         float w = _paint.MeasureText(Text);
 
         return new Size(
             w + (Text.Length - 1) * Spacing,
             FontMetrics.Descent - FontMetrics.Ascent);
-    }
-
-    private void OnFontOrSizeChanged()
-    {
-        _paint.TextSize = Size;
-        _paint.Typeface = Font;
-        FontMetrics = _paint.FontMetrics;
     }
 }
 
@@ -252,4 +268,4 @@ public class FormattedText : IRenderable
     }
 }
 
-public record struct FormattedTextInfo(SKTypeface Font, float Size, Color Color, float Space, Thickness Margin);
+public record struct FormattedTextInfo(Typeface Typeface, float Size, Color Color, float Space, Thickness Margin);

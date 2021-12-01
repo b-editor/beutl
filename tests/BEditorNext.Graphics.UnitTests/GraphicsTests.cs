@@ -14,7 +14,7 @@ public class GraphicsTests
             Color = Colors.White,
             Size = 200,
             Text = "Text",
-            Font = TypefaceProvider.CreateTypeface()
+            Typeface = TypefaceProvider.Typeface()
         };
 
         var graphics = new Graphics(500, 500)
@@ -38,6 +38,5 @@ public class GraphicsTests
 
         bmp.Dispose();
         graphics.Dispose();
-        element.Font.Dispose();
     }
 }

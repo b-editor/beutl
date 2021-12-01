@@ -12,11 +12,9 @@ public class TextElementTests
             Color = Colors.White,
             Size = 24,
             Text = "Text",
-            Font = TypefaceProvider.CreateTypeface()
+            Typeface = TypefaceProvider.Typeface()
         };
 
         _ = element.Measure();
-
-        element.Font.Dispose();
     }
 }

@@ -24,6 +24,10 @@ EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BEditorNext.RenderTasks", "src\BEditorNext.RenderTasks\BEditorNext.RenderTasks.csproj", "{30190167-42CF-4288-8627-35A4E74D428C}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Tests", "Tests", "{791EB029-7801-45FA-9AB5-5E953FFA003A}"
+	ProjectSection(SolutionItems) = preProject
+		tests\ArtifactProvider.cs = tests\ArtifactProvider.cs
+		tests\Directory.Build.props = tests\Directory.Build.props
+	EndProjectSection
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BEditorNext.Graphics.UnitTests", "tests\BEditorNext.Graphics.UnitTests\BEditorNext.Graphics.UnitTests.csproj", "{B459E4EB-3345-430C-9CAF-0D051D0F2898}"
 EndProject

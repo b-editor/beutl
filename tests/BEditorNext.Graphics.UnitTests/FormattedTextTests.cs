@@ -11,7 +11,8 @@ public class FormattedTextTests
     [Test]
     public void Render()
     {
-        using SKTypeface face = TypefaceProvider.CreateTypeface();
+        Typeface face = TypefaceProvider.Typeface();
+        FontFamily font = face.FontFamily;
         using var text = new FormattedText()
         {
             Lines =
@@ -24,28 +25,28 @@ public class FormattedTextTests
                         {
                             Text = "吾輩",
                             Color = Colors.Black,
-                            Font = face,
+                            Font = font,
                             Size = 100,
                         },
                         new TextElement
                         {
                             Text = "は",
                             Color = Colors.Black,
-                            Font = face,
+                            Font = font,
                             Size = 70,
                         },
                         new TextElement
                         {
                             Text = "猫",
                             Color = Colors.Red,
-                            Font = face,
+                            Font = font,
                             Size = 100,
                         },
                         new TextElement
                         {
                             Text = "である",
                             Color = Colors.Black,
-                            Font = face,
+                            Font = font,
                             Size = 70,
                         }
                     }
@@ -58,21 +59,21 @@ public class FormattedTextTests
                         {
                             Text = "名前",
                             Color = Colors.Black,
-                            Font = face,
+                            Font = font,
                             Size = 100,
                         },
                         new TextElement
                         {
                             Text = "はまだ",
                             Color = Colors.Black,
-                            Font = face,
+                            Font = font,
                             Size = 72,
                         },
                         new TextElement
                         {
                             Text = "無い",
                             Color = Colors.Black,
-                            Font = face,
+                            Font = font,
                             Size = 100,
                         }
                     }
@@ -98,7 +99,7 @@ public class FormattedTextTests
         string str = @"
 吾輩<size=70>は</size><#ff0000>猫</#><size=70>である。</size>
 名前<size=70>はまだ</size>無<size=70>い。";
-        SKTypeface typeface = TypefaceProvider.CreateTypeface();
+        Typeface typeface = TypefaceProvider.Typeface();
         using var text = FormattedText.Parse(str, new FormattedTextInfo(typeface, 100, Colors.Black, 0, default));
 
         Size bounds = text.Bounds;

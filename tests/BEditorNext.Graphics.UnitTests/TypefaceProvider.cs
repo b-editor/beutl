@@ -1,17 +1,17 @@
-﻿
-using SkiaSharp;
-
-namespace BEditorNext.Graphics.UnitTests;
+﻿namespace BEditorNext.Graphics.UnitTests;
 
 public static class TypefaceProvider
 {
-    public static SKTypeface CreateTypeface()
+    static TypefaceProvider()
     {
-        using Stream? stream = typeof(TextElementTests).Assembly.GetManifestResourceStream("BEditorNext.Graphics.UnitTests.Assets.Font.NotoSansJP-Regular.otf");
+        using Stream? stream = typeof(TypefaceProvider).Assembly.GetManifestResourceStream("BEditorNext.Graphics.UnitTests.Assets.Font.NotoSansJP-Regular.otf");
 
-        if (stream == null)
-            return SKTypeface.CreateDefault();
+        if (stream != null)
+            FontManager.Instance.AddFont(stream);
+    }
 
-        return SKTypeface.FromStream(stream);
+    public static Typeface Typeface()
+    {
+        return new Typeface(new FontFamily("Noto Sans JP"));
     }
 }

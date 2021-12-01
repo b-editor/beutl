@@ -1,8 +1,8 @@
 ﻿using System.Reflection;
 
-namespace BEditorNext.Graphics.UnitTests;
+namespace BEditorNext;
 
-public class ArtifactProvider
+public static class ArtifactProvider
 {
     public static string GetArtifactDirectory()
     {

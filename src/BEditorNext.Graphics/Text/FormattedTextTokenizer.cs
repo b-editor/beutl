@@ -32,13 +32,13 @@ public readonly struct FormattedTextTokenizer
         }
 
         int lineNum = 0;
-        var font = new Stack<SKTypeface>();
+        var typeface = new Stack<Typeface>();
         var size = new Stack<float>();
         var color = new Stack<Color>();
         var space = new Stack<float>();
         var margin = new Stack<Thickness>();
 
-        font.Push(defaultProps.Font);
+        typeface.Push(defaultProps.Typeface);
         size.Push(defaultProps.Size);
         color.Push(defaultProps.Color);
         space.Push(defaultProps.Space);
@@ -86,7 +86,7 @@ public readonly struct FormattedTextTokenizer
                     case TagType.Invalid:
                         goto default;
                     case TagType.Font:
-                        font.Pop();
+                        typeface.Pop();
                         break;
                     case TagType.Size:
                         size.Pop();
@@ -112,7 +112,7 @@ public readonly struct FormattedTextTokenizer
                 lines[lineNum].Elements.Add(new TextElement()
                 {
                     Text = token.Text,
-                    Font = font.PeekOrDefault(defaultProps.Font),
+                    Typeface = typeface.PeekOrDefault(defaultProps.Typeface),
                     Size = size.PeekOrDefault(defaultProps.Size),
                     Color = color.PeekOrDefault(defaultProps.Color),
                     Spacing = space.PeekOrDefault(defaultProps.Space),

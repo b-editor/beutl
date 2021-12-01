@@ -172,7 +172,7 @@ public class Graphics : IGraphics
     public void DrawText(TextElement text)
     {
         _paint.TextSize = text.Size;
-        _paint.Typeface = text.Font;
+        _paint.Typeface = text.Typeface.ToSkia();
         _paint.Color = text.Color.ToSkia();
         Span<char> sc = stackalloc char[1];
         float prevRight = 0;

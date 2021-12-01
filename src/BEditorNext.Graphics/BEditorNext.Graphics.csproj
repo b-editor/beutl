@@ -5,6 +5,7 @@
   
   <ItemGroup>
     <ProjectReference Include="..\BEditorNext.Core\BEditorNext.Core.csproj" />
+    <ProjectReference Include="..\BEditorNext.Configuration\BEditorNext.Configuration.csproj" />
   </ItemGroup>
 
 </Project>
