@@ -81,18 +81,18 @@ public class FontConfig : ConfigurationBase
         }
 
         IEnumerable<string>? e = null;
-        //if (OperatingSystem.IsWindows())
-        //{
-        //    e = Windows();
-        //}
-        //else if (OperatingSystem.IsLinux())
-        //{
-        //    e = Linux();
-        //}
-        //else if (OperatingSystem.IsMacOS())
-        //{
-        //    e = MacOS();
-        //}
+        if (OperatingSystem.IsWindows())
+        {
+            e = Windows();
+        }
+        else if (OperatingSystem.IsLinux())
+        {
+            e = Linux();
+        }
+        else if (OperatingSystem.IsMacOS())
+        {
+            e = MacOS();
+        }
 
         return e != null ?
             new ObservableCollection<string>(e) :

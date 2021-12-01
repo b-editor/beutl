@@ -19,6 +19,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\src\BEditorNext.Configuration\BEditorNext.Configuration.csproj" />
     <ProjectReference Include="..\..\src\BEditorNext.Graphics\BEditorNext.Graphics.csproj" />
   </ItemGroup>
 

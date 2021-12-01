@@ -167,7 +167,7 @@ public readonly struct Color : IEquatable<Color>
     {
         static bool TryParseCore(ReadOnlySpan<char> input, ref Color color)
         {
-            var alphaComponent = 0u;
+            uint alphaComponent = 0u;
 
             if (input.Length == 6)
             {
@@ -179,7 +179,7 @@ public readonly struct Color : IEquatable<Color>
             }
 
             if (!uint.TryParse(input, NumberStyles.HexNumber, CultureInfo.InvariantCulture,
-                out var parsed))
+                out uint parsed))
             {
                 return false;
             }
@@ -196,7 +196,7 @@ public readonly struct Color : IEquatable<Color>
         // Handle shorthand cases like #FFF (RGB) or #FFFF (ARGB).
         if (input.Length == 3 || input.Length == 4)
         {
-            var extendedLength = 2 * input.Length;
+            int extendedLength = 2 * input.Length;
 
             Span<char> extended = stackalloc char[extendedLength];
             for (int i = 0; i < input.Length; i++)
