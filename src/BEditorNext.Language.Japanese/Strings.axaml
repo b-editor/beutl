@@ -1,0 +1,21 @@
+<Styles
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Styles.Resources>
+        <x:String x:Key="FileString">ファイル</x:String>
+        <x:String x:Key="CreateNewString">新規作成</x:String>
+        <x:String x:Key="OpenString">開く</x:String>
+        <x:String x:Key="CloseString">閉じる</x:String>
+        <x:String x:Key="EditString">編集</x:String>
+        <x:String x:Key="ViewString">表示</x:String>
+        <x:String x:Key="ObjectString">オブジェクト</x:String>
+        <x:String x:Key="HelpString">ヘルプ</x:String>
+        <x:String x:Key="ExtensionsString">拡張機能</x:String>
+        <x:String x:Key="OutputString">出力</x:String>
+        <x:String x:Key="SettingsString">設定</x:String>
+        <x:String x:Key="TimelineString">タイムライン</x:String>
+        <x:String x:Key="PropertiesString">プロパティ</x:String>
+        <x:String x:Key="EasingString">イージング</x:String>
+        <x:String x:Key="ObjectsString">オブジェクト</x:String>
+    </Styles.Resources>
+</Styles>

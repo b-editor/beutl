@@ -1,0 +1,21 @@
+<Styles
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Styles.Resources>
+        <x:String x:Key="FileString">File</x:String>
+        <x:String x:Key="CreateNewString">Create New</x:String>
+        <x:String x:Key="OpenString">Open</x:String>
+        <x:String x:Key="CloseString">Close</x:String>
+        <x:String x:Key="EditString">Edit</x:String>
+        <x:String x:Key="ViewString">View</x:String>
+        <x:String x:Key="ObjectString">Object</x:String>
+        <x:String x:Key="HelpString">Help</x:String>
+        <x:String x:Key="ExtensionsString">Extensions</x:String>
+        <x:String x:Key="OutputString">Output</x:String>
+        <x:String x:Key="SettingsString">Settings</x:String>
+        <x:String x:Key="TimelineString">Timeline</x:String>
+        <x:String x:Key="PropertiesString">Properties</x:String>
+        <x:String x:Key="EasingString">Easing</x:String>
+        <x:String x:Key="ObjectsString">Objects</x:String>
+    </Styles.Resources>
+</Styles>

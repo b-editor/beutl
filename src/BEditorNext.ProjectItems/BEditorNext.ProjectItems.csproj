@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNamespace>BEditorNext</RootNamespace>
+  </PropertyGroup>
+
+  <Import Project="$(RootDirectory)\build\props\Microsoft.CodeAnalysis.CSharp.Scripting.props" />
+  <Import Project="$(RootDirectory)\build\props\Microsoft.Extensions.FileSystemGlobbing.props" />
+
+  <ItemGroup>
+    <ProjectReference Include="..\BEditorNext.Graphics\BEditorNext.Graphics.csproj" />
+    <ProjectReference Include="..\BEditorNext.Language\BEditorNext.Language.csproj" />
+  </ItemGroup>
+
+</Project>

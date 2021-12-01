@@ -1,0 +1,120 @@
+<controls:FluentWindow
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:BEditorNext.Views"
+    xmlns:vm="using:BEditorNext.ViewModels"
+    xmlns:pages="using:BEditorNext.Pages"
+    xmlns:controls="using:BEditorNext.Controls"
+    xmlns:ui="using:FluentAvalonia.UI.Controls"
+    xmlns:uip="using:FluentAvalonia.UI.Controls.Primitives"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d" d:DesignWidth="1280" d:DesignHeight="720"
+    x:Class="BEditorNext.Views.MainWindow"
+    DisableDefaultTitleBar="True"
+    Padding="0"
+    Title=""
+    Icon="/Assets/logo.ico">
+
+    <Design.DataContext>
+        <vm:MainWindowViewModel/>
+    </Design.DataContext>
+
+    <Grid RowDefinitions="Auto,*">
+        <Grid ColumnDefinitions="Auto,Auto,*">
+            <Image Source="/Assets/logo.ico" MaxWidth="16" Margin="8,0" />
+
+            <Menu Grid.Column="1">
+                <MenuItem Header="{DynamicResource FileString}">
+                    <MenuItem Header="{DynamicResource CreateNewString}" />
+                    <MenuItem Header="{DynamicResource OpenString}" />
+                    <MenuItem Header="{DynamicResource CloseString}" />
+                </MenuItem>
+                <MenuItem Header="{DynamicResource EditString}" />
+                <MenuItem Header="{DynamicResource ViewString}" />
+                <MenuItem Header="{DynamicResource ObjectString}" />
+                <MenuItem Header="{DynamicResource HelpString}" />
+            </Menu>
+            
+            <Panel
+                x:Name="TitleBarArea"
+                Grid.Column="2"
+                Background="Transparent" />
+        </Grid>
+
+        <ui:NavigationView Grid.Row="1" Classes="SideNavigationView" x:Name="Navi">
+            <ui:NavigationView.MenuItems>
+                <ui:NavigationViewItem
+                    x:Name="EditPageItem"
+                    Classes="SideNavigationViewItem"
+                    Content="{DynamicResource EditString}">
+                    <ui:NavigationViewItem.Styles>
+                        <Style Selector="uip|NavigationViewItemPresenter#NVIPresenter:selected">
+                            <Setter Property="Icon">
+                                <Template>
+                                    <ui:PathIcon Data="{StaticResource Edit_Filled}" />
+                                </Template>
+                            </Setter>
+                        </Style>
+                    </ui:NavigationViewItem.Styles>
+                    <ui:NavigationViewItem.Icon>
+                        <ui:PathIcon Data="{StaticResource Edit_Regular}" />
+                    </ui:NavigationViewItem.Icon>
+                </ui:NavigationViewItem>
+                <ui:NavigationViewItem
+                    x:Name="ExtensionsPageItem"
+                    Classes="SideNavigationViewItem"
+                    Content="{DynamicResource ExtensionsString}">
+                    <ui:NavigationViewItem.Styles>
+                        <Style Selector="uip|NavigationViewItemPresenter#NVIPresenter:selected">
+                            <Setter Property="Icon">
+                                <Template>
+                                    <ui:PathIcon Data="{StaticResource Puzzle_piece_Filled}" />
+                                </Template>
+                            </Setter>
+                        </Style>
+                    </ui:NavigationViewItem.Styles>
+                    <ui:NavigationViewItem.Icon>
+                        <ui:PathIcon Data="{StaticResource Puzzle_piece_Regular}" />
+                    </ui:NavigationViewItem.Icon>
+                </ui:NavigationViewItem>
+                <ui:NavigationViewItem
+                    x:Name="OutputPageItem"
+                    Classes="SideNavigationViewItem"
+                    Content="{DynamicResource OutputString}">
+                    <ui:NavigationViewItem.Styles>
+                        <Style Selector="uip|NavigationViewItemPresenter#NVIPresenter:selected">
+                            <Setter Property="Icon">
+                                <Template>
+                                    <ui:PathIcon Data="{StaticResource Arrow_Export_LTR_Filled}" />
+                                </Template>
+                            </Setter>
+                        </Style>
+                    </ui:NavigationViewItem.Styles>
+                    <ui:NavigationViewItem.Icon>
+                        <ui:PathIcon Data="{StaticResource Arrow_Export_LTR_Regular}" />
+                    </ui:NavigationViewItem.Icon>
+                </ui:NavigationViewItem>
+            </ui:NavigationView.MenuItems>
+            <ui:NavigationView.SettingsItem>
+                <ui:NavigationViewItem Classes="SideNavigationViewItem" Content="{DynamicResource SettingsString}">
+                    <ui:NavigationViewItem.Styles>
+                        <Style Selector="uip|NavigationViewItemPresenter#NVIPresenter:selected">
+                            <Setter Property="Icon">
+                                <Template>
+                                    <ui:PathIcon Data="{StaticResource Settings_Filled}" />
+                                </Template>
+                            </Setter>
+                        </Style>
+                    </ui:NavigationViewItem.Styles>
+                    <ui:NavigationViewItem.Icon>
+                        <ui:PathIcon Data="{StaticResource Settings_Regular}" />
+                    </ui:NavigationViewItem.Icon>
+                </ui:NavigationViewItem>
+            </ui:NavigationView.SettingsItem>
+            
+            <ContentPresenter x:Name="NaviContent" />
+        </ui:NavigationView>
+    </Grid>
+
+</controls:FluentWindow>

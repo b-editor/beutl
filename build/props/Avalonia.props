@@ -1,0 +1,12 @@
+<Project>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="0.10.10" />
+    <PackageReference Include="Avalonia.Desktop" Version="0.10.10" />
+    <PackageReference Condition="'$(Configuration)' == 'Debug'" Include="Avalonia.Diagnostics" Version="0.10.10" />
+    <PackageReference Include="Avalonia.Xaml.Behaviors" Version="0.10.10.4" />
+    <PackageReference Include="Avalonia.Xaml.Interactivity" Version="0.10.10.4" />
+    <PackageReference Include="FluentAvaloniaUI" Version="1.1.6" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <Import Project="$(RootDirectory)\build\props\OpenCvSharp4.props" />
+  <Import Project="$(RootDirectory)\build\props\SkiaSharp.props" />
+  
+  <ItemGroup>
+    <ProjectReference Include="..\BEditorNext.Core\BEditorNext.Core.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,21 @@
+﻿<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:sty="using:FluentAvalonia.Styling"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <sty:FluentAvaloniaTheme RequestedTheme="Dark" DefaultToUserTheme="False" />
+
+    <Style Selector="Border.CardStyle">
+        <Setter Property="Background" Value="{DynamicResource CardBackgroundFillColorDefaultBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource CardStrokeColorDefaultBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="{DynamicResource ControlCornerRadius}" />
+    </Style>
+    
+    <StyleInclude Source="avares://BEditorNext.Controls/Styling/BaseResources.axaml" />
+    <StyleInclude Source="avares://BEditorNext.Controls/Styling/FluentIconsFilled.axaml" />
+    <StyleInclude Source="avares://BEditorNext.Controls/Styling/FluentIconsRegular.axaml" />
+    <StyleInclude Source="avares://BEditorNext.Controls/Styling/Window.axaml" />
+    <StyleInclude Source="avares://BEditorNext.Controls/Styling/NavigationView.axaml" />
+    <StyleInclude Source="avares://BEditorNext.Controls/Styling/DraggableTabItem.axaml" />
+    <StyleInclude Source="avares://BEditorNext.Controls/Styling/DraggableTabView.axaml" />
+</Styles>

@@ -1,0 +1,12 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="using:BEditorNext"
+             x:Class="BEditorNext.App">
+    <Application.Styles>
+        <FluentTheme Mode="Light" />
+
+        <StyleInclude Source="avares://BEditorNext.Controls/Styles.axaml" />
+        <StyleInclude Source="avares://BEditorNext.Language/Strings.axaml" />
+        <StyleInclude Source="avares://BEditorNext.Language.Japanese/Strings.axaml" />
+    </Application.Styles>
+</Application>

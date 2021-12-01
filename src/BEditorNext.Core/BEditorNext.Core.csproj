@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <RootNameSpace>BEditorNext</RootNameSpace>
+  </PropertyGroup>
+
+  <Import Project="$(RootDirectory)\build\props\Microsoft.Extensions.DependencyInjection.props" />
+
+  <ItemGroup>
+    <ProjectReference Include="..\BEditorNext.Utilities\BEditorNext.Utilities.csproj" />
+  </ItemGroup>
+
+</Project>

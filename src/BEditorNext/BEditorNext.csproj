@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+  </PropertyGroup>
+
+  <Import Project="$(RootDirectory)\build\props\Avalonia.props" />
+
+  <ItemGroup>
+    <AvaloniaResource Include="Assets\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="XamlNameReferenceGenerator" Version="1.3.4" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\BEditorNext.Controls\BEditorNext.Controls.csproj" />
+    <ProjectReference Include="..\BEditorNext.Language\BEditorNext.Language.csproj" />
+    <ProjectReference Include="..\BEditorNext.Language.Japanese\BEditorNext.Language.Japanese.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Models\" />
+    <Folder Include="Services\" />
+  </ItemGroup>
+
+</Project>

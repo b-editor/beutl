@@ -1,0 +1,15 @@
+﻿<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Styles.Resources>
+        <Color x:Key="BackgroundColor1">#FF2C2C2C</Color>
+        <Color x:Key="BackgroundColor2">#FF3B3B3B</Color>
+        <Color x:Key="BackgroundColor3">#FF282828</Color>
+        <Color x:Key="SeparatorColor">#FF343434</Color>
+        <SolidColorBrush x:Key="BackgroundBrush1" Color="{DynamicResource BackgroundColor1}"/>
+        <SolidColorBrush x:Key="BackgroundBrush2" Color="{DynamicResource BackgroundColor2}"/>
+        <SolidColorBrush x:Key="BackgroundBrush3" Color="{DynamicResource BackgroundColor3}"/>
+        <SolidColorBrush x:Key="SeparatorBrush" Color="{DynamicResource SeparatorColor}"/>
+    </Styles.Resources>
+
+</Styles>
