@@ -5,6 +5,7 @@
   </PropertyGroup>
 
   <Import Project="$(RootDirectory)\build\props\Avalonia.props" />
+  <Import Project="$(RootDirectory)\build\props\ReactiveProperty.props" />
 
   <ItemGroup>
     <AvaloniaResource Include="Assets\**" />
@@ -18,11 +19,11 @@
     <ProjectReference Include="..\BEditorNext.Controls\BEditorNext.Controls.csproj" />
     <ProjectReference Include="..\BEditorNext.Language\BEditorNext.Language.csproj" />
     <ProjectReference Include="..\BEditorNext.Language.Japanese\BEditorNext.Language.Japanese.csproj" />
+    <ProjectReference Include="..\BEditorNext.ProjectItems\BEditorNext.ProjectItems.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <Folder Include="Models\" />
-    <Folder Include="Services\" />
   </ItemGroup>
 
 </Project>

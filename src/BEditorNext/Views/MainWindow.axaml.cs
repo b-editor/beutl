@@ -1,9 +1,13 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
+
 using BEditorNext.Controls;
 using BEditorNext.Pages;
+using BEditorNext.Views.Dialogs;
+
 using FluentAvalonia.UI.Controls;
 
 namespace BEditorNext.Views
@@ -24,6 +28,12 @@ namespace BEditorNext.Views
 #if DEBUG
             this.AttachDevTools();
 #endif
+        }
+
+        private async void CreateNewClicked(object? sender, RoutedEventArgs e)
+        {
+            var dialog = new CreateNewProject();
+            await dialog.ShowAsync();
         }
 
         private void TitleBarArea_PointerPressed(object? sender, PointerPressedEventArgs e)

@@ -2,6 +2,8 @@
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <Styles.Resources>
+        <FontFamily x:Key="ContentControlThemeFontFamily">Segoe UI, Helvetica Neue, Ubuntu</FontFamily>
+
         <x:String x:Key="FileString">File</x:String>
         <x:String x:Key="CreateNewString">Create New</x:String>
         <x:String x:Key="OpenString">Open</x:String>
@@ -17,5 +19,15 @@
         <x:String x:Key="PropertiesString">Properties</x:String>
         <x:String x:Key="EasingString">Easing</x:String>
         <x:String x:Key="ObjectsString">Objects</x:String>
+        <x:String x:Key="CreateNewProjectString">Create a new project</x:String>
+        <x:String x:Key="SizeString">Size</x:String>
+        <x:String x:Key="FrameRateString">FrameRate</x:String>
+        <x:String x:Key="SampleRateString">SampleRate</x:String>
+        <x:String x:Key="NameString">Name</x:String>
+        <x:String x:Key="LocationString">Location</x:String>
+        <x:String x:Key="NextString">Next</x:String>
+        <x:String x:Key="BackString">Back</x:String>
+        <x:String x:Key="CannotSpecifyValueLessThanOrEqualToZeroString">Cannot specify a value less than or equal to 0.</x:String>
+        <x:String x:Key="ItAlreadyExistsString">It already exists.</x:String>
     </Styles.Resources>
 </Styles>

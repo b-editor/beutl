@@ -64,6 +64,13 @@ public class Project : Element, ITopLevel, IStorable
         MinimumAppVersion = MinimumAppVersionProperty.GetDefaultValue()!;
     }
 
+    public Project(int framerate, int samplerate)
+        : this()
+    {
+        FrameRate = framerate;
+        SampleRate = samplerate;
+    }
+
     public Scene? SelectedScene
     {
         get => _selectedScene;
