@@ -25,8 +25,16 @@
 
             <Menu Grid.Column="1">
                 <MenuItem Header="{DynamicResource FileString}">
-                    <MenuItem Header="{DynamicResource CreateNewString}" Click="CreateNewClicked" />
-                    <MenuItem Header="{DynamicResource OpenString}" />
+                    <MenuItem Header="{DynamicResource CreateNewString}" Click="CreateNewClicked">
+                        <MenuItem.Icon>
+                            <FluentIconRegular IconType="New" Classes="Small" />
+                        </MenuItem.Icon>
+                    </MenuItem>
+                    <MenuItem Header="{DynamicResource OpenString}">
+                        <MenuItem.Icon>
+                            <FluentIconRegular IconType="Open" Classes="Small" />
+                        </MenuItem.Icon>
+                    </MenuItem>
                     <MenuItem Header="{DynamicResource CloseString}" />
                 </MenuItem>
                 <MenuItem Header="{DynamicResource EditString}" />

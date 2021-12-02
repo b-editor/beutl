@@ -1,12 +1,11 @@
 using Avalonia.Controls;
 
-namespace BEditorNext.Views
+namespace BEditorNext.Views;
+
+public sealed partial class EditView : UserControl
 {
-    public partial class EditView : UserControl
+    public EditView()
     {
-        public EditView()
-        {
-            InitializeComponent();
-        }
+        InitializeComponent();
     }
 }

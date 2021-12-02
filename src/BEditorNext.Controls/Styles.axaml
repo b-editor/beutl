@@ -11,6 +11,12 @@
         <Setter Property="CornerRadius" Value="{DynamicResource ControlCornerRadius}" />
     </Style>
 
+    <Style Selector="PathIcon.Small">
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="Width" Value="14" />
+        <Setter Property="Height" Value="14" />
+    </Style>
+
     <StyleInclude Source="avares://BEditorNext.Controls/Styling/BaseResources.axaml" />
     <StyleInclude Source="avares://BEditorNext.Controls/Styling/FluentIconsFilled.axaml" />
     <StyleInclude Source="avares://BEditorNext.Controls/Styling/FluentIconsRegular.axaml" />

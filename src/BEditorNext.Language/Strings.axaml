@@ -20,6 +20,7 @@
         <x:String x:Key="EasingString">Easing</x:String>
         <x:String x:Key="ObjectsString">Objects</x:String>
         <x:String x:Key="CreateNewProjectString">Create a new project</x:String>
+        <x:String x:Key="CreateNewSceneString">Create a new scene</x:String>
         <x:String x:Key="SizeString">Size</x:String>
         <x:String x:Key="FrameRateString">FrameRate</x:String>
         <x:String x:Key="SampleRateString">SampleRate</x:String>
@@ -27,6 +28,7 @@
         <x:String x:Key="LocationString">Location</x:String>
         <x:String x:Key="NextString">Next</x:String>
         <x:String x:Key="BackString">Back</x:String>
+        <x:String x:Key="SceneFileString">Scene File</x:String>
         <x:String x:Key="CannotSpecifyValueLessThanOrEqualToZeroString">Cannot specify a value less than or equal to 0.</x:String>
         <x:String x:Key="ItAlreadyExistsString">It already exists.</x:String>
     </Styles.Resources>

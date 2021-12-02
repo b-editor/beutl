@@ -2,7 +2,9 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+
 using BEditorNext.Graphics;
+
 using Microsoft.Extensions.FileSystemGlobbing;
 using Microsoft.Extensions.FileSystemGlobbing.Abstractions;
 
@@ -95,7 +97,7 @@ public class Scene : Element, IStorable
         get => _currentFrame;
         set
         {
-            var old = _currentFrame;
+            int old = _currentFrame;
             if (SetAndRaise(CurrentFrameProperty, ref _currentFrame, value))
             {
                 EventManager.HandleEvent(this, new CurrentFrameChangedEventArgs(old, value), nameof(CurrentFrameChanged));
@@ -190,14 +192,14 @@ public class Scene : Element, IStorable
         {
             list.Clear();
             if (node is JsonValue jvalue &&
-                jvalue.TryGetValue<string>(out var pattern))
+                jvalue.TryGetValue(out string? pattern))
             {
                 list.Add(pattern);
                 add(pattern);
             }
             else if (node is JsonArray array)
             {
-                foreach (var item in array.OfType<JsonValue>())
+                foreach (JsonValue item in array.OfType<JsonValue>())
                 {
                     if (item.TryGetValue(out pattern))
                     {
@@ -212,33 +214,33 @@ public class Scene : Element, IStorable
 
         if (json is JsonObject jobject)
         {
-            if (jobject.TryGetPropertyValue("width", out var widthNode) &&
-                jobject.TryGetPropertyValue("height", out var heightNode) &&
-                widthNode!.AsValue().TryGetValue<int>(out var width) &&
-                heightNode!.AsValue().TryGetValue<int>(out var height))
+            if (jobject.TryGetPropertyValue("width", out JsonNode? widthNode) &&
+                jobject.TryGetPropertyValue("height", out JsonNode? heightNode) &&
+                widthNode!.AsValue().TryGetValue(out int width) &&
+                heightNode!.AsValue().TryGetValue(out int height))
             {
                 Initialize(width, height);
             }
 
-            if (jobject.TryGetPropertyValue("clips", out var clipsNode) &&
+            if (jobject.TryGetPropertyValue("clips", out JsonNode? clipsNode) &&
                 clipsNode is JsonObject clipsJson)
             {
                 var matcher = new Matcher();
                 var directory = new DirectoryInfoWrapper(new DirectoryInfo(Path.GetDirectoryName(FileName)!));
 
                 // 含めるクリップ
-                if (clipsJson.TryGetPropertyValue("include", out var includeNode))
+                if (clipsJson.TryGetPropertyValue("include", out JsonNode? includeNode))
                 {
                     Process(matcher.AddInclude, includeNode!, _includeClips);
                 }
 
                 // 除外するクリップ
-                if (clipsJson.TryGetPropertyValue("exclude", out var excludeNode))
+                if (clipsJson.TryGetPropertyValue("exclude", out JsonNode? excludeNode))
                 {
                     Process(matcher.AddExclude, excludeNode!, _excludeClips);
                 }
 
-                var result = matcher.Execute(directory);
+                PatternMatchingResult result = matcher.Execute(directory);
                 SyncronizeClips(result.Files.Select(x => x.Path));
             }
             else
@@ -259,7 +261,7 @@ public class Scene : Element, IStorable
             else if (list.Count >= 2)
             {
                 var jarray = new JsonArray();
-                foreach (var item in list)
+                foreach (string item in list)
                 {
                     jarray.Add(JsonValue.Create(item));
                 }
@@ -272,7 +274,7 @@ public class Scene : Element, IStorable
             }
         }
 
-        var node = base.ToJson();
+        JsonNode node = base.ToJson();
 
         if (node is JsonObject jobject)
         {
@@ -293,6 +295,12 @@ public class Scene : Element, IStorable
     {
         _fileName = filename;
         LastSavedTime = DateTime.Now;
+        string? directory = Path.GetDirectoryName(_fileName);
+
+        if (directory != null && !Directory.Exists(directory))
+        {
+            Directory.CreateDirectory(directory);
+        }
 
         using var stream = new FileStream(filename, FileMode.Create, FileAccess.Write, FileShare.Write);
         using var writer = new Utf8JsonWriter(stream, JsonHelper.WriterOptions);
@@ -316,20 +324,20 @@ public class Scene : Element, IStorable
 
     private void SyncronizeClips(IEnumerable<string> pathToClip)
     {
-        var baseDir = Path.GetDirectoryName(FileName)!;
+        string baseDir = Path.GetDirectoryName(FileName)!;
         pathToClip = pathToClip.Select(x => Path.GetFullPath(x, baseDir)).ToArray();
 
         // 削除するClips
-        var toRemoveClips = Clips.ExceptBy(pathToClip, x => x.FileName);
+        IEnumerable<Clip> toRemoveClips = Clips.ExceptBy(pathToClip, x => x.FileName);
         // 追加するClips
-        var toAddClips = pathToClip.Except(Clips.Select(x => x.FileName));
+        IEnumerable<string> toAddClips = pathToClip.Except(Clips.Select(x => x.FileName));
 
-        foreach (var item in toRemoveClips)
+        foreach (Clip item in toRemoveClips)
         {
             Children.Remove(item);
         }
 
-        foreach (var item in toAddClips)
+        foreach (string item in toAddClips)
         {
             var clip = new Clip();
             clip.Restore(item);
@@ -340,17 +348,17 @@ public class Scene : Element, IStorable
 
     private void UpdateInclude()
     {
-        var dirPath = Path.GetDirectoryName(FileName)!;
+        string dirPath = Path.GetDirectoryName(FileName)!;
         var directory = new DirectoryInfoWrapper(new DirectoryInfo(dirPath));
 
         var matcher = new Matcher();
         matcher.AddIncludePatterns(_includeClips);
         matcher.AddExcludePatterns(_excludeClips);
 
-        var files = matcher.Execute(directory).Files.Select(x => x.Path).ToArray();
-        foreach (var item in Clips)
+        string[] files = matcher.Execute(directory).Files.Select(x => x.Path).ToArray();
+        foreach (Clip item in Clips)
         {
-            var rel = Path.GetRelativePath(dirPath, item.FileName).Replace('\\', '/');
+            string rel = Path.GetRelativePath(dirPath, item.FileName).Replace('\\', '/');
 
             // 含まれていない場合追加
             if (!files.Contains(rel))
@@ -365,7 +373,7 @@ public class Scene : Element, IStorable
         if (e.Action == NotifyCollectionChangedAction.Remove &&
             e.OldItems != null)
         {
-            foreach (var item in e.OldItems.OfType<Clip>())
+            foreach (Clip item in e.OldItems.OfType<Clip>())
             {
                 _excludeClips.Add(item.FileName);
             }
@@ -374,16 +382,16 @@ public class Scene : Element, IStorable
 
     private void InsertChild(Clip clip)
     {
-        var array = Children.OfType<Clip>().ToArray();
+        Clip[] array = Children.OfType<Clip>().ToArray();
 
         for (int i = 0; i < array.Length - 1; i++)
         {
-            var current = array[i];
-            var nextIdx = i + 1;
-            var next = array[nextIdx];
+            Clip current = array[i];
+            int nextIdx = i + 1;
+            Clip next = array[nextIdx];
 
-            var curLayer = current.Layer;
-            var nextLayer = next.Layer;
+            int curLayer = current.Layer;
+            int nextLayer = next.Layer;
 
             if (curLayer <= clip.Layer && clip.Layer <= nextLayer)
             {
@@ -412,7 +420,7 @@ public class Scene : Element, IStorable
         {
             _scene = scene;
             _clip = clip;
-            _layer = clip.Layer;
+            _layer = layer;
         }
 
         public void Do()

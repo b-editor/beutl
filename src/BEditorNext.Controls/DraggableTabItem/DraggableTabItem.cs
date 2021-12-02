@@ -1,9 +1,9 @@
-﻿using System;
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Metadata;
 using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
+
 using BEditorNext.Controls.Extensions;
 
 namespace BEditorNext.Controls;
@@ -11,7 +11,7 @@ namespace BEditorNext.Controls;
 [PseudoClasses(":dragging", ":lockdrag")]
 public partial class DraggableTabItem : TabItem
 {
-    private Button CloseButton;
+    private Button _closeButton;
 
     public DraggableTabItem()
     {
@@ -21,17 +21,17 @@ public partial class DraggableTabItem : TabItem
     static DraggableTabItem()
     {
         CanBeDraggedProperty.Changed.AddClassHandler<DraggableTabItem>((x, e) => x.OnCanDraggablePropertyChanged(x, e));
-        IsSelectedProperty.Changed.AddClassHandler<DraggableTabItem>((x, e) => UpdatePseudoClass(x, e));
+        IsSelectedProperty.Changed.AddClassHandler<DraggableTabItem>((x, _) => UpdatePseudoClass(x));
         IsClosableProperty.Changed.Subscribe(e =>
         {
-            if (e.Sender is DraggableTabItem a && a.CloseButton != null)
+            if (e.Sender is DraggableTabItem a && a._closeButton != null)
             {
-                a.CloseButton.IsVisible = a.IsClosable;
+                a._closeButton.IsVisible = a.IsClosable;
             }
         });
     }
 
-    private static void UpdatePseudoClass(DraggableTabItem item, AvaloniaPropertyChangedEventArgs e)
+    private static void UpdatePseudoClass(DraggableTabItem item)
     {
         if (!item.IsSelected)
         {
@@ -78,14 +78,14 @@ public partial class DraggableTabItem : TabItem
     {
         base.OnApplyTemplate(e);
 
-        CloseButton = e.NameScope.Find<Button>("PART_CloseButton");
+        _closeButton = e.NameScope.Find<Button>("PART_CloseButton");
         if (IsClosable != false)
         {
-            CloseButton.Click += CloseButton_Click;
+            _closeButton.Click += CloseButton_Click;
         }
         else
         {
-            CloseButton.IsVisible = false;
+            _closeButton.IsVisible = false;
         }
     }
 

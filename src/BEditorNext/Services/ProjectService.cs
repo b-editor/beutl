@@ -1,4 +1,5 @@
 ﻿using System.Reactive.Linq;
+using System.Xml.Linq;
 
 using BEditorNext.ProjectItems;
 
@@ -32,18 +33,22 @@ public class ProjectService
         }
     }
 
-    public Project? CreateProject(int width, int height, int framerate, int samplerate, string name, string file)
+    public Project? CreateProject(int width, int height, int framerate, int samplerate, string name, string location)
     {
         try
         {
+            location = Path.Combine(location, name);
+            var scene = new Scene(width, height, name);
             var project = new Project(framerate, samplerate)
             {
                 Children =
                 {
-                    new Scene(width, height, name)
+                    scene
                 }
             };
-            project.Save(file);
+
+            scene.Save(Path.Combine(location, name, $"{name}.scene"));
+            project.Save(Path.Combine(location, $"{name}.bep"));
             CurrentProject.Value = project;
             return project;
         }

@@ -27,7 +27,7 @@
 
                 <TextBlock Text="{DynamicResource LocationString}" />
                 <Panel>
-                    <TextBox FontFamily="Yu Gothic UI" Text="{CompiledBinding Location.Value, Mode=TwoWay}" />
+                    <TextBox Text="{CompiledBinding Location.Value, Mode=TwoWay}" />
 
                     <Button
                         Click="PickLocation"

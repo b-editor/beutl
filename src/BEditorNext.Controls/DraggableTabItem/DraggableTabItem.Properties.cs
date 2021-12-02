@@ -1,6 +1,5 @@
 ﻿using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Media;
 
 namespace BEditorNext.Controls;
 
@@ -12,7 +11,7 @@ public partial class DraggableTabItem
     public static readonly StyledProperty<bool> IsClosableProperty =
         AvaloniaProperty.Register<DraggableTabItem, bool>(nameof(IsClosable), true);
 
-    public readonly static DirectProperty<DraggableTabItem, bool> IsClosingProperty =
+    public static readonly DirectProperty<DraggableTabItem, bool> IsClosingProperty =
         AvaloniaProperty.RegisterDirect<DraggableTabItem, bool>(nameof(IsClosing), o => o.IsClosing);
 
     public static readonly StyledProperty<bool> CanBeDraggedProperty =

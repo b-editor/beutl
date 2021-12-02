@@ -9,7 +9,7 @@ using FluentAvalonia.UI.Controls;
 
 namespace BEditorNext.Views.Dialogs;
 
-public partial class CreateNewProject : ContentDialog, IStyleable
+public sealed partial class CreateNewProject : ContentDialog, IStyleable
 {
     private IDisposable? _sBtnBinding;
 

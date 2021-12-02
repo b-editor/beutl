@@ -122,6 +122,11 @@ public class Project : Element, ITopLevel, IStorable
         _rootDirectory = Path.GetDirectoryName(filename);
         LastSavedTime = DateTime.Now;
 
+        if (_rootDirectory != null && !Directory.Exists(_rootDirectory))
+        {
+            Directory.CreateDirectory(_rootDirectory);
+        }
+
         using var stream = new FileStream(filename, FileMode.Create);
         using var writer = new Utf8JsonWriter(stream, JsonHelper.WriterOptions);
 
@@ -134,33 +139,33 @@ public class Project : Element, ITopLevel, IStorable
 
         if (json is JsonObject jobject)
         {
-            if (jobject.TryGetPropertyValue("appVersion", out var versionNode) &&
-                versionNode!.AsValue().TryGetValue<Version>(out var version))
+            if (jobject.TryGetPropertyValue("appVersion", out JsonNode? versionNode) &&
+                versionNode!.AsValue().TryGetValue(out Version? version))
             {
                 AppVersion = version;
             }
 
-            if (jobject.TryGetPropertyValue("minAppVersion", out var minVersionNode) &&
-                minVersionNode!.AsValue().TryGetValue<Version>(out var minVersion))
+            if (jobject.TryGetPropertyValue("minAppVersion", out JsonNode? minVersionNode) &&
+                minVersionNode!.AsValue().TryGetValue(out Version? minVersion))
             {
                 MinimumAppVersion = minVersion;
             }
 
-            if (jobject.TryGetPropertyValue("scenes", out var scenesNode))
+            if (jobject.TryGetPropertyValue("scenes", out JsonNode? scenesNode))
             {
                 SyncronizeScenes(scenesNode!.AsArray()
                     .Select(i => (string)i!));
             }
 
             //選択されているシーン
-            if (jobject.TryGetPropertyValue("selectedScene", out var selectedSceneNode))
+            if (jobject.TryGetPropertyValue("selectedScene", out JsonNode? selectedSceneNode))
             {
-                var selectedScene = (string?)selectedSceneNode;
+                string? selectedScene = (string?)selectedSceneNode;
 
                 if (selectedScene != null)
                 {
                     selectedScene = Path.GetFullPath(selectedScene, RootDirectory);
-                    foreach (var item in Scenes)
+                    foreach (Scene item in Scenes)
                     {
                         if (item.FileName == selectedScene)
                         {
@@ -174,7 +179,7 @@ public class Project : Element, ITopLevel, IStorable
 
     public override JsonNode ToJson()
     {
-        var node = base.ToJson();
+        JsonNode node = base.ToJson();
 
         if (node is JsonObject jobject)
         {
@@ -184,9 +189,9 @@ public class Project : Element, ITopLevel, IStorable
             jobject["minAppVersion"] = JsonValue.Create(MinimumAppVersion);
 
             var scenes = new JsonArray();
-            foreach (var item in Scenes)
+            foreach (Scene item in Scenes)
             {
-                var path = Path.GetRelativePath(item.FileName, RootDirectory).Replace('\\', '/');
+                string path = Path.GetRelativePath(item.FileName, RootDirectory).Replace('\\', '/');
                 var value = JsonValue.Create(path);
                 scenes.Add(value);
 
@@ -207,16 +212,16 @@ public class Project : Element, ITopLevel, IStorable
         pathToScene = pathToScene.Select(x => Path.GetFullPath(x, RootDirectory)).ToArray();
 
         // 削除するシーン
-        var toRemoveScenes = Scenes.ExceptBy(pathToScene, x => x.FileName);
+        IEnumerable<Scene> toRemoveScenes = Scenes.ExceptBy(pathToScene, x => x.FileName);
         // 追加するシーン
-        var toAddScenes = pathToScene.Except(Scenes.Select(x => x.FileName));
+        IEnumerable<string> toAddScenes = pathToScene.Except(Scenes.Select(x => x.FileName));
 
-        foreach (var item in toRemoveScenes)
+        foreach (Scene item in toRemoveScenes)
         {
             Children.Remove(item);
         }
 
-        foreach (var item in toAddScenes)
+        foreach (string item in toAddScenes)
         {
             var scn = new Scene();
             scn.Restore(item);

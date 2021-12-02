@@ -1,5 +1,7 @@
-﻿using System.Text.Json;
+﻿using System.IO;
+using System.Text.Json;
 using System.Text.Json.Nodes;
+
 using BEditorNext.Language;
 
 namespace BEditorNext.ProjectItems;
@@ -133,6 +135,11 @@ public class Clip : Element, IStorable
     {
         _fileName = filename;
         LastSavedTime = DateTime.Now;
+        string? directory = Path.GetDirectoryName(_fileName);
+        if (directory != null && !Directory.Exists(directory))
+        {
+            Directory.CreateDirectory(directory);
+        }
 
         using var stream = new FileStream(filename, FileMode.Create, FileAccess.Write, FileShare.Write);
         using var writer = new Utf8JsonWriter(stream, JsonHelper.WriterOptions);
@@ -160,14 +167,14 @@ public class Clip : Element, IStorable
 
         if (json is JsonObject jobject)
         {
-            if (jobject.TryGetPropertyValue("tasks", out var tasksNode) &&
+            if (jobject.TryGetPropertyValue("tasks", out JsonNode? tasksNode) &&
                 tasksNode is JsonArray tasksArray)
             {
-                foreach (var task in tasksArray.OfType<JsonObject>())
+                foreach (JsonObject task in tasksArray.OfType<JsonObject>())
                 {
-                    if (task.TryGetPropertyValue("@type", out var atTypeNode) &&
+                    if (task.TryGetPropertyValue("@type", out JsonNode? atTypeNode) &&
                         atTypeNode is JsonValue atTypeValue &&
-                        atTypeValue.TryGetValue<string>(out var atType))
+                        atTypeValue.TryGetValue(out string? atType))
                     {
                         var type = TypeResolver.ToType(atType);
                         RenderTask? renderTask = null;
@@ -188,15 +195,15 @@ public class Clip : Element, IStorable
 
     public override JsonNode ToJson()
     {
-        var node = base.ToJson();
+        JsonNode node = base.ToJson();
 
         if (node is JsonObject jobject)
         {
             var array = new JsonArray();
 
-            foreach (var item in Tasks)
+            foreach (RenderTask item in Tasks)
             {
-                var json = item.ToJson();
+                JsonNode json = item.ToJson();
                 if (item is not EmptyTask)
                 {
                     json["@type"] = TypeResolver.ToString(item.GetType());
@@ -277,7 +284,7 @@ public class Clip : Element, IStorable
     {
         public static Type? ToType(string fullName)
         {
-            var arr = fullName.Split(':');
+            string[] arr = fullName.Split(':');
 
             if (arr.Length == 1)
             {
@@ -295,8 +302,8 @@ public class Clip : Element, IStorable
 
         public static string ToString(Type type)
         {
-            var asm = type.Assembly.GetName().Name;
-            var tname = type.FullName!;
+            string? asm = type.Assembly.GetName().Name;
+            string tname = type.FullName!;
 
             if (asm == null)
             {

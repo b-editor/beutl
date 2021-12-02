@@ -10,44 +10,43 @@ using BEditorNext.Views.Dialogs;
 
 using FluentAvalonia.UI.Controls;
 
-namespace BEditorNext.Views
+namespace BEditorNext.Views;
+
+public sealed partial class MainWindow : FluentWindow
 {
-    public sealed partial class MainWindow : FluentWindow
+    public MainWindow()
     {
-        public MainWindow()
-        {
-            InitializeComponent();
-            TitleBarArea.PointerPressed += TitleBarArea_PointerPressed;
+        InitializeComponent();
+        TitleBarArea.PointerPressed += TitleBarArea_PointerPressed;
 
-            EditPageItem.Tag = new EditPage();
+        EditPageItem.Tag = new EditPage();
 
-            Navi.SelectedItem = EditPageItem;
-            Navi.ItemInvoked += NavigationView_ItemInvoked;
+        Navi.SelectedItem = EditPageItem;
+        Navi.ItemInvoked += NavigationView_ItemInvoked;
 
-            NaviContent.Content = EditPageItem.Tag;
+        NaviContent.Content = EditPageItem.Tag;
 #if DEBUG
-            this.AttachDevTools();
+        this.AttachDevTools();
 #endif
-        }
+    }
 
-        private async void CreateNewClicked(object? sender, RoutedEventArgs e)
-        {
-            var dialog = new CreateNewProject();
-            await dialog.ShowAsync();
-        }
+    private async void CreateNewClicked(object? sender, RoutedEventArgs e)
+    {
+        var dialog = new CreateNewProject();
+        await dialog.ShowAsync();
+    }
 
-        private void TitleBarArea_PointerPressed(object? sender, PointerPressedEventArgs e)
-        {
-            BeginMoveDrag(e);
-        }
+    private void TitleBarArea_PointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        BeginMoveDrag(e);
+    }
 
-        private void NavigationView_ItemInvoked(object? sender, NavigationViewItemInvokedEventArgs e)
+    private void NavigationView_ItemInvoked(object? sender, NavigationViewItemInvokedEventArgs e)
+    {
+        if (e.InvokedItemContainer is NavigationViewItem item)
         {
-            if (e.InvokedItemContainer is NavigationViewItem item)
-            {
-                NaviContent.Content = item.Tag;
-                e.RecommendedNavigationTransitionInfo.RunAnimation(NaviContent);
-            }
+            NaviContent.Content = item.Tag;
+            e.RecommendedNavigationTransitionInfo.RunAnimation(NaviContent);
         }
     }
 }

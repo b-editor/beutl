@@ -15,8 +15,8 @@ namespace BEditorNext.Controls;
 
 public partial class DraggableTabView : TabControl
 {
-    private Button AdderButton;
-    internal double lastselectindex = 0;
+    internal double _lastselectindex = 0;
+    private Button _adderButton;
     private readonly Animation _animation = new()
     {
         Easing = new SplineEasing(0.1, 0.9, 0.2, 1.0),
@@ -44,8 +44,7 @@ public partial class DraggableTabView : TabControl
         Duration = TimeSpan.FromSeconds(0.67),
         FillMode = FillMode.Forward
     };
-    private Border b_;
-    private Grid g_;
+    private Grid _g;
     private Grid _gridHost;
 
     static DraggableTabView()
@@ -78,11 +77,11 @@ public partial class DraggableTabView : TabControl
         if (SelectedItem == null)
         {
             double d = ((double)ItemCount / 2);
-            if (lastselectindex < d & ItemCount != 0)
+            if (_lastselectindex < d & ItemCount != 0)
             {
                 SelectedItem = (Items as IList).OfType<object>().FirstOrDefault();
             }
-            else if (lastselectindex >= d & ItemCount != 0)
+            else if (_lastselectindex >= d & ItemCount != 0)
             {
                 SelectedItem = (Items as IList).OfType<object>().LastOrDefault();
             }
@@ -93,12 +92,12 @@ public partial class DraggableTabView : TabControl
     {
         base.OnApplyTemplate(e);
 
-        AdderButton = e.NameScope.Find<Button>("PART_AdderButton");
+        _adderButton = e.NameScope.Find<Button>("PART_AdderButton");
 
-        AdderButton.Click += AdderButtonClicked;
+        _adderButton.Click += AdderButtonClicked;
 
-        b_ = e.NameScope.Find<Border>("PART_InternalBorder");
-        g_ = e.NameScope.Find<Grid>("PART_InternalGrid");
+        //_b = e.NameScope.Find<Border>("PART_InternalBorder");
+        _g = e.NameScope.Find<Grid>("PART_InternalGrid");
         _gridHost = e.NameScope.Find<Grid>("PART_GridHost");
 
         PropertyChanged += AuraTabView_PropertyChanged;
@@ -106,8 +105,8 @@ public partial class DraggableTabView : TabControl
 
     private void AuraTabView_PropertyChanged(object sender, AvaloniaPropertyChangedEventArgs e)
     {
-        WidthRemainingSpace = g_.Bounds.Width;
-        HeightRemainingSpace = g_.Bounds.Height;
+        WidthRemainingSpace = _g.Bounds.Width;
+        HeightRemainingSpace = _g.Bounds.Height;
     }
 
     public void AddTab(DraggableTabItem ItemToAdd, bool isSelected = true)
