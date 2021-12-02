@@ -10,7 +10,7 @@
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="CornerRadius" Value="{DynamicResource ControlCornerRadius}" />
     </Style>
-    
+
     <StyleInclude Source="avares://BEditorNext.Controls/Styling/BaseResources.axaml" />
     <StyleInclude Source="avares://BEditorNext.Controls/Styling/FluentIconsFilled.axaml" />
     <StyleInclude Source="avares://BEditorNext.Controls/Styling/FluentIconsRegular.axaml" />

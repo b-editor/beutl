@@ -1,10 +1,9 @@
-<controls:FluentWindow
+<FluentWindow
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:local="using:BEditorNext.Views"
     xmlns:vm="using:BEditorNext.ViewModels"
     xmlns:pages="using:BEditorNext.Pages"
-    xmlns:controls="using:BEditorNext.Controls"
     xmlns:ui="using:FluentAvalonia.UI.Controls"
     xmlns:uip="using:FluentAvalonia.UI.Controls.Primitives"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -26,7 +25,7 @@
 
             <Menu Grid.Column="1">
                 <MenuItem Header="{DynamicResource FileString}">
-                    <MenuItem Header="{DynamicResource CreateNewString}" />
+                    <MenuItem Header="{DynamicResource CreateNewString}" Click="CreateNewClicked" />
                     <MenuItem Header="{DynamicResource OpenString}" />
                     <MenuItem Header="{DynamicResource CloseString}" />
                 </MenuItem>
@@ -115,6 +114,7 @@
             
             <ContentPresenter x:Name="NaviContent" />
         </ui:NavigationView>
+
     </Grid>
 
-</controls:FluentWindow>
+</FluentWindow>
