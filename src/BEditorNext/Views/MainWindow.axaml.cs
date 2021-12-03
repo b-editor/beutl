@@ -23,6 +23,7 @@ public sealed partial class MainWindow : FluentWindow
         TitleBarArea.PointerPressed += TitleBarArea_PointerPressed;
 
         EditPageItem.Tag = new EditPage();
+        SettingsPageItem.Tag = new SettingsPage();
 
         Navi.SelectedItem = EditPageItem;
         Navi.ItemInvoked += NavigationView_ItemInvoked;
@@ -33,6 +34,11 @@ public sealed partial class MainWindow : FluentWindow
 #endif
     }
 
+    //private void MenuItem_Clicked(object? sender, RoutedEventArgs e)
+    //{
+    //    Application.Current.Styles.RemoveAt(3);
+    //}
+
     private async void CreateNewClicked(object? sender, RoutedEventArgs e)
     {
         var dialog = new CreateNewProject();
@@ -42,6 +48,8 @@ public sealed partial class MainWindow : FluentWindow
     private async void OpenClicked(object? sender, RoutedEventArgs e)
     {
         ProjectService service = ServiceLocator.Current.GetRequiredService<ProjectService>();
+
+        // Todo: å„Ç≈ägí£éqÇïœçX
         var dialog = new OpenFileDialog
         {
             Filters =

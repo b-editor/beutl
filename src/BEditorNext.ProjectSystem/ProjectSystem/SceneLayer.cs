@@ -231,7 +231,7 @@ public class SceneLayer : Element, IStorable
             _index = index;
         }
 
-        public string Name => CommandNameProvider.Instance.AddRenderTask;
+        public ResourceReference<string> Name => "AddRenderOperationString";
 
         public void Do()
         {
@@ -261,7 +261,7 @@ public class SceneLayer : Element, IStorable
             _operation = operation;
         }
 
-        public string Name => CommandNameProvider.Instance.RemoveRenderTask;
+        public ResourceReference<string> Name => "ResourceRenderOperationString";
 
         public void Do()
         {

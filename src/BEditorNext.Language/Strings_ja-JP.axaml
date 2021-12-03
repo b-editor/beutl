@@ -32,9 +32,18 @@
         <x:String x:Key="SceneFileString">シーンファイル</x:String>
         <x:String x:Key="CannotSpecifyValueLessThanOrEqualToZeroString">0以下の値は指定できません。</x:String>
         <x:String x:Key="ItAlreadyExistsString">既に存在しています</x:String>
+        <x:String x:Key="SearchString">検索</x:String>
 
         <!--CommandName-->
         <x:String x:Key="AddRenderOperationString">Render operationを追加</x:String>
         <x:String x:Key="RemoveRenderOperationString">Render operationを削除</x:String>
+
+        <!--RenderOperationName-->
+        <x:String x:Key="EllipseString">楕円</x:String>
+        <x:String x:Key="RotateString">回転</x:String>
+        <x:String x:Key="ScaleString">スケール</x:String>
+        <x:String x:Key="SkewString">歪み</x:String>
+        <x:String x:Key="TranslateString">移動</x:String>
+        <x:String x:Key="TransformString">トランスフォーム</x:String>
     </Styles.Resources>
 </Styles>

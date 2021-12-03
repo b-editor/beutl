@@ -2,7 +2,7 @@
 
 public interface IRecordableCommand
 {
-    string Name => "Unknown command.";
+    ResourceReference<string> Name => "UnknownString";
 
     void Do();
 

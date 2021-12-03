@@ -251,12 +251,12 @@ public class Graphics : IGraphics
         _canvas.Translate(vector.X, vector.Y);
     }
 
-    public void SaveMatrix()
+    public void PushMatrix()
     {
         _canvas.Save();
     }
 
-    public void RestoreMatrix()
+    public void PopMatrix()
     {
         _canvas.Restore();
     }

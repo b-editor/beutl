@@ -6,6 +6,7 @@ using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Styling;
 using Avalonia.Threading;
 
+using BEditorNext.Operations;
 using BEditorNext.Services;
 using BEditorNext.ViewModels;
 using BEditorNext.Views;
@@ -23,6 +24,7 @@ namespace BEditorNext
         {
             base.RegisterServices();
             ServiceLocator.Current.BindToSelfSingleton<ProjectService>();
+            RenderOperations.RegisterAll();
         }
 
         public override void OnFrameworkInitializationCompleted()

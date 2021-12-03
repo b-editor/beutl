@@ -38,7 +38,9 @@
                     <MenuItem Header="{DynamicResource CloseString}" />
                 </MenuItem>
                 <MenuItem Header="{DynamicResource EditString}" />
-                <MenuItem Header="{DynamicResource ViewString}" />
+                <MenuItem Header="{DynamicResource ViewString}">
+                    <!--<MenuItem Header="Language" Click="MenuItem_Clicked" />-->
+                </MenuItem>
                 <MenuItem Header="{DynamicResource ObjectString}" />
                 <MenuItem Header="{DynamicResource HelpString}" />
             </Menu>
@@ -104,7 +106,10 @@
                 </ui:NavigationViewItem>
             </ui:NavigationView.MenuItems>
             <ui:NavigationView.SettingsItem>
-                <ui:NavigationViewItem Classes="SideNavigationViewItem" Content="{DynamicResource SettingsString}">
+                <ui:NavigationViewItem
+                    x:Name="SettingsPageItem"
+                    Classes="SideNavigationViewItem"
+                    Content="{DynamicResource SettingsString}">
                     <ui:NavigationViewItem.Styles>
                         <Style Selector="uip|NavigationViewItemPresenter#NVIPresenter:selected">
                             <Setter Property="Icon">

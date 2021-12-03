@@ -1,0 +1,57 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:vm="using:BEditorNext.ViewModels"
+    mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+    x:DataType="vm:TimelineViewModel"
+    x:Class="BEditorNext.Views.Timeline">
+    <Grid ColumnDefinitions="200,Auto,*" RowDefinitions="Auto,*">
+        <GridSplitter Grid.Column="1" Grid.Row="2" />
+
+        <ScrollViewer
+            x:Name="PaneScroll"
+            Grid.Row="1"
+            Width="200"
+            VerticalScrollBarVisibility="Hidden">
+            <StackPanel
+                x:Name="LeftPanel"
+                HorizontalAlignment="Stretch"
+                VerticalAlignment="Stretch" />
+        </ScrollViewer>
+
+
+        <ScrollViewer
+            x:Name="ContentScroll"
+            Grid.Column="2"
+            Grid.Row="1"
+            HorizontalScrollBarVisibility="Visible">
+
+            <!--<Panel
+                Background="Transparent"
+                x:Name="TimelinePanel"
+                VerticalAlignment="Top"
+                HorizontalAlignment="Left">
+                <Border
+                    ZIndex="2"
+                    Width="1.25"
+                    HorizontalAlignment="Left"
+                    Background="Red" />
+
+                <Border
+                    ZIndex="2"
+                    Width="1.25"
+                    HorizontalAlignment="Right"
+                    Background="Blue" />
+            </Panel>-->
+            <!--<ItemsControl Items="{CompiledBinding Scene.Children}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>-->
+        </ScrollViewer>
+    </Grid>
+</UserControl>

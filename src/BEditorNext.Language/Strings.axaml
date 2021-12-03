@@ -32,9 +32,18 @@
         <x:String x:Key="SceneFileString">Scene File</x:String>
         <x:String x:Key="CannotSpecifyValueLessThanOrEqualToZeroString">Cannot specify a value less than or equal to 0.</x:String>
         <x:String x:Key="ItAlreadyExistsString">It already exists.</x:String>
+        <x:String x:Key="SearchString">Search</x:String>
 
         <!--CommandName-->
         <x:String x:Key="AddRenderOperationString">Add a render operation.</x:String>
         <x:String x:Key="RemoveRenderOperationString">Remove a render operation.</x:String>
+
+        <!--RenderOperationName-->
+        <x:String x:Key="EllipseString">Ellipse</x:String>
+        <x:String x:Key="RotateString">Rotate</x:String>
+        <x:String x:Key="ScaleString">Scale</x:String>
+        <x:String x:Key="SkewString">Skew</x:String>
+        <x:String x:Key="TranslateString">Translate</x:String>
+        <x:String x:Key="TransformString">Transform</x:String>
     </Styles.Resources>
 </Styles>

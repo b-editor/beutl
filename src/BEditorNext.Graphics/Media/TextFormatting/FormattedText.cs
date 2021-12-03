@@ -72,7 +72,7 @@ public class FormattedText : IRenderable
 
     public void Render(IGraphics graphics)
     {
-        graphics.SaveMatrix();
+        graphics.PushMatrix();
 
         float prevBottom = 0;
         for (int i = 0; i < Lines.Count; i++)
@@ -81,7 +81,7 @@ public class FormattedText : IRenderable
             Size lineBounds = line.Measure();
             float ascent = line.MinAscent();
 
-            graphics.SaveMatrix();
+            graphics.PushMatrix();
             graphics.Translate(new(0, prevBottom - ascent));
 
             float prevRight = 0;
@@ -96,9 +96,9 @@ public class FormattedText : IRenderable
             }
 
             prevBottom += lineBounds.Height;
-            graphics.RestoreMatrix();
+            graphics.PopMatrix();
         }
 
-        graphics.RestoreMatrix();
+        graphics.PopMatrix();
     }
 }

@@ -58,6 +58,7 @@ internal class SceneRenderer : IRenderer
     {
         _renderables.Clear();
         IElementList list = layer.Children;
+        Graphics.PushMatrix();
 
         for (int i = 0; i < list.Count; i++)
         {
@@ -80,6 +81,7 @@ internal class SceneRenderer : IRenderer
         }
 
         _renderables.Clear();
+        Graphics.PopMatrix();
     }
 
     private static void UpdateProperty(RenderOperation op, TimeSpan timeSpan)

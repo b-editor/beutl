@@ -42,9 +42,9 @@ public interface IGraphics : IDisposable
 
     public Bitmap<Bgra8888> GetBitmap();
 
-    public void SaveMatrix();
+    public void PushMatrix();
 
-    public void RestoreMatrix();
+    public void PopMatrix();
 
     public void ResetMatrix();
 
