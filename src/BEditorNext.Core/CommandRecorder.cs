@@ -15,9 +15,9 @@ public enum CommandType
 public class CommandRecorder : INotifyPropertyChanged
 {
     public static readonly CommandRecorder Default = new();
-    private static readonly PropertyChangedEventArgs _canUndoArgs = new(nameof(CanUndo));
-    private static readonly PropertyChangedEventArgs _canRedoArgs = new(nameof(CanRedo));
-    private static readonly PropertyChangedEventArgs _lastExecutedTimeArgs = new(nameof(LastExecutedTime));
+    private static readonly PropertyChangedEventArgs s_canUndoArgs = new(nameof(CanUndo));
+    private static readonly PropertyChangedEventArgs s_canRedoArgs = new(nameof(CanRedo));
+    private static readonly PropertyChangedEventArgs s_lastExecutedTimeArgs = new(nameof(LastExecutedTime));
     private readonly Stack<IRecordableCommand> _undoStack = new();
     private readonly Stack<IRecordableCommand> _redoStack = new();
     private bool _isExecuting;
@@ -33,7 +33,7 @@ public class CommandRecorder : INotifyPropertyChanged
             if (_lastExecutedTime != value)
             {
                 _lastExecutedTime = value;
-                PropertyChanged?.Invoke(this, _lastExecutedTimeArgs);
+                PropertyChanged?.Invoke(this, s_lastExecutedTimeArgs);
             }
         }
     }
@@ -46,7 +46,7 @@ public class CommandRecorder : INotifyPropertyChanged
             if (_canUndo != value)
             {
                 _canUndo = value;
-                PropertyChanged?.Invoke(this, _canUndoArgs);
+                PropertyChanged?.Invoke(this, s_canUndoArgs);
             }
         }
     }
@@ -59,7 +59,7 @@ public class CommandRecorder : INotifyPropertyChanged
             if (_canRedo != value)
             {
                 _canRedo = value;
-                PropertyChanged?.Invoke(this, _canRedoArgs);
+                PropertyChanged?.Invoke(this, s_canRedoArgs);
             }
         }
     }
@@ -108,7 +108,7 @@ public class CommandRecorder : INotifyPropertyChanged
 
         if (_undoStack.Count >= 1)
         {
-            var command = _undoStack.Pop();
+            IRecordableCommand command = _undoStack.Pop();
             CanUndo = _undoStack.Count > 0;
 
             try
@@ -135,7 +135,7 @@ public class CommandRecorder : INotifyPropertyChanged
 
         if (_redoStack.Count >= 1)
         {
-            var command = _redoStack.Pop();
+            IRecordableCommand command = _redoStack.Pop();
             CanRedo = _redoStack.Count > 0;
 
             try

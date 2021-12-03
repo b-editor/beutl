@@ -15,8 +15,7 @@ public static class TabControlExtensions
             else
             {
                 //var n_index = NewIndex(tabControl, tabItem);
-                object ctx = tabItem.DataContext ?? tabItem;
-                ((IList)tabControl.Items).Remove(ctx); //removes the tabitem itself
+                ((IList)tabControl.Items).Remove(tabItem); //removes the tabitem itself
                                                            //tabControl.SelectedIndex = n_index;
             }
         }

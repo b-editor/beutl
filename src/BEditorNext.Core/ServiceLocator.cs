@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace BEditorNext;
+﻿namespace BEditorNext;
 
 // https://github.com/AvaloniaUI/Avalonia/blob/c4bbe3ac5e0becdd7d7ff25eaebb2429b9bba0f3/src/Avalonia.Base/AvaloniaLocator.cs
 
@@ -34,7 +28,7 @@ public sealed class ServiceLocator : IServiceProvider
 
     public object? GetService(Type t)
     {
-        return _registry.TryGetValue(t, out var rv) ? rv() : _parentScope?.GetService(t);
+        return _registry.TryGetValue(t, out Func<object>? rv) ? rv() : _parentScope?.GetService(t);
     }
 
     public RegistrationHelper<T> Bind<T>()
@@ -85,7 +79,7 @@ public sealed class ServiceLocator : IServiceProvider
 
         public ServiceLocator ToLazy<TImlp>(Func<TImlp> func) where TImlp : TService
         {
-            var constructed = false;
+            bool constructed = false;
             TImlp? instance = default;
             _locator._registry[typeof(TService)] = () =>
             {

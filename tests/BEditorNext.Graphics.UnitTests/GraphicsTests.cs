@@ -1,4 +1,6 @@
-﻿using BEditorNext.Graphics.Pixel;
+﻿using BEditorNext.Media;
+using BEditorNext.Media.Pixel;
+using BEditorNext.Media.TextFormatting;
 
 using NUnit.Framework;
 

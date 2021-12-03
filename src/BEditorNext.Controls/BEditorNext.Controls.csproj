@@ -1,9 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
-
-  <Import Project="$(RootDirectory)\build\props\Avalonia.props" />
-
   <PropertyGroup>
     <Nullable>disable</Nullable>
   </PropertyGroup>
-
+  <Import Project="$(RootDirectory)\build\props\Avalonia.props" />
 </Project>

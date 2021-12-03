@@ -7,21 +7,15 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BEditorNext.Compute", "src\
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BEditorNext.Graphics", "src\BEditorNext.Graphics\BEditorNext.Graphics.csproj", "{DEACE4B5-6813-4F18-90F5-1F6335FB6BFB}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BEditorNext.ProjectItems", "src\BEditorNext.ProjectItems\BEditorNext.ProjectItems.csproj", "{290E2DC4-7E8E-4646-ABD5-9944A4EE1757}"
-EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BEditorNext.Core", "src\BEditorNext.Core\BEditorNext.Core.csproj", "{9F23C275-4891-49F3-A9AE-54E05D0CCE8B}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BEditorNext.Language", "src\BEditorNext.Language\BEditorNext.Language.csproj", "{EEA78475-696F-4205-815E-213D1BC7659A}"
-EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BEditorNext.Language.Japanese", "src\BEditorNext.Language.Japanese\BEditorNext.Language.Japanese.csproj", "{E54DB396-4434-4772-BB60-35490793FE3C}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BEditorNext.Utilities", "src\BEditorNext.Utilities\BEditorNext.Utilities.csproj", "{807923E4-EF43-4D76-BE0F-1E4F0C0811F2}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BEditorNext", "src\BEditorNext\BEditorNext.csproj", "{454D5E6B-865F-4CDA-9474-2A2C964FACD9}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BEditorNext.Controls", "src\BEditorNext.Controls\BEditorNext.Controls.csproj", "{0982FB80-1991-4F8E-BD36-4F2179469FB7}"
-EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BEditorNext.RenderTasks", "src\BEditorNext.RenderTasks\BEditorNext.RenderTasks.csproj", "{30190167-42CF-4288-8627-35A4E74D428C}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Tests", "Tests", "{791EB029-7801-45FA-9AB5-5E953FFA003A}"
 	ProjectSection(SolutionItems) = preProject
@@ -36,29 +30,39 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Props", "Props", "{74C34E00-E924-4463-A38B-F691AFBAE362}"
 	ProjectSection(SolutionItems) = preProject
 		build\props\Avalonia.props = build\props\Avalonia.props
+		build\props\CoreLibraries.props = build\props\CoreLibraries.props
 		build\props\Microsoft.CodeAnalysis.CSharp.Scripting.props = build\props\Microsoft.CodeAnalysis.CSharp.Scripting.props
 		build\props\Microsoft.Extensions.DependencyInjection.props = build\props\Microsoft.Extensions.DependencyInjection.props
 		build\props\Microsoft.Extensions.FileSystemGlobbing.props = build\props\Microsoft.Extensions.FileSystemGlobbing.props
 		build\props\Microsoft.Extensions.Logging.props = build\props\Microsoft.Extensions.Logging.props
-		build\props\OpenAL.props = build\props\OpenAL.props
 		build\props\OpenCvSharp4.props = build\props\OpenCvSharp4.props
-		build\props\OpenGL.props = build\props\OpenGL.props
-		build\props\plugin.props = build\props\plugin.props
 		build\props\ReactiveProperty.props = build\props\ReactiveProperty.props
-		build\props\Roslynator.props = build\props\Roslynator.props
 		build\props\Serilog.props = build\props\Serilog.props
 		build\props\SkiaSharp.props = build\props\SkiaSharp.props
-		build\props\StyleCop.props = build\props\StyleCop.props
 		build\props\System.Reactive.props = build\props\System.Reactive.props
-		build\props\Veldrid.props = build\props\Veldrid.props
-		build\props\XAudio2.props = build\props\XAudio2.props
 	EndProjectSection
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BEditorNext.Configuration", "src\BEditorNext.Configuration\BEditorNext.Configuration.csproj", "{985AFD44-4A83-43DE-A700-269F5175E8C5}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BEditorNext.Configiration.UnitTests", "tests\BEditorNext.Configiration.UnitTests\BEditorNext.Configiration.UnitTests.csproj", "{61F942C7-0A2C-4071-9544-ADEA7BFBD3D7}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EnumerateFontFamilies", "tests\EnumerateFontFamilies\EnumerateFontFamilies.csproj", "{C009364B-6190-47E9-A902-6A17EC6FE4D2}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "EnumerateFontFamilies", "tests\EnumerateFontFamilies\EnumerateFontFamilies.csproj", "{C009364B-6190-47E9-A902-6A17EC6FE4D2}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BEditorNext.Framework", "src\BEditorNext.Framework\BEditorNext.Framework.csproj", "{87A937E5-F122-43E0-8D7F-0A3D635432FA}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Root", "Root", "{80264A90-CB12-4C61-A5A2-983650511ACE}"
+	ProjectSection(SolutionItems) = preProject
+		.editorconfig = .editorconfig
+		.gitattributes = .gitattributes
+		.gitignore = .gitignore
+		Directory.Build.props = Directory.Build.props
+		LICENSE = LICENSE
+		README.md = README.md
+	EndProjectSection
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BEditorNext.Operations", "src\BEditorNext.Operations\BEditorNext.Operations.csproj", "{8A9D886D-3775-42B0-88DC-B135A951F9CB}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BEditorNext.ProjectSystem", "src\BEditorNext.ProjectSystem\BEditorNext.ProjectSystem.csproj", "{379DEB93-0602-4000-B776-E187B9EBCD06}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -74,10 +78,6 @@ Global
 		{DEACE4B5-6813-4F18-90F5-1F6335FB6BFB}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{DEACE4B5-6813-4F18-90F5-1F6335FB6BFB}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{DEACE4B5-6813-4F18-90F5-1F6335FB6BFB}.Release|Any CPU.Build.0 = Release|Any CPU
-		{290E2DC4-7E8E-4646-ABD5-9944A4EE1757}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{290E2DC4-7E8E-4646-ABD5-9944A4EE1757}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{290E2DC4-7E8E-4646-ABD5-9944A4EE1757}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{290E2DC4-7E8E-4646-ABD5-9944A4EE1757}.Release|Any CPU.Build.0 = Release|Any CPU
 		{9F23C275-4891-49F3-A9AE-54E05D0CCE8B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{9F23C275-4891-49F3-A9AE-54E05D0CCE8B}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{9F23C275-4891-49F3-A9AE-54E05D0CCE8B}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -86,10 +86,6 @@ Global
 		{EEA78475-696F-4205-815E-213D1BC7659A}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{EEA78475-696F-4205-815E-213D1BC7659A}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{EEA78475-696F-4205-815E-213D1BC7659A}.Release|Any CPU.Build.0 = Release|Any CPU
-		{E54DB396-4434-4772-BB60-35490793FE3C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{E54DB396-4434-4772-BB60-35490793FE3C}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{E54DB396-4434-4772-BB60-35490793FE3C}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{E54DB396-4434-4772-BB60-35490793FE3C}.Release|Any CPU.Build.0 = Release|Any CPU
 		{807923E4-EF43-4D76-BE0F-1E4F0C0811F2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{807923E4-EF43-4D76-BE0F-1E4F0C0811F2}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{807923E4-EF43-4D76-BE0F-1E4F0C0811F2}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -102,10 +98,6 @@ Global
 		{0982FB80-1991-4F8E-BD36-4F2179469FB7}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{0982FB80-1991-4F8E-BD36-4F2179469FB7}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{0982FB80-1991-4F8E-BD36-4F2179469FB7}.Release|Any CPU.Build.0 = Release|Any CPU
-		{30190167-42CF-4288-8627-35A4E74D428C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{30190167-42CF-4288-8627-35A4E74D428C}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{30190167-42CF-4288-8627-35A4E74D428C}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{30190167-42CF-4288-8627-35A4E74D428C}.Release|Any CPU.Build.0 = Release|Any CPU
 		{B459E4EB-3345-430C-9CAF-0D051D0F2898}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{B459E4EB-3345-430C-9CAF-0D051D0F2898}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{B459E4EB-3345-430C-9CAF-0D051D0F2898}.Release|Any CPU.ActiveCfg = Release|Any CPU
@@ -122,6 +114,18 @@ Global
 		{C009364B-6190-47E9-A902-6A17EC6FE4D2}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C009364B-6190-47E9-A902-6A17EC6FE4D2}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{C009364B-6190-47E9-A902-6A17EC6FE4D2}.Release|Any CPU.Build.0 = Release|Any CPU
+		{87A937E5-F122-43E0-8D7F-0A3D635432FA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{87A937E5-F122-43E0-8D7F-0A3D635432FA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{87A937E5-F122-43E0-8D7F-0A3D635432FA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{87A937E5-F122-43E0-8D7F-0A3D635432FA}.Release|Any CPU.Build.0 = Release|Any CPU
+		{8A9D886D-3775-42B0-88DC-B135A951F9CB}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8A9D886D-3775-42B0-88DC-B135A951F9CB}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8A9D886D-3775-42B0-88DC-B135A951F9CB}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8A9D886D-3775-42B0-88DC-B135A951F9CB}.Release|Any CPU.Build.0 = Release|Any CPU
+		{379DEB93-0602-4000-B776-E187B9EBCD06}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{379DEB93-0602-4000-B776-E187B9EBCD06}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{379DEB93-0602-4000-B776-E187B9EBCD06}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{379DEB93-0602-4000-B776-E187B9EBCD06}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

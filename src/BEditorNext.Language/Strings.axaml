@@ -28,8 +28,13 @@
         <x:String x:Key="LocationString">Location</x:String>
         <x:String x:Key="NextString">Next</x:String>
         <x:String x:Key="BackString">Back</x:String>
+        <x:String x:Key="ProjectFileString">Project File</x:String>
         <x:String x:Key="SceneFileString">Scene File</x:String>
         <x:String x:Key="CannotSpecifyValueLessThanOrEqualToZeroString">Cannot specify a value less than or equal to 0.</x:String>
         <x:String x:Key="ItAlreadyExistsString">It already exists.</x:String>
+
+        <!--CommandName-->
+        <x:String x:Key="AddRenderOperationString">Add a render operation.</x:String>
+        <x:String x:Key="RemoveRenderOperationString">Remove a render operation.</x:String>
     </Styles.Resources>
 </Styles>

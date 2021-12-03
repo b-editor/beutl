@@ -1,11 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk">
-
-  <Import Project="$(RootDirectory)\build\props\OpenCvSharp4.props" />
-  <Import Project="$(RootDirectory)\build\props\SkiaSharp.props" />
-  
+  <PropertyGroup>
+    <RootNameSpace>BEditorNext</RootNameSpace>
+  </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\BEditorNext.Core\BEditorNext.Core.csproj" />
     <ProjectReference Include="..\BEditorNext.Configuration\BEditorNext.Configuration.csproj" />
   </ItemGroup>
-
+  <Import Project="$(RootDirectory)\build\props\OpenCvSharp4.props" />
+  <Import Project="$(RootDirectory)\build\props\SkiaSharp.props" />
 </Project>

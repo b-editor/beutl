@@ -1,0 +1,12 @@
+<Project>
+  <ItemGroup>
+    <ProjectReference Include="$(MSBuildThisFileDirectory)/../../src/BEditorNext.Compute/BEditorNext.Compute.csproj" />
+    <ProjectReference Include="$(MSBuildThisFileDirectory)/../../src/BEditorNext.Configuration/BEditorNext.Configuration.csproj" />
+    <ProjectReference Include="$(MSBuildThisFileDirectory)/../../src/BEditorNext.Core/BEditorNext.Core.csproj" />
+    <ProjectReference Include="$(MSBuildThisFileDirectory)/../../src/BEditorNext.Framework/BEditorNext.Framework.csproj" />
+    <ProjectReference Include="$(MSBuildThisFileDirectory)/../../src/BEditorNext.Graphics/BEditorNext.Graphics.csproj" />
+    <ProjectReference Include="$(MSBuildThisFileDirectory)/../../src/BEditorNext.Operations/BEditorNext.Operations.csproj" />
+    <ProjectReference Include="$(MSBuildThisFileDirectory)/../../src/BEditorNext.ProjectSystem/BEditorNext.ProjectSystem.csproj" />
+    <ProjectReference Include="$(MSBuildThisFileDirectory)/../../src/BEditorNext.Utilities/BEditorNext.Utilities.csproj" />
+  </ItemGroup>
+</Project>

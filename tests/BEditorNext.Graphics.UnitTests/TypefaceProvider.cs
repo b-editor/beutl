@@ -1,4 +1,5 @@
 ﻿using BEditorNext.Configuration;
+using BEditorNext.Media;
 
 namespace BEditorNext.Graphics.UnitTests;
 

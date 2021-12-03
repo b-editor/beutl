@@ -1,11 +1,20 @@
+using System.Collections.Specialized;
+
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
+using Avalonia.Data;
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
 
-using BEditorNext.ProjectItems;
+using BEditorNext.Controls;
+using BEditorNext.ProjectSystem;
+using BEditorNext.Services;
 using BEditorNext.ViewModels;
+using BEditorNext.Views;
 using BEditorNext.Views.Dialogs;
+
+using Microsoft.Extensions.DependencyInjection;
 
 namespace BEditorNext.Pages;
 
@@ -14,8 +23,84 @@ public sealed partial class EditPage : UserControl
     public EditPage()
     {
         InitializeComponent();
+
+        ProjectService service = ServiceLocator.Current.GetRequiredService<ProjectService>();
+        service.ProjectObservable.Subscribe(item => ProjectChanged(item.New, item.Old));
     }
 
+    // 開いているプロジェクトが変更された
+    private void ProjectChanged(Project? @new, Project? old)
+    {
+        // プロジェクトが開いた
+        if (@new != null)
+        {
+            @new.Children.CollectionChanged += Project_Children_CollectionChanged;
+            foreach (Element item in @new.Children)
+            {
+                AddTabItem(item);
+            }
+        }
+
+        // プロジェクトが閉じた
+        if (old != null)
+        {
+            old.Children.CollectionChanged -= Project_Children_CollectionChanged;
+            foreach (Element item in old.Children)
+            {
+                CloseTabItem(item);
+            }
+        }
+    }
+
+    // Project.Childrenが変更された
+    private void Project_Children_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        if (e.Action == NotifyCollectionChangedAction.Add &&
+            e.NewItems != null)
+        {
+            foreach (Element item in e.NewItems.OfType<Element>())
+            {
+                AddTabItem(item);
+            }
+        }
+        else if (e.Action == NotifyCollectionChangedAction.Remove &&
+                 e.OldItems != null)
+        {
+            foreach (Element item in e.OldItems.OfType<Element>())
+            {
+                CloseTabItem(item);
+            }
+        }
+    }
+
+    // DataContextからタブを追加
+    private void AddTabItem(Element element)
+    {
+        if (element is Scene scene)
+        {
+            var tabItem = new DraggableTabItem
+            {
+                DataContext = scene,
+                Content = new EditView(),
+                [!HeaderedContentControl.HeaderProperty] = new Binding("Name")
+            };
+
+            tabview.AddTab(tabItem);
+        }
+    }
+
+    // DataContextからタブを削除
+    private void CloseTabItem(Element element)
+    {
+        foreach (DraggableTabItem item in tabview.Items.OfType<DraggableTabItem>()
+            .Where(i => i.DataContext == element)
+            .ToArray())
+        {
+            item.Close();
+        }
+    }
+
+    // '開く'がクリックされた
     private async void OpenClick(object? sender, RoutedEventArgs e)
     {
         if (VisualRoot is not Window root ||
@@ -46,13 +131,14 @@ public sealed partial class EditPage : UserControl
                 if (File.Exists(file))
                 {
                     var scene = new Scene();
-                    scene.Save(file);
+                    scene.Restore(file);
                     vm.Project.Value.Children.Add(scene);
                 }
             }
         }
     }
 
+    // '新規作成'がクリックされた
     private async void NewClick(object? sender, RoutedEventArgs e)
     {
         if (DataContext is not EditPageViewModel vm) return;
@@ -69,7 +155,7 @@ public sealed partial class EditPage : UserControl
         }
     }
 
-    private void AddSceneClick(object? sender, RoutedEventArgs e)
+    private void AddButtonClick(object? sender, RoutedEventArgs e)
     {
         if (Resources["AddButtonFlyout"] is MenuFlyout flyout)
         {

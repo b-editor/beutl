@@ -1,4 +1,7 @@
-﻿using NUnit.Framework;
+﻿using BEditorNext.Media;
+using BEditorNext.Media.TextFormatting;
+
+using NUnit.Framework;
 
 namespace BEditorNext.Graphics.UnitTests;
 

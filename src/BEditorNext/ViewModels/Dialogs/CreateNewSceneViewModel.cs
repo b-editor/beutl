@@ -3,7 +3,7 @@
 using Avalonia;
 using Avalonia.Controls;
 
-using BEditorNext.ProjectItems;
+using BEditorNext.ProjectSystem;
 using BEditorNext.Services;
 
 using Microsoft.Extensions.DependencyInjection;

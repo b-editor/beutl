@@ -1,4 +1,4 @@
-﻿using BEditorNext.ProjectItems;
+﻿using BEditorNext.ProjectSystem;
 using BEditorNext.Services;
 
 using Microsoft.Extensions.DependencyInjection;
@@ -14,6 +14,10 @@ public sealed class EditPageViewModel
     public EditPageViewModel()
     {
         _projectService = ServiceLocator.Current.GetRequiredService<ProjectService>();
+        _projectService.CurrentProject.Subscribe(i =>
+        {
+
+        });
     }
 
     public ReactivePropertySlim<Project?> Project => _projectService.CurrentProject;

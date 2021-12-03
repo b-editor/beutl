@@ -1,4 +1,6 @@
-﻿using NUnit.Framework;
+﻿using BEditorNext.Media;
+
+using NUnit.Framework;
 
 namespace BEditorNext.Graphics.UnitTests;
 

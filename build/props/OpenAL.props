@@ -1,7 +1,0 @@
-<Project>
-
-  <ItemGroup>
-    <PackageReference Include="OpenTK.OpenAL" Version="4.6.7" />
-  </ItemGroup>
-
-</Project>

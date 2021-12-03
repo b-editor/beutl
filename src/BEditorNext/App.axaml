@@ -11,6 +11,6 @@
 
         <StyleInclude Source="avares://BEditorNext.Controls/Styles.axaml" />
         <StyleInclude Source="avares://BEditorNext.Language/Strings.axaml" />
-        <StyleInclude Source="avares://BEditorNext.Language.Japanese/Strings.axaml" />
+        <StyleInclude Source="avares://BEditorNext.Language/Strings_ja-JP.axaml" />
     </Application.Styles>
 </Application>

@@ -1,29 +1,21 @@
 <Project Sdk="Microsoft.NET.Sdk">
-
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
   </PropertyGroup>
-
-  <Import Project="$(RootDirectory)\build\props\Avalonia.props" />
-  <Import Project="$(RootDirectory)\build\props\ReactiveProperty.props" />
-
   <ItemGroup>
     <AvaloniaResource Include="Assets\**" />
   </ItemGroup>
-
   <ItemGroup>
     <PackageReference Include="XamlNameReferenceGenerator" Version="1.3.4" />
   </ItemGroup>
-
   <ItemGroup>
     <ProjectReference Include="..\BEditorNext.Controls\BEditorNext.Controls.csproj" />
-    <ProjectReference Include="..\BEditorNext.Language\BEditorNext.Language.csproj" />
-    <ProjectReference Include="..\BEditorNext.Language.Japanese\BEditorNext.Language.Japanese.csproj" />
-    <ProjectReference Include="..\BEditorNext.ProjectItems\BEditorNext.ProjectItems.csproj" />
   </ItemGroup>
-
   <ItemGroup>
     <Folder Include="Models\" />
   </ItemGroup>
-
+  <Import Project="$(RootDirectory)\build\props\Avalonia.props" />
+  <Import Project="$(RootDirectory)\build\props\ReactiveProperty.props" />
+  <Import Project="$(RootDirectory)\build\props\Microsoft.Extensions.DependencyInjection.props" />
+  <Import Project="$(RootDirectory)\build\props\CoreLibraries.props" />
 </Project>

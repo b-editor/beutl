@@ -35,17 +35,5 @@
     </UserControl.Resources>
     <DraggableTabView
         x:Name="tabview"
-        ClickOnAddingButton="AddSceneClick"
-        Items="{CompiledBinding Project.Value.Children}">
-        <DraggableTabView.ItemTemplate>
-            <DataTemplate>
-                <TextBlock Text="{Binding Name}" />
-            </DataTemplate>
-        </DraggableTabView.ItemTemplate>
-        <DraggableTabView.ContentTemplate>
-            <DataTemplate>
-                <views:EditView />
-            </DataTemplate>
-        </DraggableTabView.ContentTemplate>
-    </DraggableTabView>
+        ClickOnAddingButton="AddButtonClick"/>
 </UserControl>
