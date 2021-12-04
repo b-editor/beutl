@@ -155,7 +155,7 @@ public class Scene : Element, IStorable
 
         if (recorder == null)
         {
-            InsertChild(layer);
+            Children.Add(layer);
         }
         else
         {
@@ -185,7 +185,7 @@ public class Scene : Element, IStorable
         if (recorder == null)
         {
             layer.Layer = layerNum;
-            InsertChild(layer);
+            Children.Add(layer);
         }
         else
         {
@@ -365,7 +365,7 @@ public class Scene : Element, IStorable
             var layer = new SceneLayer();
             layer.Restore(item);
 
-            InsertChild(layer);
+            Children.Add(layer);
         }
     }
 
@@ -403,29 +403,6 @@ public class Scene : Element, IStorable
         }
     }
 
-    private void InsertChild(SceneLayer layer)
-    {
-        SceneLayer[] array = Children.OfType<SceneLayer>().ToArray();
-
-        for (int i = 0; i < array.Length - 1; i++)
-        {
-            SceneLayer current = array[i];
-            int nextIdx = i + 1;
-            SceneLayer next = array[nextIdx];
-
-            int curLayer = current.Layer;
-            int nextLayer = next.Layer;
-
-            if (curLayer <= layer.Layer && layer.Layer <= nextLayer)
-            {
-                Children.Insert(nextIdx, layer);
-                return;
-            }
-        }
-
-        Children.Add(layer);
-    }
-
     private sealed class AddCommand : IRecordableCommand
     {
         private readonly Scene _scene;
@@ -449,7 +426,7 @@ public class Scene : Element, IStorable
         public void Do()
         {
             _layer.Layer = _layerNum;
-            _scene.InsertChild(_layer);
+            _scene.Children.Add(_layer);
         }
 
         public void Redo()
@@ -491,7 +468,7 @@ public class Scene : Element, IStorable
         public void Undo()
         {
             _layer.Layer = _layerNum;
-            _scene.InsertChild(_layer);
+            _scene.Children.Add(_layer);
         }
     }
 }
