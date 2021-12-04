@@ -33,6 +33,7 @@
         <x:String x:Key="CannotSpecifyValueLessThanOrEqualToZeroString">0以下の値は指定できません。</x:String>
         <x:String x:Key="ItAlreadyExistsString">既に存在しています</x:String>
         <x:String x:Key="SearchString">検索</x:String>
+        <x:String x:Key="AddLayerString">レイヤーを追加</x:String>
 
         <!--CommandName-->
         <x:String x:Key="AddRenderOperationString">Render operationを追加</x:String>
