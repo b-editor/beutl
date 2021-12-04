@@ -16,29 +16,29 @@ public partial class DraggableTabView
     public static readonly StyledProperty<bool> AdderButtonIsVisibleProperty =
         AvaloniaProperty.Register<DraggableTabView, bool>(nameof(AdderButtonIsVisible), true);
 
-    public readonly static StyledProperty<double> MaxWidthOfItemsPresenterProperty =
+    public static readonly StyledProperty<double> MaxWidthOfItemsPresenterProperty =
         AvaloniaProperty.Register<DraggableTabView, double>(nameof(MaxWidthOfItemsPresenter), double.PositiveInfinity);
 
-    public readonly static StyledProperty<IBrush> SecondaryBackgroundProperty =
+    public static readonly StyledProperty<IBrush> SecondaryBackgroundProperty =
         AvaloniaProperty.Register<DraggableTabView, IBrush>(nameof(SecondaryBackground));
 
-    public readonly static StyledProperty<Thickness> ItemsMarginProperty =
+    public static readonly StyledProperty<Thickness> ItemsMarginProperty =
         AvaloniaProperty.Register<DraggableTabView, Thickness>(nameof(ItemsMargin));
 
-    public readonly static StyledProperty<bool> TransitionIsEnabledProperty =
+    public static readonly StyledProperty<bool> TransitionIsEnabledProperty =
         AvaloniaProperty.Register<DraggableTabView, bool>(nameof(TransitionIsEnabled));
 
-    public readonly static DirectProperty<DraggableTabView, double> WidthRemainingSpaceProperty =
+    public static readonly DirectProperty<DraggableTabView, double> WidthRemainingSpaceProperty =
         AvaloniaProperty.RegisterDirect<DraggableTabView, double>(
             nameof(WidthRemainingSpace),
             o => o.WidthRemainingSpace);
 
-    public readonly static DirectProperty<DraggableTabView, double> HeightRemainingSpaceProperty =
+    public static readonly DirectProperty<DraggableTabView, double> HeightRemainingSpaceProperty =
         AvaloniaProperty.RegisterDirect<DraggableTabView, double>(
             nameof(HeightRemainingSpace),
             o => o.HeightRemainingSpace);
 
-    public readonly static StyledProperty<bool> ReorderableTabsProperty =
+    public static readonly StyledProperty<bool> ReorderableTabsProperty =
         AvaloniaProperty.Register<DraggableTabView, bool>(nameof(ReorderableTabs), true);
 
     public static readonly StyledProperty<bool> ImmediateDragProperty =

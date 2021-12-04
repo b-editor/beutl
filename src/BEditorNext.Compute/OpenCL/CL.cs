@@ -2,10 +2,10 @@
 
 namespace BEditorNext.Compute.OpenCL;
 
-public static unsafe class CL
+internal static unsafe class CL
 {
     private const string Library = "opencl";
-    private static readonly bool _registeredResolver = false;
+    private static readonly bool s_registeredResolver = false;
 
     static CL()
     {
@@ -29,13 +29,13 @@ public static unsafe class CL
             }
         }
 
-        if (!_registeredResolver)
+        if (!s_registeredResolver)
         {
             NativeLibrary.SetDllImportResolver(typeof(CL).Assembly, (_, assembly, path) =>
             {
-                var libName = GetLibraryName();
+                string libName = GetLibraryName();
 
-                if (!NativeLibrary.TryLoad(libName, assembly, path, out var libHandle))
+                if (!NativeLibrary.TryLoad(libName, assembly, path, out IntPtr libHandle))
                 {
                     throw new DllNotFoundException(
                         $"Could not load the dll '{libName}' (this load is intercepted, specified in DllImport as '{Library}').");
@@ -44,7 +44,7 @@ public static unsafe class CL
                 return libHandle;
             });
 
-            _registeredResolver = true;
+            s_registeredResolver = true;
         }
     }
 

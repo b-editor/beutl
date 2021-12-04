@@ -1,6 +1,7 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
+
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
@@ -34,7 +35,7 @@ public class ItemDragBehavior : Behavior<IControl>
     {
         base.OnAttached();
 
-        if (AssociatedObject is { })
+        if (AssociatedObject != null)
         {
             AssociatedObject.AddHandler(InputElement.PointerReleasedEvent, Released, RoutingStrategies.Tunnel);
             AssociatedObject.AddHandler(InputElement.PointerPressedEvent, Pressed, RoutingStrategies.Tunnel);
@@ -46,7 +47,7 @@ public class ItemDragBehavior : Behavior<IControl>
     {
         base.OnDetaching();
 
-        if (AssociatedObject is { })
+        if (AssociatedObject != null)
         {
             AssociatedObject.RemoveHandler(InputElement.PointerReleasedEvent, Released);
             AssociatedObject.RemoveHandler(InputElement.PointerPressedEvent, Pressed);
@@ -56,7 +57,9 @@ public class ItemDragBehavior : Behavior<IControl>
 
     private void Pressed(object sender, PointerPressedEventArgs e)
     {
-        if (AssociatedObject?.Parent is not ItemsControl itemsControl | (AssociatedObject?.Parent is DraggableTabView aw && !aw.ReorderableTabs) | (AssociatedObject is DraggableTabItem at && !at.CanBeDragged))
+        if (AssociatedObject?.Parent is not ItemsControl |
+            (AssociatedObject?.Parent is DraggableTabView aw && !aw.ReorderableTabs) |
+            (AssociatedObject is DraggableTabItem at && !at.CanBeDragged))
         {
             return;
         }
@@ -91,19 +94,19 @@ public class ItemDragBehavior : Behavior<IControl>
         }
     }
 
-    private void AddTransforms(ItemsControl itemsControl)
+    private static void AddTransforms(ItemsControl itemsControl)
     {
-        if (itemsControl?.Items is null)
+        if (itemsControl?.Items == null)
         {
             return;
         }
 
-        var i = 0;
+        int i = 0;
 
-        foreach (var _ in itemsControl.Items)
+        foreach (object _ in itemsControl.Items)
         {
-            var container = itemsControl.ItemContainerGenerator.ContainerFromIndex(i);
-            if (container is not null)
+            IControl container = itemsControl.ItemContainerGenerator.ContainerFromIndex(i);
+            if (container != null)
             {
                 container.RenderTransform = new TranslateTransform();
             }
@@ -112,19 +115,19 @@ public class ItemDragBehavior : Behavior<IControl>
         }
     }
 
-    private void RemoveTransforms(ItemsControl itemsControl)
+    private static void RemoveTransforms(ItemsControl itemsControl)
     {
-        if (itemsControl?.Items is null)
+        if (itemsControl?.Items == null)
         {
             return;
         }
 
-        var i = 0;
+        int i = 0;
 
-        foreach (var _ in itemsControl.Items)
+        foreach (object _ in itemsControl.Items)
         {
-            var container = itemsControl.ItemContainerGenerator.ContainerFromIndex(i);
-            if (container is not null)
+            IControl container = itemsControl.ItemContainerGenerator.ContainerFromIndex(i);
+            if (container != null)
             {
                 container.RenderTransform = null;
             }
@@ -133,14 +136,14 @@ public class ItemDragBehavior : Behavior<IControl>
         }
     }
 
-    private void MoveDraggedItem(ItemsControl itemsControl, int draggedIndex, int targetIndex)
+    private static void MoveDraggedItem(ItemsControl itemsControl, int draggedIndex, int targetIndex)
     {
         if (itemsControl?.Items is not IList items)
         {
             return;
         }
 
-        var draggedItem = items[draggedIndex];
+        object draggedItem = items[draggedIndex];
         items.RemoveAt(draggedIndex);
         items.Insert(targetIndex, draggedItem);
 
@@ -157,9 +160,9 @@ public class ItemDragBehavior : Behavior<IControl>
             return;
         }
 
-        var orientation = Orientation;
-        var position = e.GetPosition(_itemsControl);
-        var delta = orientation == Orientation.Horizontal ? position.X - _start.X : position.Y - _start.Y;
+        Orientation orientation = Orientation;
+        Point position = e.GetPosition(_itemsControl);
+        double delta = orientation == Orientation.Horizontal ? position.X - _start.X : position.Y - _start.Y;
 
         if (orientation == Orientation.Horizontal)
         {
@@ -173,37 +176,37 @@ public class ItemDragBehavior : Behavior<IControl>
         _draggedIndex = _itemsControl.ItemContainerGenerator.IndexFromContainer(_draggedContainer);
         _targetIndex = -1;
 
-        var draggedBounds = _draggedContainer.Bounds;
+        Rect draggedBounds = _draggedContainer.Bounds;
 
-        var draggedStart = orientation == Orientation.Horizontal ?
+        double draggedStart = orientation == Orientation.Horizontal ?
             draggedBounds.X : draggedBounds.Y;
 
-        var draggedDeltaStart = orientation == Orientation.Horizontal ?
+        double draggedDeltaStart = orientation == Orientation.Horizontal ?
             draggedBounds.X + delta : draggedBounds.Y + delta;
 
-        var draggedDeltaEnd = orientation == Orientation.Horizontal ?
+        double draggedDeltaEnd = orientation == Orientation.Horizontal ?
             draggedBounds.X + delta + draggedBounds.Width : draggedBounds.Y + delta + draggedBounds.Height;
 
-        var i = 0;
+        int i = 0;
 
-        foreach (var _ in _itemsControl.Items)
+        foreach (object _ in _itemsControl.Items)
         {
-            var targetContainer = _itemsControl.ItemContainerGenerator.ContainerFromIndex(i);
+            IControl targetContainer = _itemsControl.ItemContainerGenerator.ContainerFromIndex(i);
             if (targetContainer?.RenderTransform is null || ReferenceEquals(targetContainer, _draggedContainer))
             {
                 i++;
                 continue;
             }
 
-            var targetBounds = targetContainer.Bounds;
+            Rect targetBounds = targetContainer.Bounds;
 
-            var targetStart = orientation == Orientation.Horizontal ?
+            double targetStart = orientation == Orientation.Horizontal ?
                 targetBounds.X : targetBounds.Y;
 
-            var targetMid = orientation == Orientation.Horizontal ?
+            double targetMid = orientation == Orientation.Horizontal ?
                 targetBounds.X + targetBounds.Width / 2 : targetBounds.Y + targetBounds.Height / 2;
 
-            var targetIndex = _itemsControl.ItemContainerGenerator.IndexFromContainer(targetContainer);
+            int targetIndex = _itemsControl.ItemContainerGenerator.IndexFromContainer(targetContainer);
 
             if (targetStart > draggedStart && draggedDeltaEnd >= targetMid)
             {
