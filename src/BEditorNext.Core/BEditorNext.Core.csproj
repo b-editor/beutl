@@ -6,4 +6,5 @@
     <ProjectReference Include="..\BEditorNext.Utilities\BEditorNext.Utilities.csproj" />
   </ItemGroup>
   <Import Project="$(RootDirectory)\build\props\Microsoft.Extensions.DependencyInjection.props" />
+  <Import Project="$(RootDirectory)\build\props\System.Reactive.props" />
 </Project>

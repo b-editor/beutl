@@ -54,10 +54,6 @@ public abstract class Element : IElement
     public static readonly PropertyDefine<string> NameProperty;
 
     /// <summary>
-    /// The event manager.
-    /// </summary>
-    protected readonly WeakEventManager EventManager = new();
-    /// <summary>
     /// The last JsonNode that was used.
     /// </summary>
     protected JsonNode? JsonNode;
@@ -116,9 +112,9 @@ public abstract class Element : IElement
         {
             if (_parent != value)
             {
-                EventManager.HandleEvent(this, new ParentChangingEventArgs(_parent, value), nameof(ParentChanging));
+                ParentChanging?.Invoke(this, new ParentChangingEventArgs(_parent, value));
                 _parent = value;
-                EventManager.HandleEvent(this, EventArgs.Empty, nameof(ParentChanged));
+                ParentChanged?.Invoke(this, EventArgs.Empty);
             }
         }
     }
@@ -142,38 +138,22 @@ public abstract class Element : IElement
     /// <summary>
     /// Occurs while changing the parent element
     /// </summary>
-    public event EventHandler<ParentChangingEventArgs> ParentChanging
-    {
-        add => EventManager.AddEventHandler(value);
-        remove => EventManager.RemoveEventHandler(value);
-    }
+    public event EventHandler<ParentChangingEventArgs>? ParentChanging;
 
     /// <summary>
     /// Occurs when the parent element changes.
     /// </summary>
-    public event EventHandler ParentChanged
-    {
-        add => EventManager.AddEventHandler(value);
-        remove => EventManager.RemoveEventHandler(value);
-    }
+    public event EventHandler? ParentChanged;
 
     /// <summary>
     /// Occurs when a property value changes.
     /// </summary>
-    public event PropertyChangedEventHandler? PropertyChanged
-    {
-        add => EventManager.AddEventHandler(value);
-        remove => EventManager.RemoveEventHandler(value);
-    }
+    public event PropertyChangedEventHandler? PropertyChanged;
 
     /// <summary>
     /// Occurs when a property value is changing.
     /// </summary>
-    public event PropertyChangingEventHandler? PropertyChanging
-    {
-        add => EventManager.AddEventHandler(value);
-        remove => EventManager.RemoveEventHandler(value);
-    }
+    public event PropertyChangingEventHandler? PropertyChanging;
 
     /// <summary>
     /// Registers a property by specifying a getter and a setter.
@@ -441,12 +421,12 @@ public abstract class Element : IElement
 
     protected void OnPropertyChanged([CallerMemberName] string? propertyName = null)
     {
-        EventManager.HandleEvent(this, new PropertyChangedEventArgs(propertyName), nameof(PropertyChanged));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
     }
 
     protected void OnPropertyChanging([CallerMemberName] string? propertyName = null)
     {
-        EventManager.HandleEvent(this, new PropertyChangingEventArgs(propertyName), nameof(PropertyChanging));
+        PropertyChanging?.Invoke(this, new PropertyChangingEventArgs(propertyName));
     }
 
     protected bool SetAndRaise<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
