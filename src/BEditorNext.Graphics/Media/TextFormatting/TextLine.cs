@@ -31,7 +31,9 @@ public class TextLine : IDisposable
         {
             Size bounds = element.Measure();
             width += bounds.Width;
-            height = MathF.Max(bounds.Height, height);
+            width += element.Margin.Left + element.Margin.Right;
+
+            height = MathF.Max(bounds.Height + element.Margin.Top + element.Margin.Bottom, height);
         }
 
         return new Size(width, height);

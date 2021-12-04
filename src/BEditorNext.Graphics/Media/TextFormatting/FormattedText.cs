@@ -87,12 +87,15 @@ public class FormattedText : IRenderable
             float prevRight = 0;
             foreach (TextElement element in line.Elements)
             {
-                graphics.Translate(new(prevRight, 0));
+                graphics.Translate(new(prevRight + element.Margin.Left, 0));
                 Size elementBounds = element.Measure();
 
+                graphics.PushMatrix();
+                graphics.Translate(new(0, element.Margin.Top));
                 graphics.DrawText(element);
+                graphics.PopMatrix();
 
-                prevRight = elementBounds.Width;
+                prevRight = elementBounds.Width + element.Margin.Right;
             }
 
             prevBottom += lineBounds.Height;

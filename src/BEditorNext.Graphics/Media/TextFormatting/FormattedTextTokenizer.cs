@@ -464,7 +464,7 @@ public readonly struct FormattedTextTokenizer
 
         public bool TryGetMargin(out Thickness margin)
         {
-            if (Type is TagType.CharSpace &&
+            if (Type is TagType.Margin &&
                 Thickness.TryParse(RemoveQuotation(Value), out margin))
             {
                 return true;
