@@ -18,7 +18,7 @@ internal class SceneRenderer : IRenderer
 
     public IGraphics Graphics { get; }
 
-    public int FrameNumber => _scene.CurrentFrame;
+    public TimeSpan FrameNumber => _scene.CurrentFrame;
 
     public bool IsDisposed { get; private set; }
 
@@ -37,17 +37,14 @@ internal class SceneRenderer : IRenderer
     {
         if (!IsRendering)
         {
-            int framerate = (_scene.Parent as Project)?.FrameRate ?? 30;
-            TimeSpan curTp = ToTimeSpan(FrameNumber, framerate);
-            var args = new OperationRenderArgs(curTp, this, _renderables);
+            TimeSpan ts = FrameNumber;
+            List<SceneLayer> layers = FilterLayers(_scene, ts);
+            var args = new OperationRenderArgs(ts, this, _renderables);
 
-            foreach (SceneLayer item in _scene.Layers)
+            for (int i = 0; i < layers.Count; i++)
             {
-                if (item.Start <= curTp &&
-                    curTp < item.Length + item.Start)
-                {
-                    ProcessClip(item, args);
-                }
+                SceneLayer item = layers[i];
+                ProcessClip(item, args);
             }
         }
 
@@ -102,6 +99,27 @@ internal class SceneRenderer : IRenderer
         }
     }
 
+    private static List<SceneLayer> FilterLayers(Scene scene, TimeSpan ts)
+    {
+        var list = new List<SceneLayer>();
+        int length = scene.Children.Count;
+
+        for (int i = 0; i < length; i++)
+        {
+            if (scene.Children[i] is SceneLayer item &&
+                item.Start <= ts &&
+                ts < item.Length + item.Start &&
+                item.Layer != -1)
+            {
+                list.Add(item);
+            }
+        }
+
+        list.Sort((x, y) => x.Layer - y.Layer);
+
+        return list;
+    }
+
     //private static int ToFrameNumber(TimeSpan tp, int rate)
     //{
     //    return (int)(tp.TotalSeconds * rate);
@@ -112,8 +130,8 @@ internal class SceneRenderer : IRenderer
     //    return 10000000 / rate;
     //}
 
-    private static TimeSpan ToTimeSpan(int f, int rate)
-    {
-        return TimeSpan.FromSeconds(f / (double)rate);
-    }
+    //private static TimeSpan ToTimeSpan(int f, int rate)
+    //{
+    //    return TimeSpan.FromSeconds(f / (double)rate);
+    //}
 }

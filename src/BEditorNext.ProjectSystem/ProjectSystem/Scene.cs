@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Specialized;
 using System.Diagnostics.CodeAnalysis;
+using System.Numerics;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
@@ -16,16 +17,16 @@ public class Scene : Element, IStorable
     public static readonly PropertyDefine<int> WidthProperty;
     public static readonly PropertyDefine<int> HeightProperty;
     public static readonly PropertyDefine<TimeSpan> DurationProperty;
-    public static readonly PropertyDefine<int> CurrentFrameProperty;
+    public static readonly PropertyDefine<TimeSpan> CurrentFrameProperty;
     public static readonly PropertyDefine<SceneLayer?> SelectedItemProperty;
     public static readonly PropertyDefine<PreviewOptions?> PreviewOptionsProperty;
     public static readonly PropertyDefine<TimelineOptions> TimelineOptionsProperty;
     private string? _fileName;
-    private TimeSpan _duration;
-    private int _currentFrame;
+    private TimeSpan _duration = TimeSpan.FromMinutes(5);
+    private TimeSpan _currentFrame;
     private SceneLayer? _selectedItem;
     private PreviewOptions? _previewOptions;
-    private TimelineOptions _timelineOptions;
+    private TimelineOptions _timelineOptions = new();
     private readonly List<string> _includeLayers = new()
     {
         "**/*.layer"
@@ -58,10 +59,9 @@ public class Scene : Element, IStorable
             .NotifyPropertyChanged(true)
             .NotifyPropertyChanging(true);
 
-        CurrentFrameProperty = RegisterProperty<int, Scene>(nameof(CurrentFrame), (owner, obj) => owner.CurrentFrame = obj, owner => owner.CurrentFrame)
+        CurrentFrameProperty = RegisterProperty<TimeSpan, Scene>(nameof(CurrentFrame), (owner, obj) => owner.CurrentFrame = obj, owner => owner.CurrentFrame)
             .NotifyPropertyChanged(true)
-            .NotifyPropertyChanging(true)
-            .JsonName("currentFrame");
+            .NotifyPropertyChanging(true);
 
         SelectedItemProperty = RegisterProperty<SceneLayer?, Scene>(nameof(SelectedItem), (owner, obj) => owner.SelectedItem = obj, owner => owner.SelectedItem)
             .NotifyPropertyChanged(true)
@@ -76,11 +76,7 @@ public class Scene : Element, IStorable
             .NotifyPropertyChanging(true);
     }
 
-    public event EventHandler<CurrentFrameChangedEventArgs> CurrentFrameChanged
-    {
-        add => EventManager.AddEventHandler(value);
-        remove => EventManager.RemoveEventHandler(value);
-    }
+    public event EventHandler<CurrentFrameChangedEventArgs>? CurrentFrameChanged;
 
     public int Width => Renderer.Graphics.Size.Width;
 
@@ -89,18 +85,29 @@ public class Scene : Element, IStorable
     public TimeSpan Duration
     {
         get => _duration;
-        set => SetAndRaise(DurationProperty, ref _duration, value);
+        set
+        {
+            if (value < TimeSpan.Zero)
+                value = TimeSpan.Zero;
+
+            SetAndRaise(DurationProperty, ref _duration, value);
+        }
     }
 
-    public int CurrentFrame
+    public TimeSpan CurrentFrame
     {
         get => _currentFrame;
         set
         {
-            int old = _currentFrame;
+            if (value < TimeSpan.Zero)
+                value = TimeSpan.Zero;
+            if (value > Duration)
+                value = Duration;
+
+            TimeSpan old = _currentFrame;
             if (SetAndRaise(CurrentFrameProperty, ref _currentFrame, value))
             {
-                EventManager.HandleEvent(this, new CurrentFrameChangedEventArgs(old, value), nameof(CurrentFrameChanged));
+                CurrentFrameChanged?.Invoke(this, new CurrentFrameChangedEventArgs(old, value));
             }
         }
     }
@@ -229,6 +236,13 @@ public class Scene : Element, IStorable
                 Duration = duration;
             }
 
+            if (jobject.TryGetPropertyValue("currentFrame", out JsonNode? currentFrameNode) &&
+                currentFrameNode!.AsValue().TryGetValue(out string? currentFrameStr) &&
+                TimeSpan.TryParse(currentFrameStr, out TimeSpan currentFrame))
+            {
+                CurrentFrame = currentFrame;
+            }
+
             if (jobject.TryGetPropertyValue("layers", out JsonNode? layersNode) &&
                 layersNode is JsonObject layersJson)
             {
@@ -294,6 +308,7 @@ public class Scene : Element, IStorable
 
             jobject["layers"] = layersNode;
             jobject["duration"] = JsonValue.Create(Duration.ToString());
+            jobject["currentFrame"] = JsonValue.Create(CurrentFrame.ToString());
         }
 
         return node;

@@ -2,13 +2,13 @@
 
 public class CurrentFrameChangedEventArgs : EventArgs
 {
-    public CurrentFrameChangedEventArgs(int oldFrame, int newFrame)
+    public CurrentFrameChangedEventArgs(TimeSpan oldFrame, TimeSpan newFrame)
     {
         OldFrame = oldFrame;
         NewFrame = newFrame;
     }
 
-    public int OldFrame { get; }
+    public TimeSpan OldFrame { get; }
 
-    public int NewFrame { get; }
+    public TimeSpan NewFrame { get; }
 }
