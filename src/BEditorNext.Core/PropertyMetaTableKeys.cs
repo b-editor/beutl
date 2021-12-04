@@ -12,7 +12,6 @@ public static class PropertyMetaTableKeys
     public const string GenericsSetter = "genericsSetter";
     public const string PropertyType = "propertyType";
     public const string OwnerType = "ownerType";
-    public const string IsAutomatic = "isAutomatic";
     public const string IsAttached = "isAttached";
     public const string AnimationIsEnabled = "animationIsEnabled";
     public const string Easing = "easing";

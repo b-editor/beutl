@@ -5,11 +5,6 @@
         <FontFamily x:Key="ContentControlThemeFontFamily">Segoe UI, Helvetica Neue, Ubuntu</FontFamily>
 
         <x:String x:Key="FileString">File</x:String>
-        <x:String x:Key="CreateNewString">Create New</x:String>
-        <x:String x:Key="OpenString">Open</x:String>
-        <x:String x:Key="CloseString">Close</x:String>
-        <x:String x:Key="EditString">Edit</x:String>
-        <x:String x:Key="ViewString">View</x:String>
         <x:String x:Key="ObjectString">Object</x:String>
         <x:String x:Key="HelpString">Help</x:String>
         <x:String x:Key="ExtensionsString">Extensions</x:String>
@@ -19,25 +14,41 @@
         <x:String x:Key="PropertiesString">Properties</x:String>
         <x:String x:Key="EasingString">Easing</x:String>
         <x:String x:Key="ObjectsString">Objects</x:String>
-        <x:String x:Key="CreateNewProjectString">Create a new project</x:String>
-        <x:String x:Key="CreateNewSceneString">Create a new scene</x:String>
         <x:String x:Key="SizeString">Size</x:String>
         <x:String x:Key="FrameRateString">FrameRate</x:String>
         <x:String x:Key="SampleRateString">SampleRate</x:String>
         <x:String x:Key="NameString">Name</x:String>
         <x:String x:Key="LocationString">Location</x:String>
-        <x:String x:Key="NextString">Next</x:String>
-        <x:String x:Key="BackString">Back</x:String>
         <x:String x:Key="ProjectFileString">Project File</x:String>
         <x:String x:Key="SceneFileString">Scene File</x:String>
-        <x:String x:Key="CannotSpecifyValueLessThanOrEqualToZeroString">Cannot specify a value less than or equal to 0.</x:String>
-        <x:String x:Key="ItAlreadyExistsString">It already exists.</x:String>
+        <x:String x:Key="LayerString">Layer</x:String>
+        <x:String x:Key="StartTimeString">Start time</x:String>
+        <x:String x:Key="DurationTimeString">Duration time</x:String>
+        <x:String x:Key="ColorString">Color</x:String>
+
+        <!--Verb-->
+        <x:String x:Key="OpenString">Open</x:String>
+        <x:String x:Key="CloseString">Close</x:String>
+        <x:String x:Key="EditString">Edit</x:String>
+        <x:String x:Key="ViewString">View</x:String>
+        <x:String x:Key="CreateNewString">Create New</x:String>
+        <x:String x:Key="CreateNewProjectString">Create a new project</x:String>
+        <x:String x:Key="CreateNewSceneString">Create a new scene</x:String>
+        <x:String x:Key="NextString">Next</x:String>
+        <x:String x:Key="BackString">Back</x:String>
         <x:String x:Key="SearchString">Search</x:String>
         <x:String x:Key="AddLayerString">Add Layer</x:String>
+        <x:String x:Key="AddString">Add</x:String>
 
-        <!--CommandName-->
+        <!--Command-->
         <x:String x:Key="AddRenderOperationString">Add a render operation.</x:String>
         <x:String x:Key="RemoveRenderOperationString">Remove a render operation.</x:String>
+
+        <!--ValidationError-->
+        <x:String x:Key="CannotSpecifyValueLessThanOrEqualToZeroString">Cannot specify a value less than or equal to 0.</x:String>
+        <x:String x:Key="CannotSpecifyValueLessThanString">Cannot specify a value less than to 0.</x:String>
+        <x:String x:Key="ItAlreadyExistsString">It already exists.</x:String>
+        <x:String x:Key="ThisLayerNumberIsAlreadyInUseString">This layer number is already in use.</x:String>
 
         <!--RenderOperationName-->
         <x:String x:Key="EllipseString">Ellipse</x:String>

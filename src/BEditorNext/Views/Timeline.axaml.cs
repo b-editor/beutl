@@ -9,8 +9,11 @@ using Avalonia.Markup.Xaml;
 using Avalonia.Remote.Protocol.Input;
 using Avalonia.VisualTree;
 
+using BEditorNext.Models;
 using BEditorNext.ProjectSystem;
 using BEditorNext.ViewModels;
+using BEditorNext.ViewModels.Dialogs;
+using BEditorNext.Views.Dialogs;
 
 using FluentAvalonia.UI.Controls;
 
@@ -46,6 +49,7 @@ public partial class Timeline : UserControl
         TimelinePanel.Children.RemoveRange(3, TimelinePanel.Children.Count - 3);
 
         ViewModel.Scene.Children.CollectionChanged += Children_CollectionChanged;
+        AddLayers(ViewModel.Scene.Layers);
     }
 
     private void ContentScroll_ScrollChanged(object? sender, ScrollChangedEventArgs e)
@@ -122,7 +126,6 @@ public partial class Timeline : UserControl
         if (pointerPt.Properties.PointerUpdateKind == PointerUpdateKind.LeftButtonReleased)
         {
             _seekbarIsMouseDown = false;
-
         }
     }
 
@@ -146,7 +149,7 @@ public partial class Timeline : UserControl
         _seekbarIsMouseDown = false;
     }
 
-    private void TimelinePanel_Drop(object? sender, DragEventArgs e)
+    private async void TimelinePanel_Drop(object? sender, DragEventArgs e)
     {
         TimelinePanel.Cursor = Cursors.Arrow;
         Scene scene = ViewModel.Scene;
@@ -157,8 +160,19 @@ public partial class Timeline : UserControl
 
         if (e.Data.Get("RenderOperation") is RenderOperationRegistry.RegistryItem item)
         {
-            ViewModel.AddLayer.Execute(new TimelineViewModel.LayerDescription(
-                _clickedFrame, TimeSpan.FromSeconds(5), _clickedLayer, item));
+            if (e.KeyModifiers == KeyModifiers.Control)
+            {
+                ViewModel.AddLayer.Execute(new LayerDescription(
+                    _clickedFrame, TimeSpan.FromSeconds(5), _clickedLayer, item));
+            }
+            else
+            {
+                var dialog = new AddLayer
+                {
+                    DataContext = new AddLayerViewModel(scene, new LayerDescription(_clickedFrame, TimeSpan.FromSeconds(5), _clickedLayer, item))
+                };
+                await dialog.ShowAsync();
+            }
         }
     }
 
@@ -175,11 +189,27 @@ public partial class Timeline : UserControl
 
     private void OnLayersChanged(NotifyCollectionChangedEventArgs e)
     {
+        if (e.Action == NotifyCollectionChangedAction.Add && e.NewItems != null)
+        {
+            AddLayers(e.NewItems.OfType<SceneLayer>());
+        }
+    }
 
+    private void AddLayers(IEnumerable<SceneLayer> items)
+    {
+        foreach (SceneLayer layer in items)
+        {
+            var viewModel = new TimelineLayerViewModel(layer);
+            var view = new TimelineLayer
+            {
+                DataContext = viewModel
+            };
+
+            TimelinePanel.Children.Add(view);
+        }
     }
 
     private void AddLayerClick(object? sender, RoutedEventArgs e)
     {
-
     }
 }

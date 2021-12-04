@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Globalization;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Globalization;
 
 using Avalonia;
 using Avalonia.Data;
@@ -11,7 +6,7 @@ using Avalonia.Data.Converters;
 
 namespace BEditorNext.Converters;
 
-public class PixelSizeConverter : IValueConverter
+public sealed class PixelSizeConverter : IValueConverter
 {
     public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
     {

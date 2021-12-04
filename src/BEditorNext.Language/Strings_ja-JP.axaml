@@ -5,11 +5,6 @@
         <FontFamily x:Key="ContentControlThemeFontFamily">Yu Gothic UI, Hiragino Sans, Noto Sans JP</FontFamily>
 
         <x:String x:Key="FileString">ファイル</x:String>
-        <x:String x:Key="CreateNewString">新規作成</x:String>
-        <x:String x:Key="OpenString">開く</x:String>
-        <x:String x:Key="CloseString">閉じる</x:String>
-        <x:String x:Key="EditString">編集</x:String>
-        <x:String x:Key="ViewString">表示</x:String>
         <x:String x:Key="ObjectString">オブジェクト</x:String>
         <x:String x:Key="HelpString">ヘルプ</x:String>
         <x:String x:Key="ExtensionsString">拡張機能</x:String>
@@ -19,25 +14,41 @@
         <x:String x:Key="PropertiesString">プロパティ</x:String>
         <x:String x:Key="EasingString">イージング</x:String>
         <x:String x:Key="ObjectsString">オブジェクト</x:String>
-        <x:String x:Key="CreateNewProjectString">プロジェクトを新規作成</x:String>
-        <x:String x:Key="CreateNewSceneString">シ－ンを新規作成</x:String>
         <x:String x:Key="SizeString">サイズ</x:String>
         <x:String x:Key="FrameRateString">フレームレート</x:String>
         <x:String x:Key="SampleRateString">音声レート</x:String>
         <x:String x:Key="NameString">名前</x:String>
         <x:String x:Key="LocationString">場所</x:String>
-        <x:String x:Key="NextString">次へ</x:String>
-        <x:String x:Key="BackString">戻る</x:String>
         <x:String x:Key="ProjectFileString">プロジェクトファイル</x:String>
         <x:String x:Key="SceneFileString">シーンファイル</x:String>
-        <x:String x:Key="CannotSpecifyValueLessThanOrEqualToZeroString">0以下の値は指定できません。</x:String>
-        <x:String x:Key="ItAlreadyExistsString">既に存在しています</x:String>
+        <x:String x:Key="LayerString">レイヤー</x:String>
+        <x:String x:Key="StartTimeString">開始時間</x:String>
+        <x:String x:Key="DurationTimeString">持続時間</x:String>
+        <x:String x:Key="ColorString">色</x:String>
+
+        <!--Verb-->
+        <x:String x:Key="OpenString">開く</x:String>
+        <x:String x:Key="CloseString">閉じる</x:String>
+        <x:String x:Key="EditString">編集</x:String>
+        <x:String x:Key="ViewString">表示</x:String>
+        <x:String x:Key="CreateNewString">新規作成</x:String>
+        <x:String x:Key="CreateNewProjectString">プロジェクトを新規作成</x:String>
+        <x:String x:Key="CreateNewSceneString">シ－ンを新規作成</x:String>
+        <x:String x:Key="NextString">次へ</x:String>
+        <x:String x:Key="BackString">戻る</x:String>
         <x:String x:Key="SearchString">検索</x:String>
         <x:String x:Key="AddLayerString">レイヤーを追加</x:String>
-
-        <!--CommandName-->
+        <x:String x:Key="AddString">追加</x:String>
+        
+        <!--Command-->
         <x:String x:Key="AddRenderOperationString">Render operationを追加</x:String>
         <x:String x:Key="RemoveRenderOperationString">Render operationを削除</x:String>
+
+        <!--ValidationError-->
+        <x:String x:Key="CannotSpecifyValueLessThanOrEqualToZeroString">0以下の値は指定できません。</x:String>
+        <x:String x:Key="CannotSpecifyValueLessThanString">0未満の値は指定できません。</x:String>
+        <x:String x:Key="ItAlreadyExistsString">既に存在しています。</x:String>
+        <x:String x:Key="ThisLayerNumberIsAlreadyInUseString">このレイヤー番号はすでに使用されています。</x:String>
 
         <!--RenderOperationName-->
         <x:String x:Key="EllipseString">楕円</x:String>

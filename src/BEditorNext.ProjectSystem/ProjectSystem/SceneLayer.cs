@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 
 using BEditorNext.Language;
+using BEditorNext.Media;
 
 namespace BEditorNext.ProjectSystem;
 
@@ -11,6 +12,7 @@ public class SceneLayer : Element, IStorable
     public static readonly PropertyDefine<TimeSpan> StartProperty;
     public static readonly PropertyDefine<TimeSpan> LengthProperty;
     public static readonly PropertyDefine<int> LayerProperty;
+    public static readonly PropertyDefine<Color> AccentColorProperty;
     private TimeSpan _start;
     private TimeSpan _length;
     private int _layer;
@@ -18,29 +20,25 @@ public class SceneLayer : Element, IStorable
 
     static SceneLayer()
     {
-        StartProperty = RegisterProperty<TimeSpan, SceneLayer>(
-            nameof(Start),
-            (owner, obj) => owner.Start = obj,
-            owner => owner.Start)
+        StartProperty = RegisterProperty<TimeSpan, SceneLayer>(nameof(Start), (owner, obj) => owner.Start = obj, owner => owner.Start)
             .NotifyPropertyChanging(true)
             .NotifyPropertyChanged(true)
             .JsonName("start");
 
-        LengthProperty = RegisterProperty<TimeSpan, SceneLayer>(
-            nameof(Length),
-            (owner, obj) => owner.Length = obj,
-            owner => owner.Length)
+        LengthProperty = RegisterProperty<TimeSpan, SceneLayer>(nameof(Length), (owner, obj) => owner.Length = obj, owner => owner.Length)
             .NotifyPropertyChanging(true)
             .NotifyPropertyChanged(true)
             .JsonName("length");
 
-        LayerProperty = RegisterProperty<int, SceneLayer>(
-            nameof(Layer),
-            (owner, obj) => owner.Layer = obj,
-            owner => owner.Layer)
+        LayerProperty = RegisterProperty<int, SceneLayer>(nameof(Layer), (owner, obj) => owner.Layer = obj, owner => owner.Layer)
             .NotifyPropertyChanging(true)
             .NotifyPropertyChanged(true)
             .JsonName("layer");
+
+        AccentColorProperty = RegisterProperty<Color, SceneLayer>(nameof(AccentColor))
+            .DefaultValue(Colors.Teal)
+            .NotifyPropertyChanging(true)
+            .NotifyPropertyChanged(true);
     }
 
     public SceneLayer()
@@ -70,6 +68,12 @@ public class SceneLayer : Element, IStorable
     {
         get => _layer;
         set => SetAndRaise(LayerProperty, ref _layer, value);
+    }
+
+    public Color AccentColor
+    {
+        get => GetValue(AccentColorProperty);
+        set => SetValue(AccentColorProperty, value);
     }
 
     public IEnumerable<RenderOperation> Operations => Children.OfType<RenderOperation>();
@@ -190,6 +194,14 @@ public class SceneLayer : Element, IStorable
                     }
                 }
             }
+
+            if (jobject.TryGetPropertyValue("accentColor", out JsonNode? colorNode) &&
+                colorNode is JsonValue colorValue &&
+                colorValue.TryGetValue(out string? colorStr) &&
+                Color.TryParse(colorStr, out Color color))
+            {
+                AccentColor = color;
+            }
         }
     }
 
@@ -213,6 +225,7 @@ public class SceneLayer : Element, IStorable
             }
 
             jobject["operations"] = array;
+            jobject["accentColor"] = JsonValue.Create(AccentColor.ToString());
         }
 
         return node;

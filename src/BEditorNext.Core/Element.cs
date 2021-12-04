@@ -232,7 +232,6 @@ public abstract class Element : IElement
         {
             { PropertyMetaTableKeys.Name, name },
             { PropertyMetaTableKeys.OwnerType, typeof(TOwner) },
-            { PropertyMetaTableKeys.IsAutomatic, true },
         };
 
         var define = new PropertyDefine<T>(metaTable);
@@ -247,7 +246,7 @@ public abstract class Element : IElement
             throw new ElementException("Owner does not match.");
         }
 
-        if (!property.IsAutomatic)
+        if (property.HasGetter)
         {
             return (TValue?)property.GetGetter().Invoke(property, this) ?? property.GetDefaultValue()!;
         }
@@ -267,7 +266,7 @@ public abstract class Element : IElement
             throw new ElementException("Owner does not match.");
         }
 
-        if (!property.IsAutomatic)
+        if (property.HasGetter)
         {
             return property.GetGetter().Invoke(property, this) ?? property.GetDefaultValue();
         }
@@ -288,7 +287,7 @@ public abstract class Element : IElement
         if (CheckOwnerType(property)) throw new ElementException("Owner does not match.");
 
         object? old = null;
-        if (!property.IsAutomatic && property.MetaTable.ContainsKey(PropertyMetaTableKeys.Setter))
+        if (property.HasSetter)
         {
             old = property.GetGetter().Invoke(property, this);
             if (!RuntimeHelpers.Equals(old, value))
@@ -316,7 +315,7 @@ public abstract class Element : IElement
         if (CheckOwnerType(property)) throw new ElementException("Owner does not match.");
 
         object? old = null;
-        if (!property.IsAutomatic && property.MetaTable.ContainsKey(PropertyMetaTableKeys.Setter))
+        if (property.HasSetter)
         {
             old = property.GetGetter().Invoke(property, this);
             if (!RuntimeHelpers.Equals(old, value))

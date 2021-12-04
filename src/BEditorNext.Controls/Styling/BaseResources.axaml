@@ -10,6 +10,9 @@
         <SolidColorBrush x:Key="BackgroundBrush2" Color="{DynamicResource BackgroundColor2}"/>
         <SolidColorBrush x:Key="BackgroundBrush3" Color="{DynamicResource BackgroundColor3}"/>
         <SolidColorBrush x:Key="SeparatorBrush" Color="{DynamicResource SeparatorColor}"/>
+
+        <x:Double x:Key="LayerHeight">25</x:Double>
+        <x:Double x:Key="SecondWidth">150</x:Double>
     </Styles.Resources>
 
 </Styles>

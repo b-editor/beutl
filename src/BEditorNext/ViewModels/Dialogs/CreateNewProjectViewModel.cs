@@ -64,20 +64,18 @@ public sealed class CreateNewProjectViewModel
             }
         });
 
-        CanCreate = Name.CombineLatest(Location, Size, FrameRate, SampleRate).Select(t =>
-        {
-            string name = t.First;
-            string location = t.Second;
-            PixelSize size = t.Third;
-            int framerate = t.Fourth;
-            int samplerate = t.Fifth;
+        CanCreate = Name.CombineLatest(Location, Size, FrameRate, SampleRate)
+            .Select(t =>
+            {
+                (string name, string location, PixelSize size, int framerate, int samplerate) = t;
 
-            return !Directory.Exists(Path.Combine(location, name)) &&
-                size.Width > 0 &&
-                size.Height > 0 &&
-                framerate > 0 &&
-                samplerate > 0;
-        }).ToReadOnlyReactivePropertySlim();
+                return !Directory.Exists(Path.Combine(location, name)) &&
+                    size.Width > 0 &&
+                    size.Height > 0 &&
+                    framerate > 0 &&
+                    samplerate > 0;
+            })
+            .ToReadOnlyReactivePropertySlim();
         Create = new ReactiveCommand(CanCreate);
         Create.Subscribe(() =>
         {

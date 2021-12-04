@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 
 using Avalonia;
 
+using BEditorNext.Models;
 using BEditorNext.ProjectSystem;
 
 using Reactive.Bindings;
@@ -18,7 +19,6 @@ namespace BEditorNext.ViewModels;
 public class TimelineViewModel : IDisposable
 {
     private readonly CompositeDisposable _disposables = new();
-    public record struct LayerDescription(TimeSpan Start, TimeSpan Length, int Layer, RenderOperationRegistry.RegistryItem? InitialOperation = null);
 
     public TimelineViewModel(Scene scene)
     {
@@ -44,15 +44,17 @@ public class TimelineViewModel : IDisposable
             var sLayer = new SceneLayer(Scene)
             {
                 Start = item.Start,
-                Length = item.Length
+                Length = item.Length,
+                Layer = item.Layer,
             };
 
-            if(item.InitialOperation != null)
+            if (item.InitialOperation != null)
             {
+                sLayer.AccentColor = item.InitialOperation.AccentColor;
                 sLayer.AddChild((RenderOperation)(Activator.CreateInstance(item.InitialOperation.Type)!));
             }
 
-            Scene.InsertChild(item.Layer, sLayer);
+            Scene.AddChild(sLayer);
         }).AddTo(_disposables);
     }
 

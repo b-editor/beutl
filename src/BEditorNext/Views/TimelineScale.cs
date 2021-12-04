@@ -36,9 +36,9 @@ public sealed class TimelineScale : Control
         var viewport = new Rect(new Point(scroll.Offset.X, scroll.Offset.Y), scroll.Viewport);
 
         double recentPix = 0d;
-        double inc = Helper.SecondPixels;
+        double inc = Helper.SecondWidth;
         // 分割数: 30
-        double wf = Helper.SecondPixels / 30;
+        double wf = Helper.SecondWidth / 30;
         double l = viewport.Width + viewport.X;
 
         for (double x = Math.Floor(viewport.X / inc) * inc; x < l; x += inc)

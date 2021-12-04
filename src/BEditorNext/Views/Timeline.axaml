@@ -109,6 +109,7 @@
                 </Panel.ContextMenu>
 
                 <local:TimelineBackground
+                    ItemHeight="{DynamicResource LayerHeight}"
                     BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
                     BorderThickness="0.5" />
     

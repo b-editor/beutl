@@ -73,19 +73,9 @@ public class PropertyDefine
         }
     }
 
-    public bool IsAutomatic
-    {
-        get
-        {
-            if (MetaTable.TryGetValue(PropertyMetaTableKeys.IsAutomatic, out object? val) &&
-                val is bool result)
-            {
-                return result;
-            }
-
-            return false;
-        }
-    }
+    public bool HasGetter => MetaTable.ContainsKey(PropertyMetaTableKeys.Getter) || MetaTable.ContainsKey(PropertyMetaTableKeys.GenericsGetter);
+    
+    public bool HasSetter => MetaTable.ContainsKey(PropertyMetaTableKeys.Setter) || MetaTable.ContainsKey(PropertyMetaTableKeys.GenericsSetter);
 
     public int Id
     {
