@@ -21,11 +21,17 @@ namespace BEditorNext.Views;
 
 public partial class Timeline : UserControl
 {
-    private bool _seekbarIsMouseDown;
+    internal enum MouseFlags
+    {
+        MouseUp,
+        MouseDown
+    }
+
+    internal MouseFlags _seekbarMouseFlag = MouseFlags.MouseUp;
     private TimeSpan _clickedFrame;
     private int _clickedLayer;
-    private TimeSpan _pointerFrame;
-    private int _pointerLayer;
+    internal TimeSpan _pointerFrame;
+    internal int _pointerLayer;
     private bool _isFirst;
 
     public Timeline()
@@ -41,7 +47,7 @@ public partial class Timeline : UserControl
         DragDrop.SetAllowDrop(TimelinePanel, true);
     }
 
-    private TimelineViewModel ViewModel => (TimelineViewModel)DataContext!;
+    internal TimelineViewModel ViewModel => (TimelineViewModel)DataContext!;
 
     protected override void OnDataContextChanged(EventArgs e)
     {
@@ -112,7 +118,7 @@ public partial class Timeline : UserControl
         _pointerFrame = pointerPt.Position.X.ToTimeSpan(ViewModel.Scene.TimelineOptions.Scale);
         _pointerLayer = pointerPt.Position.Y.ToLayerNumber();
 
-        if (_seekbarIsMouseDown)
+        if (_seekbarMouseFlag == MouseFlags.MouseDown)
         {
             ViewModel.Scene.CurrentFrame = _pointerFrame;
         }
@@ -125,7 +131,7 @@ public partial class Timeline : UserControl
 
         if (pointerPt.Properties.PointerUpdateKind == PointerUpdateKind.LeftButtonReleased)
         {
-            _seekbarIsMouseDown = false;
+            _seekbarMouseFlag = MouseFlags.MouseUp;
         }
     }
 
@@ -138,7 +144,7 @@ public partial class Timeline : UserControl
 
         if (pointerPt.Properties.IsLeftButtonPressed)
         {
-            _seekbarIsMouseDown = true;
+            _seekbarMouseFlag = MouseFlags.MouseDown;
             ViewModel.Scene.CurrentFrame = _clickedFrame;
         }
     }
@@ -146,7 +152,7 @@ public partial class Timeline : UserControl
     // ポインターが離れた
     private void TimelinePanel_PointerLeave(object? sender, PointerEventArgs e)
     {
-        _seekbarIsMouseDown = false;
+        _seekbarMouseFlag = MouseFlags.MouseUp;
     }
 
     private async void TimelinePanel_Drop(object? sender, DragEventArgs e)

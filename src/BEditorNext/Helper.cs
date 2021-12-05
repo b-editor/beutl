@@ -42,7 +42,12 @@ internal static class Helper
 
     public static int ToLayerNumber(this double pixel)
     {
-        return (int)(pixel / LayerHeight);
+        return (int)Math.Floor(pixel / LayerHeight);
+    }
+
+    public static int ToLayerNumber(this Thickness thickness)
+    {
+        return (int)Math.Floor((thickness.Top + (LayerHeight / 2)) / LayerHeight);
     }
 
     public static double ToLayerPixel(this int layer)

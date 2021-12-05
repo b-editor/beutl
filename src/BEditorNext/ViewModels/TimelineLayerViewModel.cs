@@ -24,16 +24,21 @@ public class TimelineLayerViewModel : IDisposable
     public TimelineLayerViewModel(SceneLayer sceneLayer)
     {
         Model = sceneLayer;
-        Margin = sceneLayer.GetObservable(SceneLayer.StartProperty)
-            .CombineLatest(sceneLayer.GetObservable(SceneLayer.LayerProperty), Scene.GetObservable(Scene.TimelineOptionsProperty))
-            .Select(item => new Thickness(item.First.ToPixel(item.Third.Scale), item.Second.ToLayerPixel(), 0, 0))
-            .ToReadOnlyReactivePropertySlim()
+        Margin = sceneLayer.GetObservable(SceneLayer.LayerProperty)
+            .Select(item => new Thickness(0, item.ToLayerPixel(), 0, 0))
+            .ToReactiveProperty()
+            .AddTo(_disposables);
+
+        BorderMargin = sceneLayer.GetObservable(SceneLayer.StartProperty)
+            .CombineLatest(Scene.GetObservable(Scene.TimelineOptionsProperty))
+            .Select(item => new Thickness(item.First.ToPixel(item.Second.Scale), 0, 0, 0))
+            .ToReactiveProperty()
             .AddTo(_disposables);
 
         Width = sceneLayer.GetObservable(SceneLayer.LengthProperty)
             .CombineLatest(Scene.GetObservable(Scene.TimelineOptionsProperty))
             .Select(item => item.First.ToPixel(item.Second.Scale))
-            .ToReadOnlyReactivePropertySlim()
+            .ToReactiveProperty()
             .AddTo(_disposables);
 
         Color = sceneLayer.GetObservable(SceneLayer.AccentColorProperty)
@@ -46,14 +51,25 @@ public class TimelineLayerViewModel : IDisposable
 
     public Scene Scene => (Scene)Model.Parent!;
 
-    public ReadOnlyReactivePropertySlim<Thickness> Margin { get; }
+    public ReactiveProperty<Thickness> Margin { get; }
 
-    public ReadOnlyReactivePropertySlim<double> Width { get; }
+    public ReactiveProperty<Thickness> BorderMargin { get; }
+
+    public ReactiveProperty<double> Width { get; }
 
     public ReadOnlyReactivePropertySlim<Avalonia.Media.Color> Color { get; }
 
     public void Dispose()
     {
         _disposables.Dispose();
+    }
+
+    public void SyncModelToViewModel()
+    {
+        float scale = Scene.TimelineOptions.Scale;
+        Model.UpdateTime(BorderMargin.Value.Left.ToTimeSpan(scale), Width.Value.ToTimeSpan(scale));
+
+        // Todo: レイヤー番号保存
+        Margin.Value = new Thickness(0, Margin.Value.ToLayerNumber().ToLayerPixel(), 0, 0);
     }
 }

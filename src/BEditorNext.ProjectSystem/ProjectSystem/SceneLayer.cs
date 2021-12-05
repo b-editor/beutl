@@ -135,6 +135,25 @@ public class SceneLayer : Element, IStorable
         }
     }
 
+    public void UpdateTime(TimeSpan start, TimeSpan length, CommandRecorder? recorder = null)
+    {
+        if (start < TimeSpan.Zero)
+            throw new ArgumentOutOfRangeException(nameof(start));
+
+        if (length <= TimeSpan.Zero)
+            throw new ArgumentOutOfRangeException(nameof(length));
+
+        if (recorder == null)
+        {
+            Start = start;
+            Length = length;
+        }
+        else if (start != Start && length != Length)
+        {
+            recorder.Do(new UpdateTimeCommand(this, start, Start, length, Length));
+        }
+    }
+
     public void Save(string filename)
     {
         _fileName = filename;
@@ -290,6 +309,41 @@ public class SceneLayer : Element, IStorable
         public void Undo()
         {
             _layer.Children.Insert(_oldIndex, _operation);
+        }
+    }
+
+    private sealed class UpdateTimeCommand : IRecordableCommand
+    {
+        private readonly SceneLayer _layer;
+        private readonly TimeSpan _newStart;
+        private readonly TimeSpan _oldStart;
+        private readonly TimeSpan _newLength;
+        private readonly TimeSpan _oldLength;
+
+        public UpdateTimeCommand(SceneLayer layer, TimeSpan newStart, TimeSpan oldStart, TimeSpan newLength, TimeSpan oldLength)
+        {
+            _layer = layer;
+            _newStart = newStart;
+            _oldStart = oldStart;
+            _newLength = newLength;
+            _oldLength = oldLength;
+        }
+
+        public void Do()
+        {
+            _layer.Start = _newStart;
+            _layer.Length = _newLength;
+        }
+
+        public void Redo()
+        {
+            Do();
+        }
+
+        public void Undo()
+        {
+            _layer.Start = _oldStart;
+            _layer.Length = _oldLength;
         }
     }
 

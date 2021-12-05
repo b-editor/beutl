@@ -7,10 +7,20 @@
     mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
     x:DataType="vm:TimelineLayerViewModel"
     Margin="{CompiledBinding Margin.Value}"
-    Width="{CompiledBinding Width.Value}"
     Height="{DynamicResource LayerHeight}"
-    Background="{CompiledBinding Color.Value, Converter={StaticResource ColorToBrushConverter}}"
-    HorizontalAlignment="Left"
+    HorizontalAlignment="Stretch"
     VerticalAlignment="Top"
+    Padding="0,1"
     x:Class="BEditorNext.Views.TimelineLayer">
+    <Border
+        x:Name="border"
+        HorizontalAlignment="Left"
+        PointerPressed="Border_PointerPressed"
+        PointerReleased="Border_PointerReleased"
+        PointerMoved="Border_PointerMoved"
+        Width="{CompiledBinding Width.Value}"
+        Margin="{CompiledBinding BorderMargin.Value}"
+        Background="{CompiledBinding Color.Value, Converter={StaticResource ColorToBrushConverter}}">
+    </Border>
+
 </UserControl>
