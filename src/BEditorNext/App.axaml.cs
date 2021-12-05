@@ -1,10 +1,6 @@
 using Avalonia;
-using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
-using Avalonia.Markup.Xaml.MarkupExtensions;
-using Avalonia.Styling;
-using Avalonia.Threading;
 
 using BEditorNext.Operations;
 using BEditorNext.Services;

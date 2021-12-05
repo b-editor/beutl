@@ -69,7 +69,8 @@ public class TimelineLayerViewModel : IDisposable
         float scale = Scene.TimelineOptions.Scale;
         Model.UpdateTime(BorderMargin.Value.Left.ToTimeSpan(scale), Width.Value.ToTimeSpan(scale));
 
+        Scene.MoveChild(Margin.Value.ToLayerNumber(), Model);
         // Todo: レイヤー番号保存
-        Margin.Value = new Thickness(0, Margin.Value.ToLayerNumber().ToLayerPixel(), 0, 0);
+        //Margin.Value = new Thickness(0, Margin.Value.ToLayerNumber().ToLayerPixel(), 0, 0);
     }
 }

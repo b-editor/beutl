@@ -178,14 +178,68 @@ public class Scene : Element, IStorable
         }
     }
 
-    public void InsertChild(int layerNum, SceneLayer layer, CommandRecorder? recorder = null)
+    public void MoveChild(int layerNum, SceneLayer layer, CommandRecorder? recorder = null)
     {
         ArgumentNullException.ThrowIfNull(layer);
 
         if (recorder == null)
         {
+            // 下に移動
+            if (layerNum > layer.Layer)
+            {
+                bool insert = false;
+                foreach (SceneLayer item in Layers)
+                {
+                    if (item.Layer == layerNum)
+                    {
+                        insert = true;
+                    }
+                }
+
+                if (insert)
+                {
+                    foreach (SceneLayer item in Layers)
+                    {
+                        if (item != layer)
+                        {
+                            if (item.Layer > layer.Layer &&
+                                item.Layer <= layerNum)
+                            {
+                                item.Layer--;
+                            }
+                        }
+                    }
+                }
+            }
+            else if (layerNum < layer.Layer)
+            {
+                bool insert = false;
+                foreach (SceneLayer item in Layers)
+                {
+                    if (item.Layer == layerNum)
+                    {
+                        insert = true;
+                    }
+                }
+
+                if (insert)
+                {
+                    foreach (SceneLayer item in Layers)
+                    {
+                        if (item != layer)
+                        {
+                            if (item.Layer < layer.Layer &&
+                                item.Layer >= layerNum)
+                            {
+                                item.Layer++;
+                            }
+                        }
+                    }
+                }
+            }
+
             layer.Layer = layerNum;
-            Children.Add(layer);
+            //Children.Add(layer);
         }
         else
         {
