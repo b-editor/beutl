@@ -175,14 +175,14 @@ public static class PropertyDefineExtensions
         return define.GetValue<Action<TOwner, T>>(PropertyMetaTableKeys.GenericsSetter);
     }
 
-    public static Func<PropertyDefine, object, object?> GetGetter(this PropertyDefine define)
+    public static Func<PropertyDefine, object, T> GetGetter<T>(this PropertyDefine<T> define)
     {
-        return define.GetValue<Func<PropertyDefine, object, object?>>(PropertyMetaTableKeys.Getter);
+        return define.GetValue<Func<PropertyDefine, object, T>>(PropertyMetaTableKeys.Getter);
     }
 
-    public static Action<PropertyDefine, object, object> GetSetter(this PropertyDefine define)
+    public static Action<PropertyDefine, object, T> GetSetter<T>(this PropertyDefine<T> define)
     {
-        return define.GetValue<Action<PropertyDefine, object, object>>(PropertyMetaTableKeys.Setter);
+        return define.GetValue<Action<PropertyDefine, object, T>>(PropertyMetaTableKeys.Setter);
     }
 
     public static bool GetNotifyPropertyChanged(this PropertyDefine define)

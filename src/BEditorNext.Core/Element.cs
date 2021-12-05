@@ -2,6 +2,7 @@
 using System.ComponentModel;
 using System.Data;
 using System.Diagnostics.CodeAnalysis;
+using System.Reactive.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
@@ -172,13 +173,13 @@ public abstract class Element : IElement
             { PropertyMetaTableKeys.OwnerType, typeof(TOwner) },
             { PropertyMetaTableKeys.GenericsSetter, setter },
             { PropertyMetaTableKeys.GenericsGetter, getter },
-            { PropertyMetaTableKeys.Setter, new Action<PropertyDefine, object, object>((props, owner, obj) =>
+            { PropertyMetaTableKeys.Setter, new Action<PropertyDefine, object, T>((props, owner, obj) =>
                 {
                     var accessor = (Action<TOwner, T>)props.MetaTable[PropertyMetaTableKeys.GenericsSetter];
-                    accessor((TOwner)owner, (T)obj);
+                    accessor((TOwner)owner, obj);
                 })
             },
-            { PropertyMetaTableKeys.Getter, new Func<PropertyDefine, object, object?>((props, owner) =>
+            { PropertyMetaTableKeys.Getter, new Func<PropertyDefine, object, T>((props, owner) =>
                 {
                     var accessor = (Func<TOwner, T>)props.MetaTable[PropertyMetaTableKeys.GenericsGetter];
                     return accessor((TOwner)owner);
@@ -206,7 +207,7 @@ public abstract class Element : IElement
             { PropertyMetaTableKeys.Name, name },
             { PropertyMetaTableKeys.OwnerType, typeof(TOwner) },
             { PropertyMetaTableKeys.GenericsGetter, getter },
-            { PropertyMetaTableKeys.Getter, new Func<PropertyDefine, object, object?>((props, owner) =>
+            { PropertyMetaTableKeys.Getter, new Func<PropertyDefine, object, T>((props, owner) =>
                 {
                     var accessor = (Func<TOwner, T>)props.MetaTable[PropertyMetaTableKeys.GenericsGetter];
                     return accessor((TOwner)owner);
@@ -261,78 +262,46 @@ public abstract class Element : IElement
 
     public object? GetValue(PropertyDefine property)
     {
-        if (CheckOwnerType(property))
-        {
-            throw new ElementException("Owner does not match.");
-        }
+        ArgumentNullException.ThrowIfNull(property);
 
-        if (property.HasGetter)
-        {
-            return property.GetGetter().Invoke(property, this) ?? property.GetDefaultValue();
-        }
-
-        if (!Values.ContainsKey(property.Id))
-        {
-            return property.GetDefaultValue();
-        }
-
-        return Values[property.Id];
+        return property.RouteGetValue(this);
     }
 
-    public void SetValue<TValue>(PropertyDefine<TValue> property, TValue value)
+    public void SetValue<TValue>(PropertyDefine<TValue> property, TValue? value)
     {
         if (value != null && CheckValueType(property, value))
             throw new ElementException($"{nameof(value)} of type {value.GetType().Name} cannot be assigned to type {property.PropertyType}.");
 
         if (CheckOwnerType(property)) throw new ElementException("Owner does not match.");
 
-        object? old = null;
+        object? oldValue = null;
+        object? newValue = value;
         if (property.HasSetter)
         {
-            old = property.GetGetter().Invoke(property, this);
-            if (!RuntimeHelpers.Equals(old, value))
+            oldValue = property.GetGetter().Invoke(property, this);
+            if (!RuntimeHelpers.Equals(oldValue, newValue))
             {
                 property.GetSetter().Invoke(property, this, value!);
             }
         }
         else if (!AddIfNotExist(property, value))
         {
-            old = Values[property.Id];
-            if (!RuntimeHelpers.Equals(old, value))
+            oldValue = Values[property.Id];
+
+            if (!RuntimeHelpers.Equals(oldValue, newValue))
             {
                 RaisePropertyChanging(property);
-                Values[property.Id] = value;
-                RaisePropertyChanged(property);
+                Values[property.Id] = newValue;
+                RaisePropertyChanged(property, value, (TValue?)oldValue);
             }
         }
     }
 
     public void SetValue(PropertyDefine property, object? value)
     {
-        if (value != null && CheckValueType(property, value))
-            throw new ElementException($"{nameof(value)} of type {value.GetType().Name} cannot be assigned to type {property.PropertyType}.");
+        ArgumentNullException.ThrowIfNull(property);
 
-        if (CheckOwnerType(property)) throw new ElementException("Owner does not match.");
-
-        object? old = null;
-        if (property.HasSetter)
-        {
-            old = property.GetGetter().Invoke(property, this);
-            if (!RuntimeHelpers.Equals(old, value))
-            {
-                property.GetSetter().Invoke(property, this, value!);
-            }
-        }
-        else if (!AddIfNotExist(property, value))
-        {
-            old = Values[property.Id];
-            if (!RuntimeHelpers.Equals(old, value))
-            {
-                RaisePropertyChanging(property);
-                Values[property.Id] = value;
-                RaisePropertyChanged(property);
-            }
-        }
+        property.RouteSetValue(this, value!);
     }
 
     [MemberNotNull("JsonNode")]
@@ -420,12 +389,22 @@ public abstract class Element : IElement
 
     protected void OnPropertyChanged([CallerMemberName] string? propertyName = null)
     {
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        OnPropertyChanged(new PropertyChangedEventArgs(propertyName));
     }
 
     protected void OnPropertyChanging([CallerMemberName] string? propertyName = null)
     {
-        PropertyChanging?.Invoke(this, new PropertyChangingEventArgs(propertyName));
+        OnPropertyChanging(new PropertyChangingEventArgs(propertyName));
+    }
+
+    protected void OnPropertyChanged(PropertyChangedEventArgs args)
+    {
+        PropertyChanged?.Invoke(this, args);
+    }
+
+    protected void OnPropertyChanging(PropertyChangingEventArgs args)
+    {
+        PropertyChanging?.Invoke(this, args);
     }
 
     protected bool SetAndRaise<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
@@ -485,15 +464,16 @@ public abstract class Element : IElement
     }
 
     // 追加した場合はtrue
-    private bool AddIfNotExist(PropertyDefine property, object? value)
+    private bool AddIfNotExist<TValue>(PropertyDefine<TValue> property, TValue? value)
     {
         if (!Values.ContainsKey(property.Id))
         {
+            object? boxed = value;
             RaisePropertyChanging(property);
 
-            Values.Add(property.Id, value);
+            Values.Add(property.Id, boxed);
 
-            RaisePropertyChanged(property);
+            RaisePropertyChanged(property, value, default);
 
             return true;
         }
@@ -501,27 +481,14 @@ public abstract class Element : IElement
         return false;
     }
 
-    private bool AddIfNotExist<TValue>(PropertyDefine property, TValue value)
-    {
-        if (!Values.ContainsKey(property.Id))
-        {
-            RaisePropertyChanging(property);
-
-            Values.Add(property.Id, value);
-
-            RaisePropertyChanged(property);
-
-            return true;
-        }
-
-        return false;
-    }
-
-    private void RaisePropertyChanged(PropertyDefine property)
+    private void RaisePropertyChanged<T>(PropertyDefine<T> property, T? newValue, T? oldValue)
     {
         if (property.GetNotifyPropertyChanged())
         {
-            OnPropertyChanged(property.Name);
+            var eventArgs = new ElementPropertyChangedEventArgs<T>(this, property, newValue, oldValue);
+            property.NotifyChanged(eventArgs);
+
+            OnPropertyChanged(eventArgs);
         }
     }
 
