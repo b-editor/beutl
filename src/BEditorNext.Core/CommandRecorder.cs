@@ -72,7 +72,19 @@ public class CommandRecorder : INotifyPropertyChanged
 
     public event EventHandler? Cleared;
 
-    public void Do(IRecordableCommand command)
+    public void PushOnly(IRecordableCommand command)
+    {
+        _undoStack.Push(command);
+        CanUndo = _undoStack.Count > 0;
+
+        _redoStack.Clear();
+        CanRedo = _redoStack.Count > 0;
+
+        LastExecutedTime = DateTime.UtcNow;
+        Executed?.Invoke(command, new(command, CommandType.Do));
+    }
+
+    public void DoAndPush(IRecordableCommand command)
     {
         if (_isExecuting)
         {
