@@ -9,6 +9,8 @@ using BEditorNext.ProjectSystem;
 
 using FluentAvalonia.UI.Media;
 
+using OpenCvSharp;
+
 using Reactive.Bindings;
 
 namespace BEditorNext.ViewModels.Dialogs;
@@ -80,15 +82,17 @@ public sealed class AddLayerViewModel
                 Start = Start.Value,
                 Length = Duration.Value,
                 Layer = Layer.Value,
-                AccentColor = new(Color.Value.A, Color.Value.R, Color.Value.G, Color.Value.B)
+                AccentColor = new(Color.Value.A, Color.Value.R, Color.Value.G, Color.Value.B),
+                FileName = Helper.RandomLayerFileName(Path.GetDirectoryName(_scene.FileName)!, "layer")
             };
 
             if (_layerDescription.InitialOperation != null)
             {
-                sLayer.AddChild((RenderOperation)(Activator.CreateInstance(_layerDescription.InitialOperation.Type)!));
+                sLayer.AddChild((RenderOperation)(Activator.CreateInstance(_layerDescription.InitialOperation.Type)!), CommandRecorder.Default);
             }
 
-            _scene.AddChild(sLayer);
+            sLayer.Save(sLayer.FileName);
+            _scene.AddChild(sLayer, CommandRecorder.Default);
         });
     }
 

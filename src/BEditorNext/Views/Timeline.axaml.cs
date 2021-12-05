@@ -168,16 +168,16 @@ public partial class Timeline : UserControl
         {
             if (e.KeyModifiers == KeyModifiers.Control)
             {
-                ViewModel.AddLayer.Execute(new LayerDescription(
-                    _clickedFrame, TimeSpan.FromSeconds(5), _clickedLayer, item));
-            }
-            else
-            {
                 var dialog = new AddLayer
                 {
                     DataContext = new AddLayerViewModel(scene, new LayerDescription(_clickedFrame, TimeSpan.FromSeconds(5), _clickedLayer, item))
                 };
                 await dialog.ShowAsync();
+            }
+            else
+            {
+                ViewModel.AddLayer.Execute(new LayerDescription(
+                    _clickedFrame, TimeSpan.FromSeconds(5), _clickedLayer, item));
             }
         }
     }

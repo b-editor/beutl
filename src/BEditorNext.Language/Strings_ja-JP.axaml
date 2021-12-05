@@ -39,6 +39,10 @@
         <x:String x:Key="SearchString">検索</x:String>
         <x:String x:Key="AddLayerString">レイヤーを追加</x:String>
         <x:String x:Key="AddString">追加</x:String>
+        <x:String x:Key="UndoString">元に戻す</x:String>
+        <x:String x:Key="RedoString">やり直し</x:String>
+        <x:String x:Key="SaveString">上書き保存</x:String>
+        <x:String x:Key="SaveAllString">すべて保存</x:String>
         
         <!--Command-->
         <x:String x:Key="AddRenderOperationString">Render operationを追加</x:String>

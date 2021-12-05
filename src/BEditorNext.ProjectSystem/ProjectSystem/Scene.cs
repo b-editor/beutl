@@ -21,18 +21,17 @@ public class Scene : Element, IStorable
     public static readonly PropertyDefine<SceneLayer?> SelectedItemProperty;
     public static readonly PropertyDefine<PreviewOptions?> PreviewOptionsProperty;
     public static readonly PropertyDefine<TimelineOptions> TimelineOptionsProperty;
+    private readonly List<string> _includeLayers = new()
+    {
+        "**/*.layer"
+    };
+    private readonly List<string> _excludeLayers = new();
     private string? _fileName;
     private TimeSpan _duration = TimeSpan.FromMinutes(5);
     private TimeSpan _currentFrame;
     private SceneLayer? _selectedItem;
     private PreviewOptions? _previewOptions;
     private TimelineOptions _timelineOptions = new();
-    private readonly List<string> _includeLayers = new()
-    {
-        "**/*.layer"
-    };
-    private readonly List<string> _excludeLayers = new();
-
     public Scene()
         : this(1920, 1080, string.Empty)
     {

@@ -9,6 +9,7 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d" d:DesignWidth="1280" d:DesignHeight="720"
+    x:DataType="vm:MainWindowViewModel"
     x:Class="BEditorNext.Views.MainWindow"
     DisableDefaultTitleBar="True"
     Padding="0"
@@ -30,14 +31,50 @@
                             <FluentIconRegular IconType="New" Classes="Small" />
                         </MenuItem.Icon>
                     </MenuItem>
+                    <Separator />
                     <MenuItem Header="{DynamicResource OpenString}" Click="OpenClicked">
                         <MenuItem.Icon>
                             <FluentIconRegular IconType="Open" Classes="Small" />
                         </MenuItem.Icon>
                     </MenuItem>
+                    <Separator />
                     <MenuItem Header="{DynamicResource CloseString}" />
+                    <Separator />
+                    <MenuItem
+                        Header="{DynamicResource SaveString}"
+                        Command="{CompiledBinding Save}"
+                        IsEnabled="{CompiledBinding IsProjectOpened.Value}">
+                        <MenuItem.Icon>
+                            <FluentIconRegular IconType="Save" Classes="Small" />
+                        </MenuItem.Icon>
+                    </MenuItem>
+                    <MenuItem
+                        Header="{DynamicResource SaveAllString}"
+                        Command="{CompiledBinding SaveAll}"
+                        IsEnabled="{CompiledBinding IsProjectOpened.Value}">
+                        <MenuItem.Icon>
+                            <FluentIconRegular IconType="Save_Multiple" Classes="Small" />
+                        </MenuItem.Icon>
+                    </MenuItem>
                 </MenuItem>
-                <MenuItem Header="{DynamicResource EditString}" />
+                <MenuItem Header="{DynamicResource EditString}">
+                    <MenuItem
+                        Header="{DynamicResource UndoString}"
+                        Command="{CompiledBinding Undo}"
+                        IsEnabled="{CompiledBinding IsProjectOpened.Value}">
+                        <MenuItem.Icon>
+                            <FluentIconRegular IconType="Arrow_Undo" Classes="Small" />
+                        </MenuItem.Icon>
+                    </MenuItem>
+                    <MenuItem
+                        Header="{DynamicResource RedoString}"
+                        Command="{CompiledBinding Redo}"
+                        IsEnabled="{CompiledBinding IsProjectOpened.Value}">
+                        <MenuItem.Icon>
+                            <FluentIconRegular IconType="Arrow_Redo" Classes="Small" />
+                        </MenuItem.Icon>
+                    </MenuItem>
+                </MenuItem>
                 <MenuItem Header="{DynamicResource ViewString}">
                     <!--<MenuItem Header="Language" Click="MenuItem_Clicked" />-->
                 </MenuItem>

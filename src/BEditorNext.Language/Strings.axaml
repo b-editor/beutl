@@ -39,6 +39,10 @@
         <x:String x:Key="SearchString">Search</x:String>
         <x:String x:Key="AddLayerString">Add Layer</x:String>
         <x:String x:Key="AddString">Add</x:String>
+        <x:String x:Key="UndoString">Undo</x:String>
+        <x:String x:Key="RedoString">Redo</x:String>
+        <x:String x:Key="SaveString">Save</x:String>
+        <x:String x:Key="SaveAllString">Save all</x:String>
 
         <!--Command-->
         <x:String x:Key="AddRenderOperationString">Add a render operation.</x:String>

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
+using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -46,16 +47,23 @@ public class TimelineViewModel : IDisposable
                 Start = item.Start,
                 Length = item.Length,
                 Layer = item.Layer,
+                FileName = Helper.RandomLayerFileName(Path.GetDirectoryName(Scene.FileName)!, "layer")
             };
 
             if (item.InitialOperation != null)
             {
                 sLayer.AccentColor = item.InitialOperation.AccentColor;
-                sLayer.AddChild((RenderOperation)(Activator.CreateInstance(item.InitialOperation.Type)!));
+                sLayer.AddChild((RenderOperation)(Activator.CreateInstance(item.InitialOperation.Type)!), CommandRecorder.Default);
             }
 
-            Scene.AddChild(sLayer);
+            sLayer.Save(sLayer.FileName);
+            Scene.AddChild(sLayer, CommandRecorder.Default);
         }).AddTo(_disposables);
+    }
+
+    ~TimelineViewModel()
+    {
+        _disposables.Dispose();
     }
 
     public Scene Scene { get; }
@@ -71,5 +79,6 @@ public class TimelineViewModel : IDisposable
     public void Dispose()
     {
         _disposables.Dispose();
+        GC.SuppressFinalize(this);
     }
 }
