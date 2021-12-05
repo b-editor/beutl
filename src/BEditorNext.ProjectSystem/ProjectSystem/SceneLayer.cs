@@ -101,7 +101,7 @@ public class SceneLayer : Element, IStorable
         else
         {
             var command = new AddCommand(this, operation, Children.Count);
-            recorder.Do(command);
+            recorder.DoAndPush(command);
         }
     }
 
@@ -116,7 +116,7 @@ public class SceneLayer : Element, IStorable
         else
         {
             var command = new RemoveCommand(this, operation);
-            recorder.Do(command);
+            recorder.DoAndPush(command);
         }
     }
 
@@ -131,7 +131,7 @@ public class SceneLayer : Element, IStorable
         else
         {
             var command = new AddCommand(this, operation, index);
-            recorder.Do(command);
+            recorder.DoAndPush(command);
         }
     }
 
@@ -150,7 +150,7 @@ public class SceneLayer : Element, IStorable
         }
         else if (start != Start && length != Length)
         {
-            recorder.Do(new UpdateTimeCommand(this, start, Start, length, Length));
+            recorder.DoAndPush(new UpdateTimeCommand(this, start, Start, length, Length));
         }
     }
 

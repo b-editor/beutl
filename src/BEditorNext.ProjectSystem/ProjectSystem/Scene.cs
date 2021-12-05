@@ -159,7 +159,7 @@ public class Scene : Element, IStorable
         }
         else
         {
-            recorder.Do(new AddCommand(this, layer));
+            recorder.DoAndPush(new AddCommand(this, layer));
         }
     }
 
@@ -174,7 +174,7 @@ public class Scene : Element, IStorable
         }
         else
         {
-            recorder.Do(new RemoveCommand(this, layer));
+            recorder.DoAndPush(new RemoveCommand(this, layer));
         }
     }
 
@@ -182,68 +182,69 @@ public class Scene : Element, IStorable
     {
         ArgumentNullException.ThrowIfNull(layer);
 
-        if (recorder == null)
+        PropertyChangeTracker? tracker = recorder != null ? new PropertyChangeTracker(Layers, 0) : null;
+
+        // 下に移動
+        if (layerNum > layer.Layer)
         {
-            // 下に移動
-            if (layerNum > layer.Layer)
+            bool insert = false;
+            foreach (SceneLayer item in Layers)
             {
-                bool insert = false;
+                if (item.Layer == layerNum)
+                {
+                    insert = true;
+                }
+            }
+
+            if (insert)
+            {
                 foreach (SceneLayer item in Layers)
                 {
-                    if (item.Layer == layerNum)
+                    if (item != layer)
                     {
-                        insert = true;
-                    }
-                }
-
-                if (insert)
-                {
-                    foreach (SceneLayer item in Layers)
-                    {
-                        if (item != layer)
+                        if (item.Layer > layer.Layer &&
+                            item.Layer <= layerNum)
                         {
-                            if (item.Layer > layer.Layer &&
-                                item.Layer <= layerNum)
-                            {
-                                item.Layer--;
-                            }
+                            item.Layer--;
                         }
                     }
                 }
             }
-            else if (layerNum < layer.Layer)
-            {
-                bool insert = false;
-                foreach (SceneLayer item in Layers)
-                {
-                    if (item.Layer == layerNum)
-                    {
-                        insert = true;
-                    }
-                }
-
-                if (insert)
-                {
-                    foreach (SceneLayer item in Layers)
-                    {
-                        if (item != layer)
-                        {
-                            if (item.Layer < layer.Layer &&
-                                item.Layer >= layerNum)
-                            {
-                                item.Layer++;
-                            }
-                        }
-                    }
-                }
-            }
-
-            layer.Layer = layerNum;
-            //Children.Add(layer);
         }
-        else
+        else if (layerNum < layer.Layer)
         {
-            recorder.Do(new AddCommand(this, layer, layerNum));
+            bool insert = false;
+            foreach (SceneLayer item in Layers)
+            {
+                if (item.Layer == layerNum)
+                {
+                    insert = true;
+                }
+            }
+
+            if (insert)
+            {
+                foreach (SceneLayer item in Layers)
+                {
+                    if (item != layer)
+                    {
+                        if (item.Layer < layer.Layer &&
+                            item.Layer >= layerNum)
+                        {
+                            item.Layer++;
+                        }
+                    }
+                }
+            }
+        }
+
+        layer.Layer = layerNum;
+
+        if (tracker != null && recorder != null)
+        {
+            IRecordableCommand command = tracker.ToCommand();
+            tracker.Dispose();
+            recorder.PushOnly(command);
         }
     }
 

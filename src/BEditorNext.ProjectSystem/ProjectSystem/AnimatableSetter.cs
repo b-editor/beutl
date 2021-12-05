@@ -46,7 +46,7 @@ public class AnimatableSetter<T> : Setter<T>, IAnimatableSetter
         }
         else
         {
-            recorder.Do(new AddCommand(this, animation, Children.Count));
+            recorder.DoAndPush(new AddCommand(this, animation, Children.Count));
         }
     }
 
@@ -60,7 +60,7 @@ public class AnimatableSetter<T> : Setter<T>, IAnimatableSetter
         }
         else
         {
-            recorder.Do(new RemoveCommand(this, animation));
+            recorder.DoAndPush(new RemoveCommand(this, animation));
         }
     }
 
@@ -74,7 +74,7 @@ public class AnimatableSetter<T> : Setter<T>, IAnimatableSetter
         }
         else
         {
-            recorder.Do(new AddCommand(this, animation, index));
+            recorder.DoAndPush(new AddCommand(this, animation, index));
         }
     }
 
