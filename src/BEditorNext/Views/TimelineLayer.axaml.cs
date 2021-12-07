@@ -4,9 +4,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
-using Avalonia.Markup.Xaml;
 using Avalonia.Media;
-using Avalonia.VisualTree;
 
 using BEditorNext.ProjectSystem;
 using BEditorNext.ViewModels;
@@ -66,7 +64,6 @@ public partial class TimelineLayer : UserControl
 
     private void Layer_PointerPressed(object? sender, PointerPressedEventArgs e)
     {
-
     }
 
     private void Layer_PointerReleased(object? sender, PointerReleasedEventArgs e)

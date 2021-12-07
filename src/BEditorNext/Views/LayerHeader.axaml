@@ -12,8 +12,26 @@
     VerticalAlignment="Top"
     HorizontalAlignment="Stretch"
     x:Class="BEditorNext.Views.LayerHeader">
-    <Grid ColumnDefinitions="Auto,Auto,*">
-        <ToggleButton BorderThickness="0" IsChecked="{Binding Model.IsEnabled}">
+    <Grid ColumnDefinitions="Auto,Auto,Auto,*">
+        <Border
+            x:Name="border"
+            PointerPressed="Border_PointerPressed"
+            PointerReleased="Border_PointerReleased"
+            PointerMoved="Border_PointerMoved"
+            CornerRadius="{DynamicResource ControlCornerRadius}"
+            Cursor="SizeNorthSouth">
+            <Border.Styles>
+                <Style Selector="Border:pointerover">
+                    <Setter Property="Background" Value="{DynamicResource ButtonBackgroundPointerOver}" />
+                </Style>
+            </Border.Styles>
+            <FluentIconRegular IconType="Re_Order_Dots_Vertical" Width="12" Height="12" />
+        </Border>
+        
+        <ToggleButton
+            Grid.Column="1"
+            BorderThickness="0"
+            IsChecked="{Binding Model.IsEnabled}">
             <ToggleButton.Resources>
                 <SolidColorBrush x:Key="ToggleButtonBackground" Color="Transparent" />
                 <SolidColorBrush x:Key="ToggleButtonBackgroundDisabled" Color="Transparent" />
@@ -41,7 +59,7 @@
         </ToggleButton>
 
         <ui:ColorPickerButton
-            Grid.Column="1"
+            Grid.Column="2"
             MinHeight="{DynamicResource LayerHeight}"
             Color="{CompiledBinding ColorSetter.Value}"
             IsAlphaEnabled="False">
@@ -91,7 +109,7 @@
             MinHeight="{DynamicResource LayerHeight}"
             VerticalContentAlignment="Center"
             Text="{Binding Model.Name}"
-            Grid.Column="2">
+            Grid.Column="3">
             <TextBox.Resources>
                 <Thickness x:Key="TextControlBorderThemeThicknessFocused">0</Thickness>
             </TextBox.Resources>
