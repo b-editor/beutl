@@ -3,6 +3,19 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <Styles.Resources>
         <FontFamily x:Key="ContentControlThemeFontFamily">Segoe UI, Helvetica Neue, Ubuntu</FontFamily>
+        <KeyGesture x:Key="CreateNewProjectKeyGesture">Ctrl+Shift+N</KeyGesture>
+        <KeyGesture x:Key="CreateNewKeyGesture">Ctrl+N</KeyGesture>
+        <KeyGesture x:Key="OpenProjectKeyGesture">Ctrl+Shift+O</KeyGesture>
+        <KeyGesture x:Key="OpenKeyGesture">Ctrl+O</KeyGesture>
+        <KeyGesture x:Key="SaveAllKeyGesture">Ctrl+Shift+S</KeyGesture>
+        <KeyGesture x:Key="SaveKeyGesture">Ctrl+S</KeyGesture>
+        <KeyGesture x:Key="ExitKeyGesture">Alt+F4</KeyGesture>
+        <KeyGesture x:Key="UndoKeyGesture">Ctrl+Z</KeyGesture>
+        <KeyGesture x:Key="RedoKeyGesture">Ctrl+Y</KeyGesture>
+        <KeyGesture x:Key="DeleteKeyGesture">Delete</KeyGesture>
+        <KeyGesture x:Key="CutKeyGesture">Ctrl+X</KeyGesture>
+        <KeyGesture x:Key="CopyKeyGesture">Ctrl+C</KeyGesture>
+        <KeyGesture x:Key="PasteKeyGesture">Ctrl+V</KeyGesture>
 
         <x:String x:Key="FileString">File</x:String>
         <x:String x:Key="ObjectString">Object</x:String>
@@ -20,6 +33,7 @@
         <x:String x:Key="NameString">Name</x:String>
         <x:String x:Key="LocationString">Location</x:String>
         <x:String x:Key="ProjectFileString">Project File</x:String>
+        <x:String x:Key="ProjectString">Project</x:String>
         <x:String x:Key="SceneFileString">Scene File</x:String>
         <x:String x:Key="LayerString">Layer</x:String>
         <x:String x:Key="StartTimeString">Start time</x:String>
@@ -29,7 +43,9 @@
         <!--Verb-->
         <x:String x:Key="OpenString">Open</x:String>
         <x:String x:Key="CloseString">Close</x:String>
+        <x:String x:Key="CloseProjectString">Close project</x:String>
         <x:String x:Key="EditString">Edit</x:String>
+        <x:String x:Key="ExitString">Exit</x:String>
         <x:String x:Key="ViewString">View</x:String>
         <x:String x:Key="CreateNewString">Create New</x:String>
         <x:String x:Key="CreateNewProjectString">Create a new project</x:String>
@@ -41,8 +57,12 @@
         <x:String x:Key="AddString">Add</x:String>
         <x:String x:Key="UndoString">Undo</x:String>
         <x:String x:Key="RedoString">Redo</x:String>
+        <x:String x:Key="RemoveString">Remove</x:String>
         <x:String x:Key="SaveString">Save</x:String>
         <x:String x:Key="SaveAllString">Save all</x:String>
+        <x:String x:Key="CutString">Cut</x:String>
+        <x:String x:Key="CopyString">Copy</x:String>
+        <x:String x:Key="PasteString">Paste</x:String>
 
         <!--Command-->
         <x:String x:Key="AddRenderOperationString">Add a render operation.</x:String>

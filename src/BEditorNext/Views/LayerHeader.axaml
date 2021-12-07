@@ -1,0 +1,100 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:vm="using:BEditorNext.ViewModels"
+    xmlns:ui="using:FluentAvalonia.UI.Controls"
+    mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+    x:DataType="vm:TimelineLayerViewModel"
+    Margin="{CompiledBinding Margin.Value}"
+    Height="{DynamicResource LayerHeight}"
+    VerticalAlignment="Top"
+    HorizontalAlignment="Stretch"
+    x:Class="BEditorNext.Views.LayerHeader">
+    <Grid ColumnDefinitions="Auto,Auto,*">
+        <ToggleButton BorderThickness="0" IsChecked="{Binding Model.IsEnabled}">
+            <ToggleButton.Resources>
+                <SolidColorBrush x:Key="ToggleButtonBackground" Color="Transparent" />
+                <SolidColorBrush x:Key="ToggleButtonBackgroundDisabled" Color="Transparent" />
+                <SolidColorBrush x:Key="ToggleButtonBackgroundChecked" Color="Transparent" />
+                <StaticResource x:Key="ToggleButtonBackgroundCheckedPressed" ResourceKey="ControlFillColorTertiaryBrush" />
+                <SolidColorBrush x:Key="ToggleButtonBackgroundCheckedDisabled" Color="Transparent" />
+                <StaticResource x:Key="ToggleButtonBackgroundCheckedPointerOver" ResourceKey="ControlFillColorSecondaryBrush" />
+            </ToggleButton.Resources>
+            <ToggleButton.Styles>
+                <Style Selector="ToggleButton">
+                    <Setter Property="Content">
+                        <Template>
+                            <FluentIconRegular IconType="Eye_Hide" Width="16" Height="16" />
+                        </Template>
+                    </Setter>
+                </Style>
+                <Style Selector="ToggleButton:checked">
+                    <Setter Property="Content">
+                        <Template>
+                            <FluentIconRegular IconType="Eye_Show" Width="16" Height="16" />
+                        </Template>
+                    </Setter>
+                </Style>
+            </ToggleButton.Styles>
+        </ToggleButton>
+
+        <ui:ColorPickerButton
+            Grid.Column="1"
+            MinHeight="{DynamicResource LayerHeight}"
+            Color="{CompiledBinding ColorSetter.Value}"
+            IsAlphaEnabled="False">
+            <ui:ColorPickerButton.Styles>
+                <Style Selector="ui|ColorPickerButton /template/ ui|Button#MainButton">
+                    <Setter Property="Background" Value="Transparent" />
+                    <Setter Property="BorderThickness" Value="0" />
+                </Style>
+                <Style Selector="ui|ColorPickerButton">
+                    <Setter Property="Template">
+                        <ControlTemplate>
+                            <Panel>
+                                <ui:Button Name="MainButton"
+                                           Background="Transparent"
+                                           BorderThickness="0"
+                                           Padding="0 0 32 0"
+                                           CornerRadius="{TemplateBinding CornerRadius}">
+                                    <Border BorderBrush="{DynamicResource ColorPickerButtonOutline}"
+                                            BorderThickness="1"
+                                            Margin="5" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                                            MinWidth="18" MinHeight="18"
+                                            Background="{TemplateBinding Color, Converter={StaticResource ColorBrushConv}}"
+                                            CornerRadius="{TemplateBinding CornerRadius}">
+                                        <ui:ColorPicker Name="ColorPicker" IsVisible="False" />
+                                    </Border>
+                                </ui:Button>
+
+                                <Viewbox Width="18" Height="18"
+                                         IsHitTestVisible="False"
+                                         VerticalAlignment="Center"
+                                         HorizontalAlignment="Right"
+                                         Margin="0 0 8 0" Name="Chevron">
+                                    <ui:SymbolIcon Symbol="ChevronDown" />
+                                </Viewbox>
+                            </Panel>
+                        </ControlTemplate>
+                    </Setter>
+                </Style>
+            </ui:ColorPickerButton.Styles>
+        </ui:ColorPickerButton>
+
+        <TextBox
+            x:Name="NameTextBox"
+            Background="Transparent"
+            BorderThickness="0"
+            Padding="10,0,6,0"
+            MinHeight="{DynamicResource LayerHeight}"
+            VerticalContentAlignment="Center"
+            Text="{Binding Model.Name}"
+            Grid.Column="2">
+            <TextBox.Resources>
+                <Thickness x:Key="TextControlBorderThemeThicknessFocused">0</Thickness>
+            </TextBox.Resources>
+        </TextBox>
+    </Grid>
+</UserControl>

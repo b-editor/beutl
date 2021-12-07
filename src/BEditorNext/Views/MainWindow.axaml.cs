@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
@@ -7,6 +8,7 @@ using Avalonia.Markup.Xaml;
 using BEditorNext.Controls;
 using BEditorNext.Pages;
 using BEditorNext.Services;
+using BEditorNext.ViewModels;
 using BEditorNext.Views.Dialogs;
 
 using FluentAvalonia.UI.Controls;
@@ -34,41 +36,51 @@ public sealed partial class MainWindow : FluentWindow
 #endif
     }
 
-    //private void MenuItem_Clicked(object? sender, RoutedEventArgs e)
-    //{
-    //    Application.Current.Styles.RemoveAt(3);
-    //}
-
-    private async void CreateNewClicked(object? sender, RoutedEventArgs e)
+    protected override void OnDataContextChanged(EventArgs e)
     {
-        var dialog = new CreateNewProject();
-        await dialog.ShowAsync();
-    }
-
-    private async void OpenClicked(object? sender, RoutedEventArgs e)
-    {
-        ProjectService service = ServiceLocator.Current.GetRequiredService<ProjectService>();
-
-        // Todo: Œã‚ÅŠg’£Žq‚ð•ÏX
-        var dialog = new OpenFileDialog
+        base.OnDataContextChanged(e);
+        if (DataContext is MainWindowViewModel vm)
         {
-            Filters =
+            vm.CreateNewProject.Subscribe(async () =>
             {
-                new FileDialogFilter
-                {
-                    Name = Application.Current.FindResource("ProjectFileString") as string,
-                    Extensions =
-                    {
-                        "bep"
-                    }
-                }
-            }
-        };
+                var dialog = new CreateNewProject();
+                await dialog.ShowAsync();
+            });
 
-        string[]? files = await dialog.ShowAsync(this);
-        if ((files?.Any() ?? false) && File.Exists(files[0]))
-        {
-            service.OpenProject(files[0]);
+            vm.OpenProject.Subscribe(async () =>
+            {
+                ProjectService service = ServiceLocator.Current.GetRequiredService<ProjectService>();
+
+                // Todo: Œã‚ÅŠg’£Žq‚ð•ÏX
+                var dialog = new OpenFileDialog
+                {
+                    Filters =
+                    {
+                        new FileDialogFilter
+                        {
+                            Name = Application.Current.FindResource("ProjectFileString") as string,
+                            Extensions =
+                            {
+                                "bep"
+                            }
+                        }
+                    }
+                };
+
+                string[]? files = await dialog.ShowAsync(this);
+                if ((files?.Any() ?? false) && File.Exists(files[0]))
+                {
+                    service.OpenProject(files[0]);
+                }
+            });
+
+            vm.Exit.Subscribe(() =>
+            {
+                if (Application.Current.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime applicationLifetime)
+                {
+                    applicationLifetime.Shutdown();
+                }
+            });
         }
     }
 

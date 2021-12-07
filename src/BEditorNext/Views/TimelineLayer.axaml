@@ -11,6 +11,7 @@
     HorizontalAlignment="Stretch"
     VerticalAlignment="Top"
     Padding="0,1"
+    IsEnabled="{Binding Model.IsEnabled}"
     x:Class="BEditorNext.Views.TimelineLayer">
     <Border
         x:Name="border"
@@ -21,6 +22,23 @@
         Width="{CompiledBinding Width.Value}"
         Margin="{CompiledBinding BorderMargin.Value}"
         Background="{CompiledBinding Color.Value, Converter={StaticResource ColorToBrushConverter}}">
+        <Border.ContextMenu>
+            <ContextMenu>
+                <MenuItem
+                    Command="{CompiledBinding Remove}"
+                    Header="{DynamicResource RemoveString}"
+                    InputGesture="{DynamicResource DeleteKeyGesture}">
+                    <MenuItem.Icon>
+                        <FluentIconRegular IconType="Delete" Classes="Small" />
+                    </MenuItem.Icon>
+                </MenuItem>
+            </ContextMenu>
+        </Border.ContextMenu>
+        <Border.Styles>
+            <Style Selector="Border:disabled">
+                <Setter Property="Opacity" Value="0.5" />
+            </Style>
+        </Border.Styles>
     </Border>
 
 </UserControl>

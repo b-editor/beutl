@@ -20,65 +20,124 @@
         <vm:MainWindowViewModel/>
     </Design.DataContext>
 
+    <FluentWindow.KeyBindings>
+        <KeyBinding Gesture="{DynamicResource CreateNewProjectKeyGesture}" Command="{CompiledBinding CreateNewProject}" />
+        <KeyBinding Gesture="{DynamicResource CreateNewKeyGesture}" Command="{CompiledBinding CreateNew}" />
+        <KeyBinding Gesture="{DynamicResource OpenProjectKeyGesture}" Command="{CompiledBinding OpenProject}" />
+        <KeyBinding Gesture="{DynamicResource OpenKeyGesture}" Command="{CompiledBinding OpenFile}" />
+        <KeyBinding Gesture="{DynamicResource SaveKeyGesture}" Command="{CompiledBinding Save}" />
+        <KeyBinding Gesture="{DynamicResource SaveAllKeyGesture}" Command="{CompiledBinding SaveAll}" />
+        <KeyBinding Gesture="{DynamicResource ExitKeyGesture}" Command="{CompiledBinding Exit}" />
+        <KeyBinding Gesture="{DynamicResource UndoKeyGesture}" Command="{CompiledBinding Undo}" />
+        <KeyBinding Gesture="{DynamicResource RedoKeyGesture}" Command="{CompiledBinding Redo}" />
+    </FluentWindow.KeyBindings>
+
     <Grid RowDefinitions="Auto,*">
         <Grid ColumnDefinitions="Auto,Auto,*">
             <Image Source="/Assets/logo.ico" MaxWidth="16" Margin="8,0" />
 
             <Menu Grid.Column="1">
+                <!--ファイル-->
                 <MenuItem Header="{DynamicResource FileString}">
-                    <MenuItem Header="{DynamicResource CreateNewString}" Click="CreateNewClicked">
+                    <!--新規作成-->
+                    <MenuItem Header="{DynamicResource CreateNewString}">
                         <MenuItem.Icon>
                             <FluentIconRegular IconType="New" Classes="Small" />
                         </MenuItem.Icon>
+                        <!--プロジェクト-->
+                        <MenuItem
+                            InputGesture="{DynamicResource CreateNewProjectKeyGesture}"
+                            Header="{DynamicResource ProjectString}"
+                            Command="{CompiledBinding CreateNewProject}" />
+                        <!--ファイル-->
+                        <MenuItem
+                            InputGesture="{DynamicResource CreateNewKeyGesture}"
+                            Header="{DynamicResource FileString}"
+                            Command="{CompiledBinding CreateNew}" />
                     </MenuItem>
                     <Separator />
-                    <MenuItem Header="{DynamicResource OpenString}" Click="OpenClicked">
+                    <!--開く-->
+                    <MenuItem Header="{DynamicResource OpenString}">
                         <MenuItem.Icon>
                             <FluentIconRegular IconType="Open" Classes="Small" />
                         </MenuItem.Icon>
+                        <!--プロジェクト-->
+                        <MenuItem
+                            InputGesture="{DynamicResource OpenProjectKeyGesture}"
+                            Header="{DynamicResource ProjectString}"
+                            Command="{CompiledBinding OpenProject}" />
+                        <!--ファイル-->
+                        <MenuItem
+                            InputGesture="{DynamicResource OpenKeyGesture}"
+                            Header="{DynamicResource FileString}"
+                            Command="{CompiledBinding OpenFile}" />
                     </MenuItem>
                     <Separator />
-                    <MenuItem Header="{DynamicResource CloseString}" />
+                    <!--閉じる-->
+                    <MenuItem
+                        Header="{DynamicResource CloseString}"
+                        Command="{CompiledBinding CloseFile}" />
+                    <!--プロジェクトを閉じる-->
+                    <MenuItem
+                        IsEnabled="{CompiledBinding IsProjectOpened.Value}"
+                        Header="{DynamicResource CloseProjectString}"
+                        Command="{CompiledBinding CloseProject}" />
                     <Separator />
+                    <!--上書き保存-->
                     <MenuItem
                         Header="{DynamicResource SaveString}"
                         Command="{CompiledBinding Save}"
+                        InputGesture="{DynamicResource SaveKeyGesture}"
                         IsEnabled="{CompiledBinding IsProjectOpened.Value}">
                         <MenuItem.Icon>
                             <FluentIconRegular IconType="Save" Classes="Small" />
                         </MenuItem.Icon>
                     </MenuItem>
+                    <!--すべて保存-->
                     <MenuItem
                         Header="{DynamicResource SaveAllString}"
                         Command="{CompiledBinding SaveAll}"
+                        InputGesture="{DynamicResource SaveAllKeyGesture}"
                         IsEnabled="{CompiledBinding IsProjectOpened.Value}">
                         <MenuItem.Icon>
                             <FluentIconRegular IconType="Save_Multiple" Classes="Small" />
                         </MenuItem.Icon>
                     </MenuItem>
+                    <Separator />
+                    <!--終了-->
+                    <MenuItem
+                        Header="{DynamicResource ExitString}"
+                        Command="{CompiledBinding Exit}"
+                        InputGesture="{DynamicResource ExitKeyGesture}" />
                 </MenuItem>
+                <!--編集-->
                 <MenuItem Header="{DynamicResource EditString}">
+                    <!--元に戻す-->
                     <MenuItem
                         Header="{DynamicResource UndoString}"
                         Command="{CompiledBinding Undo}"
+                        InputGesture="{DynamicResource UndoKeyGesture}"
                         IsEnabled="{CompiledBinding IsProjectOpened.Value}">
                         <MenuItem.Icon>
                             <FluentIconRegular IconType="Arrow_Undo" Classes="Small" />
                         </MenuItem.Icon>
                     </MenuItem>
+                    <!--やり直し-->
                     <MenuItem
                         Header="{DynamicResource RedoString}"
                         Command="{CompiledBinding Redo}"
+                        InputGesture="{DynamicResource RedoKeyGesture}"
                         IsEnabled="{CompiledBinding IsProjectOpened.Value}">
                         <MenuItem.Icon>
                             <FluentIconRegular IconType="Arrow_Redo" Classes="Small" />
                         </MenuItem.Icon>
                     </MenuItem>
                 </MenuItem>
-                <MenuItem Header="{DynamicResource ViewString}">
-                    <!--<MenuItem Header="Language" Click="MenuItem_Clicked" />-->
-                </MenuItem>
+                <!--表示-->
+                <MenuItem Header="{DynamicResource ViewString}" />
+                <!--オブジェクト-->
                 <MenuItem Header="{DynamicResource ObjectString}" />
+                <!--ヘルプ-->
                 <MenuItem Header="{DynamicResource HelpString}" />
             </Menu>
             

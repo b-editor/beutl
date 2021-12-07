@@ -113,9 +113,9 @@ public abstract class Element : IElement
         {
             if (_parent != value)
             {
-                ParentChanging?.Invoke(this, new ParentChangingEventArgs(_parent, value));
+                RaiseParentChanging(_parent, value);
                 _parent = value;
-                ParentChanged?.Invoke(this, EventArgs.Empty);
+                RaiseParentChanged();
             }
         }
     }
@@ -317,7 +317,7 @@ public abstract class Element : IElement
 
             foreach (PropertyDefine item in list)
             {
-                if (obj.TryGetPropertyValue(item.GetJsonName()!, out JsonNode? jsonNode))
+                if (obj.TryGetPropertyValue(item.GetJsonName()!, out JsonNode? jsonNode) && jsonNode != null)
                 {
                     Type type = item.PropertyType;
 
@@ -385,6 +385,21 @@ public abstract class Element : IElement
         }
 
         return json;
+    }
+
+    internal void RaiseParentChanging(Element? oldValue, Element? newValue)
+    {
+        ParentChanging?.Invoke(this, new ParentChangingEventArgs(oldValue, newValue));
+    }
+
+    internal void RaiseParentChanged()
+    {
+        ParentChanged?.Invoke(this, EventArgs.Empty);
+    }
+
+    internal void SetParent(Element? parent)
+    {
+        _parent = parent;
     }
 
     protected void OnPropertyChanged([CallerMemberName] string? propertyName = null)

@@ -11,10 +11,12 @@ public class SceneLayer : Element, IStorable
     public static readonly PropertyDefine<TimeSpan> LengthProperty;
     public static readonly PropertyDefine<int> LayerProperty;
     public static readonly PropertyDefine<Color> AccentColorProperty;
+    public static readonly PropertyDefine<bool> IsEnabledProperty;
     private TimeSpan _start;
     private TimeSpan _length;
     private int _layer;
     private string? _fileName;
+    private bool _isEnabled = true;
 
     static SceneLayer()
     {
@@ -35,6 +37,12 @@ public class SceneLayer : Element, IStorable
             .DefaultValue(Colors.Teal)
             .NotifyPropertyChanging(true)
             .NotifyPropertyChanged(true);
+
+        IsEnabledProperty = RegisterProperty<bool, SceneLayer>(nameof(IsEnabled), (owner, obj) => owner.IsEnabled = obj, owner => owner.IsEnabled)
+            .DefaultValue(true)
+            .NotifyPropertyChanging(true)
+            .NotifyPropertyChanged(true)
+            .JsonName("isEnabled");
     }
 
     public SceneLayer()
@@ -70,6 +78,12 @@ public class SceneLayer : Element, IStorable
     {
         get => GetValue(AccentColorProperty);
         set => SetValue(AccentColorProperty, value);
+    }
+
+    public bool IsEnabled
+    {
+        get => _isEnabled;
+        set => SetAndRaise(IsEnabledProperty, ref _isEnabled, value);
     }
 
     public IEnumerable<RenderOperation> Operations => Children.OfType<RenderOperation>();
@@ -187,14 +201,16 @@ public class SceneLayer : Element, IStorable
         if (json is JsonObject jobject)
         {
             if (jobject.TryGetPropertyValue("start", out JsonNode? startNode) &&
-                startNode!.AsValue().TryGetValue(out string? startStr) &&
+                startNode != null &&
+                startNode.AsValue().TryGetValue(out string? startStr) &&
                 TimeSpan.TryParse(startStr, out TimeSpan start))
             {
                 Start = start;
             }
 
             if (jobject.TryGetPropertyValue("length", out JsonNode? lengthNode) &&
-                lengthNode!.AsValue().TryGetValue(out string? lengthStr) &&
+                lengthNode != null &&
+                lengthNode.AsValue().TryGetValue(out string? lengthStr) &&
                 TimeSpan.TryParse(lengthStr, out TimeSpan length))
             {
                 Length = length;
@@ -240,6 +256,7 @@ public class SceneLayer : Element, IStorable
 
         if (node is JsonObject jobject)
         {
+            jobject["start"] = JsonValue.Create(Start.ToString());
             jobject["start"] = JsonValue.Create(Start.ToString());
             jobject["length"] = JsonValue.Create(Length.ToString());
             jobject["accentColor"] = JsonValue.Create(AccentColor.ToString());

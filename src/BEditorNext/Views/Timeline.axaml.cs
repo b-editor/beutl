@@ -2,7 +2,9 @@ using System.Collections.Specialized;
 using System.Numerics;
 
 using Avalonia;
+using Avalonia.Layout;
 using Avalonia.Controls;
+using Avalonia.Data;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
@@ -16,6 +18,9 @@ using BEditorNext.ViewModels.Dialogs;
 using BEditorNext.Views.Dialogs;
 
 using FluentAvalonia.UI.Controls;
+using Avalonia.Markup.Xaml.MarkupExtensions;
+using Avalonia.Data.Converters;
+using BEditorNext.Collections;
 
 namespace BEditorNext.Views;
 
@@ -49,22 +54,39 @@ public partial class Timeline : UserControl
 
     internal TimelineViewModel ViewModel => (TimelineViewModel)DataContext!;
 
+    // DataContextが変更された
     protected override void OnDataContextChanged(EventArgs e)
     {
         base.OnDataContextChanged(e);
+
+        var minHeightBinding = new Binding("TimelineOptions")
+        {
+            Source = ViewModel.Scene,
+            Converter = new FuncValueConverter<TimelineOptions, double>(x => x.MaxLayerCount * Helper.LayerHeight)
+        };
+        TimelinePanel[!MinHeightProperty] = minHeightBinding;
+        LeftPanel[!MinHeightProperty] = minHeightBinding;
+
         TimelinePanel.Children.RemoveRange(3, TimelinePanel.Children.Count - 3);
 
         ViewModel.Scene.Children.CollectionChanged += Children_CollectionChanged;
         AddLayers(ViewModel.Scene.Layers);
     }
 
+    // PaneScrollがスクロールされた
+    private void PaneScroll_ScrollChanged(object? sender, ScrollChangedEventArgs e)
+    {
+        ContentScroll.Offset = ContentScroll.Offset.WithY(PaneScroll.Offset.Y);
+    }
+
+    // ContentScrollがスクロールされた
     private void ContentScroll_ScrollChanged(object? sender, ScrollChangedEventArgs e)
     {
         Scene scene = ViewModel.Scene;
         if (_isFirst)
         {
             ContentScroll.Offset = new(scene.TimelineOptions.Offset.X, scene.TimelineOptions.Offset.Y);
-            //_scrollLabel.Offset = new(0, Scene.TimeLineVerticalOffset);
+            PaneScroll.Offset = new(0, scene.TimelineOptions.Offset.Y);
 
             _isFirst = false;
         }
@@ -75,9 +97,10 @@ public partial class Timeline : UserControl
         };
 
         ScaleScroll.Offset = new(ContentScroll.Offset.X, 0);
-        //_scrollLabel.Offset = _scrollLabel.Offset.WithY(_scrollLine.Offset.Y);
+        PaneScroll.Offset = PaneScroll.Offset.WithY(ContentScroll.Offset.Y);
     }
 
+    // マウスホイールが動いた
     private void ContentScroll_PointerWheelChanged(object? sender, PointerWheelEventArgs e)
     {
         Scene scene = ViewModel.Scene;
@@ -155,6 +178,7 @@ public partial class Timeline : UserControl
         _seekbarMouseFlag = MouseFlags.MouseUp;
     }
 
+    // ドロップされた
     private async void TimelinePanel_Drop(object? sender, DragEventArgs e)
     {
         TimelinePanel.Cursor = Cursors.Arrow;
@@ -188,19 +212,36 @@ public partial class Timeline : UserControl
         e.DragEffects = e.Data.Contains("RenderOperation") || (e.Data.GetFileNames()?.Any() ?? false) ? DragDropEffects.Copy : DragDropEffects.None;
     }
 
+    // Scene.Childrenが変更された
     private void Children_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
-    {
-        OnLayersChanged(e);
-    }
-
-    private void OnLayersChanged(NotifyCollectionChangedEventArgs e)
     {
         if (e.Action == NotifyCollectionChangedAction.Add && e.NewItems != null)
         {
             AddLayers(e.NewItems.OfType<SceneLayer>());
         }
+        else if (e.Action == NotifyCollectionChangedAction.Remove && e.OldItems != null)
+        {
+            RemoveLayers(e.OldItems.OfType<SceneLayer>());
+        }
     }
 
+    // レイヤーを追加
+    private async void AddLayerClick(object? sender, RoutedEventArgs e)
+    {
+        var dialog = new AddLayer
+        {
+            DataContext = new AddLayerViewModel(ViewModel.Scene,
+                new LayerDescription(_clickedFrame, TimeSpan.FromSeconds(5), _clickedLayer))
+        };
+        await dialog.ShowAsync();
+    }
+
+    // ペースト
+    private void PasteClick(object? sender, RoutedEventArgs e)
+    {
+    }
+
+    // レイヤーを追加
     private void AddLayers(IEnumerable<SceneLayer> items)
     {
         foreach (SceneLayer layer in items)
@@ -212,10 +253,36 @@ public partial class Timeline : UserControl
             };
 
             TimelinePanel.Children.Add(view);
+
+            LeftPanel.Children.Add(new LayerHeader
+            {
+                DataContext = viewModel
+            });
         }
     }
 
-    private void AddLayerClick(object? sender, RoutedEventArgs e)
+    // レイヤーを削除
+    private void RemoveLayers(IEnumerable<SceneLayer> items)
     {
+        foreach (SceneLayer layer in items)
+        {
+            for (int i = 0; i < TimelinePanel.Children.Count; i++)
+            {
+                IControl item = TimelinePanel.Children[i];
+                if (item.DataContext is TimelineLayerViewModel vm && vm.Model == layer)
+                {
+                    TimelinePanel.Children.RemoveAt(i);
+                }
+            }
+
+            for (int i = 0; i < LeftPanel.Children.Count; i++)
+            {
+                IControl item = LeftPanel.Children[i];
+                if (item.DataContext is TimelineLayerViewModel vm && vm.Model == layer)
+                {
+                    LeftPanel.Children.RemoveAt(i);
+                }
+            }
+        }
     }
 }

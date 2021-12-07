@@ -277,21 +277,25 @@ public class Scene : Element, IStorable
         {
             if (jobject.TryGetPropertyValue("width", out JsonNode? widthNode) &&
                 jobject.TryGetPropertyValue("height", out JsonNode? heightNode) &&
-                widthNode!.AsValue().TryGetValue(out int width) &&
-                heightNode!.AsValue().TryGetValue(out int height))
+                widthNode != null &&
+                heightNode != null &&
+                widthNode.AsValue().TryGetValue(out int width) &&
+                heightNode.AsValue().TryGetValue(out int height))
             {
                 Initialize(width, height);
             }
 
             if (jobject.TryGetPropertyValue("duration", out JsonNode? durationNode) &&
-                durationNode!.AsValue().TryGetValue(out string? durationStr) &&
+                durationNode != null &&
+                durationNode.AsValue().TryGetValue(out string? durationStr) &&
                 TimeSpan.TryParse(durationStr, out TimeSpan duration))
             {
                 Duration = duration;
             }
 
             if (jobject.TryGetPropertyValue("currentFrame", out JsonNode? currentFrameNode) &&
-                currentFrameNode!.AsValue().TryGetValue(out string? currentFrameStr) &&
+                currentFrameNode != null &&
+                currentFrameNode.AsValue().TryGetValue(out string? currentFrameStr) &&
                 TimeSpan.TryParse(currentFrameStr, out TimeSpan currentFrame))
             {
                 CurrentFrame = currentFrame;

@@ -13,8 +13,10 @@ internal sealed class ElementList : ObservableCollection<Element>, IElementList
 
     protected override void InsertItem(int index, Element item)
     {
+        item.RaiseParentChanging(item.Parent, Parent);
+        item.SetParent(Parent);
         base.InsertItem(index, item);
-        item.Parent = Parent;
+        item.RaiseParentChanged();
     }
 
     protected override void RemoveItem(int index)

@@ -79,6 +79,7 @@ public sealed class AddLayerViewModel
         {
             var sLayer = new SceneLayer(_scene)
             {
+                Name = Name.Value,
                 Start = Start.Value,
                 Length = Duration.Value,
                 Layer = Layer.Value,

@@ -37,7 +37,7 @@ public partial class TimelineLayer : UserControl
                 Cue = new Cue(1),
                 Setters =
                 {
-                    new Setter(OpacityProperty, 0.5),
+                    new Setter(OpacityProperty, 0.8),
                 }
             }
         }
@@ -94,7 +94,7 @@ public partial class TimelineLayer : UserControl
 
             vm.Margin.Value = new Thickness(
                 0,
-                e.GetPosition(_timeline.TimelinePanel).Y - _layerStartRel.Y,
+                Math.Max(e.GetPosition(_timeline.TimelinePanel).Y - _layerStartRel.Y, 0),
                 0,
                 0);
             vm.BorderMargin.Value = new Thickness(newframe.ToPixel(scale), 0, 0, 0);
@@ -136,7 +136,7 @@ public partial class TimelineLayer : UserControl
 
             _animation.PlaybackDirection = PlaybackDirection.Normal;
             await _animation.RunAsync(border);
-            border.Opacity = 0.5;
+            border.Opacity = 0.8;
         }
     }
 

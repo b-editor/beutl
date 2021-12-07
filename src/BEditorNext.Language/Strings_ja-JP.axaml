@@ -20,6 +20,7 @@
         <x:String x:Key="NameString">名前</x:String>
         <x:String x:Key="LocationString">場所</x:String>
         <x:String x:Key="ProjectFileString">プロジェクトファイル</x:String>
+        <x:String x:Key="ProjectString">プロジェクト</x:String>
         <x:String x:Key="SceneFileString">シーンファイル</x:String>
         <x:String x:Key="LayerString">レイヤー</x:String>
         <x:String x:Key="StartTimeString">開始時間</x:String>
@@ -29,7 +30,9 @@
         <!--Verb-->
         <x:String x:Key="OpenString">開く</x:String>
         <x:String x:Key="CloseString">閉じる</x:String>
+        <x:String x:Key="CloseProjectString">プロジェクトを閉じる</x:String>
         <x:String x:Key="EditString">編集</x:String>
+        <x:String x:Key="ExitString">終了</x:String>
         <x:String x:Key="ViewString">表示</x:String>
         <x:String x:Key="CreateNewString">新規作成</x:String>
         <x:String x:Key="CreateNewProjectString">プロジェクトを新規作成</x:String>
@@ -41,8 +44,12 @@
         <x:String x:Key="AddString">追加</x:String>
         <x:String x:Key="UndoString">元に戻す</x:String>
         <x:String x:Key="RedoString">やり直し</x:String>
+        <x:String x:Key="RemoveString">削除</x:String>
         <x:String x:Key="SaveString">上書き保存</x:String>
         <x:String x:Key="SaveAllString">すべて保存</x:String>
+        <x:String x:Key="CutString">切り取り</x:String>
+        <x:String x:Key="CopyString">コピー</x:String>
+        <x:String x:Key="PasteString">貼り付け</x:String>
         
         <!--Command-->
         <x:String x:Key="AddRenderOperationString">Render operationを追加</x:String>
