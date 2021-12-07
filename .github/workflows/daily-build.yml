@@ -14,16 +14,15 @@ jobs:
       uses: actions/setup-dotnet@v1
       with:
         dotnet-version: 6.0.x
-        include-prerelease: true
 
     - name: Restore dependencies
       run: dotnet restore BEditorNext.sln
 
     - name: Build
-      run: dotnet build BEditorNext.sln -c Release -r ${{matrix.rid}}
+      run: dotnet publish ./src/BEditorNext/BEditorNext.csproj -c Release -r ${{matrix.rid}} --no-self-contained
 
     - name: Save
       uses: actions/upload-artifact@v2
       with:
         name: beditor_${{matrix.rid}}
-        path: ./src/BEditorNext/bin/Debug/net6.0
+        path: ./src/BEditorNext/bin/Debug/net6.0/${{matrix.rid}}/publish
