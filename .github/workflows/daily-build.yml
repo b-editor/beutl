@@ -1,0 +1,29 @@
+name: Daily build
+on:
+  schedule:
+    - cron: 0 0 * * * # Every day at midnight (UTC)
+jobs:
+  daily-build:
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        rid: [linux-x64, win-x64, osx-x64]
+    steps:
+    - uses: actions/checkout@v2
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v1
+      with:
+        dotnet-version: 6.0.x
+        include-prerelease: true
+
+    - name: Restore dependencies
+      run: dotnet restore BEditorNext.sln
+
+    - name: Build
+      run: dotnet build BEditorNext.sln -c Release -r ${{matrix.rid}}
+
+    - name: Save
+      uses: actions/upload-artifact@v2
+      with:
+        name: beditor_${{matrix.rid}}
+        path: ./src/BEditorNext/bin/Debug/net6.0
