@@ -9,8 +9,6 @@
         <aconverters:ColorToBrushConverter x:Key="ColorToBrushConverter" />
     </Application.Resources>
     <Application.Styles>
-        <FluentTheme Mode="Light" />
-
         <StyleInclude Source="avares://BEditorNext.Controls/Styles.axaml" />
         <StyleInclude Source="avares://BEditorNext.Language/Strings.axaml" />
         <StyleInclude Source="avares://BEditorNext.Language/Strings_ja-JP.axaml" />
