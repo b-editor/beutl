@@ -25,4 +25,4 @@ jobs:
       uses: actions/upload-artifact@v2
       with:
         name: beditor_${{matrix.rid}}
-        path: ./src/BEditorNext/bin/Debug/net6.0/${{matrix.rid}}/publish
+        path: ./src/BEditorNext/bin/Release/net6.0/${{matrix.rid}}/publish
