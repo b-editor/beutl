@@ -95,6 +95,12 @@
                 <Player
                     x:Name="Player"
                     Margin="4,0"
+                    IsPlaying="{CompiledBinding Player.IsPlaying.Value, Mode=TwoWay}"
+                    PlayButtonClick="Player_PlayButtonClick"
+                    NextButtonClick="Player_NextButtonClick"
+                    PreviousButtonClick="Player_PreviousButtonClick"
+                    StartButtonClick="Player_StartButtonClick"
+                    EndButtonClick="Player_EndButtonClick"
                     Maximum="{Binding Scene.Duration, Converter={StaticResource TimeSpanToDoubleConverter}}"
                     Value="{Binding Scene.CurrentFrame, Converter={StaticResource TimeSpanToDoubleConverter}}"
                     Duration="{Binding Scene.Duration, StringFormat={}{0:hh\\:mm\\:ss\\.ff}}"

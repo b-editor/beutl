@@ -19,40 +19,27 @@ public class Project : Element, ITopLevel, IStorable
     private string? _rootDirectory;
     private string? _fileName;
     private Scene? _selectedScene;
-    private int _frameRate;
-    private int _sampleRate;
+    private int _frameRate = 30;
+    private int _sampleRate = 44100;
 
     static Project()
     {
-        SelectedSceneProperty = RegisterProperty<Scene?, Project>(
-            nameof(SelectedScene),
-            (owner, obj) => owner.SelectedScene = obj,
-            owner => owner.SelectedScene)
+        SelectedSceneProperty = RegisterProperty<Scene?, Project>(nameof(SelectedScene), (owner, obj) => owner.SelectedScene = obj, owner => owner.SelectedScene)
             .NotifyPropertyChanged(true)
             .NotifyPropertyChanging(true);
 
-        AppVersionProperty = RegisterProperty<Version, Project>(
-            nameof(AppVersion),
-            owner => owner.AppVersion);
+        AppVersionProperty = RegisterProperty<Version, Project>(nameof(AppVersion), owner => owner.AppVersion);
 
-        MinimumAppVersionProperty = RegisterProperty<Version, Project>(
-            nameof(MinimumAppVersion),
-            owner => owner.MinimumAppVersion)
+        MinimumAppVersionProperty = RegisterProperty<Version, Project>(nameof(MinimumAppVersion), owner => owner.MinimumAppVersion)
             .DefaultValue(new Version(0, 3));
 
-        FrameRateProperty = RegisterProperty<int, Project>(
-            nameof(FrameRate),
-            (owner, obj) => owner.FrameRate = obj,
-            owner => owner.FrameRate)
+        FrameRateProperty = RegisterProperty<int, Project>(nameof(FrameRate), (owner, obj) => owner.FrameRate = obj, owner => owner.FrameRate)
             .NotifyPropertyChanged(true)
             .NotifyPropertyChanging(true)
             .DefaultValue(30)
             .JsonName("framerate");
 
-        SampleRateProperty = RegisterProperty<int, Project>(
-            nameof(SampleRate),
-            (owner, obj) => owner.SampleRate = obj,
-            owner => owner.SampleRate)
+        SampleRateProperty = RegisterProperty<int, Project>(nameof(SampleRate), (owner, obj) => owner.SampleRate = obj, owner => owner.SampleRate)
             .NotifyPropertyChanged(true)
             .NotifyPropertyChanging(true)
             .DefaultValue(44100)

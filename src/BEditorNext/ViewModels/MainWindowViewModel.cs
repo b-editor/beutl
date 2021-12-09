@@ -74,5 +74,15 @@ public class MainWindowViewModel
 
     public ReactiveCommand Redo { get; }
 
+    public ReactiveCommand PlayPause { get; } = new();
+
+    public ReactiveCommand Next { get; } = new();
+
+    public ReactiveCommand Previous { get; } = new();
+
+    public ReactiveCommand Start { get; } = new();
+
+    public ReactiveCommand End { get; } = new();
+
     public ReadOnlyReactivePropertySlim<bool> IsProjectOpened { get; }
 }

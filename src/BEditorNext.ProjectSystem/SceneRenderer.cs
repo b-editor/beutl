@@ -54,7 +54,11 @@ internal class SceneRenderer : IRenderer
             for (int i = 0; i < layers.Count; i++)
             {
                 SceneLayer item = layers[i];
-                ProcessClip(item, args);
+
+                if (item.IsEnabled)
+                {
+                    ProcessClip(item, args);
+                }
             }
         }
 

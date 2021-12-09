@@ -1,10 +1,7 @@
 using Avalonia.Controls;
-using Avalonia.Controls.Primitives;
-using Avalonia.Data;
-using Avalonia.Data.Converters;
+using Avalonia.Interactivity;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
-using Avalonia.Threading;
 
 using BEditorNext.Framework;
 using BEditorNext.Media;
@@ -44,6 +41,53 @@ public sealed partial class EditView : UserControl, IStorableControl
         if (DataContext is EditViewModel vm)
         {
             vm.Scene.Renderer.RenderRequested += Renderer_RenderRequested;
+        }
+    }
+
+    private void Player_PlayButtonClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is EditViewModel { Player: PlayerViewModel player })
+        {
+            if (Player.IsPlaying)
+            {
+                player.Play();
+            }
+            else
+            {
+                player.Pause();
+            }
+        }
+    }
+
+    private void Player_NextButtonClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is EditViewModel { Player: PlayerViewModel player })
+        {
+            player.Next();
+        }
+    }
+
+    private void Player_PreviousButtonClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is EditViewModel { Player: PlayerViewModel player })
+        {
+            player.Previous();
+        }
+    }
+
+    private void Player_StartButtonClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is EditViewModel { Player: PlayerViewModel player })
+        {
+            player.Start();
+        }
+    }
+
+    private void Player_EndButtonClick(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is EditViewModel { Player: PlayerViewModel player })
+        {
+            player.End();
         }
     }
 
