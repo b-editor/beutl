@@ -91,6 +91,14 @@
                 <GridSplitter
                     Grid.Column="1"
                     Classes="EditViewSplitter" />
+
+                <Player
+                    x:Name="Player"
+                    Margin="4,0"
+                    Maximum="{Binding Scene.Duration, Converter={StaticResource TimeSpanToDoubleConverter}}"
+                    Value="{Binding Scene.CurrentFrame, Converter={StaticResource TimeSpanToDoubleConverter}}"
+                    Duration="{Binding Scene.Duration, StringFormat={}{0:hh\\:mm\\:ss\\.ff}}"
+                    CurrentTime="{Binding Scene.CurrentFrame, StringFormat={}{0:hh\\:mm\\:ss\\.ff}}" />
             </Grid>
 
             <GridSplitter

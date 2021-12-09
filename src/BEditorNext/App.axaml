@@ -6,6 +6,7 @@
              x:Class="BEditorNext.App">
     <Application.Resources>
         <convert:PixelSizeConverter x:Key="PixelSizeConverter" />
+        <convert:TimeSpanToDoubleConverter x:Key="TimeSpanToDoubleConverter" />
         <aconverters:ColorToBrushConverter x:Key="ColorToBrushConverter" />
     </Application.Resources>
     <Application.Styles>

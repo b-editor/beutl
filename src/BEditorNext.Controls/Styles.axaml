@@ -17,6 +17,7 @@
     <StyleInclude Source="avares://BEditorNext.Controls/Styling/BaseResources.axaml" />
     <StyleInclude Source="avares://BEditorNext.Controls/Styling/FluentIconsFilled.axaml" />
     <StyleInclude Source="avares://BEditorNext.Controls/Styling/FluentIconsRegular.axaml" />
+    <StyleInclude Source="avares://BEditorNext.Controls/Styling/Player.axaml" />
     <StyleInclude Source="avares://BEditorNext.Controls/Styling/Window.axaml" />
     <StyleInclude Source="avares://BEditorNext.Controls/Styling/NavigationView.axaml" />
     <StyleInclude Source="avares://BEditorNext.Controls/Styling/DraggableTabItem.axaml" />
