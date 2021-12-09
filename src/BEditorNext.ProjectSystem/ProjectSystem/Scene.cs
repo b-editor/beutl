@@ -1,7 +1,5 @@
-﻿using System;
-using System.Collections.Specialized;
+﻿using System.Collections.Specialized;
 using System.Diagnostics.CodeAnalysis;
-using System.Numerics;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
@@ -32,6 +30,8 @@ public class Scene : Element, IStorable
     private SceneLayer? _selectedItem;
     private PreviewOptions? _previewOptions;
     private TimelineOptions _timelineOptions = new();
+    private SceneRenderer _renderer;
+
     public Scene()
         : this(1920, 1080, string.Empty)
     {
@@ -73,6 +73,14 @@ public class Scene : Element, IStorable
         TimelineOptionsProperty = RegisterProperty<TimelineOptions, Scene>(nameof(TimelineOptions), (owner, obj) => owner.TimelineOptions = obj, owner => owner.TimelineOptions)
             .NotifyPropertyChanged(true)
             .NotifyPropertyChanging(true);
+
+        CurrentFrameProperty.Changed.Subscribe(e =>
+        {
+            if (e.Sender is Scene scene)
+            {
+                scene._renderer.ForceRender();
+            }
+        });
     }
 
     public event EventHandler<CurrentFrameChangedEventArgs>? CurrentFrameChanged;
@@ -131,17 +139,17 @@ public class Scene : Element, IStorable
         set => SetAndRaise(TimelineOptionsProperty, ref _timelineOptions, value);
     }
 
-    public IRenderer Renderer { get; private set; }
+    public IRenderer Renderer => _renderer;
 
     public string FileName => _fileName ?? throw new Exception("The file name is not set.");
 
     public DateTime LastSavedTime { get; private set; }
 
-    [MemberNotNull("Renderer")]
+    [MemberNotNull("_renderer")]
     public void Initialize(int width, int height)
     {
-        Renderer?.Dispose();
-        Renderer = new SceneRenderer(this, width, height);
+        _renderer?.Dispose();
+        _renderer = new SceneRenderer(this, width, height);
 
         OnPropertyChanged(nameof(Width));
         OnPropertyChanged(nameof(Height));

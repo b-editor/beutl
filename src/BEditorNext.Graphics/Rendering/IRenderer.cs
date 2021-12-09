@@ -14,6 +14,8 @@ public interface IRenderer : IDisposable
 
     public bool IsRendering { get; }
 
+    public event EventHandler<RenderResult> RenderRequested;
+
     public RenderResult Render();
 
     public record struct RenderResult(Bitmap<Bgra8888> Bitmap/*, IAudio Audio*/);

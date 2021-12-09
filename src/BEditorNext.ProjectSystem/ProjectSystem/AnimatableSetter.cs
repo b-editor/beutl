@@ -22,7 +22,7 @@ public class AnimatableSetter<T> : Setter<T>, IAnimatableSetter
     }
 
     public AnimatableSetter(PropertyDefine<T> property)
-: base(property)
+        : base(property)
     {
     }
 
@@ -32,8 +32,39 @@ public class AnimatableSetter<T> : Setter<T>, IAnimatableSetter
 
     public void SetProperty(Element element, TimeSpan progress)
     {
-        // Todo: イージング
-        throw new NotImplementedException();
+        if (_children.Count < 1)
+        {
+            object? defaultValue = ((PropertyDefine)Property).GetDefaultValue();
+            if (defaultValue != null)
+            {
+                element.SetValue(Property, defaultValue);
+            }
+        }
+        else
+        {
+            TimeSpan cur = TimeSpan.Zero;
+            for (int i = 0; i < _children.Count; i++)
+            {
+                Animation<T> item = _children[i];
+
+                TimeSpan next = cur + item.Duration;
+                if (cur <= progress && progress < next)
+                {
+                    // 相対的なTimeSpan
+                    TimeSpan time = progress - cur;
+                    // イージングする
+                    float ease = item.Easing.Ease((float)(time / item.Duration));
+                    // 値を補間する
+                    T value = item.Animator.Interpolate(ease, item.Previous, item.Next);
+                    // 値をセット
+                    element.SetValue(Property, value);
+                }
+                else
+                {
+                    cur = next;
+                }
+            }
+        }
     }
 
     public void AddChild(Animation<T> animation, CommandRecorder? recorder = null)

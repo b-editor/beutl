@@ -442,17 +442,12 @@ public abstract class Element : IElement
     {
         if (!EqualityComparer<T>.Default.Equals(field, value))
         {
-            if (property.GetNotifyPropertyChanging())
-            {
-                OnPropertyChanging(property.Name);
-            }
+            RaisePropertyChanging(property);
 
+            T old = field;
             field = value;
 
-            if (property.GetNotifyPropertyChanged())
-            {
-                OnPropertyChanged(property.Name);
-            }
+            RaisePropertyChanged(property, value, old);
 
             return true;
         }

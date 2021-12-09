@@ -8,7 +8,7 @@ public abstract class RenderOperation : Element
 {
     public static readonly PropertyDefine<bool> IsEnabledProperty;
     private readonly ObservableList<ISetter> _setters = new();
-    private bool _isEnabled;
+    private bool _isEnabled = true;
 
     static RenderOperation()
     {

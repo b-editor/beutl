@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel;
+using System.Runtime.CompilerServices;
 using System.Text.Json.Nodes;
 
 namespace BEditorNext.ProjectSystem;
@@ -28,7 +29,14 @@ public class Setter<T> : ISetter
     public PropertyDefine<T> Property
     {
         get => _property ?? throw new Exception("The property is not set.");
-        set => _property = value ?? throw new ArgumentNullException(nameof(value));
+        set
+        {
+            if (_property != value)
+            {
+                _property = value ?? throw new ArgumentNullException(nameof(value));
+                OnPropertyChanged();
+            }
+        }
     }
 
     public T? Value
@@ -39,7 +47,7 @@ public class Setter<T> : ISetter
             if (!EqualityComparer<T>.Default.Equals(Value, _value))
             {
                 _value = value;
-                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Value)));
+                OnPropertyChanged();
             }
         }
     }
@@ -72,5 +80,10 @@ public class Setter<T> : ISetter
     public virtual JsonNode ToJson()
     {
         return JsonValue.Create(Value)!;
+    }
+
+    protected void OnPropertyChanged([CallerMemberName] string? propertyname = null)
+    {
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyname));
     }
 }

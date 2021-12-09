@@ -24,6 +24,8 @@ internal class SceneRenderer : IRenderer
 
     public bool IsRendering { get; private set; }
 
+    public event EventHandler<IRenderer.RenderResult>? RenderRequested;
+
     public void Dispose()
     {
         if (IsDisposed) return;
@@ -33,10 +35,18 @@ internal class SceneRenderer : IRenderer
         IsDisposed = true;
     }
 
+    public void ForceRender()
+    {
+        IRenderer.RenderResult result = Render();
+        RenderRequested?.Invoke(this, result);
+        result.Bitmap.Dispose();
+    }
+
     public IRenderer.RenderResult Render()
     {
         if (!IsRendering)
         {
+            Graphics.Clear();
             TimeSpan ts = FrameNumber;
             List<SceneLayer> layers = FilterLayers(_scene, ts);
             var args = new OperationRenderArgs(ts, this, _renderables);
