@@ -332,13 +332,11 @@ public abstract class Element : IElement
                     }
                     else
                     {
-                        // Todo: ここキャッシュする
-                        MethodInfo mi = typeof(JsonNode).GetMethod("GetValue")!;
-                        mi = mi.MakeGenericMethod(type);
-
-                        object? sobj = mi.Invoke(jsonNode, null);
-
-                        SetValue(item, sobj);
+                        object? value = JsonSerializer.Deserialize(jsonNode, type, JsonHelper.SerializerOptions);
+                        if (value != null)
+                        {
+                            SetValue(item, value);
+                        }
                     }
                 }
             }
