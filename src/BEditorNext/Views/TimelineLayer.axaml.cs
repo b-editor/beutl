@@ -141,6 +141,7 @@ public partial class TimelineLayer : UserControl
     {
         _mouseFlag = MouseFlags.MouseUp;
 
+        ViewModel.Scene.SelectedItem = ViewModel.Model;
         _animation.PlaybackDirection = PlaybackDirection.Reverse;
         await _animation.RunAsync(border);
         border.Opacity = 1;
