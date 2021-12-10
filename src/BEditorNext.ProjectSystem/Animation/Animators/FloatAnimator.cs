@@ -2,8 +2,8 @@
 
 public sealed class FloatAnimator : Animator<float>
 {
-    public override float Interpolate(float progress, float oldValue, float newValue)
+    public override float Multiply(float left, float right)
     {
-        return ((newValue - oldValue) * progress) + oldValue;
+        return left * right;
     }
 }

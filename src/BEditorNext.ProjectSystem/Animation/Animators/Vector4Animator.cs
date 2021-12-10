@@ -4,8 +4,8 @@ namespace BEditorNext.Animation.Animators;
 
 public sealed class Vector4Animator : Animator<Vector4>
 {
-    public override Vector4 Interpolate(float progress, Vector4 oldValue, Vector4 newValue)
+    public override Vector4 Multiply(Vector4 left, float right)
     {
-        return ((newValue - oldValue) * progress) + oldValue;
+        return left * right;
     }
 }

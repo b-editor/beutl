@@ -2,8 +2,8 @@
 
 public sealed class DecimalAnimator : Animator<decimal>
 {
-    public override decimal Interpolate(float progress, decimal oldValue, decimal newValue)
+    public override decimal Multiply(decimal left, float right)
     {
-        return ((newValue - oldValue) * (decimal)progress) + oldValue;
+        return left * (decimal)right;
     }
 }

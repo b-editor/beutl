@@ -2,13 +2,8 @@
 
 public sealed class UInt16Animator : Animator<ushort>
 {
-    public override ushort Interpolate(float progress, ushort oldValue, ushort newValue)
+    public override ushort Multiply(ushort left, float right)
     {
-        const float maxVal = ushort.MaxValue;
-
-        var normOV = oldValue / maxVal;
-        var normNV = newValue / maxVal;
-        var deltaV = normNV - normOV;
-        return (ushort)MathF.Round(maxVal * ((deltaV * progress) + normOV));
+        return (ushort)MathF.Round(left * right);
     }
 }

@@ -4,8 +4,8 @@ namespace BEditorNext.Animation.Animators;
 
 public sealed class ThicknessAnimator : Animator<Thickness>
 {
-    public override Thickness Interpolate(float progress, Thickness oldValue, Thickness newValue)
+    public override Thickness Multiply(Thickness left, float right)
     {
-        return ((newValue - oldValue) * progress) + oldValue;
+        return left * right;
     }
 }

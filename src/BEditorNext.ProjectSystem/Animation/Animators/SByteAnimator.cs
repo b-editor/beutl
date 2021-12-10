@@ -2,13 +2,8 @@
 
 public sealed class SByteAnimator : Animator<sbyte>
 {
-    public override sbyte Interpolate(float progress, sbyte oldValue, sbyte newValue)
+    public override sbyte Multiply(sbyte left, float right)
     {
-        const float maxVal = sbyte.MaxValue;
-
-        var normOV = oldValue / maxVal;
-        var normNV = newValue / maxVal;
-        var deltaV = normNV - normOV;
-        return (sbyte)MathF.Round(maxVal * ((deltaV * progress) + normOV));
+        return (sbyte)MathF.Round(left * right);
     }
 }

@@ -2,13 +2,8 @@
 
 public sealed class ByteAnimator : Animator<byte>
 {
-    public override byte Interpolate(float progress, byte oldValue, byte newValue)
+    public override byte Multiply(byte left, float right)
     {
-        const float maxVal = byte.MaxValue;
-
-        var normOV = oldValue / maxVal;
-        var normNV = newValue / maxVal;
-        var deltaV = normNV - normOV;
-        return (byte)MathF.Round(maxVal * ((deltaV * progress) + normOV));
+        return (byte)MathF.Round(left * right);
     }
 }

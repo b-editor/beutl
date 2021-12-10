@@ -2,13 +2,8 @@
 
 public sealed class UInt64Animator : Animator<ulong>
 {
-    public override ulong Interpolate(float progress, ulong oldValue, ulong newValue)
+    public override ulong Multiply(ulong left, float right)
     {
-        const float maxVal = ulong.MaxValue;
-
-        var normOV = oldValue / maxVal;
-        var normNV = newValue / maxVal;
-        var deltaV = normNV - normOV;
-        return (ulong)MathF.Round(maxVal * ((deltaV * progress) + normOV));
+        return (ulong)MathF.Round(left * right);
     }
 }

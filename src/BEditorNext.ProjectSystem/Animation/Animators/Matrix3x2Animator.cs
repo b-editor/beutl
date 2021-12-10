@@ -4,8 +4,8 @@ namespace BEditorNext.Animation.Animators;
 
 public sealed class Matrix3x2Animator : Animator<Matrix3x2>
 {
-    public override Matrix3x2 Interpolate(float progress, Matrix3x2 oldValue, Matrix3x2 newValue)
+    public override Matrix3x2 Multiply(Matrix3x2 left, float right)
     {
-        return ((newValue - oldValue) * progress) + oldValue;
+        return left * right;
     }
 }

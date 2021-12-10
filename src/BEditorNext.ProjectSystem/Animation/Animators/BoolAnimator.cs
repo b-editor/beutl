@@ -2,12 +2,16 @@
 
 public sealed class BoolAnimator : Animator<bool>
 {
-    public override bool Interpolate(float progress, bool oldValue, bool newValue)
+    public override bool Multiply(bool left, float right)
     {
-        if (progress >= 1d)
-            return newValue;
-        if (progress >= 0)
-            return oldValue;
-        return oldValue;
+        if (right >= 1f)
+        {
+            return left;
+        }
+        if (right >= 0)
+        {
+            return !left;
+        }
+        return left;
     }
 }
