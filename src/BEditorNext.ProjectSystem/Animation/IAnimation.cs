@@ -8,9 +8,7 @@ public interface IAnimation : IElement
 
     public TimeSpan Duration { get; set; }
 
-    public Animator Animator { get; }
+    public float Previous { get; }
 
-    public object Previous { get; }
-
-    public object Next { get; }
+    public float Next { get; }
 }

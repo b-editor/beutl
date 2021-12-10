@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 
 namespace BEditorNext.ProjectSystem;
@@ -44,7 +45,7 @@ public class Setter<T> : ISetter
         get => _value;
         set
         {
-            if (!EqualityComparer<T>.Default.Equals(Value, _value))
+            if (!EqualityComparer<T>.Default.Equals(_value, value))
             {
                 _value = value;
                 OnPropertyChanged();
@@ -62,8 +63,8 @@ public class Setter<T> : ISetter
 
     public virtual void FromJson(JsonNode json)
     {
-        if (json is JsonValue jv &&
-            jv.TryGetValue(out T? value))
+        T? value = JsonSerializer.Deserialize<T>(json, JsonHelper.SerializerOptions);
+        if (value != null)
         {
             Value = value;
         }

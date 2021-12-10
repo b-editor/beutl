@@ -1,4 +1,5 @@
-﻿using System.Text.Json.Nodes;
+﻿using System.Text.Json;
+using System.Text.Json.Nodes;
 
 using BEditorNext.Animation;
 using BEditorNext.Collections;
@@ -15,18 +16,22 @@ public interface IAnimatableSetter
 public class AnimatableSetter<T> : Setter<T>, IAnimatableSetter
     where T : struct
 {
-    private readonly ObservableList<Animation<T>> _children = new();
+    private readonly ObservableList<Animation.Animation> _children = new();
 
     public AnimatableSetter()
     {
+        Animator = (Animator<T>)Activator.CreateInstance(AnimatorRegistry.GetAnimatorType(typeof(T)))!;
     }
 
     public AnimatableSetter(PropertyDefine<T> property)
         : base(property)
     {
+        Animator = (Animator<T>)Activator.CreateInstance(AnimatorRegistry.GetAnimatorType(typeof(T)))!;
     }
 
-    public IObservableList<Animation<T>> Children => _children;
+    public Animator<T> Animator { get; set; }
+
+    public IObservableList<Animation.Animation> Children => _children;
 
     IReadOnlyList<IAnimation> IAnimatableSetter.Children => _children;
 
@@ -45,17 +50,21 @@ public class AnimatableSetter<T> : Setter<T>, IAnimatableSetter
             TimeSpan cur = TimeSpan.Zero;
             for (int i = 0; i < _children.Count; i++)
             {
-                Animation<T> item = _children[i];
+                Animation.Animation item = _children[i];
 
                 TimeSpan next = cur + item.Duration;
                 if (cur <= progress && progress < next)
                 {
                     // 相対的なTimeSpan
                     TimeSpan time = progress - cur;
+
                     // イージングする
                     float ease = item.Easing.Ease((float)(time / item.Duration));
+
                     // 値を補間する
-                    T value = item.Animator.Interpolate(ease, item.Previous, item.Next);
+                    float delta = item.Next - item.Previous;
+                    T value = Animator.Multiply(Value, delta * ease);
+
                     // 値をセット
                     element.SetValue(Property, value);
                 }
@@ -67,7 +76,7 @@ public class AnimatableSetter<T> : Setter<T>, IAnimatableSetter
         }
     }
 
-    public void AddChild(Animation<T> animation, CommandRecorder? recorder = null)
+    public void AddChild(Animation.Animation animation, CommandRecorder? recorder = null)
     {
         ArgumentNullException.ThrowIfNull(animation);
 
@@ -81,7 +90,7 @@ public class AnimatableSetter<T> : Setter<T>, IAnimatableSetter
         }
     }
 
-    public void RemoveChild(Animation<T> animation, CommandRecorder? recorder = null)
+    public void RemoveChild(Animation.Animation animation, CommandRecorder? recorder = null)
     {
         ArgumentNullException.ThrowIfNull(animation);
 
@@ -95,7 +104,7 @@ public class AnimatableSetter<T> : Setter<T>, IAnimatableSetter
         }
     }
 
-    public void InsertChild(int index, Animation<T> animation, CommandRecorder? recorder = null)
+    public void InsertChild(int index, Animation.Animation animation, CommandRecorder? recorder = null)
     {
         ArgumentNullException.ThrowIfNull(animation);
 
@@ -112,38 +121,53 @@ public class AnimatableSetter<T> : Setter<T>, IAnimatableSetter
     public override void FromJson(JsonNode json)
     {
         _children.Clear();
-        if (json is JsonArray jsonArray)
+        if (json is JsonObject jsonobj)
         {
-            foreach (JsonNode? item in jsonArray)
+            if (jsonobj.TryGetPropertyValue("children", out JsonNode? childrenNode) &&
+                childrenNode is JsonArray jsonArray)
             {
-                if (item is JsonObject jobj)
+                foreach (JsonNode? item in jsonArray)
                 {
-                    var anm = new Animation<T>();
-                    anm.FromJson(jobj);
-                    _children.Add(anm);
+                    if (item is JsonObject jobj)
+                    {
+                        var anm = new Animation.Animation();
+                        anm.FromJson(jobj);
+                        _children.Add(anm);
+                    }
                 }
+            }
+
+            if (jsonobj.TryGetPropertyValue("value", out JsonNode? valueNode))
+            {
+                T? value = JsonSerializer.Deserialize<T>(valueNode, JsonHelper.SerializerOptions);
+                if (value != null)
+                    Value = (T)value;
             }
         }
     }
 
     public override JsonNode ToJson()
     {
+        var jsonObj = new JsonObject();
         var jsonArray = new JsonArray();
-        foreach (Animation<T> item in _children)
+        foreach (Animation.Animation item in _children)
         {
             jsonArray.Add(item.ToJson());
         }
 
-        return jsonArray;
+        jsonObj["value"] = JsonValue.Create(Value);
+        jsonObj["children"] = jsonArray;
+
+        return jsonObj;
     }
 
     private sealed class AddCommand : IRecordableCommand
     {
         private readonly AnimatableSetter<T> _setter;
-        private readonly Animation<T> _animation;
+        private readonly Animation.Animation _animation;
         private readonly int _index;
 
-        public AddCommand(AnimatableSetter<T> setter, Animation<T> animation, int index)
+        public AddCommand(AnimatableSetter<T> setter, Animation.Animation animation, int index)
         {
             _setter = setter;
             _animation = animation;
@@ -169,10 +193,10 @@ public class AnimatableSetter<T> : Setter<T>, IAnimatableSetter
     private sealed class RemoveCommand : IRecordableCommand
     {
         private readonly AnimatableSetter<T> _setter;
-        private readonly Animation<T> _animation;
+        private readonly Animation.Animation _animation;
         private int _index;
 
-        public RemoveCommand(AnimatableSetter<T> setter, Animation<T> animation)
+        public RemoveCommand(AnimatableSetter<T> setter, Animation.Animation animation)
         {
             _setter = setter;
             _animation = animation;
