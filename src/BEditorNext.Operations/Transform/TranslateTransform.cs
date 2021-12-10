@@ -1,6 +1,7 @@
 ﻿using System.Numerics;
 
 using BEditorNext.ProjectSystem;
+using BEditorNext.Rendering;
 
 namespace BEditorNext.Operations.Transform;
 
@@ -28,6 +29,12 @@ public sealed class TranslateTransform : RenderOperation
 
     public override void Render(in OperationRenderArgs args)
     {
-        args.Renderer.Graphics.Skew(new Vector2(X, Y) / 100);
+        for (int i = 0; i < args.List.Count; i++)
+        {
+            if (args.List[i] is RenderableBitmap bmp)
+            {
+                bmp.Transform *= Matrix3x2.CreateTranslation(X, Y);
+            }
+        }
     }
 }

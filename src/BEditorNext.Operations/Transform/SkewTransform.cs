@@ -1,6 +1,7 @@
 ﻿using System.Numerics;
 
 using BEditorNext.ProjectSystem;
+using BEditorNext.Rendering;
 
 namespace BEditorNext.Operations.Transform;
 
@@ -14,13 +15,13 @@ public sealed class SkewTransform : RenderOperation
         SkewXProperty = RegisterProperty<float, SkewTransform>(nameof(SkewX), (owner, obj) => owner.SkewX = obj, owner => owner.SkewX)
             .EnableEditor()
             .EnableAnimation()
-            .DefaultValue(100f)
+            .DefaultValue(0f)
             .JsonName("skewX");
 
         SkewYProperty = RegisterProperty<float, SkewTransform>(nameof(SkewY), (owner, obj) => owner.SkewY = obj, owner => owner.SkewY)
             .EnableEditor()
             .EnableAnimation()
-            .DefaultValue(100f)
+            .DefaultValue(0f)
             .JsonName("skewY");
     }
 
@@ -30,6 +31,12 @@ public sealed class SkewTransform : RenderOperation
 
     public override void Render(in OperationRenderArgs args)
     {
-        args.Renderer.Graphics.Skew(new Vector2(SkewX, SkewY) / 100);
+        for (int i = 0; i < args.List.Count; i++)
+        {
+            if (args.List[i] is RenderableBitmap bmp)
+            {
+                bmp.Transform *= Matrix3x2.CreateSkew(MathHelper.ToRadians(SkewX), MathHelper.ToRadians(SkewY));
+            }
+        }
     }
 }

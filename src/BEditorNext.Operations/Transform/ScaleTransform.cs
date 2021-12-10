@@ -1,6 +1,7 @@
 ﻿using System.Numerics;
 
 using BEditorNext.ProjectSystem;
+using BEditorNext.Rendering;
 
 namespace BEditorNext.Operations.Transform;
 
@@ -39,6 +40,12 @@ public sealed class ScaleTransform : RenderOperation
 
     public override void Render(in OperationRenderArgs args)
     {
-        args.Renderer.Graphics.Scale(new Vector2(ScaleX, ScaleY) * Scale / 10000);
+        for (int i = 0; i < args.List.Count; i++)
+        {
+            if (args.List[i] is RenderableBitmap bmp)
+            {
+                bmp.Transform *= Matrix3x2.CreateScale(new Vector2(ScaleX, ScaleY) * Scale / 10000);
+            }
+        }
     }
 }

@@ -1,4 +1,7 @@
-﻿using BEditorNext.ProjectSystem;
+﻿using System.Numerics;
+
+using BEditorNext.ProjectSystem;
+using BEditorNext.Rendering;
 
 namespace BEditorNext.Operations.Transform;
 
@@ -19,6 +22,12 @@ public sealed class RotateTransform : RenderOperation
 
     public override void Render(in OperationRenderArgs args)
     {
-        args.Renderer.Graphics.RotateDegrees(Rotation);
+        for (int i = 0; i < args.List.Count; i++)
+        {
+            if (args.List[i] is RenderableBitmap bmp)
+            {
+                bmp.Transform *= Matrix3x2.CreateRotation(MathHelper.ToRadians(Rotation));
+            }
+        }
     }
 }
