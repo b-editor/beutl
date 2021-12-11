@@ -15,7 +15,7 @@ public static class PropertyMetaTableKeys
     public const string IsAttached = "isAttached";
     public const string AnimationIsEnabled = "animationIsEnabled";
     public const string Easing = "easing";
-    public const string Label = "label";
+    public const string Header = "header";
     public const string Editor = "editor";
     public const string DefaultValue = "defaultValue";
     public const string JsonName = "jsonName";

@@ -42,9 +42,9 @@ public static class PropertyDefineExtensions
 
     //public static PropertyDefine<T> Easing<T>(this PropertyDefine<T> define, Easing easing);
 
-    public static PropertyDefine<T> Label<T>(this PropertyDefine<T> define, string value)
+    public static PropertyDefine<T> Header<T>(this PropertyDefine<T> define, string value)
     {
-        return define.SetKeyValue(PropertyMetaTableKeys.Label, value);
+        return define.SetKeyValue(PropertyMetaTableKeys.Header, value);
     }
 
     public static PropertyDefine<T> DefaultValue<T>(this PropertyDefine<T> define, T value)
@@ -160,6 +160,16 @@ public static class PropertyDefineExtensions
         if (!define.MetaTable.ContainsKey(key))
         {
             return default;
+        }
+
+        return (T)define.MetaTable[key];
+    }
+
+    public static T GetValueOrDefault<T>(this PropertyDefine define, string key, T defaltValue)
+    {
+        if (!define.MetaTable.ContainsKey(key))
+        {
+            return defaltValue;
         }
 
         return (T)define.MetaTable[key];
