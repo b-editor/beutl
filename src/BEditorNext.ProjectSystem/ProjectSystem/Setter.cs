@@ -1,6 +1,8 @@
 ﻿using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
+using System.Reactive;
 using System.Reactive.Disposables;
+using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
@@ -13,6 +15,8 @@ public interface ISetter : IJsonSerializable, INotifyPropertyChanged
     public PropertyDefine Property { get; set; }
 
     public void SetProperty(Element element);
+
+    public IObservable<Unit> GetObservable();
 }
 
 public class Setter<T> : ISetter
@@ -90,7 +94,7 @@ public class Setter<T> : ISetter
     {
         return new SetterSubject(this);
     }
-    
+
     public IObservable<T?> GetObservable()
     {
         return new SetterSubject(this);
@@ -99,6 +103,11 @@ public class Setter<T> : ISetter
     protected void OnPropertyChanged([CallerMemberName] string? propertyname = null)
     {
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyname));
+    }
+
+    IObservable<Unit> ISetter.GetObservable()
+    {
+        return GetObservable().Select(_ => Unit.Default);
     }
 
     private sealed class SetterSubject : SubjectBase<T?>
@@ -139,7 +148,7 @@ public class Setter<T> : ISetter
 
         public override void OnNext(T? value)
         {
-            if(_object != null)
+            if (_object != null)
             {
                 _object.Value = value;
             }

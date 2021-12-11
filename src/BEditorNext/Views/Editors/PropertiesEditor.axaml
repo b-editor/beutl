@@ -10,7 +10,7 @@
     <ItemsControl Items="{CompiledBinding Layer.Children}">
         <ItemsControl.ItemTemplate>
             <DataTemplate>
-                <Expander>
+                <Expander Padding="0">
                     <Expander.Header>
                         <StackPanel>
                             <CheckBox IsChecked="{Binding IsEnabled}" />

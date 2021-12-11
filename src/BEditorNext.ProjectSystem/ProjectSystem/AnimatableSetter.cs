@@ -39,11 +39,7 @@ public class AnimatableSetter<T> : Setter<T>, IAnimatableSetter
     {
         if (_children.Count < 1)
         {
-            object? defaultValue = ((PropertyDefine)Property).GetDefaultValue();
-            if (defaultValue != null)
-            {
-                element.SetValue(Property, defaultValue);
-            }
+            element.SetValue(Property, Value);
         }
         else
         {

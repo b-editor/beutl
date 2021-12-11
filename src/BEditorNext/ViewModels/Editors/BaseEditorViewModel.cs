@@ -13,7 +13,11 @@ public abstract class BaseEditorViewModel
 
     public bool CanReset => Setter.Property.MetaTable.ContainsKey(PropertyMetaTableKeys.DefaultValue);
 
-    public virtual string Header => Setter.Property.GetValueOrDefault<string>(PropertyMetaTableKeys.Header) ?? "Unknown";
+    public virtual string Header => Setter.Property.GetValueOrDefault(
+        PropertyMetaTableKeys.Header,
+        Setter.Property.GetValueOrDefault(
+            PropertyMetaTableKeys.JsonName,
+            "Unknown"));
 }
 
 public abstract class BaseEditorViewModel<T> : BaseEditorViewModel

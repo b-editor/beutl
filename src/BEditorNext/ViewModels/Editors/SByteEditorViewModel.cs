@@ -1,11 +1,10 @@
-﻿
-using BEditorNext.ProjectSystem;
+﻿using BEditorNext.ProjectSystem;
 
 using Reactive.Bindings;
 
 namespace BEditorNext.ViewModels.Editors;
 
-public sealed class SByteEditorViewModel : BaseEditorViewModel<sbyte>
+public sealed class SByteEditorViewModel : BaseNumberEditorViewModel<sbyte>
 {
     public SByteEditorViewModel(Setter<sbyte> setter)
         : base(setter)
@@ -16,7 +15,27 @@ public sealed class SByteEditorViewModel : BaseEditorViewModel<sbyte>
 
     public ReadOnlyReactivePropertySlim<sbyte> Value { get; }
 
-    public sbyte Maximum => Setter.Property.GetValueOrDefault(PropertyMetaTableKeys.Maximum, sbyte.MaxValue);
+    public override sbyte Maximum => Setter.Property.GetValueOrDefault(PropertyMetaTableKeys.Maximum, sbyte.MaxValue);
 
-    public sbyte Minimum => Setter.Property.GetValueOrDefault(PropertyMetaTableKeys.Minimum, sbyte.MinValue);
+    public override sbyte Minimum => Setter.Property.GetValueOrDefault(PropertyMetaTableKeys.Minimum, sbyte.MinValue);
+
+    public override sbyte Clamp(sbyte value, sbyte min, sbyte max)
+    {
+        return Math.Clamp(value, min, max);
+    }
+
+    public override sbyte Decrement(sbyte value, int increment)
+    {
+        return (sbyte)(value - increment);
+    }
+
+    public override sbyte Increment(sbyte value, int increment)
+    {
+        return (sbyte)(value + increment);
+    }
+
+    public override bool TryParse(string? s, out sbyte result)
+    {
+        return sbyte.TryParse(s, out result);
+    }
 }

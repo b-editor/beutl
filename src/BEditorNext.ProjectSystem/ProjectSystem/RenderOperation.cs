@@ -1,5 +1,7 @@
 ﻿using System.Text.Json.Nodes;
 
+using Avalonia.Styling;
+
 using BEditorNext.Collections;
 
 namespace BEditorNext.ProjectSystem;
@@ -23,21 +25,36 @@ public abstract class RenderOperation : Element
         foreach (PropertyDefine item in PropertyRegistry.GetRegistered(GetType())
             .Where(x => x.GetValueOrDefault<bool>(PropertyMetaTableKeys.Editor) == true))
         {
-            if (item.GetValueOrDefault<bool>(PropertyMetaTableKeys.AnimationIsEnabled) == true)
+            Type? type;
+
+            if (item.GetValueOrDefault(PropertyMetaTableKeys.AnimationIsEnabled, false))
             {
-                Type type = typeof(AnimatableSetter<>).MakeGenericType(item.PropertyType);
-                if (Activator.CreateInstance(type, item) is ISetter setter)
-                {
-                    _setters.Add(setter);
-                }
+                type = typeof(AnimatableSetter<>).MakeGenericType(item.PropertyType);
             }
             else
             {
-                Type type = typeof(Setter<>).MakeGenericType(item.PropertyType);
-                if (Activator.CreateInstance(type, item) is ISetter setter)
+                type = typeof(Setter<>).MakeGenericType(item.PropertyType);
+            }
+
+            if (Activator.CreateInstance(type, item) is ISetter setter)
+            {
+                _setters.Add(setter);
+
+                setter.GetObservable().Subscribe(_ =>
                 {
-                    _setters.Add(setter);
-                }
+                    SceneLayer? layer = this.FindLogicalParent<SceneLayer>();
+
+                    Scene? scene = this.FindLogicalParent<Scene>();
+                    if (scene != null &&
+                        layer != null &&
+                        layer.IsEnabled &&
+                        layer.Start <= scene.CurrentFrame &&
+                        scene.CurrentFrame < layer.Start + layer.Length&&
+                        scene?.Renderer is SceneRenderer renderer)
+                    {
+                        renderer.ForceRender();
+                    }
+                });
             }
         }
     }
