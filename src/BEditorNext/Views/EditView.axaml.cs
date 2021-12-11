@@ -1,4 +1,5 @@
 using Avalonia.Controls;
+using Avalonia.Data.Converters;
 using Avalonia.Interactivity;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
@@ -6,7 +7,10 @@ using Avalonia.Platform;
 using BEditorNext.Framework;
 using BEditorNext.Media;
 using BEditorNext.Media.Pixel;
+using BEditorNext.ProjectSystem;
 using BEditorNext.ViewModels;
+using BEditorNext.ViewModels.Editors;
+using BEditorNext.Views.Editors;
 
 namespace BEditorNext.Views;
 
@@ -17,6 +21,13 @@ public sealed partial class EditView : UserControl, IStorableControl
 
     public EditView()
     {
+        Resources["LayerEditorConverter"] = new FuncValueConverter<SceneLayer?, object?>(obj =>
+        {
+            if (obj == null)
+                return null;
+
+            return new PropertiesEditorViewModel(obj);
+        });
         InitializeComponent();
         _syncContext = SynchronizationContext.Current!;
     }
