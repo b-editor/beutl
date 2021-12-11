@@ -9,20 +9,20 @@ namespace BEditorNext.Operations;
 
 public sealed class EllipseOperation : RenderOperation
 {
-    public static readonly PropertyDefine<PixelSize> SizeProperty;
-    public static readonly PropertyDefine<int> LineWidthProperty;
+    public static readonly PropertyDefine<Size> SizeProperty;
+    public static readonly PropertyDefine<float> LineWidthProperty;
     public static readonly PropertyDefine<Color> ColorProperty;
 
     static EllipseOperation()
     {
-        SizeProperty = RegisterProperty<PixelSize, EllipseOperation>(nameof(Size), (owner, obj) => owner.Size = obj, owner => owner.Size)
-            .DefaultValue(new PixelSize(100, 100))
+        SizeProperty = RegisterProperty<Size, EllipseOperation>(nameof(Size), (owner, obj) => owner.Size = obj, owner => owner.Size)
+            .DefaultValue(new Size(100, 100))
             .EnableAnimation()
             .JsonName("size")
-            .Minimum(new PixelSize(0, 0))
+            .Minimum(new Size(0, 0))
             .EnableEditor();
 
-        LineWidthProperty = RegisterProperty<int, EllipseOperation>(nameof(LineWidth), (owner, obj) => owner.LineWidth = obj, owner => owner.LineWidth)
+        LineWidthProperty = RegisterProperty<float, EllipseOperation>(nameof(LineWidth), (owner, obj) => owner.LineWidth = obj, owner => owner.LineWidth)
             .DefaultValue(4000)
             .EnableAnimation()
             .JsonName("lineWidth")
@@ -36,27 +36,27 @@ public sealed class EllipseOperation : RenderOperation
             .EnableEditor();
     }
 
-    public PixelSize Size { get; set; }
+    public Size Size { get; set; }
 
-    public int LineWidth { get; set; }
+    public float LineWidth { get; set; }
 
     public Color Color { get; set; }
 
     public override void Render(in OperationRenderArgs args)
     {
-        int width = Size.Width;
-        int height = Size.Height;
-        int line = LineWidth;
+        float width = Size.Width;
+        float height = Size.Height;
+        float line = LineWidth;
 
-        if (LineWidth >= Math.Min(width, height) / 2)
-            line = Math.Min(width, height) / 2;
+        if (LineWidth >= MathF.Min(width, height) / 2)
+            line = MathF.Min(width, height) / 2;
 
-        int min = Math.Min(width, height);
+        float min = MathF.Min(width, height);
 
         if (line < min) min = line;
         if (min < 0) min = 0;
 
-        using var bmp = new SKBitmap(new SKImageInfo(width, height, SKColorType.Bgra8888));
+        using var bmp = new SKBitmap(new SKImageInfo((int)MathF.Round(width), (int)MathF.Round(height), SKColorType.Bgra8888));
         using var canvas = new SKCanvas(bmp);
 
         using var paint = new SKPaint
