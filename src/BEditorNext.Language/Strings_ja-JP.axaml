@@ -50,7 +50,8 @@
         <x:String x:Key="CutString">切り取り</x:String>
         <x:String x:Key="CopyString">コピー</x:String>
         <x:String x:Key="PasteString">貼り付け</x:String>
-        
+        <x:String x:Key="ResetString">リセット</x:String>
+
         <!--Command-->
         <x:String x:Key="AddRenderOperationString">Render operationを追加</x:String>
         <x:String x:Key="RemoveRenderOperationString">Render operationを削除</x:String>
