@@ -1,6 +1,7 @@
 ﻿using System.ComponentModel;
 using System.Reactive.Subjects;
 using System.Reactive.Disposables;
+using System.Diagnostics.CodeAnalysis;
 
 namespace BEditorNext;
 
@@ -18,15 +19,16 @@ internal sealed class ElementSubject<T> : SubjectBase<T>
         o.PropertyChanged += Object_PropertyChanged;
     }
 
-    public override bool HasObservers { get; }
+    public override bool HasObservers => _list.Count > 0;
 
+    [MemberNotNullWhen(false, "_object")]
     public override bool IsDisposed => _isDisposed;
 
     public override void Dispose()
     {
-        if (!_isDisposed)
+        if (!IsDisposed)
         {
-            _object!.PropertyChanged -= Object_PropertyChanged;
+            _object.PropertyChanged -= Object_PropertyChanged;
             _list.Clear();
             _object = null;
             _isDisposed = true;
@@ -49,13 +51,13 @@ internal sealed class ElementSubject<T> : SubjectBase<T>
     public override IDisposable Subscribe(IObserver<T> observer)
     {
         if (observer is null) throw new ArgumentNullException(nameof(observer));
-        if (_isDisposed) throw new ObjectDisposedException(nameof(ElementSubject<T>));
+        if (IsDisposed) throw new ObjectDisposedException(nameof(ElementSubject<T>));
 
         _list.Add(observer);
 
         try
         {
-            observer.OnNext(_object!.GetValue(_property));
+            observer.OnNext(_object.GetValue(_property));
         }
         catch (Exception ex)
         {
@@ -72,9 +74,9 @@ internal sealed class ElementSubject<T> : SubjectBase<T>
     private void Object_PropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName != _property.Name) return;
-        if (_isDisposed) throw new ObjectDisposedException(nameof(ElementSubject<T>));
+        if (IsDisposed) throw new ObjectDisposedException(nameof(ElementSubject<T>));
 
-        T value = _object!.GetValue(_property);
+        T value = _object.GetValue(_property);
         foreach (IObserver<T>? item in _list)
         {
             try
