@@ -61,6 +61,7 @@
             <!--BottomPanel-->
             <DraggableTabView
                 Grid.Row="2"
+                x:Name="BottomTabView"
                 Margin="2,0,0,0"
                 ItemsMargin="0,4"
                 Classes="EditTabView"
@@ -76,7 +77,7 @@
                 <DraggableTabItem Header="{DynamicResource TimelineString}">
                     <local:Timeline DataContext="{CompiledBinding Timeline}" />
                 </DraggableTabItem>
-                <DraggableTabItem Header="{DynamicResource OutputString}" />
+                <!--<DraggableTabItem Header="{DynamicResource OutputString}" />-->
             </DraggableTabView>
 
             <Grid>

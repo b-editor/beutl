@@ -18,7 +18,7 @@ public sealed class EllipseOperation : RenderOperation
     {
         WidthProperty = RegisterProperty<float, EllipseOperation>(nameof(Width), (owner, obj) => owner.Width = obj, owner => owner.Width)
             .DefaultValue(100)
-            .EnableAnimation()
+            .Animatable()
             .Header("WidthString")
             .JsonName("width")
             .Minimum(0)
@@ -26,7 +26,7 @@ public sealed class EllipseOperation : RenderOperation
         
         HeightProperty = RegisterProperty<float, EllipseOperation>(nameof(Height), (owner, obj) => owner.Height = obj, owner => owner.Height)
             .DefaultValue(100)
-            .EnableAnimation()
+            .Animatable()
             .Header("HeightString")
             .JsonName("height")
             .Minimum(0)
@@ -34,7 +34,7 @@ public sealed class EllipseOperation : RenderOperation
 
         StrokeWidthProperty = RegisterProperty<float, EllipseOperation>(nameof(StrokeWidth), (owner, obj) => owner.StrokeWidth = obj, owner => owner.StrokeWidth)
             .DefaultValue(4000)
-            .EnableAnimation()
+            .Animatable()
             .Header("StrokeWidthString")
             .JsonName("strokeWidth")
             .Minimum(0)
@@ -42,7 +42,7 @@ public sealed class EllipseOperation : RenderOperation
 
         ColorProperty = RegisterProperty<Color, EllipseOperation>(nameof(Color), (owner, obj) => owner.Color = obj, owner => owner.Color)
             .DefaultValue(Colors.White)
-            .EnableAnimation()
+            .Animatable()
             .Header("ColorString")
             .JsonName("color")
             .EnableEditor();

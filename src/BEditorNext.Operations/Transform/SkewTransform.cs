@@ -14,13 +14,13 @@ public sealed class SkewTransform : RenderOperation
     {
         SkewXProperty = RegisterProperty<float, SkewTransform>(nameof(SkewX), (owner, obj) => owner.SkewX = obj, owner => owner.SkewX)
             .EnableEditor()
-            .EnableAnimation()
+            .Animatable()
             .DefaultValue(0f)
             .JsonName("skewX");
 
         SkewYProperty = RegisterProperty<float, SkewTransform>(nameof(SkewY), (owner, obj) => owner.SkewY = obj, owner => owner.SkewY)
             .EnableEditor()
-            .EnableAnimation()
+            .Animatable()
             .DefaultValue(0f)
             .JsonName("skewY");
     }

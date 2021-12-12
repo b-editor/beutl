@@ -15,19 +15,19 @@ public sealed class ScaleTransform : RenderOperation
     {
         ScaleProperty = RegisterProperty<float, ScaleTransform>(nameof(Scale), (owner, obj) => owner.Scale = obj, owner => owner.Scale)
             .EnableEditor()
-            .EnableAnimation()
+            .Animatable()
             .DefaultValue(100f)
             .JsonName("scale");
 
         ScaleXProperty = RegisterProperty<float, ScaleTransform>(nameof(ScaleX), (owner, obj) => owner.ScaleX = obj, owner => owner.ScaleX)
             .EnableEditor()
-            .EnableAnimation()
+            .Animatable()
             .DefaultValue(100f)
             .JsonName("scaleX");
 
         ScaleYProperty = RegisterProperty<float, ScaleTransform>(nameof(ScaleY), (owner, obj) => owner.ScaleY = obj, owner => owner.ScaleY)
             .EnableEditor()
-            .EnableAnimation()
+            .Animatable()
             .DefaultValue(100f)
             .JsonName("scaleY");
     }

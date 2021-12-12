@@ -13,7 +13,7 @@ public sealed class RotateTransform : RenderOperation
     {
         RotationProperty = RegisterProperty<float, RotateTransform>(nameof(Rotation), (owner, obj) => owner.Rotation = obj, owner => owner.Rotation)
             .EnableEditor()
-            .EnableAnimation()
+            .Animatable()
             .DefaultValue(0f)
             .JsonName("rotation");
     }

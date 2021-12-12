@@ -20,6 +20,9 @@
                     Command="{Binding Reset}"
                     Header="{DynamicResource ResetString}"
                     IsEnabled="{CompiledBinding CanReset}" />
+                <MenuItem
+                    Click="EditAnimation_Click"
+                    Header="{DynamicResource EditAnimationString}" />
             </ContextMenu>
         </Button.ContextMenu>
         <FluentIconRegular

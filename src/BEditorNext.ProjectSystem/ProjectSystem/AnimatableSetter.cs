@@ -6,7 +6,7 @@ using BEditorNext.Collections;
 
 namespace BEditorNext.ProjectSystem;
 
-public interface IAnimatableSetter
+public interface IAnimatableSetter : ISetter
 {
     public IObservableList<Animation.Animation> Children { get; }
 

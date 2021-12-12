@@ -72,6 +72,7 @@
         <x:String x:Key="CopyString">Copy</x:String>
         <x:String x:Key="PasteString">Paste</x:String>
         <x:String x:Key="ResetString">Reset</x:String>
+        <x:String x:Key="EditAnimationString">Edit animation</x:String>
 
         <!--Command-->
         <x:String x:Key="AddRenderOperationString">Add a render operation.</x:String>

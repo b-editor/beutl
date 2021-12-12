@@ -27,7 +27,7 @@ public abstract class RenderOperation : Element
         {
             Type? type;
 
-            if (item.GetValueOrDefault(PropertyMetaTableKeys.AnimationIsEnabled, false))
+            if (item.GetValueOrDefault(PropertyMetaTableKeys.IsAnimatable, false))
             {
                 type = typeof(AnimatableSetter<>).MakeGenericType(item.PropertyType);
             }

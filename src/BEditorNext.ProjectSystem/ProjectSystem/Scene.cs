@@ -161,6 +161,7 @@ public class Scene : Element, IStorable
     public void AddChild(SceneLayer layer, CommandRecorder? recorder = null)
     {
         ArgumentNullException.ThrowIfNull(layer);
+        layer.Layer = NearestLayerNumber(layer);
 
         if (recorder == null)
         {
@@ -451,6 +452,35 @@ public class Scene : Element, IStorable
                 _excludeLayers.Add(item.FileName);
             }
         }
+    }
+
+    private int NearestLayerNumber(SceneLayer layer)
+    {
+        if (Layers.Select(i => i.Layer).Contains(layer.Layer))
+        {
+            SceneLayer[] layers = Layers.ToArray();
+            int layerMax = layers.Max(i => i.Layer);
+
+            // 使われていないレイヤー番号
+            var numbers = new List<int>();
+
+            for (int l = 0; l <= layerMax; l++)
+            {
+                if (!layers.Select(i => i.Layer).Contains(l))
+                {
+                    numbers.Add(l);
+                }
+            }
+
+            if (numbers.Count < 1)
+            {
+                return layerMax + 1;
+            }
+
+            return numbers.Nearest(layer.Layer);
+        }
+
+        return layer.Layer;
     }
 
     private sealed class AddCommand : IRecordableCommand

@@ -14,12 +14,12 @@ public sealed class TranslateTransform : RenderOperation
     {
         XProperty = RegisterProperty<float, TranslateTransform>(nameof(X), (owner, obj) => owner.X = obj, owner => owner.X)
             .EnableEditor()
-            .EnableAnimation()
+            .Animatable()
             .JsonName("x");
 
         YProperty = RegisterProperty<float, TranslateTransform>(nameof(Y), (owner, obj) => owner.Y = obj, owner => owner.Y)
             .EnableEditor()
-            .EnableAnimation()
+            .Animatable()
             .JsonName("y");
     }
 

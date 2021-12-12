@@ -30,14 +30,9 @@ public static class PropertyDefineExtensions
         return define;
     }
 
-    public static PropertyDefine<T> EnableAnimation<T>(this PropertyDefine<T> define)
+    public static PropertyDefine<T> Animatable<T>(this PropertyDefine<T> define, bool value = true)
     {
-        return define.SetKeyValue(PropertyMetaTableKeys.AnimationIsEnabled, true);
-    }
-
-    public static PropertyDefine<T> DisableAnimation<T>(this PropertyDefine<T> define)
-    {
-        return define.SetKeyValue(PropertyMetaTableKeys.AnimationIsEnabled, false);
+        return define.SetKeyValue(PropertyMetaTableKeys.IsAnimatable, value);
     }
 
     //public static PropertyDefine<T> Easing<T>(this PropertyDefine<T> define, Easing easing);
@@ -218,5 +213,10 @@ public static class PropertyDefineExtensions
     public static string? GetJsonName(this PropertyDefine define)
     {
         return define.GetValueOrDefault<string>(PropertyMetaTableKeys.JsonName);
+    }
+
+    public static bool IsAnimatable(this PropertyDefine define)
+    {
+        return define.GetValueOrDefault(PropertyMetaTableKeys.IsAnimatable, false);
     }
 }

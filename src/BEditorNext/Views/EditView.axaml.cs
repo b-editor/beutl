@@ -10,7 +10,6 @@ using BEditorNext.Media.Pixel;
 using BEditorNext.ProjectSystem;
 using BEditorNext.ViewModels;
 using BEditorNext.ViewModels.Editors;
-using BEditorNext.Views.Editors;
 
 namespace BEditorNext.Views;
 

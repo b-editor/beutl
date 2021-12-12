@@ -13,19 +13,19 @@ internal class TestOperation : RenderOperation
     {
         BooleanProperty = RegisterProperty<bool, TestOperation>("Boolean")
             .DefaultValue(false)
-            .EnableAnimation()
+            .Animatable()
             .JsonName("boolean")
             .EnableEditor();
 
         NumberProperty = RegisterProperty<float, TestOperation>("Number")
             .DefaultValue(0)
-            .EnableAnimation()
+            .Animatable()
             .JsonName("number")
             .EnableEditor();
 
         SizeProperty = RegisterProperty<Size, TestOperation>("Size")
             .DefaultValue(new Size(100, 100))
-            .EnableAnimation()
+            .Animatable()
             .JsonName("size")
             .EnableEditor();
     }

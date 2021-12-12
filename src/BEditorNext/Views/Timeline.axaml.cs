@@ -38,6 +38,7 @@ public partial class Timeline : UserControl
     internal TimeSpan _pointerFrame;
     internal int _pointerLayer;
     private bool _isFirst;
+    private TimelineViewModel? _viewModel;
 
     public Timeline()
     {
@@ -52,25 +53,34 @@ public partial class Timeline : UserControl
         DragDrop.SetAllowDrop(TimelinePanel, true);
     }
 
-    internal TimelineViewModel ViewModel => (TimelineViewModel)DataContext!;
+    internal TimelineViewModel ViewModel => _viewModel!;
 
     // DataContextが変更された
     protected override void OnDataContextChanged(EventArgs e)
     {
         base.OnDataContextChanged(e);
-
-        var minHeightBinding = new Binding("TimelineOptions")
+        if (DataContext is TimelineViewModel vm)
         {
-            Source = ViewModel.Scene,
-            Converter = new FuncValueConverter<TimelineOptions, double>(x => x.MaxLayerCount * Helper.LayerHeight)
-        };
-        TimelinePanel[!MinHeightProperty] = minHeightBinding;
-        LeftPanel[!MinHeightProperty] = minHeightBinding;
+            if (_viewModel != null)
+            {
+                TimelinePanel.Children.RemoveRange(3, TimelinePanel.Children.Count - 3);
 
-        TimelinePanel.Children.RemoveRange(3, TimelinePanel.Children.Count - 3);
+                _viewModel.Scene.Children.CollectionChanged -= Children_CollectionChanged;
+            }
 
-        ViewModel.Scene.Children.CollectionChanged += Children_CollectionChanged;
-        AddLayers(ViewModel.Scene.Layers);
+            _viewModel = vm;
+
+            var minHeightBinding = new Binding("TimelineOptions")
+            {
+                Source = ViewModel.Scene,
+                Converter = new FuncValueConverter<TimelineOptions, double>(x => x.MaxLayerCount * Helper.LayerHeight)
+            };
+            TimelinePanel[!MinHeightProperty] = minHeightBinding;
+            LeftPanel[!MinHeightProperty] = minHeightBinding;
+
+            ViewModel.Scene.Children.CollectionChanged += Children_CollectionChanged;
+            AddLayers(ViewModel.Scene.Layers);
+        }
     }
 
     // PaneScrollがスクロールされた

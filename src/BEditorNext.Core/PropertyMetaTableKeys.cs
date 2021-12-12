@@ -13,7 +13,7 @@ public static class PropertyMetaTableKeys
     public const string PropertyType = "propertyType";
     public const string OwnerType = "ownerType";
     public const string IsAttached = "isAttached";
-    public const string AnimationIsEnabled = "animationIsEnabled";
+    public const string IsAnimatable = "isAnimatable";
     public const string Easing = "easing";
     public const string Header = "header";
     public const string Editor = "editor";
