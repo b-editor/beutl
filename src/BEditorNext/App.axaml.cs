@@ -7,6 +7,8 @@ using BEditorNext.Services;
 using BEditorNext.ViewModels;
 using BEditorNext.Views;
 
+using Reactive.Bindings;
+
 namespace BEditorNext
 {
     public class App : Application
@@ -21,6 +23,7 @@ namespace BEditorNext
             base.RegisterServices();
             ServiceLocator.Current.BindToSelfSingleton<ProjectService>();
             RenderOperations.RegisterAll();
+            UIDispatcherScheduler.Initialize();
         }
 
         public override void OnFrameworkInitializationCompleted()

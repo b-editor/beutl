@@ -59,7 +59,7 @@ public partial class Timeline : UserControl
     protected override void OnDataContextChanged(EventArgs e)
     {
         base.OnDataContextChanged(e);
-        if (DataContext is TimelineViewModel vm)
+        if (DataContext is TimelineViewModel vm && vm != _viewModel)
         {
             if (_viewModel != null)
             {

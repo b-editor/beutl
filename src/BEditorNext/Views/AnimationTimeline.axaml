@@ -3,7 +3,93 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:local="using:BEditorNext.Views"
+    xmlns:vm="using:BEditorNext.ViewModels"
     mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+    IsEnabled="{Binding Layer.IsEnabled}"
+    x:DataType="vm:AnimationTimelineViewModel"
     x:Class="BEditorNext.Views.AnimationTimeline">
-    
+    <Grid RowDefinitions="Auto,*">
+
+        <ScrollViewer
+            x:Name="ScaleScroll"
+            VerticalScrollBarVisibility="Hidden"
+            HorizontalScrollBarVisibility="Hidden">
+            <Panel
+                x:Name="ScalePanel"
+                PointerMoved="TimelinePanel_PointerMoved"
+                PointerReleased="TimelinePanel_PointerReleased"
+                PointerPressed="TimelinePanel_PointerPressed"
+                Background="Transparent"
+                HorizontalAlignment="Left">
+                <Border
+                    x:Name="border"
+                    HorizontalAlignment="Left"
+                    Width="{CompiledBinding Width.Value}"
+                    Height="{DynamicResource LayerHeight}"
+                    VerticalAlignment="Bottom"
+                    Margin="{CompiledBinding BorderMargin.Value}"
+                    Background="{CompiledBinding Color.Value, Converter={StaticResource ColorToBrushConverter}}">
+                    <Border.Styles>
+                        <Style Selector="Border:disabled">
+                            <Setter Property="Opacity" Value="0.5" />
+                        </Style>
+                    </Border.Styles>
+                </Border>
+
+                <local:TimelineScale
+                    x:Name="Scale"
+                    Scale="{Binding Scene.TimelineOptions.Scale}"
+                    Width="{CompiledBinding PanelWidth.Value}"
+                    MinWidth="{Binding #ContentScroll.Bounds.Width}"
+                    Height="32"
+                    VerticalAlignment="Top"
+                    HorizontalAlignment="Left" />
+
+                <Border
+                    Width="1.25"
+                    Margin="{CompiledBinding EndingBarMargin.Value}"
+                    HorizontalAlignment="Left"
+                    Background="Blue" />
+
+                <Border
+                    Width="1.25"
+                    Margin="{CompiledBinding SeekBarMargin.Value}"
+                    HorizontalAlignment="Left"
+                    Background="Red" />
+            </Panel>
+        </ScrollViewer>
+
+        <ScrollViewer
+            x:Name="ContentScroll"
+            Grid.Row="1"
+            HorizontalScrollBarVisibility="Visible">
+            <Panel
+                x:Name="TimelinePanel"
+                Background="Transparent"
+                PointerMoved="TimelinePanel_PointerMoved"
+                PointerReleased="TimelinePanel_PointerReleased"
+                PointerPressed="TimelinePanel_PointerPressed"
+                PointerLeave="TimelinePanel_PointerLeave"
+                Width="{CompiledBinding PanelWidth.Value}"
+                MinWidth="{Binding #ContentScroll.Bounds.Width}"
+                VerticalAlignment="Stretch"
+                HorizontalAlignment="Left">
+
+                <Border
+                    Margin="{CompiledBinding EndingBarMargin.Value}"
+                    ZIndex="2"
+                    Width="1.25"
+                    HorizontalAlignment="Left"
+                    Background="Blue" />
+
+                <Border
+                    Margin="{CompiledBinding SeekBarMargin.Value}"
+                    ZIndex="2"
+                    Width="1.25"
+                    HorizontalAlignment="Left"
+                    Background="Red" />
+            </Panel>
+        </ScrollViewer>
+    </Grid>
 </UserControl>
