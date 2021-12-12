@@ -8,7 +8,7 @@ namespace BEditorNext.ProjectSystem;
 
 public interface IAnimatableSetter
 {
-    public IReadOnlyList<IAnimation> Children { get; }
+    public IObservableList<Animation.Animation> Children { get; }
 
     public void SetProperty(Element element, TimeSpan progress);
 }
@@ -32,8 +32,6 @@ public class AnimatableSetter<T> : Setter<T>, IAnimatableSetter
     public Animator<T> Animator { get; set; }
 
     public IObservableList<Animation.Animation> Children => _children;
-
-    IReadOnlyList<IAnimation> IAnimatableSetter.Children => _children;
 
     public void SetProperty(Element element, TimeSpan progress)
     {
