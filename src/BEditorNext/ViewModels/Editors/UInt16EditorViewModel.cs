@@ -1,6 +1,7 @@
 ﻿using BEditorNext.ProjectSystem;
 
 using Reactive.Bindings;
+using Reactive.Bindings.Extensions;
 
 namespace BEditorNext.ViewModels.Editors;
 
@@ -10,7 +11,8 @@ public sealed class UInt16EditorViewModel : BaseNumberEditorViewModel<ushort>
         : base(setter)
     {
         Value = setter.GetObservable()
-            .ToReadOnlyReactivePropertySlim();
+            .ToReadOnlyReactivePropertySlim()
+            .AddTo(Disposables);
     }
 
     public ReadOnlyReactivePropertySlim<ushort> Value { get; }

@@ -44,6 +44,7 @@
         <x:String x:Key="StartTimeString">Start time</x:String>
         <x:String x:Key="DurationTimeString">Duration time</x:String>
         <x:String x:Key="ColorString">Color</x:String>
+        <x:String x:Key="StrokeWidthString">Stroke width</x:String>
 
         <!--Verb-->
         <x:String x:Key="OpenString">Open</x:String>
@@ -87,5 +88,6 @@
         <x:String x:Key="SkewString">Skew</x:String>
         <x:String x:Key="TranslateString">Translate</x:String>
         <x:String x:Key="TransformString">Transform</x:String>
+        <x:String x:Key="TestString">Test</x:String>
     </Styles.Resources>
 </Styles>

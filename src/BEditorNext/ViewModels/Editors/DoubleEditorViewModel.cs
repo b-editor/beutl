@@ -1,7 +1,7 @@
-﻿
-using BEditorNext.ProjectSystem;
+﻿using BEditorNext.ProjectSystem;
 
 using Reactive.Bindings;
+using Reactive.Bindings.Extensions;
 
 namespace BEditorNext.ViewModels.Editors;
 
@@ -11,7 +11,8 @@ public sealed class DoubleEditorViewModel : BaseNumberEditorViewModel<double>
         : base(setter)
     {
         Value = setter.GetObservable()
-            .ToReadOnlyReactivePropertySlim();
+            .ToReadOnlyReactivePropertySlim()
+            .AddTo(Disposables);
     }
 
     public ReadOnlyReactivePropertySlim<double> Value { get; }

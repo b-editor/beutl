@@ -10,7 +10,7 @@ namespace BEditorNext.Operations;
 public sealed class EllipseOperation : RenderOperation
 {
     public static readonly PropertyDefine<Size> SizeProperty;
-    public static readonly PropertyDefine<float> LineWidthProperty;
+    public static readonly PropertyDefine<float> StrokeWidthProperty;
     public static readonly PropertyDefine<Color> ColorProperty;
 
     static EllipseOperation()
@@ -18,27 +18,30 @@ public sealed class EllipseOperation : RenderOperation
         SizeProperty = RegisterProperty<Size, EllipseOperation>(nameof(Size), (owner, obj) => owner.Size = obj, owner => owner.Size)
             .DefaultValue(new Size(100, 100))
             .EnableAnimation()
+            .Header("SizeString")
             .JsonName("size")
             .Minimum(new Size(0, 0))
             .EnableEditor();
 
-        LineWidthProperty = RegisterProperty<float, EllipseOperation>(nameof(LineWidth), (owner, obj) => owner.LineWidth = obj, owner => owner.LineWidth)
+        StrokeWidthProperty = RegisterProperty<float, EllipseOperation>(nameof(StrokeWidth), (owner, obj) => owner.StrokeWidth = obj, owner => owner.StrokeWidth)
             .DefaultValue(4000)
             .EnableAnimation()
-            .JsonName("lineWidth")
+            .Header("StrokeWidthString")
+            .JsonName("strokeWidth")
             .Minimum(0)
             .EnableEditor();
 
         ColorProperty = RegisterProperty<Color, EllipseOperation>(nameof(Color), (owner, obj) => owner.Color = obj, owner => owner.Color)
             .DefaultValue(Colors.White)
             .EnableAnimation()
+            .Header("ColorString")
             .JsonName("color")
             .EnableEditor();
     }
 
     public Size Size { get; set; }
 
-    public float LineWidth { get; set; }
+    public float StrokeWidth { get; set; }
 
     public Color Color { get; set; }
 
@@ -46,14 +49,14 @@ public sealed class EllipseOperation : RenderOperation
     {
         float width = Size.Width;
         float height = Size.Height;
-        float line = LineWidth;
+        float stroke = StrokeWidth;
 
-        if (LineWidth >= MathF.Min(width, height) / 2)
-            line = MathF.Min(width, height) / 2;
+        if (StrokeWidth >= MathF.Min(width, height) / 2)
+            stroke = MathF.Min(width, height) / 2;
 
         float min = MathF.Min(width, height);
 
-        if (line < min) min = line;
+        if (stroke < min) min = stroke;
         if (min < 0) min = 0;
 
         using var bmp = new SKBitmap(new SKImageInfo((int)MathF.Round(width), (int)MathF.Round(height), SKColorType.Bgra8888));

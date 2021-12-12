@@ -1,9 +1,9 @@
-﻿
-using System.Numerics;
+﻿using System.Numerics;
 
 using BEditorNext.ProjectSystem;
 
 using Reactive.Bindings;
+using Reactive.Bindings.Extensions;
 
 namespace BEditorNext.ViewModels.Editors;
 
@@ -13,7 +13,8 @@ public sealed class Vector2EditorViewModel : BaseEditorViewModel<Vector2>
         : base(setter)
     {
         Value = setter.GetObservable()
-            .ToReadOnlyReactivePropertySlim();
+            .ToReadOnlyReactivePropertySlim()
+            .AddTo(Disposables);
     }
 
     public ReadOnlyReactivePropertySlim<Vector2> Value { get; }

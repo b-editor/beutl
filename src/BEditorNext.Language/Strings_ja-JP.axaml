@@ -26,6 +26,7 @@
         <x:String x:Key="StartTimeString">開始時間</x:String>
         <x:String x:Key="DurationTimeString">持続時間</x:String>
         <x:String x:Key="ColorString">色</x:String>
+        <x:String x:Key="StrokeWidthString">ストローク幅</x:String>
 
         <!--Verb-->
         <x:String x:Key="OpenString">開く</x:String>

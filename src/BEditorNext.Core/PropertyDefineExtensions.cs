@@ -42,7 +42,7 @@ public static class PropertyDefineExtensions
 
     //public static PropertyDefine<T> Easing<T>(this PropertyDefine<T> define, Easing easing);
 
-    public static PropertyDefine<T> Header<T>(this PropertyDefine<T> define, string value)
+    public static PropertyDefine<T> Header<T>(this PropertyDefine<T> define, ResourceReference<string> value)
     {
         return define.SetKeyValue(PropertyMetaTableKeys.Header, value);
     }

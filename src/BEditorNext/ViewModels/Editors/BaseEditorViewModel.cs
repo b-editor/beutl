@@ -1,23 +1,68 @@
-﻿using BEditorNext.ProjectSystem;
+﻿using System.Reactive.Disposables;
+using System.Reactive.Linq;
+
+using Avalonia;
+using Avalonia.Controls;
+
+using BEditorNext.ProjectSystem;
+
+using Reactive.Bindings;
+using Reactive.Bindings.Extensions;
 
 namespace BEditorNext.ViewModels.Editors;
 
-public abstract class BaseEditorViewModel
+public abstract class BaseEditorViewModel : IDisposable
 {
+    protected CompositeDisposable Disposables = new();
+    private bool _disposedValue;
+
     protected BaseEditorViewModel(ISetter setter)
     {
         Setter = setter;
+
+        ResourceReference<string> reference = Setter.Property.GetValueOrDefault<ResourceReference<string>>(PropertyMetaTableKeys.Header);
+
+        if (reference.Key != null)
+        {
+            Header = Application.Current.GetResourceObservable(reference.Key)
+                .Select(i => (string?)i ?? Setter.Property.GetJsonName() ?? Setter.Property.Name)
+                .ToReadOnlyReactivePropertySlim()
+                .AddTo(Disposables);
+        }
+        else
+        {
+            Header = Observable.Return(Setter.Property.GetJsonName() ?? Setter.Property.Name)
+                .ToReadOnlyReactivePropertySlim()
+                .AddTo(Disposables);
+        }
+    }
+
+    ~BaseEditorViewModel()
+    {
+        if (!_disposedValue)
+            Dispose(false);
     }
 
     public ISetter Setter { get; }
 
     public bool CanReset => Setter.Property.MetaTable.ContainsKey(PropertyMetaTableKeys.DefaultValue);
 
-    public virtual string Header => Setter.Property.GetValueOrDefault(
-        PropertyMetaTableKeys.Header,
-        Setter.Property.GetValueOrDefault(
-            PropertyMetaTableKeys.JsonName,
-            "Unknown"));
+    public ReadOnlyReactivePropertySlim<string?> Header { get; }
+
+    public void Dispose()
+    {
+        if (!_disposedValue)
+        {
+            Dispose(true);
+            _disposedValue = true;
+            GC.SuppressFinalize(this);
+        }
+    }
+
+    protected virtual void Dispose(bool disposing)
+    {
+        Disposables.Dispose();
+    }
 }
 
 public abstract class BaseEditorViewModel<T> : BaseEditorViewModel

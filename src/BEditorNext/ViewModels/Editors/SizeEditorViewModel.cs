@@ -1,8 +1,8 @@
-﻿
-using BEditorNext.Graphics;
+﻿using BEditorNext.Graphics;
 using BEditorNext.ProjectSystem;
 
 using Reactive.Bindings;
+using Reactive.Bindings.Extensions;
 
 namespace BEditorNext.ViewModels.Editors;
 
@@ -12,7 +12,8 @@ public sealed class SizeEditorViewModel : BaseEditorViewModel<Size>
         : base(setter)
     {
         Value = setter.GetObservable()
-            .ToReadOnlyReactivePropertySlim();
+            .ToReadOnlyReactivePropertySlim()
+            .AddTo(Disposables);
     }
 
     public ReadOnlyReactivePropertySlim<Size> Value { get; }
