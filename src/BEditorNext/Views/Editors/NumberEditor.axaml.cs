@@ -1,6 +1,10 @@
+using System.Reactive.Linq;
+
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Threading;
 
 using BEditorNext.ViewModels.Editors;
 
@@ -23,8 +27,9 @@ public class NumberEditor<T> : NumberEditor
     {
         textBox.GotFocus += TextBox_GotFocus;
         textBox.LostFocus += TextBox_LostFocus;
-        textBox.KeyDown += TextBox_KeyDown;
         textBox.AddHandler(PointerWheelChangedEvent, TextBox_PointerWheelChanged, RoutingStrategies.Tunnel);
+
+        textBox.GetObservable(TextBox.TextProperty).Subscribe(TextBox_TextChanged);
     }
 
     private void TextBox_GotFocus(object? sender, GotFocusEventArgs e)
@@ -44,14 +49,19 @@ public class NumberEditor<T> : NumberEditor
         }
     }
 
-    private void TextBox_KeyDown(object? sender, KeyEventArgs e)
+    private void TextBox_TextChanged(string s)
     {
-        if (DataContext is not BaseNumberEditorViewModel<T> vm) return;
-
-        if (vm.TryParse(textBox.Text, out T value))
+        Dispatcher.UIThread.InvokeAsync(async () =>
         {
-            vm.Setter.Value = vm.Clamp(value, vm.Minimum, vm.Maximum);
-        }
+            if (DataContext is not BaseNumberEditorViewModel<T> vm) return;
+
+            await Task.Delay(10);
+
+            if (vm.TryParse(textBox.Text, out T value))
+            {
+                vm.Setter.Value = vm.Clamp(value, vm.Minimum, vm.Maximum);
+            }
+        });
     }
 
     private void TextBox_PointerWheelChanged(object? sender, PointerWheelEventArgs e)
