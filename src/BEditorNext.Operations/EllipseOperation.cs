@@ -9,18 +9,27 @@ namespace BEditorNext.Operations;
 
 public sealed class EllipseOperation : RenderOperation
 {
-    public static readonly PropertyDefine<Size> SizeProperty;
+    public static readonly PropertyDefine<float> WidthProperty;
+    public static readonly PropertyDefine<float> HeightProperty;
     public static readonly PropertyDefine<float> StrokeWidthProperty;
     public static readonly PropertyDefine<Color> ColorProperty;
 
     static EllipseOperation()
     {
-        SizeProperty = RegisterProperty<Size, EllipseOperation>(nameof(Size), (owner, obj) => owner.Size = obj, owner => owner.Size)
-            .DefaultValue(new Size(100, 100))
+        WidthProperty = RegisterProperty<float, EllipseOperation>(nameof(Width), (owner, obj) => owner.Width = obj, owner => owner.Width)
+            .DefaultValue(100)
             .EnableAnimation()
-            .Header("SizeString")
-            .JsonName("size")
-            .Minimum(new Size(0, 0))
+            .Header("WidthString")
+            .JsonName("width")
+            .Minimum(0)
+            .EnableEditor();
+        
+        HeightProperty = RegisterProperty<float, EllipseOperation>(nameof(Height), (owner, obj) => owner.Height = obj, owner => owner.Height)
+            .DefaultValue(100)
+            .EnableAnimation()
+            .Header("HeightString")
+            .JsonName("height")
+            .Minimum(0)
             .EnableEditor();
 
         StrokeWidthProperty = RegisterProperty<float, EllipseOperation>(nameof(StrokeWidth), (owner, obj) => owner.StrokeWidth = obj, owner => owner.StrokeWidth)
@@ -39,7 +48,9 @@ public sealed class EllipseOperation : RenderOperation
             .EnableEditor();
     }
 
-    public Size Size { get; set; }
+    public float Width { get; set; }
+    
+    public float Height { get; set; }
 
     public float StrokeWidth { get; set; }
 
@@ -47,8 +58,8 @@ public sealed class EllipseOperation : RenderOperation
 
     public override void Render(in OperationRenderArgs args)
     {
-        float width = Size.Width;
-        float height = Size.Height;
+        float width = Width;
+        float height = Height;
         float stroke = StrokeWidth;
 
         if (StrokeWidth >= MathF.Min(width, height) / 2)

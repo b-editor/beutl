@@ -12,9 +12,7 @@
             <DataTemplate>
                 <Expander Padding="0">
                     <Expander.Header>
-                        <StackPanel>
-                            <CheckBox IsChecked="{Binding IsEnabled}" />
-                        </StackPanel>
+                        <ContentControl Content="{Binding Converter={StaticResource OperationDisplayNameConverter}}" />
                     </Expander.Header>
 
                     <ItemsControl Items="{Binding Setters}">

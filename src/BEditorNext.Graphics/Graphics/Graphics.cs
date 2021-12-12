@@ -78,7 +78,7 @@ public class Graphics : IGraphics
         using var skbmp = new SKBitmap(new SKImageInfo(bmp.Width, bmp.Height, SKColorType.Bgra8888));
         skbmp.SetPixels(bmp.Data);
 
-        _canvas.DrawBitmap(skbmp, new SKPoint(bmp.Width / 2, bmp.Height / 2), _paint);
+        _canvas.DrawBitmap(skbmp, SKPoint.Empty, _paint);
     }
 
     public void DrawCircle(Size size)

@@ -378,7 +378,7 @@ public abstract class Element : IElement
             }
             else
             {
-                json[item.GetJsonName()!] = JsonValue.Create(obj);
+                json[item.GetJsonName()!] = JsonSerializer.SerializeToNode(obj, item.PropertyType, JsonHelper.SerializerOptions);
             }
         }
 

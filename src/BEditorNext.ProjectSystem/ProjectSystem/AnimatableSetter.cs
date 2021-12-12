@@ -149,7 +149,7 @@ public class AnimatableSetter<T> : Setter<T>, IAnimatableSetter
             jsonArray.Add(item.ToJson());
         }
 
-        jsonObj["value"] = JsonValue.Create(Value);
+        jsonObj["value"] = JsonSerializer.SerializeToNode(Value, JsonHelper.SerializerOptions);
         jsonObj["children"] = jsonArray;
 
         return jsonObj;

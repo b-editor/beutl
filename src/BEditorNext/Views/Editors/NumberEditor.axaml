@@ -20,9 +20,6 @@
             Text="{Binding Value.Value, Mode=OneWay}">
             <TextBox.Styles>
                 <Style Selector="TextBox">
-                    <Setter Property="MinHeight" Value="24" />
-                    <Setter Property="Height" Value="24" />
-                    <Setter Property="Padding" Value="10,0,6,0" />
                     <Setter Property="Margin" Value="4" />
                     <Setter Property="HorizontalAlignment" Value="Stretch" />
                     <Setter Property="VerticalAlignment" Value="Stretch" />

@@ -87,7 +87,7 @@ public class Setter<T> : ISetter
 
     public virtual JsonNode ToJson()
     {
-        return JsonValue.Create(Value)!;
+        return JsonSerializer.SerializeToNode(Value, JsonHelper.SerializerOptions)!;
     }
 
     public ISubject<T?> GetSubject()

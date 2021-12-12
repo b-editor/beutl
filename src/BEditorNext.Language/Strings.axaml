@@ -45,6 +45,8 @@
         <x:String x:Key="DurationTimeString">Duration time</x:String>
         <x:String x:Key="ColorString">Color</x:String>
         <x:String x:Key="StrokeWidthString">Stroke width</x:String>
+        <x:String x:Key="WidthString">Width</x:String>
+        <x:String x:Key="HeightString">Height</x:String>
 
         <!--Verb-->
         <x:String x:Key="OpenString">Open</x:String>

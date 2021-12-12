@@ -1,5 +1,6 @@
 ﻿using Avalonia.Controls;
 
+using BEditorNext.Graphics;
 using BEditorNext.ProjectSystem;
 using BEditorNext.ViewModels.Editors;
 using BEditorNext.Views.Editors;
@@ -21,6 +22,7 @@ public static class PropertyEditorService
         { typeof(int), new(_ => new NumberEditor<int>(), s => new Int32EditorViewModel((Setter<int>)s)) },
         { typeof(long), new(_ => new NumberEditor<long>(), s => new Int64EditorViewModel((Setter<long>)s)) },
         { typeof(sbyte), new(_ => new NumberEditor<sbyte>(), s => new SByteEditorViewModel((Setter<sbyte>)s)) },
+        { typeof(Size), new(_ => new SizeEditor(), s => new SizeEditorViewModel((Setter<Size>)s)) },
         { typeof(ushort), new(_ => new NumberEditor<ushort>(), s => new UInt16EditorViewModel((Setter<ushort>)s)) },
         { typeof(uint), new(_ => new NumberEditor<uint>(), s => new UInt32EditorViewModel((Setter<uint>)s)) },
         { typeof(ulong), new(_ => new NumberEditor<ulong>(), s => new UInt64EditorViewModel((Setter<ulong>)s)) },
