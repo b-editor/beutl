@@ -10,7 +10,7 @@
     <Grid ColumnDefinitions="2*,3*,Auto">
         <TextBlock
             Margin="10,0,0,0"
-            Text="{Binding Header}"
+            Text="{Binding Header.Value}"
             HorizontalAlignment="Left"
             VerticalAlignment="Center" />
 

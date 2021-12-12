@@ -30,7 +30,7 @@ public partial class PropertiesEditor : UserControl
                 {
                     Height = 24,
                     Margin = new Thickness(0, 4),
-                    Content = setter.Property.GetValueOrDefault<string>(PropertyMetaTableKeys.Header)
+                    Content = setter.Property.Name
                 };
             }
             else
