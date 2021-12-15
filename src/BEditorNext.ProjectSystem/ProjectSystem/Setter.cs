@@ -5,7 +5,6 @@ using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using System.Runtime.CompilerServices;
-using System.Text.Json;
 using System.Text.Json.Nodes;
 
 namespace BEditorNext.ProjectSystem;
@@ -52,7 +51,7 @@ public class Setter<T> : ISetter
         get => _value;
         set
         {
-            if (!EqualityComparer<T>.Default.Equals(_value, value))
+            if (!EqualityComparer<T>.Default.Equals(Value, _value))
             {
                 _value = value;
                 OnPropertyChanged();
@@ -70,8 +69,8 @@ public class Setter<T> : ISetter
 
     public virtual void FromJson(JsonNode json)
     {
-        T? value = JsonSerializer.Deserialize<T>(json, JsonHelper.SerializerOptions);
-        if (value != null)
+        if (json is JsonValue jv &&
+            jv.TryGetValue(out T? value))
         {
             Value = value;
         }

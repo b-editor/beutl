@@ -56,13 +56,11 @@ public class Scene : Element, IStorable
 
         DurationProperty = RegisterProperty<TimeSpan, Scene>(nameof(Duration), (owner, obj) => owner.Duration = obj, owner => owner.Duration)
             .NotifyPropertyChanged(true)
-            .NotifyPropertyChanging(true)
-            .JsonName("duaration");
+            .NotifyPropertyChanging(true);
 
         CurrentFrameProperty = RegisterProperty<TimeSpan, Scene>(nameof(CurrentFrame), (owner, obj) => owner.CurrentFrame = obj, owner => owner.CurrentFrame)
             .NotifyPropertyChanged(true)
-            .NotifyPropertyChanging(true)
-            .JsonName("currentFrame");
+            .NotifyPropertyChanging(true);
 
         SelectedItemProperty = RegisterProperty<SceneLayer?, Scene>(nameof(SelectedItem), (owner, obj) => owner.SelectedItem = obj, owner => owner.SelectedItem)
             .NotifyPropertyChanged(true)
@@ -296,6 +294,22 @@ public class Scene : Element, IStorable
                 Initialize(width, height);
             }
 
+            if (jobject.TryGetPropertyValue("duration", out JsonNode? durationNode) &&
+                durationNode != null &&
+                durationNode.AsValue().TryGetValue(out string? durationStr) &&
+                TimeSpan.TryParse(durationStr, out TimeSpan duration))
+            {
+                Duration = duration;
+            }
+
+            if (jobject.TryGetPropertyValue("currentFrame", out JsonNode? currentFrameNode) &&
+                currentFrameNode != null &&
+                currentFrameNode.AsValue().TryGetValue(out string? currentFrameStr) &&
+                TimeSpan.TryParse(currentFrameStr, out TimeSpan currentFrame))
+            {
+                CurrentFrame = currentFrame;
+            }
+
             if (jobject.TryGetPropertyValue("layers", out JsonNode? layersNode) &&
                 layersNode is JsonObject layersJson)
             {
@@ -360,6 +374,8 @@ public class Scene : Element, IStorable
             Process(layersNode, "exclude", _excludeLayers);
 
             jobject["layers"] = layersNode;
+            jobject["duration"] = JsonValue.Create(Duration.ToString());
+            jobject["currentFrame"] = JsonValue.Create(CurrentFrame.ToString());
         }
 
         return node;

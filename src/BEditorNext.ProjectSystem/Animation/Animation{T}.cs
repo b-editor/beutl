@@ -5,46 +5,55 @@ using BEditorNext.ProjectSystem;
 
 namespace BEditorNext.Animation;
 
-public class Animation : Element, IAnimation
+public class Animation<T> : Element, IAnimation
+    where T : struct
 {
-    public static readonly PropertyDefine<float> PreviousProperty;
-    public static readonly PropertyDefine<float> NextProperty;
+    public static readonly PropertyDefine<Animator<T>> AnimatorProperty;
+    public static readonly PropertyDefine<T> PreviousProperty;
+    public static readonly PropertyDefine<T> NextProperty;
     public static readonly PropertyDefine<Easing> EasingProperty;
     public static readonly PropertyDefine<TimeSpan> DurationProperty;
-    private float _previous;
-    private float _next;
+    private Animator<T> _animator;
+    private T _previous;
+    private T _next;
     private Easing _easing;
     private TimeSpan _duration;
 
     public Animation()
     {
+        _animator = (Animator<T>)Activator.CreateInstance(AnimatorRegistry.GetAnimatorType(typeof(T)))!;
         _easing = EasingProperty.GetDefaultValue() ?? new LinearEasing();
     }
 
     static Animation()
     {
-        PreviousProperty = RegisterProperty<float, Animation>(
+        AnimatorProperty = RegisterProperty<Animator<T>, Animation<T>>(
+            nameof(Animation),
+            (owner, obj) => owner.Animator = obj,
+            owner => owner.Animator);
+
+        PreviousProperty = RegisterProperty<T, Animation<T>>(
             nameof(Previous),
             (owner, obj) => owner.Previous = obj,
             owner => owner.Previous)
             .NotifyPropertyChanged(true)
             .JsonName("prev");
 
-        NextProperty = RegisterProperty<float, Animation>(
+        NextProperty = RegisterProperty<T, Animation<T>>(
             nameof(Next),
             (owner, obj) => owner.Next = obj,
             owner => owner.Next)
             .NotifyPropertyChanged(true)
             .JsonName("next");
 
-        EasingProperty = RegisterProperty<Easing, Animation>(
+        EasingProperty = RegisterProperty<Easing, Animation<T>>(
             nameof(Easing),
             (owner, obj) => owner.Easing = obj,
             owner => owner.Easing)
             .NotifyPropertyChanged(true)
             .DefaultValue(new LinearEasing());
 
-        DurationProperty = RegisterProperty<TimeSpan, Animation>(
+        DurationProperty = RegisterProperty<TimeSpan, Animation<T>>(
             nameof(Duration),
             (owner, obj) => owner.Duration = obj,
             owner => owner.Duration)
@@ -52,13 +61,19 @@ public class Animation : Element, IAnimation
             .JsonName("duration");
     }
 
-    public float Previous
+    public Animator<T> Animator
+    {
+        get => _animator;
+        set => SetAndRaise(AnimatorProperty, ref _animator, value);
+    }
+
+    public T Previous
     {
         get => _previous;
         set => SetAndRaise(PreviousProperty, ref _previous, value);
     }
 
-    public float Next
+    public T Next
     {
         get => _next;
         set => SetAndRaise(NextProperty, ref _next, value);
@@ -76,9 +91,15 @@ public class Animation : Element, IAnimation
         set => SetAndRaise(DurationProperty, ref _duration, value);
     }
 
+    Animator IAnimation.Animator => Animator;
+
+    object IAnimation.Previous => Previous;
+
+    object IAnimation.Next => Next;
+
     public override JsonNode ToJson()
     {
-        JsonNode node = base.ToJson();
+        var node = base.ToJson();
 
         if (node is JsonObject jsonObject)
         {
@@ -109,12 +130,12 @@ public class Animation : Element, IAnimation
 
         if (json is JsonObject jsonObject)
         {
-            if (jsonObject.TryGetPropertyValue("easing", out JsonNode? easingNode))
+            if (jsonObject.TryGetPropertyValue("easing", out var easingNode))
             {
                 if (easingNode is JsonValue easingTypeValue &&
-                    easingTypeValue.TryGetValue(out string? easingType))
+                    easingTypeValue.TryGetValue<string>(out var easingType))
                 {
-                    Type type = SceneLayer.TypeResolver.ToType(easingType) ?? typeof(LinearEasing);
+                    var type = SceneLayer.TypeResolver.ToType(easingType) ?? typeof(LinearEasing);
 
                     if (Activator.CreateInstance(type) is Easing easing)
                     {
@@ -123,10 +144,10 @@ public class Animation : Element, IAnimation
                 }
                 else if (easingNode is JsonObject easingObject)
                 {
-                    float x1 = (float?)easingObject["x1"] ?? 0;
-                    float y1 = (float?)easingObject["y1"] ?? 0;
-                    float x2 = (float?)easingObject["x2"] ?? 1;
-                    float y2 = (float?)easingObject["y2"] ?? 1;
+                    var x1 = (float?)easingObject["x1"] ?? 0;
+                    var y1 = (float?)easingObject["y1"] ?? 0;
+                    var x2 = (float?)easingObject["x2"] ?? 1;
+                    var y2 = (float?)easingObject["y2"] ?? 1;
 
                     Easing = new SplineEasing(x1, y1, x2, y2);
                 }
