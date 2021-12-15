@@ -52,7 +52,7 @@ public class Setter<T> : ISetter
         get => _value;
         set
         {
-            if (!EqualityComparer<T>.Default.Equals(Value, _value))
+            if (!EqualityComparer<T>.Default.Equals(_value, value))
             {
                 _value = value;
                 OnPropertyChanged();
