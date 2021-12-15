@@ -32,6 +32,8 @@
                     Width="8"
                     HorizontalAlignment="Right" />
             </Panel>
+
+            <local:EasingGraph Grid.Row="1" Easing="{Binding Animation.Easing, Mode=OneWay}" />
         </Grid>
     </Border>
 </UserControl>
