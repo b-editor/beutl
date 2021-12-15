@@ -1,4 +1,5 @@
 ﻿using BEditorNext.ProjectSystem;
+using BEditorNext.Services.Editors;
 
 namespace BEditorNext.ViewModels.Editors;
 
@@ -14,11 +15,5 @@ public abstract class BaseNumberEditorViewModel<T> : BaseEditorViewModel<T>
 
     public abstract T Minimum { get; }
 
-    public abstract bool TryParse(string? s, out T result);
-
-    public abstract T Clamp(T value, T min, T max);
-
-    public abstract T Increment(T value, int increment);
-
-    public abstract T Decrement(T value, int increment);
+    public abstract INumberEditorService<T> EditorService { get; }
 }

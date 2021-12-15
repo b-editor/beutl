@@ -1,4 +1,5 @@
 ﻿using BEditorNext.ProjectSystem;
+using BEditorNext.Services.Editors;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
@@ -21,23 +22,5 @@ public sealed class SByteEditorViewModel : BaseNumberEditorViewModel<sbyte>
 
     public override sbyte Minimum => Setter.Property.GetValueOrDefault(PropertyMetaTableKeys.Minimum, sbyte.MinValue);
 
-    public override sbyte Clamp(sbyte value, sbyte min, sbyte max)
-    {
-        return Math.Clamp(value, min, max);
-    }
-
-    public override sbyte Decrement(sbyte value, int increment)
-    {
-        return (sbyte)(value - increment);
-    }
-
-    public override sbyte Increment(sbyte value, int increment)
-    {
-        return (sbyte)(value + increment);
-    }
-
-    public override bool TryParse(string? s, out sbyte result)
-    {
-        return sbyte.TryParse(s, out result);
-    }
+    public override INumberEditorService<sbyte> EditorService { get; } = NumberEditorService.Instance.Get<sbyte>();
 }

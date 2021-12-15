@@ -1,4 +1,5 @@
 ﻿using BEditorNext.ProjectSystem;
+using BEditorNext.Services.Editors;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
@@ -21,23 +22,5 @@ public sealed class ByteEditorViewModel : BaseNumberEditorViewModel<byte>
 
     public override byte Minimum => Setter.Property.GetValueOrDefault(PropertyMetaTableKeys.Minimum, byte.MinValue);
 
-    public override byte Clamp(byte value, byte min, byte max)
-    {
-        return Math.Clamp(value, min, max);
-    }
-
-    public override byte Decrement(byte value, int increment)
-    {
-        return (byte)(value - increment);
-    }
-
-    public override byte Increment(byte value, int increment)
-    {
-        return (byte)(value + increment);
-    }
-
-    public override bool TryParse(string? s, out byte result)
-    {
-        return byte.TryParse(s, out result);
-    }
+    public override INumberEditorService<byte> EditorService { get; } = NumberEditorService.Instance.Get<byte>();
 }

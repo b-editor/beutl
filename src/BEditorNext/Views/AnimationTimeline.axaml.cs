@@ -15,9 +15,7 @@ public partial class AnimationTimeline : UserControl
 {
     internal MouseFlags _seekbarMouseFlag = MouseFlags.MouseUp;
     private TimeSpan _clickedFrame;
-    private int _clickedLayer;
     internal TimeSpan _pointerFrame;
-    internal int _pointerLayer;
     private AnimationTimelineViewModel? _viewModel;
     private bool _isFirst;
 
@@ -99,7 +97,6 @@ public partial class AnimationTimeline : UserControl
     {
         PointerPoint pointerPt = e.GetCurrentPoint(TimelinePanel);
         _pointerFrame = pointerPt.Position.X.ToTimeSpan(ViewModel.Scene.TimelineOptions.Scale);
-        _pointerLayer = pointerPt.Position.Y.ToLayerNumber();
 
         if (_seekbarMouseFlag == MouseFlags.MouseDown)
         {
@@ -123,7 +120,6 @@ public partial class AnimationTimeline : UserControl
     {
         PointerPoint pointerPt = e.GetCurrentPoint(TimelinePanel);
         _clickedFrame = pointerPt.Position.X.ToTimeSpan(ViewModel.Scene.TimelineOptions.Scale);
-        _clickedLayer = pointerPt.Position.Y.ToLayerNumber();
 
         if (pointerPt.Properties.IsLeftButtonPressed)
         {
@@ -137,5 +133,4 @@ public partial class AnimationTimeline : UserControl
     {
         _seekbarMouseFlag = MouseFlags.MouseUp;
     }
-
 }

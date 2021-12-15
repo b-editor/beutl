@@ -16,6 +16,9 @@
   <ItemGroup>
     <ProjectReference Include="..\BEditorNext.Controls\BEditorNext.Controls.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Views\AnimationEditors\" />
+  </ItemGroup>
   <Import Project="$(RootDirectory)\build\props\Avalonia.props" />
   <Import Project="$(RootDirectory)\build\props\ReactiveProperty.props" />
   <Import Project="$(RootDirectory)\build\props\Microsoft.Extensions.DependencyInjection.props" />

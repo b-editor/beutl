@@ -49,6 +49,8 @@ public abstract class BaseEditorViewModel : IDisposable
 
     public ReadOnlyReactivePropertySlim<string?> Header { get; }
 
+    public bool IsAnimatable => Setter is IAnimatableSetter;
+
     public void Dispose()
     {
         if (!_disposedValue)
