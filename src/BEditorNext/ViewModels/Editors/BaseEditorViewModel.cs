@@ -80,7 +80,7 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
     {
         if (CanReset)
         {
-            Setter.Value = Setter.Property.GetDefaultValue();
+            SetValue(Setter.Value, Setter.Property.GetDefaultValue());
         }
     }
 

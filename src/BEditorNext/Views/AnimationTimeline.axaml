@@ -4,6 +4,7 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:local="using:BEditorNext.Views"
+    xmlns:editors="using:BEditorNext.Views.AnimationEditors"
     xmlns:vm="using:BEditorNext.ViewModels"
     mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
     IsEnabled="{Binding Layer.IsEnabled}"
@@ -26,7 +27,7 @@
                     x:Name="border"
                     HorizontalAlignment="Left"
                     Width="{CompiledBinding Width.Value}"
-                    Height="{DynamicResource LayerHeight}"
+                    Height="4"
                     VerticalAlignment="Bottom"
                     Margin="{CompiledBinding BorderMargin.Value}"
                     Background="{CompiledBinding Color.Value, Converter={StaticResource ColorToBrushConverter}}">
@@ -66,16 +67,29 @@
             HorizontalScrollBarVisibility="Visible">
             <Panel
                 x:Name="TimelinePanel"
-                Background="Transparent"
                 PointerMoved="TimelinePanel_PointerMoved"
                 PointerReleased="TimelinePanel_PointerReleased"
                 PointerPressed="TimelinePanel_PointerPressed"
                 PointerLeave="TimelinePanel_PointerLeave"
+                Background="Transparent"
                 Width="{CompiledBinding PanelWidth.Value}"
                 MinWidth="{Binding #ContentScroll.Bounds.Width}"
                 VerticalAlignment="Stretch"
                 HorizontalAlignment="Left">
-
+                <!---->
+                <ItemsControl Items="{CompiledBinding Setter.Children}">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel Orientation="Horizontal" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <editors:AnimationEditor DataContext="{Binding Converter={StaticResource AnimationToViewModelConverter}}" />
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+                
                 <Border
                     Margin="{CompiledBinding EndingBarMargin.Value}"
                     ZIndex="2"

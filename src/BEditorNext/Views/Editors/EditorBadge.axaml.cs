@@ -40,7 +40,7 @@ public partial class EditorBadge : UserControl
                 editView.BottomTabView.AddTab(new DraggableTabItem
                 {
                     Header = $"{propsVm.Layer.Name} / {setter.Property.GetJsonName() ?? setter.Property.Name}",
-                    DataContext = new AnimationTimelineViewModel(propsVm.Layer, setter),
+                    DataContext = new AnimationTimelineViewModel(propsVm.Layer, setter, vm),
                     Content = new AnimationTimeline(),
                     IsClosable = true
                 });

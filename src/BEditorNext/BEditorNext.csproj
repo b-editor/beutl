@@ -17,7 +17,9 @@
     <ProjectReference Include="..\BEditorNext.Controls\BEditorNext.Controls.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <Folder Include="Views\AnimationEditors\" />
+    <Compile Update="Views\AnimationEditors\NumberAnimationEditor.axaml.cs">
+      <DependentUpon>NumberAnimationEditor.axaml</DependentUpon>
+    </Compile>
   </ItemGroup>
   <Import Project="$(RootDirectory)\build\props\Avalonia.props" />
   <Import Project="$(RootDirectory)\build\props\ReactiveProperty.props" />

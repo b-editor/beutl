@@ -3,7 +3,7 @@ using BEditorNext.Services.Editors;
 
 namespace BEditorNext.ViewModels.Editors;
 
-public abstract class BaseNumberEditorViewModel<T> : BaseEditorViewModel<T>
+public abstract class BaseNumberEditorViewModel<T> : BaseEditorViewModel<T>, INumberEditorViewModel<T>
     where T : struct
 {
     protected BaseNumberEditorViewModel(Setter<T> setter)

@@ -37,6 +37,14 @@ public interface IElement : ILogicalElement, IJsonSerializable, INotifyPropertyC
     /// Gets the children.
     /// </summary>
     IElementList Children { get; }
+
+    TValue GetValue<TValue>(PropertyDefine<TValue> property);
+
+    object? GetValue(PropertyDefine property);
+
+    void SetValue<TValue>(PropertyDefine<TValue> property, TValue? value);
+
+    void SetValue(PropertyDefine property, object? value);
 }
 
 /// <summary>

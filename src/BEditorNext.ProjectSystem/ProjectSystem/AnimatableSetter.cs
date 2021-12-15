@@ -6,11 +6,13 @@ using BEditorNext.Collections;
 
 namespace BEditorNext.ProjectSystem;
 
-public interface IAnimatableSetter : ISetter
+public interface IAnimatableSetter : ISetter, ILogicalElement
 {
     public IReadOnlyList<IAnimation> Children { get; }
 
-    public void SetProperty(Element element, TimeSpan progress);
+    IEnumerable<ILogicalElement> ILogicalElement.LogicalChildren => Children;
+
+    public void SetProperty(TimeSpan progress);
 }
 
 public class AnimatableSetter<T> : Setter<T>, IAnimatableSetter
@@ -31,11 +33,11 @@ public class AnimatableSetter<T> : Setter<T>, IAnimatableSetter
 
     IReadOnlyList<IAnimation> IAnimatableSetter.Children => _children;
 
-    public void SetProperty(Element element, TimeSpan progress)
+    public void SetProperty(TimeSpan progress)
     {
         if (_children.Count < 1)
         {
-            element.SetValue(Property, Value);
+            Parent.SetValue(Property, Value);
         }
         else
         {
@@ -54,7 +56,8 @@ public class AnimatableSetter<T> : Setter<T>, IAnimatableSetter
                     // 値を補間する
                     T value = item.Animator.Interpolate(ease, item.Previous, item.Next);
                     // 値をセット
-                    element.SetValue(Property, value);
+                    Parent.SetValue(Property, value);
+                    return;
                 }
                 else
                 {
@@ -68,6 +71,7 @@ public class AnimatableSetter<T> : Setter<T>, IAnimatableSetter
     {
         ArgumentNullException.ThrowIfNull(animation);
 
+        animation.SetParent(this);
         if (recorder == null)
         {
             Children.Add(animation);
@@ -96,6 +100,7 @@ public class AnimatableSetter<T> : Setter<T>, IAnimatableSetter
     {
         ArgumentNullException.ThrowIfNull(animation);
 
+        animation.SetParent(this);
         if (recorder == null)
         {
             Children.Insert(index, animation);
@@ -119,6 +124,7 @@ public class AnimatableSetter<T> : Setter<T>, IAnimatableSetter
                     if (item is JsonObject jobj)
                     {
                         var anm = new Animation<T>();
+                        anm.SetParent(this);
                         anm.FromJson(jobj);
                         _children.Add(anm);
                     }
@@ -140,7 +146,14 @@ public class AnimatableSetter<T> : Setter<T>, IAnimatableSetter
         var jsonArray = new JsonArray();
         foreach (Animation<T> item in _children)
         {
-            jsonArray.Add(item.ToJson());
+            JsonNode? json = item.ToJson();
+
+            if (json.Parent != null)
+            {
+                json = JsonNode.Parse(json.ToJsonString())!;
+            }
+
+            jsonArray.Add(json);
         }
 
         jsonObj["value"] = JsonSerializer.SerializeToNode(Value, JsonHelper.SerializerOptions);

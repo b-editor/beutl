@@ -10,9 +10,9 @@ internal sealed class ElementSubject<T> : SubjectBase<T>
     private readonly PropertyDefine<T> _property;
     private readonly List<IObserver<T>> _list = new();
     private bool _isDisposed;
-    private Element? _object;
+    private IElement? _object;
 
-    public ElementSubject(Element o, PropertyDefine<T> property)
+    public ElementSubject(IElement o, PropertyDefine<T> property)
     {
         _object = o;
         _property = property;

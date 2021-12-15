@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using Avalonia;
 
 using BEditorNext.ProjectSystem;
+using BEditorNext.ViewModels.Editors;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
@@ -20,10 +21,11 @@ public sealed class AnimationTimelineViewModel : IDisposable
 {
     private readonly CompositeDisposable _disposables = new();
 
-    public AnimationTimelineViewModel(SceneLayer layer, IAnimatableSetter setter)
+    public AnimationTimelineViewModel(SceneLayer layer, IAnimatableSetter setter, BaseEditorViewModel editorViewModel)
     {
         Layer = layer;
         Setter = setter;
+        EditorViewModel = editorViewModel;
         Scene = Layer.FindRequiredLogicalParent<Scene>();
 
         ISubject<TimelineOptions> optionsSubject = Scene.GetSubject(Scene.TimelineOptionsProperty);
@@ -72,6 +74,8 @@ public sealed class AnimationTimelineViewModel : IDisposable
     public SceneLayer Layer { get; }
 
     public IAnimatableSetter Setter { get; }
+
+    public BaseEditorViewModel EditorViewModel { get; }
 
     public ReadOnlyReactivePropertySlim<Thickness> BorderMargin { get; }
 

@@ -1,8 +1,11 @@
 ﻿using Avalonia.Controls;
 
+using BEditorNext.Animation;
 using BEditorNext.Graphics;
 using BEditorNext.ProjectSystem;
+using BEditorNext.ViewModels.AnimationEditors;
 using BEditorNext.ViewModels.Editors;
+using BEditorNext.Views.AnimationEditors;
 using BEditorNext.Views.Editors;
 
 namespace BEditorNext.Services;
@@ -10,6 +13,8 @@ namespace BEditorNext.Services;
 public static class PropertyEditorService
 {
     private record struct Editor(Func<ISetter, Control?> CreateEditor, Func<ISetter, object?> CreateViewModel);
+
+    private record struct AnimationEditor(Func<object?, Control?> CreateEditor, Func<IAnimation, BaseEditorViewModel, object?> CreateViewModel);
 
     private static readonly Dictionary<Type, Editor> s_editors = new()
     {
@@ -28,6 +33,21 @@ public static class PropertyEditorService
         { typeof(ulong), new(_ => new NumberEditor<ulong>(), s => new UInt64EditorViewModel((Setter<ulong>)s)) },
     };
 
+    private static readonly Dictionary<Type, AnimationEditor> s_animationEditors = new()
+    {
+        { typeof(byte), new(_ => new NumberAnimationEditor<byte>(), (a, vm) => new AnimationEditorViewModel<byte>(a, vm)) },
+        { typeof(decimal), new(_ => new NumberAnimationEditor<decimal>(), (a, vm) => new AnimationEditorViewModel<decimal>(a, vm)) },
+        { typeof(double), new(_ => new NumberAnimationEditor<double>(), (a, vm) => new AnimationEditorViewModel<double>(a, vm)) },
+        { typeof(float), new(_ => new NumberAnimationEditor<float>(), (a, vm) => new AnimationEditorViewModel<float>(a, vm)) },
+        { typeof(short), new(_ => new NumberAnimationEditor<short>(), (a, vm) => new AnimationEditorViewModel<short>(a, vm)) },
+        { typeof(int), new(_ => new NumberAnimationEditor<int>(), (a, vm) => new AnimationEditorViewModel<int>(a, vm)) },
+        { typeof(long), new(_ => new NumberAnimationEditor<long>(), (a, vm) => new AnimationEditorViewModel<long>(a, vm)) },
+        { typeof(sbyte), new(_ => new NumberAnimationEditor<sbyte>(), (a, vm) => new AnimationEditorViewModel<sbyte>(a, vm)) },
+        { typeof(ushort), new(_ => new NumberAnimationEditor<ushort>(), (a, vm) => new AnimationEditorViewModel<ushort>(a, vm)) },
+        { typeof(uint), new(_ => new NumberAnimationEditor<uint>(), (a, vm) => new AnimationEditorViewModel<uint>(a, vm)) },
+        { typeof(ulong), new(_ => new NumberAnimationEditor<ulong>(), (a, vm) => new AnimationEditorViewModel<ulong>(a, vm)) },
+    };
+
     public static object? CreateEditor(ISetter setter)
     {
         if (s_editors.ContainsKey(setter.Property.PropertyType))
@@ -41,6 +61,35 @@ public static class PropertyEditorService
             }
 
             return control;
+        }
+
+        return null;
+    }
+
+    //public static object? CreateAnimationEditor(BaseEditorViewModel viewModel, IAnimation animation)
+    //{
+    //    if (s_animationEditors.ContainsKey(viewModel.Setter.Property.PropertyType))
+    //    {
+    //        AnimationEditor editor = s_animationEditors[viewModel.Setter.Property.PropertyType];
+    //        Control? control = editor.CreateEditor(null);
+
+    //        if (control != null)
+    //        {
+    //            control.DataContext = editor.CreateViewModel(animation, viewModel);
+    //        }
+
+    //        return control;
+    //    }
+
+    //    return null;
+    //}
+
+    public static object? CreateAnimationEditorViewModel(BaseEditorViewModel viewModel, IAnimation animation)
+    {
+        if (s_animationEditors.ContainsKey(viewModel.Setter.Property.PropertyType))
+        {
+            AnimationEditor editor = s_animationEditors[viewModel.Setter.Property.PropertyType];
+            return editor.CreateViewModel(animation, viewModel);
         }
 
         return null;

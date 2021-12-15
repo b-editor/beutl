@@ -1,10 +1,13 @@
 using System.Numerics;
 
 using Avalonia.Controls;
+using Avalonia.Data.Converters;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 
+using BEditorNext.Animation;
 using BEditorNext.ProjectSystem;
+using BEditorNext.Services;
 using BEditorNext.ViewModels;
 
 using static BEditorNext.Views.Timeline;
@@ -21,6 +24,9 @@ public partial class AnimationTimeline : UserControl
 
     public AnimationTimeline()
     {
+        Resources["AnimationToViewModelConverter"] =
+            new FuncValueConverter<IAnimation, object?>(a => PropertyEditorService.CreateAnimationEditorViewModel(ViewModel.EditorViewModel, a));
+
         InitializeComponent();
         ContentScroll.ScrollChanged += ContentScroll_ScrollChanged;
         ContentScroll.AddHandler(PointerWheelChangedEvent, ContentScroll_PointerWheelChanged, RoutingStrategies.Tunnel);
