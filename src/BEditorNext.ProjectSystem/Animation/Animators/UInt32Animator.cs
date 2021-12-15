@@ -2,8 +2,13 @@
 
 public sealed class UInt32Animator : Animator<uint>
 {
-    public override uint Multiply(uint left, float right)
+    public override uint Interpolate(float progress, uint oldValue, uint newValue)
     {
-        return (uint)MathF.Round(left * right);
+        const float maxVal = uint.MaxValue;
+
+        var normOV = oldValue / maxVal;
+        var normNV = newValue / maxVal;
+        var deltaV = normNV - normOV;
+        return (uint)MathF.Round(maxVal * ((deltaV * progress) + normOV));
     }
 }
