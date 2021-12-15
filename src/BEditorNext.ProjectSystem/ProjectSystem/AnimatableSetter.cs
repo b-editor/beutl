@@ -109,16 +109,27 @@ public class AnimatableSetter<T> : Setter<T>, IAnimatableSetter
     public override void FromJson(JsonNode json)
     {
         _children.Clear();
-        if (json is JsonArray jsonArray)
+        if (json is JsonObject jsonobj)
         {
-            foreach (JsonNode? item in jsonArray)
+            if (jsonobj.TryGetPropertyValue("children", out JsonNode? childrenNode) &&
+                childrenNode is JsonArray jsonArray)
             {
-                if (item is JsonObject jobj)
+                foreach (JsonNode? item in jsonArray)
                 {
-                    var anm = new Animation<T>();
-                    anm.FromJson(jobj);
-                    _children.Add(anm);
+                    if (item is JsonObject jobj)
+                    {
+                        var anm = new Animation<T>();
+                        anm.FromJson(jobj);
+                        _children.Add(anm);
+                    }
                 }
+            }
+
+            if (jsonobj.TryGetPropertyValue("value", out JsonNode? valueNode))
+            {
+                T? value = JsonSerializer.Deserialize<T>(valueNode, JsonHelper.SerializerOptions);
+                if (value != null)
+                    Value = (T)value;
             }
         }
     }
