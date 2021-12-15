@@ -99,7 +99,7 @@ public class Animation<T> : Element, IAnimation
 
     public override JsonNode ToJson()
     {
-        var node = base.ToJson();
+        JsonNode node = base.ToJson();
 
         if (node is JsonObject jsonObject)
         {
@@ -130,12 +130,12 @@ public class Animation<T> : Element, IAnimation
 
         if (json is JsonObject jsonObject)
         {
-            if (jsonObject.TryGetPropertyValue("easing", out var easingNode))
+            if (jsonObject.TryGetPropertyValue("easing", out JsonNode? easingNode))
             {
                 if (easingNode is JsonValue easingTypeValue &&
-                    easingTypeValue.TryGetValue<string>(out var easingType))
+                    easingTypeValue.TryGetValue(out string? easingType))
                 {
-                    var type = SceneLayer.TypeResolver.ToType(easingType) ?? typeof(LinearEasing);
+                    Type type = SceneLayer.TypeResolver.ToType(easingType) ?? typeof(LinearEasing);
 
                     if (Activator.CreateInstance(type) is Easing easing)
                     {
@@ -144,10 +144,10 @@ public class Animation<T> : Element, IAnimation
                 }
                 else if (easingNode is JsonObject easingObject)
                 {
-                    var x1 = (float?)easingObject["x1"] ?? 0;
-                    var y1 = (float?)easingObject["y1"] ?? 0;
-                    var x2 = (float?)easingObject["x2"] ?? 1;
-                    var y2 = (float?)easingObject["y2"] ?? 1;
+                    float x1 = (float?)easingObject["x1"] ?? 0;
+                    float y1 = (float?)easingObject["y1"] ?? 0;
+                    float x2 = (float?)easingObject["x2"] ?? 1;
+                    float y2 = (float?)easingObject["y2"] ?? 1;
 
                     Easing = new SplineEasing(x1, y1, x2, y2);
                 }

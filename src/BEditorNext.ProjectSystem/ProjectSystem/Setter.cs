@@ -70,8 +70,8 @@ public class Setter<T> : ISetter
 
     public virtual void FromJson(JsonNode json)
     {
-        if (json is JsonValue jv &&
-            jv.TryGetValue(out T? value))
+        T? value = JsonSerializer.Deserialize<T>(json, JsonHelper.SerializerOptions);
+        if (value != null)
         {
             Value = value;
         }
