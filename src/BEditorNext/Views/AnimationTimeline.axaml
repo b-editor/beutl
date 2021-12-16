@@ -74,9 +74,10 @@
                 Background="Transparent"
                 Width="{CompiledBinding PanelWidth.Value}"
                 MinWidth="{Binding #ContentScroll.Bounds.Width}"
+                DragDrop.AllowDrop="True"
                 VerticalAlignment="Stretch"
                 HorizontalAlignment="Left">
-                <!---->
+
                 <ItemsControl Items="{CompiledBinding Setter.Children}">
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>

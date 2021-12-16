@@ -1,12 +1,17 @@
-﻿using System.Collections;
+﻿using System;
+using System.Collections;
+using System.Collections.Generic;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using System.Security.Cryptography;
 
 using BEditorNext.Animation;
+using BEditorNext.Animation.Easings;
 using BEditorNext.ProjectSystem;
 using BEditorNext.ViewModels.Editors;
+
+using FluentAvalonia.Core;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
@@ -33,6 +38,8 @@ public abstract class AnimationEditorViewModel : IDisposable
             .AddTo(Disposables);
 
         Width.Subscribe(w => animation.Duration = w.ToTimeSpan(Scene.TimelineOptions.Scale)).AddTo(Disposables);
+
+        RemoveCommand.Subscribe(() => Setter.RemoveChild(Animation, CommandRecorder.Default)).AddTo(Disposables);
     }
 
     ~AnimationEditorViewModel()
@@ -53,6 +60,8 @@ public abstract class AnimationEditorViewModel : IDisposable
 
     public ReactiveProperty<double> Width { get; }
 
+    public ReactiveCommand RemoveCommand { get; } = new();
+
     public Scene Scene { get; }
 
     public void SetDuration(TimeSpan old, TimeSpan @new)
@@ -60,11 +69,48 @@ public abstract class AnimationEditorViewModel : IDisposable
         CommandRecorder.Default.PushOnly(new SetDurationCommand(Animation, @new, old));
     }
 
+    public void SetEasing(Easing old, Easing @new)
+    {
+        CommandRecorder.Default.DoAndPush(new SetEasingCommand(Animation, @new, old));
+    }
+
     public void Move(int newIndex, int oldIndex)
     {
         if (Setter.Children is IList list)
         {
             CommandRecorder.Default.PushOnly(new MoveAnimationCommand(list, newIndex, oldIndex));
+        }
+    }
+
+    public void InsertForward(Easing easing)
+    {
+        if (Setter.Children is IList list)
+        {
+            int index = list.IndexOf(Animation);
+            Type type = typeof(Animation<>).MakeGenericType(EditorViewModel.Setter.Property.PropertyType);
+
+            if (Activator.CreateInstance(type) is IAnimation animation)
+            {
+                animation.Easing = easing;
+                animation.Duration = TimeSpan.FromSeconds(2);
+                Setter.InsertChild(index, animation, CommandRecorder.Default);
+            }
+        }
+    }
+
+    public void InsertBackward(Easing easing)
+    {
+        if (Setter.Children is IList list)
+        {
+            int index = list.IndexOf(Animation);
+            Type type = typeof(Animation<>).MakeGenericType(EditorViewModel.Setter.Property.PropertyType);
+
+            if (Activator.CreateInstance(type) is IAnimation animation)
+            {
+                animation.Easing = easing;
+                animation.Duration = TimeSpan.FromSeconds(2);
+                Setter.InsertChild(index + 1, animation, CommandRecorder.Default);
+            }
         }
     }
 
@@ -109,6 +155,35 @@ public abstract class AnimationEditorViewModel : IDisposable
         public void Undo()
         {
             _animation.Duration = _oldDuration;
+        }
+    }
+
+    private sealed class SetEasingCommand : IRecordableCommand
+    {
+        private readonly IAnimation _animation;
+        private readonly Easing _newEasing;
+        private readonly Easing _oldEasing;
+
+        public SetEasingCommand(IAnimation animation, Easing newEasing, Easing oldEasing)
+        {
+            _animation = animation;
+            _newEasing = newEasing;
+            _oldEasing = oldEasing;
+        }
+
+        public void Do()
+        {
+            _animation.Easing = _newEasing;
+        }
+
+        public void Redo()
+        {
+            Do();
+        }
+
+        public void Undo()
+        {
+            _animation.Easing = _oldEasing;
         }
     }
 

@@ -4,6 +4,7 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:local="using:BEditorNext.Views.AnimationEditors"
+    xmlns:ui="using:FluentAvalonia.UI.Controls"
     mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
     Width="{Binding Width.Value, Mode=TwoWay}"
     x:Class="BEditorNext.Views.AnimationEditors.AnimationEditor">
@@ -13,7 +14,26 @@
         HorizontalAlignment="Stretch"
         VerticalAlignment="Stretch">
         <Grid RowDefinitions="32,*">
+            <Grid.Styles>
+                <Style Selector="Border.droparea">
+                    <Setter Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
+                </Style>
+            </Grid.Styles>
             <Panel Background="{DynamicResource ControlFillColorDefaultBrush}">
+                <Panel.ContextMenu>
+                    <ContextMenu>
+                        <MenuItem Header="{DynamicResource RemoveString}" Command="{Binding RemoveCommand}">
+                            <MenuItem.Icon>
+                                <FluentIconRegular IconType="Delete" Classes="Small" />
+                            </MenuItem.Icon>
+                        </MenuItem>
+                        <MenuItem Header="{DynamicResource EditString}" Click="Edit_Click">
+                            <MenuItem.Icon>
+                                <FluentIconRegular IconType="Edit_Settings" Classes="Small" />
+                            </MenuItem.Icon>
+                        </MenuItem>
+                    </ContextMenu>
+                </Panel.ContextMenu>
                 <Border
                     Cursor="SizeWestEast"
                     x:Name="dragBorder"
@@ -33,7 +53,27 @@
                     HorizontalAlignment="Right" />
             </Panel>
 
-            <local:EasingGraph Grid.Row="1" Easing="{Binding Animation.Easing, Mode=OneWay}" />
+            <Border x:Name="backgroundBorder"
+                    DragDrop.AllowDrop="True"
+                    Background="Transparent"
+                    Grid.Row="1"
+                    Grid.ColumnSpan="3">
+                <Panel>
+                    <local:EasingGraph Easing="{Binding Animation.Easing, Mode=OneWay}" />
+
+                    <Border x:Name="leftBorder"
+                            DragDrop.AllowDrop="True"
+                            Width="32"
+                            HorizontalAlignment="Left" />
+
+                    <Border x:Name="rightBorder"
+                            DragDrop.AllowDrop="True"
+                            Width="32"
+                            HorizontalAlignment="Right" />
+                </Panel>
+            </Border>
+
+            <ui:ContentDialog CloseButtonText="{DynamicResource CloseString}" x:Name="editDialog" />
         </Grid>
     </Border>
 </UserControl>

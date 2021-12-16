@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reactive.Disposables;
@@ -9,6 +10,8 @@ using System.Threading.Tasks;
 
 using Avalonia;
 
+using BEditorNext.Animation;
+using BEditorNext.Animation.Easings;
 using BEditorNext.ProjectSystem;
 using BEditorNext.ViewModels.Editors;
 
@@ -95,4 +98,15 @@ public sealed class AnimationTimelineViewModel : IDisposable
         GC.SuppressFinalize(this);
     }
 
+    public void AddAnimation(Easing easing)
+    {
+        Type type = typeof(Animation<>).MakeGenericType(Setter.Property.PropertyType);
+
+        if (Activator.CreateInstance(type) is IAnimation animation)
+        {
+            animation.Easing = easing;
+            animation.Duration = TimeSpan.FromSeconds(2);
+            Setter.AddChild(animation, CommandRecorder.Default);
+        }
+    }
 }

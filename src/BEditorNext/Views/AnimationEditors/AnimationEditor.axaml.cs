@@ -11,6 +11,8 @@ using Avalonia.LogicalTree;
 using Avalonia.Media.Transformation;
 using Avalonia.Xaml.Interactivity;
 
+using BEditorNext.Animation.Easings;
+using BEditorNext.Services;
 using BEditorNext.ViewModels.AnimationEditors;
 
 namespace BEditorNext.Views.AnimationEditors;
@@ -338,5 +340,80 @@ public partial class AnimationEditor : UserControl
             new AnimationEditorDragBehavior(),
             new AnimationEditorResizeBehavior(),
         });
+        backgroundBorder.AddHandler(DragDrop.DragOverEvent, BackgroundBorder_DragOver);
+        backgroundBorder.AddHandler(DragDrop.DragLeaveEvent, BackgroundBorder_DragLeave);
+        leftBorder.AddHandler(DragDrop.DropEvent, LeftBorder_Drop);
+        rightBorder.AddHandler(DragDrop.DropEvent, RightBorder_Drop);
+        backgroundBorder.AddHandler(DragDrop.DropEvent, BackgroundBorder_Drop);
+    }
+
+    private void Edit_Click(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not AnimationEditorViewModel vm) return;
+
+        if (editDialog.Content == null)
+        {
+            editDialog.Content = PropertyEditorService.CreateAnimationEditor(vm.Setter);
+        }
+
+        editDialog.DataContext = vm;
+        editDialog.ShowAsync();
+    }
+
+    private void BackgroundBorder_Drop(object? sender, DragEventArgs e)
+    {
+        if (e.Data.Get("Easing") is Easing easing &&
+            DataContext is AnimationEditorViewModel vm)
+        {
+            vm.SetEasing(vm.Animation.Easing, easing);
+            SetDropAreaClasses(false);
+            e.Handled = true;
+        }
+    }
+
+    private void LeftBorder_Drop(object? sender, DragEventArgs e)
+    {
+        if (e.Data.Get("Easing") is Easing easing &&
+            DataContext is AnimationEditorViewModel vm)
+        {
+            vm.InsertForward(easing);
+            SetDropAreaClasses(false);
+            e.Handled = true;
+        }
+    }
+
+    private void RightBorder_Drop(object? sender, DragEventArgs e)
+    {
+        if (e.Data.Get("Easing") is Easing easing &&
+            DataContext is AnimationEditorViewModel vm)
+        {
+            vm.InsertBackward(easing);
+            SetDropAreaClasses(false);
+            e.Handled = true;
+        }
+    }
+
+    private void BackgroundBorder_DragOver(object? sender, DragEventArgs e)
+    {
+        if (e.Data.Contains("Easing"))
+        {
+            SetDropAreaClasses(true);
+            e.DragEffects = DragDropEffects.Link;
+        }
+        else
+        {
+            e.DragEffects = DragDropEffects.None;
+        }
+    }
+
+    private void BackgroundBorder_DragLeave(object? sender, RoutedEventArgs e)
+    {
+        SetDropAreaClasses(false);
+    }
+
+    private void SetDropAreaClasses(bool value)
+    {
+        leftBorder.Classes.Set("droparea", value);
+        rightBorder.Classes.Set("droparea", value);
     }
 }

@@ -6,6 +6,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 
 using BEditorNext.Animation;
+using BEditorNext.Animation.Easings;
 using BEditorNext.ProjectSystem;
 using BEditorNext.Services;
 using BEditorNext.ViewModels;
@@ -31,6 +32,8 @@ public partial class AnimationTimeline : UserControl
         ContentScroll.ScrollChanged += ContentScroll_ScrollChanged;
         ContentScroll.AddHandler(PointerWheelChangedEvent, ContentScroll_PointerWheelChanged, RoutingStrategies.Tunnel);
         ScaleScroll.AddHandler(PointerWheelChangedEvent, ContentScroll_PointerWheelChanged, RoutingStrategies.Tunnel);
+        TimelinePanel.AddHandler(DragDrop.DragOverEvent, TimelinePanel_DragOver);
+        TimelinePanel.AddHandler(DragDrop.DropEvent, TimelinePanel_Drop);
     }
 
     internal AnimationTimelineViewModel ViewModel => _viewModel!;
@@ -138,5 +141,26 @@ public partial class AnimationTimeline : UserControl
     private void TimelinePanel_PointerLeave(object? sender, PointerEventArgs e)
     {
         _seekbarMouseFlag = MouseFlags.MouseUp;
+    }
+
+    private void TimelinePanel_Drop(object? sender, DragEventArgs e)
+    {
+        if (e.Data.Get("Easing") is Easing easing)
+        {
+            ViewModel.AddAnimation(easing);
+            e.Handled = true;
+        }
+    }
+
+    private void TimelinePanel_DragOver(object? sender, DragEventArgs e)
+    {
+        if (e.Data.Contains("Easing"))
+        {
+            e.DragEffects = DragDropEffects.Link;
+        }
+        else
+        {
+            e.DragEffects = DragDropEffects.None;
+        }
     }
 }

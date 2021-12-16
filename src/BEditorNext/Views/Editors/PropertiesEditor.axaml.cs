@@ -68,7 +68,7 @@ public partial class PropertiesEditor : UserControl
         {
             if (value is ISetter setter)
             {
-                object? editor = PropertyEditorService.CreateEditor(setter);
+                Control? editor = PropertyEditorService.CreateEditor(setter);
 
                 return editor ?? new Label
                 {

@@ -48,7 +48,7 @@ public static class PropertyEditorService
         { typeof(ulong), new(_ => new NumberAnimationEditor<ulong>(), (a, vm) => new AnimationEditorViewModel<ulong>(a, vm)) },
     };
 
-    public static object? CreateEditor(ISetter setter)
+    public static Control? CreateEditor(ISetter setter)
     {
         if (s_editors.ContainsKey(setter.Property.PropertyType))
         {
@@ -66,23 +66,16 @@ public static class PropertyEditorService
         return null;
     }
 
-    //public static object? CreateAnimationEditor(BaseEditorViewModel viewModel, IAnimation animation)
-    //{
-    //    if (s_animationEditors.ContainsKey(viewModel.Setter.Property.PropertyType))
-    //    {
-    //        AnimationEditor editor = s_animationEditors[viewModel.Setter.Property.PropertyType];
-    //        Control? control = editor.CreateEditor(null);
+    public static Control? CreateAnimationEditor(IAnimatableSetter setter)
+    {
+        if (s_animationEditors.ContainsKey(setter.Property.PropertyType))
+        {
+            AnimationEditor editor = s_animationEditors[setter.Property.PropertyType];
+            return editor.CreateEditor(null);
+        }
 
-    //        if (control != null)
-    //        {
-    //            control.DataContext = editor.CreateViewModel(animation, viewModel);
-    //        }
-
-    //        return control;
-    //    }
-
-    //    return null;
-    //}
+        return null;
+    }
 
     public static object? CreateAnimationEditorViewModel(BaseEditorViewModel viewModel, IAnimation animation)
     {
