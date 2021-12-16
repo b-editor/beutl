@@ -47,6 +47,8 @@
         <x:String x:Key="StrokeWidthString">Stroke width</x:String>
         <x:String x:Key="WidthString">Width</x:String>
         <x:String x:Key="HeightString">Height</x:String>
+        <x:String x:Key="XString">X</x:String>
+        <x:String x:Key="YString">Y</x:String>
 
         <!--Verb-->
         <x:String x:Key="OpenString">Open</x:String>

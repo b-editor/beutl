@@ -45,6 +45,48 @@ public class RenderOperationRegistry
         return s_operations;
     }
 
+    public static RegistryItem? FindItem(Type type)
+    {
+        static RegistryItem? Find(List<RegistryItem> list, Type type)
+        {
+            for (int i = 0; i < list.Count; i++)
+            {
+                RegistryItem item = list[i];
+
+                if (item.Type == type)
+                {
+                    return item;
+                }
+            }
+
+            return null;
+        }
+
+        RegistryItem? result = null;
+
+        for (int i = 0; i < s_operations.Count; i++)
+        {
+            BaseRegistryItem item = s_operations[i];
+
+
+            if (item is GroupableRegistryItem group)
+            {
+                result = Find(group.Items, type);
+            }
+            else if (item is RegistryItem registryItem && registryItem.Type == type)
+            {
+                result = registryItem;
+            }
+
+            if (result != null)
+            {
+                return result;
+            }
+        }
+
+        return null;
+    }
+
     private static void Register(BaseRegistryItem item)
     {
         s_operations.Add(item);

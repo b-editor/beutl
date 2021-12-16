@@ -16,12 +16,14 @@ public sealed class TranslateTransform : RenderOperation
             .DefaultValue(0)
             .EnableEditor()
             .Animatable()
+            .Header("XString")
             .JsonName("x");
 
         YProperty = RegisterProperty<float, TranslateTransform>(nameof(Y), (owner, obj) => owner.Y = obj, owner => owner.Y)
             .DefaultValue(0)
             .EnableEditor()
             .Animatable()
+            .Header("YString")
             .JsonName("y");
     }
 
