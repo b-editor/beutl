@@ -13,6 +13,12 @@ public interface IAnimatableSetter : ISetter, ILogicalElement
     IEnumerable<ILogicalElement> ILogicalElement.LogicalChildren => Children;
 
     public void SetProperty(TimeSpan progress);
+
+    public void AddChild(IAnimation animation, CommandRecorder? recorder = null);
+
+    public void RemoveChild(IAnimation animation, CommandRecorder? recorder = null);
+
+    public void InsertChild(int index, IAnimation animation, CommandRecorder? recorder = null);
 }
 
 public class AnimatableSetter<T> : Setter<T>, IAnimatableSetter
@@ -160,6 +166,21 @@ public class AnimatableSetter<T> : Setter<T>, IAnimatableSetter
         jsonObj["children"] = jsonArray;
 
         return jsonObj;
+    }
+
+    void IAnimatableSetter.AddChild(IAnimation animation, CommandRecorder? recorder)
+    {
+        AddChild((Animation<T>)animation, recorder);
+    }
+
+    void IAnimatableSetter.RemoveChild(IAnimation animation, CommandRecorder? recorder)
+    {
+        RemoveChild((Animation<T>)animation, recorder);
+    }
+
+    void IAnimatableSetter.InsertChild(int index, IAnimation animation, CommandRecorder? recorder)
+    {
+        InsertChild(index, (Animation<T>)animation, recorder);
     }
 
     private sealed class AddCommand : IRecordableCommand
