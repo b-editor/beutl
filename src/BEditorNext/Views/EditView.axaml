@@ -46,7 +46,9 @@
             <DraggableTabItem Header="{DynamicResource PropertiesString}">
                 <editors:PropertiesEditor DataContext="{Binding Scene.SelectedItem, Converter={StaticResource LayerEditorConverter}}" />
             </DraggableTabItem>
-            <DraggableTabItem Header="{DynamicResource EasingString}" />
+            <DraggableTabItem Header="{DynamicResource EasingString}">
+                <local:Easings DataContext="{CompiledBinding Easings}" />
+            </DraggableTabItem>
             <DraggableTabItem Header="{DynamicResource ObjectsString}" />
         </DraggableTabView>
 
