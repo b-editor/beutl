@@ -5,63 +5,28 @@ using BEditorNext.ProjectSystem;
 
 namespace BEditorNext.Animation;
 
-public class Animation : Element, IAnimation
+public abstract class BaseAnimation : Element, ILogicalElement
 {
-    public static readonly PropertyDefine<float> PreviousProperty;
-    public static readonly PropertyDefine<float> NextProperty;
     public static readonly PropertyDefine<Easing> EasingProperty;
     public static readonly PropertyDefine<TimeSpan> DurationProperty;
-    private float _previous;
-    private float _next;
+    private ILogicalElement _logicalParent;
     private Easing _easing;
     private TimeSpan _duration;
 
-    public Animation()
+    protected BaseAnimation()
     {
         _easing = EasingProperty.GetDefaultValue() ?? new LinearEasing();
     }
 
-    static Animation()
+    static BaseAnimation()
     {
-        PreviousProperty = RegisterProperty<float, Animation>(
-            nameof(Previous),
-            (owner, obj) => owner.Previous = obj,
-            owner => owner.Previous)
-            .NotifyPropertyChanged(true)
-            .JsonName("prev");
-
-        NextProperty = RegisterProperty<float, Animation>(
-            nameof(Next),
-            (owner, obj) => owner.Next = obj,
-            owner => owner.Next)
-            .NotifyPropertyChanged(true)
-            .JsonName("next");
-
-        EasingProperty = RegisterProperty<Easing, Animation>(
-            nameof(Easing),
-            (owner, obj) => owner.Easing = obj,
-            owner => owner.Easing)
+        EasingProperty = RegisterProperty<Easing, BaseAnimation>(nameof(Easing), (owner, obj) => owner.Easing = obj, owner => owner.Easing)
             .NotifyPropertyChanged(true)
             .DefaultValue(new LinearEasing());
 
-        DurationProperty = RegisterProperty<TimeSpan, Animation>(
-            nameof(Duration),
-            (owner, obj) => owner.Duration = obj,
-            owner => owner.Duration)
+        DurationProperty = RegisterProperty<TimeSpan, BaseAnimation>(nameof(Duration), (owner, obj) => owner.Duration = obj, owner => owner.Duration)
             .NotifyPropertyChanged(true)
             .JsonName("duration");
-    }
-
-    public float Previous
-    {
-        get => _previous;
-        set => SetAndRaise(PreviousProperty, ref _previous, value);
-    }
-
-    public float Next
-    {
-        get => _next;
-        set => SetAndRaise(NextProperty, ref _next, value);
     }
 
     public Easing Easing
@@ -75,6 +40,8 @@ public class Animation : Element, IAnimation
         get => _duration;
         set => SetAndRaise(DurationProperty, ref _duration, value);
     }
+
+    ILogicalElement ILogicalElement.LogicalParent => _logicalParent;
 
     public override JsonNode ToJson()
     {
@@ -132,5 +99,10 @@ public class Animation : Element, IAnimation
                 }
             }
         }
+    }
+
+    internal void SetParent(ILogicalElement parent)
+    {
+        _logicalParent = parent;
     }
 }

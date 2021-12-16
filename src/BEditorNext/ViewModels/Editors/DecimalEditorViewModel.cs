@@ -1,4 +1,5 @@
 ﻿using BEditorNext.ProjectSystem;
+using BEditorNext.Services.Editors;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
@@ -21,23 +22,5 @@ public sealed class DecimalEditorViewModel : BaseNumberEditorViewModel<decimal>
 
     public override decimal Minimum => Setter.Property.GetValueOrDefault(PropertyMetaTableKeys.Minimum, decimal.MinValue);
 
-    public override decimal Clamp(decimal value, decimal min, decimal max)
-    {
-        return Math.Clamp(value, min, max);
-    }
-
-    public override decimal Decrement(decimal value, int increment)
-    {
-        return value - increment;
-    }
-
-    public override decimal Increment(decimal value, int increment)
-    {
-        return value + increment;
-    }
-
-    public override bool TryParse(string? s, out decimal result)
-    {
-        return decimal.TryParse(s, out result);
-    }
+    public override INumberEditorService<decimal> EditorService { get; } = NumberEditorService.Instance.Get<decimal>();
 }

@@ -1,4 +1,5 @@
 ﻿using BEditorNext.ProjectSystem;
+using BEditorNext.Services.Editors;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
@@ -21,23 +22,5 @@ public sealed class FloatEditorViewModel : BaseNumberEditorViewModel<float>
 
     public override float Minimum => Setter.Property.GetValueOrDefault(PropertyMetaTableKeys.Minimum, float.MinValue);
 
-    public override float Clamp(float value, float min, float max)
-    {
-        return Math.Clamp(value, min, max);
-    }
-
-    public override float Decrement(float value, int increment)
-    {
-        return value - increment;
-    }
-
-    public override float Increment(float value, int increment)
-    {
-        return value + increment;
-    }
-
-    public override bool TryParse(string? s, out float result)
-    {
-        return float.TryParse(s, out result);
-    }
+    public override INumberEditorService<float> EditorService { get; } = NumberEditorService.Instance.Get<float>();
 }

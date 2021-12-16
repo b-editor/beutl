@@ -1,12 +1,10 @@
 ﻿using System.Text.Json.Nodes;
 
-using Avalonia.Styling;
-
 using BEditorNext.Collections;
 
 namespace BEditorNext.ProjectSystem;
 
-public abstract class RenderOperation : Element
+public abstract class RenderOperation : Element, ILogicalElement
 {
     public static readonly PropertyDefine<bool> IsEnabledProperty;
     private readonly ObservableList<ISetter> _setters = new();
@@ -38,6 +36,7 @@ public abstract class RenderOperation : Element
 
             if (Activator.CreateInstance(type, item) is ISetter setter)
             {
+                setter.Parent = this;
                 _setters.Add(setter);
 
                 setter.GetObservable().Subscribe(_ =>
@@ -49,7 +48,7 @@ public abstract class RenderOperation : Element
                         layer != null &&
                         layer.IsEnabled &&
                         layer.Start <= scene.CurrentFrame &&
-                        scene.CurrentFrame < layer.Start + layer.Length&&
+                        scene.CurrentFrame < layer.Start + layer.Length &&
                         scene?.Renderer is SceneRenderer renderer)
                     {
                         renderer.ForceRender();
@@ -66,6 +65,8 @@ public abstract class RenderOperation : Element
     }
 
     public IObservableList<ISetter> Setters => _setters;
+
+    IEnumerable<ILogicalElement> ILogicalElement.LogicalChildren => _setters;
 
     public abstract void Render(in OperationRenderArgs args);
 

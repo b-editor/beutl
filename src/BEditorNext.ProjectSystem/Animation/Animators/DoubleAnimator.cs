@@ -2,8 +2,8 @@
 
 public sealed class DoubleAnimator : Animator<double>
 {
-    public override double Multiply(double left, float right)
+    public override double Interpolate(float progress, double oldValue, double newValue)
     {
-        return left * right;
+        return ((newValue - oldValue) * progress) + oldValue;
     }
 }

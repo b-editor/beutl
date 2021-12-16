@@ -43,7 +43,7 @@ public class NumberEditor<T> : NumberEditor
     {
         if (DataContext is not BaseNumberEditorViewModel<T> vm) return;
 
-        if (vm.TryParse(textBox.Text, out T newValue))
+        if (vm.EditorService.TryParse(textBox.Text, out T newValue))
         {
             vm.SetValue(_oldValue, newValue);
         }
@@ -57,9 +57,9 @@ public class NumberEditor<T> : NumberEditor
 
             await Task.Delay(10);
 
-            if (vm.TryParse(textBox.Text, out T value))
+            if (vm.EditorService.TryParse(textBox.Text, out T value))
             {
-                vm.Setter.Value = vm.Clamp(value, vm.Minimum, vm.Maximum);
+                vm.Setter.Value = vm.EditorService.Clamp(value, vm.Minimum, vm.Maximum);
             }
         });
     }
@@ -68,7 +68,7 @@ public class NumberEditor<T> : NumberEditor
     {
         if (DataContext is not BaseNumberEditorViewModel<T> vm) return;
 
-        if (textBox.IsKeyboardFocusWithin && vm.TryParse(textBox.Text, out T value))
+        if (textBox.IsKeyboardFocusWithin && vm.EditorService.TryParse(textBox.Text, out T value))
         {
             int increment = 10;
 
@@ -79,14 +79,14 @@ public class NumberEditor<T> : NumberEditor
 
             if (e.Delta.Y < 0)
             {
-                value = vm.Decrement(value, increment);
+                value = vm.EditorService.Decrement(value, increment);
             }
             else
             {
-                value = vm.Increment(value, increment);
+                value = vm.EditorService.Increment(value, increment);
             }
 
-            vm.Setter.Value = vm.Clamp(value, vm.Minimum, vm.Maximum);
+            vm.Setter.Value = vm.EditorService.Clamp(value, vm.Minimum, vm.Maximum);
 
             e.Handled = true;
         }

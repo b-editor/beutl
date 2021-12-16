@@ -57,7 +57,7 @@ public class Scene : Element, IStorable
         DurationProperty = RegisterProperty<TimeSpan, Scene>(nameof(Duration), (owner, obj) => owner.Duration = obj, owner => owner.Duration)
             .NotifyPropertyChanged(true)
             .NotifyPropertyChanging(true)
-            .JsonName("duaration");
+            .JsonName("duration");
 
         CurrentFrameProperty = RegisterProperty<TimeSpan, Scene>(nameof(CurrentFrame), (owner, obj) => owner.CurrentFrame = obj, owner => owner.CurrentFrame)
             .NotifyPropertyChanged(true)

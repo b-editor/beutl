@@ -49,6 +49,8 @@ public abstract class BaseEditorViewModel : IDisposable
 
     public ReadOnlyReactivePropertySlim<string?> Header { get; }
 
+    public bool IsAnimatable => Setter is IAnimatableSetter;
+
     public void Dispose()
     {
         if (!_disposedValue)
@@ -78,7 +80,7 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
     {
         if (CanReset)
         {
-            Setter.Value = Setter.Property.GetDefaultValue();
+            SetValue(Setter.Value, Setter.Property.GetDefaultValue());
         }
     }
 

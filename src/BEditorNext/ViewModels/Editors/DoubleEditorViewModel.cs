@@ -1,4 +1,5 @@
 ﻿using BEditorNext.ProjectSystem;
+using BEditorNext.Services.Editors;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
@@ -21,23 +22,5 @@ public sealed class DoubleEditorViewModel : BaseNumberEditorViewModel<double>
 
     public override double Minimum => Setter.Property.GetValueOrDefault(PropertyMetaTableKeys.Minimum, double.MinValue);
 
-    public override double Clamp(double value, double min, double max)
-    {
-        return Math.Clamp(value, min, max);
-    }
-
-    public override double Decrement(double value, int increment)
-    {
-        return value - increment;
-    }
-
-    public override double Increment(double value, int increment)
-    {
-        return value + increment;
-    }
-
-    public override bool TryParse(string? s, out double result)
-    {
-        return double.TryParse(s, out result);
-    }
+    public override INumberEditorService<double> EditorService { get; } = NumberEditorService.Instance.Get<double>();
 }

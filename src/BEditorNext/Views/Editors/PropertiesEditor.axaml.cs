@@ -12,6 +12,7 @@ using BEditorNext.ProjectSystem;
 using BEditorNext.Services;
 
 namespace BEditorNext.Views.Editors;
+
 public partial class PropertiesEditor : UserControl
 {
     public PropertiesEditor()
@@ -30,8 +31,7 @@ public partial class PropertiesEditor : UserControl
             if (value is RenderOperation operation)
             {
                 Type type = operation.GetType();
-                RenderOperationRegistry.BaseRegistryItem? item =
-                    RenderOperationRegistry.GetRegistered().FirstOrDefault(i => (i as RenderOperationRegistry.RegistryItem)?.Type == type);
+                RenderOperationRegistry.RegistryItem? item = RenderOperationRegistry.FindItem(type);
 
                 if (item == null)
                     goto ReturnNull;
@@ -68,7 +68,7 @@ public partial class PropertiesEditor : UserControl
         {
             if (value is ISetter setter)
             {
-                object? editor = PropertyEditorService.CreateEditor(setter);
+                Control? editor = PropertyEditorService.CreateEditor(setter);
 
                 return editor ?? new Label
                 {

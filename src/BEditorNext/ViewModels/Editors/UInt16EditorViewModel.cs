@@ -1,4 +1,5 @@
 ﻿using BEditorNext.ProjectSystem;
+using BEditorNext.Services.Editors;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
@@ -21,23 +22,5 @@ public sealed class UInt16EditorViewModel : BaseNumberEditorViewModel<ushort>
 
     public override ushort Minimum => Setter.Property.GetValueOrDefault(PropertyMetaTableKeys.Minimum, ushort.MinValue);
 
-    public override ushort Clamp(ushort value, ushort min, ushort max)
-    {
-        return Math.Clamp(value, min, max);
-    }
-
-    public override ushort Decrement(ushort value, int increment)
-    {
-        return (ushort)(value - increment);
-    }
-
-    public override ushort Increment(ushort value, int increment)
-    {
-        return (ushort)(value + increment);
-    }
-
-    public override bool TryParse(string? s, out ushort result)
-    {
-        return ushort.TryParse(s, out result);
-    }
+    public override INumberEditorService<ushort> EditorService { get; } = NumberEditorService.Instance.Get<ushort>();
 }

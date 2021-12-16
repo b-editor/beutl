@@ -10,11 +10,13 @@ using System.Text.Json.Nodes;
 
 namespace BEditorNext.ProjectSystem;
 
-public interface ISetter : IJsonSerializable, INotifyPropertyChanged
+public interface ISetter : IJsonSerializable, INotifyPropertyChanged, ILogicalElement
 {
     public PropertyDefine Property { get; set; }
 
-    public void SetProperty(Element element);
+    public Element Parent { get; set; }
+
+    public void SetProperty();
 
     public IObservable<Unit> GetObservable();
 }
@@ -23,6 +25,7 @@ public class Setter<T> : ISetter
 {
     private PropertyDefine<T>? _property;
     private T? _value;
+    private Element? _parent;
 
     public Setter()
     {
@@ -66,6 +69,23 @@ public class Setter<T> : ISetter
         set => Property = (PropertyDefine<T>)value;
     }
 
+    public Element Parent
+    {
+        get => _parent ?? throw new Exception("The property is not set.");
+        set
+        {
+            if (_parent != value)
+            {
+                _parent = value ?? throw new ArgumentNullException(nameof(value));
+                OnPropertyChanged();
+            }
+        }
+    }
+
+    ILogicalElement? ILogicalElement.LogicalParent => _parent;
+
+    IEnumerable<ILogicalElement> ILogicalElement.LogicalChildren => Enumerable.Empty<ILogicalElement>();
+
     public event PropertyChangedEventHandler? PropertyChanged;
 
     public virtual void FromJson(JsonNode json)
@@ -77,11 +97,11 @@ public class Setter<T> : ISetter
         }
     }
 
-    public void SetProperty(Element element)
+    public void SetProperty()
     {
         if (Value != null)
         {
-            element.SetValue(Property, Value);
+            Parent.SetValue(Property, Value);
         }
     }
 

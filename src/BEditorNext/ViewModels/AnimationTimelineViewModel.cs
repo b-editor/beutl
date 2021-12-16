@@ -1,15 +1,13 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Reactive.Disposables;
+﻿using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
-using System.Text;
-using System.Threading.Tasks;
 
 using Avalonia;
 
+using BEditorNext.Animation;
+using BEditorNext.Animation.Easings;
 using BEditorNext.ProjectSystem;
+using BEditorNext.ViewModels.Editors;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
@@ -20,10 +18,11 @@ public sealed class AnimationTimelineViewModel : IDisposable
 {
     private readonly CompositeDisposable _disposables = new();
 
-    public AnimationTimelineViewModel(SceneLayer layer, IAnimatableSetter setter)
+    public AnimationTimelineViewModel(SceneLayer layer, IAnimatableSetter setter, BaseEditorViewModel editorViewModel)
     {
         Layer = layer;
         Setter = setter;
+        EditorViewModel = editorViewModel;
         Scene = Layer.FindRequiredLogicalParent<Scene>();
 
         ISubject<TimelineOptions> optionsSubject = Scene.GetSubject(Scene.TimelineOptionsProperty);
@@ -73,6 +72,8 @@ public sealed class AnimationTimelineViewModel : IDisposable
 
     public IAnimatableSetter Setter { get; }
 
+    public BaseEditorViewModel EditorViewModel { get; }
+
     public ReadOnlyReactivePropertySlim<Thickness> BorderMargin { get; }
 
     public ReadOnlyReactivePropertySlim<double> Width { get; }
@@ -91,4 +92,15 @@ public sealed class AnimationTimelineViewModel : IDisposable
         GC.SuppressFinalize(this);
     }
 
+    public void AddAnimation(Easing easing)
+    {
+        Type type = typeof(Animation<>).MakeGenericType(Setter.Property.PropertyType);
+
+        if (Activator.CreateInstance(type) is IAnimation animation)
+        {
+            animation.Easing = easing;
+            animation.Duration = TimeSpan.FromSeconds(2);
+            Setter.AddChild(animation, CommandRecorder.Default);
+        }
+    }
 }

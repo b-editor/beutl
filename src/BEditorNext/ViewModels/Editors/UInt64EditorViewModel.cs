@@ -1,4 +1,5 @@
 ﻿using BEditorNext.ProjectSystem;
+using BEditorNext.Services.Editors;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
@@ -21,23 +22,5 @@ public sealed class UInt64EditorViewModel : BaseNumberEditorViewModel<ulong>
 
     public override ulong Minimum => Setter.Property.GetValueOrDefault(PropertyMetaTableKeys.Minimum, ulong.MinValue);
 
-    public override ulong Clamp(ulong value, ulong min, ulong max)
-    {
-        return Math.Clamp(value, min, max);
-    }
-
-    public override ulong Decrement(ulong value, int increment)
-    {
-        return value - (ulong)increment;
-    }
-
-    public override ulong Increment(ulong value, int increment)
-    {
-        return value + (ulong)increment;
-    }
-
-    public override bool TryParse(string? s, out ulong result)
-    {
-        return ulong.TryParse(s, out result);
-    }
+    public override INumberEditorService<ulong> EditorService { get; } = NumberEditorService.Instance.Get<ulong>();
 }

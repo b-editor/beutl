@@ -102,11 +102,11 @@ internal class SceneRenderer : IRenderer
 
             if (item is IAnimatableSetter anmSetter)
             {
-                anmSetter.SetProperty(op, timeSpan);
+                anmSetter.SetProperty(timeSpan);
             }
             else
             {
-                item.SetProperty(op);
+                item.SetProperty();
             }
         }
     }

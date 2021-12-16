@@ -1,10 +1,14 @@
 using System.Numerics;
 
 using Avalonia.Controls;
+using Avalonia.Data.Converters;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 
+using BEditorNext.Animation;
+using BEditorNext.Animation.Easings;
 using BEditorNext.ProjectSystem;
+using BEditorNext.Services;
 using BEditorNext.ViewModels;
 
 using static BEditorNext.Views.Timeline;
@@ -15,18 +19,21 @@ public partial class AnimationTimeline : UserControl
 {
     internal MouseFlags _seekbarMouseFlag = MouseFlags.MouseUp;
     private TimeSpan _clickedFrame;
-    private int _clickedLayer;
     internal TimeSpan _pointerFrame;
-    internal int _pointerLayer;
     private AnimationTimelineViewModel? _viewModel;
     private bool _isFirst;
 
     public AnimationTimeline()
     {
+        Resources["AnimationToViewModelConverter"] =
+            new FuncValueConverter<IAnimation, object?>(a => PropertyEditorService.CreateAnimationEditorViewModel(ViewModel.EditorViewModel, a));
+
         InitializeComponent();
         ContentScroll.ScrollChanged += ContentScroll_ScrollChanged;
         ContentScroll.AddHandler(PointerWheelChangedEvent, ContentScroll_PointerWheelChanged, RoutingStrategies.Tunnel);
         ScaleScroll.AddHandler(PointerWheelChangedEvent, ContentScroll_PointerWheelChanged, RoutingStrategies.Tunnel);
+        TimelinePanel.AddHandler(DragDrop.DragOverEvent, TimelinePanel_DragOver);
+        TimelinePanel.AddHandler(DragDrop.DropEvent, TimelinePanel_Drop);
     }
 
     internal AnimationTimelineViewModel ViewModel => _viewModel!;
@@ -99,7 +106,6 @@ public partial class AnimationTimeline : UserControl
     {
         PointerPoint pointerPt = e.GetCurrentPoint(TimelinePanel);
         _pointerFrame = pointerPt.Position.X.ToTimeSpan(ViewModel.Scene.TimelineOptions.Scale);
-        _pointerLayer = pointerPt.Position.Y.ToLayerNumber();
 
         if (_seekbarMouseFlag == MouseFlags.MouseDown)
         {
@@ -123,7 +129,6 @@ public partial class AnimationTimeline : UserControl
     {
         PointerPoint pointerPt = e.GetCurrentPoint(TimelinePanel);
         _clickedFrame = pointerPt.Position.X.ToTimeSpan(ViewModel.Scene.TimelineOptions.Scale);
-        _clickedLayer = pointerPt.Position.Y.ToLayerNumber();
 
         if (pointerPt.Properties.IsLeftButtonPressed)
         {
@@ -138,4 +143,24 @@ public partial class AnimationTimeline : UserControl
         _seekbarMouseFlag = MouseFlags.MouseUp;
     }
 
+    private void TimelinePanel_Drop(object? sender, DragEventArgs e)
+    {
+        if (e.Data.Get("Easing") is Easing easing)
+        {
+            ViewModel.AddAnimation(easing);
+            e.Handled = true;
+        }
+    }
+
+    private void TimelinePanel_DragOver(object? sender, DragEventArgs e)
+    {
+        if (e.Data.Contains("Easing"))
+        {
+            e.DragEffects = DragDropEffects.Link;
+        }
+        else
+        {
+            e.DragEffects = DragDropEffects.None;
+        }
+    }
 }
