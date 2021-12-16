@@ -25,7 +25,7 @@ public partial class Easings : UserControl
             {
                 var data = new DataObject();
                 data.Set("Easing", item);
-                await DragDrop.DoDragDrop(e, data, DragDropEffects.Link);
+                await DragDrop.DoDragDrop(e, data, DragDropEffects.Copy | DragDropEffects.Link);
                 return;
             }
 

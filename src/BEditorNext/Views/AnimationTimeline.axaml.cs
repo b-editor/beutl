@@ -156,7 +156,7 @@ public partial class AnimationTimeline : UserControl
     {
         if (e.Data.Contains("Easing"))
         {
-            e.DragEffects = DragDropEffects.Link;
+            e.DragEffects = DragDropEffects.Copy | DragDropEffects.Link;
         }
         else
         {

@@ -1,22 +1,25 @@
 using System.Collections;
 using System.Diagnostics;
+using System.Globalization;
 
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Presenters;
+using Avalonia.Data;
+using Avalonia.Data.Converters;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
+using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Media.Transformation;
 using Avalonia.Xaml.Interactivity;
 
-using BEditorNext.Animation.Easings;
+using BEditorNext.ProjectSystem;
 using BEditorNext.Services;
-using BEditorNext.ViewModels.AnimationEditors;
 
-namespace BEditorNext.Views.AnimationEditors;
+namespace BEditorNext.Views.Editors;
 
-public sealed class AnimationEditorDragBehavior : Behavior<AnimationEditor>
+public sealed class OperationEditorDragBehavior : Behavior<OperationEditor>
 {
     private bool _enableDrag;
     private bool _dragStarted;
@@ -82,14 +85,14 @@ public sealed class AnimationEditorDragBehavior : Behavior<AnimationEditor>
         }
 
         Point position = e.GetPosition(_itemsControl);
-        double delta = position.X - _start.X;
+        double delta = position.Y - _start.Y;
 
         if (!_dragStarted)
         {
             Point diff = _start - position;
-            const int horizontalDragThreshold = 3;
+            const int verticalDragThreshold = 3;
 
-            if (Math.Abs(diff.X) > horizontalDragThreshold)
+            if (Math.Abs(diff.Y) > verticalDragThreshold)
             {
                 _dragStarted = true;
             }
@@ -99,15 +102,15 @@ public sealed class AnimationEditorDragBehavior : Behavior<AnimationEditor>
             }
         }
 
-        SetTranslateTransform(_draggedContainer, delta, 0);
+        SetTranslateTransform(_draggedContainer, 0, delta);
 
         _draggedIndex = _itemsControl.ItemContainerGenerator.IndexFromContainer(_draggedContainer);
         _targetIndex = -1;
 
         Rect draggedBounds = _draggedContainer.Bounds;
-        double draggedStart = draggedBounds.X;
-        double draggedDeltaStart = draggedBounds.X + delta;
-        double draggedDeltaEnd = draggedBounds.X + delta + draggedBounds.Width;
+        double draggedStart = draggedBounds.Y;
+        double draggedDeltaStart = draggedBounds.Y + delta;
+        double draggedDeltaEnd = draggedBounds.Y + delta + draggedBounds.Height;
 
         int i = 0;
 
@@ -121,13 +124,13 @@ public sealed class AnimationEditorDragBehavior : Behavior<AnimationEditor>
             }
 
             Rect targetBounds = targetContainer.Bounds;
-            double targetStart = targetBounds.X;
-            double targetMid = targetBounds.X + (targetBounds.Width / 2);
+            double targetStart = targetBounds.Y;
+            double targetMid = targetBounds.Y + (targetBounds.Height / 2);
             int targetIndex = _itemsControl.ItemContainerGenerator.IndexFromContainer(targetContainer);
 
             if (targetStart > draggedStart && draggedDeltaEnd >= targetMid)
             {
-                SetTranslateTransform(targetContainer, -draggedBounds.Width, 0);
+                SetTranslateTransform(targetContainer, 0, -draggedBounds.Height);
 
                 _targetIndex = _targetIndex == -1 ?
                     targetIndex :
@@ -136,7 +139,7 @@ public sealed class AnimationEditorDragBehavior : Behavior<AnimationEditor>
             }
             else if (targetStart < draggedStart && draggedDeltaStart <= targetMid)
             {
-                SetTranslateTransform(targetContainer, draggedBounds.Width, 0);
+                SetTranslateTransform(targetContainer, 0, draggedBounds.Height);
 
                 _targetIndex = _targetIndex == -1 ?
                     targetIndex :
@@ -174,10 +177,8 @@ public sealed class AnimationEditorDragBehavior : Behavior<AnimationEditor>
         {
             Debug.WriteLine($"MoveItem {_draggedIndex} -> {_targetIndex}");
             MoveDraggedItem(_itemsControl, _draggedIndex, _targetIndex);
-            if (AssociatedObject?.DataContext is AnimationEditorViewModel vm)
-            {
-                vm.Move(_targetIndex, _draggedIndex);
-            }
+
+            AssociatedObject?.Move(_targetIndex, _draggedIndex);
         }
 
         _draggedIndex = -1;
@@ -250,153 +251,57 @@ public sealed class AnimationEditorDragBehavior : Behavior<AnimationEditor>
     }
 }
 
-public sealed class AnimationEditorResizeBehavior : Behavior<AnimationEditor>
+public partial class OperationEditor : UserControl
 {
-    private bool _enableDrag;
-    private Point _start;
-    private TimeSpan _oldDuration;
-
-    protected override void OnAttached()
+    public OperationEditor()
     {
-        base.OnAttached();
-
-        if (AssociatedObject != null)
-        {
-            AssociatedObject.resizeBorder.AddHandler(InputElement.PointerReleasedEvent, Released, RoutingStrategies.Tunnel);
-            AssociatedObject.resizeBorder.AddHandler(InputElement.PointerPressedEvent, Pressed, RoutingStrategies.Tunnel);
-            AssociatedObject.resizeBorder.AddHandler(InputElement.PointerMovedEvent, Moved, RoutingStrategies.Tunnel);
-            AssociatedObject.resizeBorder.AddHandler(InputElement.PointerCaptureLostEvent, CaptureLost, RoutingStrategies.Tunnel);
-        }
-    }
-
-    protected override void OnDetaching()
-    {
-        base.OnDetaching();
-
-        if (AssociatedObject != null)
-        {
-            AssociatedObject.resizeBorder.RemoveHandler(InputElement.PointerReleasedEvent, Released);
-            AssociatedObject.resizeBorder.RemoveHandler(InputElement.PointerPressedEvent, Pressed);
-            AssociatedObject.resizeBorder.RemoveHandler(InputElement.PointerMovedEvent, Moved);
-            AssociatedObject.resizeBorder.RemoveHandler(InputElement.PointerCaptureLostEvent, CaptureLost);
-        }
-    }
-
-    private void Released(object? sender, PointerReleasedEventArgs e)
-    {
-        Released();
-        e.Handled = true;
-    }
-
-    private void Pressed(object? sender, PointerPressedEventArgs e)
-    {
-        _enableDrag = true;
-        _start = e.GetPosition(AssociatedObject);
-        if (AssociatedObject?.DataContext is AnimationEditorViewModel vm)
-        {
-            _oldDuration = vm.Animation.Duration;
-        }
-
-        e.Handled = true;
-    }
-
-    private void Moved(object? sender, PointerEventArgs e)
-    {
-        if (AssociatedObject == null || !_enableDrag) return;
-
-        Point position = e.GetPosition(AssociatedObject);
-        double delta = position.X - _start.X;
-
-        AssociatedObject.Width += delta;
-
-        _start = position;
-        e.Handled = true;
-    }
-
-    private void CaptureLost(object? sender, PointerCaptureLostEventArgs e)
-    {
-        Released();
-        e.Handled = true;
-    }
-
-    private void Released()
-    {
-        _enableDrag = false;
-        if (AssociatedObject?.DataContext is AnimationEditorViewModel vm)
-        {
-            vm.SetDuration(_oldDuration, AssociatedObject.Bounds.Width.ToTimeSpan(vm.Scene.TimelineOptions.Scale));
-        }
-    }
-}
-
-public partial class AnimationEditor : UserControl
-{
-    public AnimationEditor()
-    {
+        Resources["ModelToViewConverter"] = ModelToViewConverter.Instance;
         InitializeComponent();
         Interaction.SetBehaviors(this, new BehaviorCollection
         {
-            new AnimationEditorDragBehavior(),
-            new AnimationEditorResizeBehavior(),
+            new OperationEditorDragBehavior(),
         });
-        backgroundBorder.AddHandler(DragDrop.DragOverEvent, BackgroundBorder_DragOver);
-        backgroundBorder.AddHandler(DragDrop.DragLeaveEvent, BackgroundBorder_DragLeave);
-        leftBorder.AddHandler(DragDrop.DropEvent, LeftBorder_Drop);
-        rightBorder.AddHandler(DragDrop.DropEvent, RightBorder_Drop);
-        backgroundBorder.AddHandler(DragDrop.DropEvent, BackgroundBorder_Drop);
+        AddHandler(DragDrop.DragOverEvent, DragOver);
+        AddHandler(DragDrop.DropEvent, Drop);
     }
 
-    private void Edit_Click(object? sender, RoutedEventArgs e)
+    public void Remove_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is not AnimationEditorViewModel vm) return;
-
-        if (editDialog.Content == null)
+        if (DataContext is RenderOperation operation)
         {
-            editDialog.Content = PropertyEditorService.CreateAnimationEditor(vm.Setter);
+            SceneLayer layer = operation.FindRequiredLogicalParent<SceneLayer>();
+            layer.RemoveChild(operation, CommandRecorder.Default);
         }
-
-        editDialog.DataContext = vm;
-        editDialog.ShowAsync();
     }
 
-    private void BackgroundBorder_Drop(object? sender, DragEventArgs e)
+    private void Drop(object? sender, DragEventArgs e)
     {
-        if (e.Data.Get("Easing") is Easing easing &&
-            DataContext is AnimationEditorViewModel vm)
+        if (e.Data.Get("RenderOperation") is RenderOperationRegistry.RegistryItem item &&
+            DataContext is RenderOperation operation)
         {
-            vm.SetEasing(vm.Animation.Easing, easing);
-            SetDropAreaClasses(false);
+            SceneLayer layer = operation.FindRequiredLogicalParent<SceneLayer>();
+            Rect bounds = Bounds;
+            Point position = e.GetPosition(this);
+            double half = bounds.Height / 2;
+            int index = layer.Children.IndexOf(operation);
+
+            if (half < position.Y)
+            {
+                layer.InsertChild(index + 1, (RenderOperation)Activator.CreateInstance(item.Type)!, CommandRecorder.Default);
+            }
+            else
+            {
+                layer.InsertChild(index, (RenderOperation)Activator.CreateInstance(item.Type)!, CommandRecorder.Default);
+            }
+
             e.Handled = true;
         }
     }
 
-    private void LeftBorder_Drop(object? sender, DragEventArgs e)
+    private void DragOver(object? sender, DragEventArgs e)
     {
-        if (e.Data.Get("Easing") is Easing easing &&
-            DataContext is AnimationEditorViewModel vm)
+        if (e.Data.Contains("RenderOperation"))
         {
-            vm.InsertForward(easing);
-            SetDropAreaClasses(false);
-            e.Handled = true;
-        }
-    }
-
-    private void RightBorder_Drop(object? sender, DragEventArgs e)
-    {
-        if (e.Data.Get("Easing") is Easing easing &&
-            DataContext is AnimationEditorViewModel vm)
-        {
-            vm.InsertBackward(easing);
-            SetDropAreaClasses(false);
-            e.Handled = true;
-        }
-    }
-
-    private void BackgroundBorder_DragOver(object? sender, DragEventArgs e)
-    {
-        if (e.Data.Contains("Easing"))
-        {
-            SetDropAreaClasses(true);
             e.DragEffects = DragDropEffects.Copy | DragDropEffects.Link;
         }
         else
@@ -405,14 +310,90 @@ public partial class AnimationEditor : UserControl
         }
     }
 
-    private void BackgroundBorder_DragLeave(object? sender, RoutedEventArgs e)
+    protected override void OnDataContextChanged(EventArgs e)
     {
-        SetDropAreaClasses(false);
+        base.OnDataContextChanged(e);
+        if (DataContext is RenderOperation operation)
+        {
+            Type type = operation.GetType();
+            RenderOperationRegistry.RegistryItem? item = RenderOperationRegistry.FindItem(type);
+
+            if (item != null)
+            {
+                headerText[!TextBlock.TextProperty] = new DynamicResourceExtension(item.DisplayName.Key);
+            }
+        }
     }
 
-    private void SetDropAreaClasses(bool value)
+    public void Move(int newIndex, int oldIndex)
     {
-        leftBorder.Classes.Set("droparea", value);
-        rightBorder.Classes.Set("droparea", value);
+        if (DataContext is not RenderOperation operation) return;
+
+        if (operation.FindLogicalParent<SceneLayer>()?.Children is IList list)
+        {
+            CommandRecorder.Default.PushOnly(new MoveAnimationCommand(list, newIndex, oldIndex));
+        }
+    }
+
+    private sealed class MoveAnimationCommand : IRecordableCommand
+    {
+        private readonly IList _list;
+        private readonly int _newIndex;
+        private readonly int _oldIndex;
+
+        public MoveAnimationCommand(IList list, int newIndex, int oldIndex)
+        {
+            _list = list;
+            _newIndex = newIndex;
+            _oldIndex = oldIndex;
+        }
+
+        public void Do()
+        {
+            object? item = _list[_oldIndex];
+            _list.RemoveAt(_oldIndex);
+            _list.Insert(_newIndex, item);
+        }
+
+        public void Redo()
+        {
+            Do();
+        }
+
+        public void Undo()
+        {
+            object? item = _list[_newIndex];
+            _list.RemoveAt(_newIndex);
+            _list.Insert(_oldIndex, item);
+        }
+    }
+
+    private sealed class ModelToViewConverter : IValueConverter
+    {
+        public static readonly ModelToViewConverter Instance = new();
+
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value is ISetter setter)
+            {
+                Control? editor = PropertyEditorService.CreateEditor(setter);
+
+                return editor ?? new Label
+                {
+                    Height = 24,
+                    Margin = new Thickness(0, 4),
+                    Content = setter.Property.Name
+                };
+            }
+            else
+            {
+                return BindingNotification.Null;
+            }
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            return BindingNotification.Null;
+        }
     }
 }

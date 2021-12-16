@@ -1,15 +1,8 @@
-using System.Globalization;
-
-using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Controls.Primitives;
-using Avalonia.Data;
-using Avalonia.Data.Converters;
-using Avalonia.Layout;
-using Avalonia.Markup.Xaml.MarkupExtensions;
+using Avalonia.Input;
 
 using BEditorNext.ProjectSystem;
-using BEditorNext.Services;
+using BEditorNext.ViewModels.Editors;
 
 namespace BEditorNext.Views.Editors;
 
@@ -17,75 +10,34 @@ public partial class PropertiesEditor : UserControl
 {
     public PropertiesEditor()
     {
-        Resources["OperationDisplayNameConverter"] = OperationDisplayNameConverter.Instance;
-        Resources["ModelToViewConverter"] = ModelToViewConverter.Instance;
         InitializeComponent();
+        AddHandler(DragDrop.DragOverEvent, DragOver);
+        AddHandler(DragDrop.DropEvent, Drop);
     }
 
-    private sealed class OperationDisplayNameConverter : IValueConverter
+    private void Drop(object? sender, DragEventArgs e)
     {
-        public static readonly OperationDisplayNameConverter Instance = new();
-
-        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        if (e.Data.Get("RenderOperation") is RenderOperationRegistry.RegistryItem item &&
+            DataContext is PropertiesEditorViewModel vm)
         {
-            if (value is RenderOperation operation)
-            {
-                Type type = operation.GetType();
-                RenderOperationRegistry.RegistryItem? item = RenderOperationRegistry.FindItem(type);
+            SceneLayer layer = vm.Layer;
 
-                if (item == null)
-                    goto ReturnNull;
+            layer.AddChild((RenderOperation)Activator.CreateInstance(item.Type)!, CommandRecorder.Default);
 
-                return new StackPanel
-                {
-                    Orientation = Orientation.Horizontal,
-                    Children =
-                    {
-                        new CheckBox
-                        {
-                            [!ToggleButton.IsCheckedProperty] = new Binding("IsEnabled"),
-                            [!ContentProperty] = new DynamicResourceExtension(item.DisplayName.Key)
-                        }
-                    }
-                };
-            }
-
-        ReturnNull:
-            return BindingNotification.Null;
-        }
-
-        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
-        {
-            return BindingNotification.Null;
+            e.Handled = true;
         }
     }
 
-    private sealed class ModelToViewConverter : IValueConverter
+    private void DragOver(object? sender, DragEventArgs e)
     {
-        public static readonly ModelToViewConverter Instance = new();
-
-        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        if (e.Data.Contains("RenderOperation"))
         {
-            if (value is ISetter setter)
-            {
-                Control? editor = PropertyEditorService.CreateEditor(setter);
-
-                return editor ?? new Label
-                {
-                    Height = 24,
-                    Margin = new Thickness(0, 4),
-                    Content = setter.Property.Name
-                };
-            }
-            else
-            {
-                return BindingNotification.Null;
-            }
+            e.DragEffects = DragDropEffects.Copy | DragDropEffects.Link;
         }
-
-        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        else
         {
-            return BindingNotification.Null;
+            e.DragEffects = DragDropEffects.None;
         }
     }
+
 }
