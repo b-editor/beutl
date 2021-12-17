@@ -115,7 +115,7 @@ public partial class Library : UserControl
             {
                 if (item.DataContext is RenderOperationRegistry.BaseRegistryItem itemContext)
                 {
-                    item.IsVisible = validate(itemContext.DisplayName.FindResourceOrDefault(string.Empty));
+                    item.IsVisible = validate(itemContext.DisplayName.FindOrDefault(string.Empty));
                 }
                 v |= item.IsVisible;
 
@@ -125,7 +125,7 @@ public partial class Library : UserControl
 
         if (treeitem.DataContext is RenderOperationRegistry.BaseRegistryItem treeItemContext)
         {
-            v |= validate(treeItemContext.DisplayName.FindResourceOrDefault(string.Empty));
+            v |= validate(treeItemContext.DisplayName.FindOrDefault(string.Empty));
         }
 
         treeitem.IsVisible = v;

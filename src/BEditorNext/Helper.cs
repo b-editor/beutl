@@ -55,11 +55,6 @@ internal static class Helper
         return layer * LayerHeight;
     }
 
-    public static T FindResourceOrDefault<T>(this ResourceReference<T> reference, T @default)
-    {
-        return (T?)Application.Current.FindResource(reference.Key) ?? @default;
-    }
-
     public static string RandomLayerFileName(string baseDir, string ext)
     {
         string filename = Path.Combine(baseDir, $"{RandomString()}.{ext}");

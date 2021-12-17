@@ -23,7 +23,8 @@ namespace BEditorNext
         {
             base.RegisterServices();
             ServiceLocator.Current.BindToSelfSingleton<ProjectService>()
-                .Bind<INotificationService>().ToSingleton<NotificationService>();
+                .Bind<INotificationService>().ToSingleton<NotificationService>()
+                .Bind<IResourceProvider>().ToSingleton<DefaultResourceProvider>();
 
             RenderOperations.RegisterAll();
             UIDispatcherScheduler.Initialize();
