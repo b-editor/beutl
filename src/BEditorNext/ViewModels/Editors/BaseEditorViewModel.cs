@@ -86,7 +86,10 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
 
     public void SetValue(T? oldValue, T? newValue)
     {
-        CommandRecorder.Default.DoAndPush(new SetCommand(Setter, oldValue, newValue));
+        if (!EqualityComparer<T>.Default.Equals(oldValue, newValue))
+        {
+            CommandRecorder.Default.DoAndPush(new SetCommand(Setter, oldValue, newValue));
+        }
     }
 
     private sealed class SetCommand : IRecordableCommand

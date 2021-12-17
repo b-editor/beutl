@@ -2,6 +2,7 @@
 
 using BEditorNext.Animation;
 using BEditorNext.Graphics;
+using BEditorNext.Media;
 using BEditorNext.ProjectSystem;
 using BEditorNext.ViewModels.AnimationEditors;
 using BEditorNext.ViewModels.Editors;
@@ -16,10 +17,12 @@ public static class PropertyEditorService
 
     private record struct AnimationEditor(Func<object?, Control?> CreateEditor, Func<IAnimation, BaseEditorViewModel, object?> CreateViewModel);
 
+    // pixelpoint, pixelrect, pixelsize, point, rect, thickness, vector2, vector3, vector4
     private static readonly Dictionary<Type, Editor> s_editors = new()
     {
         { typeof(bool), new(_ => new BooleanEditor(), s => new BooleanEditorViewModel((Setter<bool>)s)) },
         { typeof(byte), new(_ => new NumberEditor<byte>(), s => new ByteEditorViewModel((Setter<byte>)s)) },
+        { typeof(Color), new(_ => new ColorEditor(), s => new ColorEditorViewModel((Setter<Color>)s)) },
         { typeof(decimal), new(_ => new NumberEditor<decimal>(), s => new DecimalEditorViewModel((Setter<decimal>)s)) },
         { typeof(double), new(_ => new NumberEditor<double>(), s => new DoubleEditorViewModel((Setter<double>)s)) },
         { typeof(float), new(_ => new NumberEditor<float>(), s => new FloatEditorViewModel((Setter<float>)s)) },

@@ -1,5 +1,9 @@
-﻿using BEditorNext.Media;
+﻿using System.Reactive.Linq;
+
+using BEditorNext.Media;
 using BEditorNext.ProjectSystem;
+
+using FluentAvalonia.UI.Media;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
@@ -12,9 +16,12 @@ public sealed class ColorEditorViewModel : BaseEditorViewModel<Color>
         : base(setter)
     {
         Value = setter.GetObservable()
+            .Select(x => (Color2)x.ToAvalonia())
             .ToReadOnlyReactivePropertySlim()
             .AddTo(Disposables);
     }
 
-    public ReadOnlyReactivePropertySlim<Color> Value { get; }
+    //public ReadOnlyReactivePropertySlim<Color> Value { get; }
+
+    public ReadOnlyReactivePropertySlim<Color2> Value { get; }
 }

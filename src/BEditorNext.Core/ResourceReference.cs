@@ -6,7 +6,7 @@ namespace BEditorNext;
 
 public readonly struct ResourceReference<T> : IEquatable<ResourceReference<T>>
 {
-    private static IResourceProvider? _resourceProvider;
+    private static IResourceProvider? s_resourceProvider;
 
     public ResourceReference(string key)
     {
@@ -32,9 +32,9 @@ public readonly struct ResourceReference<T> : IEquatable<ResourceReference<T>>
 
     public T FindOrDefault(T defaultValue)
     {
-        _resourceProvider ??= ServiceLocator.Current.GetRequiredService<IResourceProvider>();
+        s_resourceProvider ??= ServiceLocator.Current.GetRequiredService<IResourceProvider>();
 
-        if (_resourceProvider.TryFindResource(this, out T? value))
+        if (s_resourceProvider.TryFindResource(this, out T? value))
         {
             return value;
         }
@@ -46,9 +46,9 @@ public readonly struct ResourceReference<T> : IEquatable<ResourceReference<T>>
 
     public T? FindOrDefault()
     {
-        _resourceProvider ??= ServiceLocator.Current.GetRequiredService<IResourceProvider>();
+        s_resourceProvider ??= ServiceLocator.Current.GetRequiredService<IResourceProvider>();
 
-        if (_resourceProvider.TryFindResource(this, out T? value))
+        if (s_resourceProvider.TryFindResource(this, out T? value))
         {
             return value;
         }
@@ -60,16 +60,16 @@ public readonly struct ResourceReference<T> : IEquatable<ResourceReference<T>>
 
     public bool TryFindResource([NotNullWhen(true)] out T? value)
     {
-        _resourceProvider ??= ServiceLocator.Current.GetRequiredService<IResourceProvider>();
+        s_resourceProvider ??= ServiceLocator.Current.GetRequiredService<IResourceProvider>();
 
-        return _resourceProvider.TryFindResource(this, out value);
+        return s_resourceProvider.TryFindResource(this, out value);
     }
-    
+
     public IObservable<T?> GetResourceObservable()
     {
-        _resourceProvider ??= ServiceLocator.Current.GetRequiredService<IResourceProvider>();
+        s_resourceProvider ??= ServiceLocator.Current.GetRequiredService<IResourceProvider>();
 
-        return _resourceProvider.GetResourceObservable(this);
+        return s_resourceProvider.GetResourceObservable(this);
     }
 
     public static bool operator ==(ResourceReference<T> left, ResourceReference<T> right)

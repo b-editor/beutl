@@ -20,6 +20,11 @@ internal static class Helper
         return Color.FromArgb(color.A, color.R, color.G, color.B);
     }
 
+    public static Media.Color ToMedia(this in Color color)
+    {
+        return Media.Color.FromArgb(color.A, color.R, color.G, color.B);
+    }
+
     public static double ToPixel(this TimeSpan time)
     {
         return time.TotalSeconds * SecondWidth;
