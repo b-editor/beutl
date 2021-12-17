@@ -9,7 +9,7 @@ public abstract class BaseAnimation : Element, ILogicalElement
 {
     public static readonly PropertyDefine<Easing> EasingProperty;
     public static readonly PropertyDefine<TimeSpan> DurationProperty;
-    private ILogicalElement _logicalParent;
+    private ILogicalElement? _logicalParent;
     private Easing _easing;
     private TimeSpan _duration;
 
@@ -41,7 +41,7 @@ public abstract class BaseAnimation : Element, ILogicalElement
         set => SetAndRaise(DurationProperty, ref _duration, value);
     }
 
-    ILogicalElement ILogicalElement.LogicalParent => _logicalParent;
+    ILogicalElement? ILogicalElement.LogicalParent => _logicalParent;
 
     public override JsonNode ToJson()
     {
@@ -63,7 +63,7 @@ public abstract class BaseAnimation : Element, ILogicalElement
             }
             else
             {
-                jsonObject["easing"] = JsonValue.Create(SceneLayer.TypeResolver.ToString(Easing.GetType()));
+                jsonObject["easing"] = JsonValue.Create(TypeFormat.ToString(Easing.GetType()));
             }
         }
 
@@ -81,7 +81,7 @@ public abstract class BaseAnimation : Element, ILogicalElement
                 if (easingNode is JsonValue easingTypeValue &&
                     easingTypeValue.TryGetValue(out string? easingType))
                 {
-                    Type type = SceneLayer.TypeResolver.ToType(easingType) ?? typeof(LinearEasing);
+                    Type type = TypeFormat.ToType(easingType) ?? typeof(LinearEasing);
 
                     if (Activator.CreateInstance(type) is Easing easing)
                     {
@@ -101,7 +101,7 @@ public abstract class BaseAnimation : Element, ILogicalElement
         }
     }
 
-    internal void SetParent(ILogicalElement parent)
+    internal void SetLogicalParent(ILogicalElement parent)
     {
         _logicalParent = parent;
     }

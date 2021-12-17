@@ -1,6 +1,6 @@
 ﻿namespace BEditorNext;
 
-internal static class TypeResolver
+internal static class TypeFormat
 {
     public static Type? ToType(string fullName)
     {

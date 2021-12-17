@@ -210,7 +210,7 @@ public class SceneLayer : Element, IStorable
                         atTypeNode is JsonValue atTypeValue &&
                         atTypeValue.TryGetValue(out string? atType))
                     {
-                        var type = TypeResolver.ToType(atType);
+                        var type = TypeFormat.ToType(atType);
                         RenderOperation? operation = null;
 
                         if (type?.IsAssignableTo(typeof(RenderOperation)) ?? false)
@@ -240,7 +240,7 @@ public class SceneLayer : Element, IStorable
                 JsonNode json = item.ToJson();
                 if (item is not EmptyOperation)
                 {
-                    json["@type"] = TypeResolver.ToString(item.GetType());
+                    json["@type"] = TypeFormat.ToString(item.GetType());
                 }
 
                 if (json.Parent != null)
