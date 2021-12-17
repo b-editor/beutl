@@ -1,15 +1,10 @@
-﻿using System.Collections.Specialized;
-using System.ComponentModel;
-using System.Data;
+﻿using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
-using System.Reactive.Linq;
-using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
 using BEditorNext.Collections;
-using BEditorNext.Utilities;
 
 namespace BEditorNext;
 
@@ -257,7 +252,7 @@ public abstract class Element : IElement
 
         if (property.HasGetter)
         {
-            return (TValue?)property.GetGetter().Invoke(property, this) ?? property.GetDefaultValue()!;
+            return property.GetGetter().Invoke(property, this) ?? property.GetDefaultValue()!;
         }
 
         if (!Values.ContainsKey(property.Id))
@@ -282,19 +277,18 @@ public abstract class Element : IElement
 
         if (CheckOwnerType(property)) throw new ElementException("Owner does not match.");
 
-        object? oldValue = null;
-        object? newValue = value;
         if (property.HasSetter)
         {
-            oldValue = property.GetGetter().Invoke(property, this);
-            if (!RuntimeHelpers.Equals(oldValue, newValue))
+            TValue? oldValue = property.GetGetter().Invoke(property, this);
+            if (!EqualityComparer<TValue>.Default.Equals(oldValue, value))
             {
                 property.GetSetter().Invoke(property, this, value!);
             }
         }
         else if (!AddIfNotExist(property, value))
         {
-            oldValue = Values[property.Id];
+            object? oldValue = Values[property.Id];
+            object? newValue = value;
 
             if (!RuntimeHelpers.Equals(oldValue, newValue))
             {
@@ -320,15 +314,17 @@ public abstract class Element : IElement
         // Todo: 例外処理
         if (json is JsonObject obj)
         {
-            IEnumerable<PropertyDefine> list = PropertyRegistry.GetRegistered(GetType())
-                .Where(p => p.GetJsonName() != null);
-
-            foreach (PropertyDefine item in list)
+            IReadOnlyList<PropertyDefine> list = PropertyRegistry.GetRegistered(GetType());
+            for (int i = 0; i < list.Count; i++)
             {
-                if (obj.TryGetPropertyValue(item.GetJsonName()!, out JsonNode? jsonNode) && jsonNode != null)
-                {
-                    Type type = item.PropertyType;
+                PropertyDefine item = list[i];
+                string? jsonName = item.GetJsonName();
+                Type type = item.PropertyType;
 
+                if (jsonName != null &&
+                    obj.TryGetPropertyValue(item.GetJsonName()!, out JsonNode? jsonNode) &&
+                    jsonNode != null)
+                {
                     if (type.IsAssignableTo(typeof(IJsonSerializable)))
                     {
                         var sobj = (IJsonSerializable?)Activator.CreateInstance(type);
@@ -366,27 +362,28 @@ public abstract class Element : IElement
             JsonNode = json;
         }
 
-        IEnumerable<PropertyDefine> list = PropertyRegistry.GetRegistered(GetType())
-            .Where(p => p.GetJsonName() != null);
-
-        foreach (PropertyDefine item in list)
+        IReadOnlyList<PropertyDefine> list = PropertyRegistry.GetRegistered(GetType());
+        for (int i = 0; i < list.Count; i++)
         {
-            object? obj = GetValue(item);
-            object? def = item.GetDefaultValue();
+            PropertyDefine item = list[i];
+            string? jsonName = item.GetJsonName();
+            if (jsonName != null)
+            {
+                object? obj = GetValue(item);
+                object? def = item.GetDefaultValue();
 
-            // デフォルトの値と取得した値が同じ場合、保存しない
-            if (obj != null && def != null && RuntimeHelpers.Equals(def, obj))
-            {
-                continue;
-            }
+                // デフォルトの値と取得した値が同じ場合、保存しない
+                if (RuntimeHelpers.Equals(def, obj))
+                    continue;
 
-            if (obj is IJsonSerializable child)
-            {
-                json[item.GetJsonName()!] = child.ToJson();
-            }
-            else
-            {
-                json[item.GetJsonName()!] = JsonSerializer.SerializeToNode(obj, item.PropertyType, JsonHelper.SerializerOptions);
+                if (obj is IJsonSerializable child)
+                {
+                    json[jsonName] = child.ToJson();
+                }
+                else
+                {
+                    json[jsonName] = JsonSerializer.SerializeToNode(obj, item.PropertyType, JsonHelper.SerializerOptions);
+                }
             }
         }
 
