@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Controls.Notifications;
 using Avalonia.Input;
 
 using BEditorNext.Pages;
@@ -20,6 +21,8 @@ public sealed partial class MainWindow : CoreWindow
     public MainWindow()
     {
         InitializeComponent();
+
+        // タイトルバーの設定
         if (OperatingSystem.IsWindows())
         {
             ((ICoreApplicationView)this).TitleBar.ExtendViewIntoTitleBar = true;
@@ -27,6 +30,7 @@ public sealed partial class MainWindow : CoreWindow
             TitleBarArea.PointerPressed += TitleBarArea_PointerPressed;
         }
 
+        // NavigationViewの設定
         EditPageItem.Tag = new EditPage();
         SettingsPageItem.Tag = new SettingsPage();
 
@@ -34,10 +38,17 @@ public sealed partial class MainWindow : CoreWindow
         Navi.ItemInvoked += NavigationView_ItemInvoked;
 
         NaviContent.Content = EditPageItem.Tag;
+
+        NotificationManager = new WindowNotificationManager(this)
+        {
+            Position = NotificationPosition.BottomRight
+        };
 #if DEBUG
         this.AttachDevTools();
 #endif
     }
+
+    public WindowNotificationManager NotificationManager { get; }
 
     protected override void OnDataContextChanged(EventArgs e)
     {

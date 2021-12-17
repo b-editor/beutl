@@ -1,5 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
     <ProjectReference Include="..\BEditorNext.ProjectSystem\BEditorNext.ProjectSystem.csproj" />
+    <ProjectReference Include="..\BEditorNext.Framework\BEditorNext.Framework.csproj" />
   </ItemGroup>
 </Project>

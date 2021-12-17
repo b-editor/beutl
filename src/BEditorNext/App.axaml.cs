@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 
+using BEditorNext.Framework.Service;
 using BEditorNext.Operations;
 using BEditorNext.Services;
 using BEditorNext.ViewModels;
@@ -21,7 +22,9 @@ namespace BEditorNext
         public override void RegisterServices()
         {
             base.RegisterServices();
-            ServiceLocator.Current.BindToSelfSingleton<ProjectService>();
+            ServiceLocator.Current.BindToSelfSingleton<ProjectService>()
+                .Bind<INotificationService>().ToSingleton<NotificationService>();
+
             RenderOperations.RegisterAll();
             UIDispatcherScheduler.Initialize();
         }
