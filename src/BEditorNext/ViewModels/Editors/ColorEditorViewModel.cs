@@ -21,7 +21,5 @@ public sealed class ColorEditorViewModel : BaseEditorViewModel<Color>
             .AddTo(Disposables);
     }
 
-    //public ReadOnlyReactivePropertySlim<Color> Value { get; }
-
     public ReadOnlyReactivePropertySlim<Color2> Value { get; }
 }

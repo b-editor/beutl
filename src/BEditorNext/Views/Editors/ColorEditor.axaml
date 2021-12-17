@@ -15,20 +15,6 @@
             HorizontalAlignment="Left"
             VerticalAlignment="Center" />
 
-        <!--<TextBox
-            x:Name="textBox"
-            Grid.Column="1"
-            Text="{Binding Value.Value, Mode=OneWay}">
-            <TextBox.Styles>
-                <Style Selector="TextBox">
-                    <Setter Property="Margin" Value="4" />
-                    <Setter Property="HorizontalAlignment" Value="Stretch" />
-                    <Setter Property="VerticalAlignment" Value="Stretch" />
-                    <Setter Property="VerticalContentAlignment" Value="Center" />
-                </Style>
-            </TextBox.Styles>
-        </TextBox>-->
-
         <ui:ColorPickerButton
             x:Name="colorPicker"
             Color="{CompiledBinding Value.Value, Mode=OneWay}"
