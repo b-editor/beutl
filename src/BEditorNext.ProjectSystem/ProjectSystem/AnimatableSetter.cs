@@ -42,6 +42,16 @@ public class AnimatableSetter<T> : Setter<T>, IAnimatableSetter
 
     public void SetProperty(TimeSpan progress)
     {
+        void EaseAndSet(Animation<T> animation, float progress)
+        {
+            // イージングする
+            float ease = animation.Easing.Ease(progress);
+            // 値を補間する
+            T value = animation.Animator.Interpolate(ease, animation.Previous, animation.Next);
+            // 値をセット
+            Parent.SetValue(Property, value);
+        }
+
         if (_children.Count < 1)
         {
             Parent.SetValue(Property, Value);
@@ -58,12 +68,7 @@ public class AnimatableSetter<T> : Setter<T>, IAnimatableSetter
                 {
                     // 相対的なTimeSpan
                     TimeSpan time = progress - cur;
-                    // イージングする
-                    float ease = item.Easing.Ease((float)(time / item.Duration));
-                    // 値を補間する
-                    T value = item.Animator.Interpolate(ease, item.Previous, item.Next);
-                    // 値をセット
-                    Parent.SetValue(Property, value);
+                    EaseAndSet(item, (float)(time / item.Duration));
                     return;
                 }
                 else
@@ -71,6 +76,8 @@ public class AnimatableSetter<T> : Setter<T>, IAnimatableSetter
                     cur = next;
                 }
             }
+
+            EaseAndSet(_children[^1], 1);
         }
     }
 
@@ -78,7 +85,7 @@ public class AnimatableSetter<T> : Setter<T>, IAnimatableSetter
     {
         ArgumentNullException.ThrowIfNull(animation);
 
-        animation.SetParent(this);
+        animation.SetLogicalParent(this);
         if (recorder == null)
         {
             Children.Add(animation);
@@ -107,7 +114,7 @@ public class AnimatableSetter<T> : Setter<T>, IAnimatableSetter
     {
         ArgumentNullException.ThrowIfNull(animation);
 
-        animation.SetParent(this);
+        animation.SetLogicalParent(this);
         if (recorder == null)
         {
             Children.Insert(index, animation);
@@ -131,7 +138,7 @@ public class AnimatableSetter<T> : Setter<T>, IAnimatableSetter
                     if (item is JsonObject jobj)
                     {
                         var anm = new Animation<T>();
-                        anm.SetParent(this);
+                        anm.SetLogicalParent(this);
                         anm.FromJson(jobj);
                         _children.Add(anm);
                     }
