@@ -2,27 +2,30 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Input;
-using Avalonia.Interactivity;
-using Avalonia.Markup.Xaml;
 
-using BEditorNext.Controls;
 using BEditorNext.Pages;
 using BEditorNext.Services;
 using BEditorNext.ViewModels;
 using BEditorNext.Views.Dialogs;
 
+using FluentAvalonia.Core.ApplicationModel;
 using FluentAvalonia.UI.Controls;
 
 using Microsoft.Extensions.DependencyInjection;
 
 namespace BEditorNext.Views;
 
-public sealed partial class MainWindow : FluentWindow
+public sealed partial class MainWindow : CoreWindow
 {
     public MainWindow()
     {
         InitializeComponent();
-        TitleBarArea.PointerPressed += TitleBarArea_PointerPressed;
+        if (OperatingSystem.IsWindows())
+        {
+            ((ICoreApplicationView)this).TitleBar.ExtendViewIntoTitleBar = true;
+            SetTitleBar(Titlebar);
+            TitleBarArea.PointerPressed += TitleBarArea_PointerPressed;
+        }
 
         EditPageItem.Tag = new EditPage();
         SettingsPageItem.Tag = new SettingsPage();
