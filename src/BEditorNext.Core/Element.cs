@@ -245,7 +245,7 @@ public abstract class Element : IElement
 
     public TValue GetValue<TValue>(PropertyDefine<TValue> property)
     {
-        if (CheckOwnerType(property))
+        if (ValidateOwnerType(property))
         {
             throw new ElementException("Owner does not match.");
         }
@@ -272,10 +272,10 @@ public abstract class Element : IElement
 
     public void SetValue<TValue>(PropertyDefine<TValue> property, TValue? value)
     {
-        if (value != null && CheckValueType(property, value))
+        if (value != null && !value.GetType().IsAssignableTo(property.PropertyType))
             throw new ElementException($"{nameof(value)} of type {value.GetType().Name} cannot be assigned to type {property.PropertyType}.");
 
-        if (CheckOwnerType(property)) throw new ElementException("Owner does not match.");
+        if (ValidateOwnerType(property)) throw new ElementException("Owner does not match.");
 
         if (property.HasSetter)
         {
@@ -460,16 +460,8 @@ public abstract class Element : IElement
         }
     }
 
-    // 値の型が一致しない場合はtrue
-    private static bool CheckValueType(PropertyDefine property, object value)
-    {
-        Type valueType = value.GetType();
-
-        return !valueType.IsAssignableTo(property.PropertyType);
-    }
-
     // オーナーの型が一致しない場合はtrue
-    private bool CheckOwnerType(PropertyDefine property)
+    private bool ValidateOwnerType(PropertyDefine property)
     {
         Type ownerType = GetType();
 
