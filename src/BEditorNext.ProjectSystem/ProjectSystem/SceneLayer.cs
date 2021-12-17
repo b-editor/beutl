@@ -1,6 +1,7 @@
 ﻿using System.Text.Json;
 using System.Text.Json.Nodes;
 
+using BEditorNext.Commands;
 using BEditorNext.Media;
 
 namespace BEditorNext.ProjectSystem;
@@ -113,8 +114,7 @@ public class SceneLayer : Element, IStorable
         }
         else
         {
-            var command = new AddCommand(this, operation, Children.Count);
-            recorder.DoAndPush(command);
+            recorder.DoAndPush(new AddCommand<Element>(Children, operation, Children.Count));
         }
     }
 
@@ -128,8 +128,7 @@ public class SceneLayer : Element, IStorable
         }
         else
         {
-            var command = new RemoveCommand(this, operation);
-            recorder.DoAndPush(command);
+            recorder.DoAndPush(new RemoveCommand<Element>(Children, operation));
         }
     }
 
@@ -143,8 +142,7 @@ public class SceneLayer : Element, IStorable
         }
         else
         {
-            var command = new AddCommand(this, operation, index);
-            recorder.DoAndPush(command);
+            recorder.DoAndPush(new AddCommand<Element>(Children, operation, index));
         }
     }
 
@@ -259,68 +257,6 @@ public class SceneLayer : Element, IStorable
         return node;
     }
 
-    private sealed class AddCommand : IRecordableCommand
-    {
-        private readonly SceneLayer _layer;
-        private readonly RenderOperation _operation;
-        private readonly int _index;
-
-        public AddCommand(SceneLayer layer, RenderOperation operation, int index)
-        {
-            _layer = layer;
-            _operation = operation;
-            _index = index;
-        }
-
-        public ResourceReference<string> Name => "AddRenderOperationString";
-
-        public void Do()
-        {
-            _layer.Children.Insert(_index, _operation);
-        }
-
-        public void Redo()
-        {
-            Do();
-        }
-
-        public void Undo()
-        {
-            _layer.Children.Remove(_operation);
-        }
-    }
-
-    private sealed class RemoveCommand : IRecordableCommand
-    {
-        private readonly SceneLayer _layer;
-        private readonly RenderOperation _operation;
-        private int _oldIndex;
-
-        public RemoveCommand(SceneLayer layer, RenderOperation operation)
-        {
-            _layer = layer;
-            _operation = operation;
-        }
-
-        public ResourceReference<string> Name => "ResourceRenderOperationString";
-
-        public void Do()
-        {
-            _oldIndex = _layer.Children.IndexOf(_operation);
-            _layer.Children.Remove(_operation);
-        }
-
-        public void Redo()
-        {
-            Do();
-        }
-
-        public void Undo()
-        {
-            _layer.Children.Insert(_oldIndex, _operation);
-        }
-    }
-
     private sealed class UpdateTimeCommand : IRecordableCommand
     {
         private readonly SceneLayer _layer;
@@ -353,42 +289,6 @@ public class SceneLayer : Element, IStorable
         {
             _layer.Start = _oldStart;
             _layer.Length = _oldLength;
-        }
-    }
-
-    internal static class TypeResolver
-    {
-        public static Type? ToType(string fullName)
-        {
-            string[] arr = fullName.Split(':');
-
-            if (arr.Length == 1)
-            {
-                return Type.GetType(arr[0]);
-            }
-            else if (arr.Length == 2)
-            {
-                return Type.GetType($"{arr[0]}, {arr[1]}");
-            }
-            else
-            {
-                return null;
-            }
-        }
-
-        public static string ToString(Type type)
-        {
-            string? asm = type.Assembly.GetName().Name;
-            string tname = type.FullName!;
-
-            if (asm == null)
-            {
-                return tname;
-            }
-            else
-            {
-                return $"{tname}:{asm}";
-            }
         }
     }
 }

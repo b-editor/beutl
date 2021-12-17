@@ -79,6 +79,9 @@
         <!--Command-->
         <x:String x:Key="AddRenderOperationString">Add a render operation.</x:String>
         <x:String x:Key="RemoveRenderOperationString">Remove a render operation.</x:String>
+        <x:String x:Key="AddItemString">Add a item.</x:String>
+        <x:String x:Key="RemoveItemString">Remove a item.</x:String>
+        <x:String x:Key="ChangePropertyString">Change property.</x:String>
 
         <!--ValidationError-->
         <x:String x:Key="CannotSpecifyValueLessThanOrEqualToZeroString">Cannot specify a value less than or equal to 0.</x:String>

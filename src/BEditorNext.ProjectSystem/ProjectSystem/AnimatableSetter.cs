@@ -2,6 +2,7 @@
 using System.Text.Json.Nodes;
 
 using BEditorNext.Animation;
+using BEditorNext.Commands;
 using BEditorNext.Collections;
 
 namespace BEditorNext.ProjectSystem;
@@ -84,7 +85,7 @@ public class AnimatableSetter<T> : Setter<T>, IAnimatableSetter
         }
         else
         {
-            recorder.DoAndPush(new AddCommand(this, animation, Children.Count));
+            recorder.DoAndPush(new AddCommand<Animation<T>>(_children, animation, Children.Count));
         }
     }
 
@@ -98,7 +99,7 @@ public class AnimatableSetter<T> : Setter<T>, IAnimatableSetter
         }
         else
         {
-            recorder.DoAndPush(new RemoveCommand(this, animation));
+            recorder.DoAndPush(new RemoveCommand<Animation<T>>(_children, animation));
         }
     }
 
@@ -113,7 +114,7 @@ public class AnimatableSetter<T> : Setter<T>, IAnimatableSetter
         }
         else
         {
-            recorder.DoAndPush(new AddCommand(this, animation, index));
+            recorder.DoAndPush(new AddCommand<Animation<T>>(_children, animation, index));
         }
     }
 
@@ -181,63 +182,5 @@ public class AnimatableSetter<T> : Setter<T>, IAnimatableSetter
     void IAnimatableSetter.InsertChild(int index, IAnimation animation, CommandRecorder? recorder)
     {
         InsertChild(index, (Animation<T>)animation, recorder);
-    }
-
-    private sealed class AddCommand : IRecordableCommand
-    {
-        private readonly AnimatableSetter<T> _setter;
-        private readonly Animation<T> _animation;
-        private readonly int _index;
-
-        public AddCommand(AnimatableSetter<T> setter, Animation<T> animation, int index)
-        {
-            _setter = setter;
-            _animation = animation;
-            _index = index;
-        }
-
-        public void Do()
-        {
-            _setter.Children.Insert(_index, _animation);
-        }
-
-        public void Redo()
-        {
-            Do();
-        }
-
-        public void Undo()
-        {
-            _setter.Children.Remove(_animation);
-        }
-    }
-
-    private sealed class RemoveCommand : IRecordableCommand
-    {
-        private readonly AnimatableSetter<T> _setter;
-        private readonly Animation<T> _animation;
-        private int _index;
-
-        public RemoveCommand(AnimatableSetter<T> setter, Animation<T> animation)
-        {
-            _setter = setter;
-            _animation = animation;
-        }
-
-        public void Do()
-        {
-            _index = _setter.Children.IndexOf(_animation);
-            _setter.Children.Remove(_animation);
-        }
-
-        public void Redo()
-        {
-            Do();
-        }
-
-        public void Undo()
-        {
-            _setter.Children.Insert(_index, _animation);
-        }
     }
 }

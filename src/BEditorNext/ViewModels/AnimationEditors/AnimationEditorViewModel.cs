@@ -1,17 +1,13 @@
-﻿using System;
-using System.Collections;
-using System.Collections.Generic;
+﻿using System.Collections;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
-using System.Security.Cryptography;
 
 using BEditorNext.Animation;
 using BEditorNext.Animation.Easings;
+using BEditorNext.Commands;
 using BEditorNext.ProjectSystem;
 using BEditorNext.ViewModels.Editors;
-
-using FluentAvalonia.Core;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
@@ -66,19 +62,19 @@ public abstract class AnimationEditorViewModel : IDisposable
 
     public void SetDuration(TimeSpan old, TimeSpan @new)
     {
-        CommandRecorder.Default.PushOnly(new SetDurationCommand(Animation, @new, old));
+        CommandRecorder.Default.PushOnly(new ChangePropertyCommand<TimeSpan>(Animation, BaseAnimation.DurationProperty, @new, old));
     }
 
     public void SetEasing(Easing old, Easing @new)
     {
-        CommandRecorder.Default.DoAndPush(new SetEasingCommand(Animation, @new, old));
+        CommandRecorder.Default.DoAndPush(new ChangePropertyCommand<Easing>(Animation, BaseAnimation.EasingProperty, @new, old));
     }
 
     public void Move(int newIndex, int oldIndex)
     {
         if (Setter.Children is IList list)
         {
-            CommandRecorder.Default.PushOnly(new MoveAnimationCommand(list, newIndex, oldIndex));
+            CommandRecorder.Default.PushOnly(new MoveCommand(list, newIndex, oldIndex));
         }
     }
 
@@ -128,97 +124,6 @@ public abstract class AnimationEditorViewModel : IDisposable
     {
         Disposables.Dispose();
     }
-
-    private sealed class SetDurationCommand : IRecordableCommand
-    {
-        private readonly IAnimation _animation;
-        private readonly TimeSpan _newDuration;
-        private readonly TimeSpan _oldDuration;
-
-        public SetDurationCommand(IAnimation animation, TimeSpan newDuration, TimeSpan oldDuration)
-        {
-            _animation = animation;
-            _newDuration = newDuration;
-            _oldDuration = oldDuration;
-        }
-
-        public void Do()
-        {
-            _animation.Duration = _newDuration;
-        }
-
-        public void Redo()
-        {
-            Do();
-        }
-
-        public void Undo()
-        {
-            _animation.Duration = _oldDuration;
-        }
-    }
-
-    private sealed class SetEasingCommand : IRecordableCommand
-    {
-        private readonly IAnimation _animation;
-        private readonly Easing _newEasing;
-        private readonly Easing _oldEasing;
-
-        public SetEasingCommand(IAnimation animation, Easing newEasing, Easing oldEasing)
-        {
-            _animation = animation;
-            _newEasing = newEasing;
-            _oldEasing = oldEasing;
-        }
-
-        public void Do()
-        {
-            _animation.Easing = _newEasing;
-        }
-
-        public void Redo()
-        {
-            Do();
-        }
-
-        public void Undo()
-        {
-            _animation.Easing = _oldEasing;
-        }
-    }
-
-    private sealed class MoveAnimationCommand : IRecordableCommand
-    {
-        private readonly IList _list;
-        private readonly int _newIndex;
-        private readonly int _oldIndex;
-
-        public MoveAnimationCommand(IList list, int newIndex, int oldIndex)
-        {
-            _list = list;
-            _newIndex = newIndex;
-            _oldIndex = oldIndex;
-        }
-
-        public void Do()
-        {
-            object? item = _list[_oldIndex];
-            _list.RemoveAt(_oldIndex);
-            _list.Insert(_newIndex, item);
-        }
-
-        public void Redo()
-        {
-            Do();
-        }
-
-        public void Undo()
-        {
-            object? item = _list[_newIndex];
-            _list.RemoveAt(_newIndex);
-            _list.Insert(_oldIndex, item);
-        }
-    }
 }
 
 public class AnimationEditorViewModel<T> : AnimationEditorViewModel
@@ -258,69 +163,11 @@ public class AnimationEditorViewModel<T> : AnimationEditorViewModel
 
     public void SetPrevious(T oldValue, T newValue)
     {
-        CommandRecorder.Default.DoAndPush(new SetPreviousCommand(Animation, oldValue, newValue));
+        CommandRecorder.Default.DoAndPush(new ChangePropertyCommand<T>(Animation, Animation<T>.PreviousProperty, newValue, oldValue));
     }
 
     public void SetNext(T oldValue, T newValue)
     {
-        CommandRecorder.Default.DoAndPush(new SetNextCommand(Animation, oldValue, newValue));
-    }
-
-    private sealed class SetPreviousCommand : IRecordableCommand
-    {
-        private readonly Animation<T> _animation;
-        private readonly T _oldValue;
-        private readonly T _newValue;
-
-        public SetPreviousCommand(Animation<T> animation, T oldValue, T newValue)
-        {
-            _animation = animation;
-            _oldValue = oldValue;
-            _newValue = newValue;
-        }
-
-        public void Do()
-        {
-            _animation.Previous = _newValue;
-        }
-
-        public void Redo()
-        {
-            Do();
-        }
-
-        public void Undo()
-        {
-            _animation.Previous = _oldValue;
-        }
-    }
-
-    private sealed class SetNextCommand : IRecordableCommand
-    {
-        private readonly Animation<T> _animation;
-        private readonly T _oldValue;
-        private readonly T _newValue;
-
-        public SetNextCommand(Animation<T> animation, T oldValue, T newValue)
-        {
-            _animation = animation;
-            _oldValue = oldValue;
-            _newValue = newValue;
-        }
-
-        public void Do()
-        {
-            _animation.Next = _newValue;
-        }
-
-        public void Redo()
-        {
-            Do();
-        }
-
-        public void Undo()
-        {
-            _animation.Next = _oldValue;
-        }
+        CommandRecorder.Default.DoAndPush(new ChangePropertyCommand<T>(Animation, Animation<T>.NextProperty, newValue, oldValue));
     }
 }

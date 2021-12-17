@@ -14,6 +14,7 @@ using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Media.Transformation;
 using Avalonia.Xaml.Interactivity;
 
+using BEditorNext.Commands;
 using BEditorNext.ProjectSystem;
 using BEditorNext.Services;
 
@@ -331,40 +332,7 @@ public partial class OperationEditor : UserControl
 
         if (operation.FindLogicalParent<SceneLayer>()?.Children is IList list)
         {
-            CommandRecorder.Default.PushOnly(new MoveAnimationCommand(list, newIndex, oldIndex));
-        }
-    }
-
-    private sealed class MoveAnimationCommand : IRecordableCommand
-    {
-        private readonly IList _list;
-        private readonly int _newIndex;
-        private readonly int _oldIndex;
-
-        public MoveAnimationCommand(IList list, int newIndex, int oldIndex)
-        {
-            _list = list;
-            _newIndex = newIndex;
-            _oldIndex = oldIndex;
-        }
-
-        public void Do()
-        {
-            object? item = _list[_oldIndex];
-            _list.RemoveAt(_oldIndex);
-            _list.Insert(_newIndex, item);
-        }
-
-        public void Redo()
-        {
-            Do();
-        }
-
-        public void Undo()
-        {
-            object? item = _list[_newIndex];
-            _list.RemoveAt(_newIndex);
-            _list.Insert(_oldIndex, item);
+            CommandRecorder.Default.PushOnly(new MoveCommand(list, newIndex, oldIndex));
         }
     }
 

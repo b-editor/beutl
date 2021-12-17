@@ -59,6 +59,9 @@
         <!--Command-->
         <x:String x:Key="AddRenderOperationString">Render operationを追加</x:String>
         <x:String x:Key="RemoveRenderOperationString">Render operationを削除</x:String>
+        <x:String x:Key="AddItemString">アイテムを追加</x:String>
+        <x:String x:Key="RemoveItemString">アイテムを削除</x:String>
+        <x:String x:Key="ChangePropertyString">プロパティを変更</x:String>
 
         <!--ValidationError-->
         <x:String x:Key="CannotSpecifyValueLessThanOrEqualToZeroString">0以下の値は指定できません。</x:String>
