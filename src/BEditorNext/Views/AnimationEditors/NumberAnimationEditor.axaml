@@ -5,38 +5,38 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d" d:DesignWidth="300"
     x:Class="BEditorNext.Views.AnimationEditors.NumberAnimationEditor">
-    <Grid ColumnDefinitions="2*,3*,Auto">
+    <Grid ColumnDefinitions="2*,3*,Auto" RowDefinitions="*,*">
+        <Grid.Styles>
+            <Style Selector="TextBox">
+                <Setter Property="Margin" Value="4" />
+                <Setter Property="HorizontalAlignment" Value="Stretch" />
+                <Setter Property="VerticalAlignment" Value="Stretch" />
+                <Setter Property="VerticalContentAlignment" Value="Center" />
+            </Style>
+        </Grid.Styles>
         <TextBlock
             Margin="10,0,0,0"
             Text="{Binding Header.Value}"
             HorizontalAlignment="Left"
             VerticalAlignment="Center" />
 
-        <Grid Grid.Column="1" RowDefinitions="*,*" ColumnDefinitions="24,*,Auto">
-            <Grid.Styles>
-                <Style Selector="TextBox">
-                    <Setter Property="Margin" Value="4" />
-                    <Setter Property="HorizontalAlignment" Value="Stretch" />
-                    <Setter Property="VerticalAlignment" Value="Stretch" />
-                    <Setter Property="VerticalContentAlignment" Value="Center" />
-                </Style>
-            </Grid.Styles>
+        <Grid Grid.Column="1" ColumnDefinitions="24,*,Auto">
 
             <FluentIconRegular IconType="Arrow_Left" Width="16" Height="16" />
-
-            <FluentIconRegular Grid.Row="1" IconType="Arrow_Right" Width="16" Height="16" />
 
             <TextBox
                 Grid.Column="1"
                 x:Name="prevTextBox"
                 Text="{Binding Animation.Previous, Mode=OneWay}" />
+        </Grid>
+
+        <Grid Grid.Column="1" Grid.Row="1" ColumnDefinitions="24,*,Auto">
+            <FluentIconRegular IconType="Arrow_Right" Width="16" Height="16" />
 
             <TextBox
                 Grid.Column="1"
-                Grid.Row="1"
                 x:Name="nextTextBox"
                 Text="{Binding Animation.Next, Mode=OneWay}" />
-
         </Grid>
     </Grid>
 </UserControl>

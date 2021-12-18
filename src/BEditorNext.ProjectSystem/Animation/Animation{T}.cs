@@ -57,7 +57,27 @@ public class Animation<T> : BaseAnimation, IAnimation
 
     Animator IAnimation.Animator => Animator;
 
-    object IAnimation.Previous => Previous;
+    object IAnimation.Previous
+    {
+        get => Previous;
+        set
+        {
+            if (value is T typedValue)
+            {
+                Previous = typedValue;
+            }
+        }
+    }
 
-    object IAnimation.Next => Next;
+    object IAnimation.Next
+    {
+        get => Next;
+        set
+        {
+            if (value is T typedValue)
+            {
+                Next = typedValue;
+            }
+        }
+    }
 }

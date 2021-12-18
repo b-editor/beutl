@@ -19,21 +19,21 @@
                     <Setter Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
                 </Style>
             </Grid.Styles>
+            <Grid.ContextMenu>
+                <ContextMenu>
+                    <MenuItem Header="{DynamicResource RemoveString}" Command="{Binding RemoveCommand}">
+                        <MenuItem.Icon>
+                            <FluentIconRegular IconType="Delete" Classes="Small" />
+                        </MenuItem.Icon>
+                    </MenuItem>
+                    <MenuItem Header="{DynamicResource EditString}" Click="Edit_Click">
+                        <MenuItem.Icon>
+                            <FluentIconRegular IconType="Edit_Settings" Classes="Small" />
+                        </MenuItem.Icon>
+                    </MenuItem>
+                </ContextMenu>
+            </Grid.ContextMenu>
             <Panel Background="{DynamicResource ControlFillColorDefaultBrush}">
-                <Panel.ContextMenu>
-                    <ContextMenu>
-                        <MenuItem Header="{DynamicResource RemoveString}" Command="{Binding RemoveCommand}">
-                            <MenuItem.Icon>
-                                <FluentIconRegular IconType="Delete" Classes="Small" />
-                            </MenuItem.Icon>
-                        </MenuItem>
-                        <MenuItem Header="{DynamicResource EditString}" Click="Edit_Click">
-                            <MenuItem.Icon>
-                                <FluentIconRegular IconType="Edit_Settings" Classes="Small" />
-                            </MenuItem.Icon>
-                        </MenuItem>
-                    </ContextMenu>
-                </Panel.ContextMenu>
                 <Border
                     Cursor="SizeWestEast"
                     x:Name="dragBorder"

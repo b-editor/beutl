@@ -10,7 +10,7 @@ public interface IAnimation : IElement
 
     public Animator Animator { get; }
 
-    public object Previous { get; }
+    public object Previous { get; set; }
 
-    public object Next { get; }
+    public object Next { get; set; }
 }

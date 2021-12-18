@@ -89,6 +89,14 @@ public abstract class AnimationEditorViewModel : IDisposable
             {
                 animation.Easing = easing;
                 animation.Duration = TimeSpan.FromSeconds(2);
+                object? defaultValue = Setter.Property.GetDefaultValue();
+
+                if (defaultValue != null)
+                {
+                    animation.Previous = defaultValue;
+                    animation.Next = defaultValue;
+                }
+
                 Setter.InsertChild(index, animation, CommandRecorder.Default);
             }
         }
@@ -105,6 +113,14 @@ public abstract class AnimationEditorViewModel : IDisposable
             {
                 animation.Easing = easing;
                 animation.Duration = TimeSpan.FromSeconds(2);
+                object? defaultValue = Setter.Property.GetDefaultValue();
+
+                if (defaultValue != null)
+                {
+                    animation.Previous = defaultValue;
+                    animation.Next = defaultValue;
+                }
+
                 Setter.InsertChild(index + 1, animation, CommandRecorder.Default);
             }
         }

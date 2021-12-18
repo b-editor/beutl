@@ -1,0 +1,39 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:vm="using:BEditorNext.ViewModels.AnimationEditors"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:DataType="vm:ColorAnimationEditorViewModel"
+             x:Class="BEditorNext.Views.AnimationEditors.ColorAnimationEditor">
+    <Grid ColumnDefinitions="2*,3*,Auto" RowDefinitions="*,*">
+        <TextBlock
+            Margin="10,0,0,0"
+            Text="{CompiledBinding Header.Value}"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Center" />
+
+        <Grid Grid.Column="1" ColumnDefinitions="24,*,Auto">
+            <FluentIconRegular IconType="Arrow_Left" Width="16" Height="16" />
+
+            <ui:ColorPickerButton
+                x:Name="prevColorPicker"
+                Color="{CompiledBinding Previous.Value, Mode=OneWay}"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Center"
+                Grid.Column="1" />
+        </Grid>
+        
+        <Grid Grid.Column="1" Grid.Row="1" ColumnDefinitions="24,*,Auto">
+            <FluentIconRegular IconType="Arrow_Right" Width="16" Height="16" />
+
+            <ui:ColorPickerButton
+                x:Name="nextColorPicker"
+                Color="{CompiledBinding Next.Value, Mode=OneWay}"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Center"
+                Grid.Column="1" />
+        </Grid>
+    </Grid>
+</UserControl>

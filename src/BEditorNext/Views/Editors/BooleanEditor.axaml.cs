@@ -5,7 +5,7 @@ using BEditorNext.ViewModels.Editors;
 
 namespace BEditorNext.Views.Editors;
 
-public partial class BooleanEditor : UserControl
+public sealed partial class BooleanEditor : UserControl
 {
     public BooleanEditor()
     {
@@ -20,8 +20,6 @@ public partial class BooleanEditor : UserControl
             return;
         }
 
-        vm.SetValue(
-            vm.Value.Value,
-            checkBox.IsChecked ?? vm.Setter.Property.GetDefaultValue());
+        vm.SetValue(vm.Value.Value, checkBox.IsChecked ?? vm.Setter.Property.GetDefaultValue());
     }
 }

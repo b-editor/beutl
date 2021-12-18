@@ -6,7 +6,7 @@ using FluentAvalonia.UI.Controls;
 
 namespace BEditorNext.Views.Editors;
 
-public partial class ColorEditor : UserControl
+public sealed partial class ColorEditor : UserControl
 {
     public ColorEditor()
     {
@@ -18,9 +18,7 @@ public partial class ColorEditor : UserControl
     {
         if (DataContext is ColorEditorViewModel vm)
         {
-            vm.SetValue(
-                vm.Setter.Value,
-                ((Avalonia.Media.Color)e.NewColor).ToMedia());
+            vm.SetValue(vm.Setter.Value, ((Avalonia.Media.Color)e.NewColor).ToMedia());
         }
     }
 }
