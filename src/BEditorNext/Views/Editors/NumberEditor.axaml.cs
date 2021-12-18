@@ -18,7 +18,7 @@ public partial class NumberEditor : UserControl
     }
 }
 
-public class NumberEditor<T> : NumberEditor
+public sealed class NumberEditor<T> : NumberEditor
     where T : struct
 {
     private T _oldValue;
