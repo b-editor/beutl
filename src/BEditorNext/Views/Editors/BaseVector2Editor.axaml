@@ -6,44 +6,43 @@
              xmlns:local="using:BEditorNext.Views.Editors"
              mc:Ignorable="d" d:DesignWidth="300"
              x:Class="BEditorNext.Views.Editors.BaseVector2Editor">
-    <Grid ColumnDefinitions="2*,3*,Auto">
+    <Grid RowDefinitions="*,*" ColumnDefinitions="2*,3*,Auto">
+        <Grid.Styles>
+            <Style Selector="TextBox">
+                <Setter Property="Margin" Value="4" />
+                <Setter Property="HorizontalAlignment" Value="Stretch" />
+                <Setter Property="VerticalAlignment" Value="Stretch" />
+                <Setter Property="VerticalContentAlignment" Value="Center" />
+            </Style>
+        </Grid.Styles>
+
         <TextBlock
             Margin="10,0,0,0"
             Text="{Binding Header.Value}"
             HorizontalAlignment="Left"
             VerticalAlignment="Center" />
 
-        <Grid Grid.Column="1" RowDefinitions="*,*" ColumnDefinitions="*,2*">
-            <Grid.Styles>
-                <Style Selector="TextBox">
-                    <Setter Property="Margin" Value="4" />
-                    <Setter Property="HorizontalAlignment" Value="Stretch" />
-                    <Setter Property="VerticalAlignment" Value="Stretch" />
-                    <Setter Property="VerticalContentAlignment" Value="Center" />
-                </Style>
-            </Grid.Styles>
-
+        <Grid Grid.Column="1" ColumnDefinitions="*,2*">
             <TextBlock
                 Margin="4,0"
                 VerticalAlignment="Center"
                 x:Name="xText" />
 
+            <TextBox
+                Grid.Column="1"
+                x:Name="xTextBox" />
+        </Grid>
+        <Grid Grid.Column="1" Grid.Row="1" ColumnDefinitions="*,2*">
             <TextBlock
                 Margin="4,0"
-                Grid.Row="1"
                 VerticalAlignment="Center"
                 x:Name="yText" />
 
             <TextBox
                 Grid.Column="1"
-                x:Name="xTextBox" />
-
-            <TextBox
-                Grid.Column="1"
-                Grid.Row="1"
                 x:Name="yTextBox" />
-
         </Grid>
+
         <local:EditorBadge
             Grid.Column="2"
             VerticalAlignment="Top"
