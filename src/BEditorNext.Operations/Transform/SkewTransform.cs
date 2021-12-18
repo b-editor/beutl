@@ -35,7 +35,7 @@ public sealed class SkewTransform : RenderOperation
         {
             if (args.List[i] is RenderableBitmap bmp)
             {
-                bmp.Transform *= Matrix3x2.CreateSkew(MathHelper.ToRadians(SkewX), MathHelper.ToRadians(SkewY));
+                bmp.Transform = Matrix3x2.CreateSkew(MathHelper.ToRadians(SkewX), MathHelper.ToRadians(SkewY)) * bmp.Transform;
             }
         }
     }

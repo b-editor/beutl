@@ -17,6 +17,7 @@ public static class RenderOperations
             .Register();
 
         RenderOperationRegistry.RegisterOperation<EllipseOperation>("EllipseString");
+        RenderOperationRegistry.RegisterOperation<RectOperation>("RectString");
         RenderOperationRegistry.RegisterOperation<TestOperation>("TestString");
     }
 }

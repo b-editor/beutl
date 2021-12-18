@@ -26,7 +26,7 @@ public sealed class RotateTransform : RenderOperation
         {
             if (args.List[i] is RenderableBitmap bmp)
             {
-                bmp.Transform *= Matrix3x2.CreateRotation(MathHelper.ToRadians(Rotation));
+                bmp.Transform = Matrix3x2.CreateRotation(MathHelper.ToRadians(Rotation)) * bmp.Transform;
             }
         }
     }

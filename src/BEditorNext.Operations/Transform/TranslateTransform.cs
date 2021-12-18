@@ -37,7 +37,7 @@ public sealed class TranslateTransform : RenderOperation
         {
             if (args.List[i] is RenderableBitmap bmp)
             {
-                bmp.Transform *= Matrix3x2.CreateTranslation(X, Y);
+                bmp.Transform = Matrix3x2.CreateTranslation(X, Y) * bmp.Transform;
             }
         }
     }
