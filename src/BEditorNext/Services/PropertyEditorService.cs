@@ -22,12 +22,12 @@ public static class PropertyEditorService
     // pixelrect, rect, thickness, vector3, vector4
     private static readonly Dictionary<Type, Editor> s_editors = new()
     {
-        { typeof(Enum), new(s => (Control?)Activator.CreateInstance(typeof(EnumEditor<>).MakeGenericType(s.Property.PropertyType)), s => Activator.CreateInstance(typeof(EnumEditorViewModel<>).MakeGenericType(s.Property.PropertyType), s)) },
         { typeof(bool), new(_ => new BooleanEditor(), s => new BooleanEditorViewModel((Setter<bool>)s)) },
         { typeof(byte), new(_ => new NumberEditor<byte>(), s => new ByteEditorViewModel((Setter<byte>)s)) },
         { typeof(Color), new(_ => new ColorEditor(), s => new ColorEditorViewModel((Setter<Color>)s)) },
         { typeof(decimal), new(_ => new NumberEditor<decimal>(), s => new DecimalEditorViewModel((Setter<decimal>)s)) },
         { typeof(double), new(_ => new NumberEditor<double>(), s => new DoubleEditorViewModel((Setter<double>)s)) },
+        { typeof(Enum), new(CreateEnumEditor, CreateEnumViewModel) },
         { typeof(float), new(_ => new NumberEditor<float>(), s => new FloatEditorViewModel((Setter<float>)s)) },
         { typeof(short), new(_ => new NumberEditor<short>(), s => new Int16EditorViewModel((Setter<short>)s)) },
         { typeof(int), new(_ => new NumberEditor<int>(), s => new Int32EditorViewModel((Setter<int>)s)) },
@@ -36,6 +36,7 @@ public static class PropertyEditorService
         { typeof(PixelSize), new(_ => new PixelSizeEditor(), s => new PixelSizeEditorViewModel((Setter<PixelSize>)s)) },
         { typeof(Point), new(_ => new PointEditor(), s => new PointEditorViewModel((Setter<Point>)s)) },
         { typeof(sbyte), new(_ => new NumberEditor<sbyte>(), s => new SByteEditorViewModel((Setter<sbyte>)s)) },
+        { typeof(string), new(_ => new StringEditor(), s => new StringEditorViewModel((Setter<string>)s)) },
         { typeof(Size), new(_ => new SizeEditor(), s => new SizeEditorViewModel((Setter<Size>)s)) },
         { typeof(ushort), new(_ => new NumberEditor<ushort>(), s => new UInt16EditorViewModel((Setter<ushort>)s)) },
         { typeof(uint), new(_ => new NumberEditor<uint>(), s => new UInt32EditorViewModel((Setter<uint>)s)) },
@@ -112,5 +113,17 @@ public static class PropertyEditorService
         }
 
         return null;
+    }
+
+    private static Control? CreateEnumEditor(ISetter s)
+    {
+        Type type = typeof(EnumEditor<>).MakeGenericType(s.Property.PropertyType);
+        return (Control?)Activator.CreateInstance(type);
+    }
+
+    private static object? CreateEnumViewModel(ISetter s)
+    {
+        Type type = typeof(EnumEditorViewModel<>).MakeGenericType(s.Property.PropertyType);
+        return Activator.CreateInstance(type, s);
     }
 }

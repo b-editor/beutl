@@ -102,13 +102,13 @@ public static class PropertyDefineExtensions
         return define.SetKeyValue(PropertyMetaTableKeys.GenericsSetter, value);
     }
 
-    public static PropertyDefine<string> FilePicker(this PropertyDefine<string> define, string name, params string[] extensions)
+    public static PropertyDefine<FileInfo> FilePicker(this PropertyDefine<FileInfo> define, string name, params string[] extensions)
     {
         return define.SetKeyValue(PropertyMetaTableKeys.FilePickerName, name)
             .SetKeyValue(PropertyMetaTableKeys.FilePickerName, extensions);
     }
 
-    public static PropertyDefine<string> DirectoryPicker(this PropertyDefine<string> define)
+    public static PropertyDefine<DirectoryInfo> DirectoryPicker(this PropertyDefine<DirectoryInfo> define)
     {
         return define.SetKeyValue(PropertyMetaTableKeys.DirectoryPicker, new object());
     }

@@ -21,6 +21,9 @@ internal class TestOperation : RenderOperation
     public static readonly PropertyDefine<Rect> RectProperty;
     public static readonly PropertyDefine<Size> SizeProperty;
     public static readonly PropertyDefine<Thickness> ThicknessProperty;
+    public static readonly PropertyDefine<Asis> AsisProperty;
+    public static readonly PropertyDefine<string> StringProperty;
+
     //public static readonly PropertyDefine<Vector2> Vector2Property;
     //public static readonly PropertyDefine<Vector3> Vector3Property;
     //public static readonly PropertyDefine<Vector4> Vector4Property;
@@ -88,9 +91,14 @@ internal class TestOperation : RenderOperation
             .JsonName("thickness")
             .EnableEditor();
 
-        RegisterProperty<Asis, TestOperation>("Asis")
+        AsisProperty = RegisterProperty<Asis, TestOperation>("Asis")
             .DefaultValue(Asis.X)
             .JsonName("asis")
+            .EnableEditor();
+
+        StringProperty = RegisterProperty<string, TestOperation>("String")
+            .DefaultValue("")
+            .JsonName("string")
             .EnableEditor();
     }
 
