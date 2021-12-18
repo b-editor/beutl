@@ -22,6 +22,7 @@ public static class PropertyEditorService
     // pixelrect, rect, thickness, vector3, vector4
     private static readonly Dictionary<Type, Editor> s_editors = new()
     {
+        { typeof(Enum), new(s => (Control?)Activator.CreateInstance(typeof(EnumEditor<>).MakeGenericType(s.Property.PropertyType)), s => Activator.CreateInstance(typeof(EnumEditorViewModel<>).MakeGenericType(s.Property.PropertyType), s)) },
         { typeof(bool), new(_ => new BooleanEditor(), s => new BooleanEditorViewModel((Setter<bool>)s)) },
         { typeof(byte), new(_ => new NumberEditor<byte>(), s => new ByteEditorViewModel((Setter<byte>)s)) },
         { typeof(Color), new(_ => new ColorEditor(), s => new ColorEditorViewModel((Setter<Color>)s)) },
@@ -62,9 +63,8 @@ public static class PropertyEditorService
 
     public static Control? CreateEditor(ISetter setter)
     {
-        if (s_editors.ContainsKey(setter.Property.PropertyType))
+        Control? Create(Editor editor)
         {
-            Editor editor = s_editors[setter.Property.PropertyType];
             Control? control = editor.CreateEditor(setter);
 
             if (control != null)
@@ -73,6 +73,20 @@ public static class PropertyEditorService
             }
 
             return control;
+        }
+
+        if (s_editors.ContainsKey(setter.Property.PropertyType))
+        {
+            Editor editor = s_editors[setter.Property.PropertyType];
+            return Create(editor);
+        }
+
+        foreach (KeyValuePair<Type, Editor> item in s_editors)
+        {
+            if (setter.Property.PropertyType.IsAssignableTo(item.Key))
+            {
+                return Create(item.Value);
+            }
         }
 
         return null;

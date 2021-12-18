@@ -1,4 +1,4 @@
-﻿using System.Numerics;
+﻿using System.ComponentModel;
 
 using BEditorNext.Framework.Service;
 using BEditorNext.Graphics;
@@ -45,13 +45,13 @@ internal class TestOperation : RenderOperation
             .Animatable()
             .JsonName("color")
             .EnableEditor();
-        
+
         PixelPointProperty = RegisterProperty<PixelPoint, TestOperation>("PixelPoint")
             .DefaultValue(PixelPoint.Origin)
             .Animatable()
             .JsonName("pixelPoint")
             .EnableEditor();
-        
+
         PixelRectProperty = RegisterProperty<PixelRect, TestOperation>("PixelRect")
             .DefaultValue(PixelRect.Empty)
             .Animatable()
@@ -87,6 +87,11 @@ internal class TestOperation : RenderOperation
             .Animatable()
             .JsonName("thickness")
             .EnableEditor();
+
+        RegisterProperty<Asis, TestOperation>("Asis")
+            .DefaultValue(Asis.X)
+            .JsonName("asis")
+            .EnableEditor();
     }
 
     public TestOperation()
@@ -102,5 +107,13 @@ internal class TestOperation : RenderOperation
 
     public override void Render(in OperationRenderArgs args)
     {
+    }
+
+    public enum Asis
+    {
+        [Description("WidthString")]
+        X,
+        [Description("HeightString")]
+        Y
     }
 }
