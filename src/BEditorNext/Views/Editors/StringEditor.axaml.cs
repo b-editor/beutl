@@ -46,5 +46,4 @@ public sealed partial class StringEditor : UserControl
             vm.Setter.Value = textBox.Text;
         });
     }
-
 }

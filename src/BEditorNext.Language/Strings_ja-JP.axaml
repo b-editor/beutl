@@ -29,6 +29,11 @@
         <x:String x:Key="StrokeWidthString">ストローク幅</x:String>
         <x:String x:Key="WidthString">幅</x:String>
         <x:String x:Key="HeightString">高さ</x:String>
+        <x:String x:Key="LeftString">左</x:String>
+        <x:String x:Key="RightString">右</x:String>
+        <x:String x:Key="TopString">上</x:String>
+        <x:String x:Key="BottomString">下</x:String>
+        <x:String x:Key="CenterString">中央</x:String>
 
         <!--Verb-->
         <x:String x:Key="OpenString">開く</x:String>
@@ -71,6 +76,7 @@
 
         <!--RenderOperationName-->
         <x:String x:Key="EllipseString">楕円</x:String>
+        <x:String x:Key="AlignString">整列</x:String>
         <x:String x:Key="RotateString">回転</x:String>
         <x:String x:Key="ScaleString">スケール</x:String>
         <x:String x:Key="SkewString">歪み</x:String>

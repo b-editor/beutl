@@ -13,6 +13,7 @@ public static class RenderOperations
             .Add<ScaleTransform>("ScaleString")
             .Add<SkewTransform>("SkewString")
             .Add<TranslateTransform>("TranslateString")
+            .Add<AlignOperation>("AlignString")
             .Register();
 
         RenderOperationRegistry.RegisterOperation<EllipseOperation>("EllipseString");

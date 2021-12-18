@@ -49,6 +49,11 @@
         <x:String x:Key="HeightString">Height</x:String>
         <x:String x:Key="XString">X</x:String>
         <x:String x:Key="YString">Y</x:String>
+        <x:String x:Key="LeftString">Left</x:String>
+        <x:String x:Key="RightString">Right</x:String>
+        <x:String x:Key="TopString">Top</x:String>
+        <x:String x:Key="BottomString">Bottom</x:String>
+        <x:String x:Key="CenterString">Center</x:String>
 
         <!--Verb-->
         <x:String x:Key="OpenString">Open</x:String>
@@ -91,6 +96,7 @@
 
         <!--RenderOperationName-->
         <x:String x:Key="EllipseString">Ellipse</x:String>
+        <x:String x:Key="AlignString">Align</x:String>
         <x:String x:Key="RotateString">Rotate</x:String>
         <x:String x:Key="ScaleString">Scale</x:String>
         <x:String x:Key="SkewString">Skew</x:String>

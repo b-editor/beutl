@@ -14,12 +14,11 @@
             <ControlTemplate>
                 <Grid RowDefinitions="*,Auto">
                     <Panel Margin="0">
-                        <!--<view:PreviewerBackground
+                        <Border
                             ClipToBounds="True"
-                            Width="{Binding #image.Bounds.Width}"
-                            Height="{Binding #image.Bounds.Height}"
-                            BackgroundType="{Binding Value, Mode=OneWay}"
-                            DataContext="{Binding App.Project, Mode=OneWay, Converter={StaticResource BackgroundTypeConverter}}"/>-->
+                            Background="Black"
+                            Width="{Binding #PART_Image.Bounds.Width}"
+                            Height="{Binding #PART_Image.Bounds.Height}"/>
 
                         <Image Name="PART_Image" />
                     </Panel>
