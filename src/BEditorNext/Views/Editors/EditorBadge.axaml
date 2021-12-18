@@ -12,6 +12,8 @@
         Width="24"
         Height="24"
         Padding="0"
+        BorderThickness="0"
+        Click="Button_Click"
         HorizontalAlignment="Center"
         Background="Transparent">
         <Button.ContextMenu>

@@ -16,6 +16,14 @@ public partial class EditorBadge : UserControl
         InitializeComponent();
     }
 
+    private void Button_Click(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Button button)
+        {
+            button.ContextMenu?.Open();
+        }
+    }
+
     private void EditAnimation_Click(object? sender, RoutedEventArgs e)
     {
         if (DataContext is not BaseEditorViewModel vm) return;
