@@ -15,6 +15,7 @@ using Avalonia.Media.Transformation;
 using Avalonia.Xaml.Interactivity;
 
 using BEditorNext.Commands;
+using BEditorNext.Framework;
 using BEditorNext.ProjectSystem;
 using BEditorNext.Services;
 

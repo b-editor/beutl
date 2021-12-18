@@ -90,13 +90,6 @@ public sealed partial class EditPage : UserControl
                 [!HeaderedContentControl.HeaderProperty] = new Binding("Name")
             };
 
-            // UIÇÃStateÇïúå≥
-            string stateFile = ViewStateFile(scene, view);
-            if (File.Exists(stateFile))
-            {
-                view.Restore(stateFile);
-            }
-
             tabview.AddTab(tabItem);
         }
     }
@@ -108,13 +101,6 @@ public sealed partial class EditPage : UserControl
             .Where(i => i.DataContext == element)
             .ToArray())
         {
-            // UIÇÃStateÇï€ë∂
-            if (item.Content is IStorableControl storableControl && element is IStorable storable)
-            {
-                string filename = ViewStateFile(storable, storableControl);
-                storableControl.Save(filename);
-            }
-
             item.Close();
         }
     }
@@ -182,18 +168,5 @@ public sealed partial class EditPage : UserControl
 
             flyout.ShowAt(btn);
         }
-    }
-
-    private static string ViewStateFile(IStorable storable, IStorableControl control)
-    {
-        string directory = Path.GetDirectoryName(storable.FileName)!;
-        // Todo: å„Ç≈ïœçX
-        directory = Path.Combine(directory, ".beditor", "view-state");
-        if (!Directory.Exists(directory))
-        {
-            Directory.CreateDirectory(directory);
-        }
-
-        return Path.Combine(directory, $"{control.GetType().Name}.config");
     }
 }

@@ -376,10 +376,22 @@ public class Scene : Element, IStorable
             Directory.CreateDirectory(directory);
         }
 
-        using var stream = new FileStream(filename, FileMode.Create, FileAccess.Write, FileShare.Write);
-        using var writer = new Utf8JsonWriter(stream, JsonHelper.WriterOptions);
+        this.JsonSave(filename);
 
-        ToJson().WriteTo(writer, JsonHelper.SerializerOptions);
+        // ViewStateを保存
+        string viewStateDir = ViewStateDirectory();
+        new SceneViewState(this).JsonSave(Path.Combine(viewStateDir, $"{Path.GetFileNameWithoutExtension(filename)}.config"));
+
+        foreach (SceneLayer? item in Layers)
+        {
+            var array = new JsonArray();
+            foreach (RenderOperation? op in item.Operations)
+            {
+                array.Add(op.ViewState.ToJson());
+            }
+
+            array.JsonSave(Path.Combine(viewStateDir, $"{Path.GetFileNameWithoutExtension(item.FileName)}.config"));
+        }
     }
 
     public void Restore(string filename)
@@ -387,12 +399,26 @@ public class Scene : Element, IStorable
         _fileName = filename;
         LastSavedTime = DateTime.Now;
 
-        using var stream = new FileStream(filename, FileMode.Open, FileAccess.Read, FileShare.Read);
-        var node = JsonNode.Parse(stream);
+        this.JsonRestore(filename);
 
-        if (node != null)
+        // ViewStateを復元
+        string viewStateDir = ViewStateDirectory();
+        string viewStateFile = Path.Combine(viewStateDir, $"{Path.GetFileNameWithoutExtension(filename)}.config");
+
+        if (File.Exists(viewStateFile))
         {
-            FromJson(node);
+            new SceneViewState(this).JsonRestore(viewStateFile);
+        }
+
+        foreach (SceneLayer? layer in Layers)
+        {
+            JsonNode? node = JsonHelper.JsonRestore(Path.Combine(viewStateDir, $"{Path.GetFileNameWithoutExtension(layer.FileName)}.config"));
+            if (node is not JsonArray array) continue;
+
+            foreach ((JsonNode json, RenderOperation op) in array.Zip(layer.Operations))
+            {
+                op.ViewState.FromJson(json);
+            }
         }
     }
 
@@ -483,6 +509,19 @@ public class Scene : Element, IStorable
         return layer.Layer;
     }
 
+    private string ViewStateDirectory()
+    {
+        string directory = Path.GetDirectoryName(_fileName)!;
+        // Todo: 後で変更
+        directory = Path.Combine(directory, ".beditor", "view-state");
+        if (!Directory.Exists(directory))
+        {
+            Directory.CreateDirectory(directory);
+        }
+
+        return directory;
+    }
+
     private sealed class AddCommand : IRecordableCommand
     {
         private readonly Scene _scene;
@@ -550,5 +589,65 @@ public class Scene : Element, IStorable
             _layer.Layer = _layerNum;
             _scene.Children.Add(_layer);
         }
+    }
+}
+
+public sealed class SceneViewState : BaseViewState
+{
+    private readonly Scene _scene;
+
+    public SceneViewState(Scene scene)
+    {
+        _scene = scene;
+    }
+
+    public override void FromJson(JsonNode json)
+    {
+        if (json is JsonObject jsonObject)
+        {
+            var timelineOptions = new TimelineOptions();
+
+            try
+            {
+                float scale = (float?)jsonObject["scale"] ?? 1;
+                timelineOptions = timelineOptions with
+                {
+                    Scale = scale
+                };
+            }
+            catch { }
+
+            try
+            {
+                JsonNode? offset = jsonObject["offset"];
+
+                if (offset != null)
+                {
+                    float x = (float?)offset["x"] ?? 0;
+                    float y = (float?)offset["y"] ?? 0;
+
+                    timelineOptions = timelineOptions with
+                    {
+                        Offset = new System.Numerics.Vector2(x, y)
+                    };
+                }
+            }
+            catch { }
+
+            _scene.TimelineOptions = timelineOptions;
+        }
+    }
+
+    public override JsonNode ToJson()
+    {
+        return new JsonObject
+        {
+            ["scale"] = _scene.TimelineOptions.Scale,
+            ["offset"] = new JsonObject
+            {
+                ["x"] = _scene.TimelineOptions.Offset.X,
+                ["y"] = _scene.TimelineOptions.Offset.Y,
+            }
+        };
     }
 }

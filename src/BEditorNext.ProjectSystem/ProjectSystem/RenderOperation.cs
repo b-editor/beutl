@@ -7,6 +7,7 @@ namespace BEditorNext.ProjectSystem;
 public abstract class RenderOperation : Element, ILogicalElement
 {
     public static readonly PropertyDefine<bool> IsEnabledProperty;
+    public static readonly PropertyDefine<RenderOperationViewState> ViewStateProperty;
     private readonly ObservableList<ISetter> _setters = new();
     private bool _isEnabled = true;
 
@@ -16,10 +17,14 @@ public abstract class RenderOperation : Element, ILogicalElement
             .DefaultValue(true)
             .NotifyPropertyChanged(true)
             .JsonName("isEnabled");
+
+        ViewStateProperty = RegisterProperty<RenderOperationViewState, RenderOperation>(nameof(ViewState))
+            .NotifyPropertyChanged(true);
     }
 
     public RenderOperation()
     {
+        ViewState = new RenderOperationViewState();
         foreach (PropertyDefine item in PropertyRegistry.GetRegistered(GetType())
             .Where(x => x.GetValueOrDefault<bool>(PropertyMetaTableKeys.Editor) == true))
         {
@@ -62,6 +67,12 @@ public abstract class RenderOperation : Element, ILogicalElement
     {
         get => _isEnabled;
         set => SetAndRaise(IsEnabledProperty, ref _isEnabled, value);
+    }
+
+    public RenderOperationViewState ViewState
+    {
+        get => GetValue(ViewStateProperty);
+        set => SetValue(ViewStateProperty, value);
     }
 
     public IObservableList<ISetter> Setters => _setters;
