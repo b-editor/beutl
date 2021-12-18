@@ -179,11 +179,17 @@ public class AnimationEditorViewModel<T> : AnimationEditorViewModel
 
     public void SetPrevious(T oldValue, T newValue)
     {
-        CommandRecorder.Default.DoAndPush(new ChangePropertyCommand<T>(Animation, Animation<T>.PreviousProperty, newValue, oldValue));
+        if (!EqualityComparer<T>.Default.Equals(oldValue, newValue))
+        {
+            CommandRecorder.Default.DoAndPush(new ChangePropertyCommand<T>(Animation, Animation<T>.PreviousProperty, newValue, oldValue));
+        }
     }
 
     public void SetNext(T oldValue, T newValue)
     {
-        CommandRecorder.Default.DoAndPush(new ChangePropertyCommand<T>(Animation, Animation<T>.NextProperty, newValue, oldValue));
+        if (!EqualityComparer<T>.Default.Equals(oldValue, newValue))
+        {
+            CommandRecorder.Default.DoAndPush(new ChangePropertyCommand<T>(Animation, Animation<T>.NextProperty, newValue, oldValue));
+        }
     }
 }

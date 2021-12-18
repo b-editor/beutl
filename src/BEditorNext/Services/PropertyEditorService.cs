@@ -42,8 +42,10 @@ public static class PropertyEditorService
         { typeof(Vector2), new(_ => new Vector2Editor(), s => new Vector2EditorViewModel((Setter<Vector2>)s)) },
     };
 
+    // pixelpoint, pixelrect, pixelsize, point, rect, size, thickness, vector2, vector3, vector4
     private static readonly Dictionary<Type, AnimationEditor> s_animationEditors = new()
     {
+        { typeof(bool), new(_ => new BooleanAnimationEditor(), (a, vm) => new AnimationEditorViewModel<bool>(a, vm)) },
         { typeof(byte), new(_ => new NumberAnimationEditor<byte>(), (a, vm) => new AnimationEditorViewModel<byte>(a, vm)) },
         { typeof(Color), new(_ => new ColorAnimationEditor(), (a, vm) => new ColorAnimationEditorViewModel((Animation<Color>)a, (BaseEditorViewModel<Color>)vm)) },
         { typeof(decimal), new(_ => new NumberAnimationEditor<decimal>(), (a, vm) => new AnimationEditorViewModel<decimal>(a, vm)) },
