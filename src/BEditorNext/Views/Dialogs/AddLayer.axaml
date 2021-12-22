@@ -32,7 +32,7 @@
             </StackPanel>
             <StackPanel Spacing="8">
                 <TextBlock Text="{DynamicResource NameString}" />
-                <TextBox Text="{CompiledBinding Name.Value, Mode=TwoWay}" />
+                <TextBox InputMethod.IsInputMethodEnabled="True" Text="{CompiledBinding Name.Value, Mode=TwoWay}" />
 
                 <StackPanel Orientation="Horizontal" Spacing="8">
                     <TextBlock Text="{DynamicResource ColorString}" VerticalAlignment="Center" />

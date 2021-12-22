@@ -14,6 +14,7 @@
 
         <TextBox
             x:Name="textBox"
+            InputMethod.IsInputMethodEnabled="True"
             Grid.Column="1"
             AcceptsReturn="True"
             Text="{Binding Value.Value, Mode=OneWay}">

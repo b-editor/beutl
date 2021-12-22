@@ -109,6 +109,7 @@
             MinHeight="{DynamicResource LayerHeight}"
             VerticalContentAlignment="Center"
             Text="{Binding Model.Name}"
+            InputMethod.IsInputMethodEnabled="True"
             Grid.Column="3">
             <TextBox.Resources>
                 <Thickness x:Key="TextControlBorderThemeThicknessFocused">0</Thickness>

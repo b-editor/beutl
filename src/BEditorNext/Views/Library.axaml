@@ -9,6 +9,7 @@
         <TextBox
             x:Name="SearchBox"
             Classes="clearButton"
+            InputMethod.IsInputMethodEnabled="True"
             Margin="8"
             Watermark="{DynamicResource SearchString}" />
 

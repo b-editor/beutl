@@ -21,7 +21,7 @@
         <Carousel.Items>
             <StackPanel Spacing="8">
                 <TextBlock Text="{DynamicResource NameString}" />
-                <TextBox Text="{CompiledBinding Name.Value, Mode=TwoWay}" />
+                <TextBox Classes="enableIME" Text="{CompiledBinding Name.Value, Mode=TwoWay}" />
 
                 <Separator />
 
