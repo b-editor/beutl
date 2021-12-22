@@ -48,7 +48,7 @@ public static class PropertyEditorService
         { typeof(Vector4), new(_ => new Vector4Editor(), s => new Vector4EditorViewModel((Setter<Vector4>)s)) },
     };
 
-    // pixelpoint, pixelrect, pixelsize, point, rect, size, thickness, vector2, vector3, vector4
+    // pixelrect, rect, thickness, vector3, vector4
     private static readonly Dictionary<Type, AnimationEditor> s_animationEditors = new()
     {
         { typeof(bool), new(_ => new BooleanAnimationEditor(), (a, vm) => new AnimationEditorViewModel<bool>(a, vm)) },
@@ -60,10 +60,15 @@ public static class PropertyEditorService
         { typeof(short), new(_ => new NumberAnimationEditor<short>(), (a, vm) => new AnimationEditorViewModel<short>(a, vm)) },
         { typeof(int), new(_ => new NumberAnimationEditor<int>(), (a, vm) => new AnimationEditorViewModel<int>(a, vm)) },
         { typeof(long), new(_ => new NumberAnimationEditor<long>(), (a, vm) => new AnimationEditorViewModel<long>(a, vm)) },
+        { typeof(PixelPoint), new(_ => new PixelPointAnimationEditor(), (a, vm) => new PixelPointAnimationEditorViewModel((Animation<PixelPoint>)a, (BaseEditorViewModel<PixelPoint>)vm)) },
+        { typeof(PixelSize), new(_ => new PixelSizeAnimationEditor(), (a, vm) => new PixelSizeAnimationEditorViewModel((Animation<PixelSize>)a, (BaseEditorViewModel<PixelSize>)vm)) },
+        { typeof(Point), new(_ => new PointAnimationEditor(), (a, vm) => new PointAnimationEditorViewModel((Animation<Point>)a, (BaseEditorViewModel<Point>)vm)) },
         { typeof(sbyte), new(_ => new NumberAnimationEditor<sbyte>(), (a, vm) => new AnimationEditorViewModel<sbyte>(a, vm)) },
+        { typeof(Size), new(_ => new SizeAnimationEditor(), (a, vm) => new SizeAnimationEditorViewModel((Animation<Size>)a, (BaseEditorViewModel<Size>)vm)) },
         { typeof(ushort), new(_ => new NumberAnimationEditor<ushort>(), (a, vm) => new AnimationEditorViewModel<ushort>(a, vm)) },
         { typeof(uint), new(_ => new NumberAnimationEditor<uint>(), (a, vm) => new AnimationEditorViewModel<uint>(a, vm)) },
         { typeof(ulong), new(_ => new NumberAnimationEditor<ulong>(), (a, vm) => new AnimationEditorViewModel<ulong>(a, vm)) },
+        { typeof(Vector2), new(_ => new Vector2AnimationEditor(), (a, vm) => new Vector2AnimationEditorViewModel((Animation<Vector2>)a, (BaseEditorViewModel<Vector2>)vm)) },
     };
 
     public static Control? CreateEditor(ISetter setter)
