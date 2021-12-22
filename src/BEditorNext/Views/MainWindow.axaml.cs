@@ -91,7 +91,7 @@ public sealed partial class MainWindow : CoreWindow
                     {
                         new FileDialogFilter
                         {
-                            Name = Application.Current.FindResource("ProjectFileString") as string,
+                            Name = Application.Current?.FindResource("ProjectFileString") as string,
                             Extensions =
                             {
                                 "bep"
@@ -109,7 +109,7 @@ public sealed partial class MainWindow : CoreWindow
 
             vm.Exit.Subscribe(() =>
             {
-                if (Application.Current.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime applicationLifetime)
+                if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime applicationLifetime)
                 {
                     applicationLifetime.Shutdown();
                 }

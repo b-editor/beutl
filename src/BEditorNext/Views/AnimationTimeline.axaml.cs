@@ -26,7 +26,7 @@ public partial class AnimationTimeline : UserControl
     public AnimationTimeline()
     {
         Resources["AnimationToViewModelConverter"] =
-            new FuncValueConverter<IAnimation, object?>(a => PropertyEditorService.CreateAnimationEditorViewModel(ViewModel.EditorViewModel, a));
+            new FuncValueConverter<IAnimation, object?>(a => a == null ? null : PropertyEditorService.CreateAnimationEditorViewModel(ViewModel.EditorViewModel, a));
 
         InitializeComponent();
         ContentScroll.ScrollChanged += ContentScroll_ScrollChanged;

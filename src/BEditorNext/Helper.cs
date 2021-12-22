@@ -11,8 +11,8 @@ internal static class Helper
 
     static Helper()
     {
-        SecondWidth = (double)(Application.Current.FindResource("SecondWidth") ?? 150);
-        LayerHeight = (double)(Application.Current.FindResource("LayerHeight") ?? 25);
+        SecondWidth = (double)(Application.Current?.FindResource("SecondWidth") ?? 150);
+        LayerHeight = (double)(Application.Current?.FindResource("LayerHeight") ?? 25);
     }
 
     public static Color ToAvalonia(this in Media.Color color)

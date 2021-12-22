@@ -110,7 +110,10 @@ public sealed partial class EditPage : UserControl
     {
         if (VisualRoot is not Window root ||
             DataContext is not EditPageViewModel vm ||
-            vm.Project.Value == null) return;
+            vm.Project.Value == null)
+        {
+            return;
+        }
 
         var dialog = new OpenFileDialog
         {
@@ -119,7 +122,7 @@ public sealed partial class EditPage : UserControl
             {
                 new FileDialogFilter
                 {
-                    Name = Application.Current.FindResource("SceneFileString") as string,
+                    Name = Application.Current?.FindResource("SceneFileString") as string,
                     Extensions =
                     {
                         "scene"

@@ -13,7 +13,7 @@ public sealed class NotificationService : INotificationService
     {
         Dispatcher.UIThread.InvokeAsync(() =>
         {
-            if (Application.Current.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime applicationLifetime &&
+            if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime applicationLifetime &&
                 applicationLifetime.MainWindow is MainWindow window)
             {
                 window.NotificationManager.Show(new Avalonia.Controls.Notifications.Notification(

@@ -41,7 +41,7 @@ public sealed class EnumEditor<T> : EnumEditor
     {
         public static readonly EnumToTextBlockConverter Instance = new();
 
-        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
         {
             if (value is Enum e)
             {
@@ -58,7 +58,7 @@ public sealed class EnumEditor<T> : EnumEditor
             return BindingNotification.Null;
         }
 
-        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
         {
             return BindingNotification.Null;
         }

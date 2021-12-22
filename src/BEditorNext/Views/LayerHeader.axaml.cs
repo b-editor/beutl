@@ -66,7 +66,7 @@ public sealed partial class LayerHeader : UserControl
     {
         if (e.Key is Key.Enter or Key.Escape)
         {
-            Application.Current.FocusManager.Focus(null);
+            Application.Current?.FocusManager?.Focus(null);
         }
     }
 }

@@ -33,7 +33,7 @@ public sealed class AddLayerViewModel
         {
             if (ExistsLayer(layer))
             {
-                return (string?)Application.Current.FindResource("ThisLayerNumberIsAlreadyInUseString");
+                return (string?)Application.Current?.FindResource("ThisLayerNumberIsAlreadyInUseString");
             }
             else
             {
@@ -44,7 +44,7 @@ public sealed class AddLayerViewModel
         {
             if (start < TimeSpan.Zero)
             {
-                return (string?)Application.Current.FindResource("CannotSpecifyValueLessThanString");
+                return (string?)Application.Current?.FindResource("CannotSpecifyValueLessThanString");
             }
             else
             {
@@ -55,7 +55,7 @@ public sealed class AddLayerViewModel
         {
             if (length <= TimeSpan.Zero)
             {
-                return (string?)Application.Current.FindResource("CannotSpecifyValueLessThanOrEqualToZeroString");
+                return (string?)Application.Current?.FindResource("CannotSpecifyValueLessThanOrEqualToZeroString");
             }
             else
             {

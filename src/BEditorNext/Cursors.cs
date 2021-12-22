@@ -1,14 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-using Avalonia.Input;
+﻿using Avalonia.Input;
 
 namespace BEditorNext;
 
-public class Cursors
+public static class Cursors
 {
     public static readonly Cursor Arrow = new(StandardCursorType.Arrow);
     public static readonly Cursor Wait = new(StandardCursorType.Wait);

@@ -49,14 +49,14 @@ public sealed class DefaultResourceProvider : IResourceProvider
 
     private static IObservable<T?> GetAppResourceObservable<T>(string key)
     {
-        IObservable<object?> obj = Invoke(() => Application.Current.GetResourceObservable(key));
+        IObservable<object?>? obj = Invoke(() => Application.Current?.GetResourceObservable(key));
 
-        return obj.Select(i => i is T typed ? typed : default);
+        return obj?.Select(i => i is T typed ? typed : default) ?? Observable.Empty<T?>();
     }
 
     private static bool TryFindAppResource<T>(string key, [NotNullWhen(true)] out T? value)
     {
-        object? obj = Invoke(() => Application.Current.FindResource(key));
+        object? obj = Invoke(() => Application.Current?.FindResource(key));
 
         if (obj is T typed)
         {

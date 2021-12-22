@@ -22,7 +22,7 @@ public sealed class CreateNewProjectViewModel
         {
             if (Directory.Exists(Path.Combine(Location.Value, n)))
             {
-                return (string?)Application.Current.FindResource("ItAlreadyExistsString");
+                return (string?)Application.Current?.FindResource("ItAlreadyExistsString");
             }
             else
             {
@@ -34,7 +34,7 @@ public sealed class CreateNewProjectViewModel
         {
             if (s.Width <= 0 || s.Height <= 0)
             {
-                return (string?)Application.Current.FindResource("CannotSpecifyValueLessThanOrEqualToZeroString");
+                return (string?)Application.Current?.FindResource("CannotSpecifyValueLessThanOrEqualToZeroString");
             }
             else
             {
@@ -45,7 +45,7 @@ public sealed class CreateNewProjectViewModel
         {
             if (n <= 0)
             {
-                return (string?)Application.Current.FindResource("CannotSpecifyValueLessThanOrEqualToZeroString");
+                return (string?)Application.Current?.FindResource("CannotSpecifyValueLessThanOrEqualToZeroString");
             }
             else
             {
@@ -56,7 +56,7 @@ public sealed class CreateNewProjectViewModel
         {
             if (n <= 0)
             {
-                return (string?)Application.Current.FindResource("CannotSpecifyValueLessThanOrEqualToZeroString");
+                return (string?)Application.Current?.FindResource("CannotSpecifyValueLessThanOrEqualToZeroString");
             }
             else
             {
@@ -105,7 +105,7 @@ public sealed class CreateNewProjectViewModel
 
     private static string GenProjectName(string location)
     {
-        string name = "Project";
+        const string name = "Project";
         int n = 1;
 
         while (Directory.Exists(Path.Combine(location, name + n)))

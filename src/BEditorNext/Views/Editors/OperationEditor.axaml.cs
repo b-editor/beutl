@@ -341,7 +341,7 @@ public partial class OperationEditor : UserControl
     {
         public static readonly ModelToViewConverter Instance = new();
 
-        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
         {
             if (value is ISetter setter)
             {
@@ -360,7 +360,7 @@ public partial class OperationEditor : UserControl
             }
         }
 
-        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
         {
             return BindingNotification.Null;
         }

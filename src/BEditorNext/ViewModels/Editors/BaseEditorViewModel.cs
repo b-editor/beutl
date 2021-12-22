@@ -24,7 +24,7 @@ public abstract class BaseEditorViewModel : IDisposable
 
         if (reference.Key != null)
         {
-            Header = Application.Current.GetResourceObservable(reference.Key)
+            Header = Application.Current!.GetResourceObservable(reference.Key)
                 .Select(i => (string?)i ?? Setter.Property.GetJsonName() ?? Setter.Property.Name)
                 .ToReadOnlyReactivePropertySlim()
                 .AddTo(Disposables);
