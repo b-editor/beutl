@@ -54,7 +54,7 @@ public partial class DraggableTabView : TabControl
         {
             if (x.Sender is DraggableTabView sender && sender.TransitionIsEnabled && sender._gridHost != null)
             {
-                await sender._animation.RunAsync(sender._gridHost);
+                await sender._animation.RunAsync(sender._gridHost, null);
                 sender._gridHost.Opacity = 1;
             }
         });

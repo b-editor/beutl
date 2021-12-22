@@ -128,11 +128,10 @@ public partial class TimelineLayer : UserControl
             _layerStartRel = point.Position;
             _timeline.ViewModel.Scene.SelectedItem = ViewModel.Model;
 
-
             e.Handled = true;
 
             _animation.PlaybackDirection = PlaybackDirection.Normal;
-            await _animation.RunAsync(border);
+            await _animation.RunAsync(border, null);
             border.Opacity = 0.8;
         }
     }
@@ -143,7 +142,7 @@ public partial class TimelineLayer : UserControl
 
         ViewModel.Scene.SelectedItem = ViewModel.Model;
         _animation.PlaybackDirection = PlaybackDirection.Reverse;
-        await _animation.RunAsync(border);
+        await _animation.RunAsync(border, null);
         border.Opacity = 1;
     }
 
