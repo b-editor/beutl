@@ -22,9 +22,7 @@ public sealed class Vector2Editor : BaseVector2Editor<Vector2>
     {
         if (DataContext is Vector2EditorViewModel vm)
         {
-            return new Vector2(
-                Math.Clamp(value.X, vm.Minimum.X, vm.Maximum.X),
-                Math.Clamp(value.Y, vm.Minimum.Y, vm.Maximum.Y));
+            return Vector2.Clamp(value, vm.Minimum, vm.Maximum);
         }
         else
         {

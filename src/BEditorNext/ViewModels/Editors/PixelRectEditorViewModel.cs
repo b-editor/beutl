@@ -17,4 +17,8 @@ public sealed class PixelRectEditorViewModel : BaseEditorViewModel<PixelRect>
     }
 
     public ReadOnlyReactivePropertySlim<PixelRect> Value { get; }
+
+    public PixelRect Maximum => Setter.Property.GetValueOrDefault(PropertyMetaTableKeys.Maximum, new PixelRect(int.MaxValue, int.MaxValue, int.MaxValue, int.MaxValue));
+
+    public PixelRect Minimum => Setter.Property.GetValueOrDefault(PropertyMetaTableKeys.Minimum, new PixelRect(int.MinValue, int.MinValue, int.MinValue, int.MinValue));
 }

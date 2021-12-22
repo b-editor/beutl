@@ -6,33 +6,38 @@ using BEditorNext.ViewModels.Editors;
 
 namespace BEditorNext.Views.Editors;
 
-public partial class BaseVector2Editor : UserControl
+public partial class BaseVector3Editor : UserControl
 {
-    public BaseVector2Editor()
+    public BaseVector3Editor()
     {
         InitializeComponent();
     }
 }
 
-public abstract class BaseVector2Editor<T> : BaseVector2Editor
+public abstract class BaseVector3Editor<T> : BaseVector3Editor
     where T : struct
 {
     protected T OldValue;
 
-    protected BaseVector2Editor()
+    protected BaseVector3Editor()
     {
-        xTextBox.GotFocus += TextBox_GotFocus;
-        xTextBox.LostFocus += TextBox_LostFocus;
-        xTextBox.KeyDown += TextBox_KeyDown;
-        xTextBox.AddHandler(PointerWheelChangedEvent, XTextBox_PointerWheelChanged, RoutingStrategies.Tunnel);
+        void AddHandlers(TextBox textBox)
+        {
+            textBox.GotFocus += TextBox_GotFocus;
+            textBox.LostFocus += TextBox_LostFocus;
+            textBox.KeyDown += TextBox_KeyDown;
+        }
 
-        yTextBox.GotFocus += TextBox_GotFocus;
-        yTextBox.LostFocus += TextBox_LostFocus;
-        yTextBox.KeyDown += TextBox_KeyDown;
+        AddHandlers(xTextBox);
+        AddHandlers(yTextBox);
+        AddHandlers(zTextBox);
+
+        xTextBox.AddHandler(PointerWheelChangedEvent, XTextBox_PointerWheelChanged, RoutingStrategies.Tunnel);
         yTextBox.AddHandler(PointerWheelChangedEvent, YTextBox_PointerWheelChanged, RoutingStrategies.Tunnel);
+        zTextBox.AddHandler(PointerWheelChangedEvent, ZTextBox_PointerWheelChanged, RoutingStrategies.Tunnel);
     }
 
-    protected abstract bool TryParse(string? x, string? y, out T value);
+    protected abstract bool TryParse(string? x, string? y, string? z, out T value);
 
     protected abstract T Clamp(T value);
 
@@ -40,9 +45,11 @@ public abstract class BaseVector2Editor<T> : BaseVector2Editor
 
     protected abstract T IncrementY(T value, int increment);
 
+    protected abstract T IncrementZ(T value, int increment);
+
     private bool TryParseCore(out T value)
     {
-        return TryParse(xTextBox.Text, yTextBox.Text, out value);
+        return TryParse(xTextBox.Text, yTextBox.Text, zTextBox.Text, out value);
     }
 
     private void TextBox_GotFocus(object? sender, GotFocusEventArgs e)
@@ -79,6 +86,11 @@ public abstract class BaseVector2Editor<T> : BaseVector2Editor
     private void YTextBox_PointerWheelChanged(object? sender, PointerWheelEventArgs e)
     {
         OnPointerWheelChanged(sender, e, IncrementY);
+    }
+
+    private void ZTextBox_PointerWheelChanged(object? sender, PointerWheelEventArgs e)
+    {
+        OnPointerWheelChanged(sender, e, IncrementZ);
     }
 
     private void OnPointerWheelChanged(object? sender, PointerWheelEventArgs e, Func<T, int, T> func)

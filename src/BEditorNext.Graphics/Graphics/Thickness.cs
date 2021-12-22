@@ -263,6 +263,46 @@ public readonly struct Thickness : IEquatable<Thickness>
     }
 
     /// <summary>
+    /// Returns a new <see cref="Thickness"/> with the specified left.
+    /// </summary>
+    /// <param name="left">The left.</param>
+    /// <returns>The new <see cref="Thickness"/>.</returns>
+    public Thickness WithLeft(float left)
+    {
+        return new Thickness(left, Top, Right, Bottom);
+    }
+
+    /// <summary>
+    /// Returns a new <see cref="Thickness"/> with the specified top.
+    /// </summary>
+    /// <param name="top">The top.</param>
+    /// <returns>The new <see cref="Thickness"/>.</returns>
+    public Thickness WithTop(float top)
+    {
+        return new Thickness(Left, top, Right, Bottom);
+    }
+
+    /// <summary>
+    /// Returns a new <see cref="Thickness"/> with the specified right.
+    /// </summary>
+    /// <param name="right">The right.</param>
+    /// <returns>The new <see cref="Thickness"/>.</returns>
+    public Thickness WithRight(float right)
+    {
+        return new Thickness(Left, Top, right, Bottom);
+    }
+
+    /// <summary>
+    /// Returns a new <see cref="Thickness"/> with the specified bottom.
+    /// </summary>
+    /// <param name="bottom">The bottom.</param>
+    /// <returns>The new <see cref="Thickness"/>.</returns>
+    public Thickness WithBottom(float bottom)
+    {
+        return new Thickness(Left, Top, Right, bottom);
+    }
+
+    /// <summary>
     /// Deconstructor the thickness into its left, top, right and bottom thickness values.
     /// </summary>
     /// <param name="left">The thickness on the left.</param>

@@ -49,6 +49,8 @@
         <x:String x:Key="HeightString">Height</x:String>
         <x:String x:Key="XString">X</x:String>
         <x:String x:Key="YString">Y</x:String>
+        <x:String x:Key="ZString">Z</x:String>
+        <x:String x:Key="WString">W</x:String>
         <x:String x:Key="LeftString">Left</x:String>
         <x:String x:Key="RightString">Right</x:String>
         <x:String x:Key="TopString">Top</x:String>

@@ -5,8 +5,8 @@
              xmlns:vm="using:BEditorNext.ViewModels.Editors"
              xmlns:local="using:BEditorNext.Views.Editors"
              mc:Ignorable="d" d:DesignWidth="300"
-             x:Class="BEditorNext.Views.Editors.BaseVector2Editor">
-    <Grid RowDefinitions="*,*" ColumnDefinitions="2*,3*,Auto">
+             x:Class="BEditorNext.Views.Editors.BaseVector3Editor">
+    <Grid RowDefinitions="*,*,*" ColumnDefinitions="2*,3*,Auto">
         <Grid.Styles>
             <Style Selector="TextBox">
                 <Setter Property="Margin" Value="4" />
@@ -41,6 +41,16 @@
             <TextBox
                 Grid.Column="1"
                 x:Name="yTextBox" />
+        </Grid>
+        <Grid Grid.Column="1" Grid.Row="2" ColumnDefinitions="*,2*">
+            <TextBlock
+                Margin="8,0"
+                VerticalAlignment="Center"
+                x:Name="zText" />
+
+            <TextBox
+                Grid.Column="1"
+                x:Name="zTextBox" />
         </Grid>
 
         <local:EditorBadge
