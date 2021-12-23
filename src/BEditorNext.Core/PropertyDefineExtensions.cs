@@ -102,7 +102,7 @@ public static class PropertyDefineExtensions
         return define.SetKeyValue(PropertyMetaTableKeys.GenericsSetter, value);
     }
 
-    public static PropertyDefine<FileInfo> FilePicker(this PropertyDefine<FileInfo> define, string name, params string[] extensions)
+    public static PropertyDefine<FileInfo> FilePicker(this PropertyDefine<FileInfo> define, ResourceReference<string> name, params string[] extensions)
     {
         return define.SetKeyValue(PropertyMetaTableKeys.FilePickerName, name)
             .SetKeyValue(PropertyMetaTableKeys.FilePickerName, extensions);
