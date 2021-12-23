@@ -3,9 +3,9 @@ using BEditorNext.Media.Pixel;
 
 namespace BEditorNext.Graphics.Effects;
 
-public class InvertOpacity : IPixelEffect
+public class InvertOpacity : PixelEffect
 {
-    public void Apply(ref Bgra8888 pixel, BitmapInfo info, int index)
+    public override void Apply(ref Bgra8888 pixel, in BitmapInfo info, int index)
     {
         pixel.A = (byte)(255 - pixel.A);
     }

@@ -9,7 +9,7 @@ using SkiaSharp;
 
 namespace BEditorNext.Media;
 
-public struct BitmapInfo
+public readonly struct BitmapInfo
 {
     public BitmapInfo(int width, int height, int byteCount, int pixelSize)
     {

@@ -3,7 +3,7 @@ using BEditorNext.Media.Pixel;
 
 namespace BEditorNext.Graphics.Effects;
 
-public class ColorAdjust : IPixelEffect
+public class ColorAdjust : PixelEffect
 {
     public short Red { get; set; }
 
@@ -11,7 +11,7 @@ public class ColorAdjust : IPixelEffect
 
     public short Blue { get; set; }
 
-    public void Apply(ref Bgra8888 pixel, BitmapInfo info, int index)
+    public override void Apply(ref Bgra8888 pixel, in BitmapInfo info, int index)
     {
         pixel.B = (byte)Helper.Set255(pixel.B + Blue);
         pixel.G = (byte)Helper.Set255(pixel.G + Green);

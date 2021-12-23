@@ -2,6 +2,7 @@
 
 using BEditorNext.Graphics;
 using BEditorNext.Graphics.Effects;
+using BEditorNext.Media.Pixel;
 using BEditorNext.Rendering;
 
 namespace BEditorNext.Media.TextFormatting;
@@ -9,6 +10,7 @@ namespace BEditorNext.Media.TextFormatting;
 public class FormattedText : IRenderableBitmap
 {
     private readonly List<TextLine> _lines;
+    private readonly IList<BitmapEffect> _effects = new List<BitmapEffect>();
 
     public FormattedText()
         : this(new List<TextLine>())
@@ -58,7 +60,7 @@ public class FormattedText : IRenderableBitmap
 
     public (AlignmentX X, AlignmentY Y) Alignment { get; set; }
 
-    IList<IEffect> IRenderableBitmap.Effects { get; } = new List<IEffect>();
+    IList<BitmapEffect> IRenderableBitmap.Effects => _effects;
 
     public static FormattedText Parse(string s, FormattedTextInfo info)
     {
@@ -90,10 +92,35 @@ public class FormattedText : IRenderableBitmap
 
     public void Render(IGraphics graphics)
     {
+        if (_effects.Count == 0)
+        {
+            RenderDirect(graphics);
+        }
+        else
+        {
+            RenderBitmap(graphics);
+        }
+    }
+
+    private void RenderBitmap(IGraphics graphics)
+    {
+        using Bitmap<Bgra8888> bitmap = ToBitmap();
+        using Bitmap<Bgra8888> bitmap2 = BitmapEffect.ApplyAll(bitmap, _effects);
+
         graphics.PushMatrix();
-
         graphics.SetMatrix(Transform * graphics.TotalMatrix);
+        Size size = Bounds;
+        Point pt = CreatePoint(size.Width, size.Height);
+        graphics.Translate(pt);
+        graphics.DrawBitmap(bitmap2);
 
+        graphics.PopMatrix();
+    }
+
+    private void RenderDirect(IGraphics graphics)
+    {
+        graphics.PushMatrix();
+        graphics.SetMatrix(Transform * graphics.TotalMatrix);
         Size size = Bounds;
         Point pt = CreatePoint(size.Width, size.Height);
         graphics.Translate(pt);
@@ -161,5 +188,15 @@ public class FormattedText : IRenderableBitmap
         }
 
         return new Point(x, y);
+    }
+
+    public Bitmap<Bgra8888> ToBitmap()
+    {
+        Size size = Bounds;
+        using var g = new Graphics.Graphics((int)size.Width, (int)size.Height);
+
+        RenderCore(g);
+
+        return g.GetBitmap();
     }
 }

@@ -114,5 +114,9 @@
         <x:String x:Key="TranslateString">Translate</x:String>
         <x:String x:Key="TransformString">Transform</x:String>
         <x:String x:Key="TestString">Test</x:String>
+        <x:String x:Key="EffectString">Effect</x:String>
+        <x:String x:Key="BrightnessString">Brightness</x:String>
+        <x:String x:Key="BinarizationString">Binarization</x:String>
+        <x:String x:Key="ChromaKeyString">Chroma key</x:String>
     </Styles.Resources>
 </Styles>

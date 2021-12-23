@@ -5,7 +5,7 @@ using SkiaSharp;
 
 namespace BEditorNext.Graphics.Effects;
 
-public class DropShadow : IEffect
+public class DropShadow : BitmapEffect
 {
     public float X { get; set; }
 
@@ -19,10 +19,10 @@ public class DropShadow : IEffect
 
     public bool ShadowOnly { get; set; }
 
-    public Bitmap<Bgra8888> Apply(Bitmap<Bgra8888> bitmap)
+    public override void Apply(ref Bitmap<Bgra8888> bitmap)
     {
-        var w = bitmap.Width + SigmaX;
-        var h = bitmap.Height + SigmaY;
+        float w = bitmap.Width + SigmaX;
+        float h = bitmap.Height + SigmaY;
 
         if (ShadowOnly)
         {
@@ -39,13 +39,14 @@ public class DropShadow : IEffect
 
             canvas.DrawBitmap(bmp1, 0, 0, paint);
 
-            return bmp2.ToBitmap();
+            bitmap.Dispose();
+            bitmap = bmp2.ToBitmap();
         }
         else
         {
             // キャンバスのサイズ
-            var size_w = (Math.Abs(X) + (w / 2)) * 2;
-            var size_h = (Math.Abs(Y) + (h / 2)) * 2;
+            float size_w = (Math.Abs(X) + (w / 2)) * 2;
+            float size_h = (Math.Abs(Y) + (h / 2)) * 2;
 
             using var filter = SKImageFilter.CreateDropShadow(0, 0, SigmaX, SigmaY, Color.ToSkia());
             using var paint = new SKPaint
@@ -64,7 +65,8 @@ public class DropShadow : IEffect
                 (size_h / 2) - (bitmap.Height / 2),
                 paint);
 
-            return bmp2.ToBitmap();
+            bitmap.Dispose();
+            bitmap = bmp2.ToBitmap();
         }
     }
 }

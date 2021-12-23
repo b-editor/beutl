@@ -28,20 +28,6 @@ public static unsafe partial class Image
         { ".heif", EncodedImageFormat.Heif },
     };
 
-    public static Bitmap<Bgra8888> ApplyEffect(this Bitmap<Bgra8888> image, IEffect effect)
-    {
-        Bitmap<Bgra8888>? applyed = effect.Apply(image);
-
-        if (applyed == image)
-        {
-            return (Bitmap<Bgra8888>)applyed.Clone();
-        }
-        else
-        {
-            return applyed;
-        }
-    }
-
     public static void AlphaSubtract(this Bitmap<Bgra8888> image, Bitmap<Bgra8888> mask)
     {
         if (image is null) throw new ArgumentNullException(nameof(image));

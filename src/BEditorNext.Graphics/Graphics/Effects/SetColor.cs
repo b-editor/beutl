@@ -3,11 +3,11 @@ using BEditorNext.Media.Pixel;
 
 namespace BEditorNext.Graphics.Effects;
 
-public class SetColor : IPixelEffect
+public class SetColor : PixelEffect
 {
     public Bgra8888 Color { get; set; }
 
-    public void Apply(ref Bgra8888 pixel, BitmapInfo info, int index)
+    public override void Apply(ref Bgra8888 pixel, in BitmapInfo info, int index)
     {
         pixel.R = Color.R;
         pixel.G = Color.G;

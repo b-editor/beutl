@@ -3,7 +3,7 @@ using BEditorNext.Media.Pixel;
 
 namespace BEditorNext.Graphics.Effects;
 
-public class ChromaKey : IPixelEffect
+public class ChromaKey : PixelEffect
 {
     private Hsv _hsv;
 
@@ -17,7 +17,7 @@ public class ChromaKey : IPixelEffect
 
     public int HueRange { get; set; }
 
-    public void Apply(ref Bgra8888 pixel, BitmapInfo info, int index)
+    public override void Apply(ref Bgra8888 pixel, in BitmapInfo info, int index)
     {
         var srcHsv = pixel.ToColor().ToHsv();
 

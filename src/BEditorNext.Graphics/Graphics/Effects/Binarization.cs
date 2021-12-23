@@ -1,21 +1,15 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-using BEditorNext.Media;
+﻿using BEditorNext.Media;
 using BEditorNext.Media.Pixel;
 
 namespace BEditorNext.Graphics.Effects;
 
-public class Binarization : IPixelEffect
+public class Binarization : PixelEffect
 {
     public byte Value { get; set; }
 
-    public void Apply(ref Bgra8888 pixel, BitmapInfo info, int index)
+    public override void Apply(ref Bgra8888 pixel, in BitmapInfo info, int index)
     {
-        var value = Value;
+        byte value = Value;
         if (pixel.R <= value &&
             pixel.G <= value &&
             pixel.B <= value)

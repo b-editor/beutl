@@ -91,5 +91,9 @@
         <x:String x:Key="SkewString">歪み</x:String>
         <x:String x:Key="TranslateString">移動</x:String>
         <x:String x:Key="TransformString">トランスフォーム</x:String>
+        <x:String x:Key="EffectString">エフェクト</x:String>
+        <x:String x:Key="BrightnessString">明るさ</x:String>
+        <x:String x:Key="BinarizationString">二階調化</x:String>
+        <x:String x:Key="ChromaKeyString">クロマキー</x:String>
     </Styles.Resources>
 </Styles>

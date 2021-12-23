@@ -3,11 +3,11 @@ using BEditorNext.Media.Pixel;
 
 namespace BEditorNext.Graphics.Effects;
 
-public class Sepia : IPixelEffect
+public class Sepia : PixelEffect
 {
-    public void Apply(ref Bgra8888 pixel, BitmapInfo info, int index)
+    public override void Apply(ref Bgra8888 pixel, in BitmapInfo info, int index)
     {
-        var ntsc = Helper.Set255Round(
+        double ntsc = Helper.Set255Round(
             (pixel.R * 0.11448) +
             (pixel.G * 0.58661) +
             (pixel.B * 0.29891));

@@ -126,7 +126,7 @@ public unsafe struct ColorMatrix : IEquatable<ColorMatrix>
             if (row is < 0 or >= 5) throw new ArgumentOutOfRangeException(nameof(row));
             if (column is < 0 or >= 5) throw new ArgumentOutOfRangeException(nameof(column));
 
-            var pos = row * 5;
+            int pos = row * 5;
             return ref _array[pos + column];
         }
     }
@@ -403,7 +403,7 @@ public unsafe struct ColorMatrix : IEquatable<ColorMatrix>
 
     public override string ToString()
     {
-        var ci = CultureInfo.CurrentCulture;
+        CultureInfo ci = CultureInfo.CurrentCulture;
 
         return string.Format(ci, "{{ {{M00:{0} M01:{1} M02:{2} M03:{3} M04:{4}}} {{M10:{5} M11:{6} M12:{7} M13:{8} M14:{9}}} {{M20:{10} M21:{11} M22:{12} M23:{13} M24:{14}}} {{M30:{15} M31:{16} M32:{17} M33:{18} M34:{19}}} {{M40:{20} M41:{21} M42:{22} M43:{23} M44:{24}}} }}",
                              M00.ToString(ci), M01.ToString(ci), M02.ToString(ci), M03.ToString(ci), M04.ToString(ci),

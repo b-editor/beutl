@@ -9,7 +9,7 @@ using BEditorNext.Media.Pixel;
 
 namespace BEditorNext.Graphics.Effects;
 
-public class Negaposi : IPixelEffect
+public class Negaposi : PixelEffect
 {
     public byte Red { get; set; }
 
@@ -17,7 +17,7 @@ public class Negaposi : IPixelEffect
 
     public byte Blue { get; set; }
 
-    public void Apply(ref Bgra8888 pixel, BitmapInfo info, int index)
+    public override void Apply(ref Bgra8888 pixel, in BitmapInfo info, int index)
     {
         pixel.B = (byte)(Blue - pixel.B);
         pixel.G = (byte)(Green - pixel.G);

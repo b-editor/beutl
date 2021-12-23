@@ -201,11 +201,11 @@ public readonly struct Thickness : IEquatable<Thickness>
         const string exceptionMessage = "Invalid Thickness.";
 
         using var tokenizer = new StringTokenizer(s, CultureInfo.InvariantCulture, exceptionMessage);
-        if (tokenizer.TryReadSingle(out var a))
+        if (tokenizer.TryReadSingle(out float a))
         {
-            if (tokenizer.TryReadSingle(out var b))
+            if (tokenizer.TryReadSingle(out float b))
             {
-                if (tokenizer.TryReadSingle(out var c))
+                if (tokenizer.TryReadSingle(out float c))
                 {
                     return new Thickness(a, b, c, tokenizer.ReadSingle());
                 }

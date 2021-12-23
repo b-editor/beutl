@@ -1,4 +1,5 @@
 ﻿using BEditorNext.Media;
+using BEditorNext.Operations.BitmapEffect;
 using BEditorNext.Operations.Transform;
 using BEditorNext.ProjectSystem;
 
@@ -8,6 +9,12 @@ public static class RenderOperations
 {
     public static void RegisterAll()
     {
+        RenderOperationRegistry.RegisterOperations("EffectString", Colors.Teal)
+            .Add<BinarizationOperation>("BinarizationString")
+            .Add<BrightnessOperation>("BrightnessString")
+            .Add<ChromaKeyOperation>("ChromaKeyString")
+            .Register();
+
         RenderOperationRegistry.RegisterOperations("TransformString", Colors.Teal)
             .Add<RotateTransform>("RotateString")
             .Add<ScaleTransform>("ScaleString")

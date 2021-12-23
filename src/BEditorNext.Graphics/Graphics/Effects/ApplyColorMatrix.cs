@@ -3,11 +3,11 @@ using BEditorNext.Media.Pixel;
 
 namespace BEditorNext.Graphics.Effects;
 
-public class ApplyColorMatrix : IPixelEffect
+public class ApplyColorMatrix : PixelEffect
 {
     public ColorMatrix Matrix { get; set; }
 
-    public void Apply(ref Bgra8888 pixel, BitmapInfo info, int index)
+    public override void Apply(ref Bgra8888 pixel, in BitmapInfo info, int index)
     {
         var vec = new ColorVector(pixel.R / 255F, pixel.G / 255F, pixel.B / 255F, pixel.A / 255F);
 

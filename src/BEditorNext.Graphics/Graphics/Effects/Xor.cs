@@ -3,9 +3,9 @@ using BEditorNext.Media.Pixel;
 
 namespace BEditorNext.Graphics.Effects;
 
-public class Xor : IPixelEffect
+public class Xor : PixelEffect
 {
-    public void Apply(ref Bgra8888 pixel, BitmapInfo info, int index)
+    public override void Apply(ref Bgra8888 pixel, in BitmapInfo info, int index)
     {
         pixel.B = (byte)(pixel.B ^ 128);
         pixel.G = (byte)(pixel.G ^ 128);

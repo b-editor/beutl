@@ -3,7 +3,7 @@ using BEditorNext.Media.Pixel;
 
 namespace BEditorNext.Graphics.Effects;
 
-public class ColorKey : IPixelEffect
+public class ColorKey : PixelEffect
 {
     private double _colorNtsc;
     private Color _color;
@@ -23,7 +23,7 @@ public class ColorKey : IPixelEffect
         }
     }
 
-    public void Apply(ref Bgra8888 pixel, BitmapInfo info, int index)
+    public override void Apply(ref Bgra8888 pixel, in BitmapInfo info, int index)
     {
         double ntsc = Helper.Set255Round(
             (pixel.R * 0.11448) +
