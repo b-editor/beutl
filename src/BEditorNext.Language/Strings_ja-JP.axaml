@@ -34,6 +34,11 @@
         <x:String x:Key="TopString">上</x:String>
         <x:String x:Key="BottomString">下</x:String>
         <x:String x:Key="CenterString">中央</x:String>
+        <x:String x:Key="FontFamilyString">フォントファミリー</x:String>
+        <x:String x:Key="FontStyleString">スタイル</x:String>
+        <x:String x:Key="FontWeightString">ウェイト</x:String>
+        <x:String x:Key="CharactorSpacingString">文字間隔</x:String>
+        <x:String x:Key="MarginString">余白</x:String>
 
         <!--Verb-->
         <x:String x:Key="OpenString">開く</x:String>
@@ -60,6 +65,8 @@
         <x:String x:Key="PasteString">貼り付け</x:String>
         <x:String x:Key="ResetString">リセット</x:String>
         <x:String x:Key="EditAnimationString">アニメーションを編集</x:String>
+        <x:String x:Key="PickFontString">フォントを選択</x:String>
+        <x:String x:Key="DoneString">確定</x:String>
 
         <!--Command-->
         <x:String x:Key="AddRenderOperationString">Render operationを追加</x:String>

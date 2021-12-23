@@ -9,7 +9,7 @@ internal class PixelRectConverter : JsonConverter<PixelRect>
 {
     public override PixelRect Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
     {
-        var s = reader.GetString();
+        string? s = reader.GetString();
         if (s == null)
             throw new Exception("Invalid PixelRect.");
 

@@ -1,0 +1,36 @@
+<ui:ContentDialog xmlns="https://github.com/avaloniaui"
+                  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                  xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+                  xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+                  xmlns:ui="using:FluentAvalonia.UI.Controls"
+                  xmlns:vm="using:BEditorNext.ViewModels.Dialogs"
+                  mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+                  Title="{DynamicResource PickFontString}"
+                  CloseButtonText="{DynamicResource CloseString}"
+                  PrimaryButtonText="{DynamicResource DoneString}"
+                  DefaultButton="Primary"
+                  x:DataType="vm:PickFontFamilyViewModel"
+                  x:Class="BEditorNext.Views.Dialogs.PickFontFamily">
+    <Grid RowDefinitions="Auto,*">
+        <TextBox x:Name="searchBox"
+                 Margin="0,4"
+                 Watermark="{DynamicResource SearchString}"
+                 Classes="clearButton" />
+
+        <ListBox SelectedItem="{CompiledBinding SelectedItem.Value}"
+                 Items="{CompiledBinding Items}"
+                 MaxHeight="250"
+                 VirtualizationMode="None"
+                 Grid.Row="1"
+                 x:Name="list"
+                 SelectionMode="Single">
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <TextBlock FontFamily="{Binding Converter={StaticResource ToAvaloniaFontFamily}}"
+                               ToolTip.Tip="{Binding Name}"
+                               Text="{Binding Name}" />
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+    </Grid>
+</ui:ContentDialog>

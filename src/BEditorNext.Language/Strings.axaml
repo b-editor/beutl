@@ -56,6 +56,11 @@
         <x:String x:Key="TopString">Top</x:String>
         <x:String x:Key="BottomString">Bottom</x:String>
         <x:String x:Key="CenterString">Center</x:String>
+        <x:String x:Key="FontFamilyString">FontFamily</x:String>
+        <x:String x:Key="FontStyleString">Style</x:String>
+        <x:String x:Key="FontWeightString">Weight</x:String>
+        <x:String x:Key="CharactorSpacingString">Charactor spacing</x:String>
+        <x:String x:Key="MarginString">Margin</x:String>
 
         <!--Verb-->
         <x:String x:Key="OpenString">Open</x:String>
@@ -82,6 +87,8 @@
         <x:String x:Key="PasteString">Paste</x:String>
         <x:String x:Key="ResetString">Reset</x:String>
         <x:String x:Key="EditAnimationString">Edit animation</x:String>
+        <x:String x:Key="PickFontString">Pick a font</x:String>
+        <x:String x:Key="DoneString">Done</x:String>
 
         <!--Command-->
         <x:String x:Key="AddRenderOperationString">Add a render operation.</x:String>

@@ -154,28 +154,41 @@ public class AnimatableSetter<T> : Setter<T>, IAnimatableSetter
                     Value = (T)value;
             }
         }
+        else if (json is JsonValue jsonValue)
+        {
+            T? value = JsonSerializer.Deserialize<T>(jsonValue, JsonHelper.SerializerOptions);
+            if (value != null)
+                Value = (T)value;
+        }
     }
 
     public override JsonNode ToJson()
     {
-        var jsonObj = new JsonObject();
-        var jsonArray = new JsonArray();
-        foreach (Animation<T> item in _children)
+        if (Children.Count == 0)
         {
-            JsonNode? json = item.ToJson();
-
-            if (json.Parent != null)
+            return JsonSerializer.SerializeToNode(Value, JsonHelper.SerializerOptions)!;
+        }
+        else
+        {
+            var jsonObj = new JsonObject();
+            var jsonArray = new JsonArray();
+            foreach (Animation<T> item in _children)
             {
-                json = JsonNode.Parse(json.ToJsonString())!;
+                JsonNode? json = item.ToJson();
+
+                if (json.Parent != null)
+                {
+                    json = JsonNode.Parse(json.ToJsonString())!;
+                }
+
+                jsonArray.Add(json);
             }
 
-            jsonArray.Add(json);
+            jsonObj["value"] = JsonSerializer.SerializeToNode(Value, JsonHelper.SerializerOptions);
+            jsonObj["children"] = jsonArray;
+
+            return jsonObj;
         }
-
-        jsonObj["value"] = JsonSerializer.SerializeToNode(Value, JsonHelper.SerializerOptions);
-        jsonObj["children"] = jsonArray;
-
-        return jsonObj;
     }
 
     void IAnimatableSetter.AddChild(IAnimation animation, CommandRecorder? recorder)
