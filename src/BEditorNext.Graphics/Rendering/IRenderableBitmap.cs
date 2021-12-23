@@ -10,7 +10,7 @@ public interface IRenderableBitmap : IRenderable
 {
     PixelSize Size { get; }
 
-    Matrix3x2 Transform { get; set; }
+    ref Matrix3x2 Transform { get; }
 
     (AlignmentX X, AlignmentY Y) Alignment { get; set; }
 

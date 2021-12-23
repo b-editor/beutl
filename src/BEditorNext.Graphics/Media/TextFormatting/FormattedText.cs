@@ -10,6 +10,7 @@ namespace BEditorNext.Media.TextFormatting;
 public class FormattedText : IRenderableBitmap
 {
     private readonly List<TextLine> _lines;
+    private Matrix3x2 _transform = Matrix3x2.Identity;
     private readonly IList<BitmapEffect> _effects = new List<BitmapEffect>();
 
     public FormattedText()
@@ -45,8 +46,6 @@ public class FormattedText : IRenderableBitmap
 
     public bool IsDisposed { get; private set; }
 
-    public Dictionary<string, object> Options { get; } = new();
-
     PixelSize IRenderableBitmap.Size
     {
         get
@@ -56,7 +55,7 @@ public class FormattedText : IRenderableBitmap
         }
     }
 
-    public Matrix3x2 Transform { get; set; } = Matrix3x2.Identity;
+    public ref Matrix3x2 Transform => ref _transform;
 
     public (AlignmentX X, AlignmentY Y) Alignment { get; set; }
 

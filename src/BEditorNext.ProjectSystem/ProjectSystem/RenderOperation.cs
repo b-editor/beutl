@@ -45,21 +45,10 @@ public abstract class RenderOperation : Element, ILogicalElement
                 setter.Parent = this;
                 _setters.Add(setter);
 
-                setter.GetObservable().Subscribe(_ =>
+                if (!setter.Property.GetValueOrDefault(PropertyMetaTableKeys.SuppressAutoRender, false))
                 {
-                    SceneLayer? layer = this.FindLogicalParent<SceneLayer>();
-
-                    Scene? scene = this.FindLogicalParent<Scene>();
-                    if (scene != null &&
-                        layer != null &&
-                        layer.IsEnabled &&
-                        layer.Start <= scene.CurrentFrame &&
-                        scene.CurrentFrame < layer.Start + layer.Length &&
-                        scene?.Renderer is SceneRenderer renderer)
-                    {
-                        renderer.ForceRender();
-                    }
-                });
+                    setter.GetObservable().Subscribe(_ => ForceRender());
+                }
             }
         }
     }
@@ -128,6 +117,22 @@ public abstract class RenderOperation : Element, ILogicalElement
         }
 
         return node;
+    }
+
+    protected void ForceRender()
+    {
+        SceneLayer? layer = this.FindLogicalParent<SceneLayer>();
+
+        Scene? scene = this.FindLogicalParent<Scene>();
+        if (scene != null &&
+            layer != null &&
+            layer.IsEnabled &&
+            layer.Start <= scene.CurrentFrame &&
+            scene.CurrentFrame < layer.Start + layer.Length &&
+            scene?.Renderer is SceneRenderer renderer)
+        {
+            renderer.ForceRender();
+        }
     }
 }
 

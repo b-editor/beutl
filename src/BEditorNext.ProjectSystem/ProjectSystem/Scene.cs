@@ -473,9 +473,15 @@ public class Scene : Element, IStorable
         if (e.Action == NotifyCollectionChangedAction.Remove &&
             e.OldItems != null)
         {
+            string dirPath = Path.GetDirectoryName(FileName)!;
             foreach (SceneLayer item in e.OldItems.OfType<SceneLayer>())
             {
-                _excludeLayers.Add(item.FileName);
+                string rel = Path.GetRelativePath(dirPath, item.FileName).Replace('\\', '/');
+
+                if (!_excludeLayers.Contains(rel))
+                {
+                    _excludeLayers.Add(rel);
+                }
             }
         }
     }

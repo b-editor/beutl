@@ -85,6 +85,7 @@
         <x:String x:Key="EllipseString">楕円</x:String>
         <x:String x:Key="RectString">矩形</x:String>
         <x:String x:Key="TextString">テキスト</x:String>
+        <x:String x:Key="ImageFileString">画像ファイル</x:String>
         <x:String x:Key="AlignString">整列</x:String>
         <x:String x:Key="RotateString">回転</x:String>
         <x:String x:Key="ScaleString">スケール</x:String>

@@ -19,6 +19,7 @@ public static class PropertyMetaTableKeys
     public const string Editor = "editor";
     public const string DefaultValue = "defaultValue";
     public const string JsonName = "jsonName";
+    public const string SuppressAutoRender = "suppressAutoRender";
     public const string XmlName = "xmlName";
     public const string NotifyPropertyChanged = "notifyPropertyChanged";
     public const string NotifyPropertyChanging = "notifyPropertyChanging";

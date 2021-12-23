@@ -140,14 +140,17 @@ public unsafe class Bitmap<T> : IBitmap
         ArgumentNullException.ThrowIfNull(stream);
 
         using (var bmp = SKBitmap.Decode(stream))
-        using (var image = bmp.ToBitmap())
         {
+            var image = bmp.ToBitmap();
+
             if (default(T) is Bgra8888)
             {
                 return (Bitmap<T>)(object)image;
             }
 
-            return image.Convert<T>();
+            Bitmap<T>? converted = image.Convert<T>();
+            image.Dispose();
+            return converted;
         }
     }
 
@@ -157,14 +160,17 @@ public unsafe class Bitmap<T> : IBitmap
         if (!File.Exists(file)) throw new FileNotFoundException(null, file);
 
         using (var bmp = SKBitmap.Decode(file))
-        using (var image = bmp.ToBitmap())
         {
+            var image = bmp.ToBitmap();
+
             if (default(T) is Bgra8888)
             {
                 return (Bitmap<T>)(object)image;
             }
 
-            return image.Convert<T>();
+            Bitmap<T>? converted = image.Convert<T>();
+            image.Dispose();
+            return converted;
         }
     }
 

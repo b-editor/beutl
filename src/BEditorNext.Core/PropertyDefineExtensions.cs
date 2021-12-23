@@ -62,6 +62,11 @@ public static class PropertyDefineExtensions
         return define.SetKeyValue(PropertyMetaTableKeys.DefaultValue, value);
     }
 
+    public static PropertyDefine<T> SuppressAutoRender<T>(this PropertyDefine<T> define, bool value)
+    {
+        return define.SetKeyValue(PropertyMetaTableKeys.SuppressAutoRender, value);
+    }
+    
     public static PropertyDefine<T> JsonName<T>(this PropertyDefine<T> define, string value)
     {
         return define.SetKeyValue(PropertyMetaTableKeys.JsonName, value);
@@ -102,13 +107,13 @@ public static class PropertyDefineExtensions
         return define.SetKeyValue(PropertyMetaTableKeys.GenericsSetter, value);
     }
 
-    public static PropertyDefine<FileInfo> FilePicker(this PropertyDefine<FileInfo> define, ResourceReference<string> name, params string[] extensions)
+    public static PropertyDefine<T> FilePicker<T>(this PropertyDefine<T> define, ResourceReference<string> name, params string[] extensions)
     {
         return define.SetKeyValue(PropertyMetaTableKeys.FilePickerName, name)
-            .SetKeyValue(PropertyMetaTableKeys.FilePickerName, extensions);
+            .SetKeyValue(PropertyMetaTableKeys.FilePickerExtensions, extensions);
     }
 
-    public static PropertyDefine<DirectoryInfo> DirectoryPicker(this PropertyDefine<DirectoryInfo> define)
+    public static PropertyDefine<T> DirectoryPicker<T>(this PropertyDefine<T> define)
     {
         return define.SetKeyValue(PropertyMetaTableKeys.DirectoryPicker, new object());
     }
