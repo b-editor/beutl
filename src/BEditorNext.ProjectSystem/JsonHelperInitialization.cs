@@ -22,5 +22,7 @@ internal class JsonHelperInitialization
         converters.Add(new ColorConverter());
         converters.Add(new FontFamilyConverter());
         converters.Add(new ThicknessConverter());
+        converters.Add(new FileInfoConverter());
+        converters.Add(new DirectoryInfoConverter());
     }
 }
