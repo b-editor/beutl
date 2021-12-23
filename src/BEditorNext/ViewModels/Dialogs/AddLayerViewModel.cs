@@ -77,7 +77,7 @@ public sealed class AddLayerViewModel
 
         Add.Subscribe(() =>
         {
-            var sLayer = new SceneLayer(_scene)
+            var sLayer = new SceneLayer()
             {
                 Name = Name.Value,
                 Start = Start.Value,

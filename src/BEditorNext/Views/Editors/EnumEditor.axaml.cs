@@ -53,6 +53,13 @@ public sealed class EnumEditor<T> : EnumEditor
                         [!TextBlock.TextProperty] = new DynamicResourceExtension(name.Description)
                     };
                 }
+                else
+                {
+                    return new TextBlock
+                    {
+                        Text = e.ToString("g")
+                    };
+                }
             }
 
             return BindingNotification.Null;

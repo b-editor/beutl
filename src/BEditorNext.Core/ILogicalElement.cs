@@ -14,4 +14,11 @@ public interface ILogicalElement
     /// Gets the logical children.
     /// </summary>
     IEnumerable<ILogicalElement> LogicalChildren { get; }
+
+    event EventHandler<LogicalTreeAttachmentEventArgs> AttachedToLogicalTree;
+    event EventHandler<LogicalTreeAttachmentEventArgs> DetachedFromLogicalTree;
+
+    void NotifyAttachedToLogicalTree(in LogicalTreeAttachmentEventArgs e);
+
+    void NotifyDetachedFromLogicalTree(in LogicalTreeAttachmentEventArgs e);
 }

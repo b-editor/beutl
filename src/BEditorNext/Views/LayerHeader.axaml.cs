@@ -24,7 +24,7 @@ public sealed partial class LayerHeader : UserControl
 
     private TimelineLayerViewModel ViewModel => (TimelineLayerViewModel)DataContext!;
 
-    protected override void OnAttachedToLogicalTree(LogicalTreeAttachmentEventArgs e)
+    protected override void OnAttachedToLogicalTree(Avalonia.LogicalTree.LogicalTreeAttachmentEventArgs e)
     {
         base.OnAttachedToLogicalTree(e);
         _timeline = this.FindLogicalAncestorOfType<Timeline>();

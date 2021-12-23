@@ -31,7 +31,7 @@ public sealed class AlignOperation : RenderOperation
         for (int i = 0; i < args.List.Count; i++)
         {
             IRenderable item = args.List[i];
-            if (item is RenderableBitmap bmp)
+            if (item is IRenderableBitmap bmp)
             {
                 bmp.Alignment = (X, Y);
             }

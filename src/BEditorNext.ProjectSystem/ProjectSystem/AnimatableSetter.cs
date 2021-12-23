@@ -25,15 +25,17 @@ public interface IAnimatableSetter : ISetter, ILogicalElement
 public class AnimatableSetter<T> : Setter<T>, IAnimatableSetter
     where T : struct
 {
-    private readonly ObservableList<Animation<T>> _children = new();
+    private readonly LogicalList<Animation<T>> _children;
 
     public AnimatableSetter()
     {
+        _children = new LogicalList<Animation<T>>(this);
     }
 
     public AnimatableSetter(PropertyDefine<T> property)
         : base(property)
     {
+        _children = new LogicalList<Animation<T>>(this);
     }
 
     public IObservableList<Animation<T>> Children => _children;

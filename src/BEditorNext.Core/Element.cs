@@ -63,7 +63,6 @@ public abstract class Element : IElement
     protected JsonNode? JsonNode;
     private readonly ElementList _children;
     private Dictionary<int, object?>? _values = new();
-    private Element? _parent;
 
     static Element()
     {
@@ -109,19 +108,7 @@ public abstract class Element : IElement
     /// <summary>
     /// Gets or sets the parent element.
     /// </summary>
-    public Element? Parent
-    {
-        get => _parent;
-        set
-        {
-            if (_parent != value)
-            {
-                RaiseParentChanging(_parent, value);
-                _parent = value;
-                RaiseParentChanged();
-            }
-        }
-    }
+    public Element? Parent { get; private set; }
 
     /// <summary>
     /// Gets the children.
@@ -140,16 +127,6 @@ public abstract class Element : IElement
     IElement? IElement.Parent => Parent;
 
     /// <summary>
-    /// Occurs while changing the parent element
-    /// </summary>
-    public event EventHandler<ParentChangingEventArgs>? ParentChanging;
-
-    /// <summary>
-    /// Occurs when the parent element changes.
-    /// </summary>
-    public event EventHandler? ParentChanged;
-
-    /// <summary>
     /// Occurs when a property value changes.
     /// </summary>
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -158,6 +135,10 @@ public abstract class Element : IElement
     /// Occurs when a property value is changing.
     /// </summary>
     public event PropertyChangingEventHandler? PropertyChanging;
+
+    public event EventHandler<LogicalTreeAttachmentEventArgs>? AttachedToLogicalTree;
+
+    public event EventHandler<LogicalTreeAttachmentEventArgs>? DetachedFromLogicalTree;
 
     /// <summary>
     /// Registers a property by specifying a getter and a setter.
@@ -390,21 +371,6 @@ public abstract class Element : IElement
         return json;
     }
 
-    internal void RaiseParentChanging(Element? oldValue, Element? newValue)
-    {
-        ParentChanging?.Invoke(this, new ParentChangingEventArgs(oldValue, newValue));
-    }
-
-    internal void RaiseParentChanged()
-    {
-        ParentChanged?.Invoke(this, EventArgs.Empty);
-    }
-
-    internal void SetParent(Element? parent)
-    {
-        _parent = parent;
-    }
-
     protected void OnPropertyChanged([CallerMemberName] string? propertyName = null)
     {
         OnPropertyChanged(new PropertyChangedEventArgs(propertyName));
@@ -460,6 +426,14 @@ public abstract class Element : IElement
         }
     }
 
+    protected virtual void OnAttachedToLogicalTree(in LogicalTreeAttachmentEventArgs args)
+    {
+    }
+
+    protected virtual void OnDetachedFromLogicalTree(in LogicalTreeAttachmentEventArgs args)
+    {
+    }
+
     // オーナーの型が一致しない場合はtrue
     private bool ValidateOwnerType(PropertyDefine property)
     {
@@ -488,6 +462,16 @@ public abstract class Element : IElement
 
     private void RaisePropertyChanged<T>(PropertyDefine<T> property, T? newValue, T? oldValue)
     {
+        if (oldValue is ILogicalElement oldLogical)
+        {
+            oldLogical.NotifyDetachedFromLogicalTree(new LogicalTreeAttachmentEventArgs(this, null));
+        }
+        
+        if (newValue is ILogicalElement newLogical)
+        {
+            newLogical.NotifyAttachedToLogicalTree(new LogicalTreeAttachmentEventArgs(null, this));
+        }
+
         if (property.GetNotifyPropertyChanged())
         {
             var eventArgs = new ElementPropertyChangedEventArgs<T>(this, property, newValue, oldValue);
@@ -503,5 +487,19 @@ public abstract class Element : IElement
         {
             OnPropertyChanging(property.Name);
         }
+    }
+
+    void ILogicalElement.NotifyAttachedToLogicalTree(in LogicalTreeAttachmentEventArgs e)
+    {
+        Parent = e.NewParent as Element;
+        OnAttachedToLogicalTree(e);
+        AttachedToLogicalTree?.Invoke(this, e);
+    }
+
+    void ILogicalElement.NotifyDetachedFromLogicalTree(in LogicalTreeAttachmentEventArgs e)
+    {
+        Parent = e.NewParent as Element;
+        OnDetachedFromLogicalTree(e);
+        DetachedFromLogicalTree?.Invoke(this, e);
     }
 }

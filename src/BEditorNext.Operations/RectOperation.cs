@@ -7,16 +7,16 @@ using SkiaSharp;
 
 namespace BEditorNext.Operations;
 
-public sealed class EllipseOperation : RenderOperation
+public sealed class RectOperation : RenderOperation
 {
     public static readonly PropertyDefine<float> WidthProperty;
     public static readonly PropertyDefine<float> HeightProperty;
     public static readonly PropertyDefine<float> StrokeWidthProperty;
     public static readonly PropertyDefine<Color> ColorProperty;
 
-    static EllipseOperation()
+    static RectOperation()
     {
-        WidthProperty = RegisterProperty<float, EllipseOperation>(nameof(Width), (owner, obj) => owner.Width = obj, owner => owner.Width)
+        WidthProperty = RegisterProperty<float, RectOperation>(nameof(Width), (owner, obj) => owner.Width = obj, owner => owner.Width)
             .DefaultValue(100)
             .Animatable()
             .Header("WidthString")
@@ -24,7 +24,7 @@ public sealed class EllipseOperation : RenderOperation
             .Minimum(0)
             .EnableEditor();
         
-        HeightProperty = RegisterProperty<float, EllipseOperation>(nameof(Height), (owner, obj) => owner.Height = obj, owner => owner.Height)
+        HeightProperty = RegisterProperty<float, RectOperation>(nameof(Height), (owner, obj) => owner.Height = obj, owner => owner.Height)
             .DefaultValue(100)
             .Animatable()
             .Header("HeightString")
@@ -32,7 +32,7 @@ public sealed class EllipseOperation : RenderOperation
             .Minimum(0)
             .EnableEditor();
 
-        StrokeWidthProperty = RegisterProperty<float, EllipseOperation>(nameof(StrokeWidth), (owner, obj) => owner.StrokeWidth = obj, owner => owner.StrokeWidth)
+        StrokeWidthProperty = RegisterProperty<float, RectOperation>(nameof(StrokeWidth), (owner, obj) => owner.StrokeWidth = obj, owner => owner.StrokeWidth)
             .DefaultValue(4000)
             .Animatable()
             .Header("StrokeWidthString")
@@ -40,7 +40,7 @@ public sealed class EllipseOperation : RenderOperation
             .Minimum(0)
             .EnableEditor();
 
-        ColorProperty = RegisterProperty<Color, EllipseOperation>(nameof(Color), (owner, obj) => owner.Color = obj, owner => owner.Color)
+        ColorProperty = RegisterProperty<Color, RectOperation>(nameof(Color), (owner, obj) => owner.Color = obj, owner => owner.Color)
             .DefaultValue(Colors.White)
             .Animatable()
             .Header("ColorString")
@@ -62,14 +62,6 @@ public sealed class EllipseOperation : RenderOperation
         float height = Height;
         float stroke = StrokeWidth;
 
-        if (StrokeWidth >= MathF.Min(width, height) / 2)
-            stroke = MathF.Min(width, height) / 2;
-
-        float min = MathF.Min(width, height);
-
-        if (stroke < min) min = stroke;
-        if (min < 0) min = 0;
-
         using var bmp = new SKBitmap(new SKImageInfo((int)MathF.Round(width), (int)MathF.Round(height), SKColorType.Bgra8888));
         using var canvas = new SKCanvas(bmp);
 
@@ -78,12 +70,12 @@ public sealed class EllipseOperation : RenderOperation
             Color = Color.ToSkia(),
             IsAntialias = true,
             Style = SKPaintStyle.Stroke,
-            StrokeWidth = min,
+            StrokeWidth = stroke,
         };
 
-        canvas.DrawOval(
-            new SKPoint(width / 2, height / 2),
-            new SKSize(width / 2 - min / 2, height / 2 - min / 2),
+        canvas.DrawRect(
+            0, 0,
+            width, height,
             paint);
 
         args.List.Add(new RenderableBitmap(bmp.ToBitmap()));

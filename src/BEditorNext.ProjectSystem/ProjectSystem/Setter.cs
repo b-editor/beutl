@@ -87,6 +87,8 @@ public class Setter<T> : ISetter
     IEnumerable<ILogicalElement> ILogicalElement.LogicalChildren => Enumerable.Empty<ILogicalElement>();
 
     public event PropertyChangedEventHandler? PropertyChanged;
+    public event EventHandler<LogicalTreeAttachmentEventArgs>? AttachedToLogicalTree;
+    public event EventHandler<LogicalTreeAttachmentEventArgs>? DetachedFromLogicalTree;
 
     public virtual void FromJson(JsonNode json)
     {
@@ -128,6 +130,16 @@ public class Setter<T> : ISetter
     IObservable<Unit> ISetter.GetObservable()
     {
         return GetObservable().Select(_ => Unit.Default);
+    }
+
+    void ILogicalElement.NotifyAttachedToLogicalTree(in LogicalTreeAttachmentEventArgs e)
+    {
+        AttachedToLogicalTree?.Invoke(this, e);
+    }
+
+    void ILogicalElement.NotifyDetachedFromLogicalTree(in LogicalTreeAttachmentEventArgs e)
+    {
+        DetachedFromLogicalTree?.Invoke(this, e);
     }
 
     private sealed class SetterSubject : SubjectBase<T?>

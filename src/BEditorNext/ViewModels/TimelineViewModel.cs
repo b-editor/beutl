@@ -42,7 +42,7 @@ public class TimelineViewModel : IDisposable
 
         AddLayer.Subscribe(item =>
         {
-            var sLayer = new SceneLayer(Scene)
+            var sLayer = new SceneLayer()
             {
                 Start = item.Start,
                 Length = item.Length,

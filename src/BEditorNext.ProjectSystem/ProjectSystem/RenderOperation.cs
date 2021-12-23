@@ -8,7 +8,7 @@ public abstract class RenderOperation : Element, ILogicalElement
 {
     public static readonly PropertyDefine<bool> IsEnabledProperty;
     public static readonly PropertyDefine<RenderOperationViewState> ViewStateProperty;
-    private readonly ObservableList<ISetter> _setters = new();
+    private readonly LogicalList<ISetter> _setters;
     private bool _isEnabled = true;
 
     static RenderOperation()
@@ -24,6 +24,7 @@ public abstract class RenderOperation : Element, ILogicalElement
 
     public RenderOperation()
     {
+        _setters = new LogicalList<ISetter>(this);
         ViewState = new RenderOperationViewState();
         foreach (PropertyDefine item in PropertyRegistry.GetRegistered(GetType())
             .Where(x => x.GetValueOrDefault<bool>(PropertyMetaTableKeys.Editor) == true))

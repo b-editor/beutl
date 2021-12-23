@@ -1,9 +1,12 @@
-﻿using BEditorNext.Graphics;
+﻿using System.Numerics;
+
+using BEditorNext.Graphics;
+using BEditorNext.Graphics.Effects;
 using BEditorNext.Rendering;
 
 namespace BEditorNext.Media.TextFormatting;
 
-public class FormattedText : IRenderable
+public class FormattedText : IRenderableBitmap
 {
     private readonly List<TextLine> _lines;
 
@@ -42,6 +45,21 @@ public class FormattedText : IRenderable
 
     public Dictionary<string, object> Options { get; } = new();
 
+    PixelSize IRenderableBitmap.Size
+    {
+        get
+        {
+            Size size = Bounds;
+            return new PixelSize((int)size.Width, (int)size.Height);
+        }
+    }
+
+    public Matrix3x2 Transform { get; set; } = Matrix3x2.Identity;
+
+    public (AlignmentX X, AlignmentY Y) Alignment { get; set; }
+
+    IList<IEffect> IRenderableBitmap.Effects { get; } = new List<IEffect>();
+
     public static FormattedText Parse(string s, FormattedTextInfo info)
     {
         var tokenizer = new FormattedTextTokenizer(s);
@@ -74,6 +92,20 @@ public class FormattedText : IRenderable
     {
         graphics.PushMatrix();
 
+        graphics.SetMatrix(Transform * graphics.TotalMatrix);
+
+        Size size = Bounds;
+        Point pt = CreatePoint(size.Width, size.Height);
+        graphics.Translate(pt);
+        RenderCore(graphics);
+
+        graphics.PopMatrix();
+    }
+
+    private void RenderCore(IGraphics graphics)
+    {
+        graphics.PushMatrix();
+
         float prevBottom = 0;
         for (int i = 0; i < Lines.Count; i++)
         {
@@ -103,5 +135,31 @@ public class FormattedText : IRenderable
         }
 
         graphics.PopMatrix();
+    }
+
+    private Point CreatePoint(float width, float height)
+    {
+        float x = 0;
+        float y = 0;
+
+        if (Alignment.X == AlignmentX.Center)
+        {
+            x -= width / 2;
+        }
+        else if (Alignment.X == AlignmentX.Right)
+        {
+            x -= width;
+        }
+
+        if (Alignment.Y == AlignmentY.Center)
+        {
+            y -= height / 2;
+        }
+        else if (Alignment.Y == AlignmentY.Bottom)
+        {
+            y -= height;
+        }
+
+        return new Point(x, y);
     }
 }

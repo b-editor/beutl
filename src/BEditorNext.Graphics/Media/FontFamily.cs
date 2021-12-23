@@ -7,7 +7,7 @@ public readonly struct FontFamily : IEquatable<FontFamily>
 {
     public static readonly FontFamily Default = new(SKTypeface.Default.FamilyName);
 
-    internal FontFamily(string familyname)
+    public FontFamily(string familyname)
     {
         Name = familyname;
     }

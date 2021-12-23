@@ -1,6 +1,7 @@
 ﻿using System.Numerics;
 
 using BEditorNext.Graphics;
+using BEditorNext.Graphics.Effects;
 using BEditorNext.Media;
 using BEditorNext.Media.Pixel;
 
@@ -10,10 +11,19 @@ public class RenderableList : List<IRenderable>
 {
 }
 
-public class RenderableBitmap : IRenderable
+public interface IRenderableBitmap : IRenderable
 {
-    private Matrix3x2 _matrix = Matrix3x2.Identity;
+    PixelSize Size { get; }
 
+    Matrix3x2 Transform { get; set; }
+
+    (AlignmentX X, AlignmentY Y) Alignment { get; set; }
+
+    IList<IEffect> Effects { get; }
+}
+
+public class RenderableBitmap : IRenderableBitmap
+{
     public RenderableBitmap(Bitmap<Bgra8888> bitmap)
     {
         Bitmap = bitmap;
@@ -26,11 +36,15 @@ public class RenderableBitmap : IRenderable
 
     public Bitmap<Bgra8888> Bitmap { get; }
 
-    public ref Matrix3x2 Transform => ref _matrix;
+    public bool IsDisposed => Bitmap.IsDisposed;
 
     public (AlignmentX X, AlignmentY Y) Alignment { get; set; }
 
-    public bool IsDisposed => Bitmap.IsDisposed;
+    public PixelSize Size => new(Bitmap.Width, Bitmap.Height);
+
+    public Matrix3x2 Transform { get; set; } = Matrix3x2.Identity;
+
+    public IList<IEffect> Effects { get; } = new List<IEffect>();
 
     public Dictionary<string, object> Options { get; } = new();
 
@@ -70,7 +84,7 @@ public class RenderableBitmap : IRenderable
             x -= width;
         }
 
-        if (Alignment.Y== AlignmentY.Center)
+        if (Alignment.Y == AlignmentY.Center)
         {
             y -= height / 2;
         }

@@ -1,20 +1,14 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿namespace BEditorNext;
 
-namespace BEditorNext;
-
-public class ParentChangingEventArgs : EventArgs
+public readonly struct LogicalTreeAttachmentEventArgs
 {
-    public ParentChangingEventArgs(Element? oldParent, Element? newParent)
+    public LogicalTreeAttachmentEventArgs(ILogicalElement? oldParent, ILogicalElement? newParent)
     {
         NewParent = newParent;
         OldParent = oldParent;
     }
 
-    public Element? NewParent { get; }
+    public ILogicalElement? NewParent { get; }
 
-    public Element? OldParent { get; }
+    public ILogicalElement? OldParent { get; }
 }

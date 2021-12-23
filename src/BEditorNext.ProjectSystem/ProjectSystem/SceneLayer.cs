@@ -53,12 +53,6 @@ public class SceneLayer : Element, IStorable
     {
     }
 
-    public SceneLayer(Scene scene)
-        : this()
-    {
-        Parent = scene;
-    }
-
     // 0以上
     public TimeSpan Start
     {

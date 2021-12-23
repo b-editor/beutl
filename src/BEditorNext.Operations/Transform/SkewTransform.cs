@@ -33,7 +33,7 @@ public sealed class SkewTransform : RenderOperation
     {
         for (int i = 0; i < args.List.Count; i++)
         {
-            if (args.List[i] is RenderableBitmap bmp)
+            if (args.List[i] is IRenderableBitmap bmp)
             {
                 bmp.Transform = Matrix3x2.CreateSkew(MathHelper.ToRadians(SkewX), MathHelper.ToRadians(SkewY)) * bmp.Transform;
             }
