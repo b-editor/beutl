@@ -10,8 +10,8 @@ namespace BEditorNext.Media.TextFormatting;
 public class FormattedText : IRenderableBitmap
 {
     private readonly List<TextLine> _lines;
+    private readonly List<BitmapEffect> _effects = new();
     private Matrix3x2 _transform = Matrix3x2.Identity;
-    private readonly IList<BitmapEffect> _effects = new List<BitmapEffect>();
 
     public FormattedText()
         : this(new List<TextLine>())

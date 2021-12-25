@@ -9,6 +9,7 @@ namespace BEditorNext.Rendering;
 
 public class RenderableBitmap : IRenderableBitmap
 {
+    private readonly List<BitmapEffect> _effects = new();
     private Matrix3x2 _transform = Matrix3x2.Identity;
 
     public RenderableBitmap(Bitmap<Bgra8888> bitmap)
@@ -31,7 +32,7 @@ public class RenderableBitmap : IRenderableBitmap
 
     public ref Matrix3x2 Transform => ref _transform;
 
-    public IList<BitmapEffect> Effects { get; } = new List<BitmapEffect>();
+    public IList<BitmapEffect> Effects => _effects;
 
     public void Update(Bitmap<Bgra8888> bitmap)
     {
@@ -59,7 +60,7 @@ public class RenderableBitmap : IRenderableBitmap
             else
             {
                 using Bitmap<Bgra8888> bitmap = ToBitmap();
-                using Bitmap<Bgra8888> bitmap2 = BitmapEffect.ApplyAll(bitmap, Effects);
+                using Bitmap<Bgra8888> bitmap2 = BitmapEffect.ApplyAll(bitmap, _effects);
 
                 RenderCore(renderer, bitmap2);
             }

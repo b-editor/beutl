@@ -11,9 +11,37 @@ namespace BEditorNext.Graphics.UnitTests;
 public class EffectTests
 {
     [Test]
-    public void BitmapEffectSummarize()
+    public void BitmapEffectApplyFor()
     {
-        var result = BitmapEffect.Summarize(new List<BitmapEffect>()
+        var bmp = new Bitmap<Bgra8888>(1000, 1000);
+
+        var list = new List<BitmapEffect>()
+        {
+            new BitmapEffectImpl(1),
+            new BitmapEffectImpl(2),
+            new PixelEffectImpl(3),
+            new PixelEffectImpl(4),
+            new PixelEffectImpl(5),
+            new RowEffectImpl(6),
+            new RowEffectImpl(7),
+            new PixelEffectImpl(8),
+        };
+
+        for (int i = 0; i < list.Count; i++)
+        {
+            BitmapEffect effect = list[i];
+            effect.Apply(ref bmp);
+        }
+
+        bmp.Dispose();
+    }
+
+    [Test]
+    public void BitmapEffectApplyAll()
+    {
+        using var bmp = new Bitmap<Bgra8888>(1000, 1000);
+
+        Bitmap<Bgra8888> result = BitmapEffect.ApplyAll(bmp, new List<BitmapEffect>()
         {
             new BitmapEffectImpl(1),
             new BitmapEffectImpl(2),
@@ -24,6 +52,8 @@ public class EffectTests
             new RowEffectImpl(7),
             new PixelEffectImpl(8),
         });
+
+        result.Dispose();
     }
 
     [DebuggerDisplay("{Id}")]
@@ -53,6 +83,10 @@ public class EffectTests
 
         public override void Apply(ref Bgra8888 pixel, in BitmapInfo info, int index)
         {
+            pixel.A = 255;
+            pixel.B = (byte)(pixel.B ^ 128);
+            pixel.G = (byte)(pixel.G ^ 128);
+            pixel.R = (byte)(pixel.R ^ 128);
         }
     }
 
@@ -68,6 +102,7 @@ public class EffectTests
 
         public override void Apply(Span<Bgra8888> pixel, in BitmapInfo info, int row)
         {
+            pixel.Reverse();
         }
     }
 }
