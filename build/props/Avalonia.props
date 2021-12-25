@@ -3,8 +3,8 @@
     <PackageReference Include="Avalonia" Version="0.10.11" />
     <PackageReference Include="Avalonia.Desktop" Version="0.10.11" />
     <PackageReference Condition="'$(Configuration)' == 'Debug'" Include="Avalonia.Diagnostics" Version="0.10.11" />
-    <PackageReference Include="Avalonia.Xaml.Behaviors" Version="0.10.10.4" />
-    <PackageReference Include="Avalonia.Xaml.Interactivity" Version="0.10.10.4" />
-    <PackageReference Include="FluentAvaloniaUI" Version="1.1.7" />
+    <PackageReference Include="Avalonia.Xaml.Behaviors" Version="0.10.11.5" />
+    <PackageReference Include="Avalonia.Xaml.Interactivity" Version="0.10.11.5" />
+    <PackageReference Include="FluentAvaloniaUI" Version="1.1.8" />
   </ItemGroup>
 </Project>
