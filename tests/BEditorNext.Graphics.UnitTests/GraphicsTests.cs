@@ -19,7 +19,7 @@ public class GraphicsTests
             Typeface = TypefaceProvider.Typeface()
         };
 
-        var graphics = new Graphics(500, 500)
+        var graphics = new Canvas(500, 500)
         {
             Color = Colors.Gray,
         };

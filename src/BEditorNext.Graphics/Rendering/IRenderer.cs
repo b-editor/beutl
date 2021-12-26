@@ -6,7 +6,7 @@ namespace BEditorNext.Rendering;
 
 public interface IRenderer : IDisposable
 {
-    public IGraphics Graphics { get; }
+    public ICanvas Graphics { get; }
 
     //public IAudio Audio { get; }
 

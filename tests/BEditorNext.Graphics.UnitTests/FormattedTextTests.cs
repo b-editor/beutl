@@ -90,7 +90,7 @@ public class FormattedTextTests
         };
 
         Size bounds = text.Bounds;
-        using var graphics = new Graphics((int)bounds.Width, (int)bounds.Height);
+        using var graphics = new Canvas((int)bounds.Width, (int)bounds.Height);
 
         graphics.Clear(Colors.White);
 
@@ -115,7 +115,7 @@ public class FormattedTextTests
         using var text = FormattedText.Parse(str, new FormattedTextInfo(typeface, 100, Colors.Black, 0, default));
 
         Size bounds = text.Bounds;
-        using var graphics = new Graphics((int)bounds.Width, (int)bounds.Height);
+        using var graphics = new Canvas((int)bounds.Width, (int)bounds.Height);
 
         graphics.Clear(Colors.White);
 

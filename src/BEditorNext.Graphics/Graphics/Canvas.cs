@@ -8,17 +8,19 @@ using SkiaSharp;
 
 namespace BEditorNext.Graphics;
 
-public class Graphics : IGraphics
+public class Canvas : ICanvas
 {
+    private readonly SKSurface _surface;
     private readonly SKCanvas _canvas;
-    private readonly SKBitmap _bitmap;
     private readonly SKPaint _paint;
-
-    public Graphics(int width, int height)
+    public Canvas(int width, int height)
     {
         Size = new PixelSize(width, height);
-        _bitmap = new SKBitmap(new SKImageInfo(width, height, SKColorType.Bgra8888));
-        _canvas = new SKCanvas(_bitmap);
+        var info = new SKImageInfo(width, height, SKColorType.Bgra8888);
+
+        _surface = SKSurface.Create(info);
+
+        _canvas = _surface.Canvas;
         _paint = new SKPaint();
         IsAntialias = true;
         _paint.BlendMode = SKBlendMode.SrcOver;
@@ -26,7 +28,7 @@ public class Graphics : IGraphics
         ResetMatrix();
     }
 
-    ~Graphics()
+    ~Canvas()
     {
         Dispose();
     }
@@ -65,8 +67,7 @@ public class Graphics : IGraphics
     {
         if (!IsDisposed)
         {
-            _canvas.Dispose();
-            _bitmap.Dispose();
+            _surface.Dispose();
             _paint.Dispose();
             GC.SuppressFinalize(this);
             IsDisposed = true;
@@ -207,11 +208,12 @@ public class Graphics : IGraphics
 
     public unsafe Bitmap<Bgra8888> GetBitmap()
     {
-        IntPtr ptr = _bitmap.GetPixels();
+        using SKImage image = _surface.Snapshot();
+        using var bmp = SKBitmap.FromImage(image);
         var result = new Bitmap<Bgra8888>(Size.Width, Size.Height);
 
         int byteCount = result.ByteCount;
-        Buffer.MemoryCopy((void*)ptr, (void*)result.Data, byteCount, byteCount);
+        Buffer.MemoryCopy((void*)bmp.GetPixels(), (void*)result.Data, byteCount, byteCount);
 
         return result;
     }

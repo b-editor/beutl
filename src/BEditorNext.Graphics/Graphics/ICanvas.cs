@@ -8,7 +8,7 @@ using SkiaSharp;
 
 namespace BEditorNext.Graphics;
 
-public interface IGraphics : IDisposable
+public interface ICanvas : IDisposable
 {
     public PixelSize Size { get; }
 

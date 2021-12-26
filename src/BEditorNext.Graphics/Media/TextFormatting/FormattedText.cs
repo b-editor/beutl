@@ -85,11 +85,11 @@ public class FormattedText : IRenderableBitmap
 
     public void Render(IRenderer renderer)
     {
-        IGraphics graphics = renderer.Graphics;
+        ICanvas graphics = renderer.Graphics;
         Render(graphics);
     }
 
-    public void Render(IGraphics graphics)
+    public void Render(ICanvas graphics)
     {
         if (_effects.Count == 0)
         {
@@ -101,7 +101,7 @@ public class FormattedText : IRenderableBitmap
         }
     }
 
-    private void RenderBitmap(IGraphics graphics)
+    private void RenderBitmap(ICanvas graphics)
     {
         using Bitmap<Bgra8888> bitmap = ToBitmap();
         using Bitmap<Bgra8888> bitmap2 = BitmapEffect.ApplyAll(bitmap, _effects);
@@ -116,7 +116,7 @@ public class FormattedText : IRenderableBitmap
         graphics.PopMatrix();
     }
 
-    private void RenderDirect(IGraphics graphics)
+    private void RenderDirect(ICanvas graphics)
     {
         graphics.PushMatrix();
         graphics.SetMatrix(Transform * graphics.TotalMatrix);
@@ -128,7 +128,7 @@ public class FormattedText : IRenderableBitmap
         graphics.PopMatrix();
     }
 
-    private void RenderCore(IGraphics graphics)
+    private void RenderCore(ICanvas graphics)
     {
         graphics.PushMatrix();
 
@@ -192,7 +192,7 @@ public class FormattedText : IRenderableBitmap
     public Bitmap<Bgra8888> ToBitmap()
     {
         Size size = Bounds;
-        using var g = new Graphics.Graphics((int)size.Width, (int)size.Height);
+        using var g = new Graphics.Canvas((int)size.Width, (int)size.Height);
 
         RenderCore(g);
 

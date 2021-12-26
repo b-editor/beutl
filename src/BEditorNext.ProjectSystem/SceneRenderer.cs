@@ -13,10 +13,10 @@ internal class SceneRenderer : IRenderer
     public SceneRenderer(Scene scene, int width, int height)
     {
         _scene = scene;
-        Graphics = new Graphics.Graphics(width, height);
+        Graphics = new Graphics.Canvas(width, height);
     }
 
-    public IGraphics Graphics { get; }
+    public ICanvas Graphics { get; }
 
     public TimeSpan FrameNumber => _scene.CurrentFrame;
 
