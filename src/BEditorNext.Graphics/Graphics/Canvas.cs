@@ -13,6 +13,7 @@ public class Canvas : ICanvas
     private readonly SKSurface _surface;
     private readonly SKCanvas _canvas;
     private readonly SKPaint _paint;
+
     public Canvas(int width, int height)
     {
         Size = new PixelSize(width, height);
@@ -76,10 +77,9 @@ public class Canvas : ICanvas
 
     public void DrawBitmap(Bitmap<Bgra8888> bmp)
     {
-        using var skbmp = new SKBitmap(new SKImageInfo(bmp.Width, bmp.Height, SKColorType.Bgra8888));
-        skbmp.SetPixels(bmp.Data);
+        using var img = SKImage.FromPixels(new SKImageInfo(bmp.Width, bmp.Height, SKColorType.Bgra8888), bmp.Data);
 
-        _canvas.DrawBitmap(skbmp, SKPoint.Empty, _paint);
+        _canvas.DrawImage(img, SKPoint.Empty, _paint);
     }
 
     public void DrawCircle(Size size)
@@ -208,12 +208,19 @@ public class Canvas : ICanvas
 
     public unsafe Bitmap<Bgra8888> GetBitmap()
     {
-        using SKImage image = _surface.Snapshot();
-        using var bmp = SKBitmap.FromImage(image);
+        //using SKImage image = _surface.Snapshot();
+        //using var bmp = SKBitmap.FromImage(image);
+        //var result = new Bitmap<Bgra8888>(Size.Width, Size.Height);
+
+        //int byteCount = result.ByteCount;
+        //System.Buffer.MemoryCopy((void*)bmp.GetPixels(), (void*)result.Data, byteCount, byteCount);
+
+        //return result;
+
+
         var result = new Bitmap<Bgra8888>(Size.Width, Size.Height);
 
-        int byteCount = result.ByteCount;
-        Buffer.MemoryCopy((void*)bmp.GetPixels(), (void*)result.Data, byteCount, byteCount);
+        _surface.ReadPixels(new SKImageInfo(Size.Width, Size.Height, SKColorType.Bgra8888), result.Data, result.Width * sizeof(Bgra8888), 0, 0);
 
         return result;
     }
