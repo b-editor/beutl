@@ -23,7 +23,7 @@ public sealed class ImageFileOperation : RenderOperation
 
     public ImageFileOperation()
     {
-        if (Setters.FirstOrDefault(i => i.Property == FileProperty) is Setter<FileInfo?> setter)
+        if (FindSetter(FileProperty) is Setter<FileInfo?> setter)
         {
             setter.GetObservable().Subscribe(f =>
             {
@@ -54,7 +54,10 @@ public sealed class ImageFileOperation : RenderOperation
     protected override void OnAttachedToLogicalTree(in LogicalTreeAttachmentEventArgs args)
     {
         base.OnAttachedToLogicalTree(args);
-        FileChanged(File);
+        if (FindSetter(FileProperty) is Setter<FileInfo?> setter)
+        {
+            FileChanged(setter.Value);
+        }
     }
 
     protected override void OnDetachedFromLogicalTree(in LogicalTreeAttachmentEventArgs args)

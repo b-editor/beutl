@@ -119,6 +119,19 @@ public abstract class RenderOperation : Element, ILogicalElement
         return node;
     }
 
+    protected ISetter? FindSetter(PropertyDefine property)
+    {
+        foreach (ISetter? item in _setters)
+        {
+            if (item.Property == property)
+            {
+                return item;
+            }
+        }
+
+        return null;
+    }
+
     protected void ForceRender()
     {
         SceneLayer? layer = this.FindLogicalParent<SceneLayer>();
