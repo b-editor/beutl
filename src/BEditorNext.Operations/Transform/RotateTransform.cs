@@ -1,11 +1,8 @@
 ﻿using System.Numerics;
 
-using BEditorNext.ProjectSystem;
-using BEditorNext.Rendering;
-
 namespace BEditorNext.Operations.Transform;
 
-public sealed class RotateTransform : RenderOperation
+public sealed class RotateTransform : TransformOperation
 {
     public static readonly PropertyDefine<float> RotationProperty;
 
@@ -20,14 +17,8 @@ public sealed class RotateTransform : RenderOperation
 
     public float Rotation { get; set; }
 
-    public override void Render(in OperationRenderArgs args)
+    public override Matrix3x2 GetMatrix()
     {
-        for (int i = 0; i < args.List.Count; i++)
-        {
-            if (args.List[i] is IRenderableBitmap bmp)
-            {
-                bmp.Transform = Matrix3x2.CreateRotation(MathHelper.ToRadians(Rotation)) * bmp.Transform;
-            }
-        }
+        return Matrix3x2.CreateRotation(Rotation);
     }
 }

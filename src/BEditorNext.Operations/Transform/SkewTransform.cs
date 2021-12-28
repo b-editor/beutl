@@ -1,11 +1,8 @@
 ﻿using System.Numerics;
 
-using BEditorNext.ProjectSystem;
-using BEditorNext.Rendering;
-
 namespace BEditorNext.Operations.Transform;
 
-public sealed class SkewTransform : RenderOperation
+public sealed class SkewTransform : TransformOperation
 {
     public static readonly PropertyDefine<float> SkewXProperty;
     public static readonly PropertyDefine<float> SkewYProperty;
@@ -29,14 +26,8 @@ public sealed class SkewTransform : RenderOperation
 
     public float SkewY { get; set; }
 
-    public override void Render(in OperationRenderArgs args)
+    public override Matrix3x2 GetMatrix()
     {
-        for (int i = 0; i < args.List.Count; i++)
-        {
-            if (args.List[i] is IRenderableBitmap bmp)
-            {
-                bmp.Transform = Matrix3x2.CreateSkew(MathHelper.ToRadians(SkewX), MathHelper.ToRadians(SkewY)) * bmp.Transform;
-            }
-        }
+        return Matrix3x2.CreateSkew(MathHelper.ToRadians(SkewX), MathHelper.ToRadians(SkewY));
     }
 }

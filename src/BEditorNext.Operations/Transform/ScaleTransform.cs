@@ -1,11 +1,8 @@
 ﻿using System.Numerics;
 
-using BEditorNext.ProjectSystem;
-using BEditorNext.Rendering;
-
 namespace BEditorNext.Operations.Transform;
 
-public sealed class ScaleTransform : RenderOperation
+public sealed class ScaleTransform : TransformOperation
 {
     public static readonly PropertyDefine<float> ScaleProperty;
     public static readonly PropertyDefine<float> ScaleXProperty;
@@ -38,14 +35,8 @@ public sealed class ScaleTransform : RenderOperation
 
     public float ScaleY { get; set; }
 
-    public override void Render(in OperationRenderArgs args)
+    public override Matrix3x2 GetMatrix()
     {
-        for (int i = 0; i < args.List.Count; i++)
-        {
-            if (args.List[i] is IRenderableBitmap bmp)
-            {
-                bmp.Transform = Matrix3x2.CreateScale(new Vector2(ScaleX, ScaleY) * Scale / 10000) * bmp.Transform;
-            }
-        }
+        return Matrix3x2.CreateScale(new Vector2(ScaleX, ScaleY) * Scale / 10000);
     }
 }

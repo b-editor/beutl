@@ -1,11 +1,8 @@
 ﻿using System.Numerics;
 
-using BEditorNext.ProjectSystem;
-using BEditorNext.Rendering;
-
 namespace BEditorNext.Operations.Transform;
 
-public sealed class TranslateTransform : RenderOperation
+public sealed class TranslateTransform : TransformOperation
 {
     public static readonly PropertyDefine<float> XProperty;
     public static readonly PropertyDefine<float> YProperty;
@@ -31,14 +28,8 @@ public sealed class TranslateTransform : RenderOperation
 
     public float Y { get; set; }
 
-    public override void Render(in OperationRenderArgs args)
+    public override Matrix3x2 GetMatrix()
     {
-        for (int i = 0; i < args.List.Count; i++)
-        {
-            if (args.List[i] is IRenderableBitmap bmp)
-            {
-                bmp.Transform = Matrix3x2.CreateTranslation(X, Y) * bmp.Transform;
-            }
-        }
+        return Matrix3x2.CreateTranslation(X, Y);
     }
 }
