@@ -8,7 +8,7 @@ namespace BEditorNext;
 
 internal class SceneRenderer : IRenderer
 {
-    private static readonly Dispatcher s_dispatcher = Dispatcher.Spawn();
+    internal static readonly Dispatcher s_dispatcher = Dispatcher.Spawn();
     private readonly Scene _scene;
     private readonly RenderableList _renderables = new();
 

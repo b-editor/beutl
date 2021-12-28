@@ -38,9 +38,16 @@ namespace BEditorNext
                 {
                     DataContext = new MainWindowViewModel(),
                 };
+
+                desktop.Exit += Application_Exit;
             }
 
             base.OnFrameworkInitializationCompleted();
+        }
+
+        private void Application_Exit(object? sender, ControlledApplicationLifetimeExitEventArgs e)
+        {
+            SceneRenderer.s_dispatcher.Stop();
         }
     }
 }
