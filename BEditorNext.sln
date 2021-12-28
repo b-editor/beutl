@@ -66,7 +66,11 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BEditorNext.ProjectSystem",
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BEditorNext.Core.UnitTests", "tests\BEditorNext.Core.UnitTests\BEditorNext.Core.UnitTests.csproj", "{64079E7D-6A02-49B9-AA5B-48C57DE96219}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "KeySplineEditor", "tests\KeySplineEditor\KeySplineEditor.csproj", "{1E59BCAD-1501-4836-92EC-DCE5AA9121D2}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "KeySplineEditor", "tests\KeySplineEditor\KeySplineEditor.csproj", "{1E59BCAD-1501-4836-92EC-DCE5AA9121D2}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BEditorNext.Threading", "src\BEditorNext.Threading\BEditorNext.Threading.csproj", "{792CD0BA-4F03-43F9-A13E-512037A3F270}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BEditorNext.Threading.UnitTests", "tests\BEditorNext.Threading.UnitTests\BEditorNext.Threading.UnitTests.csproj", "{45B04C5C-51F2-40DB-A7C6-042E328048CC}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -138,6 +142,14 @@ Global
 		{1E59BCAD-1501-4836-92EC-DCE5AA9121D2}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{1E59BCAD-1501-4836-92EC-DCE5AA9121D2}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{1E59BCAD-1501-4836-92EC-DCE5AA9121D2}.Release|Any CPU.Build.0 = Release|Any CPU
+		{792CD0BA-4F03-43F9-A13E-512037A3F270}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{792CD0BA-4F03-43F9-A13E-512037A3F270}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{792CD0BA-4F03-43F9-A13E-512037A3F270}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{792CD0BA-4F03-43F9-A13E-512037A3F270}.Release|Any CPU.Build.0 = Release|Any CPU
+		{45B04C5C-51F2-40DB-A7C6-042E328048CC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{45B04C5C-51F2-40DB-A7C6-042E328048CC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{45B04C5C-51F2-40DB-A7C6-042E328048CC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{45B04C5C-51F2-40DB-A7C6-042E328048CC}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -149,6 +161,7 @@ Global
 		{C009364B-6190-47E9-A902-6A17EC6FE4D2} = {791EB029-7801-45FA-9AB5-5E953FFA003A}
 		{64079E7D-6A02-49B9-AA5B-48C57DE96219} = {791EB029-7801-45FA-9AB5-5E953FFA003A}
 		{1E59BCAD-1501-4836-92EC-DCE5AA9121D2} = {791EB029-7801-45FA-9AB5-5E953FFA003A}
+		{45B04C5C-51F2-40DB-A7C6-042E328048CC} = {791EB029-7801-45FA-9AB5-5E953FFA003A}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {CC3F8F37-EB22-4418-978D-C844095F8C4D}
