@@ -58,6 +58,12 @@ public class Dispatcher
     {
         return this == Current;
     }
+    
+    public void VerifyAccess()
+    {
+        if (!CheckAccess())
+            throw new InvalidOperationException("Call from invalid thread");
+    }
 
     public static Dispatcher Spawn()
     {
