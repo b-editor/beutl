@@ -1,17 +1,13 @@
-﻿
-using BEditorNext.Graphics.Effects;
+﻿using BEditorNext.Graphics.Effects;
 using BEditorNext.Media;
-using BEditorNext.ProjectSystem;
-using BEditorNext.Rendering;
 
 namespace BEditorNext.Operations.BitmapEffect;
 
-public sealed class ChromaKeyOperation : RenderOperation
+public sealed class ChromaKeyOperation : BitmapEffectOperation<ChromaKey>
 {
     public static readonly PropertyDefine<Color> ColorProperty;
     public static readonly PropertyDefine<int> SaturationRangeProperty;
     public static readonly PropertyDefine<int> HueRangeProperty;
-    private readonly ChromaKey _effect = new();
 
     static ChromaKeyOperation()
     {
@@ -34,31 +30,21 @@ public sealed class ChromaKeyOperation : RenderOperation
 
     public Color Color
     {
-        get => _effect.Color;
-        set => _effect.Color = value;
-    }
-    
-    public int SaturationRange
-    {
-        get => _effect.SaturationRange;
-        set => _effect.SaturationRange = value;
-    }
-    
-    public int HueRange
-    {
-        get => _effect.HueRange;
-        set => _effect.HueRange = value;
+        get => Effect.Color;
+        set => Effect.Color = value;
     }
 
-    public override void Render(in OperationRenderArgs args)
+    public int SaturationRange
     {
-        for (int i = 0; i < args.List.Count; i++)
-        {
-            IRenderable item = args.List[i];
-            if (item is IRenderableBitmap bmp)
-            {
-                bmp.Effects.Add(_effect);
-            }
-        }
+        get => Effect.SaturationRange;
+        set => Effect.SaturationRange = value;
     }
+
+    public int HueRange
+    {
+        get => Effect.HueRange;
+        set => Effect.HueRange = value;
+    }
+
+    public override ChromaKey Effect { get; } = new();
 }

@@ -1,14 +1,10 @@
-﻿
-using BEditorNext.Graphics.Effects;
-using BEditorNext.ProjectSystem;
-using BEditorNext.Rendering;
+﻿using BEditorNext.Graphics.Effects;
 
 namespace BEditorNext.Operations.BitmapEffect;
 
-public sealed class BrightnessOperation : RenderOperation
+public sealed class BrightnessOperation : BitmapEffectOperation<Brightness>
 {
     public static readonly PropertyDefine<short> ValueProperty;
-    private readonly Brightness _effect = new();
 
     static BrightnessOperation()
     {
@@ -21,19 +17,9 @@ public sealed class BrightnessOperation : RenderOperation
 
     public short Value
     {
-        get => _effect.Value;
-        set => _effect.Value = value;
+        get => Effect.Value;
+        set => Effect.Value = value;
     }
 
-    public override void Render(in OperationRenderArgs args)
-    {
-        for (int i = 0; i < args.List.Count; i++)
-        {
-            IRenderable item = args.List[i];
-            if (item is IRenderableBitmap bmp)
-            {
-                bmp.Effects.Add(_effect);
-            }
-        }
-    }
+    public override Brightness Effect { get; } = new();
 }

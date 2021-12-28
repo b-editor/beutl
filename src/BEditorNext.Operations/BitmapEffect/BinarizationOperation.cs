@@ -1,13 +1,10 @@
 ﻿using BEditorNext.Graphics.Effects;
-using BEditorNext.ProjectSystem;
-using BEditorNext.Rendering;
 
 namespace BEditorNext.Operations.BitmapEffect;
 
-public sealed class BinarizationOperation : RenderOperation
+public sealed class BinarizationOperation : BitmapEffectOperation<Binarization>
 {
     public static readonly PropertyDefine<byte> ValueProperty;
-    private readonly Binarization _effect = new();
 
     static BinarizationOperation()
     {
@@ -20,19 +17,9 @@ public sealed class BinarizationOperation : RenderOperation
 
     public byte Value
     {
-        get => _effect.Value;
-        set => _effect.Value = value;
+        get => Effect.Value;
+        set => Effect.Value = value;
     }
 
-    public override void Render(in OperationRenderArgs args)
-    {
-        for (int i = 0; i < args.List.Count; i++)
-        {
-            IRenderable item = args.List[i];
-            if (item is IRenderableBitmap bmp)
-            {
-                bmp.Effects.Add(_effect);
-            }
-        }
-    }
+    public override Binarization Effect { get; } = new();
 }
