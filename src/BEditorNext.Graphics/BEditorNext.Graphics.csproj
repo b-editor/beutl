@@ -5,6 +5,7 @@
   <ItemGroup>
     <ProjectReference Include="..\BEditorNext.Core\BEditorNext.Core.csproj" />
     <ProjectReference Include="..\BEditorNext.Configuration\BEditorNext.Configuration.csproj" />
+    <ProjectReference Include="..\BEditorNext.Threading\BEditorNext.Threading.csproj" />
   </ItemGroup>
   <Import Project="$(RootDirectory)\build\props\OpenCvSharp4.props" />
   <Import Project="$(RootDirectory)\build\props\SkiaSharp.props" />

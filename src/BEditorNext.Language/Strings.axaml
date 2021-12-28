@@ -61,6 +61,10 @@
         <x:String x:Key="FontWeightString">Weight</x:String>
         <x:String x:Key="CharactorSpacingString">Charactor spacing</x:String>
         <x:String x:Key="MarginString">Margin</x:String>
+        <x:String x:Key="HorizontalAlignmentString">HorizontalAlignment</x:String>
+        <x:String x:Key="VerticalAlignmentString">VerticalAlignment</x:String>
+        <x:String x:Key="HorizontalContentAlignmentString">HorizontalContentAlignment</x:String>
+        <x:String x:Key="VerticalContentAlignmentString">VerticalContentAlignment</x:String>
 
         <!--Verb-->
         <x:String x:Key="OpenString">Open</x:String>

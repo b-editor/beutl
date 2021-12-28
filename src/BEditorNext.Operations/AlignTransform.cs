@@ -6,25 +6,41 @@ namespace BEditorNext.Operations;
 
 public sealed class AlignOperation : RenderOperation
 {
-    public static readonly PropertyDefine<AlignmentX> XProperty;
-    public static readonly PropertyDefine<AlignmentY> YProperty;
+    public static readonly PropertyDefine<AlignmentX> HorizontalAlignmentProperty;
+    public static readonly PropertyDefine<AlignmentY> VerticalAlignmentProperty;
+    public static readonly PropertyDefine<AlignmentX> HorizontalContentAlignmentProperty;
+    public static readonly PropertyDefine<AlignmentY> VerticalContentAlignmentProperty;
 
     static AlignOperation()
     {
-        XProperty = RegisterProperty<AlignmentX, AlignOperation>(nameof(X), (owner, obj) => owner.X = obj, owner => owner.X)
+        HorizontalAlignmentProperty = RegisterProperty<AlignmentX, AlignOperation>(nameof(HorizontalAlignment), (owner, obj) => owner.HorizontalAlignment = obj, owner => owner.HorizontalAlignment)
             .EnableEditor()
-            .Header("XString")
-            .JsonName("x");
+            .Header("HorizontalAlignmentString")
+            .JsonName("hAlilgn");
 
-        YProperty = RegisterProperty<AlignmentY, AlignOperation>(nameof(Y), (owner, obj) => owner.Y = obj, owner => owner.Y)
+        VerticalAlignmentProperty = RegisterProperty<AlignmentY, AlignOperation>(nameof(VerticalAlignment), (owner, obj) => owner.VerticalAlignment = obj, owner => owner.VerticalAlignment)
             .EnableEditor()
-            .Header("YString")
-            .JsonName("y");
+            .Header("VerticalAlignmentString")
+            .JsonName("vAlign");
+
+        HorizontalContentAlignmentProperty = RegisterProperty<AlignmentX, AlignOperation>(nameof(HorizontalContentAlignment), (owner, obj) => owner.HorizontalContentAlignment = obj, owner => owner.HorizontalContentAlignment)
+            .EnableEditor()
+            .Header("HorizontalContentAlignmentString")
+            .JsonName("hContentAlign");
+
+        VerticalContentAlignmentProperty = RegisterProperty<AlignmentY, AlignOperation>(nameof(VerticalContentAlignment), (owner, obj) => owner.VerticalContentAlignment = obj, owner => owner.VerticalContentAlignment)
+            .EnableEditor()
+            .Header("VerticalContentAlignmentString")
+            .JsonName("vContentAlign");
     }
 
-    public AlignmentX X { get; set; }
+    public AlignmentX HorizontalAlignment { get; set; }
 
-    public AlignmentY Y { get; set; }
+    public AlignmentY VerticalAlignment { get; set; }
+    
+    public AlignmentX HorizontalContentAlignment { get; set; }
+
+    public AlignmentY VerticalContentAlignment { get; set; }
 
     public override void Render(in OperationRenderArgs args)
     {
@@ -33,7 +49,10 @@ public sealed class AlignOperation : RenderOperation
             IRenderable item = args.List[i];
             if (item is IRenderableBitmap bmp)
             {
-                bmp.Alignment = (X, Y);
+                bmp.HorizontalAlignment = HorizontalAlignment;
+                bmp.HorizontalContentAlignment = HorizontalContentAlignment;
+                bmp.VerticalAlignment = VerticalAlignment;
+                bmp.VerticalContentAlignment = VerticalContentAlignment;
             }
         }
     }

@@ -1,22 +1,25 @@
 ﻿using BEditorNext.Graphics;
 using BEditorNext.Media;
 using BEditorNext.Media.Pixel;
+using BEditorNext.Threading;
 
 namespace BEditorNext.Rendering;
 
 public interface IRenderer : IDisposable
 {
-    public ICanvas Graphics { get; }
+    ICanvas Graphics { get; }
 
     //public IAudio Audio { get; }
 
-    public bool IsDisposed { get; }
+    Dispatcher Dispatcher { get; }
 
-    public bool IsRendering { get; }
+    bool IsDisposed { get; }
 
-    public event EventHandler<RenderResult> RenderRequested;
+    bool IsRendering { get; }
 
-    public RenderResult Render();
+    event EventHandler<RenderResult> RenderRequested;
+
+    RenderResult Render();
 
     public record struct RenderResult(Bitmap<Bgra8888> Bitmap/*, IAudio Audio*/);
 }
