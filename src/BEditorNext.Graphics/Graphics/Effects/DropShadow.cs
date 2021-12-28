@@ -19,6 +19,30 @@ public class DropShadow : BitmapEffect
 
     public bool ShadowOnly { get; set; }
 
+    public override Rect Measure(Rect rect)
+{
+        float w = rect.Width + SigmaX;
+        float h = rect.Height + SigmaY;
+
+        if (!ShadowOnly)
+        {
+            w += Math.Abs(X);
+            h += Math.Abs(Y);
+
+            return rect.WithX(rect.X + Math.Min(X, 0))
+                .WithY(rect.Y + Math.Min(Y, 0))
+                .WithWidth(w)
+                .WithHeight(h);
+        }
+        else
+        {
+            return rect.WithX(rect.X + X)
+                .WithY(rect.Y + Y)
+                .WithWidth(w)
+                .WithHeight(h);
+        }
+    }
+
     public override void Apply(ref Bitmap<Bgra8888> bitmap)
     {
         float w = bitmap.Width + SigmaX;
@@ -45,10 +69,10 @@ public class DropShadow : BitmapEffect
         else
         {
             // キャンバスのサイズ
-            float size_w = (Math.Abs(X) + (w / 2)) * 2;
-            float size_h = (Math.Abs(Y) + (h / 2)) * 2;
+            float size_w = Math.Abs(X) + w;
+            float size_h = Math.Abs(Y) + h;
 
-            using var filter = SKImageFilter.CreateDropShadow(0, 0, SigmaX, SigmaY, Color.ToSkia());
+            using var filter = SKImageFilter.CreateDropShadow(X, Y, SigmaX, SigmaY, Color.ToSkia());
             using var paint = new SKPaint
             {
                 ImageFilter = filter,
@@ -56,13 +80,13 @@ public class DropShadow : BitmapEffect
             };
 
             using var bmp1 = bitmap.ToSKBitmap();
-            using var bmp2 = new SKBitmap((int)w, (int)h);
+            using var bmp2 = new SKBitmap((int)size_w, (int)size_h);
             using var canvas = new SKCanvas(bmp2);
 
             canvas.DrawBitmap(
                 bmp1,
-                (size_w / 2) - (bitmap.Width / 2),
-                (size_h / 2) - (bitmap.Height / 2),
+                Math.Abs(Math.Min(X, 0)),
+                Math.Abs(Math.Min(Y, 0)),
                 paint);
 
             bitmap.Dispose();

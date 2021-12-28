@@ -65,6 +65,9 @@
         <x:String x:Key="VerticalAlignmentString">VerticalAlignment</x:String>
         <x:String x:Key="HorizontalContentAlignmentString">HorizontalContentAlignment</x:String>
         <x:String x:Key="VerticalContentAlignmentString">VerticalContentAlignment</x:String>
+        <x:String x:Key="PositionString">Position</x:String>
+        <x:String x:Key="SigmaString">Sigma</x:String>
+        <x:String x:Key="ShadowOnlyString">ShadowOnly</x:String>
 
         <!--Verb-->
         <x:String x:Key="OpenString">Open</x:String>
@@ -123,5 +126,6 @@
         <x:String x:Key="BrightnessString">Brightness</x:String>
         <x:String x:Key="BinarizationString">Binarization</x:String>
         <x:String x:Key="ChromaKeyString">Chroma key</x:String>
+        <x:String x:Key="DropShadowString">DropShadow</x:String>
     </Styles.Resources>
 </Styles>

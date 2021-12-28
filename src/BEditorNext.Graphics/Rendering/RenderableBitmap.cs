@@ -83,11 +83,12 @@ public class RenderableBitmap : IRenderableBitmap
 
     private void DrawCore(ICanvas canvas, Bitmap<Bgra8888> bitmap)
     {
+        Rect rect = BitmapEffect.MeasureAll(new Rect(0, 0, Size.Width, Size.Height), _effects);
         canvas.PushMatrix();
 
         canvas.SetMatrix(Transform * canvas.TotalMatrix);
 
-        Point pt = CreatePoint(new Size(bitmap.Width, bitmap.Height), canvas.Size);
+        Point pt = CreatePoint(new Size(bitmap.Width, bitmap.Height), canvas.Size) + rect.Position;
         canvas.Translate(pt);
         canvas.DrawBitmap(bitmap);
 

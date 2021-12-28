@@ -165,11 +165,21 @@ public abstract unsafe class BitmapEffect
         return bitmap;
     }
 
+    public static Rect MeasureAll(Rect rect, IReadOnlyList<BitmapEffect> effects)
+    {
+        for (int i = 0; i < effects.Count; i++)
+        {
+            rect = effects[i].Measure(rect);
+        }
+
+        return rect;
+    }
+
     protected EffectType EffectType { get; set; } = EffectType.Bitmap;
 
-    public virtual PixelSize Measure(PixelSize size)
+    public virtual Rect Measure(Rect rect)
     {
-        return size;
+        return rect;
     }
 
     public abstract void Apply(ref Bitmap<Bgra8888> bitmap);

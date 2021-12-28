@@ -110,11 +110,12 @@ public class FormattedText : IRenderableBitmap
     {
         using Bitmap<Bgra8888> bitmap = ToBitmap();
         using Bitmap<Bgra8888> bitmap2 = BitmapEffect.ApplyAll(bitmap, _effects);
+        Rect rect = BitmapEffect.MeasureAll(new Rect(Bounds), _effects);
 
         canvas.PushMatrix();
         canvas.SetMatrix(Transform * canvas.TotalMatrix);
 
-        Point pt = CreatePoint(Bounds, canvas.Size);
+        Point pt = CreatePoint(Bounds, canvas.Size) + rect.Position;
         canvas.Translate(pt);
 
         canvas.DrawBitmap(bitmap2);
