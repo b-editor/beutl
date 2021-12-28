@@ -3,6 +3,7 @@
 using BEditorNext.Media;
 using BEditorNext.Media.Pixel;
 using BEditorNext.Media.TextFormatting;
+using BEditorNext.Threading;
 
 using SkiaSharp;
 
@@ -13,9 +14,11 @@ public class Canvas : ICanvas
     private readonly SKSurface _surface;
     private readonly SKCanvas _canvas;
     private readonly SKPaint _paint;
+    private readonly Dispatcher _dispatcher;
 
     public Canvas(int width, int height)
     {
+        _dispatcher = Dispatcher.Current;
         Size = new PixelSize(width, height);
         var info = new SKImageInfo(width, height, SKColorType.Bgra8888);
 
@@ -56,11 +59,13 @@ public class Canvas : ICanvas
 
     public void Clear()
     {
+        _dispatcher.VerifyAccess();
         _canvas.Clear();
     }
 
     public void Clear(Color color)
     {
+        _dispatcher.VerifyAccess();
         _canvas.Clear(color.ToSkia());
     }
 
@@ -68,15 +73,19 @@ public class Canvas : ICanvas
     {
         if (!IsDisposed)
         {
-            _surface.Dispose();
-            _paint.Dispose();
-            GC.SuppressFinalize(this);
-            IsDisposed = true;
+            _dispatcher.Invoke(() =>
+            {
+                _surface.Dispose();
+                _paint.Dispose();
+                GC.SuppressFinalize(this);
+                IsDisposed = true;
+            });
         }
     }
 
     public void DrawBitmap(Bitmap<Bgra8888> bmp)
     {
+        _dispatcher.VerifyAccess();
         using var img = SKImage.FromPixels(new SKImageInfo(bmp.Width, bmp.Height, SKColorType.Bgra8888), bmp.Data);
 
         _canvas.DrawImage(img, SKPoint.Empty, _paint);
@@ -84,6 +93,7 @@ public class Canvas : ICanvas
 
     public void DrawCircle(Size size)
     {
+        _dispatcher.VerifyAccess();
         float line = StrokeWidth;
 
         if (line >= MathF.Min(size.Width, size.Height) / 2)
@@ -107,6 +117,7 @@ public class Canvas : ICanvas
 
     public void DrawRect(Size size)
     {
+        _dispatcher.VerifyAccess();
         float line = StrokeWidth;
 
         _paint.Style = SKPaintStyle.Stroke;
@@ -122,6 +133,7 @@ public class Canvas : ICanvas
 
     public void FillCircle(Size size)
     {
+        _dispatcher.VerifyAccess();
         _paint.Style = SKPaintStyle.Fill;
 
         _canvas.DrawOval(SKPoint.Empty, size.ToSkia(), _paint);
@@ -129,6 +141,7 @@ public class Canvas : ICanvas
 
     public void FillRect(Size size)
     {
+        _dispatcher.VerifyAccess();
         _paint.Style = SKPaintStyle.Fill;
 
         _canvas.DrawRect(0, 0, size.Width, size.Height, _paint);
@@ -136,6 +149,7 @@ public class Canvas : ICanvas
 
     public unsafe void DrawVertices(VertexMode vmode, Point[] vertices, Point[] texs, Color[] colors, Bitmap<Bgra8888>? bmp = null)
     {
+        _dispatcher.VerifyAccess();
         static SKPoint[] ToSKPoints(Point[] vectors)
         {
             var array = new SKPoint[vectors.Length];
@@ -176,6 +190,7 @@ public class Canvas : ICanvas
     // Marginを考慮しない
     public void DrawText(TextElement text)
     {
+        _dispatcher.VerifyAccess();
         _paint.TextSize = text.Size;
         _paint.Typeface = text.Typeface.ToSkia();
         _paint.Color = text.Color.ToSkia();
@@ -208,6 +223,7 @@ public class Canvas : ICanvas
 
     public unsafe Bitmap<Bgra8888> GetBitmap()
     {
+        _dispatcher.VerifyAccess();
         //using SKImage image = _surface.Snapshot();
         //using var bmp = SKBitmap.FromImage(image);
         //var result = new Bitmap<Bgra8888>(Size.Width, Size.Height);
@@ -227,46 +243,55 @@ public class Canvas : ICanvas
 
     public void ResetMatrix()
     {
+        _dispatcher.VerifyAccess();
         _canvas.ResetMatrix();
     }
 
     public void RotateDegrees(float degrees)
     {
+        _dispatcher.VerifyAccess();
         _canvas.RotateDegrees(degrees);
     }
 
     public void RotateRadians(float radians)
     {
+        _dispatcher.VerifyAccess();
         _canvas.RotateRadians(radians);
     }
 
     public void Scale(Vector2 vector)
     {
+        _dispatcher.VerifyAccess();
         _canvas.Scale(vector.X, vector.Y);
     }
 
     public void SetMatrix(Matrix3x2 matrix)
     {
+        _dispatcher.VerifyAccess();
         _canvas.SetMatrix(matrix.ToSKMatrix());
     }
 
     public void Skew(Vector2 vector)
     {
+        _dispatcher.VerifyAccess();
         _canvas.Skew(vector.X, vector.Y);
     }
 
     public void Translate(Vector2 vector)
     {
+        _dispatcher.VerifyAccess();
         _canvas.Translate(vector.X, vector.Y);
     }
 
     public void PushMatrix()
     {
+        _dispatcher.VerifyAccess();
         _canvas.Save();
     }
 
     public void PopMatrix()
     {
+        _dispatcher.VerifyAccess();
         _canvas.Restore();
     }
 }

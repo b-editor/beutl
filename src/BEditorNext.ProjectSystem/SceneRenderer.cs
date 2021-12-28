@@ -2,21 +2,25 @@
 using BEditorNext.Graphics;
 using BEditorNext.ProjectSystem;
 using BEditorNext.Rendering;
+using BEditorNext.Threading;
 
 namespace BEditorNext;
 
 internal class SceneRenderer : IRenderer
 {
+    private static readonly Dispatcher s_dispatcher = Dispatcher.Spawn();
     private readonly Scene _scene;
     private readonly RenderableList _renderables = new();
 
     public SceneRenderer(Scene scene, int width, int height)
     {
         _scene = scene;
-        Graphics = new Graphics.Canvas(width, height);
+        Graphics = s_dispatcher.Invoke(() => new Canvas(width, height));
     }
 
     public ICanvas Graphics { get; }
+
+    public Dispatcher Dispatcher => s_dispatcher;
 
     public TimeSpan FrameNumber => _scene.CurrentFrame;
 
@@ -35,15 +39,16 @@ internal class SceneRenderer : IRenderer
         IsDisposed = true;
     }
 
-    public void ForceRender()
+    public async void ForceRender()
     {
-        IRenderer.RenderResult result = Render();
+        IRenderer.RenderResult result = await Dispatcher.InvokeAsync(() => Render());
         RenderRequested?.Invoke(this, result);
         result.Bitmap.Dispose();
     }
 
     public IRenderer.RenderResult Render()
     {
+        Dispatcher.VerifyAccess();
         if (!IsRendering)
         {
             Graphics.Clear();
