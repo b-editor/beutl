@@ -94,7 +94,7 @@ public class FormattedTextTests
 
         graphics.Clear(Colors.White);
 
-        text.Render(graphics);
+        text.Draw(graphics);
 
         using Bitmap<Bgra8888> bmp = graphics.GetBitmap();
 
@@ -119,7 +119,7 @@ public class FormattedTextTests
 
         graphics.Clear(Colors.White);
 
-        text.Render(graphics);
+        text.Draw(graphics);
 
         using Bitmap<Bgra8888> bmp = graphics.GetBitmap();
 
