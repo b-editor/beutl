@@ -171,11 +171,10 @@ public class FormattedText : IRenderableBitmap
         canvas.PopMatrix();
     }
 
-
     public Bitmap<Bgra8888> ToBitmap()
     {
         Size size = Bounds;
-        using var g = new Graphics.Canvas((int)size.Width, (int)size.Height);
+        using var g = new Canvas((int)size.Width, (int)size.Height);
 
         DrawCore(g);
 

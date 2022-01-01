@@ -355,7 +355,10 @@ public abstract class Element : IElement
 
                 // デフォルトの値と取得した値が同じ場合、保存しない
                 if (RuntimeHelpers.Equals(def, obj))
+                {
+                    json.Remove(jsonName);
                     continue;
+                }
 
                 if (obj is IJsonSerializable child)
                 {

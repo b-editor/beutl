@@ -20,7 +20,7 @@ public class Canvas : ICanvas
     {
         _dispatcher = Dispatcher.Current;
         Size = new PixelSize(width, height);
-        var info = new SKImageInfo(width, height, SKColorType.Bgra8888);
+        var info = new SKImageInfo(width, height, SKColorType.Bgra8888, SKAlphaType.Unpremul);
 
         _surface = SKSurface.Create(info);
 
@@ -224,16 +224,6 @@ public class Canvas : ICanvas
     public unsafe Bitmap<Bgra8888> GetBitmap()
     {
         _dispatcher.VerifyAccess();
-        //using SKImage image = _surface.Snapshot();
-        //using var bmp = SKBitmap.FromImage(image);
-        //var result = new Bitmap<Bgra8888>(Size.Width, Size.Height);
-
-        //int byteCount = result.ByteCount;
-        //System.Buffer.MemoryCopy((void*)bmp.GetPixels(), (void*)result.Data, byteCount, byteCount);
-
-        //return result;
-
-
         var result = new Bitmap<Bgra8888>(Size.Width, Size.Height);
 
         _surface.ReadPixels(new SKImageInfo(Size.Width, Size.Height, SKColorType.Bgra8888), result.Data, result.Width * sizeof(Bgra8888), 0, 0);

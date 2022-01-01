@@ -101,7 +101,7 @@ public sealed partial class EditView : UserControl, IStorableControl
         }
     }
 
-    private void Renderer_RenderRequested(object? sender, Rendering.IRenderer.RenderResult e)
+    private unsafe void Renderer_RenderRequested(object? sender, Rendering.IRenderer.RenderResult e)
     {
         if (Image == null)
             return;
@@ -126,15 +126,12 @@ public sealed partial class EditView : UserControl, IStorableControl
             }
 
             Image.Source = bitmap;
-            ILockedFramebuffer buf = bitmap.Lock();
-
-            unsafe
+            using (ILockedFramebuffer buf = bitmap.Lock())
             {
                 int size = img.ByteCount;
                 Buffer.MemoryCopy((void*)img.Data, (void*)buf.Address, size, size);
             }
 
-            buf.Dispose();
             Image.InvalidateVisual();
         }, null);
     }
