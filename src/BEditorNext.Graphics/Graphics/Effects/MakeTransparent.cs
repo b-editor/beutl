@@ -3,7 +3,7 @@ using BEditorNext.Media.Pixel;
 
 namespace BEditorNext.Graphics.Effects;
 
-public class SetOpacity : PixelEffect
+public class MakeTransparent : PixelEffect
 {
     public float Opacity { get; set; }
 

@@ -68,6 +68,10 @@
         <x:String x:Key="PositionString">Position</x:String>
         <x:String x:Key="SigmaString">Sigma</x:String>
         <x:String x:Key="ShadowOnlyString">ShadowOnly</x:String>
+        <x:String x:Key="RedString">Red</x:String>
+        <x:String x:Key="GreenString">Green</x:String>
+        <x:String x:Key="BlueString">Blue</x:String>
+        <x:String x:Key="OpacityString">Opacity</x:String>
 
         <!--Verb-->
         <x:String x:Key="OpenString">Open</x:String>
@@ -126,6 +130,13 @@
         <x:String x:Key="BrightnessString">Brightness</x:String>
         <x:String x:Key="BinarizationString">Binarization</x:String>
         <x:String x:Key="ChromaKeyString">Chroma key</x:String>
+        <x:String x:Key="ColorAdjustString">ColorAdjust</x:String>
+        <x:String x:Key="ColorKeyString">ColorKey</x:String>
         <x:String x:Key="DropShadowString">DropShadow</x:String>
+        <x:String x:Key="InvertOpacityString">InvertOpacity</x:String>
+        <x:String x:Key="MakeTransparentString">MakeTransparent</x:String>
+        <x:String x:Key="NegaposiString">Negaposi</x:String>
+        <x:String x:Key="SepiaString">Sepia</x:String>
+        <x:String x:Key="XorString">Xor</x:String>
     </Styles.Resources>
 </Styles>

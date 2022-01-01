@@ -20,7 +20,7 @@ public class DropShadow : BitmapEffect
     public bool ShadowOnly { get; set; }
 
     public override Rect Measure(Rect rect)
-{
+    {
         float w = rect.Width + SigmaX;
         float h = rect.Height + SigmaY;
 

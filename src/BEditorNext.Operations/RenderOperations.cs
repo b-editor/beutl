@@ -13,7 +13,14 @@ public static class RenderOperations
             .Add<BinarizationOperation>("BinarizationString")
             .Add<BrightnessOperation>("BrightnessString")
             .Add<ChromaKeyOperation>("ChromaKeyString")
+            .Add<ColorAdjustOperation>("ColorAdjustString")
+            .Add<ColorKeyOperation>("ColorKeyString")
             .Add<DropShadowOperation>("DropShadowString")
+            .Add<InvertOpacityOperation>("InvertOpacityString")
+            .Add<MakeTransparentOperation>("MakeTransparentString")
+            .Add<NegaposiOperation>("NegaposiString")
+            .Add<SepiaOperation>("SepiaString")
+            .Add<XorOperation>("XorString")
             .Register();
 
         RenderOperationRegistry.RegisterOperations("TransformString", Colors.Teal)
