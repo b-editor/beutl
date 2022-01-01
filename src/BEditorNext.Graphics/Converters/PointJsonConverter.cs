@@ -1,10 +1,11 @@
 ﻿using System.Text.Json;
 using System.Text.Json.Serialization;
+
 using BEditorNext.Graphics;
 
-namespace BEditorNext.JsonConverters;
+namespace BEditorNext.Converters;
 
-internal class PointConverter : JsonConverter<Point>
+internal sealed class PointJsonConverter : JsonConverter<Point>
 {
     public override Point Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
     {

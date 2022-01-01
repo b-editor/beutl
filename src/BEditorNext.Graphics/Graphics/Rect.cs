@@ -1,5 +1,8 @@
 ﻿using System.Globalization;
 using System.Numerics;
+using System.Text.Json.Serialization;
+
+using BEditorNext.Converters;
 using BEditorNext.Utilities;
 
 namespace BEditorNext.Graphics;
@@ -7,6 +10,7 @@ namespace BEditorNext.Graphics;
 /// <summary>
 /// Defines a rectangle.
 /// </summary>
+[JsonConverter(typeof(RectJsonConverter))]
 public readonly struct Rect : IEquatable<Rect>
 {
     /// <summary>

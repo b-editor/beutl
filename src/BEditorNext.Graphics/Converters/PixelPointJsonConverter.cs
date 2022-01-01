@@ -3,9 +3,9 @@ using System.Text.Json.Serialization;
 
 using BEditorNext.Media;
 
-namespace BEditorNext.JsonConverters;
+namespace BEditorNext.Converters;
 
-internal class PixelPointConverter : JsonConverter<PixelPoint>
+internal sealed class PixelPointJsonConverter : JsonConverter<PixelPoint>
 {
     public override PixelPoint Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
     {

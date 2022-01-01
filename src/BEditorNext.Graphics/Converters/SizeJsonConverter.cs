@@ -1,10 +1,11 @@
 ﻿using System.Text.Json;
 using System.Text.Json.Serialization;
+
 using BEditorNext.Graphics;
 
-namespace BEditorNext.JsonConverters;
+namespace BEditorNext.Converters;
 
-internal class SizeConverter : JsonConverter<Size>
+internal sealed class SizeJsonConverter : JsonConverter<Size>
 {
     public override Size Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
     {

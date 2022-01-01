@@ -3,9 +3,9 @@ using System.Text.Json.Serialization;
 
 using BEditorNext.Media;
 
-namespace BEditorNext.JsonConverters;
+namespace BEditorNext.Converters;
 
-internal class PixelSizeConverter : JsonConverter<PixelSize>
+internal sealed class PixelSizeJsonConverter : JsonConverter<PixelSize>
 {
     public override PixelSize Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
     {

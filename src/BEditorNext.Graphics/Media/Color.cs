@@ -1,10 +1,14 @@
 ﻿using System.Globalization;
+using System.Text.Json.Serialization;
+
+using BEditorNext.Converters;
 
 namespace BEditorNext.Media;
 
 /// <summary>
 /// An ARGB color.
 /// </summary>
+[JsonConverter(typeof(ColorJsonConverter))]
 public readonly struct Color : IEquatable<Color>
 {
     public Color(byte a, byte r, byte g, byte b)
@@ -66,6 +70,21 @@ public readonly struct Color : IEquatable<Color>
     /// <param name="value">The integer value.</param>
     /// <returns>The color.</returns>
     public static Color FromUInt32(uint value)
+    {
+        return new Color(
+            (byte)(value >> 24 & 0xff),
+            (byte)(value >> 16 & 0xff),
+            (byte)(value >> 8 & 0xff),
+            (byte)(value & 0xff)
+        );
+    }
+
+    /// <summary>
+    /// Creates a <see cref="Color"/> from an integer.
+    /// </summary>
+    /// <param name="value">The integer value.</param>
+    /// <returns>The color.</returns>
+    public static Color FromInt32(int value)
     {
         return new Color(
             (byte)(value >> 24 & 0xff),
@@ -232,6 +251,17 @@ public readonly struct Color : IEquatable<Color>
     public uint ToUint32()
     {
         return (uint)A << 24 | (uint)R << 16 | (uint)G << 8 | B;
+    }
+
+    /// <summary>
+    /// Returns the integer representation of the color.
+    /// </summary>
+    /// <returns>
+    /// The integer representation of the color.
+    /// </returns>
+    public int ToInt32()
+    {
+        return A << 24 | R << 16 | G << 8 | B;
     }
 
     /// <summary>

@@ -13,15 +13,6 @@ internal class JsonHelperInitialization
     public static void AddJsonConverter()
     {
         IList<JsonConverter> converters = JsonHelper.SerializerOptions.Converters;
-        converters.Add(new PixelPointConverter());
-        converters.Add(new PixelRectConverter());
-        converters.Add(new PixelSizeConverter());
-        converters.Add(new PointConverter());
-        converters.Add(new RectConverter());
-        converters.Add(new SizeConverter());
-        converters.Add(new ColorConverter());
-        converters.Add(new FontFamilyConverter());
-        converters.Add(new ThicknessConverter());
         converters.Add(new FileInfoConverter());
         converters.Add(new DirectoryInfoConverter());
     }

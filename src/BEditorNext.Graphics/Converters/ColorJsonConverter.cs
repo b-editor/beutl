@@ -3,9 +3,9 @@ using System.Text.Json.Serialization;
 
 using BEditorNext.Media;
 
-namespace BEditorNext.JsonConverters;
+namespace BEditorNext.Converters;
 
-internal class ColorConverter : JsonConverter<Color>
+internal sealed class ColorJsonConverter : JsonConverter<Color>
 {
     public override Color Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
     {

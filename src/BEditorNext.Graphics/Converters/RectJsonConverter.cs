@@ -1,10 +1,11 @@
 ﻿using System.Text.Json;
 using System.Text.Json.Serialization;
+
 using BEditorNext.Graphics;
 
-namespace BEditorNext.JsonConverters;
+namespace BEditorNext.Converters;
 
-internal class RectConverter : JsonConverter<Rect>
+internal sealed class RectJsonConverter : JsonConverter<Rect>
 {
     public override Rect Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
     {

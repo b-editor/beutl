@@ -1,6 +1,8 @@
 ﻿using System.Globalization;
 using System.Numerics;
+using System.Text.Json.Serialization;
 
+using BEditorNext.Converters;
 using BEditorNext.Graphics;
 using BEditorNext.Utilities;
 
@@ -9,6 +11,7 @@ namespace BEditorNext.Media;
 /// <summary>
 /// Represents a size in device pixels.
 /// </summary>
+[JsonConverter(typeof(PixelSizeJsonConverter))]
 public readonly struct PixelSize : IEquatable<PixelSize>
 {
     /// <summary>

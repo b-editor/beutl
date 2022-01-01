@@ -3,9 +3,9 @@ using System.Text.Json.Serialization;
 
 using BEditorNext.Media;
 
-namespace BEditorNext.JsonConverters;
+namespace BEditorNext.Converters;
 
-internal class FontFamilyConverter : JsonConverter<FontFamily>
+internal sealed class FontFamilyJsonConverter : JsonConverter<FontFamily>
 {
     public override FontFamily Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
     {

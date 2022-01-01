@@ -1,4 +1,7 @@
 ﻿using System.Globalization;
+using System.Text.Json.Serialization;
+
+using BEditorNext.Converters;
 using BEditorNext.Utilities;
 
 namespace BEditorNext.Graphics;
@@ -6,6 +9,7 @@ namespace BEditorNext.Graphics;
 /// <summary>
 /// Describes the thickness of a frame around a rectangle.
 /// </summary>
+[JsonConverter(typeof(ThicknessJsonConverter))]
 public readonly struct Thickness : IEquatable<Thickness>
 {
     /// <summary>

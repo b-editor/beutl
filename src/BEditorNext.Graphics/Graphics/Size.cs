@@ -1,5 +1,8 @@
 ﻿using System.Globalization;
 using System.Numerics;
+using System.Text.Json.Serialization;
+
+using BEditorNext.Converters;
 using BEditorNext.Utilities;
 
 namespace BEditorNext.Graphics;
@@ -7,6 +10,7 @@ namespace BEditorNext.Graphics;
 /// <summary>
 /// Defines a size.
 /// </summary>
+[JsonConverter(typeof(SizeJsonConverter))]
 public readonly struct Size : IEquatable<Size>
 {
     /// <summary>

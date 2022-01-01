@@ -1,8 +1,12 @@
-﻿
+﻿using System.Text.Json.Serialization;
+
+using BEditorNext.Converters;
+
 using SkiaSharp;
 
 namespace BEditorNext.Media;
 
+[JsonConverter(typeof(FontFamilyJsonConverter))]
 public readonly struct FontFamily : IEquatable<FontFamily>
 {
     public static readonly FontFamily Default = new(SKTypeface.Default.FamilyName);

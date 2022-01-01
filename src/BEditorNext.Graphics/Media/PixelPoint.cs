@@ -1,6 +1,9 @@
-﻿using System.Globalization;
+﻿using System.ComponentModel;
+using System.Globalization;
 using System.Numerics;
+using System.Text.Json.Serialization;
 
+using BEditorNext.Converters;
 using BEditorNext.Graphics;
 using BEditorNext.Utilities;
 
@@ -9,6 +12,7 @@ namespace BEditorNext.Media;
 /// <summary>
 /// Represents a point in device pixels.
 /// </summary>
+[JsonConverter(typeof(PixelPointJsonConverter))]
 public readonly struct PixelPoint : IEquatable<PixelPoint>
 {
     /// <summary>

@@ -3,9 +3,9 @@ using System.Text.Json.Serialization;
 
 using BEditorNext.Media;
 
-namespace BEditorNext.JsonConverters;
+namespace BEditorNext.Converters;
 
-internal class PixelRectConverter : JsonConverter<PixelRect>
+internal sealed class PixelRectJsonConverter : JsonConverter<PixelRect>
 {
     public override PixelRect Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
     {
