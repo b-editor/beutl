@@ -28,7 +28,7 @@ internal class SceneRenderer : IRenderer
 
     public bool IsRendering { get; private set; }
 
-    public event EventHandler<IRenderer.RenderResult>? RenderRequested;
+    public event EventHandler<IRenderer.RenderResult>? RenderInvalidated;
 
     public void Dispose()
     {
@@ -37,13 +37,6 @@ internal class SceneRenderer : IRenderer
         Graphics?.Dispose();
 
         IsDisposed = true;
-    }
-
-    public async void ForceRender()
-    {
-        IRenderer.RenderResult result = await Dispatcher.InvokeAsync(() => Render());
-        RenderRequested?.Invoke(this, result);
-        result.Bitmap.Dispose();
     }
 
     public IRenderer.RenderResult Render()
@@ -62,7 +55,7 @@ internal class SceneRenderer : IRenderer
 
                 if (item.IsEnabled)
                 {
-                    ProcessClip(item, args);
+                    ProcessLayer(item, args);
                 }
             }
         }
@@ -70,7 +63,7 @@ internal class SceneRenderer : IRenderer
         return new IRenderer.RenderResult(Graphics.GetBitmap());
     }
 
-    private void ProcessClip(SceneLayer layer, in OperationRenderArgs args)
+    private void ProcessLayer(SceneLayer layer, in OperationRenderArgs args)
     {
         _renderables.Clear();
         IElementList list = layer.Children;
@@ -116,6 +109,13 @@ internal class SceneRenderer : IRenderer
         list.Sort((x, y) => x.Layer - y.Layer);
 
         return list;
+    }
+
+    public async void Invalidate()
+    {
+        IRenderer.RenderResult result = await Dispatcher.InvokeAsync(() => Render());
+        RenderInvalidated?.Invoke(this, result);
+        result.Bitmap.Dispose();
     }
 
     //private static int ToFrameNumber(TimeSpan tp, int rate)

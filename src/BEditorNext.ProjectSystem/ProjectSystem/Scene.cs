@@ -76,13 +76,13 @@ public class Scene : Element, IStorable
             .NotifyPropertyChanged(true)
             .NotifyPropertyChanging(true);
 
-        CurrentFrameProperty.Changed.Subscribe(e =>
+        CurrentFrameProperty.Changed.Subscribe((Action<ElementPropertyChangedEventArgs<TimeSpan>>)(e =>
         {
             if (e.Sender is Scene scene)
             {
-                scene._renderer.ForceRender();
+                scene._renderer.Invalidate();
             }
-        });
+        }));
     }
 
     public event EventHandler<CurrentFrameChangedEventArgs>? CurrentFrameChanged;

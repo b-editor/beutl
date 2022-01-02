@@ -50,7 +50,7 @@ public sealed partial class EditView : UserControl, IStorableControl
         base.OnDataContextChanged(e);
         if (DataContext is EditViewModel vm)
         {
-            vm.Scene.Renderer.RenderRequested += Renderer_RenderRequested;
+            vm.Scene.Renderer.RenderInvalidated += Renderer_RenderRequested;
         }
     }
 
