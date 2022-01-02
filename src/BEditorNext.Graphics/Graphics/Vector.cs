@@ -1,5 +1,7 @@
 ﻿using System.Globalization;
+using System.Text.Json.Serialization;
 
+using BEditorNext.Converters;
 using BEditorNext.Utilities;
 
 namespace BEditorNext.Graphics;
@@ -7,6 +9,7 @@ namespace BEditorNext.Graphics;
 /// <summary>
 /// Defines a vector.
 /// </summary>
+[JsonConverter(typeof(VectorJsonConverter))]
 public readonly struct Vector : IEquatable<Vector>
 {
     /// <summary>

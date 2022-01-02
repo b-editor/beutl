@@ -1,5 +1,7 @@
 ﻿using System.Globalization;
+using System.Text.Json.Serialization;
 
+using BEditorNext.Converters;
 using BEditorNext.Utilities;
 
 namespace BEditorNext.Graphics;
@@ -7,6 +9,7 @@ namespace BEditorNext.Graphics;
 /// <summary>
 /// A 2x3 matrix.
 /// </summary>
+[JsonConverter(typeof(MatrixJsonConverter))]
 public readonly struct Matrix : IEquatable<Matrix>
 {
     /// <summary>
@@ -282,16 +285,7 @@ public readonly struct Matrix : IEquatable<Matrix>
     /// <returns>The string representation.</returns>
     public override string ToString()
     {
-        CultureInfo ci = CultureInfo.CurrentCulture;
-        return string.Format(
-            ci,
-            "{{ {{M11:{0} M12:{1}}} {{M21:{2} M22:{3}}} {{M31:{4} M32:{5}}} }}",
-            M11.ToString(ci),
-            M12.ToString(ci),
-            M21.ToString(ci),
-            M22.ToString(ci),
-            M31.ToString(ci),
-            M32.ToString(ci));
+        return FormattableString.Invariant($"{M11}, {M12}, {M21}, {M22}, {M31}, {M32}");
     }
 
     /// <summary>
