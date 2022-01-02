@@ -3,6 +3,8 @@ using BEditorNext.Media;
 using BEditorNext.Media.TextFormatting;
 using BEditorNext.ProjectSystem;
 
+using SkiaSharp;
+
 namespace BEditorNext.Operations;
 
 public sealed class FormattedTextOperation : RenderOperation
@@ -39,13 +41,13 @@ public sealed class FormattedTextOperation : RenderOperation
             .DefaultValue(FormattedTextInfo.Default.Typeface.FontFamily)
             .Header("FontFamilyString")
             .JsonName("font");
-        
+
         StyleProperty = RegisterProperty<FontStyle, FormattedTextOperation>(nameof(Style), (owner, obj) => owner.Style = obj, owner => owner.Style)
             .EnableEditor()
             .DefaultValue(FormattedTextInfo.Default.Typeface.Style)
             .Header("FontStyleString")
             .JsonName("style");
-        
+
         WeightProperty = RegisterProperty<FontWeight, FormattedTextOperation>(nameof(Weight), (owner, obj) => owner.Weight = obj, owner => owner.Weight)
             .EnableEditor()
             .DefaultValue(FormattedTextInfo.Default.Typeface.Weight)
@@ -91,7 +93,13 @@ public sealed class FormattedTextOperation : RenderOperation
 
     public override void Render(in OperationRenderArgs args)
     {
-        _formattedText = FormattedText.Parse(Text, new FormattedTextInfo(new Typeface(FontFamily, Style, Weight), Size, Color, Space, Margin));
-        args.List.Add(_formattedText);
+        try
+        {
+            _formattedText = FormattedText.Parse(Text, new FormattedTextInfo(new Typeface(FontFamily, Style, Weight), Size, Color, Space, Margin));
+            args.List.Add(_formattedText);
+        }
+        catch
+        {
+        }
     }
 }

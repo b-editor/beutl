@@ -7,12 +7,13 @@ using SkiaSharp;
 
 namespace BEditorNext.Operations;
 
-public sealed class EllipseOperation : RenderOperation
+public sealed class EllipseOperation : DrawableOperation
 {
     public static readonly PropertyDefine<float> WidthProperty;
     public static readonly PropertyDefine<float> HeightProperty;
     public static readonly PropertyDefine<float> StrokeWidthProperty;
     public static readonly PropertyDefine<Color> ColorProperty;
+    private readonly Ellipse _drawable = new();
 
     static EllipseOperation()
     {
@@ -23,7 +24,7 @@ public sealed class EllipseOperation : RenderOperation
             .JsonName("width")
             .Minimum(0)
             .EnableEditor();
-        
+
         HeightProperty = RegisterProperty<float, EllipseOperation>(nameof(Height), (owner, obj) => owner.Height = obj, owner => owner.Height)
             .DefaultValue(100)
             .Animatable()
@@ -48,44 +49,35 @@ public sealed class EllipseOperation : RenderOperation
             .EnableEditor();
     }
 
-    public float Width { get; set; }
-    
-    public float Height { get; set; }
-
-    public float StrokeWidth { get; set; }
-
-    public Color Color { get; set; }
-
-    public override void Render(in OperationRenderArgs args)
+    public float Width
     {
-        float width = Width;
-        float height = Height;
-        float stroke = StrokeWidth;
+        get => _drawable.Width;
+        set => _drawable.Width = value;
+    }
 
-        if (StrokeWidth >= MathF.Min(width, height) / 2)
-            stroke = MathF.Min(width, height) / 2;
+    public float Height
+    {
+        get => _drawable.Height;
+        set => _drawable.Height = value;
+    }
 
-        float min = MathF.Min(width, height);
+    public float StrokeWidth
+    {
+        get => _drawable.StrokeWidth;
+        set => _drawable.StrokeWidth = value;
+    }
 
-        if (stroke < min) min = stroke;
-        if (min < 0) min = 0;
+    public Color Color
+    {
+        get => _drawable.Foreground;
+        set => _drawable.Foreground = value;
+    }
 
-        using var bmp = new SKBitmap(new SKImageInfo((int)MathF.Round(width), (int)MathF.Round(height), SKColorType.Bgra8888));
-        using var canvas = new SKCanvas(bmp);
+    public override Drawable Drawable => _drawable;
 
-        using var paint = new SKPaint
-        {
-            Color = Color.ToSkia(),
-            IsAntialias = true,
-            Style = SKPaintStyle.Stroke,
-            StrokeWidth = min,
-        };
-
-        canvas.DrawOval(
-            new SKPoint(width / 2, height / 2),
-            new SKSize(width / 2 - min / 2, height / 2 - min / 2),
-            paint);
-
-        args.List.Add(new RenderableBitmap(bmp.ToBitmap()));
+    public override void ApplySetters(in OperationRenderArgs args)
+    {
+        _drawable.Initialize();
+        base.ApplySetters(args);
     }
 }

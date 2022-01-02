@@ -1,7 +1,7 @@
 ﻿using System.Numerics;
 
+using BEditorNext.Graphics;
 using BEditorNext.ProjectSystem;
-using BEditorNext.Rendering;
 
 namespace BEditorNext.Operations.Transform;
 
@@ -11,7 +11,7 @@ public abstract class TransformOperation : RenderOperation
     {
         for (int i = 0; i < args.List.Count; i++)
         {
-            if (args.List[i] is IRenderableBitmap bmp)
+            if (args.List[i] is IDrawable bmp)
             {
                 bmp.Transform = GetMatrix() * bmp.Transform;
             }

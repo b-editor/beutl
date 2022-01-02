@@ -1,4 +1,5 @@
-﻿using BEditorNext.Media;
+﻿using BEditorNext.Graphics;
+using BEditorNext.Media;
 using BEditorNext.Media.Pixel;
 using BEditorNext.ProjectSystem;
 using BEditorNext.Rendering;
@@ -9,7 +10,7 @@ public sealed class ImageFileOperation : RenderOperation
 {
     public static readonly PropertyDefine<FileInfo?> FileProperty;
     private Bitmap<Bgra8888>? _cache;
-    private RenderableBitmap? _latest;
+    private DrawableBitmap? _latest;
 
     static ImageFileOperation()
     {
@@ -41,11 +42,11 @@ public sealed class ImageFileOperation : RenderOperation
 
         if (_latest == null)
         {
-            _latest = new RenderableBitmap((Bitmap<Bgra8888>)_cache.Clone());
+            _latest = new DrawableBitmap((Bitmap<Bgra8888>)_cache.Clone());
         }
         else
         {
-            _latest.Update((Bitmap<Bgra8888>)_cache.Clone());
+            _latest.Initialize((Bitmap<Bgra8888>)_cache.Clone());
         }
 
         args.List.Add(_latest);

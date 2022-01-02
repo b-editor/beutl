@@ -79,11 +79,10 @@ internal class SceneRenderer : IRenderer
         {
             if (list[i] is RenderOperation op && op.IsEnabled)
             {
-                UpdateProperty(op, args.CurrentTime);
+                op.ApplySetters(args);
                 op.Render(args);
             }
         }
-
 
         for (int i = 0; i < _renderables.Count; i++)
         {
@@ -96,24 +95,6 @@ internal class SceneRenderer : IRenderer
         }
 
         _renderables.Clear();
-    }
-
-    private static void UpdateProperty(RenderOperation op, TimeSpan timeSpan)
-    {
-        int length = op.Setters.Count;
-        for (int i = 0; i < length; i++)
-        {
-            ISetter item = op.Setters[i];
-
-            if (item is IAnimatableSetter anmSetter)
-            {
-                anmSetter.SetProperty(timeSpan);
-            }
-            else
-            {
-                item.SetProperty();
-            }
-        }
     }
 
     private static List<SceneLayer> FilterLayers(Scene scene, TimeSpan ts)

@@ -1,18 +1,16 @@
 ﻿using BEditorNext.Graphics;
 using BEditorNext.Media;
 using BEditorNext.ProjectSystem;
-using BEditorNext.Rendering;
-
-using SkiaSharp;
 
 namespace BEditorNext.Operations;
 
-public sealed class RectOperation : RenderOperation
+public sealed class RectOperation : DrawableOperation
 {
     public static readonly PropertyDefine<float> WidthProperty;
     public static readonly PropertyDefine<float> HeightProperty;
     public static readonly PropertyDefine<float> StrokeWidthProperty;
     public static readonly PropertyDefine<Color> ColorProperty;
+    private readonly Rectangle _drawable = new();
 
     static RectOperation()
     {
@@ -23,7 +21,7 @@ public sealed class RectOperation : RenderOperation
             .JsonName("width")
             .Minimum(0)
             .EnableEditor();
-        
+
         HeightProperty = RegisterProperty<float, RectOperation>(nameof(Height), (owner, obj) => owner.Height = obj, owner => owner.Height)
             .DefaultValue(100)
             .Animatable()
@@ -48,36 +46,35 @@ public sealed class RectOperation : RenderOperation
             .EnableEditor();
     }
 
-    public float Width { get; set; }
-    
-    public float Height { get; set; }
-
-    public float StrokeWidth { get; set; }
-
-    public Color Color { get; set; }
-
-    public override void Render(in OperationRenderArgs args)
+    public float Width
     {
-        float width = Width;
-        float height = Height;
-        float stroke = StrokeWidth;
+        get => _drawable.Width;
+        set => _drawable.Width = value;
+    }
 
-        using var bmp = new SKBitmap(new SKImageInfo((int)MathF.Round(width), (int)MathF.Round(height), SKColorType.Bgra8888));
-        using var canvas = new SKCanvas(bmp);
+    public float Height
+    {
+        get => _drawable.Height;
+        set => _drawable.Height = value;
+    }
 
-        using var paint = new SKPaint
-        {
-            Color = Color.ToSkia(),
-            IsAntialias = true,
-            Style = SKPaintStyle.Stroke,
-            StrokeWidth = stroke,
-        };
+    public float StrokeWidth
+    {
+        get => _drawable.StrokeWidth;
+        set => _drawable.StrokeWidth = value;
+    }
 
-        canvas.DrawRect(
-            0, 0,
-            width, height,
-            paint);
+    public Color Color
+    {
+        get => _drawable.Foreground;
+        set => _drawable.Foreground = value;
+    }
 
-        args.List.Add(new RenderableBitmap(bmp.ToBitmap()));
+    public override Drawable Drawable => _drawable;
+
+    public override void ApplySetters(in OperationRenderArgs args)
+    {
+        _drawable.Initialize();
+        base.ApplySetters(args);
     }
 }

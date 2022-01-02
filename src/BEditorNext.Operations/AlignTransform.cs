@@ -1,4 +1,5 @@
-﻿using BEditorNext.Media;
+﻿using BEditorNext.Graphics;
+using BEditorNext.Media;
 using BEditorNext.ProjectSystem;
 using BEditorNext.Rendering;
 
@@ -37,7 +38,7 @@ public sealed class AlignOperation : RenderOperation
     public AlignmentX HorizontalAlignment { get; set; }
 
     public AlignmentY VerticalAlignment { get; set; }
-    
+
     public AlignmentX HorizontalContentAlignment { get; set; }
 
     public AlignmentY VerticalContentAlignment { get; set; }
@@ -47,7 +48,7 @@ public sealed class AlignOperation : RenderOperation
         for (int i = 0; i < args.List.Count; i++)
         {
             IRenderable item = args.List[i];
-            if (item is IRenderableBitmap bmp)
+            if (item is IDrawable bmp)
             {
                 bmp.HorizontalAlignment = HorizontalAlignment;
                 bmp.HorizontalContentAlignment = HorizontalContentAlignment;

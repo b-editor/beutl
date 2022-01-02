@@ -1,4 +1,5 @@
-﻿using System.Text.Json.Nodes;
+﻿using System;
+using System.Text.Json.Nodes;
 
 using BEditorNext.Collections;
 
@@ -68,6 +69,24 @@ public abstract class RenderOperation : Element, ILogicalElement
     public IObservableList<ISetter> Setters => _setters;
 
     IEnumerable<ILogicalElement> ILogicalElement.LogicalChildren => _setters;
+
+    public virtual void ApplySetters(in OperationRenderArgs args)
+    {
+        int length = Setters.Count;
+        for (int i = 0; i < length; i++)
+        {
+            ISetter item = Setters[i];
+
+            if (item is IAnimatableSetter anmSetter)
+            {
+                anmSetter.SetProperty(args.CurrentTime);
+            }
+            else
+            {
+                item.SetProperty();
+            }
+        }
+    }
 
     public abstract void Render(in OperationRenderArgs args);
 
