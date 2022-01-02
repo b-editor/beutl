@@ -1,10 +1,11 @@
-﻿using System.Numerics;
+﻿using BEditorNext.Graphics.Transformation;
 
 namespace BEditorNext.Operations.Transform;
 
 public sealed class RotateTransform : TransformOperation
 {
     public static readonly PropertyDefine<float> RotationProperty;
+    private readonly RotationTransform _transform = new();
 
     static RotateTransform()
     {
@@ -15,10 +16,11 @@ public sealed class RotateTransform : TransformOperation
             .JsonName("rotation");
     }
 
-    public float Rotation { get; set; }
-
-    public override Matrix3x2 GetMatrix()
+    public float Rotation
     {
-        return Matrix3x2.CreateRotation(Rotation);
+        get => MathHelper.ToDegrees(_transform.Rotation);
+        set => _transform.Rotation = MathHelper.ToRadians(value);
     }
+
+    public override ITransform Transform => _transform;
 }

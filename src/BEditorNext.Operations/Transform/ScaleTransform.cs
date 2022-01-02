@@ -1,4 +1,4 @@
-﻿using System.Numerics;
+﻿using BEditorNext.Graphics.Transformation;
 
 namespace BEditorNext.Operations.Transform;
 
@@ -7,6 +7,7 @@ public sealed class ScaleTransform : TransformOperation
     public static readonly PropertyDefine<float> ScaleProperty;
     public static readonly PropertyDefine<float> ScaleXProperty;
     public static readonly PropertyDefine<float> ScaleYProperty;
+    private readonly Graphics.Transformation.ScaleTransform _transform = new();
 
     static ScaleTransform()
     {
@@ -29,14 +30,23 @@ public sealed class ScaleTransform : TransformOperation
             .JsonName("scaleY");
     }
 
-    public float Scale { get; set; }
-
-    public float ScaleX { get; set; }
-
-    public float ScaleY { get; set; }
-
-    public override Matrix3x2 GetMatrix()
+    public float Scale
     {
-        return Matrix3x2.CreateScale(new Vector2(ScaleX, ScaleY) * Scale / 10000);
+        get => _transform.Scale * 100;
+        set => _transform.Scale = value / 100;
     }
+
+    public float ScaleX
+    {
+        get => _transform.ScaleX * 100;
+        set => _transform.ScaleX = value / 100;
+    }
+
+    public float ScaleY
+    {
+        get => _transform.ScaleY * 100;
+        set => _transform.ScaleY = value / 100;
+    }
+
+    public override ITransform Transform => _transform;
 }

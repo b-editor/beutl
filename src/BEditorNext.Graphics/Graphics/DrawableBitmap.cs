@@ -52,7 +52,7 @@ public sealed class DrawableBitmap : Drawable
             }
             else
             {
-                using Bitmap<Bgra8888> bitmap = ToBitmap();
+                using Bitmap<Bgra8888> bitmap = (Bitmap<Bgra8888>)Bitmap.Clone();
                 using Bitmap<Bgra8888> bitmap2 = BitmapEffect.ApplyAll(bitmap, Effects);
 
                 canvas.DrawBitmap(bitmap2);

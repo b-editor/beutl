@@ -1,11 +1,10 @@
-﻿using System.Numerics;
-
-namespace BEditorNext.Operations.Transform;
+﻿namespace BEditorNext.Operations.Transform;
 
 public sealed class TranslateTransform : TransformOperation
 {
     public static readonly PropertyDefine<float> XProperty;
     public static readonly PropertyDefine<float> YProperty;
+    private readonly Graphics.Transformation.TranslateTransform _transform = new();
 
     static TranslateTransform()
     {
@@ -24,12 +23,17 @@ public sealed class TranslateTransform : TransformOperation
             .JsonName("y");
     }
 
-    public float X { get; set; }
-
-    public float Y { get; set; }
-
-    public override Matrix3x2 GetMatrix()
+    public float X
     {
-        return Matrix3x2.CreateTranslation(X, Y);
+        get => _transform.X;
+        set => _transform.X = value;
     }
+
+    public float Y
+    {
+        get => _transform.Y;
+        set => _transform.Y = value;
+    }
+
+    public override Graphics.Transformation.ITransform Transform => _transform;
 }

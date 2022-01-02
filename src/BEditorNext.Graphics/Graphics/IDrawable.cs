@@ -1,5 +1,6 @@
 ﻿using System.Numerics;
 
+using BEditorNext.Graphics.Transformation;
 using BEditorNext.Media;
 
 namespace BEditorNext.Graphics;
@@ -12,7 +13,7 @@ public interface IDrawable : IDisposable
 
     bool IsAntialias { get; set; }
 
-    Matrix3x2 Transform { get; set; }
+    Transforms Transform { get; }
 
     AlignmentX HorizontalAlignment { get; set; }
 

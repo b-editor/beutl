@@ -1,7 +1,7 @@
 ﻿using System.Numerics;
 
 using BEditorNext.Graphics.Effects;
-
+using BEditorNext.Graphics.Transformation;
 using BEditorNext.Media;
 using BEditorNext.Media.Pixel;
 using BEditorNext.Rendering;
@@ -12,7 +12,7 @@ public abstract class Drawable : IDrawable, IRenderable
 {
     public abstract PixelSize Size { get; }
 
-    public Matrix3x2 Transform { get; set; } = Matrix3x2.Identity;
+    public Transforms Transform { get; } = new();
 
     public AlignmentX HorizontalAlignment { get; set; }
 
@@ -33,13 +33,13 @@ public abstract class Drawable : IDrawable, IRenderable
     public void Initialize()
     {
         OnInitialize();
-        Transform = Matrix3x2.Identity;
         HorizontalAlignment = AlignmentX.Left;
         VerticalAlignment = AlignmentY.Top;
         HorizontalContentAlignment = AlignmentX.Left;
         VerticalContentAlignment = AlignmentY.Top;
         Foreground = Colors.White;
         IsAntialias = true;
+        Transform.Clear();
         Effects.Clear();
     }
 
@@ -49,15 +49,9 @@ public abstract class Drawable : IDrawable, IRenderable
         PixelSize pixelSize = Size;
         Size size = pixelSize.ToSize(1);
         Rect bounds = BitmapEffect.MeasureAll(new Rect(size), Effects);
-        using var canvas = new Canvas(pixelSize.Width, pixelSize.Height);
+        using var canvas = new Canvas((int)bounds.Right, (int)bounds.Bottom);
 
-        canvas.PushMatrix();
-
-        canvas.SetMatrix(Transform * canvas.TotalMatrix);
-        Point pt = CreatePoint(size, canvas.Size) + bounds.Position;
-        canvas.Translate(pt);
         OnDraw(canvas);
-        canvas.PopMatrix();
 
         return canvas.GetBitmap();
     }
@@ -76,9 +70,14 @@ public abstract class Drawable : IDrawable, IRenderable
         canvas.IsAntialias = IsAntialias;
         canvas.PushMatrix();
 
-        canvas.SetMatrix(Transform * canvas.TotalMatrix);
-        Point pt = CreatePoint(size, canvas.Size) + bounds.Position;
-        canvas.Translate(pt);
+        Vector2 pt = CreatePoint(canvas.Size) + bounds.Position;
+        Vector2 relpt = CreateRelPoint(size);
+
+        canvas.SetMatrix(Matrix3x2.CreateTranslation(relpt) *
+            Transform.Calculate() *
+            Matrix3x2.CreateTranslation(pt) *
+            canvas.TotalMatrix);
+
         OnDraw(canvas);
         canvas.PopMatrix();
 
@@ -105,44 +104,51 @@ public abstract class Drawable : IDrawable, IRenderable
     {
     }
 
-    private Point CreatePoint(Size size, PixelSize canvasSize)
+    private Point CreateRelPoint(Size size)
     {
-        var drawable = this as IDrawable;
         float x = 0;
         float y = 0;
 
-        if (drawable.HorizontalContentAlignment == AlignmentX.Center)
+        if (HorizontalContentAlignment == AlignmentX.Center)
         {
             x -= size.Width / 2;
         }
-        else if (drawable.HorizontalContentAlignment == AlignmentX.Right)
+        else if (HorizontalContentAlignment == AlignmentX.Right)
         {
             x -= size.Width;
         }
 
-        if (drawable.VerticalContentAlignment == AlignmentY.Center)
+        if (VerticalContentAlignment == AlignmentY.Center)
         {
             y -= size.Height / 2;
         }
-        else if (drawable.VerticalContentAlignment == AlignmentY.Bottom)
+        else if (VerticalContentAlignment == AlignmentY.Bottom)
         {
             y -= size.Height;
         }
 
-        if (drawable.HorizontalAlignment == AlignmentX.Center)
+        return new Point(x, y);
+    }
+
+    private Point CreatePoint(PixelSize canvasSize)
+    {
+        float x = 0;
+        float y = 0;
+
+        if (HorizontalAlignment == AlignmentX.Center)
         {
             x += canvasSize.Width / 2;
         }
-        else if (drawable.HorizontalAlignment == AlignmentX.Right)
+        else if (HorizontalAlignment == AlignmentX.Right)
         {
             x += canvasSize.Width;
         }
 
-        if (drawable.VerticalAlignment == AlignmentY.Center)
+        if (VerticalAlignment == AlignmentY.Center)
         {
             y += canvasSize.Height / 2;
         }
-        else if (drawable.VerticalAlignment == AlignmentY.Bottom)
+        else if (VerticalAlignment == AlignmentY.Bottom)
         {
             y += canvasSize.Height;
         }

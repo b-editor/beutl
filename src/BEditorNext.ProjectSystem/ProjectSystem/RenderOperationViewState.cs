@@ -4,7 +4,7 @@ namespace BEditorNext.ProjectSystem;
 
 public class RenderOperationViewState : BaseViewState
 {
-    private bool _isExpanded;
+    private bool _isExpanded = true;
 
     public bool IsExpanded
     {

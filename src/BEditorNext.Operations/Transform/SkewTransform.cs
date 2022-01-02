@@ -6,6 +6,7 @@ public sealed class SkewTransform : TransformOperation
 {
     public static readonly PropertyDefine<float> SkewXProperty;
     public static readonly PropertyDefine<float> SkewYProperty;
+    private readonly Graphics.Transformation.SkewTransform _transform = new();
 
     static SkewTransform()
     {
@@ -22,12 +23,17 @@ public sealed class SkewTransform : TransformOperation
             .JsonName("skewY");
     }
 
-    public float SkewX { get; set; }
-
-    public float SkewY { get; set; }
-
-    public override Matrix3x2 GetMatrix()
+    public float SkewX
     {
-        return Matrix3x2.CreateSkew(MathHelper.ToRadians(SkewX), MathHelper.ToRadians(SkewY));
+        get => MathHelper.ToDegrees(_transform.SkewX);
+        set => _transform.SkewX = MathHelper.ToRadians(value);
     }
+
+    public float SkewY
+    {
+        get => MathHelper.ToDegrees(_transform.SkewY);
+        set => _transform.SkewY = MathHelper.ToRadians(value);
+    }
+
+    public override Graphics.Transformation.ITransform Transform => _transform;
 }

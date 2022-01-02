@@ -1,6 +1,5 @@
-﻿using System.Numerics;
-
-using BEditorNext.Graphics;
+﻿using BEditorNext.Graphics;
+using BEditorNext.Graphics.Transformation;
 using BEditorNext.ProjectSystem;
 
 namespace BEditorNext.Operations.Transform;
@@ -13,10 +12,10 @@ public abstract class TransformOperation : RenderOperation
         {
             if (args.List[i] is IDrawable bmp)
             {
-                bmp.Transform = GetMatrix() * bmp.Transform;
+                bmp.Transform.Add(Transform);
             }
         }
     }
 
-    public abstract Matrix3x2 GetMatrix();
+    public abstract ITransform Transform { get; }
 }

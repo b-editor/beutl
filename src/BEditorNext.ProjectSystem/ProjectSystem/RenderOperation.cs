@@ -57,7 +57,13 @@ public abstract class RenderOperation : Element, ILogicalElement
     public bool IsEnabled
     {
         get => _isEnabled;
-        set => SetAndRaise(IsEnabledProperty, ref _isEnabled, value);
+        set
+        {
+            if (SetAndRaise(IsEnabledProperty, ref _isEnabled, value))
+            {
+                ForceRender();
+            }
+        }
     }
 
     public RenderOperationViewState ViewState
