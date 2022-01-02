@@ -234,10 +234,10 @@ public readonly struct PixelRect : IEquatable<PixelRect>
     /// <returns>The intersection.</returns>
     public PixelRect Intersect(PixelRect rect)
     {
-        var newLeft = rect.X > X ? rect.X : X;
-        var newTop = rect.Y > Y ? rect.Y : Y;
-        var newRight = rect.Right < Right ? rect.Right : Right;
-        var newBottom = rect.Bottom < Bottom ? rect.Bottom : Bottom;
+        int newLeft = rect.X > X ? rect.X : X;
+        int newTop = rect.Y > Y ? rect.Y : Y;
+        int newRight = rect.Right < Right ? rect.Right : Right;
+        int newBottom = rect.Bottom < Bottom ? rect.Bottom : Bottom;
 
         if (newRight > newLeft && newBottom > newTop)
         {
@@ -288,10 +288,10 @@ public readonly struct PixelRect : IEquatable<PixelRect>
         }
         else
         {
-            var x1 = Math.Min(X, rect.X);
-            var x2 = Math.Max(Right, rect.Right);
-            var y1 = Math.Min(Y, rect.Y);
-            var y2 = Math.Max(Bottom, rect.Bottom);
+            int x1 = Math.Min(X, rect.X);
+            int x2 = Math.Max(Right, rect.Right);
+            int y1 = Math.Min(Y, rect.Y);
+            int y2 = Math.Max(Bottom, rect.Bottom);
 
             return new PixelRect(new PixelPoint(x1, y1), new PixelPoint(x2, y2));
         }
