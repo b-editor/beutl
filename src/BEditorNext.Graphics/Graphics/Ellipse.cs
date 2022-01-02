@@ -1,4 +1,5 @@
-﻿using BEditorNext.Graphics.Effects;
+﻿
+using BEditorNext.Graphics.Effects;
 using BEditorNext.Media;
 using BEditorNext.Media.Pixel;
 
@@ -20,18 +21,14 @@ public sealed class Ellipse : Drawable
 
     protected override void OnDraw(ICanvas canvas)
     {
+        using Bitmap<Bgra8888> bmp = ToBitmapWithoutEffect();
+
         if (Effects.Count == 0)
         {
-            float oldStroke = canvas.StrokeWidth;
-
-            canvas.StrokeWidth = StrokeWidth;
-
-            canvas.DrawCircle(new Size(Width, Height));
-            canvas.StrokeWidth = oldStroke;
+            canvas.DrawBitmap(bmp);
         }
         else
         {
-            using Bitmap<Bgra8888> bmp = ToBitmapWithoutEffect();
             using Bitmap<Bgra8888> bmp2 = BitmapEffect.ApplyAll(bmp, Effects);
 
             canvas.DrawBitmap(bmp2);
