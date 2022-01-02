@@ -1,10 +1,9 @@
 ﻿using BEditorNext.Graphics;
 using BEditorNext.ProjectSystem;
-using BEditorNext.Rendering;
 
 namespace BEditorNext.Operations;
 
-public sealed class BlendOperation : RenderOperation
+public sealed class BlendOperation : ConfigureOperation<IDrawable>
 {
     public static readonly PropertyDefine<BlendMode> BlendModeProperty;
 
@@ -19,16 +18,8 @@ public sealed class BlendOperation : RenderOperation
 
     public BlendMode BlendMode { get; set; }
 
-    public override void Render(in OperationRenderArgs args)
+    public override void Configure(in OperationRenderArgs args, IDrawable obj)
     {
-        for (int i = 0; i < args.List.Count; i++)
-        {
-            IRenderable item = args.List[i];
-
-            if (item is IDrawable drawable)
-            {
-                drawable.BlendMode = BlendMode;
-            }
-        }
+        obj.BlendMode = BlendMode;
     }
 }

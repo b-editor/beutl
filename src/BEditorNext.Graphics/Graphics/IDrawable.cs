@@ -1,9 +1,10 @@
 ﻿using BEditorNext.Graphics.Transformation;
 using BEditorNext.Media;
+using BEditorNext.Rendering;
 
 namespace BEditorNext.Graphics;
 
-public interface IDrawable : IDisposable
+public interface IDrawable : IDisposable, IRenderable
 {
     PixelSize Size { get; }
 
@@ -26,4 +27,9 @@ public interface IDrawable : IDisposable
     EffectCollection Effects { get; }
 
     void Draw(ICanvas canvas);
+
+    void IRenderable.Render(IRenderer renderer)
+    {
+        Draw(renderer.Graphics);
+    }
 }

@@ -4,17 +4,11 @@ using BEditorNext.ProjectSystem;
 
 namespace BEditorNext.Operations.Transform;
 
-public abstract class TransformOperation : RenderOperation
+public abstract class TransformOperation : ConfigureOperation<IDrawable>
 {
-    public override void Render(in OperationRenderArgs args)
+    public override void Configure(in OperationRenderArgs args, IDrawable obj)
     {
-        for (int i = 0; i < args.List.Count; i++)
-        {
-            if (args.List[i] is IDrawable bmp)
-            {
-                bmp.Transform.Add(Transform);
-            }
-        }
+        obj.Transform.Add(Transform);
     }
 
     public abstract ITransform Transform { get; }

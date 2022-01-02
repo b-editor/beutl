@@ -5,7 +5,7 @@ using BEditorNext.Rendering;
 
 namespace BEditorNext.Operations;
 
-public sealed class AlignOperation : RenderOperation
+public sealed class AlignOperation : ConfigureOperation<IDrawable>
 {
     public static readonly PropertyDefine<AlignmentX> HorizontalAlignmentProperty;
     public static readonly PropertyDefine<AlignmentY> VerticalAlignmentProperty;
@@ -43,18 +43,11 @@ public sealed class AlignOperation : RenderOperation
 
     public AlignmentY VerticalContentAlignment { get; set; }
 
-    public override void Render(in OperationRenderArgs args)
+    public override void Configure(in OperationRenderArgs args, IDrawable obj)
     {
-        for (int i = 0; i < args.List.Count; i++)
-        {
-            IRenderable item = args.List[i];
-            if (item is IDrawable bmp)
-            {
-                bmp.HorizontalAlignment = HorizontalAlignment;
-                bmp.HorizontalContentAlignment = HorizontalContentAlignment;
-                bmp.VerticalAlignment = VerticalAlignment;
-                bmp.VerticalContentAlignment = VerticalContentAlignment;
-            }
-        }
+        obj.HorizontalAlignment = HorizontalAlignment;
+        obj.HorizontalContentAlignment = HorizontalContentAlignment;
+        obj.VerticalAlignment = VerticalAlignment;
+        obj.VerticalContentAlignment = VerticalContentAlignment;
     }
 }
