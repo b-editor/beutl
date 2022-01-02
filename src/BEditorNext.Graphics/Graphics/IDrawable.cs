@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Numerics;
-using System.Text;
-using System.Threading.Tasks;
-using BEditorNext.Graphics.Effects;
+﻿using System.Numerics;
 
 using BEditorNext.Media;
 
@@ -14,17 +8,21 @@ public interface IDrawable : IDisposable
 {
     PixelSize Size { get; }
 
-    ref Matrix3x2 Transform { get; }
+    Color Foreground { get; set; }
+
+    bool IsAntialias { get; set; }
+
+    Matrix3x2 Transform { get; set; }
 
     AlignmentX HorizontalAlignment { get; set; }
 
     AlignmentY VerticalAlignment { get; set; }
-    
+
     AlignmentX HorizontalContentAlignment { get; set; }
 
     AlignmentY VerticalContentAlignment { get; set; }
 
-    IList<BitmapEffect> Effects { get; }
+    EffectCollection Effects { get; }
 
     void Draw(ICanvas canvas);
 }

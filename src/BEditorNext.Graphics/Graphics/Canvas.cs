@@ -117,7 +117,7 @@ public class Canvas : ICanvas
         _paint.StrokeWidth = min;
 
         _canvas.DrawOval(
-            new SKPoint(0, 0),
+            new SKPoint(size.Width / 2, size.Height / 2),
             new SKSize((size.Width - min) / 2, (size.Height - min) / 2),
             _paint);
 
@@ -127,17 +127,19 @@ public class Canvas : ICanvas
     public void DrawRect(Size size)
     {
         VerifyAccess();
-        float line = StrokeWidth;
+        float stroke = StrokeWidth;
+        float line = Math.Min(stroke, Math.Min(size.Width, size.Height));
 
         _paint.Style = SKPaintStyle.Stroke;
         _paint.StrokeWidth = line;
 
         _canvas.DrawRect(
-            (line - size.Width) / 2, (line - size.Height) / 2,
+            line / 2, line / 2,
             size.Width - line, size.Height - line,
             _paint);
 
         _paint.Style = SKPaintStyle.Fill;
+        _paint.StrokeWidth = stroke;
     }
 
     public void FillCircle(Size size)
