@@ -61,17 +61,20 @@
         <x:String x:Key="FontWeightString">Weight</x:String>
         <x:String x:Key="CharactorSpacingString">Charactor spacing</x:String>
         <x:String x:Key="MarginString">Margin</x:String>
-        <x:String x:Key="HorizontalAlignmentString">HorizontalAlignment</x:String>
-        <x:String x:Key="VerticalAlignmentString">VerticalAlignment</x:String>
-        <x:String x:Key="HorizontalContentAlignmentString">HorizontalContentAlignment</x:String>
-        <x:String x:Key="VerticalContentAlignmentString">VerticalContentAlignment</x:String>
+        <x:String x:Key="HorizontalAlignmentString">Horizontal alignment (Canvas)</x:String>
+        <x:String x:Key="VerticalAlignmentString">Vertical alignment (Canvas)</x:String>
+        <x:String x:Key="HorizontalContentAlignmentString">Horizontal alignment</x:String>
+        <x:String x:Key="VerticalContentAlignmentString">Vertical alignment</x:String>
         <x:String x:Key="PositionString">Position</x:String>
         <x:String x:Key="SigmaString">Sigma</x:String>
-        <x:String x:Key="ShadowOnlyString">ShadowOnly</x:String>
+        <x:String x:Key="ShadowOnlyString">Shadow only</x:String>
         <x:String x:Key="RedString">Red</x:String>
         <x:String x:Key="GreenString">Green</x:String>
         <x:String x:Key="BlueString">Blue</x:String>
         <x:String x:Key="OpacityString">Opacity</x:String>
+        <x:String x:Key="ValueString">Value</x:String>
+        <x:String x:Key="SaturationRangeString">Saturation range</x:String>
+        <x:String x:Key="HueRangeString">Hue range</x:String>
 
         <!--Verb-->
         <x:String x:Key="OpenString">Open</x:String>
@@ -120,6 +123,7 @@
         <x:String x:Key="TextString">Text</x:String>
         <x:String x:Key="ImageFileString">ImageFile</x:String>
         <x:String x:Key="AlignString">Align</x:String>
+        <x:String x:Key="BlendString">Blend</x:String>
         <x:String x:Key="RotateString">Rotate</x:String>
         <x:String x:Key="ScaleString">Scale</x:String>
         <x:String x:Key="SkewString">Skew</x:String>

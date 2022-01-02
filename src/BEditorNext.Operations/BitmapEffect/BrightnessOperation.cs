@@ -12,6 +12,7 @@ public sealed class BrightnessOperation : BitmapEffectOperation<Brightness>
             .Animatable(true)
             .EnableEditor()
             .DefaultValue((short)0)
+            .Header("ValueString")
             .JsonName("value");
     }
 

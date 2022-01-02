@@ -15,16 +15,19 @@ public sealed class ChromaKeyOperation : BitmapEffectOperation<ChromaKey>
             .Animatable(true)
             .EnableEditor()
             .DefaultValue(Colors.Green)
+            .Header("ColorString")
             .JsonName("color");
 
         SaturationRangeProperty = RegisterProperty<int, ChromaKeyOperation>(nameof(SaturationRange), (owner, obj) => owner.SaturationRange = obj, owner => owner.SaturationRange)
             .Animatable(true)
             .EnableEditor()
+            .Header("SaturationRangeString")
             .JsonName("saturationRange");
 
         HueRangeProperty = RegisterProperty<int, ChromaKeyOperation>(nameof(HueRange), (owner, obj) => owner.HueRange = obj, owner => owner.HueRange)
             .Animatable(true)
             .EnableEditor()
+            .Header("HueRangeString")
             .JsonName("hueRange");
     }
 

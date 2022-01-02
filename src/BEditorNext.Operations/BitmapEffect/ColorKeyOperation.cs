@@ -13,7 +13,7 @@ public sealed class ColorKeyOperation : BitmapEffectOperation<ColorKey>
         ValueProperty = RegisterProperty<int, ColorKeyOperation>(nameof(Value), (o, v) => o.Value = v, o => o.Value)
             .EnableEditor()
             .Animatable()
-            //.Header()
+            .Header("Value")
             .JsonName("value");
 
         ColorProperty = RegisterProperty<Color, ColorKeyOperation>(nameof(Color), (o, v) => o.Color = v, o => o.Color)

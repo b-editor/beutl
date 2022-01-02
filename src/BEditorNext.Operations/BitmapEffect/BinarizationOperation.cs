@@ -12,6 +12,7 @@ public sealed class BinarizationOperation : BitmapEffectOperation<Binarization>
             .Animatable(true)
             .EnableEditor()
             .DefaultValue(byte.MinValue)
+            .Header("ValueString")
             .JsonName("value");
     }
 

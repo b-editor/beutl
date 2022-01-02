@@ -39,6 +39,16 @@
         <x:String x:Key="FontWeightString">ウェイト</x:String>
         <x:String x:Key="CharactorSpacingString">文字間隔</x:String>
         <x:String x:Key="MarginString">余白</x:String>
+        <x:String x:Key="HorizontalAlignmentString">水平方向のアライン (キャンバス)</x:String>
+        <x:String x:Key="VerticalAlignmentString">垂直方向のアライン (キャンバス)</x:String>
+        <x:String x:Key="HorizontalContentAlignmentString">水平方向のアライン</x:String>
+        <x:String x:Key="VerticalContentAlignmentString">垂直方向のアライン</x:String>
+        <x:String x:Key="PositionString">位置</x:String>
+        <x:String x:Key="ShadowOnlyString">影だけを描画</x:String>
+        <x:String x:Key="OpacityString">不透明度</x:String>
+        <x:String x:Key="ValueString">値</x:String>
+        <x:String x:Key="SaturationRangeString">彩度範囲</x:String>
+        <x:String x:Key="HueRangeString">色相範囲</x:String>
 
         <!--Verb-->
         <x:String x:Key="OpenString">開く</x:String>
@@ -87,6 +97,7 @@
         <x:String x:Key="TextString">テキスト</x:String>
         <x:String x:Key="ImageFileString">画像ファイル</x:String>
         <x:String x:Key="AlignString">整列</x:String>
+        <x:String x:Key="BlendString">ブレンド</x:String>
         <x:String x:Key="RotateString">回転</x:String>
         <x:String x:Key="ScaleString">スケール</x:String>
         <x:String x:Key="SkewString">歪み</x:String>
@@ -96,5 +107,12 @@
         <x:String x:Key="BrightnessString">明るさ</x:String>
         <x:String x:Key="BinarizationString">二階調化</x:String>
         <x:String x:Key="ChromaKeyString">クロマキー</x:String>
+        <x:String x:Key="ColorAdjustString">色調節</x:String>
+        <x:String x:Key="ColorKeyString">カラーキー</x:String>
+        <x:String x:Key="DropShadowString">ドロップシャドウ</x:String>
+        <x:String x:Key="InvertOpacityString">不透明度を反転</x:String>
+        <x:String x:Key="MakeTransparentString">透明する</x:String>
+        <x:String x:Key="NegaposiString">根がポジ</x:String>
+        <x:String x:Key="SepiaString">セピア</x:String>
     </Styles.Resources>
 </Styles>

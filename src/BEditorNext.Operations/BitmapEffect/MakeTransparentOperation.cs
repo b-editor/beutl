@@ -14,6 +14,7 @@ public sealed class MakeTransparentOperation: BitmapEffectOperation<MakeTranspar
             .Maximum(100)
             .Minimum(0)
             .DefaultValue(100)
+            .Header("OpacityString")
             .JsonName("opacity");
     }
 
