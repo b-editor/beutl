@@ -11,6 +11,8 @@ public interface IDrawable : IDisposable
 
     bool IsAntialias { get; set; }
 
+    BlendMode BlendMode { get; set; }
+
     Transforms Transform { get; }
 
     AlignmentX HorizontalAlignment { get; set; }

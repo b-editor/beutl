@@ -18,6 +18,8 @@ public interface ICanvas : IDisposable
 
     bool IsAntialias { get; set; }
 
+    BlendMode BlendMode { get; set; }
+
     Matrix3x2 TotalMatrix { get; }
 
     void Clear();

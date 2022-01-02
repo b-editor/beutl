@@ -29,6 +29,8 @@ public abstract class Drawable : IDrawable, IRenderable
     public bool IsDisposed { get; protected set; }
 
     public Color Foreground { get; set; } = Colors.White;
+    
+    public BlendMode BlendMode { get; set; } = BlendMode.SrcOver;
 
     public bool IsAntialias { get; set; } = true;
 
@@ -69,6 +71,7 @@ public abstract class Drawable : IDrawable, IRenderable
         using (canvas.PushState())
         {
             canvas.Color = Foreground;
+            canvas.BlendMode = BlendMode;
             canvas.IsAntialias = IsAntialias;
 
             Vector2 pt = CreatePoint(canvas.Size) + bounds.Position;

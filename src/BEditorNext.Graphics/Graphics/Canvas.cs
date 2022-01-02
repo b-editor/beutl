@@ -32,10 +32,10 @@ public readonly record struct CanvasState(
     float StrokeWidth,
     bool IsAntialias,
     Matrix3x2 Matrix,
-    SKBlendMode BlendMode)
+    BlendMode BlendMode)
 {
     public CanvasState()
-        : this(Colors.White, 0, true, Matrix3x2.Identity, SKBlendMode.SrcOver)
+        : this(Colors.White, 0, true, Matrix3x2.Identity, BlendMode.SrcOver)
     {
 
     }
@@ -78,7 +78,7 @@ public class Canvas : ICanvas
 
     public bool IsAntialias { get; set; } = true;
 
-    public SKBlendMode BlendMode { get; set; } = SKBlendMode.SrcOver;
+    public BlendMode BlendMode { get; set; } = BlendMode.SrcOver;
 
     public PixelSize Size { get; }
 
@@ -336,6 +336,6 @@ public class Canvas : ICanvas
         _paint.Color = Color.ToSkia();
         _paint.StrokeWidth = StrokeWidth;
         _paint.IsAntialias = IsAntialias;
-        _paint.BlendMode = BlendMode;
+        _paint.BlendMode = (SKBlendMode)BlendMode;
     }
 }
