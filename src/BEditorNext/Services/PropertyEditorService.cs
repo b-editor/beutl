@@ -48,6 +48,7 @@ public static class PropertyEditorService
         { typeof(Vector2), new(_ => new Vector2Editor(), s => new Vector2EditorViewModel((Setter<Vector2>)s)) },
         { typeof(Vector3), new(_ => new Vector3Editor(), s => new Vector3EditorViewModel((Setter<Vector3>)s)) },
         { typeof(Vector4), new(_ => new Vector4Editor(), s => new Vector4EditorViewModel((Setter<Vector4>)s)) },
+        { typeof(Graphics.Vector), new(_ => new VectorEditor(), s => new VectorEditorViewModel((Setter<Graphics.Vector>)s)) },
     };
 
     // pixelrect, rect, thickness, vector3, vector4
@@ -71,6 +72,7 @@ public static class PropertyEditorService
         { typeof(uint), new(_ => new NumberAnimationEditor<uint>(), (a, vm) => new AnimationEditorViewModel<uint>(a, vm)) },
         { typeof(ulong), new(_ => new NumberAnimationEditor<ulong>(), (a, vm) => new AnimationEditorViewModel<ulong>(a, vm)) },
         { typeof(Vector2), new(_ => new Vector2AnimationEditor(), (a, vm) => new Vector2AnimationEditorViewModel((Animation<Vector2>)a, (BaseEditorViewModel<Vector2>)vm)) },
+        { typeof(Graphics.Vector), new(_ => new VectorAnimationEditor(), (a, vm) => new VectorAnimationEditorViewModel((Animation<Graphics.Vector>)a, (BaseEditorViewModel<Graphics.Vector>)vm)) },
     };
 
     public static Control? CreateEditor(ISetter setter)
