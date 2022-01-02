@@ -179,7 +179,7 @@ public readonly struct Rect : IEquatable<Rect>
     /// <param name="rect">The rectangle.</param>
     /// <param name="scale">The vector scale.</param>
     /// <returns>The scaled rectangle.</returns>
-    public static Rect operator *(Rect rect, Vector2 scale)
+    public static Rect operator *(Rect rect, Vector scale)
     {
         return new Rect(
             rect.X * scale.X,
@@ -209,7 +209,7 @@ public readonly struct Rect : IEquatable<Rect>
     /// <param name="rect">The rectangle.</param>
     /// <param name="scale">The vector scale.</param>
     /// <returns>The scaled rectangle.</returns>
-    public static Rect operator /(Rect rect, Vector2 scale)
+    public static Rect operator /(Rect rect, Vector scale)
     {
         return new Rect(
             rect.X / scale.X,
@@ -399,7 +399,7 @@ public readonly struct Rect : IEquatable<Rect>
     /// </summary>
     /// <param name="offset">The offset.</param>
     /// <returns>The translated rectangle.</returns>
-    public Rect Translate(Vector2 offset)
+    public Rect Translate(Vector offset)
     {
         return new Rect(Position + offset, Size);
     }

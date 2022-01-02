@@ -68,6 +68,24 @@ internal static class StructExtensions
         return new PixelSize(size.Width, size.Height);
     }
 
+    public static SKMatrix ToSKMatrix(this in Matrix m)
+    {
+        var sm = new SKMatrix
+        {
+            ScaleX = m.M11,
+            SkewX = m.M21,
+            TransX = m.M31,
+            SkewY = m.M12,
+            ScaleY = m.M22,
+            TransY = m.M32,
+            Persp0 = 0,
+            Persp1 = 0,
+            Persp2 = 1
+        };
+
+        return sm;
+    }
+    
     public static SKMatrix ToSKMatrix(this in Matrix3x2 m)
     {
         var sm = new SKMatrix
@@ -99,6 +117,11 @@ internal static class StructExtensions
         };
 
         return sm;
+    }
+    
+    public static Matrix ToMatrix(this in SKMatrix m)
+    {
+        return new Matrix(m.ScaleX, m.SkewY, m.SkewX, m.ScaleY, m.TransX, m.TransY);
     }
 
     public static FontMetrics ToFontMetrics(this in SKFontMetrics metrics)

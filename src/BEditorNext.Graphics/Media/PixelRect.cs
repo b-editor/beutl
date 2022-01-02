@@ -1,5 +1,4 @@
 ﻿using System.Globalization;
-using System.Numerics;
 using System.Text.Json.Serialization;
 
 using BEditorNext.Converters;
@@ -354,7 +353,7 @@ public readonly struct PixelRect : IEquatable<PixelRect>
     /// </summary>
     /// <param name="scale">The scaling factor.</param>
     /// <returns>The device-independent rect.</returns>
-    public Rect ToRect(Vector2 scale)
+    public Rect ToRect(Vector scale)
     {
         return new Rect(Position.ToPoint(scale), Size.ToSize(scale));
     }
@@ -369,7 +368,7 @@ public readonly struct PixelRect : IEquatable<PixelRect>
     {
         return new PixelRect(
             PixelPoint.FromPoint(rect.Position, scale),
-            FromPointCeiling(rect.BottomRight, new Vector2(scale, scale)));
+            FromPointCeiling(rect.BottomRight, new Vector(scale, scale)));
     }
 
     /// <summary>
@@ -378,7 +377,7 @@ public readonly struct PixelRect : IEquatable<PixelRect>
     /// <param name="rect">The rect.</param>
     /// <param name="scale">The scaling factor.</param>
     /// <returns>The device-independent point.</returns>
-    public static PixelRect FromRect(Rect rect, Vector2 scale)
+    public static PixelRect FromRect(Rect rect, Vector scale)
     {
         return new PixelRect(
             PixelPoint.FromPoint(rect.Position, scale),
@@ -410,7 +409,7 @@ public readonly struct PixelRect : IEquatable<PixelRect>
         );
     }
 
-    private static PixelPoint FromPointCeiling(Point point, Vector2 scale)
+    private static PixelPoint FromPointCeiling(Point point, Vector scale)
     {
         return new PixelPoint(
             (int)Math.Ceiling(point.X * scale.X),

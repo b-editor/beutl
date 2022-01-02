@@ -1,5 +1,4 @@
 ﻿using System.Globalization;
-using System.Numerics;
 using System.Text.Json.Serialization;
 
 using BEditorNext.Converters;
@@ -149,7 +148,7 @@ public readonly struct PixelSize : IEquatable<PixelSize>
     /// </summary>
     /// <param name="scale">The scaling factor.</param>
     /// <returns>The device-independent size.</returns>
-    public Size ToSize(Vector2 scale)
+    public Size ToSize(Vector scale)
     {
         return new Size(Width / scale.X, Height / scale.Y);
     }
@@ -173,7 +172,7 @@ public readonly struct PixelSize : IEquatable<PixelSize>
     /// <param name="size">The size.</param>
     /// <param name="scale">The scaling factor.</param>
     /// <returns>The device-independent size.</returns>
-    public static PixelSize FromSize(Size size, Vector2 scale)
+    public static PixelSize FromSize(Size size, Vector scale)
     {
         return new PixelSize(
             (int)Math.Ceiling(size.Width * scale.X),

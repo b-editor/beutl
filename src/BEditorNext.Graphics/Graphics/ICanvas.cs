@@ -1,6 +1,4 @@
-﻿using System.Numerics;
-
-using BEditorNext.Media;
+﻿using BEditorNext.Media;
 using BEditorNext.Media.Pixel;
 using BEditorNext.Media.TextFormatting;
 
@@ -20,7 +18,7 @@ public interface ICanvas : IDisposable
 
     BlendMode BlendMode { get; set; }
 
-    Matrix3x2 TotalMatrix { get; }
+    Matrix TotalMatrix { get; }
 
     void Clear();
 
@@ -50,11 +48,11 @@ public interface ICanvas : IDisposable
 
     void RotateRadians(float radians);
 
-    void Scale(Vector2 vector);
+    void Scale(Vector vector);
 
-    void Skew(Vector2 vector);
+    void Skew(Vector vector);
 
-    void Translate(Vector2 vector);
+    void Translate(Vector vector);
 
-    void SetMatrix(Matrix3x2 matrix);
+    void SetMatrix(Matrix matrix);
 }

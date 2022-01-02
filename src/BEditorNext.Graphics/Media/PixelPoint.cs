@@ -1,6 +1,5 @@
 ﻿using System.ComponentModel;
 using System.Globalization;
-using System.Numerics;
 using System.Text.Json.Serialization;
 
 using BEditorNext.Converters;
@@ -166,7 +165,7 @@ public readonly struct PixelPoint : IEquatable<PixelPoint>
     /// </summary>
     /// <param name="scale">The scaling factor.</param>
     /// <returns>The device-independent point.</returns>
-    public Point ToPoint(Vector2 scale)
+    public Point ToPoint(Vector scale)
     {
         return new Point(X / scale.X, Y / scale.Y);
     }
@@ -190,7 +189,7 @@ public readonly struct PixelPoint : IEquatable<PixelPoint>
     /// <param name="point">The point.</param>
     /// <param name="scale">The scaling factor.</param>
     /// <returns>The device-independent point.</returns>
-    public static PixelPoint FromPoint(Point point, Vector2 scale)
+    public static PixelPoint FromPoint(Point point, Vector scale)
     {
         return new PixelPoint(
             (int)(point.X * scale.X),

@@ -21,6 +21,7 @@ public static class AnimatorRegistry
         (type => typeof(long).IsAssignableFrom(type), typeof(Int64Animator)),
         (type => typeof(Matrix3x2).IsAssignableFrom(type), typeof(Matrix3x2Animator)),
         (type => typeof(Matrix4x4).IsAssignableFrom(type), typeof(Matrix4x4Animator)),
+        (type => typeof(Matrix).IsAssignableFrom(type), typeof(MatrixAnimator)),
         (type => typeof(PixelPoint).IsAssignableFrom(type), typeof(PixelPointAnimator)),
         (type => typeof(PixelRect).IsAssignableFrom(type), typeof(PixelRectAnimator)),
         (type => typeof(PixelSize).IsAssignableFrom(type), typeof(PixelSizeAnimator)),
@@ -35,6 +36,7 @@ public static class AnimatorRegistry
         (type => typeof(Vector2).IsAssignableFrom(type), typeof(Vector2Animator)),
         (type => typeof(Vector3).IsAssignableFrom(type), typeof(Vector3Animator)),
         (type => typeof(Vector4).IsAssignableFrom(type), typeof(Vector4Animator)),
+        (type => typeof(Graphics.Vector).IsAssignableFrom(type), typeof(VectorAnimator)),
     };
 
     public static Type GetAnimatorType(Type type)

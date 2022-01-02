@@ -1,6 +1,4 @@
-﻿using System.Numerics;
-
-namespace BEditorNext.Graphics.Transformation;
+﻿namespace BEditorNext.Graphics.Transformation;
 
 public sealed class TranslateTransform : ITransform
 {
@@ -8,5 +6,5 @@ public sealed class TranslateTransform : ITransform
 
     public float Y { get; set; }
 
-    public Matrix3x2 Value => Matrix3x2.CreateTranslation(X, Y);
+    public Matrix Value => Matrix.CreateTranslation(X, Y);
 }

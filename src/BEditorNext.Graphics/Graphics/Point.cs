@@ -43,9 +43,9 @@ public readonly struct Point : IEquatable<Point>
     /// Converts the <see cref="Point"/> to a <see cref="Vector"/>.
     /// </summary>
     /// <param name="p">The point.</param>
-    public static implicit operator Vector2(Point p)
+    public static implicit operator Vector(Point p)
     {
-        return new Vector2(p.X, p.Y);
+        return new Vector(p.X, p.Y);
     }
 
     /// <summary>
@@ -97,7 +97,7 @@ public readonly struct Point : IEquatable<Point>
     /// <param name="a">The point.</param>
     /// <param name="b">The vector.</param>
     /// <returns>A point that is the result of the addition.</returns>
-    public static Point operator +(Point a, Vector2 b)
+    public static Point operator +(Point a, Vector b)
     {
         return new Point(a.X + b.X, a.Y + b.Y);
     }
@@ -119,7 +119,7 @@ public readonly struct Point : IEquatable<Point>
     /// <param name="a">The point.</param>
     /// <param name="b">The vector.</param>
     /// <returns>A point that is the result of the subtraction.</returns>
-    public static Point operator -(Point a, Vector2 b)
+    public static Point operator -(Point a, Vector b)
     {
         return new Point(a.X - b.X, a.Y - b.Y);
     }

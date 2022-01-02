@@ -31,11 +31,11 @@ public readonly record struct CanvasState(
     Color Color,
     float StrokeWidth,
     bool IsAntialias,
-    Matrix3x2 Matrix,
+    Matrix Matrix,
     BlendMode BlendMode)
 {
     public CanvasState()
-        : this(Colors.White, 0, true, Matrix3x2.Identity, BlendMode.SrcOver)
+        : this(Colors.White, 0, true, Matrix.Identity, BlendMode.SrcOver)
     {
 
     }
@@ -82,7 +82,7 @@ public class Canvas : ICanvas
 
     public PixelSize Size { get; }
 
-    public Matrix3x2 TotalMatrix => _canvas.TotalMatrix.ToMatrix3x2();
+    public Matrix TotalMatrix => _canvas.TotalMatrix.ToMatrix();
 
     public void Clear()
     {
@@ -249,25 +249,25 @@ public class Canvas : ICanvas
         _canvas.RotateRadians(radians);
     }
 
-    public void Scale(Vector2 vector)
+    public void Scale(Vector vector)
     {
         VerifyAccess();
         _canvas.Scale(vector.X, vector.Y);
     }
 
-    public void SetMatrix(Matrix3x2 matrix)
+    public void SetMatrix(Matrix matrix)
     {
         VerifyAccess();
         _canvas.SetMatrix(matrix.ToSKMatrix());
     }
 
-    public void Skew(Vector2 vector)
+    public void Skew(Vector vector)
     {
         VerifyAccess();
         _canvas.Skew(vector.X, vector.Y);
     }
 
-    public void Translate(Vector2 vector)
+    public void Translate(Vector vector)
     {
         VerifyAccess();
         _canvas.Translate(vector.X, vector.Y);

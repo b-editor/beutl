@@ -1,5 +1,4 @@
 ﻿using System.Globalization;
-using System.Numerics;
 using System.Text.Json.Serialization;
 
 using BEditorNext.Converters;
@@ -82,7 +81,7 @@ public readonly struct Size : IEquatable<Size>
     /// <param name="size">The size</param>
     /// <param name="scale">The scaling factor.</param>
     /// <returns>The scaled size.</returns>
-    public static Size operator *(Size size, Vector2 scale)
+    public static Size operator *(Size size, Vector scale)
     {
         return new Size(size.Width * scale.X, size.Height * scale.Y);
     }
@@ -93,7 +92,7 @@ public readonly struct Size : IEquatable<Size>
     /// <param name="size">The size</param>
     /// <param name="scale">The scaling factor.</param>
     /// <returns>The scaled size.</returns>
-    public static Size operator /(Size size, Vector2 scale)
+    public static Size operator /(Size size, Vector scale)
     {
         return new Size(size.Width / scale.X, size.Height / scale.Y);
     }
@@ -104,9 +103,9 @@ public readonly struct Size : IEquatable<Size>
     /// <param name="left">The first size</param>
     /// <param name="right">The second size.</param>
     /// <returns>The scaled size.</returns>
-    public static Vector2 operator /(Size left, Size right)
+    public static Vector operator /(Size left, Size right)
     {
-        return new Vector2(left.Width / right.Width, left.Height / right.Height);
+        return new Vector(left.Width / right.Width, left.Height / right.Height);
     }
 
     /// <summary>
@@ -197,18 +196,8 @@ public readonly struct Size : IEquatable<Size>
     /// <returns>True if this size is equal to other; False otherwise.</returns>
     public bool NearlyEquals(Size other)
     {
-        static bool AreClose(float value1, float value2)
-        {
-            const float FloatEpsilon = 1.192092896e-07F;
-
-            if (value1 == value2) return true;
-            float eps = (MathF.Abs(value1) + MathF.Abs(value2) + 10.0f) * FloatEpsilon;
-            float delta = value1 - value2;
-            return (-eps < delta) && (eps > delta);
-        }
-
-        return AreClose(Width, other.Width) &&
-               AreClose(Height, other.Height);
+        return MathUtilities.AreClose(Width, other.Width) &&
+               MathUtilities.AreClose(Height, other.Height);
     }
 
     /// <summary>

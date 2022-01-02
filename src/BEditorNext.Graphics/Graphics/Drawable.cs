@@ -6,8 +6,6 @@ using BEditorNext.Media;
 using BEditorNext.Media.Pixel;
 using BEditorNext.Rendering;
 
-using SkiaSharp;
-
 namespace BEditorNext.Graphics;
 
 public abstract class Drawable : IDrawable, IRenderable
@@ -29,7 +27,7 @@ public abstract class Drawable : IDrawable, IRenderable
     public bool IsDisposed { get; protected set; }
 
     public Color Foreground { get; set; } = Colors.White;
-    
+
     public BlendMode BlendMode { get; set; } = BlendMode.SrcOver;
 
     public bool IsAntialias { get; set; } = true;
@@ -74,12 +72,12 @@ public abstract class Drawable : IDrawable, IRenderable
             canvas.BlendMode = BlendMode;
             canvas.IsAntialias = IsAntialias;
 
-            Vector2 pt = CreatePoint(canvas.Size) + bounds.Position;
-            Vector2 relpt = CreateRelPoint(size);
+            Vector pt = CreatePoint(canvas.Size) + bounds.Position;
+            Vector relpt = CreateRelPoint(size);
 
-            canvas.SetMatrix(Matrix3x2.CreateTranslation(relpt) *
+            canvas.SetMatrix(Matrix.CreateTranslation(relpt) *
                 Transform.Calculate() *
-                Matrix3x2.CreateTranslation(pt) *
+                Matrix.CreateTranslation(pt) *
                 canvas.TotalMatrix);
 
             OnDraw(canvas);
