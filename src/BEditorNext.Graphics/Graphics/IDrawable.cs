@@ -9,6 +9,8 @@ public interface IDrawable : IDisposable, IRenderable
     PixelSize Size { get; }
 
     Color Foreground { get; set; }
+    
+    float Opacity { get; set; }
 
     bool IsAntialias { get; set; }
 

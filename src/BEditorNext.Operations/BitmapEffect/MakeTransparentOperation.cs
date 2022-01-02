@@ -2,7 +2,7 @@
 
 namespace BEditorNext.Operations.BitmapEffect;
 
-public sealed class MakeTransparentOperation: BitmapEffectOperation<MakeTransparent>
+public sealed class MakeTransparentOperation : BitmapEffectOperation<MakeTransparent>
 {
     public static readonly PropertyDefine<float> OpacityProperty;
 

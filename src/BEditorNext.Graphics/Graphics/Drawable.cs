@@ -1,6 +1,4 @@
-﻿using System.Numerics;
-
-using BEditorNext.Graphics.Effects;
+﻿using BEditorNext.Graphics.Effects;
 using BEditorNext.Graphics.Transformation;
 using BEditorNext.Media;
 using BEditorNext.Media.Pixel;
@@ -28,6 +26,8 @@ public abstract class Drawable : IDrawable, IRenderable
 
     public Color Foreground { get; set; } = Colors.White;
 
+    public float Opacity { get; set; } = 1;
+
     public BlendMode BlendMode { get; set; } = BlendMode.SrcOver;
 
     public bool IsAntialias { get; set; } = true;
@@ -40,6 +40,7 @@ public abstract class Drawable : IDrawable, IRenderable
         HorizontalContentAlignment = AlignmentX.Left;
         VerticalContentAlignment = AlignmentY.Top;
         Foreground = Colors.White;
+        Opacity = 1;
         IsAntialias = true;
         Transform.Clear();
         Effects.Clear();
@@ -69,6 +70,7 @@ public abstract class Drawable : IDrawable, IRenderable
         using (canvas.PushState())
         {
             canvas.Color = Foreground;
+            canvas.Opacity = Opacity;
             canvas.BlendMode = BlendMode;
             canvas.IsAntialias = IsAntialias;
 

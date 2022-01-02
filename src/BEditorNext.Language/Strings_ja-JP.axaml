@@ -111,8 +111,8 @@
         <x:String x:Key="ColorKeyString">カラーキー</x:String>
         <x:String x:Key="DropShadowString">ドロップシャドウ</x:String>
         <x:String x:Key="InvertOpacityString">不透明度を反転</x:String>
-        <x:String x:Key="MakeTransparentString">透明する</x:String>
-        <x:String x:Key="NegaposiString">根がポジ</x:String>
+        <x:String x:Key="MakeTransparentString">透明にする</x:String>
+        <x:String x:Key="NegaposiString">ネガポジ</x:String>
         <x:String x:Key="SepiaString">セピア</x:String>
     </Styles.Resources>
 </Styles>

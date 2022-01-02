@@ -29,13 +29,14 @@ public readonly struct CanvasAutoRestore : IDisposable
 
 public readonly record struct CanvasState(
     Color Color,
+    float Opacity,
     float StrokeWidth,
     bool IsAntialias,
     Matrix Matrix,
     BlendMode BlendMode)
 {
     public CanvasState()
-        : this(Colors.White, 0, true, Matrix.Identity, BlendMode.SrcOver)
+        : this(Colors.White, 1, 0, true, Matrix.Identity, BlendMode.SrcOver)
     {
 
     }
@@ -83,6 +84,8 @@ public class Canvas : ICanvas
     public PixelSize Size { get; }
 
     public Matrix TotalMatrix => _canvas.TotalMatrix.ToMatrix();
+
+    public float Opacity { get; set; } = 1;
 
     public void Clear()
     {
@@ -192,7 +195,7 @@ public class Canvas : ICanvas
         ApplyState();
         _paint.TextSize = text.Size;
         _paint.Typeface = text.Typeface.ToSkia();
-        _paint.Color = text.Color.ToSkia();
+        _paint.Color = text.Color.ToSkia().WithAlpha((byte)(text.Color.A * Opacity));
         _paint.Style = SKPaintStyle.Fill;
         Span<char> sc = stackalloc char[1];
         float prevRight = 0;
@@ -318,12 +321,13 @@ public class Canvas : ICanvas
 
     private CanvasState GetState()
     {
-        return new CanvasState(Color, StrokeWidth, IsAntialias, TotalMatrix, BlendMode);
+        return new CanvasState(Color, Opacity, StrokeWidth, IsAntialias, TotalMatrix, BlendMode);
     }
 
     private void SetState(CanvasState state)
     {
         Color = state.Color;
+        Opacity = state.Opacity;
         StrokeWidth = state.StrokeWidth;
         IsAntialias = state.IsAntialias;
         BlendMode = state.BlendMode;
@@ -333,7 +337,7 @@ public class Canvas : ICanvas
 
     private void ApplyState()
     {
-        _paint.Color = Color.ToSkia();
+        _paint.Color = Color.ToSkia().WithAlpha((byte)(Color.A * Opacity));
         _paint.StrokeWidth = StrokeWidth;
         _paint.IsAntialias = IsAntialias;
         _paint.BlendMode = (SKBlendMode)BlendMode;
