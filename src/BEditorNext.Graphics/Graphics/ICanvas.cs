@@ -34,15 +34,13 @@ public interface ICanvas : IDisposable
 
     void FillRect(Size size);
 
-    void DrawVertices(VertexMode vmode, Point[] vertices, Point[] texs, Color[] colors, Bitmap<Bgra8888>? bmp = null);
-
     void DrawText(TextElement text);
 
     Bitmap<Bgra8888> GetBitmap();
 
-    void PushMatrix();
+    CanvasAutoRestore PushState();
 
-    void PopMatrix();
+    void PopState(int count = -1);
 
     void ResetMatrix();
 

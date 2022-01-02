@@ -1,6 +1,4 @@
-﻿using System.Numerics;
-
-using BEditorNext.Graphics.Transformation;
+﻿using BEditorNext.Graphics.Transformation;
 using BEditorNext.Media;
 
 namespace BEditorNext.Graphics;

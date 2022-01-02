@@ -9,12 +9,45 @@ using SkiaSharp;
 
 namespace BEditorNext.Graphics;
 
+public readonly struct CanvasAutoRestore : IDisposable
+{
+    public CanvasAutoRestore(ICanvas canvas, int count)
+    {
+        Canvas = canvas;
+        Count = count;
+    }
+
+    public ICanvas Canvas { get; }
+
+    public int Count { get; }
+
+    public void Dispose()
+    {
+        Canvas.PopState(Count);
+    }
+}
+
+public readonly record struct CanvasState(
+    Color Color,
+    float StrokeWidth,
+    bool IsAntialias,
+    Matrix3x2 Matrix,
+    SKBlendMode BlendMode)
+{
+    public CanvasState()
+        : this(Colors.White, 0, true, Matrix3x2.Identity, SKBlendMode.SrcOver)
+    {
+
+    }
+}
+
 public class Canvas : ICanvas
 {
     private readonly SKSurface _surface;
     private readonly SKCanvas _canvas;
     private readonly SKPaint _paint;
     private readonly Dispatcher? _dispatcher;
+    private readonly Stack<CanvasState> _stack = new();
 
     public Canvas(int width, int height)
     {
@@ -26,8 +59,8 @@ public class Canvas : ICanvas
 
         _canvas = _surface.Canvas;
         _paint = new SKPaint();
-        IsAntialias = true;
-        _paint.BlendMode = SKBlendMode.SrcOver;
+
+        _stack.Push(GetState());
 
         ResetMatrix();
     }
@@ -39,19 +72,13 @@ public class Canvas : ICanvas
 
     public bool IsDisposed { get; private set; }
 
-    public Color Color
-    {
-        get => _paint.Color.ToColor();
-        set => _paint.Color = value.ToSkia();
-    }
+    public Color Color { get; set; } = Colors.White;
 
     public float StrokeWidth { get; set; }
 
-    public bool IsAntialias
-    {
-        get => _paint.IsAntialias;
-        set => _paint.IsAntialias = value;
-    }
+    public bool IsAntialias { get; set; } = true;
+
+    public SKBlendMode BlendMode { get; set; } = SKBlendMode.SrcOver;
 
     public PixelSize Size { get; }
 
@@ -95,6 +122,7 @@ public class Canvas : ICanvas
     public void DrawBitmap(Bitmap<Bgra8888> bmp)
     {
         VerifyAccess();
+        ApplyState();
         using var img = SKImage.FromPixels(new SKImageInfo(bmp.Width, bmp.Height, SKColorType.Bgra8888), bmp.Data);
 
         _canvas.DrawImage(img, SKPoint.Empty, _paint);
@@ -103,6 +131,7 @@ public class Canvas : ICanvas
     public void DrawCircle(Size size)
     {
         VerifyAccess();
+        ApplyState();
         float line = StrokeWidth;
 
         if (line >= MathF.Min(size.Width, size.Height) / 2)
@@ -117,34 +146,30 @@ public class Canvas : ICanvas
         _paint.StrokeWidth = min;
 
         _canvas.DrawOval(
-            new SKPoint(size.Width / 2, size.Height / 2),
-            new SKSize((size.Width - min) / 2, (size.Height - min) / 2),
+            size.Width / 2, size.Height / 2,
+            (size.Width - min) / 2, (size.Height - min) / 2,
             _paint);
-
-        _paint.Style = SKPaintStyle.Fill;
     }
 
     public void DrawRect(Size size)
     {
         VerifyAccess();
-        float stroke = StrokeWidth;
-        float line = Math.Min(stroke, Math.Min(size.Width, size.Height));
+        ApplyState();
+        float stroke = Math.Min(StrokeWidth, Math.Min(size.Width, size.Height));
 
         _paint.Style = SKPaintStyle.Stroke;
-        _paint.StrokeWidth = line;
+        _paint.StrokeWidth = stroke;
 
         _canvas.DrawRect(
-            line / 2, line / 2,
-            size.Width - line, size.Height - line,
+            stroke / 2, stroke / 2,
+            size.Width - stroke, size.Height - stroke,
             _paint);
-
-        _paint.Style = SKPaintStyle.Fill;
-        _paint.StrokeWidth = stroke;
     }
 
     public void FillCircle(Size size)
     {
         VerifyAccess();
+        ApplyState();
         _paint.Style = SKPaintStyle.Fill;
 
         _canvas.DrawOval(SKPoint.Empty, size.ToSkia(), _paint);
@@ -153,58 +178,22 @@ public class Canvas : ICanvas
     public void FillRect(Size size)
     {
         VerifyAccess();
+        ApplyState();
+
         _paint.Style = SKPaintStyle.Fill;
 
         _canvas.DrawRect(0, 0, size.Width, size.Height, _paint);
-    }
-
-    public unsafe void DrawVertices(VertexMode vmode, Point[] vertices, Point[] texs, Color[] colors, Bitmap<Bgra8888>? bmp = null)
-    {
-        VerifyAccess();
-        static SKPoint[] ToSKPoints(Point[] vectors)
-        {
-            var array = new SKPoint[vectors.Length];
-            for (int i = 0; i < vectors.Length; i++)
-            {
-                array[i] = vectors[i].ToSkia();
-            }
-
-            return array;
-        }
-
-        static SKColor[] ToSKColors(Color[] colors)
-        {
-            var array = new SKColor[colors.Length];
-            for (int i = 0; i < colors.Length; i++)
-            {
-                array[i] = colors[i].ToSkia();
-            }
-
-            return array;
-        }
-
-        if (bmp != null)
-        {
-            using var skbmp = new SKBitmap(new SKImageInfo(bmp.Width, bmp.Height, SKColorType.Bgra8888));
-            skbmp.SetPixels(bmp.Data);
-            using var shader = SKShader.CreateBitmap(skbmp);
-            _paint.Shader = shader;
-
-            _canvas.DrawVertices((SKVertexMode)vmode, ToSKPoints(vertices), ToSKPoints(texs), ToSKColors(colors), _paint);
-        }
-        else
-        {
-            _canvas.DrawVertices((SKVertexMode)vmode, ToSKPoints(vertices), ToSKPoints(texs), ToSKColors(colors), _paint);
-        }
     }
 
     // Marginを考慮しない
     public void DrawText(TextElement text)
     {
         VerifyAccess();
+        ApplyState();
         _paint.TextSize = text.Size;
         _paint.Typeface = text.Typeface.ToSkia();
         _paint.Color = text.Color.ToSkia();
+        _paint.Style = SKPaintStyle.Fill;
         Span<char> sc = stackalloc char[1];
         float prevRight = 0;
 
@@ -284,20 +273,69 @@ public class Canvas : ICanvas
         _canvas.Translate(vector.X, vector.Y);
     }
 
-    public void PushMatrix()
+    public CanvasAutoRestore PushState()
     {
         VerifyAccess();
-        _canvas.Save();
+        int count = _canvas.Save();
+
+        _stack.Push(GetState());
+
+        return new CanvasAutoRestore(this, count);
     }
 
-    public void PopMatrix()
+    public void PopState(int count = -1)
     {
         VerifyAccess();
-        _canvas.Restore();
+
+        if (count < 0)
+        {
+            _canvas.Restore();
+
+            if (_stack.TryPop(out CanvasState state))
+            {
+                SetState(state);
+            }
+        }
+        else
+        {
+            _canvas.RestoreToCount(count);
+
+            while (_stack.TryPop(out CanvasState state))
+            {
+                if (_stack.Count == count)
+                {
+                    SetState(state);
+                    break;
+                }
+            }
+        }
     }
 
     private void VerifyAccess()
     {
         _dispatcher?.VerifyAccess();
+    }
+
+    private CanvasState GetState()
+    {
+        return new CanvasState(Color, StrokeWidth, IsAntialias, TotalMatrix, BlendMode);
+    }
+
+    private void SetState(CanvasState state)
+    {
+        Color = state.Color;
+        StrokeWidth = state.StrokeWidth;
+        IsAntialias = state.IsAntialias;
+        BlendMode = state.BlendMode;
+
+        //_canvas.SetMatrix(state.Matrix.ToSKMatrix());
+    }
+
+    private void ApplyState()
+    {
+        _paint.Color = Color.ToSkia();
+        _paint.StrokeWidth = StrokeWidth;
+        _paint.IsAntialias = IsAntialias;
+        _paint.BlendMode = BlendMode;
     }
 }

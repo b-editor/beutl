@@ -124,36 +124,37 @@ public class FormattedText : Drawable
 
     private void DrawCore(ICanvas canvas)
     {
-        canvas.PushMatrix();
-
-        float prevBottom = 0;
-        for (int i = 0; i < Lines.Count; i++)
+        using (canvas.PushState())
         {
-            TextLine line = Lines[i];
-            Size lineBounds = line.Measure();
-            float ascent = line.MinAscent();
-
-            canvas.PushMatrix();
-            canvas.Translate(new(0, prevBottom - ascent));
-
-            float prevRight = 0;
-            foreach (TextElement element in line.Elements)
+            float prevBottom = 0;
+            for (int i = 0; i < Lines.Count; i++)
             {
-                canvas.Translate(new(prevRight + element.Margin.Left, 0));
-                Size elementBounds = element.Measure();
+                TextLine line = Lines[i];
+                Size lineBounds = line.Measure();
+                float ascent = line.MinAscent();
 
-                canvas.PushMatrix();
-                canvas.Translate(new(0, element.Margin.Top));
-                canvas.DrawText(element);
-                canvas.PopMatrix();
+                using (canvas.PushState())
+                {
+                    canvas.Translate(new(0, prevBottom - ascent));
 
-                prevRight = elementBounds.Width + element.Margin.Right;
+                    float prevRight = 0;
+                    foreach (TextElement element in line.Elements)
+                    {
+                        canvas.Translate(new(prevRight + element.Margin.Left, 0));
+                        Size elementBounds = element.Measure();
+
+                        using (canvas.PushState())
+                        {
+                            canvas.Translate(new(0, element.Margin.Top));
+                            canvas.DrawText(element);
+                        }
+
+                        prevRight = elementBounds.Width + element.Margin.Right;
+                    }
+
+                    prevBottom += lineBounds.Height;
+                }
             }
-
-            prevBottom += lineBounds.Height;
-            canvas.PopMatrix();
         }
-
-        canvas.PopMatrix();
     }
 }

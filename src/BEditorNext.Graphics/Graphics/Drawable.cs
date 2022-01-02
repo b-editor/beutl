@@ -6,6 +6,8 @@ using BEditorNext.Media;
 using BEditorNext.Media.Pixel;
 using BEditorNext.Rendering;
 
+using SkiaSharp;
+
 namespace BEditorNext.Graphics;
 
 public abstract class Drawable : IDrawable, IRenderable
@@ -63,26 +65,22 @@ public abstract class Drawable : IDrawable, IRenderable
         VerifyAccess();
         Size size = Size.ToSize(1);
         Rect bounds = BitmapEffect.MeasureAll(new Rect(size), Effects);
-        Color oldcolor = canvas.Color;
-        bool oldIsAntialias = canvas.IsAntialias;
 
-        canvas.Color = Foreground;
-        canvas.IsAntialias = IsAntialias;
-        canvas.PushMatrix();
+        using (canvas.PushState())
+        {
+            canvas.Color = Foreground;
+            canvas.IsAntialias = IsAntialias;
 
-        Vector2 pt = CreatePoint(canvas.Size) + bounds.Position;
-        Vector2 relpt = CreateRelPoint(size);
+            Vector2 pt = CreatePoint(canvas.Size) + bounds.Position;
+            Vector2 relpt = CreateRelPoint(size);
 
-        canvas.SetMatrix(Matrix3x2.CreateTranslation(relpt) *
-            Transform.Calculate() *
-            Matrix3x2.CreateTranslation(pt) *
-            canvas.TotalMatrix);
+            canvas.SetMatrix(Matrix3x2.CreateTranslation(relpt) *
+                Transform.Calculate() *
+                Matrix3x2.CreateTranslation(pt) *
+                canvas.TotalMatrix);
 
-        OnDraw(canvas);
-        canvas.PopMatrix();
-
-        canvas.Color = oldcolor;
-        canvas.IsAntialias = oldIsAntialias;
+            OnDraw(canvas);
+        }
     }
 
     public void Render(IRenderer renderer)
