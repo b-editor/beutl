@@ -440,7 +440,7 @@ public class Canvas : ICanvas
 
         if (tileBrush is IDrawableBrush { Drawable: { IsDisposed: false } } drawableBrush)
         {
-            using var bmp = drawableBrush.Drawable.ToBitmap();
+            using IBitmap bmp = drawableBrush.Drawable.ToBitmap();
             using var skbmp = bmp.ToSKBitmap();
             using var shader = SKShader.CreateBitmap(skbmp, tileX, tileY, paintTransform);
 

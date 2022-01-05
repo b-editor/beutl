@@ -43,7 +43,7 @@ public abstract class Drawable : IDrawable, IRenderable
         Effects.Clear();
     }
 
-    public Bitmap<Bgra8888> ToBitmap()
+    public IBitmap ToBitmap()
     {
         VerifyAccess();
         PixelSize pixelSize = Size;

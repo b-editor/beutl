@@ -29,7 +29,7 @@ public interface IDrawable : IDisposable, IRenderable
 
     void Draw(ICanvas canvas);
 
-    Bitmap<Bgra8888> ToBitmap();
+    IBitmap ToBitmap();
 
     void IRenderable.Render(IRenderer renderer)
     {
