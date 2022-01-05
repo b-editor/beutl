@@ -1,5 +1,6 @@
 ﻿using BEditorNext.Graphics.Transformation;
 using BEditorNext.Media;
+using BEditorNext.Media.Pixel;
 using BEditorNext.Rendering;
 
 namespace BEditorNext.Graphics;
@@ -8,9 +9,7 @@ public interface IDrawable : IDisposable, IRenderable
 {
     PixelSize Size { get; }
 
-    Color Foreground { get; set; }
-    
-    float Opacity { get; set; }
+    IBrush Foreground { get; set; }
 
     bool IsAntialias { get; set; }
 
@@ -29,6 +28,8 @@ public interface IDrawable : IDisposable, IRenderable
     EffectCollection Effects { get; }
 
     void Draw(ICanvas canvas);
+
+    Bitmap<Bgra8888> ToBitmap();
 
     void IRenderable.Render(IRenderer renderer)
     {

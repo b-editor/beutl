@@ -38,7 +38,7 @@ public sealed class Rectangle : Drawable
         using var g = new Canvas((int)Width, (int)Height);
 
         g.IsAntialias = IsAntialias;
-        g.Color = Foreground;
+        g.Foreground = Foreground;
         g.StrokeWidth = StrokeWidth;
         g.DrawRect(new Size(Width, Height));
 

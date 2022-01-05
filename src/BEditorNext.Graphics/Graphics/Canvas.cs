@@ -1,6 +1,4 @@
-﻿using System.Numerics;
-
-using BEditorNext.Media;
+﻿using BEditorNext.Media;
 using BEditorNext.Media.Pixel;
 using BEditorNext.Media.TextFormatting;
 using BEditorNext.Threading;
@@ -28,15 +26,14 @@ public readonly struct CanvasAutoRestore : IDisposable
 }
 
 public readonly record struct CanvasState(
-    Color Color,
-    float Opacity,
+    IBrush Foreground,
     float StrokeWidth,
     bool IsAntialias,
     Matrix Matrix,
     BlendMode BlendMode)
 {
     public CanvasState()
-        : this(Colors.White, 1, 0, true, Matrix.Identity, BlendMode.SrcOver)
+        : this(Colors.Transparent.ToBrush(), 0, true, Matrix.Identity, BlendMode.SrcOver)
     {
 
     }
@@ -73,7 +70,7 @@ public class Canvas : ICanvas
 
     public bool IsDisposed { get; private set; }
 
-    public Color Color { get; set; } = Colors.White;
+    public IBrush Foreground { get; set; } = Colors.White.ToBrush();
 
     public float StrokeWidth { get; set; }
 
@@ -85,8 +82,6 @@ public class Canvas : ICanvas
 
     public Matrix TotalMatrix => _canvas.TotalMatrix.ToMatrix();
 
-    public float Opacity { get; set; } = 1;
-
     public void Clear()
     {
         VerifyAccess();
@@ -96,7 +91,7 @@ public class Canvas : ICanvas
     public void Clear(Color color)
     {
         VerifyAccess();
-        _canvas.Clear(color.ToSkia());
+        _canvas.Clear(color.ToSKColor());
     }
 
     public void Dispose()
@@ -125,7 +120,7 @@ public class Canvas : ICanvas
     public void DrawBitmap(Bitmap<Bgra8888> bmp)
     {
         VerifyAccess();
-        ApplyState();
+        ConfigurePaint(_paint, new Size(bmp.Width, bmp.Height));
         using var img = SKImage.FromPixels(new SKImageInfo(bmp.Width, bmp.Height, SKColorType.Bgra8888), bmp.Data);
 
         _canvas.DrawImage(img, SKPoint.Empty, _paint);
@@ -134,7 +129,7 @@ public class Canvas : ICanvas
     public void DrawCircle(Size size)
     {
         VerifyAccess();
-        ApplyState();
+        ConfigurePaint(_paint, size);
         float line = StrokeWidth;
 
         if (line >= MathF.Min(size.Width, size.Height) / 2)
@@ -157,7 +152,7 @@ public class Canvas : ICanvas
     public void DrawRect(Size size)
     {
         VerifyAccess();
-        ApplyState();
+        ConfigurePaint(_paint, size);
         float stroke = Math.Min(StrokeWidth, Math.Min(size.Width, size.Height));
 
         _paint.Style = SKPaintStyle.Stroke;
@@ -172,7 +167,7 @@ public class Canvas : ICanvas
     public void FillCircle(Size size)
     {
         VerifyAccess();
-        ApplyState();
+        ConfigurePaint(_paint, size);
         _paint.Style = SKPaintStyle.Fill;
 
         _canvas.DrawOval(SKPoint.Empty, size.ToSkia(), _paint);
@@ -181,7 +176,7 @@ public class Canvas : ICanvas
     public void FillRect(Size size)
     {
         VerifyAccess();
-        ApplyState();
+        ConfigurePaint(_paint, size);
 
         _paint.Style = SKPaintStyle.Fill;
 
@@ -192,10 +187,9 @@ public class Canvas : ICanvas
     public void DrawText(TextElement text)
     {
         VerifyAccess();
-        ApplyState();
+        ConfigurePaint(_paint, text.Measure());
         _paint.TextSize = text.Size;
         _paint.Typeface = text.Typeface.ToSkia();
-        _paint.Color = text.Color.ToSkia().WithAlpha((byte)(text.Color.A * Opacity));
         _paint.Style = SKPaintStyle.Fill;
         Span<char> sc = stackalloc char[1];
         float prevRight = 0;
@@ -321,13 +315,12 @@ public class Canvas : ICanvas
 
     private CanvasState GetState()
     {
-        return new CanvasState(Color, Opacity, StrokeWidth, IsAntialias, TotalMatrix, BlendMode);
+        return new CanvasState(Foreground, StrokeWidth, IsAntialias, TotalMatrix, BlendMode);
     }
 
     private void SetState(CanvasState state)
     {
-        Color = state.Color;
-        Opacity = state.Opacity;
+        Foreground = state.Foreground;
         StrokeWidth = state.StrokeWidth;
         IsAntialias = state.IsAntialias;
         BlendMode = state.BlendMode;
@@ -335,11 +328,165 @@ public class Canvas : ICanvas
         //_canvas.SetMatrix(state.Matrix.ToSKMatrix());
     }
 
-    private void ApplyState()
+    private static void ConfigureGradientBrush(SKPaint paint, Size targetSize, IGradientBrush gradientBrush)
     {
-        _paint.Color = Color.ToSkia().WithAlpha((byte)(Color.A * Opacity));
-        _paint.StrokeWidth = StrokeWidth;
-        _paint.IsAntialias = IsAntialias;
-        _paint.BlendMode = (SKBlendMode)BlendMode;
+        var tileMode = gradientBrush.SpreadMethod.ToSKShaderTileMode();
+        SKColor[] stopColors = gradientBrush.GradientStops.Select(s => s.Color.ToSKColor()).ToArray();
+        float[] stopOffsets = gradientBrush.GradientStops.Select(s => (float)s.Offset).ToArray();
+
+        switch (gradientBrush)
+        {
+            case ILinearGradientBrush linearGradient:
+                {
+                    var start = linearGradient.StartPoint.ToPixels(targetSize).ToSKPoint();
+                    var end = linearGradient.EndPoint.ToPixels(targetSize).ToSKPoint();
+
+                    using (var shader = SKShader.CreateLinearGradient(start, end, stopColors, stopOffsets, tileMode))
+                    {
+                        paint.Shader = shader;
+                    }
+
+                    break;
+                }
+            case IRadialGradientBrush radialGradient:
+                {
+                    SKPoint center = radialGradient.Center.ToPixels(targetSize).ToSKPoint();
+                    float radius = radialGradient.Radius * targetSize.Width;
+
+                    var origin = radialGradient.GradientOrigin.ToPixels(targetSize).ToSKPoint();
+
+                    if (origin.Equals(center))
+                    {
+                        // when the origin is the same as the center the Skia RadialGradient acts the same as D2D
+                        using (var shader = SKShader.CreateRadialGradient(center, radius, stopColors, stopOffsets, tileMode))
+                        {
+                            paint.Shader = shader;
+                        }
+                    }
+                    else
+                    {
+                        // when the origin is different to the center use a two point ConicalGradient to match the behaviour of D2D
+
+                        // reverse the order of the stops to match D2D
+                        var reversedColors = new SKColor[stopColors.Length];
+                        Array.Copy(stopColors, reversedColors, stopColors.Length);
+                        Array.Reverse(reversedColors);
+
+                        // and then reverse the reference point of the stops
+                        float[] reversedStops = new float[stopOffsets.Length];
+                        for (int i = 0; i < stopOffsets.Length; i++)
+                        {
+                            reversedStops[i] = stopOffsets[i];
+                            if (reversedStops[i] > 0 && reversedStops[i] < 1)
+                            {
+                                reversedStops[i] = Math.Abs(1 - stopOffsets[i]);
+                            }
+                        }
+
+                        // compose with a background colour of the final stop to match D2D's behaviour of filling with the final color
+                        using (var shader = SKShader.CreateCompose(
+                            SKShader.CreateColor(reversedColors[0]),
+                            SKShader.CreateTwoPointConicalGradient(center, radius, origin, 0, reversedColors, reversedStops, tileMode)
+                        ))
+                        {
+                            paint.Shader = shader;
+                        }
+                    }
+
+                    break;
+                }
+            case IConicGradientBrush conicGradient:
+                {
+                    var center = conicGradient.Center.ToPixels(targetSize).ToSKPoint();
+
+                    // Skia's default is that angle 0 is from the right hand side of the center point
+                    // but we are matching CSS where the vertical point above the center is 0.
+                    float angle = (float)(conicGradient.Angle - 90);
+                    var rotation = SKMatrix.CreateRotationDegrees(angle, center.X, center.Y);
+
+                    using (var shader =
+                        SKShader.CreateSweepGradient(center, stopColors, stopOffsets, rotation))
+                    {
+                        paint.Shader = shader;
+                    }
+
+                    break;
+                }
+        }
+    }
+
+    private static void ConfigureTileBrush(SKPaint paint, Size targetSize, ITileBrush tileBrush)
+    {
+        Rect tileDstRect = tileBrush.DestinationRect.ToPixels(targetSize);
+        SKMatrix tileTransform = tileBrush.TileMode != TileMode.None
+            ? SKMatrix.CreateTranslation(-tileDstRect.X, -tileDstRect.Y)
+            : SKMatrix.CreateIdentity();
+
+        SKShaderTileMode tileX = tileBrush.TileMode == TileMode.None
+            ? SKShaderTileMode.Clamp
+            : tileBrush.TileMode == TileMode.FlipX || tileBrush.TileMode == TileMode.FlipXY
+                ? SKShaderTileMode.Mirror
+                : SKShaderTileMode.Repeat;
+
+        SKShaderTileMode tileY = tileBrush.TileMode == TileMode.None
+            ? SKShaderTileMode.Clamp
+            : tileBrush.TileMode == TileMode.FlipY || tileBrush.TileMode == TileMode.FlipXY
+                ? SKShaderTileMode.Mirror
+                : SKShaderTileMode.Repeat;
+
+        var paintTransform = default(SKMatrix);
+
+        paintTransform = SKMatrix.Concat(paintTransform, tileTransform);
+
+        if (tileBrush is IDrawableBrush { Drawable: { IsDisposed: false } } drawableBrush)
+        {
+            using var bmp = drawableBrush.Drawable.ToBitmap();
+            using var skbmp = bmp.ToSKBitmap();
+            using var shader = SKShader.CreateBitmap(skbmp, tileX, tileY, paintTransform);
+
+            paint.Shader = shader;
+        }
+        else if (tileBrush is IImageBrush { Source: { IsDisposed: false} } imageBrush)
+        {
+            using var bmp = imageBrush.Source.ToSKBitmap();
+            using var shader = SKShader.CreateBitmap(bmp, tileX, tileY, paintTransform);
+
+            paint.Shader = shader;
+        }
+    }
+
+    private void ConfigurePaint(SKPaint paint, Size targetSize)
+    {
+        double opacity = Foreground.Opacity;
+        paint.StrokeWidth = StrokeWidth;
+        paint.IsAntialias = IsAntialias;
+        paint.BlendMode = (SKBlendMode)BlendMode;
+
+        if (Foreground is ISolidColorBrush solid)
+        {
+            paint.Color = new SKColor(solid.Color.R, solid.Color.G, solid.Color.B, (byte)(solid.Color.A * opacity));
+
+            return;
+        }
+
+        paint.Color = new SKColor(255, 255, 255, (byte)(255 * opacity));
+
+        if (Foreground is IGradientBrush gradient)
+        {
+            ConfigureGradientBrush(paint, targetSize, gradient);
+
+            return;
+        }
+
+        if (Foreground is ITileBrush tileBrush)
+        {
+            ConfigureTileBrush(paint, targetSize, tileBrush);
+
+            return;
+        }
+        else
+        {
+            paint.Color = new SKColor(255, 255, 255, 0);
+        }
     }
 }

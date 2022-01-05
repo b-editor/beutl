@@ -146,6 +146,7 @@ public class FormattedText : Drawable
                         using (canvas.PushState())
                         {
                             canvas.Translate(new(0, element.Margin.Top));
+                            canvas.Foreground = element.Foreground;
                             canvas.DrawText(element);
                         }
 

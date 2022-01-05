@@ -50,7 +50,7 @@ public class DropShadow : BitmapEffect
 
         if (ShadowOnly)
         {
-            using var filter = SKImageFilter.CreateDropShadowOnly(0, 0, SigmaX, SigmaY, Color.ToSkia());
+            using var filter = SKImageFilter.CreateDropShadowOnly(0, 0, SigmaX, SigmaY, Color.ToSKColor());
             using var paint = new SKPaint
             {
                 ImageFilter = filter,
@@ -72,7 +72,7 @@ public class DropShadow : BitmapEffect
             float size_w = Math.Abs(X) + w;
             float size_h = Math.Abs(Y) + h;
 
-            using var filter = SKImageFilter.CreateDropShadow(X, Y, SigmaX, SigmaY, Color.ToSkia());
+            using var filter = SKImageFilter.CreateDropShadow(X, Y, SigmaX, SigmaY, Color.ToSKColor());
             using var paint = new SKPaint
             {
                 ImageFilter = filter,

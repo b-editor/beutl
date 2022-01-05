@@ -7,6 +7,34 @@ using SkiaSharp;
 
 namespace BEditorNext.Operations;
 
+public static class BrushExtensions
+{
+    public static Color TryGetColorOrDefault(this IBrush brush, Color defaultValue)
+    {
+        if (brush is ISolidColorBrush solidBrush)
+        {
+            return solidBrush.Color;
+        }
+        else
+        {
+            return defaultValue;
+        }
+    }
+
+    public static bool TrySetColor(this IBrush brush, Color value)
+    {
+        if (brush is SolidColorBrush solidBrush)
+        {
+            solidBrush.Color = value;
+            return true;
+        }
+        else
+        {
+            return false;
+        }
+    }
+}
+
 public sealed class EllipseOperation : DrawableOperation
 {
     public static readonly PropertyDefine<float> WidthProperty;
@@ -69,8 +97,8 @@ public sealed class EllipseOperation : DrawableOperation
 
     public Color Color
     {
-        get => _drawable.Foreground;
-        set => _drawable.Foreground = value;
+        get => _drawable.Foreground.TryGetColorOrDefault(Colors.Transparent);
+        set => _drawable.Foreground.TrySetColor(value);
     }
 
     public override Drawable Drawable => _drawable;

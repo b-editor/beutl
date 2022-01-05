@@ -1,10 +1,12 @@
-﻿
-using SkiaSharp;
-
-namespace BEditorNext.Media;
+﻿namespace BEditorNext.Media;
 
 public static class ColorExtensions
 {
+    public static ISolidColorBrush ToBrush(this Color color)
+    {
+        return new SolidColorBrush(color);
+    }
+
     public static Hsv ToHsv(this Color color)
     {
         double h = default;
@@ -88,15 +90,5 @@ public static class ColorExtensions
         float cr = 128F + (0.5F * r - 0.418688F * g - 0.081312F * b);
 
         return new YCbCr(y, cb, cr);
-    }
-
-    public static SKColor ToSkia(this Color color)
-    {
-        return new SKColor(color.R, color.G, color.B, color.A);
-    }
-
-    public static Color ToColor(this SKColor color)
-    {
-        return Color.FromArgb(color.Alpha, color.Red, color.Green, color.Blue);
     }
 }

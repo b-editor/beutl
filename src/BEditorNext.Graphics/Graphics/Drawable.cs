@@ -24,9 +24,7 @@ public abstract class Drawable : IDrawable, IRenderable
 
     public bool IsDisposed { get; protected set; }
 
-    public Color Foreground { get; set; } = Colors.White;
-
-    public float Opacity { get; set; } = 1;
+    public IBrush Foreground { get; set; } = Colors.White.ToBrush();
 
     public BlendMode BlendMode { get; set; } = BlendMode.SrcOver;
 
@@ -39,8 +37,7 @@ public abstract class Drawable : IDrawable, IRenderable
         VerticalAlignment = AlignmentY.Top;
         HorizontalContentAlignment = AlignmentX.Left;
         VerticalContentAlignment = AlignmentY.Top;
-        Foreground = Colors.White;
-        Opacity = 1;
+        Foreground = Colors.White.ToBrush();
         IsAntialias = true;
         Transform.Clear();
         Effects.Clear();
@@ -69,8 +66,7 @@ public abstract class Drawable : IDrawable, IRenderable
 
         using (canvas.PushState())
         {
-            canvas.Color = Foreground;
-            canvas.Opacity = Opacity;
+            canvas.Foreground = Foreground;
             canvas.BlendMode = BlendMode;
             canvas.IsAntialias = IsAntialias;
 

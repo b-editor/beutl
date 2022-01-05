@@ -10,9 +10,7 @@ public interface ICanvas : IDisposable
 
     bool IsDisposed { get; }
 
-    Color Color { get; set; }
-    
-    float Opacity { get; set; }
+    IBrush Foreground { get; set; }
 
     float StrokeWidth { get; set; }
 

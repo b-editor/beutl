@@ -66,8 +66,8 @@ public sealed class RectOperation : DrawableOperation
 
     public Color Color
     {
-        get => _drawable.Foreground;
-        set => _drawable.Foreground = value;
+        get => _drawable.Foreground.TryGetColorOrDefault(Colors.Transparent);
+        set => _drawable.Foreground.TrySetColor(value);
     }
 
     public override Drawable Drawable => _drawable;

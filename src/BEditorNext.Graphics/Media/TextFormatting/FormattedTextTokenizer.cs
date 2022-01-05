@@ -159,7 +159,7 @@ public readonly struct FormattedTextTokenizer
                     Text = Regex.Unescape(token.Text),
                     Typeface = new Typeface(font1, style1, weight1),
                     Size = size.PeekOrDefault(defaultProps.Size),
-                    Color = color.PeekOrDefault(defaultProps.Color),
+                    Foreground = color.PeekOrDefault(defaultProps.Color).ToBrush(),
                     Spacing = space.PeekOrDefault(defaultProps.Space),
                     Margin = margin.PeekOrDefault(defaultProps.Margin),
                 });
@@ -179,7 +179,7 @@ public readonly struct FormattedTextTokenizer
                     Text = token.ToString(),
                     Typeface = new Typeface(font1, style1, weight1),
                     Size = size.PeekOrDefault(defaultProps.Size),
-                    Color = color.PeekOrDefault(defaultProps.Color),
+                    Foreground = color.PeekOrDefault(defaultProps.Color).ToBrush(),
                     Spacing = space.PeekOrDefault(defaultProps.Space),
                     Margin = margin.PeekOrDefault(defaultProps.Margin),
                 });

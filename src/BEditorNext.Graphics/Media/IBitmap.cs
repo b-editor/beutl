@@ -1,16 +1,20 @@
-﻿namespace BEditorNext.Media;
+﻿using BEditorNext.Media.Pixel;
+
+namespace BEditorNext.Media;
 
 public interface IBitmap : IDisposable, ICloneable
 {
-    public int Width { get; }
+    int Width { get; }
 
-    public int Height { get; }
+    int Height { get; }
 
-    public int ByteCount { get; }
+    int ByteCount { get; }
 
-    public int PixelSize { get; }
+    int PixelSize { get; }
 
-    public IntPtr Data { get; }
+    IntPtr Data { get; }
 
-    public bool IsDisposed { get; }
+    bool IsDisposed { get; }
+
+    Bitmap<T> Convert<T>() where T : unmanaged, IPixel<T>;
 }

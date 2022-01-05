@@ -1,4 +1,5 @@
 ﻿using BEditorNext.Graphics;
+using BEditorNext.Media;
 using BEditorNext.ProjectSystem;
 
 namespace BEditorNext.Operations;
@@ -33,6 +34,10 @@ public sealed class BlendOperation : ConfigureOperation<IDrawable>
     public override void Configure(in OperationRenderArgs args, IDrawable obj)
     {
         obj.BlendMode = BlendMode;
-        obj.Opacity = Opacity / 100;
+
+        if (obj.Foreground is Brush brush)
+        {
+            brush.Opacity = Opacity / 100;
+        }
     }
 }

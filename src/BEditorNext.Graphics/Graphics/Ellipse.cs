@@ -40,7 +40,7 @@ public sealed class Ellipse : Drawable
         using var g = new Canvas((int)Width, (int)Height);
 
         g.IsAntialias = IsAntialias;
-        g.Color = Foreground;
+        g.Foreground = Foreground;
         g.StrokeWidth = StrokeWidth;
         g.DrawCircle(new Size(Width, Height));
 
