@@ -1,4 +1,3 @@
-﻿using System.Numerics;
 using NUnit.Framework;
 
 namespace BEditorNext.Graphics.UnitTests;
@@ -80,7 +79,7 @@ public class RectTests
     public void Transform()
     {
         var rect = new Rect(0, 0, 100, 100);
-        rect = rect.TransformToAABB(Matrix3x2.CreateScale(2, 2) * Matrix3x2.CreateTranslation(10, 10));
+        rect = rect.TransformToAABB(System.Numerics.Matrix3x2.CreateScale(2, 2) * System.Numerics.Matrix3x2.CreateTranslation(10, 10));
 
         Assert.AreEqual(new Rect(10, 10, 200, 200), rect);
     }
@@ -89,7 +88,7 @@ public class RectTests
     public void Translate()
     {
         var rect = new Rect(0, 0, 100, 100);
-        rect = rect.Translate(new Vector2(25, 25));
+        rect = rect.Translate(new Vector(25, 25));
 
         Assert.AreEqual(new Rect(25, 25, 100, 100), rect);
     }
