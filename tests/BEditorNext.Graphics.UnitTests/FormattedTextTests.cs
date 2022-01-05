@@ -32,28 +32,28 @@ public class FormattedTextTests
                         new TextElement
                         {
                             Text = "吾輩",
-                            Color = Colors.Black,
+                            Foreground = Colors.Black.ToBrush(),
                             Font = font,
                             Size = 100,
                         },
                         new TextElement
                         {
                             Text = "は",
-                            Color = Colors.Black,
+                            Foreground = Colors.Black.ToBrush(),
                             Font = font,
                             Size = 70,
                         },
                         new TextElement
                         {
                             Text = "猫",
-                            Color = Colors.Red,
+                            Foreground = Colors.Red.ToBrush(),
                             Font = font,
                             Size = 100,
                         },
                         new TextElement
                         {
                             Text = "である",
-                            Color = Colors.Black,
+                            Foreground = Colors.Black.ToBrush(),
                             Font = font,
                             Size = 70,
                         }
@@ -66,21 +66,21 @@ public class FormattedTextTests
                         new TextElement
                         {
                             Text = "名前",
-                            Color = Colors.Black,
+                            Foreground = Colors.Black.ToBrush(),
                             Font = font,
                             Size = 100,
                         },
                         new TextElement
                         {
                             Text = "はまだ",
-                            Color = Colors.Black,
+                            Foreground = Colors.Black.ToBrush(),
                             Font = font,
                             Size = 72,
                         },
                         new TextElement
                         {
                             Text = "無い",
-                            Color = Colors.Black,
+                            Foreground = Colors.Black.ToBrush(),
                             Font = font,
                             Size = 100,
                         }

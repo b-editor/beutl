@@ -13,7 +13,7 @@ public class GraphicsTests
     {
         var element = new TextElement
         {
-            Color = Colors.White,
+            Foreground = Colors.White.ToBrush(),
             Size = 200,
             Text = "Text",
             Typeface = TypefaceProvider.Typeface()
@@ -21,7 +21,7 @@ public class GraphicsTests
 
         var graphics = new Canvas(500, 500)
         {
-            Color = Colors.Gray,
+            Foreground = Colors.Gray.ToBrush(),
         };
 
         graphics.Clear(Colors.Black);
