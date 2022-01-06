@@ -33,7 +33,7 @@ public readonly record struct CanvasState(
     BlendMode BlendMode)
 {
     public CanvasState()
-        : this(Colors.Transparent.ToBrush(), 0, true, Matrix.Identity, BlendMode.SrcOver)
+        : this(Brushes.Transparent, 0, true, Matrix.Identity, BlendMode.SrcOver)
     {
 
     }
@@ -70,7 +70,7 @@ public class Canvas : ICanvas
 
     public bool IsDisposed { get; private set; }
 
-    public IBrush Foreground { get; set; } = Colors.White.ToBrush();
+    public IBrush Foreground { get; set; } = Brushes.White;
 
     public float StrokeWidth { get; set; }
 

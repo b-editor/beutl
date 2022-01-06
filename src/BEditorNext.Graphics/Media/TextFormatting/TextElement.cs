@@ -61,7 +61,7 @@ public class TextElement : IDisposable
         }
     }
 
-    public IBrush Foreground { get; set; } = Colors.White.ToBrush();
+    public IBrush Foreground { get; set; } = Brushes.White;
 
     public float Spacing { get; set; }
 

@@ -4,7 +4,6 @@ using System.Text.Json.Serialization;
 using BEditorNext.Converters;
 
 namespace BEditorNext.Media;
-
 /// <summary>
 /// An ARGB color.
 /// </summary>
@@ -154,6 +153,15 @@ public readonly struct Color : IEquatable<Color>
             return true;
         }
 
+        KnownColor knownColor = KnownColors.GetKnownColor(s);
+
+        if (knownColor != KnownColor.None)
+        {
+            color = knownColor.ToColor();
+
+            return true;
+        }
+
         return false;
     }
 
@@ -165,10 +173,10 @@ public readonly struct Color : IEquatable<Color>
     /// <returns>The status of the operation.</returns>
     public static bool TryParse(ReadOnlySpan<char> s, out Color color)
     {
+        color = default;
+
         if (s.Length == 0)
         {
-            color = default;
-
             return false;
         }
 
@@ -177,7 +185,14 @@ public readonly struct Color : IEquatable<Color>
             return TryParseInternal(s, out color);
         }
 
-        color = default;
+        KnownColor knownColor = KnownColors.GetKnownColor(s.ToString());
+
+        if (knownColor != KnownColor.None)
+        {
+            color = knownColor.ToColor();
+
+            return true;
+        }
 
         return false;
     }
@@ -239,7 +254,7 @@ public readonly struct Color : IEquatable<Color>
     public override string ToString()
     {
         uint rgb = ToUint32();
-        return $"#{rgb:x8}";
+        return KnownColors.GetKnownColorName(rgb) ?? $"#{rgb:x8}";
     }
 
     /// <summary>

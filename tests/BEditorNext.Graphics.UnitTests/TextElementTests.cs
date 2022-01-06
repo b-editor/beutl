@@ -12,7 +12,7 @@ public class TextElementTests
     {
         var element = new TextElement
         {
-            Foreground = Colors.White.ToBrush(),
+            Foreground = Brushes.White,
             Size = 24,
             Text = "Text",
             Typeface = TypefaceProvider.Typeface()

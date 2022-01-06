@@ -1,816 +1,712 @@
 ﻿namespace BEditorNext.Media;
-public static class Colors
+
+/// <summary>
+/// Defines a set of predefined colors.
+/// </summary>
+public sealed class Colors
 {
     /// <summary>
-    /// Gets the color (A: 0 R: 255 G: 255 B: 255).
+    /// Gets a color with an ARGB value of #fff0f8ff.
     /// </summary>
-    public static Color Transparent => Color.FromArgb(0, 255, 255, 255);
+    public static Color AliceBlue => KnownColor.AliceBlue.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 240 G: 248 B: 255).
+    /// Gets a color with an ARGB value of #fffaebd7.
     /// </summary>
-    public static Color AliceBlue => Color.FromArgb(255, 240, 248, 255);
+    public static Color AntiqueWhite => KnownColor.AntiqueWhite.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 250 G: 235 B: 215).
+    /// Gets a color with an ARGB value of #ff00ffff.
     /// </summary>
-    public static Color AntiqueWhite => Color.FromArgb(255, 250, 235, 215);
+    public static Color Aqua => KnownColor.Aqua.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 0 G: 255 B: 255).
+    /// Gets a color with an ARGB value of #ff7fffd4.
     /// </summary>
-    public static Color Aqua => Color.FromArgb(255, 0, 255, 255);
+    public static Color Aquamarine => KnownColor.Aquamarine.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 127 G: 255 B: 212).
+    /// Gets a color with an ARGB value of #fff0ffff.
     /// </summary>
-    public static Color Aquamarine => Color.FromArgb(255, 127, 255, 212);
+    public static Color Azure => KnownColor.Azure.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 240 G: 255 B: 255).
+    /// Gets a color with an ARGB value of #fff5f5dc.
     /// </summary>
-    public static Color Azure => Color.FromArgb(255, 240, 255, 255);
+    public static Color Beige => KnownColor.Beige.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 245 G: 245 B: 220).
+    /// Gets a color with an ARGB value of #ffffe4c4.
     /// </summary>
-    public static Color Beige => Color.FromArgb(255, 245, 245, 220);
+    public static Color Bisque => KnownColor.Bisque.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 255 G: 228 B: 196).
+    /// Gets a color with an ARGB value of #ff000000.
     /// </summary>
-    public static Color Bisque => Color.FromArgb(255, 255, 228, 196);
+    public static Color Black => KnownColor.Black.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 0 G: 0 B: 0).
+    /// Gets a color with an ARGB value of #ffffebcd.
     /// </summary>
-    public static Color Black => Color.FromArgb(255, 0, 0, 0);
+    public static Color BlanchedAlmond => KnownColor.BlanchedAlmond.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 255 G: 235 B: 205).
+    /// Gets a color with an ARGB value of #ff0000ff.
     /// </summary>
-    public static Color BlanchedAlmond => Color.FromArgb(255, 255, 235, 205);
+    public static Color Blue => KnownColor.Blue.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 0 G: 0 B: 255).
+    /// Gets a color with an ARGB value of #ff8a2be2.
     /// </summary>
-    public static Color Blue => Color.FromArgb(255, 0, 0, 255);
+    public static Color BlueViolet => KnownColor.BlueViolet.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 138 G: 43 B: 226).
+    /// Gets a color with an ARGB value of #ffa52a2a.
     /// </summary>
-    public static Color BlueViolet => Color.FromArgb(255, 138, 43, 226);
+    public static Color Brown => KnownColor.Brown.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 165 G: 42 B: 42).
+    /// Gets a color with an ARGB value of #ffdeb887.
     /// </summary>
-    public static Color Brown => Color.FromArgb(255, 165, 42, 42);
+    public static Color BurlyWood => KnownColor.BurlyWood.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 222 G: 184 B: 135).
+    /// Gets a color with an ARGB value of #ff5f9ea0.
     /// </summary>
-    public static Color BurlyWood => Color.FromArgb(255, 222, 184, 135);
+    public static Color CadetBlue => KnownColor.CadetBlue.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 95 G: 158 B: 160).
+    /// Gets a color with an ARGB value of #ff7fff00.
     /// </summary>
-    public static Color CadetBlue => Color.FromArgb(255, 95, 158, 160);
+    public static Color Chartreuse => KnownColor.Chartreuse.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 127 G: 255 B: 0).
+    /// Gets a color with an ARGB value of #ffd2691e.
     /// </summary>
-    public static Color Chartreuse => Color.FromArgb(255, 127, 255, 0);
+    public static Color Chocolate => KnownColor.Chocolate.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 210 G: 105 B: 30).
+    /// Gets a color with an ARGB value of #ffff7f50.
     /// </summary>
-    public static Color Chocolate => Color.FromArgb(255, 210, 105, 30);
+    public static Color Coral => KnownColor.Coral.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 255 G: 127 B: 80).
+    /// Gets a color with an ARGB value of #ff6495ed.
     /// </summary>
-    public static Color Coral => Color.FromArgb(255, 255, 127, 80);
+    public static Color CornflowerBlue => KnownColor.CornflowerBlue.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 100 G: 149 B: 237).
+    /// Gets a color with an ARGB value of #fffff8dc.
     /// </summary>
-    public static Color CornflowerBlue => Color.FromArgb(255, 100, 149, 237);
+    public static Color Cornsilk => KnownColor.Cornsilk.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 255 G: 248 B: 220).
+    /// Gets a color with an ARGB value of #ffdc143c.
     /// </summary>
-    public static Color Cornsilk => Color.FromArgb(255, 255, 248, 220);
+    public static Color Crimson => KnownColor.Crimson.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 220 G: 20 B: 60).
+    /// Gets a color with an ARGB value of #ff00ffff.
     /// </summary>
-    public static Color Crimson => Color.FromArgb(255, 220, 20, 60);
+    public static Color Cyan => KnownColor.Cyan.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 0 G: 255 B: 255).
+    /// Gets a color with an ARGB value of #ff00008b.
     /// </summary>
-    public static Color Cyan => Color.FromArgb(255, 0, 255, 255);
+    public static Color DarkBlue => KnownColor.DarkBlue.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 0 G: 0 B: 139).
+    /// Gets a color with an ARGB value of #ff008b8b.
     /// </summary>
-    public static Color DarkBlue => Color.FromArgb(255, 0, 0, 139);
+    public static Color DarkCyan => KnownColor.DarkCyan.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 0 G: 139 B: 139).
+    /// Gets a color with an ARGB value of #ffb8860b.
     /// </summary>
-    public static Color DarkCyan => Color.FromArgb(255, 0, 139, 139);
+    public static Color DarkGoldenrod => KnownColor.DarkGoldenrod.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 184 G: 134 B: 11).
+    /// Gets a color with an ARGB value of #ffa9a9a9.
     /// </summary>
-    public static Color DarkGoldenrod => Color.FromArgb(255, 184, 134, 11);
+    public static Color DarkGray => KnownColor.DarkGray.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 169 G: 169 B: 169).
+    /// Gets a color with an ARGB value of #ff006400.
     /// </summary>
-    public static Color DarkGray => Color.FromArgb(255, 169, 169, 169);
+    public static Color DarkGreen => KnownColor.DarkGreen.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 0 G: 100 B: 0).
+    /// Gets a color with an ARGB value of #ffbdb76b.
     /// </summary>
-    public static Color DarkGreen => Color.FromArgb(255, 0, 100, 0);
+    public static Color DarkKhaki => KnownColor.DarkKhaki.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 189 G: 183 B: 107).
+    /// Gets a color with an ARGB value of #ff8b008b.
     /// </summary>
-    public static Color DarkKhaki => Color.FromArgb(255, 189, 183, 107);
+    public static Color DarkMagenta => KnownColor.DarkMagenta.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 139 G: 0 B: 139).
+    /// Gets a color with an ARGB value of #ff556b2f.
     /// </summary>
-    public static Color DarkMagenta => Color.FromArgb(255, 139, 0, 139);
+    public static Color DarkOliveGreen => KnownColor.DarkOliveGreen.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 85 G: 107 B: 47).
+    /// Gets a color with an ARGB value of #ffff8c00.
     /// </summary>
-    public static Color DarkOliveGreen => Color.FromArgb(255, 85, 107, 47);
+    public static Color DarkOrange => KnownColor.DarkOrange.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 255 G: 140 B: 0).
+    /// Gets a color with an ARGB value of #ff9932cc.
     /// </summary>
-    public static Color DarkOrange => Color.FromArgb(255, 255, 140, 0);
+    public static Color DarkOrchid => KnownColor.DarkOrchid.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 153 G: 50 B: 204).
+    /// Gets a color with an ARGB value of #ff8b0000.
     /// </summary>
-    public static Color DarkOrchid => Color.FromArgb(255, 153, 50, 204);
+    public static Color DarkRed => KnownColor.DarkRed.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 139 G: 0 B: 0).
+    /// Gets a color with an ARGB value of #ffe9967a.
     /// </summary>
-    public static Color DarkRed => Color.FromArgb(255, 139, 0, 0);
+    public static Color DarkSalmon => KnownColor.DarkSalmon.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 233 G: 150 B: 122).
+    /// Gets a color with an ARGB value of #ff8fbc8f.
     /// </summary>
-    public static Color DarkSalmon => Color.FromArgb(255, 233, 150, 122);
+    public static Color DarkSeaGreen => KnownColor.DarkSeaGreen.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 143 G: 188 B: 143).
+    /// Gets a color with an ARGB value of #ff483d8b.
     /// </summary>
-    public static Color DarkSeaGreen => Color.FromArgb(255, 143, 188, 143);
+    public static Color DarkSlateBlue => KnownColor.DarkSlateBlue.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 72 G: 61 B: 139).
+    /// Gets a color with an ARGB value of #ff2f4f4f.
     /// </summary>
-    public static Color DarkSlateBlue => Color.FromArgb(255, 72, 61, 139);
+    public static Color DarkSlateGray => KnownColor.DarkSlateGray.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 47 G: 79 B: 79).
+    /// Gets a color with an ARGB value of #ff00ced1.
     /// </summary>
-    public static Color DarkSlateGray => Color.FromArgb(255, 47, 79, 79);
+    public static Color DarkTurquoise => KnownColor.DarkTurquoise.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 0 G: 206 B: 209).
+    /// Gets a color with an ARGB value of #ff9400d3.
     /// </summary>
-    public static Color DarkTurquoise => Color.FromArgb(255, 0, 206, 209);
+    public static Color DarkViolet => KnownColor.DarkViolet.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 148 G: 0 B: 211).
+    /// Gets a color with an ARGB value of #ffff1493.
     /// </summary>
-    public static Color DarkViolet => Color.FromArgb(255, 148, 0, 211);
+    public static Color DeepPink => KnownColor.DeepPink.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 255 G: 20 B: 147).
+    /// Gets a color with an ARGB value of #ff00bfff.
     /// </summary>
-    public static Color DeepPink => Color.FromArgb(255, 255, 20, 147);
+    public static Color DeepSkyBlue => KnownColor.DeepSkyBlue.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 0 G: 191 B: 255).
+    /// Gets a color with an ARGB value of #ff696969.
     /// </summary>
-    public static Color DeepSkyBlue => Color.FromArgb(255, 0, 191, 255);
+    public static Color DimGray => KnownColor.DimGray.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 105 G: 105 B: 105).
+    /// Gets a color with an ARGB value of #ff1e90ff.
     /// </summary>
-    public static Color DimGray => Color.FromArgb(255, 105, 105, 105);
+    public static Color DodgerBlue => KnownColor.DodgerBlue.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 30 G: 144 B: 255).
+    /// Gets a color with an ARGB value of #ffb22222.
     /// </summary>
-    public static Color DodgerBlue => Color.FromArgb(255, 30, 144, 255);
+    public static Color Firebrick => KnownColor.Firebrick.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 178 G: 34 B: 34).
+    /// Gets a color with an ARGB value of #fffffaf0.
     /// </summary>
-    public static Color Firebrick => Color.FromArgb(255, 178, 34, 34);
+    public static Color FloralWhite => KnownColor.FloralWhite.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 255 G: 250 B: 240).
+    /// Gets a color with an ARGB value of #ff228b22.
     /// </summary>
-    public static Color FloralWhite => Color.FromArgb(255, 255, 250, 240);
+    public static Color ForestGreen => KnownColor.ForestGreen.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 34 G: 139 B: 34).
+    /// Gets a color with an ARGB value of #ffff00ff.
     /// </summary>
-    public static Color ForestGreen => Color.FromArgb(255, 34, 139, 34);
+    public static Color Fuchsia => KnownColor.Fuchsia.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 255 G: 0 B: 255).
+    /// Gets a color with an ARGB value of #ffdcdcdc.
     /// </summary>
-    public static Color Fuchsia => Color.FromArgb(255, 255, 0, 255);
+    public static Color Gainsboro => KnownColor.Gainsboro.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 220 G: 220 B: 220).
+    /// Gets a color with an ARGB value of #fff8f8ff.
     /// </summary>
-    public static Color Gainsboro => Color.FromArgb(255, 220, 220, 220);
+    public static Color GhostWhite => KnownColor.GhostWhite.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 248 G: 248 B: 255).
+    /// Gets a color with an ARGB value of #ffffd700.
     /// </summary>
-    public static Color GhostWhite => Color.FromArgb(255, 248, 248, 255);
+    public static Color Gold => KnownColor.Gold.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 255 G: 215 B: 0).
+    /// Gets a color with an ARGB value of #ffdaa520.
     /// </summary>
-    public static Color Gold => Color.FromArgb(255, 255, 215, 0);
+    public static Color Goldenrod => KnownColor.Goldenrod.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 218 G: 165 B: 32).
+    /// Gets a color with an ARGB value of #ff808080.
     /// </summary>
-    public static Color Goldenrod => Color.FromArgb(255, 218, 165, 32);
+    public static Color Gray => KnownColor.Gray.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 128 G: 128 B: 128).
+    /// Gets a color with an ARGB value of #ff008000.
     /// </summary>
-    public static Color Gray => Color.FromArgb(255, 128, 128, 128);
+    public static Color Green => KnownColor.Green.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 0 G: 128 B: 0).
+    /// Gets a color with an ARGB value of #ffadff2f.
     /// </summary>
-    public static Color Green => Color.FromArgb(255, 0, 128, 0);
+    public static Color GreenYellow => KnownColor.GreenYellow.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 173 G: 255 B: 47).
+    /// Gets a color with an ARGB value of #fff0fff0.
     /// </summary>
-    public static Color GreenYellow => Color.FromArgb(255, 173, 255, 47);
+    public static Color Honeydew => KnownColor.Honeydew.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 240 G: 255 B: 240).
+    /// Gets a color with an ARGB value of #ffff69b4.
     /// </summary>
-    public static Color Honeydew => Color.FromArgb(255, 240, 255, 240);
+    public static Color HotPink => KnownColor.HotPink.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 255 G: 105 B: 180).
+    /// Gets a color with an ARGB value of #ffcd5c5c.
     /// </summary>
-    public static Color HotPink => Color.FromArgb(255, 255, 105, 180);
+    public static Color IndianRed => KnownColor.IndianRed.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 205 G: 92 B: 92).
+    /// Gets a color with an ARGB value of #ff4b0082.
     /// </summary>
-    public static Color IndianRed => Color.FromArgb(255, 205, 92, 92);
+    public static Color Indigo => KnownColor.Indigo.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 75 G: 0 B: 130).
+    /// Gets a color with an ARGB value of #fffffff0.
     /// </summary>
-    public static Color Indigo => Color.FromArgb(255, 75, 0, 130);
+    public static Color Ivory => KnownColor.Ivory.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 255 G: 255 B: 240).
+    /// Gets a color with an ARGB value of #fff0e68c.
     /// </summary>
-    public static Color Ivory => Color.FromArgb(255, 255, 255, 240);
+    public static Color Khaki => KnownColor.Khaki.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 240 G: 230 B: 140).
+    /// Gets a color with an ARGB value of #ffe6e6fa.
     /// </summary>
-    public static Color Khaki => Color.FromArgb(255, 240, 230, 140);
+    public static Color Lavender => KnownColor.Lavender.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 230 G: 230 B: 250).
+    /// Gets a color with an ARGB value of #fffff0f5.
     /// </summary>
-    public static Color Lavender => Color.FromArgb(255, 230, 230, 250);
+    public static Color LavenderBlush => KnownColor.LavenderBlush.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 255 G: 240 B: 245).
+    /// Gets a color with an ARGB value of #ff7cfc00.
     /// </summary>
-    public static Color LavenderBlush => Color.FromArgb(255, 255, 240, 245);
+    public static Color LawnGreen => KnownColor.LawnGreen.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 124 G: 252 B: 0).
+    /// Gets a color with an ARGB value of #fffffacd.
     /// </summary>
-    public static Color LawnGreen => Color.FromArgb(255, 124, 252, 0);
+    public static Color LemonChiffon => KnownColor.LemonChiffon.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 255 G: 250 B: 205).
+    /// Gets a color with an ARGB value of #ffadd8e6.
     /// </summary>
-    public static Color LemonChiffon => Color.FromArgb(255, 255, 250, 205);
+    public static Color LightBlue => KnownColor.LightBlue.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 173 G: 216 B: 230).
+    /// Gets a color with an ARGB value of #fff08080.
     /// </summary>
-    public static Color LightBlue => Color.FromArgb(255, 173, 216, 230);
+    public static Color LightCoral => KnownColor.LightCoral.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 240 G: 128 B: 128).
+    /// Gets a color with an ARGB value of #ffe0ffff.
     /// </summary>
-    public static Color LightCoral => Color.FromArgb(255, 240, 128, 128);
+    public static Color LightCyan => KnownColor.LightCyan.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 224 G: 255 B: 255).
+    /// Gets a color with an ARGB value of #fffafad2.
     /// </summary>
-    public static Color LightCyan => Color.FromArgb(255, 224, 255, 255);
+    public static Color LightGoldenrodYellow => KnownColor.LightGoldenrodYellow.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 250 G: 250 B: 210).
+    /// Gets a color with an ARGB value of #ffd3d3d3.
     /// </summary>
-    public static Color LightGoldenrodYellow => Color.FromArgb(255, 250, 250, 210);
+    public static Color LightGray => KnownColor.LightGray.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 144 G: 238 B: 144).
+    /// Gets a color with an ARGB value of #ff90ee90.
     /// </summary>
-    public static Color LightGreen => Color.FromArgb(255, 144, 238, 144);
+    public static Color LightGreen => KnownColor.LightGreen.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 211 G: 211 B: 211).
+    /// Gets a color with an ARGB value of #ffffb6c1.
     /// </summary>
-    public static Color LightGray => Color.FromArgb(255, 211, 211, 211);
+    public static Color LightPink => KnownColor.LightPink.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 255 G: 182 B: 193).
+    /// Gets a color with an ARGB value of #ffffa07a.
     /// </summary>
-    public static Color LightPink => Color.FromArgb(255, 255, 182, 193);
+    public static Color LightSalmon => KnownColor.LightSalmon.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 255 G: 160 B: 122).
+    /// Gets a color with an ARGB value of #ff20b2aa.
     /// </summary>
-    public static Color LightSalmon => Color.FromArgb(255, 255, 160, 122);
+    public static Color LightSeaGreen => KnownColor.LightSeaGreen.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 32 G: 178 B: 170).
+    /// Gets a color with an ARGB value of #ff87cefa.
     /// </summary>
-    public static Color LightSeaGreen => Color.FromArgb(255, 32, 178, 170);
+    public static Color LightSkyBlue => KnownColor.LightSkyBlue.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 135 G: 206 B: 250).
+    /// Gets a color with an ARGB value of #ff778899.
     /// </summary>
-    public static Color LightSkyBlue => Color.FromArgb(255, 135, 206, 250);
+    public static Color LightSlateGray => KnownColor.LightSlateGray.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 119 G: 136 B: 153).
+    /// Gets a color with an ARGB value of #ffb0c4de.
     /// </summary>
-    public static Color LightSlateGray => Color.FromArgb(255, 119, 136, 153);
+    public static Color LightSteelBlue => KnownColor.LightSteelBlue.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 176 G: 196 B: 222).
+    /// Gets a color with an ARGB value of #ffffffe0.
     /// </summary>
-    public static Color LightSteelBlue => Color.FromArgb(255, 176, 196, 222);
+    public static Color LightYellow => KnownColor.LightYellow.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 255 G: 255 B: 224).
+    /// Gets a color with an ARGB value of #ff00ff00.
     /// </summary>
-    public static Color LightYellow => Color.FromArgb(255, 255, 255, 224);
+    public static Color Lime => KnownColor.Lime.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 0 G: 255 B: 0).
+    /// Gets a color with an ARGB value of #ff32cd32.
     /// </summary>
-    public static Color Lime => Color.FromArgb(255, 0, 255, 0);
+    public static Color LimeGreen => KnownColor.LimeGreen.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 50 G: 205 B: 50).
+    /// Gets a color with an ARGB value of #fffaf0e6.
     /// </summary>
-    public static Color LimeGreen => Color.FromArgb(255, 50, 205, 50);
+    public static Color Linen => KnownColor.Linen.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 250 G: 240 B: 230).
+    /// Gets a color with an ARGB value of #ffff00ff.
     /// </summary>
-    public static Color Linen => Color.FromArgb(255, 250, 240, 230);
+    public static Color Magenta => KnownColor.Magenta.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 255 G: 0 B: 255).
+    /// Gets a color with an ARGB value of #ff800000.
     /// </summary>
-    public static Color Magenta => Color.FromArgb(255, 255, 0, 255);
+    public static Color Maroon => KnownColor.Maroon.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 128 G: 0 B: 0).
+    /// Gets a color with an ARGB value of #ff66cdaa.
     /// </summary>
-    public static Color Maroon => Color.FromArgb(255, 128, 0, 0);
+    public static Color MediumAquamarine => KnownColor.MediumAquamarine.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 102 G: 205 B: 170).
+    /// Gets a color with an ARGB value of #ff0000cd.
     /// </summary>
-    public static Color MediumAquamarine => Color.FromArgb(255, 102, 205, 170);
+    public static Color MediumBlue => KnownColor.MediumBlue.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 0 G: 0 B: 205).
+    /// Gets a color with an ARGB value of #ffba55d3.
     /// </summary>
-    public static Color MediumBlue => Color.FromArgb(255, 0, 0, 205);
+    public static Color MediumOrchid => KnownColor.MediumOrchid.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 186 G: 85 B: 211).
+    /// Gets a color with an ARGB value of #ff9370db.
     /// </summary>
-    public static Color MediumOrchid => Color.FromArgb(255, 186, 85, 211);
+    public static Color MediumPurple => KnownColor.MediumPurple.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 147 G: 112 B: 219).
+    /// Gets a color with an ARGB value of #ff3cb371.
     /// </summary>
-    public static Color MediumPurple => Color.FromArgb(255, 147, 112, 219);
+    public static Color MediumSeaGreen => KnownColor.MediumSeaGreen.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 60 G: 179 B: 113).
+    /// Gets a color with an ARGB value of #ff7b68ee.
     /// </summary>
-    public static Color MediumSeaGreen => Color.FromArgb(255, 60, 179, 113);
+    public static Color MediumSlateBlue => KnownColor.MediumSlateBlue.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 123 G: 104 B: 238).
+    /// Gets a color with an ARGB value of #ff00fa9a.
     /// </summary>
-    public static Color MediumSlateBlue => Color.FromArgb(255, 123, 104, 238);
+    public static Color MediumSpringGreen => KnownColor.MediumSpringGreen.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 0 G: 250 B: 154).
+    /// Gets a color with an ARGB value of #ff48d1cc.
     /// </summary>
-    public static Color MediumSpringGreen => Color.FromArgb(255, 0, 250, 154);
+    public static Color MediumTurquoise => KnownColor.MediumTurquoise.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 72 G: 209 B: 204).
+    /// Gets a color with an ARGB value of #ffc71585.
     /// </summary>
-    public static Color MediumTurquoise => Color.FromArgb(255, 72, 209, 204);
+    public static Color MediumVioletRed => KnownColor.MediumVioletRed.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 199 G: 21 B: 133).
+    /// Gets a color with an ARGB value of #ff191970.
     /// </summary>
-    public static Color MediumVioletRed => Color.FromArgb(255, 199, 21, 133);
+    public static Color MidnightBlue => KnownColor.MidnightBlue.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 25 G: 25 B: 112).
+    /// Gets a color with an ARGB value of #fff5fffa.
     /// </summary>
-    public static Color MidnightBlue => Color.FromArgb(255, 25, 25, 112);
+    public static Color MintCream => KnownColor.MintCream.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 245 G: 255 B: 250).
+    /// Gets a color with an ARGB value of #ffffe4e1.
     /// </summary>
-    public static Color MintCream => Color.FromArgb(255, 245, 255, 250);
+    public static Color MistyRose => KnownColor.MistyRose.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 255 G: 228 B: 225).
+    /// Gets a color with an ARGB value of #ffffe4b5.
     /// </summary>
-    public static Color MistyRose => Color.FromArgb(255, 255, 228, 225);
+    public static Color Moccasin => KnownColor.Moccasin.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 255 G: 228 B: 181).
+    /// Gets a color with an ARGB value of #ffffdead.
     /// </summary>
-    public static Color Moccasin => Color.FromArgb(255, 255, 228, 181);
+    public static Color NavajoWhite => KnownColor.NavajoWhite.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 255 G: 222 B: 173).
+    /// Gets a color with an ARGB value of #ff000080.
     /// </summary>
-    public static Color NavajoWhite => Color.FromArgb(255, 255, 222, 173);
+    public static Color Navy => KnownColor.Navy.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 0 G: 0 B: 128).
+    /// Gets a color with an ARGB value of #fffdf5e6.
     /// </summary>
-    public static Color Navy => Color.FromArgb(255, 0, 0, 128);
+    public static Color OldLace => KnownColor.OldLace.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 253 G: 245 B: 230).
+    /// Gets a color with an ARGB value of #ff808000.
     /// </summary>
-    public static Color OldLace => Color.FromArgb(255, 253, 245, 230);
+    public static Color Olive => KnownColor.Olive.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 128 G: 128 B: 0).
+    /// Gets a color with an ARGB value of #ff6b8e23.
     /// </summary>
-    public static Color Olive => Color.FromArgb(255, 128, 128, 0);
+    public static Color OliveDrab => KnownColor.OliveDrab.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 107 G: 142 B: 35).
+    /// Gets a color with an ARGB value of #ffffa500.
     /// </summary>
-    public static Color OliveDrab => Color.FromArgb(255, 107, 142, 35);
+    public static Color Orange => KnownColor.Orange.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 255 G: 165 B: 0).
+    /// Gets a color with an ARGB value of #ffff4500.
     /// </summary>
-    public static Color Orange => Color.FromArgb(255, 255, 165, 0);
+    public static Color OrangeRed => KnownColor.OrangeRed.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 255 G: 69 B: 0).
+    /// Gets a color with an ARGB value of #ffda70d6.
     /// </summary>
-    public static Color OrangeRed => Color.FromArgb(255, 255, 69, 0);
+    public static Color Orchid => KnownColor.Orchid.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 218 G: 112 B: 214).
+    /// Gets a color with an ARGB value of #ffeee8aa.
     /// </summary>
-    public static Color Orchid => Color.FromArgb(255, 218, 112, 214);
+    public static Color PaleGoldenrod => KnownColor.PaleGoldenrod.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 238 G: 232 B: 170).
+    /// Gets a color with an ARGB value of #ff98fb98.
     /// </summary>
-    public static Color PaleGoldenrod => Color.FromArgb(255, 238, 232, 170);
+    public static Color PaleGreen => KnownColor.PaleGreen.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 152 G: 251 B: 152).
+    /// Gets a color with an ARGB value of #ffafeeee.
     /// </summary>
-    public static Color PaleGreen => Color.FromArgb(255, 152, 251, 152);
+    public static Color PaleTurquoise => KnownColor.PaleTurquoise.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 175 G: 238 B: 238).
+    /// Gets a color with an ARGB value of #ffdb7093.
     /// </summary>
-    public static Color PaleTurquoise => Color.FromArgb(255, 175, 238, 238);
+    public static Color PaleVioletRed => KnownColor.PaleVioletRed.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 219 G: 112 B: 147).
+    /// Gets a color with an ARGB value of #ffffefd5.
     /// </summary>
-    public static Color PaleVioletRed => Color.FromArgb(255, 219, 112, 147);
+    public static Color PapayaWhip => KnownColor.PapayaWhip.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 255 G: 239 B: 213).
+    /// Gets a color with an ARGB value of #ffffdab9.
     /// </summary>
-    public static Color PapayaWhip => Color.FromArgb(255, 255, 239, 213);
+    public static Color PeachPuff => KnownColor.PeachPuff.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 255 G: 218 B: 185).
+    /// Gets a color with an ARGB value of #ffcd853f.
     /// </summary>
-    public static Color PeachPuff => Color.FromArgb(255, 255, 218, 185);
+    public static Color Peru => KnownColor.Peru.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 205 G: 133 B: 63).
+    /// Gets a color with an ARGB value of #ffffc0cb.
     /// </summary>
-    public static Color Peru => Color.FromArgb(255, 205, 133, 63);
+    public static Color Pink => KnownColor.Pink.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 255 G: 192 B: 203).
+    /// Gets a color with an ARGB value of #ffdda0dd.
     /// </summary>
-    public static Color Pink => Color.FromArgb(255, 255, 192, 203);
+    public static Color Plum => KnownColor.Plum.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 221 G: 160 B: 221).
+    /// Gets a color with an ARGB value of #ffb0e0e6.
     /// </summary>
-    public static Color Plum => Color.FromArgb(255, 221, 160, 221);
+    public static Color PowderBlue => KnownColor.PowderBlue.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 176 G: 224 B: 230).
+    /// Gets a color with an ARGB value of #ff800080.
     /// </summary>
-    public static Color PowderBlue => Color.FromArgb(255, 176, 224, 230);
+    public static Color Purple => KnownColor.Purple.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 128 G: 0 B: 128).
+    /// Gets a color with an ARGB value of #ffff0000.
     /// </summary>
-    public static Color Purple => Color.FromArgb(255, 128, 0, 128);
+    public static Color Red => KnownColor.Red.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 255 G: 0 B: 0).
+    /// Gets a color with an ARGB value of #ffbc8f8f.
     /// </summary>
-    public static Color Red => Color.FromArgb(255, 255, 0, 0);
+    public static Color RosyBrown => KnownColor.RosyBrown.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 188 G: 143 B: 143).
+    /// Gets a color with an ARGB value of #ff4169e1.
     /// </summary>
-    public static Color RosyBrown => Color.FromArgb(255, 188, 143, 143);
+    public static Color RoyalBlue => KnownColor.RoyalBlue.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 65 G: 105 B: 225).
+    /// Gets a color with an ARGB value of #ff8b4513.
     /// </summary>
-    public static Color RoyalBlue => Color.FromArgb(255, 65, 105, 225);
+    public static Color SaddleBrown => KnownColor.SaddleBrown.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 139 G: 69 B: 19).
+    /// Gets a color with an ARGB value of #fffa8072.
     /// </summary>
-    public static Color SaddleBrown => Color.FromArgb(255, 139, 69, 19);
+    public static Color Salmon => KnownColor.Salmon.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 250 G: 128 B: 114).
+    /// Gets a color with an ARGB value of #fff4a460.
     /// </summary>
-    public static Color Salmon => Color.FromArgb(255, 250, 128, 114);
+    public static Color SandyBrown => KnownColor.SandyBrown.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 244 G: 164 B: 96).
+    /// Gets a color with an ARGB value of #ff2e8b57.
     /// </summary>
-    public static Color SandyBrown => Color.FromArgb(255, 244, 164, 96);
+    public static Color SeaGreen => KnownColor.SeaGreen.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 46 G: 139 B: 87).
+    /// Gets a color with an ARGB value of #fffff5ee.
     /// </summary>
-    public static Color SeaGreen => Color.FromArgb(255, 46, 139, 87);
+    public static Color SeaShell => KnownColor.SeaShell.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 255 G: 245 B: 238).
+    /// Gets a color with an ARGB value of #ffa0522d.
     /// </summary>
-    public static Color SeaShell => Color.FromArgb(255, 255, 245, 238);
+    public static Color Sienna => KnownColor.Sienna.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 160 G: 82 B: 45).
+    /// Gets a color with an ARGB value of #ffc0c0c0.
     /// </summary>
-    public static Color Sienna => Color.FromArgb(255, 160, 82, 45);
+    public static Color Silver => KnownColor.Silver.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 192 G: 192 B: 192).
+    /// Gets a color with an ARGB value of #ff87ceeb.
     /// </summary>
-    public static Color Silver => Color.FromArgb(255, 192, 192, 192);
+    public static Color SkyBlue => KnownColor.SkyBlue.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 135 G: 206 B: 235).
+    /// Gets a color with an ARGB value of #ff6a5acd.
     /// </summary>
-    public static Color SkyBlue => Color.FromArgb(255, 135, 206, 235);
+    public static Color SlateBlue => KnownColor.SlateBlue.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 106 G: 90 B: 205).
+    /// Gets a color with an ARGB value of #ff708090.
     /// </summary>
-    public static Color SlateBlue => Color.FromArgb(255, 106, 90, 205);
+    public static Color SlateGray => KnownColor.SlateGray.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 112 G: 128 B: 144).
+    /// Gets a color with an ARGB value of #fffffafa.
     /// </summary>
-    public static Color SlateGray => Color.FromArgb(255, 112, 128, 144);
+    public static Color Snow => KnownColor.Snow.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 255 G: 250 B: 250).
+    /// Gets a color with an ARGB value of #ff00ff7f.
     /// </summary>
-    public static Color Snow => Color.FromArgb(255, 255, 250, 250);
+    public static Color SpringGreen => KnownColor.SpringGreen.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 0 G: 255 B: 127).
+    /// Gets a color with an ARGB value of #ff4682b4.
     /// </summary>
-    public static Color SpringGreen => Color.FromArgb(255, 0, 255, 127);
+    public static Color SteelBlue => KnownColor.SteelBlue.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 70 G: 130 B: 180).
+    /// Gets a color with an ARGB value of #ffd2b48c.
     /// </summary>
-    public static Color SteelBlue => Color.FromArgb(255, 70, 130, 180);
+    public static Color Tan => KnownColor.Tan.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 210 G: 180 B: 140).
+    /// Gets a color with an ARGB value of #ff008080.
     /// </summary>
-    public static Color Tan => Color.FromArgb(255, 210, 180, 140);
+    public static Color Teal => KnownColor.Teal.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 0 G: 128 B: 128).
+    /// Gets a color with an ARGB value of #ffd8bfd8.
     /// </summary>
-    public static Color Teal => Color.FromArgb(255, 0, 128, 128);
+    public static Color Thistle => KnownColor.Thistle.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 216 G: 191 B: 216).
+    /// Gets a color with an ARGB value of #ffff6347.
     /// </summary>
-    public static Color Thistle => Color.FromArgb(255, 216, 191, 216);
+    public static Color Tomato => KnownColor.Tomato.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 255 G: 99 B: 71).
+    /// Gets a color with an ARGB value of #00ffffff.
     /// </summary>
-    public static Color Tomato => Color.FromArgb(255, 255, 99, 71);
+    public static Color Transparent => KnownColor.Transparent.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 64 G: 224 B: 208).
+    /// Gets a color with an ARGB value of #ff40e0d0.
     /// </summary>
-    public static Color Turquoise => Color.FromArgb(255, 64, 224, 208);
+    public static Color Turquoise => KnownColor.Turquoise.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 238 G: 130 B: 238).
+    /// Gets a color with an ARGB value of #ffee82ee.
     /// </summary>
-    public static Color Violet => Color.FromArgb(255, 238, 130, 238);
+    public static Color Violet => KnownColor.Violet.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 245 G: 222 B: 179).
+    /// Gets a color with an ARGB value of #fff5deb3.
     /// </summary>
-    public static Color Wheat => Color.FromArgb(255, 245, 222, 179);
+    public static Color Wheat => KnownColor.Wheat.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 255 G: 255 B: 255).
+    /// Gets a color with an ARGB value of #ffffffff.
     /// </summary>
-    public static Color White => Color.FromArgb(255, 255, 255, 255);
+    public static Color White => KnownColor.White.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 245 G: 245 B: 245).
+    /// Gets a color with an ARGB value of #fff5f5f5.
     /// </summary>
-    public static Color WhiteSmoke => Color.FromArgb(255, 245, 245, 245);
+    public static Color WhiteSmoke => KnownColor.WhiteSmoke.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 255 G: 255 B: 0).
+    /// Gets a color with an ARGB value of #ffffff00.
     /// </summary>
-    public static Color Yellow => Color.FromArgb(255, 255, 255, 0);
+    public static Color Yellow => KnownColor.Yellow.ToColor();
 
     /// <summary>
-    /// Gets the color (A: 255 R: 154 G: 205 B: 50).
+    /// Gets a color with an ARGB value of #ff9acd32.
     /// </summary>
-    public static Color YellowGreen => Color.FromArgb(255, 154, 205, 50);
-}
-
-public static class MaterialColors
-{
-    /// <summary>
-    /// Gets the color (A: 255 R: 255 G: 255 B: 255).
-    /// </summary>
-    public static Color Light => Color.FromArgb(255, 255, 255, 255);
-
-    /// <summary>
-    /// Gets the color (A: 255 R: 0 G: 0 B: 0).
-    /// </summary>
-    public static Color Dark => Color.FromArgb(255, 0, 0, 0);
-
-    /// <summary>
-    /// Gets the color (A: 255 R: 244 G: 67 B: 54).
-    /// </summary>
-    public static Color Red => Color.FromArgb(255, 244, 67, 54);
-
-    /// <summary>
-    /// Gets the color (A: 255 R: 233 G: 30 B: 99).
-    /// </summary>
-    public static Color Pink => Color.FromArgb(255, 233, 30, 99);
-
-    /// <summary>
-    /// Gets the color (A: 255 R: 156 G: 39 B: 176).
-    /// </summary>
-    public static Color Purple => Color.FromArgb(255, 156, 39, 176);
-
-    /// <summary>
-    /// Gets the color (A: 255 R: 103 G: 58 B: 183).
-    /// </summary>
-    public static Color DeepPurple => Color.FromArgb(255, 103, 58, 183);
-
-    /// <summary>
-    /// Gets the color (A: 255 R: 63 G: 81 B: 181).
-    /// </summary>
-    public static Color Indigo => Color.FromArgb(255, 63, 81, 181);
-
-    /// <summary>
-    /// Gets the color (A: 255 R: 33 G: 150 B: 243).
-    /// </summary>
-    public static Color Blue => Color.FromArgb(255, 33, 150, 243);
-
-    /// <summary>
-    /// Gets the color (A: 255 R: 3 G: 169 B: 244).
-    /// </summary>
-    public static Color LightBlue => Color.FromArgb(255, 3, 169, 244);
-
-    /// <summary>
-    /// Gets the color (A: 255 R: 0 G: 188 B: 212).
-    /// </summary>
-    public static Color Cyan => Color.FromArgb(255, 0, 188, 212);
-
-    /// <summary>
-    /// Gets the color (A: 255 R: 0 G: 150 B: 136).
-    /// </summary>
-    public static Color Teal => Color.FromArgb(255, 0, 150, 136);
-
-    /// <summary>
-    /// Gets the color (A: 255 R: 76 G: 175 B: 80).
-    /// </summary>
-    public static Color Green => Color.FromArgb(255, 76, 175, 80);
-
-    /// <summary>
-    /// Gets the color (A: 255 R: 139 G: 195 B: 74).
-    /// </summary>
-    public static Color LightGreen => Color.FromArgb(255, 139, 195, 74);
-
-    /// <summary>
-    /// Gets the color (A: 255 R: 205 G: 220 B: 57).
-    /// </summary>
-    public static Color Lime => Color.FromArgb(255, 205, 220, 57);
-
-    /// <summary>
-    /// Gets the color (A: 255 R: 255 G: 235 B: 59).
-    /// </summary>
-    public static Color Yellow => Color.FromArgb(255, 255, 235, 59);
-
-    /// <summary>
-    /// Gets the color (A: 255 R: 255 G: 255 B: 255).
-    /// </summary>
-    public static Color Amber => Color.FromArgb(255, 255, 193, 7);
-
-    /// <summary>
-    /// Gets the color (A: 255 R: 255 G: 152 B: 0).
-    /// </summary>
-    public static Color Orange => Color.FromArgb(255, 255, 152, 0);
-
-    /// <summary>
-    /// Gets the color (A: 255 R: 255 G: 87 B: 34).
-    /// </summary>
-    public static Color DeepOrange => Color.FromArgb(255, 255, 87, 34);
-
-    /// <summary>
-    /// Gets the color (A: 255 R: 121 G: 85 B: 72).
-    /// </summary>
-    public static Color Brown => Color.FromArgb(255, 121, 85, 72);
-
-    /// <summary>
-    /// Gets the color (A: 255 R: 158 G: 158 B: 158).
-    /// </summary>
-    public static Color Grey => Color.FromArgb(255, 158, 158, 158);
-
-    /// <summary>
-    /// Gets the color (A: 255 R: 96 G: 125 B: 139).
-    /// </summary>
-    public static Color BlueGrey => Color.FromArgb(255, 96, 125, 139);
+    public static Color YellowGreen => KnownColor.YellowGreen.ToColor();
 }
