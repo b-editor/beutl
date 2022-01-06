@@ -3,22 +3,22 @@
 namespace BEditorNext.Media;
 
 /// <summary>
-/// Paints an area with an <see cref="IVisual"/>.
+/// Paints an area with an <see cref="IDrawable"/>.
 /// </summary>
-public class VisualBrush : TileBrush, IDrawableBrush
+public class DrawableBrush : TileBrush, IDrawableBrush
 {
     /// <summary>
-    /// Initializes a new instance of the <see cref="VisualBrush"/> class.
+    /// Initializes a new instance of the <see cref="DrawableBrush"/> class.
     /// </summary>
-    public VisualBrush()
+    public DrawableBrush()
     {
     }
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="VisualBrush"/> class.
+    /// Initializes a new instance of the <see cref="DrawableBrush"/> class.
     /// </summary>
     /// <param name="drawable">The drawable to draw.</param>
-    public VisualBrush(IDrawable drawable)
+    public DrawableBrush(IDrawable drawable)
     {
         Drawable = drawable;
     }
