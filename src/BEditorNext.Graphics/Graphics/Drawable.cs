@@ -8,6 +8,14 @@ namespace BEditorNext.Graphics;
 
 public abstract class Drawable : IDrawable, IRenderable
 {
+    ~Drawable()
+    {
+        if (!IsDisposed)
+        {
+            Dispose();
+        }
+    }
+
     public abstract PixelSize Size { get; }
 
     public Transforms Transform { get; } = new();
