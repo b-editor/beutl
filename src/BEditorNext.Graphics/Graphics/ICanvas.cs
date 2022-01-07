@@ -24,7 +24,7 @@ public interface ICanvas : IDisposable
 
     void Clear(Color color);
 
-    void DrawBitmap(Bitmap<Bgra8888> bmp);
+    void DrawBitmap(IBitmap bmp);
 
     void DrawCircle(Size size);
 

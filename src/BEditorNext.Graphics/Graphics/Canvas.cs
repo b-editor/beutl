@@ -117,13 +117,22 @@ public class Canvas : ICanvas
         }
     }
 
-    public void DrawBitmap(Bitmap<Bgra8888> bmp)
+    public void DrawBitmap(IBitmap bmp)
     {
         VerifyAccess();
         ConfigurePaint(_paint, new Size(bmp.Width, bmp.Height));
-        using var img = SKImage.FromPixels(new SKImageInfo(bmp.Width, bmp.Height, SKColorType.Bgra8888), bmp.Data);
 
-        _canvas.DrawImage(img, SKPoint.Empty, _paint);
+        if (bmp is Bitmap<Bgra8888>)
+        {
+            using var img = SKImage.FromPixels(new SKImageInfo(bmp.Width, bmp.Height, SKColorType.Bgra8888), bmp.Data);
+
+            _canvas.DrawImage(img, SKPoint.Empty, _paint);
+        }
+        else
+        {
+            using var skbmp = bmp.ToSKBitmap();
+            _canvas.DrawBitmap(skbmp, SKPoint.Empty, _paint);
+        }
     }
 
     public void DrawCircle(Size size)
@@ -446,7 +455,7 @@ public class Canvas : ICanvas
 
             paint.Shader = shader;
         }
-        else if (tileBrush is IImageBrush { Source: { IsDisposed: false} } imageBrush)
+        else if (tileBrush is IImageBrush { Source: { IsDisposed: false } } imageBrush)
         {
             using var bmp = imageBrush.Source.ToSKBitmap();
             using var shader = SKShader.CreateBitmap(bmp, tileX, tileY, paintTransform);

@@ -1,5 +1,4 @@
-﻿
-using BEditorNext.Graphics.Effects;
+﻿using BEditorNext.Graphics.Effects;
 
 using BEditorNext.Media;
 using BEditorNext.Media.Pixel;
@@ -8,7 +7,7 @@ namespace BEditorNext.Graphics;
 
 public sealed class DrawableBitmap : Drawable
 {
-    public DrawableBitmap(Bitmap<Bgra8888> bitmap)
+    public DrawableBitmap(IBitmap bitmap)
     {
         Bitmap = bitmap;
     }
@@ -20,9 +19,9 @@ public sealed class DrawableBitmap : Drawable
 
     public override PixelSize Size => new(Bitmap.Width, Bitmap.Height);
 
-    public Bitmap<Bgra8888> Bitmap { get; private set; }
+    public IBitmap Bitmap { get; private set; }
 
-    public void Initialize(Bitmap<Bgra8888> bitmap)
+    public void Initialize(IBitmap bitmap)
     {
         Bitmap.Dispose();
         Bitmap = bitmap;

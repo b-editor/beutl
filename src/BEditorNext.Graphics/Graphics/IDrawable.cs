@@ -1,6 +1,5 @@
 ﻿using BEditorNext.Graphics.Transformation;
 using BEditorNext.Media;
-using BEditorNext.Media.Pixel;
 using BEditorNext.Rendering;
 
 namespace BEditorNext.Graphics;
