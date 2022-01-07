@@ -177,14 +177,15 @@ public abstract class Element : IElement
     }
 
     /// <summary>
-    /// Registers a property by specifying a getter.
+    /// Registers a property by specifying a getter and a setter.
     /// </summary>
     /// <typeparam name="T">The type of the property's value.</typeparam>
     /// <typeparam name="TOwner">The type of property's owner.</typeparam>
     /// <param name="name">The name of property.</param>
     /// <param name="getter">Delegate to get the value of a property.</param>
+    /// <param name="setter">Delegate to set the value of a property.</param>
     /// <returns>Returns the property define.</returns>
-    public static PropertyDefine<T> RegisterProperty<T, TOwner>(string name, Func<TOwner, T> getter)
+    public static PropertyDefine<T> RegisterProperty<T, TOwner>(string name, Func<TOwner, T> getter, Action<TOwner, T>? setter = null)
     {
         var metaTable = new Dictionary<string, object>
         {
@@ -198,6 +199,16 @@ public abstract class Element : IElement
                 })
             },
         };
+
+        if (setter != null)
+        {
+            metaTable.Add(PropertyMetaTableKeys.GenericsSetter, setter);
+            metaTable.Add(PropertyMetaTableKeys.Setter, new Action<PropertyDefine, object, T>((props, owner, obj) =>
+            {
+                var accessor = (Action<TOwner, T>)props.MetaTable[PropertyMetaTableKeys.GenericsSetter];
+                accessor((TOwner)owner, obj);
+            }));
+        }
 
         var define = new PropertyDefine<T>(metaTable);
         PropertyRegistry.Register(define.OwnerType, define);
@@ -469,7 +480,7 @@ public abstract class Element : IElement
         {
             oldLogical.NotifyDetachedFromLogicalTree(new LogicalTreeAttachmentEventArgs(this, null));
         }
-        
+
         if (newValue is ILogicalElement newLogical)
         {
             newLogical.NotifyAttachedToLogicalTree(new LogicalTreeAttachmentEventArgs(null, this));
