@@ -6,11 +6,11 @@ public sealed class PixelPointAnimator : Animator<PixelPoint>
 {
     public override PixelPoint Interpolate(float progress, PixelPoint oldValue, PixelPoint newValue)
     {
-        var deltaX = newValue.X - oldValue.X;
-        var deltaY = newValue.Y - oldValue.Y;
+        int deltaX = newValue.X - oldValue.X;
+        int deltaY = newValue.Y - oldValue.Y;
 
-        var newX = (deltaX * progress) + oldValue.X;
-        var newY = (deltaY * progress) + oldValue.Y;
+        float newX = (deltaX * progress) + oldValue.X;
+        float newY = (deltaY * progress) + oldValue.Y;
 
         return new PixelPoint((int)MathF.Round(newX), (int)MathF.Round(newY));
     }

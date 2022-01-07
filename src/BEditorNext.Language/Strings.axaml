@@ -78,6 +78,11 @@
         <x:String x:Key="DeleteRenderedObjectsString">Delete rendered objects</x:String>
         <x:String x:Key="StartIndexString">Start index</x:String>
         <x:String x:Key="CountString">Count</x:String>
+        <x:String x:Key="CornerRadiusString">Corner radius</x:String>
+        <x:String x:Key="TopLeftString">Top left</x:String>
+        <x:String x:Key="TopRightString">Top right</x:String>
+        <x:String x:Key="BottomLeftString">Bottom left</x:String>
+        <x:String x:Key="BottomRightString">Bottom right</x:String>
 
         <!--Verb-->
         <x:String x:Key="OpenString">Open</x:String>
@@ -129,6 +134,7 @@
         <x:String x:Key="BlendString">Blend</x:String>
         <x:String x:Key="OffscreenDrawingString">OffscreenDrawing</x:String>
         <x:String x:Key="RenderAllString">Render all</x:String>
+        <x:String x:Key="RoundedRectString">Rounded rect</x:String>
 
         <x:String x:Key="RotateString">Rotate</x:String>
         <x:String x:Key="ScaleString">Scale</x:String>

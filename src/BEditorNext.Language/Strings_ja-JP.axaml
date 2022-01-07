@@ -80,6 +80,11 @@
         <x:String x:Key="EditAnimationString">アニメーションを編集</x:String>
         <x:String x:Key="PickFontString">フォントを選択</x:String>
         <x:String x:Key="DoneString">確定</x:String>
+        <x:String x:Key="CornerRadiusString">Corner radius</x:String>
+        <x:String x:Key="TopLeftString">左上</x:String>
+        <x:String x:Key="TopRightString">右上</x:String>
+        <x:String x:Key="BottomLeftString">左下</x:String>
+        <x:String x:Key="BottomRightString">右下</x:String>
 
         <!--Command-->
         <x:String x:Key="AddRenderOperationString">Render operationを追加</x:String>
@@ -103,6 +108,7 @@
         <x:String x:Key="BlendString">ブレンド</x:String>
         <x:String x:Key="OffscreenDrawingString">オフスクリーン描画</x:String>
         <x:String x:Key="RenderAllString">すべてレンダリング</x:String>
+        <x:String x:Key="RoundedRectString">角丸四角形</x:String>
 
         <x:String x:Key="RotateString">回転</x:String>
         <x:String x:Key="ScaleString">スケール</x:String>
