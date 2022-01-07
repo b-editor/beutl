@@ -418,5 +418,14 @@ public readonly struct Matrix : IEquatable<Matrix>
         public Vector Scale;
         public Vector Skew;
         public float Angle;
+
+        public Matrix Compose()
+        {
+            return Identity
+                .Prepend(CreateTranslation(Translate))
+                .Prepend(CreateRotation(Angle))
+                .Prepend(CreateSkew(Skew.X, Skew.Y))
+                .Prepend(CreateScale(Scale));
+        }
     }
 }

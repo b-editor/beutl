@@ -63,6 +63,7 @@ public abstract class Drawable : IDrawable, IRenderable
         VerifyAccess();
         Size size = Size.ToSize(1);
         Rect bounds = BitmapEffect.MeasureAll(new Rect(size), Effects);
+        Matrix transform = Transform.Calculate();
 
         using (canvas.PushState())
         {
@@ -74,7 +75,7 @@ public abstract class Drawable : IDrawable, IRenderable
             Vector relpt = CreateRelPoint(size);
 
             canvas.SetMatrix(Matrix.CreateTranslation(relpt) *
-                Transform.Calculate() *
+                transform *
                 Matrix.CreateTranslation(pt) *
                 canvas.TotalMatrix);
 
