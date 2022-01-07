@@ -96,6 +96,7 @@
         <x:String x:Key="RectString">矩形</x:String>
         <x:String x:Key="TextString">テキスト</x:String>
         <x:String x:Key="ImageFileString">画像ファイル</x:String>
+        <x:String x:Key="OffscreenDrawingString">オフスクリーン描画</x:String>
         <x:String x:Key="AlignString">整列</x:String>
         <x:String x:Key="BlendString">ブレンド</x:String>
         <x:String x:Key="RotateString">回転</x:String>

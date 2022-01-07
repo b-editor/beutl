@@ -122,6 +122,7 @@
         <x:String x:Key="RectString">Rect</x:String>
         <x:String x:Key="TextString">Text</x:String>
         <x:String x:Key="ImageFileString">ImageFile</x:String>
+        <x:String x:Key="OffscreenDrawingString">OffscreenDrawing</x:String>
         <x:String x:Key="AlignString">Align</x:String>
         <x:String x:Key="BlendString">Blend</x:String>
         <x:String x:Key="RotateString">Rotate</x:String>

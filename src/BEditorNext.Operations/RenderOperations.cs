@@ -36,6 +36,7 @@ public static class RenderOperations
         RenderOperationRegistry.RegisterOperation<FormattedTextOperation>("TextString");
         RenderOperationRegistry.RegisterOperation<ImageFileOperation>("ImageFileString");
         RenderOperationRegistry.RegisterOperation<BlendOperation>("BlendString");
+        RenderOperationRegistry.RegisterOperation<OffscreenDrawing>("OffscreenDrawingString");
         RenderOperationRegistry.RegisterOperation<TestOperation>("TestString");
     }
 }
