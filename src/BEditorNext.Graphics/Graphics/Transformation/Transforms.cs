@@ -2,6 +2,15 @@
 
 public sealed class Transforms : List<ITransform>
 {
+    public Transforms()
+    {
+    }
+
+    public Transforms(IEnumerable<ITransform> transforms)
+        : base(transforms)
+    {
+    }
+
     public Matrix Calculate()
     {
         Transforms list = this;
