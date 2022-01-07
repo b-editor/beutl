@@ -57,7 +57,7 @@ public abstract class Drawable : IDrawable, IRenderable
         PixelSize pixelSize = Size;
         Size size = pixelSize.ToSize(1);
         Rect bounds = BitmapEffect.MeasureAll(new Rect(size), Effects);
-        using var canvas = new Canvas((int)bounds.Right, (int)bounds.Bottom);
+        using var canvas = new Canvas((int)bounds.Width, (int)bounds.Height);
 
         OnDraw(canvas);
 
