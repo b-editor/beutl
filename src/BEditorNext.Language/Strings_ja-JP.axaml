@@ -49,6 +49,9 @@
         <x:String x:Key="ValueString">値</x:String>
         <x:String x:Key="SaturationRangeString">彩度範囲</x:String>
         <x:String x:Key="HueRangeString">色相範囲</x:String>
+        <x:String x:Key="DeleteRenderedObjectsString">レンダリングしたオブジェクトを削除する</x:String>
+        <x:String x:Key="StartIndexString">開始インデックス</x:String>
+        <x:String x:Key="CountString">カウント</x:String>
 
         <!--Verb-->
         <x:String x:Key="OpenString">開く</x:String>
@@ -96,14 +99,17 @@
         <x:String x:Key="RectString">矩形</x:String>
         <x:String x:Key="TextString">テキスト</x:String>
         <x:String x:Key="ImageFileString">画像ファイル</x:String>
-        <x:String x:Key="OffscreenDrawingString">オフスクリーン描画</x:String>
         <x:String x:Key="AlignString">整列</x:String>
         <x:String x:Key="BlendString">ブレンド</x:String>
+        <x:String x:Key="OffscreenDrawingString">オフスクリーン描画</x:String>
+        <x:String x:Key="RenderAllString">すべてレンダリング</x:String>
+
         <x:String x:Key="RotateString">回転</x:String>
         <x:String x:Key="ScaleString">スケール</x:String>
         <x:String x:Key="SkewString">歪み</x:String>
         <x:String x:Key="TranslateString">移動</x:String>
         <x:String x:Key="TransformString">トランスフォーム</x:String>
+        
         <x:String x:Key="EffectString">エフェクト</x:String>
         <x:String x:Key="BrightnessString">明るさ</x:String>
         <x:String x:Key="BinarizationString">二階調化</x:String>

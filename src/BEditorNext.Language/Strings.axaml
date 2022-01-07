@@ -75,6 +75,9 @@
         <x:String x:Key="ValueString">Value</x:String>
         <x:String x:Key="SaturationRangeString">Saturation range</x:String>
         <x:String x:Key="HueRangeString">Hue range</x:String>
+        <x:String x:Key="DeleteRenderedObjectsString">Delete rendered objects</x:String>
+        <x:String x:Key="StartIndexString">Start index</x:String>
+        <x:String x:Key="CountString">Count</x:String>
 
         <!--Verb-->
         <x:String x:Key="OpenString">Open</x:String>
@@ -122,14 +125,17 @@
         <x:String x:Key="RectString">Rect</x:String>
         <x:String x:Key="TextString">Text</x:String>
         <x:String x:Key="ImageFileString">ImageFile</x:String>
-        <x:String x:Key="OffscreenDrawingString">OffscreenDrawing</x:String>
         <x:String x:Key="AlignString">Align</x:String>
         <x:String x:Key="BlendString">Blend</x:String>
+        <x:String x:Key="OffscreenDrawingString">OffscreenDrawing</x:String>
+        <x:String x:Key="RenderAllString">Render all</x:String>
+
         <x:String x:Key="RotateString">Rotate</x:String>
         <x:String x:Key="ScaleString">Scale</x:String>
         <x:String x:Key="SkewString">Skew</x:String>
         <x:String x:Key="TranslateString">Translate</x:String>
         <x:String x:Key="TransformString">Transform</x:String>
+
         <x:String x:Key="TestString">Test</x:String>
         <x:String x:Key="EffectString">Effect</x:String>
         <x:String x:Key="BrightnessString">Brightness</x:String>
