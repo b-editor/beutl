@@ -26,8 +26,8 @@ public class Player : RangeBase
     private string _currentTime = string.Empty;
     private bool _isPlaying;
     private ToggleButton _playButton;
-    private Button _nextButton;
-    private Button _previousButton;
+    private RepeatButton _nextButton;
+    private RepeatButton _previousButton;
     private Button _endButton;
     private Button _startButton;
     private Image _image;
@@ -89,8 +89,8 @@ public class Player : RangeBase
     {
         base.OnApplyTemplate(e);
         _playButton = e.NameScope.Find<ToggleButton>("PART_PlayButton");
-        _nextButton = e.NameScope.Find<Button>("PART_NextButton");
-        _previousButton = e.NameScope.Find<Button>("PART_PreviousButton");
+        _nextButton = e.NameScope.Find<RepeatButton>("PART_NextButton");
+        _previousButton = e.NameScope.Find<RepeatButton>("PART_PreviousButton");
         _endButton = e.NameScope.Find<Button>("PART_EndButton");
         _startButton = e.NameScope.Find<Button>("PART_StartButton");
         _image = e.NameScope.Find<Image>("PART_Image");

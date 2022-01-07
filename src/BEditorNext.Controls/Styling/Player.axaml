@@ -32,6 +32,15 @@
                             <Style Selector="Button:disabled /template/ ContentPresenter#PART_ContentPresenter">
                                 <Setter Property="Background" Value="Transparent" />
                             </Style>
+                            <Style Selector="RepeatButton">
+                                <Setter Property="BorderThickness" Value="0" />
+                                <Setter Property="Background" Value="Transparent" />
+                                <Setter Property="Delay" Value="300" />
+                                <Setter Property="Interval" Value="25" />
+                            </Style>
+                            <Style Selector="RepeatButton:disabled /template/ ContentPresenter#PART_ContentPresenter">
+                                <Setter Property="Background" Value="Transparent" />
+                            </Style>
                             <Style Selector="ToggleButton">
                                 <Setter Property="BorderThickness" Value="0" />
                                 <Setter Property="Background" Value="Transparent" />
@@ -87,9 +96,9 @@
                                 <FluentIconRegular IconType="Arrow_Previous" />
                             </Button>
 
-                            <Button Grid.Column="2" Name="PART_PreviousButton">
+                            <RepeatButton Grid.Column="2" Name="PART_PreviousButton">
                                 <FluentIconRegular IconType="Rewind" />
-                            </Button>
+                            </RepeatButton>
 
                             <ToggleButton
                                 Name="PART_PlayButton"
@@ -113,9 +122,9 @@
                                 </ToggleButton.Styles>
                             </ToggleButton>
 
-                            <Button Grid.Column="4" Name="PART_NextButton">
+                            <RepeatButton Grid.Column="4" Name="PART_NextButton">
                                 <FluentIconRegular IconType="Fast_Forward" />
-                            </Button>
+                            </RepeatButton>
 
                             <Button Grid.Column="5" Name="PART_EndButton">
                                 <FluentIconRegular IconType="Arrow_Next" />
