@@ -31,7 +31,7 @@ public sealed class BlendOperation : ConfigureOperation<IDrawable>
 
     public BlendMode BlendMode { get; set; }
 
-    public override void Configure(in OperationRenderArgs args, IDrawable obj)
+    public override void Configure(in OperationRenderArgs args, ref IDrawable obj)
     {
         obj.BlendMode = BlendMode;
 

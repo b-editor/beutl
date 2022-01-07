@@ -43,7 +43,7 @@ public sealed class AlignOperation : ConfigureOperation<IDrawable>
 
     public AlignmentY VerticalContentAlignment { get; set; }
 
-    public override void Configure(in OperationRenderArgs args, IDrawable obj)
+    public override void Configure(in OperationRenderArgs args, ref IDrawable obj)
     {
         obj.HorizontalAlignment = HorizontalAlignment;
         obj.HorizontalContentAlignment = HorizontalContentAlignment;
