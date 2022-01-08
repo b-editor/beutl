@@ -18,9 +18,7 @@
                  Classes="clearButton" />
 
         <ListBox SelectedItem="{CompiledBinding SelectedItem.Value}"
-                 Items="{CompiledBinding Items}"
                  MaxHeight="250"
-                 VirtualizationMode="None"
                  Grid.Row="1"
                  x:Name="list"
                  SelectionMode="Single">
