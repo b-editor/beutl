@@ -88,6 +88,11 @@ public class FormattedText : Drawable
     public Bitmap<Bgra8888> ToBitmapWithoutEffect()
     {
         Size size = Bounds;
+        if (size.Width <= 0 || size.Height <= 0)
+        {
+            return new Bitmap<Bgra8888>(0, 0);
+        }
+
         using var g = new Canvas((int)size.Width, (int)size.Height);
 
         DrawCore(g);
