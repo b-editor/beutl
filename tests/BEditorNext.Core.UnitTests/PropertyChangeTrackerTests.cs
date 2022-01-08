@@ -51,9 +51,10 @@ public class TestElement : Element
 
     static TestElement()
     {
-        StringProperty = RegisterProperty<string, TestElement>("String")
+        StringProperty = ConfigureProperty<string, TestElement>("String")
             .DefaultValue(string.Empty)
-            .NotifyPropertyChanged(true);
+            .Observability(PropertyObservability.Changed)
+            .Register();
     }
 
     public string String
