@@ -18,7 +18,7 @@ public sealed class CornerRadiusEditorViewModel : BaseEditorViewModel<CornerRadi
 
     public ReadOnlyReactivePropertySlim<CornerRadius> Value { get; }
 
-    public CornerRadius Maximum => Setter.Property.GetValueOrDefault(PropertyMetaTableKeys.Maximum, new CornerRadius(float.MaxValue, float.MaxValue, float.MaxValue, float.MaxValue));
+    public CornerRadius Maximum => Setter.GetValueOrDefault(PropertyMetaTableKeys.Maximum, new CornerRadius(float.MaxValue, float.MaxValue, float.MaxValue, float.MaxValue));
 
-    public CornerRadius Minimum => Setter.Property.GetValueOrDefault(PropertyMetaTableKeys.Minimum, new CornerRadius(float.MinValue, float.MinValue, float.MinValue, float.MinValue));
+    public CornerRadius Minimum => Setter.GetValueOrDefault(PropertyMetaTableKeys.Minimum, new CornerRadius(float.MinValue, float.MinValue, float.MinValue, float.MinValue));
 }

@@ -32,7 +32,7 @@ public class AnimatableSetter<T> : Setter<T>, IAnimatableSetter
         _children = new LogicalList<Animation<T>>(this);
     }
 
-    public AnimatableSetter(PropertyDefine<T> property)
+    public AnimatableSetter(CoreProperty<T> property)
         : base(property)
     {
         _children = new LogicalList<Animation<T>>(this);

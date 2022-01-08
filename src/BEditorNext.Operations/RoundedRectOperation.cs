@@ -6,53 +6,63 @@ namespace BEditorNext.Operations;
 
 public sealed class RoundedRectOperation : DrawableOperation
 {
-    public static readonly PropertyDefine<float> WidthProperty;
-    public static readonly PropertyDefine<float> HeightProperty;
-    public static readonly PropertyDefine<float> StrokeWidthProperty;
-    public static readonly PropertyDefine<Color> ColorProperty;
-    public static readonly PropertyDefine<CornerRadius> CornerRadiusProperty;
+    public static readonly CoreProperty<float> WidthProperty;
+    public static readonly CoreProperty<float> HeightProperty;
+    public static readonly CoreProperty<float> StrokeWidthProperty;
+    public static readonly CoreProperty<Color> ColorProperty;
+    public static readonly CoreProperty<CornerRadius> CornerRadiusProperty;
     private readonly RoundedRect _drawable = new();
 
     static RoundedRectOperation()
     {
-        WidthProperty = RegisterProperty<float, RoundedRectOperation>(nameof(Width), owner => owner.Width, (owner, obj) => owner.Width = obj)
+        WidthProperty = ConfigureProperty<float, RoundedRectOperation>(nameof(Width))
+            .Accessor(owner => owner.Width, (owner, obj) => owner.Width = obj)
             .DefaultValue(100)
             .Animatable()
             .Header("WidthString")
             .JsonName("width")
             .Minimum(0)
-            .EnableEditor();
+            .EnableEditor()
+            .Register();
 
-        HeightProperty = RegisterProperty<float, RoundedRectOperation>(nameof(Height), owner => owner.Height, (owner, obj) => owner.Height = obj)
+        HeightProperty = ConfigureProperty<float, RoundedRectOperation>(nameof(Height))
+            .Accessor(owner => owner.Height, (owner, obj) => owner.Height = obj)
             .DefaultValue(100)
             .Animatable()
             .Header("HeightString")
             .JsonName("height")
             .Minimum(0)
-            .EnableEditor();
+            .EnableEditor()
+            .Register();
 
-        StrokeWidthProperty = RegisterProperty<float, RoundedRectOperation>(nameof(StrokeWidth), owner => owner.StrokeWidth, (owner, obj) => owner.StrokeWidth = obj)
+        StrokeWidthProperty = ConfigureProperty<float, RoundedRectOperation>(nameof(StrokeWidth))
+            .Accessor(owner => owner.StrokeWidth, (owner, obj) => owner.StrokeWidth = obj)
             .DefaultValue(4000)
             .Animatable()
             .Header("StrokeWidthString")
             .JsonName("strokeWidth")
             .Minimum(0)
-            .EnableEditor();
+            .EnableEditor()
+            .Register();
 
-        ColorProperty = RegisterProperty<Color, RoundedRectOperation>(nameof(Color), owner => owner.Color, (owner, obj) => owner.Color = obj)
+        ColorProperty = ConfigureProperty<Color, RoundedRectOperation>(nameof(Color))
+            .Accessor(owner => owner.Color, (owner, obj) => owner.Color = obj)
             .DefaultValue(Colors.White)
             .Animatable()
             .Header("ColorString")
             .JsonName("color")
-            .EnableEditor();
+            .EnableEditor()
+            .Register();
 
-        CornerRadiusProperty = RegisterProperty<CornerRadius, RoundedRectOperation>(nameof(CornerRadius), owner => owner.CornerRadius, (owner, obj) => owner.CornerRadius = obj)
+        CornerRadiusProperty = ConfigureProperty<CornerRadius, RoundedRectOperation>(nameof(CornerRadius))
+            .Accessor(owner => owner.CornerRadius, (owner, obj) => owner.CornerRadius = obj)
             .DefaultValue(new CornerRadius(25))
             .Minimum(new CornerRadius(0))
             .Animatable()
             .Header("CornerRadiusString")
             .JsonName("cornerRadius")
-            .EnableEditor();
+            .EnableEditor()
+            .Register();
     }
 
     public float Width

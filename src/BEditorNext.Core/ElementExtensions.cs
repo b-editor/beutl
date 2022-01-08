@@ -34,19 +34,19 @@ public static class ElementExtensions
         return null;
     }
 
-    public static IObservable<T> GetObservable<T>(this IElement obj, PropertyDefine<T> property)
+    public static IObservable<T> GetObservable<T>(this ICoreObject obj, CoreProperty<T> property)
     {
         ArgumentNullException.ThrowIfNull(obj);
         ArgumentNullException.ThrowIfNull(property);
 
-        return new ElementSubject<T>(obj, property);
+        return new CoreObjectSubject<T>(obj, property);
     }
 
-    public static ISubject<T> GetSubject<T>(this IElement obj, PropertyDefine<T> property)
+    public static ISubject<T> GetSubject<T>(this ICoreObject obj, CoreProperty<T> property)
     {
         ArgumentNullException.ThrowIfNull(obj);
         ArgumentNullException.ThrowIfNull(property);
 
-        return new ElementSubject<T>(obj, property);
+        return new CoreObjectSubject<T>(obj, property);
     }
 }

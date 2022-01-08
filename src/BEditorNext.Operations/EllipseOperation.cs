@@ -1,9 +1,6 @@
 ﻿using BEditorNext.Graphics;
 using BEditorNext.Media;
 using BEditorNext.ProjectSystem;
-using BEditorNext.Rendering;
-
-using SkiaSharp;
 
 namespace BEditorNext.Operations;
 
@@ -37,44 +34,52 @@ public static class BrushExtensions
 
 public sealed class EllipseOperation : DrawableOperation
 {
-    public static readonly PropertyDefine<float> WidthProperty;
-    public static readonly PropertyDefine<float> HeightProperty;
-    public static readonly PropertyDefine<float> StrokeWidthProperty;
-    public static readonly PropertyDefine<Color> ColorProperty;
+    public static readonly CoreProperty<float> WidthProperty;
+    public static readonly CoreProperty<float> HeightProperty;
+    public static readonly CoreProperty<float> StrokeWidthProperty;
+    public static readonly CoreProperty<Color> ColorProperty;
     private readonly Ellipse _drawable = new();
 
     static EllipseOperation()
     {
-        WidthProperty = RegisterProperty<float, EllipseOperation>(nameof(Width), (owner, obj) => owner.Width = obj, owner => owner.Width)
+        WidthProperty = ConfigureProperty<float, EllipseOperation>(nameof(Width))
+            .Accessor(o => o.Width, (o, v) => o.Width = v)
             .DefaultValue(100)
             .Animatable()
             .Header("WidthString")
             .JsonName("width")
             .Minimum(0)
-            .EnableEditor();
+            .EnableEditor()
+            .Register();
 
-        HeightProperty = RegisterProperty<float, EllipseOperation>(nameof(Height), (owner, obj) => owner.Height = obj, owner => owner.Height)
+        HeightProperty = ConfigureProperty<float, EllipseOperation>(nameof(Height))
+            .Accessor(o => o.Height, (o, v) => o.Height = v)
             .DefaultValue(100)
             .Animatable()
             .Header("HeightString")
             .JsonName("height")
             .Minimum(0)
-            .EnableEditor();
+            .EnableEditor()
+            .Register();
 
-        StrokeWidthProperty = RegisterProperty<float, EllipseOperation>(nameof(StrokeWidth), (owner, obj) => owner.StrokeWidth = obj, owner => owner.StrokeWidth)
+        StrokeWidthProperty = ConfigureProperty<float, EllipseOperation>(nameof(StrokeWidth))
+            .Accessor(o => o.StrokeWidth, (o, v) => o.StrokeWidth = v)
             .DefaultValue(4000)
             .Animatable()
             .Header("StrokeWidthString")
             .JsonName("strokeWidth")
             .Minimum(0)
-            .EnableEditor();
+            .EnableEditor()
+            .Register();
 
-        ColorProperty = RegisterProperty<Color, EllipseOperation>(nameof(Color), (owner, obj) => owner.Color = obj, owner => owner.Color)
+        ColorProperty = ConfigureProperty<Color, EllipseOperation>(nameof(Color))
+            .Accessor(o => o.Color, (o, v) => o.Color = v)
             .DefaultValue(Colors.White)
             .Animatable()
             .Header("ColorString")
             .JsonName("color")
-            .EnableEditor();
+            .EnableEditor()
+            .Register();
     }
 
     public float Width

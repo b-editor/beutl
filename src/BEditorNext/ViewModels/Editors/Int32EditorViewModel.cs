@@ -18,9 +18,9 @@ public sealed class Int32EditorViewModel : BaseNumberEditorViewModel<int>
 
     public ReadOnlyReactivePropertySlim<int> Value { get; }
 
-    public override int Maximum => Setter.Property.GetValueOrDefault(PropertyMetaTableKeys.Maximum, int.MaxValue);
+    public override int Maximum => Setter.GetValueOrDefault(PropertyMetaTableKeys.Maximum, int.MaxValue);
 
-    public override int Minimum => Setter.Property.GetValueOrDefault(PropertyMetaTableKeys.Minimum, int.MinValue);
+    public override int Minimum => Setter.GetValueOrDefault(PropertyMetaTableKeys.Minimum, int.MinValue);
 
     public override INumberEditorService<int> EditorService { get; } = NumberEditorService.Instance.Get<int>();
 }

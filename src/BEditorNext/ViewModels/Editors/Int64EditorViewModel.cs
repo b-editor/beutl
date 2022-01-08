@@ -18,9 +18,9 @@ public sealed class Int64EditorViewModel : BaseNumberEditorViewModel<long>
 
     public ReadOnlyReactivePropertySlim<long> Value { get; }
 
-    public override long Maximum => Setter.Property.GetValueOrDefault(PropertyMetaTableKeys.Maximum, long.MaxValue);
+    public override long Maximum => Setter.GetValueOrDefault(PropertyMetaTableKeys.Maximum, long.MaxValue);
 
-    public override long Minimum => Setter.Property.GetValueOrDefault(PropertyMetaTableKeys.Minimum, long.MinValue);
+    public override long Minimum => Setter.GetValueOrDefault(PropertyMetaTableKeys.Minimum, long.MinValue);
 
     public override INumberEditorService<long> EditorService { get; } = NumberEditorService.Instance.Get<long>();
 }

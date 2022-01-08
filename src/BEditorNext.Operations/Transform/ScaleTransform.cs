@@ -4,30 +4,36 @@ namespace BEditorNext.Operations.Transform;
 
 public sealed class ScaleTransform : TransformOperation
 {
-    public static readonly PropertyDefine<float> ScaleProperty;
-    public static readonly PropertyDefine<float> ScaleXProperty;
-    public static readonly PropertyDefine<float> ScaleYProperty;
+    public static readonly CoreProperty<float> ScaleProperty;
+    public static readonly CoreProperty<float> ScaleXProperty;
+    public static readonly CoreProperty<float> ScaleYProperty;
     private readonly Graphics.Transformation.ScaleTransform _transform = new();
 
     static ScaleTransform()
     {
-        ScaleProperty = RegisterProperty<float, ScaleTransform>(nameof(Scale), (owner, obj) => owner.Scale = obj, owner => owner.Scale)
+        ScaleProperty = ConfigureProperty<float, ScaleTransform>(nameof(Scale))
             .EnableEditor()
             .Animatable()
             .DefaultValue(100f)
-            .JsonName("scale");
+            .JsonName("scale")
+            .Accessor(owner => owner.Scale, (owner, obj) => owner.Scale = obj)
+            .Register();
 
-        ScaleXProperty = RegisterProperty<float, ScaleTransform>(nameof(ScaleX), (owner, obj) => owner.ScaleX = obj, owner => owner.ScaleX)
+        ScaleXProperty = ConfigureProperty<float, ScaleTransform>(nameof(ScaleX))
             .EnableEditor()
             .Animatable()
             .DefaultValue(100f)
-            .JsonName("scaleX");
+            .JsonName("scaleX")
+            .Accessor(owner => owner.ScaleX, (owner, obj) => owner.ScaleX = obj)
+            .Register();
 
-        ScaleYProperty = RegisterProperty<float, ScaleTransform>(nameof(ScaleY), (owner, obj) => owner.ScaleY = obj, owner => owner.ScaleY)
+        ScaleYProperty = ConfigureProperty<float, ScaleTransform>(nameof(ScaleY))
             .EnableEditor()
             .Animatable()
             .DefaultValue(100f)
-            .JsonName("scaleY");
+            .JsonName("scaleY")
+            .Accessor(owner => owner.ScaleY, (owner, obj) => owner.ScaleY = obj)
+            .Register();
     }
 
     public float Scale

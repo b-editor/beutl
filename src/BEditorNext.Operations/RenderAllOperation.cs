@@ -5,31 +5,37 @@ namespace BEditorNext.Operations;
 
 public sealed class RenderAllOperation : RenderOperation
 {
-    public static readonly PropertyDefine<bool> DeleteRenderedObjectsProperty;
-    public static readonly PropertyDefine<int> StartProperty;
-    public static readonly PropertyDefine<int> CountProperty;
+    public static readonly CoreProperty<bool> DeleteRenderedObjectsProperty;
+    public static readonly CoreProperty<int> StartProperty;
+    public static readonly CoreProperty<int> CountProperty;
 
     static RenderAllOperation()
     {
-        DeleteRenderedObjectsProperty = RegisterProperty<bool, RenderAllOperation>(nameof(DeleteRenderedObjects), o => o.DeleteRenderedObjects, (o, v) => o.DeleteRenderedObjects = v)
+        DeleteRenderedObjectsProperty = ConfigureProperty<bool, RenderAllOperation>(nameof(DeleteRenderedObjects))
+            .Accessor(x => x.DeleteRenderedObjects, (o, v) => o.DeleteRenderedObjects = v)
             .Header("DeleteRenderedObjectsString")
             .EnableEditor()
             .DefaultValue(true)
-            .JsonName("deleteRendered");
+            .JsonName("deleteRendered")
+            .Register();
 
-        StartProperty = RegisterProperty<int, RenderAllOperation>(nameof(Start), o => o.Start, (o, v) => o.Start = v)
+        StartProperty = ConfigureProperty<int, RenderAllOperation>(nameof(Start))
+            .Accessor(o => o.Start, (o, v) => o.Start = v)
             .Header("StartIndexString")
             .EnableEditor()
             .DefaultValue(0)
             .Minimum(0)
-            .JsonName("start");
+            .JsonName("start")
+            .Register();
 
-        CountProperty = RegisterProperty<int, RenderAllOperation>(nameof(Count), o => o.Count, (o, v) => o.Count = v)
+        CountProperty = ConfigureProperty<int, RenderAllOperation>(nameof(Count))
+            .Accessor(o => o.Count, (o, v) => o.Count = v)
             .Header("CountString")
             .EnableEditor()
             .DefaultValue(-1)
             .Minimum(-1)
-            .JsonName("count");
+            .JsonName("count")
+            .Register();
     }
 
     public bool DeleteRenderedObjects { get; set; } = true;

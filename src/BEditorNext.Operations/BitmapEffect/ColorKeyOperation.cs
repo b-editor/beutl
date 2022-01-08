@@ -5,22 +5,26 @@ namespace BEditorNext.Operations.BitmapEffect;
 
 public sealed class ColorKeyOperation : BitmapEffectOperation<ColorKey>
 {
-    public static readonly PropertyDefine<int> ValueProperty;
-    public static readonly PropertyDefine<Color> ColorProperty;
+    public static readonly CoreProperty<int> ValueProperty;
+    public static readonly CoreProperty<Color> ColorProperty;
 
     static ColorKeyOperation()
     {
-        ValueProperty = RegisterProperty<int, ColorKeyOperation>(nameof(Value), (o, v) => o.Value = v, o => o.Value)
+        ValueProperty = ConfigureProperty<int, ColorKeyOperation>(nameof(Value))
+            .Accessor(o => o.Value, (o, v) => o.Value = v)
             .EnableEditor()
             .Animatable()
             .Header("Value")
-            .JsonName("value");
+            .JsonName("value")
+            .Register();
 
-        ColorProperty = RegisterProperty<Color, ColorKeyOperation>(nameof(Color), (o, v) => o.Color = v, o => o.Color)
+        ColorProperty = ConfigureProperty<Color, ColorKeyOperation>(nameof(Color))
+            .Accessor(o => o.Color, (o, v) => o.Color = v)
             .EnableEditor()
             .Animatable()
             .Header("ColorString")
-            .JsonName("color");
+            .JsonName("color")
+            .Register();
     }
 
     public int Value

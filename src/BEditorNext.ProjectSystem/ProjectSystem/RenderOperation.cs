@@ -1,5 +1,4 @@
-﻿using System;
-using System.Text.Json.Nodes;
+﻿using System.Text.Json.Nodes;
 
 using BEditorNext.Collections;
 
@@ -7,46 +6,52 @@ namespace BEditorNext.ProjectSystem;
 
 public abstract class RenderOperation : Element, ILogicalElement
 {
-    public static readonly PropertyDefine<bool> IsEnabledProperty;
-    public static readonly PropertyDefine<RenderOperationViewState> ViewStateProperty;
+    public static readonly CoreProperty<bool> IsEnabledProperty;
+    public static readonly CoreProperty<RenderOperationViewState> ViewStateProperty;
     private readonly LogicalList<ISetter> _setters;
     private bool _isEnabled = true;
 
     static RenderOperation()
     {
-        IsEnabledProperty = RegisterProperty<bool, RenderOperation>(nameof(IsEnabled), (owner, obj) => owner.IsEnabled = obj, owner => owner.IsEnabled)
+        IsEnabledProperty = ConfigureProperty<bool, RenderOperation>(nameof(IsEnabled))
+            .Accessor(o => o.IsEnabled, (o, v) => o.IsEnabled = v)
             .DefaultValue(true)
-            .NotifyPropertyChanged(true)
-            .JsonName("isEnabled");
+            .Observability(PropertyObservability.Changed)
+            .JsonName("isEnabled")
+            .Register();
 
-        ViewStateProperty = RegisterProperty<RenderOperationViewState, RenderOperation>(nameof(ViewState))
-            .NotifyPropertyChanged(true);
+        ViewStateProperty = ConfigureProperty<RenderOperationViewState, RenderOperation>(nameof(ViewState))
+            .Observability(PropertyObservability.Changed)
+            .Register();
     }
 
     public RenderOperation()
     {
         _setters = new LogicalList<ISetter>(this);
         ViewState = new RenderOperationViewState();
-        foreach (PropertyDefine item in PropertyRegistry.GetRegistered(GetType())
-            .Where(x => x.GetValueOrDefault<bool>(PropertyMetaTableKeys.Editor) == true))
+
+        Type ownerType = GetType();
+        foreach ((CoreProperty property, CorePropertyMetadata metadata) in PropertyRegistry.GetRegistered(ownerType)
+            .Select(x => (property: x, metadata: x.GetMetadata(ownerType)))
+            .Where(x => x.metadata.GetValueOrDefault<bool>(PropertyMetaTableKeys.Editor) == true))
         {
             Type? type;
 
-            if (item.GetValueOrDefault(PropertyMetaTableKeys.IsAnimatable, false))
+            if (metadata.GetValueOrDefault(PropertyMetaTableKeys.IsAnimatable, false))
             {
-                type = typeof(AnimatableSetter<>).MakeGenericType(item.PropertyType);
+                type = typeof(AnimatableSetter<>).MakeGenericType(property.PropertyType);
             }
             else
             {
-                type = typeof(Setter<>).MakeGenericType(item.PropertyType);
+                type = typeof(Setter<>).MakeGenericType(property.PropertyType);
             }
 
-            if (Activator.CreateInstance(type, item) is ISetter setter)
+            if (Activator.CreateInstance(type, property) is ISetter setter)
             {
                 setter.Parent = this;
                 _setters.Add(setter);
 
-                if (!setter.Property.GetValueOrDefault(PropertyMetaTableKeys.SuppressAutoRender, false))
+                if (!metadata.GetValueOrDefault(PropertyMetaTableKeys.SuppressAutoRender, false))
                 {
                     setter.GetObservable().Subscribe(_ => ForceRender());
                 }
@@ -101,11 +106,12 @@ public abstract class RenderOperation : Element, ILogicalElement
         var removed = new List<KeyValuePair<string, JsonNode>>();
         if (json is JsonObject jsonObject)
         {
+            Type ownerType = GetType();
             for (int i = 0; i < _setters.Count; i++)
             {
                 ISetter setter = _setters[i];
-                string? jsonName = setter.Property.GetJsonName();
-                if (jsonName != null && jsonObject.TryGetPropertyValue(jsonName!, out JsonNode? node))
+                string? jsonName = setter.Property.GetMetadata(ownerType).GetValueOrDefault<string>(PropertyMetaTableKeys.JsonName);
+                if (jsonName != null && jsonObject.TryGetPropertyValue(jsonName, out JsonNode? node))
                 {
                     setter.FromJson(node!);
 
@@ -130,10 +136,11 @@ public abstract class RenderOperation : Element, ILogicalElement
 
         if (node is JsonObject jsonObject)
         {
+            Type ownerType = GetType();
             for (int i = 0; i < _setters.Count; i++)
             {
                 ISetter setter = _setters[i];
-                string? jsonName = setter.Property.GetJsonName();
+                string? jsonName = setter.Property.GetMetadata(ownerType).GetValueOrDefault<string>(PropertyMetaTableKeys.JsonName);
                 if (jsonName != null)
                 {
                     jsonObject[jsonName] = setter.ToJson();
@@ -144,7 +151,7 @@ public abstract class RenderOperation : Element, ILogicalElement
         return node;
     }
 
-    protected ISetter? FindSetter(PropertyDefine property)
+    protected ISetter? FindSetter(CoreProperty property)
     {
         foreach (ISetter? item in _setters)
         {

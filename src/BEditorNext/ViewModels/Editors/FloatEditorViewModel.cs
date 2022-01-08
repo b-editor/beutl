@@ -18,9 +18,9 @@ public sealed class FloatEditorViewModel : BaseNumberEditorViewModel<float>
 
     public ReadOnlyReactivePropertySlim<float> Value { get; }
 
-    public override float Maximum => Setter.Property.GetValueOrDefault(PropertyMetaTableKeys.Maximum, float.MaxValue);
+    public override float Maximum => Setter.GetValueOrDefault(PropertyMetaTableKeys.Maximum, float.MaxValue);
 
-    public override float Minimum => Setter.Property.GetValueOrDefault(PropertyMetaTableKeys.Minimum, float.MinValue);
+    public override float Minimum => Setter.GetValueOrDefault(PropertyMetaTableKeys.Minimum, float.MinValue);
 
     public override INumberEditorService<float> EditorService { get; } = NumberEditorService.Instance.Get<float>();
 }

@@ -7,11 +7,11 @@ namespace BEditorNext.ProjectSystem;
 // Todo: IResourceProviderを実装
 public class Project : Element, ITopLevel, IStorable
 {
-    public static readonly PropertyDefine<Scene?> SelectedSceneProperty;
-    public static readonly PropertyDefine<Version> AppVersionProperty;
-    public static readonly PropertyDefine<Version> MinimumAppVersionProperty;
-    public static readonly PropertyDefine<int> FrameRateProperty;
-    public static readonly PropertyDefine<int> SampleRateProperty;
+    public static readonly CoreProperty<Scene?> SelectedSceneProperty;
+    public static readonly CoreProperty<Version> AppVersionProperty;
+    public static readonly CoreProperty<Version> MinimumAppVersionProperty;
+    public static readonly CoreProperty<int> FrameRateProperty;
+    public static readonly CoreProperty<int> SampleRateProperty;
     private string? _rootDirectory;
     private string? _fileName;
     private Scene? _selectedScene;
@@ -20,31 +20,38 @@ public class Project : Element, ITopLevel, IStorable
 
     static Project()
     {
-        SelectedSceneProperty = RegisterProperty<Scene?, Project>(nameof(SelectedScene), (owner, obj) => owner.SelectedScene = obj, owner => owner.SelectedScene)
-            .NotifyPropertyChanged(true)
-            .NotifyPropertyChanging(true);
+        SelectedSceneProperty = ConfigureProperty<Scene?, Project>(nameof(SelectedScene))
+            .Accessor(o => o.SelectedScene, (o, v) => o.SelectedScene = v)
+            .Observability(PropertyObservability.ChangingAndChanged)
+            .Register();
 
-        AppVersionProperty = RegisterProperty<Version, Project>(nameof(AppVersion), owner => owner.AppVersion);
+        AppVersionProperty = ConfigureProperty<Version, Project>(nameof(AppVersion))
+            .Accessor(o => o.AppVersion)
+            .Register();
 
-        MinimumAppVersionProperty = RegisterProperty<Version, Project>(nameof(MinimumAppVersion), owner => owner.MinimumAppVersion)
-            .DefaultValue(new Version(0, 3));
+        MinimumAppVersionProperty = ConfigureProperty<Version, Project>(nameof(MinimumAppVersion))
+            .Accessor(o => o.MinimumAppVersion)
+            .DefaultValue(new Version(0, 3))
+            .Register();
 
-        FrameRateProperty = RegisterProperty<int, Project>(nameof(FrameRate), (owner, obj) => owner.FrameRate = obj, owner => owner.FrameRate)
-            .NotifyPropertyChanged(true)
-            .NotifyPropertyChanging(true)
+        FrameRateProperty = ConfigureProperty<int, Project>(nameof(FrameRate))
+            .Accessor(o => o.FrameRate, (o, v) => o.FrameRate = v)
+            .Observability(PropertyObservability.ChangingAndChanged)
             .DefaultValue(30)
-            .JsonName("framerate");
+            .JsonName("framerate")
+            .Register();
 
-        SampleRateProperty = RegisterProperty<int, Project>(nameof(SampleRate), (owner, obj) => owner.SampleRate = obj, owner => owner.SampleRate)
-            .NotifyPropertyChanged(true)
-            .NotifyPropertyChanging(true)
+        SampleRateProperty = ConfigureProperty<int, Project>(nameof(SampleRate))
+            .Accessor(o => o.SampleRate, (o, v) => o.SampleRate = v)
+            .Observability(PropertyObservability.ChangingAndChanged)
             .DefaultValue(44100)
-            .JsonName("samplerate");
+            .JsonName("samplerate")
+            .Register();
     }
 
     public Project()
     {
-        MinimumAppVersion = MinimumAppVersionProperty.GetDefaultValue()!;
+        MinimumAppVersion = new Version(0, 3);
     }
 
     public Project(int framerate, int samplerate)
@@ -166,8 +173,6 @@ public class Project : Element, ITopLevel, IStorable
 
         if (node is JsonObject jobject)
         {
-            jobject.Remove(NameProperty.GetValue<string>(PropertyMetaTableKeys.JsonName));
-
             jobject["appVersion"] = JsonValue.Create(AppVersion);
             jobject["minAppVersion"] = JsonValue.Create(MinimumAppVersion);
 

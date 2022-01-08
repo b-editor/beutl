@@ -5,14 +5,14 @@ using System.Diagnostics.CodeAnalysis;
 
 namespace BEditorNext;
 
-internal sealed class ElementSubject<T> : SubjectBase<T>
+internal sealed class CoreObjectSubject<T> : SubjectBase<T>
 {
-    private readonly PropertyDefine<T> _property;
+    private readonly CoreProperty<T> _property;
     private readonly List<IObserver<T>> _list = new();
     private bool _isDisposed;
-    private IElement? _object;
+    private ICoreObject? _object;
 
-    public ElementSubject(IElement o, PropertyDefine<T> property)
+    public CoreObjectSubject(ICoreObject o, CoreProperty<T> property)
     {
         _object = o;
         _property = property;
@@ -51,7 +51,7 @@ internal sealed class ElementSubject<T> : SubjectBase<T>
     public override IDisposable Subscribe(IObserver<T> observer)
     {
         if (observer is null) throw new ArgumentNullException(nameof(observer));
-        if (IsDisposed) throw new ObjectDisposedException(nameof(ElementSubject<T>));
+        if (IsDisposed) throw new ObjectDisposedException(nameof(CoreObjectSubject<T>));
 
         _list.Add(observer);
 
@@ -74,7 +74,7 @@ internal sealed class ElementSubject<T> : SubjectBase<T>
     private void Object_PropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName != _property.Name) return;
-        if (IsDisposed) throw new ObjectDisposedException(nameof(ElementSubject<T>));
+        if (IsDisposed) throw new ObjectDisposedException(nameof(CoreObjectSubject<T>));
 
         T value = _object.GetValue(_property);
         foreach (IObserver<T>? item in _list)

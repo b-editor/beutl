@@ -9,70 +9,86 @@ namespace BEditorNext.Operations;
 
 public sealed class FormattedTextOperation : RenderOperation
 {
-    public static readonly PropertyDefine<float> SizeProperty;
-    public static readonly PropertyDefine<Color> ColorProperty;
-    public static readonly PropertyDefine<FontFamily> FontFamilyProperty;
-    public static readonly PropertyDefine<FontStyle> StyleProperty;
-    public static readonly PropertyDefine<FontWeight> WeightProperty;
-    public static readonly PropertyDefine<float> SpaceProperty;
-    public static readonly PropertyDefine<Thickness> MarginProperty;
-    public static readonly PropertyDefine<string> TextProperty;
+    public static readonly CoreProperty<float> SizeProperty;
+    public static readonly CoreProperty<Color> ColorProperty;
+    public static readonly CoreProperty<FontFamily> FontFamilyProperty;
+    public static readonly CoreProperty<FontStyle> StyleProperty;
+    public static readonly CoreProperty<FontWeight> WeightProperty;
+    public static readonly CoreProperty<float> SpaceProperty;
+    public static readonly CoreProperty<Thickness> MarginProperty;
+    public static readonly CoreProperty<string> TextProperty;
     private FormattedText? _formattedText;
 
     static FormattedTextOperation()
     {
-        SizeProperty = RegisterProperty<float, FormattedTextOperation>(nameof(Size), (owner, obj) => owner.Size = obj, owner => owner.Size)
+        SizeProperty = ConfigureProperty<float, FormattedTextOperation>(nameof(Size))
+            .Accessor(o => o.Size, (o, v) => o.Size = v)
             .EnableEditor()
             .Minimum(0)
             .DefaultValue(FormattedTextInfo.Default.Size)
             .Animatable()
             .Header("SizeString")
-            .JsonName("size");
+            .JsonName("size")
+            .Register();
 
-        ColorProperty = RegisterProperty<Color, FormattedTextOperation>(nameof(Color), (owner, obj) => owner.Color = obj, owner => owner.Color)
+        ColorProperty = ConfigureProperty<Color, FormattedTextOperation>(nameof(Color))
+            .Accessor(o => o.Color, (o, v) => o.Color = v)
             .EnableEditor()
             .DefaultValue(FormattedTextInfo.Default.Color)
             .Animatable()
             .Header("ColorString")
-            .JsonName("color");
+            .JsonName("color")
+            .Register();
 
-        FontFamilyProperty = RegisterProperty<FontFamily, FormattedTextOperation>(nameof(FontFamily), (owner, obj) => owner.FontFamily = obj, owner => owner.FontFamily)
+        FontFamilyProperty = ConfigureProperty<FontFamily, FormattedTextOperation>(nameof(FontFamily))
+            .Accessor(o => o.FontFamily, (o, v) => o.FontFamily = v)
             .EnableEditor()
             .DefaultValue(FormattedTextInfo.Default.Typeface.FontFamily)
             .Header("FontFamilyString")
-            .JsonName("font");
+            .JsonName("font")
+            .Register();
 
-        StyleProperty = RegisterProperty<FontStyle, FormattedTextOperation>(nameof(Style), (owner, obj) => owner.Style = obj, owner => owner.Style)
+        StyleProperty = ConfigureProperty<FontStyle, FormattedTextOperation>(nameof(Style))
+            .Accessor(o => o.Style, (o, v) => o.Style = v)
             .EnableEditor()
             .DefaultValue(FormattedTextInfo.Default.Typeface.Style)
             .Header("FontStyleString")
-            .JsonName("style");
+            .JsonName("style")
+            .Register();
 
-        WeightProperty = RegisterProperty<FontWeight, FormattedTextOperation>(nameof(Weight), (owner, obj) => owner.Weight = obj, owner => owner.Weight)
+        WeightProperty = ConfigureProperty<FontWeight, FormattedTextOperation>(nameof(Weight))
+            .Accessor(o => o.Weight, (o, v) => o.Weight = v)
             .EnableEditor()
             .DefaultValue(FormattedTextInfo.Default.Typeface.Weight)
             .Header("FontWeightString")
-            .JsonName("weight");
+            .JsonName("weight")
+            .Register();
 
-        SpaceProperty = RegisterProperty<float, FormattedTextOperation>(nameof(Space), (owner, obj) => owner.Space = obj, owner => owner.Space)
+        SpaceProperty = ConfigureProperty<float, FormattedTextOperation>(nameof(Space))
+            .Accessor(o => o.Space, (o, v) => o.Space = v)
             .EnableEditor()
             .DefaultValue(0)
             .Animatable()
             .Header("CharactorSpacingString")
-            .JsonName("space");
+            .JsonName("space")
+            .Register();
 
-        MarginProperty = RegisterProperty<Thickness, FormattedTextOperation>(nameof(Margin), (owner, obj) => owner.Margin = obj, owner => owner.Margin)
+        MarginProperty = ConfigureProperty<Thickness, FormattedTextOperation>(nameof(Margin))
+            .Accessor(o => o.Margin, (o, v) => o.Margin = v)
             .EnableEditor()
             .DefaultValue(new Thickness())
             .Animatable()
             .Header("MarginString")
-            .JsonName("margin");
+            .JsonName("margin")
+            .Register();
 
-        TextProperty = RegisterProperty<string, FormattedTextOperation>(nameof(Text), (owner, obj) => owner.Text = obj, owner => owner.Text)
+        TextProperty = ConfigureProperty<string, FormattedTextOperation>(nameof(Text))
+            .Accessor(o => o.Text, (o, v) => o.Text = v)
             .EnableEditor()
             .DefaultValue(string.Empty)
             .Header("TextString")
-            .JsonName("text");
+            .JsonName("text")
+            .Register();
     }
 
     public float Size { get; set; } = FormattedTextInfo.Default.Size;

@@ -6,44 +6,52 @@ namespace BEditorNext.Operations;
 
 public sealed class RectOperation : DrawableOperation
 {
-    public static readonly PropertyDefine<float> WidthProperty;
-    public static readonly PropertyDefine<float> HeightProperty;
-    public static readonly PropertyDefine<float> StrokeWidthProperty;
-    public static readonly PropertyDefine<Color> ColorProperty;
+    public static readonly CoreProperty<float> WidthProperty;
+    public static readonly CoreProperty<float> HeightProperty;
+    public static readonly CoreProperty<float> StrokeWidthProperty;
+    public static readonly CoreProperty<Color> ColorProperty;
     private readonly Rectangle _drawable = new();
 
     static RectOperation()
     {
-        WidthProperty = RegisterProperty<float, RectOperation>(nameof(Width), (owner, obj) => owner.Width = obj, owner => owner.Width)
+        WidthProperty = ConfigureProperty<float, RectOperation>(nameof(Width))
+            .Accessor(o => o.Width, (o, v) => o.Width = v)
             .DefaultValue(100)
             .Animatable()
             .Header("WidthString")
             .JsonName("width")
             .Minimum(0)
-            .EnableEditor();
+            .EnableEditor()
+            .Register();
 
-        HeightProperty = RegisterProperty<float, RectOperation>(nameof(Height), (owner, obj) => owner.Height = obj, owner => owner.Height)
+        HeightProperty = ConfigureProperty<float, RectOperation>(nameof(Height))
+            .Accessor(o => o.Height, (o, v) => o.Height = v)
             .DefaultValue(100)
             .Animatable()
             .Header("HeightString")
             .JsonName("height")
             .Minimum(0)
-            .EnableEditor();
+            .EnableEditor()
+            .Register();
 
-        StrokeWidthProperty = RegisterProperty<float, RectOperation>(nameof(StrokeWidth), (owner, obj) => owner.StrokeWidth = obj, owner => owner.StrokeWidth)
+        StrokeWidthProperty = ConfigureProperty<float, RectOperation>(nameof(StrokeWidth))
+            .Accessor(o => o.StrokeWidth, (o, v) => o.StrokeWidth = v)
             .DefaultValue(4000)
             .Animatable()
             .Header("StrokeWidthString")
             .JsonName("strokeWidth")
             .Minimum(0)
-            .EnableEditor();
+            .EnableEditor()
+            .Register();
 
-        ColorProperty = RegisterProperty<Color, RectOperation>(nameof(Color), (owner, obj) => owner.Color = obj, owner => owner.Color)
+        ColorProperty = ConfigureProperty<Color, RectOperation>(nameof(Color))
+            .Accessor(o => o.Color, (o, v) => o.Color = v)
             .DefaultValue(Colors.White)
             .Animatable()
             .Header("ColorString")
             .JsonName("color")
-            .EnableEditor();
+            .EnableEditor()
+            .Register();
     }
 
     public float Width

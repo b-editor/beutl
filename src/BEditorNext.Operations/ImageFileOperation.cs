@@ -2,24 +2,25 @@
 using BEditorNext.Media;
 using BEditorNext.Media.Pixel;
 using BEditorNext.ProjectSystem;
-using BEditorNext.Rendering;
 
 namespace BEditorNext.Operations;
 
 public sealed class ImageFileOperation : RenderOperation
 {
-    public static readonly PropertyDefine<FileInfo?> FileProperty;
+    public static readonly CoreProperty<FileInfo?> FileProperty;
     private Bitmap<Bgra8888>? _cache;
     private DrawableBitmap? _latest;
 
     static ImageFileOperation()
     {
-        FileProperty = RegisterProperty<FileInfo?, ImageFileOperation>(nameof(File), (owner, obj) => owner.File = obj, owner => owner.File)
+        FileProperty = ConfigureProperty<FileInfo?, ImageFileOperation>(nameof(File))
+            .Accessor(o => o.File, (o, v) => o.File = v)
             .EnableEditor()
             .SuppressAutoRender(true)
             .JsonName("file")
             .FilePicker("ImageFileString", "bmp", "gif", "ico", "jpg", "jpeg", "png", "wbmp", "webp", "pkm", "ktx", "astc", "dng", "heif")
-            .Header("ImageFileString");
+            .Header("ImageFileString")
+            .Register();
     }
 
     public ImageFileOperation()

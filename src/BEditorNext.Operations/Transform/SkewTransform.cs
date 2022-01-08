@@ -1,26 +1,28 @@
-﻿using System.Numerics;
-
-namespace BEditorNext.Operations.Transform;
+﻿namespace BEditorNext.Operations.Transform;
 
 public sealed class SkewTransform : TransformOperation
 {
-    public static readonly PropertyDefine<float> SkewXProperty;
-    public static readonly PropertyDefine<float> SkewYProperty;
+    public static readonly CoreProperty<float> SkewXProperty;
+    public static readonly CoreProperty<float> SkewYProperty;
     private readonly Graphics.Transformation.SkewTransform _transform = new();
 
     static SkewTransform()
     {
-        SkewXProperty = RegisterProperty<float, SkewTransform>(nameof(SkewX), (owner, obj) => owner.SkewX = obj, owner => owner.SkewX)
+        SkewXProperty = ConfigureProperty<float, SkewTransform>(nameof(SkewX))
             .EnableEditor()
             .Animatable()
             .DefaultValue(0f)
-            .JsonName("skewX");
+            .Accessor(owner => owner.SkewX, (owner, obj) => owner.SkewX = obj)
+            .JsonName("skewX")
+            .Register();
 
-        SkewYProperty = RegisterProperty<float, SkewTransform>(nameof(SkewY), (owner, obj) => owner.SkewY = obj, owner => owner.SkewY)
+        SkewYProperty = ConfigureProperty<float, SkewTransform>(nameof(SkewY))
             .EnableEditor()
             .Animatable()
             .DefaultValue(0f)
-            .JsonName("skewY");
+            .JsonName("skewY")
+            .Accessor(owner => owner.SkewY, (owner, obj) => owner.SkewY = obj)
+            .Register();
     }
 
     public float SkewX

@@ -16,8 +16,8 @@ public partial class FileInfoEditor : UserControl
     {
         if (DataContext is not FileInfoEditorViewModel vm || VisualRoot is not Window window) return;
 
-        ResourceReference<string> filterName = vm.Setter.Property.GetValueOrDefault<ResourceReference<string>>(PropertyMetaTableKeys.FilePickerName);
-        string[]? exts = vm.Setter.Property.GetValueOrDefault<string[]>(PropertyMetaTableKeys.FilePickerExtensions);
+        ResourceReference<string> filterName = vm.Setter.GetValueOrDefault<ResourceReference<string>>(PropertyMetaTableKeys.FilePickerName);
+        string[]? exts = vm.Setter.GetValueOrDefault<string[]>(PropertyMetaTableKeys.FilePickerExtensions);
 
         var dialog = new OpenFileDialog();
 

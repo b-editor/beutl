@@ -18,7 +18,7 @@ public sealed class PixelPointEditorViewModel : BaseEditorViewModel<PixelPoint>
 
     public ReadOnlyReactivePropertySlim<PixelPoint> Value { get; }
 
-    public PixelPoint Maximum => Setter.Property.GetValueOrDefault(PropertyMetaTableKeys.Maximum, new PixelPoint(int.MaxValue, int.MaxValue));
+    public PixelPoint Maximum => Setter.GetValueOrDefault(PropertyMetaTableKeys.Maximum, new PixelPoint(int.MaxValue, int.MaxValue));
 
-    public PixelPoint Minimum => Setter.Property.GetValueOrDefault(PropertyMetaTableKeys.Minimum, new PixelPoint(int.MinValue, int.MinValue));
+    public PixelPoint Minimum => Setter.GetValueOrDefault(PropertyMetaTableKeys.Minimum, new PixelPoint(int.MinValue, int.MinValue));
 }

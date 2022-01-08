@@ -4,15 +4,15 @@ namespace BEditorNext;
 
 public abstract class ElementPropertyChangedEventArgs : PropertyChangedEventArgs
 {
-    protected ElementPropertyChangedEventArgs(Element sender, PropertyDefine property)
+    protected ElementPropertyChangedEventArgs(CoreObject sender, CoreProperty property)
         : base(property.Name)
     {
         Sender = sender;
     }
 
-    public Element Sender { get; }
+    public CoreObject Sender { get; }
 
-    public PropertyDefine Property => GetProperty();
+    public CoreProperty Property => GetProperty();
 
     public object? NewValue => GetNewValue();
 
@@ -22,12 +22,12 @@ public abstract class ElementPropertyChangedEventArgs : PropertyChangedEventArgs
 
     protected abstract object? GetOldValue();
 
-    protected abstract PropertyDefine GetProperty();
+    protected abstract CoreProperty GetProperty();
 }
 
-public sealed class ElementPropertyChangedEventArgs<TValue> : ElementPropertyChangedEventArgs
+public sealed class CorePropertyChangedEventArgs<TValue> : ElementPropertyChangedEventArgs
 {
-    public ElementPropertyChangedEventArgs(Element sender, PropertyDefine<TValue> property, TValue? newValue, TValue? oldValue)
+    public CorePropertyChangedEventArgs(CoreObject sender, CoreProperty<TValue> property, TValue? newValue, TValue? oldValue)
         : base(sender, property)
     {
         Property = property;
@@ -35,7 +35,7 @@ public sealed class ElementPropertyChangedEventArgs<TValue> : ElementPropertyCha
         OldValue = oldValue;
     }
 
-    public new PropertyDefine<TValue> Property { get; }
+    public new CoreProperty<TValue> Property { get; }
 
     public new TValue? NewValue { get; }
 
@@ -51,7 +51,7 @@ public sealed class ElementPropertyChangedEventArgs<TValue> : ElementPropertyCha
         return OldValue;
     }
 
-    protected override PropertyDefine GetProperty()
+    protected override CoreProperty GetProperty()
     {
         return Property;
     }

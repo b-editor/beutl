@@ -3,6 +3,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
+using BEditorNext.Media;
 using BEditorNext.Rendering;
 
 using Microsoft.Extensions.FileSystemGlobbing;
@@ -12,13 +13,13 @@ namespace BEditorNext.ProjectSystem;
 
 public class Scene : Element, IStorable
 {
-    public static readonly PropertyDefine<int> WidthProperty;
-    public static readonly PropertyDefine<int> HeightProperty;
-    public static readonly PropertyDefine<TimeSpan> DurationProperty;
-    public static readonly PropertyDefine<TimeSpan> CurrentFrameProperty;
-    public static readonly PropertyDefine<SceneLayer?> SelectedItemProperty;
-    public static readonly PropertyDefine<PreviewOptions?> PreviewOptionsProperty;
-    public static readonly PropertyDefine<TimelineOptions> TimelineOptionsProperty;
+    public static readonly CoreProperty<int> WidthProperty;
+    public static readonly CoreProperty<int> HeightProperty;
+    public static readonly CoreProperty<TimeSpan> DurationProperty;
+    public static readonly CoreProperty<TimeSpan> CurrentFrameProperty;
+    public static readonly CoreProperty<SceneLayer?> SelectedItemProperty;
+    public static readonly CoreProperty<PreviewOptions?> PreviewOptionsProperty;
+    public static readonly CoreProperty<TimelineOptions> TimelineOptionsProperty;
     private readonly List<string> _includeLayers = new()
     {
         "**/*.layer"
@@ -46,43 +47,57 @@ public class Scene : Element, IStorable
 
     static Scene()
     {
-        WidthProperty = RegisterProperty<int, Scene>(nameof(Width), owner => owner.Width)
-            .NotifyPropertyChanged(true)
-            .JsonName("width");
+        WidthProperty = ConfigureProperty<int, Scene>(nameof(Width))
+            .Accessor(o => o.Width)
+            .Observability(PropertyObservability.Changed)
+            .JsonName("width")
+            .Register();
 
-        HeightProperty = RegisterProperty<int, Scene>(nameof(Height), owner => owner.Height)
-            .NotifyPropertyChanged(true)
-            .JsonName("height");
+        HeightProperty = ConfigureProperty<int, Scene>(nameof(Height))
+            .Accessor(o => o.Height)
+            .Observability(PropertyObservability.Changed)
+            .JsonName("height")
+            .Register();
 
-        DurationProperty = RegisterProperty<TimeSpan, Scene>(nameof(Duration), (owner, obj) => owner.Duration = obj, owner => owner.Duration)
-            .NotifyPropertyChanged(true)
-            .NotifyPropertyChanging(true)
-            .JsonName("duration");
+        DurationProperty = ConfigureProperty<TimeSpan, Scene>(nameof(Duration))
+            .Accessor(o => o.Duration, (o, v) => o.Duration = v)
+            .Observability(PropertyObservability.ChangingAndChanged)
+            .JsonName("duration")
+            .Register();
 
-        CurrentFrameProperty = RegisterProperty<TimeSpan, Scene>(nameof(CurrentFrame), (owner, obj) => owner.CurrentFrame = obj, owner => owner.CurrentFrame)
-            .NotifyPropertyChanged(true)
-            .NotifyPropertyChanging(true)
-            .JsonName("currentFrame");
+        CurrentFrameProperty = ConfigureProperty<TimeSpan, Scene>(nameof(CurrentFrame))
+            .Accessor(o => o.CurrentFrame, (o, v) => o.CurrentFrame = v)
+            .Observability(PropertyObservability.ChangingAndChanged)
+            .JsonName("currentFrame")
+            .Register();
 
-        SelectedItemProperty = RegisterProperty<SceneLayer?, Scene>(nameof(SelectedItem), (owner, obj) => owner.SelectedItem = obj, owner => owner.SelectedItem)
-            .NotifyPropertyChanged(true)
-            .NotifyPropertyChanging(true);
+        SelectedItemProperty = ConfigureProperty<SceneLayer?, Scene>(nameof(SelectedItem))
+            .Accessor(o => o.SelectedItem, (o, v) => o.SelectedItem = v)
+            .Observability(PropertyObservability.ChangingAndChanged)
+            .Register();
 
-        PreviewOptionsProperty = RegisterProperty<PreviewOptions?, Scene>(nameof(PreviewOptions), (owner, obj) => owner.PreviewOptions = obj, owner => owner.PreviewOptions)
-            .NotifyPropertyChanged(true)
-            .NotifyPropertyChanging(true);
+        PreviewOptionsProperty = ConfigureProperty<PreviewOptions?, Scene>(nameof(PreviewOptions))
+            .Accessor(o => o.PreviewOptions, (o, v) => o.PreviewOptions = v)
+            .Observability(PropertyObservability.ChangingAndChanged)
+            .Register();
 
-        TimelineOptionsProperty = RegisterProperty<TimelineOptions, Scene>(nameof(TimelineOptions), (owner, obj) => owner.TimelineOptions = obj, owner => owner.TimelineOptions)
-            .NotifyPropertyChanged(true)
-            .NotifyPropertyChanging(true);
+        TimelineOptionsProperty = ConfigureProperty<TimelineOptions, Scene>(nameof(TimelineOptions))
+            .Accessor(o => o.TimelineOptions, (o, v) => o.TimelineOptions = v)
+            .Observability(PropertyObservability.ChangingAndChanged)
+            .Register();
 
-        CurrentFrameProperty.Changed.Subscribe((Action<ElementPropertyChangedEventArgs<TimeSpan>>)(e =>
+        NameProperty.OverrideMetadata(typeof(Scene), new CorePropertyMetadata(null, PropertyObservability.None, new()
+        {
+            { PropertyMetaTableKeys.JsonName, "name" }
+        }));
+
+        CurrentFrameProperty.Changed.Subscribe(e =>
         {
             if (e.Sender is Scene scene)
             {
                 scene._renderer.Invalidate();
             }
-        }));
+        });
     }
 
     public event EventHandler<CurrentFrameChangedEventArgs>? CurrentFrameChanged;
@@ -150,11 +165,12 @@ public class Scene : Element, IStorable
     [MemberNotNull("_renderer")]
     public void Initialize(int width, int height)
     {
+        PixelSize oldSize = _renderer?.Graphics?.Size ?? PixelSize.Empty;
         _renderer?.Dispose();
         _renderer = new SceneRenderer(this, width, height);
 
-        OnPropertyChanged(nameof(Width));
-        OnPropertyChanged(nameof(Height));
+        OnPropertyChanged(new CorePropertyChangedEventArgs<int>(this, WidthProperty, width, oldSize.Width));
+        OnPropertyChanged(new CorePropertyChangedEventArgs<int>(this, HeightProperty, height, oldSize.Height));
     }
 
     // layer.FileNameが既に設定されている状態

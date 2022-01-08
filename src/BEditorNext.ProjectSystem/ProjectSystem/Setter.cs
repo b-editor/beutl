@@ -12,18 +12,20 @@ namespace BEditorNext.ProjectSystem;
 
 public interface ISetter : IJsonSerializable, INotifyPropertyChanged, ILogicalElement
 {
-    public PropertyDefine Property { get; set; }
+    CoreProperty Property { get; set; }
 
-    public Element Parent { get; set; }
+    Element Parent { get; set; }
+    
+    object? Value { get; }
 
-    public void SetProperty();
+    void SetProperty();
 
-    public IObservable<Unit> GetObservable();
+    IObservable<Unit> GetObservable();
 }
 
 public class Setter<T> : ISetter
 {
-    private PropertyDefine<T>? _property;
+    private CoreProperty<T>? _property;
     private T? _value;
     private Element? _parent;
 
@@ -31,13 +33,13 @@ public class Setter<T> : ISetter
     {
     }
 
-    public Setter(PropertyDefine<T> property)
+    public Setter(CoreProperty<T> property)
     {
         Property = property;
-        Value = property.GetDefaultValue();
+        Value = (T?)property.GetMetadata(property.OwnerType).DefaultValue;
     }
 
-    public PropertyDefine<T> Property
+    public CoreProperty<T> Property
     {
         get => _property ?? throw new Exception("The property is not set.");
         set
@@ -63,10 +65,10 @@ public class Setter<T> : ISetter
         }
     }
 
-    PropertyDefine ISetter.Property
+    CoreProperty ISetter.Property
     {
         get => Property;
-        set => Property = (PropertyDefine<T>)value;
+        set => Property = (CoreProperty<T>)value;
     }
 
     public Element Parent
@@ -85,6 +87,8 @@ public class Setter<T> : ISetter
     ILogicalElement? ILogicalElement.LogicalParent => _parent;
 
     IEnumerable<ILogicalElement> ILogicalElement.LogicalChildren => Enumerable.Empty<ILogicalElement>();
+
+    object? ISetter.Value => _value;
 
     public event PropertyChangedEventHandler? PropertyChanged;
     public event EventHandler<LogicalTreeAttachmentEventArgs>? AttachedToLogicalTree;

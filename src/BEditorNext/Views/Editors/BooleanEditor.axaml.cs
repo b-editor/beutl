@@ -20,6 +20,6 @@ public sealed partial class BooleanEditor : UserControl
             return;
         }
 
-        vm.SetValue(vm.Value.Value, checkBox.IsChecked ?? vm.Setter.Property.GetDefaultValue());
+        vm.SetValue(vm.Value.Value, (bool)checkBox.IsChecked!);
     }
 }

@@ -11,7 +11,7 @@ public sealed class PixelSizeAnimationEditorViewModel : AnimationEditorViewModel
     {
     }
 
-    public PixelSize Maximum => Setter.Property.GetValueOrDefault(PropertyMetaTableKeys.Maximum, new PixelSize(int.MaxValue, int.MaxValue));
+    public PixelSize Maximum => Setter.GetValueOrDefault(PropertyMetaTableKeys.Maximum, new PixelSize(int.MaxValue, int.MaxValue));
 
-    public PixelSize Minimum => Setter.Property.GetValueOrDefault(PropertyMetaTableKeys.Minimum, new PixelSize(int.MinValue, int.MinValue));
+    public PixelSize Minimum => Setter.GetValueOrDefault(PropertyMetaTableKeys.Minimum, new PixelSize(int.MinValue, int.MinValue));
 }

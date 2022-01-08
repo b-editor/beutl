@@ -18,7 +18,7 @@ public sealed partial class BooleanAnimationEditor : UserControl
     {
         if (DataContext is AnimationEditorViewModel<bool> vm)
         {
-            vm.SetPrevious(vm.Animation.Previous, prevCheckBox.IsChecked ?? vm.Setter.Property.GetDefaultValue());
+            vm.SetPrevious(vm.Animation.Previous, (bool)(prevCheckBox.IsChecked!));
         }
     }
 
@@ -26,7 +26,7 @@ public sealed partial class BooleanAnimationEditor : UserControl
     {
         if (DataContext is AnimationEditorViewModel<bool> vm)
         {
-            vm.SetNext(vm.Animation.Next, nextCheckBox.IsChecked ?? vm.Setter.Property.GetDefaultValue());
+            vm.SetNext(vm.Animation.Next, (bool)(nextCheckBox.IsChecked!));
         }
     }
 }

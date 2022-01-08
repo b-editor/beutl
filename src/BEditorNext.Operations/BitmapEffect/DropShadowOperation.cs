@@ -6,39 +6,47 @@ namespace BEditorNext.Operations.BitmapEffect;
 
 public sealed class DropShadowOperation : BitmapEffectOperation<DropShadow>
 {
-    public static readonly PropertyDefine<Point> PositionProperty;
-    public static readonly PropertyDefine<Point> SigmaProperty;
-    public static readonly PropertyDefine<Color> ColorProperty;
-    public static readonly PropertyDefine<bool> ShadowOnlyProperty;
+    public static readonly CoreProperty<Point> PositionProperty;
+    public static readonly CoreProperty<Point> SigmaProperty;
+    public static readonly CoreProperty<Color> ColorProperty;
+    public static readonly CoreProperty<bool> ShadowOnlyProperty;
 
     static DropShadowOperation()
     {
-        PositionProperty = RegisterProperty<Point, DropShadowOperation>(nameof(Position), (owner, obj) => owner.Position = obj, owner => owner.Position)
+        PositionProperty = ConfigureProperty<Point, DropShadowOperation>(nameof(Position))
+            .Accessor(o => o.Position, (o, v) => o.Position = v)
             .DefaultValue(new Point(10, 10))
             .EnableEditor()
             .Animatable()
             .Header("PositionString")
-            .JsonName("position");
+            .JsonName("position")
+            .Register();
 
-        SigmaProperty = RegisterProperty<Point, DropShadowOperation>(nameof(Sigma), (owner, obj) => owner.Sigma = obj, owner => owner.Sigma)
+        SigmaProperty = ConfigureProperty<Point, DropShadowOperation>(nameof(Sigma))
+            .Accessor(o => o.Sigma, (o, v) => o.Sigma = v)
             .DefaultValue(new Point(10, 10))
             .EnableEditor()
             .Animatable()
             .Header("SigmaString")
-            .JsonName("sigma");
+            .JsonName("sigma")
+            .Register();
 
-        ColorProperty = RegisterProperty<Color, DropShadowOperation>(nameof(Color), (owner, obj) => owner.Color = obj, owner => owner.Color)
+        ColorProperty = ConfigureProperty<Color, DropShadowOperation>(nameof(Color))
+            .Accessor(o => o.Color, (o, v) => o.Color = v)
             .DefaultValue(Colors.Black)
             .EnableEditor()
             .Animatable()
             .Header("ColorString")
-            .JsonName("color");
+            .JsonName("color")
+            .Register();
 
-        ShadowOnlyProperty = RegisterProperty<bool, DropShadowOperation>(nameof(ShadowOnly), (owner, obj) => owner.ShadowOnly = obj, owner => owner.ShadowOnly)
+        ShadowOnlyProperty = ConfigureProperty<bool, DropShadowOperation>(nameof(ShadowOnly))
+            .Accessor(o => o.ShadowOnly, (o, v) => o.ShadowOnly = v)
             .DefaultValue(false)
             .EnableEditor()
             .Header("ShadowOnlyString")
-            .JsonName("shadowOnly");
+            .JsonName("shadowOnly")
+            .Register();
     }
 
     public Point Position

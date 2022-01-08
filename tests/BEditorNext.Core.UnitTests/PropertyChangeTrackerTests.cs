@@ -47,13 +47,14 @@ public class PropertyChangeTrackerTests
 
 public class TestElement : Element
 {
-    public static readonly PropertyDefine<string> StringProperty;
+    public static readonly CoreProperty<string> StringProperty;
 
     static TestElement()
     {
-        StringProperty = RegisterProperty<string, TestElement>("String")
+        StringProperty = ConfigureProperty<string, TestElement>("String")
             .DefaultValue(string.Empty)
-            .NotifyPropertyChanged(true);
+            .Observability(PropertyObservability.Changed)
+            .Register();
     }
 
     public string String
