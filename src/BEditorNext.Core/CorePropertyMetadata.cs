@@ -24,7 +24,8 @@ public class CorePropertyMetadata
             throw new KeyNotFoundException();
         }
 
-        return (T)Options[key];
+        object? value = Options[key];
+        return value is T t ? t : (T)Convert.ChangeType(value, typeof(T));
     }
 
     public virtual T? GetValueOrDefault<T>(string key)
@@ -34,7 +35,8 @@ public class CorePropertyMetadata
             return default;
         }
 
-        return (T)Options[key];
+        object? value = Options[key];
+        return value is T t ? t : (T)Convert.ChangeType(value, typeof(T));
     }
 
     public virtual T GetValueOrDefault<T>(string key, T defaltValue)
@@ -44,7 +46,8 @@ public class CorePropertyMetadata
             return defaltValue;
         }
 
-        return (T)Options[key];
+        object? value = Options[key];
+        return value is T t ? t : (T)Convert.ChangeType(value, typeof(T));
     }
 
     public virtual void Merge(CorePropertyMetadata baseMetadata, CoreProperty property)
