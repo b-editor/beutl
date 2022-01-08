@@ -14,6 +14,20 @@ public partial class BaseVector2AnimationEditor : UserControl
     {
         InitializeComponent();
     }
+
+    private void Slide_Click(object? sender, RoutedEventArgs e)
+    {
+        if (carousel.SelectedIndex == 0)
+        {
+            carousel.Next();
+            button_icon.IconType = Controls.FluentIconsRegular.Chevron_Left;
+        }
+        else
+        {
+            carousel.Previous();
+            button_icon.IconType = Controls.FluentIconsRegular.Chevron_Right;
+        }
+    }
 }
 
 public abstract class BaseVector2AnimationEditor<T> : BaseVector2AnimationEditor

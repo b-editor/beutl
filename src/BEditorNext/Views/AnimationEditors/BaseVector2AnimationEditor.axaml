@@ -4,7 +4,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d" d:DesignWidth="300"
              x:Class="BEditorNext.Views.AnimationEditors.BaseVector2AnimationEditor">
-    <Grid ColumnDefinitions="2*,3*,Auto" RowDefinitions="*,*">
+    <Grid ColumnDefinitions="2*,3*,Auto" RowDefinitions="*,Auto">
         <Grid.Styles>
             <Style Selector="TextBox">
                 <Setter Property="Margin" Value="4" />
@@ -19,45 +19,62 @@
             HorizontalAlignment="Left"
             VerticalAlignment="Center" />
 
-        <Grid Grid.Column="1" ColumnDefinitions="24,*,*">
+        <Carousel x:Name="carousel" Grid.Column="1">
+            <Carousel.PageTransition>
+                <PageSlide Orientation="Horizontal"
+                           SlideInEasing="0.1,0.9,0.2,1.0"
+                           SlideOutEasing="0.1,0.9,0.2,1.0"
+                           Duration="00:00:00.67" />
+            </Carousel.PageTransition>
+            <Grid ColumnDefinitions="24,*,2*" RowDefinitions="*,*">
 
-            <FluentIconRegular IconType="Arrow_Left" Width="16" Height="16" />
+                <FluentIconRegular IconType="Border_Left" Width="16" Height="16" />
 
-            <TextBox
+                <TextBlock Grid.Column="1"
+                           x:Name="prevXText"
+                           VerticalAlignment="Center"
+                           Margin="4,0" />
+
+                <TextBox Grid.Column="2" x:Name="prevXTextBox" />
+
+                <TextBlock Grid.Column="1"
+                           Grid.Row="1"
+                           x:Name="prevYText"
+                           VerticalAlignment="Center"
+                           Margin="4,0" />
+
+                <TextBox Grid.Column="2" Grid.Row="1" x:Name="prevYTextBox" />
+            </Grid>
+
+            <Grid ColumnDefinitions="24,*,2*" RowDefinitions="*,*">
+                <FluentIconRegular IconType="Border_Right" Width="16" Height="16" />
+
+                <TextBlock Grid.Column="1"
+                           x:Name="nextXText"
+                           VerticalAlignment="Center"
+                           Margin="4,0" />
+
+                <TextBox Grid.Column="2" x:Name="nextXTextBox" />
+
+                <TextBlock Grid.Column="1"
+                           Grid.Row="1"
+                           x:Name="nextYText"
+                           VerticalAlignment="Center"
+                           Margin="4,0" />
+
+                <TextBox Grid.Column="2" Grid.Row="1" x:Name="nextYTextBox" />
+            </Grid>
+        </Carousel>
+        
+        <Button Grid.Row="2"
                 Grid.Column="1"
-                x:Name="prevXTextBox">
-                <TextBox.InnerRightContent>
-                    <TextBlock x:Name="prevXText" VerticalAlignment="Center" Margin="4,0" />
-                </TextBox.InnerRightContent>
-            </TextBox>
-            
-            <TextBox
-                Grid.Column="2"
-                x:Name="prevYTextBox">
-                <TextBox.InnerRightContent>
-                    <TextBlock x:Name="prevYText" VerticalAlignment="Center" Margin="4,0" />
-                </TextBox.InnerRightContent>
-            </TextBox>
-        </Grid>
-
-        <Grid Grid.Column="1" Grid.Row="1" ColumnDefinitions="24,*,*">
-            <FluentIconRegular IconType="Arrow_Right" Width="16" Height="16" />
-
-            <TextBox
-                Grid.Column="1"
-                x:Name="nextXTextBox">
-                <TextBox.InnerRightContent>
-                    <TextBlock x:Name="nextXText" VerticalAlignment="Center" Margin="4,0" />
-                </TextBox.InnerRightContent>
-            </TextBox>
-
-            <TextBox
-                Grid.Column="2"
-                x:Name="nextYTextBox">
-                <TextBox.InnerRightContent>
-                    <TextBlock x:Name="nextYText" VerticalAlignment="Center" Margin="4,0" />
-                </TextBox.InnerRightContent>
-            </TextBox>
-        </Grid>
+                BorderThickness="0"
+                Margin="0,0,4,4"
+                Click="Slide_Click"
+                HorizontalAlignment="Right">
+            <FluentIconRegular IconType="Chevron_Right"
+                               x:Name="button_icon"
+                               Width="12" Height="12" />
+        </Button>
     </Grid>
 </UserControl>

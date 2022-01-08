@@ -15,7 +15,7 @@
             VerticalAlignment="Center" />
 
         <Grid Grid.Column="1" ColumnDefinitions="24,*,Auto">
-            <FluentIconRegular IconType="Arrow_Left" Width="16" Height="16" />
+            <FluentIconRegular IconType="Border_Left" Width="16" Height="16" />
 
             <ui:ColorPickerButton
                 x:Name="prevColorPicker"
@@ -26,7 +26,7 @@
         </Grid>
         
         <Grid Grid.Column="1" Grid.Row="1" ColumnDefinitions="24,*,Auto">
-            <FluentIconRegular IconType="Arrow_Right" Width="16" Height="16" />
+            <FluentIconRegular IconType="Border_Right" Width="16" Height="16" />
 
             <ui:ColorPickerButton
                 x:Name="nextColorPicker"
