@@ -11,7 +11,7 @@ public sealed class ThicknessAnimationEditorViewModel : AnimationEditorViewModel
     {
     }
 
-    public Thickness Maximum => Setter.Property.GetValueOrDefault(PropertyMetaTableKeys.Maximum, new Thickness(float.MaxValue, float.MaxValue, float.MaxValue, float.MaxValue));
+    public Thickness Maximum => Setter.GetValueOrDefault(PropertyMetaTableKeys.Maximum, new Thickness(float.MaxValue, float.MaxValue, float.MaxValue, float.MaxValue));
 
-    public Thickness Minimum => Setter.Property.GetValueOrDefault(PropertyMetaTableKeys.Minimum, new Thickness(float.MinValue, float.MinValue, float.MinValue, float.MinValue));
+    public Thickness Minimum => Setter.GetValueOrDefault(PropertyMetaTableKeys.Minimum, new Thickness(float.MinValue, float.MinValue, float.MinValue, float.MinValue));
 }
