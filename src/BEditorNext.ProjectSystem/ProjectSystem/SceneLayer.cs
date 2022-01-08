@@ -8,11 +8,11 @@ namespace BEditorNext.ProjectSystem;
 
 public class SceneLayer : Element, IStorable
 {
-    public static readonly PropertyDefine<TimeSpan> StartProperty;
-    public static readonly PropertyDefine<TimeSpan> LengthProperty;
-    public static readonly PropertyDefine<int> LayerProperty;
-    public static readonly PropertyDefine<Color> AccentColorProperty;
-    public static readonly PropertyDefine<bool> IsEnabledProperty;
+    public static readonly CoreProperty<TimeSpan> StartProperty;
+    public static readonly CoreProperty<TimeSpan> LengthProperty;
+    public static readonly CoreProperty<int> LayerProperty;
+    public static readonly CoreProperty<Color> AccentColorProperty;
+    public static readonly CoreProperty<bool> IsEnabledProperty;
     private TimeSpan _start;
     private TimeSpan _length;
     private int _layer;
@@ -21,32 +21,42 @@ public class SceneLayer : Element, IStorable
 
     static SceneLayer()
     {
-        StartProperty = RegisterProperty<TimeSpan, SceneLayer>(nameof(Start), (owner, obj) => owner.Start = obj, owner => owner.Start)
-            .NotifyPropertyChanging(true)
-            .NotifyPropertyChanged(true)
-            .JsonName("start");
+        StartProperty = ConfigureProperty<TimeSpan, SceneLayer>(nameof(Start))
+            .Accessor(o => o.Start, (o, v) => o.Start = v)
+            .Observability(PropertyObservability.ChangingAndChanged)
+            .JsonName("start")
+            .Register();
 
-        LengthProperty = RegisterProperty<TimeSpan, SceneLayer>(nameof(Length), (owner, obj) => owner.Length = obj, owner => owner.Length)
-            .NotifyPropertyChanging(true)
-            .NotifyPropertyChanged(true)
-            .JsonName("length");
+        LengthProperty = ConfigureProperty<TimeSpan, SceneLayer>(nameof(Length))
+            .Accessor(o => o.Length, (o, v) => o.Length = v)
+            .Observability(PropertyObservability.ChangingAndChanged)
+            .JsonName("length")
+            .Register();
 
-        LayerProperty = RegisterProperty<int, SceneLayer>(nameof(Layer), (owner, obj) => owner.Layer = obj, owner => owner.Layer)
-            .NotifyPropertyChanging(true)
-            .NotifyPropertyChanged(true)
-            .JsonName("layer");
+        LayerProperty = ConfigureProperty<int, SceneLayer>(nameof(Layer))
+            .Accessor(o => o.Layer, (o, v) => o.Layer = v)
+            .Observability(PropertyObservability.ChangingAndChanged)
+            .JsonName("layer")
+            .Register();
 
-        AccentColorProperty = RegisterProperty<Color, SceneLayer>(nameof(AccentColor))
+        AccentColorProperty = ConfigureProperty<Color, SceneLayer>(nameof(AccentColor))
             .DefaultValue(Colors.Teal)
-            .NotifyPropertyChanging(true)
-            .NotifyPropertyChanged(true)
-            .JsonName("accentColor");
+            .Observability(PropertyObservability.ChangingAndChanged)
+            .JsonName("accentColor")
+            .Register();
 
-        IsEnabledProperty = RegisterProperty<bool, SceneLayer>(nameof(IsEnabled), (owner, obj) => owner.IsEnabled = obj, owner => owner.IsEnabled)
+        IsEnabledProperty = ConfigureProperty<bool, SceneLayer>(nameof(IsEnabled))
+            .Accessor(o => o.IsEnabled, (o, v) => o.IsEnabled = v)
             .DefaultValue(true)
-            .NotifyPropertyChanging(true)
-            .NotifyPropertyChanged(true)
-            .JsonName("isEnabled");
+            .Observability(PropertyObservability.ChangingAndChanged)
+            .JsonName("isEnabled")
+            .Register();
+
+        NameProperty.OverrideMetadata(typeof(SceneLayer), new CorePropertyMetadata(null, PropertyObservability.None, new()
+        {
+            { PropertyMetaTableKeys.JsonName, "name" }
+        }));
+
     }
 
     public SceneLayer()

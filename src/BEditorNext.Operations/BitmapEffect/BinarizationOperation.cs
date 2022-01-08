@@ -4,16 +4,18 @@ namespace BEditorNext.Operations.BitmapEffect;
 
 public sealed class BinarizationOperation : BitmapEffectOperation<Binarization>
 {
-    public static readonly PropertyDefine<byte> ValueProperty;
+    public static readonly CoreProperty<byte> ValueProperty;
 
     static BinarizationOperation()
     {
-        ValueProperty = RegisterProperty<byte, BinarizationOperation>(nameof(Value), (owner, obj) => owner.Value = obj, owner => owner.Value)
+        ValueProperty = ConfigureProperty<byte, BinarizationOperation>(nameof(Value))
+            .Accessor(o => o.Value, (o, v) => o.Value = v)
             .Animatable(true)
             .EnableEditor()
             .DefaultValue(byte.MinValue)
             .Header("ValueString")
-            .JsonName("value");
+            .JsonName("value")
+            .Register();
     }
 
     public byte Value

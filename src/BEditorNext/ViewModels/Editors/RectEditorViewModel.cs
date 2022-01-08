@@ -18,7 +18,7 @@ public sealed class RectEditorViewModel : BaseEditorViewModel<Rect>
 
     public ReadOnlyReactivePropertySlim<Rect> Value { get; }
 
-    public Rect Maximum => Setter.Property.GetValueOrDefault(PropertyMetaTableKeys.Maximum, new Rect(float.MaxValue, float.MaxValue, float.MaxValue, float.MaxValue));
+    public Rect Maximum => Setter.GetValueOrDefault(PropertyMetaTableKeys.Maximum, new Rect(float.MaxValue, float.MaxValue, float.MaxValue, float.MaxValue));
 
-    public Rect Minimum => Setter.Property.GetValueOrDefault(PropertyMetaTableKeys.Minimum, new Rect(float.MinValue, float.MinValue, float.MinValue, float.MinValue));
+    public Rect Minimum => Setter.GetValueOrDefault(PropertyMetaTableKeys.Minimum, new Rect(float.MinValue, float.MinValue, float.MinValue, float.MinValue));
 }

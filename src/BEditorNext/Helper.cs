@@ -1,6 +1,7 @@
 ﻿using Avalonia;
 using Avalonia.Media;
 using Avalonia.Controls;
+using Avalonia.Styling;
 
 namespace BEditorNext;
 
@@ -69,6 +70,16 @@ internal static class Helper
         }
 
         return filename;
+    }
+
+    public static T? GetValueOrDefault<T>(this ProjectSystem.ISetter setter, string key)
+    {
+        return setter.Property.GetMetadata(setter.Parent.GetType()).GetValueOrDefault<T>(key);
+    }
+
+    public static T GetValueOrDefault<T>(this ProjectSystem.ISetter setter, string key, T defaultValue)
+    {
+        return setter.Property.GetMetadata(setter.Parent.GetType()).GetValueOrDefault(key, defaultValue);
     }
 
     private static string RandomString()

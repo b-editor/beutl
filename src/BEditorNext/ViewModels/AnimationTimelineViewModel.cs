@@ -100,12 +100,12 @@ public sealed class AnimationTimelineViewModel : IDisposable
         {
             animation.Easing = easing;
             animation.Duration = TimeSpan.FromSeconds(2);
-            object? defaultValue = Setter.Property.GetDefaultValue();
+            object? value = Setter.Value;
 
-            if (defaultValue != null)
+            if (value != null)
             {
-                animation.Previous = defaultValue;
-                animation.Next = defaultValue;
+                animation.Previous = value;
+                animation.Next = value;
             }
 
             Setter.AddChild(animation, CommandRecorder.Default);

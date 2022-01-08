@@ -3,9 +3,9 @@
 public class Animation<T> : BaseAnimation, IAnimation
     where T : struct
 {
-    public static readonly PropertyDefine<Animator<T>> AnimatorProperty;
-    public static readonly PropertyDefine<T> PreviousProperty;
-    public static readonly PropertyDefine<T> NextProperty;
+    public static readonly CoreProperty<Animator<T>> AnimatorProperty;
+    public static readonly CoreProperty<T> PreviousProperty;
+    public static readonly CoreProperty<T> NextProperty;
     private Animator<T> _animator;
     private T _previous;
     private T _next;
@@ -17,24 +17,21 @@ public class Animation<T> : BaseAnimation, IAnimation
 
     static Animation()
     {
-        AnimatorProperty = RegisterProperty<Animator<T>, Animation<T>>(
-            nameof(Animation),
-            (owner, obj) => owner.Animator = obj,
-            owner => owner.Animator);
+        AnimatorProperty = ConfigureProperty<Animator<T>, Animation<T>>(nameof(Animation))
+            .Accessor(o => o.Animator, (o, v) => o.Animator = v)
+            .Register();
 
-        PreviousProperty = RegisterProperty<T, Animation<T>>(
-            nameof(Previous),
-            (owner, obj) => owner.Previous = obj,
-            owner => owner.Previous)
-            .NotifyPropertyChanged(true)
-            .JsonName("prev");
+        PreviousProperty = ConfigureProperty<T, Animation<T>>(nameof(Previous))
+            .Accessor(o => o.Previous, (o, v) => o.Previous = v)
+            .Observability(PropertyObservability.Changed)
+            .JsonName("prev")
+            .Register();
 
-        NextProperty = RegisterProperty<T, Animation<T>>(
-            nameof(Next),
-            (owner, obj) => owner.Next = obj,
-            owner => owner.Next)
-            .NotifyPropertyChanged(true)
-            .JsonName("next");
+        NextProperty = ConfigureProperty<T, Animation<T>>(nameof(Next))
+            .Accessor(o => o.Next, (o, v) => o.Next = v)
+            .Observability(PropertyObservability.Changed)
+            .JsonName("next")
+            .Register();
     }
 
     public Animator<T> Animator

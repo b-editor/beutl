@@ -28,7 +28,7 @@ public partial class EditorBadge : UserControl
     {
         if (DataContext is not BaseEditorViewModel vm) return;
 
-        if (vm.Setter.Property.IsAnimatable() && vm.Setter is IAnimatableSetter setter)
+        if (vm.Setter is IAnimatableSetter setter)
         {
             EditView editView = this.FindLogicalAncestorOfType<EditView>();
 
@@ -47,7 +47,7 @@ public partial class EditorBadge : UserControl
             {
                 editView.BottomTabView.AddTab(new DraggableTabItem
                 {
-                    Header = $"{propsVm.Layer.Name} / {setter.Property.GetJsonName() ?? setter.Property.Name}",
+                    Header = $"{propsVm.Layer.Name} / {setter.Property.Name}",
                     DataContext = new AnimationTimelineViewModel(propsVm.Layer, setter, vm),
                     Content = new AnimationTimeline(),
                     IsClosable = true

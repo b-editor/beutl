@@ -4,29 +4,35 @@ namespace BEditorNext.Operations.BitmapEffect;
 
 public sealed class NegaposiOperation : BitmapEffectOperation<Negaposi>
 {
-    public static readonly PropertyDefine<byte> RedProperty;
-    public static readonly PropertyDefine<byte> GreenProperty;
-    public static readonly PropertyDefine<byte> BlueProperty;
+    public static readonly CoreProperty<byte> RedProperty;
+    public static readonly CoreProperty<byte> GreenProperty;
+    public static readonly CoreProperty<byte> BlueProperty;
 
     static NegaposiOperation()
     {
-        RedProperty = RegisterProperty<byte, NegaposiOperation>(nameof(Red), (o, v) => o.Red = v, o => o.Red)
+        RedProperty = ConfigureProperty<byte, NegaposiOperation>(nameof(Red))
+            .Accessor(o => o.Red, (o, v) => o.Red = v)
             .Animatable()
             .EnableEditor()
             .JsonName("red")
-            .Header("RedString");
+            .Header("RedString")
+            .Register();
 
-        GreenProperty = RegisterProperty<byte, NegaposiOperation>(nameof(Green), (o, v) => o.Green = v, o => o.Green)
+        GreenProperty = ConfigureProperty<byte, NegaposiOperation>(nameof(Green))
+            .Accessor(o => o.Green, (o, v) => o.Green = v)
             .Animatable()
             .EnableEditor()
             .JsonName("green")
-            .Header("GreenString");
+            .Header("GreenString")
+            .Register();
 
-        BlueProperty = RegisterProperty<byte, NegaposiOperation>(nameof(Blue), (o, v) => o.Blue = v, o => o.Blue)
+        BlueProperty = ConfigureProperty<byte, NegaposiOperation>(nameof(Blue))
+            .Accessor(o => o.Blue, (o, v) => o.Blue = v)
             .Animatable()
             .EnableEditor()
             .JsonName("blue")
-            .Header("BlueString");
+            .Header("BlueString")
+            .Register();
     }
 
     public byte Red

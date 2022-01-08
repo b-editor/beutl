@@ -18,9 +18,9 @@ public sealed class SByteEditorViewModel : BaseNumberEditorViewModel<sbyte>
 
     public ReadOnlyReactivePropertySlim<sbyte> Value { get; }
 
-    public override sbyte Maximum => Setter.Property.GetValueOrDefault(PropertyMetaTableKeys.Maximum, sbyte.MaxValue);
+    public override sbyte Maximum => Setter.GetValueOrDefault(PropertyMetaTableKeys.Maximum, sbyte.MaxValue);
 
-    public override sbyte Minimum => Setter.Property.GetValueOrDefault(PropertyMetaTableKeys.Minimum, sbyte.MinValue);
+    public override sbyte Minimum => Setter.GetValueOrDefault(PropertyMetaTableKeys.Minimum, sbyte.MinValue);
 
     public override INumberEditorService<sbyte> EditorService { get; } = NumberEditorService.Instance.Get<sbyte>();
 }

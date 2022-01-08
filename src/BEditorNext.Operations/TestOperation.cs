@@ -11,19 +11,19 @@ namespace BEditorNext.Operations;
 
 internal class TestOperation : RenderOperation
 {
-    public static readonly PropertyDefine<bool> BooleanProperty;
-    public static readonly PropertyDefine<float> NumberProperty;
-    public static readonly PropertyDefine<Color> ColorProperty;
-    public static readonly PropertyDefine<PixelPoint> PixelPointProperty;
-    public static readonly PropertyDefine<PixelRect> PixelRectProperty;
-    public static readonly PropertyDefine<PixelSize> PixelSizeProperty;
-    public static readonly PropertyDefine<Point> PointProperty;
-    public static readonly PropertyDefine<Rect> RectProperty;
-    public static readonly PropertyDefine<Size> SizeProperty;
-    public static readonly PropertyDefine<Thickness> ThicknessProperty;
-    public static readonly PropertyDefine<Asis> AsisProperty;
-    public static readonly PropertyDefine<string> StringProperty;
-    public static readonly PropertyDefine<FileInfo?> FileInfoProperty;
+    public static readonly CoreProperty<bool> BooleanProperty;
+    public static readonly CoreProperty<float> NumberProperty;
+    public static readonly CoreProperty<Color> ColorProperty;
+    public static readonly CoreProperty<PixelPoint> PixelPointProperty;
+    public static readonly CoreProperty<PixelRect> PixelRectProperty;
+    public static readonly CoreProperty<PixelSize> PixelSizeProperty;
+    public static readonly CoreProperty<Point> PointProperty;
+    public static readonly CoreProperty<Rect> RectProperty;
+    public static readonly CoreProperty<Size> SizeProperty;
+    public static readonly CoreProperty<Thickness> ThicknessProperty;
+    public static readonly CoreProperty<Asis> AsisProperty;
+    public static readonly CoreProperty<string> StringProperty;
+    public static readonly CoreProperty<FileInfo?> FileInfoProperty;
 
     //public static readonly PropertyDefine<Vector2> Vector2Property;
     //public static readonly PropertyDefine<Vector3> Vector3Property;
@@ -32,80 +32,93 @@ internal class TestOperation : RenderOperation
 
     static TestOperation()
     {
-        BooleanProperty = RegisterProperty<bool, TestOperation>("Boolean")
+        BooleanProperty = ConfigureProperty<bool, TestOperation>("Boolean")
             .DefaultValue(false)
             .Animatable()
             .JsonName("boolean")
-            .EnableEditor();
+            .EnableEditor()
+            .Register();
 
-        NumberProperty = RegisterProperty<float, TestOperation>("Number")
+        NumberProperty = ConfigureProperty<float, TestOperation>("Number")
             .DefaultValue(0)
             .Animatable()
             .JsonName("number")
-            .EnableEditor();
+            .EnableEditor()
+            .Register();
 
-        ColorProperty = RegisterProperty<Color, TestOperation>("Color")
+        ColorProperty = ConfigureProperty<Color, TestOperation>("Color")
             .DefaultValue(Colors.White)
             .Animatable()
             .JsonName("color")
-            .EnableEditor();
+            .EnableEditor()
+            .Register();
 
-        PixelPointProperty = RegisterProperty<PixelPoint, TestOperation>("PixelPoint")
+        PixelPointProperty = ConfigureProperty<PixelPoint, TestOperation>("PixelPoint")
             .DefaultValue(PixelPoint.Origin)
             .Animatable()
             .JsonName("pixelPoint")
-            .EnableEditor();
+            .EnableEditor()
+            .Register();
 
-        PixelRectProperty = RegisterProperty<PixelRect, TestOperation>("PixelRect")
+        PixelRectProperty = ConfigureProperty<PixelRect, TestOperation>("PixelRect")
             .DefaultValue(PixelRect.Empty)
             .Animatable()
             .JsonName("pixelRect")
-            .EnableEditor();
+            .EnableEditor()
+            .Register();
 
-        PixelSizeProperty = RegisterProperty<PixelSize, TestOperation>("PixelSize")
+        PixelSizeProperty = ConfigureProperty<PixelSize, TestOperation>("PixelSize")
             .DefaultValue(PixelSize.Empty)
             .Animatable()
             .JsonName("pixelSize")
-            .EnableEditor();
+            .EnableEditor()
+            .Register();
 
-        PointProperty = RegisterProperty<Point, TestOperation>("Point")
+        PointProperty = ConfigureProperty<Point, TestOperation>("Point")
             .DefaultValue(new Point())
             .Animatable()
             .JsonName("point")
-            .EnableEditor();
+            .EnableEditor()
+            .Register();
 
-        RectProperty = RegisterProperty<Rect, TestOperation>("Rect")
+        RectProperty = ConfigureProperty<Rect, TestOperation>("Rect")
             .DefaultValue(Rect.Empty)
             .Animatable()
             .JsonName("rect")
-            .EnableEditor();
+            .EnableEditor()
+            .Register();
 
-        SizeProperty = RegisterProperty<Size, TestOperation>("Size")
+        SizeProperty = ConfigureProperty<Size, TestOperation>("Size")
             .DefaultValue(new Size(100, 100))
             .Animatable()
             .JsonName("size")
-            .EnableEditor();
+            .EnableEditor()
+            .Register();
 
-        ThicknessProperty = RegisterProperty<Thickness, TestOperation>("Thickness")
+        ThicknessProperty = ConfigureProperty<Thickness, TestOperation>("Thickness")
             .DefaultValue(new Thickness())
             .Animatable()
             .JsonName("thickness")
-            .EnableEditor();
+            .EnableEditor()
+            .Register();
 
-        AsisProperty = RegisterProperty<Asis, TestOperation>("Asis")
+        AsisProperty = ConfigureProperty<Asis, TestOperation>("Asis")
             .DefaultValue(Asis.X)
             .JsonName("asis")
-            .EnableEditor();
+            .EnableEditor()
+            .Register();
 
-        StringProperty = RegisterProperty<string, TestOperation>("String")
+        StringProperty = ConfigureProperty<string, TestOperation>("String")
             .DefaultValue("")
             .JsonName("string")
-            .EnableEditor();
+            .EnableEditor()
+            .Register();
 
-        FileInfoProperty = RegisterProperty<FileInfo?, TestOperation>("FileInfo")
+        FileInfoProperty = ConfigureProperty<FileInfo?, TestOperation>("FileInfo")
             .DefaultValue(null)
             .JsonName("file")
-            .EnableEditor();
+            .EnableEditor()
+            .Register();
     }
 
     public TestOperation()

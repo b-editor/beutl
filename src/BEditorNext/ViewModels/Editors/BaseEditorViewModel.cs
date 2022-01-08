@@ -20,18 +20,19 @@ public abstract class BaseEditorViewModel : IDisposable
     {
         Setter = setter;
 
-        ResourceReference<string> reference = Setter.Property.GetValueOrDefault<ResourceReference<string>>(PropertyMetaTableKeys.Header);
+        CorePropertyMetadata metadata = setter.Property.GetMetadata(setter.Parent.GetType());
+        ResourceReference<string> reference = metadata.GetValueOrDefault<ResourceReference<string>>(PropertyMetaTableKeys.Header);
 
         if (reference.Key != null)
         {
             Header = Application.Current!.GetResourceObservable(reference.Key)
-                .Select(i => (string?)i ?? Setter.Property.GetJsonName() ?? Setter.Property.Name)
+                .Select(i => (string?)i ?? Setter.Property.Name)
                 .ToReadOnlyReactivePropertySlim()
                 .AddTo(Disposables);
         }
         else
         {
-            Header = Observable.Return(Setter.Property.GetJsonName() ?? Setter.Property.Name)
+            Header = Observable.Return(Setter.Property.Name)
                 .ToReadOnlyReactivePropertySlim()
                 .AddTo(Disposables);
         }
@@ -45,7 +46,7 @@ public abstract class BaseEditorViewModel : IDisposable
 
     public ISetter Setter { get; }
 
-    public bool CanReset => Setter.Property.MetaTable.ContainsKey(PropertyMetaTableKeys.DefaultValue);
+    public bool CanReset => Setter.Property.GetMetadata(Setter.Parent.GetType()).DefaultValue != null;
 
     public ReadOnlyReactivePropertySlim<string?> Header { get; }
 
@@ -78,9 +79,10 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
 
     public void Reset()
     {
-        if (CanReset)
+        object? defaultValue = Setter.Property.GetMetadata(Setter.Parent.GetType()).DefaultValue;
+        if (defaultValue != null)
         {
-            SetValue(Setter.Value, Setter.Property.GetDefaultValue());
+            SetValue(Setter.Value, (T?)defaultValue);
         }
     }
 

@@ -6,25 +6,29 @@ namespace BEditorNext.Operations;
 
 public sealed class BlendOperation : ConfigureOperation<IDrawable>
 {
-    public static readonly PropertyDefine<float> OpacityProperty;
-    public static readonly PropertyDefine<BlendMode> BlendModeProperty;
+    public static readonly CoreProperty<float> OpacityProperty;
+    public static readonly CoreProperty<BlendMode> BlendModeProperty;
 
     static BlendOperation()
     {
-        OpacityProperty = RegisterProperty<float, BlendOperation>(nameof(Opacity), (owner, obj) => owner.Opacity = obj, owner => owner.Opacity)
+        OpacityProperty = ConfigureProperty<float, BlendOperation>(nameof(Opacity))
+            .Accessor(o => o.Opacity, (o, v) => o.Opacity = v)
             .Animatable(true)
             .EnableEditor()
             .Maximum(100)
             .Minimum(0)
             .DefaultValue(100)
             .Header("OpacityString")
-            .JsonName("opacity");
+            .JsonName("opacity")
+            .Register();
 
-        BlendModeProperty = RegisterProperty<BlendMode, BlendOperation>(nameof(BlendMode), (o, v) => o.BlendMode = v, o => o.BlendMode)
+        BlendModeProperty = ConfigureProperty<BlendMode, BlendOperation>(nameof(BlendMode))
+            .Accessor(o => o.BlendMode, (o, v) => o.BlendMode = v)
             .EnableEditor()
             .DefaultValue(BlendMode.SrcOver)
             .Header("BlendString")
-            .JsonName("blendMode");
+            .JsonName("blendMode")
+            .Register();
     }
 
     public float Opacity { get; set; }

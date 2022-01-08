@@ -19,7 +19,7 @@ public sealed class Vector2EditorViewModel : BaseEditorViewModel<Vector2>
 
     public ReadOnlyReactivePropertySlim<Vector2> Value { get; }
 
-    public Vector2 Maximum => Setter.Property.GetValueOrDefault(PropertyMetaTableKeys.Maximum, new Vector2(float.MaxValue, float.MaxValue));
+    public Vector2 Maximum => Setter.GetValueOrDefault(PropertyMetaTableKeys.Maximum, new Vector2(float.MaxValue, float.MaxValue));
 
-    public Vector2 Minimum => Setter.Property.GetValueOrDefault(PropertyMetaTableKeys.Minimum, new Vector2(float.MinValue, float.MinValue));
+    public Vector2 Minimum => Setter.GetValueOrDefault(PropertyMetaTableKeys.Minimum, new Vector2(float.MinValue, float.MinValue));
 }

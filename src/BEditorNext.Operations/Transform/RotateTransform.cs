@@ -4,16 +4,18 @@ namespace BEditorNext.Operations.Transform;
 
 public sealed class RotateTransform : TransformOperation
 {
-    public static readonly PropertyDefine<float> RotationProperty;
+    public static readonly CoreProperty<float> RotationProperty;
     private readonly RotationTransform _transform = new();
 
     static RotateTransform()
     {
-        RotationProperty = RegisterProperty<float, RotateTransform>(nameof(Rotation), (owner, obj) => owner.Rotation = obj, owner => owner.Rotation)
+        RotationProperty = ConfigureProperty<float, RotateTransform>(nameof(Rotation))
+            .Accessor(o => o.Rotation, (o, v) => o.Rotation = v)
             .EnableEditor()
             .Animatable()
             .DefaultValue(0f)
-            .JsonName("rotation");
+            .JsonName("rotation")
+            .Register();
     }
 
     public float Rotation

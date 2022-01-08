@@ -2,25 +2,29 @@
 
 public sealed class TranslateTransform : TransformOperation
 {
-    public static readonly PropertyDefine<float> XProperty;
-    public static readonly PropertyDefine<float> YProperty;
+    public static readonly CoreProperty<float> XProperty;
+    public static readonly CoreProperty<float> YProperty;
     private readonly Graphics.Transformation.TranslateTransform _transform = new();
 
     static TranslateTransform()
     {
-        XProperty = RegisterProperty<float, TranslateTransform>(nameof(X), (owner, obj) => owner.X = obj, owner => owner.X)
+        XProperty = ConfigureProperty<float, TranslateTransform>(nameof(X))
+            .Accessor(o => o.X, (o, v) => o.X = v)
             .DefaultValue(0)
             .EnableEditor()
             .Animatable()
             .Header("XString")
-            .JsonName("x");
+            .JsonName("x")
+            .Register();
 
-        YProperty = RegisterProperty<float, TranslateTransform>(nameof(Y), (owner, obj) => owner.Y = obj, owner => owner.Y)
+        YProperty = ConfigureProperty<float, TranslateTransform>(nameof(Y))
+            .Accessor(o => o.Y, (o, v) => o.Y = v)
             .DefaultValue(0)
             .EnableEditor()
             .Animatable()
             .Header("YString")
-            .JsonName("y");
+            .JsonName("y")
+            .Register();
     }
 
     public float X

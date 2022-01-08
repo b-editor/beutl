@@ -47,7 +47,7 @@ public class PropertyChangeTrackerTests
 
 public class TestElement : Element
 {
-    public static readonly PropertyDefine<string> StringProperty;
+    public static readonly CoreProperty<string> StringProperty;
 
     static TestElement()
     {

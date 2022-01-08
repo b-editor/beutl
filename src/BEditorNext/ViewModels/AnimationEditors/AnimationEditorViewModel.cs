@@ -50,7 +50,7 @@ public abstract class AnimationEditorViewModel : IDisposable
 
     public BaseEditorViewModel EditorViewModel { get; }
 
-    public bool CanReset => Setter.Property.MetaTable.ContainsKey(PropertyMetaTableKeys.DefaultValue);
+    public bool CanReset => Setter.Property.GetMetadata(Setter.Parent.GetType()).DefaultValue != null;
 
     public ReadOnlyReactivePropertySlim<string?> Header => EditorViewModel.Header;
 
@@ -89,12 +89,12 @@ public abstract class AnimationEditorViewModel : IDisposable
             {
                 animation.Easing = easing;
                 animation.Duration = TimeSpan.FromSeconds(2);
-                object? defaultValue = Setter.Property.GetDefaultValue();
+                object? value = Setter.Value;
 
-                if (defaultValue != null)
+                if (value != null)
                 {
-                    animation.Previous = defaultValue;
-                    animation.Next = defaultValue;
+                    animation.Previous = value;
+                    animation.Next = value;
                 }
 
                 Setter.InsertChild(index, animation, CommandRecorder.Default);
@@ -113,12 +113,12 @@ public abstract class AnimationEditorViewModel : IDisposable
             {
                 animation.Easing = easing;
                 animation.Duration = TimeSpan.FromSeconds(2);
-                object? defaultValue = Setter.Property.GetDefaultValue();
+                object? value = Setter.Value;
 
-                if (defaultValue != null)
+                if (value != null)
                 {
-                    animation.Previous = defaultValue;
-                    animation.Next = defaultValue;
+                    animation.Previous = value;
+                    animation.Next = value;
                 }
 
                 Setter.InsertChild(index + 1, animation, CommandRecorder.Default);
@@ -163,17 +163,19 @@ public class AnimationEditorViewModel<T> : AnimationEditorViewModel
 
     public void ResetPrevious()
     {
-        if (CanReset)
+        object? defaultValue = Setter.Property.GetMetadata(Setter.Parent.GetType()).DefaultValue;
+        if (defaultValue != null)
         {
-            SetPrevious(Setter.Value, Setter.Property.GetDefaultValue());
+            SetPrevious(Setter.Value, (T)defaultValue);
         }
     }
 
     public void ResetNext()
     {
-        if (CanReset)
+        object? defaultValue = Setter.Property.GetMetadata(Setter.Parent.GetType()).DefaultValue;
+        if (defaultValue != null)
         {
-            SetNext(Setter.Value, Setter.Property.GetDefaultValue());
+            SetNext(Setter.Value, (T)defaultValue);
         }
     }
 

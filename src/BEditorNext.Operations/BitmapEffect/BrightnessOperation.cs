@@ -4,16 +4,18 @@ namespace BEditorNext.Operations.BitmapEffect;
 
 public sealed class BrightnessOperation : BitmapEffectOperation<Brightness>
 {
-    public static readonly PropertyDefine<short> ValueProperty;
+    public static readonly CoreProperty<short> ValueProperty;
 
     static BrightnessOperation()
     {
-        ValueProperty = RegisterProperty<short, BrightnessOperation>(nameof(Value), (owner, obj) => owner.Value = obj, owner => owner.Value)
+        ValueProperty = ConfigureProperty<short, BrightnessOperation>(nameof(Value))
+            .Accessor(o => o.Value, (o, v) => o.Value = v)
             .Animatable(true)
             .EnableEditor()
-            .DefaultValue((short)0)
+            .DefaultValue(0)
             .Header("ValueString")
-            .JsonName("value");
+            .JsonName("value")
+            .Register();
     }
 
     public short Value

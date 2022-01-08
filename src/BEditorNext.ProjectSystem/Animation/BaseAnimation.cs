@@ -7,26 +7,30 @@ namespace BEditorNext.Animation;
 
 public abstract class BaseAnimation : Element, ILogicalElement
 {
-    public static readonly PropertyDefine<Easing> EasingProperty;
-    public static readonly PropertyDefine<TimeSpan> DurationProperty;
+    public static readonly CoreProperty<Easing> EasingProperty;
+    public static readonly CoreProperty<TimeSpan> DurationProperty;
     private ILogicalElement? _logicalParent;
     private Easing _easing;
     private TimeSpan _duration;
 
     protected BaseAnimation()
     {
-        _easing = EasingProperty.GetDefaultValue() ?? new LinearEasing();
+        _easing = (Easing?)(EasingProperty.GetMetadata(GetType()).DefaultValue) ?? new LinearEasing();
     }
 
     static BaseAnimation()
     {
-        EasingProperty = RegisterProperty<Easing, BaseAnimation>(nameof(Easing), (owner, obj) => owner.Easing = obj, owner => owner.Easing)
-            .NotifyPropertyChanged(true)
-            .DefaultValue(new LinearEasing());
+        EasingProperty = ConfigureProperty<Easing, BaseAnimation>(nameof(Easing))
+            .Accessor(o => o.Easing, (o, v) => o.Easing = v)
+            .Observability(PropertyObservability.Changed)
+            .DefaultValue(new LinearEasing())
+            .Register();
 
-        DurationProperty = RegisterProperty<TimeSpan, BaseAnimation>(nameof(Duration), (owner, obj) => owner.Duration = obj, owner => owner.Duration)
-            .NotifyPropertyChanged(true)
-            .JsonName("duration");
+        DurationProperty = ConfigureProperty<TimeSpan, BaseAnimation>(nameof(Duration))
+            .Accessor(o => o.Duration, (o, v) => o.Duration = v)
+            .Observability(PropertyObservability.Changed)
+            .JsonName("duration")
+            .Register();
     }
 
     public Easing Easing
@@ -49,8 +53,6 @@ public abstract class BaseAnimation : Element, ILogicalElement
 
         if (node is JsonObject jsonObject)
         {
-            jsonObject.Remove("name");
-
             if (Easing is SplineEasing splineEasing)
             {
                 jsonObject["easing"] = new JsonObject
