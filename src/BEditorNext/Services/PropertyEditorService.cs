@@ -19,6 +19,7 @@ public static class PropertyEditorService
 
     private record struct AnimationEditor(Func<object?, Control?> CreateEditor, Func<IAnimation, BaseEditorViewModel, object?> CreateViewModel);
 
+    // Todo: RelativeRect, RelativePoint, Brushes
     private static readonly Dictionary<Type, Editor> s_editors = new()
     {
         { typeof(bool), new(_ => new BooleanEditor(), s => new BooleanEditorViewModel((Setter<bool>)s)) },
@@ -52,7 +53,7 @@ public static class PropertyEditorService
         { typeof(Graphics.Vector), new(_ => new VectorEditor(), s => new VectorEditorViewModel((Setter<Graphics.Vector>)s)) },
     };
 
-    // pixelrect, rect, thickness, vector3, vector4
+    // Todo: pixelrect, rect, vector3, vector4
     private static readonly Dictionary<Type, AnimationEditor> s_animationEditors = new()
     {
         { typeof(bool), new(_ => new BooleanAnimationEditor(), (a, vm) => new AnimationEditorViewModel<bool>(a, vm)) },
@@ -69,6 +70,7 @@ public static class PropertyEditorService
         { typeof(PixelSize), new(_ => new PixelSizeAnimationEditor(), (a, vm) => new PixelSizeAnimationEditorViewModel((Animation<PixelSize>)a, (BaseEditorViewModel<PixelSize>)vm)) },
         { typeof(Point), new(_ => new PointAnimationEditor(), (a, vm) => new PointAnimationEditorViewModel((Animation<Point>)a, (BaseEditorViewModel<Point>)vm)) },
         { typeof(sbyte), new(_ => new NumberAnimationEditor<sbyte>(), (a, vm) => new AnimationEditorViewModel<sbyte>(a, vm)) },
+        { typeof(Thickness), new(_ => new ThicknessAnimationEditor(), (a, vm) => new ThicknessAnimationEditorViewModel((Animation<Thickness>)a, (BaseEditorViewModel<Thickness>)vm)) },
         { typeof(Size), new(_ => new SizeAnimationEditor(), (a, vm) => new SizeAnimationEditorViewModel((Animation<Size>)a, (BaseEditorViewModel<Size>)vm)) },
         { typeof(ushort), new(_ => new NumberAnimationEditor<ushort>(), (a, vm) => new AnimationEditorViewModel<ushort>(a, vm)) },
         { typeof(uint), new(_ => new NumberAnimationEditor<uint>(), (a, vm) => new AnimationEditorViewModel<uint>(a, vm)) },

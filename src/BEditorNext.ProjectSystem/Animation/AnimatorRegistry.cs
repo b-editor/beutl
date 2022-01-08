@@ -8,6 +8,7 @@ namespace BEditorNext.Animation;
 
 public static class AnimatorRegistry
 {
+    // Todo: RelativeRect, RelativePoint, Brushes
     private static readonly List<(Func<Type, bool> Condition, Type Animator)> s_animators = new()
     {
         (type => typeof(bool).IsAssignableFrom(type), typeof(BoolAnimator)),
