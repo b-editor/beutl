@@ -2,9 +2,9 @@
 
 public sealed class ChangePropertyCommand : IRecordableCommand
 {
-    public ChangePropertyCommand(IElement element, PropertyDefine property, object? newValue, object? oldValue)
+    public ChangePropertyCommand(ICoreObject obj, CoreProperty property, object? newValue, object? oldValue)
     {
-        Element = element;
+        Object = obj;
         Property = property;
         NewValue = newValue;
         OldValue = oldValue;
@@ -12,9 +12,9 @@ public sealed class ChangePropertyCommand : IRecordableCommand
 
     public ResourceReference<string> Name => "ChangePropertyString";
 
-    public IElement Element { get; }
+    public ICoreObject Object { get; }
 
-    public PropertyDefine Property { get; }
+    public CoreProperty Property { get; }
 
     public object? NewValue { get; }
 
@@ -22,7 +22,7 @@ public sealed class ChangePropertyCommand : IRecordableCommand
 
     public void Do()
     {
-        Element.SetValue(Property, NewValue);
+        Object.SetValue(Property, NewValue);
     }
 
     public void Redo()
@@ -32,6 +32,6 @@ public sealed class ChangePropertyCommand : IRecordableCommand
 
     public void Undo()
     {
-        Element.SetValue(Property, OldValue);
+        Object.SetValue(Property, OldValue);
     }
 }

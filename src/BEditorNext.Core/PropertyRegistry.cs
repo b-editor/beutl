@@ -4,28 +4,28 @@ namespace BEditorNext;
 
 public static class PropertyRegistry
 {
-    private static readonly Dictionary<int, PropertyDefine> s_properties = new();
-    private static readonly Dictionary<Type, Dictionary<int, PropertyDefine>> s_registered = new();
-    private static readonly Dictionary<Type, Dictionary<int, PropertyDefine>> s_attached = new();
-    private static readonly Dictionary<Type, List<PropertyDefine>> s_registeredCache = new();
-    private static readonly Dictionary<Type, List<PropertyDefine>> s_attachedCache = new();
+    private static readonly Dictionary<int, CoreProperty> s_properties = new();
+    private static readonly Dictionary<Type, Dictionary<int, CoreProperty>> s_registered = new();
+    private static readonly Dictionary<Type, Dictionary<int, CoreProperty>> s_attached = new();
+    private static readonly Dictionary<Type, List<CoreProperty>> s_registeredCache = new();
+    private static readonly Dictionary<Type, List<CoreProperty>> s_attachedCache = new();
 
-    public static IReadOnlyList<PropertyDefine> GetRegistered(Type type)
+    public static IReadOnlyList<CoreProperty> GetRegistered(Type type)
     {
         ArgumentNullException.ThrowIfNull(type);
-        if (s_registeredCache.TryGetValue(type, out List<PropertyDefine>? result))
+        if (s_registeredCache.TryGetValue(type, out List<CoreProperty>? result))
         {
             return result;
         }
 
         Type? t = type;
-        result = new List<PropertyDefine>();
+        result = new List<CoreProperty>();
 
         while (t != null)
         {
             RuntimeHelpers.RunClassConstructor(t.TypeHandle);
 
-            if (s_registered.TryGetValue(t, out Dictionary<int, PropertyDefine>? registered))
+            if (s_registered.TryGetValue(t, out Dictionary<int, CoreProperty>? registered))
             {
                 result.AddRange(registered.Values);
             }
@@ -37,20 +37,20 @@ public static class PropertyRegistry
         return result;
     }
 
-    public static IReadOnlyList<PropertyDefine> GetRegisteredAttached(Type type)
+    public static IReadOnlyList<CoreProperty> GetRegisteredAttached(Type type)
     {
         ArgumentNullException.ThrowIfNull(type);
-        if (s_attachedCache.TryGetValue(type, out List<PropertyDefine>? result))
+        if (s_attachedCache.TryGetValue(type, out List<CoreProperty>? result))
         {
             return result;
         }
 
         Type? t = type;
-        result = new List<PropertyDefine>();
+        result = new List<CoreProperty>();
 
         while (t != null)
         {
-            if (s_attached.TryGetValue(t, out Dictionary<int, PropertyDefine>? attached))
+            if (s_attached.TryGetValue(t, out Dictionary<int, CoreProperty>? attached))
             {
                 result.AddRange(attached.Values);
             }
@@ -62,7 +62,7 @@ public static class PropertyRegistry
         return result;
     }
 
-    public static PropertyDefine? FindRegistered(Type type, string name)
+    public static CoreProperty? FindRegistered(Type type, string name)
     {
         ArgumentNullException.ThrowIfNull(type);
         ArgumentNullException.ThrowIfNull(name);
@@ -71,12 +71,12 @@ public static class PropertyRegistry
             throw new InvalidOperationException("Attached properties not supported.");
         }
 
-        IReadOnlyList<PropertyDefine> registered = GetRegistered(type);
+        IReadOnlyList<CoreProperty> registered = GetRegistered(type);
         int registeredCount = registered.Count;
 
         for (int i = 0; i < registeredCount; i++)
         {
-            PropertyDefine x = registered[i];
+            CoreProperty x = registered[i];
 
             if (x.Name == name)
             {
@@ -87,7 +87,7 @@ public static class PropertyRegistry
         return null;
     }
 
-    public static PropertyDefine? FindRegistered(IElement o, string name)
+    public static CoreProperty? FindRegistered(IElement o, string name)
     {
         ArgumentNullException.ThrowIfNull(o);
         if (string.IsNullOrEmpty(name))
@@ -98,14 +98,14 @@ public static class PropertyRegistry
         return FindRegistered(o.GetType(), name);
     }
 
-    public static PropertyDefine? FindRegistered(int id)
+    public static CoreProperty? FindRegistered(int id)
     {
         return id < s_properties.Count ? s_properties[id] : null;
     }
 
-    public static bool IsRegistered(Type type, PropertyDefine property)
+    public static bool IsRegistered(Type type, CoreProperty property)
     {
-        static bool ContainsProperty(IReadOnlyList<PropertyDefine> properties, PropertyDefine property)
+        static bool ContainsProperty(IReadOnlyList<CoreProperty> properties, CoreProperty property)
         {
             int propertiesCount = properties.Count;
 
@@ -127,7 +127,7 @@ public static class PropertyRegistry
                ContainsProperty(GetRegisteredAttached(type), property);
     }
 
-    public static bool IsRegistered(object o, PropertyDefine property)
+    public static bool IsRegistered(object o, CoreProperty property)
     {
         ArgumentNullException.ThrowIfNull(o);
         ArgumentNullException.ThrowIfNull(property);
@@ -135,14 +135,14 @@ public static class PropertyRegistry
         return IsRegistered(o.GetType(), property);
     }
 
-    public static void Register(Type type, PropertyDefine property)
+    public static void Register(Type type, CoreProperty property)
     {
         ArgumentNullException.ThrowIfNull(property);
         ArgumentNullException.ThrowIfNull(type);
 
-        if (!s_registered.TryGetValue(type, out Dictionary<int, PropertyDefine>? inner))
+        if (!s_registered.TryGetValue(type, out Dictionary<int, CoreProperty>? inner))
         {
-            inner = new Dictionary<int, PropertyDefine>
+            inner = new Dictionary<int, CoreProperty>
             {
                 { property.Id, property },
             };
@@ -161,31 +161,31 @@ public static class PropertyRegistry
         s_registeredCache.Clear();
     }
 
-    public static void RegisterAttached(Type type, PropertyDefine property)
-    {
-        if (!property.IsAttached)
-        {
-            throw new InvalidOperationException("Cannot register a non-attached property as attached.");
-        }
+    //public static void RegisterAttached(Type type, CoreProperty property)
+    //{
+    //    if (!property.IsAttached)
+    //    {
+    //        throw new InvalidOperationException("Cannot register a non-attached property as attached.");
+    //    }
 
-        if (!s_attached.TryGetValue(type, out Dictionary<int, PropertyDefine>? inner))
-        {
-            inner = new Dictionary<int, PropertyDefine>
-            {
-                { property.Id, property },
-            };
-            s_attached.Add(type, inner);
-        }
-        else
-        {
-            inner.Add(property.Id, property);
-        }
+    //    if (!s_attached.TryGetValue(type, out Dictionary<int, CoreProperty>? inner))
+    //    {
+    //        inner = new Dictionary<int, CoreProperty>
+    //        {
+    //            { property.Id, property },
+    //        };
+    //        s_attached.Add(type, inner);
+    //    }
+    //    else
+    //    {
+    //        inner.Add(property.Id, property);
+    //    }
 
-        if (!s_properties.ContainsKey(property.Id))
-        {
-            s_properties.Add(property.Id, property);
-        }
+    //    if (!s_properties.ContainsKey(property.Id))
+    //    {
+    //        s_properties.Add(property.Id, property);
+    //    }
 
-        s_attachedCache.Clear();
-    }
+    //    s_attachedCache.Clear();
+    //}
 }
