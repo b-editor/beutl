@@ -4,6 +4,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
 
+using BEditorNext.Services.Editors;
 using BEditorNext.ViewModels;
 using BEditorNext.ViewModels.AnimationEditors;
 
@@ -36,6 +37,20 @@ public class NumberAnimationEditor<T> : NumberAnimationEditor
         nextTextBox.GetObservable(TextBox.TextProperty).Subscribe(NextTextBox_TextChanged);
     }
 
+    private bool PrevTryParse(INumberEditorService<T> service, out T value)
+    {
+        bool result = service.TryParse(prevTextBox.Text, out value);
+        SetPrevError(!result);
+        return result;
+    }
+
+    private bool NextTryParse(INumberEditorService<T> service, out T value)
+    {
+        bool result = service.TryParse(nextTextBox.Text, out value);
+        SetNextError(!result);
+        return result;
+    }
+
     private void PreviousTextBox_GotFocus(object? sender, GotFocusEventArgs e)
     {
         if (DataContext is not AnimationEditorViewModel<T> vm) return;
@@ -58,7 +73,7 @@ public class NumberAnimationEditor<T> : NumberAnimationEditor
             return;
         }
 
-        if (numVM.EditorService.TryParse(prevTextBox.Text, out T newValue))
+        if (PrevTryParse(numVM.EditorService, out T newValue))
         {
             vm.SetPrevious(_oldPrev, newValue);
         }
@@ -72,7 +87,7 @@ public class NumberAnimationEditor<T> : NumberAnimationEditor
             return;
         }
 
-        if (numVM.EditorService.TryParse(nextTextBox.Text, out T newValue))
+        if (NextTryParse(numVM.EditorService, out T newValue))
         {
             vm.SetNext(_oldNext, newValue);
         }
@@ -90,7 +105,7 @@ public class NumberAnimationEditor<T> : NumberAnimationEditor
 
             await Task.Delay(10);
 
-            if (numVM.EditorService.TryParse(prevTextBox.Text, out T value))
+            if (PrevTryParse(numVM.EditorService, out T value))
             {
                 vm.Animation.Previous = numVM.EditorService.Clamp(value, numVM.Minimum, numVM.Maximum);
             }
@@ -109,7 +124,7 @@ public class NumberAnimationEditor<T> : NumberAnimationEditor
 
             await Task.Delay(10);
 
-            if (numVM.EditorService.TryParse(nextTextBox.Text, out T value))
+            if (NextTryParse(numVM.EditorService, out T value))
             {
                 vm.Animation.Next = numVM.EditorService.Clamp(value, numVM.Minimum, numVM.Maximum);
             }
@@ -124,7 +139,7 @@ public class NumberAnimationEditor<T> : NumberAnimationEditor
             return;
         }
 
-        if (prevTextBox.IsKeyboardFocusWithin && numVM.EditorService.TryParse(prevTextBox.Text, out T value))
+        if (prevTextBox.IsKeyboardFocusWithin && PrevTryParse(numVM.EditorService, out T value))
         {
             int increment = 10;
 
@@ -156,7 +171,7 @@ public class NumberAnimationEditor<T> : NumberAnimationEditor
             return;
         }
 
-        if (nextTextBox.IsKeyboardFocusWithin && numVM.EditorService.TryParse(nextTextBox.Text, out T value))
+        if (nextTextBox.IsKeyboardFocusWithin && NextTryParse(numVM.EditorService, out T value))
         {
             int increment = 10;
 
@@ -178,5 +193,15 @@ public class NumberAnimationEditor<T> : NumberAnimationEditor
 
             e.Handled = true;
         }
+    }
+
+    private void SetPrevError(bool state)
+    {
+        (prevTextBox.Classes as IPseudoClasses).Set(":error", state);
+    }
+
+    private void SetNextError(bool state)
+    {
+        (nextTextBox.Classes as IPseudoClasses).Set(":error", state);
     }
 }

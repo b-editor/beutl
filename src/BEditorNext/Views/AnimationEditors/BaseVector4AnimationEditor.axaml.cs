@@ -1,4 +1,3 @@
-
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -86,12 +85,16 @@ public abstract class BaseVector4AnimationEditor<T> : BaseVector4AnimationEditor
 
     private bool PrevTryParse(out T value)
     {
-        return TryParse(prevXTextBox.Text, prevYTextBox.Text, prevZTextBox.Text, prevWTextBox.Text, out value);
+        bool result = TryParse(prevXTextBox.Text, prevYTextBox.Text, prevZTextBox.Text, prevWTextBox.Text, out value);
+        SetPrevError(!result);
+        return result;
     }
 
     private bool NextTryParse(out T value)
     {
-        return TryParse(nextXTextBox.Text, nextYTextBox.Text, nextZTextBox.Text, nextWTextBox.Text, out value);
+        bool result = TryParse(nextXTextBox.Text, nextYTextBox.Text, nextZTextBox.Text, nextWTextBox.Text, out value);
+        SetNextError(!result);
+        return result;
     }
 
     private void PreviousTextBox_GotFocus(object? sender, GotFocusEventArgs e)
@@ -238,5 +241,21 @@ public abstract class BaseVector4AnimationEditor<T> : BaseVector4AnimationEditor
 
             e.Handled = true;
         }
+    }
+
+    private void SetPrevError(bool state)
+    {
+        (prevXTextBox.Classes as IPseudoClasses).Set(":error", state);
+        (prevYTextBox.Classes as IPseudoClasses).Set(":error", state);
+        (prevZTextBox.Classes as IPseudoClasses).Set(":error", state);
+        (prevWTextBox.Classes as IPseudoClasses).Set(":error", state);
+    }
+
+    private void SetNextError(bool state)
+    {
+        (nextXTextBox.Classes as IPseudoClasses).Set(":error", state);
+        (nextYTextBox.Classes as IPseudoClasses).Set(":error", state);
+        (nextZTextBox.Classes as IPseudoClasses).Set(":error", state);
+        (nextWTextBox.Classes as IPseudoClasses).Set(":error", state);
     }
 }

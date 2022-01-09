@@ -1,6 +1,10 @@
+using System.Reactive.Linq;
+
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Threading;
 
 using BEditorNext.ViewModels.Editors;
 
@@ -23,12 +27,12 @@ public abstract class BaseVector2Editor<T> : BaseVector2Editor
     {
         xTextBox.GotFocus += TextBox_GotFocus;
         xTextBox.LostFocus += TextBox_LostFocus;
-        xTextBox.KeyDown += TextBox_KeyDown;
+        xTextBox.GetObservable(TextBox.TextProperty).Subscribe(TextBox_TextChanged);
         xTextBox.AddHandler(PointerWheelChangedEvent, XTextBox_PointerWheelChanged, RoutingStrategies.Tunnel);
 
         yTextBox.GotFocus += TextBox_GotFocus;
         yTextBox.LostFocus += TextBox_LostFocus;
-        yTextBox.KeyDown += TextBox_KeyDown;
+        yTextBox.GetObservable(TextBox.TextProperty).Subscribe(TextBox_TextChanged);
         yTextBox.AddHandler(PointerWheelChangedEvent, YTextBox_PointerWheelChanged, RoutingStrategies.Tunnel);
     }
 
@@ -42,7 +46,9 @@ public abstract class BaseVector2Editor<T> : BaseVector2Editor
 
     private bool TryParseCore(out T value)
     {
-        return TryParse(xTextBox.Text, yTextBox.Text, out value);
+        bool result = TryParse(xTextBox.Text, yTextBox.Text, out value);
+        SetError(!result);
+        return result;
     }
 
     private void TextBox_GotFocus(object? sender, GotFocusEventArgs e)
@@ -61,14 +67,17 @@ public abstract class BaseVector2Editor<T> : BaseVector2Editor
         }
     }
 
-    private void TextBox_KeyDown(object? sender, KeyEventArgs e)
+    private void TextBox_TextChanged(string _)
     {
-        if (DataContext is not BaseEditorViewModel<T> vm) return;
-
-        if (TryParseCore(out T newValue))
+        Dispatcher.UIThread.InvokeAsync(async () =>
         {
-            vm.Setter.Value = Clamp(newValue);
-        }
+            if (DataContext is not BaseEditorViewModel<T> vm) return;
+            await Task.Delay(10);
+            if (TryParseCore(out T newValue))
+            {
+                vm.Setter.Value = Clamp(newValue);
+            }
+        });
     }
 
     private void XTextBox_PointerWheelChanged(object? sender, PointerWheelEventArgs e)
@@ -100,5 +109,11 @@ public abstract class BaseVector2Editor<T> : BaseVector2Editor
 
             e.Handled = true;
         }
+    }
+
+    private void SetError(bool state)
+    {
+        (xTextBox.Classes as IPseudoClasses).Set(":error", state);
+        (yTextBox.Classes as IPseudoClasses).Set(":error", state);
     }
 }

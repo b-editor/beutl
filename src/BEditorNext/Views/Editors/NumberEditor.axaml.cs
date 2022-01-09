@@ -6,6 +6,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
 
+using BEditorNext.Services.Editors;
 using BEditorNext.ViewModels.Editors;
 
 namespace BEditorNext.Views.Editors;
@@ -32,6 +33,13 @@ public sealed class NumberEditor<T> : NumberEditor
         textBox.GetObservable(TextBox.TextProperty).Subscribe(TextBox_TextChanged);
     }
 
+    private bool TryParseCore(INumberEditorService<T> service, out T value)
+    {
+        bool result = service.TryParse(textBox.Text, out value);
+        SetError(!result);
+        return result;
+    }
+
     private void TextBox_GotFocus(object? sender, GotFocusEventArgs e)
     {
         if (DataContext is not BaseNumberEditorViewModel<T> vm) return;
@@ -43,7 +51,7 @@ public sealed class NumberEditor<T> : NumberEditor
     {
         if (DataContext is not BaseNumberEditorViewModel<T> vm) return;
 
-        if (vm.EditorService.TryParse(textBox.Text, out T newValue))
+        if (TryParseCore(vm.EditorService, out T newValue))
         {
             vm.SetValue(_oldValue, newValue);
         }
@@ -57,7 +65,7 @@ public sealed class NumberEditor<T> : NumberEditor
 
             await Task.Delay(10);
 
-            if (vm.EditorService.TryParse(textBox.Text, out T value))
+            if (TryParseCore(vm.EditorService, out T value))
             {
                 vm.Setter.Value = vm.EditorService.Clamp(value, vm.Minimum, vm.Maximum);
             }
@@ -68,7 +76,7 @@ public sealed class NumberEditor<T> : NumberEditor
     {
         if (DataContext is not BaseNumberEditorViewModel<T> vm) return;
 
-        if (textBox.IsKeyboardFocusWithin && vm.EditorService.TryParse(textBox.Text, out T value))
+        if (textBox.IsKeyboardFocusWithin && TryParseCore(vm.EditorService, out T value))
         {
             int increment = 10;
 
@@ -90,5 +98,10 @@ public sealed class NumberEditor<T> : NumberEditor
 
             e.Handled = true;
         }
+    }
+
+    private void SetError(bool state)
+    {
+        (textBox.Classes as IPseudoClasses).Set(":error", state);
     }
 }

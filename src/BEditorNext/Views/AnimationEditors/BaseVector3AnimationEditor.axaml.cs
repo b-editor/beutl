@@ -79,12 +79,16 @@ public abstract class BaseVector3AnimationEditor<T> : BaseVector3AnimationEditor
 
     private bool PrevTryParse(out T value)
     {
-        return TryParse(prevXTextBox.Text, prevYTextBox.Text, prevZTextBox.Text, out value);
+        bool result = TryParse(prevXTextBox.Text, prevYTextBox.Text, prevZTextBox.Text, out value);
+        SetPrevError(!result);
+        return result;
     }
 
     private bool NextTryParse(out T value)
     {
-        return TryParse(nextXTextBox.Text, nextYTextBox.Text, nextZTextBox.Text, out value);
+        bool result = TryParse(nextXTextBox.Text, nextYTextBox.Text, nextZTextBox.Text, out value);
+        SetNextError(!result);
+        return result;
     }
 
     private void PreviousTextBox_GotFocus(object? sender, GotFocusEventArgs e)
@@ -221,5 +225,19 @@ public abstract class BaseVector3AnimationEditor<T> : BaseVector3AnimationEditor
 
             e.Handled = true;
         }
+    }
+
+    private void SetPrevError(bool state)
+    {
+        (prevXTextBox.Classes as IPseudoClasses).Set(":error", state);
+        (prevYTextBox.Classes as IPseudoClasses).Set(":error", state);
+        (prevZTextBox.Classes as IPseudoClasses).Set(":error", state);
+    }
+
+    private void SetNextError(bool state)
+    {
+        (nextXTextBox.Classes as IPseudoClasses).Set(":error", state);
+        (nextYTextBox.Classes as IPseudoClasses).Set(":error", state);
+        (nextZTextBox.Classes as IPseudoClasses).Set(":error", state);
     }
 }
