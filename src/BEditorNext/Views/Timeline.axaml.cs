@@ -37,7 +37,7 @@ public partial class Timeline : UserControl
     private int _clickedLayer;
     internal TimeSpan _pointerFrame;
     internal int _pointerLayer;
-    private bool _isFirst;
+    private bool _isFirst = true;
     private TimelineViewModel? _viewModel;
 
     public Timeline()

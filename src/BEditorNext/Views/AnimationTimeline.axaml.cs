@@ -21,7 +21,7 @@ public partial class AnimationTimeline : UserControl
     private TimeSpan _clickedFrame;
     internal TimeSpan _pointerFrame;
     private AnimationTimelineViewModel? _viewModel;
-    private bool _isFirst;
+    private bool _isFirst = true;
 
     public AnimationTimeline()
     {
