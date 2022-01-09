@@ -1,0 +1,96 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="300"
+             x:Class="BEditorNext.Views.AnimationEditors.BaseVector3AnimationEditor">
+    <Grid ColumnDefinitions="2*,3*,Auto" RowDefinitions="*,Auto">
+        <Grid.Styles>
+            <Style Selector="TextBox">
+                <Setter Property="Margin" Value="4" />
+                <Setter Property="HorizontalAlignment" Value="Stretch" />
+                <Setter Property="VerticalAlignment" Value="Stretch" />
+                <Setter Property="VerticalContentAlignment" Value="Center" />
+            </Style>
+        </Grid.Styles>
+        <TextBlock
+            Margin="10,0,0,0"
+            Text="{Binding Header.Value}"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Center" />
+
+        <Carousel x:Name="carousel" Grid.Column="1">
+            <Carousel.PageTransition>
+                <PageSlide Orientation="Horizontal"
+                           SlideInEasing="0.1,0.9,0.2,1.0"
+                           SlideOutEasing="0.1,0.9,0.2,1.0"
+                           Duration="00:00:00.67" />
+            </Carousel.PageTransition>
+            <Grid ColumnDefinitions="24,*,2*" RowDefinitions="*,*,*">
+
+                <FluentIconRegular IconType="Border_Left" Width="16" Height="16" />
+
+                <TextBlock Grid.Column="1"
+                           x:Name="prevXText"
+                           VerticalAlignment="Center"
+                           Margin="4,0" />
+
+                <TextBox Grid.Column="2" x:Name="prevXTextBox" />
+
+                <TextBlock Grid.Column="1"
+                           Grid.Row="1"
+                           x:Name="prevYText"
+                           VerticalAlignment="Center"
+                           Margin="4,0" />
+
+                <TextBox Grid.Column="2" Grid.Row="1" x:Name="prevYTextBox" />
+
+                <TextBlock Grid.Column="1"
+                           Grid.Row="2"
+                           x:Name="prevZText"
+                           VerticalAlignment="Center"
+                           Margin="4,0" />
+
+                <TextBox Grid.Column="2" Grid.Row="2" x:Name="prevZTextBox" />
+            </Grid>
+
+            <Grid ColumnDefinitions="24,*,2*" RowDefinitions="*,*,*">
+                <FluentIconRegular IconType="Border_Right" Width="16" Height="16" />
+
+                <TextBlock Grid.Column="1"
+                           x:Name="nextXText"
+                           VerticalAlignment="Center"
+                           Margin="4,0" />
+
+                <TextBox Grid.Column="2" x:Name="nextXTextBox" />
+
+                <TextBlock Grid.Column="1"
+                           Grid.Row="1"
+                           x:Name="nextYText"
+                           VerticalAlignment="Center"
+                           Margin="4,0" />
+
+                <TextBox Grid.Column="2" Grid.Row="1" x:Name="nextYTextBox" />
+
+                <TextBlock Grid.Column="1"
+                           Grid.Row="2"
+                           x:Name="nextZText"
+                           VerticalAlignment="Center"
+                           Margin="4,0" />
+
+                <TextBox Grid.Column="2" Grid.Row="2" x:Name="nextZTextBox" />
+            </Grid>
+        </Carousel>
+
+        <Button Grid.Row="2"
+                Grid.Column="1"
+                BorderThickness="0"
+                Margin="0,0,4,4"
+                Click="Slide_Click"
+                HorizontalAlignment="Right">
+            <FluentIconRegular IconType="Chevron_Right"
+                               x:Name="button_icon"
+                               Width="12" Height="12" />
+        </Button>
+    </Grid>
+</UserControl>

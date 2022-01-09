@@ -53,7 +53,6 @@ public static class PropertyEditorService
         { typeof(Graphics.Vector), new(_ => new VectorEditor(), s => new VectorEditorViewModel((Setter<Graphics.Vector>)s)) },
     };
 
-    // Todo: vector3
     private static readonly Dictionary<Type, AnimationEditor> s_animationEditors = new()
     {
         { typeof(bool), new(_ => new BooleanAnimationEditor(), (a, vm) => new AnimationEditorViewModel<bool>(a, vm)) },
@@ -78,6 +77,7 @@ public static class PropertyEditorService
         { typeof(uint), new(_ => new NumberAnimationEditor<uint>(), (a, vm) => new AnimationEditorViewModel<uint>(a, vm)) },
         { typeof(ulong), new(_ => new NumberAnimationEditor<ulong>(), (a, vm) => new AnimationEditorViewModel<ulong>(a, vm)) },
         { typeof(Vector2), new(_ => new Vector2AnimationEditor(), (a, vm) => new Vector2AnimationEditorViewModel((Animation<Vector2>)a, (BaseEditorViewModel<Vector2>)vm)) },
+        { typeof(Vector3), new(_ => new Vector3AnimationEditor(), (a, vm) => new Vector3AnimationEditorViewModel((Animation<Vector3>)a, (BaseEditorViewModel<Vector3>)vm)) },
         { typeof(Vector4), new(_ => new Vector4AnimationEditor(), (a, vm) => new Vector4AnimationEditorViewModel((Animation<Vector4>)a, (BaseEditorViewModel<Vector4>)vm)) },
         { typeof(Graphics.Vector), new(_ => new VectorAnimationEditor(), (a, vm) => new VectorAnimationEditorViewModel((Animation<Graphics.Vector>)a, (BaseEditorViewModel<Graphics.Vector>)vm)) },
     };
