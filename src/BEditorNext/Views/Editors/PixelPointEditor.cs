@@ -2,11 +2,12 @@
 using Avalonia.Data;
 using Avalonia.Markup.Xaml.MarkupExtensions;
 
+using BEditorNext.Media;
 using BEditorNext.ViewModels.Editors;
 
 namespace BEditorNext.Views.Editors;
 
-public sealed class PixelPointEditor : BaseVector2Editor<Media.PixelPoint>
+public sealed class PixelPointEditor : BaseVector2Editor<PixelPoint>
 {
     public PixelPointEditor()
     {
@@ -16,11 +17,11 @@ public sealed class PixelPointEditor : BaseVector2Editor<Media.PixelPoint>
         yTextBox[!TextBox.TextProperty] = new Binding("Value.Value.Y", BindingMode.OneWay);
     }
 
-    protected override Media.PixelPoint Clamp(Media.PixelPoint value)
+    protected override PixelPoint Clamp(PixelPoint value)
     {
         if (DataContext is PixelPointEditorViewModel vm)
         {
-            return new Media.PixelPoint(
+            return new PixelPoint(
                 Math.Clamp(value.X, vm.Minimum.X, vm.Maximum.X),
                 Math.Clamp(value.Y, vm.Minimum.Y, vm.Maximum.Y));
         }
@@ -30,21 +31,21 @@ public sealed class PixelPointEditor : BaseVector2Editor<Media.PixelPoint>
         }
     }
 
-    protected override Media.PixelPoint IncrementX(Media.PixelPoint value, int increment)
+    protected override PixelPoint IncrementX(PixelPoint value, int increment)
     {
         return value.WithX(value.X + increment);
     }
 
-    protected override Media.PixelPoint IncrementY(Media.PixelPoint value, int increment)
+    protected override PixelPoint IncrementY(PixelPoint value, int increment)
     {
         return value.WithY(value.Y + increment);
     }
 
-    protected override bool TryParse(string? x, string? y, out Media.PixelPoint value)
+    protected override bool TryParse(string? x, string? y, out PixelPoint value)
     {
         if (int.TryParse(x, out int xi) && int.TryParse(y, out int yi))
         {
-            value = new Media.PixelPoint(xi, yi);
+            value = new PixelPoint(xi, yi);
             return true;
         }
         else

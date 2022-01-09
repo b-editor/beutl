@@ -20,6 +20,7 @@ internal class TestOperation : RenderOperation
     public static readonly CoreProperty<Point> PointProperty;
     public static readonly CoreProperty<Rect> RectProperty;
     public static readonly CoreProperty<Size> SizeProperty;
+    public static readonly CoreProperty<RelativePoint> RelativePointProperty;
     public static readonly CoreProperty<Thickness> ThicknessProperty;
     public static readonly CoreProperty<Asis> AsisProperty;
     public static readonly CoreProperty<string> StringProperty;
@@ -92,6 +93,12 @@ internal class TestOperation : RenderOperation
             .DefaultValue(new Size(100, 100))
             .Animatable()
             .JsonName("size")
+            .EnableEditor()
+            .Register();
+
+        RelativePointProperty = ConfigureProperty<RelativePoint, TestOperation>("RelativePoint")
+            .DefaultValue(new RelativePoint(100, 100, RelativeUnit.Absolute))
+            .JsonName("relpt")
             .EnableEditor()
             .Register();
 

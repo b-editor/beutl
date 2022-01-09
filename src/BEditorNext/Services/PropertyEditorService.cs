@@ -19,7 +19,7 @@ public static class PropertyEditorService
 
     private record struct AnimationEditor(Func<object?, Control?> CreateEditor, Func<IAnimation, BaseEditorViewModel, object?> CreateViewModel);
 
-    // Todo: RelativeRect, RelativePoint, Brushes
+    // Todo: RelativeRect, Brushes
     private static readonly Dictionary<Type, Editor> s_editors = new()
     {
         { typeof(bool), new(_ => new BooleanEditor(), s => new BooleanEditorViewModel((Setter<bool>)s)) },
@@ -40,6 +40,7 @@ public static class PropertyEditorService
         { typeof(PixelSize), new(_ => new PixelSizeEditor(), s => new PixelSizeEditorViewModel((Setter<PixelSize>)s)) },
         { typeof(Point), new(_ => new PointEditor(), s => new PointEditorViewModel((Setter<Point>)s)) },
         { typeof(Rect), new(_ => new RectEditor(), s => new RectEditorViewModel((Setter<Rect>)s)) },
+        { typeof(RelativePoint), new(_ => new RelativePointEditor(), s => new RelativePointEditorViewModel((Setter<RelativePoint>)s)) },
         { typeof(sbyte), new(_ => new NumberEditor<sbyte>(), s => new SByteEditorViewModel((Setter<sbyte>)s)) },
         { typeof(string), new(_ => new StringEditor(), s => new StringEditorViewModel((Setter<string>)s)) },
         { typeof(Thickness), new(_ => new ThicknessEditor(), s => new ThicknessEditorViewModel((Setter<Thickness>)s)) },
