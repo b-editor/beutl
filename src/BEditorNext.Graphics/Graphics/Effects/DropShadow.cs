@@ -1,6 +1,8 @@
 ﻿using BEditorNext.Media;
 using BEditorNext.Media.Pixel;
 
+using OpenCvSharp;
+
 using SkiaSharp;
 
 namespace BEditorNext.Graphics.Effects;
@@ -21,6 +23,11 @@ public class DropShadow : BitmapEffect
 
     public override Rect Measure(Rect rect)
     {
+        if (rect.Size.Width <= 0 || rect.Size.Height <= 0)
+        {
+            return rect;
+        }
+
         float w = rect.Width + SigmaX;
         float h = rect.Height + SigmaY;
 
@@ -45,6 +52,11 @@ public class DropShadow : BitmapEffect
 
     public override void Apply(ref Bitmap<Bgra8888> bitmap)
     {
+        if (bitmap.Width <= 0 || bitmap.Height <= 0)
+        {
+            return;
+        }
+
         float w = bitmap.Width + SigmaX;
         float h = bitmap.Height + SigmaY;
 

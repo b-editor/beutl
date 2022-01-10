@@ -119,6 +119,9 @@ public class Canvas : ICanvas
 
     public void DrawBitmap(IBitmap bmp)
     {
+        if (bmp.ByteCount <= 0)
+            return;
+
         VerifyAccess();
         ConfigurePaint(_paint, new Size(bmp.Width, bmp.Height));
 

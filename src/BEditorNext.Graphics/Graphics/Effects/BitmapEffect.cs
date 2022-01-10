@@ -196,13 +196,26 @@ public abstract unsafe class PixelEffect : BitmapEffect
 
     public override void Apply(ref Bitmap<Bgra8888> bitmap)
     {
-        Bitmap<Bgra8888>? b = bitmap;
+        Parallel.For(0, bitmap.Width * bitmap.Height, new ApplyAction(this, (Bgra8888*)bitmap.Data, bitmap.Info).Invoke);
+    }
 
-        Parallel.For(0, bitmap.Width * bitmap.Height, pos =>
+    private readonly struct ApplyAction
+    {
+        private readonly PixelEffect _pixelEffect;
+        private readonly Bgra8888* _ptr;
+        private readonly BitmapInfo _info;
+
+        public ApplyAction(PixelEffect pixelEffect, Bgra8888* ptr, BitmapInfo info)
         {
-            var ptr = (Bgra8888*)b.Data;
-            Apply(ref ptr[pos], b.Info, pos);
-        });
+            _pixelEffect = pixelEffect;
+            _ptr = ptr;
+            _info = info;
+        }
+
+        public void Invoke(int pos)
+        {
+            _pixelEffect.Apply(ref _ptr[pos], _info, pos);
+        }
     }
 }
 
@@ -217,12 +230,26 @@ public abstract unsafe class RowEffect : BitmapEffect
 
     public override void Apply(ref Bitmap<Bgra8888> bitmap)
     {
-        Bitmap<Bgra8888>? b = bitmap;
+        Parallel.For(0, bitmap.Height, new ApplyAction(this, (Bgra8888*)bitmap.Data, bitmap.Info).Invoke);
+    }
 
-        Parallel.For(0, bitmap.Height, pos =>
+    private readonly struct ApplyAction
+    {
+        private readonly RowEffect _rowEffect;
+        private readonly Bgra8888* _ptr;
+        private readonly BitmapInfo _info;
+
+        public ApplyAction(RowEffect rowEffect, Bgra8888* ptr, BitmapInfo info)
         {
-            Span<Bgra8888> span = b.DataSpan[(pos * b.Width)..];
-            Apply(span, b.Info, pos);
-        });
+            _rowEffect = rowEffect;
+            _ptr = ptr;
+            _info = info;
+        }
+
+        public void Invoke(int pos)
+        {
+            var span = new Span<Bgra8888>(_ptr + (pos * _info.Width), _info.Width);
+            _rowEffect.Apply(span, _info, pos);
+        }
     }
 }

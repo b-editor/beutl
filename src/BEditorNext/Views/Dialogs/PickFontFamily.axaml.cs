@@ -8,6 +8,7 @@ using Avalonia.Data.Converters;
 using Avalonia.Styling;
 
 using BEditorNext.Media;
+using BEditorNext.ViewModels.Dialogs;
 
 using FluentAvalonia.Core;
 using FluentAvalonia.UI.Controls;
@@ -16,11 +17,14 @@ namespace BEditorNext.Views.Dialogs;
 
 public partial class PickFontFamily : ContentDialog, IStyleable
 {
+    private Regex[]? _regies;
+
     public PickFontFamily()
     {
         Resources["ToAvaloniaFontFamily"] = new FuncValueConverter<FontFamily, Avalonia.Media.FontFamily>(f => new Avalonia.Media.FontFamily(f.Name));
         InitializeComponent();
         searchBox.GetObservable(TextBox.TextProperty).Subscribe(SearchQueryChanged);
+        list.Items = FontManager.Instance.FontFamilies;
     }
 
     Type IStyleable.StyleKey => typeof(ContentDialog);
@@ -29,41 +33,23 @@ public partial class PickFontFamily : ContentDialog, IStyleable
     {
         if (string.IsNullOrWhiteSpace(obj))
         {
-            SetVisibility(list.Items, true);
+            _regies = null;
         }
         else
         {
-            Regex[] regies = RegexHelper.CreateRegices(obj);
-            var items = new List<FontFamily>();
-
-            foreach (FontFamily item in list.Items.OfType<FontFamily>())
-            {
-                if (RegexHelper.IsMatch(regies, item.Name))
-                {
-                    items.Add(item);
-                }
-            }
-
-            SetVisibility(items, true);
+            _regies = RegexHelper.CreateRegices(obj);
         }
-    }
 
-    // items‚ÉŠÜ‚Ü‚ê‚Ä‚¢‚éƒAƒCƒeƒ€‚ÌVisibility‚ðÝ’è‚·‚é
-    private void SetVisibility(IEnumerable items, bool isVisible)
-    {
-        IItemContainerGenerator container = list.ItemContainerGenerator;
-        if (items == null || container == null) return;
-
-        int index = 0;
-        foreach (object? item in list.Items)
+        list.Items = FontManager.Instance.FontFamilies.Where(i =>
         {
-            IControl control = container.ContainerFromIndex(index);
-            if (control != null)
+            if (_regies == null)
             {
-                control.IsVisible = items.Contains(item) ? isVisible : !isVisible;
+                return true;
             }
-
-            index++;
-        }
+            else
+            {
+                return RegexHelper.IsMatch(_regies, i.Name);
+            }
+        });
     }
 }
