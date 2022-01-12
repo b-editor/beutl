@@ -227,11 +227,11 @@ public partial class Timeline : UserControl
     {
         if (e.Action == NotifyCollectionChangedAction.Add && e.NewItems != null)
         {
-            AddLayers(e.NewItems.OfType<SceneLayer>());
+            AddLayers(e.NewItems.OfType<Layer>());
         }
         else if (e.Action == NotifyCollectionChangedAction.Remove && e.OldItems != null)
         {
-            RemoveLayers(e.OldItems.OfType<SceneLayer>());
+            RemoveLayers(e.OldItems.OfType<Layer>());
         }
     }
 
@@ -252,9 +252,9 @@ public partial class Timeline : UserControl
     }
 
     // レイヤーを追加
-    private void AddLayers(IEnumerable<SceneLayer> items)
+    private void AddLayers(IEnumerable<Layer> items)
     {
-        foreach (SceneLayer layer in items)
+        foreach (Layer layer in items)
         {
             var viewModel = new TimelineLayerViewModel(layer);
             var view = new TimelineLayer
@@ -272,9 +272,9 @@ public partial class Timeline : UserControl
     }
 
     // レイヤーを削除
-    private void RemoveLayers(IEnumerable<SceneLayer> items)
+    private void RemoveLayers(IEnumerable<Layer> items)
     {
-        foreach (SceneLayer layer in items)
+        foreach (Layer layer in items)
         {
             for (int i = 0; i < TimelinePanel.Children.Count; i++)
             {

@@ -3,7 +3,7 @@ using BEditorNext.Rendering;
 
 namespace BEditorNext.Operations;
 
-public abstract class ConfigureOperation : RenderOperation
+public abstract class ConfigureOperation : LayerOperation
 {
     public override void Render(in OperationRenderArgs args)
     {

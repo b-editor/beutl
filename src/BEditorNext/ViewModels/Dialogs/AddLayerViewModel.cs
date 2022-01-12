@@ -77,19 +77,19 @@ public sealed class AddLayerViewModel
 
         Add.Subscribe(() =>
         {
-            var sLayer = new SceneLayer()
+            var sLayer = new Layer()
             {
                 Name = Name.Value,
                 Start = Start.Value,
                 Length = Duration.Value,
-                Layer = Layer.Value,
+                ZIndex = Layer.Value,
                 AccentColor = new(Color.Value.A, Color.Value.R, Color.Value.G, Color.Value.B),
                 FileName = Helper.RandomLayerFileName(Path.GetDirectoryName(_scene.FileName)!, "layer")
             };
 
             if (_layerDescription.InitialOperation != null)
             {
-                sLayer.AddChild((RenderOperation)(Activator.CreateInstance(_layerDescription.InitialOperation.Type)!), CommandRecorder.Default);
+                sLayer.AddChild((LayerOperation)(Activator.CreateInstance(_layerDescription.InitialOperation.Type)!), CommandRecorder.Default);
             }
 
             sLayer.Save(sLayer.FileName);
@@ -113,9 +113,9 @@ public sealed class AddLayerViewModel
 
     private bool ExistsLayer(int layer)
     {
-        foreach (SceneLayer item in _scene.Layers)
+        foreach (Layer item in _scene.Layers)
         {
-            if (item.Layer == layer)
+            if (item.ZIndex == layer)
             {
                 return true;
             }

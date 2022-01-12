@@ -3,7 +3,7 @@ using BEditorNext.ProjectSystem;
 
 namespace BEditorNext.Operations;
 
-public abstract class DrawableOperation : RenderOperation
+public abstract class DrawableOperation : LayerOperation
 {
     public abstract Drawable Drawable { get; }
 

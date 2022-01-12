@@ -7,13 +7,13 @@ public class RenderOperationRegistry
     private static readonly List<BaseRegistryItem> s_operations = new();
 
     public static void RegisterOperation<T>(ResourceReference<string> displayName)
-        where T : RenderOperation, new()
+        where T : LayerOperation, new()
     {
         Register(new RegistryItem(displayName, Colors.Teal, typeof(T)));
     }
 
     public static void RegisterOperation<T>(ResourceReference<string> displayName, Color accentColor)
-        where T : RenderOperation, new()
+        where T : LayerOperation, new()
     {
         Register(new RegistryItem(displayName, accentColor, typeof(T)));
     }
@@ -22,8 +22,8 @@ public class RenderOperationRegistry
         ResourceReference<string> displayName,
         Color accentColor,
         Func<string, bool> canOpen,
-        Func<string, RenderOperation> openFile)
-        where T : RenderOperation, new()
+        Func<string, LayerOperation> openFile)
+        where T : LayerOperation, new()
     {
         ArgumentNullException.ThrowIfNull(canOpen);
         ArgumentNullException.ThrowIfNull(openFile);
@@ -97,7 +97,7 @@ public class RenderOperationRegistry
     public record RegistryItem(ResourceReference<string> DisplayName, Color AccentColor, Type Type)
         : BaseRegistryItem(DisplayName, AccentColor)
     {
-        public Func<string, RenderOperation>? OpenFile { get; init; }
+        public Func<string, LayerOperation>? OpenFile { get; init; }
 
         public Func<string, bool>? CanOpen { get; init; }
     }
@@ -118,7 +118,7 @@ public class RenderOperationRegistry
         }
 
         public RegistrationHelper Add<T>(ResourceReference<string> displayName)
-            where T : RenderOperation, new()
+            where T : LayerOperation, new()
         {
             _item.Items!.Add(new RegistryItem(displayName, Colors.Teal, typeof(T)));
 
@@ -126,7 +126,7 @@ public class RenderOperationRegistry
         }
 
         public RegistrationHelper Add<T>(ResourceReference<string> displayName, Color accentColor)
-            where T : RenderOperation, new()
+            where T : LayerOperation, new()
         {
             _item.Items!.Add(new RegistryItem(displayName, accentColor, typeof(T)));
 
@@ -137,8 +137,8 @@ public class RenderOperationRegistry
             ResourceReference<string> displayName,
             Color accentColor,
             Func<string, bool> canOpen,
-            Func<string, RenderOperation> openFile)
-            where T : RenderOperation, new()
+            Func<string, LayerOperation> openFile)
+            where T : LayerOperation, new()
         {
             ArgumentNullException.ThrowIfNull(canOpen);
             ArgumentNullException.ThrowIfNull(openFile);

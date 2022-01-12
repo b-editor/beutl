@@ -7,7 +7,7 @@ using SkiaSharp;
 
 namespace BEditorNext.Operations;
 
-public sealed class FormattedTextOperation : RenderOperation
+public sealed class FormattedTextOperation : LayerOperation
 {
     public static readonly CoreProperty<float> SizeProperty;
     public static readonly CoreProperty<Color> ColorProperty;

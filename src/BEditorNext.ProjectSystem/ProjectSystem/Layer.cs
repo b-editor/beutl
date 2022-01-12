@@ -6,60 +6,60 @@ using BEditorNext.Media;
 
 namespace BEditorNext.ProjectSystem;
 
-public class SceneLayer : Element, IStorable
+public class Layer : Element, IStorable
 {
     public static readonly CoreProperty<TimeSpan> StartProperty;
     public static readonly CoreProperty<TimeSpan> LengthProperty;
-    public static readonly CoreProperty<int> LayerProperty;
+    public static readonly CoreProperty<int> ZIndexProperty;
     public static readonly CoreProperty<Color> AccentColorProperty;
     public static readonly CoreProperty<bool> IsEnabledProperty;
     private TimeSpan _start;
     private TimeSpan _length;
-    private int _layer;
+    private int _zIndex;
     private string? _fileName;
     private bool _isEnabled = true;
 
-    static SceneLayer()
+    static Layer()
     {
-        StartProperty = ConfigureProperty<TimeSpan, SceneLayer>(nameof(Start))
+        StartProperty = ConfigureProperty<TimeSpan, Layer>(nameof(Start))
             .Accessor(o => o.Start, (o, v) => o.Start = v)
             .Observability(PropertyObservability.ChangingAndChanged)
             .JsonName("start")
             .Register();
 
-        LengthProperty = ConfigureProperty<TimeSpan, SceneLayer>(nameof(Length))
+        LengthProperty = ConfigureProperty<TimeSpan, Layer>(nameof(Length))
             .Accessor(o => o.Length, (o, v) => o.Length = v)
             .Observability(PropertyObservability.ChangingAndChanged)
             .JsonName("length")
             .Register();
 
-        LayerProperty = ConfigureProperty<int, SceneLayer>(nameof(Layer))
-            .Accessor(o => o.Layer, (o, v) => o.Layer = v)
+        ZIndexProperty = ConfigureProperty<int, Layer>(nameof(ZIndex))
+            .Accessor(o => o.ZIndex, (o, v) => o.ZIndex = v)
             .Observability(PropertyObservability.ChangingAndChanged)
-            .JsonName("layer")
+            .JsonName("zIndex")
             .Register();
 
-        AccentColorProperty = ConfigureProperty<Color, SceneLayer>(nameof(AccentColor))
+        AccentColorProperty = ConfigureProperty<Color, Layer>(nameof(AccentColor))
             .DefaultValue(Colors.Teal)
             .Observability(PropertyObservability.ChangingAndChanged)
             .JsonName("accentColor")
             .Register();
 
-        IsEnabledProperty = ConfigureProperty<bool, SceneLayer>(nameof(IsEnabled))
+        IsEnabledProperty = ConfigureProperty<bool, Layer>(nameof(IsEnabled))
             .Accessor(o => o.IsEnabled, (o, v) => o.IsEnabled = v)
             .DefaultValue(true)
             .Observability(PropertyObservability.ChangingAndChanged)
             .JsonName("isEnabled")
             .Register();
 
-        NameProperty.OverrideMetadata(typeof(SceneLayer), new CorePropertyMetadata(null, PropertyObservability.None, new()
+        NameProperty.OverrideMetadata(typeof(Layer), new CorePropertyMetadata(null, PropertyObservability.None, new()
         {
             { PropertyMetaTableKeys.JsonName, "name" }
         }));
 
     }
 
-    public SceneLayer()
+    public Layer()
     {
     }
 
@@ -76,10 +76,10 @@ public class SceneLayer : Element, IStorable
         set => SetAndRaise(LengthProperty, ref _length, value);
     }
 
-    public int Layer
+    public int ZIndex
     {
-        get => _layer;
-        set => SetAndRaise(LayerProperty, ref _layer, value);
+        get => _zIndex;
+        set => SetAndRaise(ZIndexProperty, ref _zIndex, value);
     }
 
     public Color AccentColor
@@ -94,7 +94,7 @@ public class SceneLayer : Element, IStorable
         set => SetAndRaise(IsEnabledProperty, ref _isEnabled, value);
     }
 
-    public IEnumerable<RenderOperation> Operations => Children.OfType<RenderOperation>();
+    public IEnumerable<LayerOperation> Operations => Children.OfType<LayerOperation>();
 
     public string FileName
     {
@@ -108,7 +108,7 @@ public class SceneLayer : Element, IStorable
 
     public DateTime LastSavedTime { get; private set; }
 
-    public void AddChild(RenderOperation operation, CommandRecorder? recorder = null)
+    public void AddChild(LayerOperation operation, CommandRecorder? recorder = null)
     {
         ArgumentNullException.ThrowIfNull(operation);
 
@@ -122,7 +122,7 @@ public class SceneLayer : Element, IStorable
         }
     }
 
-    public void RemoveChild(RenderOperation operation, CommandRecorder? recorder = null)
+    public void RemoveChild(LayerOperation operation, CommandRecorder? recorder = null)
     {
         ArgumentNullException.ThrowIfNull(operation);
 
@@ -136,7 +136,7 @@ public class SceneLayer : Element, IStorable
         }
     }
 
-    public void InsertChild(int index, RenderOperation operation, CommandRecorder? recorder = null)
+    public void InsertChild(int index, LayerOperation operation, CommandRecorder? recorder = null)
     {
         ArgumentNullException.ThrowIfNull(operation);
 
@@ -205,6 +205,14 @@ public class SceneLayer : Element, IStorable
 
         if (json is JsonObject jobject)
         {
+            // Todo: 後で削除
+            if (!jobject.ContainsKey("zIndex") && jobject.TryGetPropertyValue("layer", out JsonNode? layerNode) &&
+                layerNode is JsonValue layerValue &&
+                layerValue.TryGetValue(out int layer))
+            {
+                ZIndex = layer;
+            }
+
             if (jobject.TryGetPropertyValue("operations", out JsonNode? operationsNode) &&
                 operationsNode is JsonArray operationsArray)
             {
@@ -215,11 +223,11 @@ public class SceneLayer : Element, IStorable
                         atTypeValue.TryGetValue(out string? atType))
                     {
                         var type = TypeFormat.ToType(atType);
-                        RenderOperation? operation = null;
+                        LayerOperation? operation = null;
 
-                        if (type?.IsAssignableTo(typeof(RenderOperation)) ?? false)
+                        if (type?.IsAssignableTo(typeof(LayerOperation)) ?? false)
                         {
-                            operation = Activator.CreateInstance(type) as RenderOperation;
+                            operation = Activator.CreateInstance(type) as LayerOperation;
                         }
 
                         operation ??= new EmptyOperation();
@@ -239,7 +247,7 @@ public class SceneLayer : Element, IStorable
         {
             var array = new JsonArray();
 
-            foreach (RenderOperation item in Operations)
+            foreach (LayerOperation item in Operations)
             {
                 JsonNode json = item.ToJson();
                 if (item is not EmptyOperation)
@@ -263,13 +271,13 @@ public class SceneLayer : Element, IStorable
 
     private sealed class UpdateTimeCommand : IRecordableCommand
     {
-        private readonly SceneLayer _layer;
+        private readonly Layer _layer;
         private readonly TimeSpan _newStart;
         private readonly TimeSpan _oldStart;
         private readonly TimeSpan _newLength;
         private readonly TimeSpan _oldLength;
 
-        public UpdateTimeCommand(SceneLayer layer, TimeSpan newStart, TimeSpan oldStart, TimeSpan newLength, TimeSpan oldLength)
+        public UpdateTimeCommand(Layer layer, TimeSpan newStart, TimeSpan oldStart, TimeSpan newLength, TimeSpan oldLength)
         {
             _layer = layer;
             _newStart = newStart;

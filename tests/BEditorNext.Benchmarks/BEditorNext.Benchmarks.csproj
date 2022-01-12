@@ -1,0 +1,24 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net6.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="$(MSBuildThisFileDirectory)\..\ArtifactProvider.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BenchmarkDotNet" Version="0.13.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\BEditorNext.Graphics\BEditorNext.Graphics.csproj" />
+    <ProjectReference Include="..\..\src\BEditorNext.Operations\BEditorNext.Operations.csproj" />
+    <ProjectReference Include="..\..\src\BEditorNext.ProjectSystem\BEditorNext.ProjectSystem.csproj" />
+  </ItemGroup>
+
+</Project>

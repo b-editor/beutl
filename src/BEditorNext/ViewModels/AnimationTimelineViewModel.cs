@@ -18,7 +18,7 @@ public sealed class AnimationTimelineViewModel : IDisposable
 {
     private readonly CompositeDisposable _disposables = new();
 
-    public AnimationTimelineViewModel(SceneLayer layer, IAnimatableSetter setter, BaseEditorViewModel editorViewModel)
+    public AnimationTimelineViewModel(Layer layer, IAnimatableSetter setter, BaseEditorViewModel editorViewModel)
     {
         Layer = layer;
         Setter = setter;
@@ -27,19 +27,19 @@ public sealed class AnimationTimelineViewModel : IDisposable
 
         ISubject<TimelineOptions> optionsSubject = Scene.GetSubject(Scene.TimelineOptionsProperty);
 
-        BorderMargin = Layer.GetSubject(SceneLayer.StartProperty)
+        BorderMargin = Layer.GetSubject(Layer.StartProperty)
             .CombineLatest(optionsSubject)
             .Select(item => new Thickness(item.First.ToPixel(item.Second.Scale), 0, 0, 0))
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
 
-        Width = Layer.GetSubject(SceneLayer.LengthProperty)
+        Width = Layer.GetSubject(Layer.LengthProperty)
             .CombineLatest(optionsSubject)
             .Select(item => item.First.ToPixel(item.Second.Scale))
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
 
-        Color = Layer.GetSubject(SceneLayer.AccentColorProperty)
+        Color = Layer.GetSubject(Layer.AccentColorProperty)
             .Select(c => c.ToAvalonia())
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
@@ -68,7 +68,7 @@ public sealed class AnimationTimelineViewModel : IDisposable
 
     public Scene Scene { get; }
 
-    public SceneLayer Layer { get; }
+    public Layer Layer { get; }
 
     public IAnimatableSetter Setter { get; }
 

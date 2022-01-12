@@ -22,29 +22,29 @@ public class TimelineLayerViewModel : IDisposable
 {
     private readonly CompositeDisposable _disposables = new();
 
-    public TimelineLayerViewModel(SceneLayer sceneLayer)
+    public TimelineLayerViewModel(Layer sceneLayer)
     {
         Model = sceneLayer;
         ISubject<TimelineOptions> optionsSubject = Scene.GetSubject(Scene.TimelineOptionsProperty);
 
-        Margin = sceneLayer.GetSubject(SceneLayer.LayerProperty)
+        Margin = sceneLayer.GetSubject(Layer.ZIndexProperty)
             .Select(item => new Thickness(0, item.ToLayerPixel(), 0, 0))
             .ToReactiveProperty()
             .AddTo(_disposables);
 
-        BorderMargin = sceneLayer.GetSubject(SceneLayer.StartProperty)
+        BorderMargin = sceneLayer.GetSubject(Layer.StartProperty)
             .CombineLatest(optionsSubject)
             .Select(item => new Thickness(item.First.ToPixel(item.Second.Scale), 0, 0, 0))
             .ToReactiveProperty()
             .AddTo(_disposables);
 
-        Width = sceneLayer.GetSubject(SceneLayer.LengthProperty)
+        Width = sceneLayer.GetSubject(Layer.LengthProperty)
             .CombineLatest(optionsSubject)
             .Select(item => item.First.ToPixel(item.Second.Scale))
             .ToReactiveProperty()
             .AddTo(_disposables);
 
-        Color = sceneLayer.GetSubject(SceneLayer.AccentColorProperty)
+        Color = sceneLayer.GetSubject(Layer.AccentColorProperty)
             .Select(c => c.ToAvalonia())
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
@@ -64,7 +64,7 @@ public class TimelineLayerViewModel : IDisposable
         _disposables.Dispose();
     }
 
-    public SceneLayer Model { get; }
+    public Layer Model { get; }
 
     public Scene Scene => (Scene)Model.Parent!;
 

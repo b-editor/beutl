@@ -39,7 +39,7 @@ public class MainWindowViewModel
                 foreach (Scene scene in project.Scenes)
                 {
                     scene.Save(scene.FileName);
-                    foreach (SceneLayer layer in scene.Layers)
+                    foreach (Layer layer in scene.Layers)
                     {
                         layer.Save(layer.FileName);
                     }

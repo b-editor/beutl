@@ -20,9 +20,9 @@ public partial class PropertiesEditor : UserControl
         if (e.Data.Get("RenderOperation") is RenderOperationRegistry.RegistryItem item &&
             DataContext is PropertiesEditorViewModel vm)
         {
-            SceneLayer layer = vm.Layer;
+            Layer layer = vm.Layer;
 
-            layer.AddChild((RenderOperation)Activator.CreateInstance(item.Type)!, CommandRecorder.Default);
+            layer.AddChild((LayerOperation)Activator.CreateInstance(item.Type)!, CommandRecorder.Default);
 
             e.Handled = true;
         }

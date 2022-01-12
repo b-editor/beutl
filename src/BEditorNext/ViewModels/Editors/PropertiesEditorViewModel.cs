@@ -4,10 +4,10 @@ namespace BEditorNext.ViewModels.Editors;
 
 public sealed class PropertiesEditorViewModel
 {
-    public PropertiesEditorViewModel(SceneLayer layer)
+    public PropertiesEditorViewModel(Layer layer)
     {
         Layer = layer;
     }
 
-    public SceneLayer Layer { get; }
+    public Layer Layer { get; }
 }
