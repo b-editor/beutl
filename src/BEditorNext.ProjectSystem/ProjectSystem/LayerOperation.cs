@@ -4,28 +4,28 @@ using BEditorNext.Collections;
 
 namespace BEditorNext.ProjectSystem;
 
-public abstract class RenderOperation : Element, ILogicalElement
+public abstract class LayerOperation : Element, ILogicalElement
 {
     public static readonly CoreProperty<bool> IsEnabledProperty;
     public static readonly CoreProperty<RenderOperationViewState> ViewStateProperty;
     private readonly LogicalList<ISetter> _setters;
     private bool _isEnabled = true;
 
-    static RenderOperation()
+    static LayerOperation()
     {
-        IsEnabledProperty = ConfigureProperty<bool, RenderOperation>(nameof(IsEnabled))
+        IsEnabledProperty = ConfigureProperty<bool, LayerOperation>(nameof(IsEnabled))
             .Accessor(o => o.IsEnabled, (o, v) => o.IsEnabled = v)
             .DefaultValue(true)
             .Observability(PropertyObservability.Changed)
             .JsonName("isEnabled")
             .Register();
 
-        ViewStateProperty = ConfigureProperty<RenderOperationViewState, RenderOperation>(nameof(ViewState))
+        ViewStateProperty = ConfigureProperty<RenderOperationViewState, LayerOperation>(nameof(ViewState))
             .Observability(PropertyObservability.Changed)
             .Register();
     }
 
-    public RenderOperation()
+    public LayerOperation()
     {
         _setters = new LogicalList<ISetter>(this);
         ViewState = new RenderOperationViewState();
@@ -166,7 +166,7 @@ public abstract class RenderOperation : Element, ILogicalElement
 
     protected void ForceRender()
     {
-        SceneLayer? layer = this.FindLogicalParent<SceneLayer>();
+        Layer? layer = this.FindLogicalParent<Layer>();
 
         Scene? scene = this.FindLogicalParent<Scene>();
         if (scene != null &&
@@ -181,7 +181,7 @@ public abstract class RenderOperation : Element, ILogicalElement
     }
 }
 
-public sealed class EmptyOperation : RenderOperation
+public sealed class EmptyOperation : LayerOperation
 {
     public EmptyOperation()
     {

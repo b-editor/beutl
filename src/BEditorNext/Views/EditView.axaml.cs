@@ -20,7 +20,7 @@ public sealed partial class EditView : UserControl, IStorableControl
 
     public EditView()
     {
-        Resources["LayerEditorConverter"] = new FuncValueConverter<SceneLayer?, object?>(obj =>
+        Resources["LayerEditorConverter"] = new FuncValueConverter<Layer?, object?>(obj =>
         {
             if (obj == null)
                 return null;

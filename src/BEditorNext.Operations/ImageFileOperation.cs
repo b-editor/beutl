@@ -5,7 +5,7 @@ using BEditorNext.ProjectSystem;
 
 namespace BEditorNext.Operations;
 
-public sealed class ImageFileOperation : RenderOperation
+public sealed class ImageFileOperation : LayerOperation
 {
     public static readonly CoreProperty<FileInfo?> FileProperty;
     private Bitmap<Bgra8888>? _cache;

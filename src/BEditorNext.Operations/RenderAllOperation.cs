@@ -3,7 +3,7 @@ using BEditorNext.Rendering;
 
 namespace BEditorNext.Operations;
 
-public sealed class RenderAllOperation : RenderOperation
+public sealed class RenderAllOperation : LayerOperation
 {
     public static readonly CoreProperty<bool> DeleteRenderedObjectsProperty;
     public static readonly CoreProperty<int> StartProperty;

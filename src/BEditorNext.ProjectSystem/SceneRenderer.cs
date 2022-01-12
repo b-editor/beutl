@@ -11,7 +11,7 @@ internal class SceneRenderer : IRenderer
     internal static readonly Dispatcher s_dispatcher = Dispatcher.Spawn();
     private readonly Scene _scene;
     private readonly RenderableList _renderables = new();
-    private List<SceneLayer>? _cache;
+    private List<Layer>? _cache;
 
     public SceneRenderer(Scene scene, int width, int height)
     {
@@ -48,12 +48,12 @@ internal class SceneRenderer : IRenderer
         {
             Graphics.Clear();
             TimeSpan ts = FrameNumber;
-            List<SceneLayer> layers = FilterAndSortLayers(ts);
+            List<Layer> layers = FilterAndSortLayers(ts);
             var args = new OperationRenderArgs(ts, this, _renderables);
 
             for (int i = 0; i < layers.Count; i++)
             {
-                SceneLayer item = layers[i];
+                Layer item = layers[i];
 
                 if (item.IsEnabled)
                 {
@@ -65,14 +65,14 @@ internal class SceneRenderer : IRenderer
         return new IRenderer.RenderResult(Graphics.GetBitmap());
     }
 
-    private void ProcessLayer(SceneLayer layer, in OperationRenderArgs args)
+    private void ProcessLayer(Layer layer, in OperationRenderArgs args)
     {
         _renderables.Clear();
         IElementList list = layer.Children;
 
         for (int i = 0; i < list.Count; i++)
         {
-            if (list[i] is RenderOperation op && op.IsEnabled)
+            if (list[i] is LayerOperation op && op.IsEnabled)
             {
                 op.ApplySetters(args);
                 op.Render(args);
@@ -92,11 +92,11 @@ internal class SceneRenderer : IRenderer
         _renderables.Clear();
     }
 
-    private List<SceneLayer> FilterAndSortLayers(TimeSpan ts)
+    private List<Layer> FilterAndSortLayers(TimeSpan ts)
     {
         if (_cache == null)
         {
-            _cache = new List<SceneLayer>();
+            _cache = new List<Layer>();
         }
         else
         {
@@ -107,16 +107,16 @@ internal class SceneRenderer : IRenderer
 
         for (int i = 0; i < length; i++)
         {
-            if (children[i] is SceneLayer item &&
+            if (children[i] is Layer item &&
                 item.Start <= ts &&
                 ts < item.Length + item.Start &&
-                item.Layer >= 0)
+                item.ZIndex >= 0)
             {
                 _cache.Add(item);
             }
         }
 
-        _cache.Sort((x, y) => x.Layer - y.Layer);
+        _cache.Sort((x, y) => x.ZIndex - y.ZIndex);
 
         return _cache;
     }

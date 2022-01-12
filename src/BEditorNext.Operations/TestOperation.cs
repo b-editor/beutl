@@ -9,7 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace BEditorNext.Operations;
 
-internal class TestOperation : RenderOperation
+internal class TestOperation : LayerOperation
 {
     public static readonly CoreProperty<bool> BooleanProperty;
     public static readonly CoreProperty<float> NumberProperty;

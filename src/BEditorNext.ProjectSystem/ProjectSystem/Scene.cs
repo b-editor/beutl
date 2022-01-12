@@ -17,7 +17,7 @@ public class Scene : Element, IStorable
     public static readonly CoreProperty<int> HeightProperty;
     public static readonly CoreProperty<TimeSpan> DurationProperty;
     public static readonly CoreProperty<TimeSpan> CurrentFrameProperty;
-    public static readonly CoreProperty<SceneLayer?> SelectedItemProperty;
+    public static readonly CoreProperty<Layer?> SelectedItemProperty;
     public static readonly CoreProperty<PreviewOptions?> PreviewOptionsProperty;
     public static readonly CoreProperty<TimelineOptions> TimelineOptionsProperty;
     private readonly List<string> _includeLayers = new()
@@ -28,7 +28,7 @@ public class Scene : Element, IStorable
     private string? _fileName;
     private TimeSpan _duration = TimeSpan.FromMinutes(5);
     private TimeSpan _currentFrame;
-    private SceneLayer? _selectedItem;
+    private Layer? _selectedItem;
     private PreviewOptions? _previewOptions;
     private TimelineOptions _timelineOptions = new();
     private SceneRenderer _renderer;
@@ -71,7 +71,7 @@ public class Scene : Element, IStorable
             .JsonName("currentFrame")
             .Register();
 
-        SelectedItemProperty = ConfigureProperty<SceneLayer?, Scene>(nameof(SelectedItem))
+        SelectedItemProperty = ConfigureProperty<Layer?, Scene>(nameof(SelectedItem))
             .Accessor(o => o.SelectedItem, (o, v) => o.SelectedItem = v)
             .Observability(PropertyObservability.ChangingAndChanged)
             .Register();
@@ -136,9 +136,9 @@ public class Scene : Element, IStorable
         }
     }
 
-    public IEnumerable<SceneLayer> Layers => Children.OfType<SceneLayer>();
+    public IEnumerable<Layer> Layers => Children.OfType<Layer>();
 
-    public SceneLayer? SelectedItem
+    public Layer? SelectedItem
     {
         get => _selectedItem;
         set => SetAndRaise(SelectedItemProperty, ref _selectedItem, value);
@@ -174,10 +174,10 @@ public class Scene : Element, IStorable
     }
 
     // layer.FileNameが既に設定されている状態
-    public void AddChild(SceneLayer layer, CommandRecorder? recorder = null)
+    public void AddChild(Layer layer, CommandRecorder? recorder = null)
     {
         ArgumentNullException.ThrowIfNull(layer);
-        layer.Layer = NearestLayerNumber(layer);
+        layer.ZIndex = NearestLayerNumber(layer);
 
         if (recorder == null)
         {
@@ -189,13 +189,13 @@ public class Scene : Element, IStorable
         }
     }
 
-    public void RemoveChild(SceneLayer layer, CommandRecorder? recorder = null)
+    public void RemoveChild(Layer layer, CommandRecorder? recorder = null)
     {
         ArgumentNullException.ThrowIfNull(layer);
 
         if (recorder == null)
         {
-            layer.Layer = -1;
+            layer.ZIndex = -1;
             Children.Remove(layer);
         }
         else
@@ -204,19 +204,19 @@ public class Scene : Element, IStorable
         }
     }
 
-    public void MoveChild(int layerNum, SceneLayer layer, CommandRecorder? recorder = null)
+    public void MoveChild(int layerNum, Layer layer, CommandRecorder? recorder = null)
     {
         ArgumentNullException.ThrowIfNull(layer);
 
         PropertyChangeTracker? tracker = recorder != null ? new PropertyChangeTracker(Layers, 0) : null;
 
         // 下に移動
-        if (layerNum > layer.Layer)
+        if (layerNum > layer.ZIndex)
         {
             bool insert = false;
-            foreach (SceneLayer item in Layers)
+            foreach (Layer item in Layers)
             {
-                if (item.Layer == layerNum)
+                if (item.ZIndex == layerNum)
                 {
                     insert = true;
                 }
@@ -224,25 +224,25 @@ public class Scene : Element, IStorable
 
             if (insert)
             {
-                foreach (SceneLayer item in Layers)
+                foreach (Layer item in Layers)
                 {
                     if (item != layer)
                     {
-                        if (item.Layer > layer.Layer &&
-                            item.Layer <= layerNum)
+                        if (item.ZIndex > layer.ZIndex &&
+                            item.ZIndex <= layerNum)
                         {
-                            item.Layer--;
+                            item.ZIndex--;
                         }
                     }
                 }
             }
         }
-        else if (layerNum < layer.Layer)
+        else if (layerNum < layer.ZIndex)
         {
             bool insert = false;
-            foreach (SceneLayer item in Layers)
+            foreach (Layer item in Layers)
             {
-                if (item.Layer == layerNum)
+                if (item.ZIndex == layerNum)
                 {
                     insert = true;
                 }
@@ -250,21 +250,21 @@ public class Scene : Element, IStorable
 
             if (insert)
             {
-                foreach (SceneLayer item in Layers)
+                foreach (Layer item in Layers)
                 {
                     if (item != layer)
                     {
-                        if (item.Layer < layer.Layer &&
-                            item.Layer >= layerNum)
+                        if (item.ZIndex < layer.ZIndex &&
+                            item.ZIndex >= layerNum)
                         {
-                            item.Layer++;
+                            item.ZIndex++;
                         }
                     }
                 }
             }
         }
 
-        layer.Layer = layerNum;
+        layer.ZIndex = layerNum;
 
         if (tracker != null && recorder != null)
         {
@@ -398,10 +398,10 @@ public class Scene : Element, IStorable
         string viewStateDir = ViewStateDirectory();
         new SceneViewState(this).JsonSave(Path.Combine(viewStateDir, $"{Path.GetFileNameWithoutExtension(filename)}.config"));
 
-        foreach (SceneLayer? item in Layers)
+        foreach (Layer? item in Layers)
         {
             var array = new JsonArray();
-            foreach (RenderOperation? op in item.Operations)
+            foreach (LayerOperation? op in item.Operations)
             {
                 array.Add(op.ViewState.ToJson());
             }
@@ -426,12 +426,12 @@ public class Scene : Element, IStorable
             new SceneViewState(this).JsonRestore(viewStateFile);
         }
 
-        foreach (SceneLayer? layer in Layers)
+        foreach (Layer? layer in Layers)
         {
             JsonNode? node = JsonHelper.JsonRestore(Path.Combine(viewStateDir, $"{Path.GetFileNameWithoutExtension(layer.FileName)}.config"));
             if (node is not JsonArray array) continue;
 
-            foreach ((JsonNode json, RenderOperation op) in array.Zip(layer.Operations))
+            foreach ((JsonNode json, LayerOperation op) in array.Zip(layer.Operations))
             {
                 op.ViewState.FromJson(json);
             }
@@ -444,18 +444,18 @@ public class Scene : Element, IStorable
         pathToLayer = pathToLayer.Select(x => Path.GetFullPath(x, baseDir)).ToArray();
 
         // 削除するLayers
-        IEnumerable<SceneLayer> toRemoveLayers = Layers.ExceptBy(pathToLayer, x => x.FileName);
+        IEnumerable<Layer> toRemoveLayers = Layers.ExceptBy(pathToLayer, x => x.FileName);
         // 追加するLayers
         IEnumerable<string> toAddLayers = pathToLayer.Except(Layers.Select(x => x.FileName));
 
-        foreach (SceneLayer item in toRemoveLayers)
+        foreach (Layer item in toRemoveLayers)
         {
             Children.Remove(item);
         }
 
         foreach (string item in toAddLayers)
         {
-            var layer = new SceneLayer();
+            var layer = new Layer();
             layer.Restore(item);
 
             Children.Add(layer);
@@ -472,7 +472,7 @@ public class Scene : Element, IStorable
         matcher.AddExcludePatterns(_excludeLayers);
 
         string[] files = matcher.Execute(directory).Files.Select(x => x.Path).ToArray();
-        foreach (SceneLayer item in Layers)
+        foreach (Layer item in Layers)
         {
             string rel = Path.GetRelativePath(dirPath, item.FileName).Replace('\\', '/');
 
@@ -490,7 +490,7 @@ public class Scene : Element, IStorable
             e.OldItems != null)
         {
             string dirPath = Path.GetDirectoryName(FileName)!;
-            foreach (SceneLayer item in e.OldItems.OfType<SceneLayer>())
+            foreach (Layer item in e.OldItems.OfType<Layer>())
             {
                 string rel = Path.GetRelativePath(dirPath, item.FileName).Replace('\\', '/');
 
@@ -502,19 +502,19 @@ public class Scene : Element, IStorable
         }
     }
 
-    private int NearestLayerNumber(SceneLayer layer)
+    private int NearestLayerNumber(Layer layer)
     {
-        if (Layers.Select(i => i.Layer).Contains(layer.Layer))
+        if (Layers.Select(i => i.ZIndex).Contains(layer.ZIndex))
         {
-            SceneLayer[] layers = Layers.ToArray();
-            int layerMax = layers.Max(i => i.Layer);
+            Layer[] layers = Layers.ToArray();
+            int layerMax = layers.Max(i => i.ZIndex);
 
             // 使われていないレイヤー番号
             var numbers = new List<int>();
 
             for (int l = 0; l <= layerMax; l++)
             {
-                if (!layers.Select(i => i.Layer).Contains(l))
+                if (!layers.Select(i => i.ZIndex).Contains(l))
                 {
                     numbers.Add(l);
                 }
@@ -525,10 +525,10 @@ public class Scene : Element, IStorable
                 return layerMax + 1;
             }
 
-            return numbers.Nearest(layer.Layer);
+            return numbers.Nearest(layer.ZIndex);
         }
 
-        return layer.Layer;
+        return layer.ZIndex;
     }
 
     private string ViewStateDirectory()
@@ -547,17 +547,17 @@ public class Scene : Element, IStorable
     private sealed class AddCommand : IRecordableCommand
     {
         private readonly Scene _scene;
-        private readonly SceneLayer _layer;
+        private readonly Layer _layer;
         private readonly int _layerNum;
 
-        public AddCommand(Scene scene, SceneLayer layer)
+        public AddCommand(Scene scene, Layer layer)
         {
             _scene = scene;
             _layer = layer;
-            _layerNum = layer.Layer;
+            _layerNum = layer.ZIndex;
         }
 
-        public AddCommand(Scene scene, SceneLayer layer, int layerNum)
+        public AddCommand(Scene scene, Layer layer, int layerNum)
         {
             _scene = scene;
             _layer = layer;
@@ -566,7 +566,7 @@ public class Scene : Element, IStorable
 
         public void Do()
         {
-            _layer.Layer = _layerNum;
+            _layer.ZIndex = _layerNum;
             _scene.Children.Add(_layer);
         }
 
@@ -577,7 +577,7 @@ public class Scene : Element, IStorable
 
         public void Undo()
         {
-            _layer.Layer = -1;
+            _layer.ZIndex = -1;
             _scene.Children.Remove(_layer);
         }
     }
@@ -585,10 +585,10 @@ public class Scene : Element, IStorable
     private sealed class RemoveCommand : IRecordableCommand
     {
         private readonly Scene _scene;
-        private readonly SceneLayer _layer;
+        private readonly Layer _layer;
         private int _layerNum;
 
-        public RemoveCommand(Scene scene, SceneLayer layer)
+        public RemoveCommand(Scene scene, Layer layer)
         {
             _scene = scene;
             _layer = layer;
@@ -596,8 +596,8 @@ public class Scene : Element, IStorable
 
         public void Do()
         {
-            _layerNum = _layer.Layer;
-            _layer.Layer = -1;
+            _layerNum = _layer.ZIndex;
+            _layer.ZIndex = -1;
             _scene.Children.Remove(_layer);
         }
 
@@ -608,7 +608,7 @@ public class Scene : Element, IStorable
 
         public void Undo()
         {
-            _layer.Layer = _layerNum;
+            _layer.ZIndex = _layerNum;
             _scene.Children.Add(_layer);
         }
     }

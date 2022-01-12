@@ -269,9 +269,9 @@ public partial class OperationEditor : UserControl
 
     public void Remove_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is RenderOperation operation)
+        if (DataContext is LayerOperation operation)
         {
-            SceneLayer layer = operation.FindRequiredLogicalParent<SceneLayer>();
+            Layer layer = operation.FindRequiredLogicalParent<Layer>();
             layer.RemoveChild(operation, CommandRecorder.Default);
         }
     }
@@ -279,9 +279,9 @@ public partial class OperationEditor : UserControl
     private void Drop(object? sender, DragEventArgs e)
     {
         if (e.Data.Get("RenderOperation") is RenderOperationRegistry.RegistryItem item &&
-            DataContext is RenderOperation operation)
+            DataContext is LayerOperation operation)
         {
-            SceneLayer layer = operation.FindRequiredLogicalParent<SceneLayer>();
+            Layer layer = operation.FindRequiredLogicalParent<Layer>();
             Rect bounds = Bounds;
             Point position = e.GetPosition(this);
             double half = bounds.Height / 2;
@@ -289,11 +289,11 @@ public partial class OperationEditor : UserControl
 
             if (half < position.Y)
             {
-                layer.InsertChild(index + 1, (RenderOperation)Activator.CreateInstance(item.Type)!, CommandRecorder.Default);
+                layer.InsertChild(index + 1, (LayerOperation)Activator.CreateInstance(item.Type)!, CommandRecorder.Default);
             }
             else
             {
-                layer.InsertChild(index, (RenderOperation)Activator.CreateInstance(item.Type)!, CommandRecorder.Default);
+                layer.InsertChild(index, (LayerOperation)Activator.CreateInstance(item.Type)!, CommandRecorder.Default);
             }
 
             e.Handled = true;
@@ -315,7 +315,7 @@ public partial class OperationEditor : UserControl
     protected override void OnDataContextChanged(EventArgs e)
     {
         base.OnDataContextChanged(e);
-        if (DataContext is RenderOperation operation)
+        if (DataContext is LayerOperation operation)
         {
             Type type = operation.GetType();
             RenderOperationRegistry.RegistryItem? item = RenderOperationRegistry.FindItem(type);
@@ -329,9 +329,9 @@ public partial class OperationEditor : UserControl
 
     public void Move(int newIndex, int oldIndex)
     {
-        if (DataContext is not RenderOperation operation) return;
+        if (DataContext is not LayerOperation operation) return;
 
-        if (operation.FindLogicalParent<SceneLayer>()?.Children is IList list)
+        if (operation.FindLogicalParent<Layer>()?.Children is IList list)
         {
             CommandRecorder.Default.PushOnly(new MoveCommand(list, newIndex, oldIndex));
         }

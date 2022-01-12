@@ -4,7 +4,7 @@ using BEditorNext.Rendering;
 
 namespace BEditorNext.Operations.BitmapEffect;
 
-public abstract class BitmapEffectOperation<T> : RenderOperation
+public abstract class BitmapEffectOperation<T> : LayerOperation
     where T : Graphics.Effects.BitmapEffect
 {
     public abstract T Effect { get; }

@@ -42,18 +42,18 @@ public class TimelineViewModel : IDisposable
 
         AddLayer.Subscribe(item =>
         {
-            var sLayer = new SceneLayer()
+            var sLayer = new Layer()
             {
                 Start = item.Start,
                 Length = item.Length,
-                Layer = item.Layer,
+                ZIndex = item.Layer,
                 FileName = Helper.RandomLayerFileName(Path.GetDirectoryName(Scene.FileName)!, "layer")
             };
 
             if (item.InitialOperation != null)
             {
                 sLayer.AccentColor = item.InitialOperation.AccentColor;
-                sLayer.AddChild((RenderOperation)(Activator.CreateInstance(item.InitialOperation.Type)!), CommandRecorder.Default);
+                sLayer.AddChild((LayerOperation)(Activator.CreateInstance(item.InitialOperation.Type)!), CommandRecorder.Default);
             }
 
             sLayer.Save(sLayer.FileName);
