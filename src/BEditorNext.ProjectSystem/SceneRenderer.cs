@@ -11,6 +11,7 @@ internal class SceneRenderer : IRenderer
     internal static readonly Dispatcher s_dispatcher = Dispatcher.Spawn();
     private readonly Scene _scene;
     private readonly RenderableList _renderables = new();
+    private List<SceneLayer>? _cache;
 
     public SceneRenderer(Scene scene, int width, int height)
     {
@@ -35,6 +36,7 @@ internal class SceneRenderer : IRenderer
         if (IsDisposed) return;
 
         Graphics?.Dispose();
+        _cache = null;
 
         IsDisposed = true;
     }
@@ -46,7 +48,7 @@ internal class SceneRenderer : IRenderer
         {
             Graphics.Clear();
             TimeSpan ts = FrameNumber;
-            List<SceneLayer> layers = FilterLayers(_scene, ts);
+            List<SceneLayer> layers = FilterAndSortLayers(ts);
             var args = new OperationRenderArgs(ts, this, _renderables);
 
             for (int i = 0; i < layers.Count; i++)
@@ -90,32 +92,43 @@ internal class SceneRenderer : IRenderer
         _renderables.Clear();
     }
 
-    private static List<SceneLayer> FilterLayers(Scene scene, TimeSpan ts)
+    private List<SceneLayer> FilterAndSortLayers(TimeSpan ts)
     {
-        var list = new List<SceneLayer>();
-        int length = scene.Children.Count;
+        if (_cache == null)
+        {
+            _cache = new List<SceneLayer>();
+        }
+        else
+        {
+            _cache.Clear();
+        }
+        int length = _scene.Children.Count;
+        IElementList children = _scene.Children;
 
         for (int i = 0; i < length; i++)
         {
-            if (scene.Children[i] is SceneLayer item &&
+            if (children[i] is SceneLayer item &&
                 item.Start <= ts &&
                 ts < item.Length + item.Start &&
-                item.Layer != -1)
+                item.Layer >= 0)
             {
-                list.Add(item);
+                _cache.Add(item);
             }
         }
 
-        list.Sort((x, y) => x.Layer - y.Layer);
+        _cache.Sort((x, y) => x.Layer - y.Layer);
 
-        return list;
+        return _cache;
     }
 
     public async void Invalidate()
     {
-        IRenderer.RenderResult result = await Dispatcher.InvokeAsync(() => Render());
-        RenderInvalidated?.Invoke(this, result);
-        result.Bitmap.Dispose();
+        if (RenderInvalidated != null)
+        {
+            IRenderer.RenderResult result = await Dispatcher.InvokeAsync(() => Render());
+            RenderInvalidated.Invoke(this, result);
+            result.Bitmap.Dispose();
+        }
     }
 
     //private static int ToFrameNumber(TimeSpan tp, int rate)
