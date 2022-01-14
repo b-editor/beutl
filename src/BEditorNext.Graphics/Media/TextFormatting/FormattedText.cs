@@ -1,6 +1,4 @@
 ﻿using BEditorNext.Graphics;
-using BEditorNext.Graphics.Effects;
-using BEditorNext.Media.Pixel;
 
 namespace BEditorNext.Media.TextFormatting;
 
@@ -85,31 +83,9 @@ public class FormattedText : Drawable
         }
     }
 
-    public Bitmap<Bgra8888> ToBitmapWithoutEffect()
-    {
-        Size size = Bounds;
-        if (size.Width <= 0 || size.Height <= 0)
-        {
-            return new Bitmap<Bgra8888>(0, 0);
-        }
-
-        using var g = new Canvas((int)size.Width, (int)size.Height);
-
-        DrawCore(g);
-
-        return g.GetBitmap();
-    }
-
     protected override void OnDraw(ICanvas canvas)
     {
-        if (Effects.Count == 0)
-        {
-            DrawCore(canvas);
-        }
-        else
-        {
-            DrawBitmap(canvas);
-        }
+        DrawCore(canvas);
     }
 
     protected override void OnInitialize()
@@ -119,47 +95,33 @@ public class FormattedText : Drawable
         IsDisposed = false;
     }
 
-    private void DrawBitmap(ICanvas canvas)
-    {
-        using Bitmap<Bgra8888> bitmap = ToBitmapWithoutEffect();
-        using Bitmap<Bgra8888> bitmap2 = BitmapEffect.ApplyAll(bitmap, Effects);
-
-        canvas.DrawBitmap(bitmap2);
-    }
-
     private void DrawCore(ICanvas canvas)
     {
-        using (canvas.PushState())
+        float prevBottom = 0;
+        for (int i = 0; i < Lines.Count; i++)
         {
-            float prevBottom = 0;
-            for (int i = 0; i < Lines.Count; i++)
+            TextLine line = Lines[i];
+            Size lineBounds = line.Measure();
+            float ascent = line.MinAscent();
+
+            using (canvas.PushTransform(Matrix.CreateTranslation(0, prevBottom - ascent)))
             {
-                TextLine line = Lines[i];
-                Size lineBounds = line.Measure();
-                float ascent = line.MinAscent();
-
-                using (canvas.PushState())
+                float prevRight = 0;
+                foreach (TextElement element in line.Elements)
                 {
-                    canvas.Translate(new(0, prevBottom - ascent));
+                    canvas.Translate(new(prevRight + element.Margin.Left, 0));
+                    Size elementBounds = element.Measure();
 
-                    float prevRight = 0;
-                    foreach (TextElement element in line.Elements)
+                    using (canvas.PushTransform(Matrix.CreateTranslation(0, element.Margin.Top)))
                     {
-                        canvas.Translate(new(prevRight + element.Margin.Left, 0));
-                        Size elementBounds = element.Measure();
-
-                        using (canvas.PushState())
-                        {
-                            canvas.Translate(new(0, element.Margin.Top));
-                            canvas.Foreground = element.Foreground;
-                            canvas.DrawText(element);
-                        }
-
-                        prevRight = elementBounds.Width + element.Margin.Right;
+                        canvas.Foreground = element.Foreground;
+                        canvas.DrawText(element);
                     }
 
-                    prevBottom += lineBounds.Height;
+                    prevRight = elementBounds.Width + element.Margin.Right;
                 }
+
+                prevBottom += lineBounds.Height;
             }
         }
     }

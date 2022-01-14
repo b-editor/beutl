@@ -1,5 +1,4 @@
-﻿using BEditorNext.Graphics.Effects;
-using BEditorNext.Graphics.Operations;
+﻿using BEditorNext.Graphics.Operations;
 using BEditorNext.Media;
 using BEditorNext.Media.Pixel;
 

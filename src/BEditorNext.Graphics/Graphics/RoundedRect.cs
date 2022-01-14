@@ -1,5 +1,4 @@
-﻿using BEditorNext.Graphics.Effects;
-using BEditorNext.Media;
+﻿using BEditorNext.Media;
 using BEditorNext.Media.Pixel;
 
 namespace BEditorNext.Graphics;
@@ -23,23 +22,13 @@ public sealed class RoundedRect : Drawable
     protected override void OnDraw(ICanvas canvas)
     {
         using Bitmap<Bgra8888> bmp = ToBitmapWithoutEffect();
-        if (Effects.Count == 0)
-        {
-            canvas.DrawBitmap(bmp);
-        }
-        else
-        {
-            using Bitmap<Bgra8888> bmp2 = BitmapEffect.ApplyAll(bmp, Effects);
-
-            canvas.DrawBitmap(bmp2);
-        }
+        canvas.DrawBitmap(bmp);
     }
 
     public Bitmap<Bgra8888> ToBitmapWithoutEffect()
     {
         using var g = new Canvas((int)Width, (int)Height);
 
-        g.IsAntialias = IsAntialias;
         g.Foreground = Foreground;
         g.StrokeWidth = StrokeWidth;
         g.DrawRect(new Size(Width, Height));
@@ -98,7 +87,6 @@ public sealed class RoundedRect : Drawable
             float size = radius * 2;
             using var c = new Canvas((int)size, (int)size);
 
-            c.IsAntialias = IsAntialias;
             c.Foreground = Foreground;
             c.StrokeWidth = StrokeWidth;
             c.DrawCircle(new Size(size, size));
