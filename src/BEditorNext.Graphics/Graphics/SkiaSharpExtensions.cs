@@ -21,17 +21,17 @@ internal static class SkiaSharpExtensions
 
     public static SKPoint ToSKPoint(this Point p)
     {
-        return new SKPoint((float)p.X, (float)p.Y);
+        return new SKPoint(p.X, p.Y);
     }
 
     public static SKPoint ToSKPoint(this Vector p)
     {
-        return new SKPoint((float)p.X, (float)p.Y);
+        return new SKPoint(p.X, p.Y);
     }
 
     public static SKRect ToSKRect(this Rect r)
     {
-        return new SKRect((float)r.X, (float)r.Y, (float)r.Right, (float)r.Bottom);
+        return new SKRect(r.X, r.Y, r.Right, r.Bottom);
     }
 
     public static Rect ToGraphicsRect(this SKRect r)
@@ -43,12 +43,12 @@ internal static class SkiaSharpExtensions
     {
         var sm = new SKMatrix
         {
-            ScaleX = (float)m.M11,
-            SkewX = (float)m.M21,
-            TransX = (float)m.M31,
-            SkewY = (float)m.M12,
-            ScaleY = (float)m.M22,
-            TransY = (float)m.M32,
+            ScaleX = m.M11,
+            SkewX = m.M21,
+            TransX = m.M31,
+            SkewY = m.M12,
+            ScaleY = m.M22,
+            TransY = m.M32,
             Persp0 = 0,
             Persp1 = 0,
             Persp2 = 1
@@ -69,6 +69,16 @@ internal static class SkiaSharpExtensions
             GradientSpreadMethod.Reflect => SKShaderTileMode.Mirror,
             GradientSpreadMethod.Repeat => SKShaderTileMode.Repeat,
             _ => SKShaderTileMode.Clamp,
+        };
+    }
+
+    public static SKClipOperation ToSKClipOperation(this ClipOperation operation)
+    {
+        return operation switch
+        {
+            ClipOperation.Difference => SKClipOperation.Difference,
+            ClipOperation.Intersect => SKClipOperation.Intersect,
+            _ => SKClipOperation.Intersect,
         };
     }
 }

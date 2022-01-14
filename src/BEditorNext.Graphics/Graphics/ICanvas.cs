@@ -1,4 +1,5 @@
-﻿using BEditorNext.Media;
+﻿using BEditorNext.Graphics.Filters;
+using BEditorNext.Media;
 using BEditorNext.Media.Pixel;
 using BEditorNext.Media.TextFormatting;
 
@@ -12,13 +13,13 @@ public interface ICanvas : IDisposable
 
     IBrush Foreground { get; set; }
 
-    float StrokeWidth { get; set; }
+    ImageFilters Filters { get; set; }
 
-    bool IsAntialias { get; set; }
+    float StrokeWidth { get; set; }
 
     BlendMode BlendMode { get; set; }
 
-    Matrix TotalMatrix { get; }
+    Matrix Transform { get; set; }
 
     void Clear();
 
@@ -38,11 +39,33 @@ public interface ICanvas : IDisposable
 
     Bitmap<Bgra8888> GetBitmap();
 
-    CanvasAutoRestore PushState();
+    PushedState PushClip(Rect clip, ClipOperation operation = ClipOperation.Intersect);
 
-    void PopState(int count = -1);
+    void PopClip(int level = -1);
 
-    void ResetMatrix();
+    PushedState PushOpacityMask(IBrush mask, Rect bounds);
+
+    void PopOpacityMask(int level = -1);
+
+    PushedState PushForeground(IBrush brush);
+
+    void PopForeground(int level = -1);
+
+    PushedState PushStrokeWidth(float strokeWidth);
+
+    void PopStrokeWidth(int level = -1);
+
+    PushedState PushFilters(ImageFilters filters);
+
+    void PopFilters(int level = -1);
+
+    PushedState PushBlendMode(BlendMode blendMode);
+
+    void PopBlendMode(int level = -1);
+
+    PushedState PushTransform(Matrix matrix, TransformOperator transformOperator = TransformOperator.Prepend);
+
+    void PopTransform(int level = -1);
 
     void RotateDegrees(float degrees);
 
@@ -53,6 +76,13 @@ public interface ICanvas : IDisposable
     void Skew(Vector vector);
 
     void Translate(Vector vector);
+}
 
-    void SetMatrix(Matrix matrix);
+public enum TransformOperator
+{
+    Prepend,
+
+    Append,
+
+    Assign
 }

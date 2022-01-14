@@ -1,4 +1,5 @@
-﻿using BEditorNext.Media;
+﻿using BEditorNext.Graphics.Filters;
+using BEditorNext.Media;
 using BEditorNext.Media.Pixel;
 using BEditorNext.Media.TextFormatting;
 using BEditorNext.Threading;
@@ -7,45 +8,19 @@ using SkiaSharp;
 
 namespace BEditorNext.Graphics;
 
-public readonly struct CanvasAutoRestore : IDisposable
-{
-    public CanvasAutoRestore(ICanvas canvas, int count)
-    {
-        Canvas = canvas;
-        Count = count;
-    }
-
-    public ICanvas Canvas { get; }
-
-    public int Count { get; }
-
-    public void Dispose()
-    {
-        Canvas.PopState(Count);
-    }
-}
-
-public readonly record struct CanvasState(
-    IBrush Foreground,
-    float StrokeWidth,
-    bool IsAntialias,
-    Matrix Matrix,
-    BlendMode BlendMode)
-{
-    public CanvasState()
-        : this(Brushes.Transparent, 0, true, Matrix.Identity, BlendMode.SrcOver)
-    {
-
-    }
-}
-
 public class Canvas : ICanvas
 {
     private readonly SKSurface _surface;
-    private readonly SKCanvas _canvas;
+    internal readonly SKCanvas _canvas;
     private readonly SKPaint _paint;
     private readonly Dispatcher? _dispatcher;
-    private readonly Stack<CanvasState> _stack = new();
+    private readonly Stack<IBrush> _brushesStack = new();
+    private readonly Stack<SKPaint> _maskStack = new();
+    private readonly Stack<ImageFilter[]> _filtersStack = new();
+    private readonly Stack<float> _strokeWidthStack = new();
+    private readonly Stack<BlendMode> _blendModeStack = new();
+    private readonly ImageFilters _filters = new();
+    private Matrix _currentTransform;
 
     public Canvas(int width, int height)
     {
@@ -57,10 +32,7 @@ public class Canvas : ICanvas
 
         _canvas = _surface.Canvas;
         _paint = new SKPaint();
-
-        _stack.Push(GetState());
-
-        ResetMatrix();
+        _currentTransform = _canvas.TotalMatrix.ToMatrix();
     }
 
     ~Canvas()
@@ -72,15 +44,34 @@ public class Canvas : ICanvas
 
     public IBrush Foreground { get; set; } = Brushes.White;
 
-    public float StrokeWidth { get; set; }
+    public ImageFilters Filters
+    {
+        get => _filters;
+        set
+        {
+            _filters.Clear();
+            _filters.AddRange(value);
+        }
+    }
 
-    public bool IsAntialias { get; set; } = true;
+    public float StrokeWidth { get; set; }
 
     public BlendMode BlendMode { get; set; } = BlendMode.SrcOver;
 
     public PixelSize Size { get; }
 
-    public Matrix TotalMatrix => _canvas.TotalMatrix.ToMatrix();
+    public Matrix Transform
+    {
+        get { return _currentTransform; }
+        set
+        {
+            if (_currentTransform == value)
+                return;
+
+            _currentTransform = value;
+            _canvas.SetMatrix(_currentTransform.ToSKMatrix());
+        }
+    }
 
     public void Clear()
     {
@@ -240,104 +231,199 @@ public class Canvas : ICanvas
         return result;
     }
 
-    public void ResetMatrix()
+    public PushedState PushClip(Rect clip, ClipOperation operation = ClipOperation.Intersect)
     {
         VerifyAccess();
-        _canvas.ResetMatrix();
+        int level = _canvas.Save();
+        _canvas.ClipRect(clip.ToSKRect(), operation.ToSKClipOperation());
+        return new PushedState(this, level, PushedStateType.Clip);
+    }
+
+    public void PopClip(int level = -1)
+    {
+        VerifyAccess();
+        _canvas.RestoreToCount(level);
+        _currentTransform = _canvas.TotalMatrix.ToMatrix();
+    }
+
+    public PushedState PushOpacityMask(IBrush mask, Rect bounds)
+    {
+        VerifyAccess();
+        var paint = new SKPaint();
+
+        int level = _canvas.SaveLayer(paint);
+        ConfigurePaint(paint, bounds.Size, mask, (BlendMode)paint.BlendMode, null, paint.StrokeWidth);
+        _maskStack.Push(paint);
+        return new PushedState(this, level, PushedStateType.OpacityMask);
+    }
+
+    public void PopOpacityMask(int level = -1)
+    {
+        VerifyAccess();
+        using (var paint = new SKPaint { BlendMode = SKBlendMode.DstIn })
+        {
+            _canvas.SaveLayer(paint);
+            using (SKPaint maskPaint = _maskStack.Pop())
+            {
+                _canvas.DrawPaint(maskPaint);
+            }
+            _canvas.Restore();
+        }
+
+        _canvas.RestoreToCount(level);
+    }
+
+    public PushedState PushForeground(IBrush brush)
+    {
+        VerifyAccess();
+        int level = _brushesStack.Count;
+        _brushesStack.Push(Foreground);
+        Foreground = brush;
+        return new PushedState(this, level, PushedStateType.Foreground);
+    }
+
+    public void PopForeground(int level = -1)
+    {
+        VerifyAccess();
+        level = level < 0 ? _brushesStack.Count - 1 : level;
+
+        while (_brushesStack.Count > level &&
+            _brushesStack.TryPop(out IBrush? state))
+        {
+            Foreground = state;
+        }
+    }
+
+    public PushedState PushStrokeWidth(float strokeWidth)
+    {
+        VerifyAccess();
+        int level = _strokeWidthStack.Count;
+        _strokeWidthStack.Push(StrokeWidth);
+        StrokeWidth = strokeWidth;
+        return new PushedState(this, level, PushedStateType.StrokeWidth);
+    }
+
+    public void PopStrokeWidth(int level = -1)
+    {
+        VerifyAccess();
+        level = level < 0 ? _strokeWidthStack.Count - 1 : level;
+
+        while (_strokeWidthStack.Count > level &&
+            _strokeWidthStack.TryPop(out float state))
+        {
+            StrokeWidth = state;
+        }
+    }
+
+    public PushedState PushFilters(ImageFilters filters)
+    {
+        VerifyAccess();
+        int level = _filtersStack.Count;
+        _filtersStack.Push(Filters.ToArray());
+        Filters = filters;
+        return new PushedState(this, level, PushedStateType.Filters);
+    }
+
+    public void PopFilters(int level = -1)
+    {
+        VerifyAccess();
+        level = level < 0 ? _filtersStack.Count - 1 : level;
+
+        while (_filtersStack.Count > level &&
+            _filtersStack.TryPop(out ImageFilter[]? state))
+        {
+            Filters.Clear();
+            Filters.AddRange(state);
+        }
+    }
+
+    public PushedState PushBlendMode(BlendMode blendMode)
+    {
+        VerifyAccess();
+        int level = _blendModeStack.Count;
+        _blendModeStack.Push(BlendMode);
+        BlendMode = blendMode;
+        return new PushedState(this, level, PushedStateType.BlendMode);
+    }
+
+    public void PopBlendMode(int level = -1)
+    {
+        VerifyAccess();
+        level = level < 0 ? _blendModeStack.Count - 1 : level;
+
+        while (_blendModeStack.Count > level &&
+            _blendModeStack.TryPop(out BlendMode state))
+        {
+            BlendMode = state;
+        }
+    }
+
+    public PushedState PushTransform(Matrix matrix, TransformOperator transformOperator = TransformOperator.Prepend)
+    {
+        VerifyAccess();
+        int level = _canvas.Save();
+
+        if (transformOperator == TransformOperator.Prepend)
+        {
+            Transform = Transform.Prepend(matrix);
+        }
+        else if (transformOperator == TransformOperator.Append)
+        {
+            Transform = Transform.Append(matrix);
+        }
+        else
+        {
+            Transform = matrix;
+        }
+
+        return new PushedState(this, level, PushedStateType.Transform);
+    }
+
+    public void PopTransform(int level = -1)
+    {
+        VerifyAccess();
+        _canvas.RestoreToCount(level);
+        _currentTransform = _canvas.TotalMatrix.ToMatrix();
     }
 
     public void RotateDegrees(float degrees)
     {
         VerifyAccess();
         _canvas.RotateDegrees(degrees);
+        _currentTransform = _canvas.TotalMatrix.ToMatrix();
     }
 
     public void RotateRadians(float radians)
     {
         VerifyAccess();
         _canvas.RotateRadians(radians);
+        _currentTransform = _canvas.TotalMatrix.ToMatrix();
     }
 
     public void Scale(Vector vector)
     {
         VerifyAccess();
         _canvas.Scale(vector.X, vector.Y);
-    }
-
-    public void SetMatrix(Matrix matrix)
-    {
-        VerifyAccess();
-        _canvas.SetMatrix(matrix.ToSKMatrix());
+        _currentTransform = _canvas.TotalMatrix.ToMatrix();
     }
 
     public void Skew(Vector vector)
     {
         VerifyAccess();
         _canvas.Skew(vector.X, vector.Y);
+        _currentTransform = _canvas.TotalMatrix.ToMatrix();
     }
 
     public void Translate(Vector vector)
     {
         VerifyAccess();
         _canvas.Translate(vector.X, vector.Y);
-    }
-
-    public CanvasAutoRestore PushState()
-    {
-        VerifyAccess();
-        int count = _canvas.Save();
-
-        _stack.Push(GetState());
-
-        return new CanvasAutoRestore(this, count);
-    }
-
-    public void PopState(int count = -1)
-    {
-        VerifyAccess();
-
-        if (count < 0)
-        {
-            _canvas.Restore();
-
-            if (_stack.TryPop(out CanvasState state))
-            {
-                SetState(state);
-            }
-        }
-        else
-        {
-            _canvas.RestoreToCount(count);
-
-            while (_stack.TryPop(out CanvasState state))
-            {
-                if (_stack.Count == count)
-                {
-                    SetState(state);
-                    break;
-                }
-            }
-        }
+        _currentTransform = _canvas.TotalMatrix.ToMatrix();
     }
 
     private void VerifyAccess()
     {
         _dispatcher?.VerifyAccess();
-    }
-
-    private CanvasState GetState()
-    {
-        return new CanvasState(Foreground, StrokeWidth, IsAntialias, TotalMatrix, BlendMode);
-    }
-
-    private void SetState(CanvasState state)
-    {
-        Foreground = state.Foreground;
-        StrokeWidth = state.StrokeWidth;
-        IsAntialias = state.IsAntialias;
-        BlendMode = state.BlendMode;
-
-        //_canvas.SetMatrix(state.Matrix.ToSKMatrix());
     }
 
     private static void ConfigureGradientBrush(SKPaint paint, Size targetSize, IGradientBrush gradientBrush)
@@ -469,32 +555,35 @@ public class Canvas : ICanvas
 
     private void ConfigurePaint(SKPaint paint, Size targetSize)
     {
-        double opacity = Foreground.Opacity;
-        paint.StrokeWidth = StrokeWidth;
-        paint.IsAntialias = IsAntialias;
-        paint.BlendMode = (SKBlendMode)BlendMode;
+        ConfigurePaint(paint, targetSize, Foreground, BlendMode, Filters, StrokeWidth);
+    }
 
-        if (Foreground is ISolidColorBrush solid)
+    private static void ConfigurePaint(SKPaint paint, Size targetSize, IBrush foreground, BlendMode blendMode, ImageFilters? filters, float strokeWidth)
+    {
+        double opacity = foreground.Opacity;
+        paint.StrokeWidth = strokeWidth;
+        paint.IsAntialias = true;
+        paint.BlendMode = (SKBlendMode)blendMode;
+        paint.ImageFilter?.Dispose();
+        paint.ImageFilter = null;
+        if (filters != null && filters.Count > 0)
         {
-            paint.Color = new SKColor(solid.Color.R, solid.Color.G, solid.Color.B, (byte)(solid.Color.A * opacity));
-
-            return;
+            paint.ImageFilter = filters.ToSKImageFilter();
         }
 
         paint.Color = new SKColor(255, 255, 255, (byte)(255 * opacity));
 
-        if (Foreground is IGradientBrush gradient)
+        if (foreground is ISolidColorBrush solid)
+        {
+            paint.Color = new SKColor(solid.Color.R, solid.Color.G, solid.Color.B, (byte)(solid.Color.A * opacity));
+        }
+        else if (foreground is IGradientBrush gradient)
         {
             ConfigureGradientBrush(paint, targetSize, gradient);
-
-            return;
         }
-
-        if (Foreground is ITileBrush tileBrush)
+        else if (foreground is ITileBrush tileBrush)
         {
             ConfigureTileBrush(paint, targetSize, tileBrush);
-
-            return;
         }
         else
         {
