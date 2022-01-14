@@ -1,56 +1,81 @@
 ﻿using BEditorNext.Graphics;
 using BEditorNext.Graphics.Transformation;
 using BEditorNext.Media;
+using BEditorNext.Media.Pixel;
 using BEditorNext.ProjectSystem;
 
 namespace BEditorNext.Operations;
 
 public sealed class OffscreenDrawing : ConfigureOperation<IDrawable>
 {
+    public static readonly CoreProperty<PixelSize> BufferSizeProperty;
+
+    static OffscreenDrawing()
+    {
+        BufferSizeProperty = ConfigureProperty<PixelSize, OffscreenDrawing>(nameof(BufferSize))
+            .Accessor(o => o.BufferSize, (o, v) => o.BufferSize = v)
+            .JsonName("bufferSize")
+            .EnableEditor()
+            .DefaultValue(new PixelSize(-1, -1))
+            .Register();
+    }
+
+    public PixelSize BufferSize { get; set; }
+
     public override void Configure(in OperationRenderArgs args, ref IDrawable obj)
     {
-        static Point CreateRelPoint(Size size, IDrawable obj)
+        static Bitmap<Bgra8888> Draw(PixelSize canvasSize, IDrawable drawable)
         {
-            float x = 0;
-            float y = 0;
+            using var canvas = new Canvas(canvasSize.Width, canvasSize.Height);
+            drawable.Draw(canvas);
 
-            if (obj.HorizontalContentAlignment == AlignmentX.Center)
-            {
-                x -= size.Width / 2;
-            }
-            else if (obj.HorizontalContentAlignment == AlignmentX.Right)
-            {
-                x -= size.Width;
-            }
-
-            if (obj.VerticalContentAlignment == AlignmentY.Center)
-            {
-                y -= size.Height / 2;
-            }
-            else if (obj.VerticalContentAlignment == AlignmentY.Bottom)
-            {
-                y -= size.Height;
-            }
-
-            return new Point(x, y);
+            return canvas.GetBitmap();
         }
 
-        IBitmap bmp = obj.ToBitmap();
+        using IBitmap absbmp = Draw(BufferSize.Width <= 0 || BufferSize.Height <= 0 ? args.Renderer.Graphics.Size : BufferSize, obj);
+        using Bitmap<Bgra8888> srcBmp = absbmp.Convert<Bgra8888>();
+        PixelRect bounds = FindRect(srcBmp);
+        if (bounds.Width <= 0 || bounds.Height <= 0)
+        {
+            return;
+        }
+
         var srcRect = new Rect(obj.Size.ToSize(1));
-        Rect bounds = Graphics.Effects.BitmapEffect.MeasureAll(srcRect, obj.Effects);
-        var result = new DrawableBitmap(bmp)
+        var result = new DrawableBitmap(srcBmp[bounds])
         {
             BlendMode = obj.BlendMode,
             Foreground = obj.Foreground,
-            HorizontalAlignment = obj.HorizontalAlignment,
-            IsAntialias = obj.IsAntialias,
-            VerticalAlignment = obj.VerticalAlignment,
         };
 
-        result.Transform.Add(new TranslateTransform(bounds.Position));
+        result.Transform.Add(new TranslateTransform(bounds.Position.ToPoint(1)));
         result.Transform.AddRange(obj.Transform);
-        result.Transform.Add(new TranslateTransform(CreateRelPoint(srcRect.Size, obj)));
 
+        obj.Dispose();
         obj = result;
+    }
+
+    private static unsafe PixelRect FindRect(Bitmap<Bgra8888> bitmap)
+    {
+        int x0 = bitmap.Width;
+        int y0 = bitmap.Height;
+        int x1 = 0;
+        int y1 = 0;
+
+        // 透明でないピクセルを探す
+        Parallel.For(0, bitmap.DataSpan.Length, i =>
+        {
+            if (bitmap.DataSpan[i].A != 0)
+            {
+                int x = i % bitmap.Width;
+                int y = i / bitmap.Width;
+
+                if (x0 > x) x0 = x;
+                if (y0 > y) y0 = y;
+                if (x1 < x) x1 = x;
+                if (y1 < y) y1 = y;
+            }
+        });
+
+        return new PixelRect(x0, y0, x1 - x0, y1 - y0);
     }
 }
