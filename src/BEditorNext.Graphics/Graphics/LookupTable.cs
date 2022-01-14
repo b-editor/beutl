@@ -97,7 +97,7 @@ public sealed unsafe class LookupTable : IDisposable
 
         Parallel.For(0, 256, pos =>
         {
-            table.AsSpan()[pos] = Effects.Helper.Set255Round(((1f + (contrast / 255f)) * (pos - 128f)) + 128f) / 255f;
+            table.AsSpan()[pos] = Helper.Set255Round(((1f + (contrast / 255f)) * (pos - 128f)) + 128f) / 255f;
         });
 
         return table;
@@ -110,7 +110,7 @@ public sealed unsafe class LookupTable : IDisposable
 
         Parallel.For(0, 256, pos =>
         {
-            table.AsSpan()[pos] = Effects.Helper.Set255Round(MathF.Pow(pos / 255f, 1f / gamma));
+            table.AsSpan()[pos] = Helper.Set255Round(MathF.Pow(pos / 255f, 1f / gamma));
         });
 
         return table;
