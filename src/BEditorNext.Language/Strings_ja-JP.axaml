@@ -85,6 +85,7 @@
         <x:String x:Key="TopRightString">右上</x:String>
         <x:String x:Key="BottomLeftString">左下</x:String>
         <x:String x:Key="BottomRightString">右下</x:String>
+        <x:String x:Key="FixSizeString">サイズを固定</x:String>
 
         <!--Command-->
         <x:String x:Key="AddRenderOperationString">Render operationを追加</x:String>
@@ -118,6 +119,7 @@
         
         <x:String x:Key="EffectString">エフェクト</x:String>
         <x:String x:Key="BrightnessString">明るさ</x:String>
+        <x:String x:Key="BlurString">ブラー</x:String>
         <x:String x:Key="BinarizationString">二階調化</x:String>
         <x:String x:Key="ChromaKeyString">クロマキー</x:String>
         <x:String x:Key="ColorAdjustString">色調節</x:String>
