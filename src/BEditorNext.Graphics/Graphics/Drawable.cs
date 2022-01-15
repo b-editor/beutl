@@ -1,7 +1,6 @@
-﻿using BEditorNext.Graphics.Effects;
+﻿using BEditorNext.Graphics.Filters;
 using BEditorNext.Graphics.Transformation;
 using BEditorNext.Media;
-using BEditorNext.Media.Pixel;
 using BEditorNext.Rendering;
 
 namespace BEditorNext.Graphics;
@@ -28,15 +27,15 @@ public abstract class Drawable : IDrawable, IRenderable
 
     public AlignmentY VerticalContentAlignment { get; set; }
 
-    public EffectCollection Effects { get; } = new();
+    public ImageFilters Filters { get; } = new();
 
     public bool IsDisposed { get; protected set; }
 
     public IBrush Foreground { get; set; } = Colors.White.ToBrush();
 
-    public BlendMode BlendMode { get; set; } = BlendMode.SrcOver;
+    public IBrush? OpacityMask { get; set; }
 
-    public bool IsAntialias { get; set; } = true;
+    public BlendMode BlendMode { get; set; } = BlendMode.SrcOver;
 
     public void Initialize()
     {
@@ -46,18 +45,17 @@ public abstract class Drawable : IDrawable, IRenderable
         HorizontalContentAlignment = AlignmentX.Left;
         VerticalContentAlignment = AlignmentY.Top;
         Foreground = Colors.White.ToBrush();
-        IsAntialias = true;
+        OpacityMask = null;
+        BlendMode = BlendMode.SrcOver;
         Transform.Clear();
-        Effects.Clear();
+        Filters.Clear();
     }
 
     public IBitmap ToBitmap()
     {
         VerifyAccess();
         PixelSize pixelSize = Size;
-        Size size = pixelSize.ToSize(1);
-        Rect bounds = BitmapEffect.MeasureAll(new Rect(size), Effects);
-        using var canvas = new Canvas((int)bounds.Width, (int)bounds.Height);
+        using var canvas = new Canvas(pixelSize.Width, pixelSize.Height);
 
         OnDraw(canvas);
 
@@ -70,23 +68,16 @@ public abstract class Drawable : IDrawable, IRenderable
     {
         VerifyAccess();
         Size size = Size.ToSize(1);
-        Rect bounds = BitmapEffect.MeasureAll(new Rect(size), Effects);
         Matrix transform = Transform.Calculate();
+        Vector pt = CreatePoint(canvas.Size);
+        Vector relpt = CreateRelPoint(size);
 
-        using (canvas.PushState())
+        using (canvas.PushForeground(Foreground))
+        using (canvas.PushBlendMode(BlendMode))
+        using (canvas.PushFilters(Filters))
+        using (canvas.PushTransform(Matrix.CreateTranslation(relpt) * transform * Matrix.CreateTranslation(pt)))
+        using (OpacityMask == null ? new() : canvas.PushOpacityMask(OpacityMask, new Rect(size)))
         {
-            canvas.Foreground = Foreground;
-            canvas.BlendMode = BlendMode;
-            canvas.IsAntialias = IsAntialias;
-
-            Vector pt = CreatePoint(canvas.Size) + bounds.Position;
-            Vector relpt = CreateRelPoint(size);
-
-            canvas.SetMatrix(Matrix.CreateTranslation(relpt) *
-                transform *
-                Matrix.CreateTranslation(pt) *
-                canvas.TotalMatrix);
-
             OnDraw(canvas);
         }
     }

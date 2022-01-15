@@ -1,7 +1,4 @@
-﻿using BEditorNext.Graphics.Effects;
-
-using BEditorNext.Media;
-using BEditorNext.Media.Pixel;
+﻿using BEditorNext.Media;
 
 namespace BEditorNext.Graphics;
 
@@ -45,17 +42,7 @@ public sealed class DrawableBitmap : Drawable
     {
         if (!IsDisposed)
         {
-            if (Effects.Count == 0)
-            {
-                canvas.DrawBitmap(Bitmap);
-            }
-            else
-            {
-                using Bitmap<Bgra8888> bitmap = (Bitmap<Bgra8888>)Bitmap.Clone();
-                using Bitmap<Bgra8888> bitmap2 = BitmapEffect.ApplyAll(bitmap, Effects);
-
-                canvas.DrawBitmap(bitmap2);
-            }
+            canvas.DrawBitmap(Bitmap);
         }
     }
 }

@@ -2,12 +2,12 @@
 using BEditorNext.ProjectSystem;
 using BEditorNext.Rendering;
 
-namespace BEditorNext.Operations.BitmapEffect;
+namespace BEditorNext.Operations.Filters;
 
-public abstract class BitmapEffectOperation<T> : LayerOperation
-    where T : Graphics.Effects.BitmapEffect
+public abstract class ImageFilterOperation<T> : LayerOperation
+    where T : Graphics.Filters.ImageFilter
 {
-    public abstract T Effect { get; }
+    public abstract T Filter { get; }
 
     public override void Render(in OperationRenderArgs args)
     {
@@ -16,7 +16,7 @@ public abstract class BitmapEffectOperation<T> : LayerOperation
             IRenderable item = args.List[i];
             if (item is IDrawable bmp)
             {
-                bmp.Effects.Add(Effect);
+                bmp.Filters.Add(Filter);
             }
         }
     }

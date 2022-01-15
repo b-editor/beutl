@@ -1,4 +1,5 @@
-﻿using BEditorNext.Graphics.Transformation;
+﻿using BEditorNext.Graphics.Filters;
+using BEditorNext.Graphics.Transformation;
 using BEditorNext.Media;
 using BEditorNext.Rendering;
 
@@ -9,8 +10,6 @@ public interface IDrawable : IDisposable, IRenderable
     PixelSize Size { get; }
 
     IBrush Foreground { get; set; }
-
-    bool IsAntialias { get; set; }
 
     BlendMode BlendMode { get; set; }
 
@@ -24,7 +23,7 @@ public interface IDrawable : IDisposable, IRenderable
 
     AlignmentY VerticalContentAlignment { get; set; }
 
-    EffectCollection Effects { get; }
+    ImageFilters Filters { get; }
 
     void Draw(ICanvas canvas);
 

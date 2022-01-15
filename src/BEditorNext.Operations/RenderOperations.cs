@@ -1,5 +1,5 @@
 ﻿using BEditorNext.Media;
-using BEditorNext.Operations.BitmapEffect;
+using BEditorNext.Operations.Filters;
 using BEditorNext.Operations.Transform;
 using BEditorNext.ProjectSystem;
 
@@ -10,17 +10,8 @@ public static class RenderOperations
     public static void RegisterAll()
     {
         RenderOperationRegistry.RegisterOperations("EffectString", Colors.Teal)
-            .Add<BinarizationOperation>("BinarizationString")
-            .Add<BrightnessOperation>("BrightnessString")
-            .Add<ChromaKeyOperation>("ChromaKeyString")
-            .Add<ColorAdjustOperation>("ColorAdjustString")
-            .Add<ColorKeyOperation>("ColorKeyString")
+            .Add<BlurOperation>("BlurString")
             .Add<DropShadowOperation>("DropShadowString")
-            .Add<InvertOpacityOperation>("InvertOpacityString")
-            .Add<MakeTransparentOperation>("MakeTransparentString")
-            .Add<NegaposiOperation>("NegaposiString")
-            .Add<SepiaOperation>("SepiaString")
-            .Add<XorOperation>("XorString")
             .Register();
 
         RenderOperationRegistry.RegisterOperations("TransformString", Colors.Teal)

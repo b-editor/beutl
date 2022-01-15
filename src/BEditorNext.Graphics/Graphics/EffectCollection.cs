@@ -1,8 +1,8 @@
 ﻿
-using BEditorNext.Graphics.Effects;
+//using BEditorNext.Graphics.Effects;
 
-namespace BEditorNext.Graphics;
+//namespace BEditorNext.Graphics;
 
-public sealed class EffectCollection : List<BitmapEffect>
-{
-}
+//public sealed class EffectCollection : List<BitmapEffect>
+//{
+//}

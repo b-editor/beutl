@@ -1,13 +1,13 @@
 ﻿using BEditorNext.Graphics;
-using BEditorNext.Graphics.Effects;
+using BEditorNext.Graphics.Filters;
 using BEditorNext.Media;
 
-namespace BEditorNext.Operations.BitmapEffect;
+namespace BEditorNext.Operations.Filters;
 
-public sealed class DropShadowOperation : BitmapEffectOperation<DropShadow>
+public sealed class DropShadowOperation : ImageFilterOperation<DropShadow>
 {
     public static readonly CoreProperty<Point> PositionProperty;
-    public static readonly CoreProperty<Point> SigmaProperty;
+    public static readonly CoreProperty<Vector> SigmaProperty;
     public static readonly CoreProperty<Color> ColorProperty;
     public static readonly CoreProperty<bool> ShadowOnlyProperty;
 
@@ -22,9 +22,9 @@ public sealed class DropShadowOperation : BitmapEffectOperation<DropShadow>
             .JsonName("position")
             .Register();
 
-        SigmaProperty = ConfigureProperty<Point, DropShadowOperation>(nameof(Sigma))
+        SigmaProperty = ConfigureProperty<Vector, DropShadowOperation>(nameof(Sigma))
             .Accessor(o => o.Sigma, (o, v) => o.Sigma = v)
-            .DefaultValue(new Point(10, 10))
+            .DefaultValue(new Vector(10, 10))
             .EnableEditor()
             .Animatable()
             .Header("SigmaString")
@@ -51,35 +51,27 @@ public sealed class DropShadowOperation : BitmapEffectOperation<DropShadow>
 
     public Point Position
     {
-        get => new(Effect.X, Effect.Y);
-        set
-        {
-            Effect.X = value.X;
-            Effect.Y = value.Y;
-        }
+        get => Filter.Position;
+        set => Filter.Position = value;
     }
 
-    public Point Sigma
+    public Vector Sigma
     {
-        get => new(Effect.SigmaX, Effect.SigmaY);
-        set
-        {
-            Effect.SigmaX = value.X;
-            Effect.SigmaY = value.Y;
-        }
+        get => Filter.Sigma;
+        set => Filter.Sigma = value;
     }
 
     public Color Color
     {
-        get => Effect.Color;
-        set => Effect.Color = value;
+        get => Filter.Color;
+        set => Filter.Color = value;
     }
 
     public bool ShadowOnly
     {
-        get => Effect.ShadowOnly;
-        set => Effect.ShadowOnly = value;
+        get => Filter.ShadowOnly;
+        set => Filter.ShadowOnly = value;
     }
 
-    public override DropShadow Effect { get; } = new();
+    public override DropShadow Filter { get; } = new();
 }
