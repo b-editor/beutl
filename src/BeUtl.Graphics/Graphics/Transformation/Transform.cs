@@ -1,6 +1,4 @@
-﻿using System.Runtime.CompilerServices;
-
-namespace BEditorNext.Graphics.Transformation;
+﻿namespace BeUtl.Graphics.Transformation;
 
 public abstract class Transform
 {

@@ -1,11 +1,11 @@
 ﻿using System.Text.Json.Nodes;
 
-using static BEditorNext.ProjectSystem.IScopedRenderable;
 using BeUtl.Collections;
+using BeUtl.Rendering;
 
 namespace BeUtl.ProjectSystem;
 
-public interface IScopedRenderable : IList<LayerItem>
+public interface IScopedRenderable : IList<IScopedRenderable.LayerItem>
 {
     public record struct LayerItem(IRenderable Item, bool IsInvalidated);
 
