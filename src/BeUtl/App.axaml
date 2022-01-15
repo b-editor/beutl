@@ -1,0 +1,17 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="using:BeUtl"
+             xmlns:convert="using:BeUtl.Converters"
+             xmlns:aconverters="using:Avalonia.Markup.Xaml.Converters"
+             x:Class="BeUtl.App">
+    <Application.Resources>
+        <convert:PixelSizeConverter x:Key="PixelSizeConverter" />
+        <convert:TimeSpanToDoubleConverter x:Key="TimeSpanToDoubleConverter" />
+        <aconverters:ColorToBrushConverter x:Key="ColorToBrushConverter" />
+    </Application.Resources>
+    <Application.Styles>
+        <StyleInclude Source="avares://BeUtl.Controls/Styles.axaml" />
+        <StyleInclude Source="avares://BeUtl.Language/Strings.axaml" />
+        <StyleInclude Source="avares://BeUtl.Language/Strings_ja-JP.axaml" />
+    </Application.Styles>
+</Application>

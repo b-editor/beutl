@@ -1,0 +1,33 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:BeUtl.ViewModels"
+             xmlns:anmeditors="using:BeUtl.Views.AnimationEditors"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:DataType="vm:EasingsViewModel"
+             x:Class="BeUtl.Views.Easings">
+    <ScrollViewer>
+        <ItemsControl x:Name="itemsControl" Items="{CompiledBinding Easings}">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <WrapPanel Orientation="Horizontal" />
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                    <Border BorderBrush="{DynamicResource TextControlForeground}"
+                            BorderThickness="1"
+                            Background="Transparent"
+                            Margin="8,25">
+                        <anmeditors:EasingGraph
+                            Width="100"
+                            Height="100"
+                            ClipToBounds="False"
+                            Easing="{Binding}" />
+                    </Border>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+    </ScrollViewer>
+</UserControl>

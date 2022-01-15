@@ -1,0 +1,138 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="using:BeUtl.Controls">
+    <Design.PreviewWith>
+        <controls:Player
+            Duration="00:10:00"
+            Value="00:00:00"
+            Width="600"
+            Height="300" />
+    </Design.PreviewWith>
+
+    <Style Selector="controls|Player">
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Grid RowDefinitions="*,Auto">
+                    <Panel Margin="0">
+                        <Border
+                            ClipToBounds="True"
+                            Background="Black"
+                            Width="{Binding #PART_Image.Bounds.Width}"
+                            Height="{Binding #PART_Image.Bounds.Height}"/>
+
+                        <Image Name="PART_Image" />
+                    </Panel>
+
+                    <Grid RowDefinitions="Auto,Auto" Grid.Row="1">
+                        <Grid.Styles>
+                            <Style Selector="Button">
+                                <Setter Property="BorderThickness" Value="0" />
+                                <Setter Property="Background" Value="Transparent" />
+                            </Style>
+                            <Style Selector="Button:disabled /template/ ContentPresenter#PART_ContentPresenter">
+                                <Setter Property="Background" Value="Transparent" />
+                            </Style>
+                            <Style Selector="RepeatButton">
+                                <Setter Property="BorderThickness" Value="0" />
+                                <Setter Property="Background" Value="Transparent" />
+                                <Setter Property="Delay" Value="300" />
+                                <Setter Property="Interval" Value="25" />
+                            </Style>
+                            <Style Selector="RepeatButton:disabled /template/ ContentPresenter#PART_ContentPresenter">
+                                <Setter Property="Background" Value="Transparent" />
+                            </Style>
+                            <Style Selector="ToggleButton">
+                                <Setter Property="BorderThickness" Value="0" />
+                                <Setter Property="Background" Value="Transparent" />
+                            </Style>
+                            <Style Selector="ToggleButton:disabled /template/ ContentPresenter#PART_ContentPresenter">
+                                <Setter Property="Background" Value="Transparent" />
+                            </Style>
+
+                            <Style Selector="ToggleButton:checked:pointerover /template/ Border#BorderElement">
+                                <Setter Property="BorderBrush" Value="{DynamicResource ToggleButtonBorderBrushPointerOver}" />
+                            </Style>
+                            <Style Selector="ToggleButton:checked:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+                                <Setter Property="Background" Value="{DynamicResource ToggleButtonBackgroundPointerOver}" />
+                                <Setter Property="TextBlock.Foreground" Value="{DynamicResource ToggleButtonForegroundPointerOver}" />
+                            </Style>
+
+                            <Style Selector="ToggleButton:checked /template/ ContentPresenter#PART_ContentPresenter">
+                                <Setter Property="Background" Value="Transparent" />
+                                <Setter Property="TextBlock.Foreground" Value="{DynamicResource ToggleButtonForeground}" />
+                            </Style>
+                        </Grid.Styles>
+
+                        <Slider
+                            Margin="0,-6"
+                            Minimum="{TemplateBinding Minimum, Mode=TwoWay}"
+                            Maximum="{TemplateBinding Maximum, Mode=TwoWay}"
+                            Value="{TemplateBinding Value, Mode=TwoWay}"
+                            Name="PART_Slider" />
+
+                        <TextBlock
+                            FontWeight="SemiBold"
+                            Foreground="{DynamicResource AccentFillColorDefaultBrush}"
+                            Grid.Row="1"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Center"
+                            Text="{TemplateBinding CurrentTime}"
+                            Name="PART_CurrentTimeTextBlock" />
+
+                        <TextBlock
+                            FontWeight="SemiBold"
+                            Grid.Row="1"
+                            HorizontalAlignment="Right"
+                            VerticalAlignment="Center"
+                            Text="{TemplateBinding Duration}"
+                            Name="PART_DurationTextBlock" />
+
+                        <StackPanel
+                            Orientation="Horizontal"
+                            Grid.Row="1"
+                            HorizontalAlignment="Center">
+
+                            <Button Grid.Column="1" Name="PART_StartButton">
+                                <FluentIconRegular IconType="Arrow_Previous" />
+                            </Button>
+
+                            <RepeatButton Grid.Column="2" Name="PART_PreviousButton">
+                                <FluentIconRegular IconType="Rewind" />
+                            </RepeatButton>
+
+                            <ToggleButton
+                                Name="PART_PlayButton"
+                                Grid.Column="3"
+                                IsChecked="{TemplateBinding IsPlaying, Mode=TwoWay}">
+                                <ToggleButton.Styles>
+                                    <Style Selector="ToggleButton">
+                                        <Setter Property="Content">
+                                            <Template>
+                                                <FluentIconRegular IconType="Play" />
+                                            </Template>
+                                        </Setter>
+                                    </Style>
+                                    <Style Selector="ToggleButton:checked">
+                                        <Setter Property="Content">
+                                            <Template>
+                                                <FluentIconRegular IconType="Pause" />
+                                            </Template>
+                                        </Setter>
+                                    </Style>
+                                </ToggleButton.Styles>
+                            </ToggleButton>
+
+                            <RepeatButton Grid.Column="4" Name="PART_NextButton">
+                                <FluentIconRegular IconType="Fast_Forward" />
+                            </RepeatButton>
+
+                            <Button Grid.Column="5" Name="PART_EndButton">
+                                <FluentIconRegular IconType="Arrow_Next" />
+                            </Button>
+                        </StackPanel>
+                    </Grid>
+                </Grid>
+            </ControlTemplate>
+        </Setter>
+    </Style>
+</Styles>

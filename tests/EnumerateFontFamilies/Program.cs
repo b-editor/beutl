@@ -1,5 +1,5 @@
 ﻿// See https://aka.ms/new-console-template for more information
-using BEditorNext.Media;
+using BeUtl.Media;
 
 var start = DateTime.Now;
 var families = FontManager.Instance.FontFamilies;

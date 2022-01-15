@@ -1,6 +1,6 @@
 ﻿using System.Reflection;
 
-namespace BEditorNext;
+namespace BeUtl;
 public static class ArtifactProvider
 {
     public static string GetArtifactDirectory()

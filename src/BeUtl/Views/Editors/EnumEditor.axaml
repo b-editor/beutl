@@ -1,0 +1,36 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:local="using:BeUtl.Views.Editors"
+             mc:Ignorable="d" d:DesignWidth="300"
+             x:Class="BeUtl.Views.Editors.EnumEditor">
+    <Grid ColumnDefinitions="2*,3*,Auto">
+        <TextBlock
+            Margin="10,0,0,0"
+            Text="{Binding Header.Value}"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Center" />
+
+        <ComboBox
+            x:Name="comboBox"
+            SelectedItem="{Binding Value.Value}"
+            Grid.Column="1">
+            <ComboBox.Styles>
+                <Style Selector="ComboBox">
+                    <Setter Property="Margin" Value="4" />
+                    <Setter Property="HorizontalAlignment" Value="Stretch" />
+                    <Setter Property="VerticalAlignment" Value="Stretch" />
+                    <Setter Property="VerticalContentAlignment" Value="Center" />
+                </Style>
+            </ComboBox.Styles>
+            <ComboBox.ItemTemplate>
+                <DataTemplate>
+                    <ContentPresenter Content="{Binding Converter={StaticResource EnumToTextBlockConverter}}" />
+                </DataTemplate>
+            </ComboBox.ItemTemplate>
+        </ComboBox>
+
+        <local:EditorBadge Grid.Column="2" />
+    </Grid>
+</UserControl>

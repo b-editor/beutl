@@ -1,7 +1,0 @@
-<Project Sdk="Microsoft.NET.Sdk">
-  <ItemGroup>
-    <ProjectReference Include="..\BEditorNext.Core\BEditorNext.Core.csproj" />
-    <ProjectReference Include="..\BEditorNext.ProjectSystem\BEditorNext.ProjectSystem.csproj" />
-  </ItemGroup>
-  <Import Project="$(RootDirectory)\build\props\Avalonia.props" />
-</Project>

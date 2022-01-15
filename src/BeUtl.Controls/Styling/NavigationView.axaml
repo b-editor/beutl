@@ -1,0 +1,41 @@
+﻿<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:local="using:BeUtl.Controls"
+        xmlns:ui="using:FluentAvalonia.UI.Controls"
+        xmlns:uip="using:FluentAvalonia.UI.Controls.Primitives"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Design.PreviewWith>
+        <Border Width="700" Height="500">
+            <ui:NavigationView Classes="SideNavigationView">
+                <ui:NavigationView.MenuItems>
+                    <ui:NavigationViewItem Classes="SideNavigationViewItem" Content="Home">
+                        <ui:NavigationViewItem.Icon>
+                            <ui:PathIcon Data="{StaticResource Home_Regular}" />
+                        </ui:NavigationViewItem.Icon>
+                    </ui:NavigationViewItem>
+                </ui:NavigationView.MenuItems>
+            </ui:NavigationView>
+        </Border>
+    </Design.PreviewWith>
+
+    <Style Selector="ui|NavigationView.SideNavigationView">
+        <Setter Property="CompactPaneLength" Value="64" />
+        <Setter Property="IsPaneToggleButtonVisible" Value="False" />
+        <Setter Property="PaneDisplayMode" Value="LeftCompact" />
+    </Style>
+
+    <Style Selector="ui|NavigationView.SideNavigationView /template/ SplitView Border#ContentGridBorder">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderBrush" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Margin" Value="{DynamicResource NavigationViewContentMargin}" />
+        <Setter Property="CornerRadius" Value="{DynamicResource NavigationViewContentGridCornerRadius}" />
+    </Style>
+
+    <Style Selector="ui|NavigationViewItem.SideNavigationViewItem">
+        <Setter Property="Height" Value="56" />
+    </Style>
+
+    <Style Selector="ui|NavigationViewItem.SideNavigationViewItem /template/ uip|NavigationViewItemPresenter#NVIPresenter:selected /template/ ContentPresenter#Icon">
+        <Setter Property="TextBlock.Foreground" Value="{DynamicResource NavigationViewSelectionIndicatorForeground}" />
+    </Style>
+</Styles>

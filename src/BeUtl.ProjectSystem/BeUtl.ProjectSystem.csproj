@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNameSpace>BeUtl</RootNameSpace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\BeUtl.Graphics\BeUtl.Graphics.csproj" />
+    <ProjectReference Include="..\BeUtl.Language\BeUtl.Language.csproj" />
+  </ItemGroup>
+  <Import Project="$(RootDirectory)\build\props\Microsoft.CodeAnalysis.CSharp.Scripting.props" />
+  <Import Project="$(RootDirectory)\build\props\Microsoft.Extensions.FileSystemGlobbing.props" />
+</Project>
