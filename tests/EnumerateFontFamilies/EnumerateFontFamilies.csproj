@@ -6,7 +6,7 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\src\BEditorNext.Graphics\BEditorNext.Graphics.csproj" />
+    <ProjectReference Include="..\..\src\BeUtl.Graphics\BeUtl.Graphics.csproj" />
   </ItemGroup>
   <ItemGroup>
     <Compile Remove="$(MSBuildThisFileDirectory)\..\ArtifactProvider.cs" />

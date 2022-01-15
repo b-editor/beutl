@@ -1,0 +1,44 @@
+<ui:ContentDialog
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:ui="using:FluentAvalonia.UI.Controls"
+    xmlns:vm="using:BeUtl.ViewModels.Dialogs"
+    mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+    Title="{DynamicResource CreateNewSceneString}"
+    PrimaryButtonText="{DynamicResource CreateNewString}"
+    PrimaryButtonCommand="{CompiledBinding Create}"
+    IsPrimaryButtonEnabled="{CompiledBinding CanCreate.Value}"
+    CloseButtonText="{DynamicResource CloseString}"
+    DefaultButton="Primary"
+    x:DataType="vm:CreateNewSceneViewModel"
+    x:Class="BeUtl.Views.Dialogs.CreateNewScene">
+    <ui:ContentDialog.DataContext>
+        <vm:CreateNewSceneViewModel />
+    </ui:ContentDialog.DataContext>
+    <StackPanel Spacing="8">
+        <TextBlock Text="{DynamicResource NameString}" />
+        <TextBox InputMethod.IsInputMethodEnabled="True" Text="{CompiledBinding Name.Value, Mode=TwoWay}" />
+
+        <Separator />
+
+        <TextBlock Text="{DynamicResource LocationString}" />
+        <Panel>
+            <TextBox Text="{CompiledBinding Location.Value, Mode=TwoWay}" />
+
+            <Button
+                Click="PickLocation"
+                HorizontalAlignment="Right"
+                BorderThickness="0"
+                Background="Transparent">
+                <FluentIconRegular IconType="Folder_Open" />
+            </Button>
+        </Panel>
+
+        <Separator />
+
+        <TextBlock Text="{DynamicResource SizeString}" />
+        <TextBox Text="{CompiledBinding Size.Value, Mode=TwoWay, Converter={StaticResource PixelSizeConverter}}" />
+    </StackPanel>
+</ui:ContentDialog>

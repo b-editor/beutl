@@ -1,0 +1,37 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:vm="using:BeUtl.ViewModels.Editors"
+    mc:Ignorable="d" d:DesignWidth="100" d:DesignHeight="100"
+    VerticalAlignment="Center"
+    x:DataType="vm:BaseEditorViewModel"
+    x:Class="BeUtl.Views.Editors.EditorBadge">
+    <Button
+        Width="24"
+        Height="24"
+        Padding="0"
+        BorderThickness="0"
+        Click="Button_Click"
+        HorizontalAlignment="Center"
+        Background="Transparent">
+        <Button.ContextMenu>
+            <ContextMenu>
+                <MenuItem
+                    Command="{Binding Reset}"
+                    Header="{DynamicResource ResetString}"
+                    IsEnabled="{CompiledBinding CanReset}" />
+                <MenuItem
+                    Click="EditAnimation_Click"
+                    Header="{DynamicResource EditAnimationString}" />
+            </ContextMenu>
+        </Button.ContextMenu>
+        <FluentIconRegular
+            Width="16"
+            Height="16"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"
+            IconType="More_Vertical" />
+    </Button>
+</UserControl>

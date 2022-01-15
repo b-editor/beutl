@@ -1,0 +1,33 @@
+<UserControl
+    xmlns="https://github.com/avaloniaui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:vm="using:BeUtl.ViewModels.Editors"
+    xmlns:local="using:BeUtl.Views.Editors"
+    mc:Ignorable="d" d:DesignWidth="300"
+    x:Class="BeUtl.Views.Editors.NumberEditor">
+    <Grid ColumnDefinitions="2*,3*,Auto">
+        <TextBlock
+            Margin="10,0,0,0"
+            Text="{Binding Header.Value}"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Center" />
+
+        <TextBox
+            x:Name="textBox"
+            Grid.Column="1"
+            Text="{Binding Value.Value, Mode=OneWay}">
+            <TextBox.Styles>
+                <Style Selector="TextBox">
+                    <Setter Property="Margin" Value="4" />
+                    <Setter Property="HorizontalAlignment" Value="Stretch" />
+                    <Setter Property="VerticalAlignment" Value="Stretch" />
+                    <Setter Property="VerticalContentAlignment" Value="Center" />
+                </Style>
+            </TextBox.Styles>
+        </TextBox>
+
+        <local:EditorBadge Grid.Column="2" />
+    </Grid>
+</UserControl>
