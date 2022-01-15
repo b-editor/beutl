@@ -78,6 +78,7 @@ internal class SceneRenderer : IRenderer
                 }
             }
 
+            // IScopedRenderableをLayerに保持させる
             foreach (var item in end)
             {
                 IScopedRenderable? scope = null;
@@ -116,50 +117,59 @@ internal class SceneRenderer : IRenderer
                 }
             }
 
-            foreach (var item in _objects.Reverse())
+            void Func(ReadOnlySpan<KeyValuePair<int, IScopedRenderable>> items, int start, int length)
             {
-                for (int i = 0; i < item.Value.Count; i++)
+                for (int i = start; i < length; i++)
                 {
-                    var item2 = item.Value[i];
-                    if (item2.Item is Drawable drawable)
+                    var item = items[i];
+                    foreach (var item2 in item.Value)
                     {
-                        var rect1 = drawable._prevBounds;
-                        var rect2 = drawable.Measure(Graphics.Size);
-
-                        if (!item2.IsInvalidated)
+                        if (item2.Item is Drawable drawable)
                         {
-                            if (drawable.IsDirty)
+                            var rect1 = drawable._prevBounds;
+                            var rect2 = drawable.Measure(Graphics.Size);
+
+                            if (!item2.IsInvalidated)
                             {
-                                if (!rect1.IsEmpty)
+                                if (drawable.IsDirty)
                                 {
-                                    _clips.Add(rect1);
+                                    if (!rect1.IsEmpty)
+                                    {
+                                        _clips.Add(rect1);
+                                    }
+                                    if (!rect2.IsEmpty)
+                                    {
+                                        _clips.Add(rect2);
+                                    }
+                                    drawable.InvalidateVisual();
+
+                                    Func(items, 0, i);
                                 }
-                                if (!rect2.IsEmpty)
+                                else if (ContainsClips(rect1, rect2))
                                 {
-                                    _clips.Add(rect2);
+                                    drawable.InvalidateVisual();
                                 }
-                                drawable.InvalidateVisual();
-                            }
-                            else if (ContainsClips(rect1, rect2))
-                            {
-                                drawable.InvalidateVisual();
-                            }
-                            else if (HitTestClips(rect1, rect2))
-                            {
-                                if (!rect1.IsEmpty)
+                                else if (HitTestClips(rect1, rect2))
                                 {
-                                    _clips.Add(rect1);
+                                    if (!rect1.IsEmpty)
+                                    {
+                                        _clips.Add(rect1);
+                                    }
+                                    if (!rect2.IsEmpty)
+                                    {
+                                        _clips.Add(rect2);
+                                    }
+                                    drawable.InvalidateVisual();
                                 }
-                                if (!rect2.IsEmpty)
-                                {
-                                    _clips.Add(rect2);
-                                }
-                                drawable.InvalidateVisual();
                             }
                         }
                     }
                 }
             }
+
+            var reversed = _objects.ToArray();
+            Array.Reverse(reversed);
+            Func(reversed, 0, reversed.Length);
 
             using (Graphics.PushCanvas())
             {
