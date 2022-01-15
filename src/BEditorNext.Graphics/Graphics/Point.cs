@@ -1,5 +1,4 @@
 ﻿using System.Globalization;
-using System.Numerics;
 using System.Text.Json.Serialization;
 
 using BEditorNext.Converters;
@@ -163,7 +162,7 @@ public readonly struct Point : IEquatable<Point>
     /// <param name="point">The point.</param>
     /// <param name="matrix">The matrix.</param>
     /// <returns>The resulting point.</returns>
-    public static Point operator *(Point point, Matrix3x2 matrix)
+    public static Point operator *(Point point, Matrix matrix)
     {
         return new Point(
             (point.X * matrix.M11) + (point.Y * matrix.M21) + matrix.M31,
@@ -230,7 +229,7 @@ public readonly struct Point : IEquatable<Point>
     /// </summary>
     /// <param name="transform">The transform.</param>
     /// <returns>The transformed point.</returns>
-    public Point Transform(Matrix3x2 transform)
+    public Point Transform(Matrix transform)
     {
         float x = X;
         float y = Y;

@@ -67,6 +67,7 @@ public class FormattedText : Drawable
         List<TextLine> lines = tokenizer.ToLines(info);
 
         _lines.AddRange(lines);
+        InvalidateVisual();
     }
 
     public override void Dispose()

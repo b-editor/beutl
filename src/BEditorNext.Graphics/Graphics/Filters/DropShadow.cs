@@ -15,6 +15,13 @@ public sealed class DropShadow : ImageFilter
 
     public bool ShadowOnly { get; set; }
 
+    public override Rect TransformBounds(Rect rect)
+    {
+        Rect shadow = rect.Translate(Position).Inflate(new Thickness(Sigma.X, Sigma.Y));
+
+        return ShadowOnly ? shadow : rect.Union(shadow);
+    }
+
     protected internal override SKImageFilter ToSKImageFilter()
     {
         if (ShadowOnly)

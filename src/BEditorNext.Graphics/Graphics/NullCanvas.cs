@@ -3,6 +3,8 @@ using BEditorNext.Media;
 using BEditorNext.Media.Pixel;
 using BEditorNext.Media.TextFormatting;
 
+using SkiaSharp;
+
 namespace BEditorNext.Graphics;
 
 internal sealed class NullCanvas : ICanvas
@@ -17,7 +19,7 @@ internal sealed class NullCanvas : ICanvas
         set => throw new NotImplementedException();
     }
 
-    public ImageFilters Filters
+    public IReadOnlyList<ImageFilter> Filters
     {
         get => throw new NotImplementedException();
         set => throw new NotImplementedException();
@@ -44,6 +46,10 @@ internal sealed class NullCanvas : ICanvas
 
     public void Clear(Color color) => throw new NotImplementedException();
 
+    public void ClipRect(Rect clip, ClipOperation operation = ClipOperation.Intersect) => throw new NotImplementedException();
+    
+    public void ClipPath(SKPath path, ClipOperation operation = ClipOperation.Intersect) => throw new NotImplementedException();
+
     public void Dispose() => throw new NotImplementedException();
 
     public void DrawBitmap(IBitmap bmp) => throw new NotImplementedException();
@@ -62,6 +68,8 @@ internal sealed class NullCanvas : ICanvas
 
     public void PopBlendMode(int level = -1) => throw new NotImplementedException();
 
+    public void PopCanvas(int level = -1) => throw new NotImplementedException();
+
     public void PopClip(int level = -1) => throw new NotImplementedException();
 
     public void PopFilters(int level = -1) => throw new NotImplementedException();
@@ -75,6 +83,8 @@ internal sealed class NullCanvas : ICanvas
     public void PopTransform(int level = -1) => throw new NotImplementedException();
 
     public PushedState PushBlendMode(BlendMode blendMode) => throw new NotImplementedException();
+
+    public PushedState PushCanvas() => throw new NotImplementedException();
 
     public PushedState PushClip(Rect clip, ClipOperation operation = ClipOperation.Intersect) => throw new NotImplementedException();
 

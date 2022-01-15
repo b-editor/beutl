@@ -1,5 +1,4 @@
 ﻿using System.Globalization;
-using System.Numerics;
 using System.Text.Json.Serialization;
 
 using BEditorNext.Converters;
@@ -368,7 +367,7 @@ public readonly struct Rect : IEquatable<Rect>
     /// </summary>
     /// <param name="matrix">The transform.</param>
     /// <returns>The bounding box</returns>
-    public Rect TransformToAABB(Matrix3x2 matrix)
+    public Rect TransformToAABB(Matrix matrix)
     {
         ReadOnlySpan<Point> points = stackalloc Point[4]
         {

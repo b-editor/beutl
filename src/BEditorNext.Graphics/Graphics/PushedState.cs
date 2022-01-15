@@ -54,6 +54,9 @@ public readonly record struct PushedState : IDisposable
             case PushedStateType.OpacityMask:
                 Canvas.PopOpacityMask(Level);
                 break;
+            case PushedStateType.Canvas:
+                Canvas.PopCanvas(Level);
+                break;
             default:
                 break;
         }

@@ -1,10 +1,14 @@
-﻿using BEditorNext.Graphics.Filters;
+﻿using System.Runtime.CompilerServices;
+
+using BEditorNext.Graphics.Filters;
 using BEditorNext.Media;
 using BEditorNext.Media.Pixel;
 using BEditorNext.Media.TextFormatting;
 using BEditorNext.Threading;
 
 using SkiaSharp;
+
+[assembly: InternalsVisibleTo("BEditorNext.ProjectSystem")]
 
 namespace BEditorNext.Graphics;
 
@@ -19,7 +23,7 @@ public class Canvas : ICanvas
     private readonly Stack<ImageFilter[]> _filtersStack = new();
     private readonly Stack<float> _strokeWidthStack = new();
     private readonly Stack<BlendMode> _blendModeStack = new();
-    private readonly ImageFilters _filters = new();
+    private readonly List<ImageFilter> _filters = new();
     private Matrix _currentTransform;
 
     public Canvas(int width, int height)
@@ -44,7 +48,7 @@ public class Canvas : ICanvas
 
     public IBrush Foreground { get; set; } = Brushes.White;
 
-    public ImageFilters Filters
+    public IReadOnlyList<ImageFilter> Filters
     {
         get => _filters;
         set
@@ -83,6 +87,18 @@ public class Canvas : ICanvas
     {
         VerifyAccess();
         _canvas.Clear(color.ToSKColor());
+    }
+
+    public void ClipRect(Rect clip, ClipOperation operation = ClipOperation.Intersect)
+    {
+        VerifyAccess();
+        _canvas.ClipRect(clip.ToSKRect(), operation.ToSKClipOperation(), true);
+    }
+
+    public void ClipPath(SKPath path, ClipOperation operation = ClipOperation.Intersect)
+    {
+        VerifyAccess();
+        _canvas.ClipPath(path, operation.ToSKClipOperation(), true);
     }
 
     public void Dispose()
@@ -235,11 +251,25 @@ public class Canvas : ICanvas
     {
         VerifyAccess();
         int level = _canvas.Save();
-        _canvas.ClipRect(clip.ToSKRect(), operation.ToSKClipOperation());
+        ClipRect(clip, operation);
         return new PushedState(this, level, PushedStateType.Clip);
     }
 
     public void PopClip(int level = -1)
+    {
+        VerifyAccess();
+        _canvas.RestoreToCount(level);
+        _currentTransform = _canvas.TotalMatrix.ToMatrix();
+    }
+
+    public PushedState PushCanvas()
+    {
+        VerifyAccess();
+        int level = _canvas.Save();
+        return new PushedState(this, level, PushedStateType.Canvas);
+    }
+
+    public void PopCanvas(int level = -1)
     {
         VerifyAccess();
         _canvas.RestoreToCount(level);
@@ -332,8 +362,8 @@ public class Canvas : ICanvas
         while (_filtersStack.Count > level &&
             _filtersStack.TryPop(out ImageFilter[]? state))
         {
-            Filters.Clear();
-            Filters.AddRange(state);
+            _filters.Clear();
+            _filters.AddRange(state);
         }
     }
 
@@ -558,7 +588,7 @@ public class Canvas : ICanvas
         ConfigurePaint(paint, targetSize, Foreground, BlendMode, Filters, StrokeWidth);
     }
 
-    private static void ConfigurePaint(SKPaint paint, Size targetSize, IBrush foreground, BlendMode blendMode, ImageFilters? filters, float strokeWidth)
+    private static void ConfigurePaint(SKPaint paint, Size targetSize, IBrush foreground, BlendMode blendMode, IReadOnlyList<ImageFilter>? filters, float strokeWidth)
     {
         double opacity = foreground.Opacity;
         paint.StrokeWidth = strokeWidth;

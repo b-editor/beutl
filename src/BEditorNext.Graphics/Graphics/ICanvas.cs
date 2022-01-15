@@ -3,6 +3,8 @@ using BEditorNext.Media;
 using BEditorNext.Media.Pixel;
 using BEditorNext.Media.TextFormatting;
 
+using SkiaSharp;
+
 namespace BEditorNext.Graphics;
 
 public interface ICanvas : IDisposable
@@ -13,7 +15,7 @@ public interface ICanvas : IDisposable
 
     IBrush Foreground { get; set; }
 
-    ImageFilters Filters { get; set; }
+    IReadOnlyList<ImageFilter> Filters { get; set; }
 
     float StrokeWidth { get; set; }
 
@@ -24,6 +26,10 @@ public interface ICanvas : IDisposable
     void Clear();
 
     void Clear(Color color);
+
+    void ClipRect(Rect clip, ClipOperation operation = ClipOperation.Intersect);
+
+    void ClipPath(SKPath path, ClipOperation operation = ClipOperation.Intersect);
 
     void DrawBitmap(IBitmap bmp);
 
@@ -42,6 +48,10 @@ public interface ICanvas : IDisposable
     PushedState PushClip(Rect clip, ClipOperation operation = ClipOperation.Intersect);
 
     void PopClip(int level = -1);
+
+    PushedState PushCanvas();
+
+    void PopCanvas(int level = -1);
 
     PushedState PushOpacityMask(IBrush mask, Rect bounds);
 

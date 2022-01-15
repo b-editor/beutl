@@ -4,11 +4,27 @@ namespace BEditorNext.Graphics;
 
 public sealed class Rectangle : Drawable
 {
-    public float Width { get; set; }
+    private float _strokeWidth;
+    private float _height;
+    private float _width;
 
-    public float Height { get; set; }
+    public float Width
+    {
+        get => _width;
+        set => SetProperty(ref _width, value);
+    }
 
-    public float StrokeWidth { get; set; }
+    public float Height
+    {
+        get => _height;
+        set => SetProperty(ref _height, value);
+    }
+
+    public float StrokeWidth
+    {
+        get => _strokeWidth;
+        set => SetProperty(ref _strokeWidth, value);
+    }
 
     public override PixelSize Size => new((int)Width, (int)Height);
 

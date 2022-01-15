@@ -1,7 +1,10 @@
 ﻿namespace BEditorNext.Graphics.Transformation;
 
-public sealed class SkewTransform : ITransform
+public sealed class SkewTransform : Transform
 {
+    private float _skewY;
+    private float _skewX;
+
     public SkewTransform()
     {
     }
@@ -12,11 +15,19 @@ public sealed class SkewTransform : ITransform
         SkewY = skewY;
     }
 
-    public float SkewX { get; set; }
+    public float SkewX
+    {
+        get => _skewX;
+        set => SetProperty(ref _skewX, value);
+    }
 
-    public float SkewY { get; set; }
+    public float SkewY
+    {
+        get => _skewY;
+        set => SetProperty(ref _skewY, value);
+    }
 
-    public Matrix Value => Matrix.CreateSkew(SkewX, SkewY);
+    public override Matrix Value => Matrix.CreateSkew(SkewX, SkewY);
 
     public static SkewTransform FromDegree(float skewX, float skewY)
     {

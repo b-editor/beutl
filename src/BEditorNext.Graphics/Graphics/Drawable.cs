@@ -1,4 +1,6 @@
-﻿using BEditorNext.Graphics.Filters;
+﻿using System.Runtime.CompilerServices;
+
+using BEditorNext.Graphics.Filters;
 using BEditorNext.Graphics.Transformation;
 using BEditorNext.Media;
 using BEditorNext.Rendering;
@@ -7,6 +9,21 @@ namespace BEditorNext.Graphics;
 
 public abstract class Drawable : IDrawable, IRenderable
 {
+    public Rect _prevBounds;
+    private BlendMode _blendMode = BlendMode.SrcOver;
+    private IBrush? _opacityMask;
+    private IBrush _foreground = Colors.White.ToBrush();
+    private AlignmentX _horizontalAlignment;
+    private AlignmentY _verticalAlignment;
+    private AlignmentX _horizontalContentAlignment;
+    private AlignmentY _verticalContentAlignment;
+
+    protected Drawable()
+    {
+        Filters = new(this);
+        Transform = new(this);
+    }
+
     ~Drawable()
     {
         if (!IsDisposed)
@@ -17,25 +34,55 @@ public abstract class Drawable : IDrawable, IRenderable
 
     public abstract PixelSize Size { get; }
 
-    public Transforms Transform { get; } = new();
+    public Transforms Transform { get; }
 
-    public AlignmentX HorizontalAlignment { get; set; }
+    public AlignmentX HorizontalAlignment
+    {
+        get => _horizontalAlignment;
+        set => SetProperty(ref _horizontalAlignment, value);
+    }
 
-    public AlignmentY VerticalAlignment { get; set; }
+    public AlignmentY VerticalAlignment
+    {
+        get => _verticalAlignment;
+        set => SetProperty(ref _verticalAlignment, value);
+    }
 
-    public AlignmentX HorizontalContentAlignment { get; set; }
+    public AlignmentX HorizontalContentAlignment
+    {
+        get => _horizontalContentAlignment;
+        set => SetProperty(ref _horizontalContentAlignment, value);
+    }
 
-    public AlignmentY VerticalContentAlignment { get; set; }
+    public AlignmentY VerticalContentAlignment
+    {
+        get => _verticalContentAlignment;
+        set => SetProperty(ref _verticalContentAlignment, value);
+    }
 
-    public ImageFilters Filters { get; } = new();
+    public ImageFilters Filters { get; }
+
+    public IBrush Foreground
+    {
+        get => _foreground;
+        set => SetProperty(ref _foreground, value);
+    }
+
+    public IBrush? OpacityMask
+    {
+        get => _opacityMask;
+        set => SetProperty(ref _opacityMask, value);
+    }
+
+    public BlendMode BlendMode
+    {
+        get => _blendMode;
+        set => SetProperty(ref _blendMode, value);
+    }
 
     public bool IsDisposed { get; protected set; }
 
-    public IBrush Foreground { get; set; } = Colors.White.ToBrush();
-
-    public IBrush? OpacityMask { get; set; }
-
-    public BlendMode BlendMode { get; set; } = BlendMode.SrcOver;
+    public bool IsDirty { get; private set; }
 
     public void Initialize()
     {
@@ -64,22 +111,43 @@ public abstract class Drawable : IDrawable, IRenderable
 
     public abstract void Dispose();
 
+    public Rect Measure(PixelSize canvasSize)
+    {
+        Size size = Size.ToSize(1);
+        Vector pt = CreatePoint(canvasSize);
+        Vector relpt = CreateRelPoint(size);
+        Matrix transform = Matrix.CreateTranslation(relpt) * Transform.Calculate() * Matrix.CreateTranslation(pt);
+
+        return Filters.TransformBounds(new Rect(size)).TransformToAABB(transform);
+    }
+
     public void Draw(ICanvas canvas)
     {
         VerifyAccess();
         Size size = Size.ToSize(1);
-        Matrix transform = Transform.Calculate();
         Vector pt = CreatePoint(canvas.Size);
         Vector relpt = CreateRelPoint(size);
+        Matrix transform = Matrix.CreateTranslation(relpt) * Transform.Calculate() * Matrix.CreateTranslation(pt);
 
         using (canvas.PushForeground(Foreground))
         using (canvas.PushBlendMode(BlendMode))
         using (canvas.PushFilters(Filters))
-        using (canvas.PushTransform(Matrix.CreateTranslation(relpt) * transform * Matrix.CreateTranslation(pt)))
+        using (canvas.PushTransform(transform))
         using (OpacityMask == null ? new() : canvas.PushOpacityMask(OpacityMask, new Rect(size)))
         {
             OnDraw(canvas);
         }
+
+        _prevBounds = Filters.TransformBounds(new Rect(size)).TransformToAABB(transform);
+        IsDirty = false;
+#if DEBUG
+        //Rect bounds = _prevBounds;
+        //using (canvas.PushTransform(Matrix.CreateTranslation(bounds.Position)))
+        //using (canvas.PushStrokeWidth(5))
+        //{
+        //    canvas.DrawRect(bounds.Size);
+        //}
+#endif
     }
 
     public void Render(IRenderer renderer)
@@ -92,6 +160,26 @@ public abstract class Drawable : IDrawable, IRenderable
         if (IsDisposed)
         {
             throw new ObjectDisposedException(GetType().Name);
+        }
+    }
+
+    public void InvalidateVisual()
+    {
+        IsDirty = true;
+    }
+
+    protected bool SetProperty<T>(ref T field, T value)
+    {
+        if (!EqualityComparer<T>.Default.Equals(field, value))
+        {
+            field = value;
+            IsDirty = true;
+
+            return true;
+        }
+        else
+        {
+            return false;
         }
     }
 
