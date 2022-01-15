@@ -54,5 +54,5 @@ public sealed class ScaleTransform : TransformOperation
         set => _transform.ScaleY = value / 100;
     }
 
-    public override ITransform Transform => _transform;
+    public override Graphics.Transformation.Transform Transform => _transform;
 }

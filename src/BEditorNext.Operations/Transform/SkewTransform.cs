@@ -37,5 +37,5 @@ public sealed class SkewTransform : TransformOperation
         set => _transform.SkewY = MathHelper.ToRadians(value);
     }
 
-    public override Graphics.Transformation.ITransform Transform => _transform;
+    public override Graphics.Transformation.Transform Transform => _transform;
 }

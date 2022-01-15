@@ -9,14 +9,24 @@ public abstract class ImageFilterOperation<T> : LayerOperation
 {
     public abstract T Filter { get; }
 
-    public override void Render(in OperationRenderArgs args)
+    public override void BeginningRender(IScopedRenderable scope)
     {
-        for (int i = 0; i < args.List.Count; i++)
+        for (int i = 0; i < scope.Count; i++)
         {
-            IRenderable item = args.List[i];
-            if (item is IDrawable bmp)
+            if (scope[i].Item is IDrawable obj)
             {
-                bmp.Filters.Add(Filter);
+                obj.Filters.Add(Filter);
+            }
+        }
+    }
+
+    public override void EndingRender(IScopedRenderable scope)
+    {
+        for (int i = 0; i < scope.Count; i++)
+        {
+            if (scope[i].Item is IDrawable obj)
+            {
+                obj.Filters.Remove(Filter);
             }
         }
     }

@@ -1,8 +1,35 @@
 ﻿using System.Text.Json.Nodes;
 
 using BEditorNext.Collections;
+using BEditorNext.Rendering;
+
+using static BEditorNext.ProjectSystem.IScopedRenderable;
 
 namespace BEditorNext.ProjectSystem;
+
+public interface IScopedRenderable : IList<LayerItem>
+{
+    public record struct LayerItem(IRenderable Item, bool IsInvalidated);
+
+    void Append(IRenderable item)
+    {
+        Add(new LayerItem(item, false));
+    }
+
+    void Invalidate(IRenderable item)
+    {
+        for (int i = 0; i < Count; i++)
+        {
+            if (this[i].Item == item)
+            {
+                this[i] = this[i] with
+                {
+                    IsInvalidated = true
+                };
+            }
+        }
+    }
+}
 
 public abstract class LayerOperation : Element, ILogicalElement
 {
@@ -99,7 +126,18 @@ public abstract class LayerOperation : Element, ILogicalElement
         }
     }
 
-    public abstract void Render(in OperationRenderArgs args);
+    public virtual void BeginningRender(IScopedRenderable scope)
+    {
+    }
+
+    public virtual void EndingRender(IScopedRenderable scope)
+    {
+    }
+
+    public virtual void Render(in OperationRenderArgs args)
+    {
+
+    }
 
     public override void FromJson(JsonNode json)
     {

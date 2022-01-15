@@ -24,5 +24,5 @@ public sealed class RotateTransform : TransformOperation
         set => _transform.Rotation = MathHelper.ToRadians(value);
     }
 
-    public override ITransform Transform => _transform;
+    public override Graphics.Transformation.Transform Transform => _transform;
 }

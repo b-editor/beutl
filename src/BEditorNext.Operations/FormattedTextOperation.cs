@@ -3,8 +3,6 @@ using BEditorNext.Media;
 using BEditorNext.Media.TextFormatting;
 using BEditorNext.ProjectSystem;
 
-using SkiaSharp;
-
 namespace BEditorNext.Operations;
 
 public sealed class FormattedTextOperation : LayerOperation
@@ -107,15 +105,17 @@ public sealed class FormattedTextOperation : LayerOperation
 
     public string Text { get; set; } = string.Empty;
 
-    public override void Render(in OperationRenderArgs args)
+    public override void BeginningRender(IScopedRenderable scope)
     {
-        try
+        _formattedText = FormattedText.Parse(Text, new FormattedTextInfo(new Typeface(FontFamily, Style, Weight), Size, Color, Space, Margin));
+        scope.Append(_formattedText);
+    }
+
+    public override void EndingRender(IScopedRenderable scope)
+    {
+        if (_formattedText != null)
         {
-            _formattedText = FormattedText.Parse(Text, new FormattedTextInfo(new Typeface(FontFamily, Style, Weight), Size, Color, Space, Margin));
-            args.List.Add(_formattedText);
-        }
-        catch
-        {
+            scope.Invalidate(_formattedText);
         }
     }
 }

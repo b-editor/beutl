@@ -4,12 +4,29 @@ using BEditorNext.ProjectSystem;
 
 namespace BEditorNext.Operations.Transform;
 
-public abstract class TransformOperation : ConfigureOperation<IDrawable>
+public abstract class TransformOperation : LayerOperation
 {
-    public override void Configure(in OperationRenderArgs args, ref IDrawable obj)
+    public override void BeginningRender(IScopedRenderable scope)
     {
-        obj.Transform.Add(Transform);
+        for (int i = 0; i < scope.Count; i++)
+        {
+            if (scope[i].Item is IDrawable obj)
+            {
+                obj.Transform.Add(Transform);
+            }
+        }
     }
 
-    public abstract ITransform Transform { get; }
+    public override void EndingRender(IScopedRenderable scope)
+    {
+        for (int i = 0; i < scope.Count; i++)
+        {
+            if (scope[i].Item is IDrawable obj)
+            {
+                obj.Transform.Remove(Transform);
+            }
+        }
+    }
+
+    public abstract Graphics.Transformation.Transform Transform { get; }
 }
