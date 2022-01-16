@@ -7,13 +7,13 @@ public abstract class DrawableOperation : LayerOperation
 {
     public abstract Drawable Drawable { get; }
 
-    public override void BeginningRender(IScopedRenderable scope)
+    public override void BeginningRender(ILayerScope scope)
     {
         Drawable.InvalidateVisual();
         scope.Append(Drawable);
     }
 
-    public override void EndingRender(IScopedRenderable scope)
+    public override void EndingRender(ILayerScope scope)
     {
         scope.Invalidate(Drawable);
     }

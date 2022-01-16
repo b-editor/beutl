@@ -5,27 +5,6 @@ using BeUtl.Rendering;
 
 namespace BeUtl.ProjectSystem;
 
-public interface IScopedRenderable : IList<IRenderable>
-{
-    void Append(IRenderable item)
-    {
-        item.IsVisible = true;
-        if (!Contains(item))
-        {
-            Add(item);
-        }
-    }
-
-    void Invalidate(IRenderable item)
-    {
-        item.IsVisible = false;
-        if (!Contains(item))
-        {
-            Add(item);
-        }
-    }
-}
-
 public abstract class LayerOperation : Element, ILogicalElement
 {
     public static readonly CoreProperty<bool> IsEnabledProperty;
@@ -121,11 +100,11 @@ public abstract class LayerOperation : Element, ILogicalElement
         }
     }
 
-    public virtual void BeginningRender(IScopedRenderable scope)
+    public virtual void BeginningRender(ILayerScope scope)
     {
     }
 
-    public virtual void EndingRender(IScopedRenderable scope)
+    public virtual void EndingRender(ILayerScope scope)
     {
     }
 

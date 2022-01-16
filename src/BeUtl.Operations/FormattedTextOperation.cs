@@ -107,13 +107,13 @@ public sealed class FormattedTextOperation : LayerOperation
 
     public string Text { get; set; } = string.Empty;
 
-    public override void BeginningRender(IScopedRenderable scope)
+    public override void BeginningRender(ILayerScope scope)
     {
         _formattedText = FormattedText.Parse(Text, new FormattedTextInfo(new Typeface(FontFamily, Style, Weight), Size, Color, Space, Margin));
         scope.Append(_formattedText);
     }
 
-    public override void EndingRender(IScopedRenderable scope)
+    public override void EndingRender(ILayerScope scope)
     {
         if (_formattedText != null)
         {

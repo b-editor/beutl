@@ -6,7 +6,7 @@ namespace BeUtl.Operations.Transform;
 
 public abstract class TransformOperation : LayerOperation
 {
-    public override void BeginningRender(IScopedRenderable scope)
+    public override void BeginningRender(ILayerScope scope)
     {
         for (int i = 0; i < scope.Count; i++)
         {
@@ -17,7 +17,7 @@ public abstract class TransformOperation : LayerOperation
         }
     }
 
-    public override void EndingRender(IScopedRenderable scope)
+    public override void EndingRender(ILayerScope scope)
     {
         for (int i = 0; i < scope.Count; i++)
         {

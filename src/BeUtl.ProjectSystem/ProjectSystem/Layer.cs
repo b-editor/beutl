@@ -3,6 +3,7 @@ using System.Text.Json.Nodes;
 
 using BeUtl.Commands;
 using BeUtl.Media;
+using BeUtl.Rendering;
 
 namespace BeUtl.ProjectSystem;
 
@@ -57,6 +58,14 @@ public class Layer : Element, IStorable
             { PropertyMetaTableKeys.JsonName, "name" }
         }));
 
+        ZIndexProperty.Changed.Subscribe(args =>
+        {
+            if (args.Sender is Layer layer && layer.Parent is Scene { Renderer: { IsDisposed: false } renderer })
+            {
+                renderer[args.OldValue] = null;
+                renderer[args.NewValue] = layer.Scope;
+            }
+        });
     }
 
     public Layer()
@@ -94,7 +103,7 @@ public class Layer : Element, IStorable
         set => SetAndRaise(IsEnabledProperty, ref _isEnabled, value);
     }
 
-    public IScopedRenderable Scope { get; } = new ScopedRenderable();
+    public ILayerScope Scope { get; } = new LayerScope();
 
     public IEnumerable<LayerOperation> Operations => Children.OfType<LayerOperation>();
 
