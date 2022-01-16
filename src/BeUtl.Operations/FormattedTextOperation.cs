@@ -2,6 +2,7 @@
 using BeUtl.Media;
 using BeUtl.Media.TextFormatting;
 using BeUtl.ProjectSystem;
+using BeUtl.Rendering;
 
 using SkiaSharp;
 

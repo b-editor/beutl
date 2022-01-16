@@ -92,13 +92,13 @@ public class Canvas : ICanvas
     public void ClipRect(Rect clip, ClipOperation operation = ClipOperation.Intersect)
     {
         VerifyAccess();
-        _canvas.ClipRect(clip.ToSKRect(), operation.ToSKClipOperation(), true);
+        _canvas.ClipRect(clip.ToSKRect(), operation.ToSKClipOperation());
     }
 
     public void ClipPath(SKPath path, ClipOperation operation = ClipOperation.Intersect)
     {
         VerifyAccess();
-        _canvas.ClipPath(path, operation.ToSKClipOperation(), true);
+        _canvas.ClipPath(path, operation.ToSKClipOperation());
     }
 
     public void Dispose()

@@ -500,6 +500,13 @@ public class Scene : Element, IStorable
                 }
             }
         }
+        else if (e.Action == NotifyCollectionChangedAction.Add && e.NewItems != null)
+        {
+            foreach (Layer item in e.NewItems.OfType<Layer>())
+            {
+                _renderer[item.ZIndex] = item.Scope;
+            }
+        }
     }
 
     private int NearestLayerNumber(Layer layer)

@@ -1,3 +1,4 @@
+using BeUtl.Collections;
 using BeUtl.Graphics;
 using BeUtl.ProjectSystem;
 using BeUtl.Rendering;
@@ -11,22 +12,20 @@ internal class SceneRenderer : IRenderer
 {
     internal static readonly Dispatcher s_dispatcher = Dispatcher.Spawn();
     private readonly Scene _scene;
-    private SortedDictionary<int, ILayerScope> _objects = new();
+    private readonly SortedDictionary<int, ILayerScope> _objects = new();
     private readonly List<Rect> _clips = new();
     private readonly Canvas _graphics;
-    private readonly Size _canvasSize;
     private readonly Rect _canvasBounds;
-    private TimeSpan _recentTime = TimeSpan.MinValue;
     private readonly List<Layer> _begin = new();
     private readonly List<Layer> _end = new();
     private readonly List<Layer> _layers = new();
+    private TimeSpan _recentTime = TimeSpan.MinValue;
 
     public SceneRenderer(Scene scene, int width, int height)
     {
         _scene = scene;
         _graphics = s_dispatcher.Invoke(() => new Canvas(width, height));
-        _canvasSize = _graphics.Size.ToSize(1);
-        _canvasBounds = new Rect(_canvasSize);
+        _canvasBounds = new Rect(_graphics.Size.ToSize(1));
     }
 
     public ICanvas Graphics => _graphics;
@@ -80,27 +79,30 @@ internal class SceneRenderer : IRenderer
 
             for (int i = 0; i < _layers.Count; i++)
             {
-                var layer = _layers[i];
-                foreach (var item in layer.Operations)
+                Layer layer = _layers[i];
+                var args = new OperationRenderArgs(FrameNumber, this, layer.Scope);
+                foreach (LayerOperation item in layer.Operations)
                 {
-                    item.ApplySetters(new(FrameNumber, this, layer.Scope));
+                    item.ApplySetters(args);
                 }
             }
 
             // IScopedRenderableをLayerに保持させる
-            foreach (var item in _end)
+            for (int i = 0; i < _end.Count; i++)
             {
-                foreach (var item2 in item.Operations)
+                Layer item = _end[i];
+                foreach (LayerOperation item2 in item.Operations)
                 {
                     item2.EndingRender(item.Scope);
                 }
 
-                _clips.AddRange(item.Scope.OfType<Drawable>().Select(i => ClipToCanvasBounds(i.Bounds)));
+                _clips.AddRange(item.Scope.OfType<Drawable>().Select(item => ClipToCanvasBounds(item.Bounds)));
             }
 
-            foreach (var item in _begin)
+            for (int i = 0; i < _begin.Count; i++)
             {
-                foreach (var item2 in item.Operations)
+                Layer item = _begin[i];
+                foreach (LayerOperation item2 in item.Operations)
                 {
                     item2.BeginningRender(item.Scope);
                 }
@@ -114,26 +116,28 @@ internal class SceneRenderer : IRenderer
             using (Graphics.PushCanvas())
             {
                 using var path = new SKPath();
-                foreach (var item in _clips)
+                for (int i = 0; i < _clips.Count; i++)
                 {
+                    Rect item = _clips[i];
                     path.AddRect(SKRect.Create(item.X, item.Y, item.Width, item.Height));
                 }
+
+                Graphics.ClipPath(path);
 
                 if (_clips.Count > 0)
                 {
                     Graphics.Clear();
                 }
 
-                Graphics.ClipPath(path);
-
-                foreach (var item in _objects)
+                for (int i = reversed.Length - 1; i >= 0; i--)
                 {
-                    for (int i = item.Value.Count - 1; i >= 0; i--)
+                    KeyValuePair<int, ILayerScope> item = reversed[i];
+                    for (int ii = item.Value.Count - 1; ii >= 0; ii--)
                     {
-                        var item2 = item.Value[i];
+                        IRenderable item2 = item.Value[ii];
                         if (!item2.IsVisible)
                         {
-                            item.Value.RemoveAt(i);
+                            item.Value.RemoveAt(ii);
                         }
                         else if (item2 is Drawable drawable && drawable.IsDirty)
                         {
@@ -156,13 +160,14 @@ internal class SceneRenderer : IRenderer
     {
         for (int i = start; i < length; i++)
         {
-            var item = items[i];
-            foreach (var item2 in item.Value)
+            KeyValuePair<int, ILayerScope> item = items[i];
+            for (int ii = 0; ii < item.Value.Count; ii++)
             {
+                IRenderable item2 = item.Value[ii];
                 if (item2 is Drawable drawable)
                 {
                     Rect rect1 = drawable.Bounds;
-                    drawable.Measure(_canvasSize);
+                    drawable.Measure(_canvasBounds.Size);
                     Rect rect2 = drawable.Bounds;
 
                     if (item2.IsVisible)
@@ -219,7 +224,7 @@ internal class SceneRenderer : IRenderer
     {
         return new Rect(
             new Point(Math.Max(rect.Left, 0), Math.Max(rect.Top, 0)),
-            new Point(Math.Min(rect.Right, _canvasSize.Width), Math.Min(rect.Bottom, _canvasSize.Height)));
+            new Point(Math.Min(rect.Right, _canvasBounds.Width), Math.Min(rect.Bottom, _canvasBounds.Height)));
     }
 
     // _clipsがrect1またはrect2と交差する場合trueを返す。
