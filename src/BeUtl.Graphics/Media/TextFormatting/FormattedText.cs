@@ -24,33 +24,6 @@ public class FormattedText : Drawable
 
     public IList<TextLine> Lines => _lines;
 
-    public Size Bounds
-    {
-        get
-        {
-            float width = 0;
-            float height = 0;
-
-            foreach (TextLine line in Lines)
-            {
-                Size bounds = line.Measure();
-                width = MathF.Max(bounds.Width, width);
-                height += bounds.Height;
-            }
-
-            return new Size(width, height);
-        }
-    }
-
-    public override PixelSize Size
-    {
-        get
-        {
-            Size size = Bounds;
-            return new PixelSize((int)size.Width, (int)size.Height);
-        }
-    }
-
     public static FormattedText Parse(string s, FormattedTextInfo info)
     {
         var tokenizer = new FormattedTextTokenizer(s);
@@ -125,5 +98,20 @@ public class FormattedText : Drawable
                 prevBottom += lineBounds.Height;
             }
         }
+    }
+
+    protected override Size MeasureCore(Size availableSize)
+    {
+        float width = 0;
+        float height = 0;
+
+        foreach (TextLine line in Lines)
+        {
+            Size bounds = line.Measure();
+            width = MathF.Max(bounds.Width, width);
+            height += bounds.Height;
+        }
+
+        return new Size(width, height);
     }
 }

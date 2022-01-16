@@ -10,7 +10,7 @@ using SkiaSharp;
 
 namespace BeUtl;
 
-public class ScopedRenderable : List<IScopedRenderable.LayerItem>, IScopedRenderable
+public class ScopedRenderable : List<IRenderable>, IScopedRenderable
 {
 
 }
@@ -19,17 +19,20 @@ internal class SceneRenderer : IRenderer
 {
     internal static readonly Dispatcher s_dispatcher = Dispatcher.Spawn();
     private readonly Scene _scene;
-    private readonly RenderableList _renderables = new();
     private List<Layer>? _cache;
     private SortedDictionary<int, IScopedRenderable> _objects = new();
     private readonly List<Rect> _clips = new();
     private readonly Canvas _graphics;
+    private readonly Size _canvasSize;
+    private readonly Rect _canvasBounds;
     private TimeSpan _recentTime = TimeSpan.MinValue;
 
     public SceneRenderer(Scene scene, int width, int height)
     {
         _scene = scene;
         _graphics = s_dispatcher.Invoke(() => new Canvas(width, height));
+        _canvasSize = _graphics.Size.ToSize(1);
+        _canvasBounds = new Rect(_canvasSize);
     }
 
     public ICanvas Graphics => _graphics;
@@ -59,7 +62,6 @@ internal class SceneRenderer : IRenderer
         if (_recentTime == TimeSpan.MinValue)
         {
             _recentTime = FrameNumber;
-            return ImmediateRender();
         }
 
         Dispatcher.VerifyAccess();
@@ -73,47 +75,63 @@ internal class SceneRenderer : IRenderer
                 var layer = layers[i];
                 foreach (var item in layer.Operations)
                 {
-                    item.ApplySetters(new(FrameNumber, this, _renderables));
+                    item.ApplySetters(new(FrameNumber, this, layer.Scope));
                 }
             }
 
             // IScopedRenderableをLayerに保持させる
             foreach (var item in end)
             {
-                IScopedRenderable? scope = null;
-                if (_objects.ContainsKey(item.ZIndex))
-                {
-                    scope = _objects[item.ZIndex];
-                }
-                else
-                {
-                    _objects[item.ZIndex] = scope = new ScopedRenderable();
-                }
+                _objects[item.ZIndex] = item.Scope;
 
                 foreach (var item2 in item.Operations)
                 {
-                    item2.EndingRender(scope);
+                    item2.EndingRender(item.Scope);
                 }
 
-                _clips.AddRange(scope.Select(i => i.Item).OfType<Drawable>().Select(i => i._prevBounds));
+                _clips.AddRange(item.Scope.OfType<Drawable>().Select(i => i.Bounds));
             }
 
             foreach (var item in begin)
             {
-                IScopedRenderable? scope = null;
-                if (_objects.ContainsKey(item.ZIndex))
-                {
-                    scope = _objects[item.ZIndex];
-                }
-                else
-                {
-                    _objects[item.ZIndex] = scope = new ScopedRenderable();
-                }
+                _objects[item.ZIndex] = item.Scope;
 
                 foreach (var item2 in item.Operations)
                 {
-                    item2.BeginningRender(scope);
+                    item2.BeginningRender(item.Scope);
                 }
+            }
+
+            Rect ClipToCanvasBounds(Rect rect)
+            {
+                return new Rect(
+                    new Point(Math.Max(rect.Left, 0), Math.Max(rect.Top, 0)),
+                    new Point(Math.Min(rect.Right, _canvasSize.Width), Math.Min(rect.Bottom, _canvasSize.Height)));
+            }
+
+            void AddClips(Rect rect1, Rect rect2)
+            {
+                if (!rect1.IsEmpty)
+                {
+                    if (!_canvasBounds.Contains(rect1))
+                    {
+                        rect1 = ClipToCanvasBounds(rect1);
+                    }
+                    _clips.Add(rect1);
+                }
+                if (!rect2.IsEmpty)
+                {
+                    if (!_canvasBounds.Contains(rect2))
+                    {
+                        rect2 = ClipToCanvasBounds(rect2);
+                    }
+
+                    if (rect1 != rect2)
+                    {
+                        _clips.Add(rect2);
+                    }
+                }
+
             }
 
             void Func(ReadOnlySpan<KeyValuePair<int, IScopedRenderable>> items, int start, int length)
@@ -123,23 +141,17 @@ internal class SceneRenderer : IRenderer
                     var item = items[i];
                     foreach (var item2 in item.Value)
                     {
-                        if (item2.Item is Drawable drawable)
+                        if (item2 is Drawable drawable)
                         {
-                            var rect1 = drawable._prevBounds;
-                            var rect2 = drawable.Measure(Graphics.Size);
+                            Rect rect1 = drawable.Bounds;
+                            drawable.Measure(_canvasSize);
+                            Rect rect2 = drawable.Bounds;
 
-                            if (!item2.IsInvalidated)
+                            if (item2.IsVisible)
                             {
                                 if (drawable.IsDirty)
                                 {
-                                    if (!rect1.IsEmpty)
-                                    {
-                                        _clips.Add(rect1);
-                                    }
-                                    if (!rect2.IsEmpty)
-                                    {
-                                        _clips.Add(rect2);
-                                    }
+                                    AddClips(rect1, rect2);
                                     drawable.InvalidateVisual();
 
                                     Func(items, 0, i);
@@ -150,14 +162,7 @@ internal class SceneRenderer : IRenderer
                                 }
                                 else if (HitTestClips(rect1, rect2))
                                 {
-                                    if (!rect1.IsEmpty)
-                                    {
-                                        _clips.Add(rect1);
-                                    }
-                                    if (!rect2.IsEmpty)
-                                    {
-                                        _clips.Add(rect2);
-                                    }
+                                    AddClips(rect1, rect2);
                                     drawable.InvalidateVisual();
                                 }
                             }
@@ -166,7 +171,8 @@ internal class SceneRenderer : IRenderer
                 }
             }
 
-            var reversed = _objects.ToArray();
+            var reversed = new KeyValuePair<int, IScopedRenderable>[_objects.Count];
+            _objects.CopyTo(reversed, 0);
             Array.Reverse(reversed);
             Func(reversed, 0, reversed.Length);
 
@@ -178,25 +184,25 @@ internal class SceneRenderer : IRenderer
                     path.AddRect(SKRect.Create(item.X, item.Y, item.Width, item.Height));
                 }
 
-                Graphics.ClipPath(path);
-
                 if (_clips.Count > 0)
                 {
                     Graphics.Clear();
                 }
+
+                Graphics.ClipPath(path);
 
                 foreach (var item in _objects)
                 {
                     for (int i = item.Value.Count - 1; i >= 0; i--)
                     {
                         var item2 = item.Value[i];
-                        if (item2.IsInvalidated)
+                        if (!item2.IsVisible)
                         {
                             item.Value.RemoveAt(i);
                         }
-                        else if (item2.Item is Drawable drawable && drawable.IsDirty)
+                        else if (item2 is Drawable drawable && drawable.IsDirty)
                         {
-                            item2.Item.Render(this);
+                            item2.Render(this);
                         }
                     }
                 }
@@ -276,92 +282,10 @@ internal class SceneRenderer : IRenderer
         return (begin, end);
     }
 
-    private IRenderer.RenderResult ImmediateRender()
-    {
-        Dispatcher.VerifyAccess();
-        if (!IsRendering)
-        {
-            Graphics.Clear();
-            TimeSpan ts = FrameNumber;
-            List<Layer> layers = FilterAndSortLayers(ts);
-            var args = new OperationRenderArgs(ts, this, _renderables);
-
-            for (int i = 0; i < layers.Count; i++)
-            {
-                Layer item = layers[i];
-
-                if (item.IsEnabled)
-                {
-                    ProcessLayer(item, args);
-                }
-            }
-        }
-
-        return new IRenderer.RenderResult(Graphics.GetBitmap());
-    }
-
-    private void ProcessLayer(Layer layer, in OperationRenderArgs args)
-    {
-        _renderables.Clear();
-        IElementList list = layer.Children;
-
-        for (int i = 0; i < list.Count; i++)
-        {
-            if (list[i] is LayerOperation op && op.IsEnabled)
-            {
-                op.ApplySetters(args);
-                op.Render(args);
-            }
-        }
-
-        for (int i = 0; i < _renderables.Count; i++)
-        {
-            IRenderable renderable = _renderables[i];
-            if (!renderable.IsDisposed)
-            {
-                renderable.Render(this);
-                renderable.Dispose();
-            }
-        }
-
-        _renderables.Clear();
-    }
-
-    private List<Layer> FilterAndSortLayers(TimeSpan ts)
-    {
-        if (_cache == null)
-        {
-            _cache = new List<Layer>();
-        }
-        else
-        {
-            _cache.Clear();
-        }
-        int length = _scene.Children.Count;
-        IElementList children = _scene.Children;
-
-        for (int i = 0; i < length; i++)
-        {
-            if (children[i] is Layer item &&
-                item.Start <= ts &&
-                ts < item.Length + item.Start &&
-                item.ZIndex >= 0)
-            {
-                _cache.Add(item);
-            }
-        }
-
-        _cache.Sort((x, y) => x.ZIndex - y.ZIndex);
-
-        return _cache;
-    }
-
     private static bool InRange(Layer item, TimeSpan ts)
     {
         return item.Start <= ts && ts < item.Length + item.Start;
     }
-
-
 
     public async void Invalidate()
     {

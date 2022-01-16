@@ -14,8 +14,6 @@ public sealed class DrawableBitmap : Drawable
         Dispose();
     }
 
-    public override PixelSize Size => new(Bitmap.Width, Bitmap.Height);
-
     public IBitmap Bitmap { get; private set; }
 
     public void Initialize(IBitmap bitmap)
@@ -42,7 +40,22 @@ public sealed class DrawableBitmap : Drawable
     {
         if (!IsDisposed)
         {
-            canvas.DrawBitmap(Bitmap);
+            if (Width > 0 && Height > 0)
+            {
+                using (canvas.PushTransform(Matrix.CreateScale(Width / Bitmap.Width, Height / Bitmap.Height)))
+                {
+                    canvas.DrawBitmap(Bitmap);
+                }
+            }
+            else
+            {
+                canvas.DrawBitmap(Bitmap);
+            }
         }
+    }
+
+    protected override Size MeasureCore(Size availableSize)
+    {
+        return new(Bitmap.Width, Bitmap.Height);
     }
 }

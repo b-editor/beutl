@@ -5,26 +5,23 @@ using BeUtl.Rendering;
 
 namespace BeUtl.ProjectSystem;
 
-public interface IScopedRenderable : IList<IScopedRenderable.LayerItem>
+public interface IScopedRenderable : IList<IRenderable>
 {
-    public record struct LayerItem(IRenderable Item, bool IsInvalidated);
-
     void Append(IRenderable item)
     {
-        Add(new LayerItem(item, false));
+        item.IsVisible = true;
+        if (!Contains(item))
+        {
+            Add(item);
+        }
     }
 
     void Invalidate(IRenderable item)
     {
-        for (int i = 0; i < Count; i++)
+        item.IsVisible = false;
+        if (!Contains(item))
         {
-            if (this[i].Item == item)
-            {
-                this[i] = this[i] with
-                {
-                    IsInvalidated = true
-                };
-            }
+            Add(item);
         }
     }
 }

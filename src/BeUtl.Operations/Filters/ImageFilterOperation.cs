@@ -13,7 +13,7 @@ public abstract class ImageFilterOperation<T> : LayerOperation
     {
         for (int i = 0; i < scope.Count; i++)
         {
-            if (scope[i].Item is IDrawable obj)
+            if (scope[i] is IDrawable obj)
             {
                 obj.Filters.Add(Filter);
             }
@@ -24,7 +24,7 @@ public abstract class ImageFilterOperation<T> : LayerOperation
     {
         for (int i = 0; i < scope.Count; i++)
         {
-            if (scope[i].Item is IDrawable obj)
+            if (scope[i] is IDrawable obj)
             {
                 obj.Filters.Remove(Filter);
             }

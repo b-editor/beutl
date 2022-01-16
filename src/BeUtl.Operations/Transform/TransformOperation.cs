@@ -10,7 +10,7 @@ public abstract class TransformOperation : LayerOperation
     {
         for (int i = 0; i < scope.Count; i++)
         {
-            if (scope[i].Item is IDrawable obj)
+            if (scope[i] is IDrawable obj)
             {
                 obj.Transform.Add(Transform);
             }
@@ -21,7 +21,7 @@ public abstract class TransformOperation : LayerOperation
     {
         for (int i = 0; i < scope.Count; i++)
         {
-            if (scope[i].Item is IDrawable obj)
+            if (scope[i] is IDrawable obj)
             {
                 obj.Transform.Remove(Transform);
             }

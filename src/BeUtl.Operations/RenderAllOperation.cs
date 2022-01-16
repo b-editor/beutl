@@ -50,12 +50,12 @@ public sealed class RenderAllOperation : LayerOperation
         int count = Count;
         if (count < 0)
         {
-            count = args.List.Count;
+            count = args.Scope.Count;
         }
 
         for (int i = start; i < count; i++)
         {
-            IRenderable item = args.List[i];
+            IRenderable item = args.Scope[i];
             item.Render(args.Renderer);
         }
 
@@ -63,8 +63,8 @@ public sealed class RenderAllOperation : LayerOperation
         {
             for (int i = start; i < count; i++)
             {
-                IRenderable item = args.List[i];
-                args.List.RemoveAt(i);
+                IRenderable item = args.Scope[i];
+                args.Scope.RemoveAt(i);
                 item.Dispose();
                 i--;
                 count--;

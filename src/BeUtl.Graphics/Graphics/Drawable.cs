@@ -7,7 +7,6 @@ namespace BeUtl.Graphics;
 
 public abstract class Drawable : IDrawable, IRenderable
 {
-    public Rect _prevBounds;
     private BlendMode _blendMode = BlendMode.SrcOver;
     private IBrush? _opacityMask;
     private IBrush _foreground = Colors.White.ToBrush();
@@ -15,6 +14,9 @@ public abstract class Drawable : IDrawable, IRenderable
     private AlignmentY _verticalAlignment;
     private AlignmentX _horizontalContentAlignment;
     private AlignmentY _verticalContentAlignment;
+    private float _width = -1;
+    private float _height = -1;
+    private bool _isVisible;
 
     protected Drawable()
     {
@@ -30,7 +32,21 @@ public abstract class Drawable : IDrawable, IRenderable
         }
     }
 
-    public abstract PixelSize Size { get; }
+    //public abstract PixelSize Size { get; }
+
+    public float Width
+    {
+        get => _width;
+        set => SetProperty(ref _width, value);
+    }
+
+    public float Height
+    {
+        get => _height;
+        set => SetProperty(ref _height, value);
+    }
+
+    public Rect Bounds { get; private set; }
 
     public Transforms Transform { get; }
 
@@ -82,6 +98,12 @@ public abstract class Drawable : IDrawable, IRenderable
 
     public bool IsDirty { get; private set; }
 
+    public bool IsVisible
+    {
+        get => _isVisible;
+        set => SetProperty(ref _isVisible, value);
+    }
+
     public void Initialize()
     {
         OnInitialize();
@@ -99,8 +121,8 @@ public abstract class Drawable : IDrawable, IRenderable
     public IBitmap ToBitmap()
     {
         VerifyAccess();
-        PixelSize pixelSize = Size;
-        using var canvas = new Canvas(pixelSize.Width, pixelSize.Height);
+        var size = MeasureCore(Size.Infinity);
+        using var canvas = new Canvas((int)size.Width, (int)size.Height);
 
         OnDraw(canvas);
 
@@ -109,21 +131,24 @@ public abstract class Drawable : IDrawable, IRenderable
 
     public abstract void Dispose();
 
-    public Rect Measure(PixelSize canvasSize)
+    public void Measure(Size availableSize)
     {
-        Size size = Size.ToSize(1);
-        Vector pt = CreatePoint(canvasSize);
+        var size = MeasureCore(availableSize);
+        Vector pt = CreatePoint(availableSize);
         Vector relpt = CreateRelPoint(size);
         Matrix transform = Matrix.CreateTranslation(relpt) * Transform.Calculate() * Matrix.CreateTranslation(pt);
 
-        return Filters.TransformBounds(new Rect(size)).TransformToAABB(transform);
+        Bounds = Filters.TransformBounds(new Rect(size)).TransformToAABB(transform);
     }
+
+    protected abstract Size MeasureCore(Size availableSize);
 
     public void Draw(ICanvas canvas)
     {
         VerifyAccess();
-        Size size = Size.ToSize(1);
-        Vector pt = CreatePoint(canvas.Size);
+        Size availableSize = canvas.Size.ToSize(1);
+        Size size = MeasureCore(availableSize);
+        Vector pt = CreatePoint(availableSize);
         Vector relpt = CreateRelPoint(size);
         Matrix transform = Matrix.CreateTranslation(relpt) * Transform.Calculate() * Matrix.CreateTranslation(pt);
 
@@ -136,10 +161,10 @@ public abstract class Drawable : IDrawable, IRenderable
             OnDraw(canvas);
         }
 
-        _prevBounds = Filters.TransformBounds(new Rect(size)).TransformToAABB(transform);
+        Bounds = Filters.TransformBounds(new Rect(size)).TransformToAABB(transform);
         IsDirty = false;
 #if DEBUG
-        //Rect bounds = _prevBounds;
+        //Rect bounds = Bounds;
         //using (canvas.PushTransform(Matrix.CreateTranslation(bounds.Position)))
         //using (canvas.PushStrokeWidth(5))
         //{
@@ -213,7 +238,7 @@ public abstract class Drawable : IDrawable, IRenderable
         return new Point(x, y);
     }
 
-    private Point CreatePoint(PixelSize canvasSize)
+    private Point CreatePoint(Size canvasSize)
     {
         float x = 0;
         float y = 0;

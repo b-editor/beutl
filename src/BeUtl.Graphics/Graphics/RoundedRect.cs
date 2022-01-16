@@ -5,12 +5,6 @@ namespace BeUtl.Graphics;
 
 public sealed class RoundedRect : Drawable
 {
-    public override PixelSize Size => new((int)Width, (int)Height);
-
-    public float Width { get; set; }
-
-    public float Height { get; set; }
-
     public float StrokeWidth { get; set; }
 
     public CornerRadius CornerRadius { get; set; }
@@ -19,10 +13,18 @@ public sealed class RoundedRect : Drawable
     {
     }
 
+    protected override Size MeasureCore(Size availableSize)
+    {
+        return new Size(Math.Max(Width, 0), Math.Max(Height, 0));
+    }
+
     protected override void OnDraw(ICanvas canvas)
     {
-        using Bitmap<Bgra8888> bmp = ToBitmapWithoutEffect();
-        canvas.DrawBitmap(bmp);
+        if (Width > 0 && Height > 0)
+        {
+            using Bitmap<Bgra8888> bmp = ToBitmapWithoutEffect();
+            canvas.DrawBitmap(bmp);
+        }
     }
 
     public Bitmap<Bgra8888> ToBitmapWithoutEffect()

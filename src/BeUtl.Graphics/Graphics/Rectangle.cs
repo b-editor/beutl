@@ -1,24 +1,8 @@
-﻿using BeUtl.Media;
-
-namespace BeUtl.Graphics;
+﻿namespace BeUtl.Graphics;
 
 public sealed class Rectangle : Drawable
 {
     private float _strokeWidth;
-    private float _height;
-    private float _width;
-
-    public float Width
-    {
-        get => _width;
-        set => SetProperty(ref _width, value);
-    }
-
-    public float Height
-    {
-        get => _height;
-        set => SetProperty(ref _height, value);
-    }
 
     public float StrokeWidth
     {
@@ -26,15 +10,21 @@ public sealed class Rectangle : Drawable
         set => SetProperty(ref _strokeWidth, value);
     }
 
-    public override PixelSize Size => new((int)Width, (int)Height);
-
     public override void Dispose()
     {
+    }
+
+    protected override Size MeasureCore(Size availableSize)
+    {
+        return new Size(Math.Max(Width, 0), Math.Max(Height, 0));
     }
 
     protected override void OnDraw(ICanvas canvas)
     {
         canvas.StrokeWidth = StrokeWidth;
-        canvas.DrawRect(new Size(Width, Height));
+        if (Width > 0 && Height > 0)
+        {
+            canvas.DrawRect(new Size(Width, Height));
+        }
     }
 }

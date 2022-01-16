@@ -94,6 +94,8 @@ public class Layer : Element, IStorable
         set => SetAndRaise(IsEnabledProperty, ref _isEnabled, value);
     }
 
+    public IScopedRenderable Scope { get; } = new ScopedRenderable();
+
     public IEnumerable<LayerOperation> Operations => Children.OfType<LayerOperation>();
 
     public string FileName

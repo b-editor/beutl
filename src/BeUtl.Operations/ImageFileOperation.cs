@@ -50,7 +50,7 @@ public sealed class ImageFileOperation : LayerOperation
             _latest.Initialize((Bitmap<Bgra8888>)_cache.Clone());
         }
 
-        args.List.Add(_latest);
+        args.Scope.Add(_latest);
     }
 
     protected override void OnAttachedToLogicalTree(in LogicalTreeAttachmentEventArgs args)
