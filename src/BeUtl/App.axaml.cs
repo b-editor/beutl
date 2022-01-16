@@ -10,44 +10,50 @@ using BeUtl.Views;
 
 using Reactive.Bindings;
 
-namespace BeUtl
+namespace BeUtl;
+
+public class App : Application
 {
-    public class App : Application
+    public override void Initialize()
     {
-        public override void Initialize()
-        {
-            AvaloniaXamlLoader.Load(this);
-        }
+        AvaloniaXamlLoader.Load(this);
+    }
 
-        public override void RegisterServices()
-        {
-            base.RegisterServices();
-            ServiceLocator.Current.BindToSelfSingleton<ProjectService>()
-                .Bind<INotificationService>().ToSingleton<NotificationService>()
-                .Bind<IResourceProvider>().ToSingleton<DefaultResourceProvider>();
+    public override void RegisterServices()
+    {
+        base.RegisterServices();
+        ServiceLocator.Current.BindToSelfSingleton<ProjectService>()
+            .Bind<INotificationService>().ToSingleton<NotificationService>()
+            .Bind<IResourceProvider>().ToSingleton<DefaultResourceProvider>();
 
-            RenderOperations.RegisterAll();
-            UIDispatcherScheduler.Initialize();
-        }
+        RenderOperations.RegisterAll();
+        UIDispatcherScheduler.Initialize();
+    }
 
-        public override void OnFrameworkInitializationCompleted()
+    public override void OnFrameworkInitializationCompleted()
+    {
+        if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+            desktop.MainWindow = new MainWindow
             {
-                desktop.MainWindow = new MainWindow
-                {
-                    DataContext = new MainWindowViewModel(),
-                };
+                DataContext = new MainViewModel(),
+            };
 
-                desktop.Exit += Application_Exit;
-            }
-
-            base.OnFrameworkInitializationCompleted();
+            desktop.Exit += Application_Exit;
         }
-
-        private void Application_Exit(object? sender, ControlledApplicationLifetimeExitEventArgs e)
+        else if (ApplicationLifetime is ISingleViewApplicationLifetime singleViewPlatform)
         {
-            SceneRenderer.s_dispatcher.Stop();
+            singleViewPlatform.MainView = new MainView
+            {
+                DataContext = new MainViewModel(),
+            };
         }
+
+        base.OnFrameworkInitializationCompleted();
+    }
+
+    private void Application_Exit(object? sender, ControlledApplicationLifetimeExitEventArgs e)
+    {
+        SceneRenderer.s_dispatcher.Stop();
     }
 }

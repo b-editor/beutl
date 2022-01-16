@@ -1,7 +1,3 @@
-using System;
-using System.Collections.Generic;
-using System.Text;
-
 using BeUtl.ProjectSystem;
 using BeUtl.Services;
 
@@ -11,11 +7,11 @@ using Reactive.Bindings;
 
 namespace BeUtl.ViewModels;
 
-public class MainWindowViewModel
+public class MainViewModel
 {
     private readonly ProjectService _projectService;
 
-    public MainWindowViewModel()
+    public MainViewModel()
     {
         _projectService = ServiceLocator.Current.GetRequiredService<ProjectService>();
 
