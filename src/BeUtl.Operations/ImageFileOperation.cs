@@ -5,11 +5,11 @@ using BeUtl.ProjectSystem;
 
 namespace BeUtl.Operations;
 
-public sealed class ImageFileOperation : LayerOperation
+public sealed class ImageFileOperation : DrawableOperation
 {
     public static readonly CoreProperty<FileInfo?> FileProperty;
+    private readonly DrawableBitmap _latest = new();
     private Bitmap<Bgra8888>? _cache;
-    private DrawableBitmap? _latest;
 
     static ImageFileOperation()
     {
@@ -37,21 +37,7 @@ public sealed class ImageFileOperation : LayerOperation
 
     public FileInfo? File { get; set; }
 
-    public override void Render(in OperationRenderArgs args)
-    {
-        if (_cache?.IsDisposed ?? true) return;
-
-        if (_latest == null)
-        {
-            _latest = new DrawableBitmap((Bitmap<Bgra8888>)_cache.Clone());
-        }
-        else
-        {
-            _latest.Initialize((Bitmap<Bgra8888>)_cache.Clone());
-        }
-
-        args.Scope.Add(_latest);
-    }
+    public override Drawable Drawable => _latest;
 
     protected override void OnAttachedToLogicalTree(in LogicalTreeAttachmentEventArgs args)
     {
@@ -76,9 +62,7 @@ public sealed class ImageFileOperation : LayerOperation
         if (file?.Exists ?? false)
         {
             _cache = Bitmap<Bgra8888>.FromFile(file.FullName);
+            _latest.Initialize(_cache);
         }
-
-        _latest?.Dispose();
-        _latest = null;
     }
 }

@@ -9,7 +9,7 @@ public abstract class ImageFilterOperation<T> : LayerOperation
 {
     public abstract T Filter { get; }
 
-    public override void BeginningRender(ILayerScope scope)
+    protected override void BeginningRenderCore(ILayerScope scope)
     {
         for (int i = 0; i < scope.Count; i++)
         {
@@ -20,7 +20,7 @@ public abstract class ImageFilterOperation<T> : LayerOperation
         }
     }
 
-    public override void EndingRender(ILayerScope scope)
+    protected override void EndingRenderCore(ILayerScope scope)
     {
         for (int i = 0; i < scope.Count; i++)
         {

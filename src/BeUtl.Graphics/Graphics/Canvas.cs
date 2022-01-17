@@ -9,6 +9,7 @@ using BeUtl.Threading;
 using SkiaSharp;
 
 [assembly: InternalsVisibleTo("BeUtl.ProjectSystem")]
+[assembly: InternalsVisibleTo("BeUtl")]
 
 namespace BeUtl.Graphics;
 

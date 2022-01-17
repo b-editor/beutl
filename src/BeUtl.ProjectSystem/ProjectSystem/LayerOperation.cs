@@ -11,6 +11,7 @@ public abstract class LayerOperation : Element, ILogicalElement
     public static readonly CoreProperty<RenderOperationViewState> ViewStateProperty;
     private readonly LogicalList<ISetter> _setters;
     private bool _isEnabled = true;
+    private bool _isRendering;
 
     static LayerOperation()
     {
@@ -100,17 +101,38 @@ public abstract class LayerOperation : Element, ILogicalElement
         }
     }
 
-    public virtual void BeginningRender(ILayerScope scope)
+    public void BeginningRender(ILayerScope scope)
+    {
+        if (!_isRendering)
+        {
+            BeginningRenderCore(scope);
+            _isRendering = true;
+        }
+        else
+        {
+
+        }
+    }
+
+    public void EndingRender(ILayerScope scope)
+    {
+        if (_isRendering)
+        {
+            EndingRenderCore(scope);
+            _isRendering = false;
+        }
+        else
+        {
+
+        }
+    }
+
+    protected virtual void BeginningRenderCore(ILayerScope scope)
     {
     }
 
-    public virtual void EndingRender(ILayerScope scope)
+    protected virtual void EndingRenderCore(ILayerScope scope)
     {
-    }
-
-    public virtual void Render(in OperationRenderArgs args)
-    {
-
     }
 
     public override void FromJson(JsonNode json)
@@ -196,10 +218,6 @@ public abstract class LayerOperation : Element, ILogicalElement
 public sealed class EmptyOperation : LayerOperation
 {
     public EmptyOperation()
-    {
-    }
-
-    public override void Render(in OperationRenderArgs args)
     {
     }
 }

@@ -4,11 +4,9 @@ using BeUtl.Media.TextFormatting;
 using BeUtl.ProjectSystem;
 using BeUtl.Rendering;
 
-using SkiaSharp;
-
 namespace BeUtl.Operations;
 
-public sealed class FormattedTextOperation : LayerOperation
+public sealed class FormattedTextOperation : DrawableOperation
 {
     public static readonly CoreProperty<float> SizeProperty;
     public static readonly CoreProperty<Color> ColorProperty;
@@ -18,7 +16,7 @@ public sealed class FormattedTextOperation : LayerOperation
     public static readonly CoreProperty<float> SpaceProperty;
     public static readonly CoreProperty<Thickness> MarginProperty;
     public static readonly CoreProperty<string> TextProperty;
-    private FormattedText? _formattedText;
+    private readonly FormattedText _formattedText = new();
 
     static FormattedTextOperation()
     {
@@ -108,17 +106,11 @@ public sealed class FormattedTextOperation : LayerOperation
 
     public string Text { get; set; } = string.Empty;
 
-    public override void BeginningRender(ILayerScope scope)
-    {
-        _formattedText = FormattedText.Parse(Text, new FormattedTextInfo(new Typeface(FontFamily, Style, Weight), Size, Color, Space, Margin));
-        scope.Append(_formattedText);
-    }
+    public override Drawable Drawable => _formattedText;
 
-    public override void EndingRender(ILayerScope scope)
+    public override void ApplySetters(in OperationRenderArgs args)
     {
-        if (_formattedText != null)
-        {
-            scope.Invalidate(_formattedText);
-        }
+        base.ApplySetters(args);
+        _formattedText.Load(Text, new FormattedTextInfo(new Typeface(FontFamily, Style, Weight), Size, Color, Space, Margin));
     }
 }

@@ -32,6 +32,17 @@ public class FormattedText : Drawable
         return new FormattedText(lines);
     }
 
+    public void Load(string s, FormattedTextInfo info)
+    {
+        _lines.Clear();
+        IsDisposed = false;
+        var tokenizer = new FormattedTextTokenizer(s);
+        List<TextLine> lines = tokenizer.ToLines(info);
+
+        _lines.AddRange(lines);
+        InvalidateVisual();
+    }
+    
     public void Initialize(string s, FormattedTextInfo info)
     {
         Initialize();

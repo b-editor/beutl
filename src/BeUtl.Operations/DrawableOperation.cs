@@ -8,18 +8,14 @@ public abstract class DrawableOperation : LayerOperation
 {
     public abstract Drawable Drawable { get; }
 
-    public override void BeginningRender(ILayerScope scope)
+    protected override void BeginningRenderCore(ILayerScope scope)
     {
         Drawable.InvalidateVisual();
         scope.Append(Drawable);
     }
 
-    public override void EndingRender(ILayerScope scope)
+    protected override void EndingRenderCore(ILayerScope scope)
     {
         scope.Invalidate(Drawable);
-    }
-
-    public override void Render(in OperationRenderArgs args)
-    {
     }
 }

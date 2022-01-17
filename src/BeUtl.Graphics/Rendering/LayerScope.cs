@@ -1,4 +1,6 @@
-﻿namespace BeUtl.Rendering;
+﻿using System.Runtime.InteropServices;
+
+namespace BeUtl.Rendering;
 
 public interface ILayerScope : IList<IRenderable>
 {
@@ -19,8 +21,14 @@ public interface ILayerScope : IList<IRenderable>
             Add(item);
         }
     }
+
+    Span<IRenderable> AsSpan();
 }
 
-public class LayerScope : List<IRenderable>, ILayerScope
+public sealed class LayerScope : List<IRenderable>, ILayerScope
 {
+    public Span<IRenderable> AsSpan()
+    {
+        return CollectionsMarshal.AsSpan(this);
+    }
 }
