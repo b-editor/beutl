@@ -1,6 +1,7 @@
 using System.Runtime.InteropServices;
 
 using BeUtl.Graphics;
+using BeUtl.Media.TextFormatting;
 using BeUtl.ProjectSystem;
 using BeUtl.Rendering;
 using BeUtl.Threading;
@@ -23,64 +24,48 @@ internal sealed class SceneRenderer : DeferredRenderer
 
     public TimeSpan FrameNumber => _scene.CurrentFrame;
 
-    public override IRenderer.RenderResult Render()
+    protected override void RenderCore()
     {
-        //if (_recentTime == TimeSpan.MinValue)
-        //{
-        //    _recentTime = FrameNumber;
-        //}
+        TimeSpan timeSpan = _scene.CurrentFrame;
+        DevideLayers(timeSpan);
+        Span<Layer> layers = CollectionsMarshal.AsSpan(_layers);
+        Span<Layer> begin = CollectionsMarshal.AsSpan(_begin);
+        Span<Layer> end = CollectionsMarshal.AsSpan(_end);
 
-        Dispatcher.VerifyAccess();
-        IRenderer.RenderResult result;
-        if (!IsRendering)
+        foreach (Layer item in begin)
         {
-            TimeSpan timeSpan = _scene.CurrentFrame;
-            DevideLayers(timeSpan);
-            Span<Layer> layers = CollectionsMarshal.AsSpan(_layers);
-            Span<Layer> begin = CollectionsMarshal.AsSpan(_begin);
-            Span<Layer> end = CollectionsMarshal.AsSpan(_end);
-
-            foreach (Layer item in begin)
+            foreach (LayerOperation item2 in item.Operations)
             {
-                foreach (LayerOperation item2 in item.Operations)
-                {
-                    item2.BeginningRender(item.Scope);
-                }
+                item2.BeginningRender(item.Scope);
             }
-
-            foreach (Layer layer in layers)
-            {
-                var args = new OperationRenderArgs(timeSpan, this, layer.Scope);
-                foreach (LayerOperation item in layer.Operations)
-                {
-                    item.ApplySetters(args);
-                }
-            }
-
-            foreach (Layer item in end)
-            {
-                foreach (LayerOperation item2 in item.Operations)
-                {
-                    item2.EndingRender(item.Scope);
-                }
-
-                Span<IRenderable> span = item.Scope.AsSpan();
-                foreach (IRenderable item2 in span)
-                {
-                    if (item2 is Drawable d)
-                        AddDirtyRect(d.Bounds);
-                }
-            }
-
-            result = base.Render();
-            _recentTime = timeSpan;
-        }
-        else
-        {
-            result = new IRenderer.RenderResult(Graphics.GetBitmap());
         }
 
-        return result;
+        foreach (Layer layer in layers)
+        {
+            var args = new OperationRenderArgs(timeSpan, this, layer.Scope);
+            foreach (LayerOperation item in layer.Operations)
+            {
+                item.ApplySetters(args);
+            }
+        }
+
+        foreach (Layer item in end)
+        {
+            foreach (LayerOperation item2 in item.Operations)
+            {
+                item2.EndingRender(item.Scope);
+            }
+
+            Span<IRenderable> span = item.Scope.AsSpan();
+            foreach (IRenderable item2 in span)
+            {
+                if (item2 is Drawable d)
+                    AddDirtyRect(d.Bounds);
+            }
+        }
+
+        base.RenderCore();
+        _recentTime = timeSpan;
     }
 
     // Layersを振り分ける

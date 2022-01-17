@@ -1,12 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Runtime.InteropServices;
-using System.Text;
-using System.Threading.Tasks;
-using System.Xml.Linq;
-
-using BeUtl.Graphics;
+﻿using BeUtl.Graphics;
 using BeUtl.Threading;
 
 using SkiaSharp;
@@ -20,6 +12,7 @@ public class DeferredRenderer : IRenderer
     private readonly List<Rect> _clips = new();
     private readonly Canvas _graphics;
     private readonly Rect _canvasBounds;
+    private readonly FpsText _fpsText = new();
 
     public DeferredRenderer(int width, int height)
     {
@@ -39,6 +32,12 @@ public class DeferredRenderer : IRenderer
     public bool IsDisposed { get; private set; }
 
     public bool IsRendering { get; private set; }
+
+    public bool DrawFps
+    {
+        get => _fpsText.DrawFps;
+        set => _fpsText.DrawFps = value;
+    }
 
     public ILayerScope? this[int index]
     {
@@ -68,55 +67,97 @@ public class DeferredRenderer : IRenderer
         IsDisposed = true;
     }
 
-    public virtual IRenderer.RenderResult Render()
+    public IRenderer.RenderResult Render()
     {
         Dispatcher.VerifyAccess();
         if (!IsRendering)
         {
             IsRendering = true;
-            var objects = new KeyValuePair<int, ILayerScope>[_objects.Count];
-            _objects.CopyTo(objects, 0);
-            Func(objects, 0, objects.Length);
-
-            using (Graphics.PushCanvas())
+            using (_fpsText.StartRender(this))
             {
-                using var path = new SKPath();
-                for (int i = 0; i < _clips.Count; i++)
-                {
-                    Rect item = _clips[i];
-                    path.AddRect(SKRect.Create(item.X, item.Y, item.Width, item.Height));
-                }
-
-                Graphics.ClipPath(path);
-
-                if (_clips.Count > 0)
-                {
-                    Graphics.Clear();
-                }
-
-                foreach (KeyValuePair<int, ILayerScope> item in objects)
-                {
-                    for (int ii = item.Value.Count - 1; ii >= 0; ii--)
-                    {
-                        IRenderable item2 = item.Value[ii];
-                        if (!item2.IsVisible)
-                        {
-                            //item.Value.RemoveAt(ii);
-                        }
-                        else if (item2 is Drawable drawable && drawable.IsDirty)
-                        {
-                            item2.Render(this);
-                        }
-                    }
-                }
-
-                _clips.Clear();
+                RenderCore();
             }
 
             IsRendering = false;
         }
 
         return new IRenderer.RenderResult(Graphics.GetBitmap());
+    }
+
+    protected virtual void RenderCore()
+    {
+        var objects = new KeyValuePair<int, ILayerScope>[_objects.Count];
+        _objects.CopyTo(objects, 0);
+        Func(objects, 0, objects.Length);
+
+        using (Graphics.PushCanvas())
+        {
+            using var path = new SKPath();
+            for (int i = 0; i < _clips.Count; i++)
+            {
+                Rect item = _clips[i];
+                path.AddRect(SKRect.Create(item.X, item.Y, item.Width, item.Height));
+            }
+
+            Graphics.ClipPath(path);
+
+            if (_clips.Count > 0)
+            {
+                Graphics.Clear();
+            }
+
+            foreach (KeyValuePair<int, ILayerScope> item in objects)
+            {
+                for (int ii = item.Value.Count - 1; ii >= 0; ii--)
+                {
+                    IRenderable item2 = item.Value[ii];
+                    if (item2.IsVisible &&
+                        item2 is Drawable drawable && drawable.IsDirty)
+                    {
+                        item2.Render(this);
+                    }
+                }
+            }
+
+            _clips.Clear();
+        }
+    }
+
+    protected void AddDirtyRect(Rect rect)
+    {
+        if (!rect.IsEmpty)
+        {
+            if (!_canvasBounds.Contains(rect))
+            {
+                rect = ClipToCanvasBounds(rect);
+            }
+            _clips.Add(rect);
+        }
+    }
+
+    // _clipsにrect1, rect2を追加する
+    private void AddDirtyRects(Rect rect1, Rect rect2)
+    {
+        if (!rect1.IsEmpty)
+        {
+            if (!_canvasBounds.Contains(rect1))
+            {
+                rect1 = ClipToCanvasBounds(rect1);
+            }
+            _clips.Add(rect1);
+        }
+        if (!rect2.IsEmpty)
+        {
+            if (!_canvasBounds.Contains(rect2))
+            {
+                rect2 = ClipToCanvasBounds(rect2);
+            }
+
+            if (rect1 != rect2)
+            {
+                _clips.Add(rect2);
+            }
+        }
     }
 
     // 変更されているオブジェクトのBoundsを_clipsに追加して、
@@ -151,44 +192,6 @@ public class DeferredRenderer : IRenderer
                         }
                     }
                 }
-            }
-        }
-    }
-
-    // _clipsにrect1, rect2を追加する
-    protected void AddDirtyRect(Rect rect1)
-    {
-        if (!rect1.IsEmpty)
-        {
-            if (!_canvasBounds.Contains(rect1))
-            {
-                rect1 = ClipToCanvasBounds(rect1);
-            }
-            _clips.Add(rect1);
-        }
-    }
-    
-    // _clipsにrect1, rect2を追加する
-    private void AddDirtyRects(Rect rect1, Rect rect2)
-    {
-        if (!rect1.IsEmpty)
-        {
-            if (!_canvasBounds.Contains(rect1))
-            {
-                rect1 = ClipToCanvasBounds(rect1);
-            }
-            _clips.Add(rect1);
-        }
-        if (!rect2.IsEmpty)
-        {
-            if (!_canvasBounds.Contains(rect2))
-            {
-                rect2 = ClipToCanvasBounds(rect2);
-            }
-
-            if (rect1 != rect2)
-            {
-                _clips.Add(rect2);
             }
         }
     }

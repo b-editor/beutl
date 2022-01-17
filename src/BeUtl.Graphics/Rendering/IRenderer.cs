@@ -15,6 +15,8 @@ public interface IRenderer : IDisposable
 
     Dispatcher Dispatcher { get; }
 
+    bool DrawFps { get; set; }
+
     bool IsDisposed { get; }
 
     bool IsRendering { get; }
