@@ -1,6 +1,7 @@
 ﻿using BeUtl.Media;
 using BeUtl.Media.Pixel;
 using BeUtl.Media.TextFormatting;
+using BeUtl.Threading;
 
 using NUnit.Framework;
 
@@ -89,6 +90,7 @@ public class FormattedTextTests
             }
         };
 
+        text.Measure(Size.Infinity);
         Rect bounds = text.Bounds;
         using var graphics = new Canvas((int)bounds.Width, (int)bounds.Height);
 
@@ -114,6 +116,7 @@ public class FormattedTextTests
         Typeface typeface = TypefaceProvider.Typeface();
         using var text = FormattedText.Parse(str, new FormattedTextInfo(typeface, 100, Colors.Black, 0, default));
 
+        text.Measure(Size.Infinity);
         Rect bounds = text.Bounds;
         using var graphics = new Canvas((int)bounds.Width, (int)bounds.Height);
 
