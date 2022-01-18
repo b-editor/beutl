@@ -121,7 +121,7 @@ public abstract class Drawable : IDrawable, IRenderable
     public IBitmap ToBitmap()
     {
         VerifyAccess();
-        var size = MeasureCore(Size.Infinity);
+        Size size = MeasureCore(Size.Infinity);
         using var canvas = new Canvas((int)size.Width, (int)size.Height);
 
         OnDraw(canvas);
@@ -133,7 +133,7 @@ public abstract class Drawable : IDrawable, IRenderable
 
     public void Measure(Size availableSize)
     {
-        var size = MeasureCore(availableSize);
+        Size size = MeasureCore(availableSize);
         Vector pt = CreatePoint(availableSize);
         Vector relpt = CreateRelPoint(size);
         Matrix transform = Matrix.CreateTranslation(relpt) * Transform.Calculate() * Matrix.CreateTranslation(pt);

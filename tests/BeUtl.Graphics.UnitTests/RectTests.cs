@@ -59,7 +59,7 @@ public class RectTests
     [Test]
     public void Intersect()
     {
-        var rect = new Rect(0, 0, 100, 100)
+        Rect rect = new Rect(0, 0, 100, 100)
             .Intersect(new Rect(50, 50, 100, 100));
 
         Assert.AreEqual(new Rect(50, 50, 50, 50), rect);
@@ -79,7 +79,7 @@ public class RectTests
     public void Transform()
     {
         var rect = new Rect(0, 0, 100, 100);
-        rect = rect.TransformToAABB(System.Numerics.Matrix3x2.CreateScale(2, 2) * System.Numerics.Matrix3x2.CreateTranslation(10, 10));
+        rect = rect.TransformToAABB(Matrix.CreateScale(2, 2) * Matrix.CreateTranslation(10, 10));
 
         Assert.AreEqual(new Rect(10, 10, 200, 200), rect);
     }
@@ -96,7 +96,7 @@ public class RectTests
     [Test]
     public void Normalize()
     {
-        var rect = new Rect(new Point(100, 100), new Point(0, 0))
+        Rect rect = new Rect(new Point(100, 100), new Point(0, 0))
             .Normalize();
 
         Assert.AreEqual(new Rect(0, 0, 100, 100), rect);
@@ -112,7 +112,7 @@ public class RectTests
     [Test]
     public void Union()
     {
-        var rect = new Rect(0, 0, 100, 100)
+        Rect rect = new Rect(0, 0, 100, 100)
             .Union(new Rect(50, 50, 100, 100));
 
         Assert.AreEqual(new Rect(0, 0, 150, 150), rect);
