@@ -5,13 +5,15 @@ namespace BeUtl.Operations;
 
 public abstract class ConfigureOperation : LayerOperation
 {
-    public override void Render(in OperationRenderArgs args)
+    public override void ApplySetters(in OperationRenderArgs args)
     {
-        for (int i = 0; i < args.List.Count; i++)
+        base.ApplySetters(args);
+
+        for (int i = 0; i < args.Scope.Count; i++)
         {
-            IRenderable item = args.List[i];
+            IRenderable item = args.Scope[i];
             Configure(args, ref item);
-            args.List[i] = item;
+            args.Scope[i] = item;
         }
     }
 

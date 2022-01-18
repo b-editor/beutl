@@ -40,7 +40,7 @@ public sealed class OffscreenDrawing : ConfigureOperation<IDrawable>
             return;
         }
 
-        var srcRect = new Rect(obj.Size.ToSize(1));
+        var srcRect = new Rect(0, 0, srcBmp.Width, srcBmp.Height);
         var result = new DrawableBitmap(srcBmp[bounds])
         {
             BlendMode = obj.BlendMode,

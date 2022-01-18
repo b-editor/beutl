@@ -1,7 +1,10 @@
 ﻿namespace BeUtl.Graphics.Transformation;
 
-public sealed class TranslateTransform : ITransform
+public sealed class TranslateTransform : Transform
 {
+    private float _y;
+    private float _x;
+
     public TranslateTransform()
     {
     }
@@ -24,9 +27,17 @@ public sealed class TranslateTransform : ITransform
         Y = point.Y;
     }
 
-    public float X { get; set; }
+    public float X
+    {
+        get => _x;
+        set => SetProperty(ref _x, value);
+    }
 
-    public float Y { get; set; }
+    public float Y
+    {
+        get => _y;
+        set => SetProperty(ref _y, value);
+    }
 
-    public Matrix Value => Matrix.CreateTranslation(X, Y);
+    public override Matrix Value => Matrix.CreateTranslation(X, Y);
 }

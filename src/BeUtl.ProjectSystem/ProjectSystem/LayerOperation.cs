@@ -1,6 +1,7 @@
 ﻿using System.Text.Json.Nodes;
 
 using BeUtl.Collections;
+using BeUtl.Rendering;
 
 namespace BeUtl.ProjectSystem;
 
@@ -10,6 +11,7 @@ public abstract class LayerOperation : Element, ILogicalElement
     public static readonly CoreProperty<RenderOperationViewState> ViewStateProperty;
     private readonly LogicalList<ISetter> _setters;
     private bool _isEnabled = true;
+    private bool _isRendering;
 
     static LayerOperation()
     {
@@ -99,7 +101,39 @@ public abstract class LayerOperation : Element, ILogicalElement
         }
     }
 
-    public abstract void Render(in OperationRenderArgs args);
+    public void BeginningRender(ILayerScope scope)
+    {
+        if (!_isRendering)
+        {
+            BeginningRenderCore(scope);
+            _isRendering = true;
+        }
+        else
+        {
+
+        }
+    }
+
+    public void EndingRender(ILayerScope scope)
+    {
+        if (_isRendering)
+        {
+            EndingRenderCore(scope);
+            _isRendering = false;
+        }
+        else
+        {
+
+        }
+    }
+
+    protected virtual void BeginningRenderCore(ILayerScope scope)
+    {
+    }
+
+    protected virtual void EndingRenderCore(ILayerScope scope)
+    {
+    }
 
     public override void FromJson(JsonNode json)
     {
@@ -184,10 +218,6 @@ public abstract class LayerOperation : Element, ILogicalElement
 public sealed class EmptyOperation : LayerOperation
 {
     public EmptyOperation()
-    {
-    }
-
-    public override void Render(in OperationRenderArgs args)
     {
     }
 }

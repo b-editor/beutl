@@ -1,8 +1,10 @@
-﻿using System.Text.Json;
+﻿using System.Collections.Specialized;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 
 using BeUtl.Commands;
 using BeUtl.Media;
+using BeUtl.Rendering;
 
 namespace BeUtl.ProjectSystem;
 
@@ -57,10 +59,19 @@ public class Layer : Element, IStorable
             { PropertyMetaTableKeys.JsonName, "name" }
         }));
 
+        ZIndexProperty.Changed.Subscribe(args =>
+        {
+            if (args.Sender is Layer layer && layer.Parent is Scene { Renderer: { IsDisposed: false } renderer })
+            {
+                renderer[args.OldValue] = null;
+                renderer[args.NewValue] = layer.Scope;
+            }
+        });
     }
 
     public Layer()
     {
+        Children.CollectionChanged += Children_CollectionChanged;
     }
 
     // 0以上
@@ -93,6 +104,8 @@ public class Layer : Element, IStorable
         get => _isEnabled;
         set => SetAndRaise(IsEnabledProperty, ref _isEnabled, value);
     }
+
+    public ILayerScope Scope { get; } = new LayerScope();
 
     public IEnumerable<LayerOperation> Operations => Children.OfType<LayerOperation>();
 
@@ -267,6 +280,41 @@ public class Layer : Element, IStorable
         }
 
         return node;
+    }
+
+    internal bool InRange(TimeSpan ts)
+    {
+        return Start <= ts && ts < Length + Start;
+    }
+
+    private void Children_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        if (Parent is not Scene scene) return;
+
+        bool current = InRange(scene.CurrentFrame);
+
+        if (current)
+        {
+            if (e.OldItems != null)
+            {
+                foreach (LayerOperation item in e.OldItems.OfType<LayerOperation>())
+                {
+                    item.EndingRender(Scope);
+                }
+            }
+
+            foreach (LayerOperation item in Operations)
+            {
+                item.EndingRender(Scope);
+            }
+
+            Scope.Clear();
+
+            foreach (LayerOperation item in Operations)
+            {
+                item.BeginningRender(Scope);
+            }
+        }
     }
 
     private sealed class UpdateTimeCommand : IRecordableCommand

@@ -4,21 +4,29 @@ namespace BeUtl.Graphics;
 
 public sealed class Ellipse : Drawable
 {
-    public float Width { get; set; }
+    private float _strokeWidth;
 
-    public float Height { get; set; }
-
-    public float StrokeWidth { get; set; }
-
-    public override PixelSize Size => new((int)Width, (int)Height);
+    public float StrokeWidth
+    {
+        get => _strokeWidth;
+        set => SetProperty(ref _strokeWidth, value);
+    }
 
     public override void Dispose()
     {
     }
 
+    protected override Size MeasureCore(Size availableSize)
+    {
+        return new Size(Math.Max(Width, 0), Math.Max(Height, 0));
+    }
+
     protected override void OnDraw(ICanvas canvas)
     {
         canvas.StrokeWidth = StrokeWidth;
-        canvas.DrawCircle(new Size(Width, Height));
+        if (Width > 0 && Height > 0)
+        {
+            canvas.DrawCircle(new Size(Width, Height));
+        }
     }
 }

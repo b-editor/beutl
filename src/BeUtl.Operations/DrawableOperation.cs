@@ -1,5 +1,6 @@
 ﻿using BeUtl.Graphics;
 using BeUtl.ProjectSystem;
+using BeUtl.Rendering;
 
 namespace BeUtl.Operations;
 
@@ -7,13 +8,20 @@ public abstract class DrawableOperation : LayerOperation
 {
     public abstract Drawable Drawable { get; }
 
-    public override void Render(in OperationRenderArgs args)
+    protected override void BeginningRenderCore(ILayerScope scope)
     {
-        Drawable? drawable = Drawable;
+        Drawable.InvalidateVisual();
+        scope.Append(Drawable);
+    }
 
-        if (drawable != null)
-        {
-            args.List.Add(drawable);
-        }
+    public override void ApplySetters(in OperationRenderArgs args)
+    {
+        Drawable.IsVisible = IsEnabled;
+        base.ApplySetters(args);
+    }
+
+    protected override void EndingRenderCore(ILayerScope scope)
+    {
+        scope.Invalidate(Drawable);
     }
 }

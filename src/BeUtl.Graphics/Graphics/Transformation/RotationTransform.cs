@@ -1,7 +1,9 @@
 ﻿namespace BeUtl.Graphics.Transformation;
 
-public sealed class RotationTransform : ITransform
+public sealed class RotationTransform : Transform
 {
+    private float _rotation;
+
     public RotationTransform()
     {
     }
@@ -11,9 +13,13 @@ public sealed class RotationTransform : ITransform
         Rotation = rotation;
     }
 
-    public float Rotation { get; set; }
+    public float Rotation
+    {
+        get => _rotation;
+        set => SetProperty(ref _rotation, value);
+    }
 
-    public Matrix Value => Matrix.CreateRotation(Rotation);
+    public override Matrix Value => Matrix.CreateRotation(Rotation);
 
     public static RotationTransform FromDegree(float degree)
     {

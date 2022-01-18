@@ -4,16 +4,16 @@ namespace BeUtl.ProjectSystem;
 
 public readonly struct OperationRenderArgs
 {
-    public OperationRenderArgs(TimeSpan currentTime, IRenderer renderer, RenderableList list)
+    public OperationRenderArgs(TimeSpan currentTime, IRenderer renderer, ILayerScope scope)
     {
         CurrentTime = currentTime;
         Renderer = renderer;
-        List = list;
+        Scope = scope;
     }
 
     public TimeSpan CurrentTime { get; }
 
     public IRenderer Renderer { get; }
 
-    public RenderableList List { get; }
+    public ILayerScope Scope { get; }
 }

@@ -7,11 +7,15 @@ namespace BeUtl.Rendering;
 
 public interface IRenderer : IDisposable
 {
+    ILayerScope? this[int index] { get; set; }
+
     ICanvas Graphics { get; }
 
     //public IAudio Audio { get; }
 
     Dispatcher Dispatcher { get; }
+
+    bool DrawFps { get; set; }
 
     bool IsDisposed { get; }
 

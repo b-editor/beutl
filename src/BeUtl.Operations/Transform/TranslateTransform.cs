@@ -39,5 +39,5 @@ public sealed class TranslateTransform : TransformOperation
         set => _transform.Y = value;
     }
 
-    public override Graphics.Transformation.ITransform Transform => _transform;
+    public override Graphics.Transformation.Transform Transform => _transform;
 }

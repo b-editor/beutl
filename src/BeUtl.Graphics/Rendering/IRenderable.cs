@@ -2,7 +2,9 @@
 
 public interface IRenderable : IDisposable
 {
-    public bool IsDisposed { get; }
+    bool IsDisposed { get; }
 
-    public void Render(IRenderer renderer);
+    bool IsVisible { get; set; }
+
+    void Render(IRenderer renderer);
 }

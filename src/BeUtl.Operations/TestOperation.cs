@@ -132,10 +132,6 @@ internal class TestOperation : LayerOperation
         });
     }
 
-    public override void Render(in OperationRenderArgs args)
-    {
-    }
-
     public enum Asis
     {
         [Description("WidthString")]

@@ -9,5 +9,6 @@ public enum PushedStateType
     BlendMode,
     Transform,
     Clip,
-    OpacityMask
+    OpacityMask,
+    Canvas
 }

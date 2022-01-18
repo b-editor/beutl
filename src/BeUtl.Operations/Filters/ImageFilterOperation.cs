@@ -9,15 +9,19 @@ public abstract class ImageFilterOperation<T> : LayerOperation
 {
     public abstract T Filter { get; }
 
-    public override void Render(in OperationRenderArgs args)
+    public override void ApplySetters(in OperationRenderArgs args)
     {
-        for (int i = 0; i < args.List.Count; i++)
-        {
-            IRenderable item = args.List[i];
-            if (item is IDrawable bmp)
-            {
-                bmp.Filters.Add(Filter);
-            }
-        }
+        Filter.IsEnabled = IsEnabled;
+        base.ApplySetters(args);
+    }
+
+    protected override void BeginningRenderCore(ILayerScope scope)
+    {
+        scope.First<IDrawable>()?.Filters.Add(Filter);
+    }
+
+    protected override void EndingRenderCore(ILayerScope scope)
+    {
+        Filter.Parent?.Filters.Remove(Filter);
     }
 }

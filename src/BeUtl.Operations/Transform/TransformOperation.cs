@@ -1,15 +1,27 @@
 ﻿using BeUtl.Graphics;
 using BeUtl.Graphics.Transformation;
 using BeUtl.ProjectSystem;
+using BeUtl.Rendering;
 
 namespace BeUtl.Operations.Transform;
 
-public abstract class TransformOperation : ConfigureOperation<IDrawable>
+public abstract class TransformOperation : LayerOperation
 {
-    public override void Configure(in OperationRenderArgs args, ref IDrawable obj)
+    public override void ApplySetters(in OperationRenderArgs args)
     {
-        obj.Transform.Add(Transform);
+        Transform.IsEnabled = IsEnabled;
+        base.ApplySetters(args);
     }
 
-    public abstract ITransform Transform { get; }
+    protected override void BeginningRenderCore(ILayerScope scope)
+    {
+        scope.First<IDrawable>()?.Transform.Add(Transform);
+    }
+
+    protected override void EndingRenderCore(ILayerScope scope)
+    {
+        Transform.Parent?.Transform.Remove(Transform);
+    }
+
+    public abstract Graphics.Transformation.Transform Transform { get; }
 }

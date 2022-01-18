@@ -52,9 +52,12 @@ public sealed class AlignOperation : ConfigureOperation<IDrawable>
 
     public override void Configure(in OperationRenderArgs args, ref IDrawable obj)
     {
-        obj.HorizontalAlignment = HorizontalAlignment;
-        obj.HorizontalContentAlignment = HorizontalContentAlignment;
-        obj.VerticalAlignment = VerticalAlignment;
-        obj.VerticalContentAlignment = VerticalContentAlignment;
+        if (IsEnabled)
+        {
+            obj.HorizontalAlignment = HorizontalAlignment;
+            obj.HorizontalContentAlignment = HorizontalContentAlignment;
+            obj.VerticalAlignment = VerticalAlignment;
+            obj.VerticalContentAlignment = VerticalContentAlignment;
+        }
     }
 }

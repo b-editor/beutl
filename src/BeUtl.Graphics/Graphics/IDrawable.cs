@@ -7,7 +7,11 @@ namespace BeUtl.Graphics;
 
 public interface IDrawable : IDisposable, IRenderable
 {
-    PixelSize Size { get; }
+    float Width { get; set; }
+
+    float Height { get; set; }
+
+    Rect Bounds { get; }
 
     IBrush Foreground { get; set; }
 

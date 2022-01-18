@@ -1,24 +1,16 @@
-﻿using BeUtl.ProjectSystem;
+﻿using BeUtl.Graphics;
+using BeUtl.ProjectSystem;
 using BeUtl.Rendering;
 
 namespace BeUtl.Operations;
 
 public sealed class RenderAllOperation : LayerOperation
 {
-    public static readonly CoreProperty<bool> DeleteRenderedObjectsProperty;
     public static readonly CoreProperty<int> StartProperty;
     public static readonly CoreProperty<int> CountProperty;
 
     static RenderAllOperation()
     {
-        DeleteRenderedObjectsProperty = ConfigureProperty<bool, RenderAllOperation>(nameof(DeleteRenderedObjects))
-            .Accessor(x => x.DeleteRenderedObjects, (o, v) => o.DeleteRenderedObjects = v)
-            .Header("DeleteRenderedObjectsString")
-            .EnableEditor()
-            .DefaultValue(true)
-            .JsonName("deleteRendered")
-            .Register();
-
         StartProperty = ConfigureProperty<int, RenderAllOperation>(nameof(Start))
             .Accessor(o => o.Start, (o, v) => o.Start = v)
             .Header("StartIndexString")
@@ -38,36 +30,26 @@ public sealed class RenderAllOperation : LayerOperation
             .Register();
     }
 
-    public bool DeleteRenderedObjects { get; set; } = true;
-
     public int Start { get; set; }
 
     public int Count { get; set; } = -1;
 
-    public override void Render(in OperationRenderArgs args)
+    public override void ApplySetters(in OperationRenderArgs args)
     {
+        base.ApplySetters(args);
         int start = Math.Max(Start, 0);
         int count = Count;
         if (count < 0)
         {
-            count = args.List.Count;
+            count = args.Scope.Count;
         }
 
         for (int i = start; i < count; i++)
         {
-            IRenderable item = args.List[i];
-            item.Render(args.Renderer);
-        }
-
-        if (DeleteRenderedObjects)
-        {
-            for (int i = start; i < count; i++)
+            IRenderable item = args.Scope[i];
+            if (item is Drawable d)
             {
-                IRenderable item = args.List[i];
-                args.List.RemoveAt(i);
-                item.Dispose();
-                i--;
-                count--;
+                d.InvalidateVisual();
             }
         }
     }

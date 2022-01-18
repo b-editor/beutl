@@ -107,10 +107,4 @@ public sealed class EllipseOperation : DrawableOperation
     }
 
     public override Drawable Drawable => _drawable;
-
-    public override void ApplySetters(in OperationRenderArgs args)
-    {
-        _drawable.Initialize();
-        base.ApplySetters(args);
-    }
 }

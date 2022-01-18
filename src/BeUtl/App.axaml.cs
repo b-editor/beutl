@@ -4,6 +4,7 @@ using Avalonia.Markup.Xaml;
 
 using BeUtl.Framework.Service;
 using BeUtl.Operations;
+using BeUtl.Rendering;
 using BeUtl.Services;
 using BeUtl.ViewModels;
 using BeUtl.Views;
@@ -47,7 +48,7 @@ namespace BeUtl
 
         private void Application_Exit(object? sender, ControlledApplicationLifetimeExitEventArgs e)
         {
-            SceneRenderer.s_dispatcher.Stop();
+            DeferredRenderer.s_dispatcher.Stop();
         }
     }
 }

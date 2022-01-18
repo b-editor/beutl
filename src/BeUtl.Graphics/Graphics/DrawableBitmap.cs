@@ -4,6 +4,10 @@ namespace BeUtl.Graphics;
 
 public sealed class DrawableBitmap : Drawable
 {
+    public DrawableBitmap()
+    {
+    }
+
     public DrawableBitmap(IBitmap bitmap)
     {
         Bitmap = bitmap;
@@ -14,13 +18,11 @@ public sealed class DrawableBitmap : Drawable
         Dispose();
     }
 
-    public override PixelSize Size => new(Bitmap.Width, Bitmap.Height);
-
-    public IBitmap Bitmap { get; private set; }
+    public IBitmap? Bitmap { get; private set; }
 
     public void Initialize(IBitmap bitmap)
     {
-        Bitmap.Dispose();
+        Bitmap?.Dispose();
         Bitmap = bitmap;
         GC.ReRegisterForFinalize(this);
         IsDisposed = false;
@@ -32,7 +34,7 @@ public sealed class DrawableBitmap : Drawable
     {
         if (!IsDisposed)
         {
-            Bitmap.Dispose();
+            Bitmap?.Dispose();
             GC.SuppressFinalize(this);
             IsDisposed = true;
         }
@@ -40,9 +42,24 @@ public sealed class DrawableBitmap : Drawable
 
     protected override void OnDraw(ICanvas canvas)
     {
-        if (!IsDisposed)
+        if (!IsDisposed && Bitmap is not null)
         {
-            canvas.DrawBitmap(Bitmap);
+            if (Width > 0 && Height > 0)
+            {
+                using (canvas.PushTransform(Matrix.CreateScale(Width / Bitmap.Width, Height / Bitmap.Height)))
+                {
+                    canvas.DrawBitmap(Bitmap);
+                }
+            }
+            else
+            {
+                canvas.DrawBitmap(Bitmap);
+            }
         }
+    }
+
+    protected override Size MeasureCore(Size availableSize)
+    {
+        return new(Bitmap?.Width ?? 0, Bitmap?.Height ?? 0);
     }
 }

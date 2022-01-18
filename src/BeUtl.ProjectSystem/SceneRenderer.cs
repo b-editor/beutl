@@ -1,134 +1,106 @@
-﻿using BeUtl.Collections;
+using System.Runtime.InteropServices;
+
 using BeUtl.Graphics;
+using BeUtl.Media.TextFormatting;
 using BeUtl.ProjectSystem;
 using BeUtl.Rendering;
 using BeUtl.Threading;
 
 namespace BeUtl;
 
-internal class SceneRenderer : IRenderer
+internal sealed class SceneRenderer : DeferredRenderer
 {
-    internal static readonly Dispatcher s_dispatcher = Dispatcher.Spawn();
     private readonly Scene _scene;
-    private readonly RenderableList _renderables = new();
-    private List<Layer>? _cache;
+    private readonly List<Layer> _begin = new();
+    private readonly List<Layer> _end = new();
+    private readonly List<Layer> _layers = new();
+    private TimeSpan _recentTime = TimeSpan.MinValue;
 
     public SceneRenderer(Scene scene, int width, int height)
+        : base(width, height)
     {
         _scene = scene;
-        Graphics = s_dispatcher.Invoke(() => new Canvas(width, height));
     }
-
-    public ICanvas Graphics { get; }
-
-    public Dispatcher Dispatcher => s_dispatcher;
 
     public TimeSpan FrameNumber => _scene.CurrentFrame;
 
-    public bool IsDisposed { get; private set; }
-
-    public bool IsRendering { get; private set; }
-
-    public event EventHandler<IRenderer.RenderResult>? RenderInvalidated;
-
-    public void Dispose()
+    protected override void RenderCore()
     {
-        if (IsDisposed) return;
+        TimeSpan timeSpan = _scene.CurrentFrame;
+        DevideLayers(timeSpan);
+        Span<Layer> layers = CollectionsMarshal.AsSpan(_layers);
+        Span<Layer> begin = CollectionsMarshal.AsSpan(_begin);
+        Span<Layer> end = CollectionsMarshal.AsSpan(_end);
 
-        Graphics?.Dispose();
-        _cache = null;
-
-        IsDisposed = true;
-    }
-
-    public IRenderer.RenderResult Render()
-    {
-        Dispatcher.VerifyAccess();
-        if (!IsRendering)
+        foreach (Layer item in begin)
         {
-            Graphics.Clear();
-            TimeSpan ts = FrameNumber;
-            List<Layer> layers = FilterAndSortLayers(ts);
-            var args = new OperationRenderArgs(ts, this, _renderables);
-
-            for (int i = 0; i < layers.Count; i++)
+            foreach (LayerOperation item2 in item.Operations)
             {
-                Layer item = layers[i];
-
-                if (item.IsEnabled)
-                {
-                    ProcessLayer(item, args);
-                }
+                item2.BeginningRender(item.Scope);
             }
         }
 
-        return new IRenderer.RenderResult(Graphics.GetBitmap());
-    }
-
-    private void ProcessLayer(Layer layer, in OperationRenderArgs args)
-    {
-        _renderables.Clear();
-        IElementList list = layer.Children;
-
-        for (int i = 0; i < list.Count; i++)
+        foreach (Layer layer in layers)
         {
-            if (list[i] is LayerOperation op && op.IsEnabled)
+            var args = new OperationRenderArgs(timeSpan, this, layer.Scope);
+            foreach (LayerOperation item in layer.Operations)
             {
-                op.ApplySetters(args);
-                op.Render(args);
+                item.ApplySetters(args);
             }
         }
 
-        for (int i = 0; i < _renderables.Count; i++)
+        foreach (Layer item in end)
         {
-            IRenderable renderable = _renderables[i];
-            if (!renderable.IsDisposed)
+            foreach (LayerOperation item2 in item.Operations)
             {
-                renderable.Render(this);
-                renderable.Dispose();
+                item2.EndingRender(item.Scope);
+            }
+
+            Span<IRenderable> span = item.Scope.AsSpan();
+            foreach (IRenderable item2 in span)
+            {
+                if (item2 is Drawable d)
+                    AddDirtyRect(d.Bounds);
             }
         }
 
-        _renderables.Clear();
+        base.RenderCore();
+        _recentTime = timeSpan;
     }
 
-    private List<Layer> FilterAndSortLayers(TimeSpan ts)
+    // Layersを振り分ける
+    private void DevideLayers(TimeSpan timeSpan)
     {
-        if (_cache == null)
+        _begin.Clear();
+        _end.Clear();
+        _layers.Clear();
+        foreach (Layer? item in _scene.Layers)
         {
-            _cache = new List<Layer>();
-        }
-        else
-        {
-            _cache.Clear();
-        }
-        int length = _scene.Children.Count;
-        IElementList children = _scene.Children;
+            bool recent = InRange(item, _recentTime);
+            bool current = InRange(item, timeSpan);
 
-        for (int i = 0; i < length; i++)
-        {
-            if (children[i] is Layer item &&
-                item.Start <= ts &&
-                ts < item.Length + item.Start &&
-                item.ZIndex >= 0)
+            if (current)
             {
-                _cache.Add(item);
+                _layers.Add(item);
+            }
+
+            if (!recent && current)
+            {
+                // _recentTimeの範囲外でcurrntTimeの範囲内
+                _begin.Add(item);
+            }
+            else if (recent && !current)
+            {
+                // _recentTimeの範囲内でcurrntTimeの範囲外
+                _end.Add(item);
             }
         }
-
-        _cache.Sort((x, y) => x.ZIndex - y.ZIndex);
-
-        return _cache;
     }
 
-    public async void Invalidate()
+    // itemがtsの範囲内かを確かめます
+    private static bool InRange(Layer item, TimeSpan ts)
     {
-        if (RenderInvalidated != null)
-        {
-            IRenderer.RenderResult result = await Dispatcher.InvokeAsync(() => Render());
-            RenderInvalidated.Invoke(this, result);
-            result.Bitmap.Dispose();
-        }
+        return item.Start <= ts && ts < item.Length + item.Start;
     }
 
     //private static int ToFrameNumber(TimeSpan tp, int rate)
