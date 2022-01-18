@@ -1,4 +1,5 @@
-﻿using System.Text.Json;
+﻿using System.Collections.Specialized;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 
 using BeUtl.Commands;
@@ -70,6 +71,7 @@ public class Layer : Element, IStorable
 
     public Layer()
     {
+        Children.CollectionChanged += Children_CollectionChanged;
     }
 
     // 0以上
@@ -278,6 +280,41 @@ public class Layer : Element, IStorable
         }
 
         return node;
+    }
+
+    internal bool InRange(TimeSpan ts)
+    {
+        return Start <= ts && ts < Length + Start;
+    }
+
+    private void Children_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        if (Parent is not Scene scene) return;
+
+        bool current = InRange(scene.CurrentFrame);
+
+        if (current)
+        {
+            if (e.OldItems != null)
+            {
+                foreach (LayerOperation item in e.OldItems.OfType<LayerOperation>())
+                {
+                    item.EndingRender(Scope);
+                }
+            }
+
+            foreach (LayerOperation item in Operations)
+            {
+                item.EndingRender(Scope);
+            }
+
+            Scope.Clear();
+
+            foreach (LayerOperation item in Operations)
+            {
+                item.BeginningRender(Scope);
+            }
+        }
     }
 
     private sealed class UpdateTimeCommand : IRecordableCommand

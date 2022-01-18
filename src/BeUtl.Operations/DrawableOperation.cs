@@ -14,6 +14,12 @@ public abstract class DrawableOperation : LayerOperation
         scope.Append(Drawable);
     }
 
+    public override void ApplySetters(in OperationRenderArgs args)
+    {
+        Drawable.IsVisible = IsEnabled;
+        base.ApplySetters(args);
+    }
+
     protected override void EndingRenderCore(ILayerScope scope)
     {
         scope.Invalidate(Drawable);

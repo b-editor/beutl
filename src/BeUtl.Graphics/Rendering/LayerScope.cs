@@ -22,6 +22,20 @@ public interface ILayerScope : IList<IRenderable>
         }
     }
 
+    T? First<T>()
+        where T : IRenderable
+    {
+        foreach (IRenderable? item in AsSpan())
+        {
+            if (item is T typed)
+            {
+                return typed;
+            }
+        }
+
+        return default;
+    }
+
     Span<IRenderable> AsSpan();
 }
 

@@ -7,7 +7,15 @@ namespace BeUtl.Graphics.Filters;
 
 public abstract class ImageFilter
 {
-    internal Drawable? _drawable;
+    private bool _isEnabled;
+
+    public bool IsEnabled
+    {
+        get => _isEnabled;
+        set => SetProperty(ref _isEnabled, value);
+    }
+
+    public Drawable? Parent { get; internal set; }
 
     public virtual Rect TransformBounds(Rect rect)
     {
@@ -19,7 +27,7 @@ public abstract class ImageFilter
         if (!EqualityComparer<T>.Default.Equals(field, value))
         {
             field = value;
-            _drawable?.InvalidateVisual();
+            Parent?.InvalidateVisual();
 
             return true;
         }
@@ -50,13 +58,13 @@ public sealed class ImageFilters : Collection<ImageFilter>
     protected override void InsertItem(int index, ImageFilter item)
     {
         base.InsertItem(index, item);
-        item._drawable = _drawable;
+        item.Parent = _drawable;
         _drawable.InvalidateVisual();
     }
 
     protected override void RemoveItem(int index)
     {
-        this[index]._drawable = null;
+        this[index].Parent = null;
         base.RemoveItem(index);
         _drawable.InvalidateVisual();
     }
@@ -64,7 +72,7 @@ public sealed class ImageFilters : Collection<ImageFilter>
     protected override void SetItem(int index, ImageFilter item)
     {
         base.SetItem(index, item);
-        item._drawable = _drawable;
+        item.Parent = _drawable;
         _drawable.InvalidateVisual();
     }
 
@@ -85,7 +93,11 @@ public sealed class ImageFilters : Collection<ImageFilter>
         var array = new SKImageFilter[Count];
         for (int i = 0; i < Count; i++)
         {
-            array[i] = this[i].ToSKImageFilter();
+            ImageFilter item = this[i];
+            if (item.IsEnabled)
+            {
+                array[i] = item.ToSKImageFilter();
+            }
         }
 
         return SKImageFilter.CreateMerge(array);
@@ -111,7 +123,11 @@ internal static class ImageFilterExtensions
         var array = new SKImageFilter[filters.Count];
         for (int i = 0; i < filters.Count; i++)
         {
-            array[i] = filters[i].ToSKImageFilter();
+            ImageFilter item = filters[i];
+            if(item.IsEnabled)
+            {
+                array[i] = item.ToSKImageFilter();
+            }
         }
 
         return SKImageFilter.CreateMerge(array);

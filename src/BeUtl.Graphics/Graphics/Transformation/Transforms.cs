@@ -20,13 +20,13 @@ public sealed class Transforms : Collection<Transform>
     protected override void InsertItem(int index, Transform item)
     {
         base.InsertItem(index, item);
-        item._drawable = _drawable;
+        item.Parent = _drawable;
         _drawable.InvalidateVisual();
     }
 
     protected override void RemoveItem(int index)
     {
-        this[index]._drawable = null;
+        this[index].Parent = null;
         base.RemoveItem(index);
         _drawable.InvalidateVisual();
     }
@@ -34,7 +34,7 @@ public sealed class Transforms : Collection<Transform>
     protected override void SetItem(int index, Transform item)
     {
         base.SetItem(index, item);
-        item._drawable = _drawable;
+        item.Parent = _drawable;
         _drawable.InvalidateVisual();
     }
 

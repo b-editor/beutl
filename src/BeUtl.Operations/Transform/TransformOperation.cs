@@ -7,26 +7,20 @@ namespace BeUtl.Operations.Transform;
 
 public abstract class TransformOperation : LayerOperation
 {
+    public override void ApplySetters(in OperationRenderArgs args)
+    {
+        Transform.IsEnabled = IsEnabled;
+        base.ApplySetters(args);
+    }
+
     protected override void BeginningRenderCore(ILayerScope scope)
     {
-        for (int i = 0; i < scope.Count; i++)
-        {
-            if (scope[i] is IDrawable obj)
-            {
-                obj.Transform.Add(Transform);
-            }
-        }
+        scope.First<IDrawable>()?.Transform.Add(Transform);
     }
 
     protected override void EndingRenderCore(ILayerScope scope)
     {
-        for (int i = 0; i < scope.Count; i++)
-        {
-            if (scope[i] is IDrawable obj)
-            {
-                obj.Transform.Remove(Transform);
-            }
-        }
+        Transform.Parent?.Transform.Remove(Transform);
     }
 
     public abstract Graphics.Transformation.Transform Transform { get; }

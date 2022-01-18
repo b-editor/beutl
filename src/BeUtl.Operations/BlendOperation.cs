@@ -37,6 +37,7 @@ public sealed class BlendOperation : ConfigureOperation<IDrawable>
 
     public override void Configure(in OperationRenderArgs args, ref IDrawable obj)
     {
+
         obj.BlendMode = BlendMode;
 
         if (obj.Foreground is Brush brush)
