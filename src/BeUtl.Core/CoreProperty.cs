@@ -115,6 +115,16 @@ public abstract class CoreProperty
 
         return _defaultMetadata;
     }
+
+    public override bool Equals(object? obj)
+    {
+        return obj is CoreProperty property && Id == property.Id;
+    }
+
+    public override int GetHashCode()
+    {
+        return Id;
+    }
 }
 
 public class CoreProperty<T> : CoreProperty
