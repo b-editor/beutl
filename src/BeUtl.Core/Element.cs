@@ -1,10 +1,4 @@
-﻿using System.ComponentModel;
-using System.Diagnostics.CodeAnalysis;
-using System.Runtime.CompilerServices;
-using System.Text.Json;
-using System.Text.Json.Nodes;
-
-using BeUtl.Collections;
+﻿using BeUtl.Collections;
 
 namespace BeUtl;
 
@@ -21,7 +15,7 @@ public interface IElement : ICoreObject, ILogicalElement
     /// <summary>
     /// Gets the children.
     /// </summary>
-    IElementList Children { get; }
+    ICoreReadOnlyList<IElement> Children { get; }
 }
 
 /// <summary>
@@ -29,7 +23,7 @@ public interface IElement : ICoreObject, ILogicalElement
 /// </summary>
 public abstract class Element : CoreObject, IElement
 {
-    private readonly ElementList _children;
+    private readonly LogicalList<Element> _children;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="Element"/> class.
@@ -48,13 +42,15 @@ public abstract class Element : CoreObject, IElement
     /// <summary>
     /// Gets the children.
     /// </summary>
-    public IElementList Children => _children;
+    public CoreList<Element> Children => _children;
 
     ILogicalElement? ILogicalElement.LogicalParent => Parent;
 
     IEnumerable<ILogicalElement> ILogicalElement.LogicalChildren => Children;
 
     IElement? IElement.Parent => Parent;
+
+    ICoreReadOnlyList<IElement> IElement.Children => _children;
 
     public event EventHandler<LogicalTreeAttachmentEventArgs>? AttachedToLogicalTree;
 
@@ -70,15 +66,15 @@ public abstract class Element : CoreObject, IElement
 
     void ILogicalElement.NotifyAttachedToLogicalTree(in LogicalTreeAttachmentEventArgs e)
     {
-        Parent = e.NewParent as Element;
         OnAttachedToLogicalTree(e);
+        Parent = e.Parent as Element;
         AttachedToLogicalTree?.Invoke(this, e);
     }
 
     void ILogicalElement.NotifyDetachedFromLogicalTree(in LogicalTreeAttachmentEventArgs e)
     {
-        Parent = e.NewParent as Element;
         OnDetachedFromLogicalTree(e);
+        Parent = e.Parent as Element;
         DetachedFromLogicalTree?.Invoke(this, e);
     }
 }

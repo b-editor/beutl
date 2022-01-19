@@ -348,12 +348,12 @@ public abstract class CoreObject : ICoreObject
         {
             if (oldValue is ILogicalElement oldLogical)
             {
-                oldLogical.NotifyDetachedFromLogicalTree(new LogicalTreeAttachmentEventArgs(logicalElement, null));
+                oldLogical.NotifyDetachedFromLogicalTree(new LogicalTreeAttachmentEventArgs(null));
             }
 
             if (newValue is ILogicalElement newLogical)
             {
-                newLogical.NotifyAttachedToLogicalTree(new LogicalTreeAttachmentEventArgs(null, logicalElement));
+                newLogical.NotifyAttachedToLogicalTree(new LogicalTreeAttachmentEventArgs(logicalElement));
             }
         }
 

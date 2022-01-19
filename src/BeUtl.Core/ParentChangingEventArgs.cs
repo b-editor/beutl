@@ -2,13 +2,10 @@
 
 public readonly struct LogicalTreeAttachmentEventArgs
 {
-    public LogicalTreeAttachmentEventArgs(ILogicalElement? oldParent, ILogicalElement? newParent)
+    public LogicalTreeAttachmentEventArgs(ILogicalElement? parent)
     {
-        NewParent = newParent;
-        OldParent = oldParent;
+        Parent = parent;
     }
 
-    public ILogicalElement? NewParent { get; }
-
-    public ILogicalElement? OldParent { get; }
+    public ILogicalElement? Parent { get; }
 }

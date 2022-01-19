@@ -11,13 +11,13 @@ public abstract class Animator : ILogicalElement
 
     void ILogicalElement.NotifyAttachedToLogicalTree(in LogicalTreeAttachmentEventArgs e)
     {
-        LogicalParent = e.NewParent;
+        LogicalParent = e.Parent;
         AttachedToLogicalTree?.Invoke(this, e);
     }
 
     void ILogicalElement.NotifyDetachedFromLogicalTree(in LogicalTreeAttachmentEventArgs e)
     {
-        LogicalParent = e.NewParent;
+        LogicalParent = e.Parent;
         DetachedFromLogicalTree?.Invoke(this, e);
     }
 }

@@ -1,39 +1,14 @@
-﻿using System.Collections.ObjectModel;
-using System.Collections.Specialized;
+﻿namespace BeUtl.Collections;
 
-namespace BeUtl.Collections;
-
-public class LogicalList<T> : ObservableCollection<T>, IObservableList<T>
+public sealed class LogicalList<T> : CoreList<T>
     where T : ILogicalElement
 {
     public LogicalList(ILogicalElement parent)
     {
         Parent = parent;
+        Attached = item => item.NotifyAttachedToLogicalTree(new LogicalTreeAttachmentEventArgs(Parent));
+        Detached = item => item.NotifyDetachedFromLogicalTree(new LogicalTreeAttachmentEventArgs(null));
     }
 
     public ILogicalElement Parent { get; }
-
-    protected override void RemoveItem(int index)
-    {
-        T item = this[index];
-        base.RemoveItem(index);
-
-        item.NotifyDetachedFromLogicalTree(new LogicalTreeAttachmentEventArgs(Parent, null));
-    }
-
-    protected override void OnCollectionChanged(NotifyCollectionChangedEventArgs e)
-    {
-        if (e.Action == NotifyCollectionChangedAction.Add && e.NewItems != null)
-        {
-            foreach (ILogicalElement? item in e.NewItems.OfType<ILogicalElement>())
-            {
-                ILogicalElement? oldParent = item.LogicalParent;
-                ILogicalElement? newParent = Parent;
-
-                item.NotifyAttachedToLogicalTree(new LogicalTreeAttachmentEventArgs(oldParent, newParent));
-            }
-        }
-
-        base.OnCollectionChanged(e);
-    }
 }
