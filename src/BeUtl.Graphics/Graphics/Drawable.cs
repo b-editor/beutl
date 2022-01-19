@@ -5,7 +5,7 @@ using BeUtl.Rendering;
 
 namespace BeUtl.Graphics;
 
-public abstract class Drawable : IDrawable, IRenderable
+public abstract class Drawable : IDrawable, IRenderable, ILogicalElement
 {
     private BlendMode _blendMode = BlendMode.SrcOver;
     private IBrush? _opacityMask;
@@ -30,6 +30,18 @@ public abstract class Drawable : IDrawable, IRenderable
         {
             Dispose();
         }
+    }
+
+    event EventHandler<LogicalTreeAttachmentEventArgs> ILogicalElement.AttachedToLogicalTree
+    {
+        add => throw new NotSupportedException();
+        remove => throw new NotSupportedException();
+    }
+
+    event EventHandler<LogicalTreeAttachmentEventArgs> ILogicalElement.DetachedFromLogicalTree
+    {
+        add => throw new NotSupportedException();
+        remove => throw new NotSupportedException();
     }
 
     //public abstract PixelSize Size { get; }
@@ -103,6 +115,10 @@ public abstract class Drawable : IDrawable, IRenderable
         get => _isVisible;
         set => SetProperty(ref _isVisible, value);
     }
+
+    ILogicalElement? ILogicalElement.LogicalParent { get; }
+
+    IEnumerable<ILogicalElement> ILogicalElement.LogicalChildren => Filters.Concat<ILogicalElement>(Transform);
 
     public void Initialize()
     {
@@ -262,5 +278,15 @@ public abstract class Drawable : IDrawable, IRenderable
         }
 
         return new Point(x, y);
+    }
+
+    void ILogicalElement.NotifyAttachedToLogicalTree(in LogicalTreeAttachmentEventArgs e)
+    {
+        throw new NotSupportedException();
+    }
+
+    void ILogicalElement.NotifyDetachedFromLogicalTree(in LogicalTreeAttachmentEventArgs e)
+    {
+        throw new NotSupportedException();
     }
 }

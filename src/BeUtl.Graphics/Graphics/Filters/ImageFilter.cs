@@ -1,10 +1,10 @@
-﻿using System.Collections.ObjectModel;
+﻿using BeUtl.Collections;
 
 using SkiaSharp;
 
 namespace BeUtl.Graphics.Filters;
 
-public abstract class ImageFilter
+public abstract class ImageFilter : ILogicalElement
 {
     private bool _isEnabled;
 
@@ -15,6 +15,22 @@ public abstract class ImageFilter
     }
 
     public Drawable? Parent { get; internal set; }
+
+    ILogicalElement? ILogicalElement.LogicalParent => Parent;
+
+    IEnumerable<ILogicalElement> ILogicalElement.LogicalChildren => Array.Empty<ILogicalElement>();
+
+    event EventHandler<LogicalTreeAttachmentEventArgs> ILogicalElement.AttachedToLogicalTree
+    {
+        add => throw new NotSupportedException();
+        remove => throw new NotSupportedException();
+    }
+
+    event EventHandler<LogicalTreeAttachmentEventArgs> ILogicalElement.DetachedFromLogicalTree
+    {
+        add => throw new NotSupportedException();
+        remove => throw new NotSupportedException();
+    }
 
     public virtual Rect TransformBounds(Rect rect)
     {
@@ -36,52 +52,45 @@ public abstract class ImageFilter
         }
     }
 
+    void ILogicalElement.NotifyAttachedToLogicalTree(in LogicalTreeAttachmentEventArgs e)
+    {
+        Parent = e.Parent as Drawable;
+    }
+
+    void ILogicalElement.NotifyDetachedFromLogicalTree(in LogicalTreeAttachmentEventArgs e)
+    {
+        Parent = null;
+    }
+
     protected internal abstract SKImageFilter ToSKImageFilter();
 }
 
-public sealed class ImageFilters : Collection<ImageFilter>
+public sealed class ImageFilters : CoreList<ImageFilter>
 {
     private readonly Drawable _drawable;
 
     public ImageFilters(Drawable drawable)
     {
         _drawable = drawable;
-    }
-
-    protected override void ClearItems()
-    {
-        base.ClearItems();
-        _drawable.InvalidateVisual();
-    }
-
-    protected override void InsertItem(int index, ImageFilter item)
-    {
-        base.InsertItem(index, item);
-        item.Parent = _drawable;
-        _drawable.InvalidateVisual();
-    }
-
-    protected override void RemoveItem(int index)
-    {
-        this[index].Parent = null;
-        base.RemoveItem(index);
-        _drawable.InvalidateVisual();
-    }
-
-    protected override void SetItem(int index, ImageFilter item)
-    {
-        base.SetItem(index, item);
-        item.Parent = _drawable;
-        _drawable.InvalidateVisual();
+        Attached = item =>
+        {
+            _drawable.InvalidateVisual();
+            (item as ILogicalElement).NotifyAttachedToLogicalTree(new LogicalTreeAttachmentEventArgs(_drawable));
+        };
+        Detached = item =>
+        {
+            _drawable.InvalidateVisual();
+            (item as ILogicalElement).NotifyDetachedFromLogicalTree(new LogicalTreeAttachmentEventArgs(null));
+        };
     }
 
     public Rect TransformBounds(Rect rect)
     {
         Rect original = rect;
 
-        for (int i = 0; i < Count; i++)
+        foreach (ImageFilter item in AsSpan())
         {
-            rect = this[i].TransformBounds(original).Union(rect);
+            rect = item.TransformBounds(original).Union(rect);
         }
 
         return rect;
@@ -90,13 +99,15 @@ public sealed class ImageFilters : Collection<ImageFilter>
     internal SKImageFilter ToSKImageFilter()
     {
         var array = new SKImageFilter[Count];
-        for (int i = 0; i < Count; i++)
+        int index = 0;
+        foreach (ImageFilter item in AsSpan())
         {
-            ImageFilter item = this[i];
             if (item.IsEnabled)
             {
-                array[i] = item.ToSKImageFilter();
+                array[index] = item.ToSKImageFilter();
             }
+
+            index++;
         }
 
         return SKImageFilter.CreateMerge(array);
@@ -123,7 +134,7 @@ internal static class ImageFilterExtensions
         for (int i = 0; i < filters.Count; i++)
         {
             ImageFilter item = filters[i];
-            if(item.IsEnabled)
+            if (item.IsEnabled)
             {
                 array[i] = item.ToSKImageFilter();
             }

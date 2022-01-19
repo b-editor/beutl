@@ -1,6 +1,6 @@
 ﻿namespace BeUtl.Graphics.Transformation;
 
-public abstract class Transform
+public abstract class Transform : ILogicalElement
 {
     private bool _isEnabled = true;
 
@@ -13,6 +13,22 @@ public abstract class Transform
     }
 
     public Drawable? Parent { get; internal set; }
+
+    ILogicalElement? ILogicalElement.LogicalParent => Parent;
+
+    IEnumerable<ILogicalElement> ILogicalElement.LogicalChildren => Array.Empty<ILogicalElement>();
+
+    event EventHandler<LogicalTreeAttachmentEventArgs> ILogicalElement.AttachedToLogicalTree
+    {
+        add => throw new NotSupportedException();
+        remove => throw new NotSupportedException();
+    }
+
+    event EventHandler<LogicalTreeAttachmentEventArgs> ILogicalElement.DetachedFromLogicalTree
+    {
+        add => throw new NotSupportedException();
+        remove => throw new NotSupportedException();
+    }
 
     protected bool SetProperty<T>(ref T field, T value)
     {
@@ -27,5 +43,15 @@ public abstract class Transform
         {
             return false;
         }
+    }
+
+    void ILogicalElement.NotifyAttachedToLogicalTree(in LogicalTreeAttachmentEventArgs e)
+    {
+        Parent = e.Parent as Drawable;
+    }
+
+    void ILogicalElement.NotifyDetachedFromLogicalTree(in LogicalTreeAttachmentEventArgs e)
+    {
+        Parent = null;
     }
 }
