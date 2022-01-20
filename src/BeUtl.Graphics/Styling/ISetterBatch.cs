@@ -7,4 +7,8 @@ public interface ISetterBatch
     CoreProperty Property { get; }
 
     void Apply();
+
+    void Begin();
+
+    void End();
 }

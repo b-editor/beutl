@@ -2,7 +2,11 @@
 
 public interface IStyleable : ICoreObject
 {
-    IList<IStyle> Styles { get; }
+    Styles Styles { get; set; }
+
+    void StyleApplied(IStyleInstance instance);
+
+    void InvalidateStyles();
 
     IStyleInstance? GetStyleInstance(IStyle style);
 }
