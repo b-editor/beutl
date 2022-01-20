@@ -17,7 +17,7 @@ public abstract class Animator : ILogicalElement
 
     void ILogicalElement.NotifyDetachedFromLogicalTree(in LogicalTreeAttachmentEventArgs e)
     {
-        LogicalParent = e.Parent;
+        LogicalParent = null;
         DetachedFromLogicalTree?.Invoke(this, e);
     }
 }

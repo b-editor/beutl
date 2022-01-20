@@ -1,15 +1,13 @@
 ﻿using System.Text.Json.Nodes;
 
 using BeUtl.Animation.Easings;
-using BeUtl.ProjectSystem;
 
 namespace BeUtl.Animation;
 
-public abstract class BaseAnimation : Element, ILogicalElement
+public abstract class BaseAnimation : CoreObject
 {
     public static readonly CoreProperty<Easing> EasingProperty;
     public static readonly CoreProperty<TimeSpan> DurationProperty;
-    private ILogicalElement? _logicalParent;
     private Easing _easing;
     private TimeSpan _duration;
 
@@ -44,8 +42,6 @@ public abstract class BaseAnimation : Element, ILogicalElement
         get => _duration;
         set => SetAndRaise(DurationProperty, ref _duration, value);
     }
-
-    ILogicalElement? ILogicalElement.LogicalParent => _logicalParent;
 
     public override JsonNode ToJson()
     {
@@ -101,10 +97,5 @@ public abstract class BaseAnimation : Element, ILogicalElement
                 }
             }
         }
-    }
-
-    internal void SetLogicalParent(ILogicalElement parent)
-    {
-        _logicalParent = parent;
     }
 }

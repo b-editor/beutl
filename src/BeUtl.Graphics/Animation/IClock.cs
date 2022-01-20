@@ -8,4 +8,5 @@ namespace BeUtl.Animation;
 
 public interface IClock
 {
+    TimeSpan CurrentTime { get; }
 }

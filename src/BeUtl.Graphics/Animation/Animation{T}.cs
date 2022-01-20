@@ -1,7 +1,6 @@
 ﻿namespace BeUtl.Animation;
 
 public class Animation<T> : BaseAnimation, IAnimation
-    where T : struct
 {
     public static readonly CoreProperty<Animator<T>> AnimatorProperty;
     public static readonly CoreProperty<T> PreviousProperty;
@@ -13,6 +12,8 @@ public class Animation<T> : BaseAnimation, IAnimation
     public Animation()
     {
         _animator = (Animator<T>)Activator.CreateInstance(AnimatorRegistry.GetAnimatorType(typeof(T)))!;
+        _previous = _animator.DefaultValue();
+        _next = _animator.DefaultValue();
     }
 
     static Animation()
@@ -56,7 +57,7 @@ public class Animation<T> : BaseAnimation, IAnimation
 
     object IAnimation.Previous
     {
-        get => Previous;
+        get => Previous!;
         set
         {
             if (value is T typedValue)
@@ -68,7 +69,7 @@ public class Animation<T> : BaseAnimation, IAnimation
 
     object IAnimation.Next
     {
-        get => Next;
+        get => Next!;
         set
         {
             if (value is T typedValue)

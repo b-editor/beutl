@@ -2,7 +2,7 @@
 
 namespace BeUtl.Animation;
 
-public interface IAnimation : IElement
+public interface IAnimation : ICoreObject, ILogicalElement
 {
     public Easing Easing { get; set; }
 

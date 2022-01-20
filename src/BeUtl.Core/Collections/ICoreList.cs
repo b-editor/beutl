@@ -4,6 +4,10 @@ namespace BeUtl.Collections;
 
 public interface ICoreList<T> : IObservableList<T>, IList, ICoreReadOnlyList<T>
 {
+    new int Count { get; }
+
+    new T this[int index] { get; set; }
+
     Action<T>? Attached { get; init; }
 
     Action<T>? Detached { get; init; }
