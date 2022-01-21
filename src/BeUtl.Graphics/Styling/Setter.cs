@@ -35,13 +35,8 @@ public class Setter<T> : ISetter
 
     ICoreReadOnlyList<IAnimation> ISetter.Animations => Animations;
 
-    public ISetterBatch CreateBatch(IStyleable target)
-    {
-        return new SetterBatch<T>(Property, target);
-    }
-
     public ISetterInstance Instance(IStyleable target)
     {
-        return new SetterInstance<T>(this);
+        return new SetterInstance<T>(this, target);
     }
 }

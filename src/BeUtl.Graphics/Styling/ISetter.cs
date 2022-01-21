@@ -11,7 +11,5 @@ public interface ISetter
 
     ICoreReadOnlyList<IAnimation> Animations { get; }
 
-    ISetterBatch CreateBatch(IStyleable target);
-
     ISetterInstance Instance(IStyleable target);
 }

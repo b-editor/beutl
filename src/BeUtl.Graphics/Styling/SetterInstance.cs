@@ -7,39 +7,42 @@ namespace BeUtl.Styling;
 
 public class SetterInstance<T> : ISetterInstance
 {
+    private IStyleable? _target;
     private Setter<T>? _setter;
 
-    public SetterInstance(Setter<T> setter)
+    public SetterInstance(Setter<T> setter, IStyleable target)
     {
         _setter = setter;
+        _target = target;
     }
 
     public CoreProperty<T> Property => Setter.Property;
 
     public Setter<T> Setter => _setter ?? throw new InvalidOperationException();
 
+    public IStyleable Target => _target ?? throw new InvalidOperationException();
+
     CoreProperty ISetterInstance.Property => Property;
 
     ISetter ISetterInstance.Setter => Setter;
 
-    public void Apply(ISetterBatch batch, IClock clock)
+    public void Apply(IClock clock)
     {
-        if (batch is SetterBatch<T> setterBatch)
+        if (Setter.Animations.Count > 0)
         {
-            if (Setter.Animations.Count > 0)
-            {
-                setterBatch.Value = EaseAnimations(clock.CurrentTime);
-            }
-            else
-            {
-                setterBatch.Value = Setter.Value;
-            }
+            Target.SetValue(Property, EaseAnimations(clock.CurrentTime));
+        }
+        else
+        {
+            Target.SetValue(Property, Setter.Value);
         }
     }
 
     public void Dispose()
     {
+        _target?.ClearValue(Property);
         _setter = null;
+        _target = null;
     }
 
     private T EaseAnimations(TimeSpan progress)

@@ -33,10 +33,10 @@ public abstract class Styleable : CoreObject, IStyleable
 
     public void InvalidateStyles()
     {
-        if(_styleInstance != null)
+        if (_styleInstance != null)
         {
-            _styleInstance.Unapply();
             _styleInstance.Dispose();
+            _styleInstance = null;
         }
     }
 

@@ -11,9 +11,7 @@ public class StyleInstance : IStyleInstance
     private IStyleable? _target;
     private IStyle? _source;
     private ISetterInstance[] _setters;
-    private Dictionary<int, Entry>? _cache;
-
-    private record struct Entry(ISetterInstance[] Setters, ISetterBatch Batch);
+    private ISetterInstance[][]? _cache;
 
     public StyleInstance(IStyleable target, IStyle source, ISetterInstance[] setters, IStyleInstance? baseStyle)
     {
@@ -40,33 +38,17 @@ public class StyleInstance : IStyleInstance
             Build();
         }
 
-        var entries = new Entry[_cache.Count];
-        _cache.Values.CopyTo(entries, 0);
-        foreach (Entry entry in entries)
+        Target.BeginBatchUpdate();
+
+        foreach (ISetterInstance[] entry in _cache.AsSpan())
         {
-            entry.Batch.Begin();
-            foreach (ISetterInstance item in entry.Setters.AsSpan())
+            foreach (ISetterInstance item in entry.AsSpan())
             {
-                item.Apply(entry.Batch, clock);
+                item.Apply(clock);
             }
-
-            entry.Batch.Apply();
-        }
-    }
-
-    public void Unapply()
-    {
-        if (_cache == null)
-        {
-            Build();
         }
 
-        var entries = new Entry[_cache.Count];
-        _cache.Values.CopyTo(entries, 0);
-        foreach (Entry entry in entries)
-        {
-            entry.Batch.End();
-        }
+        Target.EndBatchUpdate();
     }
 
     public void Dispose()
@@ -86,22 +68,23 @@ public class StyleInstance : IStyleInstance
     [MemberNotNull(nameof(_cache))]
     private void Build()
     {
-        _cache = new Dictionary<int, Entry>();
+        var dict = new Dictionary<int, ISetterInstance[]>();
         IStyleInstance? next = this;
         while (next != null)
         {
             foreach (ISetterInstance item in next.Setters)
             {
-                if (!_cache.ContainsKey(item.Property.Id))
+                if (!dict.ContainsKey(item.Property.Id))
                 {
-                    ISetterBatch batch = item.Setter.CreateBatch(Target);
-
-                    _cache[item.Property.Id] = new Entry(GetSettersFromProperty(item.Property), batch);
+                    dict[item.Property.Id] = GetSettersFromProperty(item.Property);
                 }
             }
 
             next = next.BaseStyle;
         }
+
+        _cache = new ISetterInstance[dict.Count][];
+        dict.Values.CopyTo(_cache, 0);
     }
 
     private ISetterInstance[] GetSettersFromProperty(CoreProperty property)

@@ -23,6 +23,14 @@ public interface ICoreObject : INotifyPropertyChanged, INotifyPropertyChanging, 
     /// </summary>
     string Name { get; set; }
 
+    void BeginBatchUpdate();
+
+    void EndBatchUpdate();
+
+    void ClearValue<TValue>(CoreProperty<TValue> property);
+    
+    void ClearValue(CoreProperty property);
+
     TValue GetValue<TValue>(CoreProperty<TValue> property);
 
     object? GetValue(CoreProperty property);
@@ -49,7 +57,9 @@ public abstract class CoreObject : ICoreObject
     /// </summary>
     protected JsonNode? JsonNode;
 
-    private Dictionary<int, object?>? _values = new();
+    private readonly Dictionary<int, object?> _values = new();
+    private readonly Dictionary<int, object?> _batchChanges = new();
+    private bool _batchUpdate;
 
     static CoreObject()
     {
@@ -83,11 +93,6 @@ public abstract class CoreObject : ICoreObject
     }
 
     /// <summary>
-    /// Gets the dynamic property values.
-    /// </summary>
-    protected Dictionary<int, object?> Values => _values ??= new();
-
-    /// <summary>
     /// Occurs when a property value changes.
     /// </summary>
     public event PropertyChangedEventHandler? PropertyChanged;
@@ -100,6 +105,34 @@ public abstract class CoreObject : ICoreObject
     public static CorePropertyInitializationHelper<T, TOwner> ConfigureProperty<T, TOwner>(string name)
     {
         return new CorePropertyInitializationHelper<T, TOwner>(name);
+    }
+
+    public void BeginBatchUpdate()
+    {
+        if (_batchUpdate)
+        {
+            throw new InvalidOperationException();
+        }
+
+        _batchUpdate = true;
+    }
+
+    public void EndBatchUpdate()
+    {
+        if (!_batchUpdate)
+        {
+            throw new InvalidOperationException();
+        }
+
+        _batchUpdate = false;
+        foreach (KeyValuePair<int, object?> item in _batchChanges)
+        {
+            if (PropertyRegistry.FindRegistered(item.Key) is CoreProperty property)
+            {
+                SetValue(property, item.Value);
+            }
+        }
+        _batchChanges.Clear();
     }
 
     public TValue GetValue<TValue>(CoreProperty<TValue> property)
@@ -115,12 +148,12 @@ public abstract class CoreObject : ICoreObject
             return staticProperty.RouteGetTypedValue(this)!;
         }
 
-        if (!Values.ContainsKey(property.Id))
+        if (!_values.ContainsKey(property.Id))
         {
             return (TValue)property.GetMetadata(ownerType).DefaultValue!;
         }
 
-        return (TValue)Values[property.Id]!;
+        return (TValue)_values[property.Id]!;
     }
 
     public object? GetValue(CoreProperty property)
@@ -146,20 +179,25 @@ public abstract class CoreObject : ICoreObject
                 staticProperty.RouteSetTypedValue(this, value);
             }
         }
+        else if (_batchUpdate)
+        {
+            _batchChanges[property.Id] = value;
+        }
         else
         {
-            CorePropertyMetadata metadata = property.GetMetadata(ownerType);
-            if (!AddIfNotExist(property, metadata, value))
+            if (!_values.TryGetValue(property.Id, out object? oldValue))
             {
-                object? oldValue = Values[property.Id];
-                object? newValue = value;
+                oldValue = null;
+            }
 
-                if (!RuntimeHelpers.Equals(oldValue, newValue))
-                {
-                    RaisePropertyChanging(property, metadata);
-                    Values[property.Id] = newValue;
-                    RaisePropertyChanged(property, metadata, value, (TValue?)oldValue);
-                }
+            object? newValue = value;
+
+            if (!RuntimeHelpers.Equals(oldValue, newValue))
+            {
+                CorePropertyMetadata metadata = property.GetMetadata(ownerType);
+                RaisePropertyChanging(property, metadata);
+                _values[property.Id] = newValue;
+                RaisePropertyChanged(property, metadata, value, (TValue?)oldValue);
             }
         }
     }
@@ -169,6 +207,16 @@ public abstract class CoreObject : ICoreObject
         ArgumentNullException.ThrowIfNull(property);
 
         property.RouteSetValue(this, value!);
+    }
+
+    public void ClearValue<TValue>(CoreProperty<TValue> property)
+    {
+        SetValue(property, property.GetMetadata(GetType()).DefaultValue);
+    }
+
+    public void ClearValue(CoreProperty property)
+    {
+        SetValue(property, property.GetMetadata(GetType()).DefaultValue);
     }
 
     [MemberNotNull("JsonNode")]
@@ -300,7 +348,12 @@ public abstract class CoreObject : ICoreObject
 
     protected bool SetAndRaise<T>(CoreProperty<T> property, ref T field, T value)
     {
-        if (!EqualityComparer<T>.Default.Equals(field, value))
+        if (_batchUpdate)
+        {
+            _batchChanges[property.Id] = value;
+            return true;
+        }
+        else if (!EqualityComparer<T>.Default.Equals(field, value))
         {
             CorePropertyMetadata metadata = property.GetMetadata(GetType());
             RaisePropertyChanging(property, metadata);
@@ -324,24 +377,6 @@ public abstract class CoreObject : ICoreObject
         return !ownerType.IsAssignableTo(property.OwnerType);
     }
 
-    // 追加した場合はtrue
-    private bool AddIfNotExist<TValue>(CoreProperty<TValue> property, CorePropertyMetadata metadata, TValue? value)
-    {
-        if (!Values.ContainsKey(property.Id))
-        {
-            object? boxed = value;
-            RaisePropertyChanging(property, metadata);
-
-            Values.Add(property.Id, boxed);
-
-            RaisePropertyChanged(property, metadata, value, default);
-
-            return true;
-        }
-
-        return false;
-    }
-
     private void RaisePropertyChanged<T>(CoreProperty<T> property, CorePropertyMetadata metadata, T? newValue, T? oldValue)
     {
         if (this is ILogicalElement logicalElement)
@@ -357,13 +392,19 @@ public abstract class CoreObject : ICoreObject
             }
         }
 
-        PropertyObservability observability = metadata.Observability;
-        if (observability.HasFlag(PropertyObservability.Changed))
-        {
-            var eventArgs = new CorePropertyChangedEventArgs<T>(this, property, newValue, oldValue);
-            property.NotifyChanged(eventArgs);
+        bool hasChangedFlag = metadata.Observability.HasFlag(PropertyObservability.Changed);
+        CorePropertyChangedEventArgs<T>? eventArgs = property.HasObservers || hasChangedFlag
+            ? new CorePropertyChangedEventArgs<T>(this, property, newValue, oldValue)
+            : null;
 
-            OnPropertyChanged(eventArgs);
+        if (property.HasObservers)
+        {
+            property.NotifyChanged(eventArgs!);
+        }
+
+        if (hasChangedFlag)
+        {
+            OnPropertyChanged(eventArgs!);
         }
     }
 

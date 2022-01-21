@@ -9,5 +9,7 @@ public interface ISetterInstance : IDisposable
 
     ISetter Setter { get; }
 
-    void Apply(ISetterBatch batch, IClock clock);
+    IStyleable Target { get; }
+
+    void Apply(IClock clock);
 }

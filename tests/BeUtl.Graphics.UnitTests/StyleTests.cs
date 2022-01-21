@@ -15,35 +15,35 @@ namespace BeUtl.Graphics.UnitTests;
 
 public class StyleTests
 {
-    private Styleable _obj;
+    private StyleableObject _obj;
     private Style[] _styles;
 
     [SetUp]
     public void Setup()
     {
-        _obj = new Styleable();
+        _obj = new StyleableObject();
         var style1 = new Style
         {
             Setters =
             {
-                new Setter<string>(Styleable.String1Property, "first1"),
-                new Setter<string>(Styleable.String2Property, "first2"),
+                new Setter<string>(StyleableObject.String1Property, "first1"),
+                new Setter<string>(StyleableObject.String2Property, "first2"),
             }
         };
         var style2 = new Style
         {
             Setters =
             {
-                new Setter<string>(Styleable.String2Property, "second1"),
-                new Setter<string>(Styleable.String3Property, "second2"),
+                new Setter<string>(StyleableObject.String2Property, "second1"),
+                new Setter<string>(StyleableObject.String3Property, "second2"),
             }
         };
         var style3 = new Style
         {
             Setters =
             {
-                new Setter<string>(Styleable.String3Property, "third1"),
-                new Setter<string>(Styleable.String1Property, "third2"),
+                new Setter<string>(StyleableObject.String3Property, "third1"),
+                new Setter<string>(StyleableObject.String1Property, "third2"),
             }
         };
 
@@ -73,13 +73,14 @@ public class StyleTests
 
     public class Clock : IClock
     {
+        public TimeSpan CurrentTime { get; }
     }
 
-    public class Styleable : CoreObject, IStyleable
+    public class StyleableObject : Styleable
     {
-        public static readonly CoreProperty<string> String1Property = ConfigureProperty<string, Styleable>(nameof(String1)).Register();
-        public static readonly CoreProperty<string> String2Property = ConfigureProperty<string, Styleable>(nameof(String2)).Register();
-        public static readonly CoreProperty<string> String3Property = ConfigureProperty<string, Styleable>(nameof(String3)).Register();
+        public static readonly CoreProperty<string> String1Property = ConfigureProperty<string, StyleableObject>(nameof(String1)).Register();
+        public static readonly CoreProperty<string> String2Property = ConfigureProperty<string, StyleableObject>(nameof(String2)).Register();
+        public static readonly CoreProperty<string> String3Property = ConfigureProperty<string, StyleableObject>(nameof(String3)).Register();
 
         public string String1
         {
@@ -98,9 +99,5 @@ public class StyleTests
             get => GetValue(String3Property);
             set => SetValue(String3Property, value);
         }
-
-        public IList<IStyle> Styles { get; } = new List<IStyle>();
-
-        public IStyleInstance GetStyleInstance(IStyle style) => throw new NotImplementedException();
     }
 }

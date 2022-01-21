@@ -142,6 +142,8 @@ public class CoreProperty<T> : CoreProperty
 
     public new IObservable<CorePropertyChangedEventArgs<T>> Changed => _changed;
 
+    internal bool HasObservers => _changed.HasObservers;
+
     internal void NotifyChanged(CorePropertyChangedEventArgs<T> e)
     {
         _changed.OnNext(e);
