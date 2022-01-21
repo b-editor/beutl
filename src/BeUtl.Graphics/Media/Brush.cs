@@ -5,7 +5,7 @@ namespace BeUtl.Media;
 /// <summary>
 /// Describes how an area is painted.
 /// </summary>
-public abstract class Brush : Styleable, IBrush
+public abstract class Brush : Styleable, IMutableBrush
 {
     public static readonly CoreProperty<float> OpacityProperty;
     private float _opacity = 1;
@@ -30,6 +30,8 @@ public abstract class Brush : Styleable, IBrush
         get => _opacity;
         set => SetAndRaise(OpacityProperty, ref _opacity, value);
     }
+
+    public abstract IBrush ToImmutable();
 
     protected static void AffectRender<T>(
         CoreProperty? property1 = null,

@@ -13,5 +13,5 @@ public interface IGradientStop
     /// <summary>
     /// Gets the gradient stop offset.
     /// </summary>
-    double Offset { get; }
+    float Offset { get; }
 }

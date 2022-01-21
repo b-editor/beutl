@@ -1,4 +1,5 @@
 ﻿using BeUtl.Graphics;
+using BeUtl.Media.Immutable;
 
 namespace BeUtl.Media;
 
@@ -42,5 +43,17 @@ public class DrawableBrush : TileBrush, IDrawableBrush
     {
         get => _drawable;
         set => SetAndRaise(DrawableProperty, ref _drawable, value);
+    }
+
+    /// <inheritdoc/>
+    public override IBrush ToImmutable()
+    {
+        return new ImmutableDrawableBrush(
+            Drawable,
+            AlignmentX, AlignmentY,
+            DestinationRect,
+            Opacity,
+            SourceRect,
+            Stretch, TileMode, BitmapInterpolationMode);
     }
 }

@@ -1,4 +1,5 @@
 ﻿using BeUtl.Graphics;
+using BeUtl.Media.Immutable;
 
 namespace BeUtl.Media;
 
@@ -43,5 +44,11 @@ public sealed class LinearGradientBrush : GradientBrush, ILinearGradientBrush
     {
         get => _endPoint;
         set => SetAndRaise(EndPointProperty, ref _endPoint, value);
+    }
+
+    /// <inheritdoc/>
+    public override IBrush ToImmutable()
+    {
+        return new ImmutableLinearGradientBrush(GradientStops, Opacity, SpreadMethod, StartPoint, EndPoint);
     }
 }

@@ -1,4 +1,5 @@
 ﻿using BeUtl.Graphics;
+using BeUtl.Media.Immutable;
 
 namespace BeUtl.Media;
 
@@ -43,5 +44,11 @@ public sealed class ConicGradientBrush : GradientBrush, IConicGradientBrush
     {
         get => _angle;
         set => SetAndRaise(AngleProperty, ref _angle, value);
+    }
+
+    /// <inheritdoc/>
+    public override IBrush ToImmutable()
+    {
+        return new ImmutableConicGradientBrush(GradientStops, Opacity, SpreadMethod, Center, Angle);
     }
 }

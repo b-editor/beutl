@@ -1,5 +1,7 @@
 ﻿using System.Reflection;
 
+using BeUtl.Media.Immutable;
+
 namespace BeUtl.Media;
 
 #pragma warning disable CA1069
@@ -62,7 +64,7 @@ internal static class KnownColors
         {
             if (!s_knownBrushes.TryGetValue(color, out ISolidColorBrush? brush))
             {
-                brush = new SolidColorBrush(color.ToColor());
+                brush = new ImmutableSolidColorBrush(color.ToColor(), 1);
                 s_knownBrushes.Add(color, brush);
             }
 

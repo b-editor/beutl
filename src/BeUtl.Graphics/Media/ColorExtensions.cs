@@ -1,10 +1,17 @@
-﻿namespace BeUtl.Media;
+﻿using BeUtl.Media.Immutable;
+
+namespace BeUtl.Media;
 
 public static class ColorExtensions
 {
     public static ISolidColorBrush ToBrush(this Color color)
     {
         return new SolidColorBrush(color);
+    }
+    
+    public static ISolidColorBrush ToImmutableBrush(this Color color)
+    {
+        return new ImmutableSolidColorBrush(color, 1);
     }
 
     public static Hsv ToHsv(this Color color)

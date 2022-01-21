@@ -7,8 +7,8 @@ public abstract class GradientBrush : Brush, IGradientBrush
 {
     public static readonly CoreProperty<GradientSpreadMethod> SpreadMethodProperty;
     public static readonly CoreProperty<GradientStops> GradientStopsProperty;
+    private readonly GradientStops _gradientStops;
     private GradientSpreadMethod _spreadMethod;
-    private GradientStops _gradientStops;
 
     static GradientBrush()
     {
@@ -29,7 +29,12 @@ public abstract class GradientBrush : Brush, IGradientBrush
     /// </summary>
     public GradientBrush()
     {
-        _gradientStops = new GradientStops();
+        _gradientStops = new GradientStops()
+        {
+            Attached = item => (item as ILogicalElement).NotifyAttachedToLogicalTree(new(this)),
+            Detached = item => (item as ILogicalElement).NotifyDetachedFromLogicalTree(new(this)),
+        };
+        _gradientStops.Invalidated += (_, _) => RaiseInvalidated();
     }
 
     /// <inheritdoc/>
@@ -43,7 +48,7 @@ public abstract class GradientBrush : Brush, IGradientBrush
     public GradientStops GradientStops
     {
         get => _gradientStops;
-        set => SetAndRaise(GradientStopsProperty, ref _gradientStops, value);
+        set => _gradientStops.Replace(value);
     }
 
     /// <inheritdoc/>

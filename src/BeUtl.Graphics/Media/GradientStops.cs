@@ -3,6 +3,6 @@
 /// <summary>
 /// A collection of <see cref="GradientStop"/>s.
 /// </summary>
-public class GradientStops : List<GradientStop>
+public sealed class GradientStops : AffectsRenders<GradientStop>
 {
 }

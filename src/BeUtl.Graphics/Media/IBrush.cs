@@ -5,7 +5,7 @@ namespace BeUtl.Media;
 /// <summary>
 /// Describes how an area is painted.
 /// </summary>
-public interface IBrush : IStyleable, IAffectsRender
+public interface IBrush
 {
     /// <summary>
     /// Gets the opacity of the brush.

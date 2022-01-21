@@ -1,4 +1,6 @@
-﻿namespace BeUtl.Media;
+﻿using BeUtl.Media.Immutable;
+
+namespace BeUtl.Media;
 
 /// <summary>
 /// Paints an area with an <see cref="IBitmap"/>.
@@ -40,5 +42,17 @@ public class ImageBrush : TileBrush, IImageBrush
     {
         get => _source;
         set => SetAndRaise(SourceProperty, ref _source, value);
+    }
+
+    /// <inheritdoc/>
+    public override IBrush ToImmutable()
+    {
+        return new ImmutableImageBrush(
+            Source,
+            AlignmentX, AlignmentY,
+            DestinationRect,
+            Opacity,
+            SourceRect,
+            Stretch, TileMode, BitmapInterpolationMode);
     }
 }

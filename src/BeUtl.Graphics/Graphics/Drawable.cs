@@ -28,7 +28,7 @@ public abstract class Drawable : Styleable, IDrawable, IRenderable, ILogicalElem
     private AlignmentY _cAlignY;
     private AlignmentX _alignX;
     private AlignmentY _alignY;
-    private IBrush _foreground = Colors.White.ToBrush();
+    private IBrush _foreground = Brushes.White;
     private IBrush? _opacityMask;
     private BlendMode _blendMode = BlendMode.SrcOver;
     private bool _isVisible;
@@ -77,7 +77,7 @@ public abstract class Drawable : Styleable, IDrawable, IRenderable, ILogicalElem
 
         ForegroundProperty = ConfigureProperty<IBrush, Drawable>(nameof(Foreground))
             .Accessor(o => o.Foreground, (o, v) => o.Foreground = v)
-            .DefaultValue(Colors.White.ToBrush())
+            .DefaultValue(Brushes.White)
             .Register();
 
         OpacityMaskProperty = ConfigureProperty<IBrush?, Drawable>(nameof(OpacityMask))

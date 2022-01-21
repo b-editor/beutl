@@ -1,4 +1,5 @@
 ﻿using BeUtl.Graphics;
+using BeUtl.Media.Immutable;
 
 namespace BeUtl.Media;
 
@@ -7,21 +8,65 @@ namespace BeUtl.Media;
 /// </summary>
 public sealed class RadialGradientBrush : GradientBrush, IRadialGradientBrush
 {
+    public static readonly CoreProperty<RelativePoint> CenterProperty;
+    public static readonly CoreProperty<RelativePoint> GradientOriginProperty;
+    public static readonly CoreProperty<float> RadiusProperty;
+    private RelativePoint _center = RelativePoint.Center;
+    private RelativePoint _gradientOrigin = RelativePoint.Center;
+    private float _radius = 0.5f;
+
+    static RadialGradientBrush()
+    {
+        CenterProperty = ConfigureProperty<RelativePoint, RadialGradientBrush>(nameof(Center))
+            .Accessor(o => o.Center, (o, v) => o.Center = v)
+            .DefaultValue(RelativePoint.Center)
+            .Register();
+
+        GradientOriginProperty = ConfigureProperty<RelativePoint, RadialGradientBrush>(nameof(GradientOrigin))
+            .Accessor(o => o.GradientOrigin, (o, v) => o.GradientOrigin = v)
+            .DefaultValue(RelativePoint.Center)
+            .Register();
+
+        RadiusProperty = ConfigureProperty<float, RadialGradientBrush>(nameof(Radius))
+            .Accessor(o => o.Radius, (o, v) => o.Radius = v)
+            .DefaultValue(0.5f)
+            .Register();
+
+        AffectRender<RadialGradientBrush>(CenterProperty, GradientOriginProperty, RadiusProperty);
+    }
+
     /// <summary>
     /// Gets or sets the start point for the gradient.
     /// </summary>
-    public RelativePoint Center { get; set; } = RelativePoint.Center;
+    public RelativePoint Center
+    {
+        get => _center;
+        set => SetAndRaise(CenterProperty, ref _center, value);
+    }
 
     /// <summary>
     /// Gets or sets the location of the two-dimensional focal point that defines the beginning
     /// of the gradient.
     /// </summary>
-    public RelativePoint GradientOrigin { get; set; } = RelativePoint.Center;
+    public RelativePoint GradientOrigin
+    {
+        get => _gradientOrigin;
+        set => SetAndRaise(GradientOriginProperty, ref _gradientOrigin, value);
+    }
 
     /// <summary>
     /// Gets or sets the horizontal and vertical radius of the outermost circle of the radial
     /// gradient.
     /// </summary>
-    // TODO: This appears to always be relative so should use a RelativeSize struct or something.
-    public float Radius { get; set; } = 0.5f;
+    public float Radius
+    {
+        get => _radius;
+        set => SetAndRaise(RadiusProperty, ref _radius, value);
+    }
+
+    /// <inheritdoc/>
+    public override IBrush ToImmutable()
+    {
+        return new ImmutableRadialGradientBrush(GradientStops, Opacity, SpreadMethod, Center, GradientOrigin, Radius);
+    }
 }

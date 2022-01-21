@@ -1,4 +1,6 @@
-﻿namespace BeUtl.Media;
+﻿using BeUtl.Media.Immutable;
+
+namespace BeUtl.Media;
 
 /// <summary>
 /// Fills an area with a solid color.
@@ -60,5 +62,11 @@ public class SolidColorBrush : Brush, ISolidColorBrush
     public override string ToString()
     {
         return Color.ToString();
+    }
+
+    /// <inheritdoc/>
+    public override IBrush ToImmutable()
+    {
+        return new ImmutableSolidColorBrush(Color, Opacity);
     }
 }
