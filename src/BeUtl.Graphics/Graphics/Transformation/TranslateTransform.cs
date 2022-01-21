@@ -2,8 +2,25 @@
 
 public sealed class TranslateTransform : Transform
 {
+    public static readonly CoreProperty<float> XProperty;
+    public static readonly CoreProperty<float> YProperty;
     private float _y;
     private float _x;
+
+    static TranslateTransform()
+    {
+        XProperty = ConfigureProperty<float, TranslateTransform>(nameof(X))
+            .Accessor(o => o.X, (o, v) => o.X = v)
+            .DefaultValue(0)
+            .Register();
+
+        YProperty = ConfigureProperty<float, TranslateTransform>(nameof(Y))
+            .Accessor(o => o.Y, (o, v) => o.Y = v)
+            .DefaultValue(0)
+            .Register();
+
+        AffectRender<TranslateTransform>(XProperty, YProperty);
+    }
 
     public TranslateTransform()
     {
@@ -30,13 +47,13 @@ public sealed class TranslateTransform : Transform
     public float X
     {
         get => _x;
-        set => SetProperty(ref _x, value);
+        set => SetAndRaise(XProperty, ref _x, value);
     }
 
     public float Y
     {
         get => _y;
-        set => SetProperty(ref _y, value);
+        set => SetAndRaise(YProperty, ref _y, value);
     }
 
     public override Matrix Value => Matrix.CreateTranslation(X, Y);

@@ -15,7 +15,7 @@ public interface ICanvas : IDisposable
 
     IBrush Foreground { get; set; }
 
-    IReadOnlyList<ImageFilter> Filters { get; set; }
+    IImageFilter? Filter { get; set; }
 
     float StrokeWidth { get; set; }
 
@@ -65,7 +65,7 @@ public interface ICanvas : IDisposable
 
     void PopStrokeWidth(int level = -1);
 
-    PushedState PushFilters(ImageFilters filters);
+    PushedState PushFilters(IImageFilter? filter);
 
     void PopFilters(int level = -1);
 

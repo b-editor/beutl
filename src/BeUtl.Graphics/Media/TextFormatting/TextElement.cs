@@ -1,16 +1,75 @@
 ﻿using BeUtl.Graphics;
+using BeUtl.Styling;
 
 using SkiaSharp;
 
 namespace BeUtl.Media.TextFormatting;
 
-public class TextElement : IDisposable
+public class TextElement : Styleable, IDisposable, IAffectsRender
 {
+    public static readonly CoreProperty<Typeface> TypefaceProperty;
+    public static readonly CoreProperty<float> SizeProperty;
+    public static readonly CoreProperty<IBrush> ForegroundProperty;
+    public static readonly CoreProperty<float> SpacingProperty;
+    public static readonly CoreProperty<string> TextProperty;
+    public static readonly CoreProperty<Thickness> MarginProperty;
     private readonly SKPaint _paint = new();
     private Typeface _typeface = new(FontFamily.Default, FontStyle.Normal, FontWeight.Regular);
     private float _size;
     private bool _isDirty = true;
     private FontMetrics _fontMetrics;
+    private IBrush _foreground = Brushes.White;
+    private float _spacing;
+    private string _text = string.Empty;
+    private Thickness _margin;
+
+    static TextElement()
+    {
+        TypefaceProperty = ConfigureProperty<Typeface, TextElement>(nameof(Typeface))
+            .Accessor(o => o.Typeface, (o, v) => o.Typeface = v)
+            .DefaultValue(new(FontFamily.Default, FontStyle.Normal, FontWeight.Regular))
+            .Register();
+
+        SizeProperty = ConfigureProperty<float, TextElement>(nameof(Size))
+            .Accessor(o => o.Size, (o, v) => o.Size = v)
+            .DefaultValue(0)
+            .Register();
+
+        ForegroundProperty = ConfigureProperty<IBrush, TextElement>(nameof(Foreground))
+            .Accessor(o => o.Foreground, (o, v) => o.Foreground = v)
+            .DefaultValue(Brushes.White)
+            .Register();
+
+        SpacingProperty = ConfigureProperty<float, TextElement>(nameof(Spacing))
+            .Accessor(o => o.Spacing, (o, v) => o.Spacing = v)
+            .DefaultValue(0)
+            .Register();
+
+        TextProperty = ConfigureProperty<string, TextElement>(nameof(Text))
+            .Accessor(o => o.Text, (o, v) => o.Text = v)
+            .DefaultValue(string.Empty)
+            .Register();
+
+        MarginProperty = ConfigureProperty<Thickness, TextElement>(nameof(Margin))
+            .Accessor(o => o.Margin, (o, v) => o.Margin = v)
+            .DefaultValue(new Thickness())
+            .Register();
+
+        static void RaiseInvalidated(ElementPropertyChangedEventArgs obj)
+        {
+            if (obj.Sender is TextElement te)
+            {
+                te.Invalidated?.Invoke(te, EventArgs.Empty);
+            }
+        }
+
+        TypefaceProperty.Changed.Subscribe(RaiseInvalidated);
+        SizeProperty.Changed.Subscribe(RaiseInvalidated);
+        ForegroundProperty.Changed.Subscribe(RaiseInvalidated);
+        SpacingProperty.Changed.Subscribe(RaiseInvalidated);
+        TextProperty.Changed.Subscribe(RaiseInvalidated);
+        MarginProperty.Changed.Subscribe(RaiseInvalidated);
+    }
 
     ~TextElement()
     {
@@ -40,9 +99,8 @@ public class TextElement : IDisposable
         get => _typeface;
         set
         {
-            if (_typeface != value)
+            if (SetAndRaise(TypefaceProperty, ref _typeface, value))
             {
-                _typeface = value;
                 _isDirty = true;
             }
         }
@@ -53,21 +111,36 @@ public class TextElement : IDisposable
         get => _size;
         set
         {
-            if (_size != value)
+            if (SetAndRaise(SizeProperty, ref _size, value))
             {
-                _size = value;
                 _isDirty = true;
             }
         }
     }
 
-    public IBrush Foreground { get; set; } = Brushes.White;
+    public IBrush Foreground
+    {
+        get => _foreground;
+        set => SetAndRaise(ForegroundProperty, ref _foreground, value);
+    }
 
-    public float Spacing { get; set; }
+    public float Spacing
+    {
+        get => _spacing;
+        set => SetAndRaise(SpacingProperty, ref _spacing, value);
+    }
 
-    public string Text { get; set; } = string.Empty;
+    public string Text
+    {
+        get => _text;
+        set => SetAndRaise(TextProperty, ref _text, value);
+    }
 
-    public Thickness Margin { get; set; }
+    public Thickness Margin
+    {
+        get => _margin;
+        set => SetAndRaise(MarginProperty, ref _margin, value);
+    }
 
     public FontMetrics FontMetrics
     {
@@ -86,6 +159,8 @@ public class TextElement : IDisposable
     }
 
     public bool IsDisposed { get; private set; }
+
+    public event EventHandler? Invalidated;
 
     public void Dispose()
     {

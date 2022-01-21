@@ -5,9 +5,37 @@ namespace BeUtl.Graphics;
 
 public sealed class RoundedRect : Drawable
 {
-    public float StrokeWidth { get; set; }
+    public static readonly CoreProperty<float> StrokeWidthProperty;
+    public static readonly CoreProperty<CornerRadius> CornerRadiusProperty;
+    private float _strokeWidth;
+    private CornerRadius _cornerRadius;
 
-    public CornerRadius CornerRadius { get; set; }
+    static RoundedRect()
+    {
+        StrokeWidthProperty = ConfigureProperty<float, RoundedRect>(nameof(StrokeWidth))
+            .Accessor(o => o.StrokeWidth, (o, v) => o.StrokeWidth = v)
+            .DefaultValue(4000)
+            .Register();
+
+        CornerRadiusProperty = ConfigureProperty<CornerRadius, RoundedRect>(nameof(CornerRadius))
+            .Accessor(o => o.CornerRadius, (o, v) => o.CornerRadius = v)
+            .DefaultValue(new CornerRadius())
+            .Register();
+
+        AffectRender<RoundedRect>(StrokeWidthProperty, CornerRadiusProperty);
+    }
+
+    public float StrokeWidth
+    {
+        get => _strokeWidth;
+        set => SetAndRaise(StrokeWidthProperty, ref _strokeWidth, value);
+    }
+
+    public CornerRadius CornerRadius
+    {
+        get => _cornerRadius;
+        set => SetAndRaise(CornerRadiusProperty, ref _cornerRadius, value);
+    }
 
     public override void Dispose()
     {

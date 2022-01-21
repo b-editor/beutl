@@ -1,5 +1,4 @@
-﻿
-using BeUtl.Media;
+﻿using BeUtl.Media;
 
 using SkiaSharp;
 
@@ -7,33 +6,62 @@ namespace BeUtl.Graphics.Filters;
 
 public sealed class DropShadow : ImageFilter
 {
+    public static readonly CoreProperty<Point> PositionProperty;
+    public static readonly CoreProperty<Vector> SigmaProperty;
+    public static readonly CoreProperty<Color> ColorProperty;
+    public static readonly CoreProperty<bool> ShadowOnlyProperty;
     private Point _position;
     private Vector _sigma;
     private Color _color;
     private bool _shadowOnly;
 
+    static DropShadow()
+    {
+        PositionProperty = ConfigureProperty<Point, DropShadow>(nameof(Position))
+            .Accessor(o => o.Position, (o, v) => o.Position = v)
+            .DefaultValue(new Point())
+            .Register();
+
+        SigmaProperty = ConfigureProperty<Vector, DropShadow>(nameof(Sigma))
+            .Accessor(o => o.Sigma, (o, v) => o.Sigma = v)
+            .DefaultValue(Vector.Zero)
+            .Register();
+
+        ColorProperty = ConfigureProperty<Color, DropShadow>(nameof(Color))
+            .Accessor(o => o.Color, (o, v) => o.Color = v)
+            .DefaultValue(Colors.Transparent)
+            .Register();
+
+        ShadowOnlyProperty = ConfigureProperty<bool, DropShadow>(nameof(ShadowOnly))
+            .Accessor(o => o.ShadowOnly, (o, v) => o.ShadowOnly = v)
+            .DefaultValue(false)
+            .Register();
+
+        AffectRender<DropShadow>(PositionProperty, SigmaProperty, ColorProperty, ShadowOnlyProperty);
+    }
+
     public Point Position
     {
         get => _position;
-        set => SetProperty(ref _position, value);
+        set => SetAndRaise(PositionProperty, ref _position, value);
     }
 
     public Vector Sigma
     {
         get => _sigma;
-        set => SetProperty(ref _sigma, value);
+        set => SetAndRaise(SigmaProperty, ref _sigma, value);
     }
 
     public Color Color
     {
         get => _color;
-        set => SetProperty(ref _color, value);
+        set => SetAndRaise(ColorProperty, ref _color, value);
     }
 
     public bool ShadowOnly
     {
         get => _shadowOnly;
-        set => SetProperty(ref _shadowOnly, value);
+        set => SetAndRaise(ShadowOnlyProperty, ref _shadowOnly, value);
     }
 
     public override Rect TransformBounds(Rect rect)

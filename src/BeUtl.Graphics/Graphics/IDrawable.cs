@@ -17,17 +17,17 @@ public interface IDrawable : IDisposable, IRenderable
 
     BlendMode BlendMode { get; set; }
 
-    Transforms Transform { get; }
+    ITransform? Transform { get; set; }
 
-    AlignmentX HorizontalAlignment { get; set; }
+    IImageFilter? Filter { get; set; }
 
-    AlignmentY VerticalAlignment { get; set; }
+    AlignmentX CanvasAlignmentX { get; set; }
 
-    AlignmentX HorizontalContentAlignment { get; set; }
+    AlignmentY CanvasAlignmentY { get; set; }
 
-    AlignmentY VerticalContentAlignment { get; set; }
+    AlignmentX AlignmentX { get; set; }
 
-    ImageFilters Filters { get; }
+    AlignmentY AlignmentY { get; set; }
 
     void Draw(ICanvas canvas);
 

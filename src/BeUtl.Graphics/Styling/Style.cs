@@ -6,6 +6,8 @@ public class Style : IStyle
 {
     private readonly CoreList<ISetter> _setters = new();
 
+    public virtual Type TargetType { get; set; } = typeof(Styleable);
+
     public IList<ISetter> Setters => _setters;
 
     public IStyleInstance Instance(IStyleable target, IStyleInstance? baseStyle = null)

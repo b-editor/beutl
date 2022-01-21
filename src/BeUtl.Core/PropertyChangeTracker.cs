@@ -5,13 +5,13 @@ namespace BeUtl;
 public sealed class PropertyChangeTracker : IDisposable
 {
     private readonly List<ElementPropertyChangedEventArgs> _changes = new();
-    private readonly List<Element> _trackingElement = new();
+    private readonly List<IElement> _trackingElement = new();
 
-    public PropertyChangeTracker(IEnumerable<Element> elements, int maxDepth = -1)
+    public PropertyChangeTracker(IEnumerable<IElement> elements, int maxDepth = -1)
     {
         MaxDepth = maxDepth;
 
-        foreach (Element item in elements)
+        foreach (IElement item in elements)
         {
             AddHandlers(item, 0);
         }
@@ -24,7 +24,7 @@ public sealed class PropertyChangeTracker : IDisposable
 
     public int MaxDepth { get; }
 
-    public IReadOnlyList<Element> TrackingElements => _trackingElement;
+    public IReadOnlyList<IElement> TrackingElements => _trackingElement;
 
     public bool IsDisposed { get; private set; }
 
@@ -33,14 +33,14 @@ public sealed class PropertyChangeTracker : IDisposable
         return new CommandImpl(_changes.ToArray());
     }
 
-    private void AddHandlers(Element element, int currentDepth)
+    private void AddHandlers(IElement element, int currentDepth)
     {
         if (MaxDepth == -1 || currentDepth <= MaxDepth)
         {
             _trackingElement.Add(element);
             element.PropertyChanged += OnPropertyChanged;
 
-            foreach (Element item in element.Children)
+            foreach (IElement item in element.LogicalChildren)
             {
                 AddHandlers(item, currentDepth + 1);
             }
@@ -51,7 +51,7 @@ public sealed class PropertyChangeTracker : IDisposable
     {
         for (int i = 0; i < _trackingElement.Count; i++)
         {
-            Element item = _trackingElement[i];
+            IElement item = _trackingElement[i];
             item.PropertyChanged -= OnPropertyChanged;
         }
 

@@ -36,7 +36,7 @@ public readonly record struct PushedState : IDisposable
             case PushedStateType.Foreground:
                 Canvas.PopForeground(Level);
                 break;
-            case PushedStateType.Filters:
+            case PushedStateType.Filter:
                 Canvas.PopFilters(Level);
                 break;
             case PushedStateType.StrokeWidth:

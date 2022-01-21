@@ -1,4 +1,6 @@
 
+using BeUtl.Collections;
+
 using NUnit.Framework;
 
 namespace BeUtl.Core.UnitTests;
@@ -45,9 +47,14 @@ public class PropertyChangeTrackerTests
     }
 }
 
-public class TestElement : Element
+public class TestElement : Element, ILogicalElement
 {
     public static readonly CoreProperty<string> StringProperty;
+
+    public TestElement()
+    {
+        Children = new LogicalList<Element>(this);
+    }
 
     static TestElement()
     {
@@ -62,4 +69,8 @@ public class TestElement : Element
         get => GetValue(StringProperty);
         set => SetValue(StringProperty, value);
     }
+
+    public LogicalList<Element> Children { get; set; }
+
+    IEnumerable<ILogicalElement> ILogicalElement.LogicalChildren => Children;
 }

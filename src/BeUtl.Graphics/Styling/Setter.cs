@@ -1,5 +1,4 @@
-﻿
-using BeUtl.Animation;
+﻿using BeUtl.Animation;
 using BeUtl.Collections;
 
 namespace BeUtl.Styling;

@@ -7,6 +7,18 @@ namespace BeUtl.Media;
 /// </summary>
 public class DrawableBrush : TileBrush, IDrawableBrush
 {
+    public static readonly CoreProperty<IDrawable?> DrawableProperty;
+    private IDrawable? _drawable;
+
+    static DrawableBrush()
+    {
+        DrawableProperty = ConfigureProperty<IDrawable?, DrawableBrush>(nameof(Drawable))
+            .Accessor(o => o.Drawable, (o, v) => o.Drawable = v)
+            .Register();
+
+        AffectRender<DrawableBrush>(DrawableProperty);
+    }
+
     /// <summary>
     /// Initializes a new instance of the <see cref="DrawableBrush"/> class.
     /// </summary>
@@ -26,5 +38,9 @@ public class DrawableBrush : TileBrush, IDrawableBrush
     /// <summary>
     /// Gets or sets the visual to draw.
     /// </summary>
-    public IDrawable? Drawable { get; set; }
+    public IDrawable? Drawable
+    {
+        get => _drawable;
+        set => SetAndRaise(DrawableProperty, ref _drawable, value);
+    }
 }

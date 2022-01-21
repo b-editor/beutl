@@ -16,4 +16,8 @@ public interface IStyleInstance : IDisposable
     ReadOnlySpan<ISetterInstance> Setters { get; }
 
     void Apply(IClock clock);
+
+    void Begin();
+
+    void End();
 }

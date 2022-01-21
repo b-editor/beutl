@@ -12,4 +12,8 @@ public interface ISetterInstance : IDisposable
     IStyleable Target { get; }
 
     void Apply(IClock clock);
+
+    void Begin();
+
+    void End();
 }

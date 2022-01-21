@@ -1,57 +1,51 @@
-﻿namespace BeUtl.Graphics.Transformation;
+﻿using BeUtl.Styling;
 
-public abstract class Transform : ILogicalElement
+namespace BeUtl.Graphics.Transformation;
+
+public abstract class Transform : Styleable, ITransform
 {
-    private bool _isEnabled = true;
+    public event EventHandler? Invalidated;
 
     public abstract Matrix Value { get; }
 
-    public bool IsEnabled
+    protected static void AffectRender<T>(
+        CoreProperty? property1 = null,
+        CoreProperty? property2 = null,
+        CoreProperty? property3 = null,
+        CoreProperty? property4 = null)
+        where T : Transform
     {
-        get => _isEnabled;
-        set => SetProperty(ref _isEnabled, value);
-    }
-
-    public Drawable? Parent { get; internal set; }
-
-    ILogicalElement? ILogicalElement.LogicalParent => Parent;
-
-    IEnumerable<ILogicalElement> ILogicalElement.LogicalChildren => Array.Empty<ILogicalElement>();
-
-    event EventHandler<LogicalTreeAttachmentEventArgs> ILogicalElement.AttachedToLogicalTree
-    {
-        add => throw new NotSupportedException();
-        remove => throw new NotSupportedException();
-    }
-
-    event EventHandler<LogicalTreeAttachmentEventArgs> ILogicalElement.DetachedFromLogicalTree
-    {
-        add => throw new NotSupportedException();
-        remove => throw new NotSupportedException();
-    }
-
-    protected bool SetProperty<T>(ref T field, T value)
-    {
-        if (!EqualityComparer<T>.Default.Equals(field, value))
+        Action<ElementPropertyChangedEventArgs> onNext = e =>
         {
-            field = value;
-            Parent?.InvalidateVisual();
+            if (e.Sender is T s)
+            {
+                s.RaiseInvalidated();
+            }
+        };
 
-            return true;
-        }
-        else
+        property1?.Changed.Subscribe(onNext);
+        property2?.Changed.Subscribe(onNext);
+        property3?.Changed.Subscribe(onNext);
+        property4?.Changed.Subscribe(onNext);
+    }
+
+    protected static void AffectRender<T>(params CoreProperty[] properties)
+        where T : Transform
+    {
+        foreach (CoreProperty? item in properties)
         {
-            return false;
+            item.Changed.Subscribe(e =>
+            {
+                if (e.Sender is T s)
+                {
+                    s.RaiseInvalidated();
+                }
+            });
         }
     }
 
-    void ILogicalElement.NotifyAttachedToLogicalTree(in LogicalTreeAttachmentEventArgs e)
+    protected void RaiseInvalidated()
     {
-        Parent = e.Parent as Drawable;
-    }
-
-    void ILogicalElement.NotifyDetachedFromLogicalTree(in LogicalTreeAttachmentEventArgs e)
-    {
-        Parent = null;
+        Invalidated?.Invoke(this, EventArgs.Empty);
     }
 }

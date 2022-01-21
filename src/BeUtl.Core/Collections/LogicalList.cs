@@ -1,6 +1,6 @@
 ﻿namespace BeUtl.Collections;
 
-public sealed class LogicalList<T> : CoreList<T>
+public class LogicalList<T> : CoreList<T>
     where T : ILogicalElement
 {
     public LogicalList(ILogicalElement parent)

@@ -4,7 +4,7 @@ public enum PushedStateType
 {
     None,
     Foreground,
-    Filters,
+    Filter,
     StrokeWidth,
     BlendMode,
     Transform,

@@ -36,6 +36,8 @@ public class CoreList<T> : ICoreList<T>
 
     public int Count => Inner.Count;
 
+    public ResetBehavior ResetBehavior { get; set; }
+
     public Action<T>? Attached { get; init; }
 
     public Action<T>? Detached { get; init; }
@@ -109,12 +111,36 @@ public class CoreList<T> : ICoreList<T>
     {
         if (Count > 0)
         {
-            Inner.Clear();
+            if (CollectionChanged != null)
+            {
+                NotifyCollectionChangedEventArgs e = ResetBehavior == ResetBehavior.Reset ?
+                    s_resetCollectionChanged :
+                    new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Remove, Inner.ToList(), 0);
 
-            CollectionChanged?.Invoke(this, s_resetCollectionChanged);
+                Inner.Clear();
+
+                CollectionChanged(this, e);
+            }
+            else
+            {
+                Inner.Clear();
+            }
 
             NotifyCountChanged();
         }
+    }
+
+    public virtual void Replace(IList<T> source)
+    {
+        T[] oldItems = Count > 0 ? AsSpan().ToArray() : Array.Empty<T>();
+        Inner.Clear();
+
+        Inner.AddRange(source);
+
+        CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(
+            NotifyCollectionChangedAction.Replace,
+            (IList)source,
+            oldItems));
     }
 
     public bool Contains(T item)

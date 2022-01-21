@@ -1,16 +1,26 @@
-﻿
-using SkiaSharp;
+﻿using SkiaSharp;
 
 namespace BeUtl.Graphics.Filters;
 
 public sealed class Blur : ImageFilter
 {
+    public static readonly CoreProperty<Vector> SigmaProperty;
     private Vector _sigma;
+
+    static Blur()
+    {
+        SigmaProperty = ConfigureProperty<Vector, Blur>(nameof(Sigma))
+            .Accessor(o => o.Sigma, (o, v) => o.Sigma = v)
+            .DefaultValue(Vector.Zero)
+            .Register();
+
+        AffectRender<Blur>(SigmaProperty);
+    }
 
     public Vector Sigma
     {
         get => _sigma;
-        set => SetProperty(ref _sigma, value);
+        set => SetAndRaise(SigmaProperty, ref _sigma, value);
     }
 
     public override Rect TransformBounds(Rect rect)

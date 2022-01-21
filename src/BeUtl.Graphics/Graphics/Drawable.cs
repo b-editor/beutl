@@ -2,26 +2,106 @@ using BeUtl.Graphics.Filters;
 using BeUtl.Graphics.Transformation;
 using BeUtl.Media;
 using BeUtl.Rendering;
+using BeUtl.Styling;
 
 namespace BeUtl.Graphics;
 
-public abstract class Drawable : IDrawable, IRenderable, ILogicalElement
+public abstract class Drawable : Styleable, IDrawable, IRenderable, ILogicalElement
 {
-    private BlendMode _blendMode = BlendMode.SrcOver;
-    private IBrush? _opacityMask;
-    private IBrush _foreground = Colors.White.ToBrush();
-    private AlignmentX _horizontalAlignment;
-    private AlignmentY _verticalAlignment;
-    private AlignmentX _horizontalContentAlignment;
-    private AlignmentY _verticalContentAlignment;
+    public static readonly CoreProperty<float> WidthProperty;
+    public static readonly CoreProperty<float> HeightProperty;
+    public static readonly CoreProperty<ITransform?> TransformProperty;
+    public static readonly CoreProperty<IImageFilter?> FilterProperty;
+    public static readonly CoreProperty<AlignmentX> CanvasAlignmentXProperty;
+    public static readonly CoreProperty<AlignmentY> CanvasAlignmentYProperty;
+    public static readonly CoreProperty<AlignmentX> AlignmentXProperty;
+    public static readonly CoreProperty<AlignmentY> AlignmentYProperty;
+    public static readonly CoreProperty<IBrush> ForegroundProperty;
+    public static readonly CoreProperty<IBrush?> OpacityMaskProperty;
+    public static readonly CoreProperty<BlendMode> BlendModeProperty;
+    public static readonly CoreProperty<bool> IsVisibleProperty;
     private float _width = -1;
     private float _height = -1;
+    private ITransform? _transform;
+    private IImageFilter? _filter;
+    private AlignmentX _cAlignX;
+    private AlignmentY _cAlignY;
+    private AlignmentX _alignX;
+    private AlignmentY _alignY;
+    private IBrush _foreground = Colors.White.ToBrush();
+    private IBrush? _opacityMask;
+    private BlendMode _blendMode = BlendMode.SrcOver;
     private bool _isVisible;
 
-    protected Drawable()
+    static Drawable()
     {
-        Filters = new(this);
-        Transform = new(this);
+        WidthProperty = ConfigureProperty<float, Drawable>(nameof(Width))
+            .Accessor(o => o.Width, (o, v) => o.Width = v)
+            .DefaultValue(-1)
+            .Register();
+
+        HeightProperty = ConfigureProperty<float, Drawable>(nameof(Height))
+            .Accessor(o => o.Height, (o, v) => o.Height = v)
+            .DefaultValue(-1)
+            .Register();
+
+        TransformProperty = ConfigureProperty<ITransform?, Drawable>(nameof(Transform))
+            .Accessor(o => o.Transform, (o, v) => o.Transform = v)
+            .DefaultValue(null)
+            .Register();
+
+        FilterProperty = ConfigureProperty<IImageFilter?, Drawable>(nameof(Filter))
+            .Accessor(o => o.Filter, (o, v) => o.Filter = v)
+            .DefaultValue(null)
+            .Register();
+
+        CanvasAlignmentXProperty = ConfigureProperty<AlignmentX, Drawable>(nameof(CanvasAlignmentX))
+            .Accessor(o => o.CanvasAlignmentX, (o, v) => o.CanvasAlignmentX = v)
+            .DefaultValue(AlignmentX.Left)
+            .Register();
+
+        CanvasAlignmentYProperty = ConfigureProperty<AlignmentY, Drawable>(nameof(CanvasAlignmentY))
+            .Accessor(o => o.CanvasAlignmentY, (o, v) => o.CanvasAlignmentY = v)
+            .DefaultValue(AlignmentY.Top)
+            .Register();
+
+        AlignmentXProperty = ConfigureProperty<AlignmentX, Drawable>(nameof(AlignmentX))
+            .Accessor(o => o.AlignmentX, (o, v) => o.AlignmentX = v)
+            .DefaultValue(AlignmentX.Left)
+            .Register();
+
+        AlignmentYProperty = ConfigureProperty<AlignmentY, Drawable>(nameof(AlignmentY))
+            .Accessor(o => o.AlignmentY, (o, v) => o.AlignmentY = v)
+            .DefaultValue(AlignmentY.Top)
+            .Register();
+
+        ForegroundProperty = ConfigureProperty<IBrush, Drawable>(nameof(Foreground))
+            .Accessor(o => o.Foreground, (o, v) => o.Foreground = v)
+            .DefaultValue(Colors.White.ToBrush())
+            .Register();
+
+        OpacityMaskProperty = ConfigureProperty<IBrush?, Drawable>(nameof(OpacityMask))
+            .Accessor(o => o.OpacityMask, (o, v) => o.OpacityMask = v)
+            .DefaultValue(null)
+            .Register();
+
+        BlendModeProperty = ConfigureProperty<BlendMode, Drawable>(nameof(BlendMode))
+            .Accessor(o => o.BlendMode, (o, v) => o.BlendMode = v)
+            .DefaultValue(BlendMode.SrcOver)
+            .Register();
+
+        IsVisibleProperty = ConfigureProperty<bool, Drawable>(nameof(IsVisible))
+            .Accessor(o => o.IsVisible, (o, v) => o.IsVisible = v)
+            .DefaultValue(true)
+            .Register();
+
+        AffectRender<Drawable>(
+            WidthProperty, HeightProperty,
+            TransformProperty, FilterProperty,
+            CanvasAlignmentXProperty, CanvasAlignmentYProperty,
+            AlignmentXProperty, AlignmentYProperty,
+            ForegroundProperty, OpacityMaskProperty,
+            BlendModeProperty, IsVisibleProperty);
     }
 
     ~Drawable()
@@ -32,78 +112,72 @@ public abstract class Drawable : IDrawable, IRenderable, ILogicalElement
         }
     }
 
-    event EventHandler<LogicalTreeAttachmentEventArgs> ILogicalElement.AttachedToLogicalTree
-    {
-        add => throw new NotSupportedException();
-        remove => throw new NotSupportedException();
-    }
-
-    event EventHandler<LogicalTreeAttachmentEventArgs> ILogicalElement.DetachedFromLogicalTree
-    {
-        add => throw new NotSupportedException();
-        remove => throw new NotSupportedException();
-    }
-
-    //public abstract PixelSize Size { get; }
-
     public float Width
     {
         get => _width;
-        set => SetProperty(ref _width, value);
+        set => SetAndRaise(WidthProperty, ref _width, value);
     }
 
     public float Height
     {
         get => _height;
-        set => SetProperty(ref _height, value);
+        set => SetAndRaise(HeightProperty, ref _height, value);
     }
 
     public Rect Bounds { get; private set; }
 
-    public Transforms Transform { get; }
-
-    public AlignmentX HorizontalAlignment
+    public ITransform? Transform
     {
-        get => _horizontalAlignment;
-        set => SetProperty(ref _horizontalAlignment, value);
+        get => _transform;
+        set => SetAndRaise(TransformProperty, ref _transform, value);
     }
 
-    public AlignmentY VerticalAlignment
+    public IImageFilter? Filter
     {
-        get => _verticalAlignment;
-        set => SetProperty(ref _verticalAlignment, value);
+        get => _filter;
+        set => SetAndRaise(FilterProperty, ref _filter, value);
     }
 
-    public AlignmentX HorizontalContentAlignment
+    public AlignmentX CanvasAlignmentX
     {
-        get => _horizontalContentAlignment;
-        set => SetProperty(ref _horizontalContentAlignment, value);
+        get => _cAlignX;
+        set => SetAndRaise(CanvasAlignmentXProperty, ref _cAlignX, value);
     }
 
-    public AlignmentY VerticalContentAlignment
+    public AlignmentY CanvasAlignmentY
     {
-        get => _verticalContentAlignment;
-        set => SetProperty(ref _verticalContentAlignment, value);
+        get => _cAlignY;
+        set => SetAndRaise(CanvasAlignmentYProperty, ref _cAlignY, value);
     }
 
-    public ImageFilters Filters { get; }
+    public AlignmentX AlignmentX
+    {
+        get => _alignX;
+        set => SetAndRaise(AlignmentXProperty, ref _alignX, value);
+    }
+
+    public AlignmentY AlignmentY
+    {
+        get => _alignY;
+        set => SetAndRaise(AlignmentYProperty, ref _alignY, value);
+    }
 
     public IBrush Foreground
     {
         get => _foreground;
-        set => SetProperty(ref _foreground, value);
+        set => SetAndRaise(ForegroundProperty, ref _foreground, value);
     }
 
     public IBrush? OpacityMask
     {
         get => _opacityMask;
-        set => SetProperty(ref _opacityMask, value);
+        set => SetAndRaise(OpacityMaskProperty, ref _opacityMask, value);
     }
 
     public BlendMode BlendMode
     {
         get => _blendMode;
-        set => SetProperty(ref _blendMode, value);
+        set => SetAndRaise(BlendModeProperty, ref _blendMode, value);
     }
 
     public bool IsDisposed { get; protected set; }
@@ -113,25 +187,67 @@ public abstract class Drawable : IDrawable, IRenderable, ILogicalElement
     public bool IsVisible
     {
         get => _isVisible;
-        set => SetProperty(ref _isVisible, value);
+        set => SetAndRaise(IsVisibleProperty, ref _isVisible, value);
     }
 
-    ILogicalElement? ILogicalElement.LogicalParent { get; }
+    IEnumerable<ILogicalElement> ILogicalElement.LogicalChildren
+    {
+        get
+        {
+            if (Transform is not null)
+            {
+                yield return Transform;
+            }
 
-    IEnumerable<ILogicalElement> ILogicalElement.LogicalChildren => Filters.Concat<ILogicalElement>(Transform);
+            if (Filter is not null)
+            {
+                yield return Filter;
+            }
+        }
+    }
+
+    private void AffectsRender_Invalidated(object? sender, EventArgs e)
+    {
+        InvalidateVisual();
+    }
+
+    protected static void AffectRender<T>(params CoreProperty[] properties)
+        where T : Drawable
+    {
+        foreach (CoreProperty item in properties)
+        {
+            item.Changed.Subscribe(e =>
+            {
+                if (e.Sender is T s)
+                {
+                    s.InvalidateVisual();
+
+                    if (e.OldValue is IAffectsRender oldAffectsRender)
+                    {
+                        oldAffectsRender.Invalidated -= s.AffectsRender_Invalidated;
+                    }
+
+                    if (e.NewValue is IAffectsRender newAffectsRender)
+                    {
+                        newAffectsRender.Invalidated += s.AffectsRender_Invalidated;
+                    }
+                }
+            });
+        }
+    }
 
     public void Initialize()
     {
         OnInitialize();
-        HorizontalAlignment = AlignmentX.Left;
-        VerticalAlignment = AlignmentY.Top;
-        HorizontalContentAlignment = AlignmentX.Left;
-        VerticalContentAlignment = AlignmentY.Top;
+        CanvasAlignmentX = AlignmentX.Left;
+        CanvasAlignmentY = AlignmentY.Top;
+        AlignmentX = AlignmentX.Left;
+        AlignmentY = AlignmentY.Top;
         Foreground = Colors.White.ToBrush();
         OpacityMask = null;
         BlendMode = BlendMode.SrcOver;
-        Transform.Clear();
-        Filters.Clear();
+        Transform = null;
+        Filter = null;
     }
 
     public IBitmap ToBitmap()
@@ -152,9 +268,10 @@ public abstract class Drawable : IDrawable, IRenderable, ILogicalElement
         Size size = MeasureCore(availableSize);
         Vector pt = CreatePoint(availableSize);
         Vector relpt = CreateRelPoint(size);
-        Matrix transform = Matrix.CreateTranslation(relpt) * Transform.Calculate() * Matrix.CreateTranslation(pt);
+        Matrix transform = Matrix.CreateTranslation(relpt) * Transform?.Value ?? Matrix.Identity * Matrix.CreateTranslation(pt);
+        var rect = new Rect(size);
 
-        Bounds = Filters.TransformBounds(new Rect(size)).TransformToAABB(transform);
+        Bounds = (Filter?.TransformBounds(rect) ?? rect).TransformToAABB(transform);
     }
 
     protected abstract Size MeasureCore(Size availableSize);
@@ -166,18 +283,19 @@ public abstract class Drawable : IDrawable, IRenderable, ILogicalElement
         Size size = MeasureCore(availableSize);
         Vector pt = CreatePoint(availableSize);
         Vector relpt = CreateRelPoint(size);
-        Matrix transform = Matrix.CreateTranslation(relpt) * Transform.Calculate() * Matrix.CreateTranslation(pt);
+        Matrix transform = Matrix.CreateTranslation(relpt) * Transform?.Value ?? Matrix.Identity * Matrix.CreateTranslation(pt);
+        var rect = new Rect(size);
 
         using (canvas.PushForeground(Foreground))
         using (canvas.PushBlendMode(BlendMode))
-        using (canvas.PushFilters(Filters))
         using (canvas.PushTransform(transform))
+        using (Filter == null ? new() : canvas.PushFilters(Filter))
         using (OpacityMask == null ? new() : canvas.PushOpacityMask(OpacityMask, new Rect(size)))
         {
             OnDraw(canvas);
         }
 
-        Bounds = Filters.TransformBounds(new Rect(size)).TransformToAABB(transform);
+        Bounds = (Filter?.TransformBounds(rect) ?? rect).TransformToAABB(transform);
         IsDirty = false;
 #if DEBUG
         //Rect bounds = Bounds;
@@ -191,6 +309,7 @@ public abstract class Drawable : IDrawable, IRenderable, ILogicalElement
 
     public void Render(IRenderer renderer)
     {
+        ApplyStyling(renderer.Clock);
         Draw(renderer.Graphics);
     }
 
@@ -207,21 +326,6 @@ public abstract class Drawable : IDrawable, IRenderable, ILogicalElement
         IsDirty = true;
     }
 
-    protected bool SetProperty<T>(ref T field, T value)
-    {
-        if (!EqualityComparer<T>.Default.Equals(field, value))
-        {
-            field = value;
-            IsDirty = true;
-
-            return true;
-        }
-        else
-        {
-            return false;
-        }
-    }
-
     protected abstract void OnDraw(ICanvas canvas);
 
     protected virtual void OnInitialize()
@@ -233,20 +337,20 @@ public abstract class Drawable : IDrawable, IRenderable, ILogicalElement
         float x = 0;
         float y = 0;
 
-        if (HorizontalContentAlignment == AlignmentX.Center)
+        if (AlignmentX == AlignmentX.Center)
         {
             x -= size.Width / 2;
         }
-        else if (HorizontalContentAlignment == AlignmentX.Right)
+        else if (AlignmentX == AlignmentX.Right)
         {
             x -= size.Width;
         }
 
-        if (VerticalContentAlignment == AlignmentY.Center)
+        if (AlignmentY == AlignmentY.Center)
         {
             y -= size.Height / 2;
         }
-        else if (VerticalContentAlignment == AlignmentY.Bottom)
+        else if (AlignmentY == AlignmentY.Bottom)
         {
             y -= size.Height;
         }
@@ -259,34 +363,24 @@ public abstract class Drawable : IDrawable, IRenderable, ILogicalElement
         float x = 0;
         float y = 0;
 
-        if (HorizontalAlignment == AlignmentX.Center)
+        if (CanvasAlignmentX == AlignmentX.Center)
         {
             x += canvasSize.Width / 2;
         }
-        else if (HorizontalAlignment == AlignmentX.Right)
+        else if (CanvasAlignmentX == AlignmentX.Right)
         {
             x += canvasSize.Width;
         }
 
-        if (VerticalAlignment == AlignmentY.Center)
+        if (CanvasAlignmentY == AlignmentY.Center)
         {
             y += canvasSize.Height / 2;
         }
-        else if (VerticalAlignment == AlignmentY.Bottom)
+        else if (CanvasAlignmentY == AlignmentY.Bottom)
         {
             y += canvasSize.Height;
         }
 
         return new Point(x, y);
-    }
-
-    void ILogicalElement.NotifyAttachedToLogicalTree(in LogicalTreeAttachmentEventArgs e)
-    {
-        throw new NotSupportedException();
-    }
-
-    void ILogicalElement.NotifyDetachedFromLogicalTree(in LogicalTreeAttachmentEventArgs e)
-    {
-        throw new NotSupportedException();
     }
 }

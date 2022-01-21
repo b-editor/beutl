@@ -1,4 +1,5 @@
-﻿using BeUtl.Graphics;
+﻿using BeUtl.Animation;
+using BeUtl.Graphics;
 using BeUtl.Threading;
 
 using SkiaSharp;
@@ -38,6 +39,8 @@ public class DeferredRenderer : IRenderer
         get => _fpsText.DrawFps;
         set => _fpsText.DrawFps = value;
     }
+
+    public IClock Clock { get; protected set; } = ZeroClock.Instance;
 
     public ILayerScope? this[int index]
     {

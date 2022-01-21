@@ -4,11 +4,11 @@ namespace BeUtl;
 
 public static class ElementExtensions
 {
-    public static IElement? Find(this IElement self, Guid id)
+    public static ICoreObject? Find(this IElement self, Guid id)
     {
         ArgumentNullException.ThrowIfNull(self);
 
-        foreach (Element item in self.Children)
+        foreach (ICoreObject item in self.LogicalChildren)
         {
             if (item.Id == id)
             {
@@ -19,11 +19,11 @@ public static class ElementExtensions
         return null;
     }
 
-    public static IElement? FindAllChildren(this IElement self, Guid id)
+    public static ICoreObject? FindAllChildren(this IElement self, Guid id)
     {
         ArgumentNullException.ThrowIfNull(self);
 
-        foreach (IElement item in self.EnumerateAllChildren<IElement>())
+        foreach (ICoreObject item in self.EnumerateAllChildren<ICoreObject>())
         {
             if (item.Id == id)
             {

@@ -19,7 +19,7 @@ internal sealed class NullCanvas : ICanvas
         set => throw new NotImplementedException();
     }
 
-    public IReadOnlyList<ImageFilter> Filters
+    public IImageFilter? Filter
     {
         get => throw new NotImplementedException();
         set => throw new NotImplementedException();
@@ -88,7 +88,7 @@ internal sealed class NullCanvas : ICanvas
 
     public PushedState PushClip(Rect clip, ClipOperation operation = ClipOperation.Intersect) => throw new NotImplementedException();
 
-    public PushedState PushFilters(ImageFilters filters) => throw new NotImplementedException();
+    public PushedState PushFilters(IImageFilter? filter) => throw new NotImplementedException();
 
     public PushedState PushForeground(IBrush brush) => throw new NotImplementedException();
 

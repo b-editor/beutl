@@ -1,145 +1,45 @@
-﻿using BeUtl.Collections;
+﻿using BeUtl.Media;
+using BeUtl.Styling;
 
 using SkiaSharp;
 
 namespace BeUtl.Graphics.Filters;
 
-public abstract class ImageFilter : ILogicalElement
+public interface IImageFilter : IStyleable, IAffectsRender
 {
-    private bool _isEnabled;
+    Rect TransformBounds(Rect rect);
 
-    public bool IsEnabled
-    {
-        get => _isEnabled;
-        set => SetProperty(ref _isEnabled, value);
-    }
+    SKImageFilter ToSKImageFilter();
+}
 
-    public Drawable? Parent { get; internal set; }
-
-    ILogicalElement? ILogicalElement.LogicalParent => Parent;
-
-    IEnumerable<ILogicalElement> ILogicalElement.LogicalChildren => Array.Empty<ILogicalElement>();
-
-    event EventHandler<LogicalTreeAttachmentEventArgs> ILogicalElement.AttachedToLogicalTree
-    {
-        add => throw new NotSupportedException();
-        remove => throw new NotSupportedException();
-    }
-
-    event EventHandler<LogicalTreeAttachmentEventArgs> ILogicalElement.DetachedFromLogicalTree
-    {
-        add => throw new NotSupportedException();
-        remove => throw new NotSupportedException();
-    }
+public abstract class ImageFilter : Styleable, IAffectsRender
+{
+    public event EventHandler? Invalidated;
 
     public virtual Rect TransformBounds(Rect rect)
     {
         return rect;
     }
 
-    protected bool SetProperty<T>(ref T field, T value)
-    {
-        if (!EqualityComparer<T>.Default.Equals(field, value))
-        {
-            field = value;
-            Parent?.InvalidateVisual();
-
-            return true;
-        }
-        else
-        {
-            return false;
-        }
-    }
-
-    void ILogicalElement.NotifyAttachedToLogicalTree(in LogicalTreeAttachmentEventArgs e)
-    {
-        Parent = e.Parent as Drawable;
-    }
-
-    void ILogicalElement.NotifyDetachedFromLogicalTree(in LogicalTreeAttachmentEventArgs e)
-    {
-        Parent = null;
-    }
-
     protected internal abstract SKImageFilter ToSKImageFilter();
-}
 
-public sealed class ImageFilters : CoreList<ImageFilter>
-{
-    private readonly Drawable _drawable;
-
-    public ImageFilters(Drawable drawable)
+    protected static void AffectRender<T>(params CoreProperty[] properties)
+        where T : ImageFilter
     {
-        _drawable = drawable;
-        Attached = item =>
+        foreach (CoreProperty? item in properties)
         {
-            _drawable.InvalidateVisual();
-            (item as ILogicalElement).NotifyAttachedToLogicalTree(new LogicalTreeAttachmentEventArgs(_drawable));
-        };
-        Detached = item =>
-        {
-            _drawable.InvalidateVisual();
-            (item as ILogicalElement).NotifyDetachedFromLogicalTree(new LogicalTreeAttachmentEventArgs(null));
-        };
-    }
-
-    public Rect TransformBounds(Rect rect)
-    {
-        Rect original = rect;
-
-        foreach (ImageFilter item in AsSpan())
-        {
-            rect = item.TransformBounds(original).Union(rect);
-        }
-
-        return rect;
-    }
-
-    internal SKImageFilter ToSKImageFilter()
-    {
-        var array = new SKImageFilter[Count];
-        int index = 0;
-        foreach (ImageFilter item in AsSpan())
-        {
-            if (item.IsEnabled)
+            item.Changed.Subscribe(e =>
             {
-                array[index] = item.ToSKImageFilter();
-            }
-
-            index++;
+                if (e.Sender is T s)
+                {
+                    s.RaiseInvalidated();
+                }
+            });
         }
-
-        return SKImageFilter.CreateMerge(array);
-    }
-}
-
-internal static class ImageFilterExtensions
-{
-    public static Rect TransformBounds(this IReadOnlyList<ImageFilter> filters, Rect rect)
-    {
-        Rect original = rect;
-
-        for (int i = 0; i < filters.Count; i++)
-        {
-            rect = filters[i].TransformBounds(original).Union(rect);
-        }
-
-        return rect;
     }
 
-    public static SKImageFilter ToSKImageFilter(this IReadOnlyList<ImageFilter> filters)
+    protected void RaiseInvalidated()
     {
-        var array = new SKImageFilter[filters.Count];
-        for (int i = 0; i < filters.Count; i++)
-        {
-            ImageFilter item = filters[i];
-            if (item.IsEnabled)
-            {
-                array[i] = item.ToSKImageFilter();
-            }
-        }
-
-        return SKImageFilter.CreateMerge(array);
+        Invalidated?.Invoke(this, EventArgs.Empty);
     }
 }

@@ -1,10 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-using BeUtl.Animation;
+﻿using BeUtl.Animation;
+using BeUtl.Media;
 using BeUtl.Styling;
 
 using NUnit.Framework;
@@ -16,7 +11,9 @@ namespace BeUtl.Graphics.UnitTests;
 public class StyleTests
 {
     private StyleableObject _obj;
-    private Style[] _styles;
+    private Rectangle _obj2;
+    private Style[] _styles1;
+    private Style[] _styles2;
 
     [SetUp]
     public void Setup()
@@ -24,6 +21,7 @@ public class StyleTests
         _obj = new StyleableObject();
         var style1 = new Style
         {
+            TargetType = typeof(StyleableObject),
             Setters =
             {
                 new Setter<string>(StyleableObject.String1Property, "first1"),
@@ -32,6 +30,7 @@ public class StyleTests
         };
         var style2 = new Style
         {
+            TargetType = typeof(StyleableObject),
             Setters =
             {
                 new Setter<string>(StyleableObject.String2Property, "second1"),
@@ -40,6 +39,7 @@ public class StyleTests
         };
         var style3 = new Style
         {
+            TargetType = typeof(StyleableObject),
             Setters =
             {
                 new Setter<string>(StyleableObject.String3Property, "third1"),
@@ -47,33 +47,124 @@ public class StyleTests
             }
         };
 
-        _styles = new Style[]
+        _styles1 = new Style[]
         {
             style1,
             style2,
             style3
+        };
+
+        _obj2 = new Rectangle
+        {
+            Foreground = Brushes.White
+        };
+        style1 = new Style
+        {
+            TargetType = typeof(Rectangle),
+            Setters =
+            {
+                new StyleSetter<IBrush>(Drawable.ForegroundProperty, null)
+                {
+                    Value = new Style
+                    {
+                        TargetType = typeof(SolidColorBrush),
+                        Setters =
+                        {
+                            new Setter<Color>(SolidColorBrush.ColorProperty, Colors.Red),
+                            new Setter<float>(Brush.OpacityProperty, 0.5F),
+                        }
+                    }
+                }
+            }
+        };
+        style2 = new Style
+        {
+            TargetType = typeof(Rectangle),
+            Setters =
+            {
+                new StyleSetter<IBrush>(Drawable.ForegroundProperty, null)
+                {
+                    Value = new Style
+                    {
+                        TargetType = typeof(SolidColorBrush),
+                        Setters =
+                        {
+                            new Setter<Color>(SolidColorBrush.ColorProperty, Colors.White),
+                            new Setter<float>(Brush.OpacityProperty, 1),
+                        }
+                    }
+                }
+            }
+        };
+
+        _styles2 = new Style[]
+        {
+            style1,
+            style2,
         };
     }
 
     [Test]
     public void Apply()
     {
-        IStyleInstance prev = null;
-        foreach (Style item in _styles)
-        {
-            prev = item.Instance(_obj, prev);
-        }
+        _obj.Styles.Replace(_styles1);
 
-        prev.Apply(new Clock());
+        IStyleInstance instance = _obj.Styles.Instance(_obj);
+        (_obj as IStyleable).StyleApplied(instance);
+        instance.Apply(new Clock());
 
         Assert.AreEqual("third2", _obj.String1);
         Assert.AreEqual("second1", _obj.String2);
         Assert.AreEqual("third1", _obj.String3);
     }
 
+    [Test]
+    public void Apply2()
+    {
+        int count1 = 0;
+        int count2 = 0;
+        using (Drawable.ForegroundProperty.Changed.Subscribe(e =>
+        {
+            if (e.Sender == _obj2)
+            {
+                Assert.Fail();
+            }
+        }))
+        using (SolidColorBrush.ColorProperty.Changed.Subscribe(e =>
+        {
+            if (e.Sender == _obj2.Foreground && ++count1 > 2)
+            {
+                Assert.Fail();
+            }
+        }))
+        using (Brush.OpacityProperty.Changed.Subscribe(e =>
+        {
+            if (e.Sender == _obj2.Foreground && ++count2 > 2)
+            {
+                Assert.Fail();
+            }
+        }))
+        {
+            _obj2.Styles.Replace(_styles2);
+
+            IStyleInstance instance = _obj2.Styles.Instance(_obj2);
+            (_obj2 as IStyleable).StyleApplied(instance);
+            instance.Begin();
+            instance.Apply(new Clock());
+            instance.End();
+
+            Assert.AreEqual(Colors.White, ((ISolidColorBrush)_obj2.Foreground).Color);
+            Assert.AreEqual(1, _obj2.Foreground.Opacity);
+        }
+    }
+
     public class Clock : IClock
     {
         public TimeSpan CurrentTime { get; }
+    }
+
+    public class InheritStyleableObject : StyleableObject
+    {
     }
 
     public class StyleableObject : Styleable

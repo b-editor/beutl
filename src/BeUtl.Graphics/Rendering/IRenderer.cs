@@ -1,4 +1,5 @@
-﻿using BeUtl.Graphics;
+﻿using BeUtl.Animation;
+using BeUtl.Graphics;
 using BeUtl.Media;
 using BeUtl.Media.Pixel;
 using BeUtl.Threading;
@@ -10,6 +11,8 @@ public interface IRenderer : IDisposable
     ILayerScope? this[int index] { get; set; }
 
     ICanvas Graphics { get; }
+
+    IClock Clock { get; }
 
     //public IAudio Audio { get; }
 

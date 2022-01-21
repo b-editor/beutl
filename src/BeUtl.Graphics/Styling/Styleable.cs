@@ -4,7 +4,7 @@ using BeUtl.Animation;
 
 namespace BeUtl.Styling;
 
-public abstract class Styleable : CoreObject, IStyleable
+public abstract class Styleable : Element, IStyleable
 {
     private readonly Styles _styles = new();
     private IStyleInstance? _styleInstance;
@@ -47,7 +47,12 @@ public abstract class Styleable : CoreObject, IStyleable
             _styleInstance = Styles.Instance(this);
         }
 
-        _styleInstance?.Apply(clock);
+        if (_styleInstance != null)
+        {
+            _styleInstance.Begin();
+            _styleInstance.Apply(clock);
+            _styleInstance.End();
+        }
     }
 
     IStyleInstance? IStyleable.GetStyleInstance(IStyle style)

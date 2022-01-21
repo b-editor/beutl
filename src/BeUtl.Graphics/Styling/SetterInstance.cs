@@ -38,11 +38,19 @@ public class SetterInstance<T> : ISetterInstance
         }
     }
 
+    public void Begin()
+    {
+    }
+
     public void Dispose()
     {
         _target?.ClearValue(Property);
         _setter = null;
         _target = null;
+    }
+
+    public void End()
+    {
     }
 
     private T EaseAnimations(TimeSpan progress)

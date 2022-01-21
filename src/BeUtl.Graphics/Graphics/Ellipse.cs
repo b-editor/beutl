@@ -1,15 +1,24 @@
-﻿using BeUtl.Media;
-
-namespace BeUtl.Graphics;
+﻿namespace BeUtl.Graphics;
 
 public sealed class Ellipse : Drawable
 {
+    public static readonly CoreProperty<float> StrokeWidthProperty;
     private float _strokeWidth;
+
+    static Ellipse()
+    {
+        StrokeWidthProperty = ConfigureProperty<float, Ellipse>(nameof(StrokeWidth))
+            .Accessor(o => o.StrokeWidth, (o, v) => o.StrokeWidth = v)
+            .DefaultValue(4000)
+            .Register();
+
+        AffectRender<Ellipse>(StrokeWidthProperty);
+    }
 
     public float StrokeWidth
     {
         get => _strokeWidth;
-        set => SetProperty(ref _strokeWidth, value);
+        set => SetAndRaise(StrokeWidthProperty, ref _strokeWidth, value);
     }
 
     public override void Dispose()

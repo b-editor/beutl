@@ -5,6 +5,18 @@
 /// </summary>
 public class SolidColorBrush : Brush, ISolidColorBrush
 {
+    public static readonly CoreProperty<Color> ColorProperty;
+    private Color _color;
+
+    static SolidColorBrush()
+    {
+        ColorProperty = ConfigureProperty<Color, SolidColorBrush>(nameof(Color))
+            .Accessor(o => o.Color, (o, v) => o.Color = v)
+            .Register();
+
+        AffectRender<SolidColorBrush>(ColorProperty);
+    }
+
     /// <summary>
     /// Initializes a new instance of the <see cref="SolidColorBrush"/> class.
     /// </summary>
@@ -35,7 +47,11 @@ public class SolidColorBrush : Brush, ISolidColorBrush
     /// <summary>
     /// Gets or sets the color of the brush.
     /// </summary>
-    public Color Color { get; set; }
+    public Color Color
+    {
+        get => _color;
+        set => SetAndRaise(ColorProperty, ref _color, value);
+    }
 
     /// <summary>
     /// Returns a string representation of the brush.

@@ -2,19 +2,37 @@
 
 namespace BeUtl.Media.TextFormatting;
 
+public sealed class TextLines : AffectsRenders<TextLine>
+{
+
+}
+
 public class FormattedText : Drawable
 {
-    private readonly List<TextLine> _lines;
+    public static readonly CoreProperty<TextLines> LinesProperty;
+    private readonly TextLines _lines;
+
+    static FormattedText()
+    {
+        LinesProperty = ConfigureProperty<TextLines, FormattedText>(nameof(Lines))
+            .Accessor(o => o.Lines, (o, v) => o.Lines = v)
+            .Register();
+    }
 
     public FormattedText()
-        : this(new List<TextLine>())
     {
-
+        _lines = new()
+        {
+            Attached = item => (item as ILogicalElement).NotifyAttachedToLogicalTree(new(this)),
+            Detached = item => (item as ILogicalElement).NotifyDetachedFromLogicalTree(new(this)),
+        };
+        _lines.Invalidated += (_, _) => InvalidateVisual();
     }
 
     private FormattedText(List<TextLine> lines)
+        : this()
     {
-        _lines = lines;
+        _lines.AddRange(lines);
     }
 
     ~FormattedText()
@@ -22,7 +40,11 @@ public class FormattedText : Drawable
         Dispose();
     }
 
-    public IList<TextLine> Lines => _lines;
+    public TextLines Lines
+    {
+        get => _lines;
+        set => _lines.Replace(value);
+    }
 
     public static FormattedText Parse(string s, FormattedTextInfo info)
     {
@@ -42,7 +64,7 @@ public class FormattedText : Drawable
         _lines.AddRange(lines);
         InvalidateVisual();
     }
-    
+
     public void Initialize(string s, FormattedTextInfo info)
     {
         Initialize();

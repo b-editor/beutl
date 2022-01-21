@@ -15,23 +15,4 @@ public sealed class Styles : CoreList<IStyle>
 
         return baseStyle;
     }
-
-    public void Replace(IList<IStyle> source)
-    {
-        List<IStyle>? toRemove = null;
-
-        foreach (IStyle item in AsSpan())
-        {
-            toRemove ??= new List<IStyle>();
-
-            toRemove.Add(item);
-        }
-
-        if (toRemove != null)
-        {
-            RemoveAll(toRemove);
-        }
-
-        AddRange(source);
-    }
 }

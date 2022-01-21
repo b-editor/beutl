@@ -1,5 +1,4 @@
-﻿
-using BeUtl.Graphics;
+﻿using BeUtl.Graphics;
 
 namespace BeUtl.Media;
 
@@ -8,13 +7,41 @@ namespace BeUtl.Media;
 /// </summary>
 public sealed class LinearGradientBrush : GradientBrush, ILinearGradientBrush
 {
+    public static readonly CoreProperty<RelativePoint> StartPointProperty;
+    public static readonly CoreProperty<RelativePoint> EndPointProperty;
+    private RelativePoint _startPoint = RelativePoint.TopLeft;
+    private RelativePoint _endPoint = RelativePoint.BottomRight;
+
+    static LinearGradientBrush()
+    {
+        StartPointProperty = ConfigureProperty<RelativePoint, LinearGradientBrush>(nameof(StartPoint))
+            .DefaultValue(RelativePoint.TopLeft)
+            .Accessor(o => o.StartPoint, (o, v) => o.StartPoint = v)
+            .Register();
+
+        EndPointProperty = ConfigureProperty<RelativePoint, LinearGradientBrush>(nameof(EndPoint))
+            .DefaultValue(RelativePoint.BottomRight)
+            .Accessor(o => o.EndPoint, (o, v) => o.EndPoint = v)
+            .Register();
+
+        AffectRender<LinearGradientBrush>(StartPointProperty, EndPointProperty);
+    }
+
     /// <summary>
     /// Gets or sets the start point for the gradient.
     /// </summary>
-    public RelativePoint StartPoint { get; set; } = RelativePoint.TopLeft;
+    public RelativePoint StartPoint
+    {
+        get => _startPoint;
+        set => SetAndRaise(StartPointProperty, ref _startPoint, value);
+    }
 
     /// <summary>
     /// Gets or sets the end point for the gradient.
     /// </summary>
-    public RelativePoint EndPoint { get; set; } = RelativePoint.BottomRight;
+    public RelativePoint EndPoint
+    {
+        get => _endPoint;
+        set => SetAndRaise(EndPointProperty, ref _endPoint, value);
+    }
 }

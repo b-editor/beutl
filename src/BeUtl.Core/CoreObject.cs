@@ -1,13 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
-using System.Linq;
 using System.Runtime.CompilerServices;
-using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using System.Threading.Tasks;
 
 namespace BeUtl;
 
@@ -23,12 +18,12 @@ public interface ICoreObject : INotifyPropertyChanged, INotifyPropertyChanging, 
     /// </summary>
     string Name { get; set; }
 
-    void BeginBatchUpdate();
+    bool BeginBatchUpdate();
 
-    void EndBatchUpdate();
+    bool EndBatchUpdate();
 
     void ClearValue<TValue>(CoreProperty<TValue> property);
-    
+
     void ClearValue(CoreProperty property);
 
     TValue GetValue<TValue>(CoreProperty<TValue> property);
@@ -57,8 +52,8 @@ public abstract class CoreObject : ICoreObject
     /// </summary>
     protected JsonNode? JsonNode;
 
-    private readonly Dictionary<int, object?> _values = new();
-    private readonly Dictionary<int, object?> _batchChanges = new();
+    private Dictionary<int, object?>? _values;
+    private Dictionary<int, object?>? _batchChanges;
     private bool _batchUpdate;
 
     static CoreObject()
@@ -92,6 +87,10 @@ public abstract class CoreObject : ICoreObject
         set => SetValue(NameProperty, value);
     }
 
+    private Dictionary<int, object?> Values => _values ??= new();
+
+    private Dictionary<int, object?> BatchChanges => _batchChanges ??= new();
+
     /// <summary>
     /// Occurs when a property value changes.
     /// </summary>
@@ -107,32 +106,42 @@ public abstract class CoreObject : ICoreObject
         return new CorePropertyInitializationHelper<T, TOwner>(name);
     }
 
-    public void BeginBatchUpdate()
+    public bool BeginBatchUpdate()
     {
         if (_batchUpdate)
         {
-            throw new InvalidOperationException();
+            return false;
         }
-
-        _batchUpdate = true;
+        else
+        {
+            _batchUpdate = true;
+            return true;
+        }
     }
 
-    public void EndBatchUpdate()
+    public bool EndBatchUpdate()
     {
         if (!_batchUpdate)
         {
-            throw new InvalidOperationException();
+            return false;
         }
-
-        _batchUpdate = false;
-        foreach (KeyValuePair<int, object?> item in _batchChanges)
+        else
         {
-            if (PropertyRegistry.FindRegistered(item.Key) is CoreProperty property)
+            _batchUpdate = false;
+            if (_batchChanges != null)
             {
-                SetValue(property, item.Value);
+                foreach (KeyValuePair<int, object?> item in BatchChanges)
+                {
+                    if (PropertyRegistry.FindRegistered(item.Key) is CoreProperty property)
+                    {
+                        SetValue(property, item.Value);
+                    }
+                }
+                BatchChanges.Clear();
             }
+
+            return true;
         }
-        _batchChanges.Clear();
     }
 
     public TValue GetValue<TValue>(CoreProperty<TValue> property)
@@ -148,12 +157,12 @@ public abstract class CoreObject : ICoreObject
             return staticProperty.RouteGetTypedValue(this)!;
         }
 
-        if (!_values.ContainsKey(property.Id))
+        if (_values == null || !_values.ContainsKey(property.Id))
         {
             return (TValue)property.GetMetadata(ownerType).DefaultValue!;
         }
 
-        return (TValue)_values[property.Id]!;
+        return (TValue)Values[property.Id]!;
     }
 
     public object? GetValue(CoreProperty property)
@@ -173,19 +182,15 @@ public abstract class CoreObject : ICoreObject
 
         if (property is StaticProperty<TValue> staticProperty)
         {
-            TValue? oldValue = staticProperty.RouteGetTypedValue(this);
-            if (!EqualityComparer<TValue>.Default.Equals(oldValue, value))
-            {
-                staticProperty.RouteSetTypedValue(this, value);
-            }
+            staticProperty.RouteSetTypedValue(this, value);
         }
         else if (_batchUpdate)
         {
-            _batchChanges[property.Id] = value;
+            BatchChanges[property.Id] = value;
         }
         else
         {
-            if (!_values.TryGetValue(property.Id, out object? oldValue))
+            if (_values == null || !Values.TryGetValue(property.Id, out object? oldValue))
             {
                 oldValue = null;
             }
@@ -196,8 +201,8 @@ public abstract class CoreObject : ICoreObject
             {
                 CorePropertyMetadata metadata = property.GetMetadata(ownerType);
                 RaisePropertyChanging(property, metadata);
-                _values[property.Id] = newValue;
-                RaisePropertyChanged(property, metadata, value, (TValue?)oldValue);
+                Values[property.Id] = newValue;
+                RaisePropertyChanged(property, metadata, value, (TValue?)(oldValue ?? default(TValue)));
             }
         }
     }
@@ -350,7 +355,7 @@ public abstract class CoreObject : ICoreObject
     {
         if (_batchUpdate)
         {
-            _batchChanges[property.Id] = value;
+            BatchChanges[property.Id] = value;
             return true;
         }
         else if (!EqualityComparer<T>.Default.Equals(field, value))

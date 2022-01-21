@@ -1,6 +1,9 @@
-﻿namespace BeUtl.Graphics.Transformation;
+﻿using BeUtl.Media;
+using BeUtl.Styling;
 
-public interface ITransform
+namespace BeUtl.Graphics.Transformation;
+
+public interface ITransform : IStyleable, IAffectsRender
 {
     Matrix Value { get; }
 }

@@ -21,10 +21,10 @@ public class Canvas : ICanvas
     private readonly Dispatcher? _dispatcher;
     private readonly Stack<IBrush> _brushesStack = new();
     private readonly Stack<SKPaint> _maskStack = new();
-    private readonly Stack<ImageFilter[]> _filtersStack = new();
+    private readonly Stack<IImageFilter?> _filterStack = new();
     private readonly Stack<float> _strokeWidthStack = new();
     private readonly Stack<BlendMode> _blendModeStack = new();
-    private readonly List<ImageFilter> _filters = new();
+    private IImageFilter? _filter;
     private Matrix _currentTransform;
 
     public Canvas(int width, int height)
@@ -49,14 +49,10 @@ public class Canvas : ICanvas
 
     public IBrush Foreground { get; set; } = Brushes.White;
 
-    public IReadOnlyList<ImageFilter> Filters
+    public IImageFilter? Filter
     {
-        get => _filters;
-        set
-        {
-            _filters.Clear();
-            _filters.AddRange(value);
-        }
+        get => _filter;
+        set => _filter = value;
     }
 
     public float StrokeWidth { get; set; }
@@ -346,25 +342,24 @@ public class Canvas : ICanvas
         }
     }
 
-    public PushedState PushFilters(ImageFilters filters)
+    public PushedState PushFilters(IImageFilter? filter)
     {
         VerifyAccess();
-        int level = _filtersStack.Count;
-        _filtersStack.Push(Filters.ToArray());
-        Filters = filters;
-        return new PushedState(this, level, PushedStateType.Filters);
+        int level = _filterStack.Count;
+        _filterStack.Push(_filter);
+        Filter = filter;
+        return new PushedState(this, level, PushedStateType.Filter);
     }
 
     public void PopFilters(int level = -1)
     {
         VerifyAccess();
-        level = level < 0 ? _filtersStack.Count - 1 : level;
+        level = level < 0 ? _filterStack.Count - 1 : level;
 
-        while (_filtersStack.Count > level &&
-            _filtersStack.TryPop(out ImageFilter[]? state))
+        while (_filterStack.Count > level &&
+            _filterStack.TryPop(out IImageFilter? state))
         {
-            _filters.Clear();
-            _filters.AddRange(state);
+            Filter = state;
         }
     }
 
@@ -586,10 +581,10 @@ public class Canvas : ICanvas
 
     private void ConfigurePaint(SKPaint paint, Size targetSize)
     {
-        ConfigurePaint(paint, targetSize, Foreground, BlendMode, Filters, StrokeWidth);
+        ConfigurePaint(paint, targetSize, Foreground, BlendMode, Filter, StrokeWidth);
     }
 
-    private static void ConfigurePaint(SKPaint paint, Size targetSize, IBrush foreground, BlendMode blendMode, IReadOnlyList<ImageFilter>? filters, float strokeWidth)
+    private static void ConfigurePaint(SKPaint paint, Size targetSize, IBrush foreground, BlendMode blendMode, IImageFilter? filters, float strokeWidth)
     {
         double opacity = foreground.Opacity;
         paint.StrokeWidth = strokeWidth;
@@ -597,7 +592,7 @@ public class Canvas : ICanvas
         paint.BlendMode = (SKBlendMode)blendMode;
         paint.ImageFilter?.Dispose();
         paint.ImageFilter = null;
-        if (filters != null && filters.Count > 0)
+        if (filters != null)
         {
             paint.ImageFilter = filters.ToSKImageFilter();
         }

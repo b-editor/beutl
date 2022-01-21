@@ -1,12 +1,46 @@
 ﻿using BeUtl.Graphics;
+using BeUtl.Styling;
 
 namespace BeUtl.Media.TextFormatting;
 
-public class TextLine : IDisposable
+public sealed class TextElements : AffectsRenders<TextElement>
 {
-    public IList<TextElement> Elements { get; } = new List<TextElement>();
+
+}
+
+public sealed class TextLine : Styleable, IAffectsRender, IDisposable, ILogicalElement
+{
+    public static readonly CoreProperty<TextElements> ElementsProperty;
+    private readonly TextElements _elements;
+
+    static TextLine()
+    {
+        ElementsProperty = ConfigureProperty<TextElements, TextLine>(nameof(Elements))
+            .Accessor(o => o.Elements, (o, v) => o.Elements = v)
+            .Register();
+    }
+
+    public TextLine()
+    {
+        _elements = new()
+        {
+            Attached = item => (item as ILogicalElement).NotifyAttachedToLogicalTree(new(this)),
+            Detached = item => (item as ILogicalElement).NotifyDetachedFromLogicalTree(new(this)),
+        };
+        _elements.Invalidated += (_, _) => Invalidated?.Invoke(this, EventArgs.Empty);
+    }
+
+    public TextElements Elements
+    {
+        get => _elements;
+        set => _elements.Replace(value);
+    }
 
     public bool IsDisposed { get; private set; }
+
+    IEnumerable<ILogicalElement> ILogicalElement.LogicalChildren => _elements;
+
+    public event EventHandler? Invalidated;
 
     public void Dispose()
     {

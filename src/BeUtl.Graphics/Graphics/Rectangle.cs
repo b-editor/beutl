@@ -2,12 +2,23 @@
 
 public sealed class Rectangle : Drawable
 {
+    public static readonly CoreProperty<float> StrokeWidthProperty;
     private float _strokeWidth;
+
+    static Rectangle()
+    {
+        StrokeWidthProperty = ConfigureProperty<float, Rectangle>(nameof(StrokeWidth))
+            .Accessor(o => o.StrokeWidth, (o, v) => o.StrokeWidth = v)
+            .DefaultValue(4000)
+            .Register();
+
+        AffectRender<Rectangle>(StrokeWidthProperty);
+    }
 
     public float StrokeWidth
     {
         get => _strokeWidth;
-        set => SetProperty(ref _strokeWidth, value);
+        set => SetAndRaise(StrokeWidthProperty, ref _strokeWidth, value);
     }
 
     public override void Dispose()

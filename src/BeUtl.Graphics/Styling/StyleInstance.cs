@@ -38,13 +38,45 @@ public class StyleInstance : IStyleInstance
             Build();
         }
 
+        foreach (ISetterInstance[] entry in _cache.AsSpan())
+        {
+            foreach (ISetterInstance item in entry.AsSpan())
+            {
+                item.Apply(clock);
+            }
+        }
+    }
+
+    public void Begin()
+    {
+        if (_cache == null)
+        {
+            Build();
+        }
+
         Target.BeginBatchUpdate();
 
         foreach (ISetterInstance[] entry in _cache.AsSpan())
         {
             foreach (ISetterInstance item in entry.AsSpan())
             {
-                item.Apply(clock);
+                item.Begin();
+            }
+        }
+    }
+
+    public void End()
+    {
+        if (_cache == null)
+        {
+            Build();
+        }
+
+        foreach (ISetterInstance[] entry in _cache.AsSpan())
+        {
+            foreach (ISetterInstance item in entry.AsSpan())
+            {
+                item.End();
             }
         }
 
