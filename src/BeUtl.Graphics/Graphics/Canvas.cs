@@ -186,7 +186,7 @@ public class Canvas : ICanvas
         ConfigurePaint(_paint, size);
         _paint.Style = SKPaintStyle.Fill;
 
-        _canvas.DrawOval(SKPoint.Empty, size.ToSkia(), _paint);
+        _canvas.DrawOval(SKPoint.Empty, size.ToSKSize(), _paint);
     }
 
     public void FillRect(Size size)

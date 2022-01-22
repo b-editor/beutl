@@ -7,40 +7,79 @@ using BeUtl.Utilities;
 namespace BeUtl.Graphics;
 
 /// <summary>
-/// A 2x3 matrix.
+/// A 3x3 matrix.
 /// </summary>
+/// <remakrs>Matrix layout:
+///         | 1st col | 2nd col | 3r col |
+/// 1st row | scaleX  | skewY   | persX  |
+/// 2nd row | skewX   | scaleY  | persY  |
+/// 3rd row | transX  | transY  | persZ  |
+/// 
+/// Note: Skia.SkMatrix uses a transposed layout (where for example skewX/skewY and perspp0/tranX are swapped).
+/// </remakrs>
 [JsonConverter(typeof(MatrixJsonConverter))]
 public readonly struct Matrix : IEquatable<Matrix>
 {
     /// <summary>
-    /// Initializes a new instance of the <see cref="Matrix"/> struct.
+    /// Initializes a new instance of the <see cref="Matrix"/> struct (equivalent to a 2x3 Matrix without perspective).
     /// </summary>
-    /// <param name="m11">The first element of the first row.</param>
-    /// <param name="m12">The second element of the first row.</param>
-    /// <param name="m21">The first element of the second row.</param>
-    /// <param name="m22">The second element of the second row.</param>
+    /// <param name="scaleX">The first element of the first row.</param>
+    /// <param name="skewY">The second element of the first row.</param>
+    /// <param name="skewX">The first element of the second row.</param>
+    /// <param name="scaleY">The second element of the second row.</param>
     /// <param name="offsetX">The first element of the third row.</param>
     /// <param name="offsetY">The second element of the third row.</param>
     public Matrix(
-        float m11,
-        float m12,
-        float m21,
-        float m22,
+        float scaleX,
+        float skewY,
+        float skewX,
+        float scaleY,
         float offsetX,
-        float offsetY)
+        float offsetY) : this(scaleX, skewY, 0, skewX, scaleY, 0, offsetX, offsetY, 1)
     {
-        M11 = m11;
-        M12 = m12;
-        M21 = m21;
-        M22 = m22;
+    }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="Matrix"/> struct.
+    /// </summary>
+    /// <param name="scaleX">The first element of the first row.</param>
+    /// <param name="skewY">The second element of the first row.</param>
+    /// <param name="persX">The third element of the first row.</param>
+    /// <param name="skewX">The first element of the second row.</param>
+    /// <param name="scaleY">The second element of the second row.</param>
+    /// <param name="persY">The third element of the second row.</param>
+    /// <param name="offsetX">The first element of the third row.</param>
+    /// <param name="offsetY">The second element of the third row.</param>
+    /// <param name="persZ">The third element of the third row.</param>
+    public Matrix(
+        float scaleX,
+        float skewY,
+        float persX,
+        float skewX,
+        float scaleY,
+        float persY,
+        float offsetX,
+        float offsetY,
+        float persZ)
+    {
+        M11 = scaleX;
+        M12 = skewY;
+        M13 = persX;
+        M21 = skewX;
+        M22 = scaleY;
+        M23 = persY;
         M31 = offsetX;
         M32 = offsetY;
+        M33 = persZ;
     }
 
     /// <summary>
     /// Returns the multiplicative identity matrix.
     /// </summary>
-    public static Matrix Identity { get; } = new Matrix(1.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f);
+    public static Matrix Identity { get; } = new Matrix(
+        1.0f, 0.0f, 0.0f,
+        0.0f, 1.0f, 0.0f,
+        0.0f, 0.0f, 1.0f);
 
     /// <summary>
     /// Returns whether the matrix is the identity matrix.
@@ -53,34 +92,49 @@ public readonly struct Matrix : IEquatable<Matrix>
     public bool HasInverse => !MathUtilities.IsZero(GetDeterminant());
 
     /// <summary>
-    /// The first element of the first row
+    /// The first element of the first row (scaleX).
     /// </summary>
     public float M11 { get; }
 
     /// <summary>
-    /// The second element of the first row
+    /// The second element of the first row (skewY).
     /// </summary>
     public float M12 { get; }
 
     /// <summary>
-    /// The first element of the second row
+    /// The third element of the first row (persX: input x-axis perspective factor).
+    /// </summary>
+    public float M13 { get; }
+
+    /// <summary>
+    /// The first element of the second row (skewX).
     /// </summary>
     public float M21 { get; }
 
     /// <summary>
-    /// The second element of the second row
+    /// The second element of the second row (scaleY).
     /// </summary>
     public float M22 { get; }
 
     /// <summary>
-    /// The first element of the third row
+    /// The third element of the second row (persY: input y-axis perspective factor).
+    /// </summary>
+    public float M23 { get; }
+
+    /// <summary>
+    /// The first element of the third row (offsetX/translateX).
     /// </summary>
     public float M31 { get; }
 
     /// <summary>
-    /// The second element of the third row
+    /// The second element of the third row (offsetY/translateY).
     /// </summary>
     public float M32 { get; }
+
+    /// <summary>
+    /// The third element of the third row (persZ: perspective scale factor).
+    /// </summary>
+    public float M33 { get; }
 
     /// <summary>
     /// Multiplies two matrices together and returns the resulting matrix.
@@ -91,12 +145,15 @@ public readonly struct Matrix : IEquatable<Matrix>
     public static Matrix operator *(Matrix value1, Matrix value2)
     {
         return new Matrix(
-            (value1.M11 * value2.M11) + (value1.M12 * value2.M21),
-            (value1.M11 * value2.M12) + (value1.M12 * value2.M22),
-            (value1.M21 * value2.M11) + (value1.M22 * value2.M21),
-            (value1.M21 * value2.M12) + (value1.M22 * value2.M22),
-            (value1.M31 * value2.M11) + (value1.M32 * value2.M21) + value2.M31,
-            (value1.M31 * value2.M12) + (value1.M32 * value2.M22) + value2.M32);
+            (value1.M11 * value2.M11) + (value1.M12 * value2.M21) + (value1.M13 * value2.M31),
+            (value1.M11 * value2.M12) + (value1.M12 * value2.M22) + (value1.M13 * value2.M32),
+            (value1.M11 * value2.M13) + (value1.M12 * value2.M23) + (value1.M13 * value2.M33),
+            (value1.M21 * value2.M11) + (value1.M22 * value2.M21) + (value1.M23 * value2.M31),
+            (value1.M21 * value2.M12) + (value1.M22 * value2.M22) + (value1.M23 * value2.M32),
+            (value1.M21 * value2.M13) + (value1.M22 * value2.M23) + (value1.M23 * value2.M33),
+            (value1.M31 * value2.M11) + (value1.M32 * value2.M21) + (value1.M33 * value2.M31),
+            (value1.M31 * value2.M12) + (value1.M32 * value2.M22) + (value1.M33 * value2.M32),
+            (value1.M31 * value2.M13) + (value1.M32 * value2.M23) + (value1.M33 * value2.M33));
     }
 
     /// <summary>
@@ -164,7 +221,7 @@ public readonly struct Matrix : IEquatable<Matrix>
     /// <returns>A scaling matrix.</returns>
     public static Matrix CreateScale(float xScale, float yScale)
     {
-        return CreateScale(new Vector(xScale, yScale));
+        return new Matrix(xScale, 0, 0, yScale, 0, 0);
     }
 
     /// <summary>
@@ -174,7 +231,7 @@ public readonly struct Matrix : IEquatable<Matrix>
     /// <returns>A scaling matrix.</returns>
     public static Matrix CreateScale(Vector scales)
     {
-        return new Matrix(scales.X, 0, 0, scales.Y, 0, 0);
+        return CreateScale(scales.X, scales.Y);
     }
 
     /// <summary>
@@ -199,16 +256,6 @@ public readonly struct Matrix : IEquatable<Matrix>
     }
 
     /// <summary>
-    /// Converts an angle in degrees to radians.
-    /// </summary>
-    /// <param name="angle">The angle in degrees.</param>
-    /// <returns>The angle in radians.</returns>
-    public static float ToRadians(float angle)
-    {
-        return angle * 0.0174532925f;
-    }
-
-    /// <summary>
     /// Appends another matrix as post-multiplication operation.
     /// Equivalent to this * value;
     /// </summary>
@@ -220,7 +267,7 @@ public readonly struct Matrix : IEquatable<Matrix>
     }
 
     /// <summary>
-    /// Prpends another matrix as pre-multiplication operation.
+    /// Prepends another matrix as pre-multiplication operation.
     /// Equivalent to value * this;
     /// </summary>
     /// <param name="value">A matrix.</param>
@@ -240,7 +287,12 @@ public readonly struct Matrix : IEquatable<Matrix>
     /// </remarks>
     public float GetDeterminant()
     {
-        return (M11 * M22) - (M12 * M21);
+        //return (_m11 * _m22) - (_m12 * _m21); //TODO: ensure new implementation yields the same result as before, when pers is 0,0,1
+
+        // implemented using "Laplace expansion":
+        return M11 * (M22 * M33 - M23 * M32)
+             - M12 * (M21 * M33 - M23 * M31)
+             + M13 * (M21 * M32 - M22 * M31);
     }
 
     /// <summary>
@@ -252,10 +304,13 @@ public readonly struct Matrix : IEquatable<Matrix>
     {
         return M11 == other.M11 &&
                M12 == other.M12 &&
+               M13 == other.M13 &&
                M21 == other.M21 &&
                M22 == other.M22 &&
+               M23 == other.M23 &&
                M31 == other.M31 &&
-               M32 == other.M32;
+               M32 == other.M32 &&
+               M33 == other.M33;
     }
 
     /// <summary>
@@ -274,9 +329,25 @@ public readonly struct Matrix : IEquatable<Matrix>
     /// <returns>The hash code.</returns>
     public override int GetHashCode()
     {
-        return M11.GetHashCode() + M12.GetHashCode() +
-               M21.GetHashCode() + M22.GetHashCode() +
-               M31.GetHashCode() + M32.GetHashCode();
+        var hash = new HashCode();
+        hash.Add(M11);
+        hash.Add(M12);
+        hash.Add(M13);
+        hash.Add(M21);
+        hash.Add(M22);
+        hash.Add(M23);
+        hash.Add(M31);
+        hash.Add(M32);
+        hash.Add(M33);
+        return hash.ToHashCode();
+    }
+
+    /// <summary>
+    ///  Determines if the current matrix contains perspective (non-affine) transforms (true) or only (affine) transforms that could be mapped into an 2x3 matrix (false).
+    /// </summary>
+    private bool ContainsPerspective()
+    {
+        return M13 != 0 || M23 != 0 || M33 != 1;
     }
 
     /// <summary>
@@ -285,7 +356,26 @@ public readonly struct Matrix : IEquatable<Matrix>
     /// <returns>The string representation.</returns>
     public override string ToString()
     {
-        return FormattableString.Invariant($"{M11}, {M12}, {M21}, {M22}, {M31}, {M32}");
+        CultureInfo ci = CultureInfo.CurrentCulture;
+
+        string msg;
+        float[] values;
+
+        if (ContainsPerspective())
+        {
+            msg = "{{ {{M11:{0} M12:{1} M13:{2}}} {{M21:{3} M22:{4} M23:{5}}} {{M31:{6} M32:{7} M33:{8}}} }}";
+            values = new[] { M11, M12, M13, M21, M22, M23, M31, M32, M33 };
+        }
+        else
+        {
+            msg = "{{ {{M11:{0} M12:{1}}} {{M21:{2} M22:{3}}} {{M31:{4} M32:{5}}} }}";
+            values = new[] { M11, M12, M21, M22, M31, M32 };
+        }
+
+        return string.Format(
+            ci,
+            msg,
+            values.Select((v) => v.ToString(ci)).ToArray());
     }
 
     /// <summary>
@@ -303,13 +393,19 @@ public readonly struct Matrix : IEquatable<Matrix>
             return false;
         }
 
+        float invdet = 1 / d;
+
         inverted = new Matrix(
-            M22 / d,
-            -M12 / d,
-            -M21 / d,
-            M11 / d,
-            ((M21 * M32) - (M22 * M31)) / d,
-            ((M12 * M31) - (M11 * M32)) / d);
+            (M22 * M33 - M32 * M23) * invdet,
+            (M13 * M31 - M12 * M33) * invdet,
+            (M12 * M23 - M13 * M22) * invdet,
+            (M23 * M31 - M21 * M33) * invdet,
+            (M11 * M33 - M13 * M31) * invdet,
+            (M21 * M13 - M11 * M23) * invdet,
+            (M21 * M32 - M31 * M22) * invdet,
+            (M21 * M12 - M11 * M32) * invdet,
+            (M11 * M22 - M21 * M12) * invdet
+            );
 
         return true;
     }
@@ -332,20 +428,30 @@ public readonly struct Matrix : IEquatable<Matrix>
     /// <summary>
     /// Parses a <see cref="Matrix"/> string.
     /// </summary>
-    /// <param name="s">Six comma-delimited float values (m11, m12, m21, m22, offsetX, offsetY) that describe the new <see cref="Matrix"/></param>
+    /// <param name="s">Six or nine comma-delimited float values (m11, m12, m21, m22, offsetX, offsetY[, persX, persY, persZ]) that describe the new <see cref="Matrix"/></param>
     /// <returns>The <see cref="Matrix"/>.</returns>
     public static Matrix Parse(string s)
     {
+        // initialize to satisfy compiler - only used when retrieved from string.
+        float v8 = 0;
+        float v9 = 0;
+
         using (var tokenizer = new StringTokenizer(s, CultureInfo.InvariantCulture, exceptionMessage: "Invalid Matrix."))
         {
-            return new Matrix(
-                tokenizer.ReadSingle(),
-                tokenizer.ReadSingle(),
-                tokenizer.ReadSingle(),
-                tokenizer.ReadSingle(),
-                tokenizer.ReadSingle(),
-                tokenizer.ReadSingle()
-            );
+            float v1 = tokenizer.ReadSingle();
+            float v2 = tokenizer.ReadSingle();
+            float v3 = tokenizer.ReadSingle();
+            float v4 = tokenizer.ReadSingle();
+            float v5 = tokenizer.ReadSingle();
+            float v6 = tokenizer.ReadSingle();
+            bool pers = tokenizer.TryReadSingle(out float v7);
+            pers = pers && tokenizer.TryReadSingle(out v8);
+            pers = pers && tokenizer.TryReadSingle(out v9);
+
+            if (pers)
+                return new Matrix(v1, v2, v7, v3, v4, v8, v5, v6, v9);
+            else
+                return new Matrix(v1, v2, v3, v4, v5, v6);
         }
     }
 
@@ -354,25 +460,27 @@ public readonly struct Matrix : IEquatable<Matrix>
     /// </summary>
     /// <param name="matrix">Matrix to decompose.</param>
     /// <param name="decomposed">Decomposed matrix.</param>
-    /// <returns>The status of the operation.</returns>
-    public static bool TryDecomposeTransform(Matrix matrix, out Decomposed decomposed)
+    /// <returns>The status of the operation.</returns>        
+    public bool TryDecomposeTransform(out Vector translate, out Vector scale, out Vector skew, out float angle)
     {
-        decomposed = default;
+        float determinant = GetDeterminant();
 
-        float determinant = matrix.GetDeterminant();
-
-        if (MathUtilities.IsZero(determinant))
+        if (MathUtilities.IsZero(determinant) || ContainsPerspective())
         {
+            translate = default;
+            scale = default;
+            skew = default;
+            angle = 0;
             return false;
         }
 
-        float m11 = matrix.M11;
-        float m21 = matrix.M21;
-        float m12 = matrix.M12;
-        float m22 = matrix.M22;
+        float m11 = M11;
+        float m21 = M21;
+        float m12 = M12;
+        float m22 = M22;
 
         // Translation.
-        decomposed.Translate = new Vector(matrix.M31, matrix.M32);
+        translate = new Vector(M31, M32);
 
         // Scale sign.
         float scaleX = 1f;
@@ -405,27 +513,19 @@ public readonly struct Matrix : IEquatable<Matrix>
         // Y Scale.
         scaleY *= MathF.Sqrt(m21 * m21 + m22 * m22);
 
-        decomposed.Scale = new Vector(scaleX, scaleY);
-        decomposed.Skew = new Vector(scaledShear / scaleY, 0f);
-        decomposed.Angle = MathF.Atan2(m12, m11);
+        scale = new Vector(scaleX, scaleY);
+        skew = new Vector(scaledShear / scaleY, 0f);
+        angle = MathF.Atan2(m12, m11);
 
         return true;
     }
 
-    public struct Decomposed
+    public static Matrix ComposeTransform(Vector translate, Vector scale, Vector skew, float angle)
     {
-        public Vector Translate;
-        public Vector Scale;
-        public Vector Skew;
-        public float Angle;
-
-        public Matrix Compose()
-        {
-            return Identity
-                .Prepend(CreateTranslation(Translate))
-                .Prepend(CreateRotation(Angle))
-                .Prepend(CreateSkew(Skew.X, Skew.Y))
-                .Prepend(CreateScale(Scale));
-        }
+        return Identity
+            .Prepend(CreateTranslation(translate))
+            .Prepend(CreateRotation(angle))
+            .Prepend(CreateSkew(skew.X, skew.Y))
+            .Prepend(CreateScale(scale));
     }
 }

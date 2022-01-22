@@ -29,17 +29,22 @@ internal static class SkiaSharpExtensions
         return new SKPoint(p.X, p.Y);
     }
 
-    public static SKRect ToSKRect(this Rect r)
+    public static SKRect ToSKRect(this in Rect r)
     {
         return new SKRect(r.X, r.Y, r.Right, r.Bottom);
     }
 
-    public static Rect ToGraphicsRect(this SKRect r)
+    public static SKSize ToSKSize(this in Size s)
+    {
+        return new SKSize(s.Width, s.Height);
+    }
+
+    public static Rect ToGraphicsRect(this in SKRect r)
     {
         return new Rect(r.Left, r.Top, r.Right - r.Left, r.Bottom - r.Top);
     }
 
-    public static SKMatrix ToSKMatrix(this Matrix m)
+    public static SKMatrix ToSKMatrix(this in Matrix m)
     {
         var sm = new SKMatrix
         {
@@ -49,9 +54,9 @@ internal static class SkiaSharpExtensions
             SkewY = m.M12,
             ScaleY = m.M22,
             TransY = m.M32,
-            Persp0 = 0,
-            Persp1 = 0,
-            Persp2 = 1
+            Persp0 = m.M13,
+            Persp1 = m.M23,
+            Persp2 = m.M33
         };
 
         return sm;
@@ -79,6 +84,43 @@ internal static class SkiaSharpExtensions
             ClipOperation.Difference => SKClipOperation.Difference,
             ClipOperation.Intersect => SKClipOperation.Intersect,
             _ => SKClipOperation.Intersect,
+        };
+    }
+
+    public static Matrix ToMatrix(this in SKMatrix m)
+    {
+        return new Matrix(
+            m.ScaleX, m.SkewY, m.Persp0,
+            m.SkewX, m.ScaleY, m.Persp1,
+            m.TransX, m.TransY, m.Persp2);
+    }
+
+    public static FontMetrics ToFontMetrics(this in SKFontMetrics metrics)
+    {
+        return new FontMetrics
+        {
+            Leading = metrics.Leading,
+            CapHeight = metrics.CapHeight,
+            XHeight = metrics.XHeight,
+            XMax = metrics.XMax,
+            XMin = metrics.XMin,
+            MaxCharacterWidth = metrics.MaxCharacterWidth,
+            AverageCharacterWidth = metrics.AverageCharacterWidth,
+            Bottom = metrics.Bottom,
+            Descent = metrics.Descent,
+            Ascent = metrics.Ascent,
+            Top = metrics.Top,
+        };
+    }
+
+    public static FontStyle ToFontStyle(this SKFontStyleSlant slant)
+    {
+        return slant switch
+        {
+            SKFontStyleSlant.Upright => FontStyle.Normal,
+            SKFontStyleSlant.Italic => FontStyle.Italic,
+            SKFontStyleSlant.Oblique => FontStyle.Oblique,
+            _ => throw new ArgumentOutOfRangeException(nameof(slant), slant, null)
         };
     }
 }

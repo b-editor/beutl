@@ -1,4 +1,6 @@
-﻿namespace BeUtl.Graphics.Transformation;
+﻿using BeUtl.Utilities;
+
+namespace BeUtl.Graphics.Transformation;
 
 public sealed class SkewTransform : Transform
 {
@@ -35,20 +37,19 @@ public sealed class SkewTransform : Transform
     public float SkewX
     {
         get => _skewX;
-        set => SetAndRaise(SkewXProperty,ref _skewX, value);
+        set => SetAndRaise(SkewXProperty, ref _skewX, value);
     }
 
     public float SkewY
     {
         get => _skewY;
-        set => SetAndRaise(SkewYProperty,ref _skewY, value);
+        set => SetAndRaise(SkewYProperty, ref _skewY, value);
     }
 
-    public override Matrix Value => Matrix.CreateSkew(SkewX, SkewY);
+    public override Matrix Value => Matrix.CreateSkew(MathUtilities.ToRadians(_skewX), MathUtilities.ToRadians(_skewY));
 
-    public static SkewTransform FromDegree(float skewX, float skewY)
+    public static SkewTransform FromRadians(float skewX, float skewY)
     {
-        const float radToDeg = 180.0f / MathF.PI;
-        return new SkewTransform(skewX * radToDeg, skewY * radToDeg);
+        return new SkewTransform(MathUtilities.ToDegrees(skewX), MathUtilities.ToDegrees(skewY));
     }
 }

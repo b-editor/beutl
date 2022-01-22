@@ -7,6 +7,16 @@ public static class MathUtilities
 
     private const float FloatEpsilon = 1.192092896e-07F;
 
+    public static float ToRadians(float degrees)
+    {
+        return degrees * (180.0f / MathF.PI);
+    }
+    
+    public static float ToDegrees(float radians)
+    {
+        return radians * (180.0f / MathF.PI);
+    }
+
     /// <summary>
     /// AreClose - Returns whether or not two doubles are "close".  That is, whether or 
     /// not they are within epsilon of each other.

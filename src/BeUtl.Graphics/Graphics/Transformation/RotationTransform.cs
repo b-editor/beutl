@@ -1,4 +1,6 @@
-﻿namespace BeUtl.Graphics.Transformation;
+﻿using BeUtl.Utilities;
+
+namespace BeUtl.Graphics.Transformation;
 
 public sealed class RotationTransform : Transform
 {
@@ -30,15 +32,10 @@ public sealed class RotationTransform : Transform
         set => SetAndRaise(RotationProperty, ref _rotation, value);
     }
 
-    public override Matrix Value => Matrix.CreateRotation(Rotation);
+    public override Matrix Value => Matrix.CreateRotation(MathUtilities.ToRadians(_rotation));
 
-    public static RotationTransform FromDegree(float degree)
+    public static RotationTransform FromRadians(float radians)
     {
-        return new RotationTransform(degree * (180.0f / MathF.PI));
-    }
-
-    public static RotationTransform FromRadian(float radian)
-    {
-        return new RotationTransform(radian);
+        return new RotationTransform(MathUtilities.ToDegrees(radians));
     }
 }
