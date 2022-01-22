@@ -1,10 +1,10 @@
 ﻿using BeUtl.Animation;
 using BeUtl.Collections;
+using BeUtl.Reactive;
 
 namespace BeUtl.Styling;
 
-public class StyleSetter<T> : ISetter
-    where T : IStyleable
+public class StyleSetter<T> : LightweightObservableBase<Style?>, ISetter
 {
     private CoreProperty<T>? _property;
     private Style? _value;
@@ -18,8 +18,6 @@ public class StyleSetter<T> : ISetter
         _property = property;
         Value = value;
     }
-
-    public event EventHandler? ValueChanged;
 
     public CoreProperty<T> Property
     {
@@ -35,7 +33,7 @@ public class StyleSetter<T> : ISetter
             if (_value != value)
             {
                 _value = value;
-                ValueChanged?.Invoke(this, EventArgs.Empty);
+                PublishNext(value);
             }
         }
     }
@@ -48,6 +46,23 @@ public class StyleSetter<T> : ISetter
 
     public ISetterInstance Instance(IStyleable target)
     {
+        if (Value?.TargetType?.IsAssignableTo(typeof(T)) == false)
+        {
+            throw new InvalidCastException($"Unable to cast object of type {Value?.TargetType} to type {typeof(T)}.");
+        }
         return new StyleSetterInstance<T>(this, target);
+    }
+
+    protected override void Subscribed(IObserver<Style?> observer, bool first)
+    {
+        observer.OnNext(_value);
+    }
+
+    protected override void Initialize()
+    {
+    }
+
+    protected override void Deinitialize()
+    {
     }
 }

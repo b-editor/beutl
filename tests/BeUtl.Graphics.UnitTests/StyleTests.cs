@@ -19,27 +19,24 @@ public class StyleTests
     public void Setup()
     {
         _obj = new StyleableObject();
-        var style1 = new Style
+        Style style1 = new Style<StyleableObject>
         {
-            TargetType = typeof(StyleableObject),
             Setters =
             {
                 new Setter<string>(StyleableObject.String1Property, "first1"),
                 new Setter<string>(StyleableObject.String2Property, "first2"),
             }
         };
-        var style2 = new Style
+        Style style2 = new Style<StyleableObject>
         {
-            TargetType = typeof(StyleableObject),
             Setters =
             {
                 new Setter<string>(StyleableObject.String2Property, "second1"),
                 new Setter<string>(StyleableObject.String3Property, "second2"),
             }
         };
-        var style3 = new Style
+        Style style3 = new Style<StyleableObject>
         {
-            TargetType = typeof(StyleableObject),
             Setters =
             {
                 new Setter<string>(StyleableObject.String3Property, "third1"),
@@ -58,16 +55,14 @@ public class StyleTests
         {
             Foreground = Brushes.White
         };
-        style1 = new Style
+        style1 = new Style<Rectangle>
         {
-            TargetType = typeof(Rectangle),
             Setters =
             {
                 new StyleSetter<IBrush>(Drawable.ForegroundProperty, null)
                 {
-                    Value = new Style
+                    Value = new Style<SolidColorBrush>
                     {
-                        TargetType = typeof(SolidColorBrush),
                         Setters =
                         {
                             new Setter<Color>(SolidColorBrush.ColorProperty, Colors.Red),
@@ -77,16 +72,14 @@ public class StyleTests
                 }
             }
         };
-        style2 = new Style
+        style2 = new Style<Rectangle>
         {
-            TargetType = typeof(Rectangle),
             Setters =
             {
                 new StyleSetter<IBrush>(Drawable.ForegroundProperty, null)
                 {
-                    Value = new Style
+                    Value = new Style<SolidColorBrush>
                     {
-                        TargetType = typeof(SolidColorBrush),
                         Setters =
                         {
                             new Setter<Color>(SolidColorBrush.ColorProperty, Colors.White),
@@ -123,15 +116,10 @@ public class StyleTests
     {
         int count1 = 0;
         int count2 = 0;
-        using (Drawable.ForegroundProperty.Changed.Subscribe(e =>
-        {
-            if (e.Sender == _obj2)
-            {
-                Assert.Fail();
-            }
-        }))
+        int count3 = 0;
         using (SolidColorBrush.ColorProperty.Changed.Subscribe(e =>
         {
+            // White -> Red -> White
             if (e.Sender == _obj2.Foreground && ++count1 > 2)
             {
                 Assert.Fail();
@@ -139,7 +127,16 @@ public class StyleTests
         }))
         using (Brush.OpacityProperty.Changed.Subscribe(e =>
         {
+            // 1.0 -> 0.5 -> 1.0
             if (e.Sender == _obj2.Foreground && ++count2 > 2)
+            {
+                Assert.Fail();
+            }
+        }))
+        using (Drawable.ForegroundProperty.Changed.Subscribe(e =>
+        {
+            // ImmutableSolidColorBrush(White) -> SolidColorBrush(Transparent)
+            if (e.Sender == _obj2 && ++count3 > 1)
             {
                 Assert.Fail();
             }

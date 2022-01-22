@@ -22,3 +22,12 @@ public class Style : IStyle
         return new StyleInstance(target, this, array, baseStyle);
     }
 }
+public sealed class Style<T> : Style
+    where T : Styleable
+{
+    public override Type TargetType
+    {
+        get => typeof(T);
+        set => throw new InvalidOperationException();
+    }
+}

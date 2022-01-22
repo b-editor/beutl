@@ -1,12 +1,14 @@
 ﻿using BeUtl.Animation;
 using BeUtl.Collections;
+using BeUtl.Reactive;
 
 namespace BeUtl.Styling;
 
-public class Setter<T> : ISetter
+public class Setter<T> : LightweightObservableBase<T?>, ISetter
 {
     private CoreProperty<T>? _property;
     private CoreList<Animation<T>>? _animation;
+    private T? _value;
 
     public Setter()
     {
@@ -24,7 +26,18 @@ public class Setter<T> : ISetter
         set => _property = value;
     }
 
-    public T? Value { get; set; }
+    public T? Value
+    {
+        get => _value;
+        set
+        {
+            if (!EqualityComparer<T>.Default.Equals(_value, value))
+            {
+                _value = value;
+                PublishNext(value);
+            }
+        }
+    }
 
     public ICoreList<Animation<T>> Animations => _animation ??= new CoreList<Animation<T>>();
 
@@ -37,5 +50,18 @@ public class Setter<T> : ISetter
     public ISetterInstance Instance(IStyleable target)
     {
         return new SetterInstance<T>(this, target);
+    }
+
+    protected override void Subscribed(IObserver<T?> observer, bool first)
+    {
+        observer.OnNext(_value);
+    }
+
+    protected override void Deinitialize()
+    {
+    }
+
+    protected override void Initialize()
+    {
     }
 }
