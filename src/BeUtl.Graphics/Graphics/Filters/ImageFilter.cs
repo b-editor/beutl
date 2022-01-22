@@ -12,7 +12,7 @@ public interface IImageFilter : IStyleable, IAffectsRender
     SKImageFilter ToSKImageFilter();
 }
 
-public abstract class ImageFilter : Styleable, IAffectsRender
+public abstract class ImageFilter : Styleable, IImageFilter
 {
     public event EventHandler? Invalidated;
 
@@ -41,5 +41,10 @@ public abstract class ImageFilter : Styleable, IAffectsRender
     protected void RaiseInvalidated()
     {
         Invalidated?.Invoke(this, EventArgs.Empty);
+    }
+
+    SKImageFilter IImageFilter.ToSKImageFilter()
+    {
+        return ToSKImageFilter();
     }
 }
