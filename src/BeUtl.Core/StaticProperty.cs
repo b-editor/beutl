@@ -2,7 +2,7 @@
 
 public abstract class StaticProperty<T> : CoreProperty<T>
 {
-    public StaticProperty(string name, Type ownerType, CorePropertyMetadata metadata)
+    public StaticProperty(string name, Type ownerType, CorePropertyMetadata<T> metadata)
         : base(name, ownerType, metadata)
     {
     }
@@ -14,7 +14,7 @@ public abstract class StaticProperty<T> : CoreProperty<T>
 
 public class StaticProperty<TOwner, T> : StaticProperty<T>
 {
-    public StaticProperty(string name, Func<TOwner, T> getter, Action<TOwner, T>? setter, CorePropertyMetadata metadata)
+    public StaticProperty(string name, Func<TOwner, T> getter, Action<TOwner, T>? setter, CorePropertyMetadata<T> metadata)
         : base(name, typeof(TOwner), metadata)
     {
         Getter = getter;

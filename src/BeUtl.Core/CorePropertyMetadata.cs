@@ -1,73 +1,74 @@
 ﻿namespace BeUtl;
 
-public class CorePropertyMetadata
+#pragma warning disable IDE0032
+
+public class CorePropertyMetadata<T> : CorePropertyMetadata
 {
-    private readonly Dictionary<string, object> _options;
+    private T? _defaultValue;
 
-    public CorePropertyMetadata(object? defaultValue, PropertyObservability observability, Dictionary<string, object> options)
+    public T? DefaultValue
     {
-        DefaultValue = defaultValue;
-        Observability = observability;
-        _options = options;
+        get => _defaultValue;
+        init => _defaultValue = value;
     }
 
-    public object? DefaultValue { get; private set; }
-
-    public PropertyObservability Observability { get; private set; }
-
-    public IReadOnlyDictionary<string, object> Options => _options;
-
-    public virtual T GetValue<T>(string key)
+    public override void Merge(CorePropertyMetadata baseMetadata, CoreProperty property)
     {
-        if (!Options.ContainsKey(key))
-        {
-            throw new KeyNotFoundException();
-        }
+        base.Merge(baseMetadata, property);
 
-        object? value = Options[key];
-        return value is T t ? t : (T)Convert.ChangeType(value, typeof(T));
+        if (_defaultValue == null && baseMetadata is CorePropertyMetadata<T> baseT)
+        {
+            _defaultValue = baseT.DefaultValue;
+        }
     }
 
-    public virtual T? GetValueOrDefault<T>(string key)
+    protected internal override object? GetDefaultValue()
     {
-        if (!Options.ContainsKey(key))
-        {
-            return default;
-        }
+        return _defaultValue;
+    }
+}
 
-        object? value = Options[key];
-        return value is T t ? t : (T)Convert.ChangeType(value, typeof(T));
+public abstract class CorePropertyMetadata
+{
+    private string? _serializeName;
+    private PropertyObservability _observability;
+    private PropertyFlags _designerFlags;
+
+    public string? SerializeName
+    {
+        get => _serializeName;
+        init => _serializeName = value;
     }
 
-    public virtual T GetValueOrDefault<T>(string key, T defaltValue)
+    public PropertyObservability Observability
     {
-        if (!Options.ContainsKey(key))
-        {
-            return defaltValue;
-        }
+        get => _observability;
+        init => _observability = value;
+    }
 
-        object? value = Options[key];
-        return value is T t ? t : (T)Convert.ChangeType(value, typeof(T));
+    public PropertyFlags DesignerFlags
+    {
+        get => _designerFlags;
+        init => _designerFlags = value;
     }
 
     public virtual void Merge(CorePropertyMetadata baseMetadata, CoreProperty property)
     {
-        foreach (KeyValuePair<string, object> item in baseMetadata.Options)
+        if (_observability == PropertyObservability.None)
         {
-            if (!Options.ContainsKey(item.Key))
-            {
-                _options.Add(item.Key, item.Value);
-            }
+            _observability = baseMetadata.Observability;
         }
 
-        if (DefaultValue == null)
+        if (string.IsNullOrEmpty(_serializeName))
         {
-            DefaultValue = baseMetadata.DefaultValue;
+            _serializeName = baseMetadata.SerializeName;
         }
 
-        if (Observability == PropertyObservability.None)
+        if (_designerFlags == PropertyFlags.None)
         {
-            Observability = baseMetadata.Observability;
+            _designerFlags = baseMetadata.DesignerFlags;
         }
     }
+
+    protected internal abstract object? GetDefaultValue();
 }

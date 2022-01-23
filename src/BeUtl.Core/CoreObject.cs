@@ -127,9 +127,9 @@ public abstract class CoreObject : ICoreObject
     /// </summary>
     public event PropertyChangingEventHandler? PropertyChanging;
 
-    public static CorePropertyInitializationHelper<T, TOwner> ConfigureProperty<T, TOwner>(string name)
+    public static CorePropertyBuilder<T, TOwner> ConfigureProperty<T, TOwner>(string name)
     {
-        return new CorePropertyInitializationHelper<T, TOwner>(name);
+        return new CorePropertyBuilder<T, TOwner>(name);
     }
 
     public bool BeginBatchUpdate()
@@ -210,7 +210,7 @@ public abstract class CoreObject : ICoreObject
         }
 
     ReturnDefault:
-        return (TValue)property.GetMetadata(ownerType).DefaultValue!;
+        return property.GetMetadata<CorePropertyMetadata<TValue>>(ownerType).DefaultValue!;
     }
 
     public object? GetValue(CoreProperty property)
@@ -257,7 +257,7 @@ public abstract class CoreObject : ICoreObject
             {
                 if (!EqualityComparer<TValue>.Default.Equals(entryT.Value, value))
                 {
-                    CorePropertyMetadata metadata = property.GetMetadata(ownerType);
+                    CorePropertyMetadata metadata = property.GetMetadata<CorePropertyMetadata>(ownerType);
                     RaisePropertyChanging(property, metadata);
                     entryT.Value = value;
                     RaisePropertyChanged(property, metadata, value, entryT.Value);
@@ -265,13 +265,13 @@ public abstract class CoreObject : ICoreObject
             }
             else
             {
-                CorePropertyMetadata metadata = property.GetMetadata(ownerType);
+                CorePropertyMetadata<TValue> metadata = property.GetMetadata<CorePropertyMetadata<TValue>>(ownerType);
                 entryT = new Entry<TValue>
                 {
                     Value = value,
                 };
                 Values[property.Id] = entryT;
-                RaisePropertyChanged(property, metadata, value, metadata.DefaultValue != null ? (TValue)metadata.DefaultValue : default);
+                RaisePropertyChanged(property, metadata, value, metadata.DefaultValue);
             }
         }
     }
@@ -285,12 +285,12 @@ public abstract class CoreObject : ICoreObject
 
     public void ClearValue<TValue>(CoreProperty<TValue> property)
     {
-        SetValue(property, property.GetMetadata(GetType()).DefaultValue);
+        SetValue(property, property.GetMetadata<CorePropertyMetadata<TValue>>(GetType()));
     }
 
     public void ClearValue(CoreProperty property)
     {
-        SetValue(property, property.GetMetadata(GetType()).DefaultValue);
+        SetValue(property, property.GetMetadata<CorePropertyMetadata>(GetType()).GetDefaultValue());
     }
 
     [MemberNotNull("JsonNode")]
@@ -306,8 +306,8 @@ public abstract class CoreObject : ICoreObject
             for (int i = 0; i < list.Count; i++)
             {
                 CoreProperty item = list[i];
-                CorePropertyMetadata metadata = item.GetMetadata(ownerType);
-                string? jsonName = metadata.GetValueOrDefault<string>(PropertyMetaTableKeys.JsonName);
+                CorePropertyMetadata metadata = item.GetMetadata<CorePropertyMetadata>(ownerType);
+                string? jsonName = metadata.SerializeName;
                 Type type = item.PropertyType;
 
                 if (jsonName != null &&
@@ -356,12 +356,12 @@ public abstract class CoreObject : ICoreObject
         for (int i = 0; i < list.Count; i++)
         {
             CoreProperty item = list[i];
-            CorePropertyMetadata metadata = item.GetMetadata(ownerType);
-            string? jsonName = metadata.GetValueOrDefault<string>(PropertyMetaTableKeys.JsonName);
+            CorePropertyMetadata metadata = item.GetMetadata<CorePropertyMetadata>(ownerType);
+            string? jsonName = metadata.SerializeName;
             if (jsonName != null)
             {
                 object? obj = GetValue(item);
-                object? def = metadata.DefaultValue;
+                object? def = metadata.GetDefaultValue();
 
                 // デフォルトの値と取得した値が同じ場合、保存しない
                 if (RuntimeHelpers.Equals(def, obj))
@@ -426,10 +426,10 @@ public abstract class CoreObject : ICoreObject
                 oldEntry is BatchEntry<T> entryT)
             {
                 result = !EqualityComparer<T>.Default.Equals(entryT.OldValue, value);
-                CorePropertyMetadata? metadata = null;
+                CorePropertyMetadata<T>? metadata = null;
                 if (result)
                 {
-                    metadata = property.GetMetadata(GetType());
+                    metadata = property.GetMetadata<CorePropertyMetadata<T>>(GetType());
                     RaisePropertyChanging(property, metadata);
                 }
 
@@ -442,7 +442,7 @@ public abstract class CoreObject : ICoreObject
         }
         else if (!EqualityComparer<T>.Default.Equals(field, value))
         {
-            CorePropertyMetadata metadata = property.GetMetadata(GetType());
+            CorePropertyMetadata metadata = property.GetMetadata<CorePropertyMetadata>(GetType());
             RaisePropertyChanging(property, metadata);
 
             T old = field;

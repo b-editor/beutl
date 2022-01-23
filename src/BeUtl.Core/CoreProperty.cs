@@ -1,7 +1,4 @@
-﻿using System;
-using System.Diagnostics.CodeAnalysis;
-using System.Reactive.Subjects;
-using System.Reflection;
+﻿using System.Reactive.Subjects;
 
 namespace BeUtl;
 
@@ -51,19 +48,28 @@ public abstract class CoreProperty
 
     protected abstract IObservable<CorePropertyChangedEventArgs> GetChanged();
 
-    public CorePropertyMetadata GetMetadata<T>() where T : ICoreObject
+    public TMetadata GetMetadata<T, TMetadata>()
+        where T : ICoreObject
+        where TMetadata : CorePropertyMetadata
     {
-        return GetMetadata(typeof(T));
+        return GetMetadata<TMetadata>(typeof(T));
     }
 
-    public CorePropertyMetadata GetMetadata(Type type)
+    public TMetadata GetMetadata<TMetadata>(Type type)
+        where TMetadata : CorePropertyMetadata
     {
         if (!_hasMetadataOverrides)
         {
-            return _defaultMetadata;
+            return (TMetadata)_defaultMetadata;
         }
 
-        return GetMetadataWithOverrides(type);
+        return GetMetadataWithOverrides<TMetadata>(type);
+    }
+
+    public void OverrideMetadata<T>(CorePropertyMetadata metadata)
+         where T : ICoreObject
+    {
+        OverrideMetadata(typeof(T), metadata);
     }
 
     public void OverrideMetadata(Type type, CorePropertyMetadata metadata)
@@ -77,7 +83,7 @@ public abstract class CoreProperty
                 $"Metadata is already set for {Name} on {type}.");
         }
 
-        CorePropertyMetadata? baseMetadata = GetMetadata(type);
+        CorePropertyMetadata? baseMetadata = GetMetadata<CorePropertyMetadata>(type);
         metadata.Merge(baseMetadata, this);
         _metadata.Add(type, metadata);
         _metadataCache.Clear();
@@ -85,27 +91,28 @@ public abstract class CoreProperty
         _hasMetadataOverrides = true;
     }
 
-    private CorePropertyMetadata GetMetadataWithOverrides(Type type)
+    private TMetadata GetMetadataWithOverrides<TMetadata>(Type type)
+        where TMetadata : CorePropertyMetadata
     {
         if (type is null)
         {
             throw new ArgumentNullException(nameof(type));
         }
 
-        if (_metadataCache.TryGetValue(type, out CorePropertyMetadata? result))
+        if (_metadataCache.TryGetValue(type, out CorePropertyMetadata? result) && result is TMetadata resultT)
         {
-            return result;
+            return resultT;
         }
 
         Type? currentType = type;
 
         while (currentType != null)
         {
-            if (_metadata.TryGetValue(currentType, out result))
+            if (_metadata.TryGetValue(currentType, out result) && result is TMetadata resultT1)
             {
                 _metadataCache[type] = result;
 
-                return result;
+                return resultT1;
             }
 
             currentType = currentType.BaseType;
@@ -113,7 +120,7 @@ public abstract class CoreProperty
 
         _metadataCache[type] = _defaultMetadata;
 
-        return _defaultMetadata;
+        return (TMetadata)_defaultMetadata;
     }
 
     public override bool Equals(object? obj)
@@ -134,7 +141,7 @@ public class CoreProperty<T> : CoreProperty
     public CoreProperty(
         string name,
         Type ownerType,
-        CorePropertyMetadata metadata)
+        CorePropertyMetadata<T> metadata)
         : base(name, typeof(T), ownerType, metadata)
     {
         _changed = new();
