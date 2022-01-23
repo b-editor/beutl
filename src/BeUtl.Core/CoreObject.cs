@@ -52,9 +52,35 @@ public abstract class CoreObject : ICoreObject
     /// </summary>
     protected JsonNode? JsonNode;
 
-    private Dictionary<int, object?>? _values;
-    private Dictionary<int, object?>? _batchChanges;
+    private Dictionary<int, IEntry>? _values;
+    private Dictionary<int, IBatchEntry>? _batchChanges;
     private bool _batchUpdate;
+    private bool _batchApplying;
+
+    internal interface IEntry
+    {
+    }
+
+    internal interface IBatchEntry
+    {
+        void ApplyTo(CoreObject obj, CoreProperty property);
+    }
+
+    internal sealed class Entry<T> : IEntry
+    {
+        public T? Value;
+    }
+
+    internal sealed class BatchEntry<T> : IBatchEntry
+    {
+        public T? OldValue;
+        public T? NewValue;
+
+        public void ApplyTo(CoreObject obj, CoreProperty property)
+        {
+            obj.SetValue(property, NewValue);
+        }
+    }
 
     static CoreObject()
     {
@@ -87,9 +113,9 @@ public abstract class CoreObject : ICoreObject
         set => SetValue(NameProperty, value);
     }
 
-    private Dictionary<int, object?> Values => _values ??= new();
+    private Dictionary<int, IEntry> Values => _values ??= new();
 
-    private Dictionary<int, object?> BatchChanges => _batchChanges ??= new();
+    private Dictionary<int, IBatchEntry> BatchChanges => _batchChanges ??= new();
 
     /// <summary>
     /// Occurs when a property value changes.
@@ -130,14 +156,23 @@ public abstract class CoreObject : ICoreObject
             _batchUpdate = false;
             if (_batchChanges != null)
             {
-                foreach (KeyValuePair<int, object?> item in BatchChanges)
+                try
                 {
-                    if (PropertyRegistry.FindRegistered(item.Key) is CoreProperty property)
+                    _batchApplying = true;
+                    foreach (KeyValuePair<int, IBatchEntry> item in _batchChanges)
                     {
-                        SetValue(property, item.Value);
+                        if (PropertyRegistry.FindRegistered(item.Key) is CoreProperty property)
+                        {
+                            item.Value.ApplyTo(this, property);
+                        }
                     }
+                    _batchChanges.Clear();
+                    _batchChanges.TrimExcess();
                 }
-                BatchChanges.Clear();
+                finally
+                {
+                    _batchApplying = false;
+                }
             }
 
             return true;
@@ -149,7 +184,7 @@ public abstract class CoreObject : ICoreObject
         Type ownerType = GetType();
         if (ValidateOwnerType(property, ownerType))
         {
-            throw new ElementException("Owner does not match.");
+            throw new InvalidOperationException("Owner does not match.");
         }
 
         if (property is StaticProperty<TValue> staticProperty)
@@ -157,12 +192,26 @@ public abstract class CoreObject : ICoreObject
             return staticProperty.RouteGetTypedValue(this)!;
         }
 
-        if (_values == null || !_values.ContainsKey(property.Id))
+        if (_batchUpdate)
         {
-            return (TValue)property.GetMetadata(ownerType).DefaultValue!;
+            if (_batchChanges?.TryGetValue(property.Id, out IBatchEntry? entry) == true &&
+               entry is BatchEntry<TValue> entryT)
+            {
+                return entryT.NewValue!;
+            }
+            else
+            {
+                goto ReturnDefault;
+            }
+        }
+        else if (_values?.TryGetValue(property.Id, out IEntry? entry) == true &&
+            entry is Entry<TValue> entryT)
+        {
+            return entryT.Value!;
         }
 
-        return (TValue)Values[property.Id]!;
+    ReturnDefault:
+        return (TValue)property.GetMetadata(ownerType).DefaultValue!;
     }
 
     public object? GetValue(CoreProperty property)
@@ -175,10 +224,10 @@ public abstract class CoreObject : ICoreObject
     public void SetValue<TValue>(CoreProperty<TValue> property, TValue? value)
     {
         if (value != null && !value.GetType().IsAssignableTo(property.PropertyType))
-            throw new ElementException($"{nameof(value)} of type {value.GetType().Name} cannot be assigned to type {property.PropertyType}.");
+            throw new InvalidOperationException($"{nameof(value)} of type {value.GetType().Name} cannot be assigned to type {property.PropertyType}.");
 
         Type ownerType = GetType();
-        if (ValidateOwnerType(property, ownerType)) throw new ElementException("Owner does not match.");
+        if (ValidateOwnerType(property, ownerType)) throw new InvalidOperationException("Owner does not match.");
 
         if (property is StaticProperty<TValue> staticProperty)
         {
@@ -186,23 +235,44 @@ public abstract class CoreObject : ICoreObject
         }
         else if (_batchUpdate)
         {
-            BatchChanges[property.Id] = value;
+            if (_batchChanges != null &&
+                _batchChanges.TryGetValue(property.Id, out IBatchEntry? oldEntry) &&
+                oldEntry is BatchEntry<TValue> entryT)
+            {
+                entryT.NewValue = value;
+            }
+            else
+            {
+                entryT = new BatchEntry<TValue>
+                {
+                    NewValue = value,
+                };
+                BatchChanges[property.Id] = entryT;
+            }
         }
         else
         {
-            if (_values == null || !Values.TryGetValue(property.Id, out object? oldValue))
+            if (_values != null &&
+                _values.TryGetValue(property.Id, out IEntry? oldEntry) &&
+                oldEntry is Entry<TValue> entryT)
             {
-                oldValue = null;
+                if (!EqualityComparer<TValue>.Default.Equals(entryT.Value, value))
+                {
+                    CorePropertyMetadata metadata = property.GetMetadata(ownerType);
+                    RaisePropertyChanging(property, metadata);
+                    entryT.Value = value;
+                    RaisePropertyChanged(property, metadata, value, entryT.Value);
+                }
             }
-
-            object? newValue = value;
-
-            if (!RuntimeHelpers.Equals(oldValue, newValue))
+            else
             {
                 CorePropertyMetadata metadata = property.GetMetadata(ownerType);
-                RaisePropertyChanging(property, metadata);
-                Values[property.Id] = newValue;
-                RaisePropertyChanged(property, metadata, value, (TValue?)(oldValue ?? default(TValue)));
+                entryT = new Entry<TValue>
+                {
+                    Value = value,
+                };
+                Values[property.Id] = entryT;
+                RaisePropertyChanged(property, metadata, value, metadata.DefaultValue != null ? (TValue)metadata.DefaultValue : default);
             }
         }
     }
@@ -315,16 +385,6 @@ public abstract class CoreObject : ICoreObject
         return json;
     }
 
-    protected void OnPropertyChanged([CallerMemberName] string? propertyName = null)
-    {
-        OnPropertyChanged(new PropertyChangedEventArgs(propertyName));
-    }
-
-    protected void OnPropertyChanging([CallerMemberName] string? propertyName = null)
-    {
-        OnPropertyChanging(new PropertyChangingEventArgs(propertyName));
-    }
-
     protected void OnPropertyChanged(PropertyChangedEventArgs args)
     {
         PropertyChanged?.Invoke(this, args);
@@ -335,28 +395,51 @@ public abstract class CoreObject : ICoreObject
         PropertyChanging?.Invoke(this, args);
     }
 
-    protected bool SetAndRaise<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
-    {
-        if (!EqualityComparer<T>.Default.Equals(field, value))
-        {
-            OnPropertyChanging(propertyName);
-            field = value;
-            OnPropertyChanged(propertyName);
-
-            return true;
-        }
-        else
-        {
-            return false;
-        }
-    }
-
     protected bool SetAndRaise<T>(CoreProperty<T> property, ref T field, T value)
     {
+        bool result = true;
         if (_batchUpdate)
         {
-            BatchChanges[property.Id] = value;
-            return true;
+            if (_batchChanges != null &&
+                _batchChanges.TryGetValue(property.Id, out IBatchEntry? oldEntry) &&
+                oldEntry is BatchEntry<T> entryT)
+            {
+                entryT.NewValue = value;
+                result = !EqualityComparer<T>.Default.Equals(field, value);
+            }
+            else
+            {
+                entryT = new BatchEntry<T>
+                {
+                    OldValue = field,
+                    NewValue = value,
+                };
+                BatchChanges[property.Id] = entryT;
+            }
+
+            field = value;
+        }
+        else if (_batchApplying)
+        {
+            // バッチ適用中
+            if (_batchChanges != null &&
+                _batchChanges.TryGetValue(property.Id, out IBatchEntry? oldEntry) &&
+                oldEntry is BatchEntry<T> entryT)
+            {
+                result = !EqualityComparer<T>.Default.Equals(entryT.OldValue, value);
+                CorePropertyMetadata? metadata = null;
+                if (result)
+                {
+                    metadata = property.GetMetadata(GetType());
+                    RaisePropertyChanging(property, metadata);
+                }
+
+                field = value;
+                if (result)
+                {
+                    RaisePropertyChanged(property, metadata!, value, entryT.OldValue);
+                }
+            }
         }
         else if (!EqualityComparer<T>.Default.Equals(field, value))
         {
@@ -368,12 +451,13 @@ public abstract class CoreObject : ICoreObject
 
             RaisePropertyChanged(property, metadata, value, old);
 
-            return true;
+            result = true;
         }
         else
         {
-            return false;
+            result = false;
         }
+        return result;
     }
 
     // オーナーの型が一致しない場合はtrue
@@ -418,7 +502,7 @@ public abstract class CoreObject : ICoreObject
         PropertyObservability observability = metadata.Observability;
         if (observability.HasFlag(PropertyObservability.Changing))
         {
-            OnPropertyChanging(property.Name);
+            OnPropertyChanging(new PropertyChangingEventArgs(property.Name));
         }
     }
 }
