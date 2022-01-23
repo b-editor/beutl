@@ -26,36 +26,43 @@ public abstract class TileBrush : Brush, ITileBrush
     {
         AlignmentXProperty = ConfigureProperty<AlignmentX, TileBrush>(nameof(AlignmentX))
             .Accessor(o => o.AlignmentX, (o, v) => o.AlignmentX = v)
+            .PropertyFlags(PropertyFlags.Styleable | PropertyFlags.Designable)
             .DefaultValue(AlignmentX.Center)
             .Register();
 
         AlignmentYProperty = ConfigureProperty<AlignmentY, TileBrush>(nameof(AlignmentY))
             .Accessor(o => o.AlignmentY, (o, v) => o.AlignmentY = v)
+            .PropertyFlags(PropertyFlags.Styleable | PropertyFlags.Designable)
             .DefaultValue(AlignmentY.Center)
             .Register();
 
         DestinationRectProperty = ConfigureProperty<RelativeRect, TileBrush>(nameof(DestinationRect))
             .Accessor(o => o.DestinationRect, (o, v) => o.DestinationRect = v)
+            .PropertyFlags(PropertyFlags.Styleable | PropertyFlags.Designable)
             .DefaultValue(RelativeRect.Fill)
             .Register();
 
         SourceRectProperty = ConfigureProperty<RelativeRect, TileBrush>(nameof(SourceRect))
             .Accessor(o => o.SourceRect, (o, v) => o.SourceRect = v)
+            .PropertyFlags(PropertyFlags.Styleable | PropertyFlags.Designable)
             .DefaultValue(RelativeRect.Fill)
             .Register();
 
         StretchProperty = ConfigureProperty<Stretch, TileBrush>(nameof(Stretch))
             .Accessor(o => o.Stretch, (o, v) => o.Stretch = v)
+            .PropertyFlags(PropertyFlags.Styleable | PropertyFlags.Designable)
             .DefaultValue(Stretch.Uniform)
             .Register();
 
         TileModeProperty = ConfigureProperty<TileMode, TileBrush>(nameof(TileMode))
             .Accessor(o => o.TileMode, (o, v) => o.TileMode = v)
+            .PropertyFlags(PropertyFlags.Styleable | PropertyFlags.Designable)
             .DefaultValue(TileMode.None)
             .Register();
 
         BitmapInterpolationModeProperty = ConfigureProperty<BitmapInterpolationMode, TileBrush>(nameof(BitmapInterpolationMode))
             .Accessor(o => o.BitmapInterpolationMode, (o, v) => o.BitmapInterpolationMode = v)
+            .PropertyFlags(PropertyFlags.Styleable | PropertyFlags.Designable)
             .DefaultValue(BitmapInterpolationMode.Default)
             .Register();
 

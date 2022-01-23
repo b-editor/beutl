@@ -15,6 +15,7 @@ public class DrawableBrush : TileBrush, IDrawableBrush
     {
         DrawableProperty = ConfigureProperty<IDrawable?, DrawableBrush>(nameof(Drawable))
             .Accessor(o => o.Drawable, (o, v) => o.Drawable = v)
+            .PropertyFlags(PropertyFlags.Styleable | PropertyFlags.Designable)
             .Register();
 
         AffectsRender<DrawableBrush>(DrawableProperty);

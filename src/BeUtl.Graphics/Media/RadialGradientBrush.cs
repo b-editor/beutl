@@ -19,16 +19,19 @@ public sealed class RadialGradientBrush : GradientBrush, IRadialGradientBrush
     {
         CenterProperty = ConfigureProperty<RelativePoint, RadialGradientBrush>(nameof(Center))
             .Accessor(o => o.Center, (o, v) => o.Center = v)
+            .PropertyFlags(PropertyFlags.Styleable | PropertyFlags.Designable)
             .DefaultValue(RelativePoint.Center)
             .Register();
 
         GradientOriginProperty = ConfigureProperty<RelativePoint, RadialGradientBrush>(nameof(GradientOrigin))
             .Accessor(o => o.GradientOrigin, (o, v) => o.GradientOrigin = v)
+            .PropertyFlags(PropertyFlags.Styleable | PropertyFlags.Designable)
             .DefaultValue(RelativePoint.Center)
             .Register();
 
         RadiusProperty = ConfigureProperty<float, RadialGradientBrush>(nameof(Radius))
             .Accessor(o => o.Radius, (o, v) => o.Radius = v)
+            .PropertyFlags(PropertyFlags.Styleable | PropertyFlags.Designable)
             .DefaultValue(0.5f)
             .Register();
 

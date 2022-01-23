@@ -17,6 +17,7 @@ public sealed class TextLine : Styleable, IAffectsRender, IDisposable, ILogicalE
     {
         ElementsProperty = ConfigureProperty<TextElements, TextLine>(nameof(Elements))
             .Accessor(o => o.Elements, (o, v) => o.Elements = v)
+            .PropertyFlags(PropertyFlags.Styleable | PropertyFlags.Designable)
             .Register();
     }
 

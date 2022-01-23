@@ -35,56 +35,67 @@ public abstract class Drawable : Renderable, IDrawable, ILogicalElement
     {
         WidthProperty = ConfigureProperty<float, Drawable>(nameof(Width))
             .Accessor(o => o.Width, (o, v) => o.Width = v)
+            .PropertyFlags(PropertyFlags.Styleable | PropertyFlags.Designable)
             .DefaultValue(-1)
             .Register();
 
         HeightProperty = ConfigureProperty<float, Drawable>(nameof(Height))
             .Accessor(o => o.Height, (o, v) => o.Height = v)
+            .PropertyFlags(PropertyFlags.Styleable | PropertyFlags.Designable)
             .DefaultValue(-1)
             .Register();
 
         TransformProperty = ConfigureProperty<ITransform?, Drawable>(nameof(Transform))
             .Accessor(o => o.Transform, (o, v) => o.Transform = v)
+            .PropertyFlags(PropertyFlags.Styleable | PropertyFlags.Designable)
             .DefaultValue(null)
             .Register();
 
         FilterProperty = ConfigureProperty<IImageFilter?, Drawable>(nameof(Filter))
             .Accessor(o => o.Filter, (o, v) => o.Filter = v)
+            .PropertyFlags(PropertyFlags.Styleable | PropertyFlags.Designable)
             .DefaultValue(null)
             .Register();
 
         CanvasAlignmentXProperty = ConfigureProperty<AlignmentX, Drawable>(nameof(CanvasAlignmentX))
             .Accessor(o => o.CanvasAlignmentX, (o, v) => o.CanvasAlignmentX = v)
+            .PropertyFlags(PropertyFlags.Styleable | PropertyFlags.Designable)
             .DefaultValue(AlignmentX.Left)
             .Register();
 
         CanvasAlignmentYProperty = ConfigureProperty<AlignmentY, Drawable>(nameof(CanvasAlignmentY))
             .Accessor(o => o.CanvasAlignmentY, (o, v) => o.CanvasAlignmentY = v)
+            .PropertyFlags(PropertyFlags.Styleable | PropertyFlags.Designable)
             .DefaultValue(AlignmentY.Top)
             .Register();
 
         AlignmentXProperty = ConfigureProperty<AlignmentX, Drawable>(nameof(AlignmentX))
             .Accessor(o => o.AlignmentX, (o, v) => o.AlignmentX = v)
+            .PropertyFlags(PropertyFlags.Styleable | PropertyFlags.Designable)
             .DefaultValue(AlignmentX.Left)
             .Register();
 
         AlignmentYProperty = ConfigureProperty<AlignmentY, Drawable>(nameof(AlignmentY))
             .Accessor(o => o.AlignmentY, (o, v) => o.AlignmentY = v)
+            .PropertyFlags(PropertyFlags.Styleable | PropertyFlags.Designable)
             .DefaultValue(AlignmentY.Top)
             .Register();
 
         ForegroundProperty = ConfigureProperty<IBrush, Drawable>(nameof(Foreground))
             .Accessor(o => o.Foreground, (o, v) => o.Foreground = v)
+            .PropertyFlags(PropertyFlags.Styleable | PropertyFlags.Designable)
             .DefaultValue(Brushes.White)
             .Register();
 
         OpacityMaskProperty = ConfigureProperty<IBrush?, Drawable>(nameof(OpacityMask))
             .Accessor(o => o.OpacityMask, (o, v) => o.OpacityMask = v)
+            .PropertyFlags(PropertyFlags.Styleable | PropertyFlags.Designable)
             .DefaultValue(null)
             .Register();
 
         BlendModeProperty = ConfigureProperty<BlendMode, Drawable>(nameof(BlendMode))
             .Accessor(o => o.BlendMode, (o, v) => o.BlendMode = v)
+            .PropertyFlags(PropertyFlags.Styleable | PropertyFlags.Designable)
             .DefaultValue(BlendMode.SrcOver)
             .Register();
 

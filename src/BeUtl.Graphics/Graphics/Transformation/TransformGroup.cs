@@ -9,6 +9,7 @@ public sealed class TransformGroup : Transform
     {
         ChildrenProperty = ConfigureProperty<Transforms, TransformGroup>(nameof(Children))
             .Accessor(o => o.Children, (o, v) => o.Children = v)
+            .PropertyFlags(PropertyFlags.Styleable | PropertyFlags.Designable)
             .Register();
     }
 

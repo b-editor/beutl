@@ -9,6 +9,7 @@ public sealed class Ellipse : Drawable
     {
         StrokeWidthProperty = ConfigureProperty<float, Ellipse>(nameof(StrokeWidth))
             .Accessor(o => o.StrokeWidth, (o, v) => o.StrokeWidth = v)
+            .PropertyFlags(PropertyFlags.Styleable | PropertyFlags.Designable)
             .DefaultValue(4000)
             .Register();
 

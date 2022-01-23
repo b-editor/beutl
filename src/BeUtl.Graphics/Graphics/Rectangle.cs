@@ -9,6 +9,7 @@ public sealed class Rectangle : Drawable
     {
         StrokeWidthProperty = ConfigureProperty<float, Rectangle>(nameof(StrokeWidth))
             .Accessor(o => o.StrokeWidth, (o, v) => o.StrokeWidth = v)
+            .PropertyFlags(PropertyFlags.Styleable | PropertyFlags.Designable)
             .DefaultValue(4000)
             .Register();
 

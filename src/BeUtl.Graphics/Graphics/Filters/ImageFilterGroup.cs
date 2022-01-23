@@ -11,6 +11,7 @@ public sealed class ImageFilterGroup : ImageFilter
     {
         ChildrenProperty = ConfigureProperty<ImageFilters, ImageFilterGroup>(nameof(Children))
             .Accessor(o => o.Children, (o, v) => o.Children = v)
+            .PropertyFlags(PropertyFlags.Styleable | PropertyFlags.Designable)
             .Register();
     }
 

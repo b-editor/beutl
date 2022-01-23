@@ -14,6 +14,7 @@ public class SolidColorBrush : Brush, ISolidColorBrush
     {
         ColorProperty = ConfigureProperty<Color, SolidColorBrush>(nameof(Color))
             .Accessor(o => o.Color, (o, v) => o.Color = v)
+            .PropertyFlags(PropertyFlags.Styleable | PropertyFlags.Designable)
             .Register();
 
         AffectsRender<SolidColorBrush>(ColorProperty);

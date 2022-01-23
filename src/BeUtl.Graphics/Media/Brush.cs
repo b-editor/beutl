@@ -14,6 +14,7 @@ public abstract class Brush : Styleable, IMutableBrush
     {
         OpacityProperty = ConfigureProperty<float, Brush>(nameof(Opacity))
             .Accessor(o => o.Opacity, (o, v) => o.Opacity = v)
+            .PropertyFlags(PropertyFlags.Styleable | PropertyFlags.Designable)
             .DefaultValue(1f)
             .Register();
 

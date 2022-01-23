@@ -14,11 +14,13 @@ public abstract class GradientBrush : Brush, IGradientBrush
     {
         SpreadMethodProperty = ConfigureProperty<GradientSpreadMethod, GradientBrush>(nameof(SpreadMethod))
             .Accessor(o => o.SpreadMethod, (o, v) => o.SpreadMethod = v)
+            .PropertyFlags(PropertyFlags.Styleable | PropertyFlags.Designable)
             .DefaultValue(GradientSpreadMethod.Pad)
             .Register();
 
         GradientStopsProperty = ConfigureProperty<GradientStops, GradientBrush>(nameof(GradientStops))
             .Accessor(o => o.GradientStops, (o, v) => o.GradientStops = v)
+            .PropertyFlags(PropertyFlags.Styleable | PropertyFlags.Designable)
             .Register();
 
         AffectsRender<GradientBrush>(SpreadMethodProperty, GradientStopsProperty);

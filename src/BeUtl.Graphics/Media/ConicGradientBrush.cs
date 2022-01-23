@@ -17,11 +17,13 @@ public sealed class ConicGradientBrush : GradientBrush, IConicGradientBrush
     {
         CenterProperty = ConfigureProperty<RelativePoint, ConicGradientBrush>(nameof(Center))
             .Accessor(o => o.Center, (o, v) => o.Center = v)
+            .PropertyFlags(PropertyFlags.Styleable | PropertyFlags.Designable)
             .DefaultValue(RelativePoint.Center)
             .Register();
 
         AngleProperty = ConfigureProperty<float, ConicGradientBrush>(nameof(Angle))
             .Accessor(o => o.Angle, (o, v) => o.Angle = v)
+            .PropertyFlags(PropertyFlags.Styleable | PropertyFlags.Designable)
             .DefaultValue(0)
             .Register();
 

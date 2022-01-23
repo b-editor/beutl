@@ -16,6 +16,7 @@ public class FormattedText : Drawable
     {
         LinesProperty = ConfigureProperty<TextLines, FormattedText>(nameof(Lines))
             .Accessor(o => o.Lines, (o, v) => o.Lines = v)
+            .PropertyFlags(PropertyFlags.Styleable | PropertyFlags.Designable)
             .Register();
     }
 
