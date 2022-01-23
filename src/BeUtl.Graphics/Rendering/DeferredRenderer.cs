@@ -184,14 +184,14 @@ public class DeferredRenderer : IRenderer
                         if (drawable.IsDirty)
                         {
                             AddDirtyRects(rect1, rect2);
-                            drawable.InvalidateVisual();
+                            drawable.Invalidate();
 
                             //Func(items, 0, i);
                             Func(items, i + 1, items.Length);
                         }
                         else if (HitTestClips(rect1, rect2))
                         {
-                            drawable.InvalidateVisual();
+                            drawable.Invalidate();
                         }
                     }
                 }

@@ -26,7 +26,7 @@ public sealed class ScaleTransform : Transform
             .DefaultValue(1)
             .Register();
 
-        AffectRender<ScaleTransform>(ScaleProperty, ScaleXProperty, ScaleYProperty);
+        AffectsRender<ScaleTransform>(ScaleProperty, ScaleXProperty, ScaleYProperty);
     }
 
     public ScaleTransform()

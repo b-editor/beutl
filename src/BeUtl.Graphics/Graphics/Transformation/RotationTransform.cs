@@ -14,7 +14,7 @@ public sealed class RotationTransform : Transform
             .DefaultValue(0)
             .Register();
 
-        AffectRender<RotationTransform>(RotationProperty);
+        AffectsRender<RotationTransform>(RotationProperty);
     }
 
     public RotationTransform()

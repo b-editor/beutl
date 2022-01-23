@@ -4,7 +4,7 @@ namespace BeUtl;
 
 public sealed class PropertyChangeTracker : IDisposable
 {
-    private readonly List<ElementPropertyChangedEventArgs> _changes = new();
+    private readonly List<CorePropertyChangedEventArgs> _changes = new();
     private readonly List<IElement> _trackingElement = new();
 
     public PropertyChangeTracker(IEnumerable<IElement> elements, int maxDepth = -1)
@@ -60,7 +60,7 @@ public sealed class PropertyChangeTracker : IDisposable
 
     private void OnPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e is ElementPropertyChangedEventArgs args)
+        if (e is CorePropertyChangedEventArgs args)
         {
             _changes.Add(args);
         }
@@ -78,9 +78,9 @@ public sealed class PropertyChangeTracker : IDisposable
 
     private sealed class CommandImpl : IRecordableCommand
     {
-        private readonly ElementPropertyChangedEventArgs[] _changes;
+        private readonly CorePropertyChangedEventArgs[] _changes;
 
-        public CommandImpl(ElementPropertyChangedEventArgs[] changes)
+        public CommandImpl(CorePropertyChangedEventArgs[] changes)
         {
             _changes = changes;
         }
@@ -89,7 +89,7 @@ public sealed class PropertyChangeTracker : IDisposable
         {
             for (int i = 0; i < _changes.Length; i++)
             {
-                ElementPropertyChangedEventArgs item = _changes[i];
+                CorePropertyChangedEventArgs item = _changes[i];
 
                 item.Sender.SetValue(item.Property, item.NewValue);
             }
@@ -108,7 +108,7 @@ public sealed class PropertyChangeTracker : IDisposable
         {
             for (int i = _changes.Length - 1; i >= 0; i--)
             {
-                ElementPropertyChangedEventArgs item = _changes[i];
+                CorePropertyChangedEventArgs item = _changes[i];
 
                 item.Sender.SetValue(item.Property, item.OldValue);
             }

@@ -21,7 +21,7 @@ public sealed class SkewTransform : Transform
             .DefaultValue(0)
             .Register();
 
-        AffectRender<SkewTransform>(SkewXProperty, SkewYProperty);
+        AffectsRender<SkewTransform>(SkewXProperty, SkewYProperty);
     }
 
     public SkewTransform()

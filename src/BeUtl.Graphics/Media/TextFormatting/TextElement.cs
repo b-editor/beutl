@@ -55,7 +55,7 @@ public class TextElement : Styleable, IDisposable, IAffectsRender
             .DefaultValue(new Thickness())
             .Register();
 
-        static void RaiseInvalidated(ElementPropertyChangedEventArgs obj)
+        static void RaiseInvalidated(CorePropertyChangedEventArgs obj)
         {
             if (obj.Sender is TextElement te)
             {

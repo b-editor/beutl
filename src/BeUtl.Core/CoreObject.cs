@@ -167,7 +167,6 @@ public abstract class CoreObject : ICoreObject
                         }
                     }
                     _batchChanges.Clear();
-                    _batchChanges.TrimExcess();
                 }
                 finally
                 {

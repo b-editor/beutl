@@ -37,7 +37,7 @@ public sealed class DropShadow : ImageFilter
             .DefaultValue(false)
             .Register();
 
-        AffectRender<DropShadow>(PositionProperty, SigmaProperty, ColorProperty, ShadowOnlyProperty);
+        AffectsRender<DropShadow>(PositionProperty, SigmaProperty, ColorProperty, ShadowOnlyProperty);
     }
 
     public Point Position

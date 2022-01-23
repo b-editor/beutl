@@ -16,7 +16,7 @@ public class ImageBrush : TileBrush, IImageBrush
             .Accessor(o => o.Source, (o, v) => o.Source = v)
             .Register();
 
-        AffectRender<ImageBrush>(SourceProperty);
+        AffectsRender<ImageBrush>(SourceProperty);
     }
 
     /// <summary>

@@ -21,7 +21,7 @@ public abstract class GradientBrush : Brush, IGradientBrush
             .Accessor(o => o.GradientStops, (o, v) => o.GradientStops = v)
             .Register();
 
-        AffectRender<GradientBrush>(SpreadMethodProperty, GradientStopsProperty);
+        AffectsRender<GradientBrush>(SpreadMethodProperty, GradientStopsProperty);
     }
 
     /// <summary>

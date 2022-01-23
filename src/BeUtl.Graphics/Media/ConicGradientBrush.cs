@@ -25,7 +25,7 @@ public sealed class ConicGradientBrush : GradientBrush, IConicGradientBrush
             .DefaultValue(0)
             .Register();
 
-        AffectRender<ConicGradientBrush>(CenterProperty, AngleProperty);
+        AffectsRender<ConicGradientBrush>(CenterProperty, AngleProperty);
     }
 
     /// <summary>

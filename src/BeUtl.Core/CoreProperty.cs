@@ -43,13 +43,13 @@ public abstract class CoreProperty
 
     public int Id { get; }
 
-    public IObservable<ElementPropertyChangedEventArgs> Changed => GetChanged();
+    public IObservable<CorePropertyChangedEventArgs> Changed => GetChanged();
 
     internal abstract void RouteSetValue(ICoreObject o, object? value);
 
     internal abstract object? RouteGetValue(ICoreObject o);
 
-    protected abstract IObservable<ElementPropertyChangedEventArgs> GetChanged();
+    protected abstract IObservable<CorePropertyChangedEventArgs> GetChanged();
 
     public CorePropertyMetadata GetMetadata<T>() where T : ICoreObject
     {
@@ -166,7 +166,7 @@ public class CoreProperty<T> : CoreProperty
         return o.GetValue<T>(this);
     }
 
-    protected override IObservable<ElementPropertyChangedEventArgs> GetChanged()
+    protected override IObservable<CorePropertyChangedEventArgs> GetChanged()
     {
         return Changed;
     }

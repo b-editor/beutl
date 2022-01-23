@@ -17,7 +17,7 @@ public class DrawableBrush : TileBrush, IDrawableBrush
             .Accessor(o => o.Drawable, (o, v) => o.Drawable = v)
             .Register();
 
-        AffectRender<DrawableBrush>(DrawableProperty);
+        AffectsRender<DrawableBrush>(DrawableProperty);
     }
 
     /// <summary>

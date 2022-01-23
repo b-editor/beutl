@@ -24,7 +24,7 @@ public sealed class GradientStop : Styleable, IGradientStop, IAffectsRender
             .DefaultValue(Colors.Transparent)
             .Register();
 
-        static void OnChanged(ElementPropertyChangedEventArgs obj)
+        static void OnChanged(CorePropertyChangedEventArgs obj)
         {
             if (obj.Sender is GradientStop s)
             {

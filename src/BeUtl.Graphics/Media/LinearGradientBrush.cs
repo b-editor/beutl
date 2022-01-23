@@ -25,7 +25,7 @@ public sealed class LinearGradientBrush : GradientBrush, ILinearGradientBrush
             .Accessor(o => o.EndPoint, (o, v) => o.EndPoint = v)
             .Register();
 
-        AffectRender<LinearGradientBrush>(StartPointProperty, EndPointProperty);
+        AffectsRender<LinearGradientBrush>(StartPointProperty, EndPointProperty);
     }
 
     /// <summary>

@@ -8,14 +8,14 @@ public abstract class Transform : Styleable, ITransform
 
     public abstract Matrix Value { get; }
 
-    protected static void AffectRender<T>(
+    protected static void AffectsRender<T>(
         CoreProperty? property1 = null,
         CoreProperty? property2 = null,
         CoreProperty? property3 = null,
         CoreProperty? property4 = null)
         where T : Transform
     {
-        Action<ElementPropertyChangedEventArgs> onNext = e =>
+        Action<CorePropertyChangedEventArgs> onNext = e =>
         {
             if (e.Sender is T s)
             {
@@ -29,7 +29,7 @@ public abstract class Transform : Styleable, ITransform
         property4?.Changed.Subscribe(onNext);
     }
 
-    protected static void AffectRender<T>(params CoreProperty[] properties)
+    protected static void AffectsRender<T>(params CoreProperty[] properties)
         where T : Transform
     {
         foreach (CoreProperty? item in properties)

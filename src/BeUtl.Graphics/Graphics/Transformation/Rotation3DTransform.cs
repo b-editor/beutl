@@ -58,7 +58,7 @@ public sealed class Rotation3DTransform : Transform
             .DefaultValue(0)
             .Register();
 
-        AffectRender<Rotation3DTransform>(
+        AffectsRender<Rotation3DTransform>(
             RotationXProperty, RotationYProperty, RotationZProperty,
             CenterXProperty, CenterYProperty, CenterZProperty,
             DepthProperty);

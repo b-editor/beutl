@@ -19,7 +19,7 @@ public sealed class TranslateTransform : Transform
             .DefaultValue(0)
             .Register();
 
-        AffectRender<TranslateTransform>(XProperty, YProperty);
+        AffectsRender<TranslateTransform>(XProperty, YProperty);
     }
 
     public TranslateTransform()

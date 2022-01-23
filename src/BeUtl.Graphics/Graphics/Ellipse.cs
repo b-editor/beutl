@@ -12,7 +12,7 @@ public sealed class Ellipse : Drawable
             .DefaultValue(4000)
             .Register();
 
-        AffectRender<Ellipse>(StrokeWidthProperty);
+        AffectsRender<Ellipse>(StrokeWidthProperty);
     }
 
     public float StrokeWidth

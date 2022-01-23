@@ -59,7 +59,7 @@ public abstract class TileBrush : Brush, ITileBrush
             .DefaultValue(BitmapInterpolationMode.Default)
             .Register();
 
-        AffectRender<TileBrush>(
+        AffectsRender<TileBrush>(
             AlignmentXProperty, AlignmentYProperty,
             DestinationRectProperty, SourceRectProperty,
             StretchProperty,

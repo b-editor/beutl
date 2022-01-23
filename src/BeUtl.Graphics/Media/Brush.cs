@@ -17,7 +17,7 @@ public abstract class Brush : Styleable, IMutableBrush
             .DefaultValue(1f)
             .Register();
 
-        AffectRender<Brush>(OpacityProperty);
+        AffectsRender<Brush>(OpacityProperty);
     }
 
     public event EventHandler? Invalidated;
@@ -33,14 +33,14 @@ public abstract class Brush : Styleable, IMutableBrush
 
     public abstract IBrush ToImmutable();
 
-    protected static void AffectRender<T>(
+    protected static void AffectsRender<T>(
         CoreProperty? property1 = null,
         CoreProperty? property2 = null,
         CoreProperty? property3 = null,
         CoreProperty? property4 = null)
         where T : Brush
     {
-        Action<ElementPropertyChangedEventArgs> onNext = e =>
+        Action<CorePropertyChangedEventArgs> onNext = e =>
         {
             if (e.Sender is T s)
             {
@@ -54,7 +54,7 @@ public abstract class Brush : Styleable, IMutableBrush
         property4?.Changed.Subscribe(onNext);
     }
 
-    protected static void AffectRender<T>(params CoreProperty[] properties)
+    protected static void AffectsRender<T>(params CoreProperty[] properties)
         where T : Brush
     {
         foreach (CoreProperty? item in properties)

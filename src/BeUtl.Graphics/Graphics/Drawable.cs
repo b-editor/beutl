@@ -6,7 +6,7 @@ using BeUtl.Styling;
 
 namespace BeUtl.Graphics;
 
-public abstract class Drawable : Styleable, IDrawable, IRenderable, ILogicalElement
+public abstract class Drawable : Renderable, IDrawable, ILogicalElement
 {
     public static readonly CoreProperty<float> WidthProperty;
     public static readonly CoreProperty<float> HeightProperty;
@@ -19,7 +19,6 @@ public abstract class Drawable : Styleable, IDrawable, IRenderable, ILogicalElem
     public static readonly CoreProperty<IBrush> ForegroundProperty;
     public static readonly CoreProperty<IBrush?> OpacityMaskProperty;
     public static readonly CoreProperty<BlendMode> BlendModeProperty;
-    public static readonly CoreProperty<bool> IsVisibleProperty;
     private float _width = -1;
     private float _height = -1;
     private ITransform? _transform;
@@ -31,7 +30,6 @@ public abstract class Drawable : Styleable, IDrawable, IRenderable, ILogicalElem
     private IBrush _foreground = Brushes.White;
     private IBrush? _opacityMask;
     private BlendMode _blendMode = BlendMode.SrcOver;
-    private bool _isVisible;
 
     static Drawable()
     {
@@ -90,18 +88,13 @@ public abstract class Drawable : Styleable, IDrawable, IRenderable, ILogicalElem
             .DefaultValue(BlendMode.SrcOver)
             .Register();
 
-        IsVisibleProperty = ConfigureProperty<bool, Drawable>(nameof(IsVisible))
-            .Accessor(o => o.IsVisible, (o, v) => o.IsVisible = v)
-            .DefaultValue(true)
-            .Register();
-
-        AffectRender<Drawable>(
+        AffectsRender<Drawable>(
             WidthProperty, HeightProperty,
             TransformProperty, FilterProperty,
             CanvasAlignmentXProperty, CanvasAlignmentYProperty,
             AlignmentXProperty, AlignmentYProperty,
             ForegroundProperty, OpacityMaskProperty,
-            BlendModeProperty, IsVisibleProperty);
+            BlendModeProperty);
     }
 
     ~Drawable()
@@ -180,16 +173,6 @@ public abstract class Drawable : Styleable, IDrawable, IRenderable, ILogicalElem
         set => SetAndRaise(BlendModeProperty, ref _blendMode, value);
     }
 
-    public bool IsDisposed { get; protected set; }
-
-    public bool IsDirty { get; private set; }
-
-    public bool IsVisible
-    {
-        get => _isVisible;
-        set => SetAndRaise(IsVisibleProperty, ref _isVisible, value);
-    }
-
     IEnumerable<ILogicalElement> ILogicalElement.LogicalChildren
     {
         get
@@ -203,36 +186,6 @@ public abstract class Drawable : Styleable, IDrawable, IRenderable, ILogicalElem
             {
                 yield return Filter;
             }
-        }
-    }
-
-    private void AffectsRender_Invalidated(object? sender, EventArgs e)
-    {
-        InvalidateVisual();
-    }
-
-    protected static void AffectRender<T>(params CoreProperty[] properties)
-        where T : Drawable
-    {
-        foreach (CoreProperty item in properties)
-        {
-            item.Changed.Subscribe(e =>
-            {
-                if (e.Sender is T s)
-                {
-                    s.InvalidateVisual();
-
-                    if (e.OldValue is IAffectsRender oldAffectsRender)
-                    {
-                        oldAffectsRender.Invalidated -= s.AffectsRender_Invalidated;
-                    }
-
-                    if (e.NewValue is IAffectsRender newAffectsRender)
-                    {
-                        newAffectsRender.Invalidated += s.AffectsRender_Invalidated;
-                    }
-                }
-            });
         }
     }
 
@@ -260,8 +213,6 @@ public abstract class Drawable : Styleable, IDrawable, IRenderable, ILogicalElem
 
         return canvas.GetBitmap();
     }
-
-    public abstract void Dispose();
 
     public void Measure(Size availableSize)
     {
@@ -307,23 +258,10 @@ public abstract class Drawable : Styleable, IDrawable, IRenderable, ILogicalElem
 #endif
     }
 
-    public void Render(IRenderer renderer)
+    public override void Render(IRenderer renderer)
     {
         ApplyStyling(renderer.Clock);
         Draw(renderer.Graphics);
-    }
-
-    public void VerifyAccess()
-    {
-        if (IsDisposed)
-        {
-            throw new ObjectDisposedException(GetType().Name);
-        }
-    }
-
-    public void InvalidateVisual()
-    {
-        IsDirty = true;
     }
 
     protected abstract void OnDraw(ICanvas canvas);

@@ -2,9 +2,9 @@
 
 namespace BeUtl;
 
-public abstract class ElementPropertyChangedEventArgs : PropertyChangedEventArgs
+public abstract class CorePropertyChangedEventArgs : PropertyChangedEventArgs
 {
-    protected ElementPropertyChangedEventArgs(CoreObject sender, CoreProperty property)
+    protected CorePropertyChangedEventArgs(CoreObject sender, CoreProperty property)
         : base(property.Name)
     {
         Sender = sender;
@@ -25,7 +25,7 @@ public abstract class ElementPropertyChangedEventArgs : PropertyChangedEventArgs
     protected abstract CoreProperty GetProperty();
 }
 
-public sealed class CorePropertyChangedEventArgs<TValue> : ElementPropertyChangedEventArgs
+public sealed class CorePropertyChangedEventArgs<TValue> : CorePropertyChangedEventArgs
 {
     public CorePropertyChangedEventArgs(CoreObject sender, CoreProperty<TValue> property, TValue? newValue, TValue? oldValue)
         : base(sender, property)

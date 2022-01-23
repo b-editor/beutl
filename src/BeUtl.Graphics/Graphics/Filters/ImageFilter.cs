@@ -23,7 +23,7 @@ public abstract class ImageFilter : Styleable, IImageFilter
 
     protected internal abstract SKImageFilter ToSKImageFilter();
 
-    protected static void AffectRender<T>(params CoreProperty[] properties)
+    protected static void AffectsRender<T>(params CoreProperty[] properties)
         where T : ImageFilter
     {
         foreach (CoreProperty? item in properties)

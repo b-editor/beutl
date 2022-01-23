@@ -26,7 +26,7 @@ public class FormattedText : Drawable
             Attached = item => (item as ILogicalElement).NotifyAttachedToLogicalTree(new(this)),
             Detached = item => (item as ILogicalElement).NotifyDetachedFromLogicalTree(new(this)),
         };
-        _lines.Invalidated += (_, _) => InvalidateVisual();
+        _lines.Invalidated += (_, _) => Invalidate();
     }
 
     private FormattedText(List<TextLine> lines)
@@ -62,7 +62,7 @@ public class FormattedText : Drawable
         List<TextLine> lines = tokenizer.ToLines(info);
 
         _lines.AddRange(lines);
-        InvalidateVisual();
+        Invalidate();
     }
 
     public void Initialize(string s, FormattedTextInfo info)
@@ -73,7 +73,7 @@ public class FormattedText : Drawable
         List<TextLine> lines = tokenizer.ToLines(info);
 
         _lines.AddRange(lines);
-        InvalidateVisual();
+        Invalidate();
     }
 
     public override void Dispose()

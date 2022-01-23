@@ -12,7 +12,7 @@ public sealed class MatrixTransform : Transform
             .DefaultValue(Matrix.Identity)
             .Register();
 
-        AffectRender<MatrixTransform>(MatrixProperty);
+        AffectsRender<MatrixTransform>(MatrixProperty);
     }
 
     public MatrixTransform()

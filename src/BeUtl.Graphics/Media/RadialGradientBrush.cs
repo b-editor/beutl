@@ -32,7 +32,7 @@ public sealed class RadialGradientBrush : GradientBrush, IRadialGradientBrush
             .DefaultValue(0.5f)
             .Register();
 
-        AffectRender<RadialGradientBrush>(CenterProperty, GradientOriginProperty, RadiusProperty);
+        AffectsRender<RadialGradientBrush>(CenterProperty, GradientOriginProperty, RadiusProperty);
     }
 
     /// <summary>

@@ -14,7 +14,7 @@ public sealed class Blur : ImageFilter
             .DefaultValue(Vector.Zero)
             .Register();
 
-        AffectRender<Blur>(SigmaProperty);
+        AffectsRender<Blur>(SigmaProperty);
     }
 
     public Vector Sigma

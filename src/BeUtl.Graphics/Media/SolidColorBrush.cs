@@ -16,7 +16,7 @@ public class SolidColorBrush : Brush, ISolidColorBrush
             .Accessor(o => o.Color, (o, v) => o.Color = v)
             .Register();
 
-        AffectRender<SolidColorBrush>(ColorProperty);
+        AffectsRender<SolidColorBrush>(ColorProperty);
     }
 
     /// <summary>

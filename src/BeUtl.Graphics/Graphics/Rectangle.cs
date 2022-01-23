@@ -12,7 +12,7 @@ public sealed class Rectangle : Drawable
             .DefaultValue(4000)
             .Register();
 
-        AffectRender<Rectangle>(StrokeWidthProperty);
+        AffectsRender<Rectangle>(StrokeWidthProperty);
     }
 
     public float StrokeWidth

@@ -22,7 +22,7 @@ public sealed class RoundedRect : Drawable
             .DefaultValue(new CornerRadius())
             .Register();
 
-        AffectRender<RoundedRect>(StrokeWidthProperty, CornerRadiusProperty);
+        AffectsRender<RoundedRect>(StrokeWidthProperty, CornerRadiusProperty);
     }
 
     public float StrokeWidth
