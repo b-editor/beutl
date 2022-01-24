@@ -32,7 +32,7 @@ public sealed class CorePropertyBuilder<T, TOwner>
         var metadata = new CorePropertyMetadata<T>
         {
             DefaultValue = _defaultValue,
-            DesignerFlags = _propertyFlags,
+            PropertyFlags = _propertyFlags,
             Observability = _observability,
             SerializeName = _serializeName,
         };

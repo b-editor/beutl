@@ -32,7 +32,7 @@ public abstract class CorePropertyMetadata
 {
     private string? _serializeName;
     private PropertyObservability _observability;
-    private PropertyFlags _designerFlags;
+    private PropertyFlags _propertyFlags;
 
     public string? SerializeName
     {
@@ -46,10 +46,10 @@ public abstract class CorePropertyMetadata
         init => _observability = value;
     }
 
-    public PropertyFlags DesignerFlags
+    public PropertyFlags PropertyFlags
     {
-        get => _designerFlags;
-        init => _designerFlags = value;
+        get => _propertyFlags;
+        init => _propertyFlags = value;
     }
 
     public virtual void Merge(CorePropertyMetadata baseMetadata, CoreProperty property)
@@ -64,9 +64,9 @@ public abstract class CorePropertyMetadata
             _serializeName = baseMetadata.SerializeName;
         }
 
-        if (_designerFlags == PropertyFlags.None)
+        if (_propertyFlags == PropertyFlags.None)
         {
-            _designerFlags = baseMetadata.DesignerFlags;
+            _propertyFlags = baseMetadata.PropertyFlags;
         }
     }
 

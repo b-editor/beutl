@@ -18,9 +18,9 @@ public interface ICoreObject : INotifyPropertyChanged, INotifyPropertyChanging, 
     /// </summary>
     string Name { get; set; }
 
-    bool BeginBatchUpdate();
+    void BeginBatchUpdate();
 
-    bool EndBatchUpdate();
+    void EndBatchUpdate();
 
     void ClearValue<TValue>(CoreProperty<TValue> property);
 
@@ -54,8 +54,9 @@ public abstract class CoreObject : ICoreObject
 
     private Dictionary<int, IEntry>? _values;
     private Dictionary<int, IBatchEntry>? _batchChanges;
-    private bool _batchUpdate;
     private bool _batchApplying;
+
+    private int _batchUpdateCount;
 
     internal interface IEntry
     {
@@ -113,6 +114,8 @@ public abstract class CoreObject : ICoreObject
         set => SetValue(NameProperty, value);
     }
 
+    private bool BatchUpdate => _batchUpdateCount > 0;
+
     private Dictionary<int, IEntry> Values => _values ??= new();
 
     private Dictionary<int, IBatchEntry> BatchChanges => _batchChanges ??= new();
@@ -132,28 +135,19 @@ public abstract class CoreObject : ICoreObject
         return new CorePropertyBuilder<T, TOwner>(name);
     }
 
-    public bool BeginBatchUpdate()
+    public void BeginBatchUpdate()
     {
-        if (_batchUpdate)
-        {
-            return false;
-        }
-        else
-        {
-            _batchUpdate = true;
-            return true;
-        }
+        _batchUpdateCount++;
     }
 
-    public bool EndBatchUpdate()
+    public void EndBatchUpdate()
     {
-        if (!_batchUpdate)
+        _batchUpdateCount--;
+        if (_batchUpdateCount < 0)
+            throw new InvalidOperationException();
+
+        if (_batchUpdateCount == 0)
         {
-            return false;
-        }
-        else
-        {
-            _batchUpdate = false;
             if (_batchChanges != null)
             {
                 try
@@ -173,8 +167,6 @@ public abstract class CoreObject : ICoreObject
                     _batchApplying = false;
                 }
             }
-
-            return true;
         }
     }
 
@@ -191,7 +183,7 @@ public abstract class CoreObject : ICoreObject
             return staticProperty.RouteGetTypedValue(this)!;
         }
 
-        if (_batchUpdate)
+        if (BatchUpdate)
         {
             if (_batchChanges?.TryGetValue(property.Id, out IBatchEntry? entry) == true &&
                entry is BatchEntry<TValue> entryT)
@@ -232,7 +224,7 @@ public abstract class CoreObject : ICoreObject
         {
             staticProperty.RouteSetTypedValue(this, value);
         }
-        else if (_batchUpdate)
+        else if (BatchUpdate)
         {
             if (_batchChanges != null &&
                 _batchChanges.TryGetValue(property.Id, out IBatchEntry? oldEntry) &&
@@ -255,23 +247,31 @@ public abstract class CoreObject : ICoreObject
                 _values.TryGetValue(property.Id, out IEntry? oldEntry) &&
                 oldEntry is Entry<TValue> entryT)
             {
-                if (!EqualityComparer<TValue>.Default.Equals(entryT.Value, value))
+                TValue? oldValue = entryT.Value;
+                if (!EqualityComparer<TValue>.Default.Equals(oldValue, value))
                 {
                     CorePropertyMetadata metadata = property.GetMetadata<CorePropertyMetadata>(ownerType);
                     RaisePropertyChanging(property, metadata);
+                    
                     entryT.Value = value;
-                    RaisePropertyChanged(property, metadata, value, entryT.Value);
+                    RaisePropertyChanged(property, metadata, value, oldValue);
                 }
             }
             else
             {
                 CorePropertyMetadata<TValue> metadata = property.GetMetadata<CorePropertyMetadata<TValue>>(ownerType);
-                entryT = new Entry<TValue>
+
+                if (!EqualityComparer<TValue>.Default.Equals(metadata.DefaultValue, value))
                 {
-                    Value = value,
-                };
-                Values[property.Id] = entryT;
-                RaisePropertyChanged(property, metadata, value, metadata.DefaultValue);
+                    RaisePropertyChanging(property, metadata);
+
+                    entryT = new Entry<TValue>
+                    {
+                        Value = value,
+                    };
+                    Values[property.Id] = entryT;
+                    RaisePropertyChanged(property, metadata, value, metadata.DefaultValue);
+                }
             }
         }
     }
@@ -397,7 +397,7 @@ public abstract class CoreObject : ICoreObject
     protected bool SetAndRaise<T>(CoreProperty<T> property, ref T field, T value)
     {
         bool result = true;
-        if (_batchUpdate)
+        if (BatchUpdate)
         {
             if (_batchChanges != null &&
                 _batchChanges.TryGetValue(property.Id, out IBatchEntry? oldEntry) &&
