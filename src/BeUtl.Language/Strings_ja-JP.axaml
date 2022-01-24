@@ -112,6 +112,7 @@
         <x:String x:Key="RoundedRectString">角丸四角形</x:String>
 
         <x:String x:Key="RotateString">回転</x:String>
+        <x:String x:Key="Rotate3DString">回転3D</x:String>
         <x:String x:Key="ScaleString">スケール</x:String>
         <x:String x:Key="SkewString">歪み</x:String>
         <x:String x:Key="TranslateString">移動</x:String>

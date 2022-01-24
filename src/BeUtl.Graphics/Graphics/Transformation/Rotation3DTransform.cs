@@ -145,7 +145,7 @@ public sealed class Rotation3DTransform : Transform
             matrix44 *= Matrix4x4.CreateRotationY(MathUtilities.ToRadians(_rotationY));
             matrix44 *= Matrix4x4.CreateRotationZ(MathUtilities.ToRadians(_rotationZ));
 
-            matrix44 *= Matrix4x4.CreateTranslation(_centerZ, _centerZ, _centerZ);
+            matrix44 *= Matrix4x4.CreateTranslation(_centerX, _centerY, _centerZ);
 
             if (Depth != 0)
             {

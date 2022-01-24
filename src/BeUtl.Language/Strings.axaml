@@ -138,6 +138,7 @@
         <x:String x:Key="RoundedRectString">Rounded rect</x:String>
 
         <x:String x:Key="RotateString">Rotate</x:String>
+        <x:String x:Key="Rotate3DString">Rotate3D</x:String>
         <x:String x:Key="ScaleString">Scale</x:String>
         <x:String x:Key="SkewString">Skew</x:String>
         <x:String x:Key="TranslateString">Translate</x:String>

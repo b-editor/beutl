@@ -16,6 +16,7 @@ public static class RenderOperations
 
         RenderOperationRegistry.RegisterOperations("TransformString", Colors.Teal)
             .Add<RotateTransform>("RotateString")
+            .Add<Rotate3DTransform>("Rotate3DString")
             .Add<ScaleTransform>("ScaleString")
             .Add<SkewTransform>("SkewString")
             .Add<TranslateTransform>("TranslateString")
