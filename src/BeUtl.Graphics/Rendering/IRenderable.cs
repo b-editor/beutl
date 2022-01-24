@@ -6,5 +6,7 @@ public interface IRenderable : IDisposable
 
     bool IsVisible { get; set; }
 
+    bool IsDirty { get; }
+
     void Render(IRenderer renderer);
 }
