@@ -1,4 +1,5 @@
 ﻿using System.Collections.Specialized;
+using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Nodes;
 
@@ -143,7 +144,16 @@ public class Scene : Element, IStorable
     public Layer? SelectedItem
     {
         get => _selectedItem;
-        set => SetAndRaise(SelectedItemProperty, ref _selectedItem, value);
+        set
+        {
+            if (_selectedItem != value)
+            {
+                OnPropertyChanging(new PropertyChangingEventArgs(nameof(SelectedItem)));
+                Layer? oldValue = _selectedItem;
+                _selectedItem = value;
+                OnPropertyChanged(new CorePropertyChangedEventArgs<Layer?>(this, SelectedItemProperty, value, oldValue));
+            }
+        }
     }
 
     public PreviewOptions? PreviewOptions
@@ -501,13 +511,6 @@ public class Scene : Element, IStorable
                 {
                     _excludeLayers.Add(rel);
                 }
-            }
-        }
-        else if (e.Action == NotifyCollectionChangedAction.Add && e.NewItems != null)
-        {
-            foreach (Layer item in e.NewItems.OfType<Layer>())
-            {
-                _renderer[item.ZIndex] = item.Renderable;
             }
         }
     }

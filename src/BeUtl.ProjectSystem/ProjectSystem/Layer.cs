@@ -72,13 +72,16 @@ public class Layer : Element, IStorable, ILogicalElement
             if (args.Sender is Layer layer && layer.Parent is Scene { Renderer: { IsDisposed: false } renderer })
             {
                 renderer[args.OldValue] = null;
-                renderer[args.NewValue] = layer.Renderable;
+                if (args.NewValue >= 0)
+                {
+                    renderer[args.NewValue] = layer.Renderable;
+                }
             }
         });
 
         RenderableProperty.Changed.Subscribe(args =>
         {
-            if (args.Sender is Layer layer && layer.Parent is Scene { Renderer: { IsDisposed: false } renderer })
+            if (args.Sender is Layer layer && layer.Parent is Scene { Renderer: { IsDisposed: false } renderer } && layer.ZIndex >= 0)
             {
                 renderer[layer.ZIndex] = args.NewValue;
             }
@@ -301,6 +304,24 @@ public class Layer : Element, IStorable, ILogicalElement
         else
         {
             recorder.DoAndPush(new AddCommand<LayerOperation>(Children, operation, index));
+        }
+    }
+
+    protected override void OnAttachedToLogicalTree(in LogicalTreeAttachmentEventArgs args)
+    {
+        base.OnAttachedToLogicalTree(args);
+        if (args.Parent is Scene { Renderer: { IsDisposed: false } renderer } && ZIndex >= 0)
+        {
+            renderer[ZIndex] = Renderable;
+        }
+    }
+
+    protected override void OnDetachedFromLogicalTree(in LogicalTreeAttachmentEventArgs args)
+    {
+        base.OnDetachedFromLogicalTree(args);
+        if (args.Parent is Scene { Renderer: { IsDisposed: false } renderer } && ZIndex >= 0)
+        {
+            renderer[ZIndex] = null;
         }
     }
 

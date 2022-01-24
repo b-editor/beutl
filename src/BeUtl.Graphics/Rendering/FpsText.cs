@@ -19,6 +19,7 @@ internal sealed class FpsText
     {
         _fpsFText = new FormattedText
         {
+            IsVisible = true,
             Lines =
             {
                 new TextLine()

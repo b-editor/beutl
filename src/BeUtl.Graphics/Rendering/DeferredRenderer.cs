@@ -102,12 +102,12 @@ public class DeferredRenderer : IRenderer
                 path.AddRect(SKRect.Create(item.X, item.Y, item.Width, item.Height));
             }
 
+            Graphics.ClipPath(path);
+
             if (_clips.Count > 0)
             {
                 Graphics.Clear();
             }
-
-            Graphics.ClipPath(path);
 
             foreach (KeyValuePair<int, IRenderable> item in objects)
             {

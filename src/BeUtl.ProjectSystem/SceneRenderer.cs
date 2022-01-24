@@ -32,7 +32,6 @@ internal sealed class SceneRenderer : DeferredRenderer, IClock
     protected override void RenderCore()
     {
         TimeSpan timeSpan = _scene.CurrentFrame;
-        DrawFps = false;
         CurrentTime = timeSpan;
         DevideLayers(timeSpan);
         Span<Layer> layers = CollectionsMarshal.AsSpan(_layers);
