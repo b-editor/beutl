@@ -1,4 +1,7 @@
-﻿using BeUtl.Animation;
+﻿using System.Reactive;
+using System.Reactive.Linq;
+
+using BeUtl.Animation;
 using BeUtl.Collections;
 using BeUtl.Reactive;
 
@@ -50,6 +53,11 @@ public class Setter<T> : LightweightObservableBase<T?>, ISetter
     public ISetterInstance Instance(IStyleable target)
     {
         return new SetterInstance<T>(this, target);
+    }
+
+    public IObservable<Unit> GetObservable()
+    {
+        return this.Select(i => Unit.Default);
     }
 
     protected override void Subscribed(IObserver<T?> observer, bool first)

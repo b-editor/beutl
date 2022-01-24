@@ -1,4 +1,7 @@
-﻿using BeUtl.Animation;
+﻿using System.Reactive.Linq;
+using System.Reactive;
+
+using BeUtl.Animation;
 using BeUtl.Collections;
 using BeUtl.Reactive;
 
@@ -51,6 +54,11 @@ public class StyleSetter<T> : LightweightObservableBase<Style?>, ISetter
             throw new InvalidCastException($"Unable to cast object of type {Value?.TargetType} to type {typeof(T)}.");
         }
         return new StyleSetterInstance<T>(this, target);
+    }
+
+    public IObservable<Unit> GetObservable()
+    {
+        return this.Select(i => Unit.Default);
     }
 
     protected override void Subscribed(IObserver<Style?> observer, bool first)
