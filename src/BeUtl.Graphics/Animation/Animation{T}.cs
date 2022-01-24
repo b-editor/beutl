@@ -25,13 +25,13 @@ public class Animation<T> : BaseAnimation, IAnimation
         PreviousProperty = ConfigureProperty<T, Animation<T>>(nameof(Previous))
             .Accessor(o => o.Previous, (o, v) => o.Previous = v)
             .Observability(PropertyObservability.Changed)
-            .JsonName("prev")
+            .SerializeName("prev")
             .Register();
 
         NextProperty = ConfigureProperty<T, Animation<T>>(nameof(Next))
             .Accessor(o => o.Next, (o, v) => o.Next = v)
             .Observability(PropertyObservability.Changed)
-            .JsonName("next")
+            .SerializeName("next")
             .Register();
     }
 

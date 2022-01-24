@@ -13,7 +13,7 @@ public abstract class BaseAnimation : CoreObject
 
     protected BaseAnimation()
     {
-        _easing = (Easing?)(EasingProperty.GetMetadata(GetType()).DefaultValue) ?? new LinearEasing();
+        _easing = (EasingProperty.GetMetadata<CorePropertyMetadata<Easing>>(GetType()).DefaultValue) ?? new LinearEasing();
     }
 
     static BaseAnimation()
@@ -27,7 +27,7 @@ public abstract class BaseAnimation : CoreObject
         DurationProperty = ConfigureProperty<TimeSpan, BaseAnimation>(nameof(Duration))
             .Accessor(o => o.Duration, (o, v) => o.Duration = v)
             .Observability(PropertyObservability.Changed)
-            .JsonName("duration")
+            .SerializeName("duration")
             .Register();
     }
 
