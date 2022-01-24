@@ -10,20 +10,12 @@ public sealed class TranslateTransform : TransformOperation
     {
         XProperty = ConfigureProperty<float, TranslateTransform>(nameof(X))
             .Accessor(o => o.X, (o, v) => o.X = v)
-            .DefaultValue(0)
-            .EnableEditor()
-            .Animatable()
-            .Header("XString")
-            .JsonName("x")
+            .OverrideMetadata(DefaultMetadatas.X)
             .Register();
 
         YProperty = ConfigureProperty<float, TranslateTransform>(nameof(Y))
             .Accessor(o => o.Y, (o, v) => o.Y = v)
-            .DefaultValue(0)
-            .EnableEditor()
-            .Animatable()
-            .Header("YString")
-            .JsonName("y")
+            .OverrideMetadata(DefaultMetadatas.Y)
             .Register();
     }
 

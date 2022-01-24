@@ -2,18 +2,15 @@
 
 namespace BeUtl.ProjectSystem;
 
-public readonly struct OperationRenderArgs
+public struct OperationRenderArgs
 {
-    public OperationRenderArgs(TimeSpan currentTime, IRenderer renderer, ILayerScope scope)
+    public OperationRenderArgs(IRenderer renderer)
     {
-        CurrentTime = currentTime;
         Renderer = renderer;
-        Scope = scope;
+        Result = null;
     }
-
-    public TimeSpan CurrentTime { get; }
 
     public IRenderer Renderer { get; }
 
-    public ILayerScope Scope { get; }
+    public Renderable? Result { readonly get; set; }
 }

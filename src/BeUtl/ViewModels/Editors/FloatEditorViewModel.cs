@@ -8,7 +8,7 @@ namespace BeUtl.ViewModels.Editors;
 
 public sealed class FloatEditorViewModel : BaseNumberEditorViewModel<float>
 {
-    public FloatEditorViewModel(Setter<float> setter)
+    public FloatEditorViewModel(PropertyInstance<float> setter)
         : base(setter)
     {
         Value = setter.GetObservable()

@@ -8,7 +8,7 @@ namespace BeUtl.ViewModels.Editors;
 
 public sealed class CornerRadiusEditorViewModel : BaseEditorViewModel<CornerRadius>
 {
-    public CornerRadiusEditorViewModel(Setter<CornerRadius> setter)
+    public CornerRadiusEditorViewModel(PropertyInstance<CornerRadius> setter)
         : base(setter)
     {
         Value = setter.GetObservable()

@@ -8,7 +8,7 @@ namespace BeUtl.ViewModels.Editors;
 
 public sealed class SByteEditorViewModel : BaseNumberEditorViewModel<sbyte>
 {
-    public SByteEditorViewModel(Setter<sbyte> setter)
+    public SByteEditorViewModel(PropertyInstance<sbyte> setter)
         : base(setter)
     {
         Value = setter.GetObservable()

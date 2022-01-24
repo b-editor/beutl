@@ -13,20 +13,26 @@ public sealed class RenderAllOperation : LayerOperation
     {
         StartProperty = ConfigureProperty<int, RenderAllOperation>(nameof(Start))
             .Accessor(o => o.Start, (o, v) => o.Start = v)
-            .Header("StartIndexString")
-            .EnableEditor()
-            .DefaultValue(0)
-            .Minimum(0)
-            .JsonName("start")
+            .OverrideMetadata(new OperationPropertyMetadata<int>
+            {
+                Header = "StartIndexString",
+                PropertyFlags = PropertyFlags.Designable,
+                DefaultValue = 0,
+                Minimum = 0,
+                SerializeName = "start"
+            })
             .Register();
 
         CountProperty = ConfigureProperty<int, RenderAllOperation>(nameof(Count))
             .Accessor(o => o.Count, (o, v) => o.Count = v)
-            .Header("CountString")
-            .EnableEditor()
-            .DefaultValue(-1)
-            .Minimum(-1)
-            .JsonName("count")
+            .OverrideMetadata(new OperationPropertyMetadata<int>
+            {
+                Header = "CountString",
+                PropertyFlags = PropertyFlags.Designable,
+                DefaultValue = -1,
+                Minimum = -1,
+                SerializeName = "count"
+            })
             .Register();
     }
 
@@ -34,23 +40,24 @@ public sealed class RenderAllOperation : LayerOperation
 
     public int Count { get; set; } = -1;
 
-    public override void ApplySetters(in OperationRenderArgs args)
-    {
-        base.ApplySetters(args);
-        int start = Math.Max(Start, 0);
-        int count = Count;
-        if (count < 0)
-        {
-            count = args.Scope.Count;
-        }
+    // Todo: LayerOperation Api
+    //public override void ApplySetters(in OperationRenderArgs args)
+    //{
+    //    base.ApplySetters(args);
+    //    int start = Math.Max(Start, 0);
+    //    int count = Count;
+    //    if (count < 0)
+    //    {
+    //        count = args.Scope.Count;
+    //    }
 
-        for (int i = start; i < count; i++)
-        {
-            IRenderable item = args.Scope[i];
-            if (item is Drawable d)
-            {
-                d.InvalidateVisual();
-            }
-        }
-    }
+    //    for (int i = start; i < count; i++)
+    //    {
+    //        IRenderable item = args.Scope[i];
+    //        if (item is Drawable d)
+    //        {
+    //            d.Invalidate();
+    //        }
+    //    }
+    //}
 }

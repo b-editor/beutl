@@ -5,7 +5,7 @@ namespace BeUtl.ViewModels.Editors;
 
 public sealed class FontFamilyEditorViewModel : BaseEditorViewModel<FontFamily>
 {
-    public FontFamilyEditorViewModel(Setter<FontFamily> setter)
+    public FontFamilyEditorViewModel(PropertyInstance<FontFamily> setter)
         : base(setter)
     {
     }

@@ -8,7 +8,7 @@ namespace BeUtl.ViewModels.Editors;
 
 public sealed class PixelPointEditorViewModel : BaseEditorViewModel<PixelPoint>
 {
-    public PixelPointEditorViewModel(Setter<PixelPoint> setter)
+    public PixelPointEditorViewModel(PropertyInstance<PixelPoint> setter)
         : base(setter)
     {
         Value = setter.GetObservable()

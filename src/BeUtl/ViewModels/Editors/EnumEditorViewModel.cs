@@ -8,7 +8,7 @@ namespace BeUtl.ViewModels.Editors;
 public sealed class EnumEditorViewModel<T> : BaseEditorViewModel<T>
     where T : struct, Enum
 {
-    public EnumEditorViewModel(Setter<T> setter)
+    public EnumEditorViewModel(PropertyInstance<T> setter)
         : base(setter)
     {
         Value = setter.GetObservable()

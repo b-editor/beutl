@@ -11,17 +11,14 @@ public sealed class RotateTransform : TransformOperation
     {
         RotationProperty = ConfigureProperty<float, RotateTransform>(nameof(Rotation))
             .Accessor(o => o.Rotation, (o, v) => o.Rotation = v)
-            .EnableEditor()
-            .Animatable()
-            .DefaultValue(0f)
-            .JsonName("rotation")
+            .OverrideMetadata(DefaultMetadatas.Rotation)
             .Register();
     }
 
     public float Rotation
     {
-        get => MathHelper.ToDegrees(_transform.Rotation);
-        set => _transform.Rotation = MathHelper.ToRadians(value);
+        get => _transform.Rotation;
+        set => _transform.Rotation = value;
     }
 
     public override Graphics.Transformation.Transform Transform => _transform;

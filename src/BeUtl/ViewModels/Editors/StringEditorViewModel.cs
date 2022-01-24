@@ -9,7 +9,7 @@ namespace BeUtl.ViewModels.Editors;
 
 public sealed class StringEditorViewModel : BaseEditorViewModel<string>
 {
-    public StringEditorViewModel(Setter<string> setter)
+    public StringEditorViewModel(PropertyInstance<string> setter)
         : base(setter)
     {
         Value = setter.GetObservable()

@@ -10,7 +10,7 @@ namespace BeUtl.ViewModels.Editors;
 
 public sealed class FileInfoEditorViewModel : BaseEditorViewModel<FileInfo>
 {
-    public FileInfoEditorViewModel(Setter<FileInfo> setter)
+    public FileInfoEditorViewModel(PropertyInstance<FileInfo> setter)
         : base(setter)
     {
     }

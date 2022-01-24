@@ -12,7 +12,7 @@ namespace BeUtl.ViewModels.Editors;
 
 public sealed class ColorEditorViewModel : BaseEditorViewModel<Color>
 {
-    public ColorEditorViewModel(Setter<Color> setter)
+    public ColorEditorViewModel(PropertyInstance<Color> setter)
         : base(setter)
     {
         Value = setter.GetObservable()

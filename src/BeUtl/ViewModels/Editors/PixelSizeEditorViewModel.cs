@@ -8,7 +8,7 @@ namespace BeUtl.ViewModels.Editors;
 
 public sealed class PixelSizeEditorViewModel : BaseEditorViewModel<PixelSize>
 {
-    public PixelSizeEditorViewModel(Setter<PixelSize> setter)
+    public PixelSizeEditorViewModel(PropertyInstance<PixelSize> setter)
         : base(setter)
     {
         Value = setter.GetObservable()

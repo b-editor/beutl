@@ -1,6 +1,5 @@
 ﻿using BeUtl.Graphics;
 using BeUtl.Media;
-using BeUtl.ProjectSystem;
 
 namespace BeUtl.Operations;
 
@@ -44,41 +43,22 @@ public sealed class EllipseOperation : DrawableOperation
     {
         WidthProperty = ConfigureProperty<float, EllipseOperation>(nameof(Width))
             .Accessor(o => o.Width, (o, v) => o.Width = v)
-            .DefaultValue(100)
-            .Animatable()
-            .Header("WidthString")
-            .JsonName("width")
-            .Minimum(0)
-            .EnableEditor()
+            .OverrideMetadata(DefaultMetadatas.Width)
             .Register();
 
         HeightProperty = ConfigureProperty<float, EllipseOperation>(nameof(Height))
             .Accessor(o => o.Height, (o, v) => o.Height = v)
-            .DefaultValue(100)
-            .Animatable()
-            .Header("HeightString")
-            .JsonName("height")
-            .Minimum(0)
-            .EnableEditor()
+            .OverrideMetadata(DefaultMetadatas.Height)
             .Register();
 
         StrokeWidthProperty = ConfigureProperty<float, EllipseOperation>(nameof(StrokeWidth))
             .Accessor(o => o.StrokeWidth, (o, v) => o.StrokeWidth = v)
-            .DefaultValue(4000)
-            .Animatable()
-            .Header("StrokeWidthString")
-            .JsonName("strokeWidth")
-            .Minimum(0)
-            .EnableEditor()
+            .OverrideMetadata(DefaultMetadatas.StrokeWidth)
             .Register();
 
         ColorProperty = ConfigureProperty<Color, EllipseOperation>(nameof(Color))
             .Accessor(o => o.Color, (o, v) => o.Color = v)
-            .DefaultValue(Colors.White)
-            .Animatable()
-            .Header("ColorString")
-            .JsonName("color")
-            .EnableEditor()
+            .OverrideMetadata(DefaultMetadatas.Color)
             .Register();
     }
 

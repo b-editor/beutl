@@ -15,37 +15,25 @@ public sealed class DropShadowOperation : ImageFilterOperation<DropShadow>
     {
         PositionProperty = ConfigureProperty<Point, DropShadowOperation>(nameof(Position))
             .Accessor(o => o.Position, (o, v) => o.Position = v)
+            .OverrideMetadata(DefaultMetadatas.Position)
             .DefaultValue(new Point(10, 10))
-            .EnableEditor()
-            .Animatable()
-            .Header("PositionString")
-            .JsonName("position")
             .Register();
 
         SigmaProperty = ConfigureProperty<Vector, DropShadowOperation>(nameof(Sigma))
             .Accessor(o => o.Sigma, (o, v) => o.Sigma = v)
+            .OverrideMetadata(DefaultMetadatas.Sigma)
             .DefaultValue(new Vector(10, 10))
-            .EnableEditor()
-            .Animatable()
-            .Header("SigmaString")
-            .JsonName("sigma")
             .Register();
 
         ColorProperty = ConfigureProperty<Color, DropShadowOperation>(nameof(Color))
             .Accessor(o => o.Color, (o, v) => o.Color = v)
+            .OverrideMetadata(DefaultMetadatas.Color)
             .DefaultValue(Colors.Black)
-            .EnableEditor()
-            .Animatable()
-            .Header("ColorString")
-            .JsonName("color")
             .Register();
 
         ShadowOnlyProperty = ConfigureProperty<bool, DropShadowOperation>(nameof(ShadowOnly))
             .Accessor(o => o.ShadowOnly, (o, v) => o.ShadowOnly = v)
-            .DefaultValue(false)
-            .EnableEditor()
-            .Header("ShadowOnlyString")
-            .JsonName("shadowOnly")
+            .OverrideMetadata(DefaultMetadatas.ShadowOnly)
             .Register();
     }
 

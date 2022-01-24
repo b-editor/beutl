@@ -8,7 +8,7 @@ namespace BeUtl.ViewModels.Editors;
 
 public sealed class SizeEditorViewModel : BaseEditorViewModel<Size>
 {
-    public SizeEditorViewModel(Setter<Size> setter)
+    public SizeEditorViewModel(PropertyInstance<Size> setter)
         : base(setter)
     {
         Value = setter.GetObservable()

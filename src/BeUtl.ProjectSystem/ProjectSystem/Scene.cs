@@ -1,6 +1,5 @@
 ﻿using System.Collections.Specialized;
 using System.Diagnostics.CodeAnalysis;
-using System.Text.Json;
 using System.Text.Json.Nodes;
 
 using BeUtl.Media;
@@ -15,6 +14,7 @@ public class Scene : Element, IStorable
 {
     public static readonly CoreProperty<int> WidthProperty;
     public static readonly CoreProperty<int> HeightProperty;
+    public static readonly CoreProperty<Layers> ChildrenProperty;
     public static readonly CoreProperty<TimeSpan> DurationProperty;
     public static readonly CoreProperty<TimeSpan> CurrentFrameProperty;
     public static readonly CoreProperty<Layer?> SelectedItemProperty;
@@ -25,6 +25,7 @@ public class Scene : Element, IStorable
         "**/*.layer"
     };
     private readonly List<string> _excludeLayers = new();
+    private readonly Layers _children;
     private string? _fileName;
     private TimeSpan _duration = TimeSpan.FromMinutes(5);
     private TimeSpan _currentFrame;
@@ -42,7 +43,8 @@ public class Scene : Element, IStorable
     {
         Initialize(width, height);
         Name = name;
-        Children.CollectionChanged += Children_CollectionChanged;
+        _children = new Layers(this);
+        _children.CollectionChanged += Children_CollectionChanged;
     }
 
     static Scene()
@@ -50,25 +52,29 @@ public class Scene : Element, IStorable
         WidthProperty = ConfigureProperty<int, Scene>(nameof(Width))
             .Accessor(o => o.Width)
             .Observability(PropertyObservability.Changed)
-            .JsonName("width")
+            .SerializeName("width")
             .Register();
 
         HeightProperty = ConfigureProperty<int, Scene>(nameof(Height))
             .Accessor(o => o.Height)
             .Observability(PropertyObservability.Changed)
-            .JsonName("height")
+            .SerializeName("height")
+            .Register();
+
+        ChildrenProperty = ConfigureProperty<Layers, Scene>(nameof(Children))
+            .Accessor(o => o.Children, (o, v) => o.Children = v)
             .Register();
 
         DurationProperty = ConfigureProperty<TimeSpan, Scene>(nameof(Duration))
             .Accessor(o => o.Duration, (o, v) => o.Duration = v)
             .Observability(PropertyObservability.ChangingAndChanged)
-            .JsonName("duration")
+            .SerializeName("duration")
             .Register();
 
         CurrentFrameProperty = ConfigureProperty<TimeSpan, Scene>(nameof(CurrentFrame))
             .Accessor(o => o.CurrentFrame, (o, v) => o.CurrentFrame = v)
             .Observability(PropertyObservability.ChangingAndChanged)
-            .JsonName("currentFrame")
+            .SerializeName("currentFrame")
             .Register();
 
         SelectedItemProperty = ConfigureProperty<Layer?, Scene>(nameof(SelectedItem))
@@ -86,10 +92,10 @@ public class Scene : Element, IStorable
             .Observability(PropertyObservability.ChangingAndChanged)
             .Register();
 
-        NameProperty.OverrideMetadata(typeof(Scene), new CorePropertyMetadata(null, PropertyObservability.None, new()
+        NameProperty.OverrideMetadata<Scene>(new CorePropertyMetadata<string>
         {
-            { PropertyMetaTableKeys.JsonName, "name" }
-        }));
+            SerializeName = "name"
+        });
 
         CurrentFrameProperty.Changed.Subscribe(e =>
         {
@@ -99,8 +105,6 @@ public class Scene : Element, IStorable
             }
         });
     }
-
-    public event EventHandler<CurrentFrameChangedEventArgs>? CurrentFrameChanged;
 
     public int Width => Renderer.Graphics.Size.Width;
 
@@ -128,15 +132,15 @@ public class Scene : Element, IStorable
             if (value > Duration)
                 value = Duration;
 
-            TimeSpan old = _currentFrame;
-            if (SetAndRaise(CurrentFrameProperty, ref _currentFrame, value))
-            {
-                CurrentFrameChanged?.Invoke(this, new CurrentFrameChangedEventArgs(old, value));
-            }
+            SetAndRaise(CurrentFrameProperty, ref _currentFrame, value);
         }
     }
 
-    public IEnumerable<Layer> Layers => Children.OfType<Layer>();
+    public Layers Children
+    {
+        get => _children;
+        set => _children.Replace(value);
+    }
 
     public Layer? SelectedItem
     {
@@ -208,13 +212,14 @@ public class Scene : Element, IStorable
     {
         ArgumentNullException.ThrowIfNull(layer);
 
-        PropertyChangeTracker? tracker = recorder != null ? new PropertyChangeTracker(Layers, 0) : null;
+        PropertyChangeTracker? tracker = recorder != null ? new PropertyChangeTracker(Children, 0) : null;
+        Span<Layer> span = Children.AsSpan();
 
         // 下に移動
         if (layerNum > layer.ZIndex)
         {
             bool insert = false;
-            foreach (Layer item in Layers)
+            foreach (Layer item in span)
             {
                 if (item.ZIndex == layerNum)
                 {
@@ -224,7 +229,7 @@ public class Scene : Element, IStorable
 
             if (insert)
             {
-                foreach (Layer item in Layers)
+                foreach (Layer item in span)
                 {
                     if (item != layer)
                     {
@@ -240,7 +245,7 @@ public class Scene : Element, IStorable
         else if (layerNum < layer.ZIndex)
         {
             bool insert = false;
-            foreach (Layer item in Layers)
+            foreach (Layer item in span)
             {
                 if (item.ZIndex == layerNum)
                 {
@@ -250,7 +255,7 @@ public class Scene : Element, IStorable
 
             if (insert)
             {
-                foreach (Layer item in Layers)
+                foreach (Layer item in span)
                 {
                     if (item != layer)
                     {
@@ -398,16 +403,16 @@ public class Scene : Element, IStorable
         string viewStateDir = ViewStateDirectory();
         new SceneViewState(this).JsonSave(Path.Combine(viewStateDir, $"{Path.GetFileNameWithoutExtension(filename)}.config"));
 
-        foreach (Layer? item in Layers)
-        {
-            var array = new JsonArray();
-            foreach (LayerOperation? op in item.Operations)
-            {
-                array.Add(op.ViewState.ToJson());
-            }
+        //foreach (Layer? item in Children.AsSpan())
+        //{
+        //    var array = new JsonArray();
+        //    foreach (LayerOperation? op in item.Operations)
+        //    {
+        //        array.Add(op.ViewState.ToJson());
+        //    }
 
-            array.JsonSave(Path.Combine(viewStateDir, $"{Path.GetFileNameWithoutExtension(item.FileName)}.config"));
-        }
+        //    array.JsonSave(Path.Combine(viewStateDir, $"{Path.GetFileNameWithoutExtension(item.FileName)}.config"));
+        //}
     }
 
     public void Restore(string filename)
@@ -426,16 +431,16 @@ public class Scene : Element, IStorable
             new SceneViewState(this).JsonRestore(viewStateFile);
         }
 
-        foreach (Layer? layer in Layers)
-        {
-            JsonNode? node = JsonHelper.JsonRestore(Path.Combine(viewStateDir, $"{Path.GetFileNameWithoutExtension(layer.FileName)}.config"));
-            if (node is not JsonArray array) continue;
+        //foreach (Layer? layer in Children.AsSpan())
+        //{
+        //    JsonNode? node = JsonHelper.JsonRestore(Path.Combine(viewStateDir, $"{Path.GetFileNameWithoutExtension(layer.FileName)}.config"));
+        //    if (node is not JsonArray array) continue;
 
-            foreach ((JsonNode json, LayerOperation op) in array.Zip(layer.Operations))
-            {
-                op.ViewState.FromJson(json);
-            }
-        }
+        //    foreach ((JsonNode json, LayerOperation op) in array.Zip(layer.Operations))
+        //    {
+        //        op.ViewState.FromJson(json);
+        //    }
+        //}
     }
 
     private void SyncronizeLayers(IEnumerable<string> pathToLayer)
@@ -444,9 +449,9 @@ public class Scene : Element, IStorable
         pathToLayer = pathToLayer.Select(x => Path.GetFullPath(x, baseDir)).ToArray();
 
         // 削除するLayers
-        IEnumerable<Layer> toRemoveLayers = Layers.ExceptBy(pathToLayer, x => x.FileName);
+        IEnumerable<Layer> toRemoveLayers = Children.ExceptBy(pathToLayer, x => x.FileName);
         // 追加するLayers
-        IEnumerable<string> toAddLayers = pathToLayer.Except(Layers.Select(x => x.FileName));
+        IEnumerable<string> toAddLayers = pathToLayer.Except(Children.Select(x => x.FileName));
 
         foreach (Layer item in toRemoveLayers)
         {
@@ -472,7 +477,7 @@ public class Scene : Element, IStorable
         matcher.AddExcludePatterns(_excludeLayers);
 
         string[] files = matcher.Execute(directory).Files.Select(x => x.Path).ToArray();
-        foreach (Layer item in Layers)
+        foreach (Layer item in Children.AsSpan())
         {
             string rel = Path.GetRelativePath(dirPath, item.FileName).Replace('\\', '/');
 
@@ -504,24 +509,23 @@ public class Scene : Element, IStorable
         {
             foreach (Layer item in e.NewItems.OfType<Layer>())
             {
-                _renderer[item.ZIndex] = item.Scope;
+                _renderer[item.ZIndex] = item.Renderable;
             }
         }
     }
 
     private int NearestLayerNumber(Layer layer)
     {
-        if (Layers.Select(i => i.ZIndex).Contains(layer.ZIndex))
+        if (Children.Select(i => i.ZIndex).Contains(layer.ZIndex))
         {
-            Layer[] layers = Layers.ToArray();
-            int layerMax = layers.Max(i => i.ZIndex);
+            int layerMax = Children.Max(i => i.ZIndex);
 
             // 使われていないレイヤー番号
             var numbers = new List<int>();
 
             for (int l = 0; l <= layerMax; l++)
             {
-                if (!layers.Select(i => i.ZIndex).Contains(l))
+                if (!Children.Select(i => i.ZIndex).Contains(l))
                 {
                     numbers.Add(l);
                 }

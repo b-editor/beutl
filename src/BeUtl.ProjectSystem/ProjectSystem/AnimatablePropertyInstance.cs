@@ -6,11 +6,9 @@ using BeUtl.Commands;
 
 namespace BeUtl.ProjectSystem;
 
-public interface IAnimatableSetter : ISetter, ILogicalElement
+public interface IAnimatablePropertyInstance : IPropertyInstance, ILogicalElement
 {
     public IReadOnlyList<IAnimation> Children { get; }
-
-    IEnumerable<ILogicalElement> ILogicalElement.LogicalChildren => Children;
 
     public void SetProperty(TimeSpan progress);
 
@@ -21,25 +19,24 @@ public interface IAnimatableSetter : ISetter, ILogicalElement
     public void InsertChild(int index, IAnimation animation, CommandRecorder? recorder = null);
 }
 
-public class AnimatableSetter<T> : Setter<T>, IAnimatableSetter
-    where T : struct
+public class AnimatablePropertyInstance<T> : PropertyInstance<T>, IAnimatablePropertyInstance
 {
-    private readonly LogicalList<Animation<T>> _children;
+    private readonly CoreList<Animation<T>> _children;
 
-    public AnimatableSetter()
+    public AnimatablePropertyInstance()
     {
-        _children = new LogicalList<Animation<T>>(this);
+        _children = new CoreList<Animation<T>>();
     }
 
-    public AnimatableSetter(CoreProperty<T> property)
+    public AnimatablePropertyInstance(CoreProperty<T> property)
         : base(property)
     {
-        _children = new LogicalList<Animation<T>>(this);
+        _children = new CoreList<Animation<T>>();
     }
 
     public IObservableList<Animation<T>> Children => _children;
 
-    IReadOnlyList<IAnimation> IAnimatableSetter.Children => _children;
+    IReadOnlyList<IAnimation> IAnimatablePropertyInstance.Children => _children;
 
     public void SetProperty(TimeSpan progress)
     {
@@ -86,7 +83,6 @@ public class AnimatableSetter<T> : Setter<T>, IAnimatableSetter
     {
         ArgumentNullException.ThrowIfNull(animation);
 
-        animation.SetLogicalParent(this);
         if (recorder == null)
         {
             Children.Add(animation);
@@ -115,7 +111,6 @@ public class AnimatableSetter<T> : Setter<T>, IAnimatableSetter
     {
         ArgumentNullException.ThrowIfNull(animation);
 
-        animation.SetLogicalParent(this);
         if (recorder == null)
         {
             Children.Insert(index, animation);
@@ -139,7 +134,6 @@ public class AnimatableSetter<T> : Setter<T>, IAnimatableSetter
                     if (item is JsonObject jobj)
                     {
                         var anm = new Animation<T>();
-                        anm.SetLogicalParent(this);
                         anm.FromJson(jobj);
                         _children.Add(anm);
                     }
@@ -190,17 +184,17 @@ public class AnimatableSetter<T> : Setter<T>, IAnimatableSetter
         }
     }
 
-    void IAnimatableSetter.AddChild(IAnimation animation, CommandRecorder? recorder)
+    void IAnimatablePropertyInstance.AddChild(IAnimation animation, CommandRecorder? recorder)
     {
         AddChild((Animation<T>)animation, recorder);
     }
 
-    void IAnimatableSetter.RemoveChild(IAnimation animation, CommandRecorder? recorder)
+    void IAnimatablePropertyInstance.RemoveChild(IAnimation animation, CommandRecorder? recorder)
     {
         RemoveChild((Animation<T>)animation, recorder);
     }
 
-    void IAnimatableSetter.InsertChild(int index, IAnimation animation, CommandRecorder? recorder)
+    void IAnimatablePropertyInstance.InsertChild(int index, IAnimation animation, CommandRecorder? recorder)
     {
         InsertChild(index, (Animation<T>)animation, recorder);
     }

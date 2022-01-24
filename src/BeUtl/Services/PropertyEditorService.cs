@@ -15,41 +15,41 @@ namespace BeUtl.Services;
 
 public static class PropertyEditorService
 {
-    private record struct Editor(Func<ISetter, Control?> CreateEditor, Func<ISetter, object?> CreateViewModel);
+    private record struct Editor(Func<IPropertyInstance, Control?> CreateEditor, Func<IPropertyInstance, object?> CreateViewModel);
 
     private record struct AnimationEditor(Func<object?, Control?> CreateEditor, Func<IAnimation, BaseEditorViewModel, object?> CreateViewModel);
 
     private static readonly Dictionary<Type, Editor> s_editors = new()
     {
-        { typeof(bool), new(_ => new BooleanEditor(), s => new BooleanEditorViewModel((Setter<bool>)s)) },
-        { typeof(byte), new(_ => new NumberEditor<byte>(), s => new ByteEditorViewModel((Setter<byte>)s)) },
-        { typeof(Color), new(_ => new ColorEditor(), s => new ColorEditorViewModel((Setter<Color>)s)) },
-        { typeof(CornerRadius), new(_ => new CornerRadiusEditor(), s => new CornerRadiusEditorViewModel((Setter<CornerRadius>)s)) },
-        { typeof(decimal), new(_ => new NumberEditor<decimal>(), s => new DecimalEditorViewModel((Setter<decimal>)s)) },
-        { typeof(double), new(_ => new NumberEditor<double>(), s => new DoubleEditorViewModel((Setter<double>)s)) },
+        { typeof(bool), new(_ => new BooleanEditor(), s => new BooleanEditorViewModel((PropertyInstance<bool>)s)) },
+        { typeof(byte), new(_ => new NumberEditor<byte>(), s => new ByteEditorViewModel((PropertyInstance<byte>)s)) },
+        { typeof(Color), new(_ => new ColorEditor(), s => new ColorEditorViewModel((PropertyInstance<Color>)s)) },
+        { typeof(CornerRadius), new(_ => new CornerRadiusEditor(), s => new CornerRadiusEditorViewModel((PropertyInstance<CornerRadius>)s)) },
+        { typeof(decimal), new(_ => new NumberEditor<decimal>(), s => new DecimalEditorViewModel((PropertyInstance<decimal>)s)) },
+        { typeof(double), new(_ => new NumberEditor<double>(), s => new DoubleEditorViewModel((PropertyInstance<double>)s)) },
         { typeof(Enum), new(CreateEnumEditor, CreateEnumViewModel) },
-        { typeof(FileInfo), new(_ => new FileInfoEditor(), s => new FileInfoEditorViewModel((Setter<FileInfo>)s)) },
-        { typeof(float), new(_ => new NumberEditor<float>(), s => new FloatEditorViewModel((Setter<float>)s)) },
-        { typeof(FontFamily), new(_ => new FontFamilyEditor(), s => new FontFamilyEditorViewModel((Setter<FontFamily>)s)) },
-        { typeof(short), new(_ => new NumberEditor<short>(), s => new Int16EditorViewModel((Setter<short>)s)) },
-        { typeof(int), new(_ => new NumberEditor<int>(), s => new Int32EditorViewModel((Setter<int>)s)) },
-        { typeof(long), new(_ => new NumberEditor<long>(), s => new Int64EditorViewModel((Setter<long>)s)) },
-        { typeof(PixelPoint), new(_ => new PixelPointEditor(), s => new PixelPointEditorViewModel((Setter<PixelPoint>)s)) },
-        { typeof(PixelRect), new(_ => new PixelRectEditor(), s => new PixelRectEditorViewModel((Setter<PixelRect>)s)) },
-        { typeof(PixelSize), new(_ => new PixelSizeEditor(), s => new PixelSizeEditorViewModel((Setter<PixelSize>)s)) },
-        { typeof(Point), new(_ => new PointEditor(), s => new PointEditorViewModel((Setter<Point>)s)) },
-        { typeof(Rect), new(_ => new RectEditor(), s => new RectEditorViewModel((Setter<Rect>)s)) },
-        { typeof(sbyte), new(_ => new NumberEditor<sbyte>(), s => new SByteEditorViewModel((Setter<sbyte>)s)) },
-        { typeof(string), new(_ => new StringEditor(), s => new StringEditorViewModel((Setter<string>)s)) },
-        { typeof(Thickness), new(_ => new ThicknessEditor(), s => new ThicknessEditorViewModel((Setter<Thickness>)s)) },
-        { typeof(Size), new(_ => new SizeEditor(), s => new SizeEditorViewModel((Setter<Size>)s)) },
-        { typeof(ushort), new(_ => new NumberEditor<ushort>(), s => new UInt16EditorViewModel((Setter<ushort>)s)) },
-        { typeof(uint), new(_ => new NumberEditor<uint>(), s => new UInt32EditorViewModel((Setter<uint>)s)) },
-        { typeof(ulong), new(_ => new NumberEditor<ulong>(), s => new UInt64EditorViewModel((Setter<ulong>)s)) },
-        { typeof(Vector2), new(_ => new Vector2Editor(), s => new Vector2EditorViewModel((Setter<Vector2>)s)) },
-        { typeof(Vector3), new(_ => new Vector3Editor(), s => new Vector3EditorViewModel((Setter<Vector3>)s)) },
-        { typeof(Vector4), new(_ => new Vector4Editor(), s => new Vector4EditorViewModel((Setter<Vector4>)s)) },
-        { typeof(Graphics.Vector), new(_ => new VectorEditor(), s => new VectorEditorViewModel((Setter<Graphics.Vector>)s)) },
+        { typeof(FileInfo), new(_ => new FileInfoEditor(), s => new FileInfoEditorViewModel((PropertyInstance<FileInfo>)s)) },
+        { typeof(float), new(_ => new NumberEditor<float>(), s => new FloatEditorViewModel((PropertyInstance<float>)s)) },
+        { typeof(FontFamily), new(_ => new FontFamilyEditor(), s => new FontFamilyEditorViewModel((PropertyInstance<FontFamily>)s)) },
+        { typeof(short), new(_ => new NumberEditor<short>(), s => new Int16EditorViewModel((PropertyInstance<short>)s)) },
+        { typeof(int), new(_ => new NumberEditor<int>(), s => new Int32EditorViewModel((PropertyInstance<int>)s)) },
+        { typeof(long), new(_ => new NumberEditor<long>(), s => new Int64EditorViewModel((PropertyInstance<long>)s)) },
+        { typeof(PixelPoint), new(_ => new PixelPointEditor(), s => new PixelPointEditorViewModel((PropertyInstance<PixelPoint>)s)) },
+        { typeof(PixelRect), new(_ => new PixelRectEditor(), s => new PixelRectEditorViewModel((PropertyInstance<PixelRect>)s)) },
+        { typeof(PixelSize), new(_ => new PixelSizeEditor(), s => new PixelSizeEditorViewModel((PropertyInstance<PixelSize>)s)) },
+        { typeof(Point), new(_ => new PointEditor(), s => new PointEditorViewModel((PropertyInstance<Point>)s)) },
+        { typeof(Rect), new(_ => new RectEditor(), s => new RectEditorViewModel((PropertyInstance<Rect>)s)) },
+        { typeof(sbyte), new(_ => new NumberEditor<sbyte>(), s => new SByteEditorViewModel((PropertyInstance<sbyte>)s)) },
+        { typeof(string), new(_ => new StringEditor(), s => new StringEditorViewModel((PropertyInstance<string>)s)) },
+        { typeof(Thickness), new(_ => new ThicknessEditor(), s => new ThicknessEditorViewModel((PropertyInstance<Thickness>)s)) },
+        { typeof(Size), new(_ => new SizeEditor(), s => new SizeEditorViewModel((PropertyInstance<Size>)s)) },
+        { typeof(ushort), new(_ => new NumberEditor<ushort>(), s => new UInt16EditorViewModel((PropertyInstance<ushort>)s)) },
+        { typeof(uint), new(_ => new NumberEditor<uint>(), s => new UInt32EditorViewModel((PropertyInstance<uint>)s)) },
+        { typeof(ulong), new(_ => new NumberEditor<ulong>(), s => new UInt64EditorViewModel((PropertyInstance<ulong>)s)) },
+        { typeof(Vector2), new(_ => new Vector2Editor(), s => new Vector2EditorViewModel((PropertyInstance<Vector2>)s)) },
+        { typeof(Vector3), new(_ => new Vector3Editor(), s => new Vector3EditorViewModel((PropertyInstance<Vector3>)s)) },
+        { typeof(Vector4), new(_ => new Vector4Editor(), s => new Vector4EditorViewModel((PropertyInstance<Vector4>)s)) },
+        { typeof(Graphics.Vector), new(_ => new VectorEditor(), s => new VectorEditorViewModel((PropertyInstance<Graphics.Vector>)s)) },
     };
 
     // pixelrect, rect, thickness, vector3, vector4
@@ -77,7 +77,7 @@ public static class PropertyEditorService
         { typeof(Graphics.Vector), new(_ => new VectorAnimationEditor(), (a, vm) => new VectorAnimationEditorViewModel((Animation<Graphics.Vector>)a, (BaseEditorViewModel<Graphics.Vector>)vm)) },
     };
 
-    public static Control? CreateEditor(ISetter setter)
+    public static Control? CreateEditor(IPropertyInstance setter)
     {
         Control? Create(Editor editor)
         {
@@ -108,7 +108,7 @@ public static class PropertyEditorService
         return null;
     }
 
-    public static Control? CreateAnimationEditor(IAnimatableSetter setter)
+    public static Control? CreateAnimationEditor(IAnimatablePropertyInstance setter)
     {
         if (s_animationEditors.ContainsKey(setter.Property.PropertyType))
         {
@@ -130,13 +130,13 @@ public static class PropertyEditorService
         return null;
     }
 
-    private static Control? CreateEnumEditor(ISetter s)
+    private static Control? CreateEnumEditor(IPropertyInstance s)
     {
         Type type = typeof(EnumEditor<>).MakeGenericType(s.Property.PropertyType);
         return (Control?)Activator.CreateInstance(type);
     }
 
-    private static object? CreateEnumViewModel(ISetter s)
+    private static object? CreateEnumViewModel(IPropertyInstance s)
     {
         Type type = typeof(EnumEditorViewModel<>).MakeGenericType(s.Property.PropertyType);
         return Activator.CreateInstance(type, s);

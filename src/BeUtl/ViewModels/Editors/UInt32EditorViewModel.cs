@@ -8,7 +8,7 @@ namespace BeUtl.ViewModels.Editors;
 
 public sealed class UInt32EditorViewModel : BaseNumberEditorViewModel<uint>
 {
-    public UInt32EditorViewModel(Setter<uint> setter)
+    public UInt32EditorViewModel(PropertyInstance<uint> setter)
         : base(setter)
     {
         Value = setter.GetObservable()

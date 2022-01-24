@@ -9,32 +9,26 @@ public sealed class SkewTransform : TransformOperation
     static SkewTransform()
     {
         SkewXProperty = ConfigureProperty<float, SkewTransform>(nameof(SkewX))
-            .EnableEditor()
-            .Animatable()
-            .DefaultValue(0f)
+            .OverrideMetadata(DefaultMetadatas.SkewX)
             .Accessor(owner => owner.SkewX, (owner, obj) => owner.SkewX = obj)
-            .JsonName("skewX")
             .Register();
 
         SkewYProperty = ConfigureProperty<float, SkewTransform>(nameof(SkewY))
-            .EnableEditor()
-            .Animatable()
-            .DefaultValue(0f)
-            .JsonName("skewY")
+            .OverrideMetadata(DefaultMetadatas.SkewY)
             .Accessor(owner => owner.SkewY, (owner, obj) => owner.SkewY = obj)
             .Register();
     }
 
     public float SkewX
     {
-        get => MathHelper.ToDegrees(_transform.SkewX);
-        set => _transform.SkewX = MathHelper.ToRadians(value);
+        get => _transform.SkewX;
+        set => _transform.SkewX = value;
     }
 
     public float SkewY
     {
-        get => MathHelper.ToDegrees(_transform.SkewY);
-        set => _transform.SkewY = MathHelper.ToRadians(value);
+        get => _transform.SkewY;
+        set => _transform.SkewY = value;
     }
 
     public override Graphics.Transformation.Transform Transform => _transform;

@@ -28,7 +28,7 @@ public partial class EditorBadge : UserControl
     {
         if (DataContext is not BaseEditorViewModel vm) return;
 
-        if (vm.Setter is IAnimatableSetter setter)
+        if (vm.Setter is IAnimatablePropertyInstance setter)
         {
             EditView editView = this.FindLogicalAncestorOfType<EditView>();
 

@@ -8,7 +8,7 @@ namespace BeUtl.ViewModels.Editors;
 
 public sealed class DoubleEditorViewModel : BaseNumberEditorViewModel<double>
 {
-    public DoubleEditorViewModel(Setter<double> setter)
+    public DoubleEditorViewModel(PropertyInstance<double> setter)
         : base(setter)
     {
         Value = setter.GetObservable()

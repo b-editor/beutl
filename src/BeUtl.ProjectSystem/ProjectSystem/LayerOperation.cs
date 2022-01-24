@@ -1,7 +1,6 @@
 ﻿using System.Text.Json.Nodes;
 
 using BeUtl.Collections;
-using BeUtl.Rendering;
 
 namespace BeUtl.ProjectSystem;
 
@@ -9,9 +8,8 @@ public abstract class LayerOperation : Element, ILogicalElement
 {
     public static readonly CoreProperty<bool> IsEnabledProperty;
     public static readonly CoreProperty<RenderOperationViewState> ViewStateProperty;
-    private readonly LogicalList<ISetter> _setters;
+    private readonly CoreList<IPropertyInstance> _properties;
     private bool _isEnabled = true;
-    private bool _isRendering;
 
     static LayerOperation()
     {
@@ -19,7 +17,7 @@ public abstract class LayerOperation : Element, ILogicalElement
             .Accessor(o => o.IsEnabled, (o, v) => o.IsEnabled = v)
             .DefaultValue(true)
             .Observability(PropertyObservability.Changed)
-            .JsonName("isEnabled")
+            .SerializeName("isEnabled")
             .Register();
 
         ViewStateProperty = ConfigureProperty<RenderOperationViewState, LayerOperation>(nameof(ViewState))
@@ -29,34 +27,32 @@ public abstract class LayerOperation : Element, ILogicalElement
 
     public LayerOperation()
     {
-        _setters = new LogicalList<ISetter>(this);
+        _properties = new CoreList<IPropertyInstance>();
         ViewState = new RenderOperationViewState();
 
         Type ownerType = GetType();
         foreach ((CoreProperty property, CorePropertyMetadata metadata) in PropertyRegistry.GetRegistered(ownerType)
-            .Select(x => (property: x, metadata: x.GetMetadata(ownerType)))
-            .Where(x => x.metadata.GetValueOrDefault<bool>(PropertyMetaTableKeys.Editor) == true))
+            .Select(x => (property: x, metadata: x.GetMetadata<CorePropertyMetadata>(ownerType)))
+            .Where(x => x.metadata.PropertyFlags.HasFlag(PropertyFlags.Designable)))
         {
+            IOperationPropertyMetadata opMetadata
+                = property.GetMetadata<IOperationPropertyMetadata>(ownerType);
             Type? type;
 
-            if (metadata.GetValueOrDefault(PropertyMetaTableKeys.IsAnimatable, false))
+            if (opMetadata.IsAnimatable == true)
             {
-                type = typeof(AnimatableSetter<>).MakeGenericType(property.PropertyType);
+                type = typeof(AnimatablePropertyInstance<>).MakeGenericType(property.PropertyType);
             }
             else
             {
-                type = typeof(Setter<>).MakeGenericType(property.PropertyType);
+                type = typeof(PropertyInstance<>).MakeGenericType(property.PropertyType);
             }
 
-            if (Activator.CreateInstance(type, property) is ISetter setter)
+            if (Activator.CreateInstance(type, property) is IPropertyInstance setter)
             {
-                setter.Parent = this;
-                _setters.Add(setter);
+                _properties.Add(setter);
 
-                if (!metadata.GetValueOrDefault(PropertyMetaTableKeys.SuppressAutoRender, false))
-                {
-                    setter.GetObservable().Subscribe(_ => ForceRender());
-                }
+                setter.GetObservable().Subscribe(_ => ForceRender());
             }
         }
     }
@@ -79,20 +75,15 @@ public abstract class LayerOperation : Element, ILogicalElement
         set => SetValue(ViewStateProperty, value);
     }
 
-    public IObservableList<ISetter> Setters => _setters;
+    public IObservableList<IPropertyInstance> Properties => _properties;
 
-    IEnumerable<ILogicalElement> ILogicalElement.LogicalChildren => _setters;
-
-    public virtual void ApplySetters(in OperationRenderArgs args)
+    public void Render(ref OperationRenderArgs args)
     {
-        int length = Setters.Count;
-        for (int i = 0; i < length; i++)
+        foreach (IPropertyInstance? item in _properties.AsSpan())
         {
-            ISetter item = Setters[i];
-
-            if (item is IAnimatableSetter anmSetter)
+            if (item is IAnimatablePropertyInstance anmProp)
             {
-                anmSetter.SetProperty(args.CurrentTime);
+                anmProp.SetProperty(args.Renderer.Clock.CurrentTime);
             }
             else
             {
@@ -101,37 +92,7 @@ public abstract class LayerOperation : Element, ILogicalElement
         }
     }
 
-    public void BeginningRender(ILayerScope scope)
-    {
-        if (!_isRendering)
-        {
-            BeginningRenderCore(scope);
-            _isRendering = true;
-        }
-        else
-        {
-
-        }
-    }
-
-    public void EndingRender(ILayerScope scope)
-    {
-        if (_isRendering)
-        {
-            EndingRenderCore(scope);
-            _isRendering = false;
-        }
-        else
-        {
-
-        }
-    }
-
-    protected virtual void BeginningRenderCore(ILayerScope scope)
-    {
-    }
-
-    protected virtual void EndingRenderCore(ILayerScope scope)
+    protected virtual void RenderCore(ref OperationRenderArgs args)
     {
     }
 
@@ -141,13 +102,13 @@ public abstract class LayerOperation : Element, ILogicalElement
         if (json is JsonObject jsonObject)
         {
             Type ownerType = GetType();
-            for (int i = 0; i < _setters.Count; i++)
+            for (int i = 0; i < _properties.Count; i++)
             {
-                ISetter setter = _setters[i];
-                string? jsonName = setter.Property.GetMetadata(ownerType).GetValueOrDefault<string>(PropertyMetaTableKeys.JsonName);
+                IPropertyInstance prop = _properties[i];
+                string? jsonName = prop.Property.GetMetadata<CorePropertyMetadata>(ownerType).SerializeName;
                 if (jsonName != null && jsonObject.TryGetPropertyValue(jsonName, out JsonNode? node))
                 {
-                    setter.FromJson(node!);
+                    prop.FromJson(node!);
 
                     removed.Add(new(jsonName, node!));
                     jsonObject.Remove(jsonName);
@@ -171,13 +132,13 @@ public abstract class LayerOperation : Element, ILogicalElement
         if (node is JsonObject jsonObject)
         {
             Type ownerType = GetType();
-            for (int i = 0; i < _setters.Count; i++)
+            for (int i = 0; i < _properties.Count; i++)
             {
-                ISetter setter = _setters[i];
-                string? jsonName = setter.Property.GetMetadata(ownerType).GetValueOrDefault<string>(PropertyMetaTableKeys.JsonName);
+                IPropertyInstance prop = _properties[i];
+                string? jsonName = prop.Property.GetMetadata<CorePropertyMetadata>(ownerType).SerializeName;
                 if (jsonName != null)
                 {
-                    jsonObject[jsonName] = setter.ToJson();
+                    jsonObject[jsonName] = prop.ToJson();
                 }
             }
         }
@@ -185,9 +146,9 @@ public abstract class LayerOperation : Element, ILogicalElement
         return node;
     }
 
-    protected ISetter? FindSetter(CoreProperty property)
+    protected IPropertyInstance? FindSetter(CoreProperty property)
     {
-        foreach (ISetter? item in _setters)
+        foreach (IPropertyInstance? item in _properties)
         {
             if (item.Property == property)
             {

@@ -1,14 +1,16 @@
 using System.Runtime.InteropServices;
 
+using BeUtl.Animation;
 using BeUtl.Graphics;
 using BeUtl.Media.TextFormatting;
 using BeUtl.ProjectSystem;
 using BeUtl.Rendering;
+using BeUtl.Styling;
 using BeUtl.Threading;
 
 namespace BeUtl;
 
-internal sealed class SceneRenderer : DeferredRenderer
+internal sealed class SceneRenderer : DeferredRenderer, IClock
 {
     private readonly Scene _scene;
     private readonly List<Layer> _begin = new();
@@ -20,13 +22,17 @@ internal sealed class SceneRenderer : DeferredRenderer
         : base(width, height)
     {
         _scene = scene;
+        Clock = this;
     }
 
     public TimeSpan FrameNumber => _scene.CurrentFrame;
 
+    public TimeSpan CurrentTime { get; private set; }
+
     protected override void RenderCore()
     {
         TimeSpan timeSpan = _scene.CurrentFrame;
+        CurrentTime = timeSpan;
         DevideLayers(timeSpan);
         Span<Layer> layers = CollectionsMarshal.AsSpan(_layers);
         Span<Layer> begin = CollectionsMarshal.AsSpan(_begin);
@@ -34,34 +40,39 @@ internal sealed class SceneRenderer : DeferredRenderer
 
         foreach (Layer item in begin)
         {
-            foreach (LayerOperation item2 in item.Operations)
-            {
-                item2.BeginningRender(item.Scope);
-            }
+            item.Renderable?.Invalidate();
         }
 
         foreach (Layer layer in layers)
         {
-            var args = new OperationRenderArgs(timeSpan, this, layer.Scope);
-            foreach (LayerOperation item in layer.Operations)
+            var args = new OperationRenderArgs(this)
             {
-                item.ApplySetters(args);
+                Result = layer.Renderable
+            };
+            var prevResult = args.Result;
+            prevResult?.BeginBatchUpdate();
+            foreach (LayerOperation? item in layer.Children.AsSpan())
+            {
+                item.Render(ref args);
+                if (prevResult != args.Result)
+                {
+                    // Resultが変更された
+                    prevResult?.EndBatchUpdate();
+                    args.Result?.BeginBatchUpdate();
+                    prevResult = args.Result;
+                }
             }
+
+            layer.Renderable = args.Result;
+            layer.Renderable?.ApplyStyling(Clock);
+
+            layer.Renderable?.EndBatchUpdate();
         }
 
         foreach (Layer item in end)
         {
-            foreach (LayerOperation item2 in item.Operations)
-            {
-                item2.EndingRender(item.Scope);
-            }
-
-            Span<IRenderable> span = item.Scope.AsSpan();
-            foreach (IRenderable item2 in span)
-            {
-                if (item2 is Drawable d)
-                    AddDirtyRect(d.Bounds);
-            }
+            if (item.Renderable is Drawable d)
+                AddDirtyRect(d.Bounds);
         }
 
         base.RenderCore();
@@ -74,7 +85,7 @@ internal sealed class SceneRenderer : DeferredRenderer
         _begin.Clear();
         _end.Clear();
         _layers.Clear();
-        foreach (Layer? item in _scene.Layers)
+        foreach (Layer? item in _scene.Children)
         {
             bool recent = InRange(item, _recentTime);
             bool current = InRange(item, timeSpan);

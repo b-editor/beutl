@@ -46,7 +46,7 @@ public abstract class AnimationEditorViewModel : IDisposable
 
     public IAnimation Animation { get; }
 
-    public IAnimatableSetter Setter => (IAnimatableSetter)EditorViewModel.Setter;
+    public IAnimatablePropertyInstance Setter => (IAnimatablePropertyInstance)EditorViewModel.Setter;
 
     public BaseEditorViewModel EditorViewModel { get; }
 
@@ -157,7 +157,7 @@ public class AnimationEditorViewModel<T> : AnimationEditorViewModel
 
     public new Animation<T> Animation => (Animation<T>)base.Animation;
 
-    public new AnimatableSetter<T> Setter => (AnimatableSetter<T>)base.Setter;
+    public new AnimatablePropertyInstance<T> Setter => (AnimatablePropertyInstance<T>)base.Setter;
 
     public new BaseEditorViewModel<T> EditorViewModel => (BaseEditorViewModel<T>)base.EditorViewModel;
 

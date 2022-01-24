@@ -9,7 +9,7 @@ namespace BeUtl.ViewModels.Editors;
 
 public sealed class Vector2EditorViewModel : BaseEditorViewModel<Vector2>
 {
-    public Vector2EditorViewModel(Setter<Vector2> setter)
+    public Vector2EditorViewModel(PropertyInstance<Vector2> setter)
         : base(setter)
     {
         Value = setter.GetObservable()

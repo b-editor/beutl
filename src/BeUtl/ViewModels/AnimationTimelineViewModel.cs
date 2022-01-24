@@ -18,7 +18,7 @@ public sealed class AnimationTimelineViewModel : IDisposable
 {
     private readonly CompositeDisposable _disposables = new();
 
-    public AnimationTimelineViewModel(Layer layer, IAnimatableSetter setter, BaseEditorViewModel editorViewModel)
+    public AnimationTimelineViewModel(Layer layer, IAnimatablePropertyInstance setter, BaseEditorViewModel editorViewModel)
     {
         Layer = layer;
         Setter = setter;
@@ -70,7 +70,7 @@ public sealed class AnimationTimelineViewModel : IDisposable
 
     public Layer Layer { get; }
 
-    public IAnimatableSetter Setter { get; }
+    public IAnimatablePropertyInstance Setter { get; }
 
     public BaseEditorViewModel EditorViewModel { get; }
 

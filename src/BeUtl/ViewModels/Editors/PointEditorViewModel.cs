@@ -8,7 +8,7 @@ namespace BeUtl.ViewModels.Editors;
 
 public sealed class PointEditorViewModel : BaseEditorViewModel<Point>
 {
-    public PointEditorViewModel(Setter<Point> setter)
+    public PointEditorViewModel(PropertyInstance<Point> setter)
         : base(setter)
     {
         Value = setter.GetObservable()

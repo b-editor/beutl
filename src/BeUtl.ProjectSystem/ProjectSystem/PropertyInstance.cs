@@ -10,7 +10,7 @@ using System.Text.Json.Nodes;
 
 namespace BeUtl.ProjectSystem;
 
-public interface ISetter : IJsonSerializable, INotifyPropertyChanged, ILogicalElement
+public interface IPropertyInstance : IJsonSerializable, INotifyPropertyChanged, ILogicalElement
 {
     CoreProperty Property { get; set; }
 
@@ -23,20 +23,20 @@ public interface ISetter : IJsonSerializable, INotifyPropertyChanged, ILogicalEl
     IObservable<Unit> GetObservable();
 }
 
-public class Setter<T> : ISetter
+public class PropertyInstance<T> : IPropertyInstance
 {
     private CoreProperty<T>? _property;
     private T? _value;
     private Element? _parent;
 
-    public Setter()
+    public PropertyInstance()
     {
     }
 
-    public Setter(CoreProperty<T> property)
+    public PropertyInstance(CoreProperty<T> property)
     {
         Property = property;
-        Value = (T?)property.GetMetadata(property.OwnerType).DefaultValue;
+        Value = property.GetMetadata<CorePropertyMetadata<T>>(property.OwnerType).DefaultValue;
     }
 
     public CoreProperty<T> Property
@@ -65,7 +65,7 @@ public class Setter<T> : ISetter
         }
     }
 
-    CoreProperty ISetter.Property
+    CoreProperty IPropertyInstance.Property
     {
         get => Property;
         set => Property = (CoreProperty<T>)value;
@@ -88,7 +88,7 @@ public class Setter<T> : ISetter
 
     IEnumerable<ILogicalElement> ILogicalElement.LogicalChildren => Enumerable.Empty<ILogicalElement>();
 
-    object? ISetter.Value => _value;
+    object? IPropertyInstance.Value => _value;
 
     public event PropertyChangedEventHandler? PropertyChanged;
     public event EventHandler<LogicalTreeAttachmentEventArgs>? AttachedToLogicalTree;
@@ -131,7 +131,7 @@ public class Setter<T> : ISetter
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyname));
     }
 
-    IObservable<Unit> ISetter.GetObservable()
+    IObservable<Unit> IPropertyInstance.GetObservable()
     {
         return GetObservable().Select(_ => Unit.Default);
     }
@@ -150,9 +150,9 @@ public class Setter<T> : ISetter
     {
         private readonly List<IObserver<T?>> _list = new();
         private bool _isDisposed;
-        private Setter<T>? _object;
+        private PropertyInstance<T>? _object;
 
-        public SetterSubject(Setter<T> o)
+        public SetterSubject(PropertyInstance<T> o)
         {
             _object = o;
             o.PropertyChanged += Object_PropertyChanged;
@@ -215,7 +215,7 @@ public class Setter<T> : ISetter
 
         private void Object_PropertyChanged(object? sender, PropertyChangedEventArgs e)
         {
-            if (e.PropertyName != nameof(Setter<T>.Value)) return;
+            if (e.PropertyName != nameof(PropertyInstance<T>.Value)) return;
             if (IsDisposed) throw new ObjectDisposedException(nameof(SetterSubject));
 
             T? value = _object.Value;

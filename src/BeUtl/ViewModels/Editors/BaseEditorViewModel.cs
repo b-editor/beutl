@@ -16,7 +16,7 @@ public abstract class BaseEditorViewModel : IDisposable
     protected CompositeDisposable Disposables = new();
     private bool _disposedValue;
 
-    protected BaseEditorViewModel(ISetter setter)
+    protected BaseEditorViewModel(IPropertyInstance setter)
     {
         Setter = setter;
 
@@ -44,13 +44,13 @@ public abstract class BaseEditorViewModel : IDisposable
             Dispose(false);
     }
 
-    public ISetter Setter { get; }
+    public IPropertyInstance Setter { get; }
 
     public bool CanReset => Setter.Property.GetMetadata(Setter.Parent.GetType()).DefaultValue != null;
 
     public ReadOnlyReactivePropertySlim<string?> Header { get; }
 
-    public bool IsAnimatable => Setter is IAnimatableSetter;
+    public bool IsAnimatable => Setter is IAnimatablePropertyInstance;
 
     public void Dispose()
     {
@@ -70,12 +70,12 @@ public abstract class BaseEditorViewModel : IDisposable
 
 public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
 {
-    protected BaseEditorViewModel(Setter<T> setter)
+    protected BaseEditorViewModel(PropertyInstance<T> setter)
         : base(setter)
     {
     }
 
-    public new Setter<T> Setter => (Setter<T>)base.Setter;
+    public new PropertyInstance<T> Setter => (PropertyInstance<T>)base.Setter;
 
     public void Reset()
     {
@@ -96,11 +96,11 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
 
     private sealed class SetCommand : IRecordableCommand
     {
-        private readonly Setter<T> _setter;
+        private readonly PropertyInstance<T> _setter;
         private readonly T? _oldValue;
         private readonly T? _newValue;
 
-        public SetCommand(Setter<T> setter, T? oldValue, T? newValue)
+        public SetCommand(PropertyInstance<T> setter, T? oldValue, T? newValue)
         {
             _setter = setter;
             _oldValue = oldValue;

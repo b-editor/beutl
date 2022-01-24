@@ -32,92 +32,79 @@ internal class TestOperation : LayerOperation
 
     static TestOperation()
     {
+        static OperationPropertyMetadata<T> Metadata<T>(string serializeName)
+        {
+            return new OperationPropertyMetadata<T>()
+            {
+                IsAnimatable = true,
+                SerializeName = serializeName,
+                PropertyFlags = PropertyFlags.Designable
+            };
+        }
+
         BooleanProperty = ConfigureProperty<bool, TestOperation>("Boolean")
             .DefaultValue(false)
-            .Animatable()
-            .JsonName("boolean")
-            .EnableEditor()
+            .OverrideMetadata(Metadata<bool>("boolean"))
             .Register();
 
         NumberProperty = ConfigureProperty<float, TestOperation>("Number")
             .DefaultValue(0)
-            .Animatable()
-            .JsonName("number")
-            .EnableEditor()
+            .OverrideMetadata(Metadata<float>("number"))
             .Register();
 
         ColorProperty = ConfigureProperty<Color, TestOperation>("Color")
             .DefaultValue(Colors.White)
-            .Animatable()
-            .JsonName("color")
-            .EnableEditor()
+            .OverrideMetadata(Metadata<Color>("color"))
             .Register();
 
         PixelPointProperty = ConfigureProperty<PixelPoint, TestOperation>("PixelPoint")
             .DefaultValue(PixelPoint.Origin)
-            .Animatable()
-            .JsonName("pixelPoint")
-            .EnableEditor()
+            .OverrideMetadata(Metadata<PixelPoint>("pixelPoint"))
             .Register();
 
         PixelRectProperty = ConfigureProperty<PixelRect, TestOperation>("PixelRect")
             .DefaultValue(PixelRect.Empty)
-            .Animatable()
-            .JsonName("pixelRect")
-            .EnableEditor()
+            .OverrideMetadata(Metadata<PixelRect>("pixelRect"))
             .Register();
 
         PixelSizeProperty = ConfigureProperty<PixelSize, TestOperation>("PixelSize")
             .DefaultValue(PixelSize.Empty)
-            .Animatable()
-            .JsonName("pixelSize")
-            .EnableEditor()
+            .OverrideMetadata(Metadata<PixelSize>("pixelSize"))
             .Register();
 
         PointProperty = ConfigureProperty<Point, TestOperation>("Point")
             .DefaultValue(new Point())
-            .Animatable()
-            .JsonName("point")
-            .EnableEditor()
+            .OverrideMetadata(Metadata<Point>("point"))
             .Register();
 
         RectProperty = ConfigureProperty<Rect, TestOperation>("Rect")
             .DefaultValue(Rect.Empty)
-            .Animatable()
-            .JsonName("rect")
-            .EnableEditor()
+            .OverrideMetadata(Metadata<Rect>("rect"))
             .Register();
 
         SizeProperty = ConfigureProperty<Size, TestOperation>("Size")
             .DefaultValue(new Size(100, 100))
-            .Animatable()
-            .JsonName("size")
-            .EnableEditor()
+            .OverrideMetadata(Metadata<Size>("size"))
             .Register();
 
         ThicknessProperty = ConfigureProperty<Thickness, TestOperation>("Thickness")
             .DefaultValue(new Thickness())
-            .Animatable()
-            .JsonName("thickness")
-            .EnableEditor()
+            .OverrideMetadata(Metadata<Thickness>("thickness"))
             .Register();
 
         AsisProperty = ConfigureProperty<Asis, TestOperation>("Asis")
             .DefaultValue(Asis.X)
-            .JsonName("asis")
-            .EnableEditor()
+            .OverrideMetadata(Metadata<Asis>("asis"))
             .Register();
 
         StringProperty = ConfigureProperty<string, TestOperation>("String")
             .DefaultValue("")
-            .JsonName("string")
-            .EnableEditor()
+            .OverrideMetadata(Metadata<string>("string"))
             .Register();
 
         FileInfoProperty = ConfigureProperty<FileInfo?, TestOperation>("FileInfo")
             .DefaultValue(null)
-            .JsonName("file")
-            .EnableEditor()
+            .OverrideMetadata(Metadata<FileInfo?>("file"))
             .Register();
     }
 
@@ -125,7 +112,7 @@ internal class TestOperation : LayerOperation
     {
         _service = ServiceLocator.Current.GetRequiredService<INotificationService>();
 
-        Setters.FirstOrDefault(i => i.Property == BooleanProperty)?.GetObservable().Subscribe(_ =>
+        Properties.FirstOrDefault(i => i.Property == BooleanProperty)?.GetObservable().Subscribe(_ =>
         {
             _service.Show(
                 new Notification("Change Boolean", "Booleanが変更された", (NotificationType)Random.Shared.Next(0, 4)));

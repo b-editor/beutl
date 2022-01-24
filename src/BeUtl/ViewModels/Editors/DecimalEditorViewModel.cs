@@ -8,7 +8,7 @@ namespace BeUtl.ViewModels.Editors;
 
 public sealed class DecimalEditorViewModel : BaseNumberEditorViewModel<decimal>
 {
-    public DecimalEditorViewModel(Setter<decimal> setter)
+    public DecimalEditorViewModel(PropertyInstance<decimal> setter)
         : base(setter)
     {
         Value = setter.GetObservable()

@@ -8,7 +8,7 @@ namespace BeUtl.ViewModels.Editors;
 
 public sealed class ThicknessEditorViewModel : BaseEditorViewModel<Thickness>
 {
-    public ThicknessEditorViewModel(Setter<Thickness> setter)
+    public ThicknessEditorViewModel(PropertyInstance<Thickness> setter)
         : base(setter)
     {
         Value = setter.GetObservable()

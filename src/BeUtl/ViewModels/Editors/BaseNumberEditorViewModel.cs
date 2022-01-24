@@ -6,7 +6,7 @@ namespace BeUtl.ViewModels.Editors;
 public abstract class BaseNumberEditorViewModel<T> : BaseEditorViewModel<T>, INumberEditorViewModel<T>
     where T : struct
 {
-    protected BaseNumberEditorViewModel(Setter<T> setter)
+    protected BaseNumberEditorViewModel(PropertyInstance<T> setter)
         : base(setter)
     {
     }

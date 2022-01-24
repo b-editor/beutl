@@ -10,12 +10,8 @@ public sealed class BlurOperation : ImageFilterOperation<Blur>
     static BlurOperation()
     {
         SigmaProperty = ConfigureProperty<Vector, BlurOperation>(nameof(Sigma))
-            .JsonName("sigma")
-            .Header("SigmaString")
-            .Minimum(Vector.Zero)
+            .OverrideMetadata(DefaultMetadatas.Sigma)
             .DefaultValue(new Vector(25, 25))
-            .EnableEditor()
-            .Animatable(true)
             .Accessor(o => o.Sigma, (o, v) => o.Sigma = v)
             .Register();
     }

@@ -8,7 +8,7 @@ namespace BeUtl.ViewModels.Editors;
 
 public sealed class RectEditorViewModel : BaseEditorViewModel<Rect>
 {
-    public RectEditorViewModel(Setter<Rect> setter)
+    public RectEditorViewModel(PropertyInstance<Rect> setter)
         : base(setter)
     {
         Value = setter.GetObservable()

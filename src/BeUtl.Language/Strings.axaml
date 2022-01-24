@@ -61,10 +61,10 @@
         <x:String x:Key="FontWeightString">Weight</x:String>
         <x:String x:Key="CharactorSpacingString">Charactor spacing</x:String>
         <x:String x:Key="MarginString">Margin</x:String>
-        <x:String x:Key="HorizontalAlignmentString">Horizontal alignment (Canvas)</x:String>
-        <x:String x:Key="VerticalAlignmentString">Vertical alignment (Canvas)</x:String>
-        <x:String x:Key="HorizontalContentAlignmentString">Horizontal alignment</x:String>
-        <x:String x:Key="VerticalContentAlignmentString">Vertical alignment</x:String>
+        <x:String x:Key="CanvasAlignmentXString">Horizontal alignment (Canvas)</x:String>
+        <x:String x:Key="CanvasAlignmentYString">Vertical alignment (Canvas)</x:String>
+        <x:String x:Key="AlignmentXString">Horizontal alignment</x:String>
+        <x:String x:Key="AlignmentYString">Vertical alignment</x:String>
         <x:String x:Key="PositionString">Position</x:String>
         <x:String x:Key="SigmaString">Sigma</x:String>
         <x:String x:Key="ShadowOnlyString">Shadow only</x:String>

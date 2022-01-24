@@ -2,10 +2,12 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
+using BeUtl.Collections;
+
 namespace BeUtl.ProjectSystem;
 
 // Todo: IResourceProviderを実装
-public class Project : Element, ITopLevel, IStorable
+public class Project : Element, ITopLevel, IStorable, ILogicalElement
 {
     public static readonly CoreProperty<Scene?> SelectedSceneProperty;
     public static readonly CoreProperty<Version> AppVersionProperty;
@@ -38,20 +40,21 @@ public class Project : Element, ITopLevel, IStorable
             .Accessor(o => o.FrameRate, (o, v) => o.FrameRate = v)
             .Observability(PropertyObservability.ChangingAndChanged)
             .DefaultValue(30)
-            .JsonName("framerate")
+            .SerializeName("framerate")
             .Register();
 
         SampleRateProperty = ConfigureProperty<int, Project>(nameof(SampleRate))
             .Accessor(o => o.SampleRate, (o, v) => o.SampleRate = v)
             .Observability(PropertyObservability.ChangingAndChanged)
             .DefaultValue(44100)
-            .JsonName("samplerate")
+            .SerializeName("samplerate")
             .Register();
     }
 
     public Project()
     {
         MinimumAppVersion = new Version(0, 3);
+        Children = new LogicalList<Scene>(this);
     }
 
     public Project(int framerate, int samplerate)
@@ -67,7 +70,7 @@ public class Project : Element, ITopLevel, IStorable
         set => SetAndRaise(SelectedSceneProperty, ref _selectedScene, value);
     }
 
-    public IEnumerable<Scene> Scenes => Children.OfType<Scene>();
+    public LogicalList<Scene> Children { get; }
 
     public string RootDirectory => _rootDirectory ?? throw new Exception("The file name is not set.");
 
@@ -90,6 +93,8 @@ public class Project : Element, ITopLevel, IStorable
         get => _sampleRate;
         private set => SetAndRaise(SampleRateProperty, ref _sampleRate, value);
     }
+
+    IEnumerable<ILogicalElement> ILogicalElement.LogicalChildren => Children;
 
     public void Restore(string filename)
     {
@@ -155,7 +160,7 @@ public class Project : Element, ITopLevel, IStorable
                 if (selectedScene != null)
                 {
                     selectedScene = Path.GetFullPath(selectedScene, RootDirectory);
-                    foreach (Scene item in Scenes)
+                    foreach (Scene item in Children)
                     {
                         if (item.FileName == selectedScene)
                         {
@@ -177,7 +182,7 @@ public class Project : Element, ITopLevel, IStorable
             jobject["minAppVersion"] = JsonValue.Create(MinimumAppVersion);
 
             var scenes = new JsonArray();
-            foreach (Scene item in Scenes)
+            foreach (Scene item in Children)
             {
                 string path = Path.GetRelativePath(RootDirectory, item.FileName).Replace('\\', '/');
                 var value = JsonValue.Create(path);
@@ -200,9 +205,9 @@ public class Project : Element, ITopLevel, IStorable
         pathToScene = pathToScene.Select(x => Path.GetFullPath(x, RootDirectory)).ToArray();
 
         // 削除するシーン
-        IEnumerable<Scene> toRemoveScenes = Scenes.ExceptBy(pathToScene, x => x.FileName);
+        IEnumerable<Scene> toRemoveScenes = Children.ExceptBy(pathToScene, x => x.FileName);
         // 追加するシーン
-        IEnumerable<string> toAddScenes = pathToScene.Except(Scenes.Select(x => x.FileName));
+        IEnumerable<string> toAddScenes = pathToScene.Except(Children.Select(x => x.FileName));
 
         foreach (Scene item in toRemoveScenes)
         {

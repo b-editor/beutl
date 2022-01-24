@@ -15,17 +15,13 @@ public sealed class ImageFileOperation : DrawableOperation
     {
         FileProperty = ConfigureProperty<FileInfo?, ImageFileOperation>(nameof(File))
             .Accessor(o => o.File, (o, v) => o.File = v)
-            .EnableEditor()
-            .SuppressAutoRender(true)
-            .JsonName("file")
-            .FilePicker("ImageFileString", "bmp", "gif", "ico", "jpg", "jpeg", "png", "wbmp", "webp", "pkm", "ktx", "astc", "dng", "heif")
-            .Header("ImageFileString")
+            .OverrideMetadata(DefaultMetadatas.ImageFile)
             .Register();
     }
 
     public ImageFileOperation()
     {
-        if (FindSetter(FileProperty) is Setter<FileInfo?> setter)
+        if (FindSetter(FileProperty) is PropertyInstance<FileInfo?> setter)
         {
             setter.GetObservable().Subscribe(f =>
             {
@@ -42,7 +38,7 @@ public sealed class ImageFileOperation : DrawableOperation
     protected override void OnAttachedToLogicalTree(in LogicalTreeAttachmentEventArgs args)
     {
         base.OnAttachedToLogicalTree(args);
-        if (FindSetter(FileProperty) is Setter<FileInfo?> setter)
+        if (FindSetter(FileProperty) is PropertyInstance<FileInfo?> setter)
         {
             FileChanged(setter.Value);
         }

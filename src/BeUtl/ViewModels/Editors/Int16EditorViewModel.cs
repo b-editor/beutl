@@ -8,7 +8,7 @@ namespace BeUtl.ViewModels.Editors;
 
 public sealed class Int16EditorViewModel : BaseNumberEditorViewModel<short>
 {
-    public Int16EditorViewModel(Setter<short> setter)
+    public Int16EditorViewModel(PropertyInstance<short> setter)
         : base(setter)
     {
         Value = setter.GetObservable()

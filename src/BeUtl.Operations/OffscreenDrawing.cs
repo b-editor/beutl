@@ -6,7 +6,7 @@ using BeUtl.ProjectSystem;
 
 namespace BeUtl.Operations;
 
-public sealed class OffscreenDrawing : ConfigureOperation<IDrawable>
+public sealed class OffscreenDrawing : LayerOperation
 {
     public static readonly CoreProperty<PixelSize> BufferSizeProperty;
 
@@ -14,16 +14,21 @@ public sealed class OffscreenDrawing : ConfigureOperation<IDrawable>
     {
         BufferSizeProperty = ConfigureProperty<PixelSize, OffscreenDrawing>(nameof(BufferSize))
             .Accessor(o => o.BufferSize, (o, v) => o.BufferSize = v)
-            .JsonName("bufferSize")
-            .EnableEditor()
-            .DefaultValue(new PixelSize(-1, -1))
+            .OverrideMetadata(new OperationPropertyMetadata<PixelSize>
+            {
+                SerializeName = "bufferSize",
+                PropertyFlags = PropertyFlags.Designable,
+                DefaultValue = new PixelSize(-1, -1)
+            })
             .Register();
     }
 
     public PixelSize BufferSize { get; set; }
 
-    public override void Configure(in OperationRenderArgs args, ref IDrawable obj)
+    protected override void RenderCore(ref OperationRenderArgs args)
     {
+        if (args.Result is not Drawable obj) return;
+
         static Bitmap<Bgra8888> Draw(PixelSize canvasSize, IDrawable drawable)
         {
             using var canvas = new Canvas(canvasSize.Width, canvasSize.Height);
@@ -47,11 +52,22 @@ public sealed class OffscreenDrawing : ConfigureOperation<IDrawable>
             Foreground = obj.Foreground,
         };
 
-        result.Transform.Add(new TranslateTransform(bounds.Position.ToPoint(1)));
-        result.Transform.AddRange(obj.Transform);
+        var transgroup = new TransformGroup
+        {
+            Children =
+            {
+                new TranslateTransform(bounds.Position.ToPoint(1)),
+            }
+        };
+        if (obj.Transform is Graphics.Transformation.Transform baseTransform)
+        {
+            transgroup.Children.Add(baseTransform);
+        }
+        result.Transform = transgroup;
 
         obj.Dispose();
         obj = result;
+        base.RenderCore(ref args);
     }
 
     private static unsafe PixelRect FindRect(Bitmap<Bgra8888> bitmap)

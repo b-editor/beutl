@@ -343,7 +343,7 @@ public partial class OperationEditor : UserControl
 
         public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
         {
-            if (value is ISetter setter)
+            if (value is IPropertyInstance setter)
             {
                 Control? editor = PropertyEditorService.CreateEditor(setter);
 

@@ -8,7 +8,7 @@ namespace BeUtl.ViewModels.Editors;
 
 public sealed class PixelRectEditorViewModel : BaseEditorViewModel<PixelRect>
 {
-    public PixelRectEditorViewModel(Setter<PixelRect> setter)
+    public PixelRectEditorViewModel(PropertyInstance<PixelRect> setter)
         : base(setter)
     {
         Value = setter.GetObservable()

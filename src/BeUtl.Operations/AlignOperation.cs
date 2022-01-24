@@ -4,60 +4,52 @@ using BeUtl.ProjectSystem;
 
 namespace BeUtl.Operations;
 
-public sealed class AlignOperation : ConfigureOperation<IDrawable>
+public sealed class AlignOperation : LayerOperation
 {
-    public static readonly CoreProperty<AlignmentX> HorizontalAlignmentProperty;
-    public static readonly CoreProperty<AlignmentY> VerticalAlignmentProperty;
-    public static readonly CoreProperty<AlignmentX> HorizontalContentAlignmentProperty;
-    public static readonly CoreProperty<AlignmentY> VerticalContentAlignmentProperty;
+    public static readonly CoreProperty<AlignmentX> CanvasAlignmentXProperty;
+    public static readonly CoreProperty<AlignmentY> CanvasAlignmentYProperty;
+    public static readonly CoreProperty<AlignmentX> AlignmentXProperty;
+    public static readonly CoreProperty<AlignmentY> AlignmentYProperty;
 
     static AlignOperation()
     {
-        HorizontalAlignmentProperty = ConfigureProperty<AlignmentX, AlignOperation>(nameof(HorizontalAlignment))
-            .Accessor(o => o.HorizontalAlignment, (o, v) => o.HorizontalAlignment = v)
-            .EnableEditor()
-            .Header("HorizontalAlignmentString")
-            .JsonName("hAlilgn")
+        CanvasAlignmentXProperty = ConfigureProperty<AlignmentX, AlignOperation>(nameof(CanvasAlignmentX))
+            .Accessor(o => o.CanvasAlignmentX, (o, v) => o.CanvasAlignmentX = v)
+            .OverrideMetadata(DefaultMetadatas.CanvasAlignmentX)
             .Register();
 
-        VerticalAlignmentProperty = ConfigureProperty<AlignmentY, AlignOperation>(nameof(VerticalAlignment))
-            .Accessor(o => o.VerticalAlignment, (o, v) => o.VerticalAlignment = v)
-            .EnableEditor()
-            .Header("VerticalAlignmentString")
-            .JsonName("vAlign")
+        CanvasAlignmentYProperty = ConfigureProperty<AlignmentY, AlignOperation>(nameof(CanvasAlignmentY))
+            .Accessor(o => o.CanvasAlignmentY, (o, v) => o.CanvasAlignmentY = v)
+            .OverrideMetadata(DefaultMetadatas.CanvasAlignmentY)
             .Register();
 
-        HorizontalContentAlignmentProperty = ConfigureProperty<AlignmentX, AlignOperation>(nameof(HorizontalContentAlignment))
-            .Accessor(o => o.HorizontalContentAlignment, (o, v) => o.HorizontalContentAlignment = v)
-            .EnableEditor()
-            .Header("HorizontalContentAlignmentString")
-            .JsonName("hContentAlign")
+        AlignmentXProperty = ConfigureProperty<AlignmentX, AlignOperation>(nameof(AlignmentX))
+            .Accessor(o => o.AlignmentX, (o, v) => o.AlignmentX = v)
+            .OverrideMetadata(DefaultMetadatas.AlignmentX)
             .Register();
 
-        VerticalContentAlignmentProperty = ConfigureProperty<AlignmentY, AlignOperation>(nameof(VerticalContentAlignment))
-            .Accessor(o => o.VerticalContentAlignment, (o, v) => o.VerticalContentAlignment = v)
-            .EnableEditor()
-            .Header("VerticalContentAlignmentString")
-            .JsonName("vContentAlign")
+        AlignmentYProperty = ConfigureProperty<AlignmentY, AlignOperation>(nameof(AlignmentY))
+            .Accessor(o => o.AlignmentY, (o, v) => o.AlignmentY = v)
+            .OverrideMetadata(DefaultMetadatas.AlignmentY)
             .Register();
     }
 
-    public AlignmentX HorizontalAlignment { get; set; }
+    public AlignmentX CanvasAlignmentX { get; set; }
 
-    public AlignmentY VerticalAlignment { get; set; }
+    public AlignmentY CanvasAlignmentY { get; set; }
 
-    public AlignmentX HorizontalContentAlignment { get; set; }
+    public AlignmentX AlignmentX { get; set; }
 
-    public AlignmentY VerticalContentAlignment { get; set; }
+    public AlignmentY AlignmentY { get; set; }
 
-    public override void Configure(in OperationRenderArgs args, ref IDrawable obj)
+    protected override void RenderCore(ref OperationRenderArgs args)
     {
-        if (IsEnabled)
+        if (IsEnabled && args.Result is Drawable obj)
         {
-            obj.CanvasAlignmentX = HorizontalAlignment;
-            obj.AlignmentX = HorizontalContentAlignment;
-            obj.CanvasAlignmentY = VerticalAlignment;
-            obj.AlignmentY = VerticalContentAlignment;
+            obj.CanvasAlignmentX = CanvasAlignmentX;
+            obj.AlignmentX = AlignmentX;
+            obj.CanvasAlignmentY = CanvasAlignmentY;
+            obj.AlignmentY = AlignmentY;
         }
     }
 }

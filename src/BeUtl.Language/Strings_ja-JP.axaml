@@ -39,10 +39,10 @@
         <x:String x:Key="FontWeightString">ウェイト</x:String>
         <x:String x:Key="CharactorSpacingString">文字間隔</x:String>
         <x:String x:Key="MarginString">余白</x:String>
-        <x:String x:Key="HorizontalAlignmentString">水平方向のアライン (キャンバス)</x:String>
-        <x:String x:Key="VerticalAlignmentString">垂直方向のアライン (キャンバス)</x:String>
-        <x:String x:Key="HorizontalContentAlignmentString">水平方向のアライン</x:String>
-        <x:String x:Key="VerticalContentAlignmentString">垂直方向のアライン</x:String>
+        <x:String x:Key="CanvasAlignmentXString">水平方向のアライン (キャンバス)</x:String>
+        <x:String x:Key="CanvasAlignmentYString">垂直方向のアライン (キャンバス)</x:String>
+        <x:String x:Key="AlignmentXString">水平方向のアライン</x:String>
+        <x:String x:Key="AlignmentYString">垂直方向のアライン</x:String>
         <x:String x:Key="PositionString">位置</x:String>
         <x:String x:Key="ShadowOnlyString">影だけを描画</x:String>
         <x:String x:Key="OpacityString">不透明度</x:String>

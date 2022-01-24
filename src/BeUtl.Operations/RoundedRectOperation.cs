@@ -1,6 +1,5 @@
 ﻿using BeUtl.Graphics;
 using BeUtl.Media;
-using BeUtl.ProjectSystem;
 
 namespace BeUtl.Operations;
 
@@ -17,51 +16,27 @@ public sealed class RoundedRectOperation : DrawableOperation
     {
         WidthProperty = ConfigureProperty<float, RoundedRectOperation>(nameof(Width))
             .Accessor(owner => owner.Width, (owner, obj) => owner.Width = obj)
-            .DefaultValue(100)
-            .Animatable()
-            .Header("WidthString")
-            .JsonName("width")
-            .Minimum(0)
-            .EnableEditor()
+            .OverrideMetadata(DefaultMetadatas.Width)
             .Register();
 
         HeightProperty = ConfigureProperty<float, RoundedRectOperation>(nameof(Height))
             .Accessor(owner => owner.Height, (owner, obj) => owner.Height = obj)
-            .DefaultValue(100)
-            .Animatable()
-            .Header("HeightString")
-            .JsonName("height")
-            .Minimum(0)
-            .EnableEditor()
+            .OverrideMetadata(DefaultMetadatas.Height)
             .Register();
 
         StrokeWidthProperty = ConfigureProperty<float, RoundedRectOperation>(nameof(StrokeWidth))
             .Accessor(owner => owner.StrokeWidth, (owner, obj) => owner.StrokeWidth = obj)
-            .DefaultValue(4000)
-            .Animatable()
-            .Header("StrokeWidthString")
-            .JsonName("strokeWidth")
-            .Minimum(0)
-            .EnableEditor()
+            .OverrideMetadata(DefaultMetadatas.StrokeWidth)
             .Register();
 
         ColorProperty = ConfigureProperty<Color, RoundedRectOperation>(nameof(Color))
             .Accessor(owner => owner.Color, (owner, obj) => owner.Color = obj)
-            .DefaultValue(Colors.White)
-            .Animatable()
-            .Header("ColorString")
-            .JsonName("color")
-            .EnableEditor()
+            .OverrideMetadata(DefaultMetadatas.Color)
             .Register();
 
         CornerRadiusProperty = ConfigureProperty<CornerRadius, RoundedRectOperation>(nameof(CornerRadius))
             .Accessor(owner => owner.CornerRadius, (owner, obj) => owner.CornerRadius = obj)
-            .DefaultValue(new CornerRadius(25))
-            .Minimum(new CornerRadius(0))
-            .Animatable()
-            .Header("CornerRadiusString")
-            .JsonName("cornerRadius")
-            .EnableEditor()
+            .OverrideMetadata(DefaultMetadatas.CornerRadius)
             .Register();
     }
 
@@ -96,10 +71,4 @@ public sealed class RoundedRectOperation : DrawableOperation
     }
 
     public override Drawable Drawable => _drawable;
-
-    public override void ApplySetters(in OperationRenderArgs args)
-    {
-        _drawable.Initialize();
-        base.ApplySetters(args);
-    }
 }

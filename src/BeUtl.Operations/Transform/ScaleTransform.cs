@@ -1,6 +1,4 @@
-﻿using BeUtl.Graphics.Transformation;
-
-namespace BeUtl.Operations.Transform;
+﻿namespace BeUtl.Operations.Transform;
 
 public sealed class ScaleTransform : TransformOperation
 {
@@ -12,26 +10,17 @@ public sealed class ScaleTransform : TransformOperation
     static ScaleTransform()
     {
         ScaleProperty = ConfigureProperty<float, ScaleTransform>(nameof(Scale))
-            .EnableEditor()
-            .Animatable()
-            .DefaultValue(100f)
-            .JsonName("scale")
+            .OverrideMetadata(DefaultMetadatas.Scale)
             .Accessor(owner => owner.Scale, (owner, obj) => owner.Scale = obj)
             .Register();
 
         ScaleXProperty = ConfigureProperty<float, ScaleTransform>(nameof(ScaleX))
-            .EnableEditor()
-            .Animatable()
-            .DefaultValue(100f)
-            .JsonName("scaleX")
+            .OverrideMetadata(DefaultMetadatas.ScaleX)
             .Accessor(owner => owner.ScaleX, (owner, obj) => owner.ScaleX = obj)
             .Register();
 
         ScaleYProperty = ConfigureProperty<float, ScaleTransform>(nameof(ScaleY))
-            .EnableEditor()
-            .Animatable()
-            .DefaultValue(100f)
-            .JsonName("scaleY")
+            .OverrideMetadata(DefaultMetadatas.ScaleY)
             .Accessor(owner => owner.ScaleY, (owner, obj) => owner.ScaleY = obj)
             .Register();
     }

@@ -31,71 +31,42 @@ public sealed class FormattedTextOperation : DrawableOperation
     {
         SizeProperty = ConfigureProperty<float, FormattedTextOperation>(nameof(Size))
             .Accessor(o => o.Size, (o, v) => o.Size = v)
-            .EnableEditor()
-            .Minimum(0)
-            .DefaultValue(FormattedTextInfo.Default.Size)
-            .Animatable()
-            .Header("SizeString")
-            .JsonName("size")
+            .OverrideMetadata(DefaultMetadatas.FontSize)
             .Register();
 
         ColorProperty = ConfigureProperty<Color, FormattedTextOperation>(nameof(Color))
             .Accessor(o => o.Color, (o, v) => o.Color = v)
-            .EnableEditor()
-            .DefaultValue(FormattedTextInfo.Default.Color)
-            .Animatable()
-            .Header("ColorString")
-            .JsonName("color")
+            .OverrideMetadata(DefaultMetadatas.Color)
             .Register();
 
         FontFamilyProperty = ConfigureProperty<FontFamily, FormattedTextOperation>(nameof(FontFamily))
             .Accessor(o => o.FontFamily, (o, v) => o.FontFamily = v)
-            .EnableEditor()
-            .DefaultValue(FormattedTextInfo.Default.Typeface.FontFamily)
-            .Header("FontFamilyString")
-            .JsonName("font")
+            .OverrideMetadata(DefaultMetadatas.FontFamily)
             .Register();
 
         StyleProperty = ConfigureProperty<FontStyle, FormattedTextOperation>(nameof(Style))
             .Accessor(o => o.Style, (o, v) => o.Style = v)
-            .EnableEditor()
-            .DefaultValue(FormattedTextInfo.Default.Typeface.Style)
-            .Header("FontStyleString")
-            .JsonName("style")
+            .OverrideMetadata(DefaultMetadatas.FontStyle)
             .Register();
 
         WeightProperty = ConfigureProperty<FontWeight, FormattedTextOperation>(nameof(Weight))
             .Accessor(o => o.Weight, (o, v) => o.Weight = v)
-            .EnableEditor()
-            .DefaultValue(FormattedTextInfo.Default.Typeface.Weight)
-            .Header("FontWeightString")
-            .JsonName("weight")
+            .OverrideMetadata(DefaultMetadatas.FontWeight)
             .Register();
 
         SpaceProperty = ConfigureProperty<float, FormattedTextOperation>(nameof(Space))
             .Accessor(o => o.Space, (o, v) => o.Space = v)
-            .EnableEditor()
-            .DefaultValue(0)
-            .Animatable()
-            .Header("CharactorSpacingString")
-            .JsonName("space")
+            .OverrideMetadata(DefaultMetadatas.FontSpace)
             .Register();
 
         MarginProperty = ConfigureProperty<Thickness, FormattedTextOperation>(nameof(Margin))
             .Accessor(o => o.Margin, (o, v) => o.Margin = v)
-            .EnableEditor()
-            .DefaultValue(new Thickness())
-            .Animatable()
-            .Header("MarginString")
-            .JsonName("margin")
+            .OverrideMetadata(DefaultMetadatas.Margin)
             .Register();
 
         TextProperty = ConfigureProperty<string, FormattedTextOperation>(nameof(Text))
             .Accessor(o => o.Text, (o, v) => o.Text = v)
-            .EnableEditor()
-            .DefaultValue(string.Empty)
-            .Header("TextString")
-            .JsonName("text")
+            .OverrideMetadata(DefaultMetadatas.Text)
             .Register();
     }
 
@@ -149,9 +120,9 @@ public sealed class FormattedTextOperation : DrawableOperation
 
     public override Drawable Drawable => _formattedText;
 
-    public override void ApplySetters(in OperationRenderArgs args)
+    protected override void RenderCore(ref OperationRenderArgs args)
     {
-        base.ApplySetters(args);
+        base.RenderCore(ref args);
         if (_isDirty)
         {
             _formattedText.Load(Text, new FormattedTextInfo(new Typeface(FontFamily, Style, Weight), Size, Color, Space, Margin));

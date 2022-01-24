@@ -7,7 +7,7 @@ namespace BeUtl.ViewModels.Editors;
 
 public sealed class BooleanEditorViewModel : BaseEditorViewModel<bool>
 {
-    public BooleanEditorViewModel(Setter<bool> setter)
+    public BooleanEditorViewModel(PropertyInstance<bool> setter)
         : base(setter)
     {
         Value = setter.GetObservable()

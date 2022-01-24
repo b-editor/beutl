@@ -4,7 +4,7 @@ using BeUtl.ProjectSystem;
 
 namespace BeUtl.Operations;
 
-public sealed class BlendOperation : ConfigureOperation<IDrawable>
+public sealed class BlendOperation : LayerOperation
 {
     public static readonly CoreProperty<float> OpacityProperty;
     public static readonly CoreProperty<BlendMode> BlendModeProperty;
@@ -13,21 +13,12 @@ public sealed class BlendOperation : ConfigureOperation<IDrawable>
     {
         OpacityProperty = ConfigureProperty<float, BlendOperation>(nameof(Opacity))
             .Accessor(o => o.Opacity, (o, v) => o.Opacity = v)
-            .Animatable(true)
-            .EnableEditor()
-            .Maximum(100)
-            .Minimum(0)
-            .DefaultValue(100)
-            .Header("OpacityString")
-            .JsonName("opacity")
+            .OverrideMetadata(DefaultMetadatas.Opacity)    
             .Register();
 
         BlendModeProperty = ConfigureProperty<BlendMode, BlendOperation>(nameof(BlendMode))
             .Accessor(o => o.BlendMode, (o, v) => o.BlendMode = v)
-            .EnableEditor()
-            .DefaultValue(BlendMode.SrcOver)
-            .Header("BlendString")
-            .JsonName("blendMode")
+            .OverrideMetadata(DefaultMetadatas.BlendMode)
             .Register();
     }
 
@@ -35,8 +26,9 @@ public sealed class BlendOperation : ConfigureOperation<IDrawable>
 
     public BlendMode BlendMode { get; set; }
 
-    public override void Configure(in OperationRenderArgs args, ref IDrawable obj)
+    protected override void RenderCore(ref OperationRenderArgs args)
     {
+        if (args.Result is not Drawable obj) return;
         obj.BlendMode = BlendMode;
 
         if (obj.Foreground is Brush brush)

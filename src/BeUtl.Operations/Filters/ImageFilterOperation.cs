@@ -1,27 +1,46 @@
 ﻿using BeUtl.Graphics;
+using BeUtl.Graphics.Filters;
 using BeUtl.ProjectSystem;
-using BeUtl.Rendering;
 
 namespace BeUtl.Operations.Filters;
 
 public abstract class ImageFilterOperation<T> : LayerOperation
-    where T : Graphics.Filters.ImageFilter
+    where T : ImageFilter
 {
+    private Drawable? _drawable;
+
     public abstract T Filter { get; }
 
-    public override void ApplySetters(in OperationRenderArgs args)
+    protected override void OnDetachedFromLogicalTree(in LogicalTreeAttachmentEventArgs args)
     {
-        Filter.IsEnabled = IsEnabled;
-        base.ApplySetters(args);
+        base.OnDetachedFromLogicalTree(args);
+        if (_drawable != null && _drawable.Filter is ImageFilterGroup group)
+        {
+            group.Children.Remove(Filter);
+        }
     }
 
-    protected override void BeginningRenderCore(ILayerScope scope)
+    protected override void RenderCore(ref OperationRenderArgs args)
     {
-        scope.First<IDrawable>()?.Filters.Add(Filter);
-    }
+        if (args.Result is Drawable drawable)
+        {
+            //Filter.IsEnabled = IsEnabled;
+            if (_drawable != drawable)
+            {
+                if (drawable.Filter is not ImageFilterGroup group)
+                {
+                    drawable.Filter = group = new ImageFilterGroup();
+                }
 
-    protected override void EndingRenderCore(ILayerScope scope)
-    {
-        Filter.Parent?.Filters.Remove(Filter);
+                if (_drawable?.Filter is ImageFilterGroup group1)
+                {
+                    group1.Children.Remove(Filter);
+                }
+
+                group.Children.Add(Filter);
+                _drawable = drawable;
+            }
+        }
+        base.RenderCore(ref args);
     }
 }
