@@ -230,7 +230,9 @@ public abstract class Drawable : Renderable, IDrawable, ILogicalElement
         Size size = MeasureCore(availableSize);
         Vector pt = CreatePoint(availableSize);
         Vector relpt = CreateRelPoint(size);
-        Matrix transform = Matrix.CreateTranslation(relpt) * Transform?.Value ?? Matrix.Identity * Matrix.CreateTranslation(pt);
+        Matrix transform = Transform?.Value == null ?
+            Matrix.CreateTranslation(relpt) * Matrix.CreateTranslation(pt) :
+            Matrix.CreateTranslation(relpt) * Transform.Value * Matrix.CreateTranslation(pt);
         var rect = new Rect(size);
 
         Bounds = (Filter?.TransformBounds(rect) ?? rect).TransformToAABB(transform);
@@ -247,7 +249,9 @@ public abstract class Drawable : Renderable, IDrawable, ILogicalElement
             Size size = MeasureCore(availableSize);
             Vector pt = CreatePoint(availableSize);
             Vector relpt = CreateRelPoint(size);
-            Matrix transform = Matrix.CreateTranslation(relpt) * Transform?.Value ?? Matrix.Identity * Matrix.CreateTranslation(pt);
+            Matrix transform = Transform?.Value == null ?
+                Matrix.CreateTranslation(relpt) * Matrix.CreateTranslation(pt) :
+                Matrix.CreateTranslation(relpt) * Transform.Value * Matrix.CreateTranslation(pt);
             var rect = new Rect(size);
 
             using (canvas.PushForeground(Foreground))
