@@ -271,7 +271,6 @@ public abstract class Drawable : Renderable, IDrawable, ILogicalElement
 
     public override void Render(IRenderer renderer)
     {
-        ApplyStyling(renderer.Clock);
         Draw(renderer.Graphics);
     }
 
