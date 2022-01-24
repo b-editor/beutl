@@ -61,7 +61,7 @@
             </StackPanel>
         </Expander.Header>
 
-        <ItemsControl Items="{Binding Setters}">
+        <ItemsControl Items="{Binding Properties}">
             <ItemsControl.ItemTemplate>
                 <DataTemplate>
                     <ContentControl Content="{Binding Converter={StaticResource ModelToViewConverter}}" />

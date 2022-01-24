@@ -113,7 +113,7 @@ public sealed class AddLayerViewModel
 
     private bool ExistsLayer(int layer)
     {
-        foreach (Layer item in _scene.Layers)
+        foreach (Layer item in _scene.Children)
         {
             if (item.ZIndex == layer)
             {

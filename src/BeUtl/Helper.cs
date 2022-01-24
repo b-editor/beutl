@@ -3,6 +3,8 @@ using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Styling;
 
+using BeUtl.ProjectSystem;
+
 namespace BeUtl;
 
 internal static class Helper
@@ -72,14 +74,23 @@ internal static class Helper
         return filename;
     }
 
-    public static T? GetValueOrDefault<T>(this ProjectSystem.IPropertyInstance setter, string key)
+    public static T? GetMaximumOrDefault<T>(this IPropertyInstance setter, T defaultValue)
     {
-        return setter.Property.GetMetadata(setter.Parent.GetType()).GetValueOrDefault<T>(key);
+        OperationPropertyMetadata<T> metadata
+            = setter.Property.GetMetadata<OperationPropertyMetadata<T>>(setter.Parent.GetType());
+        return metadata.HasMaximum ? metadata.Maximum : defaultValue;
     }
 
-    public static T GetValueOrDefault<T>(this ProjectSystem.IPropertyInstance setter, string key, T defaultValue)
+    public static T? GetMinimumOrDefault<T>(this IPropertyInstance setter, T defaultValue)
     {
-        return setter.Property.GetMetadata(setter.Parent.GetType()).GetValueOrDefault(key, defaultValue);
+        OperationPropertyMetadata<T> metadata
+            = setter.Property.GetMetadata<OperationPropertyMetadata<T>>(setter.Parent.GetType());
+        return metadata.HasMinimum ? metadata.Minimum : defaultValue;
+    }
+    
+    public static object? GetDefaultValue(this IPropertyInstance setter)
+    {
+        return setter.Property.GetMetadata<ICorePropertyMetadata>(setter.Parent.GetType()).GetDefaultValue();
     }
 
     private static string RandomString()

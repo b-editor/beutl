@@ -18,9 +18,9 @@ public sealed class ByteEditorViewModel : BaseNumberEditorViewModel<byte>
 
     public ReadOnlyReactivePropertySlim<byte> Value { get; }
 
-    public override byte Maximum => Setter.GetValueOrDefault(PropertyMetaTableKeys.Maximum, byte.MaxValue);
+    public override byte Maximum => Setter.GetMaximumOrDefault(byte.MaxValue);
 
-    public override byte Minimum => Setter.GetValueOrDefault(PropertyMetaTableKeys.Minimum, byte.MinValue);
+    public override byte Minimum => Setter.GetMinimumOrDefault(byte.MinValue);
 
     public override INumberEditorService<byte> EditorService { get; } = NumberEditorService.Instance.Get<byte>();
 }

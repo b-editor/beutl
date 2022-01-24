@@ -83,7 +83,7 @@ public sealed class EllipseOperation : DrawableOperation
     public Color Color
     {
         get => _drawable.Foreground.TryGetColorOrDefault(Colors.Transparent);
-        set => _drawable.Foreground.TrySetColor(value);
+        set => _drawable.Foreground = value.ToImmutableBrush();
     }
 
     public override Drawable Drawable => _drawable;

@@ -11,7 +11,7 @@ public sealed class PointAnimationEditorViewModel : AnimationEditorViewModel<Poi
     {
     }
 
-    public Point Maximum => Setter.GetValueOrDefault(PropertyMetaTableKeys.Maximum, new Point(float.MaxValue, float.MaxValue));
+    public Point Maximum => Setter.GetMaximumOrDefault(new Point(float.MaxValue, float.MaxValue));
 
-    public Point Minimum => Setter.GetValueOrDefault(PropertyMetaTableKeys.Minimum, new Point(float.MinValue, float.MinValue));
+    public Point Minimum => Setter.GetMinimumOrDefault(new Point(float.MinValue, float.MinValue));
 }

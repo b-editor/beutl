@@ -94,10 +94,7 @@ public class ImmediateRenderer : IRenderer
 
             foreach (KeyValuePair<int, IRenderable> item in _objects)
             {
-                if (item.Value.IsVisible)
-                {
-                    item.Value.Render(this);
-                }
+                item.Value.Render(this);
             }
         }
     }

@@ -102,17 +102,17 @@ public class DeferredRenderer : IRenderer
                 path.AddRect(SKRect.Create(item.X, item.Y, item.Width, item.Height));
             }
 
-            Graphics.ClipPath(path);
-
             if (_clips.Count > 0)
             {
                 Graphics.Clear();
             }
 
+            Graphics.ClipPath(path);
+
             foreach (KeyValuePair<int, IRenderable> item in objects)
             {
                 IRenderable? renderable = item.Value;
-                if (renderable.IsVisible && renderable.IsDirty)
+                if (renderable.IsDirty)
                 {
                     renderable.Render(this);
                 }
@@ -174,20 +174,17 @@ public class DeferredRenderer : IRenderer
                 drawable.Measure(_canvasBounds.Size);
                 Rect rect2 = drawable.Bounds;
 
-                if (renderable.IsVisible)
+                if (drawable.IsDirty)
                 {
-                    if (drawable.IsDirty)
-                    {
-                        AddDirtyRects(rect1, rect2);
-                        drawable.Invalidate();
+                    AddDirtyRects(rect1, rect2);
+                    drawable.Invalidate();
 
-                        //Func(items, 0, i);
-                        Func(items, i + 1, items.Length);
-                    }
-                    else if (HitTestClips(rect1, rect2))
-                    {
-                        drawable.Invalidate();
-                    }
+                    //Func(items, 0, i);
+                    Func(items, i + 1, items.Length);
+                }
+                else if (renderable.IsVisible && HitTestClips(rect1, rect2))
+                {
+                    drawable.Invalidate();
                 }
             }
         }

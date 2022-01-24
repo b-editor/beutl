@@ -36,10 +36,10 @@ public class MainWindowViewModel
             {
                 project.Save(project.FileName);
 
-                foreach (Scene scene in project.Scenes)
+                foreach (Scene scene in project.Children)
                 {
                     scene.Save(scene.FileName);
-                    foreach (Layer layer in scene.Layers)
+                    foreach (Layer layer in scene.Children)
                     {
                         layer.Save(layer.FileName);
                     }

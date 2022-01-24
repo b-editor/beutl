@@ -138,11 +138,13 @@ public class PropertyInstance<T> : IPropertyInstance
 
     void ILogicalElement.NotifyAttachedToLogicalTree(in LogicalTreeAttachmentEventArgs e)
     {
+        _parent = e.Parent as Element;
         AttachedToLogicalTree?.Invoke(this, e);
     }
 
     void ILogicalElement.NotifyDetachedFromLogicalTree(in LogicalTreeAttachmentEventArgs e)
     {
+        _parent = null;
         DetachedFromLogicalTree?.Invoke(this, e);
     }
 

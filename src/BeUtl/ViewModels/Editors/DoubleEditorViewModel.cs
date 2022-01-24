@@ -18,9 +18,9 @@ public sealed class DoubleEditorViewModel : BaseNumberEditorViewModel<double>
 
     public ReadOnlyReactivePropertySlim<double> Value { get; }
 
-    public override double Maximum => Setter.GetValueOrDefault(PropertyMetaTableKeys.Maximum, double.MaxValue);
+    public override double Maximum => Setter.GetMaximumOrDefault(double.MaxValue);
 
-    public override double Minimum => Setter.GetValueOrDefault(PropertyMetaTableKeys.Minimum, double.MinValue);
+    public override double Minimum => Setter.GetMinimumOrDefault(double.MinValue);
 
     public override INumberEditorService<double> EditorService { get; } = NumberEditorService.Instance.Get<double>();
 }

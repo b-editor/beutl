@@ -18,9 +18,9 @@ public sealed class DecimalEditorViewModel : BaseNumberEditorViewModel<decimal>
 
     public ReadOnlyReactivePropertySlim<decimal> Value { get; }
 
-    public override decimal Maximum => Setter.GetValueOrDefault(PropertyMetaTableKeys.Maximum, decimal.MaxValue);
+    public override decimal Maximum => Setter.GetMaximumOrDefault(decimal.MaxValue);
 
-    public override decimal Minimum => Setter.GetValueOrDefault(PropertyMetaTableKeys.Minimum, decimal.MinValue);
+    public override decimal Minimum => Setter.GetMinimumOrDefault(decimal.MinValue);
 
     public override INumberEditorService<decimal> EditorService { get; } = NumberEditorService.Instance.Get<decimal>();
 }

@@ -18,7 +18,7 @@ public sealed class ThicknessEditorViewModel : BaseEditorViewModel<Thickness>
 
     public ReadOnlyReactivePropertySlim<Thickness> Value { get; }
 
-    public Thickness Maximum => Setter.GetValueOrDefault(PropertyMetaTableKeys.Maximum, new Thickness(float.MaxValue, float.MaxValue, float.MaxValue, float.MaxValue));
+    public Thickness Maximum => Setter.GetMaximumOrDefault(new Thickness(float.MaxValue, float.MaxValue, float.MaxValue, float.MaxValue));
 
-    public Thickness Minimum => Setter.GetValueOrDefault(PropertyMetaTableKeys.Minimum, new Thickness(float.MinValue, float.MinValue, float.MinValue, float.MinValue));
+    public Thickness Minimum => Setter.GetMinimumOrDefault(new Thickness(float.MinValue, float.MinValue, float.MinValue, float.MinValue));
 }

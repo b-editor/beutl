@@ -52,13 +52,11 @@ public class Scene : Element, IStorable
         WidthProperty = ConfigureProperty<int, Scene>(nameof(Width))
             .Accessor(o => o.Width)
             .Observability(PropertyObservability.Changed)
-            .SerializeName("width")
             .Register();
 
         HeightProperty = ConfigureProperty<int, Scene>(nameof(Height))
             .Accessor(o => o.Height)
             .Observability(PropertyObservability.Changed)
-            .SerializeName("height")
             .Register();
 
         ChildrenProperty = ConfigureProperty<Layers, Scene>(nameof(Children))

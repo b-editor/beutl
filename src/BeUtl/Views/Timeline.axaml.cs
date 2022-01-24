@@ -76,7 +76,7 @@ public partial class Timeline : UserControl
             LeftPanel[!MinHeightProperty] = minHeightBinding;
 
             ViewModel.Scene.Children.CollectionChanged += Children_CollectionChanged;
-            AddLayers(ViewModel.Scene.Layers);
+            AddLayers(ViewModel.Scene.Children);
         }
     }
 

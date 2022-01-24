@@ -8,7 +8,7 @@ public abstract class LayerOperation : Element, ILogicalElement
 {
     public static readonly CoreProperty<bool> IsEnabledProperty;
     public static readonly CoreProperty<RenderOperationViewState> ViewStateProperty;
-    private readonly CoreList<IPropertyInstance> _properties;
+    private readonly LogicalList<IPropertyInstance> _properties;
     private bool _isEnabled = true;
 
     static LayerOperation()
@@ -27,7 +27,7 @@ public abstract class LayerOperation : Element, ILogicalElement
 
     public LayerOperation()
     {
-        _properties = new CoreList<IPropertyInstance>();
+        _properties = new LogicalList<IPropertyInstance>(this);
         ViewState = new RenderOperationViewState();
 
         Type ownerType = GetType();
@@ -90,6 +90,8 @@ public abstract class LayerOperation : Element, ILogicalElement
                 item.SetProperty();
             }
         }
+
+        RenderCore(ref args);
     }
 
     protected virtual void RenderCore(ref OperationRenderArgs args)

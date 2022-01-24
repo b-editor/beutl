@@ -32,6 +32,7 @@ internal sealed class SceneRenderer : DeferredRenderer, IClock
     protected override void RenderCore()
     {
         TimeSpan timeSpan = _scene.CurrentFrame;
+        DrawFps = false;
         CurrentTime = timeSpan;
         DevideLayers(timeSpan);
         Span<Layer> layers = CollectionsMarshal.AsSpan(_layers);
@@ -71,8 +72,13 @@ internal sealed class SceneRenderer : DeferredRenderer, IClock
 
         foreach (Layer item in end)
         {
-            if (item.Renderable is Drawable d)
-                AddDirtyRect(d.Bounds);
+            if (item.Renderable != null)
+            {
+                item.Renderable.IsVisible = false;
+
+                if (item.Renderable is Drawable d)
+                    AddDirtyRect(d.Bounds);
+            }
         }
 
         base.RenderCore();

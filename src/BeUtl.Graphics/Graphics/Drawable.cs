@@ -241,23 +241,27 @@ public abstract class Drawable : Renderable, IDrawable, ILogicalElement
     public void Draw(ICanvas canvas)
     {
         VerifyAccess();
-        Size availableSize = canvas.Size.ToSize(1);
-        Size size = MeasureCore(availableSize);
-        Vector pt = CreatePoint(availableSize);
-        Vector relpt = CreateRelPoint(size);
-        Matrix transform = Matrix.CreateTranslation(relpt) * Transform?.Value ?? Matrix.Identity * Matrix.CreateTranslation(pt);
-        var rect = new Rect(size);
-
-        using (canvas.PushForeground(Foreground))
-        using (canvas.PushBlendMode(BlendMode))
-        using (canvas.PushTransform(transform))
-        using (Filter == null ? new() : canvas.PushFilters(Filter))
-        using (OpacityMask == null ? new() : canvas.PushOpacityMask(OpacityMask, new Rect(size)))
+        if (IsVisible)
         {
-            OnDraw(canvas);
+            Size availableSize = canvas.Size.ToSize(1);
+            Size size = MeasureCore(availableSize);
+            Vector pt = CreatePoint(availableSize);
+            Vector relpt = CreateRelPoint(size);
+            Matrix transform = Matrix.CreateTranslation(relpt) * Transform?.Value ?? Matrix.Identity * Matrix.CreateTranslation(pt);
+            var rect = new Rect(size);
+
+            using (canvas.PushForeground(Foreground))
+            using (canvas.PushBlendMode(BlendMode))
+            using (canvas.PushTransform(transform))
+            using (Filter == null ? new() : canvas.PushFilters(Filter))
+            using (OpacityMask == null ? new() : canvas.PushOpacityMask(OpacityMask, new Rect(size)))
+            {
+                OnDraw(canvas);
+            }
+
+            Bounds = (Filter?.TransformBounds(rect) ?? rect).TransformToAABB(transform);
         }
 
-        Bounds = (Filter?.TransformBounds(rect) ?? rect).TransformToAABB(transform);
         IsDirty = false;
 #if DEBUG
         //Rect bounds = Bounds;

@@ -1,5 +1,8 @@
+using System.Collections.Immutable;
+
 using Avalonia.Controls;
 
+using BeUtl.ProjectSystem;
 using BeUtl.ViewModels.Editors;
 
 namespace BeUtl.Views.Editors;
@@ -16,16 +19,16 @@ public partial class FileInfoEditor : UserControl
     {
         if (DataContext is not FileInfoEditorViewModel vm || VisualRoot is not Window window) return;
 
-        ResourceReference<string> filterName = vm.Setter.GetValueOrDefault<ResourceReference<string>>(PropertyMetaTableKeys.FilePickerName);
-        string[]? exts = vm.Setter.GetValueOrDefault<string[]>(PropertyMetaTableKeys.FilePickerExtensions);
+        string? filterName = vm.Header.Value;
+        ImmutableArray<string> exts = vm.Setter.Property.GetMetadata<FilePropertyMetadata>(vm.Setter.Parent.GetType()).Extensions;
 
         var dialog = new OpenFileDialog();
 
-        if (filterName.Key != null && exts != null)
+        if (!exts.IsDefaultOrEmpty)
         {
             dialog.Filters.Add(new FileDialogFilter()
             {
-                Name = filterName.FindOrDefault(),
+                Name = filterName,
                 Extensions = exts.ToList()
             });
         }

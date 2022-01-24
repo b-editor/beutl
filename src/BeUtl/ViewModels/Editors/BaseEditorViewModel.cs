@@ -20,8 +20,8 @@ public abstract class BaseEditorViewModel : IDisposable
     {
         Setter = setter;
 
-        CorePropertyMetadata metadata = setter.Property.GetMetadata(setter.Parent.GetType());
-        ResourceReference<string> reference = metadata.GetValueOrDefault<ResourceReference<string>>(PropertyMetaTableKeys.Header);
+        IOperationPropertyMetadata metadata = setter.Property.GetMetadata<IOperationPropertyMetadata>(setter.Parent.GetType());
+        ResourceReference<string> reference = metadata.Header;
 
         if (reference.Key != null)
         {
@@ -46,7 +46,7 @@ public abstract class BaseEditorViewModel : IDisposable
 
     public IPropertyInstance Setter { get; }
 
-    public bool CanReset => Setter.Property.GetMetadata(Setter.Parent.GetType()).DefaultValue != null;
+    public bool CanReset => Setter.GetDefaultValue() != null;
 
     public ReadOnlyReactivePropertySlim<string?> Header { get; }
 
@@ -79,7 +79,7 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
 
     public void Reset()
     {
-        object? defaultValue = Setter.Property.GetMetadata(Setter.Parent.GetType()).DefaultValue;
+        object? defaultValue = Setter.GetDefaultValue();
         if (defaultValue != null)
         {
             SetValue(Setter.Value, (T?)defaultValue);

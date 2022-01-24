@@ -460,12 +460,6 @@ public class CoreList<T> : ICoreList<T>
 
     private void NotifyAdd(IList t, int index)
     {
-        if (CollectionChanged != null)
-        {
-            var e = new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, t, index);
-            CollectionChanged(this, e);
-        }
-
         if (Attached != null)
         {
             for (int i = 0; i < t.Count; i++)
@@ -477,18 +471,24 @@ public class CoreList<T> : ICoreList<T>
             }
         }
 
+        if (CollectionChanged != null)
+        {
+            var e = new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, t, index);
+            CollectionChanged(this, e);
+        }
+
         NotifyCountChanged();
     }
 
     private void NotifyAdd(T item, int index)
     {
+        Attached?.Invoke(item);
+
         if (CollectionChanged != null)
         {
             var e = new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, new[] { item }, index);
             CollectionChanged(this, e);
         }
-
-        Attached?.Invoke(item);
 
         NotifyCountChanged();
     }
@@ -500,12 +500,6 @@ public class CoreList<T> : ICoreList<T>
 
     private void NotifyRemove(IList t, int index)
     {
-        if (CollectionChanged != null)
-        {
-            var e = new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Remove, t, index);
-            CollectionChanged(this, e);
-        }
-
         if (Detached != null)
         {
             for (int i = 0; i < t.Count; i++)
@@ -517,18 +511,24 @@ public class CoreList<T> : ICoreList<T>
             }
         }
 
+        if (CollectionChanged != null)
+        {
+            var e = new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Remove, t, index);
+            CollectionChanged(this, e);
+        }
+
         NotifyCountChanged();
     }
 
     private void NotifyRemove(T item, int index)
     {
+        Detached?.Invoke(item);
+
         if (CollectionChanged != null)
         {
             var e = new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Remove, new[] { item }, index);
             CollectionChanged(this, e);
         }
-
-        Detached?.Invoke(item);
 
         NotifyCountChanged();
     }

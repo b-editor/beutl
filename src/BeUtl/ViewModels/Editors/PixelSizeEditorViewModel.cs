@@ -18,7 +18,7 @@ public sealed class PixelSizeEditorViewModel : BaseEditorViewModel<PixelSize>
 
     public ReadOnlyReactivePropertySlim<PixelSize> Value { get; }
 
-    public PixelSize Maximum => Setter.GetValueOrDefault(PropertyMetaTableKeys.Maximum, new PixelSize(int.MaxValue, int.MaxValue));
+    public PixelSize Maximum => Setter.GetMaximumOrDefault(new PixelSize(int.MaxValue, int.MaxValue));
 
-    public PixelSize Minimum => Setter.GetValueOrDefault(PropertyMetaTableKeys.Minimum, new PixelSize(int.MinValue, int.MinValue));
+    public PixelSize Minimum => Setter.GetMinimumOrDefault(new PixelSize(int.MinValue, int.MinValue));
 }

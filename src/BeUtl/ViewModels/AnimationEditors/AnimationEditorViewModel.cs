@@ -24,7 +24,7 @@ public abstract class AnimationEditorViewModel : IDisposable
         Animation = animation;
         EditorViewModel = editorViewModel;
 
-        Scene = animation.FindRequiredLogicalParent<Scene>();
+        Scene = editorViewModel.Setter.FindRequiredLogicalParent<Scene>();
         ISubject<TimelineOptions> optionsSubject = Scene.GetSubject(Scene.TimelineOptionsProperty);
 
         Width = animation.GetSubject(BaseAnimation.DurationProperty)
@@ -50,7 +50,7 @@ public abstract class AnimationEditorViewModel : IDisposable
 
     public BaseEditorViewModel EditorViewModel { get; }
 
-    public bool CanReset => Setter.Property.GetMetadata(Setter.Parent.GetType()).DefaultValue != null;
+    public bool CanReset => Setter.GetDefaultValue() != null;
 
     public ReadOnlyReactivePropertySlim<string?> Header => EditorViewModel.Header;
 
@@ -163,7 +163,7 @@ public class AnimationEditorViewModel<T> : AnimationEditorViewModel
 
     public void ResetPrevious()
     {
-        object? defaultValue = Setter.Property.GetMetadata(Setter.Parent.GetType()).DefaultValue;
+        object? defaultValue = Setter.GetDefaultValue();
         if (defaultValue != null)
         {
             SetPrevious(Setter.Value, (T)defaultValue);
@@ -172,7 +172,7 @@ public class AnimationEditorViewModel<T> : AnimationEditorViewModel
 
     public void ResetNext()
     {
-        object? defaultValue = Setter.Property.GetMetadata(Setter.Parent.GetType()).DefaultValue;
+        object? defaultValue = Setter.GetDefaultValue();
         if (defaultValue != null)
         {
             SetNext(Setter.Value, (T)defaultValue);
