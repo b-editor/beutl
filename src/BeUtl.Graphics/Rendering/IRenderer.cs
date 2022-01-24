@@ -8,7 +8,7 @@ namespace BeUtl.Rendering;
 
 public interface IRenderer : IDisposable
 {
-    ILayerScope? this[int index] { get; set; }
+    IRenderable? this[int index] { get; set; }
 
     ICanvas Graphics { get; }
 

@@ -6,7 +6,7 @@ namespace BeUtl.Rendering;
 
 public class ImmediateRenderer : IRenderer
 {
-    private readonly SortedDictionary<int, ILayerScope> _objects = new();
+    private readonly SortedDictionary<int, IRenderable> _objects = new();
     private readonly Canvas _graphics;
     private readonly FpsText _fpsText = new();
 
@@ -31,7 +31,7 @@ public class ImmediateRenderer : IRenderer
 
     public IClock Clock { get; protected set; } = ZeroClock.Instance;
 
-    public ILayerScope? this[int index]
+    public IRenderable? this[int index]
     {
         get => _objects.ContainsKey(index) ? _objects[index] : null;
         set
@@ -92,15 +92,11 @@ public class ImmediateRenderer : IRenderer
         {
             Graphics.Clear();
 
-            foreach (KeyValuePair<int, ILayerScope> item in _objects)
+            foreach (KeyValuePair<int, IRenderable> item in _objects)
             {
-                for (int ii = item.Value.Count - 1; ii >= 0; ii--)
+                if (item.Value.IsVisible)
                 {
-                    IRenderable item2 = item.Value[ii];
-                    if (item2.IsVisible)
-                    {
-                        item2.Render(this);
-                    }
+                    item.Value.Render(this);
                 }
             }
         }

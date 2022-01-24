@@ -9,7 +9,7 @@ namespace BeUtl.Rendering;
 public class DeferredRenderer : IRenderer
 {
     internal static readonly Dispatcher s_dispatcher = Dispatcher.Spawn();
-    private readonly SortedDictionary<int, ILayerScope> _objects = new();
+    private readonly SortedDictionary<int, IRenderable> _objects = new();
     private readonly List<Rect> _clips = new();
     private readonly Canvas _graphics;
     private readonly Rect _canvasBounds;
@@ -42,7 +42,7 @@ public class DeferredRenderer : IRenderer
 
     public IClock Clock { get; protected set; } = ZeroClock.Instance;
 
-    public ILayerScope? this[int index]
+    public IRenderable? this[int index]
     {
         get => _objects.ContainsKey(index) ? _objects[index] : null;
         set
@@ -89,7 +89,7 @@ public class DeferredRenderer : IRenderer
 
     protected virtual void RenderCore()
     {
-        var objects = new KeyValuePair<int, ILayerScope>[_objects.Count];
+        var objects = new KeyValuePair<int, IRenderable>[_objects.Count];
         _objects.CopyTo(objects, 0);
         Func(objects, 0, objects.Length);
 
@@ -109,16 +109,12 @@ public class DeferredRenderer : IRenderer
                 Graphics.Clear();
             }
 
-            foreach (KeyValuePair<int, ILayerScope> item in objects)
+            foreach (KeyValuePair<int, IRenderable> item in objects)
             {
-                for (int ii = item.Value.Count - 1; ii >= 0; ii--)
+                IRenderable? renderable = item.Value;
+                if (renderable.IsVisible && renderable.IsDirty)
                 {
-                    IRenderable item2 = item.Value[ii];
-                    if (item2.IsVisible &&
-                        item2 is Drawable drawable && drawable.IsDirty)
-                    {
-                        item2.Render(this);
-                    }
+                    renderable.Render(this);
                 }
             }
 
@@ -165,34 +161,32 @@ public class DeferredRenderer : IRenderer
 
     // 変更されているオブジェクトのBoundsを_clipsに追加して、
     // そのオブジェクトが影響を与えるオブジェクトも同様の処理をする
-    private void Func(ReadOnlySpan<KeyValuePair<int, ILayerScope>> items, int start, int length)
+    private void Func(ReadOnlySpan<KeyValuePair<int, IRenderable>> items, int start, int length)
     {
         for (int i = length - 1; i >= start; i--)
         {
-            KeyValuePair<int, ILayerScope> item = items[i];
-            for (int ii = 0; ii < item.Value.Count; ii++)
+            KeyValuePair<int, IRenderable> item = items[i];
+            IRenderable? renderable = item.Value;
+
+            if (renderable is Drawable drawable)
             {
-                IRenderable item2 = item.Value[ii];
-                if (item2 is Drawable drawable)
+                Rect rect1 = drawable.Bounds;
+                drawable.Measure(_canvasBounds.Size);
+                Rect rect2 = drawable.Bounds;
+
+                if (renderable.IsVisible)
                 {
-                    Rect rect1 = drawable.Bounds;
-                    drawable.Measure(_canvasBounds.Size);
-                    Rect rect2 = drawable.Bounds;
-
-                    if (item2.IsVisible)
+                    if (drawable.IsDirty)
                     {
-                        if (drawable.IsDirty)
-                        {
-                            AddDirtyRects(rect1, rect2);
-                            drawable.Invalidate();
+                        AddDirtyRects(rect1, rect2);
+                        drawable.Invalidate();
 
-                            //Func(items, 0, i);
-                            Func(items, i + 1, items.Length);
-                        }
-                        else if (HitTestClips(rect1, rect2))
-                        {
-                            drawable.Invalidate();
-                        }
+                        //Func(items, 0, i);
+                        Func(items, i + 1, items.Length);
+                    }
+                    else if (HitTestClips(rect1, rect2))
+                    {
+                        drawable.Invalidate();
                     }
                 }
             }
