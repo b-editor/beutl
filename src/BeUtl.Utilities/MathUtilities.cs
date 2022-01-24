@@ -9,9 +9,9 @@ public static class MathUtilities
 
     public static float ToRadians(float degrees)
     {
-        return degrees * (180.0f / MathF.PI);
+        return degrees * (MathF.PI / 180.0f);
     }
-    
+
     public static float ToDegrees(float radians)
     {
         return radians * (180.0f / MathF.PI);
