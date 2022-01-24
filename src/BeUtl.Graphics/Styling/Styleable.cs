@@ -40,7 +40,7 @@ public abstract class Styleable : Element, IStyleable
         }
     }
 
-    protected void ApplyStyling(IClock clock)
+    public void ApplyStyling(IClock clock)
     {
         if (_styleInstance == null)
         {
