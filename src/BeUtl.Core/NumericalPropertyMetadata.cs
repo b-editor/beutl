@@ -1,7 +1,7 @@
 ﻿namespace BeUtl;
 
 #pragma warning disable IDE0032
-public class NumericalPropertyMetadata<T> : CorePropertyMetadata<T>
+public record class NumericalPropertyMetadata<T> : CorePropertyMetadata<T>
 {
     private T? _minimum;
     private T? _maximum;
@@ -18,7 +18,7 @@ public class NumericalPropertyMetadata<T> : CorePropertyMetadata<T>
         init => _maximum = value;
     }
 
-    public override void Merge(CorePropertyMetadata baseMetadata, CoreProperty property)
+    public override void Merge(ICorePropertyMetadata baseMetadata, CoreProperty? property)
     {
         base.Merge(baseMetadata, property);
         if (baseMetadata is NumericalPropertyMetadata<T> baseT)

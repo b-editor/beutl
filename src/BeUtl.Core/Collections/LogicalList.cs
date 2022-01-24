@@ -7,7 +7,7 @@ public class LogicalList<T> : CoreList<T>
     {
         Parent = parent;
         Attached = item => item.NotifyAttachedToLogicalTree(new LogicalTreeAttachmentEventArgs(Parent));
-        Detached = item => item.NotifyDetachedFromLogicalTree(new LogicalTreeAttachmentEventArgs(null));
+        Detached = item => item.NotifyDetachedFromLogicalTree(new LogicalTreeAttachmentEventArgs(Parent));
     }
 
     public ILogicalElement Parent { get; }

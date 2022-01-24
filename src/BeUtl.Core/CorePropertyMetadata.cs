@@ -2,33 +2,47 @@
 
 #pragma warning disable IDE0032
 
-public class CorePropertyMetadata<T> : CorePropertyMetadata
+public record class CorePropertyMetadata<T> : CorePropertyMetadata
 {
     private T? _defaultValue;
 
     public T? DefaultValue
     {
         get => _defaultValue;
-        init => _defaultValue = value;
+        init
+        {
+            _defaultValue = value;
+            HasDefaultValue = true;
+        }
     }
 
-    public override void Merge(CorePropertyMetadata baseMetadata, CoreProperty property)
+    public bool HasDefaultValue { get; private set; }
+
+    public override void Merge(ICorePropertyMetadata baseMetadata, CoreProperty? property)
     {
         base.Merge(baseMetadata, property);
 
-        if (_defaultValue == null && baseMetadata is CorePropertyMetadata<T> baseT)
+        if (!HasDefaultValue && baseMetadata is CorePropertyMetadata<T> baseT)
         {
             _defaultValue = baseT.DefaultValue;
+            HasDefaultValue = true;
         }
     }
 
     protected internal override object? GetDefaultValue()
     {
-        return _defaultValue;
+        return HasDefaultValue ? _defaultValue : null;
     }
 }
 
-public abstract class CorePropertyMetadata
+public interface ICorePropertyMetadata
+{
+    void Merge(ICorePropertyMetadata baseMetadata, CoreProperty? property);
+
+    object? GetDefaultValue();
+}
+
+public abstract record class CorePropertyMetadata : ICorePropertyMetadata
 {
     private string? _serializeName;
     private PropertyObservability _observability;
@@ -52,23 +66,31 @@ public abstract class CorePropertyMetadata
         init => _propertyFlags = value;
     }
 
-    public virtual void Merge(CorePropertyMetadata baseMetadata, CoreProperty property)
+    public virtual void Merge(ICorePropertyMetadata baseMetadata, CoreProperty? property)
     {
-        if (_observability == PropertyObservability.None)
+        if (baseMetadata is CorePropertyMetadata metadata1)
         {
-            _observability = baseMetadata.Observability;
-        }
+            if (_observability == PropertyObservability.None)
+            {
+                _observability = metadata1.Observability;
+            }
 
-        if (string.IsNullOrEmpty(_serializeName))
-        {
-            _serializeName = baseMetadata.SerializeName;
-        }
+            if (string.IsNullOrEmpty(_serializeName))
+            {
+                _serializeName = metadata1.SerializeName;
+            }
 
-        if (_propertyFlags == PropertyFlags.None)
-        {
-            _propertyFlags = baseMetadata.PropertyFlags;
+            if (_propertyFlags == PropertyFlags.None)
+            {
+                _propertyFlags = metadata1.PropertyFlags;
+            }
         }
     }
 
     protected internal abstract object? GetDefaultValue();
+
+    object? ICorePropertyMetadata.GetDefaultValue()
+    {
+        return GetDefaultValue();
+    }
 }

@@ -3,15 +3,17 @@ using System.Reflection;
 
 namespace BeUtl;
 
-public sealed class CorePropertyBuilder<T, TOwner>
+public interface ICorePropertyBuilder<T>
+{
+    void OverrideMetadata(CorePropertyMetadata<T> metadata);
+}
+
+public sealed class CorePropertyBuilder<T, TOwner> : ICorePropertyBuilder<T>
 {
     private readonly string _name;
-    private T? _defaultValue;
-    private PropertyObservability _observability;
-    private string? _serializeName;
-    private PropertyFlags _propertyFlags;
     private Func<TOwner, T>? _getter;
     private Action<TOwner, T>? _setter;
+    private CorePropertyMetadata<T> _metadata = new();
 
     public CorePropertyBuilder(string name)
     {
@@ -21,30 +23,23 @@ public sealed class CorePropertyBuilder<T, TOwner>
     public CorePropertyBuilder(CorePropertyBuilder<T, TOwner> baseObject)
     {
         _name = baseObject._name;
-        _defaultValue = baseObject._defaultValue;
-        _observability = baseObject._observability;
-        _serializeName = baseObject._serializeName;
-        _propertyFlags = baseObject._propertyFlags;
+        //_defaultValue = baseObject._defaultValue;
+        //_observability = baseObject._observability;
+        //_serializeName = baseObject._serializeName;
+        //_propertyFlags = baseObject._propertyFlags;
     }
 
     public CoreProperty<T> Register()
     {
-        var metadata = new CorePropertyMetadata<T>
-        {
-            DefaultValue = _defaultValue,
-            PropertyFlags = _propertyFlags,
-            Observability = _observability,
-            SerializeName = _serializeName,
-        };
         CoreProperty<T>? property = null;
 
         if (_getter != null)
         {
-            property = new StaticProperty<TOwner, T>(_name, _getter, _setter, metadata);
+            property = new StaticProperty<TOwner, T>(_name, _getter, _setter, _metadata);
         }
         else
         {
-            property = new CoreProperty<T>(_name, typeof(TOwner), metadata);
+            property = new CoreProperty<T>(_name, typeof(TOwner), _metadata);
         }
         PropertyRegistry.Register(typeof(TOwner), property);
 
@@ -62,7 +57,7 @@ public sealed class CorePropertyBuilder<T, TOwner>
         _setter = setter;
         return this;
     }
-    
+
     public CorePropertyBuilder<T, TOwner> Accessor(Expression<Func<TOwner, T>> exp)
     {
         _getter = exp.Compile();
@@ -83,25 +78,52 @@ public sealed class CorePropertyBuilder<T, TOwner>
 
     public CorePropertyBuilder<T, TOwner> DefaultValue(T? value)
     {
-        _defaultValue = value;
+        _metadata = _metadata with
+        {
+            DefaultValue = value
+        };
         return this;
     }
 
     public CorePropertyBuilder<T, TOwner> Observability(PropertyObservability value)
     {
-        _observability = value;
+        _metadata = _metadata with
+        {
+            Observability = value
+        };
         return this;
     }
 
     public CorePropertyBuilder<T, TOwner> SerializeName(string? value)
     {
-        _serializeName = value;
+        _metadata = _metadata with
+        {
+            SerializeName = value
+        };
         return this;
     }
 
     public CorePropertyBuilder<T, TOwner> PropertyFlags(PropertyFlags value)
     {
-        _propertyFlags = value;
+        _metadata = _metadata with
+        {
+            PropertyFlags = value
+        };
         return this;
+    }
+
+    public CorePropertyBuilder<T, TOwner> OverrideMetadata(CorePropertyMetadata<T> metadata)
+    {
+        if (_metadata != null)
+        {
+            metadata.Merge(_metadata, null);
+        }
+        _metadata = metadata;
+        return this;
+    }
+
+    void ICorePropertyBuilder<T>.OverrideMetadata(CorePropertyMetadata<T> metadata)
+    {
+        OverrideMetadata(metadata);
     }
 }

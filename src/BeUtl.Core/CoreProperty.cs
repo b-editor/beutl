@@ -5,9 +5,9 @@ namespace BeUtl;
 public abstract class CoreProperty
 {
     private static int s_nextId = 0;
-    private readonly CorePropertyMetadata _defaultMetadata;
-    private readonly Dictionary<Type, CorePropertyMetadata> _metadata = new();
-    private readonly Dictionary<Type, CorePropertyMetadata> _metadataCache = new();
+    private readonly ICorePropertyMetadata _defaultMetadata;
+    private readonly Dictionary<Type, ICorePropertyMetadata> _metadata = new();
+    private readonly Dictionary<Type, ICorePropertyMetadata> _metadataCache = new();
     private bool _hasMetadataOverrides;
 
     protected CoreProperty(
@@ -50,13 +50,13 @@ public abstract class CoreProperty
 
     public TMetadata GetMetadata<T, TMetadata>()
         where T : ICoreObject
-        where TMetadata : CorePropertyMetadata
+        where TMetadata : ICorePropertyMetadata
     {
         return GetMetadata<TMetadata>(typeof(T));
     }
 
     public TMetadata GetMetadata<TMetadata>(Type type)
-        where TMetadata : CorePropertyMetadata
+        where TMetadata : ICorePropertyMetadata
     {
         if (!_hasMetadataOverrides)
         {
@@ -92,14 +92,14 @@ public abstract class CoreProperty
     }
 
     private TMetadata GetMetadataWithOverrides<TMetadata>(Type type)
-        where TMetadata : CorePropertyMetadata
+        where TMetadata : ICorePropertyMetadata
     {
         if (type is null)
         {
             throw new ArgumentNullException(nameof(type));
         }
 
-        if (_metadataCache.TryGetValue(type, out CorePropertyMetadata? result) && result is TMetadata resultT)
+        if (_metadataCache.TryGetValue(type, out ICorePropertyMetadata? result) && result is TMetadata resultT)
         {
             return resultT;
         }
