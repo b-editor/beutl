@@ -1,48 +1,18 @@
 ﻿using System.Globalization;
-using System.Text;
 using System.Text.RegularExpressions;
 
 using BeUtl.Graphics;
+using BeUtl.Media;
+using BeUtl.Media.TextFormatting;
 
-namespace BeUtl.Media.TextFormatting;
+namespace BeUtl.Benchmarks.Media.TextFormatting;
 
-public readonly record struct StringSpan(string Source, int Start, int Length)
+public readonly struct FormattedTextTokenizer
 {
-    public static StringSpan Empty => new(string.Empty, 0, 0);
-
-    public override string ToString()
-    {
-        return AsSpan().ToString();
-    }
-
-    public ReadOnlySpan<char> AsSpan()
-    {
-        return IsValid() ? Source.AsSpan(Start, Length) : default;
-    }
-
-    public StringSpan Slice(int start, int length)
-    {
-        var r = new StringSpan(Source, Start + start, length);
-        return r;
-    }
-
-    public StringSpan Slice(int start)
-    {
-        var r = new StringSpan(Source, Start + start, Length - start);
-        return r;
-    }
-
-    public bool IsValid()
-    {
-        return Start >= 0 && (Start + Length) <= Source.Length;
-    }
-}
-
-public readonly struct FormattedTextParser
-{
+    private static readonly Regex s_tagRegex = new(@"^(?<prev>.*)\<(?<tag>.*)\>(?<next>.*)$");
     private readonly string _s;
 
-    public FormattedTextParser(string s)
+    public FormattedTextTokenizer(string s)
     {
         _s = s;
     }
@@ -188,7 +158,7 @@ public readonly struct FormattedTextParser
 
                 lines[lineNum].Elements.Add(new TextElement()
                 {
-                    Text = token.Text.AsSpan().ToString(),
+                    Text = Regex.Unescape(token.Text),
                     Typeface = new Typeface(font1, style1, weight1),
                     Size = size.PeekOrDefault(defaultProps.Size),
                     Foreground = color.PeekOrDefault(defaultProps.Color).ToBrush(),
@@ -237,39 +207,37 @@ public readonly struct FormattedTextParser
     // '_s'を全てトークン化
     public List<Token> Tokenize()
     {
+        string[] lines = _s.ReplaceLineEndings("\n").Split('\n');
         var result = new List<Token>();
-        ReadOnlySpan<char> span = _s.AsSpan();
 
-        foreach (ReadOnlySpan<char> linesp in span.EnumerateLines())
+        for (int i = 0; i < lines.Length; i++)
         {
-            int start = span.IndexOf(linesp, StringComparison.Ordinal);
-            int len = linesp.Length;
+            string line = lines[i];
+            Tokenize(Regex.Escape(line), result);
 
-            Tokenize(new StringSpan(_s, start, len), result);
-
-            result.Add(new Token(StringSpan.Empty, TokenType.NewLine));
+            result.Add(new Token(string.Empty, TokenType.NewLine));
         }
 
         return result;
     }
 
-    private void Process(StringSpan s, int start, int length, List<Token> result)
+    private void Process(Match match, List<Token> result)
     {
-        StringSpan prev = s.Slice(0, start);
-        StringSpan tag = s.Slice(start, length);
-        StringSpan next = s.Slice(start + length);
+        string prev = match.Groups["prev"].Value;
+        string tag = match.Groups["tag"].Value;
+        string next = match.Groups["next"].Value;
 
-        if (prev.Length > 0 && prev.IsValid())
+        if (!string.IsNullOrEmpty(prev))
         {
             Tokenize(prev, result);
         }
 
-        if (tag.Length > 0 && tag.IsValid())
+        if (!string.IsNullOrEmpty(tag))
         {
             TokenizeTag(tag, result);
         }
 
-        if (next.Length > 0 && next.IsValid())
+        if (!string.IsNullOrEmpty(next))
         {
             Tokenize(next, result);
         }
@@ -279,54 +247,41 @@ public readonly struct FormattedTextParser
     // Tokenize -> Process -> Tokenize
     //                     -> TokenizeTag
     //                     -> Tokenize
-    private void Tokenize(StringSpan s, List<Token> result)
+    private void Tokenize(string s, List<Token> result)
     {
-        ReadOnlySpan<char> span = s.AsSpan();
-        int tagStart = span.IndexOf("<", StringComparison.Ordinal);
-        int tagEnd = span.IndexOf(">", StringComparison.Ordinal);
+        Match tagMatch = s_tagRegex.Match(s);
 
-        bool isMatch = tagStart >= 0 && tagEnd >= 0 &&
-            tagStart < tagEnd;
-
-        if (isMatch)
+        if (tagMatch.Success)
         {
-            Process(s, tagStart, tagEnd - tagStart + 1, result);
+            Process(tagMatch, result);
         }
-        else if (s.Length > 0)
+        else if (!string.IsNullOrEmpty(s))
         {
             result.Add(new Token(s, TokenType.Content));
         }
     }
 
     // タグを解析
-    private static bool TryParseTag(StringSpan tag, out TagInfo result)
+    private static bool TryParseTag(string tag, out TagInfo result)
     {
-        ReadOnlySpan<char> span = tag.AsSpan();
-        if (span.IsWhiteSpace())
+        if (string.IsNullOrWhiteSpace(tag))
         {
             result = default;
             return false;
         }
 
-        int assignIdx = span.IndexOf("=", StringComparison.Ordinal);
-        StringSpan first = tag;
-        StringSpan second = StringSpan.Empty;
-        if (assignIdx >= 0)
-        {
-            first = tag.Slice(0, assignIdx);
-            second = tag.Slice(assignIdx + 1);
-        }
-        TagType tagType = GetTagType(first);
+        string[] array = tag.Split('=');
+        TagType tagType = GetTagType(array[0]);
 
         // "<#fffff>" みたいなタグ
         if (tagType is TagType.ColorHash or TagType.FontWeightBold or TagType.FontStyleItalic or TagType.NoParse)
         {
-            result = new TagInfo(first, tagType);
+            result = new TagInfo(array[0], tagType);
             return true;
         }
-        else if (second.Length > 0)
+        else if (array.Length == 2)
         {
-            result = new TagInfo(second, tagType);
+            result = new TagInfo(array[1], tagType);
             return true;
         }
         else
@@ -337,10 +292,10 @@ public readonly struct FormattedTextParser
     }
 
     // タグをトークンにして追加
-    private static void TokenizeTag(StringSpan s, List<Token> result)
+    private static void TokenizeTag(string s, List<Token> result)
     {
         // TagClose
-        if (s.AsSpan().StartsWith("</", StringComparison.Ordinal))
+        if (s.StartsWith('/'))
         {
             result.Add(new Token(s, TokenType.TagClose));
         }
@@ -351,60 +306,39 @@ public readonly struct FormattedTextParser
     }
 
     // 終了タグの種類を取得
-    private static TagType GetCloseTagType(StringSpan tag)
+    private static TagType GetCloseTagType(string tag)
     {
-        ReadOnlySpan<char> span = tag.AsSpan();
+        switch (tag)
+        {
+            case "/font":
+                return TagType.Font;
+            case "/size":
+                return TagType.Size;
+            case "/color":
+                return TagType.Color;
+            case "/cspace":
+                return TagType.CharSpace;
+            case "/margin":
+                return TagType.Margin;
+            case "/weight":
+                return TagType.FontWeight;
+            case "/style":
+                return TagType.FontStyle;
+            case "/b":
+            case "/bold":
+                return TagType.FontWeightBold;
+            case "/i":
+            case "/italic":
+                return TagType.FontStyleItalic;
+            case "/#":
+                return TagType.ColorHash;
+            case "/noparse":
+                return TagType.NoParse;
+            default:
+                break;
+        }
 
-        if (span.StartsWith("<", StringComparison.Ordinal))
-        {
-            span = span[1..];
-        }
-        if (span.EndsWith(">", StringComparison.Ordinal))
-        {
-            span = span[..^1];
-        }
-
-        if (span.SequenceEqual("/font"))
-        {
-            return TagType.Font;
-        }
-        else if (span.SequenceEqual("/size"))
-        {
-            return TagType.Size;
-        }
-        else if (span.SequenceEqual("/color"))
-        {
-            return TagType.Color;
-        }
-        else if (span.SequenceEqual("/cspace"))
-        {
-            return TagType.CharSpace;
-        }
-        else if (span.SequenceEqual("/margin"))
-        {
-            return TagType.Margin;
-        }
-        else if (span.SequenceEqual("/weight"))
-        {
-            return TagType.FontWeight;
-        }
-        else if (span.SequenceEqual("/style"))
-        {
-            return TagType.FontStyle;
-        }
-        else if (span.SequenceEqual("/b") || span.SequenceEqual("/bold"))
-        {
-            return TagType.FontWeightBold;
-        }
-        else if (span.SequenceEqual("/i") || span.SequenceEqual("/italic"))
-        {
-            return TagType.FontStyleItalic;
-        }
-        else if (span.SequenceEqual("/noparse"))
-        {
-            return TagType.NoParse;
-        }
-        else if (span.StartsWith("/#", StringComparison.Ordinal))
+        if (tag.StartsWith("/\\#"))
         {
             return TagType.ColorHash;
         }
@@ -413,60 +347,37 @@ public readonly struct FormattedTextParser
     }
 
     // 開始タグの種類を取得
-    private static TagType GetTagType(StringSpan tag)
+    private static TagType GetTagType(string tag)
     {
-        ReadOnlySpan<char> span = tag.AsSpan();
+        switch (tag)
+        {
+            case "font":
+                return TagType.Font;
+            case "size":
+                return TagType.Size;
+            case "color":
+                return TagType.Color;
+            case "cspace":
+                return TagType.CharSpace;
+            case "margin":
+                return TagType.Margin;
+            case "weight":
+                return TagType.FontWeight;
+            case "style":
+                return TagType.FontStyle;
+            case "b":
+            case "bold":
+                return TagType.FontWeightBold;
+            case "i":
+            case "italic":
+                return TagType.FontStyleItalic;
+            case "noparse":
+                return TagType.NoParse;
+            default:
+                break;
+        }
 
-        if (span.StartsWith("<", StringComparison.Ordinal))
-        {
-            span = span[1..];
-        }
-        if (span.EndsWith(">", StringComparison.Ordinal))
-        {
-            span = span[..^1];
-        }
-
-        if (span.SequenceEqual("font"))
-        {
-            return TagType.Font;
-        }
-        else if (span.SequenceEqual("size"))
-        {
-            return TagType.Size;
-        }
-        else if (span.SequenceEqual("color"))
-        {
-            return TagType.Color;
-        }
-        else if (span.SequenceEqual("cspace"))
-        {
-            return TagType.CharSpace;
-        }
-        else if (span.SequenceEqual("margin"))
-        {
-            return TagType.Margin;
-        }
-        else if (span.SequenceEqual("weight"))
-        {
-            return TagType.FontWeight;
-        }
-        else if (span.SequenceEqual("style"))
-        {
-            return TagType.FontStyle;
-        }
-        else if (span.SequenceEqual("b") || span.SequenceEqual("bold"))
-        {
-            return TagType.FontWeightBold;
-        }
-        else if (span.SequenceEqual("i") || span.SequenceEqual("italic"))
-        {
-            return TagType.FontStyleItalic;
-        }
-        else if (span.SequenceEqual("noparse"))
-        {
-            return TagType.NoParse;
-        }
-        else if (span.StartsWith("#", StringComparison.Ordinal))
+        if (tag.StartsWith("\\#"))
         {
             return TagType.ColorHash;
         }
@@ -474,15 +385,18 @@ public readonly struct FormattedTextParser
         return TagType.Invalid;
     }
 
-    public record struct Token(StringSpan Text, TokenType Type)
+    public record struct Token(string Text, TokenType Type)
     {
         public override string ToString()
         {
-            if (Type == TokenType.NewLine)
+            if (Type is TokenType.TagStart or TokenType.TagClose)
             {
-                return "newline";
+                return $"<{Regex.Unescape(Text)}>";
             }
-            return Text.AsSpan().ToString();
+            else
+            {
+                return base.ToString() ?? string.Empty;
+            }
         }
     }
 
@@ -494,9 +408,9 @@ public readonly struct FormattedTextParser
         NewLine,
     }
 
-    public record struct TagInfo(StringSpan Value, TagType Type)
+    public record struct TagInfo(string Value, TagType Type)
     {
-        public static readonly TagInfo Invalid = new(StringSpan.Empty, TagType.Invalid);
+        public static readonly TagInfo Invalid = new(string.Empty, TagType.Invalid);
 
         public bool TryGetColor(out Color color)
         {
@@ -514,8 +428,8 @@ public readonly struct FormattedTextParser
         {
             if (Type == TagType.Font)
             {
-                ReadOnlySpan<char> str = RemoveQuotation(Value);
-                font = new FontFamily(str.ToString());
+                string str = RemoveQuotation(Value);
+                font = new FontFamily(str);
                 if (FontManager.Instance.FontFamilies.Contains(font))
                 {
                     return true;
@@ -566,7 +480,7 @@ public readonly struct FormattedTextParser
         {
             if (Type is TagType.FontWeight or TagType.FontWeightBold)
             {
-                ReadOnlySpan<char> str = RemoveQuotation(Value);
+                string str = RemoveQuotation(Value);
                 if (int.TryParse(str, out int weightNum))
                 {
                     weight = (FontWeight)weightNum;
@@ -576,18 +490,18 @@ public readonly struct FormattedTextParser
                 {
                     weight = str switch
                     {
-                        var thin when thin.SequenceEqual("thin") => FontWeight.Thin,
-                        var ulight when ulight.SequenceEqual("ultra-light") => FontWeight.UltraLight,
-                        var light when light.SequenceEqual("light") => FontWeight.Light,
-                        var slight when slight.SequenceEqual("semi-light") => FontWeight.SemiLight,
-                        var reg when reg.SequenceEqual("regular") => FontWeight.Regular,
-                        var med when med.SequenceEqual("medium") => FontWeight.Medium,
-                        var sbold when sbold.SequenceEqual("semi-bold") => FontWeight.SemiBold,
-                        var bold when bold.SequenceEqual("bold") => FontWeight.Bold,
-                        var b when b.SequenceEqual("b") => FontWeight.Bold,
-                        var ubold when ubold.SequenceEqual("ultra-bold") => FontWeight.UltraBold,
-                        var black when black.SequenceEqual("black") => FontWeight.Black,
-                        var ublack when ublack.SequenceEqual("ultra-black") => FontWeight.UltraBlack,
+                        "thin" => FontWeight.Thin,
+                        "ultra-light" => FontWeight.UltraLight,
+                        "light" => FontWeight.Light,
+                        "semi-light" => FontWeight.SemiLight,
+                        "regular" => FontWeight.Regular,
+                        "medium" => FontWeight.Medium,
+                        "semi-bold" => FontWeight.SemiBold,
+                        "bold" => FontWeight.Bold,
+                        "b" => FontWeight.Bold,
+                        "ultra-bold" => FontWeight.UltraBold,
+                        "black" => FontWeight.Black,
+                        "ultra-black" => FontWeight.UltraBlack,
                         _ => (FontWeight)(-1),
                     };
 
@@ -606,13 +520,13 @@ public readonly struct FormattedTextParser
         {
             if (Type is TagType.FontStyle or TagType.FontStyleItalic)
             {
-                ReadOnlySpan<char> str = RemoveQuotation(Value);
+                string str = RemoveQuotation(Value);
                 style = str switch
                 {
-                    var normal when normal.SequenceEqual("normal") => FontStyle.Normal,
-                    var italic when italic.SequenceEqual("italic") => FontStyle.Italic,
-                    var i when i.SequenceEqual("i") => FontStyle.Italic,
-                    var oblique when oblique.SequenceEqual("oblique") => FontStyle.Oblique,
+                    "normal" => FontStyle.Normal,
+                    "italic" => FontStyle.Italic,
+                    "i" => FontStyle.Italic,
+                    "oblique" => FontStyle.Oblique,
                     _ => (FontStyle)(-1),
                 };
 
@@ -626,29 +540,11 @@ public readonly struct FormattedTextParser
             return false;
         }
 
-        private static ReadOnlySpan<char> RemoveQuotation(StringSpan s)
+        private static string RemoveQuotation(string s)
         {
-            ReadOnlySpan<char> span = s.AsSpan();
-            if (span.StartsWith("<", StringComparison.Ordinal))
-            {
-                span = span[1..];
-            }
-            if (span.EndsWith(">", StringComparison.Ordinal))
-            {
-                span = span[..^1];
-            }
-            if (span.StartsWith("\"", StringComparison.Ordinal) ||
-                span.StartsWith("\'", StringComparison.Ordinal))
-            {
-                span = span[1..];
-            }
-            if (span.EndsWith("\"", StringComparison.Ordinal) ||
-               span.EndsWith("\'", StringComparison.Ordinal))
-            {
-                span = span[..^1];
-            }
-
-            return span;
+            return s.Replace("\"", "")
+                .Replace("'", "")
+                .Replace("\\", "");
         }
     }
 
