@@ -49,7 +49,7 @@ public class FormattedText : Drawable
 
     public static FormattedText Parse(string s, FormattedTextInfo info)
     {
-        var tokenizer = new FormattedTextTokenizer(s);
+        var tokenizer = new FormattedTextParser(s);
         List<TextLine> lines = tokenizer.ToLines(info);
 
         return new FormattedText(lines);
@@ -59,7 +59,7 @@ public class FormattedText : Drawable
     {
         _lines.Clear();
         IsDisposed = false;
-        var tokenizer = new FormattedTextTokenizer(s);
+        var tokenizer = new FormattedTextParser(s);
         List<TextLine> lines = tokenizer.ToLines(info);
 
         _lines.AddRange(lines);
@@ -70,7 +70,7 @@ public class FormattedText : Drawable
     {
         Initialize();
 
-        var tokenizer = new FormattedTextTokenizer(s);
+        var tokenizer = new FormattedTextParser(s);
         List<TextLine> lines = tokenizer.ToLines(info);
 
         _lines.AddRange(lines);

@@ -2,8 +2,10 @@
 using System.Text.RegularExpressions;
 
 using BeUtl.Graphics;
+using BeUtl.Media;
+using BeUtl.Media.TextFormatting;
 
-namespace BeUtl.Media.TextFormatting;
+namespace BeUtl.Benchmarks.Media.TextFormatting;
 
 public readonly struct FormattedTextTokenizer
 {

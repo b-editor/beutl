@@ -194,6 +194,26 @@ public readonly struct Thickness : IEquatable<Thickness>
             return false;
         }
     }
+    
+    /// <summary>
+    /// Parses a <see cref="Thickness"/> string.
+    /// </summary>
+    /// <param name="s">The string.</param>
+    /// <param name="thickness">The <see cref="Thickness"/>.</param>
+    /// <returns>The status of the operation.</returns>
+    public static bool TryParse(ReadOnlySpan<char> s, out Thickness thickness)
+    {
+        try
+        {
+            thickness = Parse(s);
+            return true;
+        }
+        catch
+        {
+            thickness = default;
+            return false;
+        }
+    }
 
     /// <summary>
     /// Parses a <see cref="Thickness"/> string.
@@ -205,6 +225,34 @@ public readonly struct Thickness : IEquatable<Thickness>
         const string exceptionMessage = "Invalid Thickness.";
 
         using var tokenizer = new StringTokenizer(s, CultureInfo.InvariantCulture, exceptionMessage);
+        if (tokenizer.TryReadSingle(out float a))
+        {
+            if (tokenizer.TryReadSingle(out float b))
+            {
+                if (tokenizer.TryReadSingle(out float c))
+                {
+                    return new Thickness(a, b, c, tokenizer.ReadSingle());
+                }
+
+                return new Thickness(a, b);
+            }
+
+            return new Thickness(a);
+        }
+
+        throw new FormatException(exceptionMessage);
+    }
+    
+    /// <summary>
+    /// Parses a <see cref="Thickness"/> string.
+    /// </summary>
+    /// <param name="s">The string.</param>
+    /// <returns>The <see cref="Thickness"/>.</returns>
+    public static Thickness Parse(ReadOnlySpan<char> s)
+    {
+        const string exceptionMessage = "Invalid Thickness.";
+
+        using var tokenizer = new RefStringTokenizer(s, CultureInfo.InvariantCulture, exceptionMessage);
         if (tokenizer.TryReadSingle(out float a))
         {
             if (tokenizer.TryReadSingle(out float b))

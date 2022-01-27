@@ -13,4 +13,16 @@ internal static class StackExtensions
             return defaultValue;
         }
     }
+
+    public static T PopOrDefault<T>(this Stack<T> stack, T defaultValue)
+    {
+        if (stack.TryPop(out T? result))
+        {
+            return result;
+        }
+        else
+        {
+            return defaultValue;
+        }
+    }
 }
