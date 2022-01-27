@@ -1,4 +1,5 @@
 ﻿using System.Globalization;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
 
@@ -38,9 +39,10 @@ public readonly record struct StringSpan(string Source, int Start, int Length)
     }
 }
 
-public readonly struct FormattedTextParser
+public struct FormattedTextParser
 {
     private readonly string _s;
+    private int _lineCount = 0;
 
     public FormattedTextParser(string s)
     {
@@ -50,12 +52,12 @@ public readonly struct FormattedTextParser
     public List<TextLine> ToLines(FormattedTextInfo defaultProps)
     {
         List<Token> tokens = Tokenize();
-        var lines = new List<TextLine>();
+        Span<Token> spanTokens = CollectionsMarshal.AsSpan(tokens);
+        var lines = new List<TextLine>(_lineCount);
 
         // 行を追加
-        for (int i = 0; i < tokens.Count; i++)
+        foreach (Token token in spanTokens)
         {
-            Token token = tokens[i];
             if (token.Type == TokenType.NewLine)
             {
                 lines.Add(new TextLine());
@@ -70,51 +72,55 @@ public readonly struct FormattedTextParser
         var color = new Stack<Color>();
         var space = new Stack<float>();
         var margin = new Stack<Thickness>();
-
-        font.Push(defaultProps.Typeface.FontFamily);
-        fontWeight.Push(defaultProps.Typeface.Weight);
-        fontStyle.Push(defaultProps.Typeface.Style);
-        size.Push(defaultProps.Size);
-        color.Push(defaultProps.Color);
-        space.Push(defaultProps.Space);
-        margin.Push(defaultProps.Margin);
+        FontFamily curFont = defaultProps.Typeface.FontFamily;
+        FontWeight curWeight = defaultProps.Typeface.Weight;
+        FontStyle curStyle = defaultProps.Typeface.Style;
+        float curSize = defaultProps.Size;
+        Color curColor = defaultProps.Color;
+        float curSpace = defaultProps.Space;
+        Thickness curMargin = defaultProps.Margin;
         bool noParse = false;
 
-        for (int i1 = 0; i1 < tokens.Count; i1++)
+        foreach (Token token in spanTokens)
         {
-            Token token = tokens[i1];
-
             if (!noParse && token.Type == TokenType.TagStart &&
                 TryParseTag(token.Text, out TagInfo tag))
             {
                 // 開始タグ
                 if (tag.TryGetFont(out FontFamily font1))
                 {
-                    font.Push(font1);
+                    font.Push(curFont);
+                    curFont = font1;
                 }
                 else if (tag.TryGetSize(out float size1))
                 {
-                    size.Push(size1);
+                    size.Push(curSize);
+                    curSize = size1;
                 }
                 else if (tag.TryGetColor(out Color color1))
                 {
-                    color.Push(color1);
+                    color.Push(curColor);
+                    curColor = color1;
                 }
                 else if (tag.TryGetCharSpace(out float space1))
                 {
-                    space.Push(space1);
+                    space.Push(curSpace);
+                    curSpace = space1;
                 }
                 else if (tag.TryGetMargin(out Thickness margin1))
                 {
-                    margin.Push(margin1);
+                    margin.Push(curMargin);
+                    curMargin = margin1;
                 }
                 else if (tag.TryGetFontStyle(out FontStyle fontStyle1))
                 {
-                    fontStyle.Push(fontStyle1);
+                    fontStyle.Push(curStyle);
+                    curStyle = fontStyle1;
                 }
                 else if (tag.TryGetFontWeight(out FontWeight fontWeight1))
                 {
-                    fontWeight.Push(fontWeight1);
+                    fontWeight.Push(curWeight);
+                    curWeight = fontWeight1;
                 }
                 else if (tag.Type == TagType.NoParse)
                 {
@@ -142,34 +148,28 @@ public readonly struct FormattedTextParser
                         case TagType.Invalid:
                             goto default;
                         case TagType.Font:
-                            font.Pop();
+                            curFont = font.PopOrDefault(defaultProps.Typeface.FontFamily);
                             break;
                         case TagType.Size:
-                            size.Pop();
+                            curSize = size.PopOrDefault(defaultProps.Size);
                             break;
                         case TagType.Color:
-                            color.Pop();
-                            break;
                         case TagType.ColorHash:
-                            color.Pop();
+                            curColor = color.PopOrDefault(defaultProps.Color);
                             break;
                         case TagType.CharSpace:
-                            space.Pop();
+                            curSpace = space.PopOrDefault(defaultProps.Space);
                             break;
                         case TagType.Margin:
-                            margin.Pop();
+                            curMargin = margin.PopOrDefault(defaultProps.Margin);
                             break;
                         case TagType.FontWeightBold:
-                            fontWeight.Pop();
-                            break;
                         case TagType.FontWeight:
-                            fontWeight.Pop();
+                            curWeight = fontWeight.PopOrDefault(defaultProps.Typeface.Weight);
                             break;
                         case TagType.FontStyle:
-                            fontStyle.Pop();
-                            break;
                         case TagType.FontStyleItalic:
-                            fontStyle.Pop();
+                            curStyle = fontStyle.PopOrDefault(defaultProps.Typeface.Style);
                             break;
                         case TagType.NoParse:
                             noParse = false;
@@ -182,18 +182,14 @@ public readonly struct FormattedTextParser
 
             if (token.Type == TokenType.Content)
             {
-                FontFamily font1 = font.PeekOrDefault(defaultProps.Typeface.FontFamily);
-                FontStyle style1 = fontStyle.PeekOrDefault(defaultProps.Typeface.Style);
-                FontWeight weight1 = fontWeight.PeekOrDefault(defaultProps.Typeface.Weight);
-
                 lines[lineNum].Elements.Add(new TextElement()
                 {
                     Text = token.Text.AsSpan().ToString(),
-                    Typeface = new Typeface(font1, style1, weight1),
-                    Size = size.PeekOrDefault(defaultProps.Size),
-                    Foreground = color.PeekOrDefault(defaultProps.Color).ToBrush(),
-                    Spacing = space.PeekOrDefault(defaultProps.Space),
-                    Margin = margin.PeekOrDefault(defaultProps.Margin),
+                    Typeface = new Typeface(curFont, curStyle, curWeight),
+                    Size = curSize,
+                    Foreground = curColor.ToImmutableBrush(),
+                    Spacing = curSpace,
+                    Margin = curMargin,
                 });
             }
             else if (token.Type == TokenType.NewLine)
@@ -202,18 +198,14 @@ public readonly struct FormattedTextParser
             }
             else if (noParse)
             {
-                FontFamily font1 = font.PeekOrDefault(defaultProps.Typeface.FontFamily);
-                FontStyle style1 = fontStyle.PeekOrDefault(defaultProps.Typeface.Style);
-                FontWeight weight1 = fontWeight.PeekOrDefault(defaultProps.Typeface.Weight);
-
                 lines[lineNum].Elements.Add(new TextElement()
                 {
                     Text = token.ToString(),
-                    Typeface = new Typeface(font1, style1, weight1),
-                    Size = size.PeekOrDefault(defaultProps.Size),
-                    Foreground = color.PeekOrDefault(defaultProps.Color).ToBrush(),
-                    Spacing = space.PeekOrDefault(defaultProps.Space),
-                    Margin = margin.PeekOrDefault(defaultProps.Margin),
+                    Typeface = new Typeface(curFont, curStyle, curWeight),
+                    Size = curSize,
+                    Foreground = curColor.ToImmutableBrush(),
+                    Spacing = curSpace,
+                    Margin = curMargin,
                 });
             }
         }
@@ -237,6 +229,7 @@ public readonly struct FormattedTextParser
     // '_s'を全てトークン化
     public List<Token> Tokenize()
     {
+        _lineCount = 0;
         var result = new List<Token>();
         ReadOnlySpan<char> span = _s.AsSpan();
 
@@ -248,6 +241,7 @@ public readonly struct FormattedTextParser
             Tokenize(new StringSpan(_s, start, len), result);
 
             result.Add(new Token(StringSpan.Empty, TokenType.NewLine));
+            _lineCount++;
         }
 
         return result;
