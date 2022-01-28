@@ -57,12 +57,11 @@ public class FormattedText : Drawable
 
     public void Load(string s, FormattedTextInfo info)
     {
-        _lines.Clear();
         IsDisposed = false;
         var tokenizer = new FormattedTextParser(s);
         List<TextLine> lines = tokenizer.ToLines(info);
 
-        _lines.AddRange(lines);
+        _lines.Replace(lines);
         Invalidate();
     }
 

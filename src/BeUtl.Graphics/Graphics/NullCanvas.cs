@@ -47,7 +47,7 @@ internal sealed class NullCanvas : ICanvas
     public void Clear(Color color) => throw new NotImplementedException();
 
     public void ClipRect(Rect clip, ClipOperation operation = ClipOperation.Intersect) => throw new NotImplementedException();
-    
+
     public void ClipPath(SKPath path, ClipOperation operation = ClipOperation.Intersect) => throw new NotImplementedException();
 
     public void Dispose() => throw new NotImplementedException();
@@ -58,7 +58,7 @@ internal sealed class NullCanvas : ICanvas
 
     public void DrawRect(Size size) => throw new NotImplementedException();
 
-    public void DrawText(TextElement text) => throw new NotImplementedException();
+    public void DrawText(TextElement text, Size size) => throw new NotImplementedException();
 
     public void FillCircle(Size size) => throw new NotImplementedException();
 

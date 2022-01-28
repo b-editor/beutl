@@ -19,8 +19,8 @@ public abstract class Drawable : Renderable, IDrawable, ILogicalElement
     public static readonly CoreProperty<IBrush?> ForegroundProperty;
     public static readonly CoreProperty<IBrush?> OpacityMaskProperty;
     public static readonly CoreProperty<BlendMode> BlendModeProperty;
-    private float _width = -1;
-    private float _height = -1;
+    private float _width = 0;
+    private float _height = 0;
     private ITransform? _transform;
     private IImageFilter? _filter;
     private AlignmentX _cAlignX;
@@ -36,13 +36,13 @@ public abstract class Drawable : Renderable, IDrawable, ILogicalElement
         WidthProperty = ConfigureProperty<float, Drawable>(nameof(Width))
             .Accessor(o => o.Width, (o, v) => o.Width = v)
             .PropertyFlags(PropertyFlags.Styleable | PropertyFlags.Designable)
-            .DefaultValue(-1)
+            .DefaultValue(0)
             .Register();
 
         HeightProperty = ConfigureProperty<float, Drawable>(nameof(Height))
             .Accessor(o => o.Height, (o, v) => o.Height = v)
             .PropertyFlags(PropertyFlags.Styleable | PropertyFlags.Designable)
-            .DefaultValue(-1)
+            .DefaultValue(0)
             .Register();
 
         TransformProperty = ConfigureProperty<ITransform?, Drawable>(nameof(Transform))

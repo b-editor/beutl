@@ -27,12 +27,12 @@ public class GraphicsTests
         graphics.Clear(Colors.Black);
 
         var rect = new Rect(graphics.Size.ToSize(1));
-        Size size = element.Measure();
-        Rect bounds = rect.CenterRect(new Rect(size));
+        element.Measure(rect.Size);
+        Rect bounds = rect.CenterRect(element.Bounds);
 
         graphics.Translate(bounds.Position);
-        graphics.FillRect(size);
-        graphics.DrawText(element);
+        graphics.FillRect(bounds.Size);
+        graphics.DrawText(element, element.Bounds.Size);
 
         Bitmap<Bgra8888> bmp = graphics.GetBitmap();
 

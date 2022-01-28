@@ -3,10 +3,12 @@ using BeUtl.Styling;
 
 namespace BeUtl.Rendering;
 
-public abstract class Renderable : Styleable, IRenderable
+public abstract class Renderable : Styleable, IRenderable, IAffectsRender
 {
     public static readonly CoreProperty<bool> IsVisibleProperty;
-    private bool _isVisible;
+    private bool _isVisible = true;
+
+    public event EventHandler? Invalidated;
 
     static Renderable()
     {
@@ -69,6 +71,7 @@ public abstract class Renderable : Styleable, IRenderable
     public void Invalidate()
     {
         IsDirty = true;
+        Invalidated?.Invoke(this, EventArgs.Empty);
     }
 
     public abstract void Dispose();

@@ -200,10 +200,10 @@ public class Canvas : ICanvas
     }
 
     // Marginを考慮しない
-    public void DrawText(TextElement text)
+    public void DrawText(TextElement text, Size size)
     {
         VerifyAccess();
-        ConfigurePaint(_paint, text.Measure());
+        ConfigurePaint(_paint, size);
         _paint.TextSize = text.Size;
         _paint.Typeface = text.Typeface.ToSkia();
         _paint.Style = SKPaintStyle.Fill;

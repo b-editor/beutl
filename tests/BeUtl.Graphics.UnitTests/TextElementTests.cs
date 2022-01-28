@@ -18,6 +18,6 @@ public class TextElementTests
             Typeface = TypefaceProvider.Typeface()
         };
 
-        _ = element.Measure();
+        element.Measure(new Size(500, 500));
     }
 }

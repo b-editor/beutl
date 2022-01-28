@@ -61,7 +61,10 @@ public sealed class RoundedRect : Drawable
     {
         using var g = new Canvas((int)Width, (int)Height);
 
-        g.Foreground = Foreground;
+        if (Foreground != null)
+        {
+            g.Foreground = Foreground;
+        }
         g.StrokeWidth = StrokeWidth;
         g.DrawRect(new Size(Width, Height));
 
@@ -119,7 +122,10 @@ public sealed class RoundedRect : Drawable
             float size = radius * 2;
             using var c = new Canvas((int)size, (int)size);
 
-            c.Foreground = Foreground;
+            if (Foreground != null)
+            {
+                c.Foreground = Foreground;
+            }
             c.StrokeWidth = StrokeWidth;
             c.DrawCircle(new Size(size, size));
 

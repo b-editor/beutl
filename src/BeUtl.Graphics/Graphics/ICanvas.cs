@@ -41,7 +41,7 @@ public interface ICanvas : IDisposable
 
     void FillRect(Size size);
 
-    void DrawText(TextElement text);
+    void DrawText(TextElement text, Size size);
 
     Bitmap<Bgra8888> GetBitmap();
 
