@@ -520,10 +520,51 @@ public readonly struct Rect : IEquatable<Rect>
     /// Parses a <see cref="Rect"/> string.
     /// </summary>
     /// <param name="s">The string.</param>
+    /// <param name="rect">The <see cref="Rect"/>.</param>
+    /// <returns>The status of the operation.</returns>
+    public static bool TryParse(string s, out Rect rect)
+    {
+        return TryParse(s.AsSpan(), out rect);
+    }
+
+    /// <summary>
+    /// Parses a <see cref="Rect"/> string.
+    /// </summary>
+    /// <param name="s">The string.</param>
+    /// <param name="rect">The <see cref="Rect"/>.</param>
+    /// <returns>The status of the operation.</returns>
+    public static bool TryParse(ReadOnlySpan<char> s, out Rect rect)
+    {
+        try
+        {
+            rect = Parse(s);
+            return true;
+        }
+        catch
+        {
+            rect = default;
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Parses a <see cref="Rect"/> string.
+    /// </summary>
+    /// <param name="s">The string.</param>
     /// <returns>The parsed <see cref="Rect"/>.</returns>
     public static Rect Parse(string s)
     {
-        using var tokenizer = new StringTokenizer(s, CultureInfo.InvariantCulture, exceptionMessage: "Invalid Rect.");
+        return Parse(s.AsSpan());
+    }
+
+    /// <summary>
+    /// Parses a <see cref="Rect"/> string.
+    /// </summary>
+    /// <param name="s">The string.</param>
+    /// <returns>The parsed <see cref="Rect"/>.</returns>
+    public static Rect Parse(ReadOnlySpan<char> s)
+    {
+        using var tokenizer = new RefStringTokenizer(s, CultureInfo.InvariantCulture, exceptionMessage: "Invalid Rect.");
         return new Rect(
             tokenizer.ReadSingle(),
             tokenizer.ReadSingle(),

@@ -12,6 +12,15 @@ public class SizeTests
 
         Assert.AreEqual(new Size(1920, 1080), size);
     }
+    
+    [Test]
+    public void ParseSpan()
+    {
+        const string str = "1920,1080";
+        var size = Size.Parse(str.AsSpan());
+
+        Assert.AreEqual(new Size(1920, 1080), size);
+    }
 
     [Test]
     public void Deflate()

@@ -144,10 +144,51 @@ public readonly struct Size : IEquatable<Size>
     /// Parses a <see cref="Size"/> string.
     /// </summary>
     /// <param name="s">The string.</param>
+    /// <param name="size">The <see cref="Size"/>.</param>
+    /// <returns>The status of the operation.</returns>
+    public static bool TryParse(string s, out Size size)
+    {
+        return TryParse(s.AsSpan(), out size);
+    }
+
+    /// <summary>
+    /// Parses a <see cref="Size"/> string.
+    /// </summary>
+    /// <param name="s">The string.</param>
+    /// <param name="size">The <see cref="Size"/>.</param>
+    /// <returns>The status of the operation.</returns>
+    public static bool TryParse(ReadOnlySpan<char> s, out Size size)
+    {
+        try
+        {
+            size = Parse(s);
+            return true;
+        }
+        catch
+        {
+            size = default;
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Parses a <see cref="Size"/> string.
+    /// </summary>
+    /// <param name="s">The string.</param>
     /// <returns>The <see cref="Size"/>.</returns>
     public static Size Parse(string s)
     {
-        using var tokenizer = new StringTokenizer(s, CultureInfo.InvariantCulture, exceptionMessage: "Invalid Size.");
+        return Parse(s.AsSpan());
+    }
+    
+    /// <summary>
+    /// Parses a <see cref="Size"/> string.
+    /// </summary>
+    /// <param name="s">The string.</param>
+    /// <returns>The <see cref="Size"/>.</returns>
+    public static Size Parse(ReadOnlySpan<char> s)
+    {
+        using var tokenizer = new RefStringTokenizer(s, CultureInfo.InvariantCulture, exceptionMessage: "Invalid Size.");
         return new Size(
             tokenizer.ReadSingle(),
             tokenizer.ReadSingle());

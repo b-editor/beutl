@@ -1,4 +1,7 @@
-﻿using System.Globalization;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
+
+using BeUtl.Media;
 using BeUtl.Utilities;
 
 namespace BeUtl.Animation;
@@ -48,16 +51,35 @@ public class KeySpline
         _isDirty = true;
     }
 
-    public static KeySpline Parse(string value)
+    public static bool TryParse(string s, [NotNullWhen(true)] out KeySpline? keySpline, IFormatProvider? provider = null)
     {
-        return Parse(value, null);
+        return TryParse(s.AsSpan(), out keySpline, provider);
     }
 
-    public static KeySpline Parse(string value, IFormatProvider? provider)
+    public static bool TryParse(ReadOnlySpan<char> s, [NotNullWhen(true)] out KeySpline? keySpline, IFormatProvider? provider = null)
+    {
+        try
+        {
+            keySpline = Parse(s, provider);
+            return true;
+        }
+        catch
+        {
+            keySpline = default;
+            return false;
+        }
+    }
+
+    public static KeySpline Parse(string value, IFormatProvider? provider = null)
+    {
+        return Parse(value.AsSpan(), provider);
+    }
+
+    public static KeySpline Parse(ReadOnlySpan<char> value, IFormatProvider? provider = null)
     {
         provider ??= CultureInfo.InvariantCulture;
 
-        using var tokenizer = new StringTokenizer(value, provider, exceptionMessage: $"Invalid KeySpline string: \"{value}\".");
+        using var tokenizer = new RefStringTokenizer(value, provider, exceptionMessage: $"Invalid KeySpline string: \"{value}\".");
 
         return new KeySpline(tokenizer.ReadSingle(), tokenizer.ReadSingle(), tokenizer.ReadSingle(), tokenizer.ReadSingle());
     }

@@ -2,6 +2,6 @@ using BeUtl.Media;
 
 namespace BeUtl.Graphics.Transformation;
 
-public sealed class Transforms : AffectsRenders<Transform>
+public sealed class Transforms : AffectsRenders<ITransform>
 {
 }

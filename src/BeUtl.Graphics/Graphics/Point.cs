@@ -173,10 +173,51 @@ public readonly struct Point : IEquatable<Point>
     /// Parses a <see cref="Point"/> string.
     /// </summary>
     /// <param name="s">The string.</param>
+    /// <param name="point">The <see cref="Point"/>.</param>
+    /// <returns>The status of the operation.</returns>
+    public static bool TryParse(string s, out Point point)
+    {
+        return TryParse(s.AsSpan(), out point);
+    }
+
+    /// <summary>
+    /// Parses a <see cref="Point"/> string.
+    /// </summary>
+    /// <param name="s">The string.</param>
+    /// <param name="point">The <see cref="Point"/>.</param>
+    /// <returns>The status of the operation.</returns>
+    public static bool TryParse(ReadOnlySpan<char> s, out Point point)
+    {
+        try
+        {
+            point = Parse(s);
+            return true;
+        }
+        catch
+        {
+            point = default;
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Parses a <see cref="Point"/> string.
+    /// </summary>
+    /// <param name="s">The string.</param>
     /// <returns>The <see cref="Point"/>.</returns>
     public static Point Parse(string s)
     {
-        using var tokenizer = new StringTokenizer(s, CultureInfo.InvariantCulture, exceptionMessage: "Invalid Point.");
+        return Parse(s.AsSpan());
+    }
+    
+    /// <summary>
+    /// Parses a <see cref="Point"/> string.
+    /// </summary>
+    /// <param name="s">The string.</param>
+    /// <returns>The <see cref="Point"/>.</returns>
+    public static Point Parse(ReadOnlySpan<char> s)
+    {
+        using var tokenizer = new RefStringTokenizer(s, CultureInfo.InvariantCulture, exceptionMessage: "Invalid Point.");
         return new Point(
             tokenizer.ReadSingle(),
             tokenizer.ReadSingle()

@@ -287,9 +287,9 @@ public static class MathUtilities
     /// </summary>
     /// <param name="angle">The angle in degrees.</param>
     /// <returns>The angle in radians.</returns>
-    public static double Deg2Rad(double angle)
+    public static float Rad2Deg(float angle)
     {
-        return angle * (Math.PI / 180d);
+        return angle * (180f / MathF.PI);
     }
 
     /// <summary>
@@ -297,9 +297,29 @@ public static class MathUtilities
     /// </summary>
     /// <param name="angle">The angle in gradians.</param>
     /// <returns>The angle in radians.</returns>
-    public static double Grad2Rad(double angle)
+    public static float Rad2Grad(float angle)
     {
-        return angle * (Math.PI / 200d);
+        return angle * (200F / MathF.PI);
+    }
+
+    /// <summary>
+    /// Converts an angle in degrees to radians.
+    /// </summary>
+    /// <param name="angle">The angle in degrees.</param>
+    /// <returns>The angle in radians.</returns>
+    public static float Deg2Rad(float angle)
+    {
+        return angle * (MathF.PI / 180f);
+    }
+
+    /// <summary>
+    /// Converts an angle in gradians to radians.
+    /// </summary>
+    /// <param name="angle">The angle in gradians.</param>
+    /// <returns>The angle in radians.</returns>
+    public static float Grad2Rad(float angle)
+    {
+        return angle * (MathF.PI / 200F);
     }
 
     /// <summary>
@@ -307,9 +327,9 @@ public static class MathUtilities
     /// </summary>
     /// <param name="angle">The angle in turns.</param>
     /// <returns>The angle in radians.</returns>
-    public static double Turn2Rad(double angle)
+    public static float Turn2Rad(float angle)
     {
-        return angle * 2 * Math.PI;
+        return angle * 2 * MathF.PI;
     }
 
     private static void ThrowCannotBeGreaterThanException<T>(T min, T max)

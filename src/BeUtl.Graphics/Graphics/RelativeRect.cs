@@ -157,15 +157,56 @@ public readonly struct RelativeRect : IEquatable<RelativeRect>
     /// Parses a <see cref="RelativeRect"/> string.
     /// </summary>
     /// <param name="s">The string.</param>
+    /// <param name="rect">The <see cref="RelativeRect"/>.</param>
+    /// <returns>The status of the operation.</returns>
+    public static bool TryParse(string s, out RelativeRect rect)
+    {
+        return TryParse(s.AsSpan(), out rect);
+    }
+
+    /// <summary>
+    /// Parses a <see cref="RelativeRect"/> string.
+    /// </summary>
+    /// <param name="s">The string.</param>
+    /// <param name="rect">The <see cref="RelativeRect"/>.</param>
+    /// <returns>The status of the operation.</returns>
+    public static bool TryParse(ReadOnlySpan<char> s, out RelativeRect rect)
+    {
+        try
+        {
+            rect = Parse(s);
+            return true;
+        }
+        catch
+        {
+            rect = default;
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Parses a <see cref="RelativeRect"/> string.
+    /// </summary>
+    /// <param name="s">The string.</param>
     /// <returns>The parsed <see cref="RelativeRect"/>.</returns>
     public static RelativeRect Parse(string s)
     {
-        using (var tokenizer = new StringTokenizer(s, exceptionMessage: "Invalid RelativeRect."))
+        return Parse(s.AsSpan());
+    }
+
+    /// <summary>
+    /// Parses a <see cref="RelativeRect"/> string.
+    /// </summary>
+    /// <param name="s">The string.</param>
+    /// <returns>The parsed <see cref="RelativeRect"/>.</returns>
+    public static RelativeRect Parse(ReadOnlySpan<char> s)
+    {
+        using (var tokenizer = new RefStringTokenizer(s, exceptionMessage: "Invalid RelativeRect."))
         {
-            string x = tokenizer.ReadString();
-            string y = tokenizer.ReadString();
-            string width = tokenizer.ReadString();
-            string height = tokenizer.ReadString();
+            ReadOnlySpan<char> x = tokenizer.ReadString();
+            ReadOnlySpan<char> y = tokenizer.ReadString();
+            ReadOnlySpan<char> width = tokenizer.ReadString();
+            ReadOnlySpan<char> height = tokenizer.ReadString();
 
             RelativeUnit unit = RelativeUnit.Absolute;
             float scale = 1.0f;
@@ -191,11 +232,22 @@ public readonly struct RelativeRect : IEquatable<RelativeRect>
             }
 
             return new RelativeRect(
-                float.Parse(x, CultureInfo.InvariantCulture) * scale,
-                float.Parse(y, CultureInfo.InvariantCulture) * scale,
-                float.Parse(width, CultureInfo.InvariantCulture) * scale,
-                float.Parse(height, CultureInfo.InvariantCulture) * scale,
+                float.Parse(x, provider: CultureInfo.InvariantCulture) * scale,
+                float.Parse(y, provider: CultureInfo.InvariantCulture) * scale,
+                float.Parse(width, provider: CultureInfo.InvariantCulture) * scale,
+                float.Parse(height, provider: CultureInfo.InvariantCulture) * scale,
                 unit);
         }
+    }
+
+    /// <summary>
+    /// Returns a String representing this RelativeRect instance.
+    /// </summary>
+    /// <returns>The string representation.</returns>
+    public override string ToString()
+    {
+        return Unit == RelativeUnit.Absolute ?
+            Rect.ToString() :
+            FormattableString.Invariant($"{Rect.X * 100}%, {Rect.Y * 100}%, {Rect.Width * 100}%, {Rect.Height * 100}%");
     }
 }

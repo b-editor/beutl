@@ -115,10 +115,51 @@ public readonly struct Vector : IEquatable<Vector>
     /// Parses a <see cref="Vector"/> string.
     /// </summary>
     /// <param name="s">The string.</param>
+    /// <param name="vector">The <see cref="Vector"/>.</param>
+    /// <returns>The status of the operation.</returns>
+    public static bool TryParse(string s, out Vector vector)
+    {
+        return TryParse(s.AsSpan(), out vector);
+    }
+
+    /// <summary>
+    /// Parses a <see cref="Vector"/> string.
+    /// </summary>
+    /// <param name="s">The string.</param>
+    /// <param name="vector">The <see cref="Vector"/>.</param>
+    /// <returns>The status of the operation.</returns>
+    public static bool TryParse(ReadOnlySpan<char> s, out Vector vector)
+    {
+        try
+        {
+            vector = Parse(s);
+            return true;
+        }
+        catch
+        {
+            vector = default;
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Parses a <see cref="Vector"/> string.
+    /// </summary>
+    /// <param name="s">The string.</param>
     /// <returns>The <see cref="Vector"/>.</returns>
     public static Vector Parse(string s)
     {
-        using (var tokenizer = new StringTokenizer(s, CultureInfo.InvariantCulture, exceptionMessage: "Invalid Vector."))
+        return Parse(s.AsSpan());
+    }
+    
+    /// <summary>
+    /// Parses a <see cref="Vector"/> string.
+    /// </summary>
+    /// <param name="s">The string.</param>
+    /// <returns>The <see cref="Vector"/>.</returns>
+    public static Vector Parse(ReadOnlySpan<char> s)
+    {
+        using (var tokenizer = new RefStringTokenizer(s, CultureInfo.InvariantCulture, exceptionMessage: "Invalid Vector."))
         {
             return new Vector(
                 tokenizer.ReadSingle(),
@@ -165,7 +206,9 @@ public readonly struct Vector : IEquatable<Vector>
     /// <param name="b">The second vector.</param>
     /// <returns>A vector that is the result of the subtraction.</returns>
     public static Vector operator -(Vector a, Vector b)
-        => Subtract(a, b);
+    {
+        return Subtract(a, b);
+    }
 
     public static bool operator ==(Vector left, Vector right)
     {
@@ -217,7 +260,7 @@ public readonly struct Vector : IEquatable<Vector>
     /// <returns>The string representation of the vector.</returns>
     public override string ToString()
     {
-        return string.Format(CultureInfo.InvariantCulture, "{0}, {1}", X, Y);
+        return FormattableString.Invariant($"{X}, {Y}");
     }
 
     /// <summary>

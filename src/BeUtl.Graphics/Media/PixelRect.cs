@@ -397,10 +397,51 @@ public readonly struct PixelRect : IEquatable<PixelRect>
     /// Parses a <see cref="PixelRect"/> string.
     /// </summary>
     /// <param name="s">The string.</param>
+    /// <param name="rect">The <see cref="PixelRect"/>.</param>
+    /// <returns>The status of the operation.</returns>
+    public static bool TryParse(string s, out PixelRect rect)
+    {
+        return TryParse(s.AsSpan(), out rect);
+    }
+
+    /// <summary>
+    /// Parses a <see cref="PixelRect"/> string.
+    /// </summary>
+    /// <param name="s">The string.</param>
+    /// <param name="rect">The <see cref="PixelRect"/>.</param>
+    /// <returns>The status of the operation.</returns>
+    public static bool TryParse(ReadOnlySpan<char> s, out PixelRect rect)
+    {
+        try
+        {
+            rect = Parse(s);
+            return true;
+        }
+        catch
+        {
+            rect = default;
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Parses a <see cref="PixelRect"/> string.
+    /// </summary>
+    /// <param name="s">The string.</param>
     /// <returns>The parsed <see cref="PixelRect"/>.</returns>
     public static PixelRect Parse(string s)
     {
-        using var tokenizer = new StringTokenizer(s, CultureInfo.InvariantCulture, exceptionMessage: "Invalid PixelRect.");
+        return Parse(s.AsSpan());
+    }
+    
+    /// <summary>
+    /// Parses a <see cref="PixelRect"/> string.
+    /// </summary>
+    /// <param name="s">The string.</param>
+    /// <returns>The parsed <see cref="PixelRect"/>.</returns>
+    public static PixelRect Parse(ReadOnlySpan<char> s)
+    {
+        using var tokenizer = new RefStringTokenizer(s, CultureInfo.InvariantCulture, exceptionMessage: "Invalid PixelRect.");
         return new PixelRect(
             tokenizer.ReadInt32(),
             tokenizer.ReadInt32(),

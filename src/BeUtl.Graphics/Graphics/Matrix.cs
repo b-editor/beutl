@@ -2,6 +2,7 @@
 using System.Text.Json.Serialization;
 
 using BeUtl.Converters;
+using BeUtl.Graphics.Transformation;
 using BeUtl.Utilities;
 
 namespace BeUtl.Graphics;
@@ -356,26 +357,14 @@ public readonly struct Matrix : IEquatable<Matrix>
     /// <returns>The string representation.</returns>
     public override string ToString()
     {
-        CultureInfo ci = CultureInfo.CurrentCulture;
-
-        string msg;
-        float[] values;
-
         if (ContainsPerspective())
         {
-            msg = "{{ {{M11:{0} M12:{1} M13:{2}}} {{M21:{3} M22:{4} M23:{5}}} {{M31:{6} M32:{7} M33:{8}}} }}";
-            values = new[] { M11, M12, M13, M21, M22, M23, M31, M32, M33 };
+            return FormattableString.Invariant($"matrix({M11}, {M12}, {M13}, {M21}, {M22}, {M23}, {M31}, {M32}, {M33})");
         }
         else
         {
-            msg = "{{ {{M11:{0} M12:{1}}} {{M21:{2} M22:{3}}} {{M31:{4} M32:{5}}} }}";
-            values = new[] { M11, M12, M21, M22, M31, M32 };
+            return FormattableString.Invariant($"matrix({M11}, {M12}, {M21}, {M22}, {M31}, {M32})");
         }
-
-        return string.Format(
-            ci,
-            msg,
-            values.Select((v) => v.ToString(ci)).ToArray());
     }
 
     /// <summary>
@@ -428,31 +417,52 @@ public readonly struct Matrix : IEquatable<Matrix>
     /// <summary>
     /// Parses a <see cref="Matrix"/> string.
     /// </summary>
+    /// <param name="s">The string.</param>
+    /// <param name="matrix">The <see cref="Matrix"/>.</param>
+    /// <returns>The status of the operation.</returns>
+    public static bool TryParse(string s, out Matrix matrix)
+    {
+        return TryParse(s.AsSpan(), out matrix);
+    }
+
+    /// <summary>
+    /// Parses a <see cref="Matrix"/> string.
+    /// </summary>
+    /// <param name="s">The string.</param>
+    /// <param name="matrix">The <see cref="Matrix"/>.</param>
+    /// <returns>The status of the operation.</returns>
+    public static bool TryParse(ReadOnlySpan<char> s, out Matrix matrix)
+    {
+        try
+        {
+            matrix = Parse(s);
+            return true;
+        }
+        catch
+        {
+            matrix = default;
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Parses a <see cref="Matrix"/> string.
+    /// </summary>
     /// <param name="s">Six or nine comma-delimited float values (m11, m12, m21, m22, offsetX, offsetY[, persX, persY, persZ]) that describe the new <see cref="Matrix"/></param>
     /// <returns>The <see cref="Matrix"/>.</returns>
     public static Matrix Parse(string s)
     {
-        // initialize to satisfy compiler - only used when retrieved from string.
-        float v8 = 0;
-        float v9 = 0;
+        return Parse(s.AsSpan());
+    }
 
-        using (var tokenizer = new StringTokenizer(s, CultureInfo.InvariantCulture, exceptionMessage: "Invalid Matrix."))
-        {
-            float v1 = tokenizer.ReadSingle();
-            float v2 = tokenizer.ReadSingle();
-            float v3 = tokenizer.ReadSingle();
-            float v4 = tokenizer.ReadSingle();
-            float v5 = tokenizer.ReadSingle();
-            float v6 = tokenizer.ReadSingle();
-            bool pers = tokenizer.TryReadSingle(out float v7);
-            pers = pers && tokenizer.TryReadSingle(out v8);
-            pers = pers && tokenizer.TryReadSingle(out v9);
-
-            if (pers)
-                return new Matrix(v1, v2, v7, v3, v4, v8, v5, v6, v9);
-            else
-                return new Matrix(v1, v2, v3, v4, v5, v6);
-        }
+    /// <summary>
+    /// Parses a <see cref="Matrix"/> string.
+    /// </summary>
+    /// <param name="s">Six or nine comma-delimited float values (m11, m12, m21, m22, offsetX, offsetY[, persX, persY, persZ]) that describe the new <see cref="Matrix"/></param>
+    /// <returns>The <see cref="Matrix"/>.</returns>
+    public static Matrix Parse(ReadOnlySpan<char> s)
+    {
+        return TransformParser.ParseMatrix(s);
     }
 
     /// <summary>

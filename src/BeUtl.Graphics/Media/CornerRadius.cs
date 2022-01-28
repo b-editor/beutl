@@ -95,11 +95,35 @@ public readonly struct CornerRadius : IEquatable<CornerRadius>
         return $"{TopLeft},{TopRight},{BottomRight},{BottomLeft}";
     }
 
+    public static bool TryParse(string s, out CornerRadius cornerRadius)
+    {
+        return TryParse(s.AsSpan(), out cornerRadius);
+    }
+
+    public static bool TryParse(ReadOnlySpan<char> s, out CornerRadius cornerRadius)
+    {
+        try
+        {
+            cornerRadius = Parse(s);
+            return true;
+        }
+        catch
+        {
+            cornerRadius = default;
+            return false;
+        }
+    }
+
     public static CornerRadius Parse(string s)
+    {
+        return Parse(s.AsSpan());
+    }
+
+    public static CornerRadius Parse(ReadOnlySpan<char> s)
     {
         const string exceptionMessage = "Invalid CornerRadius.";
 
-        using (var tokenizer = new StringTokenizer(s, CultureInfo.InvariantCulture, exceptionMessage))
+        using (var tokenizer = new RefStringTokenizer(s, CultureInfo.InvariantCulture, exceptionMessage))
         {
             if (tokenizer.TryReadSingle(out float a))
             {

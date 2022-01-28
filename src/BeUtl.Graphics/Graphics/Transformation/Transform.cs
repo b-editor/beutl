@@ -1,12 +1,45 @@
-﻿using BeUtl.Styling;
+﻿using System.Diagnostics.CodeAnalysis;
+
+using BeUtl.Styling;
 
 namespace BeUtl.Graphics.Transformation;
 
-public abstract class Transform : Styleable, ITransform
+public abstract class Transform : Styleable, IMutableTransform
 {
     public event EventHandler? Invalidated;
 
+    public static ITransform Identity { get; } = new IdentityTransform();
+
     public abstract Matrix Value { get; }
+
+    public static bool TryParse(string s, [NotNullWhen(true)] out ITransform? transform)
+    {
+        return TryParse(s.AsSpan(), out transform);
+    }
+
+    public static bool TryParse(ReadOnlySpan<char> s, [NotNullWhen(true)] out ITransform? transform)
+    {
+        try
+        {
+            transform = Parse(s);
+            return true;
+        }
+        catch
+        {
+            transform = null;
+            return false;
+        }
+    }
+
+    public static ITransform Parse(string s)
+    {
+        return Parse(s.AsSpan());
+    }
+
+    public static ITransform Parse(ReadOnlySpan<char> s)
+    {
+        return TransformParser.Parse(s);
+    }
 
     protected static void AffectsRender<T>(
         CoreProperty? property1 = null,
@@ -47,5 +80,16 @@ public abstract class Transform : Styleable, ITransform
     protected void RaiseInvalidated()
     {
         Invalidated?.Invoke(this, EventArgs.Empty);
+    }
+
+    private sealed class IdentityTransform : ITransform
+    {
+        public Matrix Value => Matrix.Identity;
+
+        public event EventHandler? Invalidated
+        {
+            add { }
+            remove { }
+        }
     }
 }

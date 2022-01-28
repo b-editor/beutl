@@ -123,33 +123,74 @@ public readonly struct RelativePoint : IEquatable<RelativePoint>
     /// Parses a <see cref="RelativePoint"/> string.
     /// </summary>
     /// <param name="s">The string.</param>
+    /// <param name="point">The <see cref="RelativePoint"/>.</param>
+    /// <returns>The status of the operation.</returns>
+    public static bool TryParse(string s, out RelativePoint point)
+    {
+        return TryParse(s.AsSpan(), out point);
+    }
+
+    /// <summary>
+    /// Parses a <see cref="RelativePoint"/> string.
+    /// </summary>
+    /// <param name="s">The string.</param>
+    /// <param name="point">The <see cref="RelativePoint"/>.</param>
+    /// <returns>The status of the operation.</returns>
+    public static bool TryParse(ReadOnlySpan<char> s, out RelativePoint point)
+    {
+        try
+        {
+            point = Parse(s);
+            return true;
+        }
+        catch
+        {
+            point = default;
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Parses a <see cref="RelativePoint"/> string.
+    /// </summary>
+    /// <param name="s">The string.</param>
     /// <returns>The parsed <see cref="RelativePoint"/>.</returns>
     public static RelativePoint Parse(string s)
     {
-        using (var tokenizer = new StringTokenizer(s, CultureInfo.InvariantCulture, exceptionMessage: "Invalid RelativePoint."))
+        return Parse(s.AsSpan());
+    }
+
+    /// <summary>
+    /// Parses a <see cref="RelativePoint"/> string.
+    /// </summary>
+    /// <param name="s">The string.</param>
+    /// <returns>The parsed <see cref="RelativePoint"/>.</returns>
+    public static RelativePoint Parse(ReadOnlySpan<char> s)
+    {
+        using (var tokenizer = new RefStringTokenizer(s, CultureInfo.InvariantCulture, exceptionMessage: "Invalid RelativePoint."))
         {
-            string x = tokenizer.ReadString();
-            string y = tokenizer.ReadString();
+            ReadOnlySpan<char> x = tokenizer.ReadString();
+            ReadOnlySpan<char> y = tokenizer.ReadString();
 
             RelativeUnit unit = RelativeUnit.Absolute;
             float scale = 1.0f;
 
-            if (x.EndsWith("%"))
+            if (x.EndsWith("%", StringComparison.Ordinal))
             {
-                if (!y.EndsWith("%"))
+                if (!y.EndsWith("%", StringComparison.Ordinal))
                 {
                     throw new FormatException("If one coordinate is relative, both must be.");
                 }
 
-                x = x.TrimEnd('%');
-                y = y.TrimEnd('%');
+                x = x[..^1];
+                y = y[..^1];
                 unit = RelativeUnit.Relative;
                 scale = 0.01f;
             }
 
             return new RelativePoint(
-                float.Parse(x, CultureInfo.InvariantCulture) * scale,
-                float.Parse(y, CultureInfo.InvariantCulture) * scale,
+                float.Parse(x, provider: CultureInfo.InvariantCulture) * scale,
+                float.Parse(y, provider: CultureInfo.InvariantCulture) * scale,
                 unit);
         }
     }
@@ -162,6 +203,6 @@ public readonly struct RelativePoint : IEquatable<RelativePoint>
     {
         return Unit == RelativeUnit.Absolute ?
             Point.ToString() :
-             string.Format(CultureInfo.InvariantCulture, "{0}%, {1}%", Point.X * 100, Point.Y * 100);
+            FormattableString.Invariant($"{Point.X * 100}%, {Point.Y * 100}%");
     }
 }

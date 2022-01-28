@@ -4,6 +4,7 @@ using System.Text.Json.Serialization;
 using BeUtl.Converters;
 
 namespace BeUtl.Media;
+
 /// <summary>
 /// An ARGB color.
 /// </summary>

@@ -183,16 +183,7 @@ public readonly struct Thickness : IEquatable<Thickness>
     /// <returns>The status of the operation.</returns>
     public static bool TryParse(string s, out Thickness thickness)
     {
-        try
-        {
-            thickness = Parse(s);
-            return true;
-        }
-        catch
-        {
-            thickness = default;
-            return false;
-        }
+        return TryParse(s.AsSpan(), out thickness);
     }
     
     /// <summary>
@@ -222,25 +213,7 @@ public readonly struct Thickness : IEquatable<Thickness>
     /// <returns>The <see cref="Thickness"/>.</returns>
     public static Thickness Parse(string s)
     {
-        const string exceptionMessage = "Invalid Thickness.";
-
-        using var tokenizer = new StringTokenizer(s, CultureInfo.InvariantCulture, exceptionMessage);
-        if (tokenizer.TryReadSingle(out float a))
-        {
-            if (tokenizer.TryReadSingle(out float b))
-            {
-                if (tokenizer.TryReadSingle(out float c))
-                {
-                    return new Thickness(a, b, c, tokenizer.ReadSingle());
-                }
-
-                return new Thickness(a, b);
-            }
-
-            return new Thickness(a);
-        }
-
-        throw new FormatException(exceptionMessage);
+        return Parse(s.AsSpan());
     }
     
     /// <summary>
@@ -311,7 +284,17 @@ public readonly struct Thickness : IEquatable<Thickness>
     /// <returns>The string representation of the thickness.</returns>
     public override string ToString()
     {
-        return FormattableString.Invariant($"{Left},{Top},{Right},{Bottom}");
+        if (Left == Right && Top == Bottom)
+        {
+            if (Left == Top)
+            {
+                return FormattableString.Invariant($"{Left}");
+            }
+
+            return FormattableString.Invariant($"{Left}, {Top}");
+        }
+
+        return FormattableString.Invariant($"{Left}, {Top}, {Right}, {Bottom}");
     }
 
     /// <summary>

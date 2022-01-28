@@ -70,10 +70,51 @@ public readonly struct PixelSize : IEquatable<PixelSize>
     /// Parses a <see cref="PixelSize"/> string.
     /// </summary>
     /// <param name="s">The string.</param>
+    /// <param name="size">The <see cref="PixelSize"/>.</param>
+    /// <returns>The status of the operation.</returns>
+    public static bool TryParse(string s, out PixelSize size)
+    {
+        return TryParse(s.AsSpan(), out size);
+    }
+
+    /// <summary>
+    /// Parses a <see cref="PixelSize"/> string.
+    /// </summary>
+    /// <param name="s">The string.</param>
+    /// <param name="size">The <see cref="PixelSize"/>.</param>
+    /// <returns>The status of the operation.</returns>
+    public static bool TryParse(ReadOnlySpan<char> s, out PixelSize size)
+    {
+        try
+        {
+            size = Parse(s);
+            return true;
+        }
+        catch
+        {
+            size = default;
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Parses a <see cref="PixelSize"/> string.
+    /// </summary>
+    /// <param name="s">The string.</param>
     /// <returns>The <see cref="PixelSize"/>.</returns>
     public static PixelSize Parse(string s)
     {
-        using var tokenizer = new StringTokenizer(s, CultureInfo.InvariantCulture, exceptionMessage: "Invalid PixelSize.");
+        return Parse(s.AsSpan());
+    }
+    
+    /// <summary>
+    /// Parses a <see cref="PixelSize"/> string.
+    /// </summary>
+    /// <param name="s">The string.</param>
+    /// <returns>The <see cref="PixelSize"/>.</returns>
+    public static PixelSize Parse(ReadOnlySpan<char> s)
+    {
+        using var tokenizer = new RefStringTokenizer(s, CultureInfo.InvariantCulture, exceptionMessage: "Invalid PixelSize.");
 
         return new PixelSize(
             tokenizer.ReadInt32(),

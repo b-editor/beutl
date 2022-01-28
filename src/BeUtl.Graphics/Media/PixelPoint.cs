@@ -1,5 +1,4 @@
-﻿using System.ComponentModel;
-using System.Globalization;
+﻿using System.Globalization;
 using System.Text.Json.Serialization;
 
 using BeUtl.Converters;
@@ -88,10 +87,51 @@ public readonly struct PixelPoint : IEquatable<PixelPoint>
     /// Parses a <see cref="PixelPoint"/> string.
     /// </summary>
     /// <param name="s">The string.</param>
+    /// <param name="rect">The <see cref="PixelPoint"/>.</param>
+    /// <returns>The status of the operation.</returns>
+    public static bool TryParse(string s, out PixelPoint rect)
+    {
+        return TryParse(s.AsSpan(), out rect);
+    }
+
+    /// <summary>
+    /// Parses a <see cref="PixelPoint"/> string.
+    /// </summary>
+    /// <param name="s">The string.</param>
+    /// <param name="rect">The <see cref="PixelPoint"/>.</param>
+    /// <returns>The status of the operation.</returns>
+    public static bool TryParse(ReadOnlySpan<char> s, out PixelPoint rect)
+    {
+        try
+        {
+            rect = Parse(s);
+            return true;
+        }
+        catch
+        {
+            rect = default;
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Parses a <see cref="PixelPoint"/> string.
+    /// </summary>
+    /// <param name="s">The string.</param>
     /// <returns>The <see cref="PixelPoint"/>.</returns>
     public static PixelPoint Parse(string s)
     {
-        using var tokenizer = new StringTokenizer(s, CultureInfo.InvariantCulture, exceptionMessage: "Invalid PixelPoint.");
+        return Parse(s.AsSpan());
+    }
+
+    /// <summary>
+    /// Parses a <see cref="PixelPoint"/> string.
+    /// </summary>
+    /// <param name="s">The string.</param>
+    /// <returns>The <see cref="PixelPoint"/>.</returns>
+    public static PixelPoint Parse(ReadOnlySpan<char> s)
+    {
+        using var tokenizer = new RefStringTokenizer(s, CultureInfo.InvariantCulture, exceptionMessage: "Invalid PixelPoint.");
         return new PixelPoint(
             tokenizer.ReadInt32(),
             tokenizer.ReadInt32());

@@ -188,9 +188,9 @@ public abstract class Drawable : Renderable, IDrawable, ILogicalElement
     {
         get
         {
-            if (Transform is not null)
+            if (Transform is ILogicalElement log)
             {
-                yield return Transform;
+                yield return log;
             }
 
             if (Filter is not null)
