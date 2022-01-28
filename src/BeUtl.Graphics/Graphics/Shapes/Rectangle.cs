@@ -1,19 +1,19 @@
-﻿namespace BeUtl.Graphics;
+﻿namespace BeUtl.Graphics.Shapes;
 
-public sealed class Ellipse : Drawable
+public sealed class Rectangle : Drawable
 {
     public static readonly CoreProperty<float> StrokeWidthProperty;
     private float _strokeWidth;
 
-    static Ellipse()
+    static Rectangle()
     {
-        StrokeWidthProperty = ConfigureProperty<float, Ellipse>(nameof(StrokeWidth))
+        StrokeWidthProperty = ConfigureProperty<float, Rectangle>(nameof(StrokeWidth))
             .Accessor(o => o.StrokeWidth, (o, v) => o.StrokeWidth = v)
             .PropertyFlags(PropertyFlags.Styleable | PropertyFlags.Designable)
             .DefaultValue(4000)
             .Register();
 
-        AffectsRender<Ellipse>(StrokeWidthProperty);
+        AffectsRender<Rectangle>(StrokeWidthProperty);
     }
 
     public float StrokeWidth
@@ -36,7 +36,7 @@ public sealed class Ellipse : Drawable
         canvas.StrokeWidth = StrokeWidth;
         if (Width > 0 && Height > 0)
         {
-            canvas.DrawCircle(new Size(Width, Height));
+            canvas.DrawRect(new Size(Width, Height));
         }
     }
 }

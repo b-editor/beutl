@@ -1,7 +1,8 @@
 ﻿using BeUtl.Graphics;
+using BeUtl.Graphics.Shapes;
 using BeUtl.Media;
 
-namespace BeUtl.Operations;
+namespace BeUtl.Operations.Shapes;
 
 public sealed class RectOperation : DrawableOperation
 {
@@ -54,7 +55,7 @@ public sealed class RectOperation : DrawableOperation
 
     public Color Color
     {
-        get => _drawable.Foreground.TryGetColorOrDefault(Colors.Transparent);
+        get => _drawable.Foreground?.TryGetColorOrDefault(Colors.Transparent) ?? Colors.Transparent;
         set => _drawable.Foreground = value.ToImmutableBrush();
     }
 

@@ -1,7 +1,7 @@
 ﻿using BeUtl.Media;
 using BeUtl.Media.Pixel;
 
-namespace BeUtl.Graphics;
+namespace BeUtl.Graphics.Shapes;
 
 public sealed class RoundedRect : Drawable
 {

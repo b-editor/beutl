@@ -1,7 +1,8 @@
 ﻿using BeUtl.Graphics;
+using BeUtl.Graphics.Shapes;
 using BeUtl.Media;
 
-namespace BeUtl.Operations;
+namespace BeUtl.Operations.Shapes;
 
 public sealed class RoundedRectOperation : DrawableOperation
 {
@@ -60,8 +61,8 @@ public sealed class RoundedRectOperation : DrawableOperation
 
     public Color Color
     {
-        get => _drawable.Foreground.TryGetColorOrDefault(Colors.Transparent);
-        set => _drawable.Foreground.TrySetColor(value);
+        get => _drawable.Foreground?.TryGetColorOrDefault(Colors.Transparent) ?? Colors.Transparent;
+        set => _drawable.Foreground = value.ToImmutableBrush();
     }
 
     public CornerRadius CornerRadius

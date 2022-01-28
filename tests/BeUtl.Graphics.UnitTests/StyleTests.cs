@@ -1,4 +1,5 @@
 ﻿using BeUtl.Animation;
+using BeUtl.Graphics.Shapes;
 using BeUtl.Media;
 using BeUtl.Styling;
 

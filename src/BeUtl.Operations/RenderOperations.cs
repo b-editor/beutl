@@ -1,5 +1,6 @@
 ﻿using BeUtl.Media;
 using BeUtl.Operations.Filters;
+using BeUtl.Operations.Shapes;
 using BeUtl.Operations.Transform;
 using BeUtl.ProjectSystem;
 
