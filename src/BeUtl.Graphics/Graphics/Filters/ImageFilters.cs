@@ -2,6 +2,6 @@
 
 namespace BeUtl.Graphics.Filters;
 
-public sealed class ImageFilters : AffectsRenders<ImageFilter>
+public sealed class ImageFilters : AffectsRenders<IImageFilter>
 {
 }

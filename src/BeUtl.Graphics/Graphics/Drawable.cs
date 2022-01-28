@@ -16,7 +16,7 @@ public abstract class Drawable : Renderable, IDrawable, ILogicalElement
     public static readonly CoreProperty<AlignmentY> CanvasAlignmentYProperty;
     public static readonly CoreProperty<AlignmentX> AlignmentXProperty;
     public static readonly CoreProperty<AlignmentY> AlignmentYProperty;
-    public static readonly CoreProperty<IBrush> ForegroundProperty;
+    public static readonly CoreProperty<IBrush?> ForegroundProperty;
     public static readonly CoreProperty<IBrush?> OpacityMaskProperty;
     public static readonly CoreProperty<BlendMode> BlendModeProperty;
     private float _width = -1;
@@ -27,7 +27,7 @@ public abstract class Drawable : Renderable, IDrawable, ILogicalElement
     private AlignmentY _cAlignY;
     private AlignmentX _alignX;
     private AlignmentY _alignY;
-    private IBrush _foreground = Brushes.White;
+    private IBrush? _foreground;
     private IBrush? _opacityMask;
     private BlendMode _blendMode = BlendMode.SrcOver;
 
@@ -81,10 +81,9 @@ public abstract class Drawable : Renderable, IDrawable, ILogicalElement
             .DefaultValue(AlignmentY.Top)
             .Register();
 
-        ForegroundProperty = ConfigureProperty<IBrush, Drawable>(nameof(Foreground))
+        ForegroundProperty = ConfigureProperty<IBrush?, Drawable>(nameof(Foreground))
             .Accessor(o => o.Foreground, (o, v) => o.Foreground = v)
             .PropertyFlags(PropertyFlags.Styleable | PropertyFlags.Designable)
-            .DefaultValue(Brushes.White)
             .Register();
 
         OpacityMaskProperty = ConfigureProperty<IBrush?, Drawable>(nameof(OpacityMask))
@@ -166,7 +165,7 @@ public abstract class Drawable : Renderable, IDrawable, ILogicalElement
         set => SetAndRaise(AlignmentYProperty, ref _alignY, value);
     }
 
-    public IBrush Foreground
+    public IBrush? Foreground
     {
         get => _foreground;
         set => SetAndRaise(ForegroundProperty, ref _foreground, value);
@@ -193,9 +192,9 @@ public abstract class Drawable : Renderable, IDrawable, ILogicalElement
                 yield return log;
             }
 
-            if (Filter is not null)
+            if (Filter is ILogicalElement log2)
             {
-                yield return Filter;
+                yield return log2;
             }
         }
     }
@@ -254,7 +253,7 @@ public abstract class Drawable : Renderable, IDrawable, ILogicalElement
                 Matrix.CreateTranslation(relpt) * Transform.Value * Matrix.CreateTranslation(pt);
             var rect = new Rect(size);
 
-            using (canvas.PushForeground(Foreground))
+            using (Foreground == null ? new() : canvas.PushForeground(Foreground))
             using (canvas.PushBlendMode(BlendMode))
             using (canvas.PushTransform(transform))
             using (Filter == null ? new() : canvas.PushFilters(Filter))

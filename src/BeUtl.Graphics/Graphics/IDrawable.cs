@@ -13,7 +13,7 @@ public interface IDrawable : IDisposable, IRenderable
 
     Rect Bounds { get; }
 
-    IBrush Foreground { get; set; }
+    IBrush? Foreground { get; set; }
 
     BlendMode BlendMode { get; set; }
 

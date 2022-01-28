@@ -5,14 +5,18 @@ using SkiaSharp;
 
 namespace BeUtl.Graphics.Filters;
 
-public interface IImageFilter : IStyleable, IAffectsRender
+public interface IImageFilter : IAffectsRender
 {
     Rect TransformBounds(Rect rect);
 
     SKImageFilter ToSKImageFilter();
 }
 
-public abstract class ImageFilter : Styleable, IImageFilter
+public interface IMutableImageFilter : IStyleable, IImageFilter
+{
+}
+
+public abstract class ImageFilter : Styleable, IMutableImageFilter
 {
     public event EventHandler? Invalidated;
 

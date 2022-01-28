@@ -19,8 +19,8 @@ public sealed class ImageFilterGroup : ImageFilter
     {
         _children = new ImageFilters()
         {
-            Attached = item => (item as ILogicalElement).NotifyAttachedToLogicalTree(new(this)),
-            Detached = item => (item as ILogicalElement).NotifyDetachedFromLogicalTree(new(this)),
+            Attached = item => (item as ILogicalElement)?.NotifyAttachedToLogicalTree(new(this)),
+            Detached = item => (item as ILogicalElement)?.NotifyDetachedFromLogicalTree(new(this)),
         };
         _children.Invalidated += (_, _) => RaiseInvalidated();
     }
