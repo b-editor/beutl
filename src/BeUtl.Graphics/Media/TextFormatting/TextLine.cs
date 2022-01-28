@@ -1,5 +1,4 @@
 ﻿using BeUtl.Graphics;
-using BeUtl.Styling;
 
 namespace BeUtl.Media.TextFormatting;
 
@@ -8,7 +7,7 @@ public sealed class TextElements : AffectsRenders<TextElement>
 
 }
 
-public sealed class TextLine : Styleable, IAffectsRender, IDisposable, ILogicalElement
+public sealed class TextLine : Drawable, ILogicalElement
 {
     public static readonly CoreProperty<TextElements> ElementsProperty;
     private readonly TextElements _elements;
@@ -28,7 +27,7 @@ public sealed class TextLine : Styleable, IAffectsRender, IDisposable, ILogicalE
             Attached = item => (item as ILogicalElement).NotifyAttachedToLogicalTree(new(this)),
             Detached = item => (item as ILogicalElement).NotifyDetachedFromLogicalTree(new(this)),
         };
-        _elements.Invalidated += (_, _) => Invalidated?.Invoke(this, EventArgs.Empty);
+        _elements.Invalidated += (_, _) => Invalidate();
     }
 
     public TextElements Elements
@@ -37,13 +36,9 @@ public sealed class TextLine : Styleable, IAffectsRender, IDisposable, ILogicalE
         set => _elements.Replace(value);
     }
 
-    public bool IsDisposed { get; private set; }
+    IEnumerable<ILogicalElement> ILogicalElement.LogicalChildren => Elements;
 
-    IEnumerable<ILogicalElement> ILogicalElement.LogicalChildren => _elements;
-
-    public event EventHandler? Invalidated;
-
-    public void Dispose()
+    public override void Dispose()
     {
         if (!IsDisposed)
         {
@@ -57,23 +52,6 @@ public sealed class TextLine : Styleable, IAffectsRender, IDisposable, ILogicalE
         }
     }
 
-    public Size Measure()
-    {
-        float width = 0;
-        float height = 0;
-
-        foreach (TextElement element in Elements)
-        {
-            Size bounds = element.Measure();
-            width += bounds.Width;
-            width += element.Margin.Left + element.Margin.Right;
-
-            height = MathF.Max(bounds.Height + element.Margin.Top + element.Margin.Bottom, height);
-        }
-
-        return new Size(width, height);
-    }
-
     public float MinAscent()
     {
         float ascent = 0;
@@ -83,5 +61,43 @@ public sealed class TextLine : Styleable, IAffectsRender, IDisposable, ILogicalE
         }
 
         return ascent;
+    }
+
+    protected override Size MeasureCore(Size availableSize)
+    {
+        float width = 0;
+        float height = 0;
+
+        foreach (TextElement element in Elements)
+        {
+            element.Measure(availableSize);
+            Rect bounds = element.Bounds;
+            width += bounds.Width;
+            width += element.Margin.Left + element.Margin.Right;
+
+            height = MathF.Max(bounds.Height + element.Margin.Top + element.Margin.Bottom, height);
+        }
+
+        return new Size(width, height);
+
+    }
+
+    protected override void OnDraw(ICanvas canvas)
+    {
+        float ascent = MinAscent();
+
+        using (canvas.PushTransform(Matrix.CreateTranslation(0, -ascent)))
+        {
+            float prevRight = 0;
+            foreach (TextElement element in Elements)
+            {
+                canvas.Translate(new(prevRight, 0));
+                Rect elementBounds = element.Bounds;
+
+                element.Draw(canvas);
+
+                prevRight = elementBounds.Width + element.Margin.Right;
+            }
+        }
     }
 }

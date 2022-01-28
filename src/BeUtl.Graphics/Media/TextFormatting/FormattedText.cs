@@ -109,26 +109,12 @@ public class FormattedText : Drawable
         for (int i = 0; i < Lines.Count; i++)
         {
             TextLine line = Lines[i];
-            Size lineBounds = line.Measure();
-            float ascent = line.MinAscent();
+            line.Measure(canvas.Size.ToSize(1));
+            Rect lineBounds = line.Bounds;
 
-            using (canvas.PushTransform(Matrix.CreateTranslation(0, prevBottom - ascent)))
+            using (canvas.PushTransform(Matrix.CreateTranslation(0, prevBottom)))
             {
-                float prevRight = 0;
-                foreach (TextElement element in line.Elements)
-                {
-                    canvas.Translate(new(prevRight + element.Margin.Left, 0));
-                    Size elementBounds = element.Measure();
-
-                    using (canvas.PushTransform(Matrix.CreateTranslation(0, element.Margin.Top)))
-                    {
-                        canvas.Foreground = element.Foreground;
-                        canvas.DrawText(element);
-                    }
-
-                    prevRight = elementBounds.Width + element.Margin.Right;
-                }
-
+                line.Draw(canvas);
                 prevBottom += lineBounds.Height;
             }
         }
@@ -141,7 +127,8 @@ public class FormattedText : Drawable
 
         foreach (TextLine line in Lines)
         {
-            Size bounds = line.Measure();
+            line.Measure(availableSize);
+            Rect bounds = line.Bounds;
             width = MathF.Max(bounds.Width, width);
             height += bounds.Height;
         }

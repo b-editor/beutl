@@ -1,15 +1,13 @@
 ﻿using BeUtl.Graphics;
-using BeUtl.Styling;
 
 using SkiaSharp;
 
 namespace BeUtl.Media.TextFormatting;
 
-public class TextElement : Styleable, IDisposable, IAffectsRender
+public class TextElement : Drawable
 {
     public static readonly CoreProperty<Typeface> TypefaceProperty;
     public static readonly CoreProperty<float> SizeProperty;
-    public static readonly CoreProperty<IBrush> ForegroundProperty;
     public static readonly CoreProperty<float> SpacingProperty;
     public static readonly CoreProperty<string> TextProperty;
     public static readonly CoreProperty<Thickness> MarginProperty;
@@ -18,7 +16,6 @@ public class TextElement : Styleable, IDisposable, IAffectsRender
     private float _size;
     private bool _isDirty = true;
     private FontMetrics _fontMetrics;
-    private IBrush _foreground = Brushes.White;
     private float _spacing;
     private string _text = string.Empty;
     private Thickness _margin;
@@ -35,12 +32,6 @@ public class TextElement : Styleable, IDisposable, IAffectsRender
             .Accessor(o => o.Size, (o, v) => o.Size = v)
             .PropertyFlags(PropertyFlags.Styleable | PropertyFlags.Designable)
             .DefaultValue(0)
-            .Register();
-
-        ForegroundProperty = ConfigureProperty<IBrush, TextElement>(nameof(Foreground))
-            .Accessor(o => o.Foreground, (o, v) => o.Foreground = v)
-            .PropertyFlags(PropertyFlags.Styleable | PropertyFlags.Designable)
-            .DefaultValue(Brushes.White)
             .Register();
 
         SpacingProperty = ConfigureProperty<float, TextElement>(nameof(Spacing))
@@ -61,25 +52,12 @@ public class TextElement : Styleable, IDisposable, IAffectsRender
             .DefaultValue(new Thickness())
             .Register();
 
-        static void RaiseInvalidated(CorePropertyChangedEventArgs obj)
-        {
-            if (obj.Sender is TextElement te)
-            {
-                te.Invalidated?.Invoke(te, EventArgs.Empty);
-            }
-        }
-
-        TypefaceProperty.Changed.Subscribe(RaiseInvalidated);
-        SizeProperty.Changed.Subscribe(RaiseInvalidated);
-        ForegroundProperty.Changed.Subscribe(RaiseInvalidated);
-        SpacingProperty.Changed.Subscribe(RaiseInvalidated);
-        TextProperty.Changed.Subscribe(RaiseInvalidated);
-        MarginProperty.Changed.Subscribe(RaiseInvalidated);
+        AffectsRender<TextElement>(TypefaceProperty, SizeProperty, SpacingProperty, TextProperty, MarginProperty);
     }
 
     ~TextElement()
     {
-        Dispose();
+        _paint.Dispose();
     }
 
     public FontWeight Weight
@@ -124,12 +102,6 @@ public class TextElement : Styleable, IDisposable, IAffectsRender
         }
     }
 
-    public IBrush Foreground
-    {
-        get => _foreground;
-        set => SetAndRaise(ForegroundProperty, ref _foreground, value);
-    }
-
     public float Spacing
     {
         get => _spacing;
@@ -164,22 +136,13 @@ public class TextElement : Styleable, IDisposable, IAffectsRender
         }
     }
 
-    public bool IsDisposed { get; private set; }
-
-    public event EventHandler? Invalidated;
-
-    public void Dispose()
+    public override void Dispose()
     {
-        if (!IsDisposed)
-        {
-            _paint.Dispose();
-            IsDisposed = true;
-            GC.SuppressFinalize(this);
-        }
+        _paint.Dispose();
+        GC.SuppressFinalize(this);
     }
 
-    // Marginを考慮しない
-    public Size Measure()
+    protected override Size MeasureCore(Size availableSize)
     {
         _ = FontMetrics;
         float w = _paint.MeasureText(Text);
@@ -188,4 +151,18 @@ public class TextElement : Styleable, IDisposable, IAffectsRender
             w + (Text.Length - 1) * Spacing,
             FontMetrics.Descent - FontMetrics.Ascent);
     }
+
+    protected override void OnDraw(ICanvas canvas)
+    {
+        DrawInternal(canvas);
+    }
+
+    internal void DrawInternal(ICanvas canvas)
+    {
+        using (canvas.PushTransform(Matrix.CreateTranslation(Margin.Left, Margin.Top)))
+        {
+            canvas.DrawText(this, MeasureCore(Graphics.Size.Infinity));
+        }
+    }
 }
+
