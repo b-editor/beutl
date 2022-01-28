@@ -132,15 +132,55 @@ public class CoreList<T> : ICoreList<T>
 
     public virtual void Replace(IList<T> source)
     {
+        static bool AreEquals(IList<T> items1, IList<T> items2)
+        {
+            bool result = items1.Count == items2.Count;
+            if (!result)
+            {
+                return result;
+            }
+
+            EqualityComparer<T> comparer = EqualityComparer<T>.Default;
+            for (int i = 0; i < items2.Count; i++)
+            {
+                result = comparer.Equals(items1[i], items2[i]);
+
+                if (!result)
+                {
+                    break;
+                }
+            }
+
+            return result;
+        }
+
         T[] oldItems = Count > 0 ? AsSpan().ToArray() : Array.Empty<T>();
-        Inner.Clear();
+        if (!AreEquals(oldItems, source))
+        {
+            Inner.Clear();
+            if (Detached != null)
+            {
+                foreach (T? item in oldItems)
+                {
+                    Detached(item);
+                }
+            }
 
-        Inner.AddRange(source);
+            Inner.AddRange(source);
 
-        CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(
-            NotifyCollectionChangedAction.Replace,
-            (IList)source,
-            oldItems));
+            if (Attached != null)
+            {
+                foreach (T? item in AsSpan())
+                {
+                    Attached(item);
+                }
+            }
+
+            CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(
+                NotifyCollectionChangedAction.Replace,
+                (IList)source,
+                oldItems));
+        }
     }
 
     public bool Contains(T item)
