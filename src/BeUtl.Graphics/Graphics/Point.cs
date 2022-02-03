@@ -162,12 +162,7 @@ public readonly struct Point : IEquatable<Point>
     /// <param name="point">The point.</param>
     /// <param name="matrix">The matrix.</param>
     /// <returns>The resulting point.</returns>
-    public static Point operator *(Point point, Matrix matrix)
-    {
-        return new Point(
-            (point.X * matrix.M11) + (point.Y * matrix.M21) + matrix.M31,
-            (point.X * matrix.M12) + (point.Y * matrix.M22) + matrix.M32);
-    }
+    public static Point operator *(Point point, Matrix matrix) => matrix.Transform(point);
 
     /// <summary>
     /// Parses a <see cref="Point"/> string.
@@ -272,15 +267,7 @@ public readonly struct Point : IEquatable<Point>
     /// <returns>The transformed point.</returns>
     public Point Transform(Matrix transform)
     {
-        float x = X;
-        float y = Y;
-        float xadd = y * transform.M21 + transform.M31;
-        float yadd = x * transform.M12 + transform.M32;
-        x *= transform.M11;
-        x += xadd;
-        y *= transform.M22;
-        y += yadd;
-        return new Point(x, y);
+        return transform.Transform(this);
     }
 
     /// <summary>

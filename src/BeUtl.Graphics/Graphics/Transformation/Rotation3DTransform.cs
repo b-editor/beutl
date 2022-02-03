@@ -138,16 +138,17 @@ public sealed class Rotation3DTransform : Transform
         get
         {
             Matrix4x4 matrix44 = Matrix4x4.Identity;
+            float centerSum = _centerX + _centerY + _centerZ;
 
-            matrix44 *= Matrix4x4.CreateTranslation(-_centerX, -_centerY, -_centerZ);
+            if (MathF.Abs(centerSum) > float.Epsilon) matrix44 *= Matrix4x4.CreateTranslation(-_centerX, -_centerY, -_centerZ);
 
-            matrix44 *= Matrix4x4.CreateRotationX(MathUtilities.ToRadians(_rotationX));
-            matrix44 *= Matrix4x4.CreateRotationY(MathUtilities.ToRadians(_rotationY));
-            matrix44 *= Matrix4x4.CreateRotationZ(MathUtilities.ToRadians(_rotationZ));
+            if (_rotationX != 0) matrix44 *= Matrix4x4.CreateRotationX(MathUtilities.Deg2Rad(_rotationX));
+            if (_rotationY != 0) matrix44 *= Matrix4x4.CreateRotationY(MathUtilities.Deg2Rad(_rotationY));
+            if (_rotationZ != 0) matrix44 *= Matrix4x4.CreateRotationZ(MathUtilities.Deg2Rad(_rotationZ));
 
-            matrix44 *= Matrix4x4.CreateTranslation(_centerX, _centerY, _centerZ);
+            if (MathF.Abs(centerSum) > float.Epsilon) matrix44 *= Matrix4x4.CreateTranslation(_centerX, _centerY, _centerZ);
 
-            if (Depth != 0)
+            if (_depth != 0)
             {
                 Matrix4x4 perspectiveMatrix = Matrix4x4.Identity;
                 perspectiveMatrix.M34 = -1 / _depth;

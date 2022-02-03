@@ -1,4 +1,4 @@
-﻿using System.Globalization;
+﻿using System.Numerics;
 using System.Text.Json.Serialization;
 
 using BeUtl.Converters;
@@ -294,6 +294,45 @@ public readonly struct Matrix : IEquatable<Matrix>
         return M11 * (M22 * M33 - M23 * M32)
              - M12 * (M21 * M33 - M23 * M31)
              + M13 * (M21 * M32 - M22 * M31);
+    }
+
+    /// <summary>
+    ///  Transforms the point with the matrix
+    /// </summary>
+    /// <param name="p">The point to be transformed</param>
+    /// <returns>The transformed point</returns>
+    public Point Transform(Point p)
+    {
+        Point transformedResult;
+
+        // If this matrix contains a non-affine transform with need to extend
+        // the point to a 3D vector and flatten it back for 2d display
+        // by multiplying X and Y with the inverse of the Z axis.
+        // The code below also works with affine transformations, but for performance (and compatibility)
+        // reasons we will use the more complex calculation only if necessary
+        if (ContainsPerspective())
+        {
+            var m44 = new Matrix4x4(
+                M11, M12, M13, 0,
+                M21, M22, M23, 0,
+                M31, M32, M33, 0,
+                0, 0, 0, 1
+            );
+
+            var vector = new Vector3((float)p.X, (float)p.Y, 1);
+            var transformedVector = Vector3.Transform(vector, m44);
+            float z = 1 / transformedVector.Z;
+
+            transformedResult = new Point(transformedVector.X * z, transformedVector.Y * z);
+        }
+        else
+        {
+            return new Point(
+                (p.X * M11) + (p.Y * M21) + M31,
+                (p.X * M12) + (p.Y * M22) + M32);
+        }
+
+        return transformedResult;
     }
 
     /// <summary>
