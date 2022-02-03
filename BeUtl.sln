@@ -74,6 +74,10 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BeUtl.Benchmarks", "tests\B
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "TextFormattingPlayground", "tests\TextFormattingPlayground\TextFormattingPlayground.csproj", "{2A0FD83A-3430-47EE-9C0D-0502802E6CAA}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BeUtl.Web", "src\BeUtl.Web\BeUtl.Web.csproj", "{256ACDB4-BC8F-42CB-83A7-849A1337194E}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BeUtl.NetCore", "src\BeUtl.NetCore\BeUtl.NetCore.csproj", "{7C10E19B-AE0A-4790-AAC1-E325B77CA43A}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU

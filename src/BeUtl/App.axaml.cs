@@ -20,11 +20,6 @@ namespace BeUtl
     {
         public override void Initialize()
         {
-            //PaletteColors
-            Type colorsType = typeof(Colors);
-            PropertyInfo[] colors = colorsType.GetProperties(BindingFlags.Public | BindingFlags.GetProperty | BindingFlags.Static);
-            Resources["PaletteColors"] = colors.Select(p => p.GetValue(null)).OfType<Color>().ToArray();
-
             AvaloniaXamlLoader.Load(this);
         }
 
@@ -39,20 +34,27 @@ namespace BeUtl
             UIDispatcherScheduler.Initialize();
         }
 
-        public override void OnFrameworkInitializationCompleted()
+    public override void OnFrameworkInitializationCompleted()
+    {
+        if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+            desktop.MainWindow = new MainWindow
             {
-                desktop.MainWindow = new MainWindow
-                {
-                    DataContext = new MainWindowViewModel(),
-                };
+                DataContext = new MainViewModel(),
+            };
 
-                desktop.Exit += Application_Exit;
-            }
-
-            base.OnFrameworkInitializationCompleted();
+            desktop.Exit += Application_Exit;
         }
+        else if (ApplicationLifetime is ISingleViewApplicationLifetime singleViewPlatform)
+        {
+            singleViewPlatform.MainView = new MainView
+            {
+                DataContext = new MainViewModel(),
+            };
+        }
+
+        base.OnFrameworkInitializationCompleted();
+    }
 
         private void Application_Exit(object? sender, ControlledApplicationLifetimeExitEventArgs e)
         {
