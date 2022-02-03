@@ -53,7 +53,7 @@ internal sealed class FpsText
         };
     }
 
-    public bool DrawFps { get; set; } = true;
+    public bool DrawFps { get; set; } = false;
 
     public FpsDrawer StartRender(IRenderer renderer)
     {

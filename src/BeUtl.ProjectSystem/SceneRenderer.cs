@@ -10,7 +10,7 @@ using BeUtl.Threading;
 
 namespace BeUtl;
 
-internal sealed class SceneRenderer : DeferredRenderer, IClock
+internal sealed class SceneRenderer : ImmediateRenderer/*DeferredRenderer*/, IClock
 {
     private readonly Scene _scene;
     private readonly List<Layer> _begin = new();
