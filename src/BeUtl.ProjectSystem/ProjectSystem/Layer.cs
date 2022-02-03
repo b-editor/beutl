@@ -86,6 +86,14 @@ public class Layer : Element, IStorable, ILogicalElement
                 renderer[layer.ZIndex] = args.NewValue;
             }
         });
+
+        IsEnabledProperty.Changed.Subscribe(args =>
+        {
+            if (args.Sender is Layer layer)
+            {
+                layer.ForceRender();
+            }
+        });
     }
 
     public Layer()
@@ -328,6 +336,18 @@ public class Layer : Element, IStorable, ILogicalElement
     internal bool InRange(TimeSpan ts)
     {
         return Start <= ts && ts < Length + Start;
+    }
+
+    private void ForceRender()
+    {
+        Scene? scene = this.FindLogicalParent<Scene>();
+        if (scene != null &&
+            Start <= scene.CurrentFrame &&
+            scene.CurrentFrame < Start + Length &&
+            scene.Renderer is { IsDisposed: false })
+        {
+            scene.Renderer.Invalidate();
+        }
     }
 
     private sealed class UpdateTimeCommand : IRecordableCommand

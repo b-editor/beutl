@@ -18,6 +18,8 @@
             <FluentIconRegular IconType="Arrow_Left" Width="16" Height="16" />
 
             <ui:ColorPickerButton
+                CustomPaletteColors="{StaticResource PaletteColors}"
+                UseColorPalette="True"
                 x:Name="prevColorPicker"
                 Color="{CompiledBinding Previous.Value, Mode=OneWay}"
                 HorizontalAlignment="Right"

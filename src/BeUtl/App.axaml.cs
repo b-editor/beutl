@@ -1,6 +1,9 @@
+using System.Reflection;
+
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
+using Avalonia.Media;
 
 using BeUtl.Framework.Service;
 using BeUtl.Operations;
@@ -17,6 +20,11 @@ namespace BeUtl
     {
         public override void Initialize()
         {
+            //PaletteColors
+            Type colorsType = typeof(Colors);
+            PropertyInfo[] colors = colorsType.GetProperties(BindingFlags.Public | BindingFlags.GetProperty | BindingFlags.Static);
+            Resources["PaletteColors"] = colors.Select(p => p.GetValue(null)).OfType<Color>().ToArray();
+
             AvaloniaXamlLoader.Load(this);
         }
 

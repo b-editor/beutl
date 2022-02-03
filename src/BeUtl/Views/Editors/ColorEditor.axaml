@@ -20,6 +20,8 @@
             Color="{CompiledBinding Value.Value, Mode=OneWay}"
             HorizontalAlignment="Right"
             Margin="4"
+            CustomPaletteColors="{StaticResource PaletteColors}"
+            UseColorPalette="True"
             Grid.Column="1" />
 
         <local:EditorBadge Grid.Column="2" />

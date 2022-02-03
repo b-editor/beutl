@@ -45,28 +45,35 @@ internal sealed class SceneRenderer : ImmediateRenderer/*DeferredRenderer*/, ICl
 
         foreach (Layer layer in layers)
         {
-            var args = new OperationRenderArgs(this)
+            if (!layer.IsEnabled)
             {
-                Result = layer.Renderable
-            };
-            var prevResult = args.Result;
-            prevResult?.BeginBatchUpdate();
-            foreach (LayerOperation? item in layer.Children.AsSpan())
-            {
-                item.Render(ref args);
-                if (prevResult != args.Result)
-                {
-                    // Resultが変更された
-                    prevResult?.EndBatchUpdate();
-                    args.Result?.BeginBatchUpdate();
-                    prevResult = args.Result;
-                }
+                layer.Renderable = null;
             }
+            else
+            {
+                var args = new OperationRenderArgs(this)
+                {
+                    Result = layer.Renderable
+                };
+                var prevResult = args.Result;
+                prevResult?.BeginBatchUpdate();
+                foreach (LayerOperation? item in layer.Children.AsSpan())
+                {
+                    item.Render(ref args);
+                    if (prevResult != args.Result)
+                    {
+                        // Resultが変更された
+                        prevResult?.EndBatchUpdate();
+                        args.Result?.BeginBatchUpdate();
+                        prevResult = args.Result;
+                    }
+                }
 
-            layer.Renderable = args.Result;
-            layer.Renderable?.ApplyStyling(Clock);
+                layer.Renderable = args.Result;
+                layer.Renderable?.ApplyStyling(Clock);
 
-            layer.Renderable?.EndBatchUpdate();
+                layer.Renderable?.EndBatchUpdate();
+            }
         }
 
         foreach (Layer item in end)

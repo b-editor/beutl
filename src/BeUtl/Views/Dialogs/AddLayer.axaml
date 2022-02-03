@@ -36,7 +36,11 @@
 
                 <StackPanel Orientation="Horizontal" Spacing="8">
                     <TextBlock Text="{DynamicResource ColorString}" VerticalAlignment="Center" />
-                    <ui:ColorPickerButton IsAlphaEnabled="False" Color="{CompiledBinding Color.Value}" />
+                    <ui:ColorPickerButton
+                        CustomPaletteColors="{StaticResource PaletteColors}"
+                        UseColorPalette="True"
+                        IsAlphaEnabled="False"
+                        Color="{CompiledBinding Color.Value}" />
                 </StackPanel>
             </StackPanel>
         </Carousel.Items>

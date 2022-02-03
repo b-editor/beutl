@@ -62,6 +62,8 @@
             Grid.Column="2"
             MinHeight="{DynamicResource LayerHeight}"
             Color="{CompiledBinding ColorSetter.Value}"
+            CustomPaletteColors="{StaticResource PaletteColors}"
+            UseColorPalette="True"
             IsAlphaEnabled="False">
             <ui:ColorPickerButton.Styles>
                 <Style Selector="ui|ColorPickerButton /template/ ui|Button#MainButton">
