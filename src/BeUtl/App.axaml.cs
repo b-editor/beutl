@@ -14,25 +14,30 @@ using BeUtl.Views;
 
 using Reactive.Bindings;
 
-namespace BeUtl
+namespace BeUtl;
+
+public class App : Application
 {
-    public class App : Application
+    public override void Initialize()
     {
-        public override void Initialize()
-        {
-            AvaloniaXamlLoader.Load(this);
-        }
+        //PaletteColors
+        Type colorsType = typeof(Colors);
+        PropertyInfo[] colors = colorsType.GetProperties(BindingFlags.Public | BindingFlags.GetProperty | BindingFlags.Static);
+        Resources["PaletteColors"] = colors.Select(p => p.GetValue(null)).OfType<Color>().ToArray();
 
-        public override void RegisterServices()
-        {
-            base.RegisterServices();
-            ServiceLocator.Current.BindToSelfSingleton<ProjectService>()
-                .Bind<INotificationService>().ToSingleton<NotificationService>()
-                .Bind<IResourceProvider>().ToSingleton<DefaultResourceProvider>();
+        AvaloniaXamlLoader.Load(this);
+    }
 
-            RenderOperations.RegisterAll();
-            UIDispatcherScheduler.Initialize();
-        }
+    public override void RegisterServices()
+    {
+        base.RegisterServices();
+        ServiceLocator.Current.BindToSelfSingleton<ProjectService>()
+            .Bind<INotificationService>().ToSingleton<NotificationService>()
+            .Bind<IResourceProvider>().ToSingleton<DefaultResourceProvider>();
+
+        RenderOperations.RegisterAll();
+        UIDispatcherScheduler.Initialize();
+    }
 
     public override void OnFrameworkInitializationCompleted()
     {
@@ -56,9 +61,8 @@ namespace BeUtl
         base.OnFrameworkInitializationCompleted();
     }
 
-        private void Application_Exit(object? sender, ControlledApplicationLifetimeExitEventArgs e)
-        {
-            DeferredRenderer.s_dispatcher.Stop();
-        }
+    private void Application_Exit(object? sender, ControlledApplicationLifetimeExitEventArgs e)
+    {
+        DeferredRenderer.s_dispatcher.Stop();
     }
 }
