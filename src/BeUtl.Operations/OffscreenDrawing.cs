@@ -65,7 +65,6 @@ public sealed class OffscreenDrawing : LayerOperation
         }
         result.Transform = transgroup;
 
-        obj.Dispose();
         obj = result;
         base.RenderCore(ref args);
     }

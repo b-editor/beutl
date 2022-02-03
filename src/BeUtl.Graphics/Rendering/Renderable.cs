@@ -20,8 +20,6 @@ public abstract class Renderable : Styleable, IRenderable, IAffectsRender
         AffectsRender<Renderable>(IsVisibleProperty);
     }
 
-    public bool IsDisposed { get; protected set; }
-
     public bool IsDirty { get; protected set; }
 
     public bool IsVisible
@@ -60,21 +58,11 @@ public abstract class Renderable : Styleable, IRenderable, IAffectsRender
         }
     }
 
-    public void VerifyAccess()
-    {
-        if (IsDisposed)
-        {
-            throw new ObjectDisposedException(GetType().Name);
-        }
-    }
-
     public void Invalidate()
     {
         IsDirty = true;
         Invalidated?.Invoke(this, EventArgs.Empty);
     }
-
-    public abstract void Dispose();
 
     public abstract void Render(IRenderer renderer);
 }

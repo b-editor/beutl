@@ -11,7 +11,7 @@ public class TextElement : Drawable
     public static readonly CoreProperty<float> SpacingProperty;
     public static readonly CoreProperty<string> TextProperty;
     public static readonly CoreProperty<Thickness> MarginProperty;
-    private readonly SKPaint _paint = new();
+    internal readonly SKPaint _paint = new();
     private Typeface _typeface = new(FontFamily.Default, FontStyle.Normal, FontWeight.Regular);
     private float _size;
     private bool _isDirty = true;
@@ -134,12 +134,6 @@ public class TextElement : Drawable
 
             return _fontMetrics;
         }
-    }
-
-    public override void Dispose()
-    {
-        _paint.Dispose();
-        GC.SuppressFinalize(this);
     }
 
     protected override Size MeasureCore(Size availableSize)

@@ -38,20 +38,6 @@ public sealed class TextLine : Drawable, ILogicalElement
 
     IEnumerable<ILogicalElement> ILogicalElement.LogicalChildren => Elements;
 
-    public override void Dispose()
-    {
-        if (!IsDisposed)
-        {
-            foreach (TextElement item in Elements)
-            {
-                item.Dispose();
-            }
-
-            IsDisposed = true;
-            GC.SuppressFinalize(this);
-        }
-    }
-
     public float MinAscent()
     {
         float ascent = 0;

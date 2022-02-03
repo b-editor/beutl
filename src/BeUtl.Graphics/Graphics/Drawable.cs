@@ -107,14 +107,6 @@ public abstract class Drawable : Renderable, IDrawable, ILogicalElement
             BlendModeProperty);
     }
 
-    ~Drawable()
-    {
-        if (!IsDisposed)
-        {
-            Dispose();
-        }
-    }
-
     public float Width
     {
         get => _width;
@@ -199,23 +191,8 @@ public abstract class Drawable : Renderable, IDrawable, ILogicalElement
         }
     }
 
-    public void Initialize()
-    {
-        OnInitialize();
-        CanvasAlignmentX = AlignmentX.Left;
-        CanvasAlignmentY = AlignmentY.Top;
-        AlignmentX = AlignmentX.Left;
-        AlignmentY = AlignmentY.Top;
-        Foreground = Colors.White.ToBrush();
-        OpacityMask = null;
-        BlendMode = BlendMode.SrcOver;
-        Transform = null;
-        Filter = null;
-    }
-
     public IBitmap ToBitmap()
     {
-        VerifyAccess();
         Size size = MeasureCore(Size.Infinity);
         using var canvas = new Canvas((int)size.Width, (int)size.Height);
 
@@ -241,7 +218,6 @@ public abstract class Drawable : Renderable, IDrawable, ILogicalElement
 
     public void Draw(ICanvas canvas)
     {
-        VerifyAccess();
         if (IsVisible)
         {
             Size availableSize = canvas.Size.ToSize(1);
@@ -282,10 +258,6 @@ public abstract class Drawable : Renderable, IDrawable, ILogicalElement
     }
 
     protected abstract void OnDraw(ICanvas canvas);
-
-    protected virtual void OnInitialize()
-    {
-    }
 
     private Point CreateRelPoint(Size size)
     {

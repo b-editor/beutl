@@ -39,10 +39,6 @@ public sealed class RoundedRect : Drawable
         set => SetAndRaise(CornerRadiusProperty, ref _cornerRadius, value);
     }
 
-    public override void Dispose()
-    {
-    }
-
     protected override Size MeasureCore(Size availableSize)
     {
         return new Size(Math.Max(Width, 0), Math.Max(Height, 0));

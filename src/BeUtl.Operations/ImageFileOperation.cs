@@ -58,7 +58,7 @@ public sealed class ImageFileOperation : DrawableOperation
         if (file?.Exists ?? false)
         {
             _cache = Bitmap<Bgra8888>.FromFile(file.FullName);
-            _latest.Initialize(_cache);
+            _latest.Bitmap = _cache;
         }
     }
 }

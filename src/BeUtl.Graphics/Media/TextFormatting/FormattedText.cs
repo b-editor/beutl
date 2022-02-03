@@ -36,11 +36,6 @@ public class FormattedText : Drawable
         _lines.AddRange(lines);
     }
 
-    ~FormattedText()
-    {
-        Dispose();
-    }
-
     public TextLines Lines
     {
         get => _lines;
@@ -57,7 +52,6 @@ public class FormattedText : Drawable
 
     public void Load(string s, FormattedTextInfo info)
     {
-        IsDisposed = false;
         var tokenizer = new FormattedTextParser(s);
         List<TextLine> lines = tokenizer.ToLines(info);
 
@@ -65,41 +59,9 @@ public class FormattedText : Drawable
         Invalidate();
     }
 
-    public void Initialize(string s, FormattedTextInfo info)
-    {
-        Initialize();
-
-        var tokenizer = new FormattedTextParser(s);
-        List<TextLine> lines = tokenizer.ToLines(info);
-
-        _lines.AddRange(lines);
-        Invalidate();
-    }
-
-    public override void Dispose()
-    {
-        if (!IsDisposed)
-        {
-            foreach (TextLine item in Lines)
-            {
-                item.Dispose();
-            }
-
-            IsDisposed = true;
-            GC.SuppressFinalize(this);
-        }
-    }
-
     protected override void OnDraw(ICanvas canvas)
     {
         DrawCore(canvas);
-    }
-
-    protected override void OnInitialize()
-    {
-        Lines.Clear();
-        GC.ReRegisterForFinalize(this);
-        IsDisposed = false;
     }
 
     private void DrawCore(ICanvas canvas)

@@ -562,7 +562,7 @@ public class Canvas : ICanvas
 
         paintTransform = SKMatrix.Concat(paintTransform, tileTransform);
 
-        if (tileBrush is IDrawableBrush { Drawable: { IsDisposed: false } } drawableBrush)
+        if (tileBrush is IDrawableBrush { Drawable: { } } drawableBrush)
         {
             using IBitmap bmp = drawableBrush.Drawable.ToBitmap();
             using var skbmp = bmp.ToSKBitmap();

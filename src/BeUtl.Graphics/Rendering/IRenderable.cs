@@ -1,9 +1,7 @@
 ﻿namespace BeUtl.Rendering;
 
-public interface IRenderable : IDisposable
+public interface IRenderable
 {
-    bool IsDisposed { get; }
-
     bool IsVisible { get; set; }
 
     bool IsDirty { get; }

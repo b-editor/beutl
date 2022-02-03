@@ -5,7 +5,7 @@ using BeUtl.Rendering;
 
 namespace BeUtl.Graphics;
 
-public interface IDrawable : IDisposable, IRenderable
+public interface IDrawable : IRenderable
 {
     float Width { get; set; }
 
