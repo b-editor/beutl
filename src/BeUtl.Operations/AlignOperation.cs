@@ -44,12 +44,22 @@ public sealed class AlignOperation : LayerOperation
 
     protected override void RenderCore(ref OperationRenderArgs args)
     {
-        if (IsEnabled && args.Result is Drawable obj)
+        if (args.Result is Drawable drawable)
         {
-            obj.CanvasAlignmentX = CanvasAlignmentX;
-            obj.AlignmentX = AlignmentX;
-            obj.CanvasAlignmentY = CanvasAlignmentY;
-            obj.AlignmentY = AlignmentY;
+            if (!IsEnabled)
+            {
+                drawable.CanvasAlignmentX |= AlignmentX.Left;
+                drawable.AlignmentX |= AlignmentX.Left;
+                drawable.CanvasAlignmentY |= AlignmentY.Top;
+                drawable.AlignmentY |= AlignmentY.Top;
+            }
+            else
+            {
+                drawable.CanvasAlignmentX = CanvasAlignmentX;
+                drawable.AlignmentX = AlignmentX;
+                drawable.CanvasAlignmentY = CanvasAlignmentY;
+                drawable.AlignmentY = AlignmentY;
+            }
         }
     }
 }
