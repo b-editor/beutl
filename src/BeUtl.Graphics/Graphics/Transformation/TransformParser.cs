@@ -366,7 +366,7 @@ internal static class TransformParser
 
                         builder.AppendMatrix(matrix);
                     }
-                    else if (count == 6)
+                    else if (count == 9)
                     {
                         var matrix = new Matrix(
                             values[0].Value, values[1].Value, values[2].Value,
