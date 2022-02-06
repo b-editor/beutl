@@ -22,7 +22,7 @@ public class FormattedTextTests
     {
         Typeface face = TypefaceProvider.Typeface();
         FontFamily font = face.FontFamily;
-        using var text = new FormattedText()
+        var text = new FormattedText()
         {
             Lines =
             {
@@ -114,7 +114,7 @@ public class FormattedTextTests
 <noparse><font='Noto Sans JP'><bold>Noto Sans</font></bold></noparse>
 ";
         Typeface typeface = TypefaceProvider.Typeface();
-        using var text = FormattedText.Parse(str, new FormattedTextInfo(typeface, 100, Colors.Black, 0, default));
+        var text = FormattedText.Parse(str, new FormattedTextInfo(typeface, 100, Colors.Black, 0, default));
 
         text.Measure(Size.Infinity);
         Rect bounds = text.Bounds;
