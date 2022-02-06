@@ -17,5 +17,11 @@ internal static class Program
         => AppBuilder.Configure<App>()
             .UsePlatformDetect()
             .UseReactiveUI()
+            .With(new Win32PlatformOptions()
+            {
+                UseWindowsUIComposition = true,
+                EnableMultitouch = true,
+                CompositionBackdropCornerRadius = 8f
+            })
             .LogToTrace();
 }

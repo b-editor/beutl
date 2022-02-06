@@ -7,6 +7,7 @@ using BeUtl.Services;
 using BeUtl.ViewModels;
 using BeUtl.Views.Dialogs;
 
+using FluentAvalonia.Core.ApplicationModel;
 using FluentAvalonia.UI.Controls;
 
 using Microsoft.Extensions.DependencyInjection;
@@ -117,6 +118,43 @@ public partial class MainView : UserControl
 
             vm.End.Subscribe(() => PlayerAction(p => p.End()));
         }
+    }
+
+    protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToVisualTree(e);
+
+        if (e.Root is Window b)
+        {
+            b.Opened += OnParentWindowOpened;
+        }
+    }
+
+    private void OnParentWindowOpened(object? sender, EventArgs e)
+    {
+        if (sender is Window window)
+        {
+            window.Opened -= OnParentWindowOpened;
+        }
+
+        if (sender is CoreWindow cw)
+        {
+            CoreApplicationViewTitleBar titleBar = cw.TitleBar;
+            if (titleBar != null)
+            {
+                titleBar.ExtendViewIntoTitleBar = true;
+
+                titleBar.LayoutMetricsChanged += OnApplicationTitleBarLayoutMetricsChanged;
+
+                cw.SetTitleBar(Titlebar);
+                Titlebar.Margin = new Thickness(0, 0, titleBar.SystemOverlayRightInset, 0);
+            }
+        }
+    }
+
+    private void OnApplicationTitleBarLayoutMetricsChanged(CoreApplicationViewTitleBar sender, object args)
+    {
+        Titlebar.Margin = new Thickness(0, 0, sender.SystemOverlayRightInset, 0);
     }
 
     private void NavigationView_ItemInvoked(object? sender, NavigationViewItemInvokedEventArgs e)

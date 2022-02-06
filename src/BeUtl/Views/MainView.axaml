@@ -35,7 +35,7 @@
     </UserControl.KeyBindings>
 
     <Grid RowDefinitions="Auto,*">
-        <Grid ColumnDefinitions="Auto,Auto,*" x:Name="Titlebar">
+        <Grid ColumnDefinitions="Auto,Auto" x:Name="Titlebar" Background="Transparent">
             <Image Source="/Assets/logo.ico" MaxWidth="16" Margin="8,0" />
 
             <Menu Grid.Column="1">
@@ -142,96 +142,88 @@
                 <!--ヘルプ-->
                 <MenuItem Header="{DynamicResource HelpString}" />
             </Menu>
-
-            <Panel
-                x:Name="TitleBarArea"
-                Grid.Column="2"
-                Background="Transparent" />
         </Grid>
 
-        <Border Grid.Row="1"
-                BorderThickness="0,1,0,0"
-                BorderBrush="{DynamicResource ControlElevationBorderBrush}">
-            <ui:NavigationView
-                Background="{DynamicResource LayerFillColorDefaultBrush}"
-                Classes="SideNavigationView"
-                x:Name="Navi">
-                <ui:NavigationView.MenuItems>
-                    <ui:NavigationViewItem
-                        x:Name="EditPageItem"
-                        Classes="SideNavigationViewItem"
-                        Content="{DynamicResource EditString}">
-                        <ui:NavigationViewItem.Styles>
-                            <Style Selector="uip|NavigationViewItemPresenter#NVIPresenter:selected">
-                                <Setter Property="Icon">
-                                    <Template>
-                                        <ui:PathIcon Data="{StaticResource Edit_Filled}" />
-                                    </Template>
-                                </Setter>
-                            </Style>
-                        </ui:NavigationViewItem.Styles>
-                        <ui:NavigationViewItem.Icon>
-                            <ui:PathIcon Data="{StaticResource Edit_Regular}" />
-                        </ui:NavigationViewItem.Icon>
-                    </ui:NavigationViewItem>
-                    <ui:NavigationViewItem
-                        x:Name="ExtensionsPageItem"
-                        Classes="SideNavigationViewItem"
-                        Content="{DynamicResource ExtensionsString}">
-                        <ui:NavigationViewItem.Styles>
-                            <Style Selector="uip|NavigationViewItemPresenter#NVIPresenter:selected">
-                                <Setter Property="Icon">
-                                    <Template>
-                                        <ui:PathIcon Data="{StaticResource Puzzle_piece_Filled}" />
-                                    </Template>
-                                </Setter>
-                            </Style>
-                        </ui:NavigationViewItem.Styles>
-                        <ui:NavigationViewItem.Icon>
-                            <ui:PathIcon Data="{StaticResource Puzzle_piece_Regular}" />
-                        </ui:NavigationViewItem.Icon>
-                    </ui:NavigationViewItem>
-                    <ui:NavigationViewItem
-                        x:Name="OutputPageItem"
-                        Classes="SideNavigationViewItem"
-                        Content="{DynamicResource OutputString}">
-                        <ui:NavigationViewItem.Styles>
-                            <Style Selector="uip|NavigationViewItemPresenter#NVIPresenter:selected">
-                                <Setter Property="Icon">
-                                    <Template>
-                                        <ui:PathIcon Data="{StaticResource Arrow_Export_LTR_Filled}" />
-                                    </Template>
-                                </Setter>
-                            </Style>
-                        </ui:NavigationViewItem.Styles>
-                        <ui:NavigationViewItem.Icon>
-                            <ui:PathIcon Data="{StaticResource Arrow_Export_LTR_Regular}" />
-                        </ui:NavigationViewItem.Icon>
-                    </ui:NavigationViewItem>
-                </ui:NavigationView.MenuItems>
-                <ui:NavigationView.SettingsItem>
-                    <ui:NavigationViewItem
-                        x:Name="SettingsPageItem"
-                        Classes="SideNavigationViewItem"
-                        Content="{DynamicResource SettingsString}">
-                        <ui:NavigationViewItem.Styles>
-                            <Style Selector="uip|NavigationViewItemPresenter#NVIPresenter:selected">
-                                <Setter Property="Icon">
-                                    <Template>
-                                        <ui:PathIcon Data="{StaticResource Settings_Filled}" />
-                                    </Template>
-                                </Setter>
-                            </Style>
-                        </ui:NavigationViewItem.Styles>
-                        <ui:NavigationViewItem.Icon>
-                            <ui:PathIcon Data="{StaticResource Settings_Regular}" />
-                        </ui:NavigationViewItem.Icon>
-                    </ui:NavigationViewItem>
-                </ui:NavigationView.SettingsItem>
+        <ui:NavigationView
+            Grid.Row="1"
+            IsSettingsVisible="False"
+            Classes="SideNavigationView"
+            x:Name="Navi">
+            <ui:NavigationView.MenuItems>
+                <ui:NavigationViewItem
+                    x:Name="EditPageItem"
+                    Classes="SideNavigationViewItem"
+                    Content="{DynamicResource EditString}">
+                    <ui:NavigationViewItem.Styles>
+                        <Style Selector="uip|NavigationViewItemPresenter#NVIPresenter:selected">
+                            <Setter Property="Icon">
+                                <Template>
+                                    <ui:PathIcon Data="{StaticResource Edit_Filled}" />
+                                </Template>
+                            </Setter>
+                        </Style>
+                    </ui:NavigationViewItem.Styles>
+                    <ui:NavigationViewItem.Icon>
+                        <ui:PathIcon Data="{StaticResource Edit_Regular}" />
+                    </ui:NavigationViewItem.Icon>
+                </ui:NavigationViewItem>
+                <ui:NavigationViewItem
+                    x:Name="ExtensionsPageItem"
+                    Classes="SideNavigationViewItem"
+                    Content="{DynamicResource ExtensionsString}">
+                    <ui:NavigationViewItem.Styles>
+                        <Style Selector="uip|NavigationViewItemPresenter#NVIPresenter:selected">
+                            <Setter Property="Icon">
+                                <Template>
+                                    <ui:PathIcon Data="{StaticResource Puzzle_piece_Filled}" />
+                                </Template>
+                            </Setter>
+                        </Style>
+                    </ui:NavigationViewItem.Styles>
+                    <ui:NavigationViewItem.Icon>
+                        <ui:PathIcon Data="{StaticResource Puzzle_piece_Regular}" />
+                    </ui:NavigationViewItem.Icon>
+                </ui:NavigationViewItem>
+                <ui:NavigationViewItem
+                    x:Name="OutputPageItem"
+                    Classes="SideNavigationViewItem"
+                    Content="{DynamicResource OutputString}">
+                    <ui:NavigationViewItem.Styles>
+                        <Style Selector="uip|NavigationViewItemPresenter#NVIPresenter:selected">
+                            <Setter Property="Icon">
+                                <Template>
+                                    <ui:PathIcon Data="{StaticResource Arrow_Export_LTR_Filled}" />
+                                </Template>
+                            </Setter>
+                        </Style>
+                    </ui:NavigationViewItem.Styles>
+                    <ui:NavigationViewItem.Icon>
+                        <ui:PathIcon Data="{StaticResource Arrow_Export_LTR_Regular}" />
+                    </ui:NavigationViewItem.Icon>
+                </ui:NavigationViewItem>
+            </ui:NavigationView.MenuItems>
+            <ui:NavigationView.FooterMenuItems>
+                <ui:NavigationViewItem
+                    x:Name="SettingsPageItem"
+                    Classes="SideNavigationViewItem"
+                    Content="{DynamicResource SettingsString}">
+                    <ui:NavigationViewItem.Styles>
+                        <Style Selector="uip|NavigationViewItemPresenter#NVIPresenter:selected">
+                            <Setter Property="Icon">
+                                <Template>
+                                    <ui:PathIcon Data="{StaticResource Settings_Filled}" />
+                                </Template>
+                            </Setter>
+                        </Style>
+                    </ui:NavigationViewItem.Styles>
+                    <ui:NavigationViewItem.Icon>
+                        <ui:PathIcon Data="{StaticResource Settings_Regular}" />
+                    </ui:NavigationViewItem.Icon>
+                </ui:NavigationViewItem>
+            </ui:NavigationView.FooterMenuItems>
 
-                <ContentPresenter x:Name="NaviContent" />
-            </ui:NavigationView>
-        </Border>
+            <ContentPresenter x:Name="NaviContent" />
+        </ui:NavigationView>
     </Grid>
 
 </UserControl>

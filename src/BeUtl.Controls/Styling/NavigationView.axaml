@@ -23,13 +23,13 @@
         <Setter Property="PaneDisplayMode" Value="LeftCompact" />
     </Style>
 
-    <Style Selector="ui|NavigationView.SideNavigationView /template/ SplitView Border#ContentGridBorder">
+    <!--<Style Selector="ui|NavigationView.SideNavigationView /template/ SplitView Border#ContentGridBorder">
         <Setter Property="Background" Value="Transparent" />
         <Setter Property="BorderBrush" Value="Transparent" />
         <Setter Property="BorderThickness" Value="0" />
         <Setter Property="Margin" Value="{DynamicResource NavigationViewContentMargin}" />
         <Setter Property="CornerRadius" Value="{DynamicResource NavigationViewContentGridCornerRadius}" />
-    </Style>
+    </Style>-->
 
     <Style Selector="ui|NavigationViewItem.SideNavigationViewItem">
         <Setter Property="Height" Value="56" />

@@ -1,6 +1,5 @@
 <Project>
   <ItemGroup>
-    <ProjectReference Include="$(MSBuildThisFileDirectory)/../../src/BeUtl.Compute/BeUtl.Compute.csproj" />
     <ProjectReference Include="$(MSBuildThisFileDirectory)/../../src/BeUtl.Configuration/BeUtl.Configuration.csproj" />
     <ProjectReference Include="$(MSBuildThisFileDirectory)/../../src/BeUtl.Core/BeUtl.Core.csproj" />
     <ProjectReference Include="$(MSBuildThisFileDirectory)/../../src/BeUtl.Framework/BeUtl.Framework.csproj" />
