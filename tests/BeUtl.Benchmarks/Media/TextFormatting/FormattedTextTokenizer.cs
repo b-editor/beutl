@@ -192,7 +192,10 @@ public readonly struct FormattedTextTokenizer
         {
             if (i.Elements.Count < 1)
             {
-                i.Dispose();
+                foreach (TextElement item in i.Elements.AsSpan())
+                {
+                    item._paint.Dispose();
+                }
                 return true;
             }
             else
