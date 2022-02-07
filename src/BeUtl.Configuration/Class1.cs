@@ -12,11 +12,41 @@ public class GlobalConfiguration
     public GraphicsConfig GraphicsConfig { get; } = new();
 
     public FontConfig FontConfig { get; } = new();
+
+    public ViewConfig ViewConfig { get; } = new();
 }
 
 public class GraphicsConfig
 {
 
+}
+
+public class ViewConfig : ConfigurationBase
+{
+    public static readonly CoreProperty<ViewTheme> ThemeProperty;
+
+    static ViewConfig()
+    {
+        ThemeProperty = ConfigureProperty<ViewTheme, ViewConfig>("Theme")
+            .SerializeName("theme")
+            .DefaultValue(ViewTheme.System)
+            .Observability(PropertyObservability.Changed)
+            .Register();
+    }
+
+    public ViewTheme Theme
+    {
+        get => GetValue(ThemeProperty);
+        set => SetValue(ThemeProperty, value);
+    }
+
+    public enum ViewTheme
+    {
+        Light,
+        Dark,
+        HighContrast,
+        System
+    }
 }
 
 public class FontConfig : ConfigurationBase
@@ -25,6 +55,7 @@ public class FontConfig : ConfigurationBase
 
     public override void FromJson(JsonNode json)
     {
+        base.FromJson(json);
         if (json is JsonObject jsonObject)
         {
             if (jsonObject.TryGetPropertyValue("directories", out JsonNode? dirsNode) &&
@@ -47,10 +78,8 @@ public class FontConfig : ConfigurationBase
 
     public override JsonNode ToJson()
     {
-        var obj = new JsonObject
-        {
-            ["directories"] = new JsonArray(FontDirectories.Select(i => JsonValue.Create(i)).ToArray())
-        };
+        JsonNode obj = base.ToJson();
+        obj["directories"] = new JsonArray(FontDirectories.Select(i => JsonValue.Create(i)).ToArray());
 
         return obj;
     }
@@ -100,21 +129,6 @@ public class FontConfig : ConfigurationBase
     }
 }
 
-public abstract class ConfigurationBase : INotifyPropertyChanged
+public abstract class ConfigurationBase : CoreObject
 {
-    public event PropertyChangedEventHandler? PropertyChanged;
-
-    public abstract void FromJson(JsonNode json);
-
-    public abstract JsonNode ToJson();
-
-    protected bool SetProperty<T>(ref T storage, T value, [CallerMemberName] string? propertyName = null)
-    {
-        if (EqualityComparer<T>.Default.Equals(storage, value)) return false;
-
-        storage = value;
-        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
-
-        return true;
-    }
 }

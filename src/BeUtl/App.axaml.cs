@@ -41,6 +41,7 @@ public class App : Application
 
     public override void OnFrameworkInitializationCompleted()
     {
+        _ = DeferredRenderer.s_dispatcher;
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             desktop.MainWindow = new MainWindow

@@ -1,0 +1,34 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             xmlns:ctrls="using:BeUtl.Controls"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:vm="using:BeUtl.ViewModels.SettingsPages"
+             x:DataType="vm:ViewSettingsPageViewModel"
+             x:Class="BeUtl.Pages.SettingsPages.ViewSettingsPage">
+    <UserControl.DataContext>
+        <vm:ViewSettingsPageViewModel/>
+    </UserControl.DataContext>
+    <ScrollViewer Padding="18">
+        <StackPanel Orientation="Vertical"
+                    VerticalAlignment="Stretch"
+                    Margin="10,0"
+                    Spacing="8">
+            <ctrls:OptionsDisplayItem Header="{DynamicResource S.Settings.View.Theme}"
+                                      Description="{DynamicResource S.Settings.View.ThemeDescription}"
+                                      Icon="DarkTheme">
+
+                <ctrls:OptionsDisplayItem.ActionButton>
+                    <ComboBox SelectedIndex="{CompiledBinding SelectedTheme.Value}">
+                        <ComboBoxItem Content="{DynamicResource S.Settings.View.Theme.Light}" />
+                        <ComboBoxItem Content="{DynamicResource S.Settings.View.Theme.Dark}" />
+                        <ComboBoxItem Content="{DynamicResource S.Settings.View.Theme.HighContrast}" />
+                        <ComboBoxItem Content="{DynamicResource S.Settings.View.Theme.System}" />
+                    </ComboBox>
+                </ctrls:OptionsDisplayItem.ActionButton>
+            </ctrls:OptionsDisplayItem>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

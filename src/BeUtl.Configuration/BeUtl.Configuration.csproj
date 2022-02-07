@@ -1,1 +1,5 @@
-<Project Sdk="Microsoft.NET.Sdk" />
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="..\BeUtl.Core\BeUtl.Core.csproj" />
+  </ItemGroup>
+</Project>

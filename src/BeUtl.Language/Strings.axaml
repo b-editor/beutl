@@ -23,6 +23,7 @@
         <KeyGesture x:Key="EndKeyGesture">End</KeyGesture>
         <KeyGesture x:Key="LayerDeleteKeyGesture">Ctrl+Delete</KeyGesture>
 
+        <x:String x:Key="InfomationString">Infomation</x:String>
         <x:String x:Key="FileString">File</x:String>
         <x:String x:Key="ObjectString">Object</x:String>
         <x:String x:Key="HelpString">Help</x:String>
@@ -57,6 +58,7 @@
         <x:String x:Key="TopString">Top</x:String>
         <x:String x:Key="BottomString">Bottom</x:String>
         <x:String x:Key="CenterString">Center</x:String>
+        <x:String x:Key="FontString">Font</x:String>
         <x:String x:Key="FontFamilyString">FontFamily</x:String>
         <x:String x:Key="FontStyleString">Style</x:String>
         <x:String x:Key="FontWeightString">Weight</x:String>
@@ -87,6 +89,17 @@
         <x:String x:Key="FixSizeString">Fix size</x:String>
         <x:String x:Key="ItemsSavedString">{0} items saved!</x:String>
         <x:String x:Key="TheOperationCouldNotBeExecutedString">The operation could not be executed.</x:String>
+
+        <x:String x:Key="S.Settings.Info">Infomation</x:String>
+        <x:String x:Key="S.Settings.Info.Links">Links</x:String>
+        <x:String x:Key="S.Settings.Info.SourceCode">Source code</x:String>
+        <x:String x:Key="S.Settings.Info.License">License</x:String>
+        <x:String x:Key="S.Settings.Info.ThirdPartyLicenses">Third party licenses</x:String>
+        <x:String x:Key="S.Settings.Font">Font</x:String>
+        <x:String x:Key="S.Settings.View">View</x:String>
+        <x:String x:Key="S.Settings.View.Theme">Theme</x:String>
+        <x:String x:Key="S.Settings.View.ThemeDescription">Select the theme of the app you want to display</x:String>
+
 
         <!--Verb-->
         <x:String x:Key="OpenString">Open</x:String>
