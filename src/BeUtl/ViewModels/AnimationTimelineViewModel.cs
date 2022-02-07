@@ -108,7 +108,7 @@ public sealed class AnimationTimelineViewModel : IDisposable
                 animation.Next = value;
             }
 
-            Setter.AddChild(animation, CommandRecorder.Default);
+            Setter.AddChild(animation).DoAndRecord(CommandRecorder.Default);
         }
     }
 }

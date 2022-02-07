@@ -10,3 +10,16 @@ public interface IRecordableCommand
 
     void Redo();
 }
+
+public static class RecordableCommandExtensions
+{
+    public static void DoAndRecord(this IRecordableCommand command, CommandRecorder recorder)
+    {
+        recorder.DoAndPush(command);
+    }
+
+    public static void PushTo(this IRecordableCommand command, CommandRecorder recorder)
+    {
+        recorder.PushOnly(command);
+    }
+}

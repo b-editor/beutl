@@ -35,7 +35,7 @@ public abstract class AnimationEditorViewModel : IDisposable
 
         Width.Subscribe(w => animation.Duration = w.ToTimeSpan(Scene.TimelineOptions.Scale)).AddTo(Disposables);
 
-        RemoveCommand.Subscribe(() => Setter.RemoveChild(Animation, CommandRecorder.Default)).AddTo(Disposables);
+        RemoveCommand.Subscribe(() => Setter.RemoveChild(Animation).DoAndRecord(CommandRecorder.Default)).AddTo(Disposables);
     }
 
     ~AnimationEditorViewModel()
@@ -103,7 +103,7 @@ public abstract class AnimationEditorViewModel : IDisposable
                     animation.Next = value;
                 }
 
-                Setter.InsertChild(index, animation, CommandRecorder.Default);
+                Setter.InsertChild(index, animation).DoAndRecord(CommandRecorder.Default);
             }
         }
     }
@@ -127,7 +127,7 @@ public abstract class AnimationEditorViewModel : IDisposable
                     animation.Next = value;
                 }
 
-                Setter.InsertChild(index + 1, animation, CommandRecorder.Default);
+                Setter.InsertChild(index + 1, animation).DoAndRecord(CommandRecorder.Default);
             }
         }
     }

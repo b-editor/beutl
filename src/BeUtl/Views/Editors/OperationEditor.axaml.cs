@@ -272,7 +272,8 @@ public partial class OperationEditor : UserControl
         if (DataContext is LayerOperation operation)
         {
             Layer layer = operation.FindRequiredLogicalParent<Layer>();
-            layer.RemoveChild(operation, CommandRecorder.Default);
+            layer.RemoveChild(operation)
+                .DoAndRecord(CommandRecorder.Default);
         }
     }
 
@@ -289,11 +290,13 @@ public partial class OperationEditor : UserControl
 
             if (half < position.Y)
             {
-                layer.InsertChild(index + 1, (LayerOperation)Activator.CreateInstance(item.Type)!, CommandRecorder.Default);
+                layer.InsertChild(index + 1, (LayerOperation)Activator.CreateInstance(item.Type)!)
+                    .DoAndRecord(CommandRecorder.Default);
             }
             else
             {
-                layer.InsertChild(index, (LayerOperation)Activator.CreateInstance(item.Type)!, CommandRecorder.Default);
+                layer.InsertChild(index, (LayerOperation)Activator.CreateInstance(item.Type)!)
+                    .DoAndRecord(CommandRecorder.Default);
             }
 
             e.Handled = true;

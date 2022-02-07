@@ -89,11 +89,12 @@ public sealed class AddLayerViewModel
 
             if (_layerDescription.InitialOperation != null)
             {
-                sLayer.AddChild((LayerOperation)(Activator.CreateInstance(_layerDescription.InitialOperation.Type)!), CommandRecorder.Default);
+                sLayer.AddChild((LayerOperation)(Activator.CreateInstance(_layerDescription.InitialOperation.Type)!))
+                    .DoAndRecord(CommandRecorder.Default);
             }
 
             sLayer.Save(sLayer.FileName);
-            _scene.AddChild(sLayer, CommandRecorder.Default);
+            _scene.AddChild(sLayer).DoAndRecord(CommandRecorder.Default);
         });
     }
 

@@ -46,11 +46,11 @@ public class TimelineLayerViewModel : IDisposable
             .ToReactiveProperty()
             .AddTo(_disposables);
 
-        Exclude.Subscribe(() => Scene.RemoveChild(Model, CommandRecorder.Default));
+        Exclude.Subscribe(() => Scene.RemoveChild(Model).DoAndRecord(CommandRecorder.Default));
 
         Delete.Subscribe(() =>
         {
-            Scene.RemoveChild(Model);
+            Scene.RemoveChild(Model).Do();
             if (File.Exists(Model.FileName))
             {
                 File.Delete(Model.FileName);
@@ -97,11 +97,11 @@ public class TimelineLayerViewModel : IDisposable
 
         Model.UpdateTime(
             BorderMargin.Value.Left.ToTimeSpan(scale).RoundToRate(rate),
-            Width.Value.ToTimeSpan(scale).RoundToRate(rate),
-            CommandRecorder.Default);
+            Width.Value.ToTimeSpan(scale).RoundToRate(rate))
+            .DoAndRecord(CommandRecorder.Default);
 
         int layerNum = Margin.Value.ToLayerNumber();
-        Scene.MoveChild(layerNum, Model, CommandRecorder.Default);
+        Scene.MoveChild(layerNum, Model).DoAndRecord(CommandRecorder.Default);
 
         Margin.Value = new Thickness(0, layerNum.ToLayerPixel(), 0, 0);
     }

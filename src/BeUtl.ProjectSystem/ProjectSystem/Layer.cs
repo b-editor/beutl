@@ -154,7 +154,7 @@ public class Layer : Element, IStorable, ILogicalElement
 
     IEnumerable<ILogicalElement> ILogicalElement.LogicalChildren => Children;
 
-    public void UpdateTime(TimeSpan start, TimeSpan length, CommandRecorder? recorder = null)
+    public IRecordableCommand UpdateTime(TimeSpan start, TimeSpan length)
     {
         if (start < TimeSpan.Zero)
             throw new ArgumentOutOfRangeException(nameof(start));
@@ -162,15 +162,7 @@ public class Layer : Element, IStorable, ILogicalElement
         if (length <= TimeSpan.Zero)
             throw new ArgumentOutOfRangeException(nameof(length));
 
-        if (recorder == null)
-        {
-            Start = start;
-            Length = length;
-        }
-        else if (start != Start || length != Length)
-        {
-            recorder.DoAndPush(new UpdateTimeCommand(this, start, Start, length, Length));
-        }
+        return new UpdateTimeCommand(this, start, Start, length, Length);
     }
 
     public void Save(string filename)
@@ -273,46 +265,25 @@ public class Layer : Element, IStorable, ILogicalElement
         return node;
     }
 
-    public void AddChild(LayerOperation operation, CommandRecorder? recorder = null)
+    public IRecordableCommand AddChild(LayerOperation operation)
     {
         ArgumentNullException.ThrowIfNull(operation);
 
-        if (recorder == null)
-        {
-            Children.Add(operation);
-        }
-        else
-        {
-            recorder.DoAndPush(new AddCommand<LayerOperation>(Children, operation, Children.Count));
-        }
+        return new AddCommand<LayerOperation>(Children, operation, Children.Count);
     }
 
-    public void RemoveChild(LayerOperation operation, CommandRecorder? recorder = null)
+    public IRecordableCommand RemoveChild(LayerOperation operation)
     {
         ArgumentNullException.ThrowIfNull(operation);
 
-        if (recorder == null)
-        {
-            Children.Remove(operation);
-        }
-        else
-        {
-            recorder.DoAndPush(new RemoveCommand<LayerOperation>(Children, operation));
-        }
+        return new RemoveCommand<LayerOperation>(Children, operation);
     }
 
-    public void InsertChild(int index, LayerOperation operation, CommandRecorder? recorder = null)
+    public IRecordableCommand InsertChild(int index, LayerOperation operation)
     {
         ArgumentNullException.ThrowIfNull(operation);
 
-        if (recorder == null)
-        {
-            Children.Insert(index, operation);
-        }
-        else
-        {
-            recorder.DoAndPush(new AddCommand<LayerOperation>(Children, operation, index));
-        }
+        return new AddCommand<LayerOperation>(Children, operation, index);
     }
 
     protected override void OnAttachedToLogicalTree(in LogicalTreeAttachmentEventArgs args)

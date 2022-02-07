@@ -1,11 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Reactive.Disposables;
+﻿using System.Reactive.Disposables;
 using System.Reactive.Linq;
-using System.Security.Cryptography;
-using System.Text;
-using System.Threading.Tasks;
 
 using Avalonia;
 
@@ -54,11 +48,12 @@ public class TimelineViewModel : IDisposable
             if (item.InitialOperation != null)
             {
                 sLayer.AccentColor = item.InitialOperation.AccentColor;
-                sLayer.AddChild((LayerOperation)(Activator.CreateInstance(item.InitialOperation.Type)!), CommandRecorder.Default);
+                sLayer.AddChild((LayerOperation)(Activator.CreateInstance(item.InitialOperation.Type)!))
+                    .DoAndRecord(CommandRecorder.Default);
             }
 
             sLayer.Save(sLayer.FileName);
-            Scene.AddChild(sLayer, CommandRecorder.Default);
+            Scene.AddChild(sLayer).DoAndRecord(CommandRecorder.Default);
         }).AddTo(_disposables);
     }
 

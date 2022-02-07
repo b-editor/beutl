@@ -1,6 +1,7 @@
 ﻿using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
+using System.Text;
 using System.Text.Json.Nodes;
 
 using BeUtl.Media;
@@ -186,105 +187,26 @@ public class Scene : Element, IStorable
     }
 
     // layer.FileNameが既に設定されている状態
-    public void AddChild(Layer layer, CommandRecorder? recorder = null)
+    public IRecordableCommand AddChild(Layer layer)
     {
         ArgumentNullException.ThrowIfNull(layer);
         layer.ZIndex = NearestLayerNumber(layer);
 
-        if (recorder == null)
-        {
-            Children.Add(layer);
-        }
-        else
-        {
-            recorder.DoAndPush(new AddCommand(this, layer));
-        }
+        return new AddCommand(this, layer);
     }
 
-    public void RemoveChild(Layer layer, CommandRecorder? recorder = null)
+    public IRecordableCommand RemoveChild(Layer layer)
     {
         ArgumentNullException.ThrowIfNull(layer);
 
-        if (recorder == null)
-        {
-            layer.ZIndex = -1;
-            Children.Remove(layer);
-        }
-        else
-        {
-            recorder.DoAndPush(new RemoveCommand(this, layer));
-        }
+        return new RemoveCommand(this, layer);
     }
 
-    public void MoveChild(int layerNum, Layer layer, CommandRecorder? recorder = null)
+    public IRecordableCommand MoveChild(int layerNum, Layer layer)
     {
         ArgumentNullException.ThrowIfNull(layer);
 
-        PropertyChangeTracker? tracker = recorder != null ? new PropertyChangeTracker(Children, 0) : null;
-        Span<Layer> span = Children.AsSpan();
-
-        // 下に移動
-        if (layerNum > layer.ZIndex)
-        {
-            bool insert = false;
-            foreach (Layer item in span)
-            {
-                if (item.ZIndex == layerNum)
-                {
-                    insert = true;
-                }
-            }
-
-            if (insert)
-            {
-                foreach (Layer item in span)
-                {
-                    if (item != layer)
-                    {
-                        if (item.ZIndex > layer.ZIndex &&
-                            item.ZIndex <= layerNum)
-                        {
-                            item.ZIndex--;
-                        }
-                    }
-                }
-            }
-        }
-        else if (layerNum < layer.ZIndex)
-        {
-            bool insert = false;
-            foreach (Layer item in span)
-            {
-                if (item.ZIndex == layerNum)
-                {
-                    insert = true;
-                }
-            }
-
-            if (insert)
-            {
-                foreach (Layer item in span)
-                {
-                    if (item != layer)
-                    {
-                        if (item.ZIndex < layer.ZIndex &&
-                            item.ZIndex >= layerNum)
-                        {
-                            item.ZIndex++;
-                        }
-                    }
-                }
-            }
-        }
-
-        layer.ZIndex = layerNum;
-
-        if (tracker != null && recorder != null)
-        {
-            IRecordableCommand command = tracker.ToCommand();
-            tracker.Dispose();
-            recorder.PushOnly(command);
-        }
+        return new MoveCommand(layerNum, this, layer);
     }
 
     public override void FromJson(JsonNode json)
@@ -622,6 +544,104 @@ public class Scene : Element, IStorable
         {
             _layer.ZIndex = _layerNum;
             _scene.Children.Add(_layer);
+        }
+    }
+
+    private sealed class MoveCommand : IRecordableCommand
+    {
+        private readonly Scene _scene;
+        private readonly Layer _layer;
+        private int _layerNum;
+        private IRecordableCommand? _inner;
+
+        public MoveCommand(int layerNum, Scene scene, Layer layer)
+        {
+            _scene = scene;
+            _layer = layer;
+            _layerNum = layerNum;
+        }
+
+        public void Do()
+        {
+            if (_inner != null)
+            {
+                Redo();
+            }
+
+            using var tracker = new PropertyChangeTracker(_scene.Children, 0);
+            Span<Layer> span = _scene.Children.AsSpan();
+
+            // 下に移動
+            if (_layerNum > _layer.ZIndex)
+            {
+                bool insert = false;
+                foreach (Layer item in span)
+                {
+                    if (item.ZIndex == _layerNum)
+                    {
+                        insert = true;
+                    }
+                }
+
+                if (insert)
+                {
+                    foreach (Layer item in span)
+                    {
+                        if (item != _layer)
+                        {
+                            if (item.ZIndex > _layer.ZIndex &&
+                                item.ZIndex <= _layerNum)
+                            {
+                                item.ZIndex--;
+                            }
+                        }
+                    }
+                }
+            }
+            else if (_layerNum < _layer.ZIndex)
+            {
+                bool insert = false;
+                foreach (Layer item in span)
+                {
+                    if (item.ZIndex == _layerNum)
+                    {
+                        insert = true;
+                    }
+                }
+
+                if (insert)
+                {
+                    foreach (Layer item in span)
+                    {
+                        if (item != _layer)
+                        {
+                            if (item.ZIndex < _layer.ZIndex &&
+                                item.ZIndex >= _layerNum)
+                            {
+                                item.ZIndex++;
+                            }
+                        }
+                    }
+                }
+            }
+
+            _layer.ZIndex = _layerNum;
+
+            _inner = tracker.ToCommand();
+        }
+
+        public void Redo()
+        {
+            if (_inner == null)
+                throw new InvalidOperationException();
+            _inner.Redo();
+        }
+
+        public void Undo()
+        {
+            if (_inner == null)
+                throw new InvalidOperationException();
+            _inner.Undo();
         }
     }
 }

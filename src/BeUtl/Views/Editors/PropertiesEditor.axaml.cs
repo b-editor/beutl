@@ -22,7 +22,8 @@ public partial class PropertiesEditor : UserControl
         {
             Layer layer = vm.Layer;
 
-            layer.AddChild((LayerOperation)Activator.CreateInstance(item.Type)!, CommandRecorder.Default);
+            layer.AddChild((LayerOperation)Activator.CreateInstance(item.Type)!)
+                .DoAndRecord(CommandRecorder.Default);
 
             e.Handled = true;
         }

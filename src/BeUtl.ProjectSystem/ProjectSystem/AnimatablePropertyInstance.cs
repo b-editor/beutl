@@ -1,5 +1,6 @@
 ﻿using System.Text.Json;
 using System.Text.Json.Nodes;
+
 using BeUtl.Animation;
 using BeUtl.Collections;
 using BeUtl.Commands;
@@ -12,11 +13,11 @@ public interface IAnimatablePropertyInstance : IPropertyInstance, ILogicalElemen
 
     public void SetProperty(TimeSpan progress);
 
-    public void AddChild(IAnimation animation, CommandRecorder? recorder = null);
+    public IRecordableCommand AddChild(IAnimation animation);
 
-    public void RemoveChild(IAnimation animation, CommandRecorder? recorder = null);
+    public IRecordableCommand RemoveChild(IAnimation animation);
 
-    public void InsertChild(int index, IAnimation animation, CommandRecorder? recorder = null);
+    public IRecordableCommand InsertChild(int index, IAnimation animation);
 }
 
 public class AnimatablePropertyInstance<T> : PropertyInstance<T>, IAnimatablePropertyInstance
@@ -79,46 +80,25 @@ public class AnimatablePropertyInstance<T> : PropertyInstance<T>, IAnimatablePro
         }
     }
 
-    public void AddChild(Animation<T> animation, CommandRecorder? recorder = null)
+    public IRecordableCommand AddChild(Animation<T> animation)
     {
         ArgumentNullException.ThrowIfNull(animation);
 
-        if (recorder == null)
-        {
-            Children.Add(animation);
-        }
-        else
-        {
-            recorder.DoAndPush(new AddCommand<Animation<T>>(_children, animation, Children.Count));
-        }
+        return new AddCommand<Animation<T>>(_children, animation, Children.Count);
     }
 
-    public void RemoveChild(Animation<T> animation, CommandRecorder? recorder = null)
+    public IRecordableCommand RemoveChild(Animation<T> animation)
     {
         ArgumentNullException.ThrowIfNull(animation);
 
-        if (recorder == null)
-        {
-            Children.Remove(animation);
-        }
-        else
-        {
-            recorder.DoAndPush(new RemoveCommand<Animation<T>>(_children, animation));
-        }
+        return new RemoveCommand<Animation<T>>(_children, animation);
     }
 
-    public void InsertChild(int index, Animation<T> animation, CommandRecorder? recorder = null)
+    public IRecordableCommand InsertChild(int index, Animation<T> animation)
     {
         ArgumentNullException.ThrowIfNull(animation);
 
-        if (recorder == null)
-        {
-            Children.Insert(index, animation);
-        }
-        else
-        {
-            recorder.DoAndPush(new AddCommand<Animation<T>>(_children, animation, index));
-        }
+        return new AddCommand<Animation<T>>(_children, animation, index);
     }
 
     public override void FromJson(JsonNode json)
@@ -184,18 +164,18 @@ public class AnimatablePropertyInstance<T> : PropertyInstance<T>, IAnimatablePro
         }
     }
 
-    void IAnimatablePropertyInstance.AddChild(IAnimation animation, CommandRecorder? recorder)
+    IRecordableCommand IAnimatablePropertyInstance.AddChild(IAnimation animation)
     {
-        AddChild((Animation<T>)animation, recorder);
+        return AddChild((Animation<T>)animation);
     }
 
-    void IAnimatablePropertyInstance.RemoveChild(IAnimation animation, CommandRecorder? recorder)
+    IRecordableCommand IAnimatablePropertyInstance.RemoveChild(IAnimation animation)
     {
-        RemoveChild((Animation<T>)animation, recorder);
+        return RemoveChild((Animation<T>)animation);
     }
 
-    void IAnimatablePropertyInstance.InsertChild(int index, IAnimation animation, CommandRecorder? recorder)
+    IRecordableCommand IAnimatablePropertyInstance.InsertChild(int index, IAnimation animation)
     {
-        InsertChild(index, (Animation<T>)animation, recorder);
+        return InsertChild(index, (Animation<T>)animation);
     }
 }
