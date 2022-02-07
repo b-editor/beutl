@@ -81,7 +81,8 @@ public partial class TimelineLayer : UserControl
         Point point = e.GetPosition(this);
         TimelineLayerViewModel vm = ViewModel;
         float scale = scene.TimelineOptions.Scale;
-        TimeSpan pointerFrame = point.X.ToTimeSpan(scale);
+        TimeSpan pointerFrame = RoundStartTime(point.X.ToTimeSpan(scale), scale, e.KeyModifiers.HasFlag(KeyModifiers.Control));
+        point = point.WithX(pointerFrame.ToPixel(scale));
 
         if (Cursor == Cursors.Arrow || Cursor == null)
         {
@@ -169,5 +170,37 @@ public partial class TimelineLayer : UserControl
             Cursor = null;
             _resizeType = AlignmentX.Center;
         }
+    }
+
+    private TimeSpan RoundStartTime(TimeSpan time, float scale, bool flag)
+    {
+        Layer layer = ViewModel.Model;
+
+        if (!flag)
+        {
+            foreach (Layer item in ViewModel.Scene.Children.AsSpan())
+            {
+                if (item != layer)
+                {
+                    const double ThreadholdPixel = 10;
+                    TimeSpan threadhold = ThreadholdPixel.ToTimeSpan(scale);
+                    TimeSpan start = item.Start;
+                    TimeSpan end = start + item.Length;
+                    var startRange = new Media.TimeRange(start - threadhold, threadhold);
+                    var endRange = new Media.TimeRange(end - threadhold, threadhold);
+
+                    if (endRange.Contains(time))
+                    {
+                        return end;
+                    }
+                    else if (startRange.Contains(time))
+                    {
+                        return start;
+                    }
+                }
+            }
+        }
+
+        return time;
     }
 }

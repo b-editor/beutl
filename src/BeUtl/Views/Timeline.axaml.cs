@@ -218,7 +218,8 @@ public partial class Timeline : UserControl
         Scene scene = ViewModel.Scene;
         Point pt = e.GetPosition(TimelinePanel);
 
-        _clickedFrame = pt.X.ToTimeSpan(scene.TimelineOptions.Scale);
+        _clickedFrame = pt.X.ToTimeSpan(scene.TimelineOptions.Scale)
+            .RoundToRate(ViewModel.Scene.Parent is Project proj ? proj.FrameRate : 30);
         _clickedLayer = pt.Y.ToLayerNumber();
 
         if (e.Data.Get("RenderOperation") is RenderOperationRegistry.RegistryItem item)
