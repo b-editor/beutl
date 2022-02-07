@@ -46,7 +46,7 @@ public sealed class PlayerViewModel
     public void Next()
     {
         int rate = Project.FrameRate;
-        if (rate >= 0)
+        if (rate <= 0)
         {
             rate = 30;
         }
@@ -57,7 +57,7 @@ public sealed class PlayerViewModel
     public void Previous()
     {
         int rate = Project.FrameRate;
-        if (rate >= 0)
+        if (rate <= 0)
         {
             rate = 30;
         }

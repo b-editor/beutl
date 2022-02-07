@@ -1,15 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Drawing;
-using System.Linq;
-using System.Reactive.Disposables;
+﻿using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
-using System.Text;
-using System.Threading.Tasks;
 
 using Avalonia;
-using Avalonia.Media;
 
 using BeUtl.ProjectSystem;
 
@@ -89,7 +82,12 @@ public class TimelineLayerViewModel : IDisposable
     public void SyncModelToViewModel()
     {
         float scale = Scene.TimelineOptions.Scale;
-        Model.UpdateTime(BorderMargin.Value.Left.ToTimeSpan(scale), Width.Value.ToTimeSpan(scale), CommandRecorder.Default);
+        int rate = Scene.Parent is Project proj ? proj.FrameRate : 30;
+
+        Model.UpdateTime(
+            BorderMargin.Value.Left.ToTimeSpan(scale).RoundToRate(rate),
+            Width.Value.ToTimeSpan(scale).RoundToRate(rate),
+            CommandRecorder.Default);
 
         int layerNum = Margin.Value.ToLayerNumber();
         Scene.MoveChild(layerNum, Model, CommandRecorder.Default);

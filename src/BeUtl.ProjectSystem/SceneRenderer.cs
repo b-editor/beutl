@@ -125,19 +125,4 @@ internal sealed class SceneRenderer : ImmediateRenderer/*DeferredRenderer*/, ICl
     {
         return item.Start <= ts && ts < item.Length + item.Start;
     }
-
-    //private static int ToFrameNumber(TimeSpan tp, int rate)
-    //{
-    //    return (int)(tp.TotalSeconds * rate);
-    //}
-
-    //private static int TicksPerFrame(int rate)
-    //{
-    //    return 10000000 / rate;
-    //}
-
-    //private static TimeSpan ToTimeSpan(int f, int rate)
-    //{
-    //    return TimeSpan.FromSeconds(f / (double)rate);
-    //}
 }

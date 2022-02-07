@@ -169,7 +169,8 @@ public partial class Timeline : UserControl
     private void TimelinePanel_PointerMoved(object? sender, PointerEventArgs e)
     {
         PointerPoint pointerPt = e.GetCurrentPoint(TimelinePanel);
-        _pointerFrame = pointerPt.Position.X.ToTimeSpan(ViewModel.Scene.TimelineOptions.Scale);
+        _pointerFrame = pointerPt.Position.X.ToTimeSpan(ViewModel.Scene.TimelineOptions.Scale)
+            .RoundToRate(ViewModel.Scene.Parent is Project proj ? proj.FrameRate : 30);
         _pointerLayer = pointerPt.Position.Y.ToLayerNumber();
 
         if (_seekbarMouseFlag == MouseFlags.MouseDown)
@@ -193,7 +194,8 @@ public partial class Timeline : UserControl
     private void TimelinePanel_PointerPressed(object? sender, PointerPressedEventArgs e)
     {
         PointerPoint pointerPt = e.GetCurrentPoint(TimelinePanel);
-        _clickedFrame = pointerPt.Position.X.ToTimeSpan(ViewModel.Scene.TimelineOptions.Scale);
+        _clickedFrame = pointerPt.Position.X.ToTimeSpan(ViewModel.Scene.TimelineOptions.Scale)
+            .RoundToRate(ViewModel.Scene.Parent is Project proj ? proj.FrameRate : 30);
         _clickedLayer = pointerPt.Position.Y.ToLayerNumber();
 
         if (pointerPt.Properties.IsLeftButtonPressed)

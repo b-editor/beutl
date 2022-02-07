@@ -62,7 +62,13 @@ public abstract class AnimationEditorViewModel : IDisposable
 
     public void SetDuration(TimeSpan old, TimeSpan @new)
     {
-        CommandRecorder.Default.PushOnly(new ChangePropertyCommand<TimeSpan>(Animation, BaseAnimation.DurationProperty, @new, old));
+        if (Scene.Parent is Project proj)
+        {
+            @new = @new.RoundToRate(proj.FrameRate);
+        }
+
+        CommandRecorder.Default.DoAndPush(
+            new ChangePropertyCommand<TimeSpan>(Animation, BaseAnimation.DurationProperty, @new, old));
     }
 
     public void SetEasing(Easing old, Easing @new)
