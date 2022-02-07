@@ -64,6 +64,7 @@ public partial class TimelineLayer : UserControl
 
     private void Layer_PointerPressed(object? sender, PointerPressedEventArgs e)
     {
+        Focus();
     }
 
     private void Layer_PointerReleased(object? sender, PointerReleasedEventArgs e)

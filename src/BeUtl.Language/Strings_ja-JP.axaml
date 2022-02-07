@@ -86,6 +86,8 @@
         <x:String x:Key="BottomLeftString">左下</x:String>
         <x:String x:Key="BottomRightString">右下</x:String>
         <x:String x:Key="FixSizeString">サイズを固定</x:String>
+        <x:String x:Key="DeleteString">削除</x:String>
+        <x:String x:Key="ExcludeString">除外</x:String>
 
         <!--Command-->
         <x:String x:Key="AddRenderOperationString">Render operationを追加</x:String>

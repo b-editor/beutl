@@ -197,6 +197,7 @@ public partial class Timeline : UserControl
         _clickedFrame = pointerPt.Position.X.ToTimeSpan(ViewModel.Scene.TimelineOptions.Scale)
             .RoundToRate(ViewModel.Scene.Parent is Project proj ? proj.FrameRate : 30);
         _clickedLayer = pointerPt.Position.Y.ToLayerNumber();
+        TimelinePanel.Focus();
 
         if (pointerPt.Properties.IsLeftButtonPressed)
         {

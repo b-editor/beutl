@@ -32,25 +32,6 @@ public partial class MainView : UserControl
 
     protected override void OnDataContextChanged(EventArgs e)
     {
-        void PlayerAction(Action<PlayerViewModel> action)
-        {
-            if (NaviContent.Content is EditPage
-                {
-                    tabview:
-                    {
-                        SelectedContent: EditView
-                        {
-                            DataContext: EditViewModel
-                            {
-                                Player: PlayerViewModel player
-                            }
-                        }
-                    }
-                })
-            {
-                action(player);
-            }
-        }
         base.OnDataContextChanged(e);
         if (DataContext is MainViewModel vm)
         {
@@ -97,26 +78,6 @@ public partial class MainView : UserControl
                     applicationLifetime.Shutdown();
                 }
             });
-
-            vm.PlayPause.Subscribe(() => PlayerAction(p =>
-            {
-                if (p.IsPlaying.Value)
-                {
-                    p.Pause();
-                }
-                else
-                {
-                    p.Play();
-                }
-            }));
-
-            vm.Next.Subscribe(() => PlayerAction(p => p.Next()));
-
-            vm.Previous.Subscribe(() => PlayerAction(p => p.Previous()));
-
-            vm.Start.Subscribe(() => PlayerAction(p => p.Start()));
-
-            vm.End.Subscribe(() => PlayerAction(p => p.End()));
         }
     }
 

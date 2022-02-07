@@ -46,7 +46,16 @@ public class TimelineLayerViewModel : IDisposable
             .ToReactiveProperty()
             .AddTo(_disposables);
 
-        Remove.Subscribe(() => Scene.RemoveChild(Model, CommandRecorder.Default));
+        Exclude.Subscribe(() => Scene.RemoveChild(Model, CommandRecorder.Default));
+
+        Delete.Subscribe(() =>
+        {
+            Scene.RemoveChild(Model);
+            if (File.Exists(Model.FileName))
+            {
+                File.Delete(Model.FileName);
+            }
+        });
 
         ColorSetter.Subscribe(c => Model.AccentColor = Media.Color.FromArgb(c.A, c.R, c.G, c.B))
             .AddTo(_disposables);
@@ -71,7 +80,9 @@ public class TimelineLayerViewModel : IDisposable
 
     public ReactiveProperty<FluentAvalonia.UI.Media.Color2> ColorSetter { get; }
 
-    public ReactiveCommand Remove { get; } = new();
+    public ReactiveCommand Exclude { get; } = new();
+
+    public ReactiveCommand Delete { get; } = new();
 
     public void Dispose()
     {

@@ -11,8 +11,13 @@
     HorizontalAlignment="Stretch"
     VerticalAlignment="Top"
     Padding="0,1"
+    Focusable="True"
     IsEnabled="{Binding Model.IsEnabled}"
     x:Class="BeUtl.Views.TimelineLayer">
+    <UserControl.KeyBindings>
+        <KeyBinding Command="{CompiledBinding Delete}" Gesture="{DynamicResource LayerDeleteKeyGesture}" />
+        <KeyBinding Command="{CompiledBinding Exclude}" Gesture="{DynamicResource DeleteKeyGesture}" />
+    </UserControl.KeyBindings>
     <Border
         x:Name="border"
         HorizontalAlignment="Left"
@@ -25,8 +30,16 @@
         <Border.ContextMenu>
             <ContextMenu>
                 <MenuItem
-                    Command="{CompiledBinding Remove}"
-                    Header="{DynamicResource RemoveString}"
+                    Command="{CompiledBinding Delete}"
+                    Header="{DynamicResource DeleteString}"
+                    InputGesture="{DynamicResource LayerDeleteKeyGesture}">
+                    <MenuItem.Icon>
+                        <FluentIconRegular IconType="Delete_Dismiss" Classes="Small" />
+                    </MenuItem.Icon>
+                </MenuItem>
+                <MenuItem
+                    Command="{CompiledBinding Exclude}"
+                    Header="{DynamicResource ExcludeString}"
                     InputGesture="{DynamicResource DeleteKeyGesture}">
                     <MenuItem.Icon>
                         <FluentIconRegular IconType="Delete" Classes="Small" />

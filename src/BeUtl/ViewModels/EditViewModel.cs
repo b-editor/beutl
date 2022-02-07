@@ -7,8 +7,8 @@ public class EditViewModel
     public EditViewModel(Scene scene)
     {
         Scene = scene;
-        Timeline = new TimelineViewModel(scene);
         Player = new PlayerViewModel(scene);
+        Timeline = new TimelineViewModel(scene, Player);
         Easings = new EasingsViewModel();
     }
 

@@ -17,6 +17,18 @@ public sealed class PlayerViewModel
 
     public ReactivePropertySlim<bool> IsPlaying { get; } = new();
 
+    public void PlayPause()
+    {
+        if (IsPlaying.Value)
+        {
+            Pause();
+        }
+        else
+        {
+            Play();
+        }
+    }
+
     public async void Play()
     {
         IsPlaying.Value = true;

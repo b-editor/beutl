@@ -21,6 +21,7 @@
         <KeyGesture x:Key="PreviousKeyGesture">Left</KeyGesture>
         <KeyGesture x:Key="StartKeyGesture">Home</KeyGesture>
         <KeyGesture x:Key="EndKeyGesture">End</KeyGesture>
+        <KeyGesture x:Key="LayerDeleteKeyGesture">Ctrl+Delete</KeyGesture>
 
         <x:String x:Key="FileString">File</x:String>
         <x:String x:Key="ObjectString">Object</x:String>
@@ -112,6 +113,8 @@
         <x:String x:Key="EditAnimationString">Edit animation</x:String>
         <x:String x:Key="PickFontString">Pick a font</x:String>
         <x:String x:Key="DoneString">Done</x:String>
+        <x:String x:Key="DeleteString">Delete</x:String>
+        <x:String x:Key="ExcludeString">Exclude</x:String>
 
         <!--Command-->
         <x:String x:Key="AddRenderOperationString">Add a render operation.</x:String>

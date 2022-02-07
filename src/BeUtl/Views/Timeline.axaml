@@ -7,6 +7,7 @@
     xmlns:vm="using:BeUtl.ViewModels"
     xmlns:ui="using:FluentAvalonia.UI.Controls"
     mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+    Focusable="True"
     x:DataType="vm:TimelineViewModel"
     x:Class="BeUtl.Views.Timeline">
     <Grid RowDefinitions="Auto,*" x:Name="grid">
@@ -109,6 +110,14 @@
                 MinWidth="{Binding #ContentScroll.Bounds.Width}"
                 VerticalAlignment="Top"
                 HorizontalAlignment="Left">
+                <Panel.KeyBindings>
+                    <KeyBinding Gesture="{DynamicResource PlayPauseKeyGesture}" Command="{Binding Player.PlayPause}" />
+                    <KeyBinding Gesture="{DynamicResource NextKeyGesture}" Command="{Binding Player.Next}" />
+                    <KeyBinding Gesture="{DynamicResource PreviousKeyGesture}" Command="{Binding Player.Previous}" />
+                    <KeyBinding Gesture="{DynamicResource StartKeyGesture}" Command="{Binding Player.Start}" />
+                    <KeyBinding Gesture="{DynamicResource EndKeyGesture}" Command="{Binding Player.End}" />
+                </Panel.KeyBindings>
+
                 <Panel.ContextMenu>
                     <ContextMenu>
                         <MenuItem Header="{DynamicResource AddLayerString}" Click="AddLayerClick" />

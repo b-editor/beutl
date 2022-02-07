@@ -21,9 +21,10 @@ public class TimelineViewModel : IDisposable
 {
     private readonly CompositeDisposable _disposables = new();
 
-    public TimelineViewModel(Scene scene)
+    public TimelineViewModel(Scene scene, PlayerViewModel player)
     {
         Scene = scene;
+        Player = player;
         PanelWidth = scene.GetObservable(Scene.DurationProperty)
             .CombineLatest(scene.GetObservable(Scene.TimelineOptionsProperty))
             .Select(item => item.First.ToPixel(item.Second.Scale))
@@ -67,6 +68,8 @@ public class TimelineViewModel : IDisposable
     }
 
     public Scene Scene { get; }
+
+    public PlayerViewModel Player { get; }
 
     public ReadOnlyReactivePropertySlim<double> PanelWidth { get; }
 

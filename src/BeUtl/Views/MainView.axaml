@@ -27,11 +27,6 @@
         <KeyBinding Gesture="{DynamicResource ExitKeyGesture}" Command="{CompiledBinding Exit}" />
         <KeyBinding Gesture="{DynamicResource UndoKeyGesture}" Command="{CompiledBinding Undo}" />
         <KeyBinding Gesture="{DynamicResource RedoKeyGesture}" Command="{CompiledBinding Redo}" />
-        <KeyBinding Gesture="{DynamicResource PlayPauseKeyGesture}" Command="{CompiledBinding PlayPause}" />
-        <KeyBinding Gesture="{DynamicResource NextKeyGesture}" Command="{CompiledBinding Next}" />
-        <KeyBinding Gesture="{DynamicResource PreviousKeyGesture}" Command="{CompiledBinding Previous}" />
-        <KeyBinding Gesture="{DynamicResource StartKeyGesture}" Command="{CompiledBinding Start}" />
-        <KeyBinding Gesture="{DynamicResource EndKeyGesture}" Command="{CompiledBinding End}" />
     </UserControl.KeyBindings>
 
     <Grid RowDefinitions="Auto,*">

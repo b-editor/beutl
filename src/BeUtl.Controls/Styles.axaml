@@ -1,4 +1,7 @@
 ﻿<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:sys="clr-namespace:System;assembly=mscorlib"
+        xmlns:i="using:Avalonia.Xaml.Interactivity"
+        xmlns:b="clr-namespace:BeUtl.Controls.Behaviors;assembly=BeUtl.Controls"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
     <Style Selector="Border.CardStyle">
@@ -12,6 +15,18 @@
         <Setter Property="FontSize" Value="14" />
         <Setter Property="Width" Value="14" />
         <Setter Property="Height" Value="14" />
+    </Style>
+
+    <Style Selector="TextBox">
+        <Setter Property="(i:Interaction.Behaviors)">
+            <b:SharedContentTemplate>
+                <b:SharedContent>
+                    <i:BehaviorCollection>
+                        <b:TextBoxBehaviour />
+                    </i:BehaviorCollection>
+                </b:SharedContent>
+            </b:SharedContentTemplate>
+        </Setter>
     </Style>
 
     <StyleInclude Source="avares://BeUtl.Controls/Styling/BaseResources.axaml" />
