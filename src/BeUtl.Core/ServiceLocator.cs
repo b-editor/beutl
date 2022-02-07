@@ -9,7 +9,7 @@ public sealed class ServiceLocator : IServiceProvider
 
     static ServiceLocator()
     {
-        Current = CurrentMutable = new ServiceLocator();
+        Current = new ServiceLocator();
     }
 
     public ServiceLocator()
@@ -23,8 +23,6 @@ public sealed class ServiceLocator : IServiceProvider
     }
 
     public static ServiceLocator Current { get; set; }
-
-    public static ServiceLocator CurrentMutable { get; set; }
 
     public object? GetService(Type t)
     {
@@ -50,8 +48,8 @@ public sealed class ServiceLocator : IServiceProvider
 
     public static IDisposable EnterScope()
     {
-        var d = new ResolverDisposable(Current, CurrentMutable);
-        Current = CurrentMutable = new ServiceLocator(Current);
+        var d = new ResolverDisposable(Current);
+        Current = new ServiceLocator(Current);
         return d;
     }
 
@@ -109,18 +107,15 @@ public sealed class ServiceLocator : IServiceProvider
     private sealed class ResolverDisposable : IDisposable
     {
         private readonly ServiceLocator _resolver;
-        private readonly ServiceLocator _mutable;
 
-        public ResolverDisposable(ServiceLocator resolver, ServiceLocator mutable)
+        public ResolverDisposable(ServiceLocator resolver)
         {
             _resolver = resolver;
-            _mutable = mutable;
         }
 
         public void Dispose()
         {
             Current = _resolver;
-            CurrentMutable = _mutable;
         }
     }
 }

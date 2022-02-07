@@ -18,10 +18,8 @@ public sealed partial class MainWindow : CoreWindow
     {
         InitializeComponent();
 
-        NotificationManager = new WindowNotificationManager(this)
-        {
-            Position = NotificationPosition.BottomRight
-        };
+        NotificationManager = new WindowNotificationManager(this);
+
 #if DEBUG
         this.AttachDevTools();
 #endif

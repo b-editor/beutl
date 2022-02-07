@@ -85,6 +85,8 @@
         <x:String x:Key="BottomLeftString">Bottom left</x:String>
         <x:String x:Key="BottomRightString">Bottom right</x:String>
         <x:String x:Key="FixSizeString">Fix size</x:String>
+        <x:String x:Key="ItemsSavedString">{0} items saved!</x:String>
+        <x:String x:Key="TheOperationCouldNotBeExecutedString">The operation could not be executed.</x:String>
 
         <!--Verb-->
         <x:String x:Key="OpenString">Open</x:String>

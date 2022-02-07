@@ -52,6 +52,8 @@
         <x:String x:Key="DeleteRenderedObjectsString">レンダリングしたオブジェクトを削除する</x:String>
         <x:String x:Key="StartIndexString">開始インデックス</x:String>
         <x:String x:Key="CountString">カウント</x:String>
+        <x:String x:Key="ItemsSavedString">{0}個のアイテムが保存されました</x:String>
+        <x:String x:Key="TheOperationCouldNotBeExecutedString">操作を実行できませんでした</x:String>
 
         <!--Verb-->
         <x:String x:Key="OpenString">開く</x:String>

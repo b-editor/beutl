@@ -1,3 +1,4 @@
+using BeUtl.Framework.Service;
 using BeUtl.ProjectSystem;
 using BeUtl.Services;
 
@@ -30,15 +31,38 @@ public class MainViewModel
             Project? project = _projectService.CurrentProject.Value;
             if (project != null)
             {
-                project.Save(project.FileName);
+                INotificationService nservice = ServiceLocator.Current.GetRequiredService<INotificationService>();
+                int itemsCount = 0;
 
-                foreach (Scene scene in project.Children)
+                try
                 {
-                    scene.Save(scene.FileName);
-                    foreach (Layer layer in scene.Children)
+                    project.Save(project.FileName);
+                    itemsCount++;
+
+                    foreach (Scene scene in project.Children)
                     {
-                        layer.Save(layer.FileName);
+                        scene.Save(scene.FileName);
+                        foreach (Layer layer in scene.Children)
+                        {
+                            layer.Save(layer.FileName);
+                            itemsCount++;
+                        }
+                        itemsCount++;
                     }
+
+                    string message = new ResourceReference<string>("ItemsSavedString").FindOrDefault(string.Empty);
+                    nservice.Show(new Notification(
+                        string.Empty,
+                        string.Format(message, itemsCount.ToString()),
+                        NotificationType.Success));
+                }
+                catch
+                {
+                    string message = new ResourceReference<string>("TheOperationCouldNotBeExecutedString").FindOrDefault(string.Empty);
+                    nservice.Show(new Notification(
+                        string.Empty,
+                        string.Format(message, itemsCount.ToString()),
+                        NotificationType.Error));
                 }
             }
         });
