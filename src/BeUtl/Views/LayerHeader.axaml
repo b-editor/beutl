@@ -12,7 +12,27 @@
     VerticalAlignment="Top"
     HorizontalAlignment="Stretch"
     x:Class="BeUtl.Views.LayerHeader">
-    <Grid ColumnDefinitions="Auto,Auto,Auto,*">
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="Auto" />
+            <ColumnDefinition Width="*" MinWidth="100" />
+            <ColumnDefinition Width="90" />
+            <ColumnDefinition Width="90" />
+        </Grid.ColumnDefinitions>
+        <Grid.Styles>
+            <Style Selector="TextBox.custom">
+                <Style.Resources>
+                    <Thickness x:Key="TextControlBorderThemeThicknessFocused">0</Thickness>
+                </Style.Resources>
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="BorderThickness" Value="0" />
+                <Setter Property="Padding" Value="10,0,6,0" />
+                <Setter Property="MinHeight" Value="{DynamicResource LayerHeight}" />
+                <Setter Property="VerticalContentAlignment" Value="Center" />
+            </Style>
+        </Grid.Styles>
         <Border
             x:Name="border"
             PointerPressed="Border_PointerPressed"
@@ -27,7 +47,7 @@
             </Border.Styles>
             <FluentIconRegular IconType="Re_Order_Dots_Vertical" Width="12" Height="12" />
         </Border>
-        
+
         <ToggleButton
             Grid.Column="1"
             BorderThickness="0"
@@ -103,19 +123,20 @@
             </ui:ColorPickerButton.Styles>
         </ui:ColorPickerButton>
 
-        <TextBox
-            x:Name="NameTextBox"
-            Background="Transparent"
-            BorderThickness="0"
-            Padding="10,0,6,0"
-            MinHeight="{DynamicResource LayerHeight}"
-            VerticalContentAlignment="Center"
-            Text="{Binding Model.Name}"
-            InputMethod.IsInputMethodEnabled="True"
-            Grid.Column="3">
-            <TextBox.Resources>
-                <Thickness x:Key="TextControlBorderThemeThicknessFocused">0</Thickness>
-            </TextBox.Resources>
-        </TextBox>
+        <TextBox x:Name="NameTextBox"
+                 Classes="custom"
+                 Text="{Binding Model.Name}"
+                 InputMethod.IsInputMethodEnabled="True"
+                 Grid.Column="3" />
+
+        <TextBox x:Name="StartTextBox"
+                 Classes="custom"
+                 Text="{Binding Model.Start, Mode=OneWay, StringFormat={}{0:hh\\:mm\\:ss\\.ff}}"
+                 Grid.Column="4" />
+
+        <TextBox x:Name="DurationTextBox"
+                 Classes="custom"
+                 Text="{Binding Model.Length, Mode=OneWay, StringFormat={}{0:hh\\:mm\\:ss\\.ff}}"
+                 Grid.Column="5" />
     </Grid>
 </UserControl>

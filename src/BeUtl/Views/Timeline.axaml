@@ -9,13 +9,13 @@
     mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
     x:DataType="vm:TimelineViewModel"
     x:Class="BeUtl.Views.Timeline">
-    <Grid RowDefinitions="Auto,*">
+    <Grid RowDefinitions="Auto,*" x:Name="grid">
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="200" MinWidth="150" />
+            <ColumnDefinition Width="200" MinWidth="200" />
             <ColumnDefinition Width="Auto" />
             <ColumnDefinition Width="*" />
         </Grid.ColumnDefinitions>
-        <GridSplitter Grid.Column="1" Grid.RowSpan="2" />
+        <GridSplitter x:Name="gridSplitter" Grid.Column="1" Grid.RowSpan="2" />
 
         <ScrollViewer
             x:Name="ScaleScroll"
@@ -51,6 +51,33 @@
                     Background="Red" />
             </Panel>
         </ScrollViewer>
+
+        <Grid ClipToBounds="True">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="38" />
+                <ColumnDefinition Width="60" />
+                <ColumnDefinition Width="*" MinWidth="100" />
+                <ColumnDefinition Width="90" />
+                <ColumnDefinition Width="90" />
+            </Grid.ColumnDefinitions>
+            <Grid.Styles>
+                <Style Selector="Label">
+                    <Setter Property="Padding" Value="10,0,0,0" />
+                    <Setter Property="HorizontalAlignment" Value="Stretch" />
+                    <Setter Property="VerticalAlignment" Value="Stretch" />
+                    <Setter Property="VerticalContentAlignment" Value="Center" />
+                </Style>
+            </Grid.Styles>
+            <Label Content="{DynamicResource NameString}"
+                   Grid.Column="3" />
+
+            <Label Content="{DynamicResource StartTimeString}"
+                   Grid.Column="4" />
+
+            <Label Content="{DynamicResource DurationTimeString}"
+                   Grid.Column="5" />
+        </Grid>
 
         <ScrollViewer
             x:Name="PaneScroll"

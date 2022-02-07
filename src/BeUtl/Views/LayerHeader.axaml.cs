@@ -4,6 +4,8 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
 
+using BeUtl.Commands;
+using BeUtl.ProjectSystem;
 using BeUtl.ViewModels;
 
 using static BeUtl.Views.Timeline;
@@ -15,11 +17,72 @@ public sealed partial class LayerHeader : UserControl
     private MouseFlags _mouseFlag = MouseFlags.MouseUp;
     private Timeline? _timeline;
     private Point _startRel;
+    private TimeSpan _oldStart;
+    private TimeSpan _oldLength;
 
     public LayerHeader()
     {
         InitializeComponent();
-        NameTextBox.AddHandler(KeyDownEvent, NameTextBox_KeyDown, RoutingStrategies.Tunnel);
+        StartTextBox.GotFocus += StartTextBox_GotFocus;
+        StartTextBox.LostFocus += StartTextBox_LostFocus;
+        StartTextBox.TextInput += StartTextBox_TextInput;
+        DurationTextBox.GotFocus += DurationTextBox_GotFocus;
+        DurationTextBox.LostFocus += DurationTextBox_LostFocus;
+        DurationTextBox.TextInput += DurationTextBox_TextInput;
+    }
+
+    private void StartTextBox_TextInput(object? sender, TextInputEventArgs e)
+    {
+        if (TimeSpan.TryParse(StartTextBox.Text, out TimeSpan ts))
+        {
+            ViewModel.Model.Start = ts;
+        }
+    }
+
+    private void StartTextBox_LostFocus(object? sender, RoutedEventArgs e)
+    {
+        if (TimeSpan.TryParse(StartTextBox.Text, out TimeSpan ts))
+        {
+            var command = new ChangePropertyCommand<TimeSpan>(
+                ViewModel.Model,
+                Layer.StartProperty,
+                ts,
+                _oldStart);
+
+            CommandRecorder.Default.DoAndPush(command);
+        }
+    }
+
+    private void StartTextBox_GotFocus(object? sender, GotFocusEventArgs e)
+    {
+        _oldStart = ViewModel.Model.Start;
+    }
+
+    private void DurationTextBox_TextInput(object? sender, TextInputEventArgs e)
+    {
+        if (TimeSpan.TryParse(DurationTextBox.Text, out TimeSpan ts))
+        {
+            ViewModel.Model.Length = ts;
+        }
+    }
+
+    private void DurationTextBox_GotFocus(object? sender, GotFocusEventArgs e)
+    {
+        _oldLength = ViewModel.Model.Length;
+    }
+
+    private void DurationTextBox_LostFocus(object? sender, RoutedEventArgs e)
+    {
+        if (TimeSpan.TryParse(DurationTextBox.Text, out TimeSpan ts))
+        {
+            var command = new ChangePropertyCommand<TimeSpan>(
+                ViewModel.Model,
+                Layer.LengthProperty,
+                ts,
+                _oldLength);
+
+            CommandRecorder.Default.DoAndPush(command);
+        }
     }
 
     private TimelineLayerViewModel ViewModel => (TimelineLayerViewModel)DataContext!;
@@ -59,14 +122,6 @@ public sealed partial class LayerHeader : UserControl
         {
             _mouseFlag = MouseFlags.MouseDown;
             _startRel = point.Position;
-        }
-    }
-
-    private void NameTextBox_KeyDown(object? sender, KeyEventArgs e)
-    {
-        if (e.Key is Key.Enter or Key.Escape)
-        {
-            Application.Current?.FocusManager?.Focus(null);
         }
     }
 }

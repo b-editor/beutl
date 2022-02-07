@@ -1,7 +1,10 @@
 using System.Collections.Specialized;
+using System.Diagnostics;
 using System.Numerics;
+
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
 using Avalonia.Data;
 using Avalonia.Data.Converters;
 using Avalonia.Input;
@@ -11,12 +14,14 @@ using Avalonia.Markup.Xaml;
 using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Remote.Protocol.Input;
 using Avalonia.VisualTree;
+
 using BeUtl.Collections;
 using BeUtl.Models;
 using BeUtl.ProjectSystem;
 using BeUtl.ViewModels;
 using BeUtl.ViewModels.Dialogs;
 using BeUtl.Views.Dialogs;
+
 using FluentAvalonia.UI.Controls;
 
 namespace BeUtl.Views;
@@ -41,6 +46,8 @@ public partial class Timeline : UserControl
     {
         InitializeComponent();
 
+        gridSplitter.DragDelta += GridSplitter_DragDelta;
+
         ContentScroll.ScrollChanged += ContentScroll_ScrollChanged;
         ContentScroll.AddHandler(PointerWheelChangedEvent, ContentScroll_PointerWheelChanged, RoutingStrategies.Tunnel);
         ScaleScroll.AddHandler(PointerWheelChangedEvent, ContentScroll_PointerWheelChanged, RoutingStrategies.Tunnel);
@@ -51,6 +58,23 @@ public partial class Timeline : UserControl
     }
 
     internal TimelineViewModel ViewModel => _viewModel!;
+
+    private void GridSplitter_DragDelta(object? sender, VectorEventArgs e)
+    {
+        ColumnDefinition def = grid.ColumnDefinitions[0];
+        double last = def.ActualWidth + e.Vector.X;
+
+        if (last is < 395 and > 385)
+        {
+            def.MaxWidth = 390;
+            def.MinWidth = 390;
+        }
+        else
+        {
+            def.MaxWidth = double.PositiveInfinity;
+            def.MinWidth = 200;
+        }
+    }
 
     // DataContextÇ™ïœçXÇ≥ÇÍÇΩ
     protected override void OnDataContextChanged(EventArgs e)

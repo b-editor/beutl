@@ -32,6 +32,7 @@ public sealed partial class MainWindow : CoreWindow
     protected override void OnOpened(EventArgs e)
     {
         base.OnOpened(e);
+        mainView.Focus();
         if (OperatingSystem.IsWindows())
         {
             FluentAvaloniaTheme thm = AvaloniaLocator.Current.GetService<FluentAvaloniaTheme>()!;
