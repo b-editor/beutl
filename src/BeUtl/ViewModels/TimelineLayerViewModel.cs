@@ -1,8 +1,10 @@
 ﻿using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
+using System.Text.Json.Nodes;
 
 using Avalonia;
+using Avalonia.Input.Platform;
 
 using BeUtl.ProjectSystem;
 
@@ -46,6 +48,36 @@ public class TimelineLayerViewModel : IDisposable
             .ToReactiveProperty()
             .AddTo(_disposables);
 
+        Split.Where(func => func != null).Subscribe(func =>
+        {
+            int rate = Scene.Parent is Project proj ? proj.FrameRate : 30;
+            TimeSpan absTime = func!().RoundToRate(rate);
+            TimeSpan forwardLength = absTime - Model.Start;
+            TimeSpan backwardLength = Model.Length - forwardLength;
+
+            string json = Model.ToJson().ToJsonString(JsonHelper.SerializerOptions);
+            var backwardLayer = new Layer();
+            backwardLayer.FromJson(JsonNode.Parse(json)!);
+
+            Model.UpdateTime(Model.Start, forwardLength).DoAndRecord(CommandRecorder.Default);
+            backwardLayer.Start = absTime;
+            backwardLayer.Length = backwardLength;
+            backwardLayer.ZIndex++;
+
+            backwardLayer.Save(Helper.RandomLayerFileName(Path.GetDirectoryName(Scene.FileName)!, "layer"));
+            Scene.AddChild(backwardLayer).DoAndRecord(CommandRecorder.Default);
+        });
+
+        Cut.Subscribe(async () =>
+        {
+            if (await SetClipboard())
+            {
+                Exclude.Execute();
+            }
+        });
+
+        Copy.Subscribe(async () => await SetClipboard());
+
         Exclude.Subscribe(() => Scene.RemoveChild(Model).DoAndRecord(CommandRecorder.Default));
 
         Delete.Subscribe(() =>
@@ -80,6 +112,12 @@ public class TimelineLayerViewModel : IDisposable
 
     public ReactiveProperty<FluentAvalonia.UI.Media.Color2> ColorSetter { get; }
 
+    public ReactiveCommand<Func<TimeSpan>?> Split { get; } = new();
+
+    public ReactiveCommand Cut { get; } = new();
+
+    public ReactiveCommand Copy { get; } = new();
+
     public ReactiveCommand Exclude { get; } = new();
 
     public ReactiveCommand Delete { get; } = new();
@@ -104,5 +142,20 @@ public class TimelineLayerViewModel : IDisposable
         Scene.MoveChild(layerNum, Model).DoAndRecord(CommandRecorder.Default);
 
         Margin.Value = new Thickness(0, layerNum.ToLayerPixel(), 0, 0);
+    }
+
+    private async ValueTask<bool> SetClipboard()
+    {
+        IClipboard? clipboard = Application.Current?.Clipboard;
+        if (clipboard != null)
+        {
+            string json = Model.ToJson().ToJsonString(JsonHelper.SerializerOptions);
+            await clipboard.SetTextAsync(json);
+            return true;
+        }
+        else
+        {
+            return false;
+        }
     }
 }

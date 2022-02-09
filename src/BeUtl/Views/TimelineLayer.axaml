@@ -13,8 +13,11 @@
     Padding="0,1"
     Focusable="True"
     IsEnabled="{Binding Model.IsEnabled}"
+    x:Name="root"
     x:Class="BeUtl.Views.TimelineLayer">
     <UserControl.KeyBindings>
+        <KeyBinding Command="{CompiledBinding Cut}" Gesture="{DynamicResource CutKeyGesture}" />
+        <KeyBinding Command="{CompiledBinding Copy}" Gesture="{DynamicResource CopyKeyGesture}" />
         <KeyBinding Command="{CompiledBinding Delete}" Gesture="{DynamicResource LayerDeleteKeyGesture}" />
         <KeyBinding Command="{CompiledBinding Exclude}" Gesture="{DynamicResource DeleteKeyGesture}" />
     </UserControl.KeyBindings>
@@ -29,6 +32,30 @@
         Background="{CompiledBinding Color.Value, Converter={StaticResource ColorToBrushConverter}}">
         <Border.ContextMenu>
             <ContextMenu>
+                <MenuItem
+                    Command="{CompiledBinding Split}"
+                    CommandParameter="{Binding #root.GetClickedTime, Mode=OneTime}"
+                    Header="{DynamicResource SplitString}">
+                    <MenuItem.Icon>
+                        <FluentIconRegular IconType="Split_Vertical" Classes="Small" />
+                    </MenuItem.Icon>
+                </MenuItem>
+                <MenuItem
+                    Command="{CompiledBinding Cut}"
+                    Header="{DynamicResource CutString}"
+                    InputGesture="{DynamicResource CutKeyGesture}">
+                    <MenuItem.Icon>
+                        <FluentIconRegular IconType="Cut" Classes="Small" />
+                    </MenuItem.Icon>
+                </MenuItem>
+                <MenuItem
+                    Command="{CompiledBinding Copy}"
+                    Header="{DynamicResource CopyString}"
+                    InputGesture="{DynamicResource CopyKeyGesture}">
+                    <MenuItem.Icon>
+                        <FluentIconRegular IconType="Copy" Classes="Small" />
+                    </MenuItem.Icon>
+                </MenuItem>
                 <MenuItem
                     Command="{CompiledBinding Delete}"
                     Header="{DynamicResource DeleteString}"

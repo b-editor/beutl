@@ -124,6 +124,7 @@
         <x:String x:Key="CutString">Cut</x:String>
         <x:String x:Key="CopyString">Copy</x:String>
         <x:String x:Key="PasteString">Paste</x:String>
+        <x:String x:Key="SplitString">Split</x:String>
         <x:String x:Key="ResetString">Reset</x:String>
         <x:String x:Key="EditAnimationString">Edit animation</x:String>
         <x:String x:Key="PickFontString">Pick a font</x:String>

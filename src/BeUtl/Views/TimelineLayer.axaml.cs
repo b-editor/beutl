@@ -45,6 +45,7 @@ public partial class TimelineLayer : UserControl
     private AlignmentX _resizeType = AlignmentX.Center;
     private Point _layerStartAbs;
     private Point _layerStartRel;
+    private TimeSpan _pointerPosition;
 
     public TimelineLayer()
     {
@@ -53,6 +54,8 @@ public partial class TimelineLayer : UserControl
         AddHandler(PointerReleasedEvent, Layer_PointerReleased, RoutingStrategies.Tunnel);
         AddHandler(PointerMovedEvent, Layer_PointerMoved, RoutingStrategies.Tunnel);
     }
+
+    public Func<TimeSpan> GetClickedTime => () => _pointerPosition;
 
     private TimelineLayerViewModel ViewModel => (TimelineLayerViewModel)DataContext!;
 
@@ -75,14 +78,17 @@ public partial class TimelineLayer : UserControl
 
     private void Layer_PointerMoved(object? sender, PointerEventArgs e)
     {
+        Scene scene = ViewModel.Scene;
+        Point point = e.GetPosition(this);
+        float scale = scene.TimelineOptions.Scale;
+        TimeSpan pointerFrame = point.X.ToTimeSpan(scale);
+        _pointerPosition = pointerFrame;
+
         if (_timeline == null || _mouseFlag == MouseFlags.MouseUp)
             return;
 
-        Scene scene = _timeline.ViewModel.Scene;
-        Point point = e.GetPosition(this);
         TimelineLayerViewModel vm = ViewModel;
-        float scale = scene.TimelineOptions.Scale;
-        TimeSpan pointerFrame = RoundStartTime(point.X.ToTimeSpan(scale), scale, e.KeyModifiers.HasFlag(KeyModifiers.Control));
+        pointerFrame = RoundStartTime(pointerFrame, scale, e.KeyModifiers.HasFlag(KeyModifiers.Control));
         point = point.WithX(pointerFrame.ToPixel(scale));
 
         if (Cursor == Cursors.Arrow || Cursor == null)

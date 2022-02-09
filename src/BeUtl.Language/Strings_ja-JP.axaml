@@ -96,6 +96,7 @@
         <x:String x:Key="CutString">切り取り</x:String>
         <x:String x:Key="CopyString">コピー</x:String>
         <x:String x:Key="PasteString">貼り付け</x:String>
+        <x:String x:Key="SplitString">分割</x:String>
         <x:String x:Key="ResetString">リセット</x:String>
         <x:String x:Key="EditAnimationString">アニメーションを編集</x:String>
         <x:String x:Key="PickFontString">フォントを選択</x:String>
