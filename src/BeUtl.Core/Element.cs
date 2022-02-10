@@ -1,4 +1,4 @@
-﻿using BeUtl.Collections;
+﻿using System.ComponentModel;
 
 namespace BeUtl;
 
@@ -39,6 +39,24 @@ public abstract class Element : CoreObject, IElement
 
     protected virtual void OnDetachedFromLogicalTree(in LogicalTreeAttachmentEventArgs args)
     {
+    }
+
+    protected override void OnPropertyChanged(PropertyChangedEventArgs args)
+    {
+        if (args is CorePropertyChangedEventArgs coreArgs)
+        {
+            if (coreArgs.OldValue is ILogicalElement oldLogical)
+            {
+                oldLogical.NotifyDetachedFromLogicalTree(new LogicalTreeAttachmentEventArgs(this));
+            }
+
+            if (coreArgs.NewValue is ILogicalElement newLogical)
+            {
+                newLogical.NotifyAttachedToLogicalTree(new LogicalTreeAttachmentEventArgs(this));
+            }
+        }
+
+        base.OnPropertyChanged(args);
     }
 
     void ILogicalElement.NotifyAttachedToLogicalTree(in LogicalTreeAttachmentEventArgs e)

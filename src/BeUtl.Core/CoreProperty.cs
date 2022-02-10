@@ -42,9 +42,13 @@ public abstract class CoreProperty
 
     public IObservable<CorePropertyChangedEventArgs> Changed => GetChanged();
 
+    internal abstract bool HasObservers { get; }
+
     internal abstract void RouteSetValue(ICoreObject o, object? value);
 
     internal abstract object? RouteGetValue(ICoreObject o);
+
+    internal abstract void NotifyChanged(CorePropertyChangedEventArgs e);
 
     protected abstract IObservable<CorePropertyChangedEventArgs> GetChanged();
 
@@ -149,11 +153,11 @@ public class CoreProperty<T> : CoreProperty
 
     public new IObservable<CorePropertyChangedEventArgs<T>> Changed => _changed;
 
-    internal bool HasObservers => _changed.HasObservers;
+    internal override bool HasObservers => _changed.HasObservers;
 
-    internal void NotifyChanged(CorePropertyChangedEventArgs<T> e)
+    internal override void NotifyChanged(CorePropertyChangedEventArgs e)
     {
-        _changed.OnNext(e);
+        _changed.OnNext((CorePropertyChangedEventArgs<T>)e);
     }
 
     internal override void RouteSetValue(ICoreObject o, object? value)

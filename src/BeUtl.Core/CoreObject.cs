@@ -6,7 +6,7 @@ using System.Text.Json.Nodes;
 
 namespace BeUtl;
 
-public interface ICoreObject : INotifyPropertyChanged, INotifyPropertyChanging, IJsonSerializable
+public interface ICoreObject : INotifyPropertyChanged, IJsonSerializable
 {
     /// <summary>
     /// Gets or sets the id.
@@ -86,12 +86,12 @@ public abstract class CoreObject : ICoreObject
     static CoreObject()
     {
         IdProperty = ConfigureProperty<Guid, CoreObject>(nameof(Id))
-            .Observability(PropertyObservability.ChangingAndChanged)
+            .Observability(PropertyObservability.Changed)
             .DefaultValue(Guid.Empty)
             .Register();
 
         NameProperty = ConfigureProperty<string, CoreObject>(nameof(Name))
-            .Observability(PropertyObservability.ChangingAndChanged)
+            .Observability(PropertyObservability.Changed)
             .DefaultValue(string.Empty)
             .Register();
     }
@@ -124,11 +124,6 @@ public abstract class CoreObject : ICoreObject
     /// Occurs when a property value changes.
     /// </summary>
     public event PropertyChangedEventHandler? PropertyChanged;
-
-    /// <summary>
-    /// Occurs when a property value is changing.
-    /// </summary>
-    public event PropertyChangingEventHandler? PropertyChanging;
 
     public static CorePropertyBuilder<T, TOwner> ConfigureProperty<T, TOwner>(string name)
     {
@@ -251,8 +246,7 @@ public abstract class CoreObject : ICoreObject
                 if (!EqualityComparer<TValue>.Default.Equals(oldValue, value))
                 {
                     CorePropertyMetadata metadata = property.GetMetadata<CorePropertyMetadata>(ownerType);
-                    RaisePropertyChanging(property, metadata);
-                    
+
                     entryT.Value = value;
                     RaisePropertyChanged(property, metadata, value, oldValue);
                 }
@@ -263,8 +257,6 @@ public abstract class CoreObject : ICoreObject
 
                 if (!EqualityComparer<TValue>.Default.Equals(metadata.DefaultValue, value))
                 {
-                    RaisePropertyChanging(property, metadata);
-
                     entryT = new Entry<TValue>
                     {
                         Value = value,
@@ -384,14 +376,25 @@ public abstract class CoreObject : ICoreObject
         return json;
     }
 
-    protected void OnPropertyChanged(PropertyChangedEventArgs args)
+    protected virtual void OnPropertyChanged(PropertyChangedEventArgs args)
     {
-        PropertyChanged?.Invoke(this, args);
-    }
+        if (args is CorePropertyChangedEventArgs coreArgs)
+        {
+            bool hasChangedFlag = coreArgs.PropertyMetadata.Observability == PropertyObservability.Changed;
+            if (coreArgs.Property.HasObservers)
+            {
+                coreArgs.Property.NotifyChanged(coreArgs);
+            }
 
-    protected void OnPropertyChanging(PropertyChangingEventArgs args)
-    {
-        PropertyChanging?.Invoke(this, args);
+            if (hasChangedFlag)
+            {
+                PropertyChanged?.Invoke(this, args);
+            }
+        }
+        else
+        {
+            PropertyChanged?.Invoke(this, args);
+        }
     }
 
     protected bool SetAndRaise<T>(CoreProperty<T> property, ref T field, T value)
@@ -426,16 +429,11 @@ public abstract class CoreObject : ICoreObject
                 oldEntry is BatchEntry<T> entryT)
             {
                 result = !EqualityComparer<T>.Default.Equals(entryT.OldValue, value);
-                CorePropertyMetadata<T>? metadata = null;
-                if (result)
-                {
-                    metadata = property.GetMetadata<CorePropertyMetadata<T>>(GetType());
-                    RaisePropertyChanging(property, metadata);
-                }
-
                 field = value;
+
                 if (result)
                 {
+                    CorePropertyMetadata<T>? metadata = property.GetMetadata<CorePropertyMetadata<T>>(GetType());
                     RaisePropertyChanged(property, metadata!, value, entryT.OldValue);
                 }
             }
@@ -443,8 +441,6 @@ public abstract class CoreObject : ICoreObject
         else if (!EqualityComparer<T>.Default.Equals(field, value))
         {
             CorePropertyMetadata metadata = property.GetMetadata<CorePropertyMetadata>(GetType());
-            RaisePropertyChanging(property, metadata);
-
             T old = field;
             field = value;
 
@@ -467,41 +463,8 @@ public abstract class CoreObject : ICoreObject
 
     private void RaisePropertyChanged<T>(CoreProperty<T> property, CorePropertyMetadata metadata, T? newValue, T? oldValue)
     {
-        if (this is ILogicalElement logicalElement)
-        {
-            if (oldValue is ILogicalElement oldLogical)
-            {
-                oldLogical.NotifyDetachedFromLogicalTree(new LogicalTreeAttachmentEventArgs(logicalElement));
-            }
+        var eventArgs = new CorePropertyChangedEventArgs<T>(this, property, metadata, newValue, oldValue);
 
-            if (newValue is ILogicalElement newLogical)
-            {
-                newLogical.NotifyAttachedToLogicalTree(new LogicalTreeAttachmentEventArgs(logicalElement));
-            }
-        }
-
-        bool hasChangedFlag = metadata.Observability.HasFlag(PropertyObservability.Changed);
-        CorePropertyChangedEventArgs<T>? eventArgs = property.HasObservers || hasChangedFlag
-            ? new CorePropertyChangedEventArgs<T>(this, property, newValue, oldValue)
-            : null;
-
-        if (property.HasObservers)
-        {
-            property.NotifyChanged(eventArgs!);
-        }
-
-        if (hasChangedFlag)
-        {
-            OnPropertyChanged(eventArgs!);
-        }
-    }
-
-    private void RaisePropertyChanging(CoreProperty property, CorePropertyMetadata metadata)
-    {
-        PropertyObservability observability = metadata.Observability;
-        if (observability.HasFlag(PropertyObservability.Changing))
-        {
-            OnPropertyChanging(new PropertyChangingEventArgs(property.Name));
-        }
+        OnPropertyChanged(eventArgs);
     }
 }

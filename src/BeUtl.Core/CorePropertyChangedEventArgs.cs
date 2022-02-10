@@ -4,15 +4,18 @@ namespace BeUtl;
 
 public abstract class CorePropertyChangedEventArgs : PropertyChangedEventArgs
 {
-    protected CorePropertyChangedEventArgs(CoreObject sender, CoreProperty property)
+    protected CorePropertyChangedEventArgs(CoreObject sender, CoreProperty property, CorePropertyMetadata metadata)
         : base(property.Name)
     {
         Sender = sender;
+        PropertyMetadata = metadata;
     }
 
     public CoreObject Sender { get; }
 
     public CoreProperty Property => GetProperty();
+    
+    public CorePropertyMetadata PropertyMetadata { get; }
 
     public object? NewValue => GetNewValue();
 
@@ -27,8 +30,8 @@ public abstract class CorePropertyChangedEventArgs : PropertyChangedEventArgs
 
 public sealed class CorePropertyChangedEventArgs<TValue> : CorePropertyChangedEventArgs
 {
-    public CorePropertyChangedEventArgs(CoreObject sender, CoreProperty<TValue> property, TValue? newValue, TValue? oldValue)
-        : base(sender, property)
+    public CorePropertyChangedEventArgs(CoreObject sender, CoreProperty<TValue> property, CorePropertyMetadata metadata, TValue? newValue, TValue? oldValue)
+        : base(sender, property,metadata)
     {
         Property = property;
         NewValue = newValue;
@@ -40,7 +43,7 @@ public sealed class CorePropertyChangedEventArgs<TValue> : CorePropertyChangedEv
     public new TValue? NewValue { get; }
 
     public new TValue? OldValue { get; }
-
+    
     protected override object? GetNewValue()
     {
         return NewValue;

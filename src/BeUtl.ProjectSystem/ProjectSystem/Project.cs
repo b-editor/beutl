@@ -24,7 +24,7 @@ public class Project : Element, ITopLevel, IStorable, ILogicalElement
     {
         SelectedSceneProperty = ConfigureProperty<Scene?, Project>(nameof(SelectedScene))
             .Accessor(o => o.SelectedScene, (o, v) => o.SelectedScene = v)
-            .Observability(PropertyObservability.ChangingAndChanged)
+            .Observability(PropertyObservability.Changed)
             .Register();
 
         AppVersionProperty = ConfigureProperty<Version, Project>(nameof(AppVersion))
@@ -38,14 +38,14 @@ public class Project : Element, ITopLevel, IStorable, ILogicalElement
 
         FrameRateProperty = ConfigureProperty<int, Project>(nameof(FrameRate))
             .Accessor(o => o.FrameRate, (o, v) => o.FrameRate = v)
-            .Observability(PropertyObservability.ChangingAndChanged)
+            .Observability(PropertyObservability.Changed)
             .DefaultValue(30)
             .SerializeName("framerate")
             .Register();
 
         SampleRateProperty = ConfigureProperty<int, Project>(nameof(SampleRate))
             .Accessor(o => o.SampleRate, (o, v) => o.SampleRate = v)
-            .Observability(PropertyObservability.ChangingAndChanged)
+            .Observability(PropertyObservability.Changed)
             .DefaultValue(44100)
             .SerializeName("samplerate")
             .Register();

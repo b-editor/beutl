@@ -67,29 +67,29 @@ public class Scene : Element, IStorable
 
         DurationProperty = ConfigureProperty<TimeSpan, Scene>(nameof(Duration))
             .Accessor(o => o.Duration, (o, v) => o.Duration = v)
-            .Observability(PropertyObservability.ChangingAndChanged)
+            .Observability(PropertyObservability.Changed)
             .SerializeName("duration")
             .Register();
 
         CurrentFrameProperty = ConfigureProperty<TimeSpan, Scene>(nameof(CurrentFrame))
             .Accessor(o => o.CurrentFrame, (o, v) => o.CurrentFrame = v)
-            .Observability(PropertyObservability.ChangingAndChanged)
+            .Observability(PropertyObservability.Changed)
             .SerializeName("currentFrame")
             .Register();
 
         SelectedItemProperty = ConfigureProperty<Layer?, Scene>(nameof(SelectedItem))
             .Accessor(o => o.SelectedItem, (o, v) => o.SelectedItem = v)
-            .Observability(PropertyObservability.ChangingAndChanged)
+            .Observability(PropertyObservability.Changed)
             .Register();
 
         PreviewOptionsProperty = ConfigureProperty<PreviewOptions?, Scene>(nameof(PreviewOptions))
             .Accessor(o => o.PreviewOptions, (o, v) => o.PreviewOptions = v)
-            .Observability(PropertyObservability.ChangingAndChanged)
+            .Observability(PropertyObservability.Changed)
             .Register();
 
         TimelineOptionsProperty = ConfigureProperty<TimelineOptions, Scene>(nameof(TimelineOptions))
             .Accessor(o => o.TimelineOptions, (o, v) => o.TimelineOptions = v)
-            .Observability(PropertyObservability.ChangingAndChanged)
+            .Observability(PropertyObservability.Changed)
             .Register();
 
         NameProperty.OverrideMetadata<Scene>(new CorePropertyMetadata<string>

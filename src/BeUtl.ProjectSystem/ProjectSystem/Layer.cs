@@ -28,32 +28,32 @@ public class Layer : Element, IStorable, ILogicalElement
     {
         StartProperty = ConfigureProperty<TimeSpan, Layer>(nameof(Start))
             .Accessor(o => o.Start, (o, v) => o.Start = v)
-            .Observability(PropertyObservability.ChangingAndChanged)
+            .Observability(PropertyObservability.Changed)
             .SerializeName("start")
             .Register();
 
         LengthProperty = ConfigureProperty<TimeSpan, Layer>(nameof(Length))
             .Accessor(o => o.Length, (o, v) => o.Length = v)
-            .Observability(PropertyObservability.ChangingAndChanged)
+            .Observability(PropertyObservability.Changed)
             .SerializeName("length")
             .Register();
 
         ZIndexProperty = ConfigureProperty<int, Layer>(nameof(ZIndex))
             .Accessor(o => o.ZIndex, (o, v) => o.ZIndex = v)
-            .Observability(PropertyObservability.ChangingAndChanged)
+            .Observability(PropertyObservability.Changed)
             .SerializeName("zIndex")
             .Register();
 
         AccentColorProperty = ConfigureProperty<Color, Layer>(nameof(AccentColor))
             .DefaultValue(Colors.Teal)
-            .Observability(PropertyObservability.ChangingAndChanged)
+            .Observability(PropertyObservability.Changed)
             .SerializeName("accentColor")
             .Register();
 
         IsEnabledProperty = ConfigureProperty<bool, Layer>(nameof(IsEnabled))
             .Accessor(o => o.IsEnabled, (o, v) => o.IsEnabled = v)
             .DefaultValue(true)
-            .Observability(PropertyObservability.ChangingAndChanged)
+            .Observability(PropertyObservability.Changed)
             .SerializeName("isEnabled")
             .Register();
 
