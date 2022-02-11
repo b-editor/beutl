@@ -116,13 +116,14 @@
                     <KeyBinding Gesture="{DynamicResource PreviousKeyGesture}" Command="{Binding Player.Previous}" />
                     <KeyBinding Gesture="{DynamicResource StartKeyGesture}" Command="{Binding Player.Start}" />
                     <KeyBinding Gesture="{DynamicResource EndKeyGesture}" Command="{Binding Player.End}" />
+                    <KeyBinding Gesture="{DynamicResource PasteKeyGesture}" Command="{CompiledBinding Paste}" />
                 </Panel.KeyBindings>
 
                 <Panel.ContextMenu>
                     <ContextMenu>
                         <MenuItem Header="{DynamicResource AddLayerString}" Click="AddLayerClick" />
                         <MenuItem
-                            Click="PasteClick"
+                            Command="{CompiledBinding Paste}"
                             Header="{DynamicResource PasteString}"
                             InputGesture="{DynamicResource PasteKeyGesture}">
                             <MenuItem.Icon>

@@ -2,6 +2,7 @@
 using System.Reactive.Linq;
 
 using Avalonia;
+using Avalonia.Input;
 
 using BeUtl.Models;
 using BeUtl.ProjectSystem;
@@ -73,6 +74,8 @@ public class TimelineViewModel : IDisposable
     public ReadOnlyReactivePropertySlim<Thickness> EndingBarMargin { get; }
 
     public ReactiveCommand<LayerDescription> AddLayer { get; } = new();
+
+    public ReactiveCommand Paste { get; } = new();
 
     public void Dispose()
     {

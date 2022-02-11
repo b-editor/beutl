@@ -4,8 +4,10 @@ using System.Reactive.Subjects;
 using System.Text.Json.Nodes;
 
 using Avalonia;
+using Avalonia.Input;
 using Avalonia.Input.Platform;
 
+using BeUtl.Models;
 using BeUtl.ProjectSystem;
 
 using Reactive.Bindings;
@@ -150,7 +152,11 @@ public class TimelineLayerViewModel : IDisposable
         if (clipboard != null)
         {
             string json = Model.ToJson().ToJsonString(JsonHelper.SerializerOptions);
-            await clipboard.SetTextAsync(json);
+            var data = new DataObject();
+            data.Set(DataFormats.Text, json);
+            data.Set(BeUtlDataFormats.Layer, json);
+
+            await clipboard.SetDataObjectAsync(data);
             return true;
         }
         else

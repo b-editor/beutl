@@ -1,6 +1,8 @@
 using System.Collections.Specialized;
 using System.Diagnostics;
 using System.Numerics;
+using System.Text;
+using System.Text.Json.Nodes;
 
 using Avalonia;
 using Avalonia.Controls;
@@ -8,6 +10,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Data;
 using Avalonia.Data.Converters;
 using Avalonia.Input;
+using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Markup.Xaml;
@@ -41,6 +44,7 @@ public partial class Timeline : UserControl
     internal int _pointerLayer;
     private bool _isFirst = true;
     private TimelineViewModel? _viewModel;
+    private IDisposable? _disposable;
 
     public Timeline()
     {
@@ -87,6 +91,8 @@ public partial class Timeline : UserControl
                 TimelinePanel.Children.RemoveRange(3, TimelinePanel.Children.Count - 3);
 
                 _viewModel.Scene.Children.CollectionChanged -= Children_CollectionChanged;
+
+                _disposable?.Dispose();
             }
 
             _viewModel = vm;
@@ -101,6 +107,27 @@ public partial class Timeline : UserControl
 
             ViewModel.Scene.Children.CollectionChanged += Children_CollectionChanged;
             AddLayers(ViewModel.Scene.Children);
+
+            _disposable = ViewModel.Paste.Subscribe(async () =>
+            {
+                if (Application.Current?.Clipboard is IClipboard clipboard)
+                {
+                    string[] formats = await clipboard.GetFormatsAsync();
+
+                    if (formats.AsSpan().Contains(BeUtlDataFormats.Layer))
+                    {
+                        string json = await clipboard.GetTextAsync();
+                        var layer = new Layer();
+                        layer.FromJson(JsonNode.Parse(json)!);
+                        layer.Start = _clickedFrame;
+                        layer.ZIndex = _clickedLayer;
+
+                        layer.Save(Helper.RandomLayerFileName(Path.GetDirectoryName(ViewModel.Scene.FileName)!, "layer"));
+
+                        ViewModel.Scene.AddChild(layer).DoAndRecord(CommandRecorder.Default);
+                    }
+                }
+            });
         }
     }
 
@@ -269,11 +296,6 @@ public partial class Timeline : UserControl
                 new LayerDescription(_clickedFrame, TimeSpan.FromSeconds(5), _clickedLayer))
         };
         await dialog.ShowAsync();
-    }
-
-    // ペースト
-    private void PasteClick(object? sender, RoutedEventArgs e)
-    {
     }
 
     // レイヤーを追加
