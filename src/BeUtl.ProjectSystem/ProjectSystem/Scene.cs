@@ -149,10 +149,14 @@ public class Scene : Element, IStorable
         {
             if (_selectedItem != value)
             {
-                OnPropertyChanging(new PropertyChangingEventArgs(nameof(SelectedItem)));
                 Layer? oldValue = _selectedItem;
                 _selectedItem = value;
-                OnPropertyChanged(new CorePropertyChangedEventArgs<Layer?>(this, SelectedItemProperty, value, oldValue));
+                OnPropertyChanged(new CorePropertyChangedEventArgs<Layer?>(
+                    sender: this,
+                    property: SelectedItemProperty,
+                    metadata: SelectedItemProperty.GetMetadata<Scene, CorePropertyMetadata>(),
+                    newValue: value,
+                    oldValue: oldValue));
             }
         }
     }
@@ -182,8 +186,19 @@ public class Scene : Element, IStorable
         _renderer?.Dispose();
         _renderer = new SceneRenderer(this, width, height);
 
-        OnPropertyChanged(new CorePropertyChangedEventArgs<int>(this, WidthProperty, width, oldSize.Width));
-        OnPropertyChanged(new CorePropertyChangedEventArgs<int>(this, HeightProperty, height, oldSize.Height));
+        OnPropertyChanged(new CorePropertyChangedEventArgs<int>(
+            sender: this,
+            property: WidthProperty,
+            metadata: WidthProperty.GetMetadata<Scene, CorePropertyMetadata>(),
+            newValue: width,
+            oldValue: oldSize.Width));
+
+        OnPropertyChanged(new CorePropertyChangedEventArgs<int>(
+            sender: this,
+            property: HeightProperty,
+            metadata: HeightProperty.GetMetadata<Scene, CorePropertyMetadata>(),
+            newValue: height,
+            oldValue: oldSize.Height));
     }
 
     // layer.FileNameが既に設定されている状態
