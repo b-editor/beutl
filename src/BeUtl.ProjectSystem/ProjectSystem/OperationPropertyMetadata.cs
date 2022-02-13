@@ -10,49 +10,6 @@ public interface IOperationPropertyMetadata : ICorePropertyMetadata
     public ResourceReference<string> Header { get; init; }
 }
 
-public static class OperationPropertyExtensions
-{
-    public static TBuilder Animatable<TBuilder, TValue>(this TBuilder builder, bool? value = true)
-        where TBuilder : ICorePropertyBuilder<TValue>
-    {
-        builder.OverrideMetadata(new OperationPropertyMetadata<TValue>
-        {
-            IsAnimatable = value,
-        });
-        return builder;
-    }
-
-    public static TBuilder Header<TBuilder, TValue>(this TBuilder builder, ResourceReference<string> value)
-        where TBuilder : ICorePropertyBuilder<TValue>
-    {
-        builder.OverrideMetadata(new OperationPropertyMetadata<TValue>
-        {
-            Header = value
-        });
-        return builder;
-    }
-
-    public static TBuilder Minimum<TBuilder, TValue>(this TBuilder builder, TValue value)
-        where TBuilder : ICorePropertyBuilder<TValue>
-    {
-        builder.OverrideMetadata(new OperationPropertyMetadata<TValue>
-        {
-            Minimum = value
-        });
-        return builder;
-    }
-
-    public static TBuilder Maximum<TBuilder, TValue>(this TBuilder builder, TValue value)
-        where TBuilder : ICorePropertyBuilder<TValue>
-    {
-        builder.OverrideMetadata(new OperationPropertyMetadata<TValue>
-        {
-            Maximum = value
-        });
-        return builder;
-    }
-}
-
 public record class OperationPropertyMetadata<T> : CorePropertyMetadata<T>, IOperationPropertyMetadata
 {
     private T? _maximum;

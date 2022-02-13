@@ -1,7 +1,5 @@
 ﻿using System.Collections.Specialized;
-using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
-using System.Text;
 using System.Text.Json.Nodes;
 
 using BeUtl.Media;
@@ -145,20 +143,7 @@ public class Scene : Element, IStorable
     public Layer? SelectedItem
     {
         get => _selectedItem;
-        set
-        {
-            if (_selectedItem != value)
-            {
-                Layer? oldValue = _selectedItem;
-                _selectedItem = value;
-                OnPropertyChanged(new CorePropertyChangedEventArgs<Layer?>(
-                    sender: this,
-                    property: SelectedItemProperty,
-                    metadata: SelectedItemProperty.GetMetadata<Scene, CorePropertyMetadata>(),
-                    newValue: value,
-                    oldValue: oldValue));
-            }
-        }
+        set => SetAndRaise(SelectedItemProperty, ref _selectedItem, value);
     }
 
     public PreviewOptions? PreviewOptions
@@ -348,16 +333,16 @@ public class Scene : Element, IStorable
         string viewStateDir = ViewStateDirectory();
         new SceneViewState(this).JsonSave(Path.Combine(viewStateDir, $"{Path.GetFileNameWithoutExtension(filename)}.config"));
 
-        //foreach (Layer? item in Children.AsSpan())
-        //{
-        //    var array = new JsonArray();
-        //    foreach (LayerOperation? op in item.Operations)
-        //    {
-        //        array.Add(op.ViewState.ToJson());
-        //    }
+        foreach (Layer? item in Children.AsSpan())
+        {
+            var array = new JsonArray();
+            foreach (LayerOperation? op in item.Children.AsSpan())
+            {
+                array.Add(op.ViewState.ToJson());
+            }
 
-        //    array.JsonSave(Path.Combine(viewStateDir, $"{Path.GetFileNameWithoutExtension(item.FileName)}.config"));
-        //}
+            array.JsonSave(Path.Combine(viewStateDir, $"{Path.GetFileNameWithoutExtension(item.FileName)}.config"));
+        }
     }
 
     public void Restore(string filename)
@@ -376,16 +361,16 @@ public class Scene : Element, IStorable
             new SceneViewState(this).JsonRestore(viewStateFile);
         }
 
-        //foreach (Layer? layer in Children.AsSpan())
-        //{
-        //    JsonNode? node = JsonHelper.JsonRestore(Path.Combine(viewStateDir, $"{Path.GetFileNameWithoutExtension(layer.FileName)}.config"));
-        //    if (node is not JsonArray array) continue;
+        foreach (Layer? layer in Children.AsSpan())
+        {
+            JsonNode? node = JsonHelper.JsonRestore(Path.Combine(viewStateDir, $"{Path.GetFileNameWithoutExtension(layer.FileName)}.config"));
+            if (node is not JsonArray array) continue;
 
-        //    foreach ((JsonNode json, LayerOperation op) in array.Zip(layer.Operations))
-        //    {
-        //        op.ViewState.FromJson(json);
-        //    }
-        //}
+            foreach ((JsonNode json, LayerOperation op) in array.Zip(layer.Children))
+            {
+                op.ViewState.FromJson(json);
+            }
+        }
     }
 
     private void SyncronizeLayers(IEnumerable<string> pathToLayer)
@@ -678,6 +663,26 @@ public sealed class SceneViewState : BaseViewState
 
             try
             {
+                int layer = (int?)jsonObject["selected-layer"] ?? -1;
+                if (layer >= 0)
+                {
+                    foreach (Layer item in _scene.Children.AsSpan())
+                    {
+                        if (item.ZIndex == layer)
+                        {
+                            _scene.SelectedItem = item;
+                            break;
+                        }
+                    }
+                }
+            }
+            catch
+            {
+
+            }
+
+            try
+            {
                 float scale = (float?)jsonObject["scale"] ?? 1;
                 timelineOptions = timelineOptions with
                 {
@@ -711,6 +716,7 @@ public sealed class SceneViewState : BaseViewState
     {
         return new JsonObject
         {
+            ["selected-layer"] = _scene.SelectedItem?.ZIndex ?? -1,
             ["scale"] = _scene.TimelineOptions.Scale,
             ["offset"] = new JsonObject
             {
