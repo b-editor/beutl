@@ -270,8 +270,14 @@ public partial class Timeline : UserControl
 
     private void TimelinePanel_DragOver(object? sender, DragEventArgs e)
     {
-        TimelinePanel.Cursor = Cursors.DragCopy;
-        e.DragEffects = e.Data.Contains("RenderOperation") || (e.Data.GetFileNames()?.Any() ?? false) ? DragDropEffects.Copy : DragDropEffects.None;
+        if(e.Data.Contains("RenderOperation") || (e.Data.GetFileNames()?.Any() ?? false))
+        {
+            e.DragEffects = DragDropEffects.Copy;
+        }
+        else
+        {
+            e.DragEffects = DragDropEffects.None;
+        }
     }
 
     // Scene.ChildrenÇ™ïœçXÇ≥ÇÍÇΩ

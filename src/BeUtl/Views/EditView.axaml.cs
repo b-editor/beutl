@@ -4,12 +4,16 @@ using Avalonia.Interactivity;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 
+using BeUtl.Controls;
 using BeUtl.Framework;
 using BeUtl.Media;
 using BeUtl.Media.Pixel;
 using BeUtl.ProjectSystem;
+using BeUtl.Services;
 using BeUtl.ViewModels;
 using BeUtl.ViewModels.Editors;
+
+using Microsoft.Extensions.DependencyInjection;
 
 namespace BeUtl.Views;
 
@@ -17,6 +21,7 @@ public sealed partial class EditView : UserControl, IStorableControl
 {
     private readonly SynchronizationContext _syncContext;
     private Image? _image;
+    private FileSystemWatcher? _watcher;
 
     public EditView()
     {
@@ -43,6 +48,29 @@ public sealed partial class EditView : UserControl, IStorableControl
 
     public void Save(string filename)
     {
+    }
+
+    protected override void OnAttachedToLogicalTree(Avalonia.LogicalTree.LogicalTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToLogicalTree(e);
+        ProjectService service = ServiceLocator.Current.GetRequiredService<ProjectService>();
+        if (service.CurrentProject.Value != null)
+        {
+            _watcher = new FileSystemWatcher(service.CurrentProject.Value.RootDirectory)
+            {
+                EnableRaisingEvents = true,
+                IncludeSubdirectories = true,
+            };
+            Explorer.Content = new DirectoryTreeView(_watcher);
+        }
+    }
+
+    protected override void OnDetachedFromLogicalTree(Avalonia.LogicalTree.LogicalTreeAttachmentEventArgs e)
+    {
+        base.OnDetachedFromLogicalTree(e);
+        Explorer.Content = null;
+        _watcher?.Dispose();
+        _watcher = null;
     }
 
     protected override void OnDataContextChanged(EventArgs e)

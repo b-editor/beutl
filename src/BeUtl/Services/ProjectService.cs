@@ -29,9 +29,10 @@ public class ProjectService
             var project = new Project();
             project.Restore(file);
 
-            // 値を発行
-            _projectObservable.OnNext((New: project, CurrentProject.Value));
+            Project? old = CurrentProject.Value;
             CurrentProject.Value = project;
+            // 値を発行
+            _projectObservable.OnNext((New: project, old));
             return project;
         }
         catch

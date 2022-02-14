@@ -49,7 +49,7 @@
             <DraggableTabItem Header="{DynamicResource EasingString}">
                 <local:Easings DataContext="{CompiledBinding Easings}" />
             </DraggableTabItem>
-            <DraggableTabItem Header="{DynamicResource ObjectsString}" />
+            <DraggableTabItem Header="{DynamicResource S.EditView.Explorer}" x:Name="Explorer" />
         </DraggableTabView>
 
         <!--LeftPanel-->

@@ -110,6 +110,7 @@ because the new name conflicts with an existing folder.
         <x:String x:Key="S.Settings.View.Theme">Theme</x:String>
         <x:String x:Key="S.Settings.View.ThemeDescription">Select the theme of the app you want to display</x:String>
 
+        <x:String x:Key="S.EditView.Explorer">Explorer</x:String>
 
         <!--Verb-->
         <x:String x:Key="OpenString">Open</x:String>
