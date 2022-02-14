@@ -56,6 +56,7 @@
         <x:String x:Key="CountString">カウント</x:String>
         <x:String x:Key="ItemsSavedString">{0}個のアイテムが保存されました</x:String>
         <x:String x:Key="TheOperationCouldNotBeExecutedString">操作を実行できませんでした</x:String>
+        <x:String x:Key="SceneSettingsString">シーンの設定</x:String>
 
         <x:String x:Key="S.DirectoryTreeView.DoYouWantToDeleteThisDirectory">このディレクトリを削除しますか？</x:String>
         <x:String x:Key="S.DirectoryTreeView.DoYouWantToDeleteThisFile">このファイルを削除しますか？</x:String>
@@ -123,6 +124,7 @@
         <x:String x:Key="ExcludeString">除外</x:String>
         <x:String x:Key="NewFolderString">新しいフォルダー</x:String>
         <x:String x:Key="RenameString">名前の変更</x:String>
+        <x:String x:Key="ApplyString">適用</x:String>
 
         <!--Command-->
         <x:String x:Key="AddRenderOperationString">Render operationを追加</x:String>

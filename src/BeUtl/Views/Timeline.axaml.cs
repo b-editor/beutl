@@ -304,6 +304,15 @@ public partial class Timeline : UserControl
         await dialog.ShowAsync();
     }
 
+    private async void ShowSceneSettings(object? sender, RoutedEventArgs e)
+    {
+        var dialog = new SceneSettings()
+        {
+            DataContext = new SceneSettingsViewModel(ViewModel.Scene)
+        };
+        await dialog.ShowAsync();
+    }
+
     // ÉåÉCÉÑÅ[Çí«â¡
     private void AddLayers(IEnumerable<Layer> items)
     {

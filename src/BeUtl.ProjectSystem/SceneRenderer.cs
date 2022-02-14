@@ -55,7 +55,7 @@ internal sealed class SceneRenderer : ImmediateRenderer/*DeferredRenderer*/, ICl
                 {
                     Result = layer.Renderable
                 };
-                var prevResult = args.Result;
+                Renderable? prevResult = args.Result;
                 prevResult?.BeginBatchUpdate();
                 foreach (LayerOperation? item in layer.Children.AsSpan())
                 {

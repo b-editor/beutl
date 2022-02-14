@@ -1,0 +1,25 @@
+<ui:ContentDialog xmlns="https://github.com/avaloniaui"
+                  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                  xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+                  xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+                  xmlns:ui="using:FluentAvalonia.UI.Controls"
+                  mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+                  xmlns:vm="using:BeUtl.ViewModels.Dialogs"
+                  Title="{DynamicResource SceneSettingsString}"
+                  PrimaryButtonText="{DynamicResource ApplyString}"
+                  PrimaryButtonCommand="{CompiledBinding Apply}"
+                  IsPrimaryButtonEnabled="{CompiledBinding CanApply.Value}"
+                  CloseButtonText="{DynamicResource CloseString}"
+                  DefaultButton="Primary"
+                  x:DataType="vm:SceneSettingsViewModel"
+                  x:Class="BeUtl.Views.Dialogs.SceneSettings">
+    <StackPanel Spacing="8">
+        <TextBlock Text="{DynamicResource SizeString}" />
+        <TextBox Text="{CompiledBinding Size.Value, Mode=TwoWay, Converter={StaticResource PixelSizeConverter}}" />
+
+        <Separator />
+
+        <TextBlock Text="{DynamicResource DurationString}" />
+        <TextBox Text="{CompiledBinding Duration.Value, Mode=TwoWay}" />
+    </StackPanel>
+</ui:ContentDialog>

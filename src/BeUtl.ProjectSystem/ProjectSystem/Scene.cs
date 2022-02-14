@@ -20,6 +20,7 @@ public class Scene : Element, IStorable
     public static readonly CoreProperty<Layer?> SelectedItemProperty;
     public static readonly CoreProperty<PreviewOptions?> PreviewOptionsProperty;
     public static readonly CoreProperty<TimelineOptions> TimelineOptionsProperty;
+    public static readonly CoreProperty<IRenderer> RendererProperty;
     private readonly List<string> _includeLayers = new()
     {
         "**/*.layer"
@@ -32,7 +33,7 @@ public class Scene : Element, IStorable
     private Layer? _selectedItem;
     private PreviewOptions? _previewOptions;
     private TimelineOptions _timelineOptions = new();
-    private SceneRenderer _renderer;
+    private IRenderer _renderer;
 
     public Scene()
         : this(1920, 1080, string.Empty)
@@ -41,10 +42,10 @@ public class Scene : Element, IStorable
 
     public Scene(int width, int height, string name)
     {
-        Initialize(width, height);
-        Name = name;
         _children = new Layers(this);
         _children.CollectionChanged += Children_CollectionChanged;
+        Initialize(width, height);
+        Name = name;
     }
 
     static Scene()
@@ -87,6 +88,11 @@ public class Scene : Element, IStorable
 
         TimelineOptionsProperty = ConfigureProperty<TimelineOptions, Scene>(nameof(TimelineOptions))
             .Accessor(o => o.TimelineOptions, (o, v) => o.TimelineOptions = v)
+            .Observability(PropertyObservability.Changed)
+            .Register();
+
+        RendererProperty = ConfigureProperty<IRenderer, Scene>(nameof(Renderer))
+            .Accessor(o => o.Renderer, (o, v) => o.Renderer = v)
             .Observability(PropertyObservability.Changed)
             .Register();
 
@@ -158,7 +164,11 @@ public class Scene : Element, IStorable
         set => SetAndRaise(TimelineOptionsProperty, ref _timelineOptions, value);
     }
 
-    public IRenderer Renderer => _renderer;
+    public IRenderer Renderer
+    {
+        get => _renderer;
+        private set => SetAndRaise(RendererProperty, ref _renderer, value);
+    }
 
     public string FileName => _fileName ?? throw new Exception("The file name is not set.");
 
@@ -169,7 +179,13 @@ public class Scene : Element, IStorable
     {
         PixelSize oldSize = _renderer?.Graphics?.Size ?? PixelSize.Empty;
         _renderer?.Dispose();
-        _renderer = new SceneRenderer(this, width, height);
+        Renderer = new SceneRenderer(this, width, height);
+        _renderer = Renderer;
+
+        foreach (Layer item in _children.AsSpan())
+        {
+            _renderer[item.ZIndex] = item.Renderable;
+        }
 
         OnPropertyChanged(new CorePropertyChangedEventArgs<int>(
             sender: this,
@@ -551,7 +567,7 @@ public class Scene : Element, IStorable
     {
         private readonly Scene _scene;
         private readonly Layer _layer;
-        private int _layerNum;
+        private readonly int _layerNum;
         private IRecordableCommand? _inner;
 
         public MoveCommand(int layerNum, Scene scene, Layer layer)

@@ -1,3 +1,5 @@
+using System.Reactive.Linq;
+
 using Avalonia.Controls;
 using Avalonia.Data.Converters;
 using Avalonia.Interactivity;
@@ -22,6 +24,7 @@ public sealed partial class EditView : UserControl, IStorableControl
     private readonly SynchronizationContext _syncContext;
     private Image? _image;
     private FileSystemWatcher? _watcher;
+    private IDisposable? _disposable;
 
     public EditView()
     {
@@ -52,6 +55,23 @@ public sealed partial class EditView : UserControl, IStorableControl
 
     protected override void OnAttachedToLogicalTree(Avalonia.LogicalTree.LogicalTreeAttachmentEventArgs e)
     {
+        static object? DataContextFactory(string filename)
+        {
+            ProjectService service = ServiceLocator.Current.GetRequiredService<ProjectService>();
+            if (service.CurrentProject.Value != null)
+            {
+                foreach (IStorable item in service.CurrentProject.Value.EnumerateAllChildren<IStorable>())
+                {
+                    if (item.FileName == filename)
+                    {
+                        return item;
+                    }
+                }
+            }
+
+            return null;
+        }
+
         base.OnAttachedToLogicalTree(e);
         ProjectService service = ServiceLocator.Current.GetRequiredService<ProjectService>();
         if (service.CurrentProject.Value != null)
@@ -61,7 +81,7 @@ public sealed partial class EditView : UserControl, IStorableControl
                 EnableRaisingEvents = true,
                 IncludeSubdirectories = true,
             };
-            Explorer.Content = new DirectoryTreeView(_watcher);
+            Explorer.Content = new DirectoryTreeView(_watcher, DataContextFactory);
         }
     }
 
@@ -78,7 +98,21 @@ public sealed partial class EditView : UserControl, IStorableControl
         base.OnDataContextChanged(e);
         if (DataContext is EditViewModel vm)
         {
-            vm.Scene.Renderer.RenderInvalidated += Renderer_RenderRequested;
+            vm.Scene.Renderer.RenderInvalidated += Renderer_RenderInvalidated;
+            _disposable?.Dispose();
+            _disposable = vm.Scene.GetPropertyChangedObservable(Scene.RendererProperty)
+                .Subscribe(a =>
+                {
+                    if (a.OldValue != null)
+                    {
+                        a.OldValue.RenderInvalidated -= Renderer_RenderInvalidated;
+                    }
+
+                    if (a.NewValue != null)
+                    {
+                        a.NewValue.RenderInvalidated += Renderer_RenderInvalidated;
+                    }
+                });
         }
     }
 
@@ -129,7 +163,7 @@ public sealed partial class EditView : UserControl, IStorableControl
         }
     }
 
-    private unsafe void Renderer_RenderRequested(object? sender, Rendering.IRenderer.RenderResult e)
+    private unsafe void Renderer_RenderInvalidated(object? sender, Rendering.IRenderer.RenderResult e)
     {
         if (Image == null)
             return;
