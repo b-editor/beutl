@@ -57,6 +57,16 @@
         <x:String x:Key="ItemsSavedString">{0}個のアイテムが保存されました</x:String>
         <x:String x:Key="TheOperationCouldNotBeExecutedString">操作を実行できませんでした</x:String>
 
+        <x:String x:Key="S.DirectoryTreeView.DoYouWantToDeleteThisDirectory">このディレクトリを削除しますか？</x:String>
+        <x:String x:Key="S.DirectoryTreeView.DoYouWantToDeleteThisFile">このファイルを削除しますか？</x:String>
+        <x:String x:Key="S.DirectoryTreeView.OK">OK</x:String>
+        <x:String x:Key="S.DirectoryTreeView.Cancel">キャンセル</x:String>
+        <x:String x:Key="S.DirectoryTreeView.NewFolder">新しいフォルダー</x:String>
+        <x:String x:Key="S.DirectoryTreeView.CannotRenameBecauseNewNameConflicts">
+新しい名前が既存のフォルダーと競合するため、
+"{0}" から "{1}" に名前を変更できません。
+        </x:String>
+
         <x:String x:Key="S.Settings.Info">情報</x:String>
         <x:String x:Key="S.Settings.Info.Links">リンク</x:String>
         <x:String x:Key="S.Settings.Info.SourceCode">ソースコード</x:String>
@@ -109,6 +119,8 @@
         <x:String x:Key="FixSizeString">サイズを固定</x:String>
         <x:String x:Key="DeleteString">削除</x:String>
         <x:String x:Key="ExcludeString">除外</x:String>
+        <x:String x:Key="NewFolderString">新しいフォルダー</x:String>
+        <x:String x:Key="RenameString">名前の変更</x:String>
 
         <!--Command-->
         <x:String x:Key="AddRenderOperationString">Render operationを追加</x:String>

@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net6.0</TargetFramework>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Remove="..\ArtifactProvider.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Remove=".gitignore" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\BeUtl.Controls\BeUtl.Controls.csproj" />
+    <ProjectReference Include="..\..\src\BeUtl.Language\BeUtl.Language.csproj" />
+  </ItemGroup>
+</Project>

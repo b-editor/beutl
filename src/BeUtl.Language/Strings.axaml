@@ -90,6 +90,16 @@
         <x:String x:Key="ItemsSavedString">{0} items saved!</x:String>
         <x:String x:Key="TheOperationCouldNotBeExecutedString">The operation could not be executed.</x:String>
 
+        <x:String x:Key="S.DirectoryTreeView.DoYouWantToDeleteThisDirectory">Do you want to delete this directory?</x:String>
+        <x:String x:Key="S.DirectoryTreeView.DoYouWantToDeleteThisFile">Do you want to delete this file?</x:String>
+        <x:String x:Key="S.DirectoryTreeView.OK">OK</x:String>
+        <x:String x:Key="S.DirectoryTreeView.Cancel">Cancel</x:String>
+        <x:String x:Key="S.DirectoryTreeView.NewFolder">New Folder</x:String>
+        <x:String x:Key="S.DirectoryTreeView.CannotRenameBecauseNewNameConflicts">
+Cannot rename from "{0}" to "{1}"
+because the new name conflicts with an existing folder.
+        </x:String>
+
         <x:String x:Key="S.Settings.Info">Infomation</x:String>
         <x:String x:Key="S.Settings.Info.Links">Links</x:String>
         <x:String x:Key="S.Settings.Info.SourceCode">Source code</x:String>
@@ -131,6 +141,8 @@
         <x:String x:Key="DoneString">Done</x:String>
         <x:String x:Key="DeleteString">Delete</x:String>
         <x:String x:Key="ExcludeString">Exclude</x:String>
+        <x:String x:Key="NewFolderString">New Folder</x:String>
+        <x:String x:Key="RenameString">Rename</x:String>
 
         <!--Command-->
         <x:String x:Key="AddRenderOperationString">Add a render operation.</x:String>
