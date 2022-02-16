@@ -4,6 +4,7 @@ using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media;
+using Avalonia.Platform;
 
 using BeUtl.Framework.Service;
 using BeUtl.Operations;
@@ -31,6 +32,9 @@ public class App : Application
     public override void RegisterServices()
     {
         base.RegisterServices();
+        AvaloniaLocator.CurrentMutable
+                .Bind<IFontManagerImpl>().ToConstant(new CustomFontManagerImpl());
+
         ServiceLocator.Current.BindToSelfSingleton<ProjectService>()
             .Bind<INotificationService>().ToSingleton<NotificationService>()
             .Bind<IResourceProvider>().ToSingleton<DefaultResourceProvider>();

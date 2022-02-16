@@ -1,4 +1,6 @@
-﻿using BeUtl.Configuration;
+﻿using System.Diagnostics;
+
+using BeUtl.Configuration;
 using BeUtl.Graphics;
 
 using SkiaSharp;
@@ -44,6 +46,24 @@ public sealed class FontManager
     public void AddFont(Stream stream)
     {
         AddFont(SKTypeface.FromStream(stream));
+    }
+
+    internal static string GetDefaultFontFamily()
+    {
+        if (OperatingSystem.IsLinux())
+        {
+            using Process process = Process.Start(new ProcessStartInfo("/usr/bin/fc-match", "--format %{family}")
+            {
+                RedirectStandardOutput = true
+            })!;
+            process.WaitForExit();
+
+            return process.StandardOutput.ReadToEnd();
+        }
+        else
+        {
+            return SKTypeface.Default.FamilyName;
+        }
     }
 
     private void AddFont(SKTypeface typeface)

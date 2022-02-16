@@ -9,7 +9,7 @@ namespace BeUtl.Media;
 [JsonConverter(typeof(FontFamilyJsonConverter))]
 public readonly struct FontFamily : IEquatable<FontFamily>
 {
-    public static readonly FontFamily Default = new(SKTypeface.Default.FamilyName);
+    public static readonly FontFamily Default = new(FontManager.GetDefaultFontFamily());
 
     public FontFamily(string familyname)
     {
