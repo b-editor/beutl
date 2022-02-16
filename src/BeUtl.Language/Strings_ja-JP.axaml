@@ -85,7 +85,7 @@
         <x:String x:Key="S.Settings.View.Theme.System">システムの設定に従う</x:String>
 
         <x:String x:Key="S.EditView.Explorer">エクスプローラー</x:String>
-        
+
         <!--Verb-->
         <x:String x:Key="OpenString">開く</x:String>
         <x:String x:Key="CloseString">閉じる</x:String>

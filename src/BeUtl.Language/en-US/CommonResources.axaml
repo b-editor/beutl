@@ -1,0 +1,157 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Styles.Resources>
+        <FontFamily x:Key="ContentControlThemeFontFamily">Segoe UI, Helvetica Neue, Ubuntu</FontFamily>
+
+        <!--KeyGestures-->
+        <KeyGesture x:Key="CreateNewProjectKeyGesture">Ctrl+Shift+N</KeyGesture>
+        <KeyGesture x:Key="CreateNewKeyGesture">Ctrl+N</KeyGesture>
+        <KeyGesture x:Key="OpenProjectKeyGesture">Ctrl+Shift+O</KeyGesture>
+        <KeyGesture x:Key="OpenKeyGesture">Ctrl+O</KeyGesture>
+        <KeyGesture x:Key="SaveAllKeyGesture">Ctrl+Shift+S</KeyGesture>
+        <KeyGesture x:Key="SaveKeyGesture">Ctrl+S</KeyGesture>
+        <KeyGesture x:Key="ExitKeyGesture">Alt+F4</KeyGesture>
+        <KeyGesture x:Key="UndoKeyGesture">Ctrl+Z</KeyGesture>
+        <KeyGesture x:Key="RedoKeyGesture">Ctrl+Y</KeyGesture>
+        <KeyGesture x:Key="DeleteKeyGesture">Delete</KeyGesture>
+        <KeyGesture x:Key="CutKeyGesture">Ctrl+X</KeyGesture>
+        <KeyGesture x:Key="CopyKeyGesture">Ctrl+C</KeyGesture>
+        <KeyGesture x:Key="PasteKeyGesture">Ctrl+V</KeyGesture>
+        <KeyGesture x:Key="PlayPauseKeyGesture">Space</KeyGesture>
+        <KeyGesture x:Key="NextKeyGesture">Right</KeyGesture>
+        <KeyGesture x:Key="PreviousKeyGesture">Left</KeyGesture>
+        <KeyGesture x:Key="StartKeyGesture">Home</KeyGesture>
+        <KeyGesture x:Key="EndKeyGesture">End</KeyGesture>
+        <KeyGesture x:Key="LayerDeleteKeyGesture">Ctrl+Delete</KeyGesture>
+
+        <!--Strings-->
+        <x:String x:Key="S.Common.File">File</x:String>
+        <x:String x:Key="S.Common.CreateNew">Create New</x:String>
+        <x:String x:Key="S.Common.CreateNewProject">Create new project</x:String>
+        <x:String x:Key="S.Common.CreateNewScene">Create new scene</x:String>
+        <x:String x:Key="S.Common.Project">Project</x:String>
+        <x:String x:Key="S.Common.Open">Open</x:String>
+        <x:String x:Key="S.Common.Close">Close</x:String>
+        <x:String x:Key="S.Common.CloseProject">Close project</x:String>
+        <x:String x:Key="S.Common.Save">Save</x:String>
+        <x:String x:Key="S.Common.SaveAll">Save all</x:String>
+        <x:String x:Key="S.Common.SaveAs">Save as</x:String>
+        <x:String x:Key="S.Common.Exit">Exit</x:String>
+        <x:String x:Key="S.Common.Edit">Edit</x:String>
+        <x:String x:Key="S.Common.Undo">Undo</x:String>
+        <x:String x:Key="S.Common.Redo">Redo</x:String>
+        <x:String x:Key="S.Common.View">View</x:String>
+        <x:String x:Key="S.Common.Object">Object</x:String>
+        <x:String x:Key="S.Common.Help">Help</x:String>
+        <x:String x:Key="S.Common.Extensions">Extensions</x:String>
+        <x:String x:Key="S.Common.Output">Output</x:String>
+        <x:String x:Key="S.Common.Settings">Settings</x:String>
+        <x:String x:Key="S.Common.Properties">Properties</x:String>
+        <x:String x:Key="S.Common.Easings">Easings</x:String>
+        <x:String x:Key="S.Common.Explorer">Explorer</x:String>
+        <x:String x:Key="S.Common.Timeline">Timeline</x:String>
+        <x:String x:Key="S.Common.SceneFile">Scene File</x:String>
+        <x:String x:Key="S.Common.Font">Font</x:String>
+        <x:String x:Key="S.Common.Info">Info</x:String>
+        <x:String x:Key="S.Common.Add">Add</x:String>
+        <x:String x:Key="S.Common.Links">Links</x:String>
+        <x:String x:Key="S.Common.SourceCode">Source code</x:String>
+        <x:String x:Key="S.Common.License">License</x:String>
+        <x:String x:Key="S.Common.ThirdPartyLicenses">Third party licenses</x:String>
+        <x:String x:Key="S.Common.Theme">Theme</x:String>
+        <x:String x:Key="S.Common.Light">Light</x:String>
+        <x:String x:Key="S.Common.Dark">Dark</x:String>
+        <x:String x:Key="S.Common.HighContrast">HighContrast</x:String>
+        <x:String x:Key="S.Common.FollowSystem">Follow the system</x:String>
+        <x:String x:Key="S.Common.Search">Search</x:String>
+        <x:String x:Key="S.Common.Name">Name</x:String>
+        <x:String x:Key="S.Common.StartTime">Start time</x:String>
+        <x:String x:Key="S.Common.DurationTime">Duration time</x:String>
+        <x:String x:Key="S.Common.Cut">Cut</x:String>
+        <x:String x:Key="S.Common.Copy">Copy</x:String>
+        <x:String x:Key="S.Common.Paste">Paste</x:String>
+        <x:String x:Key="S.Common.Split">Split</x:String>
+        <x:String x:Key="S.Common.Delete">Delete</x:String>
+        <x:String x:Key="S.Common.Remove">Remove</x:String>
+        <x:String x:Key="S.Common.Exclude">Exclude</x:String>
+        <x:String x:Key="S.Common.Back">Back</x:String>
+        <x:String x:Key="S.Common.Next">Next</x:String>
+        <x:String x:Key="S.Common.Color">Color</x:String>
+        <x:String x:Key="S.Common.Layer">Layer</x:String>
+        <x:String x:Key="S.Common.AddLayer">Add Layer</x:String>
+        <x:String x:Key="S.Common.Location">Location</x:String>
+        <x:String x:Key="S.Common.Size">Size</x:String>
+        <x:String x:Key="S.Common.FrameRate">FrameRate</x:String>
+        <x:String x:Key="S.Common.SampleRate">SampleRate</x:String>
+        <x:String x:Key="S.Common.PickFont">Pick a font</x:String>
+        <x:String x:Key="S.Common.Done">Done</x:String>
+        <x:String x:Key="S.Common.SceneSettings">Scene settings</x:String>
+        <x:String x:Key="S.Common.Apply">Apply</x:String>
+        <x:String x:Key="S.Common.X">X</x:String>
+        <x:String x:Key="S.Common.Y">Y</x:String>
+        <x:String x:Key="S.Common.Z">Z</x:String>
+        <x:String x:Key="S.Common.W">W</x:String>
+        <x:String x:Key="S.Common.Width">Width</x:String>
+        <x:String x:Key="S.Common.Height">Height</x:String>
+        <x:String x:Key="S.Common.Reset">Reset</x:String>
+        <x:String x:Key="S.Common.EditAnimation">Edit animation</x:String>
+        <x:String x:Key="S.Common.NewFolder">New Folder</x:String>
+        <x:String x:Key="S.Common.Left">Left</x:String>
+        <x:String x:Key="S.Common.Right">Right</x:String>
+        <x:String x:Key="S.Common.Top">Top</x:String>
+        <x:String x:Key="S.Common.Bottom">Bottom</x:String>
+        <x:String x:Key="S.Common.Center">Center</x:String>
+        <x:String x:Key="S.Common.FontFamily">Font family</x:String>
+        <x:String x:Key="S.Common.FontStyle">Font style</x:String>
+        <x:String x:Key="S.Common.FontWeight">Font weight</x:String>
+        <x:String x:Key="S.Common.CharactorSpacing">Charactor spacing</x:String>
+        <x:String x:Key="S.Common.Margin">Margin</x:String>
+        <x:String x:Key="S.Common.CanvasAlignmentX">Canvas alignment x</x:String>
+        <x:String x:Key="S.Common.CanvasAlignmentY">Canvas alignment y</x:String>
+        <x:String x:Key="S.Common.AlignmentX">Alignment x</x:String>
+        <x:String x:Key="S.Common.AlignmentY">Alignment y</x:String>
+        <x:String x:Key="S.Common.Position">Position</x:String>
+        <x:String x:Key="S.Common.Sigma">Sigma</x:String>
+        <x:String x:Key="S.Common.ShadowOnly">Shadow only</x:String>
+        <x:String x:Key="S.Common.Opacity">Opacity</x:String>
+        <x:String x:Key="S.Common.StartIndex">Start index</x:String>
+        <x:String x:Key="S.Common.Count">Count</x:String>
+        <x:String x:Key="S.Common.CornerRadius">Corner radius</x:String>
+        <x:String x:Key="S.Common.OK">OK</x:String>
+        <x:String x:Key="S.Common.Cancel">Cancel</x:String>
+        <x:String x:Key="S.Common.Rename">Rename</x:String>
+        <x:String x:Key="S.Common.ProjectFile">Project File</x:String>
+        <x:String x:Key="S.Common.StrokeWidth">Stroke width</x:String>
+    </Styles.Resources>
+
+    <!--Views-->
+    <StyleInclude Source="/en-US/Views/MainViewResources.axaml" />
+    <StyleInclude Source="/en-US/Views/EditViewResources.axaml" />
+    <StyleInclude Source="/en-US/Views/LibraryResources.axaml" />
+    <StyleInclude Source="/en-US/Views/TimelineResources.axaml" />
+    <StyleInclude Source="/en-US/Views/TimelineLayerResources.axaml" />
+
+    <!--Views.Editors-->
+    <StyleInclude Source="/en-US/Views/Editors/AnimationEditorResources.axaml" />
+    <StyleInclude Source="/en-US/Views/Editors/EditorsResources.axaml" />
+
+    <!--Views.Dialogs-->
+    <StyleInclude Source="/en-US/Views/Dialogs/AddLayerResources.axaml" />
+    <StyleInclude Source="/en-US/Views/Dialogs/CreateNewProjectResources.axaml" />
+    <StyleInclude Source="/en-US/Views/Dialogs/CreateNewSceneResources.axaml" />
+    <StyleInclude Source="/en-US/Views/Dialogs/PickFontFamilyResources.axaml" />
+    <StyleInclude Source="/en-US/Views/Dialogs/SceneSettingsResources.axaml" />
+
+    <!--Pages-->
+    <StyleInclude Source="/en-US/Pages/EditPageResources.axaml" />
+    <StyleInclude Source="/en-US/Pages/SettingsPageResources.axaml" />
+
+    <!--Messages-->
+    <StyleInclude Source="/en-US/MessageResources.axaml" />
+
+    <!--OpNames-->
+    <StyleInclude Source="/en-US/OpNameResources.axaml" />
+
+    <!--Warnings-->
+    <StyleInclude Source="/en-US/WarningResources.axaml" />
+</Styles>

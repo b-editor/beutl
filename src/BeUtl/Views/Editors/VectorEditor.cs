@@ -11,8 +11,8 @@ public sealed class VectorEditor : BaseVector2Editor<Vector>
 {
     public VectorEditor()
     {
-        xText[!TextBlock.TextProperty] = new DynamicResourceExtension("XString");
-        yText[!TextBlock.TextProperty] = new DynamicResourceExtension("YString");
+        xText[!TextBlock.TextProperty] = new DynamicResourceExtension("S.Editors.Vector.X");
+        yText[!TextBlock.TextProperty] = new DynamicResourceExtension("S.Editors.Vector.Y");
         xTextBox[!TextBox.TextProperty] = new Binding("Value.Value.X", BindingMode.OneWay);
         yTextBox[!TextBox.TextProperty] = new Binding("Value.Value.Y", BindingMode.OneWay);
     }

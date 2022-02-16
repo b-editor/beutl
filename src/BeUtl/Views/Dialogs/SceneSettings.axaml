@@ -5,21 +5,21 @@
                   xmlns:ui="using:FluentAvalonia.UI.Controls"
                   mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
                   xmlns:vm="using:BeUtl.ViewModels.Dialogs"
-                  Title="{DynamicResource SceneSettingsString}"
-                  PrimaryButtonText="{DynamicResource ApplyString}"
+                  Title="{DynamicResource S.Dialogs.SceneSettings.Title}"
+                  PrimaryButtonText="{DynamicResource S.Dialogs.SceneSettings.Apply}"
                   PrimaryButtonCommand="{CompiledBinding Apply}"
                   IsPrimaryButtonEnabled="{CompiledBinding CanApply.Value}"
-                  CloseButtonText="{DynamicResource CloseString}"
+                  CloseButtonText="{DynamicResource S.Dialogs.SceneSettings.Close}"
                   DefaultButton="Primary"
                   x:DataType="vm:SceneSettingsViewModel"
                   x:Class="BeUtl.Views.Dialogs.SceneSettings">
     <StackPanel Spacing="8">
-        <TextBlock Text="{DynamicResource SizeString}" />
+        <TextBlock Text="{DynamicResource S.Dialogs.SceneSettings.Size}" />
         <TextBox Text="{CompiledBinding Size.Value, Mode=TwoWay, Converter={StaticResource PixelSizeConverter}}" />
 
         <Separator />
 
-        <TextBlock Text="{DynamicResource DurationString}" />
+        <TextBlock Text="{DynamicResource S.Dialogs.SceneSettings.DurationTime}" />
         <TextBox Text="{CompiledBinding Duration.Value, Mode=TwoWay}" />
     </StackPanel>
 </ui:ContentDialog>

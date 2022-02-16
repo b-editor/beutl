@@ -6,11 +6,11 @@
     xmlns:ui="using:FluentAvalonia.UI.Controls"
     xmlns:vm="using:BeUtl.ViewModels.Dialogs"
     mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-    Title="{DynamicResource CreateNewSceneString}"
-    PrimaryButtonText="{DynamicResource CreateNewString}"
+    Title="{DynamicResource S.Dialogs.CreateNewScene.Title}"
+    PrimaryButtonText="{DynamicResource S.Dialogs.CreateNewScene.CreateNew}"
     PrimaryButtonCommand="{CompiledBinding Create}"
     IsPrimaryButtonEnabled="{CompiledBinding CanCreate.Value}"
-    CloseButtonText="{DynamicResource CloseString}"
+    CloseButtonText="{DynamicResource S.Dialogs.CreateNewScene.Close}"
     DefaultButton="Primary"
     x:DataType="vm:CreateNewSceneViewModel"
     x:Class="BeUtl.Views.Dialogs.CreateNewScene">
@@ -18,12 +18,12 @@
         <vm:CreateNewSceneViewModel />
     </ui:ContentDialog.DataContext>
     <StackPanel Spacing="8">
-        <TextBlock Text="{DynamicResource NameString}" />
+        <TextBlock Text="{DynamicResource S.Dialogs.CreateNewScene.Name}" />
         <TextBox InputMethod.IsInputMethodEnabled="True" Text="{CompiledBinding Name.Value, Mode=TwoWay}" />
 
         <Separator />
 
-        <TextBlock Text="{DynamicResource LocationString}" />
+        <TextBlock Text="{DynamicResource S.Dialogs.CreateNewScene.Location}" />
         <Panel>
             <TextBox Text="{CompiledBinding Location.Value, Mode=TwoWay}" />
 
@@ -38,7 +38,7 @@
 
         <Separator />
 
-        <TextBlock Text="{DynamicResource SizeString}" />
+        <TextBlock Text="{DynamicResource S.Dialogs.CreateNewScene.Size}" />
         <TextBox Text="{CompiledBinding Size.Value, Mode=TwoWay, Converter={StaticResource PixelSizeConverter}}" />
     </StackPanel>
 </ui:ContentDialog>

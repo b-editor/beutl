@@ -1,0 +1,9 @@
+﻿<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Styles.Resources>
+        <!--Strings-->
+        <StaticResource x:Key="S.Editors.AnimationEditor.Remove" ResourceKey="S.Common.Remove" />
+        <StaticResource x:Key="S.Editors.AnimationEditor.Edit" ResourceKey="S.Common.Edit" />
+        <StaticResource x:Key="S.Editors.AnimationEditor.Close" ResourceKey="S.Common.Close" />
+    </Styles.Resources>
+</Styles>

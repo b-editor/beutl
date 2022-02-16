@@ -11,8 +11,8 @@ public sealed class VectorAnimationEditor : BaseVector2AnimationEditor<Vector>
 {
     public VectorAnimationEditor()
     {
-        var xres = new DynamicResourceExtension("XString");
-        var yres = new DynamicResourceExtension("YString");
+        var xres = new DynamicResourceExtension("S.Editors.Vector.X");
+        var yres = new DynamicResourceExtension("S.Editors.Vector.Y");
         prevXText[!TextBlock.TextProperty] = xres;
         prevYText[!TextBlock.TextProperty] = yres;
         nextXText[!TextBlock.TextProperty] = xres;

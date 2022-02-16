@@ -10,8 +10,8 @@ public sealed class PixelPointAnimationEditor : BaseVector2AnimationEditor<Media
 {
     public PixelPointAnimationEditor()
     {
-        var xres = new DynamicResourceExtension("XString");
-        var yres = new DynamicResourceExtension("YString");
+        var xres = new DynamicResourceExtension("S.Editors.PixelPoint.X");
+        var yres = new DynamicResourceExtension("S.Editors.PixelPoint.Y");
         prevXText[!TextBlock.TextProperty] = xres;
         prevYText[!TextBlock.TextProperty] = yres;
         nextXText[!TextBlock.TextProperty] = xres;

@@ -43,10 +43,10 @@
                     <Setter Property="IsClosable" Value="False" />
                 </Style>
             </DraggableTabView.Styles>
-            <DraggableTabItem Header="{DynamicResource PropertiesString}">
+            <DraggableTabItem Header="{DynamicResource S.EditView.Properties}">
                 <editors:PropertiesEditor DataContext="{Binding Scene.SelectedItem, Converter={StaticResource LayerEditorConverter}}" />
             </DraggableTabItem>
-            <DraggableTabItem Header="{DynamicResource EasingString}">
+            <DraggableTabItem Header="{DynamicResource S.EditView.Easings}">
                 <local:Easings DataContext="{CompiledBinding Easings}" />
             </DraggableTabItem>
             <DraggableTabItem Header="{DynamicResource S.EditView.Explorer}" x:Name="Explorer" />
@@ -76,10 +76,9 @@
                         <Setter Property="IsClosable" Value="False" />
                     </Style>
                 </DraggableTabView.Styles>
-                <DraggableTabItem Header="{DynamicResource TimelineString}">
+                <DraggableTabItem Header="{DynamicResource S.EditView.Timeline}">
                     <local:Timeline DataContext="{CompiledBinding Timeline}" />
                 </DraggableTabItem>
-                <!--<DraggableTabItem Header="{DynamicResource OutputString}" />-->
             </DraggableTabView>
 
             <Grid>

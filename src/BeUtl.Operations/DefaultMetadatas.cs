@@ -13,7 +13,7 @@ public static class DefaultMetadatas
     public static OperationPropertyMetadata<float> X => new()
     {
         IsAnimatable = true,
-        Header = "XString",
+        Header = "S.Common.X",
         SerializeName = "x",
         PropertyFlags = PropertyFlags.Designable,
     };
@@ -21,7 +21,7 @@ public static class DefaultMetadatas
     public static OperationPropertyMetadata<float> Y => new()
     {
         IsAnimatable = true,
-        Header = "YString",
+        Header = "S.Common.Y",
         SerializeName = "y",
         PropertyFlags = PropertyFlags.Designable,
     };
@@ -86,7 +86,7 @@ public static class DefaultMetadatas
     public static OperationPropertyMetadata<float> Width => new()
     {
         IsAnimatable = true,
-        Header = "WidthString",
+        Header = "S.Common.Width",
         Minimum = 0,
         SerializeName = "width",
         PropertyFlags = PropertyFlags.Designable,
@@ -96,7 +96,7 @@ public static class DefaultMetadatas
     public static OperationPropertyMetadata<float> Height => new()
     {
         IsAnimatable = true,
-        Header = "HeightString",
+        Header = "S.Common.Height",
         Minimum = 0,
         SerializeName = "height",
         PropertyFlags = PropertyFlags.Designable,
@@ -106,7 +106,7 @@ public static class DefaultMetadatas
     public static OperationPropertyMetadata<float> StrokeWidth => new()
     {
         IsAnimatable = true,
-        Header = "StrokeWidthString",
+        Header = "S.Common.StrokeWidth",
         Minimum = 0,
         SerializeName = "strokeWidth",
         PropertyFlags = PropertyFlags.Designable,
@@ -116,7 +116,7 @@ public static class DefaultMetadatas
     public static OperationPropertyMetadata<Color> Color => new()
     {
         IsAnimatable = true,
-        Header = "ColorString",
+        Header = "S.Common.Color",
         SerializeName = "color",
         PropertyFlags = PropertyFlags.Designable,
         DefaultValue = Colors.White
@@ -125,7 +125,7 @@ public static class DefaultMetadatas
     public static OperationPropertyMetadata<CornerRadius> CornerRadius => new()
     {
         IsAnimatable = true,
-        Header = "CornerRadiusString",
+        Header = "S.Common.CornerRadius",
         SerializeName = "cornerRadius",
         PropertyFlags = PropertyFlags.Designable,
         DefaultValue = new CornerRadius(25),
@@ -135,7 +135,7 @@ public static class DefaultMetadatas
     public static OperationPropertyMetadata<float> FontSize => new()
     {
         IsAnimatable = true,
-        Header = "SizeString",
+        Header = "S.Common.Size",
         Minimum = 0,
         SerializeName = "size",
         PropertyFlags = PropertyFlags.Designable,
@@ -144,7 +144,7 @@ public static class DefaultMetadatas
 
     public static OperationPropertyMetadata<FontFamily> FontFamily => new()
     {
-        Header = "FontFamilyString",
+        Header = "S.Common.FontFamily",
         SerializeName = "font",
         PropertyFlags = PropertyFlags.Designable,
         DefaultValue = FormattedTextInfo.Default.Typeface.FontFamily
@@ -152,7 +152,7 @@ public static class DefaultMetadatas
 
     public static OperationPropertyMetadata<FontStyle> FontStyle => new()
     {
-        Header = "FontStyleString",
+        Header = "S.Common.FontStyle",
         SerializeName = "style",
         PropertyFlags = PropertyFlags.Designable,
         DefaultValue = FormattedTextInfo.Default.Typeface.Style
@@ -160,7 +160,7 @@ public static class DefaultMetadatas
 
     public static OperationPropertyMetadata<FontWeight> FontWeight => new()
     {
-        Header = "FontWeightString",
+        Header = "S.Common.FontWeight",
         SerializeName = "weight",
         PropertyFlags = PropertyFlags.Designable,
         DefaultValue = FormattedTextInfo.Default.Typeface.Weight
@@ -169,7 +169,7 @@ public static class DefaultMetadatas
     public static OperationPropertyMetadata<float> FontSpace => new()
     {
         IsAnimatable = true,
-        Header = "CharactorSpacingString",
+        Header = "S.Common.CharactorSpacing",
         SerializeName = "space",
         PropertyFlags = PropertyFlags.Designable,
     };
@@ -177,7 +177,7 @@ public static class DefaultMetadatas
     public static OperationPropertyMetadata<Thickness> Margin => new()
     {
         IsAnimatable = true,
-        Header = "MarginString",
+        Header = "S.Common.Margin",
         SerializeName = "margin",
         PropertyFlags = PropertyFlags.Designable,
     };
@@ -193,7 +193,7 @@ public static class DefaultMetadatas
     public static OperationPropertyMetadata<float> Opacity => new()
     {
         IsAnimatable = true,
-        Header = "OpacityString",
+        Header = "S.Common.Opacity",
         SerializeName = "opacity",
         PropertyFlags = PropertyFlags.Designable,
         DefaultValue = 100,
@@ -204,7 +204,7 @@ public static class DefaultMetadatas
     public static OperationPropertyMetadata<Point> Position => new()
     {
         IsAnimatable = true,
-        Header = "PositionString",
+        Header = "S.Common.Position",
         SerializeName = "position",
         PropertyFlags = PropertyFlags.Designable,
     };
@@ -212,7 +212,7 @@ public static class DefaultMetadatas
     public static OperationPropertyMetadata<Vector> Sigma => new()
     {
         IsAnimatable = true,
-        Header = "SigmaString",
+        Header = "S.Common.Sigma",
         SerializeName = "sigma",
         PropertyFlags = PropertyFlags.Designable,
     };
@@ -220,7 +220,7 @@ public static class DefaultMetadatas
     public static OperationPropertyMetadata<bool> ShadowOnly => new()
     {
         IsAnimatable = true,
-        Header = "ShadowOnlyString",
+        Header = "S.Common.ShadowOnly",
         SerializeName = "shadowOnly",
         PropertyFlags = PropertyFlags.Designable,
     };
@@ -235,28 +235,28 @@ public static class DefaultMetadatas
 
     public static OperationPropertyMetadata<AlignmentX> CanvasAlignmentX => new()
     {
-        Header = "CanvasAlignmentXString",
+        Header = "S.Common.CanvasAlignmentX",
         SerializeName = "canvasAlignX",
         PropertyFlags = PropertyFlags.Designable,
     };
 
     public static OperationPropertyMetadata<AlignmentY> CanvasAlignmentY => new()
     {
-        Header = "CanvasAlignmentYString",
+        Header = "S.Common.CanvasAlignmentY",
         SerializeName = "canvasAlignY",
         PropertyFlags = PropertyFlags.Designable,
     };
 
     public static OperationPropertyMetadata<AlignmentX> AlignmentX => new()
     {
-        Header = "AlignmentXString",
+        Header = "S.Common.AlignmentX",
         SerializeName = "alignX",
         PropertyFlags = PropertyFlags.Designable,
     };
 
     public static OperationPropertyMetadata<AlignmentY> AlignmentY => new()
     {
-        Header = "AlignmentYString",
+        Header = "S.Common.AlignmentY",
         SerializeName = "alignY",
         PropertyFlags = PropertyFlags.Designable,
     };

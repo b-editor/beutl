@@ -5,16 +5,16 @@
                   xmlns:ui="using:FluentAvalonia.UI.Controls"
                   xmlns:vm="using:BeUtl.ViewModels.Dialogs"
                   mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-                  Title="{DynamicResource PickFontString}"
-                  CloseButtonText="{DynamicResource CloseString}"
-                  PrimaryButtonText="{DynamicResource DoneString}"
+                  Title="{DynamicResource S.Dialogs.PickFontFamily.Title}"
+                  CloseButtonText="{DynamicResource S.Dialogs.PickFontFamily.Close}"
+                  PrimaryButtonText="{DynamicResource S.Dialogs.PickFontFamily.Done}"
                   DefaultButton="Primary"
                   x:DataType="vm:PickFontFamilyViewModel"
                   x:Class="BeUtl.Views.Dialogs.PickFontFamily">
     <Grid RowDefinitions="Auto,*">
         <TextBox x:Name="searchBox"
                  Margin="0,4"
-                 Watermark="{DynamicResource SearchString}"
+                 Watermark="{DynamicResource S.Dialogs.PickFontFamily.Search}"
                  Classes="clearButton" />
 
         <ListBox SelectedItem="{CompiledBinding SelectedItem.Value}"

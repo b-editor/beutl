@@ -22,7 +22,7 @@ public sealed class SceneSettingsViewModel
         {
             if (s.Width <= 0 || s.Height <= 0)
             {
-                return (string?)Application.Current?.FindResource("CannotSpecifyValueLessThanOrEqualToZeroString");
+                return (string?)Application.Current?.FindResource("S.Warning.ValueLessThanOrEqualToZero");
             }
             else
             {
@@ -33,7 +33,7 @@ public sealed class SceneSettingsViewModel
         {
             if (time <= TimeSpan.Zero)
             {
-                return (string?)Application.Current?.FindResource("CannotSpecifyValueLessThanOrEqualToZeroString");
+                return (string?)Application.Current?.FindResource("S.Warning.ValueLessThanOrEqualToZero");
             }
             else
             {

@@ -15,7 +15,7 @@ public sealed class RenderAllOperation : LayerOperation
             .Accessor(o => o.Start, (o, v) => o.Start = v)
             .OverrideMetadata(new OperationPropertyMetadata<int>
             {
-                Header = "StartIndexString",
+                Header = "S.Common.StartIndex",
                 PropertyFlags = PropertyFlags.Designable,
                 DefaultValue = 0,
                 Minimum = 0,
@@ -27,7 +27,7 @@ public sealed class RenderAllOperation : LayerOperation
             .Accessor(o => o.Count, (o, v) => o.Count = v)
             .OverrideMetadata(new OperationPropertyMetadata<int>
             {
-                Header = "CountString",
+                Header = "S.Common.Count",
                 PropertyFlags = PropertyFlags.Designable,
                 DefaultValue = -1,
                 Minimum = -1,

@@ -122,7 +122,7 @@ public sealed partial class EditPage : UserControl
             {
                 new FileDialogFilter
                 {
-                    Name = Application.Current?.FindResource("SceneFileString") as string,
+                    Name = Application.Current?.FindResource("S.EditPage.SceneFile") as string,
                     Extensions =
                     {
                         "scene"

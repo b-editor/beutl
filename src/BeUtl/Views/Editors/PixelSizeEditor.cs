@@ -10,8 +10,8 @@ public sealed class PixelSizeEditor : BaseVector2Editor<Media.PixelSize>
 {
     public PixelSizeEditor()
     {
-        xText[!TextBlock.TextProperty] = new DynamicResourceExtension("WidthString");
-        yText[!TextBlock.TextProperty] = new DynamicResourceExtension("HeightString");
+        xText[!TextBlock.TextProperty] = new DynamicResourceExtension("S.Editors.PixelSize.X");
+        yText[!TextBlock.TextProperty] = new DynamicResourceExtension("S.Editors.PixelSize.Y");
         xTextBox[!TextBox.TextProperty] = new Binding("Value.Value.Width", BindingMode.OneWay);
         yTextBox[!TextBox.TextProperty] = new Binding("Value.Value.Height", BindingMode.OneWay);
     }

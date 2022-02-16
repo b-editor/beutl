@@ -10,8 +10,8 @@ public sealed class PointAnimationEditor : BaseVector2AnimationEditor<Graphics.P
 {
     public PointAnimationEditor()
     {
-        var xres = new DynamicResourceExtension("XString");
-        var yres = new DynamicResourceExtension("YString");
+        var xres = new DynamicResourceExtension("S.Editors.Point.X");
+        var yres = new DynamicResourceExtension("S.Editors.Point.Y");
         prevXText[!TextBlock.TextProperty] = xres;
         prevYText[!TextBlock.TextProperty] = yres;
         nextXText[!TextBlock.TextProperty] = xres;

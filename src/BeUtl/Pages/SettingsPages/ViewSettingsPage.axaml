@@ -16,16 +16,16 @@
                     VerticalAlignment="Stretch"
                     Margin="10,0"
                     Spacing="8">
-            <ctrls:OptionsDisplayItem Header="{DynamicResource S.Settings.View.Theme}"
-                                      Description="{DynamicResource S.Settings.View.ThemeDescription}"
+            <ctrls:OptionsDisplayItem Header="{DynamicResource S.ViewSettingsPage.Theme}"
+                                      Description="{DynamicResource S.ViewSettingsPage.ThemeDescription}"
                                       Icon="DarkTheme">
 
                 <ctrls:OptionsDisplayItem.ActionButton>
                     <ComboBox SelectedIndex="{CompiledBinding SelectedTheme.Value}">
-                        <ComboBoxItem Content="{DynamicResource S.Settings.View.Theme.Light}" />
-                        <ComboBoxItem Content="{DynamicResource S.Settings.View.Theme.Dark}" />
-                        <ComboBoxItem Content="{DynamicResource S.Settings.View.Theme.HighContrast}" />
-                        <ComboBoxItem Content="{DynamicResource S.Settings.View.Theme.System}" />
+                        <ComboBoxItem Content="{DynamicResource S.ViewSettingsPage.Theme.Light}" />
+                        <ComboBoxItem Content="{DynamicResource S.ViewSettingsPage.Theme.Dark}" />
+                        <ComboBoxItem Content="{DynamicResource S.ViewSettingsPage.Theme.HighContrast}" />
+                        <ComboBoxItem Content="{DynamicResource S.ViewSettingsPage.Theme.System}" />
                     </ComboBox>
                 </ctrls:OptionsDisplayItem.ActionButton>
             </ctrls:OptionsDisplayItem>

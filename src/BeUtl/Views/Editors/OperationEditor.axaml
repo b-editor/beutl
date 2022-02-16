@@ -10,7 +10,7 @@
             <StackPanel Orientation="Horizontal">
                 <StackPanel.ContextMenu>
                     <ContextMenu>
-                        <MenuItem Header="{DynamicResource RemoveString}" Click="Remove_Click">
+                        <MenuItem Header="{DynamicResource S.Editors.Operation.Remove}" Click="Remove_Click">
                             <MenuItem.Icon>
                                 <FluentIconRegular IconType="Delete" Classes="Small" />
                             </MenuItem.Icon>

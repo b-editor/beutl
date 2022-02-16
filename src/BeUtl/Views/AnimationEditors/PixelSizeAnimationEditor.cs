@@ -10,8 +10,8 @@ public sealed class PixelSizeAnimationEditor : BaseVector2AnimationEditor<Media.
 {
     public PixelSizeAnimationEditor()
     {
-        var xres = new DynamicResourceExtension("WidthString");
-        var yres = new DynamicResourceExtension("HeightString");
+        var xres = new DynamicResourceExtension("S.Editors.PixelSize.X");
+        var yres = new DynamicResourceExtension("S.Editors.PixelSize.Y");
         prevXText[!TextBlock.TextProperty] = xres;
         prevYText[!TextBlock.TextProperty] = yres;
         nextXText[!TextBlock.TextProperty] = xres;

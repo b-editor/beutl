@@ -10,8 +10,6 @@ public sealed class ChangePropertyCommand : IRecordableCommand
         OldValue = oldValue;
     }
 
-    public ResourceReference<string> Name => "ChangePropertyString";
-
     public ICoreObject Object { get; }
 
     public CoreProperty Property { get; }

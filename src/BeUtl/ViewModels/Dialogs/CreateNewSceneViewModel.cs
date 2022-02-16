@@ -30,7 +30,7 @@ public sealed class CreateNewSceneViewModel
         {
             if (Directory.Exists(Path.Combine(Location.Value, n)))
             {
-                return (string?)Application.Current?.FindResource("ItAlreadyExistsString");
+                return (string?)Application.Current?.FindResource("S.Warning.ItAlreadyExists");
             }
             else
             {
@@ -42,7 +42,7 @@ public sealed class CreateNewSceneViewModel
         {
             if (s.Width <= 0 || s.Height <= 0)
             {
-                return (string?)Application.Current?.FindResource("CannotSpecifyValueLessThanOrEqualToZeroString");
+                return (string?)Application.Current?.FindResource("S.Warning.ValueLessThanOrEqualToZero");
             }
             else
             {

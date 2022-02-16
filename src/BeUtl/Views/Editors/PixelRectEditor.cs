@@ -10,10 +10,10 @@ public sealed class PixelRectEditor : BaseVector4Editor<Media.PixelRect>
 {
     public PixelRectEditor()
     {
-        xText[!TextBlock.TextProperty] = new DynamicResourceExtension("XString");
-        yText[!TextBlock.TextProperty] = new DynamicResourceExtension("YString");
-        zText[!TextBlock.TextProperty] = new DynamicResourceExtension("WidthString");
-        wText[!TextBlock.TextProperty] = new DynamicResourceExtension("HeightString");
+        xText[!TextBlock.TextProperty] = new DynamicResourceExtension("S.Editors.PixelRect.X");
+        yText[!TextBlock.TextProperty] = new DynamicResourceExtension("S.Editors.PixelRect.Y");
+        zText[!TextBlock.TextProperty] = new DynamicResourceExtension("S.Editors.PixelRect.Z");
+        wText[!TextBlock.TextProperty] = new DynamicResourceExtension("S.Editors.PixelRect.W");
         xTextBox[!TextBox.TextProperty] = new Binding("Value.Value.X", BindingMode.OneWay);
         yTextBox[!TextBox.TextProperty] = new Binding("Value.Value.Y", BindingMode.OneWay);
         zTextBox[!TextBox.TextProperty] = new Binding("Value.Value.Width", BindingMode.OneWay);

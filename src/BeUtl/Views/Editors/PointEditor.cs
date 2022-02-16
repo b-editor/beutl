@@ -10,8 +10,8 @@ public sealed class PointEditor : BaseVector2Editor<Graphics.Point>
 {
     public PointEditor()
     {
-        xText[!TextBlock.TextProperty] = new DynamicResourceExtension("XString");
-        yText[!TextBlock.TextProperty] = new DynamicResourceExtension("YString");
+        xText[!TextBlock.TextProperty] = new DynamicResourceExtension("S.Editors.Point.X");
+        yText[!TextBlock.TextProperty] = new DynamicResourceExtension("S.Editors.Point.Y");
         xTextBox[!TextBox.TextProperty] = new Binding("Value.Value.X", BindingMode.OneWay);
         yTextBox[!TextBox.TextProperty] = new Binding("Value.Value.Y", BindingMode.OneWay);
     }

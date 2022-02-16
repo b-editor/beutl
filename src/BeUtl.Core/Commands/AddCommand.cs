@@ -11,8 +11,6 @@ public sealed class AddCommand : IRecordableCommand
         Index = index;
     }
 
-    public ResourceReference<string> Name => "AddItemString";
-
     public IList List { get; }
 
     public object? Item { get; }

@@ -40,5 +40,4 @@ public partial class PropertiesEditor : UserControl
             e.DragEffects = DragDropEffects.None;
         }
     }
-
 }

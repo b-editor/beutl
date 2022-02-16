@@ -10,8 +10,8 @@ public sealed class PixelPointEditor : BaseVector2Editor<Media.PixelPoint>
 {
     public PixelPointEditor()
     {
-        xText[!TextBlock.TextProperty] = new DynamicResourceExtension("XString");
-        yText[!TextBlock.TextProperty] = new DynamicResourceExtension("YString");
+        xText[!TextBlock.TextProperty] = new DynamicResourceExtension("S.Editors.PixelPoint.X");
+        yText[!TextBlock.TextProperty] = new DynamicResourceExtension("S.Editors.PixelPoint.Y");
         xTextBox[!TextBox.TextProperty] = new Binding("Value.Value.X", BindingMode.OneWay);
         yTextBox[!TextBox.TextProperty] = new Binding("Value.Value.Y", BindingMode.OneWay);
     }

@@ -1,0 +1,26 @@
+﻿<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Styles.Resources>
+        <x:String x:Key="S.OpName.Ellipse">Ellipse</x:String>
+        <x:String x:Key="S.OpName.Rect">Rect</x:String>
+        <x:String x:Key="S.OpName.Text">Text</x:String>
+        <x:String x:Key="S.OpName.ImageFile">Image File</x:String>
+        <x:String x:Key="S.OpName.Align">Align</x:String>
+        <x:String x:Key="S.OpName.Blend">Blend</x:String>
+        <x:String x:Key="S.OpName.OffscreenDrawing">Offscreen drawing</x:String>
+        <x:String x:Key="S.OpName.RenderAll">Render all</x:String>
+        <x:String x:Key="S.OpName.RoundedRect">Rounded rect</x:String>
+        <x:String x:Key="S.OpName.Test">Test</x:String>
+
+        <x:String x:Key="S.OpName.Transform">Transform</x:String>
+        <x:String x:Key="S.OpName.Rotate">Rotate</x:String>
+        <x:String x:Key="S.OpName.Rotate3D">Rotate3D</x:String>
+        <x:String x:Key="S.OpName.Scale">Scale</x:String>
+        <x:String x:Key="S.OpName.Skew">Skew</x:String>
+        <x:String x:Key="S.OpName.Translate">Translate</x:String>
+
+        <x:String x:Key="S.OpName.Effect">Effect</x:String>
+        <x:String x:Key="S.OpName.Blur">Blur</x:String>
+        <x:String x:Key="S.OpName.DropShadow">DropShadow</x:String>
+    </Styles.Resources>
+</Styles>

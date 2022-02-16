@@ -70,13 +70,13 @@
                     <Setter Property="VerticalContentAlignment" Value="Center" />
                 </Style>
             </Grid.Styles>
-            <Label Content="{DynamicResource NameString}"
+            <Label Content="{DynamicResource S.Timeline.LayerName}"
                    Grid.Column="3" />
 
-            <Label Content="{DynamicResource StartTimeString}"
+            <Label Content="{DynamicResource S.Timeline.StartTime}"
                    Grid.Column="4" />
 
-            <Label Content="{DynamicResource DurationTimeString}"
+            <Label Content="{DynamicResource S.Timeline.DurationTime}"
                    Grid.Column="5" />
         </Grid>
 
@@ -121,16 +121,16 @@
 
                 <Panel.ContextMenu>
                     <ContextMenu>
-                        <MenuItem Header="{DynamicResource AddLayerString}" Click="AddLayerClick" />
+                        <MenuItem Header="{DynamicResource S.Timeline.AddLayer}" Click="AddLayerClick" />
                         <MenuItem
                             Command="{CompiledBinding Paste}"
-                            Header="{DynamicResource PasteString}"
+                            Header="{DynamicResource S.Timeline.Paste}"
                             InputGesture="{DynamicResource PasteKeyGesture}">
                             <MenuItem.Icon>
                                 <FluentIconRegular IconType="Clipboard_Paste" Classes="Small" />
                             </MenuItem.Icon>
                         </MenuItem>
-                        <MenuItem Header="{DynamicResource SettingsString}" Click="ShowSceneSettings">
+                        <MenuItem Header="{DynamicResource S.Timeline.Settings}" Click="ShowSceneSettings">
                             <MenuItem.Icon>
                                 <FluentIconRegular IconType="Settings" Classes="Small" />
                             </MenuItem.Icon>

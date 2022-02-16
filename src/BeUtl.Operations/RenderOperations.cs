@@ -10,28 +10,28 @@ public static class RenderOperations
 {
     public static void RegisterAll()
     {
-        RenderOperationRegistry.RegisterOperations("EffectString", Colors.Teal)
-            .Add<BlurOperation>("BlurString")
-            .Add<DropShadowOperation>("DropShadowString")
+        RenderOperationRegistry.RegisterOperations("S.OpName.Effect", Colors.Teal)
+            .Add<BlurOperation>("S.OpName.Blur")
+            .Add<DropShadowOperation>("S.OpName.DropShadow")
             .Register();
 
-        RenderOperationRegistry.RegisterOperations("TransformString", Colors.Teal)
-            .Add<RotateTransform>("RotateString")
-            .Add<Rotate3DTransform>("Rotate3DString")
-            .Add<ScaleTransform>("ScaleString")
-            .Add<SkewTransform>("SkewString")
-            .Add<TranslateTransform>("TranslateString")
-            .Add<AlignOperation>("AlignString")
+        RenderOperationRegistry.RegisterOperations("S.OpName.Transform", Colors.Teal)
+            .Add<RotateTransform>("S.OpName.Rotate")
+            .Add<Rotate3DTransform>("S.OpName.Rotate3D")
+            .Add<ScaleTransform>("S.OpName.Scale")
+            .Add<SkewTransform>("S.OpName.Skew")
+            .Add<TranslateTransform>("S.OpName.Translate")
+            .Add<AlignOperation>("S.OpName.Align")
             .Register();
 
-        RenderOperationRegistry.RegisterOperation<EllipseOperation>("EllipseString");
-        RenderOperationRegistry.RegisterOperation<RectOperation>("RectString");
-        RenderOperationRegistry.RegisterOperation<RoundedRectOperation>("RoundedRectString");
-        RenderOperationRegistry.RegisterOperation<FormattedTextOperation>("TextString");
-        RenderOperationRegistry.RegisterOperation<ImageFileOperation>("ImageFileString");
-        RenderOperationRegistry.RegisterOperation<BlendOperation>("BlendString");
-        RenderOperationRegistry.RegisterOperation<OffscreenDrawing>("OffscreenDrawingString");
-        RenderOperationRegistry.RegisterOperation<RenderAllOperation>("RenderAllString");
-        RenderOperationRegistry.RegisterOperation<TestOperation>("TestString");
+        RenderOperationRegistry.RegisterOperation<EllipseOperation>("S.OpName.Ellipse");
+        RenderOperationRegistry.RegisterOperation<RectOperation>("S.OpName.Rect");
+        RenderOperationRegistry.RegisterOperation<RoundedRectOperation>("S.OpName.RoundedRect");
+        RenderOperationRegistry.RegisterOperation<FormattedTextOperation>("S.OpName.Text");
+        RenderOperationRegistry.RegisterOperation<ImageFileOperation>("S.OpName.ImageFile");
+        RenderOperationRegistry.RegisterOperation<BlendOperation>("S.OpName.Blend");
+        RenderOperationRegistry.RegisterOperation<OffscreenDrawing>("S.OpName.OffscreenDrawing");
+        RenderOperationRegistry.RegisterOperation<RenderAllOperation>("S.OpName.RenderAll");
+        RenderOperationRegistry.RegisterOperation<TestOperation>("S.OpName.Test");
     }
 }

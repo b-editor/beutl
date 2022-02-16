@@ -1,0 +1,21 @@
+﻿<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Styles.Resources>
+        <!--Strings-->
+        <StaticResource x:Key="S.SettingsPage.View" ResourceKey="S.Common.View" />
+        <StaticResource x:Key="S.SettingsPage.Font" ResourceKey="S.Common.Font" />
+        <StaticResource x:Key="S.SettingsPage.Info" ResourceKey="S.Common.Info" />
+        <StaticResource x:Key="S.FontSettingsPage.Add" ResourceKey="S.Common.Add" />
+        <StaticResource x:Key="S.FontSettingsPage.Remove" ResourceKey="S.Common.Remove" />
+        <StaticResource x:Key="S.InfomationPage.Links" ResourceKey="S.Common.Links" />
+        <StaticResource x:Key="S.InfomationPage.SourceCode" ResourceKey="S.Common.SourceCode" />
+        <StaticResource x:Key="S.InfomationPage.License" ResourceKey="S.Common.License" />
+        <StaticResource x:Key="S.InfomationPage.ThirdPartyLicenses" ResourceKey="S.Common.ThirdPartyLicenses" />
+        <StaticResource x:Key="S.ViewSettingsPage.Theme" ResourceKey="S.Common.Theme" />
+        <x:String x:Key="S.ViewSettingsPage.ThemeDescription">Select the theme of the app you want to display</x:String>
+        <StaticResource x:Key="S.ViewSettingsPage.Theme.Light" ResourceKey="S.Common.Light" />
+        <StaticResource x:Key="S.ViewSettingsPage.Theme.Dark" ResourceKey="S.Common.Dark" />
+        <StaticResource x:Key="S.ViewSettingsPage.Theme.HighContrast" ResourceKey="S.Common.HighContrast" />
+        <StaticResource x:Key="S.ViewSettingsPage.Theme.System" ResourceKey="S.Common.FollowSystem" />
+    </Styles.Resources>
+</Styles>

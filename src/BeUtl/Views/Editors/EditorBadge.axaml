@@ -20,11 +20,11 @@
             <ContextMenu>
                 <MenuItem
                     Command="{Binding Reset}"
-                    Header="{DynamicResource ResetString}"
+                    Header="{DynamicResource S.Editors.Badge.Reset}"
                     IsEnabled="{CompiledBinding CanReset}" />
                 <MenuItem
                     Click="EditAnimation_Click"
-                    Header="{DynamicResource EditAnimationString}" />
+                    Header="{DynamicResource S.Editors.Badge.EditAnimation}" />
             </ContextMenu>
         </Button.ContextMenu>
         <FluentIconRegular

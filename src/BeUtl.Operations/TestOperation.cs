@@ -121,9 +121,9 @@ internal class TestOperation : LayerOperation
 
     public enum Asis
     {
-        [Description("WidthString")]
+        [Description("S.Common.Width")]
         X,
-        [Description("HeightString")]
+        [Description("S.Common.Height")]
         Y
     }
 }

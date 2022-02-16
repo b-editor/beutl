@@ -12,19 +12,19 @@
                     VerticalAlignment="Stretch"
                     Margin="10,0"
                     Spacing="8">
-            <ctrls:OptionsDisplayItem Header="{DynamicResource S.Settings.Info.Links}"
+            <ctrls:OptionsDisplayItem Header="{DynamicResource S.InfomationPage.Links}"
                                       Icon="Link"
                                       Expands="True">
                 <ctrls:OptionsDisplayItem.Content>
                     <Grid ColumnDefinitions="*,*" Margin="32,16">
                         <StackPanel>
-                            <ui:HyperlinkButton Content="{DynamicResource S.Settings.Info.SourceCode}"
+                            <ui:HyperlinkButton Content="{DynamicResource S.InfomationPage.SourceCode}"
                                                 NavigateUri="https://github.com/b-editor/BeUtl" />
                         </StackPanel>
 
                         <StackPanel Grid.Column="1">
-                            <ui:HyperlinkButton Content="{DynamicResource S.Settings.Info.License}" />
-                            <ui:HyperlinkButton Content="{DynamicResource S.Settings.Info.ThirdPartyLicenses}" />
+                            <ui:HyperlinkButton Content="{DynamicResource S.InfomationPage.License}" />
+                            <ui:HyperlinkButton Content="{DynamicResource S.InfomationPage.ThirdPartyLicenses}" />
                         </StackPanel>
                     </Grid>
                 </ctrls:OptionsDisplayItem.Content>

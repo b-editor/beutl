@@ -50,7 +50,7 @@ public class MainViewModel
                         itemsCount++;
                     }
 
-                    string message = new ResourceReference<string>("ItemsSavedString").FindOrDefault(string.Empty);
+                    string message = new ResourceReference<string>("S.Message.ItemsSaved").FindOrDefault(string.Empty);
                     nservice.Show(new Notification(
                         string.Empty,
                         string.Format(message, itemsCount.ToString()),
@@ -58,7 +58,7 @@ public class MainViewModel
                 }
                 catch
                 {
-                    string message = new ResourceReference<string>("TheOperationCouldNotBeExecutedString").FindOrDefault(string.Empty);
+                    string message = new ResourceReference<string>("S.Message.OperationCouldNotBeExecuted").FindOrDefault(string.Empty);
                     nservice.Show(new Notification(
                         string.Empty,
                         string.Format(message, itemsCount.ToString()),

@@ -5,10 +5,10 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:ui="using:FluentAvalonia.UI.Controls"
     xmlns:vm="using:BeUtl.ViewModels.Dialogs"
-    Title="{DynamicResource AddLayerString}"
-    CloseButtonText="{DynamicResource CloseString}"
-    PrimaryButtonText="{DynamicResource BackString}"
-    SecondaryButtonText="{DynamicResource NextString}"
+    Title="{DynamicResource S.Dialogs.AddLayer.Title}"
+    CloseButtonText="{DynamicResource S.Dialogs.AddLayer.Close}"
+    PrimaryButtonText="{DynamicResource S.Dialogs.AddLayer.Back}"
+    SecondaryButtonText="{DynamicResource S.Dialogs.AddLayer.Next}"
     IsPrimaryButtonEnabled="False"
     DefaultButton="Secondary"
     mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
@@ -17,25 +17,25 @@
     <Carousel x:Name="carousel">
         <Carousel.Items>
             <StackPanel Spacing="8">
-                <TextBlock Text="{DynamicResource StartTimeString}" />
+                <TextBlock Text="{DynamicResource S.Dialogs.AddLayer.StartTime}" />
                 <TextBox Text="{CompiledBinding Start.Value, Mode=TwoWay}" />
 
                 <Separator />
 
-                <TextBlock Text="{DynamicResource DurationTimeString}" />
+                <TextBlock Text="{DynamicResource S.Dialogs.AddLayer.DurationTime}" />
                 <TextBox Text="{CompiledBinding Duration.Value, Mode=TwoWay}" />
 
                 <Separator />
 
-                <TextBlock Text="{DynamicResource LayerString}" />
+                <TextBlock Text="{DynamicResource S.Dialogs.AddLayer.Layer}" />
                 <NumericUpDown Value="{CompiledBinding Layer.Value, Mode=TwoWay}" Minimum="0" />
             </StackPanel>
             <StackPanel Spacing="8">
-                <TextBlock Text="{DynamicResource NameString}" />
+                <TextBlock Text="{DynamicResource S.Dialogs.AddLayer.Name}" />
                 <TextBox InputMethod.IsInputMethodEnabled="True" Text="{CompiledBinding Name.Value, Mode=TwoWay}" />
 
                 <StackPanel Orientation="Horizontal" Spacing="8">
-                    <TextBlock Text="{DynamicResource ColorString}" VerticalAlignment="Center" />
+                    <TextBlock Text="{DynamicResource S.Dialogs.AddLayer.Color}" VerticalAlignment="Center" />
                     <ui:ColorPickerButton
                         CustomPaletteColors="{StaticResource PaletteColors}"
                         UseColorPalette="True"

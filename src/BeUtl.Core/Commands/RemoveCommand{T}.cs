@@ -9,8 +9,6 @@ public sealed class RemoveCommand<T> : IRecordableCommand
         Index = list.IndexOf(Item);
     }
 
-    public ResourceReference<string> Name => "RemoveItemString";
-
     public IList<T> List { get; }
 
     public T Item { get; }

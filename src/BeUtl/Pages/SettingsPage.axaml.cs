@@ -31,13 +31,13 @@ public partial class SettingsPage : UserControl
         frame.Navigate((Type)selected.Tag!);
     }
 
-    private List<NavigationViewItem> GetItems()
+    private static List<NavigationViewItem> GetItems()
     {
         return new List<NavigationViewItem>()
         {
             new NavigationViewItem()
             {
-                [!ContentProperty] = new DynamicResourceExtension("S.Settings.View"),
+                [!ContentProperty] = new DynamicResourceExtension("S.SettingsPage.View"),
                 Tag = typeof(ViewSettingsPage),
                 Icon = new SymbolIcon
                 {
@@ -46,7 +46,7 @@ public partial class SettingsPage : UserControl
             },
             new NavigationViewItem()
             {
-                [!ContentProperty] = new DynamicResourceExtension("S.Settings.Font"),
+                [!ContentProperty] = new DynamicResourceExtension("S.SettingsPage.Font"),
                 Tag = typeof(FontSettingsPage),
                 Icon = new SymbolIcon
                 {
@@ -55,7 +55,7 @@ public partial class SettingsPage : UserControl
             },
             new NavigationViewItem()
             {
-                [!ContentProperty] = new DynamicResourceExtension("S.Settings.Info"),
+                [!ContentProperty] = new DynamicResourceExtension("S.SettingsPage.Info"),
                 Tag = typeof(InfomationPage),
                 Icon = new FluentAvalonia.UI.Controls.PathIcon
                 {

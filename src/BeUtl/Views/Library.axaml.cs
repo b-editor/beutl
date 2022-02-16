@@ -64,7 +64,10 @@ public partial class Library : UserControl
         if (e.GetCurrentPoint(Tree).Properties.IsLeftButtonPressed)
         {
             if (sender is not TreeViewItem select ||
-                select.DataContext is not RenderOperationRegistry.RegistryItem item) return;
+                select.DataContext is not RenderOperationRegistry.RegistryItem item)
+            {
+                return;
+            }
 
             Tree.SelectedItem = select;
             await Task.Delay(10);

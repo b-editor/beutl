@@ -26,11 +26,13 @@ public sealed class DirectoryTreeView : TreeView, IStyleable
     private readonly MenuItem _rename;
     private readonly MenuItem _addfolder;
     private readonly List<object> _menuItem;
+    private readonly Func<string, object> _contextFactory;
 
-    public DirectoryTreeView(FileSystemWatcher watcher)
+    public DirectoryTreeView(FileSystemWatcher watcher, Func<string, object> contextFactory = null)
     {
         _watcher = watcher;
         _directoryInfo = new DirectoryInfo(watcher.Path);
+        _contextFactory = contextFactory;
         Items = _items;
         InitSubDirectory();
 
@@ -44,7 +46,7 @@ public sealed class DirectoryTreeView : TreeView, IStyleable
 
         _open = new MenuItem
         {
-            [!HeaderedSelectingItemsControl.HeaderProperty] = new DynamicResourceExtension("OpenString"),
+            [!HeaderedSelectingItemsControl.HeaderProperty] = new DynamicResourceExtension("S.Common.Open"),
             Icon = new SymbolIcon
             {
                 Symbol = Symbol.Open,
@@ -53,7 +55,7 @@ public sealed class DirectoryTreeView : TreeView, IStyleable
         };
         _copy = new MenuItem
         {
-            [!HeaderedSelectingItemsControl.HeaderProperty] = new DynamicResourceExtension("CopyString"),
+            [!HeaderedSelectingItemsControl.HeaderProperty] = new DynamicResourceExtension("S.Common.Copy"),
             Icon = new SymbolIcon
             {
                 Symbol = Symbol.Copy,
@@ -62,7 +64,7 @@ public sealed class DirectoryTreeView : TreeView, IStyleable
         };
         _remove = new MenuItem
         {
-            [!HeaderedSelectingItemsControl.HeaderProperty] = new DynamicResourceExtension("RemoveString"),
+            [!HeaderedSelectingItemsControl.HeaderProperty] = new DynamicResourceExtension("S.Common.Remove"),
             Icon = new SymbolIcon
             {
                 Symbol = Symbol.Delete,
@@ -71,7 +73,7 @@ public sealed class DirectoryTreeView : TreeView, IStyleable
         };
         _rename = new MenuItem
         {
-            [!HeaderedSelectingItemsControl.HeaderProperty] = new DynamicResourceExtension("RenameString"),
+            [!HeaderedSelectingItemsControl.HeaderProperty] = new DynamicResourceExtension("S.Common.Rename"),
             Icon = new SymbolIcon
             {
                 Symbol = Symbol.Rename,
@@ -80,7 +82,7 @@ public sealed class DirectoryTreeView : TreeView, IStyleable
         };
         _addfolder = new MenuItem
         {
-            [!HeaderedSelectingItemsControl.HeaderProperty] = new DynamicResourceExtension("NewFolderString"),
+            [!HeaderedSelectingItemsControl.HeaderProperty] = new DynamicResourceExtension("S.Common.NewFolder"),
             Icon = new SymbolIcon
             {
                 Symbol = Symbol.Folder,
@@ -99,7 +101,7 @@ public sealed class DirectoryTreeView : TreeView, IStyleable
             _open,
             new MenuItem
             {
-                [!HeaderedSelectingItemsControl.HeaderProperty] = new DynamicResourceExtension("CreateNewString"),
+                [!HeaderedSelectingItemsControl.HeaderProperty] = new DynamicResourceExtension("S.Common.CreateNew"),
                 Items = new object[]
                 {
                     _addfolder,
@@ -221,9 +223,9 @@ public sealed class DirectoryTreeView : TreeView, IStyleable
         {
             var dialog = new ContentDialog
             {
-                [!ContentControl.ContentProperty] = new DynamicResourceExtension("S.DirectoryTreeView.DoYouWantToDeleteThisDirectory"),
-                [!ContentDialog.PrimaryButtonTextProperty] = new DynamicResourceExtension("S.DirectoryTreeView.OK"),
-                [!ContentDialog.CloseButtonTextProperty] = new DynamicResourceExtension("S.DirectoryTreeView.Cancel"),
+                [!ContentControl.ContentProperty] = new DynamicResourceExtension("S.Message.DoYouWantToDeleteThisDirectory"),
+                [!ContentDialog.PrimaryButtonTextProperty] = new DynamicResourceExtension("S.Common.OK"),
+                [!ContentDialog.CloseButtonTextProperty] = new DynamicResourceExtension("S.Common.Cancel"),
                 DefaultButton = ContentDialogButton.Primary,
                 IsSecondaryButtonEnabled = false,
             };
@@ -237,9 +239,9 @@ public sealed class DirectoryTreeView : TreeView, IStyleable
         {
             var dialog = new ContentDialog
             {
-                [!ContentControl.ContentProperty] = new DynamicResourceExtension("S.DirectoryTreeView.DoYouWantToDeleteThisFile"),
-                [!ContentDialog.PrimaryButtonTextProperty] = new DynamicResourceExtension("S.DirectoryTreeView.OK"),
-                [!ContentDialog.CloseButtonTextProperty] = new DynamicResourceExtension("S.DirectoryTreeView.Cancel"),
+                [!ContentControl.ContentProperty] = new DynamicResourceExtension("S.Message.DoYouWantToDeleteThisFile"),
+                [!ContentDialog.PrimaryButtonTextProperty] = new DynamicResourceExtension("S.Common.OK"),
+                [!ContentDialog.CloseButtonTextProperty] = new DynamicResourceExtension("S.Common.Cancel"),
                 DefaultButton = ContentDialogButton.Primary,
                 IsSecondaryButtonEnabled = false,
             };
@@ -276,7 +278,7 @@ public sealed class DirectoryTreeView : TreeView, IStyleable
         }
 
         int count = 0;
-        string str = Application.Current.FindResource("S.DirectoryTreeView.NewFolder") as string ?? "New Folder";
+        string str = Application.Current.FindResource("S.Common.NewFolder") as string ?? "New Folder";
         string defaultName = str;
 
         while (Directory.Exists(Path.Combine(baseDir, defaultName)))
@@ -299,11 +301,17 @@ public sealed class DirectoryTreeView : TreeView, IStyleable
                 if (Directory.Exists(e.FullPath))
                 {
                     var di = new DirectoryInfo(e.FullPath);
-                    _items.Add(new DirectoryTreeItem(di, _watcher));
+                    _items.Add(new DirectoryTreeItem(di, _watcher, _contextFactory)
+                    {
+                        DataContext = _contextFactory?.Invoke(e.FullPath)
+                    });
                 }
                 else
                 {
-                    _items.Add(new FileTreeItem(new FileInfo(e.FullPath)));
+                    _items.Add(new FileTreeItem(new FileInfo(e.FullPath))
+                    {
+                        DataContext = _contextFactory?.Invoke(e.FullPath)
+                    });
                 }
             }
 
@@ -349,6 +357,8 @@ public sealed class DirectoryTreeView : TreeView, IStyleable
                 {
                     file.Info = new FileInfo(e.FullPath);
                 }
+
+                item.DataContext = _contextFactory?.Invoke(e.FullPath);
             }
 
             Sort();
@@ -396,7 +406,10 @@ public sealed class DirectoryTreeView : TreeView, IStyleable
         {
             if (!item.Attributes.HasAnyFlag(FileAttributes.Hidden | FileAttributes.System))
             {
-                _items.Add(new DirectoryTreeItem(item, _watcher));
+                _items.Add(new DirectoryTreeItem(item, _watcher, _contextFactory)
+                {
+                    DataContext = _contextFactory?.Invoke(item.FullName)
+                });
             }
         }
 
@@ -405,7 +418,10 @@ public sealed class DirectoryTreeView : TreeView, IStyleable
         {
             if (!item.Attributes.HasAnyFlag(FileAttributes.Hidden | FileAttributes.System))
             {
-                _items.Add(new FileTreeItem(item));
+                _items.Add(new FileTreeItem(item)
+                {
+                    DataContext = _contextFactory?.Invoke(item.FullName)
+                });
             }
         }
     }
@@ -529,11 +545,11 @@ public sealed class FileTreeItem : TreeViewItem, IStyleable
             string @new = Path.Combine(Info.DirectoryName, tb.Text);
             if (File.Exists(@new))
             {
-                string content = (string)Application.Current.FindResource("S.DirectoryTreeView.CannotRenameBecauseNewNameConflicts");
+                string content = (string)Application.Current.FindResource("S.Warning.CannotRenameBecauseConflicts");
                 content = string.Format(content, Info.Name, tb.Text);
                 var dialog = new ContentDialog()
                 {
-                    [!ContentDialog.CloseButtonTextProperty] = new DynamicResourceExtension("CloseString"),
+                    [!ContentDialog.CloseButtonTextProperty] = new DynamicResourceExtension("S.Common.Close"),
                     Content = content,
                     DefaultButton = ContentDialogButton.None,
                     IsPrimaryButtonEnabled = false,
@@ -592,13 +608,15 @@ public sealed class DirectoryTreeItem : TreeViewItem, IStyleable
     private DirectoryInfo _info;
     // 名前を変更中
     private bool _isRenaming;
+    private Func<string, object> _contextFactory;
 
-    public DirectoryTreeItem(DirectoryInfo info, FileSystemWatcher watcher)
+    public DirectoryTreeItem(DirectoryInfo info, FileSystemWatcher watcher, Func<string, object> contextFactory = null)
     {
         _info = info;
         Header = info.Name;
         Items = _items;
         _watcher = watcher;
+        _contextFactory = contextFactory;
         if (info.EnumerateFileSystemInfos().Any())
         {
             _items.Add(new TreeViewItem());
@@ -635,7 +653,10 @@ public sealed class DirectoryTreeItem : TreeViewItem, IStyleable
         {
             if (!item.Attributes.HasAnyFlag(FileAttributes.Hidden | FileAttributes.System))
             {
-                _items.Add(new DirectoryTreeItem(item, _watcher));
+                _items.Add(new DirectoryTreeItem(item, _watcher, _contextFactory)
+                {
+                    DataContext = _contextFactory?.Invoke(item.FullName)
+                });
             }
         }
 
@@ -644,7 +665,10 @@ public sealed class DirectoryTreeItem : TreeViewItem, IStyleable
         {
             if (!item.Attributes.HasAnyFlag(FileAttributes.Hidden | FileAttributes.System))
             {
-                _items.Add(new FileTreeItem(item));
+                _items.Add(new FileTreeItem(item)
+                {
+                    DataContext = _contextFactory?.Invoke(item.FullName)
+                });
             }
         }
 
@@ -747,11 +771,11 @@ public sealed class DirectoryTreeItem : TreeViewItem, IStyleable
             string @new = Path.Combine(Info.Parent.FullName, tb.Text);
             if (Directory.Exists(@new))
             {
-                string content = (string)Application.Current.FindResource("S.DirectoryTreeView.CannotRenameBecauseNewNameConflicts");
+                string content = (string)Application.Current.FindResource("S.Warning.CannotRenameBecauseConflicts");
                 content = string.Format(content, Info.Name, tb.Text);
                 var dialog = new ContentDialog()
                 {
-                    [!ContentDialog.CloseButtonTextProperty] = new DynamicResourceExtension("CloseString"),
+                    [!ContentDialog.CloseButtonTextProperty] = new DynamicResourceExtension("S.Common.Close"),
                     Content = content,
                     DefaultButton = ContentDialogButton.None,
                     IsPrimaryButtonEnabled = false,
@@ -804,20 +828,17 @@ public sealed class DirectoryTreeItem : TreeViewItem, IStyleable
                 if (Directory.Exists(e.FullPath))
                 {
                     var di = new DirectoryInfo(e.FullPath);
-                    TreeViewItem last = _items.LastOrDefault(i => i is DirectoryTreeItem);
-                    if (last != null)
+                    _items.Add(new DirectoryTreeItem(di, _watcher, _contextFactory)
                     {
-                        int index = _items.IndexOf(last);
-                        _items.Insert(index, new DirectoryTreeItem(di, _watcher));
-                    }
-                    else
-                    {
-                        _items.Add(new DirectoryTreeItem(di, _watcher));
-                    }
+                        DataContext = _contextFactory?.Invoke(e.FullPath)
+                    });
                 }
                 else
                 {
-                    _items.Add(new FileTreeItem(new FileInfo(e.FullPath)));
+                    _items.Add(new FileTreeItem(new FileInfo(e.FullPath))
+                    {
+                        DataContext = _contextFactory?.Invoke(e.FullPath)
+                    });
                 }
 
                 Sort();
@@ -865,6 +886,8 @@ public sealed class DirectoryTreeItem : TreeViewItem, IStyleable
                 {
                     file.Info = new FileInfo(e.FullPath);
                 }
+
+                item.DataContext = _contextFactory?.Invoke(e.FullPath);
             }
 
             Sort();

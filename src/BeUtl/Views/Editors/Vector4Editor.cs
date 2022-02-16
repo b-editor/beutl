@@ -12,10 +12,10 @@ public sealed class Vector4Editor : BaseVector4Editor<Vector4>
 {
     public Vector4Editor()
     {
-        xText[!TextBlock.TextProperty] = new DynamicResourceExtension("XString");
-        yText[!TextBlock.TextProperty] = new DynamicResourceExtension("YString");
-        zText[!TextBlock.TextProperty] = new DynamicResourceExtension("ZString");
-        wText[!TextBlock.TextProperty] = new DynamicResourceExtension("WString");
+        xText[!TextBlock.TextProperty] = new DynamicResourceExtension("S.Editors.Vector4.X");
+        yText[!TextBlock.TextProperty] = new DynamicResourceExtension("S.Editors.Vector4.Y");
+        zText[!TextBlock.TextProperty] = new DynamicResourceExtension("S.Editors.Vector4.Z");
+        wText[!TextBlock.TextProperty] = new DynamicResourceExtension("S.Editors.Vector4.W");
         xTextBox[!TextBox.TextProperty] = new Binding("Value.Value.X", BindingMode.OneWay);
         yTextBox[!TextBox.TextProperty] = new Binding("Value.Value.Y", BindingMode.OneWay);
         zTextBox[!TextBox.TextProperty] = new Binding("Value.Value.Z", BindingMode.OneWay);

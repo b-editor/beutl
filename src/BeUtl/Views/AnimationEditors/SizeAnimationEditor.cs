@@ -10,8 +10,8 @@ public sealed class SizeAnimationEditor : BaseVector2AnimationEditor<Graphics.Si
 {
     public SizeAnimationEditor()
     {
-        var xres = new DynamicResourceExtension("WidthString");
-        var yres = new DynamicResourceExtension("HeightString");
+        var xres = new DynamicResourceExtension("S.Editors.Size.X");
+        var yres = new DynamicResourceExtension("S.Editors.Size.Y");
         prevXText[!TextBlock.TextProperty] = xres;
         prevYText[!TextBlock.TextProperty] = yres;
         nextXText[!TextBlock.TextProperty] = xres;

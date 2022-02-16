@@ -52,7 +52,7 @@ public partial class MainView : UserControl
                     {
                         new FileDialogFilter
                         {
-                            Name = Application.Current?.FindResource("ProjectFileString") as string,
+                            Name = Application.Current?.FindResource("S.Common.ProjectFile") as string,
                             Extensions =
                             {
                                 "bep"

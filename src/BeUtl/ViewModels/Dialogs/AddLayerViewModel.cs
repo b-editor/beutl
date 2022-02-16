@@ -31,9 +31,9 @@ public sealed class AddLayerViewModel
         Duration.Value = desc.Length;
         Layer.SetValidateNotifyError(layer =>
         {
-            if (ExistsLayer(layer))
+            if (layer < 0)
             {
-                return (string?)Application.Current?.FindResource("ThisLayerNumberIsAlreadyInUseString");
+                return (string?)Application.Current?.FindResource("S.Warning.ValueLessThanZero");
             }
             else
             {
@@ -44,7 +44,7 @@ public sealed class AddLayerViewModel
         {
             if (start < TimeSpan.Zero)
             {
-                return (string?)Application.Current?.FindResource("CannotSpecifyValueLessThanString");
+                return (string?)Application.Current?.FindResource("S.Warning.ValueLessThanZero");
             }
             else
             {
@@ -55,7 +55,7 @@ public sealed class AddLayerViewModel
         {
             if (length <= TimeSpan.Zero)
             {
-                return (string?)Application.Current?.FindResource("CannotSpecifyValueLessThanOrEqualToZeroString");
+                return (string?)Application.Current?.FindResource("S.Warning.ValueLessThanOrEqualToZero");
             }
             else
             {
@@ -67,7 +67,7 @@ public sealed class AddLayerViewModel
             .Select(item =>
             {
                 (int layer, TimeSpan start, TimeSpan length) = item;
-                return !ExistsLayer(layer) &&
+                return layer >= 0 &&
                     start >= TimeSpan.Zero &&
                     length > TimeSpan.Zero;
             })
@@ -111,17 +111,4 @@ public sealed class AddLayerViewModel
     public ReadOnlyReactivePropertySlim<bool> CanAdd { get; }
 
     public ReactiveCommand Add { get; }
-
-    private bool ExistsLayer(int layer)
-    {
-        foreach (Layer item in _scene.Children)
-        {
-            if (item.ZIndex == layer)
-            {
-                return true;
-            }
-        }
-
-        return false;
-    }
 }

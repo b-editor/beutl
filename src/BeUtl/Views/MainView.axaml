@@ -35,54 +35,54 @@
 
             <Menu Grid.Column="1">
                 <!--ファイル-->
-                <MenuItem Header="{DynamicResource FileString}">
+                <MenuItem Header="{DynamicResource S.MainView.File}">
                     <!--新規作成-->
-                    <MenuItem Header="{DynamicResource CreateNewString}">
+                    <MenuItem Header="{DynamicResource S.MainView.CreateNew}">
                         <MenuItem.Icon>
                             <FluentIconRegular IconType="New" Classes="Small" />
                         </MenuItem.Icon>
                         <!--プロジェクト-->
                         <MenuItem
                             InputGesture="{DynamicResource CreateNewProjectKeyGesture}"
-                            Header="{DynamicResource ProjectString}"
+                            Header="{DynamicResource S.MainView.CreateNew.Project}"
                             Command="{CompiledBinding CreateNewProject}" />
                         <!--ファイル-->
                         <MenuItem
                             InputGesture="{DynamicResource CreateNewKeyGesture}"
-                            Header="{DynamicResource FileString}"
+                            Header="{DynamicResource S.MainView.CreateNew.File}"
                             Command="{CompiledBinding CreateNew}" />
                     </MenuItem>
                     <Separator />
                     <!--開く-->
-                    <MenuItem Header="{DynamicResource OpenString}">
+                    <MenuItem Header="{DynamicResource S.MainView.Open}">
                         <MenuItem.Icon>
                             <FluentIconRegular IconType="Open" Classes="Small" />
                         </MenuItem.Icon>
                         <!--プロジェクト-->
                         <MenuItem
                             InputGesture="{DynamicResource OpenProjectKeyGesture}"
-                            Header="{DynamicResource ProjectString}"
+                            Header="{DynamicResource S.MainView.Open.Project}"
                             Command="{CompiledBinding OpenProject}" />
                         <!--ファイル-->
                         <MenuItem
                             InputGesture="{DynamicResource OpenKeyGesture}"
-                            Header="{DynamicResource FileString}"
+                            Header="{DynamicResource S.MainView.Open.File}"
                             Command="{CompiledBinding OpenFile}" />
                     </MenuItem>
                     <Separator />
                     <!--閉じる-->
                     <MenuItem
-                        Header="{DynamicResource CloseString}"
+                        Header="{DynamicResource S.MainView.Close}"
                         Command="{CompiledBinding CloseFile}" />
                     <!--プロジェクトを閉じる-->
                     <MenuItem
                         IsEnabled="{CompiledBinding IsProjectOpened.Value}"
-                        Header="{DynamicResource CloseProjectString}"
+                        Header="{DynamicResource S.MainView.CloseProject}"
                         Command="{CompiledBinding CloseProject}" />
                     <Separator />
                     <!--上書き保存-->
                     <MenuItem
-                        Header="{DynamicResource SaveString}"
+                        Header="{DynamicResource S.MainView.Save}"
                         Command="{CompiledBinding Save}"
                         InputGesture="{DynamicResource SaveKeyGesture}"
                         IsEnabled="{CompiledBinding IsProjectOpened.Value}">
@@ -92,7 +92,7 @@
                     </MenuItem>
                     <!--すべて保存-->
                     <MenuItem
-                        Header="{DynamicResource SaveAllString}"
+                        Header="{DynamicResource S.MainView.SaveAll}"
                         Command="{CompiledBinding SaveAll}"
                         InputGesture="{DynamicResource SaveAllKeyGesture}"
                         IsEnabled="{CompiledBinding IsProjectOpened.Value}">
@@ -103,15 +103,15 @@
                     <Separator />
                     <!--終了-->
                     <MenuItem
-                        Header="{DynamicResource ExitString}"
+                        Header="{DynamicResource S.MainView.Exit}"
                         Command="{CompiledBinding Exit}"
                         InputGesture="{DynamicResource ExitKeyGesture}" />
                 </MenuItem>
                 <!--編集-->
-                <MenuItem Header="{DynamicResource EditString}">
+                <MenuItem Header="{DynamicResource S.MainView.Edit}">
                     <!--元に戻す-->
                     <MenuItem
-                        Header="{DynamicResource UndoString}"
+                        Header="{DynamicResource S.MainView.Undo}"
                         Command="{CompiledBinding Undo}"
                         InputGesture="{DynamicResource UndoKeyGesture}"
                         IsEnabled="{CompiledBinding IsProjectOpened.Value}">
@@ -121,7 +121,7 @@
                     </MenuItem>
                     <!--やり直し-->
                     <MenuItem
-                        Header="{DynamicResource RedoString}"
+                        Header="{DynamicResource S.MainView.Redo}"
                         Command="{CompiledBinding Redo}"
                         InputGesture="{DynamicResource RedoKeyGesture}"
                         IsEnabled="{CompiledBinding IsProjectOpened.Value}">
@@ -131,11 +131,11 @@
                     </MenuItem>
                 </MenuItem>
                 <!--表示-->
-                <MenuItem Header="{DynamicResource ViewString}" />
+                <MenuItem Header="{DynamicResource S.MainView.View}" />
                 <!--オブジェクト-->
-                <MenuItem Header="{DynamicResource ObjectString}" />
+                <MenuItem Header="{DynamicResource S.MainView.Object}" />
                 <!--ヘルプ-->
-                <MenuItem Header="{DynamicResource HelpString}" />
+                <MenuItem Header="{DynamicResource S.MainView.Help}" />
             </Menu>
         </Grid>
 
@@ -148,7 +148,7 @@
                 <ui:NavigationViewItem
                     x:Name="EditPageItem"
                     Classes="SideNavigationViewItem"
-                    Content="{DynamicResource EditString}">
+                    Content="{DynamicResource S.MainView.Edit}">
                     <ui:NavigationViewItem.Styles>
                         <Style Selector="uip|NavigationViewItemPresenter#NVIPresenter:selected">
                             <Setter Property="Icon">
@@ -165,7 +165,7 @@
                 <ui:NavigationViewItem
                     x:Name="ExtensionsPageItem"
                     Classes="SideNavigationViewItem"
-                    Content="{DynamicResource ExtensionsString}">
+                    Content="{DynamicResource S.MainView.Extensions}">
                     <ui:NavigationViewItem.Styles>
                         <Style Selector="uip|NavigationViewItemPresenter#NVIPresenter:selected">
                             <Setter Property="Icon">
@@ -182,7 +182,7 @@
                 <ui:NavigationViewItem
                     x:Name="OutputPageItem"
                     Classes="SideNavigationViewItem"
-                    Content="{DynamicResource OutputString}">
+                    Content="{DynamicResource S.MainView.Output}">
                     <ui:NavigationViewItem.Styles>
                         <Style Selector="uip|NavigationViewItemPresenter#NVIPresenter:selected">
                             <Setter Property="Icon">
@@ -201,7 +201,7 @@
                 <ui:NavigationViewItem
                     x:Name="SettingsPageItem"
                     Classes="SideNavigationViewItem"
-                    Content="{DynamicResource SettingsString}">
+                    Content="{DynamicResource S.MainView.Settings}">
                     <ui:NavigationViewItem.Styles>
                         <Style Selector="uip|NavigationViewItemPresenter#NVIPresenter:selected">
                             <Setter Property="Icon">

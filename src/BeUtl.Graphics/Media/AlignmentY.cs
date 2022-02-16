@@ -4,12 +4,12 @@ namespace BeUtl.Media;
 
 public enum AlignmentY
 {
-    [Description("TopString")]
+    [Description("S.Common.Top")]
     Top,
 
-    [Description("CenterString")]
+    [Description("S.Common.Center")]
     Center,
 
-    [Description("BottomString")]
+    [Description("S.Common.Bottom")]
     Bottom,
 }

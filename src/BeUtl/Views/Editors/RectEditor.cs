@@ -10,10 +10,10 @@ public sealed class RectEditor : BaseVector4Editor<Graphics.Rect>
 {
     public RectEditor()
     {
-        xText[!TextBlock.TextProperty] = new DynamicResourceExtension("XString");
-        yText[!TextBlock.TextProperty] = new DynamicResourceExtension("YString");
-        zText[!TextBlock.TextProperty] = new DynamicResourceExtension("WidthString");
-        wText[!TextBlock.TextProperty] = new DynamicResourceExtension("HeightString");
+        xText[!TextBlock.TextProperty] = new DynamicResourceExtension("S.Editors.Rect.X");
+        yText[!TextBlock.TextProperty] = new DynamicResourceExtension("S.Editors.Rect.Y");
+        zText[!TextBlock.TextProperty] = new DynamicResourceExtension("S.Editors.Rect.Z");
+        wText[!TextBlock.TextProperty] = new DynamicResourceExtension("S.Editors.Rect.W");
         xTextBox[!TextBox.TextProperty] = new Binding("Value.Value.X", BindingMode.OneWay);
         yTextBox[!TextBox.TextProperty] = new Binding("Value.Value.Y", BindingMode.OneWay);
         zTextBox[!TextBox.TextProperty] = new Binding("Value.Value.Width", BindingMode.OneWay);

@@ -14,7 +14,7 @@
         <ui:CommandBar DefaultLabelPosition="Right">
             <ui:CommandBar.PrimaryCommands>
                 <ui:CommandBarButton Icon="Add"
-                                     Label="{DynamicResource AddString}"
+                                     Label="{DynamicResource S.FontSettingsPage.Add}"
                                      Click="AddClick" />
             </ui:CommandBar.PrimaryCommands>
         </ui:CommandBar>
@@ -29,7 +29,7 @@
                             Icon="Delete"
                             Command="{Binding #root.DataContext.Remove, Mode=OneTime}"
                             CommandParameter="{Binding $self.DataContext}"
-                            Label="{DynamicResource RemoveString}"
+                            Label="{DynamicResource S.FontSettingsPage.Remove}"
                             HorizontalAlignment="Right" />
                     </Panel>
                 </DataTemplate>
