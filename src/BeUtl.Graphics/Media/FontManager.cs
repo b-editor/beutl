@@ -63,7 +63,7 @@ public sealed class FontManager
         foreach (IGrouping<string, SKTypeface> item in list.GroupBy(i => i.FamilyName))
         {
             var family = new FontFamily(item.Key);
-            _fonts.Add(family, new TypefaceCollection(family, item));
+            _fonts.Add(family, new TypefaceCollection(item));
         }
 
         DefaultTypeface = GetDefaultTypeface();
@@ -102,7 +102,7 @@ public sealed class FontManager
         }
         else
         {
-            _fonts.Add(fontFamily, new TypefaceCollection(fontFamily, new SKTypeface[] { typeface }));
+            _fonts.Add(fontFamily, new TypefaceCollection(new SKTypeface[] { typeface }));
             return true;
         }
     }
@@ -123,11 +123,11 @@ public sealed class FontManager
 
 internal class TypefaceCollection : Dictionary<Typeface, SKTypeface>
 {
-    public TypefaceCollection(FontFamily family, IEnumerable<SKTypeface> typefaces)
+    public TypefaceCollection(IEnumerable<SKTypeface> typefaces)
     {
         foreach (SKTypeface typeface in typefaces)
         {
-            Add(new Typeface(family, typeface.FontSlant.ToFontStyle(), (FontWeight)typeface.FontWeight), typeface);
+            TryAdd(typeface.ToTypeface(), typeface);
         }
     }
 
