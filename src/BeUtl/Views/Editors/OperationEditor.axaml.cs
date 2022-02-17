@@ -279,7 +279,7 @@ public partial class OperationEditor : UserControl
 
     private void Drop(object? sender, DragEventArgs e)
     {
-        if (e.Data.Get("RenderOperation") is RenderOperationRegistry.RegistryItem item &&
+        if (e.Data.Get("RenderOperation") is LayerOperationRegistry.RegistryItem item &&
             DataContext is LayerOperation operation)
         {
             Layer layer = operation.FindRequiredLogicalParent<Layer>();
@@ -321,7 +321,7 @@ public partial class OperationEditor : UserControl
         if (DataContext is LayerOperation operation)
         {
             Type type = operation.GetType();
-            RenderOperationRegistry.RegistryItem? item = RenderOperationRegistry.FindItem(type);
+            LayerOperationRegistry.RegistryItem? item = LayerOperationRegistry.FindItem(type);
 
             if (item != null)
             {

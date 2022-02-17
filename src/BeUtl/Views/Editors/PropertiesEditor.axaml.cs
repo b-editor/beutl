@@ -17,7 +17,7 @@ public partial class PropertiesEditor : UserControl
 
     private void Drop(object? sender, DragEventArgs e)
     {
-        if (e.Data.Get("RenderOperation") is RenderOperationRegistry.RegistryItem item &&
+        if (e.Data.Get("RenderOperation") is LayerOperationRegistry.RegistryItem item &&
             DataContext is PropertiesEditorViewModel vm)
         {
             Layer layer = vm.Layer;

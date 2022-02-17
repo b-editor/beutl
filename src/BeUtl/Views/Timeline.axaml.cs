@@ -250,7 +250,7 @@ public partial class Timeline : UserControl
             .RoundToRate(ViewModel.Scene.Parent is Project proj ? proj.FrameRate : 30);
         _clickedLayer = pt.Y.ToLayerNumber();
 
-        if (e.Data.Get("RenderOperation") is RenderOperationRegistry.RegistryItem item)
+        if (e.Data.Get("RenderOperation") is LayerOperationRegistry.RegistryItem item)
         {
             if (e.KeyModifiers == KeyModifiers.Control)
             {
