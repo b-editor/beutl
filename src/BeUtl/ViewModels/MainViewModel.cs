@@ -1,3 +1,7 @@
+using Avalonia;
+using Avalonia.Threading;
+
+using BeUtl.Framework;
 using BeUtl.Framework.Service;
 using BeUtl.ProjectSystem;
 using BeUtl.Services;
@@ -70,6 +74,19 @@ public class MainViewModel
 
         Undo.Subscribe(() => CommandRecorder.Default.Undo());
         Redo.Subscribe(() => CommandRecorder.Default.Redo());
+
+        Task.Run(() =>
+        {
+            PackageManager manager = PackageManager.Instance;
+            manager.LoadPackages(manager.GetPackageInfos());
+            Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                if (Application.Current != null)
+                {
+                    PackageManager.Instance.AttachToApplication(Application.Current);
+                }
+            });
+        });
     }
 
     public ReactiveCommand CreateNewProject { get; } = new();
