@@ -1,5 +1,6 @@
 ﻿using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Globalization;
 using System.Runtime.CompilerServices;
 using System.Text.Json.Nodes;
 
@@ -8,12 +9,53 @@ namespace BeUtl.Configuration;
 public class GlobalConfiguration
 {
     public static readonly GlobalConfiguration Instance = new();
+    private JsonObject _json = new();
+
+    public static string DefaultFilePath
+    {
+        get
+        {
+            if (OperatingSystem.IsWindows())
+            {
+                return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "beutl", "settings.json");
+            }
+            else
+            {
+                return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".config", "beutl", "settings.json");
+            }
+        }
+    }
 
     public GraphicsConfig GraphicsConfig { get; } = new();
 
     public FontConfig FontConfig { get; } = new();
 
     public ViewConfig ViewConfig { get; } = new();
+
+    public void Save(string file)
+    {
+        string dir = Path.GetDirectoryName(file)!;
+        if (!Directory.Exists(dir))
+        {
+            Directory.CreateDirectory(dir);
+        }
+
+        _json["font"] = FontConfig.ToJson();
+        _json["view"] = ViewConfig.ToJson();
+
+        _json.JsonSave(file);
+    }
+
+    public void Restore(string file)
+    {
+        if (JsonHelper.JsonRestore(file) is JsonObject json)
+        {
+            FontConfig.FromJson(json["font"]!);
+            ViewConfig.FromJson(json["view"]!);
+
+            _json = json;
+        }
+    }
 }
 
 public class GraphicsConfig
@@ -24,6 +66,7 @@ public class GraphicsConfig
 public class ViewConfig : ConfigurationBase
 {
     public static readonly CoreProperty<ViewTheme> ThemeProperty;
+    public static readonly CoreProperty<CultureInfo> UICultureProperty;
 
     static ViewConfig()
     {
@@ -32,12 +75,24 @@ public class ViewConfig : ConfigurationBase
             .DefaultValue(ViewTheme.System)
             .Observability(PropertyObservability.Changed)
             .Register();
+
+        UICultureProperty = ConfigureProperty<CultureInfo, ViewConfig>("UICulture")
+            .SerializeName("ui-culture")
+            .DefaultValue(CultureInfo.InstalledUICulture)
+            .Observability(PropertyObservability.Changed)
+            .Register();
     }
 
     public ViewTheme Theme
     {
         get => GetValue(ThemeProperty);
         set => SetValue(ThemeProperty, value);
+    }
+
+    public CultureInfo UICulture
+    {
+        get => GetValue(UICultureProperty);
+        set => SetValue(UICultureProperty, value);
     }
 
     public enum ViewTheme

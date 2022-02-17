@@ -29,6 +29,22 @@
                     </ComboBox>
                 </ctrls:OptionsDisplayItem.ActionButton>
             </ctrls:OptionsDisplayItem>
+
+            <ctrls:OptionsDisplayItem Header="{DynamicResource S.ViewSettingsPage.Language}">
+                <ctrls:OptionsDisplayItem.Icon>
+                    <ui:PathIcon Data="{DynamicResource Local_Language_Regular}" />
+                </ctrls:OptionsDisplayItem.Icon>
+
+                <ctrls:OptionsDisplayItem.ActionButton>
+                    <ComboBox SelectedItem="{CompiledBinding SelectedLanguage.Value}" Items="{CompiledBinding Cultures}">
+                        <ComboBox.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding DisplayName}" />
+                            </DataTemplate>
+                        </ComboBox.ItemTemplate>
+                    </ComboBox>
+                </ctrls:OptionsDisplayItem.ActionButton>
+            </ctrls:OptionsDisplayItem>
         </StackPanel>
     </ScrollViewer>
 </UserControl>

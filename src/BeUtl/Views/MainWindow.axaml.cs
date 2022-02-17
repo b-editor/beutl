@@ -49,27 +49,6 @@ public sealed partial class MainWindow : CoreWindow
 
             thm.ForceWin32WindowToTheme(this);
         }
-
-        GlobalConfiguration.Instance.ViewConfig.GetObservable(ViewConfig.ThemeProperty).Subscribe(v =>
-        {
-            FluentAvaloniaTheme thm = AvaloniaLocator.Current.GetService<FluentAvaloniaTheme>()!;
-            switch (v)
-            {
-                case ViewConfig.ViewTheme.Light:
-                    thm.RequestedTheme = FluentAvaloniaTheme.LightModeString;
-                    break;
-                case ViewConfig.ViewTheme.Dark:
-                    thm.RequestedTheme = FluentAvaloniaTheme.DarkModeString;
-                    break;
-                case ViewConfig.ViewTheme.HighContrast:
-                    thm.RequestedTheme = FluentAvaloniaTheme.HighContrastModeString;
-                    break;
-                case ViewConfig.ViewTheme.System when OperatingSystem.IsWindows():
-                    // https://github.com/amwx/FluentAvalonia/blob/master/FluentAvalonia/Styling/Core/FluentAvaloniaTheme.cs#L414
-                    //thm.RequestedTheme = null;
-                    break;
-            }
-        });
     }
 
     private void OnRequestedThemeChanged(FluentAvaloniaTheme sender, RequestedThemeChangedEventArgs args)

@@ -15,5 +15,6 @@ internal class JsonHelperInitialization
         IList<JsonConverter> converters = JsonHelper.SerializerOptions.Converters;
         converters.Add(new FileInfoConverter());
         converters.Add(new DirectoryInfoConverter());
+        converters.Add(new CultureInfoConverter());
     }
 }

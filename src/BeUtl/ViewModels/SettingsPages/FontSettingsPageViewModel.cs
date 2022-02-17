@@ -25,17 +25,3 @@ public sealed class FontSettingsPageViewModel
 
     public ReactiveCommand<string> Remove { get; } = new();
 }
-
-public sealed class ViewSettingsPageViewModel
-{
-    private readonly ViewConfig _config;
-
-    public ViewSettingsPageViewModel()
-    {
-        _config = GlobalConfiguration.Instance.ViewConfig;
-        SelectedTheme.Value = (int)_config.Theme;
-        SelectedTheme.Subscribe(v => _config.Theme = (ViewConfig.ViewTheme)v);
-    }
-
-    public ReactivePropertySlim<int> SelectedTheme { get; } = new();
-}
