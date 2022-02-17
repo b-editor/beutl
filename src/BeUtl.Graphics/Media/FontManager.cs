@@ -15,6 +15,34 @@ public sealed class FontManager
 
     private FontManager()
     {
+        Typeface GetDefaultTypeface()
+        {
+            if (OperatingSystem.IsLinux())
+            {
+                using Process process = Process.Start(new ProcessStartInfo("/usr/bin/fc-match", "--format %{file}")
+                {
+                    RedirectStandardOutput = true
+                })!;
+                process.WaitForExit();
+
+                string file = process.StandardOutput.ReadToEnd();
+                SKTypeface sktypeface = SKTypeface.FromFile(file);
+                Typeface typeface = sktypeface.ToTypeface();
+                bool isAdded = AddFont(sktypeface);
+                if (!isAdded)
+                {
+                    sktypeface.Dispose();
+                }
+                return typeface;
+            }
+            else
+            {
+                SKTypeface sk = SKTypeface.Default;
+                AddFont(sk);
+                return sk.ToTypeface();
+            }
+        }
+
         _fontDirs = GlobalConfiguration.Instance.FontConfig.FontDirectories.ToArray();
         var list = new List<SKTypeface>();
 
@@ -52,38 +80,30 @@ public sealed class FontManager
         AddFont(SKTypeface.FromStream(stream));
     }
 
-    internal static Typeface GetDefaultTypeface()
-    {
-        if (OperatingSystem.IsLinux())
-        {
-            using Process process = Process.Start(new ProcessStartInfo("/usr/bin/fc-match", "--format %{file}")
-            {
-                RedirectStandardOutput = true
-            })!;
-            process.WaitForExit();
-
-            string file = process.StandardOutput.ReadToEnd();
-            using var sktypeface = SKTypeface.FromFile(file);
-            return sktypeface.ToTypeface();
-        }
-        else
-        {
-            return SKTypeface.Default.ToTypeface();
-        }
-    }
-
-    private void AddFont(SKTypeface typeface)
+    private bool AddFont(SKTypeface typeface)
     {
         string familyName = typeface.FamilyName;
         var fontFamily = new FontFamily(familyName);
 
         if (_fonts.ContainsKey(fontFamily))
         {
-            _fonts[fontFamily].Add(typeface.ToTypeface(), typeface);
+            TypefaceCollection collection = _fonts[fontFamily];
+            var tf = typeface.ToTypeface();
+
+            if (!collection.ContainsKey(tf))
+            {
+                collection.Add(tf, typeface);
+                return true;
+            }
+            else
+            {
+                return false;
+            }
         }
         else
         {
             _fonts.Add(fontFamily, new TypefaceCollection(fontFamily, new SKTypeface[] { typeface }));
+            return true;
         }
     }
 
