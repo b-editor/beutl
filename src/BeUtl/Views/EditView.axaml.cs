@@ -19,7 +19,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace BeUtl.Views;
 
-public sealed partial class EditView : UserControl, IStorableControl
+public sealed partial class EditView : UserControl
 {
     private readonly SynchronizationContext _syncContext;
     private Image? _image;
@@ -39,19 +39,7 @@ public sealed partial class EditView : UserControl, IStorableControl
         _syncContext = SynchronizationContext.Current!;
     }
 
-    public string FileName { get; private set; } = Path.GetTempFileName();
-
-    public DateTime LastSavedTime { get; }
-
     private Image Image => _image ??= Player.GetImage();
-
-    public void Restore(string filename)
-    {
-    }
-
-    public void Save(string filename)
-    {
-    }
 
     protected override void OnAttachedToLogicalTree(Avalonia.LogicalTree.LogicalTreeAttachmentEventArgs e)
     {
