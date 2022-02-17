@@ -37,32 +37,38 @@ public sealed class FontManager
             var family = new FontFamily(item.Key);
             _fonts.Add(family, new TypefaceCollection(family, item));
         }
+
+        DefaultTypeface = GetDefaultTypeface();
     }
 
     public IEnumerable<FontFamily> FontFamilies => _fonts.Keys;
 
     public int FontFamilyCount => _fonts.Count;
 
+    public Typeface DefaultTypeface { get; }
+
     public void AddFont(Stream stream)
     {
         AddFont(SKTypeface.FromStream(stream));
     }
 
-    internal static string GetDefaultFontFamily()
+    internal static Typeface GetDefaultTypeface()
     {
         if (OperatingSystem.IsLinux())
         {
-            using Process process = Process.Start(new ProcessStartInfo("/usr/bin/fc-match", "--format %{family}")
+            using Process process = Process.Start(new ProcessStartInfo("/usr/bin/fc-match", "--format %{file}")
             {
                 RedirectStandardOutput = true
             })!;
             process.WaitForExit();
 
-            return process.StandardOutput.ReadToEnd();
+            string file = process.StandardOutput.ReadToEnd();
+            using var sktypeface = SKTypeface.FromFile(file);
+            return sktypeface.ToTypeface();
         }
         else
         {
-            return SKTypeface.Default.FamilyName;
+            return SKTypeface.Default.ToTypeface();
         }
     }
 

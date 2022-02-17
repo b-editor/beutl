@@ -1,4 +1,5 @@
-﻿using System.Text.Json.Serialization;
+﻿using System.Diagnostics;
+using System.Text.Json.Serialization;
 
 using BeUtl.Converters;
 
@@ -9,7 +10,7 @@ namespace BeUtl.Media;
 [JsonConverter(typeof(FontFamilyJsonConverter))]
 public readonly struct FontFamily : IEquatable<FontFamily>
 {
-    public static readonly FontFamily Default = new(FontManager.GetDefaultFontFamily());
+    public static readonly FontFamily Default = new(GetDefaultFontFamily());
 
     public FontFamily(string familyname)
     {
@@ -46,6 +47,24 @@ public readonly struct FontFamily : IEquatable<FontFamily>
     public override int GetHashCode()
     {
         return HashCode.Combine(Name);
+    }
+
+    private static string GetDefaultFontFamily()
+    {
+        if (OperatingSystem.IsLinux())
+        {
+            using Process process = Process.Start(new ProcessStartInfo("/usr/bin/fc-match", "--format %{family}")
+            {
+                RedirectStandardOutput = true
+            })!;
+            process.WaitForExit();
+
+            return process.StandardOutput.ReadToEnd();
+        }
+        else
+        {
+            return SKTypeface.Default.FamilyName;
+        }
     }
 
     public static bool operator ==(FontFamily left, FontFamily right)

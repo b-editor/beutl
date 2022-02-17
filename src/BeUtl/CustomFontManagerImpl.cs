@@ -1,11 +1,18 @@
 ﻿using System.Globalization;
 
-using Avalonia.Media;
+using Avalonia.Media.Fonts;
 using Avalonia.Platform;
 
 using Avalonia.Skia;
 
+using BeUtl.Media;
+
 using SkiaSharp;
+
+using FontFamily = Avalonia.Media.FontFamily;
+using FontStyle = Avalonia.Media.FontStyle;
+using FontWeight = Avalonia.Media.FontWeight;
+using Typeface = Avalonia.Media.Typeface;
 
 namespace BeUtl;
 
@@ -16,11 +23,18 @@ internal sealed class CustomFontManagerImpl : IFontManagerImpl
     [ThreadStatic]
     private static string[] s_languageTagBuffer;
 
+    private readonly SKTypeface _defaultTypeface;
     private SKFontManager _skFontManager = SKFontManager.Default;
+
+    public CustomFontManagerImpl()
+    {
+        Media.Typeface defaultTf = FontManager.Instance.DefaultTypeface;
+        _defaultTypeface = defaultTf.ToSkia();
+    }
 
     public string GetDefaultFontFamilyName()
     {
-        return Media.FontManager.GetDefaultFontFamily();
+        return Media.FontFamily.Default.Name;
     }
 
     public IEnumerable<string> GetInstalledFontFamilyNames(bool checkForUpdates = false)
@@ -37,27 +51,14 @@ internal sealed class CustomFontManagerImpl : IFontManagerImpl
         FontWeight fontWeight,
         FontFamily fontFamily, CultureInfo culture, out Typeface fontKey)
     {
-        SKFontStyle skFontStyle;
-
-        switch (fontWeight)
+        SKFontStyle skFontStyle = fontWeight switch
         {
-            case FontWeight.Normal when fontStyle == FontStyle.Normal:
-                skFontStyle = SKFontStyle.Normal;
-                break;
-            case FontWeight.Normal when fontStyle == FontStyle.Italic:
-                skFontStyle = SKFontStyle.Italic;
-                break;
-            case FontWeight.Bold when fontStyle == FontStyle.Normal:
-                skFontStyle = SKFontStyle.Bold;
-                break;
-            case FontWeight.Bold when fontStyle == FontStyle.Italic:
-                skFontStyle = SKFontStyle.BoldItalic;
-                break;
-            default:
-                skFontStyle = new SKFontStyle((SKFontStyleWeight)fontWeight, SKFontStyleWidth.Normal, (SKFontStyleSlant)fontStyle);
-                break;
-        }
-
+            FontWeight.Normal when fontStyle == FontStyle.Normal => SKFontStyle.Normal,
+            FontWeight.Normal when fontStyle == FontStyle.Italic => SKFontStyle.Italic,
+            FontWeight.Bold when fontStyle == FontStyle.Normal => SKFontStyle.Bold,
+            FontWeight.Bold when fontStyle == FontStyle.Italic => SKFontStyle.BoldItalic,
+            _ => new SKFontStyle((SKFontStyleWeight)fontWeight, SKFontStyleWidth.Normal, (SKFontStyleSlant)fontStyle),
+        };
         if (culture == null)
         {
             culture = CultureInfo.CurrentUICulture;
@@ -71,13 +72,13 @@ internal sealed class CustomFontManagerImpl : IFontManagerImpl
         s_languageTagBuffer[0] = culture.TwoLetterISOLanguageName;
         s_languageTagBuffer[1] = culture.ThreeLetterISOLanguageName;
 
-        if (fontFamily != null && fontFamily.FamilyNames.HasFallbacks)
+        if (fontFamily?.FamilyNames.HasFallbacks == true)
         {
-            var familyNames = fontFamily.FamilyNames;
+            FamilyNameCollection familyNames = fontFamily.FamilyNames;
 
-            for (var i = 1; i < familyNames.Count; i++)
+            for (int i = 1; i < familyNames.Count; i++)
             {
-                var skTypeface =
+                SKTypeface skTypeface =
                     _skFontManager.MatchCharacter(familyNames[i], skFontStyle, s_languageTagBuffer, codepoint);
 
                 if (skTypeface == null)
@@ -92,7 +93,7 @@ internal sealed class CustomFontManagerImpl : IFontManagerImpl
         }
         else
         {
-            var skTypeface = _skFontManager.MatchCharacter(null, skFontStyle, s_languageTagBuffer, codepoint);
+            SKTypeface skTypeface = _skFontManager.MatchCharacter(null, skFontStyle, s_languageTagBuffer, codepoint);
 
             if (skTypeface != null)
             {
@@ -113,10 +114,10 @@ internal sealed class CustomFontManagerImpl : IFontManagerImpl
 
         if (typeface.FontFamily.Key == null)
         {
-            var defaultName = SKTypeface.Default.FamilyName;
+            string defaultName = _defaultTypeface.FamilyName;
             var fontStyle = new SKFontStyle((SKFontStyleWeight)typeface.Weight, SKFontStyleWidth.Normal, (SKFontStyleSlant)typeface.Style);
 
-            foreach (var familyName in typeface.FontFamily.FamilyNames)
+            foreach (string familyName in typeface.FontFamily.FamilyNames)
             {
                 skTypeface = _skFontManager.MatchFamily(familyName, fontStyle);
 
@@ -130,11 +131,11 @@ internal sealed class CustomFontManagerImpl : IFontManagerImpl
                 break;
             }
 
-            skTypeface ??= _skFontManager.MatchTypeface(SKTypeface.Default, fontStyle);
+            skTypeface ??= _skFontManager.MatchTypeface(_defaultTypeface, fontStyle);
         }
         else
         {
-            var fontCollection = SKTypefaceCollectionCache.GetOrAddTypefaceCollection(typeface.FontFamily);
+            SKTypefaceCollection fontCollection = SKTypefaceCollectionCache.GetOrAddTypefaceCollection(typeface.FontFamily);
 
             skTypeface = fontCollection.Get(typeface);
         }
@@ -145,9 +146,9 @@ internal sealed class CustomFontManagerImpl : IFontManagerImpl
                 $"Could not create glyph typeface for: {typeface.FontFamily.Name}.");
         }
 
-        var isFakeBold = (int)typeface.Weight >= 600 && !skTypeface.IsBold;
+        bool isFakeBold = (int)typeface.Weight >= 600 && !skTypeface.IsBold;
 
-        var isFakeItalic = typeface.Style == FontStyle.Italic && !skTypeface.IsItalic;
+        bool isFakeItalic = typeface.Style == FontStyle.Italic && !skTypeface.IsItalic;
 
         return new GlyphTypefaceImpl(skTypeface, isFakeBold, isFakeItalic);
     }
