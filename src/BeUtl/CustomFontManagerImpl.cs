@@ -34,7 +34,7 @@ internal sealed class CustomFontManagerImpl : IFontManagerImpl
 
     public string GetDefaultFontFamilyName()
     {
-        return Media.FontFamily.Default.Name;
+        return _defaultTypeface.FamilyName;
     }
 
     public IEnumerable<string> GetInstalledFontFamilyNames(bool checkForUpdates = false)
@@ -131,7 +131,8 @@ internal sealed class CustomFontManagerImpl : IFontManagerImpl
                 break;
             }
 
-            skTypeface ??= _skFontManager.MatchTypeface(_defaultTypeface, fontStyle);
+            //skTypeface ??= _skFontManager.MatchTypeface(_defaultTypeface, fontStyle);
+            skTypeface ??= _defaultTypeface;
         }
         else
         {
