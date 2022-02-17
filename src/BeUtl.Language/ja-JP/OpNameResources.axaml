@@ -1,0 +1,26 @@
+﻿<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Styles.Resources>
+        <x:String x:Key="S.OpName.Ellipse">楕円</x:String>
+        <x:String x:Key="S.OpName.Rect">四角形</x:String>
+        <x:String x:Key="S.OpName.Text">テキスト</x:String>
+        <x:String x:Key="S.OpName.ImageFile">画像ファイル</x:String>
+        <x:String x:Key="S.OpName.Align">整列</x:String>
+        <x:String x:Key="S.OpName.Blend">ブレンド</x:String>
+        <x:String x:Key="S.OpName.OffscreenDrawing">オフスクリーン描画</x:String>
+        <x:String x:Key="S.OpName.RenderAll">全て描画</x:String>
+        <x:String x:Key="S.OpName.RoundedRect">角丸四角形</x:String>
+        <x:String x:Key="S.OpName.Test">テスト</x:String>
+
+        <x:String x:Key="S.OpName.Transform">トランスフォーム</x:String>
+        <x:String x:Key="S.OpName.Rotate">回転</x:String>
+        <x:String x:Key="S.OpName.Rotate3D">回転3D</x:String>
+        <x:String x:Key="S.OpName.Scale">スケール</x:String>
+        <x:String x:Key="S.OpName.Skew">斜め</x:String>
+        <x:String x:Key="S.OpName.Translate">移動</x:String>
+
+        <x:String x:Key="S.OpName.Effect">エフェクト</x:String>
+        <x:String x:Key="S.OpName.Blur">ブラー</x:String>
+        <x:String x:Key="S.OpName.DropShadow">ドロップシャドウ</x:String>
+    </Styles.Resources>
+</Styles>

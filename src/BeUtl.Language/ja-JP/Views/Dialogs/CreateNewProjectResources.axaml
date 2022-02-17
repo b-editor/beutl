@@ -1,0 +1,16 @@
+﻿<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Styles.Resources>
+        <!--Strings-->
+        <StaticResource x:Key="S.Dialogs.CreateNewProject.Title" ResourceKey="S.Common.CreateNewProject" />
+        <StaticResource x:Key="S.Dialogs.CreateNewProject.Close" ResourceKey="S.Common.Close" />
+        <StaticResource x:Key="S.Dialogs.CreateNewProject.Back" ResourceKey="S.Common.Back" />
+        <StaticResource x:Key="S.Dialogs.CreateNewProject.Next" ResourceKey="S.Common.Next" />
+        <StaticResource x:Key="S.Dialogs.CreateNewProject.CreateNew" ResourceKey="S.Common.CreateNew" />
+        <StaticResource x:Key="S.Dialogs.CreateNewProject.Name" ResourceKey="S.Common.Name" />
+        <StaticResource x:Key="S.Dialogs.CreateNewProject.Location" ResourceKey="S.Common.Location" />
+        <StaticResource x:Key="S.Dialogs.CreateNewProject.Size" ResourceKey="S.Common.Size" />
+        <StaticResource x:Key="S.Dialogs.CreateNewProject.FrameRate" ResourceKey="S.Common.FrameRate" />
+        <StaticResource x:Key="S.Dialogs.CreateNewProject.SampleRate" ResourceKey="S.Common.SampleRate" />
+    </Styles.Resources>
+</Styles>

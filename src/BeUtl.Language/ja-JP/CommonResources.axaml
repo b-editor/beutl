@@ -1,0 +1,158 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Styles.Resources>
+        <FontFamily x:Key="ContentControlThemeFontFamily">Yu Gothic UI, Hiragino Sans, Noto Sans JP</FontFamily>
+
+        <!--KeyGestures-->
+        <KeyGesture x:Key="CreateNewProjectKeyGesture">Ctrl+Shift+N</KeyGesture>
+        <KeyGesture x:Key="CreateNewKeyGesture">Ctrl+N</KeyGesture>
+        <KeyGesture x:Key="OpenProjectKeyGesture">Ctrl+Shift+O</KeyGesture>
+        <KeyGesture x:Key="OpenKeyGesture">Ctrl+O</KeyGesture>
+        <KeyGesture x:Key="SaveAllKeyGesture">Ctrl+Shift+S</KeyGesture>
+        <KeyGesture x:Key="SaveKeyGesture">Ctrl+S</KeyGesture>
+        <KeyGesture x:Key="ExitKeyGesture">Alt+F4</KeyGesture>
+        <KeyGesture x:Key="UndoKeyGesture">Ctrl+Z</KeyGesture>
+        <KeyGesture x:Key="RedoKeyGesture">Ctrl+Y</KeyGesture>
+        <KeyGesture x:Key="DeleteKeyGesture">Delete</KeyGesture>
+        <KeyGesture x:Key="CutKeyGesture">Ctrl+X</KeyGesture>
+        <KeyGesture x:Key="CopyKeyGesture">Ctrl+C</KeyGesture>
+        <KeyGesture x:Key="PasteKeyGesture">Ctrl+V</KeyGesture>
+        <KeyGesture x:Key="PlayPauseKeyGesture">Space</KeyGesture>
+        <KeyGesture x:Key="NextKeyGesture">Right</KeyGesture>
+        <KeyGesture x:Key="PreviousKeyGesture">Left</KeyGesture>
+        <KeyGesture x:Key="StartKeyGesture">Home</KeyGesture>
+        <KeyGesture x:Key="EndKeyGesture">End</KeyGesture>
+        <KeyGesture x:Key="LayerDeleteKeyGesture">Ctrl+Delete</KeyGesture>
+
+        <!--Strings-->
+        <x:String x:Key="S.Common.File">ファイル</x:String>
+        <x:String x:Key="S.Common.CreateNew">新規作成</x:String>
+        <x:String x:Key="S.Common.CreateNewProject">プロジェクトを新規作成</x:String>
+        <x:String x:Key="S.Common.CreateNewScene">シーンを新規作成</x:String>
+        <x:String x:Key="S.Common.Project">プロジェクト</x:String>
+        <x:String x:Key="S.Common.Open">開く</x:String>
+        <x:String x:Key="S.Common.Close">閉じる</x:String>
+        <x:String x:Key="S.Common.CloseProject">プロジェクトを閉じる</x:String>
+        <x:String x:Key="S.Common.Save">上書き保存</x:String>
+        <x:String x:Key="S.Common.SaveAll">すべて保存</x:String>
+        <x:String x:Key="S.Common.SaveAs">名前を付けて保存</x:String>
+        <x:String x:Key="S.Common.Exit">終了</x:String>
+        <x:String x:Key="S.Common.Edit">編集</x:String>
+        <x:String x:Key="S.Common.Undo">元に戻す</x:String>
+        <x:String x:Key="S.Common.Redo">やり直す</x:String>
+        <x:String x:Key="S.Common.View">表示</x:String>
+        <x:String x:Key="S.Common.Object">オブジェクト</x:String>
+        <x:String x:Key="S.Common.Help">ヘルプ</x:String>
+        <x:String x:Key="S.Common.Extensions">拡張機能</x:String>
+        <x:String x:Key="S.Common.Output">出力</x:String>
+        <x:String x:Key="S.Common.Settings">設定</x:String>
+        <x:String x:Key="S.Common.Properties">プロパティ</x:String>
+        <x:String x:Key="S.Common.Easings">イージング</x:String>
+        <x:String x:Key="S.Common.Explorer">エクスプローラー</x:String>
+        <x:String x:Key="S.Common.Timeline">タイムライン</x:String>
+        <x:String x:Key="S.Common.SceneFile">シーンファイル</x:String>
+        <x:String x:Key="S.Common.Font">フォント</x:String>
+        <x:String x:Key="S.Common.Info">情報</x:String>
+        <x:String x:Key="S.Common.Add">追加</x:String>
+        <x:String x:Key="S.Common.Links">リンク</x:String>
+        <x:String x:Key="S.Common.SourceCode">ソースコード</x:String>
+        <x:String x:Key="S.Common.License">ライセンス</x:String>
+        <x:String x:Key="S.Common.ThirdPartyLicenses">サードパーティライセンス</x:String>
+        <x:String x:Key="S.Common.Theme">テーマ</x:String>
+        <x:String x:Key="S.Common.Light">ライト</x:String>
+        <x:String x:Key="S.Common.Dark">ダーク</x:String>
+        <x:String x:Key="S.Common.HighContrast">ハイコントラスト</x:String>
+        <x:String x:Key="S.Common.FollowSystem">システムに従う</x:String>
+        <x:String x:Key="S.Common.Search">検索</x:String>
+        <x:String x:Key="S.Common.Name">名前</x:String>
+        <x:String x:Key="S.Common.StartTime">開始時間</x:String>
+        <x:String x:Key="S.Common.DurationTime">持続時間</x:String>
+        <x:String x:Key="S.Common.Cut">切り取り</x:String>
+        <x:String x:Key="S.Common.Copy">コピー</x:String>
+        <x:String x:Key="S.Common.Paste">ペースト</x:String>
+        <x:String x:Key="S.Common.Split">分割</x:String>
+        <x:String x:Key="S.Common.Delete">削除</x:String>
+        <x:String x:Key="S.Common.Remove">削除</x:String>
+        <x:String x:Key="S.Common.Exclude">除外</x:String>
+        <x:String x:Key="S.Common.Back">戻る</x:String>
+        <x:String x:Key="S.Common.Next">次へ</x:String>
+        <x:String x:Key="S.Common.Color">色</x:String>
+        <x:String x:Key="S.Common.Layer">レイヤー</x:String>
+        <x:String x:Key="S.Common.AddLayer">レイヤーを追加</x:String>
+        <x:String x:Key="S.Common.Location">場所</x:String>
+        <x:String x:Key="S.Common.Size">サイズ</x:String>
+        <x:String x:Key="S.Common.FrameRate">フレームレート</x:String>
+        <x:String x:Key="S.Common.SampleRate">サンプルレート</x:String>
+        <x:String x:Key="S.Common.PickFont">フォントを選択</x:String>
+        <x:String x:Key="S.Common.Done">確定</x:String>
+        <x:String x:Key="S.Common.SceneSettings">シーンの設定</x:String>
+        <x:String x:Key="S.Common.Apply">適用</x:String>
+        <x:String x:Key="S.Common.X">X</x:String>
+        <x:String x:Key="S.Common.Y">Y</x:String>
+        <x:String x:Key="S.Common.Z">Z</x:String>
+        <x:String x:Key="S.Common.W">W</x:String>
+        <x:String x:Key="S.Common.Width">横幅</x:String>
+        <x:String x:Key="S.Common.Height">高さ</x:String>
+        <x:String x:Key="S.Common.Reset">リセット</x:String>
+        <x:String x:Key="S.Common.EditAnimation">アニメーションを編集</x:String>
+        <x:String x:Key="S.Common.NewFolder">新しいフォルダー</x:String>
+        <x:String x:Key="S.Common.Left">左</x:String>
+        <x:String x:Key="S.Common.Right">右</x:String>
+        <x:String x:Key="S.Common.Top">上</x:String>
+        <x:String x:Key="S.Common.Bottom">下</x:String>
+        <x:String x:Key="S.Common.Center">中心</x:String>
+        <x:String x:Key="S.Common.FontFamily">フォントファミリー</x:String>
+        <x:String x:Key="S.Common.FontStyle">フォントスタイル</x:String>
+        <x:String x:Key="S.Common.FontWeight">フォントウェイト</x:String>
+        <x:String x:Key="S.Common.CharactorSpacing">字間</x:String>
+        <x:String x:Key="S.Common.Margin">余白</x:String>
+        <x:String x:Key="S.Common.CanvasAlignmentX">キャンバス アライメントX</x:String>
+        <x:String x:Key="S.Common.CanvasAlignmentY">キャンバス アライメントY</x:String>
+        <x:String x:Key="S.Common.AlignmentX">アライメントX</x:String>
+        <x:String x:Key="S.Common.AlignmentY">アライメントY</x:String>
+        <x:String x:Key="S.Common.Position">位置</x:String>
+        <x:String x:Key="S.Common.Sigma">Sigma</x:String>
+        <x:String x:Key="S.Common.ShadowOnly">影のみ</x:String>
+        <x:String x:Key="S.Common.Opacity">不透明度</x:String>
+        <x:String x:Key="S.Common.StartIndex">開始インデックス</x:String>
+        <x:String x:Key="S.Common.Count">カウント</x:String>
+        <x:String x:Key="S.Common.CornerRadius">角の半径</x:String>
+        <x:String x:Key="S.Common.OK">OK</x:String>
+        <x:String x:Key="S.Common.Cancel">キャンセル</x:String>
+        <x:String x:Key="S.Common.Rename">名前を変更</x:String>
+        <x:String x:Key="S.Common.ProjectFile">プロジェクトファイル</x:String>
+        <x:String x:Key="S.Common.StrokeWidth">ストローク幅</x:String>
+        <x:String x:Key="S.Common.Language">言語</x:String>
+    </Styles.Resources>
+
+    <!--Views-->
+    <StyleInclude Source="/ja-JP/Views/MainViewResources.axaml" />
+    <StyleInclude Source="/ja-JP/Views/EditViewResources.axaml" />
+    <StyleInclude Source="/ja-JP/Views/LibraryResources.axaml" />
+    <StyleInclude Source="/ja-JP/Views/TimelineResources.axaml" />
+    <StyleInclude Source="/ja-JP/Views/TimelineLayerResources.axaml" />
+
+    <!--Views.Editors-->
+    <StyleInclude Source="/ja-JP/Views/Editors/AnimationEditorResources.axaml" />
+    <StyleInclude Source="/ja-JP/Views/Editors/EditorsResources.axaml" />
+
+    <!--Views.Dialogs-->
+    <StyleInclude Source="/ja-JP/Views/Dialogs/AddLayerResources.axaml" />
+    <StyleInclude Source="/ja-JP/Views/Dialogs/CreateNewProjectResources.axaml" />
+    <StyleInclude Source="/ja-JP/Views/Dialogs/CreateNewSceneResources.axaml" />
+    <StyleInclude Source="/ja-JP/Views/Dialogs/PickFontFamilyResources.axaml" />
+    <StyleInclude Source="/ja-JP/Views/Dialogs/SceneSettingsResources.axaml" />
+
+    <!--Pages-->
+    <StyleInclude Source="/ja-JP/Pages/EditPageResources.axaml" />
+    <StyleInclude Source="/ja-JP/Pages/SettingsPageResources.axaml" />
+
+    <!--Messages-->
+    <StyleInclude Source="/ja-JP/MessageResources.axaml" />
+
+    <!--OpNames-->
+    <StyleInclude Source="/ja-JP/OpNameResources.axaml" />
+
+    <!--Warnings-->
+    <StyleInclude Source="/ja-JP/WarningResources.axaml" />
+</Styles>

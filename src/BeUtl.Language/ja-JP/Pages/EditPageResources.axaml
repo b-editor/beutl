@@ -1,0 +1,9 @@
+﻿<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Styles.Resources>
+        <!--Strings-->
+        <StaticResource x:Key="S.EditPage.Open" ResourceKey="S.Common.Open" />
+        <StaticResource x:Key="S.EditPage.CreateNew" ResourceKey="S.Common.CreateNew" />
+        <StaticResource x:Key="S.EditPage.SceneFile" ResourceKey="S.Common.SceneFile" />
+    </Styles.Resources>
+</Styles>

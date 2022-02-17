@@ -1,0 +1,10 @@
+﻿<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Styles.Resources>
+        <!--Strings-->
+        <StaticResource x:Key="S.EditView.Properties" ResourceKey="S.Common.Properties" />
+        <StaticResource x:Key="S.EditView.Easings" ResourceKey="S.Common.Easings" />
+        <StaticResource x:Key="S.EditView.Explorer" ResourceKey="S.Common.Explorer" />
+        <StaticResource x:Key="S.EditView.Timeline" ResourceKey="S.Common.Timeline" />
+    </Styles.Resources>
+</Styles>

@@ -122,6 +122,7 @@
         <x:String x:Key="S.Common.Rename">Rename</x:String>
         <x:String x:Key="S.Common.ProjectFile">Project File</x:String>
         <x:String x:Key="S.Common.StrokeWidth">Stroke width</x:String>
+        <x:String x:Key="S.Common.Language">Language</x:String>
     </Styles.Resources>
 
     <!--Views-->

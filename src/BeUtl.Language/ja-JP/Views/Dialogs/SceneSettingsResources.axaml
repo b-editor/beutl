@@ -1,0 +1,11 @@
+﻿<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Styles.Resources>
+        <!--Strings-->
+        <StaticResource x:Key="S.Dialogs.SceneSettings.Title" ResourceKey="S.Common.SceneSettings" />
+        <StaticResource x:Key="S.Dialogs.SceneSettings.Apply" ResourceKey="S.Common.Apply" />
+        <StaticResource x:Key="S.Dialogs.SceneSettings.Close" ResourceKey="S.Common.Close" />
+        <StaticResource x:Key="S.Dialogs.SceneSettings.Size" ResourceKey="S.Common.Size" />
+        <StaticResource x:Key="S.Dialogs.SceneSettings.DurationTime" ResourceKey="S.Common.DurationTime" />
+    </Styles.Resources>
+</Styles>
