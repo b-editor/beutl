@@ -1,18 +1,42 @@
-﻿namespace BeUtl.Framework;
+﻿using System.Text.Json.Serialization;
 
-public record PackageInfo
+namespace BeUtl.Framework;
+
+public class PackageInfo
 {
-    public string Name { get; init; } = string.Empty;
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = string.Empty;
 
-    public string DisplayName { get; init; } = string.Empty;
+    [JsonPropertyName("displayName")]
+    public string DisplayName { get; set; } = string.Empty;
 
-    public string Author { get; init; } = string.Empty;
+    [JsonPropertyName("version")]
+    public Version Version { get; set; } = new Version();
 
-    public Guid Id { get; init; }
+    [JsonPropertyName("publisher")]
+    public string Publisher { get; set; } = string.Empty;
 
-    public PackageLicense License { get; init; }
+    [JsonPropertyName("homepage")]
+    public string HomePage { get; set; } = string.Empty;
 
-    public string Description { get; init; } = string.Empty;
+    [JsonPropertyName("description")]
+    public string Description { get; set; } = string.Empty;
+    
+    [JsonPropertyName("assembly")]
+    public string Assembly { get; set; } = string.Empty;
 
-    public IList<string> Tags { get; init; } = new List<string>();
+    [JsonPropertyName("tags")]
+    public List<string> Tags { get; set; } = new List<string>();
+
+    [JsonPropertyName("id")]
+    public Guid Id { get; set; }
+
+    [JsonPropertyName("license")]
+    public PackageLicense License { get; set; }
+
+    [JsonPropertyName("dependencies")]
+    public Dictionary<string, string> Dependencies { get; set; } = new();
+
+    [JsonIgnore]
+    public string? BasePath { get; set; }
 }
