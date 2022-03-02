@@ -1,5 +1,4 @@
-﻿
-using BeUtl.Framework;
+﻿using BeUtl.Framework;
 using BeUtl.ProjectSystem;
 
 namespace PackageSample;

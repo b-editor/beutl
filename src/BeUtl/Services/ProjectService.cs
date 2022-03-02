@@ -1,26 +1,29 @@
 ﻿using System.Reactive.Linq;
 using System.Reactive.Subjects;
 
+using BeUtl.Framework.Services;
 using BeUtl.ProjectSystem;
 
 using Reactive.Bindings;
 
 namespace BeUtl.Services;
 
-public class ProjectService
+public class ProjectService : IProjectService
 {
     private readonly Subject<(Project? New, Project? Old)> _projectObservable = new();
+    private readonly ReactivePropertySlim<Project?> _currentProject = new();
+    private readonly ReadOnlyReactivePropertySlim<bool> _isOpened;
 
     public ProjectService()
     {
-        IsOpened = CurrentProject.Select(v => v != null).ToReadOnlyReactivePropertySlim();
+        _isOpened = CurrentProject.Select(v => v != null).ToReadOnlyReactivePropertySlim();
     }
 
     public IObservable<(Project? New, Project? Old)> ProjectObservable => _projectObservable;
 
-    public ReactivePropertySlim<Project?> CurrentProject { get; } = new();
+    public IReactiveProperty<Project?> CurrentProject => _currentProject;
 
-    public ReadOnlyReactivePropertySlim<bool> IsOpened { get; }
+    public IReadOnlyReactiveProperty<bool> IsOpened => _isOpened;
 
     public Project? OpenProject(string file)
     {

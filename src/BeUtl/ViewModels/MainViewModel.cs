@@ -3,6 +3,7 @@ using Avalonia.Threading;
 
 using BeUtl.Framework;
 using BeUtl.Framework.Service;
+using BeUtl.Framework.Services;
 using BeUtl.ProjectSystem;
 using BeUtl.Services;
 
@@ -14,11 +15,11 @@ namespace BeUtl.ViewModels;
 
 public class MainViewModel
 {
-    private readonly ProjectService _projectService;
+    private readonly IProjectService _projectService;
 
     public MainViewModel()
     {
-        _projectService = ServiceLocator.Current.GetRequiredService<ProjectService>();
+        _projectService = ServiceLocator.Current.GetRequiredService<IProjectService>();
 
         IsProjectOpened = _projectService.IsOpened;
 
@@ -79,6 +80,12 @@ public class MainViewModel
         {
             PackageManager manager = PackageManager.Instance;
             manager.LoadPackages(manager.GetPackageInfos());
+
+            manager.ExtensionProvider._allExtensions.Add(Package.s_nextId++, new Extension[]
+            {
+                SceneEditorExtension.Instance
+            });
+
             Dispatcher.UIThread.InvokeAsync(() =>
             {
                 if (Application.Current != null)
@@ -111,5 +118,5 @@ public class MainViewModel
 
     public ReactiveCommand Redo { get; }
 
-    public ReadOnlyReactivePropertySlim<bool> IsProjectOpened { get; }
+    public IReadOnlyReactiveProperty<bool> IsProjectOpened { get; }
 }

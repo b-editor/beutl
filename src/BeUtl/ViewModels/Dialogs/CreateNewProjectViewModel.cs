@@ -3,6 +3,7 @@
 using Avalonia;
 using Avalonia.Controls;
 
+using BeUtl.Framework.Services;
 using BeUtl.Services;
 
 using Microsoft.Extensions.DependencyInjection;
@@ -79,7 +80,7 @@ public sealed class CreateNewProjectViewModel
         Create = new ReactiveCommand(CanCreate);
         Create.Subscribe(() =>
         {
-            ProjectService service = ServiceLocator.Current.GetRequiredService<ProjectService>();
+            IProjectService service = ServiceLocator.Current.GetRequiredService<IProjectService>();
 
             service.CreateProject(
                 Size.Value.Width, Size.Value.Height,

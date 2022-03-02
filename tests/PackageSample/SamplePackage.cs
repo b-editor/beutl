@@ -12,6 +12,7 @@ public sealed class SamplePackage : Package
     public override IEnumerable<Extension> GetExtensions()
     {
         yield return new SampleExtension();
+        yield return new SampleEditorExtension();
     }
 
     public override IResourceProvider? GetResource(CultureInfo ci)

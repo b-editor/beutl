@@ -1,13 +1,8 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
     <ProjectReference Include="..\BeUtl.Core\BeUtl.Core.csproj" />
     <ProjectReference Include="..\BeUtl.ProjectSystem\BeUtl.ProjectSystem.csproj" />
   </ItemGroup>
   <Import Project="$(RootDirectory)\build\props\Avalonia.props" />
-  <ItemGroup>
-    <Compile Remove="EditorExtension.cs" />
-    <Compile Remove="IEditor.cs" />
-    <Compile Remove="ViewExtension.cs" />
-    <Compile Remove="IEditor.cs" />
-  </ItemGroup>
+  <Import Project="$(RootDirectory)\build\props\ReactiveProperty.props" />
 </Project>

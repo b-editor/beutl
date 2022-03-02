@@ -1,5 +1,5 @@
-﻿using BeUtl.ProjectSystem;
-using BeUtl.Services;
+﻿using BeUtl.Framework.Services;
+using BeUtl.ProjectSystem;
 
 using Microsoft.Extensions.DependencyInjection;
 
@@ -9,18 +9,14 @@ namespace BeUtl.ViewModels;
 
 public sealed class EditPageViewModel
 {
-    private readonly ProjectService _projectService;
+    private readonly IProjectService _projectService;
 
     public EditPageViewModel()
     {
-        _projectService = ServiceLocator.Current.GetRequiredService<ProjectService>();
-        _projectService.CurrentProject.Subscribe(i =>
-        {
-
-        });
+        _projectService = ServiceLocator.Current.GetRequiredService<IProjectService>();
     }
 
-    public ReactivePropertySlim<Project?> Project => _projectService.CurrentProject;
+    public IReactiveProperty<Project?> Project => _projectService.CurrentProject;
 
-    public ReadOnlyReactivePropertySlim<bool> IsProjectOpened => _projectService.IsOpened;
+    public IReadOnlyReactiveProperty<bool> IsProjectOpened => _projectService.IsOpened;
 }

@@ -8,6 +8,7 @@ using Avalonia.Platform;
 
 using BeUtl.Controls;
 using BeUtl.Framework;
+using BeUtl.Framework.Services;
 using BeUtl.Media;
 using BeUtl.Media.Pixel;
 using BeUtl.ProjectSystem;
@@ -19,7 +20,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace BeUtl.Views;
 
-public sealed partial class EditView : UserControl
+public sealed partial class EditView : UserControl, IEditor
 {
     private readonly SynchronizationContext _syncContext;
     private Image? _image;
@@ -41,11 +42,28 @@ public sealed partial class EditView : UserControl
 
     private Image Image => _image ??= Player.GetImage();
 
+    public ViewExtension Extension => SceneEditorExtension.Instance;
+
+    public string EdittingFile
+    {
+        get
+        {
+            if (DataContext is EditViewModel vm)
+            {
+                return vm.Scene.FileName;
+            }
+            else
+            {
+                throw new InvalidOperationException();
+            }
+        }
+    }
+
     protected override void OnAttachedToLogicalTree(Avalonia.LogicalTree.LogicalTreeAttachmentEventArgs e)
     {
         static object? DataContextFactory(string filename)
         {
-            ProjectService service = ServiceLocator.Current.GetRequiredService<ProjectService>();
+            IProjectService service = ServiceLocator.Current.GetRequiredService<IProjectService>();
             if (service.CurrentProject.Value != null)
             {
                 foreach (IStorable item in service.CurrentProject.Value.EnumerateAllChildren<IStorable>())
@@ -61,7 +79,7 @@ public sealed partial class EditView : UserControl
         }
 
         base.OnAttachedToLogicalTree(e);
-        ProjectService service = ServiceLocator.Current.GetRequiredService<ProjectService>();
+        IProjectService service = ServiceLocator.Current.GetRequiredService<IProjectService>();
         if (service.CurrentProject.Value != null)
         {
             _watcher = new FileSystemWatcher(service.CurrentProject.Value.RootDirectory)
@@ -184,5 +202,9 @@ public sealed partial class EditView : UserControl
 
             Image.InvalidateVisual();
         }, null);
+    }
+
+    public void Close()
+    {
     }
 }

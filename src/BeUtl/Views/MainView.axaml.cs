@@ -2,6 +2,9 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 
+using BeUtl.Controls;
+using BeUtl.Framework;
+using BeUtl.Framework.Services;
 using BeUtl.Pages;
 using BeUtl.Services;
 using BeUtl.ViewModels;
@@ -16,12 +19,14 @@ namespace BeUtl.Views;
 
 public partial class MainView : UserControl
 {
+    private readonly EditPage _editPage;
+
     public MainView()
     {
         InitializeComponent();
 
         // NavigationView‚ÌÝ’è
-        EditPageItem.Tag = new EditPage();
+        EditPageItem.Tag = _editPage = new EditPage();
         SettingsPageItem.Tag = new SettingsPage();
 
         Navi.SelectedItem = EditPageItem;
@@ -43,7 +48,7 @@ public partial class MainView : UserControl
 
             vm.OpenProject.Subscribe(async () =>
             {
-                ProjectService service = ServiceLocator.Current.GetRequiredService<ProjectService>();
+                IProjectService service = ServiceLocator.Current.GetRequiredService<IProjectService>();
 
                 // Todo: Œã‚ÅŠg’£Žq‚ð•ÏX
                 var dialog = new OpenFileDialog
@@ -67,6 +72,49 @@ public partial class MainView : UserControl
                     if ((files?.Any() ?? false) && File.Exists(files[0]))
                     {
                         service.OpenProject(files[0]);
+                    }
+                }
+            });
+
+            vm.OpenFile.Subscribe(async () =>
+            {
+                if (VisualRoot is not Window root)
+                {
+                    return;
+                }
+
+                var dialog = new OpenFileDialog
+                {
+                    AllowMultiple = true,
+                };
+
+                dialog.Filters.AddRange(PackageManager.Instance.ExtensionProvider.AllExtensions
+                    .OfType<EditorExtension>()
+                    .Select(e => new FileDialogFilter()
+                    {
+                        Extensions = e.FileExtensions.ToList(),
+                        Name = Application.Current?.FindResource(e.FileTypeName.Key) as string
+                    }));
+
+                string[]? files = await dialog.ShowAsync(root);
+                if (files != null)
+                {
+                    foreach (string file in files)
+                    {
+                        if (File.Exists(file))
+                        {
+                            EditorExtension? ext = PackageManager.Instance.ExtensionProvider.MatchEditorExtension(file);
+                            if (ext?.TryCreateEditor(file, out IEditor? editor) == true)
+                            {
+                                var tabItem = new DraggableTabItem
+                                {
+                                    Header = Path.GetFileName(file),
+                                    Content = editor,
+                                };
+
+                                _editPage.tabview.AddTab(tabItem);
+                            }
+                        }
                     }
                 }
             });

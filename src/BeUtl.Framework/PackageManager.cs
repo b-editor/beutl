@@ -7,13 +7,15 @@ using Avalonia;
 using Avalonia.Controls;
 
 using BeUtl.Configuration;
+using BeUtl.Framework.Services;
 
 namespace BeUtl.Framework;
 
 public sealed class PackageManager
 {
     public static readonly PackageManager Instance = new();
-    private readonly List<Package> _loadedPackage = new();
+    internal readonly List<Package> _loadedPackage = new();
+    private ExtensionProvider? _extensionProvider;
     private ResourceDictionary _resourceDictionary = new();
     private Application? _application;
 
@@ -25,7 +27,11 @@ public sealed class PackageManager
 
     public IReadOnlyList<Package> LoadedPackage => _loadedPackage;
 
-    public string BaseDirectory { get; } = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".beutl", "extensions");
+    public ExtensionProvider ExtensionProvider
+        => _extensionProvider ?? throw new Exception("No packages have been loaded yet.");
+
+    public string BaseDirectory { get; }
+        = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".beutl", "extensions");
 
     public IEnumerable<PackageInfo> GetPackageInfos()
     {
@@ -64,6 +70,7 @@ public sealed class PackageManager
         }
 
         LoadResources(CultureInfo.CurrentUICulture);
+        _extensionProvider = new ExtensionProvider(this);
     }
 
     public void AttachToApplication(Application app)

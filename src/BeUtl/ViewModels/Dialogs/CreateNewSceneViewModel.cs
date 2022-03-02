@@ -3,6 +3,7 @@
 using Avalonia;
 using Avalonia.Controls;
 
+using BeUtl.Framework.Services;
 using BeUtl.ProjectSystem;
 using BeUtl.Services;
 
@@ -18,7 +19,7 @@ public sealed class CreateNewSceneViewModel
 
     public CreateNewSceneViewModel()
     {
-        ProjectService service = ServiceLocator.Current.GetRequiredService<ProjectService>();
+        IProjectService service = ServiceLocator.Current.GetRequiredService<IProjectService>();
         if (!service.IsOpened.Value)
             throw new Exception("The project has not been opened.");
         _proj = service.CurrentProject.Value!;
