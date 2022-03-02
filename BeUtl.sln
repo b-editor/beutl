@@ -28,7 +28,9 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Props", "Props", "{74C34E00-E924-4463-A38B-F691AFBAE362}"
 	ProjectSection(SolutionItems) = preProject
 		build\props\Avalonia.props = build\props\Avalonia.props
+		build\props\Avalonia.Xaml.Interactivity.props = build\props\Avalonia.Xaml.Interactivity.props
 		build\props\CoreLibraries.props = build\props\CoreLibraries.props
+		build\props\FluentAvalonia.props = build\props\FluentAvalonia.props
 		build\props\Microsoft.CodeAnalysis.CSharp.Scripting.props = build\props\Microsoft.CodeAnalysis.CSharp.Scripting.props
 		build\props\Microsoft.Extensions.DependencyInjection.props = build\props\Microsoft.Extensions.DependencyInjection.props
 		build\props\Microsoft.Extensions.FileSystemGlobbing.props = build\props\Microsoft.Extensions.FileSystemGlobbing.props

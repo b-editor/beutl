@@ -3,4 +3,6 @@
     <Nullable>disable</Nullable>
   </PropertyGroup>
   <Import Project="$(RootDirectory)\build\props\Avalonia.props" />
+  <Import Project="$(RootDirectory)\build\props\Avalonia.Xaml.Interactivity.props" />
+  <Import Project="$(RootDirectory)\build\props\FluentAvalonia.props" />
 </Project>
