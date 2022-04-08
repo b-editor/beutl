@@ -21,7 +21,7 @@ public sealed class ImageFileOperation : DrawableOperation
 
     public ImageFileOperation()
     {
-        if (FindSetter(FileProperty) is PropertyInstance<FileInfo?> setter)
+        if (FindPropertyInstance(FileProperty) is PropertyInstance<FileInfo?> setter)
         {
             setter.GetObservable().Subscribe(f =>
             {
@@ -38,7 +38,7 @@ public sealed class ImageFileOperation : DrawableOperation
     protected override void OnAttachedToLogicalTree(in LogicalTreeAttachmentEventArgs args)
     {
         base.OnAttachedToLogicalTree(args);
-        if (FindSetter(FileProperty) is PropertyInstance<FileInfo?> setter)
+        if (FindPropertyInstance(FileProperty) is PropertyInstance<FileInfo?> setter)
         {
             FileChanged(setter.Value);
         }
