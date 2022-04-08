@@ -8,5 +8,7 @@ public interface IEditor : IControl
 
     string EdittingFile { get; }
 
+    IKnownEditorCommands? Commands => null;
+
     void Close();
 }

@@ -59,6 +59,8 @@ public sealed partial class EditView : UserControl, IEditor
         }
     }
 
+    public IKnownEditorCommands? Commands { get; private set; }
+
     protected override void OnAttachedToLogicalTree(Avalonia.LogicalTree.LogicalTreeAttachmentEventArgs e)
     {
         static object? DataContextFactory(string filename)
@@ -119,6 +121,8 @@ public sealed partial class EditView : UserControl, IEditor
                         a.NewValue.RenderInvalidated += Renderer_RenderInvalidated;
                     }
                 });
+
+            Commands = new KnownCommandsImpl(vm.Scene);
         }
     }
 
@@ -206,5 +210,26 @@ public sealed partial class EditView : UserControl, IEditor
 
     public void Close()
     {
+    }
+
+    private sealed class KnownCommandsImpl : IKnownEditorCommands
+    {
+        private readonly Scene _scene;
+
+        public KnownCommandsImpl(Scene scene)
+        {
+            _scene = scene;
+        }
+
+        public ValueTask<bool> OnSave()
+        {
+            _scene.Save(_scene.FileName);
+            foreach (Layer layer in _scene.Children)
+            {
+                layer.Save(layer.FileName);
+            }
+
+            return ValueTask.FromResult(true);
+        }
     }
 }

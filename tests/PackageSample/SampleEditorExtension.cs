@@ -21,6 +21,8 @@ public class TextEditor : TextBox, IEditor, IStyleable
 
     public string EdittingFile { get; }
 
+    public IKnownEditorCommands? Commands { get; }
+
     Type IStyleable.StyleKey => typeof(TextBox);
 
     public void Close()

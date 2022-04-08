@@ -4,8 +4,10 @@ using Avalonia.Controls.ApplicationLifetimes;
 
 using BeUtl.Controls;
 using BeUtl.Framework;
+using BeUtl.Framework.Service;
 using BeUtl.Framework.Services;
 using BeUtl.Pages;
+using BeUtl.ProjectSystem;
 using BeUtl.Services;
 using BeUtl.ViewModels;
 using BeUtl.Views.Dialogs;
@@ -33,6 +35,8 @@ public partial class MainView : UserControl
         Navi.ItemInvoked += NavigationView_ItemInvoked;
 
         NaviContent.Content = EditPageItem.Tag;
+
+        _editPage.tabview.SelectionChanged += TabView_SelectionChanged;
     }
 
     protected override void OnDataContextChanged(EventArgs e)
@@ -122,10 +126,95 @@ public partial class MainView : UserControl
                                     };
                                 }
 
+                                tabItem.Closing += (s, e) =>
+                                {
+                                    if (s is DraggableTabItem { Content: IEditor editor })
+                                    {
+                                        editor.Close();
+                                    }
+                                };
+
                                 _editPage.tabview.AddTab(tabItem);
                             }
                         }
                     }
+                }
+            });
+
+            vm.SaveAll.Subscribe(async () =>
+            {
+                IProjectService service = ServiceLocator.Current.GetRequiredService<IProjectService>();
+
+                Project? project = service.CurrentProject.Value;
+                INotificationService nservice = ServiceLocator.Current.GetRequiredService<INotificationService>();
+                int itemsCount = 0;
+
+                try
+                {
+                    project?.Save(project.FileName);
+                    itemsCount++;
+
+                    foreach (DraggableTabItem? item in _editPage.tabview.Items.OfType<DraggableTabItem>())
+                    {
+                        if (item.Content is IEditor editor
+                            && editor.Commands != null
+                            && await editor.Commands.OnSave())
+                        {
+                            itemsCount++;
+                        }
+                    }
+
+                    string message = new ResourceReference<string>("S.Message.ItemsSaved").FindOrDefault(string.Empty);
+                    nservice.Show(new Notification(
+                        string.Empty,
+                        string.Format(message, itemsCount.ToString()),
+                        NotificationType.Success));
+                }
+                catch
+                {
+                    string message = new ResourceReference<string>("S.Message.OperationCouldNotBeExecuted").FindOrDefault(string.Empty);
+                    nservice.Show(new Notification(
+                        string.Empty,
+                        message,
+                        NotificationType.Error));
+                }
+            });
+
+            vm.Save.Subscribe(async () =>
+            {
+                if (_editPage.tabview.SelectedContent is IEditor editor && editor.Commands != null)
+                {
+                    INotificationService nservice = ServiceLocator.Current.GetRequiredService<INotificationService>();
+                    try
+                    {
+                        bool result = await editor.Commands.OnSave();
+
+                        if (result)
+                        {
+                            string message = new ResourceReference<string>("S.Message.ItemSaved").FindOrDefault("{0}");
+                            nservice.Show(new Notification(
+                                string.Empty,
+                                string.Format(message, Path.GetFileName(editor.EdittingFile) ?? editor.EdittingFile),
+                                NotificationType.Success));
+                        }
+                        else
+                        {
+                            string message = new ResourceReference<string>("S.Message.OperationCouldNotBeExecuted").FindOrDefault(string.Empty);
+                            nservice.Show(new Notification(
+                                string.Empty,
+                                message,
+                                NotificationType.Information));
+                        }
+                    }
+                    catch
+                    {
+                        string message = new ResourceReference<string>("S.Message.OperationCouldNotBeExecuted").FindOrDefault(string.Empty);
+                        nservice.Show(new Notification(
+                            string.Empty,
+                            message,
+                            NotificationType.Error));
+                    }
+
                 }
             });
 
@@ -146,6 +235,14 @@ public partial class MainView : UserControl
         if (e.Root is Window b)
         {
             b.Opened += OnParentWindowOpened;
+        }
+    }
+
+    private void TabView_SelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (DataContext is MainViewModel viewModel && _editPage.tabview.SelectedContent is IEditor editor)
+        {
+            viewModel.KnownCommands = editor.Commands;
         }
     }
 
