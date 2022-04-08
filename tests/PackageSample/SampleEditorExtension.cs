@@ -3,6 +3,7 @@ using Avalonia.Media;
 using Avalonia.Styling;
 
 using BeUtl;
+using BeUtl.Controls;
 using BeUtl.Framework;
 
 namespace PackageSample;
@@ -29,7 +30,7 @@ public class TextEditor : TextBox, IEditor, IStyleable
 
 public sealed class SampleEditorExtension : EditorExtension
 {
-    public override Geometry? Icon { get; }
+    public override Geometry? Icon { get; } = FluentIconsRegular.Add.GetGeometry();
 
     public override string[] FileExtensions { get; } =
     {

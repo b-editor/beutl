@@ -11,6 +11,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\..\src\BeUtl.Controls\BeUtl.Controls.csproj" />
     <ProjectReference Include="..\..\src\BeUtl.Framework\BeUtl.Framework.csproj" />
   </ItemGroup>
 

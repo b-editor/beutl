@@ -112,6 +112,16 @@ public partial class MainView : UserControl
                                     Content = editor,
                                 };
 
+                                if (ext.Icon != null)
+                                {
+                                    tabItem.Icon = new Avalonia.Controls.PathIcon()
+                                    {
+                                        Data = ext.Icon,
+                                        Width = 16,
+                                        Height = 16,
+                                    };
+                                }
+
                                 _editPage.tabview.AddTab(tabItem);
                             }
                         }
