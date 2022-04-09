@@ -26,6 +26,9 @@ public class MainViewModel
         // プロジェクトが開いている時だけ実行できるコマンド
         Save = new(_projectService.IsOpened);
         SaveAll = new(_projectService.IsOpened);
+        OpenScene = new(_projectService.IsOpened);
+        AddScene = new(_projectService.IsOpened);
+        RemoveScene = new(_projectService.IsOpened);
         CloseFile = new(_projectService.IsOpened);
         CloseProject = new(_projectService.IsOpened);
         Undo = new(_projectService.IsOpened);
@@ -81,6 +84,12 @@ public class MainViewModel
     public ReactiveCommand OpenProject { get; } = new();
 
     public ReactiveCommand OpenFile { get; } = new();
+
+    public ReactiveCommand OpenScene { get; }
+
+    public ReactiveCommand AddScene { get; }
+    
+    public ReactiveCommand RemoveScene { get; }
 
     public ReactiveCommand CloseFile { get; }
 

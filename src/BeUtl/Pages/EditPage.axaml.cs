@@ -1,4 +1,5 @@
 using System.Collections.Specialized;
+using System.Diagnostics.CodeAnalysis;
 
 using Avalonia;
 using Avalonia.Controls;
@@ -27,6 +28,71 @@ public sealed partial class EditPage : UserControl
         service.ProjectObservable.Subscribe(item => ProjectChanged(item.New, item.Old));
     }
 
+    public bool TryGetTabItem(string file, [NotNullWhen(true)] out DraggableTabItem? result)
+    {
+        result = tabview.Items.OfType<DraggableTabItem>()
+            .FirstOrDefault(i => i.Content is IEditor editor && editor.EdittingFile == file);
+
+        return result != null;
+    }
+
+    public void SelectOrAddTabItem(string file)
+    {
+        if (File.Exists(file))
+        {
+            if (TryGetTabItem(file, out DraggableTabItem? tabItem))
+            {
+                tabItem.IsSelected = true;
+            }
+            else
+            {
+                EditorExtension? ext = PackageManager.Instance.ExtensionProvider.MatchEditorExtension(file);
+
+                if (ext?.TryCreateEditor(file, out IEditor? editor) == true)
+                {
+                    tabItem = new DraggableTabItem
+                    {
+                        Header = Path.GetFileName(file),
+                        Content = editor,
+                    };
+
+                    if (ext.Icon != null)
+                    {
+                        tabItem.Icon = new PathIcon()
+                        {
+                            Data = ext.Icon,
+                            Width = 16,
+                            Height = 16,
+                        };
+                    }
+
+                    tabItem.Closing += (s, e) =>
+                    {
+                        if (s is DraggableTabItem { Content: IEditor editor })
+                        {
+                            editor.Close();
+                        }
+                    };
+
+                    tabview.AddTab(tabItem);
+                }
+            }
+        }
+    }
+
+    public bool CloseTabItem(string file)
+    {
+        if (TryGetTabItem(file, out DraggableTabItem? item))
+        {
+            item.Close();
+            return true;
+        }
+        else
+        {
+            return false;
+        }
+    }
+
     // 開いているプロジェクトが変更された
     private void ProjectChanged(Project? @new, Project? old)
     {
@@ -36,7 +102,7 @@ public sealed partial class EditPage : UserControl
             @new.Children.CollectionChanged += Project_Children_CollectionChanged;
             foreach (Scene item in @new.Children)
             {
-                AddTabItem(item);
+                SelectOrAddTabItem(item.FileName);
             }
         }
 
@@ -46,7 +112,7 @@ public sealed partial class EditPage : UserControl
             old.Children.CollectionChanged -= Project_Children_CollectionChanged;
             foreach (Scene item in old.Children)
             {
-                CloseTabItem(item);
+                CloseTabItem(item.FileName);
             }
         }
     }
@@ -59,7 +125,7 @@ public sealed partial class EditPage : UserControl
         {
             foreach (Scene item in e.NewItems.OfType<Scene>())
             {
-                AddTabItem(item);
+                SelectOrAddTabItem(item.FileName);
             }
         }
         else if (e.Action == NotifyCollectionChangedAction.Remove &&
@@ -67,42 +133,8 @@ public sealed partial class EditPage : UserControl
         {
             foreach (Scene item in e.OldItems.OfType<Scene>())
             {
-                CloseTabItem(item);
+                CloseTabItem(item.FileName);
             }
-        }
-    }
-
-    // DataContextからタブを追加
-    private void AddTabItem(Scene scene)
-    {
-        if (tabview.Items.OfType<DraggableTabItem>()
-            .Any(i => i.DataContext == scene))
-        {
-            // 既にタブが開かれている場合、追加しない
-            return;
-        }
-
-        var view = new EditView
-        {
-            DataContext = new EditViewModel(scene)
-        };
-        var tabItem = new DraggableTabItem
-        {
-            Header = Path.GetFileName(scene.FileName),
-            Content = view,
-        };
-
-        tabview.AddTab(tabItem);
-    }
-
-    // DataContextからタブを削除
-    private void CloseTabItem(Scene scene)
-    {
-        foreach (DraggableTabItem item in tabview.Items.OfType<DraggableTabItem>()
-            .Where(i => i.DataContext == scene)
-            .ToArray())
-        {
-            item.Close();
         }
     }
 

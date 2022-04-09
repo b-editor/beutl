@@ -6,5 +6,6 @@
         <x:String x:Key="S.Message.OperationCouldNotBeExecuted">操作を実行できませんでした</x:String>
         <x:String x:Key="S.Message.DoYouWantToDeleteThisDirectory">このディレクトリを削除しますか？</x:String>
         <x:String x:Key="S.Message.DoYouWantToDeleteThisFile">このファイルを削除しますか？</x:String>
+        <x:String x:Key="S.Message.DoYouWantToExcludeThisSceneFromProject">プロジェクトからこのシーンを除外しますか？</x:String>
     </Styles.Resources>
 </Styles>

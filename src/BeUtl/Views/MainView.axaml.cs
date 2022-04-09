@@ -1,6 +1,8 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Controls.Primitives;
+using Avalonia.Markup.Xaml.MarkupExtensions;
 
 using BeUtl.Controls;
 using BeUtl.Framework;
@@ -80,6 +82,71 @@ public partial class MainView : UserControl
                 }
             });
 
+            vm.OpenScene.Subscribe(async () =>
+            {
+                IProjectService service = ServiceLocator.Current.GetRequiredService<IProjectService>();
+                Project? project = service.CurrentProject.Value;
+
+                if (VisualRoot is Window window && project != null)
+                {
+                    // Todo: Œã‚ÅŠg’£Žq‚ð•ÏX
+                    var dialog = new OpenFileDialog
+                    {
+                        Filters =
+                        {
+                            new FileDialogFilter
+                            {
+                                Name = Application.Current?.FindResource("S.Common.SceneFile") as string,
+                                Extensions =
+                                {
+                                    "scene"
+                                }
+                            }
+                        }
+                    };
+                    string[]? files = await dialog.ShowAsync(window);
+                    if ((files?.Any() ?? false) && File.Exists(files[0]))
+                    {
+                        var scene = new Scene();
+                        scene.Restore(files[0]);
+                        project.Children.Add(scene);
+                    }
+                }
+            });
+
+            vm.AddScene.Subscribe(async () =>
+            {
+                var dialog = new CreateNewScene();
+                await dialog.ShowAsync();
+            });
+
+            vm.RemoveScene.Subscribe(async () =>
+            {
+                IProjectService service = ServiceLocator.Current.GetRequiredService<IProjectService>();
+                Project? project = service.CurrentProject.Value;
+
+                if (VisualRoot is Window window
+                    && project != null
+                    && _editPage.tabview.SelectedContent is EditView editor
+                    && editor.DataContext is EditViewModel viewModel)
+                {
+                    string name = Path.GetFileName(viewModel.Scene.FileName);
+                    var dialog = new ContentDialog
+                    {
+                        [!ContentDialog.CloseButtonTextProperty] = new DynamicResourceExtension("S.Common.Cancel"),
+                        [!ContentDialog.PrimaryButtonTextProperty] = new DynamicResourceExtension("S.Common.OK"),
+                        DefaultButton = ContentDialogButton.Primary,
+                        Content = (Application.Current?.FindResource("S.Message.DoYouWantToExcludeThisSceneFromProject") as string ?? "") + "\n" + name
+                    };
+
+                    if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+                    {
+                        project.Children.Remove(viewModel.Scene);
+                    }
+                }
+                //TaskDialog
+            });
+
             vm.OpenFile.Subscribe(async () =>
             {
                 if (VisualRoot is not Window root)
@@ -105,38 +172,7 @@ public partial class MainView : UserControl
                 {
                     foreach (string file in files)
                     {
-                        if (File.Exists(file))
-                        {
-                            EditorExtension? ext = PackageManager.Instance.ExtensionProvider.MatchEditorExtension(file);
-                            if (ext?.TryCreateEditor(file, out IEditor? editor) == true)
-                            {
-                                var tabItem = new DraggableTabItem
-                                {
-                                    Header = Path.GetFileName(file),
-                                    Content = editor,
-                                };
-
-                                if (ext.Icon != null)
-                                {
-                                    tabItem.Icon = new Avalonia.Controls.PathIcon()
-                                    {
-                                        Data = ext.Icon,
-                                        Width = 16,
-                                        Height = 16,
-                                    };
-                                }
-
-                                tabItem.Closing += (s, e) =>
-                                {
-                                    if (s is DraggableTabItem { Content: IEditor editor })
-                                    {
-                                        editor.Close();
-                                    }
-                                };
-
-                                _editPage.tabview.AddTab(tabItem);
-                            }
-                        }
+                        _editPage.SelectOrAddTabItem(file);
                     }
                 }
             });

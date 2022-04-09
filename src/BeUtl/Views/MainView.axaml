@@ -111,9 +111,9 @@
                 <MenuItem Header="{DynamicResource S.MainView.Edit}">
                     <!--シーン-->
                     <MenuItem Header="{DynamicResource S.MainView.Edit.Scene}">
-                        <MenuItem Header="{DynamicResource S.MainView.Edit.Scene.Open}" />
-                        <MenuItem Header="{DynamicResource S.MainView.Edit.Scene.Add}" />
-                        <MenuItem Header="{DynamicResource S.MainView.Edit.Scene.Remove}" />
+                        <MenuItem Header="{DynamicResource S.MainView.Edit.Scene.Open}" Command="{CompiledBinding OpenScene}" />
+                        <MenuItem Header="{DynamicResource S.MainView.Edit.Scene.Add}" Command="{CompiledBinding AddScene}" />
+                        <MenuItem Header="{DynamicResource S.MainView.Edit.Scene.Remove}" Command="{CompiledBinding RemoveScene}" />
                         <MenuItem Header="{DynamicResource S.MainView.Edit.Scene.Settings}" />
                     </MenuItem>
                     <!--元に戻す-->
