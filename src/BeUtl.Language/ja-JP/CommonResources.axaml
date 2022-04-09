@@ -30,6 +30,7 @@
         <x:String x:Key="S.Common.CreateNewProject">プロジェクトを新規作成</x:String>
         <x:String x:Key="S.Common.CreateNewScene">シーンを新規作成</x:String>
         <x:String x:Key="S.Common.Project">プロジェクト</x:String>
+        <x:String x:Key="S.Common.Scene">シーン</x:String>
         <x:String x:Key="S.Common.Open">開く</x:String>
         <x:String x:Key="S.Common.Close">閉じる</x:String>
         <x:String x:Key="S.Common.CloseProject">プロジェクトを閉じる</x:String>
@@ -125,6 +126,8 @@
         <x:String x:Key="S.Common.Language">言語</x:String>
         <x:String x:Key="S.Common.Text">テキスト</x:String>
         <x:String x:Key="S.Common.Rotation">回転</x:String>
+        <x:String x:Key="S.Common.RecentFiles">最近使ったファイル</x:String>
+        <x:String x:Key="S.Common.RecentProjects">最近使ったプロジェクト</x:String>
     </Styles.Resources>
 
     <!--Views-->

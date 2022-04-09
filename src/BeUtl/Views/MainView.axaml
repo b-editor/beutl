@@ -37,52 +37,52 @@
                 <!--ファイル-->
                 <MenuItem Header="{DynamicResource S.MainView.File}">
                     <!--新規作成-->
-                    <MenuItem Header="{DynamicResource S.MainView.CreateNew}">
+                    <MenuItem Header="{DynamicResource S.MainView.File.CreateNew}">
                         <MenuItem.Icon>
                             <FluentIconRegular IconType="New" Classes="Small" />
                         </MenuItem.Icon>
                         <!--プロジェクト-->
                         <MenuItem
                             InputGesture="{DynamicResource CreateNewProjectKeyGesture}"
-                            Header="{DynamicResource S.MainView.CreateNew.Project}"
+                            Header="{DynamicResource S.MainView.File.CreateNew.Project}"
                             Command="{CompiledBinding CreateNewProject}" />
                         <!--ファイル-->
                         <MenuItem
                             InputGesture="{DynamicResource CreateNewKeyGesture}"
-                            Header="{DynamicResource S.MainView.CreateNew.File}"
+                            Header="{DynamicResource S.MainView.File.CreateNew.File}"
                             Command="{CompiledBinding CreateNew}" />
                     </MenuItem>
                     <Separator />
                     <!--開く-->
-                    <MenuItem Header="{DynamicResource S.MainView.Open}">
+                    <MenuItem Header="{DynamicResource S.MainView.File.Open}">
                         <MenuItem.Icon>
                             <FluentIconRegular IconType="Open" Classes="Small" />
                         </MenuItem.Icon>
                         <!--プロジェクト-->
                         <MenuItem
                             InputGesture="{DynamicResource OpenProjectKeyGesture}"
-                            Header="{DynamicResource S.MainView.Open.Project}"
+                            Header="{DynamicResource S.MainView.File.Open.Project}"
                             Command="{CompiledBinding OpenProject}" />
                         <!--ファイル-->
                         <MenuItem
                             InputGesture="{DynamicResource OpenKeyGesture}"
-                            Header="{DynamicResource S.MainView.Open.File}"
+                            Header="{DynamicResource S.MainView.File.Open.File}"
                             Command="{CompiledBinding OpenFile}" />
                     </MenuItem>
                     <Separator />
                     <!--閉じる-->
                     <MenuItem
-                        Header="{DynamicResource S.MainView.Close}"
+                        Header="{DynamicResource S.MainView.File.Close}"
                         Command="{CompiledBinding CloseFile}" />
                     <!--プロジェクトを閉じる-->
                     <MenuItem
                         IsEnabled="{CompiledBinding IsProjectOpened.Value}"
-                        Header="{DynamicResource S.MainView.CloseProject}"
+                        Header="{DynamicResource S.MainView.File.CloseProject}"
                         Command="{CompiledBinding CloseProject}" />
                     <Separator />
                     <!--上書き保存-->
                     <MenuItem
-                        Header="{DynamicResource S.MainView.Save}"
+                        Header="{DynamicResource S.MainView.File.Save}"
                         Command="{CompiledBinding Save}"
                         InputGesture="{DynamicResource SaveKeyGesture}"
                         IsEnabled="{CompiledBinding IsProjectOpened.Value}">
@@ -92,7 +92,7 @@
                     </MenuItem>
                     <!--すべて保存-->
                     <MenuItem
-                        Header="{DynamicResource S.MainView.SaveAll}"
+                        Header="{DynamicResource S.MainView.File.SaveAll}"
                         Command="{CompiledBinding SaveAll}"
                         InputGesture="{DynamicResource SaveAllKeyGesture}"
                         IsEnabled="{CompiledBinding IsProjectOpened.Value}">
@@ -101,17 +101,40 @@
                         </MenuItem.Icon>
                     </MenuItem>
                     <Separator />
+                    <!--最近使ったプロジェクト-->
+                    <MenuItem x:Name="recentFiles" Header="{DynamicResource S.MainView.File.RecentFiles}" />
+                    <MenuItem x:Name="recentProjects" Header="{DynamicResource S.MainView.File.RecentProjects}" />
+
+                    <Separator />
                     <!--終了-->
                     <MenuItem
-                        Header="{DynamicResource S.MainView.Exit}"
+                        Header="{DynamicResource S.MainView.File.Exit}"
                         Command="{CompiledBinding Exit}"
                         InputGesture="{DynamicResource ExitKeyGesture}" />
                 </MenuItem>
                 <!--編集-->
                 <MenuItem Header="{DynamicResource S.MainView.Edit}">
+                    <!--シーン-->
+                    <MenuItem Header="{DynamicResource S.MainView.Edit.Scene}">
+                        <MenuItem Header="{DynamicResource S.MainView.Edit.Scene.Open}" Command="{CompiledBinding OpenScene}" />
+                        <MenuItem Header="{DynamicResource S.MainView.Edit.Scene.Add}" Command="{CompiledBinding AddScene}" />
+                        <MenuItem Header="{DynamicResource S.MainView.Edit.Scene.Remove}" Command="{CompiledBinding RemoveScene}" />
+                        <MenuItem Header="{DynamicResource S.MainView.Edit.Scene.Settings}"
+                                  Click="SceneSettings_Click"
+                                  IsEnabled="{CompiledBinding IsProjectOpened.Value}" />
+                    </MenuItem>
+                    <!--レイヤー-->
+                    <MenuItem Header="{DynamicResource S.MainView.Edit.Layer}">
+                        <MenuItem Header="{DynamicResource S.MainView.Edit.Layer.Add}" Command="{CompiledBinding AddLayer}" />
+                        <MenuItem Header="{DynamicResource S.MainView.Edit.Layer.Delete}" Command="{CompiledBinding DeleteLayer}" />
+                        <MenuItem Header="{DynamicResource S.MainView.Edit.Layer.Exclude}" Command="{CompiledBinding ExcludeLayer}" />
+                        <MenuItem Header="{DynamicResource S.MainView.Edit.Layer.Cut}" Command="{CompiledBinding CutLayer}" />
+                        <MenuItem Header="{DynamicResource S.MainView.Edit.Layer.Copy}" Command="{CompiledBinding CopyLayer}" />
+                        <MenuItem Header="{DynamicResource S.MainView.Edit.Layer.Paste}" Command="{CompiledBinding PasteLayer}" />
+                    </MenuItem>
                     <!--元に戻す-->
                     <MenuItem
-                        Header="{DynamicResource S.MainView.Undo}"
+                        Header="{DynamicResource S.MainView.Edit.Undo}"
                         Command="{CompiledBinding Undo}"
                         InputGesture="{DynamicResource UndoKeyGesture}"
                         IsEnabled="{CompiledBinding IsProjectOpened.Value}">
@@ -121,7 +144,7 @@
                     </MenuItem>
                     <!--やり直し-->
                     <MenuItem
-                        Header="{DynamicResource S.MainView.Redo}"
+                        Header="{DynamicResource S.MainView.Edit.Redo}"
                         Command="{CompiledBinding Redo}"
                         InputGesture="{DynamicResource RedoKeyGesture}"
                         IsEnabled="{CompiledBinding IsProjectOpened.Value}">

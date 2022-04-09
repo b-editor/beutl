@@ -1,6 +1,8 @@
 ﻿using System.Reactive.Linq;
 using System.Reactive.Subjects;
 
+using BeUtl.Collections;
+using BeUtl.Configuration;
 using BeUtl.Framework.Services;
 using BeUtl.ProjectSystem;
 
@@ -36,6 +38,10 @@ public class ProjectService : IProjectService
             CurrentProject.Value = project;
             // 値を発行
             _projectObservable.OnNext((New: project, old));
+
+            // Todo: RecentFilesにも追加
+            AddToRecentProjects(file);
+
             return project;
         }
         catch
@@ -70,16 +76,29 @@ public class ProjectService : IProjectService
 
             // Todo: 後で拡張子を変更
             scene.Save(Path.Combine(location, name, $"{name}.scene"));
-            project.Save(Path.Combine(location, $"{name}.bep"));
+            string projectFile = Path.Combine(location, $"{name}.bep");
+            project.Save(projectFile);
 
             // 値を発行
             _projectObservable.OnNext((New: project, CurrentProject.Value));
             CurrentProject.Value = project;
+
+            // Todo: RecentFilesにも追加
+            AddToRecentProjects(projectFile);
+
             return project;
         }
         catch
         {
             return null;
         }
+    }
+
+    private static void AddToRecentProjects(string file)
+    {
+        ViewConfig viewConfig = GlobalConfiguration.Instance.ViewConfig;
+        CoreList<string> recentProjects = viewConfig.RecentProjects;
+        recentProjects.Remove(file);
+        recentProjects.Insert(0, file);
     }
 }

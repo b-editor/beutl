@@ -3,24 +3,43 @@
     <Styles.Resources>
         <!--Strings-->
         <StaticResource x:Key="S.MainView.File" ResourceKey="S.Common.File" />
-        <StaticResource x:Key="S.MainView.CreateNew" ResourceKey="S.Common.CreateNew" />
-        <StaticResource x:Key="S.MainView.CreateNew.Project" ResourceKey="S.Common.Project" />
-        <StaticResource x:Key="S.MainView.CreateNew.File" ResourceKey="S.Common.File" />
-        <StaticResource x:Key="S.MainView.Open" ResourceKey="S.Common.Open" />
-        <StaticResource x:Key="S.MainView.Open.Project" ResourceKey="S.Common.Project" />
-        <StaticResource x:Key="S.MainView.Open.File" ResourceKey="S.Common.File" />
-        <StaticResource x:Key="S.MainView.Close" ResourceKey="S.Common.Close" />
-        <StaticResource x:Key="S.MainView.CloseProject" ResourceKey="S.Common.CloseProject" />
-        <StaticResource x:Key="S.MainView.Save" ResourceKey="S.Common.Save" />
-        <StaticResource x:Key="S.MainView.SaveAll" ResourceKey="S.Common.SaveAll" />
-        <StaticResource x:Key="S.MainView.SaveAs" ResourceKey="S.Common.SaveAs" />
-        <StaticResource x:Key="S.MainView.Exit" ResourceKey="S.Common.Exit" />
+        <StaticResource x:Key="S.MainView.File.CreateNew" ResourceKey="S.Common.CreateNew" />
+        <StaticResource x:Key="S.MainView.File.CreateNew.Project" ResourceKey="S.Common.Project" />
+        <StaticResource x:Key="S.MainView.File.CreateNew.File" ResourceKey="S.Common.File" />
+        <StaticResource x:Key="S.MainView.File.Open" ResourceKey="S.Common.Open" />
+        <StaticResource x:Key="S.MainView.File.Open.Project" ResourceKey="S.Common.Project" />
+        <StaticResource x:Key="S.MainView.File.Open.File" ResourceKey="S.Common.File" />
+        <StaticResource x:Key="S.MainView.File.Close" ResourceKey="S.Common.Close" />
+        <StaticResource x:Key="S.MainView.File.CloseProject" ResourceKey="S.Common.CloseProject" />
+        <StaticResource x:Key="S.MainView.File.Save" ResourceKey="S.Common.Save" />
+        <StaticResource x:Key="S.MainView.File.SaveAll" ResourceKey="S.Common.SaveAll" />
+        <StaticResource x:Key="S.MainView.File.SaveAs" ResourceKey="S.Common.SaveAs" />
+        <StaticResource x:Key="S.MainView.File.RecentFiles" ResourceKey="S.Common.RecentFiles" />
+        <StaticResource x:Key="S.MainView.File.RecentProjects" ResourceKey="S.Common.RecentProjects" />
+        <StaticResource x:Key="S.MainView.File.Exit" ResourceKey="S.Common.Exit" />
+
         <StaticResource x:Key="S.MainView.Edit" ResourceKey="S.Common.Edit" />
-        <StaticResource x:Key="S.MainView.Undo" ResourceKey="S.Common.Undo" />
-        <StaticResource x:Key="S.MainView.Redo" ResourceKey="S.Common.Redo" />
+        <StaticResource x:Key="S.MainView.Edit.Scene" ResourceKey="S.Common.Scene" />
+        <StaticResource x:Key="S.MainView.Edit.Scene.Open" ResourceKey="S.Common.Open" />
+        <StaticResource x:Key="S.MainView.Edit.Scene.Add" ResourceKey="S.Common.Add" />
+        <StaticResource x:Key="S.MainView.Edit.Scene.Remove" ResourceKey="S.Common.Remove" />
+        <StaticResource x:Key="S.MainView.Edit.Scene.Settings" ResourceKey="S.Common.Settings" />
+        <StaticResource x:Key="S.MainView.Edit.Layer" ResourceKey="S.Common.Layer" />
+        <StaticResource x:Key="S.MainView.Edit.Layer.Add" ResourceKey="S.Common.Add" />
+        <StaticResource x:Key="S.MainView.Edit.Layer.Delete" ResourceKey="S.Common.Delete" />
+        <StaticResource x:Key="S.MainView.Edit.Layer.Exclude" ResourceKey="S.Common.Exclude" />
+        <StaticResource x:Key="S.MainView.Edit.Layer.Cut" ResourceKey="S.Common.Cut" />
+        <StaticResource x:Key="S.MainView.Edit.Layer.Copy" ResourceKey="S.Common.Copy" />
+        <StaticResource x:Key="S.MainView.Edit.Layer.Paste" ResourceKey="S.Common.Paste" />
+        <StaticResource x:Key="S.MainView.Edit.Undo" ResourceKey="S.Common.Undo" />
+        <StaticResource x:Key="S.MainView.Edit.Redo" ResourceKey="S.Common.Redo" />
+
         <StaticResource x:Key="S.MainView.View" ResourceKey="S.Common.View" />
+        
         <StaticResource x:Key="S.MainView.Object" ResourceKey="S.Common.Object" />
+
         <StaticResource x:Key="S.MainView.Help" ResourceKey="S.Common.Help" />
+
         <StaticResource x:Key="S.MainView.Extensions" ResourceKey="S.Common.Extensions" />
         <StaticResource x:Key="S.MainView.Output" ResourceKey="S.Common.Output" />
         <StaticResource x:Key="S.MainView.Settings" ResourceKey="S.Common.Settings" />

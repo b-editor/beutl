@@ -38,8 +38,8 @@ public partial class Timeline : UserControl
     }
 
     internal MouseFlags _seekbarMouseFlag = MouseFlags.MouseUp;
-    private TimeSpan _clickedFrame;
-    private int _clickedLayer;
+    internal TimeSpan _clickedFrame;
+    internal int _clickedLayer;
     internal TimeSpan _pointerFrame;
     internal int _pointerLayer;
     private bool _isFirst = true;

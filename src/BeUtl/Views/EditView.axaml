@@ -77,7 +77,7 @@
                     </Style>
                 </DraggableTabView.Styles>
                 <DraggableTabItem Header="{DynamicResource S.EditView.Timeline}">
-                    <local:Timeline DataContext="{CompiledBinding Timeline}" />
+                    <local:Timeline DataContext="{CompiledBinding Timeline}" x:Name="timeline" />
                 </DraggableTabItem>
             </DraggableTabView>
 
