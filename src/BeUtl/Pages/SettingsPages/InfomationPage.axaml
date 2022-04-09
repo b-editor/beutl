@@ -23,7 +23,8 @@
                         </StackPanel>
 
                         <StackPanel Grid.Column="1">
-                            <ui:HyperlinkButton Content="{DynamicResource S.InfomationPage.License}" />
+                            <ui:HyperlinkButton Content="{DynamicResource S.InfomationPage.License}"
+                                                NavigateUri="https://github.com/b-editor/BeUtl/blob/main/LICENSE" />
                             <ui:HyperlinkButton Content="{DynamicResource S.InfomationPage.ThirdPartyLicenses}" />
                         </StackPanel>
                     </Grid>
