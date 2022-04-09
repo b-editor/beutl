@@ -5,6 +5,7 @@ using Avalonia.Collections;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Controls.Primitives;
+using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Threading;
 
@@ -18,6 +19,7 @@ using BeUtl.Pages;
 using BeUtl.ProjectSystem;
 using BeUtl.Services;
 using BeUtl.ViewModels;
+using BeUtl.ViewModels.Dialogs;
 using BeUtl.Views.Dialogs;
 
 using FluentAvalonia.Core.ApplicationModel;
@@ -70,6 +72,18 @@ public partial class MainView : UserControl
 
         viewConfig.RecentFiles.CollectionChanged += RecentFiles_CollectionChanged;
         viewConfig.RecentProjects.CollectionChanged += RecentProjects_CollectionChangedAsync;
+    }
+
+    private async void SceneSettings_Click(object? sender, RoutedEventArgs e)
+    {
+        if (_editPage.tabview.SelectedContent is EditView { DataContext: EditViewModel viewModel })
+        {
+            var dialog = new SceneSettings()
+            {
+                DataContext = new SceneSettingsViewModel(viewModel.Scene)
+            };
+            await dialog.ShowAsync();
+        }
     }
 
     private async void RecentFiles_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
@@ -156,7 +170,7 @@ public partial class MainView : UserControl
                     }
                 }
             }
-            else if(e.Action is NotifyCollectionChangedAction.Reset)
+            else if (e.Action is NotifyCollectionChangedAction.Reset)
             {
                 ((AvaloniaList<MenuItem>)recentProjects.Items).Clear();
             }

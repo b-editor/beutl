@@ -119,7 +119,9 @@
                         <MenuItem Header="{DynamicResource S.MainView.Edit.Scene.Open}" Command="{CompiledBinding OpenScene}" />
                         <MenuItem Header="{DynamicResource S.MainView.Edit.Scene.Add}" Command="{CompiledBinding AddScene}" />
                         <MenuItem Header="{DynamicResource S.MainView.Edit.Scene.Remove}" Command="{CompiledBinding RemoveScene}" />
-                        <MenuItem Header="{DynamicResource S.MainView.Edit.Scene.Settings}" />
+                        <MenuItem Header="{DynamicResource S.MainView.Edit.Scene.Settings}"
+                                  Click="SceneSettings_Click"
+                                  IsEnabled="{CompiledBinding IsProjectOpened.Value}" />
                     </MenuItem>
                     <!--元に戻す-->
                     <MenuItem
