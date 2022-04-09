@@ -2,15 +2,13 @@ using System.Collections.Specialized;
 
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Controls.Primitives;
-using Avalonia.Data;
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
 
 using BeUtl.Controls;
 using BeUtl.Framework;
+using BeUtl.Framework.Services;
 using BeUtl.ProjectSystem;
-using BeUtl.Services;
 using BeUtl.ViewModels;
 using BeUtl.Views;
 using BeUtl.Views.Dialogs;
@@ -25,7 +23,7 @@ public sealed partial class EditPage : UserControl
     {
         InitializeComponent();
 
-        ProjectService service = ServiceLocator.Current.GetRequiredService<ProjectService>();
+        IProjectService service = ServiceLocator.Current.GetRequiredService<IProjectService>();
         service.ProjectObservable.Subscribe(item => ProjectChanged(item.New, item.Old));
     }
 
@@ -36,7 +34,7 @@ public sealed partial class EditPage : UserControl
         if (@new != null)
         {
             @new.Children.CollectionChanged += Project_Children_CollectionChanged;
-            foreach (Element item in @new.Children)
+            foreach (Scene item in @new.Children)
             {
                 AddTabItem(item);
             }
@@ -46,7 +44,7 @@ public sealed partial class EditPage : UserControl
         if (old != null)
         {
             old.Children.CollectionChanged -= Project_Children_CollectionChanged;
-            foreach (Element item in old.Children)
+            foreach (Scene item in old.Children)
             {
                 CloseTabItem(item);
             }
@@ -59,7 +57,7 @@ public sealed partial class EditPage : UserControl
         if (e.Action == NotifyCollectionChangedAction.Add &&
             e.NewItems != null)
         {
-            foreach (Element item in e.NewItems.OfType<Element>())
+            foreach (Scene item in e.NewItems.OfType<Scene>())
             {
                 AddTabItem(item);
             }
@@ -67,7 +65,7 @@ public sealed partial class EditPage : UserControl
         else if (e.Action == NotifyCollectionChangedAction.Remove &&
                  e.OldItems != null)
         {
-            foreach (Element item in e.OldItems.OfType<Element>())
+            foreach (Scene item in e.OldItems.OfType<Scene>())
             {
                 CloseTabItem(item);
             }
@@ -75,30 +73,33 @@ public sealed partial class EditPage : UserControl
     }
 
     // DataContextからタブを追加
-    private void AddTabItem(Element element)
+    private void AddTabItem(Scene scene)
     {
-        if (element is Scene scene)
+        if (tabview.Items.OfType<DraggableTabItem>()
+            .Any(i => i.DataContext == scene))
         {
-            var view = new EditView
-            {
-                DataContext = new EditViewModel(scene)
-            };
-            var tabItem = new DraggableTabItem
-            {
-                DataContext = scene,
-                Content = view,
-                [!HeaderedContentControl.HeaderProperty] = new Binding("Name")
-            };
-
-            tabview.AddTab(tabItem);
+            // 既にタブが開かれている場合、追加しない
+            return;
         }
+
+        var view = new EditView
+        {
+            DataContext = new EditViewModel(scene)
+        };
+        var tabItem = new DraggableTabItem
+        {
+            Header = Path.GetFileName(scene.FileName),
+            Content = view,
+        };
+
+        tabview.AddTab(tabItem);
     }
 
     // DataContextからタブを削除
-    private void CloseTabItem(Element element)
+    private void CloseTabItem(Scene scene)
     {
         foreach (DraggableTabItem item in tabview.Items.OfType<DraggableTabItem>()
-            .Where(i => i.DataContext == element)
+            .Where(i => i.DataContext == scene)
             .ToArray())
         {
             item.Close();
@@ -106,43 +107,12 @@ public sealed partial class EditPage : UserControl
     }
 
     // '開く'がクリックされた
-    private async void OpenClick(object? sender, RoutedEventArgs e)
+    private void OpenClick(object? sender, RoutedEventArgs e)
     {
-        if (VisualRoot is not Window root ||
-            DataContext is not EditPageViewModel vm ||
-            vm.Project.Value == null)
+        if (this.FindAncestorOfType<MainView>().DataContext is MainViewModel vm &&
+            vm.OpenFile.CanExecute())
         {
-            return;
-        }
-
-        var dialog = new OpenFileDialog
-        {
-            AllowMultiple = true,
-            Filters =
-            {
-                new FileDialogFilter
-                {
-                    Name = Application.Current?.FindResource("S.EditPage.SceneFile") as string,
-                    Extensions =
-                    {
-                        "scene"
-                    }
-                }
-            }
-        };
-
-        string[]? files = await dialog.ShowAsync(root);
-        if (files != null)
-        {
-            foreach (string file in files)
-            {
-                if (File.Exists(file))
-                {
-                    var scene = new Scene();
-                    scene.Restore(file);
-                    vm.Project.Value.Children.Add(scene);
-                }
-            }
+            vm.OpenFile.Execute();
         }
     }
 

@@ -22,7 +22,6 @@ public class Layer : Element, IStorable, ILogicalElement
     private string? _fileName;
     private bool _isEnabled = true;
     private Renderable? _renderable;
-    private LogicalList<LayerOperation> _children;
 
     static Layer()
     {
@@ -98,7 +97,7 @@ public class Layer : Element, IStorable, ILogicalElement
 
     public Layer()
     {
-        _children = new LogicalList<LayerOperation>(this);
+        Children = new LogicalList<LayerOperation>(this);
     }
 
     // 0以上
@@ -150,7 +149,7 @@ public class Layer : Element, IStorable, ILogicalElement
 
     public DateTime LastSavedTime { get; private set; }
 
-    public LogicalList<LayerOperation> Children => _children;
+    public LogicalList<LayerOperation> Children { get; }
 
     IEnumerable<ILogicalElement> ILogicalElement.LogicalChildren => Children;
 

@@ -82,6 +82,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BeUtl.NetCore", "src\BeUtl.
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DirectoryViewTest", "tests\DirectoryViewTest\DirectoryViewTest.csproj", "{5F9713D1-E237-461D-A83A-A23A64E7CE02}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PackageSample", "tests\PackageSample\PackageSample.csproj", "{BBC27A44-A56C-4706-856C-8911C656E02A}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -266,6 +268,14 @@ Global
 		{5F9713D1-E237-461D-A83A-A23A64E7CE02}.Release|Any CPU.Build.0 = Release|Any CPU
 		{5F9713D1-E237-461D-A83A-A23A64E7CE02}.Release|x64.ActiveCfg = Release|Any CPU
 		{5F9713D1-E237-461D-A83A-A23A64E7CE02}.Release|x64.Build.0 = Release|Any CPU
+		{BBC27A44-A56C-4706-856C-8911C656E02A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BBC27A44-A56C-4706-856C-8911C656E02A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BBC27A44-A56C-4706-856C-8911C656E02A}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{BBC27A44-A56C-4706-856C-8911C656E02A}.Debug|x64.Build.0 = Debug|Any CPU
+		{BBC27A44-A56C-4706-856C-8911C656E02A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BBC27A44-A56C-4706-856C-8911C656E02A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BBC27A44-A56C-4706-856C-8911C656E02A}.Release|x64.ActiveCfg = Release|Any CPU
+		{BBC27A44-A56C-4706-856C-8911C656E02A}.Release|x64.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -281,6 +291,7 @@ Global
 		{C3616A18-D5C4-405C-B871-39929AA78EE3} = {791EB029-7801-45FA-9AB5-5E953FFA003A}
 		{2A0FD83A-3430-47EE-9C0D-0502802E6CAA} = {791EB029-7801-45FA-9AB5-5E953FFA003A}
 		{5F9713D1-E237-461D-A83A-A23A64E7CE02} = {791EB029-7801-45FA-9AB5-5E953FFA003A}
+		{BBC27A44-A56C-4706-856C-8911C656E02A} = {791EB029-7801-45FA-9AB5-5E953FFA003A}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {CC3F8F37-EB22-4418-978D-C844095F8C4D}

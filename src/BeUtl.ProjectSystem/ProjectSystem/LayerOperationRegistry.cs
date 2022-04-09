@@ -2,7 +2,7 @@
 
 namespace BeUtl.ProjectSystem;
 
-public class RenderOperationRegistry
+public class LayerOperationRegistry
 {
     private static readonly List<BaseRegistryItem> s_operations = new();
 
@@ -154,7 +154,7 @@ public class RenderOperationRegistry
 
         public void Register()
         {
-            RenderOperationRegistry.Register(_item);
+            LayerOperationRegistry.Register(_item);
         }
     }
 }

@@ -6,4 +6,8 @@ public abstract class Extension
     public abstract string Name { get; }
 
     public abstract string DisplayName { get; }
+
+    public virtual void Load()
+    {
+    }
 }

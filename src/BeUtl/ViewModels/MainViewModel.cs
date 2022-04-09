@@ -1,4 +1,9 @@
+using Avalonia;
+using Avalonia.Threading;
+
+using BeUtl.Framework;
 using BeUtl.Framework.Service;
+using BeUtl.Framework.Services;
 using BeUtl.ProjectSystem;
 using BeUtl.Services;
 
@@ -10,11 +15,11 @@ namespace BeUtl.ViewModels;
 
 public class MainViewModel
 {
-    private readonly ProjectService _projectService;
+    private readonly IProjectService _projectService;
 
     public MainViewModel()
     {
-        _projectService = ServiceLocator.Current.GetRequiredService<ProjectService>();
+        _projectService = ServiceLocator.Current.GetRequiredService<IProjectService>();
 
         IsProjectOpened = _projectService.IsOpened;
 
@@ -26,50 +31,47 @@ public class MainViewModel
         Undo = new(_projectService.IsOpened);
         Redo = new(_projectService.IsOpened);
 
-        SaveAll.Subscribe(() =>
-        {
-            Project? project = _projectService.CurrentProject.Value;
-            if (project != null)
-            {
-                INotificationService nservice = ServiceLocator.Current.GetRequiredService<INotificationService>();
-                int itemsCount = 0;
-
-                try
-                {
-                    project.Save(project.FileName);
-                    itemsCount++;
-
-                    foreach (Scene scene in project.Children)
-                    {
-                        scene.Save(scene.FileName);
-                        foreach (Layer layer in scene.Children)
-                        {
-                            layer.Save(layer.FileName);
-                            itemsCount++;
-                        }
-                        itemsCount++;
-                    }
-
-                    string message = new ResourceReference<string>("S.Message.ItemsSaved").FindOrDefault(string.Empty);
-                    nservice.Show(new Notification(
-                        string.Empty,
-                        string.Format(message, itemsCount.ToString()),
-                        NotificationType.Success));
-                }
-                catch
-                {
-                    string message = new ResourceReference<string>("S.Message.OperationCouldNotBeExecuted").FindOrDefault(string.Empty);
-                    nservice.Show(new Notification(
-                        string.Empty,
-                        string.Format(message, itemsCount.ToString()),
-                        NotificationType.Error));
-                }
-            }
-        });
         CloseProject.Subscribe(() => _projectService.CloseProject());
 
-        Undo.Subscribe(() => CommandRecorder.Default.Undo());
-        Redo.Subscribe(() => CommandRecorder.Default.Redo());
+        Undo.Subscribe(async () =>
+        {
+            bool handled = false;
+
+            if (KnownCommands != null)
+                handled = await KnownCommands.OnUndo();
+
+            if (!handled)
+                CommandRecorder.Default.Undo();
+        });
+        Redo.Subscribe(async () =>
+        {
+            bool handled = false;
+
+            if (KnownCommands != null)
+                handled = await KnownCommands.OnRedo();
+
+            if (!handled)
+                CommandRecorder.Default.Redo();
+        });
+
+        Task.Run(() =>
+        {
+            PackageManager manager = PackageManager.Instance;
+            manager.LoadPackages(manager.GetPackageInfos());
+
+            manager.ExtensionProvider._allExtensions.Add(Package.s_nextId++, new Extension[]
+            {
+                SceneEditorExtension.Instance
+            });
+
+            Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                if (Application.Current != null)
+                {
+                    PackageManager.Instance.AttachToApplication(Application.Current);
+                }
+            });
+        });
     }
 
     public ReactiveCommand CreateNewProject { get; } = new();
@@ -94,5 +96,7 @@ public class MainViewModel
 
     public ReactiveCommand Redo { get; }
 
-    public ReadOnlyReactivePropertySlim<bool> IsProjectOpened { get; }
+    public IKnownEditorCommands? KnownCommands { get; set; }
+
+    public IReadOnlyReactiveProperty<bool> IsProjectOpened { get; }
 }

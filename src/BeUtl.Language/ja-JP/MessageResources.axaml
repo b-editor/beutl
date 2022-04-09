@@ -2,6 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <Styles.Resources>
         <x:String x:Key="S.Message.ItemsSaved">{0}個のアイテムが保存されました</x:String>
+        <x:String x:Key="S.Message.ItemSaved">{0}が保存されました</x:String>
         <x:String x:Key="S.Message.OperationCouldNotBeExecuted">操作を実行できませんでした</x:String>
         <x:String x:Key="S.Message.DoYouWantToDeleteThisDirectory">このディレクトリを削除しますか？</x:String>
         <x:String x:Key="S.Message.DoYouWantToDeleteThisFile">このファイルを削除しますか？</x:String>

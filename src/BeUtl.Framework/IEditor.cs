@@ -2,10 +2,13 @@
 
 namespace BeUtl.Framework;
 
-public interface IStorableControl : IControl, IStorable
+public interface IEditor : IControl
 {
-}
+    ViewExtension Extension { get; }
 
-public interface IEditor : IControl, IAsyncDisposable
-{
+    string EdittingFile { get; }
+
+    IKnownEditorCommands? Commands => null;
+
+    void Close();
 }

@@ -1,18 +1,22 @@
-﻿using Avalonia.Controls;
-using Avalonia.Media;
+﻿using Avalonia.Media;
+
+using BeUtl.Framework.Services;
+using BeUtl.ProjectSystem;
+
+using Microsoft.Extensions.DependencyInjection;
 
 namespace BeUtl.Framework;
 
 // ファイルのエディタを追加
 public abstract class EditorExtension : ViewExtension
 {
-    public abstract Geometry Icon { get; }
+    public abstract Geometry? Icon { get; }
 
     public abstract string[] FileExtensions { get; }
 
-    public abstract bool TryCreateEditor(string file, out IEditor? editor);
+    public abstract ResourceReference<string> FileTypeName { get; }
 
-    public abstract bool TryCreatePreviewer(string file, out IControl? previewer);
+    public abstract bool TryCreateEditor(string file, out IEditor? editor);
 
     public virtual bool IsSupported(string file)
     {
@@ -31,5 +35,8 @@ public abstract class EditorExtension : ViewExtension
         return false;
     }
 
-    public abstract bool CanPreview(string file);
+    protected static Project? GetCurrentProject()
+    {
+        return ServiceLocator.Current.GetRequiredService<IProjectService>().CurrentProject.Value;
+    }
 }

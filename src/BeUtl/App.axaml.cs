@@ -11,6 +11,7 @@ using Avalonia.Styling;
 
 using BeUtl.Configuration;
 using BeUtl.Framework.Service;
+using BeUtl.Framework.Services;
 using BeUtl.Language;
 using BeUtl.Operations;
 using BeUtl.Rendering;
@@ -88,7 +89,8 @@ public class App : Application
         AvaloniaLocator.CurrentMutable
                 .Bind<IFontManagerImpl>().ToConstant(new CustomFontManagerImpl());
 
-        ServiceLocator.Current.BindToSelfSingleton<ProjectService>()
+        ServiceLocator.Current
+            .Bind<IProjectService>().ToSingleton<ProjectService>()
             .Bind<INotificationService>().ToSingleton<NotificationService>()
             .Bind<IResourceProvider>().ToSingleton<DefaultResourceProvider>();
 
