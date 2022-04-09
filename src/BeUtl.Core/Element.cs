@@ -43,7 +43,8 @@ public abstract class Element : CoreObject, IElement
 
     protected override void OnPropertyChanged(PropertyChangedEventArgs args)
     {
-        if (args is CorePropertyChangedEventArgs coreArgs)
+        if (args is CorePropertyChangedEventArgs coreArgs &&
+            coreArgs.PropertyMetadata.Observability != PropertyObservability.DoNotNotifyLogicalTree)
         {
             if (coreArgs.OldValue is ILogicalElement oldLogical)
             {

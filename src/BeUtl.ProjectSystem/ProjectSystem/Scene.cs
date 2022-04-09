@@ -78,7 +78,7 @@ public class Scene : Element, IStorable
 
         SelectedItemProperty = ConfigureProperty<Layer?, Scene>(nameof(SelectedItem))
             .Accessor(o => o.SelectedItem, (o, v) => o.SelectedItem = v)
-            .Observability(PropertyObservability.Changed)
+            .Observability(PropertyObservability.DoNotNotifyLogicalTree)
             .Register();
 
         PreviewOptionsProperty = ConfigureProperty<PreviewOptions?, Scene>(nameof(PreviewOptions))
