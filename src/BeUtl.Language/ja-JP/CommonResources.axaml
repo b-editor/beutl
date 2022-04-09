@@ -124,6 +124,8 @@
         <x:String x:Key="S.Common.ProjectFile">プロジェクトファイル</x:String>
         <x:String x:Key="S.Common.StrokeWidth">ストローク幅</x:String>
         <x:String x:Key="S.Common.Language">言語</x:String>
+        <x:String x:Key="S.Common.Text">テキスト</x:String>
+        <x:String x:Key="S.Common.Rotation">回転</x:String>
     </Styles.Resources>
 
     <!--Views-->

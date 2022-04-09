@@ -148,7 +148,7 @@ public abstract class LayerOperation : Element, ILogicalElement
         return node;
     }
 
-    protected IPropertyInstance? FindSetter(CoreProperty property)
+    protected IPropertyInstance? FindPropertyInstance(CoreProperty property)
     {
         foreach (IPropertyInstance? item in _properties)
         {
@@ -159,6 +159,12 @@ public abstract class LayerOperation : Element, ILogicalElement
         }
 
         return null;
+    }
+
+    [Obsolete("Use 'FindPropertyInstance' method.")]
+    protected IPropertyInstance? FindSetter(CoreProperty property)
+    {
+        return FindPropertyInstance(property);
     }
 
     protected void ForceRender()

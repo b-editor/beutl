@@ -3,7 +3,7 @@
     <AvaloniaResource Include="Assets\**" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Roslynator.Analyzers" Version="4.0.2">
+    <PackageReference Include="Roslynator.Analyzers" Version="4.1.0">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
@@ -13,6 +13,8 @@
     <ProjectReference Include="..\BeUtl.Controls\BeUtl.Controls.csproj" />
   </ItemGroup>
   <Import Project="$(RootDirectory)\build\props\Avalonia.props" />
+  <Import Project="$(RootDirectory)\build\props\Avalonia.Xaml.Interactivity.props" />
+  <Import Project="$(RootDirectory)\build\props\FluentAvalonia.props" />
   <Import Project="$(RootDirectory)\build\props\ReactiveProperty.props" />
   <Import Project="$(RootDirectory)\build\props\Microsoft.Extensions.DependencyInjection.props" />
   <Import Project="$(RootDirectory)\build\props\CoreLibraries.props" />

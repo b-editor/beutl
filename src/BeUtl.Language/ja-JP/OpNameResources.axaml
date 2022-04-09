@@ -3,7 +3,7 @@
     <Styles.Resources>
         <x:String x:Key="S.OpName.Ellipse">楕円</x:String>
         <x:String x:Key="S.OpName.Rect">四角形</x:String>
-        <x:String x:Key="S.OpName.Text">テキスト</x:String>
+        <StaticResource x:Key="S.OpName.Text" ResourceKey="S.Common.Text" />
         <x:String x:Key="S.OpName.ImageFile">画像ファイル</x:String>
         <x:String x:Key="S.OpName.Align">整列</x:String>
         <x:String x:Key="S.OpName.Blend">ブレンド</x:String>

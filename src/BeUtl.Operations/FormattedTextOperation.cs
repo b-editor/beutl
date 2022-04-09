@@ -123,11 +123,18 @@ public sealed class FormattedTextOperation : DrawableOperation
     protected override void RenderCore(ref OperationRenderArgs args)
     {
         base.RenderCore(ref args);
-        if (_isDirty)
+        try
         {
-            _formattedText.Load(Text, new FormattedTextInfo(new Typeface(FontFamily, Style, Weight), Size, Color, Space, Margin));
+            if (_isDirty)
+            {
+                _formattedText.Load(Text, new FormattedTextInfo(new Typeface(FontFamily, Style, Weight), Size, Color, Space, Margin));
+            }
+            _isDirty = false;
         }
-        _isDirty = false;
+        catch
+        {
+
+        }
     }
 
     private void Set<T>(ref T field, T value)
