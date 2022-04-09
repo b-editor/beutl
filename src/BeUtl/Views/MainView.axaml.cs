@@ -5,6 +5,8 @@ using Avalonia.Collections;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Controls.Primitives;
+using Avalonia.Input;
+using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Threading;
@@ -15,6 +17,7 @@ using BeUtl.Controls;
 using BeUtl.Framework;
 using BeUtl.Framework.Service;
 using BeUtl.Framework.Services;
+using BeUtl.Models;
 using BeUtl.Pages;
 using BeUtl.ProjectSystem;
 using BeUtl.Services;
@@ -261,10 +264,8 @@ public partial class MainView : UserControl
                 IProjectService service = ServiceLocator.Current.GetRequiredService<IProjectService>();
                 Project? project = service.CurrentProject.Value;
 
-                if (VisualRoot is Window window
-                    && project != null
-                    && _editPage.tabview.SelectedContent is EditView editor
-                    && editor.DataContext is EditViewModel viewModel)
+                if (project != null
+                    && _editPage.tabview.SelectedContent is EditView { DataContext: EditViewModel viewModel })
                 {
                     string name = Path.GetFileName(viewModel.Scene.FileName);
                     var dialog = new ContentDialog
@@ -280,7 +281,94 @@ public partial class MainView : UserControl
                         project.Children.Remove(viewModel.Scene);
                     }
                 }
-                //TaskDialog
+            });
+
+            vm.AddLayer.Subscribe(async () =>
+            {
+                if (_editPage.tabview.SelectedContent is EditView { DataContext: EditViewModel viewModel } editView)
+                {
+                    var dialog = new AddLayer
+                    {
+                        DataContext = new AddLayerViewModel(viewModel.Scene,
+                            new LayerDescription(editView.timeline._clickedFrame, TimeSpan.FromSeconds(5), editView.timeline._clickedLayer))
+                    };
+                    await dialog.ShowAsync();
+                }
+            });
+
+            vm.DeleteLayer.Subscribe(async () =>
+            {
+                if (_editPage.tabview.SelectedContent is EditView { DataContext: EditViewModel { Scene: { SelectedItem: { } layer } scene }})
+                {
+                    string name = Path.GetFileName(layer.FileName);
+                    var dialog = new ContentDialog
+                    {
+                        [!ContentDialog.CloseButtonTextProperty] = new DynamicResourceExtension("S.Common.Cancel"),
+                        [!ContentDialog.PrimaryButtonTextProperty] = new DynamicResourceExtension("S.Common.OK"),
+                        DefaultButton = ContentDialogButton.Primary,
+                        Content = (Application.Current?.FindResource("S.Message.DoYouWantToDeleteThisFile") as string ?? "") + "\n" + name
+                    };
+
+                    if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+                    {
+                        scene.RemoveChild(layer).Do();
+                        if (File.Exists(layer.FileName))
+                        {
+                            File.Delete(layer.FileName);
+                        }
+                    }
+                }
+            });
+
+            vm.ExcludeLayer.Subscribe(() =>
+            {
+                if (_editPage.tabview.SelectedContent is EditView { DataContext: EditViewModel { Scene: { SelectedItem: { } layer } scene } })
+                {
+                    scene.RemoveChild(layer).DoAndRecord(CommandRecorder.Default);
+                }
+            });
+
+            vm.CutLayer.Subscribe(async () =>
+            {
+                if (_editPage.tabview.SelectedContent is EditView { DataContext: EditViewModel { Scene: { SelectedItem: { } layer } scene } })
+                {
+                    IClipboard? clipboard = Application.Current?.Clipboard;
+                    if (clipboard != null)
+                    {
+                        string json = layer.ToJson().ToJsonString(JsonHelper.SerializerOptions);
+                        var data = new DataObject();
+                        data.Set(DataFormats.Text, json);
+                        data.Set(BeUtlDataFormats.Layer, json);
+
+                        await clipboard.SetDataObjectAsync(data);
+                        scene.RemoveChild(layer).DoAndRecord(CommandRecorder.Default);
+                    }
+                }
+            });
+
+            vm.CopyLayer.Subscribe(async () =>
+            {
+                if (_editPage.tabview.SelectedContent is EditView { DataContext: EditViewModel { Scene: { SelectedItem: { } layer } scene } })
+                {
+                    IClipboard? clipboard = Application.Current?.Clipboard;
+                    if (clipboard != null)
+                    {
+                        string json = layer.ToJson().ToJsonString(JsonHelper.SerializerOptions);
+                        var data = new DataObject();
+                        data.Set(DataFormats.Text, json);
+                        data.Set(BeUtlDataFormats.Layer, json);
+
+                        await clipboard.SetDataObjectAsync(data);
+                    }
+                }
+            });
+
+            vm.PasteLayer.Subscribe(() =>
+            {
+                if (_editPage.tabview.SelectedContent is EditView { timeline.ViewModel.Paste: { } paste })
+                {
+                    paste.Execute();
+                }
             });
 
             vm.OpenFile.Subscribe(async () =>

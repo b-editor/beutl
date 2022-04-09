@@ -123,6 +123,15 @@
                                   Click="SceneSettings_Click"
                                   IsEnabled="{CompiledBinding IsProjectOpened.Value}" />
                     </MenuItem>
+                    <!--レイヤー-->
+                    <MenuItem Header="{DynamicResource S.MainView.Edit.Layer}">
+                        <MenuItem Header="{DynamicResource S.MainView.Edit.Layer.Add}" Command="{CompiledBinding AddLayer}" />
+                        <MenuItem Header="{DynamicResource S.MainView.Edit.Layer.Delete}" Command="{CompiledBinding DeleteLayer}" />
+                        <MenuItem Header="{DynamicResource S.MainView.Edit.Layer.Exclude}" Command="{CompiledBinding ExcludeLayer}" />
+                        <MenuItem Header="{DynamicResource S.MainView.Edit.Layer.Cut}" Command="{CompiledBinding CutLayer}" />
+                        <MenuItem Header="{DynamicResource S.MainView.Edit.Layer.Copy}" Command="{CompiledBinding CopyLayer}" />
+                        <MenuItem Header="{DynamicResource S.MainView.Edit.Layer.Paste}" Command="{CompiledBinding PasteLayer}" />
+                    </MenuItem>
                     <!--元に戻す-->
                     <MenuItem
                         Header="{DynamicResource S.MainView.Edit.Undo}"

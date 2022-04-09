@@ -29,6 +29,12 @@ public class MainViewModel
         OpenScene = new(_projectService.IsOpened);
         AddScene = new(_projectService.IsOpened);
         RemoveScene = new(_projectService.IsOpened);
+        AddLayer = new(_projectService.IsOpened);
+        DeleteLayer = new(_projectService.IsOpened);
+        ExcludeLayer = new(_projectService.IsOpened);
+        CutLayer = new(_projectService.IsOpened);
+        CopyLayer = new(_projectService.IsOpened);
+        PasteLayer = new(_projectService.IsOpened);
         CloseFile = new(_projectService.IsOpened);
         CloseProject = new(_projectService.IsOpened);
         Undo = new(_projectService.IsOpened);
@@ -88,8 +94,20 @@ public class MainViewModel
     public ReactiveCommand OpenScene { get; }
 
     public ReactiveCommand AddScene { get; }
-    
+
     public ReactiveCommand RemoveScene { get; }
+
+    public ReactiveCommand AddLayer { get; }
+
+    public ReactiveCommand DeleteLayer { get; }
+
+    public ReactiveCommand ExcludeLayer { get; }
+
+    public ReactiveCommand CutLayer { get; }
+
+    public ReactiveCommand CopyLayer { get; }
+
+    public ReactiveCommand PasteLayer { get; }
 
     public ReactiveCommand CloseFile { get; }
 

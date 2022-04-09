@@ -24,6 +24,13 @@
         <StaticResource x:Key="S.MainView.Edit.Scene.Add" ResourceKey="S.Common.Add" />
         <StaticResource x:Key="S.MainView.Edit.Scene.Remove" ResourceKey="S.Common.Remove" />
         <StaticResource x:Key="S.MainView.Edit.Scene.Settings" ResourceKey="S.Common.Settings" />
+        <StaticResource x:Key="S.MainView.Edit.Layer" ResourceKey="S.Common.Layer" />
+        <StaticResource x:Key="S.MainView.Edit.Layer.Add" ResourceKey="S.Common.Add" />
+        <StaticResource x:Key="S.MainView.Edit.Layer.Delete" ResourceKey="S.Common.Delete" />
+        <StaticResource x:Key="S.MainView.Edit.Layer.Exclude" ResourceKey="S.Common.Exclude" />
+        <StaticResource x:Key="S.MainView.Edit.Layer.Cut" ResourceKey="S.Common.Cut" />
+        <StaticResource x:Key="S.MainView.Edit.Layer.Copy" ResourceKey="S.Common.Copy" />
+        <StaticResource x:Key="S.MainView.Edit.Layer.Paste" ResourceKey="S.Common.Paste" />
         <StaticResource x:Key="S.MainView.Edit.Undo" ResourceKey="S.Common.Undo" />
         <StaticResource x:Key="S.MainView.Edit.Redo" ResourceKey="S.Common.Redo" />
 
