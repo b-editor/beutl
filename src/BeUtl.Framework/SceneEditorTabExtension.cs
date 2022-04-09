@@ -2,7 +2,7 @@
 
 namespace BeUtl.Framework;
 
-public abstract class SceneEditorExtension : ViewExtension
+public abstract class SceneEditorTabExtension : ViewExtension
 {
     public enum TabPlacement
     {
