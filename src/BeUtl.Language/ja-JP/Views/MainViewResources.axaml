@@ -14,6 +14,8 @@
         <StaticResource x:Key="S.MainView.File.Save" ResourceKey="S.Common.Save" />
         <StaticResource x:Key="S.MainView.File.SaveAll" ResourceKey="S.Common.SaveAll" />
         <StaticResource x:Key="S.MainView.File.SaveAs" ResourceKey="S.Common.SaveAs" />
+        <StaticResource x:Key="S.MainView.File.RecentFiles" ResourceKey="S.Common.RecentFiles" />
+        <StaticResource x:Key="S.MainView.File.RecentProjects" ResourceKey="S.Common.RecentProjects" />
         <StaticResource x:Key="S.MainView.File.Exit" ResourceKey="S.Common.Exit" />
 
         <StaticResource x:Key="S.MainView.Edit" ResourceKey="S.Common.Edit" />

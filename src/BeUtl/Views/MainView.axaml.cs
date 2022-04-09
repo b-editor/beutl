@@ -1,9 +1,15 @@
+using System.Collections.Specialized;
+
 using Avalonia;
+using Avalonia.Collections;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Controls.Primitives;
 using Avalonia.Markup.Xaml.MarkupExtensions;
+using Avalonia.Threading;
 
+using BeUtl.Collections;
+using BeUtl.Configuration;
 using BeUtl.Controls;
 using BeUtl.Framework;
 using BeUtl.Framework.Service;
@@ -39,6 +45,122 @@ public partial class MainView : UserControl
         NaviContent.Content = EditPageItem.Tag;
 
         _editPage.tabview.SelectionChanged += TabView_SelectionChanged;
+
+        ViewConfig viewConfig = GlobalConfiguration.Instance.ViewConfig;
+        var recentFileItems = new AvaloniaList<MenuItem>(viewConfig.RecentFiles.Select(i => new MenuItem
+        {
+            Header = i
+        }));
+        var recentProjectItems = new AvaloniaList<MenuItem>(viewConfig.RecentProjects.Select(i => new MenuItem
+        {
+            Header = i
+        }));
+
+        recentFiles.Items = recentFileItems;
+        recentProjects.Items = recentProjectItems;
+        foreach (MenuItem item in recentFileItems)
+        {
+            item.Click += (s, e) => _editPage.SelectOrAddTabItem((s as MenuItem)?.Header as string);
+        }
+
+        foreach (MenuItem item in recentProjectItems)
+        {
+            item.Click += (s, e) => TryOpenProject((s as MenuItem)?.Header as string);
+        }
+
+        viewConfig.RecentFiles.CollectionChanged += RecentFiles_CollectionChanged;
+        viewConfig.RecentProjects.CollectionChanged += RecentProjects_CollectionChangedAsync;
+    }
+
+    private async void RecentFiles_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        await Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            if (e.Action is NotifyCollectionChangedAction.Add)
+            {
+                var menu = new MenuItem
+                {
+                    Header = e.NewItems![0] as string
+                };
+                menu.Click += (s, e) => _editPage.SelectOrAddTabItem((s as MenuItem)?.Header as string);
+
+                ((AvaloniaList<MenuItem>)recentFiles.Items).Insert(0, menu);
+            }
+            else if (e.Action is NotifyCollectionChangedAction.Remove)
+            {
+                string? file = e.OldItems![0] as string;
+
+                foreach (object? item in recentFiles.Items)
+                {
+                    if (item is MenuItem menuItem && menuItem.Header is string header && header == file)
+                    {
+                        ((AvaloniaList<MenuItem>)recentFiles.Items).Remove(menuItem);
+
+                        return;
+                    }
+                }
+            }
+            else if (e.Action is NotifyCollectionChangedAction.Reset)
+            {
+                ((AvaloniaList<MenuItem>)recentFiles.Items).Clear();
+            }
+        });
+    }
+
+    private static void TryOpenProject(string? file)
+    {
+        IProjectService service = ServiceLocator.Current.GetRequiredService<IProjectService>();
+        INotificationService noticeService = ServiceLocator.Current.GetRequiredService<INotificationService>();
+
+        if (!File.Exists(file))
+        {
+            // Todo: リソースに置き換え
+            noticeService.Show(new Notification(
+                Title: "",
+                Message: "ファイルが存在しない"));
+        }
+        else if (service.OpenProject(file) == null)
+        {
+            // Todo: リソースに置き換え
+            noticeService.Show(new Notification(
+                Title: "",
+                Message: "プロジェクトが開けなかった"));
+        }
+    }
+
+    private async void RecentProjects_CollectionChangedAsync(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        await Dispatcher.UIThread.InvokeAsync(() =>
+        {
+            if (e.Action is NotifyCollectionChangedAction.Add)
+            {
+                var menu = new MenuItem
+                {
+                    Header = e.NewItems![0] as string
+                };
+                menu.Click += (s, e) => TryOpenProject((s as MenuItem)?.Header as string);
+
+                ((AvaloniaList<MenuItem>)recentProjects.Items).Insert(0, menu);
+            }
+            else if (e.Action is NotifyCollectionChangedAction.Remove)
+            {
+                string? file = e.OldItems![0] as string;
+
+                foreach (object? item in recentProjects.Items)
+                {
+                    if (item is MenuItem menuItem && menuItem.Header is string header && header == file)
+                    {
+                        ((AvaloniaList<MenuItem>)recentProjects.Items).Remove(menuItem);
+
+                        return;
+                    }
+                }
+            }
+            else if(e.Action is NotifyCollectionChangedAction.Reset)
+            {
+                ((AvaloniaList<MenuItem>)recentProjects.Items).Clear();
+            }
+        });
     }
 
     protected override void OnDataContextChanged(EventArgs e)

@@ -101,6 +101,11 @@
                         </MenuItem.Icon>
                     </MenuItem>
                     <Separator />
+                    <!--最近使ったプロジェクト-->
+                    <MenuItem x:Name="recentFiles" Header="{DynamicResource S.MainView.File.RecentFiles}" />
+                    <MenuItem x:Name="recentProjects" Header="{DynamicResource S.MainView.File.RecentProjects}" />
+
+                    <Separator />
                     <!--終了-->
                     <MenuItem
                         Header="{DynamicResource S.MainView.File.Exit}"

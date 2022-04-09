@@ -126,6 +126,8 @@
         <x:String x:Key="S.Common.Language">Language</x:String>
         <x:String x:Key="S.Common.Text">Text</x:String>
         <x:String x:Key="S.Common.Rotation">Rotation</x:String>
+        <x:String x:Key="S.Common.RecentFiles">Recent Files</x:String>
+        <x:String x:Key="S.Common.RecentProjects">Recent Projects</x:String>
     </Styles.Resources>
 
     <!--Views-->

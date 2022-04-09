@@ -6,6 +6,8 @@ using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
 
+using BeUtl.Collections;
+using BeUtl.Configuration;
 using BeUtl.Controls;
 using BeUtl.Framework;
 using BeUtl.Framework.Services;
@@ -36,10 +38,15 @@ public sealed partial class EditPage : UserControl
         return result != null;
     }
 
-    public void SelectOrAddTabItem(string file)
+    public void SelectOrAddTabItem(string? file)
     {
         if (File.Exists(file))
         {
+            ViewConfig viewConfig = GlobalConfiguration.Instance.ViewConfig;
+            CoreList<string> recentFiles = viewConfig.RecentFiles;
+            recentFiles.Remove(file);
+            recentFiles.Insert(0, file);
+
             if (TryGetTabItem(file, out DraggableTabItem? tabItem))
             {
                 tabItem.IsSelected = true;
