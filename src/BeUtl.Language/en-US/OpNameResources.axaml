@@ -3,7 +3,7 @@
     <Styles.Resources>
         <x:String x:Key="S.OpName.Ellipse">Ellipse</x:String>
         <x:String x:Key="S.OpName.Rect">Rect</x:String>
-        <x:String x:Key="S.OpName.Text">Text</x:String>
+        <StaticResource x:Key="S.OpName.Text" ResourceKey="S.Common.Text" />
         <x:String x:Key="S.OpName.ImageFile">Image File</x:String>
         <x:String x:Key="S.OpName.Align">Align</x:String>
         <x:String x:Key="S.OpName.Blend">Blend</x:String>

@@ -1,5 +1,4 @@
-﻿
-using System.Collections.Immutable;
+﻿using System.Collections.Immutable;
 
 using BeUtl.Graphics;
 using BeUtl.Media;
@@ -77,8 +76,7 @@ public static class DefaultMetadatas
     public static OperationPropertyMetadata<float> Rotation => new()
     {
         IsAnimatable = true,
-        //Todo: String resource
-        //Header = "RotationString",
+        Header = "S.Common.Rotation",
         SerializeName = "rotation",
         PropertyFlags = PropertyFlags.Designable,
     };
@@ -184,7 +182,7 @@ public static class DefaultMetadatas
 
     public static OperationPropertyMetadata<string> Text => new()
     {
-        Header = "TextString",
+        Header = "S.Common.Text",
         SerializeName = "text",
         PropertyFlags = PropertyFlags.Designable,
         DefaultValue = string.Empty
