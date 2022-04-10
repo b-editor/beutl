@@ -33,7 +33,19 @@
             </MenuFlyout.Items>
         </MenuFlyout>
     </UserControl.Resources>
-    <DraggableTabView
+    <ui:TabView
         x:Name="tabview"
-        ClickOnAddingButton="AddButtonClick"/>
+        BorderBrush="{DynamicResource ButtonBorderBrush}"
+        BorderThickness="0,1,0,0"
+        AddTabButtonClick="AddButtonClick">
+        <ui:TabView.Resources>
+            <SolidColorBrush x:Key="TabViewItemHeaderBackgroundSelected" Color="Transparent" />
+        </ui:TabView.Resources>
+        <ui:TabView.Styles>
+            <Style Selector="ui|TabViewItem:selected /template/ Border#TabContainerBorder">
+                <Setter Property="BorderBrush" Value="{DynamicResource ButtonBorderBrush}" />
+                <Setter Property="Background" Value="{DynamicResource ButtonBackground}" />
+            </Style>
+        </ui:TabView.Styles>
+    </ui:TabView>
 </UserControl>

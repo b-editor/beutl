@@ -4,23 +4,19 @@ using Avalonia;
 using Avalonia.Collections;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
-using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Threading;
 
-using BeUtl.Collections;
 using BeUtl.Configuration;
-using BeUtl.Controls;
 using BeUtl.Framework;
 using BeUtl.Framework.Service;
 using BeUtl.Framework.Services;
 using BeUtl.Models;
 using BeUtl.Pages;
 using BeUtl.ProjectSystem;
-using BeUtl.Services;
 using BeUtl.ViewModels;
 using BeUtl.ViewModels.Dialogs;
 using BeUtl.Views.Dialogs;
@@ -29,6 +25,8 @@ using FluentAvalonia.Core.ApplicationModel;
 using FluentAvalonia.UI.Controls;
 
 using Microsoft.Extensions.DependencyInjection;
+
+using FATabViewItem = FluentAvalonia.UI.Controls.TabViewItem;
 
 namespace BeUtl.Views;
 
@@ -79,7 +77,7 @@ public partial class MainView : UserControl
 
     private async void SceneSettings_Click(object? sender, RoutedEventArgs e)
     {
-        if (_editPage.tabview.SelectedContent is EditView { DataContext: EditViewModel viewModel })
+        if (_editPage.tabview.SelectedItem is FATabViewItem { Content: EditView { DataContext: EditViewModel viewModel } })
         {
             var dialog = new SceneSettings()
             {
@@ -265,7 +263,7 @@ public partial class MainView : UserControl
                 Project? project = service.CurrentProject.Value;
 
                 if (project != null
-                    && _editPage.tabview.SelectedContent is EditView { DataContext: EditViewModel viewModel })
+                    && _editPage.tabview.SelectedItem is FATabViewItem { Content: EditView { DataContext: EditViewModel viewModel } })
                 {
                     string name = Path.GetFileName(viewModel.Scene.FileName);
                     var dialog = new ContentDialog
@@ -285,7 +283,7 @@ public partial class MainView : UserControl
 
             vm.AddLayer.Subscribe(async () =>
             {
-                if (_editPage.tabview.SelectedContent is EditView { DataContext: EditViewModel viewModel } editView)
+                if (_editPage.tabview.SelectedItem is FATabViewItem { Content: EditView { DataContext: EditViewModel viewModel } editView })
                 {
                     var dialog = new AddLayer
                     {
@@ -298,7 +296,7 @@ public partial class MainView : UserControl
 
             vm.DeleteLayer.Subscribe(async () =>
             {
-                if (_editPage.tabview.SelectedContent is EditView { DataContext: EditViewModel { Scene: { SelectedItem: { } layer } scene }})
+                if (_editPage.tabview.SelectedItem is FATabViewItem { Content: EditView { DataContext: EditViewModel { Scene: { SelectedItem: { } layer } scene } } })
                 {
                     string name = Path.GetFileName(layer.FileName);
                     var dialog = new ContentDialog
@@ -322,7 +320,7 @@ public partial class MainView : UserControl
 
             vm.ExcludeLayer.Subscribe(() =>
             {
-                if (_editPage.tabview.SelectedContent is EditView { DataContext: EditViewModel { Scene: { SelectedItem: { } layer } scene } })
+                if (_editPage.tabview.SelectedItem is FATabViewItem { Content: EditView { DataContext: EditViewModel { Scene: { SelectedItem: { } layer } scene } } })
                 {
                     scene.RemoveChild(layer).DoAndRecord(CommandRecorder.Default);
                 }
@@ -330,7 +328,7 @@ public partial class MainView : UserControl
 
             vm.CutLayer.Subscribe(async () =>
             {
-                if (_editPage.tabview.SelectedContent is EditView { DataContext: EditViewModel { Scene: { SelectedItem: { } layer } scene } })
+                if (_editPage.tabview.SelectedItem is FATabViewItem { Content: EditView { DataContext: EditViewModel { Scene: { SelectedItem: { } layer } scene } } })
                 {
                     IClipboard? clipboard = Application.Current?.Clipboard;
                     if (clipboard != null)
@@ -348,7 +346,7 @@ public partial class MainView : UserControl
 
             vm.CopyLayer.Subscribe(async () =>
             {
-                if (_editPage.tabview.SelectedContent is EditView { DataContext: EditViewModel { Scene: { SelectedItem: { } layer } scene } })
+                if (_editPage.tabview.SelectedItem is FATabViewItem { Content: EditView { DataContext: EditViewModel { Scene: { SelectedItem: { } layer } scene } } })
                 {
                     IClipboard? clipboard = Application.Current?.Clipboard;
                     if (clipboard != null)
@@ -365,7 +363,7 @@ public partial class MainView : UserControl
 
             vm.PasteLayer.Subscribe(() =>
             {
-                if (_editPage.tabview.SelectedContent is EditView { timeline.ViewModel.Paste: { } paste })
+                if (_editPage.tabview.SelectedItem is FATabViewItem { Content: EditView { timeline.ViewModel.Paste: { } paste } })
                 {
                     paste.Execute();
                 }
@@ -414,7 +412,7 @@ public partial class MainView : UserControl
                     project?.Save(project.FileName);
                     itemsCount++;
 
-                    foreach (DraggableTabItem? item in _editPage.tabview.Items.OfType<DraggableTabItem>())
+                    foreach (FATabViewItem? item in _editPage.tabview.TabItems.OfType<FATabViewItem>())
                     {
                         if (item.Content is IEditor editor
                             && editor.Commands != null
@@ -442,7 +440,7 @@ public partial class MainView : UserControl
 
             vm.Save.Subscribe(async () =>
             {
-                if (_editPage.tabview.SelectedContent is IEditor editor && editor.Commands != null)
+                if (_editPage.tabview.SelectedItem is FATabViewItem { Content: IEditor { Commands: { } } editor })
                 {
                     INotificationService nservice = ServiceLocator.Current.GetRequiredService<INotificationService>();
                     try
@@ -500,7 +498,7 @@ public partial class MainView : UserControl
 
     private void TabView_SelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
-        if (DataContext is MainViewModel viewModel && _editPage.tabview.SelectedContent is IEditor editor)
+        if (DataContext is MainViewModel viewModel && _editPage.tabview.SelectedItem is FATabViewItem { Content: IEditor editor })
         {
             viewModel.KnownCommands = editor.Commands;
         }

@@ -1,5 +1,6 @@
 ﻿using Avalonia.Media;
 
+using BeUtl.Controls;
 using BeUtl.Framework;
 using BeUtl.ProjectSystem;
 using BeUtl.ViewModels;
@@ -11,7 +12,7 @@ public sealed class SceneEditorExtension : EditorExtension
 {
     public static readonly SceneEditorExtension Instance = new();
 
-    public override Geometry? Icon { get; } = new ResourceReference<Geometry>("File_Regular").FindOrDefault();
+    public override Geometry? Icon { get; } = FluentIconsRegular.Document.GetGeometry();
 
     public override string[] FileExtensions { get; } =
     {

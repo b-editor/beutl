@@ -1,14 +1,14 @@
 using System.Collections.Specialized;
 using System.Diagnostics.CodeAnalysis;
 
-using Avalonia;
+using Avalonia.Collections;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Avalonia.Media;
 using Avalonia.VisualTree;
 
 using BeUtl.Collections;
 using BeUtl.Configuration;
-using BeUtl.Controls;
 using BeUtl.Framework;
 using BeUtl.Framework.Services;
 using BeUtl.ProjectSystem;
@@ -18,22 +18,29 @@ using BeUtl.Views.Dialogs;
 
 using Microsoft.Extensions.DependencyInjection;
 
+using FAPathIconSource = FluentAvalonia.UI.Controls.PathIconSource;
+using FATabView = FluentAvalonia.UI.Controls.TabView;
+using FATabViewItem = FluentAvalonia.UI.Controls.TabViewItem;
+
 namespace BeUtl.Pages;
 
 public sealed partial class EditPage : UserControl
 {
+    private readonly AvaloniaList<FATabViewItem> _tabItems;
+
     public EditPage()
     {
         InitializeComponent();
 
         IProjectService service = ServiceLocator.Current.GetRequiredService<IProjectService>();
         service.ProjectObservable.Subscribe(item => ProjectChanged(item.New, item.Old));
+
+        tabview.TabItems = _tabItems = new AvaloniaList<FATabViewItem>();
     }
 
-    public bool TryGetTabItem(string file, [NotNullWhen(true)] out DraggableTabItem? result)
+    public bool TryGetTabItem(string file, [NotNullWhen(true)] out FATabViewItem? result)
     {
-        result = tabview.Items.OfType<DraggableTabItem>()
-            .FirstOrDefault(i => i.Content is IEditor editor && editor.EdittingFile == file);
+        result = _tabItems.FirstOrDefault(i => i.Content is IEditor editor && editor.EdittingFile == file);
 
         return result != null;
     }
@@ -47,7 +54,7 @@ public sealed partial class EditPage : UserControl
             recentFiles.Remove(file);
             recentFiles.Insert(0, file);
 
-            if (TryGetTabItem(file, out DraggableTabItem? tabItem))
+            if (TryGetTabItem(file, out FATabViewItem? tabItem))
             {
                 tabItem.IsSelected = true;
             }
@@ -57,31 +64,31 @@ public sealed partial class EditPage : UserControl
 
                 if (ext?.TryCreateEditor(file, out IEditor? editor) == true)
                 {
-                    tabItem = new DraggableTabItem
+                    tabItem = new FATabViewItem
                     {
                         Header = Path.GetFileName(file),
-                        Content = editor,
+                        Content = editor
                     };
 
                     if (ext.Icon != null)
                     {
-                        tabItem.Icon = new PathIcon()
+                        tabItem.IconSource = new FAPathIconSource()
                         {
                             Data = ext.Icon,
-                            Width = 16,
-                            Height = 16,
                         };
                     }
 
-                    tabItem.Closing += (s, e) =>
+                    tabItem.CloseRequested += (s, e) =>
                     {
-                        if (s is DraggableTabItem { Content: IEditor editor })
+                        if (s is FATabViewItem { Content: IEditor editor })
                         {
                             editor.Close();
                         }
                     };
 
-                    tabview.AddTab(tabItem);
+                    _tabItems.Add(tabItem);
+
+                    tabItem.IsSelected = true;
                 }
             }
         }
@@ -89,9 +96,9 @@ public sealed partial class EditPage : UserControl
 
     public bool CloseTabItem(string file)
     {
-        if (TryGetTabItem(file, out DraggableTabItem? item))
+        if (TryGetTabItem(file, out FATabViewItem? item))
         {
-            item.Close();
+            _tabItems.Remove(item);
             return true;
         }
         else
@@ -172,13 +179,11 @@ public sealed partial class EditPage : UserControl
         }
     }
 
-    private void AddButtonClick(object? sender, RoutedEventArgs e)
+    private void AddButtonClick(FATabView? sender, EventArgs e)
     {
         if (Resources["AddButtonFlyout"] is MenuFlyout flyout)
         {
-            Button btn = tabview.FindDescendantOfType<Button>();
-
-            flyout.ShowAt(btn);
+            flyout.ShowAt(tabview, true);
         }
     }
 }
