@@ -475,7 +475,6 @@ public partial class MainView : UserControl
                             message,
                             NotificationType.Error));
                     }
-
                 }
             });
 

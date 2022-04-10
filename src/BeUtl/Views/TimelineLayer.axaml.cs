@@ -42,7 +42,6 @@ public partial class TimelineLayer : UserControl
         }
     };
     private Timeline? _timeline;
-    private IDisposable? _disposable;
     private MouseFlags _mouseFlag = MouseFlags.MouseUp;
     private AlignmentX _resizeType = AlignmentX.Center;
     private Point _layerStartAbs;

@@ -78,7 +78,7 @@ public sealed partial class EditPage : UserControl
                         };
                     }
 
-                    tabItem.CloseRequested += (s, e) =>
+                    tabItem.CloseRequested += (s, _) =>
                     {
                         if (s is FATabViewItem { Content: IEditor editor })
                         {
@@ -179,7 +179,9 @@ public sealed partial class EditPage : UserControl
         }
     }
 
-    private void AddButtonClick(FATabView? sender, EventArgs e)
+#pragma warning disable RCS1163, IDE0060
+    public void AddButtonClick(FATabView? sender, EventArgs e)
+#pragma warning restore RCS1163, IDE0060
     {
         if (Resources["AddButtonFlyout"] is MenuFlyout flyout)
         {
