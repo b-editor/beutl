@@ -198,6 +198,7 @@
             TabWidthMode="SizeToContent"
             VerticalAlignment="Stretch"
             Classes="bottom"
+            x:Name="RightTabView"
             IsAddTabButtonVisible="False">
             <ui:TabView.Styles>
                 <Style Selector="ui|TabViewItem">
@@ -208,8 +209,8 @@
                 <editors:PropertiesEditor x:Name="propertiesEditor" DataContext="{Binding Scene.SelectedItem, Converter={StaticResource LayerEditorConverter}}" />
             </ui:TabViewItem>
             <!--
-                NOTE: Height‚ðŽw’è‚µ‚È‚¢‚Æ1px‚ÌŒë·‚ªo‚é‚Ì‚Å
-                      ‚‚³‚ðpropertiesEditor‚ÆƒoƒCƒ“ƒh‚µ‚Ä‚¢‚Ü‚·
+                NOTE: Heightã‚’æŒ‡å®šã—ãªã„ã¨1pxã®èª¤å·®ãŒå‡ºã‚‹ã®ã§
+                      é«˜ã•ã‚’propertiesEditorã¨ãƒã‚¤ãƒ³ãƒ‰ã—ã¦ã„ã¾ã™
             -->
             <ui:TabViewItem Header="{DynamicResource S.EditView.Easings}">
                 <local:Easings DataContext="{CompiledBinding Easings}" Height="{Binding #propertiesEditor.Bounds.Height}" />

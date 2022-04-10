@@ -13,6 +13,7 @@ public sealed class SamplePackage : Package
     {
         yield return new SampleExtension();
         yield return new SampleEditorExtension();
+        yield return new SSETExtenison();
     }
 
     public override IResourceProvider? GetResource(CultureInfo ci)

@@ -1,8 +1,12 @@
+using System.Collections;
 using System.Reactive.Linq;
 
 using Avalonia.Controls;
+using Avalonia.Data;
 using Avalonia.Data.Converters;
 using Avalonia.Interactivity;
+using Avalonia.Layout;
+using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 
@@ -18,11 +22,16 @@ using BeUtl.ViewModels.Editors;
 
 using Microsoft.Extensions.DependencyInjection;
 
+using FAPathIconSource = FluentAvalonia.UI.Controls.PathIconSource;
+using FATabViewItem = FluentAvalonia.UI.Controls.TabViewItem;
+
 namespace BeUtl.Views;
 
 public sealed partial class EditView : UserControl, IEditor
 {
     private readonly SynchronizationContext _syncContext;
+    private readonly Binding _bottomHeightBinding;
+    private readonly Binding _rightHeightBinding;
     private Image? _image;
     private FileSystemWatcher? _watcher;
     private IDisposable? _disposable;
@@ -38,6 +47,14 @@ public sealed partial class EditView : UserControl, IEditor
         });
         InitializeComponent();
         _syncContext = SynchronizationContext.Current!;
+        _bottomHeightBinding = new Binding("Bounds.Height")
+        {
+            Source = timeline
+        };
+        _rightHeightBinding = new Binding("Bounds.Height")
+        {
+            Source = propertiesEditor
+        };
     }
 
     private Image Image => _image ??= Player.GetImage();
@@ -210,6 +227,49 @@ public sealed partial class EditView : UserControl, IEditor
 
     public void Close()
     {
+    }
+
+    public void SelectOrOpenTabExtension(SceneEditorTabExtension extension)
+    {
+        if ((extension.Placement == SceneEditorTabExtension.TabPlacement.Bottom ? BottomTabView.TabItems : RightTabView.TabItems) is not IList list
+            || DataContext is not EditViewModel viewModel)
+        {
+            return;
+        }
+
+        if (list.OfType<FATabViewItem>().FirstOrDefault(i => i.DataContext == extension) is FATabViewItem tabItem)
+        {
+            tabItem.IsSelected = true;
+        }
+        else
+        {
+            tabItem = new FATabViewItem()
+            {
+                [!FATabViewItem.HeaderProperty] = new DynamicResourceExtension(extension.Header.Key),
+                Content = extension.CreateContent(viewModel.Scene),
+                DataContext = extension,
+                IsClosable = extension.IsClosable
+            };
+
+            if (tabItem.Content is Layoutable content)
+            {
+                content[!HeightProperty] =
+                    extension.Placement == SceneEditorTabExtension.TabPlacement.Bottom
+                    ? _bottomHeightBinding
+                    : _rightHeightBinding;
+            }
+
+            if (extension.Icon != null)
+            {
+                tabItem.IconSource = new FAPathIconSource
+                {
+                    Data = extension.Icon
+                };
+            }
+
+            list.Add(tabItem);
+            tabItem.IsSelected = true;
+        }
     }
 
     private sealed class KnownCommandsImpl : IKnownEditorCommands

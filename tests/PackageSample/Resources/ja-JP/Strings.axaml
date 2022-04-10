@@ -1,5 +1,6 @@
 <ResourceDictionary xmlns="https://github.com/avaloniaui"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <x:String x:Key="S.SamplePackage.SampleExtension.SampleOp">SampleOp</x:String>
+    <x:String x:Key="S.SamplePackage.SSETExtension">Sample tab</x:String>
     <x:String x:Key="S.SamplePackage.SampleEditorExtension.FileTypeName">Text File</x:String>
 </ResourceDictionary>

@@ -1,9 +1,11 @@
+using System.Collections;
 using System.Collections.Specialized;
 
 using Avalonia;
 using Avalonia.Collections;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
@@ -27,6 +29,7 @@ using FluentAvalonia.UI.Controls;
 using Microsoft.Extensions.DependencyInjection;
 
 using FATabViewItem = FluentAvalonia.UI.Controls.TabViewItem;
+using PathIcon = Avalonia.Controls.PathIcon;
 
 namespace BeUtl.Views;
 
@@ -178,7 +181,7 @@ public partial class MainView : UserControl
         });
     }
 
-    protected override void OnDataContextChanged(EventArgs e)
+    protected override async void OnDataContextChanged(EventArgs e)
     {
         base.OnDataContextChanged(e);
         if (DataContext is MainViewModel vm)
@@ -483,6 +486,45 @@ public partial class MainView : UserControl
                     applicationLifetime.Shutdown();
                 }
             });
+
+            await vm._packageLoadTask;
+
+            PackageManager manager = PackageManager.Instance;
+            if (viewMenu.Items is not IList items)
+            {
+                items = new AvaloniaList<object>();
+                viewMenu.Items = items;
+            }
+
+            foreach (SceneEditorTabExtension item in manager.ExtensionProvider.AllExtensions.OfType<SceneEditorTabExtension>())
+            {
+                var menuItem = new MenuItem()
+                {
+                    [!HeaderedSelectingItemsControl.HeaderProperty] = new DynamicResourceExtension(item.Header.Key),
+                    DataContext = item
+                };
+
+                if (item.Icon != null)
+                {
+                    menuItem.Icon = new PathIcon
+                    {
+                        Data = item.Icon,
+                        Width = 18,
+                        Height = 18,
+                    };
+                }
+
+                menuItem.Click += (s, e) =>
+                {
+                    if (_editPage.tabview.SelectedItem is FATabViewItem { Content: EditView editView }
+                        && s is MenuItem { DataContext: SceneEditorTabExtension ext })
+                    {
+                        editView.SelectOrOpenTabExtension(ext);
+                    }
+                };
+
+                items.Add(menuItem);
+            }
         }
     }
 

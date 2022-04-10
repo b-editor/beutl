@@ -154,7 +154,7 @@
                     </MenuItem>
                 </MenuItem>
                 <!--表示-->
-                <MenuItem Header="{DynamicResource S.MainView.View}" />
+                <MenuItem Header="{DynamicResource S.MainView.View}" x:Name="viewMenu" />
                 <!--オブジェクト-->
                 <MenuItem Header="{DynamicResource S.MainView.Object}" />
                 <!--ヘルプ-->

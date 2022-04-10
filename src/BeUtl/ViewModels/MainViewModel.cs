@@ -16,6 +16,7 @@ namespace BeUtl.ViewModels;
 public class MainViewModel
 {
     private readonly IProjectService _projectService;
+    internal readonly Task _packageLoadTask;
 
     public MainViewModel()
     {
@@ -63,7 +64,7 @@ public class MainViewModel
                 CommandRecorder.Default.Redo();
         });
 
-        Task.Run(() =>
+        _packageLoadTask = Task.Run(async () =>
         {
             PackageManager manager = PackageManager.Instance;
             manager.LoadPackages(manager.GetPackageInfos());
@@ -73,7 +74,7 @@ public class MainViewModel
                 SceneEditorExtension.Instance
             });
 
-            Dispatcher.UIThread.InvokeAsync(() =>
+            await Dispatcher.UIThread.InvokeAsync(() =>
             {
                 if (Application.Current != null)
                 {
