@@ -44,7 +44,8 @@ public partial class Timeline : UserControl
     internal int _pointerLayer;
     private bool _isFirst = true;
     private TimelineViewModel? _viewModel;
-    private IDisposable? _disposable;
+    private IDisposable? _disposable1;
+    private IDisposable? _disposable2;
 
     public Timeline()
     {
@@ -92,7 +93,8 @@ public partial class Timeline : UserControl
 
                 _viewModel.Scene.Children.CollectionChanged -= Children_CollectionChanged;
 
-                _disposable?.Dispose();
+                _disposable1?.Dispose();
+                _disposable2?.Dispose();
             }
 
             _viewModel = vm;
@@ -108,7 +110,7 @@ public partial class Timeline : UserControl
             ViewModel.Scene.Children.CollectionChanged += Children_CollectionChanged;
             AddLayers(ViewModel.Scene.Children);
 
-            _disposable = ViewModel.Paste.Subscribe(async () =>
+            _disposable1 = ViewModel.Paste.Subscribe(async () =>
             {
                 if (Application.Current?.Clipboard is IClipboard clipboard)
                 {
@@ -127,6 +129,15 @@ public partial class Timeline : UserControl
                         ViewModel.Scene.AddChild(layer).DoAndRecord(CommandRecorder.Default);
                     }
                 }
+            });
+
+            _disposable2 = ViewModel.Scene.GetPropertyChangedObservable(Scene.SelectedItemProperty).Subscribe(e =>
+            {
+                if (e.OldValue != null && FindLayerView(e.OldValue) is TimelineLayer oldView)
+                    oldView.border.BorderThickness = new Thickness(0);
+
+                if (e.NewValue != null && FindLayerView(e.NewValue) is TimelineLayer newView)
+                    newView.border.BorderThickness = new Thickness(1);
             });
         }
     }
@@ -270,7 +281,7 @@ public partial class Timeline : UserControl
 
     private void TimelinePanel_DragOver(object? sender, DragEventArgs e)
     {
-        if(e.Data.Contains("RenderOperation") || (e.Data.GetFileNames()?.Any() ?? false))
+        if (e.Data.Contains("RenderOperation") || (e.Data.GetFileNames()?.Any() ?? false))
         {
             e.DragEffects = DragDropEffects.Copy;
         }
@@ -356,5 +367,10 @@ public partial class Timeline : UserControl
                 }
             }
         }
+    }
+
+    private TimelineLayer? FindLayerView(Layer layer)
+    {
+        return TimelinePanel.Children.FirstOrDefault(ctr => ctr.DataContext is TimelineLayerViewModel vm && vm.Model == layer) as TimelineLayer;
     }
 }

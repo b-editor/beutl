@@ -5,6 +5,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
 using Avalonia.Media;
+using Avalonia.Threading;
 
 using BeUtl.ProjectSystem;
 using BeUtl.ViewModels;
@@ -17,7 +18,7 @@ namespace BeUtl.Views;
 
 public partial class TimelineLayer : UserControl
 {
-    private readonly Avalonia.Animation.Animation _animation = new()
+    private static readonly Avalonia.Animation.Animation s_animation1 = new()
     {
         Duration = TimeSpan.FromSeconds(0.083),
         Children =
@@ -41,6 +42,7 @@ public partial class TimelineLayer : UserControl
         }
     };
     private Timeline? _timeline;
+    private IDisposable? _disposable;
     private MouseFlags _mouseFlag = MouseFlags.MouseUp;
     private AlignmentX _resizeType = AlignmentX.Center;
     private Point _layerStartAbs;
@@ -131,6 +133,8 @@ public partial class TimelineLayer : UserControl
         PointerPoint point = e.GetCurrentPoint(border);
         if (point.Properties.IsLeftButtonPressed)
         {
+            Task task1 = s_animation1.RunAsync(border, null);
+
             _mouseFlag = MouseFlags.MouseDown;
             _layerStartAbs = e.GetPosition(this);
             _layerStartRel = point.Position;
@@ -138,8 +142,8 @@ public partial class TimelineLayer : UserControl
 
             e.Handled = true;
 
-            _animation.PlaybackDirection = PlaybackDirection.Normal;
-            await _animation.RunAsync(border, null);
+            s_animation1.PlaybackDirection = PlaybackDirection.Normal;
+            await task1;
             border.Opacity = 0.8;
         }
     }
@@ -147,10 +151,11 @@ public partial class TimelineLayer : UserControl
     private async void Border_PointerReleased(object? sender, PointerReleasedEventArgs e)
     {
         _mouseFlag = MouseFlags.MouseUp;
+        s_animation1.PlaybackDirection = PlaybackDirection.Reverse;
+        Task task1 = s_animation1.RunAsync(border, null);
 
         ViewModel.Scene.SelectedItem = ViewModel.Model;
-        _animation.PlaybackDirection = PlaybackDirection.Reverse;
-        await _animation.RunAsync(border, null);
+        await task1;
         border.Opacity = 1;
     }
 
