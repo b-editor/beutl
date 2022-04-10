@@ -5,16 +5,4 @@
   <Import Project="$(RootDirectory)\build\props\Avalonia.props" />
   <Import Project="$(RootDirectory)\build\props\Avalonia.Xaml.Interactivity.props" />
   <Import Project="$(RootDirectory)\build\props\FluentAvalonia.props" />
-  <ItemGroup>
-    <!--<Compile Remove="DraggableTabItem\DraggableTabItem.cs" />
-    <Compile Remove="DraggableTabItem\DraggableTabItem.Events.cs" />
-    <Compile Remove="DraggableTabItem\DraggableTabItem.Properties.cs" />
-    <Compile Remove="DraggableTabView\DraggableTabView.cs" />
-    <Compile Remove="DraggableTabView\DraggableTabView.Events.cs" />
-    <Compile Remove="DraggableTabView\DraggableTabView.Properties.cs" />-->
-  </ItemGroup>
-  <ItemGroup>
-    <!--<Folder Include="DraggableTabItem\" />
-    <Folder Include="DraggableTabView\" />-->
-  </ItemGroup>
 </Project>

@@ -5,6 +5,8 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:local="using:BeUtl.Views"
     xmlns:editors="using:BeUtl.Views.Editors"
+    xmlns:ui="using:FluentAvalonia.UI.Controls"
+    xmlns:uip="using:FluentAvalonia.UI.Controls.Primitives"
     xmlns:vm="using:BeUtl.ViewModels"
     mc:Ignorable="d" d:DesignWidth="1280" d:DesignHeight="720"
     x:DataType="vm:EditViewModel"
@@ -13,11 +15,171 @@
         <Style Selector="GridSplitter.EditViewSplitter">
             <Setter Property="Background" Value="Transparent" />
         </Style>
-        <Style Selector="DraggableTabView.EditTabView">
-            <Setter Property="Background" Value="{DynamicResource CardBackgroundFillColorDefaultBrush}" />
+        <Style Selector="ui|TabView.bottom">
             <Setter Property="CornerRadius" Value="{DynamicResource ControlCornerRadius}" />
-            <Setter Property="BorderBrush" Value="{DynamicResource ControlElevationBorderBrush}" />
-            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="2,0,2,8" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Grid RowDefinitions="*,Auto">
+
+                        <ContentPresenter Name="TabContentPresenter"
+                                          Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                                          BorderBrush="{TemplateBinding BorderBrush}"
+                                          CornerRadius="{TemplateBinding CornerRadius}"
+                                          BorderThickness="{TemplateBinding BorderThickness}" />
+
+                        <Grid Name="TabContainerGrid" Grid.Row="1"
+                              Background="{TemplateBinding Background}">
+
+                            <Grid.ColumnDefinitions>
+                                <!-- x:Name="LeftContentColumn -->
+                                <ColumnDefinition Width="Auto" MinWidth="2" />
+                                <!-- x:Name="TabColumn" -->
+                                <ColumnDefinition Width="Auto" />
+                                <!-- x:Name="AddButtonColumn" -->
+                                <ColumnDefinition Width="Auto" />
+                                <!-- x:Name="RightContentColumn"-->
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+
+                            <Border Name="LeftBottomBorderLine"
+                                    BorderBrush="{DynamicResource TabViewBorderBrush}"
+                                    BorderThickness="1" Height="1"
+                                    VerticalAlignment="Top"/>
+
+                            <Border Name="RightBottomBorderLine"
+                                    BorderBrush="{DynamicResource TabViewBorderBrush}"
+                                    BorderThickness="1" Height="1"
+                                    Grid.Column="2" Grid.ColumnSpan="2"
+                                    VerticalAlignment="Top"/>
+
+                            <ContentPresenter
+                                    Grid.Column="0"
+                                    Name="LeftContentPresenter"
+                                    Content="{TemplateBinding TabStripHeader}"
+                                    ContentTemplate="{TemplateBinding TabStripHeaderTemplate}"/>
+
+                            <uip:TabViewListView Grid.Column="1"
+                                                 Classes="bottom"
+                                                 Name="TabListView"
+                                                 Padding="{TemplateBinding Padding}"
+                                                 Items="{TemplateBinding TabItems}"
+                                                 ItemTemplate="{TemplateBinding TabItemTemplate}"
+                                                 CanReorderItems="{TemplateBinding CanReorderTabs}"
+                                                 CanDragItems="{TemplateBinding CanDragTabs}"
+                                                 DragDrop.AllowDrop="{TemplateBinding AllowDropTabs}" />
+
+                            <Border IsVisible="{Binding IsAddTabButtonVisible, RelativeSource={RelativeSource TemplatedParent}}"
+                                     Grid.Column="2"
+                                     Padding="{DynamicResource TabViewItemAddButtonContainerPadding}"
+                                     VerticalAlignment="Bottom">
+                                <ui:Button Name="AddButton"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"
+                                           Content="&#xE710;"
+                                           Command="{TemplateBinding AddTabButtonCommand}"
+                                           CommandParameter="{TemplateBinding AddTabButtonCommandParameter}"
+                                           Classes="TabViewButtonStyle" />
+                            </Border>
+
+                            <ContentPresenter Grid.Column="3"
+                                              Name="RightContentPresenter"
+                                              HorizontalAlignment="Stretch"
+                                              Content="{TemplateBinding TabStripFooter}"
+                                              ContentTemplate="{TemplateBinding TabStripFooterTemplate}"/>
+                        </Grid>
+                    </Grid>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+
+        <Style Selector="uip|TabViewListView.bottom">
+        </Style>
+        
+        <Style Selector="uip|TabViewListView.bottom > ui|TabViewItem">
+            <Setter Property="Template">
+                <ControlTemplate>
+                        <Border Name="LayoutRootBorder"
+                                Padding="{TemplateBinding Padding}">
+                            <Grid Name="LayoutRoot">
+
+                                <Grid.ColumnDefinitions>
+                                    <!-- x:Name = "LeftColumn" -->
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                    <!-- x:Name = "RightColumn" -->
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
+                                <Border Name="BottomBorderLine" />
+
+                                <Path Name="LeftRadiusRenderArc" />
+
+                                <Path Name="RightRadiusRenderArc" />
+
+                                <Path Name="SelectedBackgroundPath" />
+
+                                <Border Name="TabSeparator" />
+
+                                <Border Name="TabContainerBorder"
+                                        Grid.Column="1"
+                                        Background="{TemplateBinding Background}"
+                                        BorderBrush="{TemplateBinding BorderBrush}"
+                                        BorderThickness="{TemplateBinding BorderThickness}"
+                                        TemplatedControl.IsTemplateFocusTarget="True"
+                                        CornerRadius="{Binding CornerRadius, RelativeSource={RelativeSource TemplatedParent}, Converter={StaticResource BottomCornerRadiusFilterConverter}}">
+
+                                        <Grid Name="TabContainer">
+                                            <Grid.ColumnDefinitions>
+                                                <!-- x:Name = "IconColumn" -->
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+
+                                            <!-- Since we can't change the icon column in the styles, to avoid locking it in
+                                code, we use this Rectangle as the sizer for the column -->
+                                            <Rectangle HorizontalAlignment="Stretch"
+                                                       VerticalAlignment="Stretch"
+                                                       Name="IconColumn" />
+
+                                            <Viewbox Name="IconBox"
+                                                     MaxWidth="{DynamicResource TabViewItemHeaderIconSize}"
+                                                     MaxHeight="{DynamicResource TabViewItemHeaderIconSize}">
+                                                <ContentControl Name="IconControl"
+                                                                Content="{Binding TabViewTemplateSettings.IconElement, RelativeSource={RelativeSource TemplatedParent}}"
+                                                                KeyboardNavigation.IsTabStop="False" />
+                                            </Viewbox>
+
+                                            <!-- If we template bind the ContentPresenter's Content property to the TabViewItem.Header property
+                                 we unfortunately run into the following issue if the header is [null] or empty:
+                                 The TabViewItem.Content property will be implictly bound to the Content property of the ContentPresenter.
+                                 To prevent this, we explicitly set a default empty content here and update the content in code behind. -->
+
+                                            <ContentPresenter Name="ContentPresenter"
+                                                              Grid.Column="1"
+                                                              HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                                              Content=""
+                                                              ContentTemplate="{TemplateBinding HeaderTemplate}"
+                                                              TextBlock.FontWeight="{TemplateBinding FontWeight}" />
+
+                                            <ui:Button Name="CloseButton"
+                                                       Grid.Column="2"
+                                                       Margin="{DynamicResource TabViewItemHeaderCloseMargin}"
+                                                       Content="&#xE711;"
+                                                       Classes="TabViewCloseButtonStyle"
+                                                       KeyboardNavigation.IsTabStop="False"/>
+                                        </Grid>
+                                </Border>
+
+                            </Grid>
+                        </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="uip|TabViewListView.bottom > ui|TabViewItem:selected /template/ Border#TabContainerBorder">
+            <Setter Property="BorderThickness" Value="1,0,1,1" />
         </Style>
     </UserControl.Styles>
     <Grid>
@@ -28,29 +190,34 @@
         </Grid.ColumnDefinitions>
 
         <!--RightPanel-->
-        <DraggableTabView
+        <ui:TabView
             Grid.Column="4"
-            Grid.RowSpan="3"
-            Margin="0,2"
+            Margin="0,4,0,0"
+            CornerRadius="4,0,0,4"
             SelectedIndex="0"
-            Classes="EditTabView"
-            ItemsMargin="4,0"
-            TabStripPlacement="Right"
-            AdderButtonIsVisible="False">
-            <DraggableTabView.Styles>
-                <Style Selector="DraggableTabItem">
-                    <Setter Property="Icon" Value="{x:Null}" />
+            TabWidthMode="SizeToContent"
+            VerticalAlignment="Stretch"
+            Classes="bottom"
+            IsAddTabButtonVisible="False">
+            <ui:TabView.Styles>
+                <Style Selector="ui|TabViewItem">
                     <Setter Property="IsClosable" Value="False" />
                 </Style>
-            </DraggableTabView.Styles>
-            <DraggableTabItem Header="{DynamicResource S.EditView.Properties}">
-                <editors:PropertiesEditor DataContext="{Binding Scene.SelectedItem, Converter={StaticResource LayerEditorConverter}}" />
-            </DraggableTabItem>
-            <DraggableTabItem Header="{DynamicResource S.EditView.Easings}">
-                <local:Easings DataContext="{CompiledBinding Easings}" />
-            </DraggableTabItem>
-            <DraggableTabItem Header="{DynamicResource S.EditView.Explorer}" x:Name="Explorer" />
-        </DraggableTabView>
+            </ui:TabView.Styles>
+            <ui:TabViewItem Header="{DynamicResource S.EditView.Properties}">
+                <editors:PropertiesEditor x:Name="propertiesEditor" DataContext="{Binding Scene.SelectedItem, Converter={StaticResource LayerEditorConverter}}" />
+            </ui:TabViewItem>
+            <!--
+                NOTE: Heightを指定しないと1pxの誤差が出るので
+                      高さをpropertiesEditorとバインドしています
+            -->
+            <ui:TabViewItem Header="{DynamicResource S.EditView.Easings}">
+                <local:Easings DataContext="{CompiledBinding Easings}" Height="{Binding #propertiesEditor.Bounds.Height}" />
+            </ui:TabViewItem>
+            <ui:TabViewItem Header="{DynamicResource S.EditView.Explorer}" >
+                <ScrollViewer x:Name="Explorer" Height="{Binding #propertiesEditor.Bounds.Height}" />
+            </ui:TabViewItem>
+        </ui:TabView>
 
         <!--LeftPanel-->
         <Grid>
@@ -61,25 +228,23 @@
             </Grid.RowDefinitions>
 
             <!--BottomPanel-->
-            <DraggableTabView
+            <ui:TabView
                 Grid.Row="2"
                 x:Name="BottomTabView"
                 Margin="2,0,0,0"
-                ItemsMargin="0,4"
-                Classes="EditTabView"
-                TabStripPlacement="Bottom"
-                AdderButtonIsVisible="False">
-                <DraggableTabView.Styles>
-                    <Style Selector="DraggableTabItem[TabStripPlacement=Bottom]">
-                        <Setter Property="MinWidth" Value="0" />
-                        <Setter Property="Icon" Value="{x:Null}" />
+                TabWidthMode="SizeToContent"
+                VerticalAlignment="Stretch"
+                Classes="bottom"
+                IsAddTabButtonVisible="False">
+                <ui:TabView.Styles>
+                    <Style Selector="ui|TabViewItem">
                         <Setter Property="IsClosable" Value="False" />
                     </Style>
-                </DraggableTabView.Styles>
-                <DraggableTabItem Header="{DynamicResource S.EditView.Timeline}">
+                </ui:TabView.Styles>
+                <ui:TabViewItem Header="{DynamicResource S.EditView.Timeline}">
                     <local:Timeline DataContext="{CompiledBinding Timeline}" x:Name="timeline" />
-                </DraggableTabItem>
-            </DraggableTabView>
+                </ui:TabViewItem>
+            </ui:TabView>
 
             <Grid>
                 <Grid.ColumnDefinitions>

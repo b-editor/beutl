@@ -1,11 +1,14 @@
+using System.Collections;
+
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
 
-using BeUtl.Controls;
 using BeUtl.ProjectSystem;
 using BeUtl.ViewModels;
 using BeUtl.ViewModels.Editors;
+
+using FATabViewItem = FluentAvalonia.UI.Controls.TabViewItem;
 
 namespace BeUtl.Views.Editors;
 
@@ -32,7 +35,7 @@ public partial class EditorBadge : UserControl
         {
             EditView editView = this.FindLogicalAncestorOfType<EditView>();
 
-            foreach (DraggableTabItem item in editView.BottomTabView.Items.OfType<DraggableTabItem>())
+            foreach (FATabViewItem item in editView.BottomTabView.TabItems.OfType<FATabViewItem>())
             {
                 if (item.DataContext is AnimationTimelineViewModel anmVm && ReferenceEquals(anmVm.Setter, setter))
                 {
@@ -45,13 +48,15 @@ public partial class EditorBadge : UserControl
 
             if (propsEdit.DataContext is PropertiesEditorViewModel propsVm)
             {
-                editView.BottomTabView.AddTab(new DraggableTabItem
+                var item = new FATabViewItem
                 {
                     Header = $"{propsVm.Layer.Name} / {setter.Property.Name}",
                     DataContext = new AnimationTimelineViewModel(propsVm.Layer, setter, vm),
                     Content = new AnimationTimeline(),
                     IsClosable = true
-                });
+                };
+                (editView.BottomTabView.TabItems as IList)?.Add(item);
+                item.IsSelected = true;
             }
         }
     }

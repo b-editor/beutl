@@ -34,7 +34,5 @@
     <StyleInclude Source="avares://BeUtl.Controls/Styling/FluentIconsRegular.axaml" />
     <StyleInclude Source="avares://BeUtl.Controls/Styling/Player.axaml" />
     <StyleInclude Source="avares://BeUtl.Controls/Styling/NavigationView.axaml" />
-    <StyleInclude Source="avares://BeUtl.Controls/Styling/DraggableTabItem.axaml" />
-    <StyleInclude Source="avares://BeUtl.Controls/Styling/DraggableTabView.axaml" />
     <StyleInclude Source="avares://BeUtl.Controls/Styling/OptionsDisplayItem.axaml" />
 </Styles>
