@@ -4,7 +4,6 @@ using System.Diagnostics.CodeAnalysis;
 using Avalonia.Collections;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
-using Avalonia.Media;
 using Avalonia.VisualTree;
 
 using BeUtl.Collections;
@@ -62,6 +61,7 @@ public sealed partial class EditPage : UserControl
             {
                 EditorExtension? ext = PackageManager.Instance.ExtensionProvider.MatchEditorExtension(file);
 
+                // Ç±ÇÃì‡ïîÇ≈Project.Children.AddÇµÇƒÇ¢ÇÈÇÃÇ≈ìÒèdÇ…í«â¡Ç≥ÇÍÇÈ
                 if (ext?.TryCreateEditor(file, out IEditor? editor) == true)
                 {
                     tabItem = new FATabViewItem

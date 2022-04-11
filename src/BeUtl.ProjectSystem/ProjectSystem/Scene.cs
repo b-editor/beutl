@@ -34,6 +34,8 @@ public class Scene : Element, IStorable
     private PreviewOptions? _previewOptions;
     private TimelineOptions _timelineOptions = new();
     private IRenderer _renderer;
+    private EventHandler? _saved;
+    private EventHandler? _restored;
 
     public Scene()
         : this(1920, 1080, string.Empty)
@@ -108,6 +110,18 @@ public class Scene : Element, IStorable
                 scene._renderer.Invalidate();
             }
         });
+    }
+
+    event EventHandler IStorable.Saved
+    {
+        add => _saved += value;
+        remove => _saved -= value;
+    }
+    
+    event EventHandler IStorable.Restored
+    {
+        add => _restored += value;
+        remove => _restored -= value;
     }
 
     public int Width => Renderer.Graphics.Size.Width;
@@ -359,6 +373,8 @@ public class Scene : Element, IStorable
 
             array.JsonSave(Path.Combine(viewStateDir, $"{Path.GetFileNameWithoutExtension(item.FileName)}.config"));
         }
+
+        _saved?.Invoke(this, EventArgs.Empty);
     }
 
     public void Restore(string filename)
@@ -387,6 +403,8 @@ public class Scene : Element, IStorable
                 op.ViewState.FromJson(json);
             }
         }
+
+        _restored?.Invoke(this, EventArgs.Empty);
     }
 
     private void SyncronizeLayers(IEnumerable<string> pathToLayer)

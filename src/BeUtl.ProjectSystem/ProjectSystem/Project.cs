@@ -1,4 +1,5 @@
-﻿using System.Reflection;
+﻿using System.Collections.Specialized;
+using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
@@ -19,6 +20,8 @@ public class Project : Element, ITopLevel, IStorable, ILogicalElement
     private Scene? _selectedScene;
     private int _frameRate = 30;
     private int _sampleRate = 44100;
+    private EventHandler? _saved;
+    private EventHandler? _restored;
 
     static Project()
     {
@@ -55,6 +58,7 @@ public class Project : Element, ITopLevel, IStorable, ILogicalElement
     {
         MinimumAppVersion = new Version(0, 3);
         Children = new LogicalList<Scene>(this);
+        Children.CollectionChanged += Children_CollectionChanged;
     }
 
     public Project(int framerate, int samplerate)
@@ -62,6 +66,18 @@ public class Project : Element, ITopLevel, IStorable, ILogicalElement
     {
         FrameRate = framerate;
         SampleRate = samplerate;
+    }
+
+    event EventHandler IStorable.Saved
+    {
+        add => _saved += value;
+        remove => _saved -= value;
+    }
+
+    event EventHandler IStorable.Restored
+    {
+        add => _restored += value;
+        remove => _restored -= value;
     }
 
     public Scene? SelectedScene
@@ -109,6 +125,8 @@ public class Project : Element, ITopLevel, IStorable, ILogicalElement
         {
             FromJson(node);
         }
+
+        _restored?.Invoke(this, EventArgs.Empty);
     }
 
     public void Save(string filename)
@@ -126,6 +144,8 @@ public class Project : Element, ITopLevel, IStorable, ILogicalElement
         using var writer = new Utf8JsonWriter(stream, JsonHelper.WriterOptions);
 
         ToJson().WriteTo(writer, JsonHelper.SerializerOptions);
+
+        _saved?.Invoke(this, EventArgs.Empty);
     }
 
     public override void FromJson(JsonNode json)
@@ -200,8 +220,15 @@ public class Project : Element, ITopLevel, IStorable, ILogicalElement
         return node;
     }
 
+    private void Children_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        if (_fileName != null)
+            Save(_fileName);
+    }
+
     private void SyncronizeScenes(IEnumerable<string> pathToScene)
     {
+        Children.CollectionChanged -= Children_CollectionChanged;
         pathToScene = pathToScene.Select(x => Path.GetFullPath(x, RootDirectory)).ToArray();
 
         // 削除するシーン
@@ -221,5 +248,7 @@ public class Project : Element, ITopLevel, IStorable, ILogicalElement
 
             Children.Add(scn);
         }
+
+        Children.CollectionChanged += Children_CollectionChanged;
     }
 }

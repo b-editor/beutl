@@ -22,6 +22,8 @@ public class Layer : Element, IStorable, ILogicalElement
     private string? _fileName;
     private bool _isEnabled = true;
     private Renderable? _renderable;
+    private EventHandler? _saved;
+    private EventHandler? _restored;
 
     static Layer()
     {
@@ -98,6 +100,18 @@ public class Layer : Element, IStorable, ILogicalElement
     public Layer()
     {
         Children = new LogicalList<LayerOperation>(this);
+    }
+
+    event EventHandler IStorable.Saved
+    {
+        add => _saved += value;
+        remove => _saved -= value;
+    }
+
+    event EventHandler IStorable.Restored
+    {
+        add => _restored += value;
+        remove => _restored -= value;
     }
 
     // 0以上
@@ -178,6 +192,8 @@ public class Layer : Element, IStorable, ILogicalElement
         using var writer = new Utf8JsonWriter(stream, JsonHelper.WriterOptions);
 
         ToJson().WriteTo(writer, JsonHelper.SerializerOptions);
+
+        _saved?.Invoke(this, EventArgs.Empty);
     }
 
     public void Restore(string filename)
@@ -192,6 +208,8 @@ public class Layer : Element, IStorable, ILogicalElement
         {
             FromJson(node);
         }
+
+        _restored?.Invoke(this, EventArgs.Empty);
     }
 
     public override void FromJson(JsonNode json)
