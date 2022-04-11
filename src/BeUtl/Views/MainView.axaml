@@ -31,7 +31,15 @@
 
     <Grid RowDefinitions="Auto,*">
         <Grid ColumnDefinitions="Auto,Auto" x:Name="Titlebar" Background="Transparent">
-            <Image Source="/Assets/logo.ico" MaxWidth="16" Margin="8,0" />
+            <Image Source="/Assets/logo.ico"
+                   MaxWidth="24"
+                   MaxHeight="24"
+                   Margin="8,0"
+                   VerticalAlignment="Center">
+                <Image.Clip>
+                    <EllipseGeometry Rect="0,0,24,24" RadiusX="12" RadiusY="12" />
+                </Image.Clip>
+            </Image>
 
             <Menu Grid.Column="1">
                 <!--ファイル-->
