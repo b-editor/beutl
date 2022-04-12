@@ -19,4 +19,10 @@
     <ProjectReference Include="..\..\src\BeUtl.Framework\BeUtl.Framework.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Update="package.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>
