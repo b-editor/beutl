@@ -2,8 +2,8 @@
 using System.Reactive.Linq;
 
 using Avalonia;
-using Avalonia.Input;
 
+using BeUtl.Collections;
 using BeUtl.Models;
 using BeUtl.ProjectSystem;
 
@@ -56,6 +56,12 @@ public class TimelineViewModel : IDisposable
             sLayer.Save(sLayer.FileName);
             Scene.AddChild(sLayer).DoAndRecord(CommandRecorder.Default);
         }).AddTo(_disposables);
+
+        scene.Children.ForEachItem(
+            (idx, item) => Layers.Insert(idx, new TimelineLayerViewModel(item)),
+            (idx, _) => Layers.RemoveAt(idx),
+            () => Layers.Clear())
+            .AddTo(_disposables);
     }
 
     ~TimelineViewModel()
@@ -74,6 +80,8 @@ public class TimelineViewModel : IDisposable
     public ReadOnlyReactivePropertySlim<Thickness> EndingBarMargin { get; }
 
     public ReactiveCommand<LayerDescription> AddLayer { get; } = new();
+
+    public CoreList<TimelineLayerViewModel> Layers { get; } = new();
 
     public ReactiveCommand Paste { get; } = new();
 

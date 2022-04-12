@@ -5,11 +5,14 @@ using Avalonia;
 using Avalonia.Controls;
 
 using BeUtl.ProjectSystem;
+using BeUtl.Services.Editors;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 
 namespace BeUtl.ViewModels.Editors;
+
+public record struct EditorViewModelDescription(IPropertyInstance PropertyInstance, object? NumberEditorService = null);
 
 public abstract class BaseEditorViewModel : IDisposable
 {
@@ -20,22 +23,10 @@ public abstract class BaseEditorViewModel : IDisposable
     {
         Setter = setter;
 
-        IOperationPropertyMetadata metadata = setter.Property.GetMetadata<IOperationPropertyMetadata>(setter.Parent.GetType());
-        ResourceReference<string> reference = metadata.Header;
-
-        if (reference.Key != null)
-        {
-            Header = Application.Current!.GetResourceObservable(reference.Key)
-                .Select(i => (i as string) ?? Setter.Property.Name)
-                .ToReadOnlyReactivePropertySlim()
-                .AddTo(Disposables);
-        }
-        else
-        {
-            Header = Observable.Return(Setter.Property.Name)
-                .ToReadOnlyReactivePropertySlim()
-                .AddTo(Disposables);
-        }
+        IOperationPropertyMetadata metadata = Setter.Property.GetMetadata<IOperationPropertyMetadata>(Setter.Parent.GetType());
+        Header = metadata.Header.ToObservable(Setter.Property.Name)
+            .ToReadOnlyReactivePropertySlim()
+            .AddTo(Disposables);
     }
 
     ~BaseEditorViewModel()

@@ -38,13 +38,6 @@ public sealed partial class EditView : UserControl, IEditor
 
     public EditView()
     {
-        Resources["LayerEditorConverter"] = new FuncValueConverter<Layer?, object?>(obj =>
-        {
-            if (obj == null)
-                return null;
-
-            return new PropertiesEditorViewModel(obj);
-        });
         InitializeComponent();
         _syncContext = SynchronizationContext.Current!;
         _bottomHeightBinding = new Binding("Bounds.Height")

@@ -18,11 +18,11 @@ public sealed class AnimationTimelineViewModel : IDisposable
 {
     private readonly CompositeDisposable _disposables = new();
 
-    public AnimationTimelineViewModel(Layer layer, IAnimatablePropertyInstance setter, BaseEditorViewModel editorViewModel)
+    public AnimationTimelineViewModel(Layer layer, IAnimatablePropertyInstance setter, EditorViewModelDescription description)
     {
         Layer = layer;
         Setter = setter;
-        EditorViewModel = editorViewModel;
+        Description = description;
         Scene = Layer.FindRequiredLogicalParent<Scene>();
 
         ISubject<TimelineOptions> optionsSubject = Scene.GetSubject(Scene.TimelineOptionsProperty);
@@ -72,7 +72,7 @@ public sealed class AnimationTimelineViewModel : IDisposable
 
     public IAnimatablePropertyInstance Setter { get; }
 
-    public BaseEditorViewModel EditorViewModel { get; }
+    public EditorViewModelDescription Description { get; }
 
     public ReadOnlyReactivePropertySlim<Thickness> BorderMargin { get; }
 

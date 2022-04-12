@@ -11,7 +11,7 @@
     x:DataType="vm:PropertiesEditorViewModel"
     x:Class="BeUtl.Views.Editors.PropertiesEditor">
     <ScrollViewer>
-        <ItemsControl Items="{CompiledBinding Layer.Children}">
+        <ItemsControl Items="{CompiledBinding Items}">
             <ItemsControl.ItemTemplate>
                 <DataTemplate>
                     <local:OperationEditor />

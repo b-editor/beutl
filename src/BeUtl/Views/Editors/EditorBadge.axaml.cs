@@ -27,6 +27,7 @@ public partial class EditorBadge : UserControl
         }
     }
 
+    // Todo: ‚±‚±‚ß‚Á‚¿‚á‚â‚Î‚¢
     private void EditAnimation_Click(object? sender, RoutedEventArgs e)
     {
         if (DataContext is not BaseEditorViewModel vm) return;

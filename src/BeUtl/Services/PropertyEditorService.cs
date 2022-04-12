@@ -15,9 +15,9 @@ namespace BeUtl.Services;
 
 public static class PropertyEditorService
 {
-    private record struct Editor(Func<IPropertyInstance, Control?> CreateEditor, Func<IPropertyInstance, object?> CreateViewModel);
+    private record struct Editor(Func<IPropertyInstance, Control?> CreateEditor, Func<IPropertyInstance, BaseEditorViewModel?> CreateViewModel);
 
-    private record struct AnimationEditor(Func<object?, Control?> CreateEditor, Func<IAnimation, BaseEditorViewModel, object?> CreateViewModel);
+    private record struct AnimationEditor(Func<object?, Control?> CreateEditor, Func<IAnimation, EditorViewModelDescription, object?> CreateViewModel);
 
     private static readonly Dictionary<Type, Editor> s_editors = new()
     {
@@ -77,31 +77,38 @@ public static class PropertyEditorService
         { typeof(Graphics.Vector), new(_ => new VectorAnimationEditor(), (a, vm) => new VectorAnimationEditorViewModel((Animation<Graphics.Vector>)a, (BaseEditorViewModel<Graphics.Vector>)vm)) },
     };
 
-    public static Control? CreateEditor(IPropertyInstance setter)
+    public static Control? CreateEditor(IPropertyInstance property)
     {
-        Control? Create(Editor editor)
+        if (s_editors.ContainsKey(property.Property.PropertyType))
         {
-            Control? control = editor.CreateEditor(setter);
-
-            if (control != null)
-            {
-                control.DataContext = editor.CreateViewModel(setter);
-            }
-
-            return control;
-        }
-
-        if (s_editors.ContainsKey(setter.Property.PropertyType))
-        {
-            Editor editor = s_editors[setter.Property.PropertyType];
-            return Create(editor);
+            Editor editor = s_editors[property.Property.PropertyType];
+            return editor.CreateEditor(property);
         }
 
         foreach (KeyValuePair<Type, Editor> item in s_editors)
         {
-            if (setter.Property.PropertyType.IsAssignableTo(item.Key))
+            if (property.Property.PropertyType.IsAssignableTo(item.Key))
             {
-                return Create(item.Value);
+                return item.Value.CreateEditor(property);
+            }
+        }
+
+        return null;
+    }
+
+    public static BaseEditorViewModel? CreateEditorViewModel(IPropertyInstance property)
+    {
+        if (s_editors.ContainsKey(property.Property.PropertyType))
+        {
+            Editor editor = s_editors[property.Property.PropertyType];
+            return editor.CreateViewModel(property);
+        }
+
+        foreach (KeyValuePair<Type, Editor> item in s_editors)
+        {
+            if (property.Property.PropertyType.IsAssignableTo(item.Key))
+            {
+                return item.Value.CreateViewModel(property);
             }
         }
 
@@ -119,11 +126,11 @@ public static class PropertyEditorService
         return null;
     }
 
-    public static object? CreateAnimationEditorViewModel(BaseEditorViewModel viewModel, IAnimation animation)
+    public static object? CreateAnimationEditorViewModel(EditorViewModelDescription desc, IAnimation animation)
     {
-        if (s_animationEditors.ContainsKey(viewModel.Setter.Property.PropertyType))
+        if (s_animationEditors.ContainsKey(desc.PropertyInstance.Property.PropertyType))
         {
-            AnimationEditor editor = s_animationEditors[viewModel.Setter.Property.PropertyType];
+            AnimationEditor editor = s_animationEditors[desc.PropertyInstance.Property.PropertyType];
             return editor.CreateViewModel(animation, viewModel);
         }
 
@@ -136,9 +143,9 @@ public static class PropertyEditorService
         return (Control?)Activator.CreateInstance(type);
     }
 
-    private static object? CreateEnumViewModel(IPropertyInstance s)
+    private static BaseEditorViewModel? CreateEnumViewModel(IPropertyInstance s)
     {
         Type type = typeof(EnumEditorViewModel<>).MakeGenericType(s.Property.PropertyType);
-        return Activator.CreateInstance(type, s);
+        return Activator.CreateInstance(type, s) as BaseEditorViewModel;
     }
 }

@@ -206,7 +206,7 @@
                 </Style>
             </ui:TabView.Styles>
             <ui:TabViewItem Header="{DynamicResource S.EditView.Properties}">
-                <editors:PropertiesEditor x:Name="propertiesEditor" DataContext="{Binding Scene.SelectedItem, Converter={StaticResource LayerEditorConverter}}" />
+                <editors:PropertiesEditor x:Name="propertiesEditor" DataContext="{Binding Property.Value}" />
             </ui:TabViewItem>
             <!--
                 NOTE: Heightを指定しないと1pxの誤差が出るので
