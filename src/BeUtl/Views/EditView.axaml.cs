@@ -10,6 +10,7 @@ using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 
+using BeUtl.Collections;
 using BeUtl.Controls;
 using BeUtl.Framework;
 using BeUtl.Framework.Services;
@@ -34,7 +35,7 @@ public sealed partial class EditView : UserControl, IEditor
     private readonly Binding _rightHeightBinding;
     private Image? _image;
     private FileSystemWatcher? _watcher;
-    private IDisposable? _disposable;
+    private IDisposable? _disposable0;
 
     public EditView()
     {
@@ -117,8 +118,8 @@ public sealed partial class EditView : UserControl, IEditor
         if (DataContext is EditViewModel vm)
         {
             vm.Scene.Renderer.RenderInvalidated += Renderer_RenderInvalidated;
-            _disposable?.Dispose();
-            _disposable = vm.Scene.GetPropertyChangedObservable(Scene.RendererProperty)
+            _disposable0?.Dispose();
+            _disposable0 = vm.Scene.GetPropertyChangedObservable(Scene.RendererProperty)
                 .Subscribe(a =>
                 {
                     if (a.OldValue != null)
@@ -133,53 +134,6 @@ public sealed partial class EditView : UserControl, IEditor
                 });
 
             Commands = new KnownCommandsImpl(vm.Scene);
-        }
-    }
-
-    private void Player_PlayButtonClick(object? sender, RoutedEventArgs e)
-    {
-        if (DataContext is EditViewModel { Player: PlayerViewModel player })
-        {
-            if (Player.IsPlaying)
-            {
-                player.Play();
-            }
-            else
-            {
-                player.Pause();
-            }
-        }
-    }
-
-    private void Player_NextButtonClick(object? sender, RoutedEventArgs e)
-    {
-        if (DataContext is EditViewModel { Player: PlayerViewModel player })
-        {
-            player.Next();
-        }
-    }
-
-    private void Player_PreviousButtonClick(object? sender, RoutedEventArgs e)
-    {
-        if (DataContext is EditViewModel { Player: PlayerViewModel player })
-        {
-            player.Previous();
-        }
-    }
-
-    private void Player_StartButtonClick(object? sender, RoutedEventArgs e)
-    {
-        if (DataContext is EditViewModel { Player: PlayerViewModel player })
-        {
-            player.Start();
-        }
-    }
-
-    private void Player_EndButtonClick(object? sender, RoutedEventArgs e)
-    {
-        if (DataContext is EditViewModel { Player: PlayerViewModel player })
-        {
-            player.End();
         }
     }
 

@@ -1,4 +1,6 @@
-﻿using Avalonia;
+﻿using System.Windows.Input;
+
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
@@ -18,11 +20,37 @@ public class Player : RangeBase
             nameof(IsPlaying),
             owner => owner.IsPlaying,
             (owner, obj) => owner.IsPlaying = obj);
-    public static readonly RoutedEvent PlayButtonClickEvent = RoutedEvent.Register<Player, RoutedEventArgs>(nameof(PlayButtonClick), RoutingStrategies.Bubble);
-    public static readonly RoutedEvent NextButtonClickEvent = RoutedEvent.Register<Player, RoutedEventArgs>(nameof(NextButtonClickEvent), RoutingStrategies.Bubble);
-    public static readonly RoutedEvent PreviousButtonClickEvent = RoutedEvent.Register<Player, RoutedEventArgs>(nameof(PreviousButtonClick), RoutingStrategies.Bubble);
-    public static readonly RoutedEvent EndButtonClickEvent = RoutedEvent.Register<Player, RoutedEventArgs>(nameof(EndButtonClick), RoutingStrategies.Bubble);
-    public static readonly RoutedEvent StartButtonClickEvent = RoutedEvent.Register<Player, RoutedEventArgs>(nameof(StartButtonClick), RoutingStrategies.Bubble);
+
+    public static readonly DirectProperty<Player, ICommand> PlayButtonCommandProperty =
+        AvaloniaProperty.RegisterDirect<Player, ICommand>(
+            nameof(PlayButtonCommand),
+            owner => owner.PlayButtonCommand,
+            (owner, obj) => owner.PlayButtonCommand = obj);
+
+    public static readonly DirectProperty<Player, ICommand> NextButtonCommandProperty =
+        AvaloniaProperty.RegisterDirect<Player, ICommand>(
+            nameof(NextButtonCommand),
+            owner => owner.NextButtonCommand,
+            (owner, obj) => owner.NextButtonCommand = obj);
+
+    public static readonly DirectProperty<Player, ICommand> PreviousButtonCommandProperty =
+        AvaloniaProperty.RegisterDirect<Player, ICommand>(
+            nameof(PreviousButtonCommand),
+            owner => owner.PreviousButtonCommand,
+            (owner, obj) => owner.PreviousButtonCommand = obj);
+
+    public static readonly DirectProperty<Player, ICommand> EndButtonCommandProperty =
+        AvaloniaProperty.RegisterDirect<Player, ICommand>(
+            nameof(EndButtonCommand),
+            owner => owner.EndButtonCommand,
+            (owner, obj) => owner.EndButtonCommand = obj);
+
+    public static readonly DirectProperty<Player, ICommand> StartButtonCommandProperty =
+        AvaloniaProperty.RegisterDirect<Player, ICommand>(
+            nameof(StartButtonCommand),
+            owner => owner.StartButtonCommand,
+            (owner, obj) => owner.StartButtonCommand = obj);
+
     private string _currentTime = string.Empty;
     private bool _isPlaying;
     private ToggleButton _playButton;
@@ -31,6 +59,11 @@ public class Player : RangeBase
     private Button _endButton;
     private Button _startButton;
     private Image _image;
+    private ICommand _playButtonCommand;
+    private ICommand _nextButtonCommand;
+    private ICommand _previousButtonCommand;
+    private ICommand _endButtonCommand;
+    private ICommand _startButtonCommand;
 
     public string Duration
     {
@@ -50,34 +83,34 @@ public class Player : RangeBase
         set => SetAndRaise(IsPlayingProperty, ref _isPlaying, value);
     }
 
-    public event EventHandler<RoutedEventArgs> PlayButtonClick
+    public ICommand PlayButtonCommand
     {
-        add => AddHandler(PlayButtonClickEvent, value);
-        remove => RemoveHandler(PlayButtonClickEvent, value);
+        get => _playButtonCommand;
+        set => SetAndRaise(PlayButtonCommandProperty, ref _playButtonCommand, value);
     }
 
-    public event EventHandler<RoutedEventArgs> NextButtonClick
+    public ICommand NextButtonCommand
     {
-        add => AddHandler(NextButtonClickEvent, value);
-        remove => RemoveHandler(NextButtonClickEvent, value);
+        get => _nextButtonCommand;
+        set => SetAndRaise(NextButtonCommandProperty, ref _nextButtonCommand, value);
     }
 
-    public event EventHandler<RoutedEventArgs> PreviousButtonClick
+    public ICommand PreviousButtonCommand
     {
-        add => AddHandler(PreviousButtonClickEvent, value);
-        remove => RemoveHandler(PreviousButtonClickEvent, value);
+        get => _previousButtonCommand;
+        set => SetAndRaise(PreviousButtonCommandProperty, ref _previousButtonCommand, value);
     }
 
-    public event EventHandler<RoutedEventArgs> EndButtonClick
+    public ICommand EndButtonCommand
     {
-        add => AddHandler(EndButtonClickEvent, value);
-        remove => RemoveHandler(EndButtonClickEvent, value);
+        get => _endButtonCommand;
+        set => SetAndRaise(EndButtonCommandProperty, ref _endButtonCommand, value);
     }
 
-    public event EventHandler<RoutedEventArgs> StartButtonClick
+    public ICommand StartButtonCommand
     {
-        add => AddHandler(StartButtonClickEvent, value);
-        remove => RemoveHandler(StartButtonClickEvent, value);
+        get => _startButtonCommand;
+        set => SetAndRaise(StartButtonCommandProperty, ref _startButtonCommand, value);
     }
 
     public Image GetImage()
@@ -95,10 +128,10 @@ public class Player : RangeBase
         _startButton = e.NameScope.Find<Button>("PART_StartButton");
         _image = e.NameScope.Find<Image>("PART_Image");
 
-        _playButton.Click += (s, e) => RaiseEvent(new RoutedEventArgs(PlayButtonClickEvent, _playButton));
-        _nextButton.Click += (s, e) => RaiseEvent(new RoutedEventArgs(NextButtonClickEvent, _nextButton));
-        _previousButton.Click += (s, e) => RaiseEvent(new RoutedEventArgs(PreviousButtonClickEvent, _previousButton));
-        _endButton.Click += (s, e) => RaiseEvent(new RoutedEventArgs(EndButtonClickEvent, _endButton));
-        _startButton.Click += (s, e) => RaiseEvent(new RoutedEventArgs(StartButtonClickEvent, _startButton));
+        _playButton.Click += (s, e) => PlayButtonCommand?.Execute(null);
+        _nextButton.Click += (s, e) => NextButtonCommand?.Execute(null);
+        _previousButton.Click += (s, e) => PreviousButtonCommand?.Execute(null);
+        _endButton.Click += (s, e) => EndButtonCommand?.Execute(null);
+        _startButton.Click += (s, e) => StartButtonCommand?.Execute(null);
     }
 }
