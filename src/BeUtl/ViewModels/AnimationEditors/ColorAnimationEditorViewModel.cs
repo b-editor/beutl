@@ -13,8 +13,8 @@ namespace BeUtl.ViewModels.AnimationEditors;
 
 public sealed class ColorAnimationEditorViewModel : AnimationEditorViewModel<Color>
 {
-    public ColorAnimationEditorViewModel(Animation<Color> animation, BaseEditorViewModel<Color> editorViewModel)
-        : base(animation, editorViewModel)
+    public ColorAnimationEditorViewModel(Animation<Color> animation, EditorViewModelDescription description)
+        : base(animation, description)
     {
         Previous = animation.GetObservable(Animation<Color>.PreviousProperty)
             .Select(x => (Color2)x.ToAvalonia())

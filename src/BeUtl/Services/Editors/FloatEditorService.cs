@@ -1,7 +1,19 @@
-﻿namespace BeUtl.Services.Editors;
+﻿using BeUtl.ProjectSystem;
+
+namespace BeUtl.Services.Editors;
 
 public sealed class FloatEditorService : INumberEditorService<float>
 {
+    public float GetMaximum(PropertyInstance<float> property)
+    {
+        return property.GetMaximumOrDefault(float.MaxValue);
+    }
+
+    public float GetMinimum(PropertyInstance<float> property)
+    {
+        return property.GetMinimumOrDefault(float.MinValue);
+    }
+
     public float Clamp(float value, float min, float max)
     {
         return Math.Clamp(value, min, max);

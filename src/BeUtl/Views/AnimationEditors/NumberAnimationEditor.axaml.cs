@@ -4,6 +4,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
 
+using BeUtl.Services.Editors;
 using BeUtl.ViewModels;
 using BeUtl.ViewModels.AnimationEditors;
 
@@ -53,12 +54,12 @@ public class NumberAnimationEditor<T> : NumberAnimationEditor
     private void PreviousTextBox_LostFocus(object? sender, RoutedEventArgs e)
     {
         if (DataContext is not AnimationEditorViewModel<T> vm ||
-            vm.EditorViewModel is not INumberEditorViewModel<T> numVM)
+            vm.Description.NumberEditorService is not INumberEditorService<T> numService)
         {
             return;
         }
 
-        if (numVM.EditorService.TryParse(prevTextBox.Text, out T newValue))
+        if (numService.TryParse(prevTextBox.Text, out T newValue))
         {
             vm.SetPrevious(_oldPrev, newValue);
         }
@@ -67,12 +68,12 @@ public class NumberAnimationEditor<T> : NumberAnimationEditor
     private void NextTextBox_LostFocus(object? sender, RoutedEventArgs e)
     {
         if (DataContext is not AnimationEditorViewModel<T> vm ||
-            vm.EditorViewModel is not INumberEditorViewModel<T> numVM)
+            vm.Description.NumberEditorService is not INumberEditorService<T> numService)
         {
             return;
         }
 
-        if (numVM.EditorService.TryParse(nextTextBox.Text, out T newValue))
+        if (numService.TryParse(nextTextBox.Text, out T newValue))
         {
             vm.SetNext(_oldNext, newValue);
         }
@@ -83,16 +84,16 @@ public class NumberAnimationEditor<T> : NumberAnimationEditor
         Dispatcher.UIThread.InvokeAsync(async () =>
         {
             if (DataContext is not AnimationEditorViewModel<T> vm ||
-                vm.EditorViewModel is not INumberEditorViewModel<T> numVM)
+                vm.Description.NumberEditorService is not INumberEditorService<T> numService)
             {
                 return;
             }
 
             await Task.Delay(10);
 
-            if (numVM.EditorService.TryParse(prevTextBox.Text, out T value))
+            if (numService.TryParse(prevTextBox.Text, out T value))
             {
-                vm.Animation.Previous = numVM.EditorService.Clamp(value, numVM.Minimum, numVM.Maximum);
+                vm.Animation.Previous = numService.Clamp(value, numService.GetMinimum(vm.Setter), numService.GetMaximum(vm.Setter));
             }
         });
     }
@@ -102,16 +103,16 @@ public class NumberAnimationEditor<T> : NumberAnimationEditor
         Dispatcher.UIThread.InvokeAsync(async () =>
         {
             if (DataContext is not AnimationEditorViewModel<T> vm ||
-                vm.EditorViewModel is not INumberEditorViewModel<T> numVM)
+                vm.Description.NumberEditorService is not INumberEditorService<T> numService)
             {
                 return;
             }
 
             await Task.Delay(10);
 
-            if (numVM.EditorService.TryParse(nextTextBox.Text, out T value))
+            if (numService.TryParse(nextTextBox.Text, out T value))
             {
-                vm.Animation.Next = numVM.EditorService.Clamp(value, numVM.Minimum, numVM.Maximum);
+                vm.Animation.Next = numService.Clamp(value, numService.GetMinimum(vm.Setter), numService.GetMaximum(vm.Setter));
             }
         });
     }
@@ -119,12 +120,12 @@ public class NumberAnimationEditor<T> : NumberAnimationEditor
     private void PreviousTextBox_PointerWheelChanged(object? sender, PointerWheelEventArgs e)
     {
         if (DataContext is not AnimationEditorViewModel<T> vm ||
-            vm.EditorViewModel is not INumberEditorViewModel<T> numVM)
+            vm.Description.NumberEditorService is not INumberEditorService<T> numService)
         {
             return;
         }
 
-        if (prevTextBox.IsKeyboardFocusWithin && numVM.EditorService.TryParse(prevTextBox.Text, out T value))
+        if (prevTextBox.IsKeyboardFocusWithin && numService.TryParse(prevTextBox.Text, out T value))
         {
             int increment = 10;
 
@@ -135,14 +136,14 @@ public class NumberAnimationEditor<T> : NumberAnimationEditor
 
             if (e.Delta.Y < 0)
             {
-                value = numVM.EditorService.Decrement(value, increment);
+                value = numService.Decrement(value, increment);
             }
             else
             {
-                value = numVM.EditorService.Increment(value, increment);
+                value = numService.Increment(value, increment);
             }
 
-            vm.Animation.Previous = numVM.EditorService.Clamp(value, numVM.Minimum, numVM.Maximum);
+            vm.Animation.Previous = numService.Clamp(value, numService.GetMinimum(vm.Setter), numService.GetMaximum(vm.Setter));
 
             e.Handled = true;
         }
@@ -151,12 +152,12 @@ public class NumberAnimationEditor<T> : NumberAnimationEditor
     private void NextTextBox_PointerWheelChanged(object? sender, PointerWheelEventArgs e)
     {
         if (DataContext is not AnimationEditorViewModel<T> vm ||
-            vm.EditorViewModel is not INumberEditorViewModel<T> numVM)
+            vm.Description.NumberEditorService is not INumberEditorService<T> numService)
         {
             return;
         }
 
-        if (nextTextBox.IsKeyboardFocusWithin && numVM.EditorService.TryParse(nextTextBox.Text, out T value))
+        if (nextTextBox.IsKeyboardFocusWithin && numService.TryParse(nextTextBox.Text, out T value))
         {
             int increment = 10;
 
@@ -167,14 +168,14 @@ public class NumberAnimationEditor<T> : NumberAnimationEditor
 
             if (e.Delta.Y < 0)
             {
-                value = numVM.EditorService.Decrement(value, increment);
+                value = numService.Decrement(value, increment);
             }
             else
             {
-                value = numVM.EditorService.Increment(value, increment);
+                value = numService.Increment(value, increment);
             }
 
-            vm.Animation.Next = numVM.EditorService.Clamp(value, numVM.Minimum, numVM.Maximum);
+            vm.Animation.Next = numService.Clamp(value, numService.GetMinimum(vm.Setter), numService.GetMaximum(vm.Setter));
 
             e.Handled = true;
         }

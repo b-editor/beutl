@@ -30,7 +30,7 @@
                 </Border>
 
                 <ToggleButton BorderThickness="0"
-                              IsChecked="{Binding IsEnabled}">
+                              IsChecked="{Binding Model.IsEnabled}">
                     <ToggleButton.Resources>
                         <SolidColorBrush x:Key="ToggleButtonBackground" Color="Transparent" />
                         <SolidColorBrush x:Key="ToggleButtonBackgroundDisabled" Color="Transparent" />

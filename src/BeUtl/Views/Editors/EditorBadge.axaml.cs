@@ -27,7 +27,6 @@ public partial class EditorBadge : UserControl
         }
     }
 
-    // Todo: ‚±‚±‚ß‚Á‚¿‚á‚â‚Î‚¢
     private void EditAnimation_Click(object? sender, RoutedEventArgs e)
     {
         if (DataContext is not BaseEditorViewModel vm) return;
@@ -52,7 +51,7 @@ public partial class EditorBadge : UserControl
                 var item = new FATabViewItem
                 {
                     Header = $"{propsVm.Layer.Name} / {setter.Property.Name}",
-                    DataContext = new AnimationTimelineViewModel(propsVm.Layer, setter, vm),
+                    DataContext = new AnimationTimelineViewModel(propsVm.Layer, setter, vm.Description),
                     Content = new AnimationTimeline(),
                     IsClosable = true
                 };

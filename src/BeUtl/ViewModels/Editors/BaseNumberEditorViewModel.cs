@@ -16,4 +16,6 @@ public abstract class BaseNumberEditorViewModel<T> : BaseEditorViewModel<T>, INu
     public abstract T Minimum { get; }
 
     public abstract INumberEditorService<T> EditorService { get; }
+
+    public override EditorViewModelDescription Description => base.Description with { NumberEditorService = EditorService };
 }
