@@ -24,6 +24,7 @@ using BeUtl.ViewModels.Editors;
 using Microsoft.Extensions.DependencyInjection;
 
 using FAPathIconSource = FluentAvalonia.UI.Controls.PathIconSource;
+using FATabView = FluentAvalonia.UI.Controls.TabView;
 using FATabViewItem = FluentAvalonia.UI.Controls.TabViewItem;
 
 namespace BeUtl.Views;
@@ -37,6 +38,7 @@ public sealed partial class EditView : UserControl, IEditor
     private FileSystemWatcher? _watcher;
     private IDisposable? _disposable0;
     private IDisposable? _disposable1;
+    private IDisposable? _disposable2;
 
     public EditView()
     {
@@ -187,6 +189,95 @@ public sealed partial class EditView : UserControl, IEditor
                         list.Remove(item);
                         if (item.DataContext is IDisposable disposable)
                             disposable.Dispose();
+                    }
+                });
+
+            _disposable2?.Dispose();
+            _disposable2 = vm.UsingExtensions.ForEachItem(
+                (item) =>
+                {
+                    SceneEditorTabExtension extension = item.Extension;
+                    FATabView tabView = extension.Placement == SceneEditorTabExtension.TabPlacement.Bottom ? BottomTabView : RightTabView;
+                    if (tabView.TabItems is IList list && DataContext is EditViewModel viewModel)
+                    {
+                        var tabItem = new FATabViewItem()
+                        {
+                            [!ListBoxItem.IsSelectedProperty] = new Binding("IsSelected.Value", BindingMode.TwoWay),
+                            [!FATabViewItem.HeaderProperty] = new DynamicResourceExtension(extension.Header.Key),
+                            Content = extension.CreateContent(viewModel.Scene),
+                            DataContext = item,
+                            IsClosable = extension.IsClosable
+                        };
+
+                        if (tabItem.Content is Layoutable content)
+                        {
+                            content[!HeightProperty] =
+                                extension.Placement == SceneEditorTabExtension.TabPlacement.Bottom
+                                ? _bottomHeightBinding
+                                : _rightHeightBinding;
+                        }
+
+                        if (extension.Icon != null)
+                        {
+                            tabItem.IconSource = new FAPathIconSource
+                            {
+                                Data = extension.Icon
+                            };
+                        }
+
+                        list.Add(tabItem);
+
+                        tabItem.CloseRequested += (s, _) =>
+                        {
+                            if (DataContext is EditViewModel viewModel
+                                && s.DataContext is ExtendedEditTabViewModel tabViewModel)
+                            {
+                                viewModel.UsingExtensions.Remove(tabViewModel);
+                            }
+                        };
+                        tabItem.IsSelected = true;
+                    }
+                },
+                (item) =>
+                {
+                    SceneEditorTabExtension extension = item.Extension;
+                    FATabView tabView = extension.Placement == SceneEditorTabExtension.TabPlacement.Bottom ? BottomTabView : RightTabView;
+                    if (tabView.TabItems is IList list && DataContext is EditViewModel viewModel)
+                    {
+                        FATabViewItem? tabItem = list
+                            .OfType<FATabViewItem>()
+                            .FirstOrDefault(i => i.DataContext == item);
+
+                        if (tabItem != null)
+                        {
+                            list.Remove(tabItem);
+                            if (tabItem.DataContext is IDisposable disposable)
+                                disposable.Dispose();
+                        }
+                    }
+                },
+                () =>
+                {
+                    if (BottomTabView.TabItems is IList list0
+                        && RightTabView.TabItems is IList list1)
+                    {
+                        foreach (FATabViewItem item in list0
+                            .OfType<FATabViewItem>()
+                            .Where(v => v.DataContext is ExtendedEditTabViewModel).ToArray())
+                        {
+                            list0.Remove(item);
+                            if (item.DataContext is IDisposable disposable)
+                                disposable.Dispose();
+                        }
+
+                        foreach (FATabViewItem item in list1
+                            .OfType<FATabViewItem>()
+                            .Where(v => v.DataContext is ExtendedEditTabViewModel).ToArray())
+                        {
+                            list1.Remove(item);
+                            if (item.DataContext is IDisposable disposable)
+                                disposable.Dispose();
+                        }
                     }
                 });
         }

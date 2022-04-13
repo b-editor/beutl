@@ -515,10 +515,20 @@ public partial class MainView : UserControl
 
                 menuItem.Click += (s, e) =>
                 {
-                    if (_editPage.tabview.SelectedItem is FATabViewItem { Content: EditView editView }
+                    if (_editPage.tabview.SelectedItem is FATabViewItem { Content: EditView { DataContext: EditViewModel editViewModel } editView }
                         && s is MenuItem { DataContext: SceneEditorTabExtension ext })
                     {
-                        editView.SelectOrOpenTabExtension(ext);
+                        ExtendedEditTabViewModel? tabViewModel = editViewModel.UsingExtensions.FirstOrDefault(i => i.Extension == ext);
+
+                        if (tabViewModel != null)
+                        {
+                            tabViewModel.IsSelected.Value = true;
+                        }
+                        else
+                        {
+                            tabViewModel = new ExtendedEditTabViewModel(ext);
+                            editViewModel.UsingExtensions.Add(tabViewModel);
+                        }
                     }
                 };
 

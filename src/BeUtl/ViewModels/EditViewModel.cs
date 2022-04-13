@@ -13,7 +13,23 @@ using Reactive.Bindings.Extensions;
 
 namespace BeUtl.ViewModels;
 
-public class EditViewModel : IDisposable
+public sealed class ExtendedEditTabViewModel : IDisposable
+{
+    public ExtendedEditTabViewModel(SceneEditorTabExtension extension)
+    {
+        Extension = extension;
+    }
+
+    public SceneEditorTabExtension Extension { get; }
+
+    public ReactivePropertySlim<bool> IsSelected { get; } = new();
+
+    public void Dispose()
+    {
+    }
+}
+
+public sealed class EditViewModel : IDisposable
 {
     private readonly CompositeDisposable _disposables = new();
 
@@ -38,7 +54,8 @@ public class EditViewModel : IDisposable
 
     public CoreList<AnimationTimelineViewModel> AnimationTimelines { get; }
 
-    public CoreList<SceneEditorTabExtension> UsingExtensions { get; }
+    // Todo
+    public CoreList<ExtendedEditTabViewModel> UsingExtensions { get; }
 
     public PlayerViewModel Player { get; }
 
