@@ -1,6 +1,8 @@
 ﻿using System.Reactive.Disposables;
 using System.Reactive.Linq;
 
+using Avalonia.Media;
+
 using BeUtl.Collections;
 using BeUtl.Framework;
 using BeUtl.ProjectSystem;

@@ -36,6 +36,7 @@ public sealed partial class EditView : UserControl, IEditor
     private Image? _image;
     private FileSystemWatcher? _watcher;
     private IDisposable? _disposable0;
+    private IDisposable? _disposable1;
 
     public EditView()
     {
@@ -134,6 +135,60 @@ public sealed partial class EditView : UserControl, IEditor
                 });
 
             Commands = new KnownCommandsImpl(vm.Scene);
+
+            _disposable1?.Dispose();
+            _disposable1 = vm.AnimationTimelines.ForEachItem(
+                (item) =>
+                {
+                    if (BottomTabView.TabItems is not IList list) return;
+
+                    var tabItem = new FATabViewItem
+                    {
+                        [!ListBoxItem.IsSelectedProperty] = new Binding("IsSelected.Value", BindingMode.TwoWay),
+                        Header = $"{item.Layer.Name} / {item.Setter.Property.Name}",
+                        DataContext = item,
+                        Content = new AnimationTimeline(),
+                        IsClosable = true
+                    };
+                    list.Add(tabItem);
+                    tabItem.CloseRequested += (s, _) =>
+                    {
+                        if (DataContext is EditViewModel viewModel
+                            && s.DataContext is AnimationTimelineViewModel anmViewModel)
+                        {
+                            viewModel.AnimationTimelines.Remove(anmViewModel);
+                        }
+                    };
+                    item.IsSelected.Value = true;
+                },
+                (item) =>
+                {
+                    if (BottomTabView.TabItems is not IList list) return;
+
+                    FATabViewItem? tabItem = BottomTabView.TabItems
+                        .OfType<FATabViewItem>()
+                        .FirstOrDefault(i => i.DataContext == item);
+
+                    if (tabItem != null)
+                    {
+                        list.Remove(tabItem);
+                        if (tabItem.DataContext is IDisposable disposable)
+                            disposable.Dispose();
+                    }
+                },
+                () =>
+                {
+                    if (BottomTabView.TabItems is not IList list) return;
+
+                    foreach (FATabViewItem item in BottomTabView.TabItems
+                        .OfType<FATabViewItem>()
+                        .Where(v => v.DataContext is AnimationTimelineViewModel).ToArray())
+                    {
+                        list.Remove(item);
+                        if (item.DataContext is IDisposable disposable)
+                            disposable.Dispose();
+                    }
+                });
         }
     }
 

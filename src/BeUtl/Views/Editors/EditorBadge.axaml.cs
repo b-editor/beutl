@@ -29,34 +29,25 @@ public partial class EditorBadge : UserControl
 
     private void EditAnimation_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is not BaseEditorViewModel vm) return;
-
-        if (vm.Setter is IAnimatablePropertyInstance setter)
+        if (DataContext is BaseEditorViewModel viewModel
+            && viewModel.Setter is IAnimatablePropertyInstance setter)
         {
             EditView editView = this.FindLogicalAncestorOfType<EditView>();
-
-            foreach (FATabViewItem item in editView.BottomTabView.TabItems.OfType<FATabViewItem>())
+            if (editView.DataContext is EditViewModel editViewModel)
             {
-                if (item.DataContext is AnimationTimelineViewModel anmVm && ReferenceEquals(anmVm.Setter, setter))
+                AnimationTimelineViewModel? anmViewModel =
+                    editViewModel.AnimationTimelines.FirstOrDefault(i => ReferenceEquals(i.Setter, setter));
+
+                if (anmViewModel != null)
                 {
-                    editView.BottomTabView.SelectedItem = item;
-                    return;
+                    anmViewModel.IsSelected.Value = true;
                 }
-            }
-
-            PropertiesEditor propsEdit = this.FindLogicalAncestorOfType<PropertiesEditor>();
-
-            if (propsEdit.DataContext is PropertiesEditorViewModel propsVm)
-            {
-                var item = new FATabViewItem
+                else
                 {
-                    Header = $"{propsVm.Layer.Name} / {setter.Property.Name}",
-                    DataContext = new AnimationTimelineViewModel(propsVm.Layer, setter, vm.Description),
-                    Content = new AnimationTimeline(),
-                    IsClosable = true
-                };
-                (editView.BottomTabView.TabItems as IList)?.Add(item);
-                item.IsSelected = true;
+                    Layer? layer = setter.FindRequiredLogicalParent<Layer>();
+                    editViewModel.AnimationTimelines.Add(
+                        new AnimationTimelineViewModel(layer, setter, viewModel.Description));
+                }
             }
         }
     }

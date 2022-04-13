@@ -86,6 +86,8 @@ public sealed class AnimationTimelineViewModel : IDisposable
 
     public ReadOnlyReactivePropertySlim<Thickness> EndingBarMargin { get; }
 
+    public ReactivePropertySlim<bool> IsSelected { get; } = new();
+
     public void Dispose()
     {
         _disposables.Dispose();
