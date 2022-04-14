@@ -54,7 +54,6 @@ public sealed class EditViewModel : IDisposable
 
     public CoreList<AnimationTimelineViewModel> AnimationTimelines { get; }
 
-    // Todo
     public CoreList<ExtendedEditTabViewModel> UsingExtensions { get; }
 
     public PlayerViewModel Player { get; }

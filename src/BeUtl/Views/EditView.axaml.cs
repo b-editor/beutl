@@ -161,7 +161,6 @@ public sealed partial class EditView : UserControl, IEditor
                             viewModel.AnimationTimelines.Remove(anmViewModel);
                         }
                     };
-                    item.IsSelected.Value = true;
                 },
                 (item) =>
                 {
@@ -235,7 +234,6 @@ public sealed partial class EditView : UserControl, IEditor
                                 viewModel.UsingExtensions.Remove(tabViewModel);
                             }
                         };
-                        tabItem.IsSelected = true;
                     }
                 },
                 (item) =>
@@ -320,49 +318,6 @@ public sealed partial class EditView : UserControl, IEditor
 
     public void Close()
     {
-    }
-
-    public void SelectOrOpenTabExtension(SceneEditorTabExtension extension)
-    {
-        if ((extension.Placement == SceneEditorTabExtension.TabPlacement.Bottom ? BottomTabView.TabItems : RightTabView.TabItems) is not IList list
-            || DataContext is not EditViewModel viewModel)
-        {
-            return;
-        }
-
-        if (list.OfType<FATabViewItem>().FirstOrDefault(i => i.DataContext == extension) is FATabViewItem tabItem)
-        {
-            tabItem.IsSelected = true;
-        }
-        else
-        {
-            tabItem = new FATabViewItem()
-            {
-                [!FATabViewItem.HeaderProperty] = new DynamicResourceExtension(extension.Header.Key),
-                Content = extension.CreateContent(viewModel.Scene),
-                DataContext = extension,
-                IsClosable = extension.IsClosable
-            };
-
-            if (tabItem.Content is Layoutable content)
-            {
-                content[!HeightProperty] =
-                    extension.Placement == SceneEditorTabExtension.TabPlacement.Bottom
-                    ? _bottomHeightBinding
-                    : _rightHeightBinding;
-            }
-
-            if (extension.Icon != null)
-            {
-                tabItem.IconSource = new FAPathIconSource
-                {
-                    Data = extension.Icon
-                };
-            }
-
-            list.Add(tabItem);
-            tabItem.IsSelected = true;
-        }
     }
 
     private sealed class KnownCommandsImpl : IKnownEditorCommands

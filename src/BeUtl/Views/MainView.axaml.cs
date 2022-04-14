@@ -6,10 +6,12 @@ using Avalonia.Collections;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Controls.Primitives;
+using Avalonia.Controls.Templates;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml.MarkupExtensions;
+using Avalonia.Markup.Xaml.Templates;
 using Avalonia.Threading;
 
 using BeUtl.Configuration;
@@ -526,7 +528,13 @@ public partial class MainView : UserControl
                         }
                         else
                         {
-                            tabViewModel = new ExtendedEditTabViewModel(ext);
+                            tabViewModel = new ExtendedEditTabViewModel(ext)
+                            {
+                                IsSelected =
+                                {
+                                    Value = true
+                                }
+                            };
                             editViewModel.UsingExtensions.Add(tabViewModel);
                         }
                     }
@@ -588,6 +596,24 @@ public partial class MainView : UserControl
         {
             NaviContent.Content = item.Tag;
             e.RecommendedNavigationTransitionInfo.RunAnimation(NaviContent);
+        }
+    }
+
+    private sealed class MainViewDataTemplate : IDataTemplate
+    {
+        public IControl Build(object param)
+        {
+            return param switch
+            {
+                EditPageViewModel => new EditPage(),
+                SettingsPageViewModel => new SettingsPage(),
+                _ => throw new NotSupportedException(),
+            };
+        }
+
+        public bool Match(object data)
+        {
+            return data is EditPageViewModel or SettingsPageViewModel;
         }
     }
 }

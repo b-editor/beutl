@@ -96,4 +96,16 @@ public sealed class ViewConfig : ConfigurationBase
 
         return json;
     }
+
+    public void UpdateRecentFile(string filename)
+    {
+        _recentFiles.Remove(filename);
+        _recentFiles.Insert(0, filename);
+    }
+
+    public void UpdateRecentProject(string filename)
+    {
+        _recentFiles.Remove(filename);
+        _recentFiles.Insert(0, filename);
+    }
 }

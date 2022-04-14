@@ -1,21 +1,17 @@
-using System.Collections.Specialized;
 using System.Diagnostics.CodeAnalysis;
 
 using Avalonia.Collections;
 using Avalonia.Controls;
+using Avalonia.Data;
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
 
 using BeUtl.Collections;
 using BeUtl.Configuration;
 using BeUtl.Framework;
-using BeUtl.Framework.Services;
-using BeUtl.ProjectSystem;
 using BeUtl.ViewModels;
 using BeUtl.Views;
 using BeUtl.Views.Dialogs;
-
-using Microsoft.Extensions.DependencyInjection;
 
 using FAPathIconSource = FluentAvalonia.UI.Controls.PathIconSource;
 using FATabView = FluentAvalonia.UI.Controls.TabView;
@@ -25,16 +21,14 @@ namespace BeUtl.Pages;
 
 public sealed partial class EditPage : UserControl
 {
-    private readonly AvaloniaList<FATabViewItem> _tabItems;
+    private readonly AvaloniaList<FATabViewItem> _tabItems = new();
+    private IDisposable? _disposable0;
 
     public EditPage()
     {
         InitializeComponent();
 
-        IProjectService service = ServiceLocator.Current.GetRequiredService<IProjectService>();
-        service.ProjectObservable.Subscribe(item => ProjectChanged(item.New, item.Old));
-
-        tabview.TabItems = _tabItems = new AvaloniaList<FATabViewItem>();
+        tabview.TabItems = _tabItems;
     }
 
     public bool TryGetTabItem(string file, [NotNullWhen(true)] out FATabViewItem? result)
@@ -44,111 +38,113 @@ public sealed partial class EditPage : UserControl
         return result != null;
     }
 
+    public bool TryGetTabItem(string file, [NotNullWhen(true)] out EditPageViewModel.TabViewModel? result)
+    {
+        if (DataContext is EditPageViewModel viewModel)
+        {
+            result = viewModel.TabItems.FirstOrDefault(i => i.FilePath == file);
+
+            return result != null;
+        }
+        else
+        {
+            result = null;
+            return false;
+        }
+    }
+
     public void SelectOrAddTabItem(string? file)
     {
-        if (File.Exists(file))
+        if (File.Exists(file) && DataContext is EditPageViewModel viewModel)
         {
             ViewConfig viewConfig = GlobalConfiguration.Instance.ViewConfig;
-            CoreList<string> recentFiles = viewConfig.RecentFiles;
-            recentFiles.Remove(file);
-            recentFiles.Insert(0, file);
+            viewConfig.UpdateRecentFile(file);
 
-            if (TryGetTabItem(file, out FATabViewItem? tabItem))
+            if (TryGetTabItem(file, out EditPageViewModel.TabViewModel? tabItem))
             {
-                tabItem.IsSelected = true;
+                tabItem.IsSelected.Value = true;
             }
             else
             {
                 EditorExtension? ext = PackageManager.Instance.ExtensionProvider.MatchEditorExtension(file);
 
-                // この内部でProject.Children.Addしているので二重に追加される
-                if (ext?.TryCreateEditor(file, out IEditor? editor) == true)
+                if (ext != null)
                 {
-                    tabItem = new FATabViewItem
+                    viewModel.TabItems.Add(new EditPageViewModel.TabViewModel(file, ext)
                     {
-                        Header = Path.GetFileName(file),
-                        Content = editor
-                    };
-
-                    if (ext.Icon != null)
-                    {
-                        tabItem.IconSource = new FAPathIconSource()
+                        IsSelected =
                         {
-                            Data = ext.Icon,
-                        };
-                    }
-
-                    tabItem.CloseRequested += (s, _) =>
-                    {
-                        if (s is FATabViewItem { Content: IEditor editor })
-                        {
-                            editor.Close();
+                            Value = true
                         }
-                    };
-
-                    _tabItems.Add(tabItem);
-
-                    tabItem.IsSelected = true;
+                    });
                 }
             }
         }
     }
 
-    public bool CloseTabItem(string file)
+    protected override void OnDataContextChanged(EventArgs e)
     {
-        if (TryGetTabItem(file, out FATabViewItem? item))
+        base.OnDataContextChanged(e);
+        if (DataContext is EditPageViewModel viewModel)
         {
-            _tabItems.Remove(item);
-            return true;
-        }
-        else
-        {
-            return false;
-        }
-    }
+            _disposable0?.Dispose();
+            _tabItems.Clear();
+            _disposable0 = viewModel.TabItems.ForEachItem(
+                (idx, item) =>
+                {
+                    EditorExtension ext = item.Extension;
+                    // この内部でProject.Children.Addしているので二重に追加される
+                    if (ext.TryCreateEditor(item.FilePath, out IEditor? editor))
+                    {
+                        var tabItem = new FATabViewItem
+                        {
+                            [!FATabViewItem.HeaderProperty] = new Binding("FileName"),
+                            [!ListBoxItem.IsSelectedProperty] = new Binding("IsSelected.Value", BindingMode.TwoWay),
+                            DataContext = item,
+                            Content = editor
+                        };
 
-    // 開いているプロジェクトが変更された
-    private void ProjectChanged(Project? @new, Project? old)
-    {
-        // プロジェクトが開いた
-        if (@new != null)
-        {
-            @new.Children.CollectionChanged += Project_Children_CollectionChanged;
-            foreach (Scene item in @new.Children)
-            {
-                SelectOrAddTabItem(item.FileName);
-            }
-        }
+                        if (ext.Icon != null)
+                        {
+                            tabItem.IconSource = new FAPathIconSource()
+                            {
+                                Data = ext.Icon,
+                            };
+                        }
 
-        // プロジェクトが閉じた
-        if (old != null)
-        {
-            old.Children.CollectionChanged -= Project_Children_CollectionChanged;
-            foreach (Scene item in old.Children)
-            {
-                CloseTabItem(item.FileName);
-            }
-        }
-    }
+                        tabItem.CloseRequested += (s, _) =>
+                        {
+                            if (s is FATabViewItem { DataContext: EditPageViewModel.TabViewModel itemViewModel } && DataContext is EditPageViewModel viewModel)
+                            {
+                                viewModel.TabItems.Remove(itemViewModel);
+                            }
+                        };
 
-    // Project.Childrenが変更された
-    private void Project_Children_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
-    {
-        if (e.Action == NotifyCollectionChangedAction.Add &&
-            e.NewItems != null)
-        {
-            foreach (Scene item in e.NewItems.OfType<Scene>())
-            {
-                SelectOrAddTabItem(item.FileName);
-            }
-        }
-        else if (e.Action == NotifyCollectionChangedAction.Remove &&
-                 e.OldItems != null)
-        {
-            foreach (Scene item in e.OldItems.OfType<Scene>())
-            {
-                CloseTabItem(item.FileName);
-            }
+                        _tabItems.Insert(idx, tabItem);
+                    }
+                },
+                (idx, item) =>
+                {
+                    if (_tabItems[idx] is FATabViewItem { Content: IEditor editor })
+                    {
+                        editor.Close();
+                        item.Dispose();
+                        _tabItems.RemoveAt(idx);
+                    }
+                },
+                () =>
+                {
+                    for (int i = 0; i < _tabItems.Count; i++)
+                    {
+                        if (_tabItems[i] is FATabViewItem { Content: IEditor editor, DataContext: EditPageViewModel.TabViewModel itemViewModel })
+                        {
+                            editor.Close();
+                            itemViewModel.Dispose();
+                        }
+                    }
+
+                    _tabItems.Clear();
+                });
         }
     }
 

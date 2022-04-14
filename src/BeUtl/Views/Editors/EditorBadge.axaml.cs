@@ -46,7 +46,13 @@ public partial class EditorBadge : UserControl
                 {
                     Layer? layer = setter.FindRequiredLogicalParent<Layer>();
                     editViewModel.AnimationTimelines.Add(
-                        new AnimationTimelineViewModel(layer, setter, viewModel.Description));
+                        new AnimationTimelineViewModel(layer, setter, viewModel.Description)
+                        {
+                            IsSelected =
+                            {
+                                Value = true
+                            }
+                        });
                 }
             }
         }
