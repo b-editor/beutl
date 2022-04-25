@@ -31,13 +31,6 @@ public sealed partial class EditPage : UserControl
         tabview.TabItems = _tabItems;
     }
 
-    public bool TryGetTabItem(string file, [NotNullWhen(true)] out FATabViewItem? result)
-    {
-        result = _tabItems.FirstOrDefault(i => i.Content is IEditor editor && editor.EdittingFile == file);
-
-        return result != null;
-    }
-
     public bool TryGetTabItem(string file, [NotNullWhen(true)] out EditPageViewModel.TabViewModel? result)
     {
         if (DataContext is EditPageViewModel viewModel)

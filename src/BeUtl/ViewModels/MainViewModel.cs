@@ -1,6 +1,12 @@
+using System.Collections.Specialized;
+
 using Avalonia;
+using Avalonia.Collections;
+using Avalonia.Controls;
 using Avalonia.Threading;
 
+using BeUtl.Collections;
+using BeUtl.Configuration;
 using BeUtl.Framework;
 using BeUtl.Framework.Service;
 using BeUtl.Framework.Services;
@@ -82,6 +88,41 @@ public class MainViewModel
                 }
             });
         });
+
+        SelectedPage.Value = EditPage;
+        ViewConfig viewConfig = GlobalConfiguration.Instance.ViewConfig;
+        viewConfig.RecentFiles.ForEachItem(
+            item => RecentFileItems.Insert(0, item),
+            item => RecentFileItems.Remove(item),
+            () => RecentFileItems.Clear());
+
+        viewConfig.RecentProjects.ForEachItem(
+            item => RecentProjectItems.Insert(0, item),
+            item => RecentProjectItems.Remove(item),
+            () => RecentProjectItems.Clear());
+
+        OpenRecentFile.Subscribe(file => EditPage.SelectOrAddTabItem(file));
+
+        OpenRecentProject.Subscribe(file =>
+        {
+            IProjectService service = ServiceLocator.Current.GetRequiredService<IProjectService>();
+            INotificationService noticeService = ServiceLocator.Current.GetRequiredService<INotificationService>();
+
+            if (!File.Exists(file))
+            {
+                // Todo: リソースに置き換え
+                noticeService.Show(new Notification(
+                    Title: "",
+                    Message: "ファイルが存在しない"));
+            }
+            else if (service.OpenProject(file) == null)
+            {
+                // Todo: リソースに置き換え
+                noticeService.Show(new Notification(
+                    Title: "",
+                    Message: "プロジェクトが開けなかった"));
+            }
+        });
     }
 
     public ReactiveCommand CreateNewProject { get; } = new();
@@ -124,7 +165,23 @@ public class MainViewModel
 
     public ReactiveCommand Redo { get; }
 
+    // Todo: "XXXPageViewModel"を"MainViewModel"からアクセスできるようにする (作業中)
+    public EditPageViewModel EditPage { get; } = new();
+
+    public SettingsPageViewModel SettingsPage { get; } = new();
+
+    public ReactivePropertySlim<object?> SelectedPage { get; } = new();
+
+    // Todo: こいつをEditPageViewModelに移動
     public IKnownEditorCommands? KnownCommands { get; set; }
 
     public IReadOnlyReactiveProperty<bool> IsProjectOpened { get; }
+
+    public ReactiveCommand<string> OpenRecentFile { get; } = new();
+
+    public ReactiveCommand<string> OpenRecentProject { get; } = new();
+
+    public CoreList<string> RecentFileItems { get; } = new();
+
+    public CoreList<string> RecentProjectItems { get; } = new();
 }

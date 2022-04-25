@@ -10,6 +10,7 @@
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              Padding="0"
              Focusable="True"
+             x:Name="root"
              x:DataType="vm:MainViewModel"
              x:Class="BeUtl.Views.MainView">
 
@@ -110,8 +111,26 @@
                     </MenuItem>
                     <Separator />
                     <!--最近使ったプロジェクト-->
-                    <MenuItem x:Name="recentFiles" Header="{DynamicResource S.MainView.File.RecentFiles}" />
-                    <MenuItem x:Name="recentProjects" Header="{DynamicResource S.MainView.File.RecentProjects}" />
+                    <MenuItem Header="{DynamicResource S.MainView.File.RecentFiles}"
+                              Items="{CompiledBinding RecentFileItems}">
+                        <MenuItem.ItemTemplate>
+                            <DataTemplate>
+                                <MenuItem Command="{Binding #root.DataContext.OpenRecentFile}"
+                                          CommandParameter="{Binding}"
+                                          Header="{Binding}" />
+                            </DataTemplate>
+                        </MenuItem.ItemTemplate>
+                    </MenuItem>
+                    <MenuItem Header="{DynamicResource S.MainView.File.RecentProjects}"
+                              Items="{CompiledBinding RecentProjectItems}">
+                        <MenuItem.ItemTemplate>
+                            <DataTemplate>
+                                <MenuItem Command="{Binding #root.DataContext.OpenRecentProject}"
+                                          CommandParameter="{Binding}"
+                                          Header="{Binding}" />
+                            </DataTemplate>
+                        </MenuItem.ItemTemplate>                        
+                    </MenuItem>
 
                     <Separator />
                     <!--終了-->
@@ -179,6 +198,7 @@
                 <ui:NavigationViewItem
                     x:Name="EditPageItem"
                     Classes="SideNavigationViewItem"
+                    Tag="{CompiledBinding EditPage}"
                     Content="{DynamicResource S.MainView.Edit}">
                     <ui:NavigationViewItem.Styles>
                         <Style Selector="uip|NavigationViewItemPresenter#NVIPresenter:selected">
@@ -231,6 +251,7 @@
             <ui:NavigationView.FooterMenuItems>
                 <ui:NavigationViewItem
                     x:Name="SettingsPageItem"
+                    Tag="{CompiledBinding SettingsPage}"
                     Classes="SideNavigationViewItem"
                     Content="{DynamicResource S.MainView.Settings}">
                     <ui:NavigationViewItem.Styles>
@@ -248,7 +269,7 @@
                 </ui:NavigationViewItem>
             </ui:NavigationView.FooterMenuItems>
 
-            <ContentPresenter x:Name="NaviContent" />
+            <TransitioningContentControl x:Name="NaviContent" Content="{CompiledBinding SelectedPage.Value}" />
         </ui:NavigationView>
     </Grid>
 
