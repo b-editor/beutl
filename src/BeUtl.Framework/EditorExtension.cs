@@ -1,4 +1,6 @@
-﻿using Avalonia.Media;
+﻿using System.Diagnostics.CodeAnalysis;
+
+using Avalonia.Media;
 
 using BeUtl.Framework.Services;
 using BeUtl.ProjectSystem;
@@ -6,6 +8,15 @@ using BeUtl.ProjectSystem;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace BeUtl.Framework;
+
+public interface IEditorContext
+{
+    EditorExtension Extension { get; }
+
+    string EdittingFile { get; }
+
+    IKnownEditorCommands? Commands { get; }
+}
 
 // ファイルのエディタを追加
 public abstract class EditorExtension : ViewExtension
@@ -16,7 +27,13 @@ public abstract class EditorExtension : ViewExtension
 
     public abstract ResourceReference<string> FileTypeName { get; }
 
-    public abstract bool TryCreateEditor(string file, out IEditor? editor);
+    public abstract bool TryCreateEditor(
+        string file,
+        [NotNullWhen(true)] out IEditor? editor);
+
+    public abstract bool TryCreateContext(
+        string file,
+        [NotNullWhen(true)] out IEditorContext? context);
 
     public virtual bool IsSupported(string file)
     {

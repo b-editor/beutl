@@ -59,7 +59,6 @@ public partial class MainView : UserControl
         NaviContent.Content = EditPageItem.Tag;
 
         _editPage = (EditPage)dataTemplate._maps[typeof(EditPageViewModel)];
-        _editPage.tabview.SelectionChanged += TabView_SelectionChanged;
     }
 
     private async void SceneSettings_Click(object? sender, RoutedEventArgs e)
@@ -267,7 +266,7 @@ public partial class MainView : UserControl
 
             vm.OpenFile.Subscribe(async () =>
             {
-                if (VisualRoot is not Window root)
+                if (VisualRoot is not Window root || DataContext is not MainViewModel viewModel)
                 {
                     return;
                 }
@@ -290,83 +289,7 @@ public partial class MainView : UserControl
                 {
                     foreach (string file in files)
                     {
-                        _editPage.SelectOrAddTabItem(file);
-                    }
-                }
-            });
-
-            vm.SaveAll.Subscribe(async () =>
-            {
-                IProjectService service = ServiceLocator.Current.GetRequiredService<IProjectService>();
-
-                Project? project = service.CurrentProject.Value;
-                INotificationService nservice = ServiceLocator.Current.GetRequiredService<INotificationService>();
-                int itemsCount = 0;
-
-                try
-                {
-                    project?.Save(project.FileName);
-                    itemsCount++;
-
-                    foreach (FATabViewItem? item in _editPage.tabview.TabItems.OfType<FATabViewItem>())
-                    {
-                        if (item.Content is IEditor editor
-                            && editor.Commands != null
-                            && await editor.Commands.OnSave())
-                        {
-                            itemsCount++;
-                        }
-                    }
-
-                    string message = new ResourceReference<string>("S.Message.ItemsSaved").FindOrDefault(string.Empty);
-                    nservice.Show(new Notification(
-                        string.Empty,
-                        string.Format(message, itemsCount.ToString()),
-                        NotificationType.Success));
-                }
-                catch
-                {
-                    string message = new ResourceReference<string>("S.Message.OperationCouldNotBeExecuted").FindOrDefault(string.Empty);
-                    nservice.Show(new Notification(
-                        string.Empty,
-                        message,
-                        NotificationType.Error));
-                }
-            });
-
-            vm.Save.Subscribe(async () =>
-            {
-                if (_editPage.tabview.SelectedItem is FATabViewItem { Content: IEditor { Commands: { } } editor })
-                {
-                    INotificationService nservice = ServiceLocator.Current.GetRequiredService<INotificationService>();
-                    try
-                    {
-                        bool result = await editor.Commands.OnSave();
-
-                        if (result)
-                        {
-                            string message = new ResourceReference<string>("S.Message.ItemSaved").FindOrDefault("{0}");
-                            nservice.Show(new Notification(
-                                string.Empty,
-                                string.Format(message, Path.GetFileName(editor.EdittingFile) ?? editor.EdittingFile),
-                                NotificationType.Success));
-                        }
-                        else
-                        {
-                            string message = new ResourceReference<string>("S.Message.OperationCouldNotBeExecuted").FindOrDefault(string.Empty);
-                            nservice.Show(new Notification(
-                                string.Empty,
-                                message,
-                                NotificationType.Information));
-                        }
-                    }
-                    catch
-                    {
-                        string message = new ResourceReference<string>("S.Message.OperationCouldNotBeExecuted").FindOrDefault(string.Empty);
-                        nservice.Show(new Notification(
-                            string.Empty,
-                            message,
-                            NotificationType.Error));
+                        viewModel.EditPage.SelectOrAddTabItem(file);
                     }
                 }
             });
@@ -443,14 +366,6 @@ public partial class MainView : UserControl
         if (e.Root is Window b)
         {
             b.Opened += OnParentWindowOpened;
-        }
-    }
-
-    private void TabView_SelectionChanged(object? sender, SelectionChangedEventArgs e)
-    {
-        if (DataContext is MainViewModel viewModel && _editPage.tabview.SelectedItem is FATabViewItem { Content: IEditor editor })
-        {
-            viewModel.KnownCommands = editor.Commands;
         }
     }
 

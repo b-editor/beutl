@@ -1,4 +1,5 @@
-﻿using System.Collections.Specialized;
+﻿using System.Reactive.Linq;
+using System.Collections.Specialized;
 using System.Diagnostics.CodeAnalysis;
 
 using BeUtl.Collections;
@@ -10,6 +11,8 @@ using BeUtl.ProjectSystem;
 using Microsoft.Extensions.DependencyInjection;
 
 using Reactive.Bindings;
+using BeUtl.Framework.Service;
+using BeUtl.Pages;
 
 namespace BeUtl.ViewModels;
 
@@ -17,17 +20,20 @@ public sealed class EditPageViewModel
 {
     public class TabViewModel : IDisposable
     {
-        public TabViewModel(string path, EditorExtension extension)
+        public TabViewModel(IEditorContext context)
         {
-            FilePath = path;
-            Extension = extension;
+            Context = context;
         }
 
-        public string FilePath { get; }
+        public IEditorContext Context { get; }
+
+        public string FilePath => Context.EdittingFile;
 
         public string FileName => Path.GetFileName(FilePath);
 
-        public EditorExtension Extension { get; }
+        public EditorExtension Extension => Context.Extension;
+
+        public IKnownEditorCommands? Commands => Context.Commands;
 
         public ReactivePropertySlim<bool> IsSelected { get; } = new();
 
@@ -43,6 +49,108 @@ public sealed class EditPageViewModel
         _projectService = ServiceLocator.Current.GetRequiredService<IProjectService>();
         TabItems = new();
         _projectService.ProjectObservable.Subscribe(item => ProjectChanged(item.New, item.Old));
+        Save = new(_projectService.IsOpened);
+        SaveAll = new(_projectService.IsOpened);
+        Undo = new(_projectService.IsOpened);
+        Redo = new(_projectService.IsOpened);
+        KnownCommands = SelectedTabItem.Select(i => i?.Commands).ToReadOnlyReactivePropertySlim();
+
+        Save.Subscribe(async () =>
+        {
+            TabViewModel? item = SelectedTabItem.Value;
+            if (item != null)
+            {
+                INotificationService nservice = ServiceLocator.Current.GetRequiredService<INotificationService>();
+                try
+                {
+                    bool result = await (item.Commands == null ? ValueTask.FromResult(false) : item.Commands.OnSave());
+
+                    if (result)
+                    {
+                        string message = new ResourceReference<string>("S.Message.ItemSaved").FindOrDefault("{0}");
+                        nservice.Show(new Notification(
+                            string.Empty,
+                            string.Format(message, item.FileName),
+                            NotificationType.Success));
+                    }
+                    else
+                    {
+                        string message = new ResourceReference<string>("S.Message.OperationCouldNotBeExecuted").FindOrDefault(string.Empty);
+                        nservice.Show(new Notification(
+                            string.Empty,
+                            message,
+                            NotificationType.Information));
+                    }
+                }
+                catch
+                {
+                    string message = new ResourceReference<string>("S.Message.OperationCouldNotBeExecuted").FindOrDefault(string.Empty);
+                    nservice.Show(new Notification(
+                        string.Empty,
+                        message,
+                        NotificationType.Error));
+                }
+            }
+        });
+
+        SaveAll.Subscribe(async () =>
+        {
+            IProjectService service = ServiceLocator.Current.GetRequiredService<IProjectService>();
+
+            Project? project = service.CurrentProject.Value;
+            INotificationService nservice = ServiceLocator.Current.GetRequiredService<INotificationService>();
+            int itemsCount = 0;
+
+            try
+            {
+                project?.Save(project.FileName);
+                itemsCount++;
+
+                foreach (TabViewModel? item in TabItems)
+                {
+                    if (item.Commands != null
+                        && await item.Commands.OnSave())
+                    {
+                        itemsCount++;
+                    }
+                }
+
+                string message = new ResourceReference<string>("S.Message.ItemsSaved").FindOrDefault(string.Empty);
+                nservice.Show(new Notification(
+                    string.Empty,
+                    string.Format(message, itemsCount.ToString()),
+                    NotificationType.Success));
+            }
+            catch
+            {
+                string message = new ResourceReference<string>("S.Message.OperationCouldNotBeExecuted").FindOrDefault(string.Empty);
+                nservice.Show(new Notification(
+                    string.Empty,
+                    message,
+                    NotificationType.Error));
+            }
+        });
+
+        Undo.Subscribe(async () =>
+        {
+            bool handled = false;
+
+            if (KnownCommands.Value != null)
+                handled = await KnownCommands.Value.OnUndo();
+
+            if (!handled)
+                CommandRecorder.Default.Undo();
+        });
+        Redo.Subscribe(async () =>
+        {
+            bool handled = false;
+
+            if (KnownCommands.Value != null)
+                handled = await KnownCommands.Value.OnRedo();
+
+            if (!handled)
+                CommandRecorder.Default.Redo();
+        });
     }
 
     public IReactiveProperty<Project?> Project => _projectService.CurrentProject;
@@ -50,6 +158,18 @@ public sealed class EditPageViewModel
     public IReadOnlyReactiveProperty<bool> IsProjectOpened => _projectService.IsOpened;
 
     public CoreList<TabViewModel> TabItems { get; }
+
+    public ReactiveProperty<TabViewModel?> SelectedTabItem { get; } = new();
+
+    public ReadOnlyReactivePropertySlim<IKnownEditorCommands?> KnownCommands { get; }
+
+    public ReactiveCommand Save { get; }
+
+    public ReactiveCommand SaveAll { get; }
+
+    public ReactiveCommand Undo { get; }
+
+    public ReactiveCommand Redo { get; }
 
     private void ProjectChanged(Project? @new, Project? old)
     {
@@ -116,9 +236,9 @@ public sealed class EditPageViewModel
             {
                 EditorExtension? ext = PackageManager.Instance.ExtensionProvider.MatchEditorExtension(file);
 
-                if (ext != null)
+                if (ext?.TryCreateContext(file, out IEditorContext? context) == true)
                 {
-                    TabItems.Add(new TabViewModel(file, ext)
+                    TabItems.Add(new TabViewModel(context)
                     {
                         IsSelected =
                         {

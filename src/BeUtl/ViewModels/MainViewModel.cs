@@ -31,8 +31,6 @@ public class MainViewModel
         IsProjectOpened = _projectService.IsOpened;
 
         // プロジェクトが開いている時だけ実行できるコマンド
-        Save = new(_projectService.IsOpened);
-        SaveAll = new(_projectService.IsOpened);
         OpenScene = new(_projectService.IsOpened);
         AddScene = new(_projectService.IsOpened);
         RemoveScene = new(_projectService.IsOpened);
@@ -44,31 +42,8 @@ public class MainViewModel
         PasteLayer = new(_projectService.IsOpened);
         CloseFile = new(_projectService.IsOpened);
         CloseProject = new(_projectService.IsOpened);
-        Undo = new(_projectService.IsOpened);
-        Redo = new(_projectService.IsOpened);
 
         CloseProject.Subscribe(() => _projectService.CloseProject());
-
-        Undo.Subscribe(async () =>
-        {
-            bool handled = false;
-
-            if (KnownCommands != null)
-                handled = await KnownCommands.OnUndo();
-
-            if (!handled)
-                CommandRecorder.Default.Undo();
-        });
-        Redo.Subscribe(async () =>
-        {
-            bool handled = false;
-
-            if (KnownCommands != null)
-                handled = await KnownCommands.OnRedo();
-
-            if (!handled)
-                CommandRecorder.Default.Redo();
-        });
 
         _packageLoadTask = Task.Run(async () =>
         {
@@ -123,6 +98,8 @@ public class MainViewModel
                     Message: "プロジェクトが開けなかった"));
             }
         });
+
+
     }
 
     public ReactiveCommand CreateNewProject { get; } = new();
@@ -155,15 +132,7 @@ public class MainViewModel
 
     public ReactiveCommand CloseProject { get; }
 
-    public ReactiveCommand Save { get; }
-
-    public ReactiveCommand SaveAll { get; }
-
     public ReactiveCommand Exit { get; } = new();
-
-    public ReactiveCommand Undo { get; }
-
-    public ReactiveCommand Redo { get; }
 
     // Todo: "XXXPageViewModel"を"MainViewModel"からアクセスできるようにする (作業中)
     public EditPageViewModel EditPage { get; } = new();
@@ -171,9 +140,6 @@ public class MainViewModel
     public SettingsPageViewModel SettingsPage { get; } = new();
 
     public ReactivePropertySlim<object?> SelectedPage { get; } = new();
-
-    // Todo: こいつをEditPageViewModelに移動
-    public IKnownEditorCommands? KnownCommands { get; set; }
 
     public IReadOnlyReactiveProperty<bool> IsProjectOpened { get; }
 

@@ -56,25 +56,6 @@ public sealed partial class EditView : UserControl, IEditor
 
     private Image Image => _image ??= Player.GetImage();
 
-    public ViewExtension Extension => SceneEditorExtension.Instance;
-
-    public string EdittingFile
-    {
-        get
-        {
-            if (DataContext is EditViewModel vm)
-            {
-                return vm.Scene.FileName;
-            }
-            else
-            {
-                throw new InvalidOperationException();
-            }
-        }
-    }
-
-    public IKnownEditorCommands? Commands { get; private set; }
-
     protected override void OnAttachedToLogicalTree(Avalonia.LogicalTree.LogicalTreeAttachmentEventArgs e)
     {
         static object? DataContextFactory(string filename)
@@ -135,8 +116,6 @@ public sealed partial class EditView : UserControl, IEditor
                         a.NewValue.RenderInvalidated += Renderer_RenderInvalidated;
                     }
                 });
-
-            Commands = new KnownCommandsImpl(vm.Scene);
 
             _disposable1?.Dispose();
             _disposable1 = vm.AnimationTimelines.ForEachItem(
@@ -318,26 +297,5 @@ public sealed partial class EditView : UserControl, IEditor
 
     public void Close()
     {
-    }
-
-    private sealed class KnownCommandsImpl : IKnownEditorCommands
-    {
-        private readonly Scene _scene;
-
-        public KnownCommandsImpl(Scene scene)
-        {
-            _scene = scene;
-        }
-
-        public ValueTask<bool> OnSave()
-        {
-            _scene.Save(_scene.FileName);
-            foreach (Layer layer in _scene.Children)
-            {
-                layer.Save(layer.FileName);
-            }
-
-            return ValueTask.FromResult(true);
-        }
     }
 }

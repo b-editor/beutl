@@ -4,10 +4,13 @@ namespace BeUtl.Framework;
 
 public interface IEditor : IControl
 {
-    ViewExtension Extension { get; }
+    [Obsolete("Use 'IEditorContext.Extension'", true)]
+    ViewExtension Extension => throw new NotImplementedException();
 
-    string EdittingFile { get; }
+    [Obsolete("Use 'IEditorContext.EdittingFile'", true)]
+    string EdittingFile => throw new NotImplementedException();
 
+    [Obsolete("Use 'IEditorContext.Commands'", true)]
     IKnownEditorCommands? Commands => null;
 
     void Close();

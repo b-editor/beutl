@@ -23,11 +23,11 @@
         <KeyBinding Gesture="{DynamicResource CreateNewKeyGesture}" Command="{CompiledBinding CreateNew}" />
         <KeyBinding Gesture="{DynamicResource OpenProjectKeyGesture}" Command="{CompiledBinding OpenProject}" />
         <KeyBinding Gesture="{DynamicResource OpenKeyGesture}" Command="{CompiledBinding OpenFile}" />
-        <KeyBinding Gesture="{DynamicResource SaveKeyGesture}" Command="{CompiledBinding Save}" />
-        <KeyBinding Gesture="{DynamicResource SaveAllKeyGesture}" Command="{CompiledBinding SaveAll}" />
+        <KeyBinding Gesture="{DynamicResource SaveKeyGesture}" Command="{CompiledBinding EditPage.Save}" />
+        <KeyBinding Gesture="{DynamicResource SaveAllKeyGesture}" Command="{CompiledBinding EditPage.SaveAll}" />
         <KeyBinding Gesture="{DynamicResource ExitKeyGesture}" Command="{CompiledBinding Exit}" />
-        <KeyBinding Gesture="{DynamicResource UndoKeyGesture}" Command="{CompiledBinding Undo}" />
-        <KeyBinding Gesture="{DynamicResource RedoKeyGesture}" Command="{CompiledBinding Redo}" />
+        <KeyBinding Gesture="{DynamicResource UndoKeyGesture}" Command="{CompiledBinding EditPage.Undo}" />
+        <KeyBinding Gesture="{DynamicResource RedoKeyGesture}" Command="{CompiledBinding EditPage.Redo}" />
     </UserControl.KeyBindings>
 
     <Grid RowDefinitions="Auto,*">
@@ -92,7 +92,7 @@
                     <!--上書き保存-->
                     <MenuItem
                         Header="{DynamicResource S.MainView.File.Save}"
-                        Command="{CompiledBinding Save}"
+                        Command="{CompiledBinding EditPage.Save}"
                         InputGesture="{DynamicResource SaveKeyGesture}"
                         IsEnabled="{CompiledBinding IsProjectOpened.Value}">
                         <MenuItem.Icon>
@@ -102,7 +102,7 @@
                     <!--すべて保存-->
                     <MenuItem
                         Header="{DynamicResource S.MainView.File.SaveAll}"
-                        Command="{CompiledBinding SaveAll}"
+                        Command="{CompiledBinding EditPage.SaveAll}"
                         InputGesture="{DynamicResource SaveAllKeyGesture}"
                         IsEnabled="{CompiledBinding IsProjectOpened.Value}">
                         <MenuItem.Icon>
@@ -162,7 +162,7 @@
                     <!--元に戻す-->
                     <MenuItem
                         Header="{DynamicResource S.MainView.Edit.Undo}"
-                        Command="{CompiledBinding Undo}"
+                        Command="{CompiledBinding EditPage.Undo}"
                         InputGesture="{DynamicResource UndoKeyGesture}"
                         IsEnabled="{CompiledBinding IsProjectOpened.Value}">
                         <MenuItem.Icon>
@@ -172,7 +172,7 @@
                     <!--やり直し-->
                     <MenuItem
                         Header="{DynamicResource S.MainView.Edit.Redo}"
-                        Command="{CompiledBinding Redo}"
+                        Command="{CompiledBinding EditPage.Redo}"
                         InputGesture="{DynamicResource RedoKeyGesture}"
                         IsEnabled="{CompiledBinding IsProjectOpened.Value}">
                         <MenuItem.Icon>

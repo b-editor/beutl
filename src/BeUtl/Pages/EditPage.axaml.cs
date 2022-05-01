@@ -1,5 +1,3 @@
-using System.Diagnostics.CodeAnalysis;
-
 using Avalonia.Collections;
 using Avalonia.Controls;
 using Avalonia.Data;
@@ -7,7 +5,6 @@ using Avalonia.Interactivity;
 using Avalonia.VisualTree;
 
 using BeUtl.Collections;
-using BeUtl.Configuration;
 using BeUtl.Framework;
 using BeUtl.ViewModels;
 using BeUtl.Views;
@@ -29,50 +26,7 @@ public sealed partial class EditPage : UserControl
         InitializeComponent();
 
         tabview.TabItems = _tabItems;
-    }
-
-    public bool TryGetTabItem(string file, [NotNullWhen(true)] out EditPageViewModel.TabViewModel? result)
-    {
-        if (DataContext is EditPageViewModel viewModel)
-        {
-            result = viewModel.TabItems.FirstOrDefault(i => i.FilePath == file);
-
-            return result != null;
-        }
-        else
-        {
-            result = null;
-            return false;
-        }
-    }
-
-    public void SelectOrAddTabItem(string? file)
-    {
-        if (File.Exists(file) && DataContext is EditPageViewModel viewModel)
-        {
-            ViewConfig viewConfig = GlobalConfiguration.Instance.ViewConfig;
-            viewConfig.UpdateRecentFile(file);
-
-            if (TryGetTabItem(file, out EditPageViewModel.TabViewModel? tabItem))
-            {
-                tabItem.IsSelected.Value = true;
-            }
-            else
-            {
-                EditorExtension? ext = PackageManager.Instance.ExtensionProvider.MatchEditorExtension(file);
-
-                if (ext != null)
-                {
-                    viewModel.TabItems.Add(new EditPageViewModel.TabViewModel(file, ext)
-                    {
-                        IsSelected =
-                        {
-                            Value = true
-                        }
-                    });
-                }
-            }
-        }
+        tabview.SelectionChanged += TabView_SelectionChanged;
     }
 
     protected override void OnDataContextChanged(EventArgs e)
@@ -93,7 +47,7 @@ public sealed partial class EditPage : UserControl
                         {
                             [!FATabViewItem.HeaderProperty] = new Binding("FileName"),
                             [!ListBoxItem.IsSelectedProperty] = new Binding("IsSelected.Value", BindingMode.TwoWay),
-                            DataContext = item,
+                            DataContext = item.Context,
                             Content = editor
                         };
 
@@ -138,6 +92,21 @@ public sealed partial class EditPage : UserControl
 
                     _tabItems.Clear();
                 });
+        }
+    }
+
+    private void TabView_SelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (DataContext is EditPageViewModel viewModel)
+        {
+            if (tabview.SelectedItem is FATabViewItem { DataContext: EditPageViewModel.TabViewModel tabViewModel })
+            {
+                viewModel.SelectedTabItem.Value = tabViewModel;
+            }
+            else
+            {
+                viewModel.SelectedTabItem.Value = null;
+            }
         }
     }
 

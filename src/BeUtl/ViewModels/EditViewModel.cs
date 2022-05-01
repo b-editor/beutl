@@ -6,6 +6,7 @@ using Avalonia.Media;
 using BeUtl.Collections;
 using BeUtl.Framework;
 using BeUtl.ProjectSystem;
+using BeUtl.Services;
 using BeUtl.ViewModels.Editors;
 
 using Reactive.Bindings;
@@ -29,7 +30,7 @@ public sealed class ExtendedEditTabViewModel : IDisposable
     }
 }
 
-public sealed class EditViewModel : IDisposable
+public sealed class EditViewModel : IDisposable, IEditorContext
 {
     private readonly CompositeDisposable _disposables = new();
 
@@ -46,6 +47,7 @@ public sealed class EditViewModel : IDisposable
             .DisposePreviousValue()
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
+        Commands = new KnownCommandsImpl(scene);
     }
 
     public Scene Scene { get; set; }
@@ -62,10 +64,35 @@ public sealed class EditViewModel : IDisposable
 
     public ReadOnlyReactivePropertySlim<PropertiesEditorViewModel?> Property { get; }
 
-#pragma warning disable CA1816
+    public EditorExtension Extension => SceneEditorExtension.Instance;
+
+    public string EdittingFile => Scene.FileName;
+
+    public IKnownEditorCommands? Commands { get; }
+
     public void Dispose()
-#pragma warning restore CA1816
     {
         _disposables.Dispose();
+    }
+
+    private sealed class KnownCommandsImpl : IKnownEditorCommands
+    {
+        private readonly Scene _scene;
+
+        public KnownCommandsImpl(Scene scene)
+        {
+            _scene = scene;
+        }
+
+        public ValueTask<bool> OnSave()
+        {
+            _scene.Save(_scene.FileName);
+            foreach (Layer layer in _scene.Children)
+            {
+                layer.Save(layer.FileName);
+            }
+
+            return ValueTask.FromResult(true);
+        }
     }
 }
