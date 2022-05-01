@@ -9,9 +9,6 @@
     mc:Ignorable="d" d:DesignWidth="1280" d:DesignHeight="720"
     x:DataType="vm:EditPageViewModel"
     x:Class="BeUtl.Pages.EditPage">
-    <UserControl.DataContext>
-        <vm:EditPageViewModel />
-    </UserControl.DataContext>
     <UserControl.Resources>
         <MenuFlyout x:Key="AddButtonFlyout" Placement="Bottom">
             <MenuFlyout.Items>
@@ -33,10 +30,11 @@
             </MenuFlyout.Items>
         </MenuFlyout>
     </UserControl.Resources>
-    <ui:TabView x:Name="tabview"
-                BorderBrush="{DynamicResource ButtonBorderBrush}"
-                BorderThickness="0,1,0,0"
-                AddTabButtonClick="AddButtonClick">
+    <ui:TabView
+        x:Name="tabview"
+        BorderBrush="{DynamicResource ButtonBorderBrush}"
+        BorderThickness="0,1,0,0"
+        AddTabButtonClick="AddButtonClick">
         <ui:TabView.Resources>
             <SolidColorBrush x:Key="TabViewItemHeaderBackgroundSelected" Color="Transparent" />
         </ui:TabView.Resources>

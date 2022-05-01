@@ -43,11 +43,12 @@ public sealed partial class EditPage : UserControl
                     // Ç±ÇÃì‡ïîÇ≈Project.Children.AddÇµÇƒÇ¢ÇÈÇÃÇ≈ìÒèdÇ…í«â¡Ç≥ÇÍÇÈ
                     if (ext.TryCreateEditor(item.FilePath, out IEditor? editor))
                     {
+                        editor.DataContext = item.Context;
                         var tabItem = new FATabViewItem
                         {
                             [!FATabViewItem.HeaderProperty] = new Binding("FileName"),
                             [!ListBoxItem.IsSelectedProperty] = new Binding("IsSelected.Value", BindingMode.TwoWay),
-                            DataContext = item.Context,
+                            DataContext = item,
                             Content = editor
                         };
 

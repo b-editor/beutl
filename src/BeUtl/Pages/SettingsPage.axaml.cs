@@ -7,10 +7,6 @@ using BeUtl.Pages.SettingsPages;
 
 using FluentAvalonia.UI.Controls;
 
-using Microsoft.CodeAnalysis.CSharp.Syntax;
-
-using OpenCvSharp;
-
 namespace BeUtl.Pages;
 
 public partial class SettingsPage : UserControl

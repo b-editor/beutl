@@ -98,8 +98,6 @@ public class MainViewModel
                     Message: "プロジェクトが開けなかった"));
             }
         });
-
-
     }
 
     public ReactiveCommand CreateNewProject { get; } = new();

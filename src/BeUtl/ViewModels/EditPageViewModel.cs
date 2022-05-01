@@ -12,7 +12,6 @@ using Microsoft.Extensions.DependencyInjection;
 
 using Reactive.Bindings;
 using BeUtl.Framework.Service;
-using BeUtl.Pages;
 
 namespace BeUtl.ViewModels;
 
