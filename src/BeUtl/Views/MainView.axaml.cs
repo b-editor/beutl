@@ -2,15 +2,22 @@ using System.Collections;
 using System.Collections.Specialized;
 
 using Avalonia;
+using Avalonia.Animation;
+using Avalonia.Animation.Easings;
 using Avalonia.Collections;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Controls.Primitives;
+using Avalonia.Controls.Templates;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml.MarkupExtensions;
+using Avalonia.Markup.Xaml.Templates;
+using Avalonia.Media;
+using Avalonia.Styling;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 
 using BeUtl.Configuration;
 using BeUtl.Framework;
@@ -41,41 +48,18 @@ public partial class MainView : UserControl
     {
         InitializeComponent();
 
-        // NavigationViewの設定
-        EditPageItem.Tag = _editPage = new EditPage();
-        SettingsPageItem.Tag = new SettingsPage();
+        var dataTemplate = new MainViewDataTemplate();
+        NaviContent.ContentTemplate = dataTemplate;
+        NaviContent.PageTransition = new CustomPageTransition();
 
+        // NavigationViewの設定
         Navi.SelectedItem = EditPageItem;
         Navi.ItemInvoked += NavigationView_ItemInvoked;
 
         NaviContent.Content = EditPageItem.Tag;
 
+        _editPage = (EditPage)dataTemplate._maps[typeof(EditPageViewModel)];
         _editPage.tabview.SelectionChanged += TabView_SelectionChanged;
-
-        ViewConfig viewConfig = GlobalConfiguration.Instance.ViewConfig;
-        var recentFileItems = new AvaloniaList<MenuItem>(viewConfig.RecentFiles.Select(i => new MenuItem
-        {
-            Header = i
-        }));
-        var recentProjectItems = new AvaloniaList<MenuItem>(viewConfig.RecentProjects.Select(i => new MenuItem
-        {
-            Header = i
-        }));
-
-        recentFiles.Items = recentFileItems;
-        recentProjects.Items = recentProjectItems;
-        foreach (MenuItem item in recentFileItems)
-        {
-            item.Click += (s, e) => _editPage.SelectOrAddTabItem((s as MenuItem)?.Header as string);
-        }
-
-        foreach (MenuItem item in recentProjectItems)
-        {
-            item.Click += (s, e) => TryOpenProject((s as MenuItem)?.Header as string);
-        }
-
-        viewConfig.RecentFiles.CollectionChanged += RecentFiles_CollectionChanged;
-        viewConfig.RecentProjects.CollectionChanged += RecentProjects_CollectionChangedAsync;
     }
 
     private async void SceneSettings_Click(object? sender, RoutedEventArgs e)
@@ -88,97 +72,6 @@ public partial class MainView : UserControl
             };
             await dialog.ShowAsync();
         }
-    }
-
-    private async void RecentFiles_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
-    {
-        await Dispatcher.UIThread.InvokeAsync(() =>
-        {
-            if (e.Action is NotifyCollectionChangedAction.Add)
-            {
-                var menu = new MenuItem
-                {
-                    Header = e.NewItems![0] as string
-                };
-                menu.Click += (s, e) => _editPage.SelectOrAddTabItem((s as MenuItem)?.Header as string);
-
-                ((AvaloniaList<MenuItem>)recentFiles.Items).Insert(0, menu);
-            }
-            else if (e.Action is NotifyCollectionChangedAction.Remove)
-            {
-                string? file = e.OldItems![0] as string;
-
-                foreach (object? item in recentFiles.Items)
-                {
-                    if (item is MenuItem menuItem && menuItem.Header is string header && header == file)
-                    {
-                        ((AvaloniaList<MenuItem>)recentFiles.Items).Remove(menuItem);
-
-                        return;
-                    }
-                }
-            }
-            else if (e.Action is NotifyCollectionChangedAction.Reset)
-            {
-                ((AvaloniaList<MenuItem>)recentFiles.Items).Clear();
-            }
-        });
-    }
-
-    private static void TryOpenProject(string? file)
-    {
-        IProjectService service = ServiceLocator.Current.GetRequiredService<IProjectService>();
-        INotificationService noticeService = ServiceLocator.Current.GetRequiredService<INotificationService>();
-
-        if (!File.Exists(file))
-        {
-            // Todo: リソースに置き換え
-            noticeService.Show(new Notification(
-                Title: "",
-                Message: "ファイルが存在しない"));
-        }
-        else if (service.OpenProject(file) == null)
-        {
-            // Todo: リソースに置き換え
-            noticeService.Show(new Notification(
-                Title: "",
-                Message: "プロジェクトが開けなかった"));
-        }
-    }
-
-    private async void RecentProjects_CollectionChangedAsync(object? sender, NotifyCollectionChangedEventArgs e)
-    {
-        await Dispatcher.UIThread.InvokeAsync(() =>
-        {
-            if (e.Action is NotifyCollectionChangedAction.Add)
-            {
-                var menu = new MenuItem
-                {
-                    Header = e.NewItems![0] as string
-                };
-                menu.Click += (s, e) => TryOpenProject((s as MenuItem)?.Header as string);
-
-                ((AvaloniaList<MenuItem>)recentProjects.Items).Insert(0, menu);
-            }
-            else if (e.Action is NotifyCollectionChangedAction.Remove)
-            {
-                string? file = e.OldItems![0] as string;
-
-                foreach (object? item in recentProjects.Items)
-                {
-                    if (item is MenuItem menuItem && menuItem.Header is string header && header == file)
-                    {
-                        ((AvaloniaList<MenuItem>)recentProjects.Items).Remove(menuItem);
-
-                        return;
-                    }
-                }
-            }
-            else if (e.Action is NotifyCollectionChangedAction.Reset)
-            {
-                ((AvaloniaList<MenuItem>)recentProjects.Items).Clear();
-            }
-        });
     }
 
     protected override async void OnDataContextChanged(EventArgs e)
@@ -515,10 +408,26 @@ public partial class MainView : UserControl
 
                 menuItem.Click += (s, e) =>
                 {
-                    if (_editPage.tabview.SelectedItem is FATabViewItem { Content: EditView editView }
+                    if (_editPage.tabview.SelectedItem is FATabViewItem { Content: EditView { DataContext: EditViewModel editViewModel } editView }
                         && s is MenuItem { DataContext: SceneEditorTabExtension ext })
                     {
-                        editView.SelectOrOpenTabExtension(ext);
+                        ExtendedEditTabViewModel? tabViewModel = editViewModel.UsingExtensions.FirstOrDefault(i => i.Extension == ext);
+
+                        if (tabViewModel != null)
+                        {
+                            tabViewModel.IsSelected.Value = true;
+                        }
+                        else
+                        {
+                            tabViewModel = new ExtendedEditTabViewModel(ext)
+                            {
+                                IsSelected =
+                                {
+                                    Value = true
+                                }
+                            };
+                            editViewModel.UsingExtensions.Add(tabViewModel);
+                        }
                     }
                 };
 
@@ -574,10 +483,82 @@ public partial class MainView : UserControl
 
     private void NavigationView_ItemInvoked(object? sender, NavigationViewItemInvokedEventArgs e)
     {
-        if (e.InvokedItemContainer is NavigationViewItem item)
+        if (e.InvokedItemContainer is NavigationViewItem item && DataContext is MainViewModel viewModel)
         {
-            NaviContent.Content = item.Tag;
-            e.RecommendedNavigationTransitionInfo.RunAnimation(NaviContent);
+            viewModel.SelectedPage.Value = item.Tag;
+        }
+    }
+
+    private sealed class CustomPageTransition : IPageTransition
+    {
+        private readonly Avalonia.Animation.Animation _animation;
+
+        public CustomPageTransition()
+        {
+            _animation = new Avalonia.Animation.Animation
+            {
+                Easing = new SplineEasing(0.1, 0.9, 0.2, 1.0),
+                Children =
+                {
+                    new KeyFrame
+                    {
+                        Setters =
+                        {
+                            new Setter(OpacityProperty, 0.0),
+                            new Setter(TranslateTransform.YProperty, 28.0)
+                        },
+                        Cue = new Cue(0d)
+                    },
+                    new KeyFrame
+                    {
+                        Setters =
+                        {
+                            new Setter(OpacityProperty, 1.0),
+                            new Setter(TranslateTransform.YProperty, 0.0)
+                        },
+                        Cue = new Cue(1d)
+                    }
+                },
+                Duration = TimeSpan.FromSeconds(0.67),
+                FillMode = FillMode.Forward
+            };
+        }
+
+        public async Task Start(Visual from, Visual to, bool forward, CancellationToken cancellationToken)
+        {
+            if (to != null)
+            {
+                _animation.FillMode = forward ? FillMode.Forward : FillMode.Backward;
+                await _animation.RunAsync(to, null, cancellationToken);
+
+                to.Opacity = forward ? 1 : 0;
+            }
+        }
+    }
+
+    private sealed class MainViewDataTemplate : IDataTemplate
+    {
+        internal readonly Dictionary<Type, IControl> _maps = new()
+        {
+            [typeof(EditPageViewModel)] = new EditPage(),
+            [typeof(SettingsPageViewModel)] = new SettingsPage(),
+        };
+
+        public IControl Build(object param)
+        {
+            if (_maps.TryGetValue(param.GetType(), out IControl? value))
+            {
+                return value;
+            }
+            else
+            {
+                throw new NotSupportedException();
+            }
+        }
+
+        public bool Match(object data)
+        {
+            return data != null && _maps.ContainsKey(data.GetType());
         }
     }
 }

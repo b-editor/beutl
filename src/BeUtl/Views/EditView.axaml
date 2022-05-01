@@ -206,7 +206,7 @@
                 </Style>
             </ui:TabView.Styles>
             <ui:TabViewItem Header="{DynamicResource S.EditView.Properties}">
-                <editors:PropertiesEditor x:Name="propertiesEditor" DataContext="{Binding Scene.SelectedItem, Converter={StaticResource LayerEditorConverter}}" />
+                <editors:PropertiesEditor x:Name="propertiesEditor" DataContext="{Binding Property.Value}" />
             </ui:TabViewItem>
             <!--
                 NOTE: Heightを指定しないと1pxの誤差が出るので
@@ -268,11 +268,11 @@
                     x:Name="Player"
                     Margin="4,0"
                     IsPlaying="{CompiledBinding Player.IsPlaying.Value, Mode=TwoWay}"
-                    PlayButtonClick="Player_PlayButtonClick"
-                    NextButtonClick="Player_NextButtonClick"
-                    PreviousButtonClick="Player_PreviousButtonClick"
-                    StartButtonClick="Player_StartButtonClick"
-                    EndButtonClick="Player_EndButtonClick"
+                    PlayButtonCommand="{Binding Player.PlayPause}"
+                    NextButtonCommand="{Binding Player.Next}"
+                    PreviousButtonCommand="{Binding Player.Previous}"
+                    StartButtonCommand="{Binding Player.Start}"
+                    EndButtonCommand="{Binding Player.End}"
                     Maximum="{Binding Scene.Duration, Converter={StaticResource TimeSpanToDoubleConverter}}"
                     Value="{Binding Scene.CurrentFrame, Converter={StaticResource TimeSpanToDoubleConverter}}"
                     Duration="{Binding Scene.Duration, StringFormat={}{0:hh\\:mm\\:ss\\.ff}}"

@@ -1,7 +1,19 @@
-﻿namespace BeUtl.Services.Editors;
+﻿using BeUtl.ProjectSystem;
+
+namespace BeUtl.Services.Editors;
 
 public sealed class UInt64EditorService : INumberEditorService<ulong>
 {
+    public ulong GetMaximum(PropertyInstance<ulong> property)
+    {
+        return property.GetMaximumOrDefault(ulong.MaxValue);
+    }
+
+    public ulong GetMinimum(PropertyInstance<ulong> property)
+    {
+        return property.GetMinimumOrDefault(ulong.MinValue);
+    }
+
     public ulong Clamp(ulong value, ulong min, ulong max)
     {
         return Math.Clamp(value, min, max);

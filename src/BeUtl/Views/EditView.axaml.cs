@@ -10,6 +10,7 @@ using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 
+using BeUtl.Collections;
 using BeUtl.Controls;
 using BeUtl.Framework;
 using BeUtl.Framework.Services;
@@ -23,6 +24,7 @@ using BeUtl.ViewModels.Editors;
 using Microsoft.Extensions.DependencyInjection;
 
 using FAPathIconSource = FluentAvalonia.UI.Controls.PathIconSource;
+using FATabView = FluentAvalonia.UI.Controls.TabView;
 using FATabViewItem = FluentAvalonia.UI.Controls.TabViewItem;
 
 namespace BeUtl.Views;
@@ -34,17 +36,12 @@ public sealed partial class EditView : UserControl, IEditor
     private readonly Binding _rightHeightBinding;
     private Image? _image;
     private FileSystemWatcher? _watcher;
-    private IDisposable? _disposable;
+    private IDisposable? _disposable0;
+    private IDisposable? _disposable1;
+    private IDisposable? _disposable2;
 
     public EditView()
     {
-        Resources["LayerEditorConverter"] = new FuncValueConverter<Layer?, object?>(obj =>
-        {
-            if (obj == null)
-                return null;
-
-            return new PropertiesEditorViewModel(obj);
-        });
         InitializeComponent();
         _syncContext = SynchronizationContext.Current!;
         _bottomHeightBinding = new Binding("Bounds.Height")
@@ -124,8 +121,8 @@ public sealed partial class EditView : UserControl, IEditor
         if (DataContext is EditViewModel vm)
         {
             vm.Scene.Renderer.RenderInvalidated += Renderer_RenderInvalidated;
-            _disposable?.Dispose();
-            _disposable = vm.Scene.GetPropertyChangedObservable(Scene.RendererProperty)
+            _disposable0?.Dispose();
+            _disposable0 = vm.Scene.GetPropertyChangedObservable(Scene.RendererProperty)
                 .Subscribe(a =>
                 {
                     if (a.OldValue != null)
@@ -140,53 +137,147 @@ public sealed partial class EditView : UserControl, IEditor
                 });
 
             Commands = new KnownCommandsImpl(vm.Scene);
-        }
-    }
 
-    private void Player_PlayButtonClick(object? sender, RoutedEventArgs e)
-    {
-        if (DataContext is EditViewModel { Player: PlayerViewModel player })
-        {
-            if (Player.IsPlaying)
-            {
-                player.Play();
-            }
-            else
-            {
-                player.Pause();
-            }
-        }
-    }
+            _disposable1?.Dispose();
+            _disposable1 = vm.AnimationTimelines.ForEachItem(
+                (item) =>
+                {
+                    if (BottomTabView.TabItems is not IList list) return;
 
-    private void Player_NextButtonClick(object? sender, RoutedEventArgs e)
-    {
-        if (DataContext is EditViewModel { Player: PlayerViewModel player })
-        {
-            player.Next();
-        }
-    }
+                    var tabItem = new FATabViewItem
+                    {
+                        [!ListBoxItem.IsSelectedProperty] = new Binding("IsSelected.Value", BindingMode.TwoWay),
+                        Header = $"{item.Layer.Name} / {item.Setter.Property.Name}",
+                        DataContext = item,
+                        Content = new AnimationTimeline(),
+                        IsClosable = true
+                    };
+                    list.Add(tabItem);
+                    tabItem.CloseRequested += (s, _) =>
+                    {
+                        if (DataContext is EditViewModel viewModel
+                            && s.DataContext is AnimationTimelineViewModel anmViewModel)
+                        {
+                            viewModel.AnimationTimelines.Remove(anmViewModel);
+                        }
+                    };
+                },
+                (item) =>
+                {
+                    if (BottomTabView.TabItems is not IList list) return;
 
-    private void Player_PreviousButtonClick(object? sender, RoutedEventArgs e)
-    {
-        if (DataContext is EditViewModel { Player: PlayerViewModel player })
-        {
-            player.Previous();
-        }
-    }
+                    FATabViewItem? tabItem = BottomTabView.TabItems
+                        .OfType<FATabViewItem>()
+                        .FirstOrDefault(i => i.DataContext == item);
 
-    private void Player_StartButtonClick(object? sender, RoutedEventArgs e)
-    {
-        if (DataContext is EditViewModel { Player: PlayerViewModel player })
-        {
-            player.Start();
-        }
-    }
+                    if (tabItem != null)
+                    {
+                        list.Remove(tabItem);
+                        if (tabItem.DataContext is IDisposable disposable)
+                            disposable.Dispose();
+                    }
+                },
+                () =>
+                {
+                    if (BottomTabView.TabItems is not IList list) return;
 
-    private void Player_EndButtonClick(object? sender, RoutedEventArgs e)
-    {
-        if (DataContext is EditViewModel { Player: PlayerViewModel player })
-        {
-            player.End();
+                    foreach (FATabViewItem item in BottomTabView.TabItems
+                        .OfType<FATabViewItem>()
+                        .Where(v => v.DataContext is AnimationTimelineViewModel).ToArray())
+                    {
+                        list.Remove(item);
+                        if (item.DataContext is IDisposable disposable)
+                            disposable.Dispose();
+                    }
+                });
+
+            _disposable2?.Dispose();
+            _disposable2 = vm.UsingExtensions.ForEachItem(
+                (item) =>
+                {
+                    SceneEditorTabExtension extension = item.Extension;
+                    FATabView tabView = extension.Placement == SceneEditorTabExtension.TabPlacement.Bottom ? BottomTabView : RightTabView;
+                    if (tabView.TabItems is IList list && DataContext is EditViewModel viewModel)
+                    {
+                        var tabItem = new FATabViewItem()
+                        {
+                            [!ListBoxItem.IsSelectedProperty] = new Binding("IsSelected.Value", BindingMode.TwoWay),
+                            [!FATabViewItem.HeaderProperty] = new DynamicResourceExtension(extension.Header.Key),
+                            Content = extension.CreateContent(viewModel.Scene),
+                            DataContext = item,
+                            IsClosable = extension.IsClosable
+                        };
+
+                        if (tabItem.Content is Layoutable content)
+                        {
+                            content[!HeightProperty] =
+                                extension.Placement == SceneEditorTabExtension.TabPlacement.Bottom
+                                ? _bottomHeightBinding
+                                : _rightHeightBinding;
+                        }
+
+                        if (extension.Icon != null)
+                        {
+                            tabItem.IconSource = new FAPathIconSource
+                            {
+                                Data = extension.Icon
+                            };
+                        }
+
+                        list.Add(tabItem);
+
+                        tabItem.CloseRequested += (s, _) =>
+                        {
+                            if (DataContext is EditViewModel viewModel
+                                && s.DataContext is ExtendedEditTabViewModel tabViewModel)
+                            {
+                                viewModel.UsingExtensions.Remove(tabViewModel);
+                            }
+                        };
+                    }
+                },
+                (item) =>
+                {
+                    SceneEditorTabExtension extension = item.Extension;
+                    FATabView tabView = extension.Placement == SceneEditorTabExtension.TabPlacement.Bottom ? BottomTabView : RightTabView;
+                    if (tabView.TabItems is IList list && DataContext is EditViewModel viewModel)
+                    {
+                        FATabViewItem? tabItem = list
+                            .OfType<FATabViewItem>()
+                            .FirstOrDefault(i => i.DataContext == item);
+
+                        if (tabItem != null)
+                        {
+                            list.Remove(tabItem);
+                            if (tabItem.DataContext is IDisposable disposable)
+                                disposable.Dispose();
+                        }
+                    }
+                },
+                () =>
+                {
+                    if (BottomTabView.TabItems is IList list0
+                        && RightTabView.TabItems is IList list1)
+                    {
+                        foreach (FATabViewItem item in list0
+                            .OfType<FATabViewItem>()
+                            .Where(v => v.DataContext is ExtendedEditTabViewModel).ToArray())
+                        {
+                            list0.Remove(item);
+                            if (item.DataContext is IDisposable disposable)
+                                disposable.Dispose();
+                        }
+
+                        foreach (FATabViewItem item in list1
+                            .OfType<FATabViewItem>()
+                            .Where(v => v.DataContext is ExtendedEditTabViewModel).ToArray())
+                        {
+                            list1.Remove(item);
+                            if (item.DataContext is IDisposable disposable)
+                                disposable.Dispose();
+                        }
+                    }
+                });
         }
     }
 
@@ -227,49 +318,6 @@ public sealed partial class EditView : UserControl, IEditor
 
     public void Close()
     {
-    }
-
-    public void SelectOrOpenTabExtension(SceneEditorTabExtension extension)
-    {
-        if ((extension.Placement == SceneEditorTabExtension.TabPlacement.Bottom ? BottomTabView.TabItems : RightTabView.TabItems) is not IList list
-            || DataContext is not EditViewModel viewModel)
-        {
-            return;
-        }
-
-        if (list.OfType<FATabViewItem>().FirstOrDefault(i => i.DataContext == extension) is FATabViewItem tabItem)
-        {
-            tabItem.IsSelected = true;
-        }
-        else
-        {
-            tabItem = new FATabViewItem()
-            {
-                [!FATabViewItem.HeaderProperty] = new DynamicResourceExtension(extension.Header.Key),
-                Content = extension.CreateContent(viewModel.Scene),
-                DataContext = extension,
-                IsClosable = extension.IsClosable
-            };
-
-            if (tabItem.Content is Layoutable content)
-            {
-                content[!HeightProperty] =
-                    extension.Placement == SceneEditorTabExtension.TabPlacement.Bottom
-                    ? _bottomHeightBinding
-                    : _rightHeightBinding;
-            }
-
-            if (extension.Icon != null)
-            {
-                tabItem.IconSource = new FAPathIconSource
-                {
-                    Data = extension.Icon
-                };
-            }
-
-            list.Add(tabItem);
-            tabItem.IsSelected = true;
-        }
     }
 
     private sealed class KnownCommandsImpl : IKnownEditorCommands

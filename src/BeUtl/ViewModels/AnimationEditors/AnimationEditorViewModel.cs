@@ -19,12 +19,12 @@ public abstract class AnimationEditorViewModel : IDisposable
     protected CompositeDisposable Disposables = new();
     private bool _disposedValue;
 
-    protected AnimationEditorViewModel(IAnimation animation, BaseEditorViewModel editorViewModel)
+    protected AnimationEditorViewModel(IAnimation animation, EditorViewModelDescription description)
     {
         Animation = animation;
-        EditorViewModel = editorViewModel;
+        Description = description;
 
-        Scene = editorViewModel.Setter.FindRequiredLogicalParent<Scene>();
+        Scene = description.PropertyInstance.FindRequiredLogicalParent<Scene>();
         ISubject<TimelineOptions> optionsSubject = Scene.GetSubject(Scene.TimelineOptionsProperty);
 
         Width = animation.GetSubject(BaseAnimation.DurationProperty)
@@ -36,6 +36,11 @@ public abstract class AnimationEditorViewModel : IDisposable
         Width.Subscribe(w => animation.Duration = w.ToTimeSpan(Scene.TimelineOptions.Scale)).AddTo(Disposables);
 
         RemoveCommand.Subscribe(() => Setter.RemoveChild(Animation).DoAndRecord(CommandRecorder.Default)).AddTo(Disposables);
+
+        IOperationPropertyMetadata metadata = Setter.Property.GetMetadata<IOperationPropertyMetadata>(Setter.Parent.GetType());
+        Header = metadata.Header.ToObservable(Setter.Property.Name)
+            .ToReadOnlyReactivePropertySlim()
+            .AddTo(Disposables);
     }
 
     ~AnimationEditorViewModel()
@@ -46,13 +51,13 @@ public abstract class AnimationEditorViewModel : IDisposable
 
     public IAnimation Animation { get; }
 
-    public IAnimatablePropertyInstance Setter => (IAnimatablePropertyInstance)EditorViewModel.Setter;
+    public IAnimatablePropertyInstance Setter => (IAnimatablePropertyInstance)Description.PropertyInstance;
 
-    public BaseEditorViewModel EditorViewModel { get; }
+    public EditorViewModelDescription Description { get; }
 
     public bool CanReset => Setter.GetDefaultValue() != null;
 
-    public ReadOnlyReactivePropertySlim<string?> Header => EditorViewModel.Header;
+    public ReadOnlyReactivePropertySlim<string?> Header { get; }
 
     public ReactiveProperty<double> Width { get; }
 
@@ -89,7 +94,7 @@ public abstract class AnimationEditorViewModel : IDisposable
         if (Setter.Children is IList list)
         {
             int index = list.IndexOf(Animation);
-            Type type = typeof(Animation<>).MakeGenericType(EditorViewModel.Setter.Property.PropertyType);
+            Type type = typeof(Animation<>).MakeGenericType(Setter.Property.PropertyType);
 
             if (Activator.CreateInstance(type) is IAnimation animation)
             {
@@ -113,7 +118,7 @@ public abstract class AnimationEditorViewModel : IDisposable
         if (Setter.Children is IList list)
         {
             int index = list.IndexOf(Animation);
-            Type type = typeof(Animation<>).MakeGenericType(EditorViewModel.Setter.Property.PropertyType);
+            Type type = typeof(Animation<>).MakeGenericType(Setter.Property.PropertyType);
 
             if (Activator.CreateInstance(type) is IAnimation animation)
             {
@@ -151,21 +156,19 @@ public abstract class AnimationEditorViewModel : IDisposable
 public class AnimationEditorViewModel<T> : AnimationEditorViewModel
     where T : struct
 {
-    public AnimationEditorViewModel(Animation<T> animation, BaseEditorViewModel<T> editorViewModel)
-        : base(animation, editorViewModel)
+    public AnimationEditorViewModel(Animation<T> animation, EditorViewModelDescription description)
+        : base(animation, description)
     {
     }
 
-    internal AnimationEditorViewModel(IAnimation animation, BaseEditorViewModel editorViewModel)
-        : base(animation, editorViewModel)
+    internal AnimationEditorViewModel(IAnimation animation, EditorViewModelDescription description)
+        : base(animation, description)
     {
     }
 
     public new Animation<T> Animation => (Animation<T>)base.Animation;
 
     public new AnimatablePropertyInstance<T> Setter => (AnimatablePropertyInstance<T>)base.Setter;
-
-    public new BaseEditorViewModel<T> EditorViewModel => (BaseEditorViewModel<T>)base.EditorViewModel;
 
     public void ResetPrevious()
     {

@@ -33,11 +33,10 @@
             </MenuFlyout.Items>
         </MenuFlyout>
     </UserControl.Resources>
-    <ui:TabView
-        x:Name="tabview"
-        BorderBrush="{DynamicResource ButtonBorderBrush}"
-        BorderThickness="0,1,0,0"
-        AddTabButtonClick="AddButtonClick">
+    <ui:TabView x:Name="tabview"
+                BorderBrush="{DynamicResource ButtonBorderBrush}"
+                BorderThickness="0,1,0,0"
+                AddTabButtonClick="AddButtonClick">
         <ui:TabView.Resources>
             <SolidColorBrush x:Key="TabViewItemHeaderBackgroundSelected" Color="Transparent" />
         </ui:TabView.Resources>

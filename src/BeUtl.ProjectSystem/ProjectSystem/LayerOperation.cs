@@ -75,7 +75,7 @@ public abstract class LayerOperation : Element, ILogicalElement
         set => SetValue(ViewStateProperty, value);
     }
 
-    public IObservableList<IPropertyInstance> Properties => _properties;
+    public ICoreList<IPropertyInstance> Properties => _properties;
 
     public void Render(ref OperationRenderArgs args)
     {
