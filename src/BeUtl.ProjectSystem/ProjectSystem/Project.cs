@@ -1,71 +1,91 @@
 ﻿using System.Collections.Specialized;
+using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
 using BeUtl.Collections;
 
+using Microsoft.Extensions.DependencyInjection;
+
 namespace BeUtl.ProjectSystem;
 
-// Todo: IResourceProviderを実装
-public class Project : Element, ITopLevel, IStorable, ILogicalElement
+public interface IWorkspace : ITopLevel
 {
-    public static readonly CoreProperty<Scene?> SelectedSceneProperty;
+    ICoreList<IWorkspaceItem> Items { get; }
+
+    IDictionary<string, string> Variables { get; }
+
+    Version AppVersion { get; }
+
+    Version MinAppVersion { get; }
+}
+
+public interface IWorkspaceItem : IStorable, IElement
+{
+}
+
+public interface IWorkspaceItemResolver
+{
+    bool TryCreateItem(string file, [NotNullWhen(true)] out IWorkspaceItem? item);
+}
+
+internal sealed class MockResolver : IWorkspaceItemResolver
+{
+    public bool TryCreateItem(string file, [NotNullWhen(true)] out IWorkspaceItem? item)
+    {
+        item = null;
+        if (file.EndsWith(".scene"))
+        {
+            var scene = new Scene();
+            scene.Restore(file);
+            item = new Scene();
+            return true;
+        }
+        else
+        {
+            return false;
+        }
+    }
+}
+
+public static class ProjectVariableKeys
+{
+    public const string FrameRate = "framerate";
+    public const string SampleRate = "samplerate";
+}
+
+// Todo: IResourceProviderを実装
+public class Project : Element, IStorable, ILogicalElement, IWorkspace
+{
     public static readonly CoreProperty<Version> AppVersionProperty;
-    public static readonly CoreProperty<Version> MinimumAppVersionProperty;
-    public static readonly CoreProperty<int> FrameRateProperty;
-    public static readonly CoreProperty<int> SampleRateProperty;
+    public static readonly CoreProperty<Version> MinAppVersionProperty;
     private string? _rootDirectory;
     private string? _fileName;
-    private Scene? _selectedScene;
-    private int _frameRate = 30;
-    private int _sampleRate = 44100;
     private EventHandler? _saved;
     private EventHandler? _restored;
+    private readonly LogicalList<IWorkspaceItem> _items;
+    private readonly Dictionary<string, string> _variables = new();
 
     static Project()
     {
-        SelectedSceneProperty = ConfigureProperty<Scene?, Project>(nameof(SelectedScene))
-            .Accessor(o => o.SelectedScene, (o, v) => o.SelectedScene = v)
-            .Observability(PropertyObservability.Changed)
-            .Register();
-
         AppVersionProperty = ConfigureProperty<Version, Project>(nameof(AppVersion))
             .Accessor(o => o.AppVersion)
             .Register();
 
-        MinimumAppVersionProperty = ConfigureProperty<Version, Project>(nameof(MinimumAppVersion))
-            .Accessor(o => o.MinimumAppVersion)
+        MinAppVersionProperty = ConfigureProperty<Version, Project>(nameof(MinAppVersion))
+            .Accessor(o => o.MinAppVersion)
             .DefaultValue(new Version(0, 3))
             .Register();
 
-        FrameRateProperty = ConfigureProperty<int, Project>(nameof(FrameRate))
-            .Accessor(o => o.FrameRate, (o, v) => o.FrameRate = v)
-            .Observability(PropertyObservability.Changed)
-            .DefaultValue(30)
-            .SerializeName("framerate")
-            .Register();
-
-        SampleRateProperty = ConfigureProperty<int, Project>(nameof(SampleRate))
-            .Accessor(o => o.SampleRate, (o, v) => o.SampleRate = v)
-            .Observability(PropertyObservability.Changed)
-            .DefaultValue(44100)
-            .SerializeName("samplerate")
-            .Register();
+        ServiceLocator.Current.Bind<IWorkspaceItemResolver>().ToSingleton<MockResolver>();
     }
 
     public Project()
     {
-        MinimumAppVersion = new Version(0, 3);
-        Children = new LogicalList<Scene>(this);
-        Children.CollectionChanged += Children_CollectionChanged;
-    }
-
-    public Project(int framerate, int samplerate)
-        : this()
-    {
-        FrameRate = framerate;
-        SampleRate = samplerate;
+        MinAppVersion = new Version(0, 3);
+        _items = new LogicalList<IWorkspaceItem>(this);
+        _items.CollectionChanged += Items_CollectionChanged;
     }
 
     event EventHandler IStorable.Saved
@@ -80,37 +100,21 @@ public class Project : Element, ITopLevel, IStorable, ILogicalElement
         remove => _restored -= value;
     }
 
-    public Scene? SelectedScene
-    {
-        get => _selectedScene;
-        set => SetAndRaise(SelectedSceneProperty, ref _selectedScene, value);
-    }
-
-    public LogicalList<Scene> Children { get; }
-
     public string RootDirectory => _rootDirectory ?? throw new Exception("The file name is not set.");
 
     public string FileName => _fileName ?? throw new Exception("The file name is not set.");
 
     public Version AppVersion { get; private set; } = Assembly.GetEntryAssembly()!.GetName().Version ?? new Version();
 
-    public Version MinimumAppVersion { get; private set; }
+    public Version MinAppVersion { get; private set; }
 
     public DateTime LastSavedTime { get; private set; }
 
-    public int FrameRate
-    {
-        get => _frameRate;
-        private set => SetAndRaise(FrameRateProperty, ref _frameRate, value);
-    }
+    IEnumerable<ILogicalElement> ILogicalElement.LogicalChildren => _items;
 
-    public int SampleRate
-    {
-        get => _sampleRate;
-        private set => SetAndRaise(SampleRateProperty, ref _sampleRate, value);
-    }
+    public ICoreList<IWorkspaceItem> Items => _items;
 
-    IEnumerable<ILogicalElement> ILogicalElement.LogicalChildren => Children;
+    public IDictionary<string, string> Variables => _variables;
 
     public void Restore(string filename)
     {
@@ -154,39 +158,32 @@ public class Project : Element, ITopLevel, IStorable, ILogicalElement
 
         if (json is JsonObject jobject)
         {
-            if (jobject.TryGetPropertyValue("appVersion", out JsonNode? versionNode) &&
-                versionNode!.AsValue().TryGetValue(out Version? version))
+            if (jobject.TryGetPropertyValue("appVersion", out JsonNode? versionNode)
+                && versionNode!.AsValue().TryGetValue(out Version? version))
             {
                 AppVersion = version;
             }
 
-            if (jobject.TryGetPropertyValue("minAppVersion", out JsonNode? minVersionNode) &&
-                minVersionNode!.AsValue().TryGetValue(out Version? minVersion))
+            if (jobject.TryGetPropertyValue("minAppVersion", out JsonNode? minVersionNode)
+                && minVersionNode!.AsValue().TryGetValue(out Version? minVersion))
             {
-                MinimumAppVersion = minVersion;
+                MinAppVersion = minVersion;
             }
 
-            if (jobject.TryGetPropertyValue("scenes", out JsonNode? scenesNode))
+            if (jobject.TryGetPropertyValue("items", out JsonNode? itemsNode))
             {
-                SyncronizeScenes(scenesNode!.AsArray()
+                SyncronizeScenes(itemsNode!.AsArray()
                     .Select(i => (string)i!));
             }
 
-            //選択されているシーン
-            if (jobject.TryGetPropertyValue("selectedScene", out JsonNode? selectedSceneNode))
+            if (jobject.TryGetPropertyValue("variables", out JsonNode? variablesNode)
+                && variablesNode is JsonObject variablesObj)
             {
-                string? selectedScene = (string?)selectedSceneNode;
-
-                if (selectedScene != null)
+                Variables.Clear();
+                foreach (KeyValuePair<string, JsonNode?> item in variablesObj)
                 {
-                    selectedScene = Path.GetFullPath(selectedScene, RootDirectory);
-                    foreach (Scene item in Children)
-                    {
-                        if (item.FileName == selectedScene)
-                        {
-                            SelectedScene = item;
-                        }
-                    }
+                    if (item.Value != null)
+                        Variables[item.Key] = item.Value.ToJsonString();
                 }
             }
         }
@@ -199,56 +196,60 @@ public class Project : Element, ITopLevel, IStorable, ILogicalElement
         if (node is JsonObject jobject)
         {
             jobject["appVersion"] = JsonValue.Create(AppVersion);
-            jobject["minAppVersion"] = JsonValue.Create(MinimumAppVersion);
+            jobject["minAppVersion"] = JsonValue.Create(MinAppVersion);
 
-            var scenes = new JsonArray();
-            foreach (Scene item in Children)
+            var items = new JsonArray();
+            foreach (IWorkspaceItem item in Items)
             {
                 string path = Path.GetRelativePath(RootDirectory, item.FileName).Replace('\\', '/');
                 var value = JsonValue.Create(path);
-                scenes.Add(value);
-
-                if (SelectedScene == item)
-                {
-                    jobject["selectedScene"] = value;
-                }
+                items.Add(value);
             }
 
-            jobject["scenes"] = scenes;
+            jobject["items"] = items;
+
+            var variables = new JsonObject();
+            foreach (KeyValuePair<string, string> item in Variables)
+            {
+                variables.Add(item.Key, JsonValue.Create(item.Value));
+            }
+
+            jobject["variables"] = variables;
         }
 
         return node;
     }
 
-    private void Children_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    private void Items_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
         if (_fileName != null)
             Save(_fileName);
     }
 
-    private void SyncronizeScenes(IEnumerable<string> pathToScene)
+    private void SyncronizeScenes(IEnumerable<string> pathToItem)
     {
-        Children.CollectionChanged -= Children_CollectionChanged;
-        pathToScene = pathToScene.Select(x => Path.GetFullPath(x, RootDirectory)).ToArray();
+        _items.CollectionChanged -= Items_CollectionChanged;
+        pathToItem = pathToItem.Select(x => Path.GetFullPath(x, RootDirectory)).ToArray();
 
         // 削除するシーン
-        IEnumerable<Scene> toRemoveScenes = Children.ExceptBy(pathToScene, x => x.FileName);
+        IEnumerable<IWorkspaceItem> toRemoveItems = _items.ExceptBy(pathToItem, x => x.FileName);
         // 追加するシーン
-        IEnumerable<string> toAddScenes = pathToScene.Except(Children.Select(x => x.FileName));
+        IEnumerable<string> toAddItems = pathToItem.Except(_items.Select(x => x.FileName));
 
-        foreach (Scene item in toRemoveScenes)
+        foreach (IWorkspaceItem? item in toRemoveItems)
         {
-            Children.Remove(item);
+            _items.Remove(item);
         }
 
-        foreach (string item in toAddScenes)
+        IWorkspaceItemResolver resolver = ServiceLocator.Current.GetRequiredService<IWorkspaceItemResolver>();
+        foreach (string item in toAddItems)
         {
-            var scn = new Scene();
-            scn.Restore(item);
-
-            Children.Add(scn);
+            if (resolver.TryCreateItem(item, out IWorkspaceItem? workspaceItem))
+            {
+                _items.Add(workspaceItem);
+            }
         }
 
-        Children.CollectionChanged += Children_CollectionChanged;
+        _items.CollectionChanged += Items_CollectionChanged;
     }
 }

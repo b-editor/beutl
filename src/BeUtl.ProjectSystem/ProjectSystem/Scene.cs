@@ -10,7 +10,7 @@ using Microsoft.Extensions.FileSystemGlobbing.Abstractions;
 
 namespace BeUtl.ProjectSystem;
 
-public class Scene : Element, IStorable
+public class Scene : Element, IStorable, IWorkspaceItem
 {
     public static readonly CoreProperty<int> WidthProperty;
     public static readonly CoreProperty<int> HeightProperty;
