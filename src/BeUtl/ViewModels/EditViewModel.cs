@@ -73,6 +73,15 @@ public sealed class EditViewModel : IEditorContext
     public void Dispose()
     {
         _disposables.Dispose();
+        Property.Value?.Dispose();
+        foreach (AnimationTimelineViewModel item in AnimationTimelines.AsSpan())
+        {
+            item.Dispose();
+        }
+        foreach (ExtendedEditTabViewModel item in UsingExtensions)
+        {
+            item.Dispose();
+        }
     }
 
     private sealed class KnownCommandsImpl : IKnownEditorCommands

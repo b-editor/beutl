@@ -1,12 +1,11 @@
-﻿
-using BeUtl.Collections;
+﻿using BeUtl.Collections;
 using BeUtl.ProjectSystem;
 
 namespace BeUtl.ViewModels.Editors;
 
 public sealed class PropertiesEditorViewModel : IDisposable
 {
-    private IDisposable? _disposable;
+    private readonly IDisposable _disposable;
 
     public PropertiesEditorViewModel(Layer layer)
     {
@@ -34,12 +33,10 @@ public sealed class PropertiesEditorViewModel : IDisposable
 
     public void Dispose()
     {
-        _disposable?.Dispose();
-        _disposable = null;
+        _disposable.Dispose();
         foreach (OperationEditorViewModel item in Items.AsSpan())
         {
             item.Dispose();
         }
-        Items.Clear();
     }
 }

@@ -12,7 +12,14 @@ using Reactive.Bindings.Extensions;
 
 namespace BeUtl.ViewModels;
 
-public class TimelineViewModel : IDisposable
+//public interface ITimelineOptionsProvider
+//{
+//    public IReactiveProperty<float> Scale { get; }
+
+//    public IReactiveProperty<System.Numerics.Vector2> Offset { get; }
+//}
+
+public sealed class TimelineViewModel : IDisposable
 {
     private readonly CompositeDisposable _disposables = new();
 
@@ -59,14 +66,20 @@ public class TimelineViewModel : IDisposable
 
         scene.Children.ForEachItem(
             (idx, item) => Layers.Insert(idx, new TimelineLayerViewModel(item)),
-            (idx, _) => Layers.RemoveAt(idx),
-            () => Layers.Clear())
+            (idx, _) =>
+            {
+                Layers[idx].Dispose();
+                Layers.RemoveAt(idx);
+            },
+            () =>
+            {
+                foreach (TimelineLayerViewModel? item in Layers.AsSpan())
+                {
+                    item.Dispose();
+                }
+                Layers.Clear();
+            })
             .AddTo(_disposables);
-    }
-
-    ~TimelineViewModel()
-    {
-        _disposables.Dispose();
     }
 
     public Scene Scene { get; }
@@ -92,6 +105,9 @@ public class TimelineViewModel : IDisposable
     public void Dispose()
     {
         _disposables.Dispose();
-        GC.SuppressFinalize(this);
+        foreach (TimelineLayerViewModel? item in Layers.AsSpan())
+        {
+            item.Dispose();
+        }
     }
 }

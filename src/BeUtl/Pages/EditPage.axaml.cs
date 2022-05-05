@@ -64,30 +64,15 @@ public sealed partial class EditPage : UserControl
                         {
                             if (s is FATabViewItem { DataContext: EditPageViewModel.TabViewModel itemViewModel } && DataContext is EditPageViewModel viewModel)
                             {
-                                viewModel.TabItems.Remove(itemViewModel);
+                                viewModel.CloseTabItem(itemViewModel.FilePath);
                             }
                         };
 
                         _tabItems.Insert(idx, tabItem);
                     }
                 },
-                (idx, item) =>
-                {
-                    item.Dispose();
-                    _tabItems.RemoveAt(idx);
-                },
-                () =>
-                {
-                    for (int i = 0; i < _tabItems.Count; i++)
-                    {
-                        if (_tabItems[i] is FATabViewItem { DataContext: EditPageViewModel.TabViewModel itemViewModel })
-                        {
-                            itemViewModel.Dispose();
-                        }
-                    }
-
-                    _tabItems.Clear();
-                });
+                (idx, _) => _tabItems.RemoveAt(idx),
+                () => throw new Exception());
         }
     }
 

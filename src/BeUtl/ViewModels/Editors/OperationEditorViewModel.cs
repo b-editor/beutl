@@ -4,9 +4,9 @@ using BeUtl.Services;
 
 namespace BeUtl.ViewModels.Editors;
 
-public class OperationEditorViewModel : IDisposable
+public sealed class OperationEditorViewModel : IDisposable
 {
-    private IDisposable? _disposable0;
+    private readonly IDisposable _disposable0;
 
     public OperationEditorViewModel(LayerOperation model)
     {
@@ -32,16 +32,12 @@ public class OperationEditorViewModel : IDisposable
 
     public CoreList<BaseEditorViewModel?> Properties { get; } = new();
 
-#pragma warning disable CA1816
     public void Dispose()
-#pragma warning restore CA1816
     {
-        _disposable0?.Dispose();
-        _disposable0 = null;
+        _disposable0.Dispose();
         foreach (BaseEditorViewModel? item in Properties.AsSpan())
         {
             item?.Dispose();
         }
-        Properties.Clear();
     }
 }

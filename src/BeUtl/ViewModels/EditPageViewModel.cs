@@ -17,7 +17,7 @@ namespace BeUtl.ViewModels;
 
 public sealed class EditPageViewModel
 {
-    public class TabViewModel : IDisposable
+    public sealed class TabViewModel : IDisposable
     {
         public TabViewModel(IEditorContext context)
         {
@@ -38,7 +38,6 @@ public sealed class EditPageViewModel
 
         public void Dispose()
         {
-            // 閉じるときにViewから呼ばれる
             Context.Dispose();
         }
     }
@@ -48,7 +47,10 @@ public sealed class EditPageViewModel
     public EditPageViewModel()
     {
         _projectService = ServiceLocator.Current.GetRequiredService<IProjectService>();
-        TabItems = new();
+        TabItems = new()
+        {
+            ResetBehavior = ResetBehavior.Remove
+        };
         _projectService.ProjectObservable.Subscribe(item => ProjectChanged(item.New, item.Old));
         Save = new(_projectService.IsOpened);
         SaveAll = new(_projectService.IsOpened);
@@ -256,6 +258,7 @@ public sealed class EditPageViewModel
         if (TryGetTabItem(file, out TabViewModel? item))
         {
             TabItems.Remove(item);
+            item.Dispose();
         }
     }
 }
