@@ -1,5 +1,5 @@
 using System.Collections;
-using System.Collections.Specialized;
+using System.Reactive.Disposables;
 
 using Avalonia;
 using Avalonia.Animation;
@@ -13,15 +13,11 @@ using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml.MarkupExtensions;
-using Avalonia.Markup.Xaml.Templates;
 using Avalonia.Media;
 using Avalonia.Styling;
-using Avalonia.Threading;
-using Avalonia.VisualTree;
 
-using BeUtl.Configuration;
+using BeUtl.Collections;
 using BeUtl.Framework;
-using BeUtl.Framework.Service;
 using BeUtl.Framework.Services;
 using BeUtl.Models;
 using BeUtl.Pages;
@@ -35,6 +31,9 @@ using FluentAvalonia.UI.Controls;
 
 using Microsoft.Extensions.DependencyInjection;
 
+using Reactive.Bindings;
+using Reactive.Bindings.Extensions;
+
 using FATabViewItem = FluentAvalonia.UI.Controls.TabViewItem;
 using PathIcon = Avalonia.Controls.PathIcon;
 
@@ -43,6 +42,9 @@ namespace BeUtl.Views;
 public partial class MainView : UserControl
 {
     private readonly EditPage _editPage;
+    private readonly AvaloniaList<MenuItem> _rawRecentFileItems = new();
+    private readonly AvaloniaList<MenuItem> _rawRecentProjItems = new();
+    private readonly CompositeDisposable _disposables = new();
 
     public MainView()
     {
@@ -59,6 +61,8 @@ public partial class MainView : UserControl
         NaviContent.Content = EditPageItem.Tag;
 
         _editPage = (EditPage)dataTemplate._maps[typeof(EditPageViewModel)];
+        recentFiles.Items = _rawRecentFileItems;
+        recentProjects.Items = _rawRecentProjItems;
     }
 
     private async void SceneSettings_Click(object? sender, RoutedEventArgs e)
@@ -76,286 +80,15 @@ public partial class MainView : UserControl
     protected override async void OnDataContextChanged(EventArgs e)
     {
         base.OnDataContextChanged(e);
-        if (DataContext is MainViewModel vm)
+        _disposables.Dispose();
+        if (DataContext is MainViewModel viewModel)
         {
-            vm.CreateNewProject.Subscribe(async () =>
-            {
-                var dialog = new CreateNewProject();
-                await dialog.ShowAsync();
-            });
+            InitCommands(viewModel);
 
-            vm.OpenProject.Subscribe(async () =>
-            {
-                IProjectService service = ServiceLocator.Current.GetRequiredService<IProjectService>();
+            await viewModel._packageLoadTask;
+            InitExtMenuItems();
 
-                // Todo: 後で拡張子を変更
-                var dialog = new OpenFileDialog
-                {
-                    Filters =
-                    {
-                        new FileDialogFilter
-                        {
-                            Name = Application.Current?.FindResource("S.Common.ProjectFile") as string,
-                            Extensions =
-                            {
-                                "bep"
-                            }
-                        }
-                    }
-                };
-
-                if (VisualRoot is Window window)
-                {
-                    string[]? files = await dialog.ShowAsync(window);
-                    if ((files?.Any() ?? false) && File.Exists(files[0]))
-                    {
-                        service.OpenProject(files[0]);
-                    }
-                }
-            });
-
-            vm.OpenScene.Subscribe(async () =>
-            {
-                IProjectService service = ServiceLocator.Current.GetRequiredService<IProjectService>();
-                Project? project = service.CurrentProject.Value;
-
-                if (VisualRoot is Window window && project != null)
-                {
-                    // Todo: 後で拡張子を変更
-                    var dialog = new OpenFileDialog
-                    {
-                        Filters =
-                        {
-                            new FileDialogFilter
-                            {
-                                Name = Application.Current?.FindResource("S.Common.SceneFile") as string,
-                                Extensions =
-                                {
-                                    "scene"
-                                }
-                            }
-                        }
-                    };
-                    string[]? files = await dialog.ShowAsync(window);
-                    if ((files?.Any() ?? false) && File.Exists(files[0]))
-                    {
-                        var scene = new Scene();
-                        scene.Restore(files[0]);
-                        project.Children.Add(scene);
-                    }
-                }
-            });
-
-            vm.AddScene.Subscribe(async () =>
-            {
-                var dialog = new CreateNewScene();
-                await dialog.ShowAsync();
-            });
-
-            vm.RemoveScene.Subscribe(async () =>
-            {
-                IProjectService service = ServiceLocator.Current.GetRequiredService<IProjectService>();
-                Project? project = service.CurrentProject.Value;
-
-                if (project != null
-                    && _editPage.tabview.SelectedItem is FATabViewItem { Content: EditView { DataContext: EditViewModel viewModel } })
-                {
-                    string name = Path.GetFileName(viewModel.Scene.FileName);
-                    var dialog = new ContentDialog
-                    {
-                        [!ContentDialog.CloseButtonTextProperty] = new DynamicResourceExtension("S.Common.Cancel"),
-                        [!ContentDialog.PrimaryButtonTextProperty] = new DynamicResourceExtension("S.Common.OK"),
-                        DefaultButton = ContentDialogButton.Primary,
-                        Content = (Application.Current?.FindResource("S.Message.DoYouWantToExcludeThisSceneFromProject") as string ?? "") + "\n" + name
-                    };
-
-                    if (await dialog.ShowAsync() == ContentDialogResult.Primary)
-                    {
-                        project.Children.Remove(viewModel.Scene);
-                    }
-                }
-            });
-
-            vm.AddLayer.Subscribe(async () =>
-            {
-                if (_editPage.tabview.SelectedItem is FATabViewItem { Content: EditView { DataContext: EditViewModel viewModel } editView })
-                {
-                    var dialog = new AddLayer
-                    {
-                        DataContext = new AddLayerViewModel(viewModel.Scene,
-                            new LayerDescription(editView.timeline._clickedFrame, TimeSpan.FromSeconds(5), editView.timeline._clickedLayer))
-                    };
-                    await dialog.ShowAsync();
-                }
-            });
-
-            vm.DeleteLayer.Subscribe(async () =>
-            {
-                if (_editPage.tabview.SelectedItem is FATabViewItem { Content: EditView { DataContext: EditViewModel { Scene: { SelectedItem: { } layer } scene } } })
-                {
-                    string name = Path.GetFileName(layer.FileName);
-                    var dialog = new ContentDialog
-                    {
-                        [!ContentDialog.CloseButtonTextProperty] = new DynamicResourceExtension("S.Common.Cancel"),
-                        [!ContentDialog.PrimaryButtonTextProperty] = new DynamicResourceExtension("S.Common.OK"),
-                        DefaultButton = ContentDialogButton.Primary,
-                        Content = (Application.Current?.FindResource("S.Message.DoYouWantToDeleteThisFile") as string ?? "") + "\n" + name
-                    };
-
-                    if (await dialog.ShowAsync() == ContentDialogResult.Primary)
-                    {
-                        scene.RemoveChild(layer).Do();
-                        if (File.Exists(layer.FileName))
-                        {
-                            File.Delete(layer.FileName);
-                        }
-                    }
-                }
-            });
-
-            vm.ExcludeLayer.Subscribe(() =>
-            {
-                if (_editPage.tabview.SelectedItem is FATabViewItem { Content: EditView { DataContext: EditViewModel { Scene: { SelectedItem: { } layer } scene } } })
-                {
-                    scene.RemoveChild(layer).DoAndRecord(CommandRecorder.Default);
-                }
-            });
-
-            vm.CutLayer.Subscribe(async () =>
-            {
-                if (_editPage.tabview.SelectedItem is FATabViewItem { Content: EditView { DataContext: EditViewModel { Scene: { SelectedItem: { } layer } scene } } })
-                {
-                    IClipboard? clipboard = Application.Current?.Clipboard;
-                    if (clipboard != null)
-                    {
-                        string json = layer.ToJson().ToJsonString(JsonHelper.SerializerOptions);
-                        var data = new DataObject();
-                        data.Set(DataFormats.Text, json);
-                        data.Set(BeUtlDataFormats.Layer, json);
-
-                        await clipboard.SetDataObjectAsync(data);
-                        scene.RemoveChild(layer).DoAndRecord(CommandRecorder.Default);
-                    }
-                }
-            });
-
-            vm.CopyLayer.Subscribe(async () =>
-            {
-                if (_editPage.tabview.SelectedItem is FATabViewItem { Content: EditView { DataContext: EditViewModel { Scene: { SelectedItem: { } layer } scene } } })
-                {
-                    IClipboard? clipboard = Application.Current?.Clipboard;
-                    if (clipboard != null)
-                    {
-                        string json = layer.ToJson().ToJsonString(JsonHelper.SerializerOptions);
-                        var data = new DataObject();
-                        data.Set(DataFormats.Text, json);
-                        data.Set(BeUtlDataFormats.Layer, json);
-
-                        await clipboard.SetDataObjectAsync(data);
-                    }
-                }
-            });
-
-            vm.PasteLayer.Subscribe(() =>
-            {
-                if (_editPage.tabview.SelectedItem is FATabViewItem { Content: EditView { timeline.ViewModel.Paste: { } paste } })
-                {
-                    paste.Execute();
-                }
-            });
-
-            vm.OpenFile.Subscribe(async () =>
-            {
-                if (VisualRoot is not Window root || DataContext is not MainViewModel viewModel)
-                {
-                    return;
-                }
-
-                var dialog = new OpenFileDialog
-                {
-                    AllowMultiple = true,
-                };
-
-                dialog.Filters.AddRange(PackageManager.Instance.ExtensionProvider.AllExtensions
-                    .OfType<EditorExtension>()
-                    .Select(e => new FileDialogFilter()
-                    {
-                        Extensions = e.FileExtensions.ToList(),
-                        Name = Application.Current?.FindResource(e.FileTypeName.Key) as string
-                    }));
-
-                string[]? files = await dialog.ShowAsync(root);
-                if (files != null)
-                {
-                    foreach (string file in files)
-                    {
-                        viewModel.EditPage.SelectOrAddTabItem(file);
-                    }
-                }
-            });
-
-            vm.Exit.Subscribe(() =>
-            {
-                if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime applicationLifetime)
-                {
-                    applicationLifetime.Shutdown();
-                }
-            });
-
-            await vm._packageLoadTask;
-
-            PackageManager manager = PackageManager.Instance;
-            if (viewMenu.Items is not IList items)
-            {
-                items = new AvaloniaList<object>();
-                viewMenu.Items = items;
-            }
-
-            foreach (SceneEditorTabExtension item in manager.ExtensionProvider.AllExtensions.OfType<SceneEditorTabExtension>())
-            {
-                var menuItem = new MenuItem()
-                {
-                    [!HeaderedSelectingItemsControl.HeaderProperty] = new DynamicResourceExtension(item.Header.Key),
-                    DataContext = item
-                };
-
-                if (item.Icon != null)
-                {
-                    menuItem.Icon = new PathIcon
-                    {
-                        Data = item.Icon,
-                        Width = 18,
-                        Height = 18,
-                    };
-                }
-
-                menuItem.Click += (s, e) =>
-                {
-                    if (_editPage.tabview.SelectedItem is FATabViewItem { Content: EditView { DataContext: EditViewModel editViewModel } editView }
-                        && s is MenuItem { DataContext: SceneEditorTabExtension ext })
-                    {
-                        ExtendedEditTabViewModel? tabViewModel = editViewModel.UsingExtensions.FirstOrDefault(i => i.Extension == ext);
-
-                        if (tabViewModel != null)
-                        {
-                            tabViewModel.IsSelected.Value = true;
-                        }
-                        else
-                        {
-                            tabViewModel = new ExtendedEditTabViewModel(ext)
-                            {
-                                IsSelected =
-                                {
-                                    Value = true
-                                }
-                            };
-                            editViewModel.UsingExtensions.Add(tabViewModel);
-                        }
-                    }
-                };
-
-                items.Add(menuItem);
-            }
+            InitRecentItems(viewModel);
         }
     }
 
@@ -402,6 +135,327 @@ public partial class MainView : UserControl
         {
             viewModel.SelectedPage.Value = item.Tag;
         }
+    }
+
+    private void InitCommands(MainViewModel viewModel)
+    {
+        viewModel.CreateNewProject.Subscribe(async () =>
+        {
+            var dialog = new CreateNewProject();
+            await dialog.ShowAsync();
+        }).AddTo(_disposables);
+
+        viewModel.OpenProject.Subscribe(async () =>
+        {
+            IProjectService service = ServiceLocator.Current.GetRequiredService<IProjectService>();
+
+            // Todo: 後で拡張子を変更
+            var dialog = new OpenFileDialog
+            {
+                Filters =
+                    {
+                        new FileDialogFilter
+                        {
+                            Name = Application.Current?.FindResource("S.Common.ProjectFile") as string,
+                            Extensions =
+                            {
+                                "bep"
+                            }
+                        }
+                    }
+            };
+
+            if (VisualRoot is Window window)
+            {
+                string[]? files = await dialog.ShowAsync(window);
+                if ((files?.Any() ?? false) && File.Exists(files[0]))
+                {
+                    service.OpenProject(files[0]);
+                }
+            }
+        }).AddTo(_disposables);
+
+        viewModel.OpenScene.Subscribe(async () =>
+        {
+            IProjectService service = ServiceLocator.Current.GetRequiredService<IProjectService>();
+            Project? project = service.CurrentProject.Value;
+
+            if (VisualRoot is Window window && project != null)
+            {
+                // Todo: 後で拡張子を変更
+                var dialog = new OpenFileDialog
+                {
+                    Filters =
+                        {
+                            new FileDialogFilter
+                            {
+                                Name = Application.Current?.FindResource("S.Common.SceneFile") as string,
+                                Extensions =
+                                {
+                                    "scene"
+                                }
+                            }
+                        }
+                };
+                string[]? files = await dialog.ShowAsync(window);
+                if ((files?.Any() ?? false) && File.Exists(files[0]))
+                {
+                    var scene = new Scene();
+                    scene.Restore(files[0]);
+                    project.Children.Add(scene);
+                }
+            }
+        }).AddTo(_disposables);
+
+        viewModel.AddScene.Subscribe(async () =>
+        {
+            var dialog = new CreateNewScene();
+            await dialog.ShowAsync();
+        }).AddTo(_disposables);
+
+        viewModel.RemoveScene.Subscribe(async () =>
+        {
+            IProjectService service = ServiceLocator.Current.GetRequiredService<IProjectService>();
+            Project? project = service.CurrentProject.Value;
+
+            if (project != null
+                && _editPage.tabview.SelectedItem is FATabViewItem { Content: EditView { DataContext: EditViewModel viewModel } })
+            {
+                string name = Path.GetFileName(viewModel.Scene.FileName);
+                var dialog = new ContentDialog
+                {
+                    [!ContentDialog.CloseButtonTextProperty] = new DynamicResourceExtension("S.Common.Cancel"),
+                    [!ContentDialog.PrimaryButtonTextProperty] = new DynamicResourceExtension("S.Common.OK"),
+                    DefaultButton = ContentDialogButton.Primary,
+                    Content = (Application.Current?.FindResource("S.Message.DoYouWantToExcludeThisSceneFromProject") as string ?? "") + "\n" + name
+                };
+
+                if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+                {
+                    project.Children.Remove(viewModel.Scene);
+                }
+            }
+        }).AddTo(_disposables);
+
+        viewModel.AddLayer.Subscribe(async () =>
+        {
+            if (_editPage.tabview.SelectedItem is FATabViewItem { Content: EditView { DataContext: EditViewModel viewModel } editView })
+            {
+                var dialog = new AddLayer
+                {
+                    DataContext = new AddLayerViewModel(viewModel.Scene,
+                        new LayerDescription(editView.timeline._clickedFrame, TimeSpan.FromSeconds(5), editView.timeline._clickedLayer))
+                };
+                await dialog.ShowAsync();
+            }
+        }).AddTo(_disposables);
+
+        viewModel.DeleteLayer.Subscribe(async () =>
+        {
+            if (_editPage.tabview.SelectedItem is FATabViewItem { Content: EditView { DataContext: EditViewModel { Scene: { SelectedItem: { } layer } scene } } })
+            {
+                string name = Path.GetFileName(layer.FileName);
+                var dialog = new ContentDialog
+                {
+                    [!ContentDialog.CloseButtonTextProperty] = new DynamicResourceExtension("S.Common.Cancel"),
+                    [!ContentDialog.PrimaryButtonTextProperty] = new DynamicResourceExtension("S.Common.OK"),
+                    DefaultButton = ContentDialogButton.Primary,
+                    Content = (Application.Current?.FindResource("S.Message.DoYouWantToDeleteThisFile") as string ?? "") + "\n" + name
+                };
+
+                if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+                {
+                    scene.RemoveChild(layer).Do();
+                    if (File.Exists(layer.FileName))
+                    {
+                        File.Delete(layer.FileName);
+                    }
+                }
+            }
+        }).AddTo(_disposables);
+
+        viewModel.ExcludeLayer.Subscribe(() =>
+        {
+            if (_editPage.tabview.SelectedItem is FATabViewItem { Content: EditView { DataContext: EditViewModel { Scene: { SelectedItem: { } layer } scene } } })
+            {
+                scene.RemoveChild(layer).DoAndRecord(CommandRecorder.Default);
+            }
+        }).AddTo(_disposables);
+
+        viewModel.CutLayer.Subscribe(async () =>
+        {
+            if (_editPage.tabview.SelectedItem is FATabViewItem { Content: EditView { DataContext: EditViewModel { Scene: { SelectedItem: { } layer } scene } } })
+            {
+                IClipboard? clipboard = Application.Current?.Clipboard;
+                if (clipboard != null)
+                {
+                    string json = layer.ToJson().ToJsonString(JsonHelper.SerializerOptions);
+                    var data = new DataObject();
+                    data.Set(DataFormats.Text, json);
+                    data.Set(BeUtlDataFormats.Layer, json);
+
+                    await clipboard.SetDataObjectAsync(data);
+                    scene.RemoveChild(layer).DoAndRecord(CommandRecorder.Default);
+                }
+            }
+        }).AddTo(_disposables);
+
+        viewModel.CopyLayer.Subscribe(async () =>
+        {
+            if (_editPage.tabview.SelectedItem is FATabViewItem { Content: EditView { DataContext: EditViewModel { Scene: { SelectedItem: { } layer } scene } } })
+            {
+                IClipboard? clipboard = Application.Current?.Clipboard;
+                if (clipboard != null)
+                {
+                    string json = layer.ToJson().ToJsonString(JsonHelper.SerializerOptions);
+                    var data = new DataObject();
+                    data.Set(DataFormats.Text, json);
+                    data.Set(BeUtlDataFormats.Layer, json);
+
+                    await clipboard.SetDataObjectAsync(data);
+                }
+            }
+        }).AddTo(_disposables);
+
+        viewModel.PasteLayer.Subscribe(() =>
+        {
+            if (_editPage.tabview.SelectedItem is FATabViewItem { Content: EditView { timeline.ViewModel.Paste: { } paste } })
+            {
+                paste.Execute();
+            }
+        }).AddTo(_disposables);
+
+        viewModel.OpenFile.Subscribe(async () =>
+        {
+            if (VisualRoot is not Window root || DataContext is not MainViewModel viewModel)
+            {
+                return;
+            }
+
+            var dialog = new OpenFileDialog
+            {
+                AllowMultiple = true,
+            };
+
+            dialog.Filters.AddRange(PackageManager.Instance.ExtensionProvider.AllExtensions
+                .OfType<EditorExtension>()
+                .Select(e => new FileDialogFilter()
+                {
+                    Extensions = e.FileExtensions.ToList(),
+                    Name = Application.Current?.FindResource(e.FileTypeName.Key) as string
+                }));
+
+            string[]? files = await dialog.ShowAsync(root);
+            if (files != null)
+            {
+                foreach (string file in files)
+                {
+                    viewModel.EditPage.SelectOrAddTabItem(file);
+                }
+            }
+        }).AddTo(_disposables);
+
+        viewModel.Exit.Subscribe(() =>
+        {
+            if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime applicationLifetime)
+            {
+                applicationLifetime.Shutdown();
+            }
+        }).AddTo(_disposables);
+    }
+
+    private void InitExtMenuItems()
+    {
+        PackageManager manager = PackageManager.Instance;
+        if (viewMenu.Items is not IList items)
+        {
+            items = new AvaloniaList<object>();
+            viewMenu.Items = items;
+        }
+
+        // Todo: Extensionの実行時アンロードの実現時、
+        //       ForEachItemメソッドを使うかeventにする
+        foreach (SceneEditorTabExtension item in manager.ExtensionProvider.AllExtensions.OfType<SceneEditorTabExtension>())
+        {
+            var menuItem = new MenuItem()
+            {
+                [!HeaderedSelectingItemsControl.HeaderProperty] = new DynamicResourceExtension(item.Header.Key),
+                DataContext = item
+            };
+
+            if (item.Icon != null)
+            {
+                menuItem.Icon = new PathIcon
+                {
+                    Data = item.Icon,
+                    Width = 18,
+                    Height = 18,
+                };
+            }
+
+            menuItem.Click += (s, e) =>
+            {
+                if (_editPage.tabview.SelectedItem is FATabViewItem { Content: EditView { DataContext: EditViewModel editViewModel } editView }
+                    && s is MenuItem { DataContext: SceneEditorTabExtension ext })
+                {
+                    ExtendedEditTabViewModel? tabViewModel = editViewModel.UsingExtensions.FirstOrDefault(i => i.Extension == ext);
+
+                    if (tabViewModel != null)
+                    {
+                        tabViewModel.IsSelected.Value = true;
+                    }
+                    else
+                    {
+                        tabViewModel = new ExtendedEditTabViewModel(ext)
+                        {
+                            IsSelected =
+                                {
+                                    Value = true
+                                }
+                        };
+                        editViewModel.UsingExtensions.Add(tabViewModel);
+                    }
+                }
+            };
+
+            items.Add(menuItem);
+        }
+    }
+
+    private void InitRecentItems(MainViewModel viewModel)
+    {
+        void AddItem(AvaloniaList<MenuItem> list, string item, ReactiveCommand<string> command)
+        {
+            list.Add(new MenuItem()
+            {
+                Command = command,
+                CommandParameter = item,
+                Header = item,
+            });
+        }
+
+        void RemoveItem(AvaloniaList<MenuItem> list, string item)
+        {
+            for (int i = list.Count - 1; i >= 0; i--)
+            {
+                if (list[i].Header is string header && header == item)
+                {
+                    list.RemoveAt(i);
+                }
+            }
+        }
+
+        viewModel.RecentFileItems.ForEachItem(
+            item => AddItem(_rawRecentFileItems, item, viewModel.OpenRecentFile),
+            item => RemoveItem(_rawRecentFileItems, item),
+            () => _rawRecentFileItems.Clear())
+            .AddTo(_disposables);
+
+        viewModel.RecentProjectItems.ForEachItem(
+            item => AddItem(_rawRecentProjItems, item, viewModel.OpenRecentProject),
+            item => RemoveItem(_rawRecentProjItems, item),
+            () => _rawRecentProjItems.Clear())
+            .AddTo(_disposables);
     }
 
     private sealed class CustomPageTransition : IPageTransition

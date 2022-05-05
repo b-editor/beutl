@@ -111,25 +111,28 @@
                     </MenuItem>
                     <Separator />
                     <!--最近使ったプロジェクト-->
-                    <MenuItem Header="{DynamicResource S.MainView.File.RecentFiles}"
-                              Items="{CompiledBinding RecentFileItems}">
-                        <MenuItem.ItemTemplate>
+                    <!--
+                        Todo: MenuItemでItemTemplateを使った時の動作が変
+                    -->
+                    <MenuItem x:Name="recentFiles"
+                              Header="{DynamicResource S.MainView.File.RecentFiles}">
+                        <!--<MenuItem.ItemTemplate>
                             <DataTemplate>
                                 <MenuItem Command="{Binding #root.DataContext.OpenRecentFile}"
                                           CommandParameter="{Binding}"
                                           Header="{Binding}" />
                             </DataTemplate>
-                        </MenuItem.ItemTemplate>
+                        </MenuItem.ItemTemplate>-->
                     </MenuItem>
-                    <MenuItem Header="{DynamicResource S.MainView.File.RecentProjects}"
-                              Items="{CompiledBinding RecentProjectItems}">
-                        <MenuItem.ItemTemplate>
+                    <MenuItem x:Name="recentProjects"
+                              Header="{DynamicResource S.MainView.File.RecentProjects}">
+                        <!--<MenuItem.ItemTemplate>
                             <DataTemplate>
                                 <MenuItem Command="{Binding #root.DataContext.OpenRecentProject}"
                                           CommandParameter="{Binding}"
                                           Header="{Binding}" />
                             </DataTemplate>
-                        </MenuItem.ItemTemplate>                        
+                        </MenuItem.ItemTemplate>-->                        
                     </MenuItem>
 
                     <Separator />
