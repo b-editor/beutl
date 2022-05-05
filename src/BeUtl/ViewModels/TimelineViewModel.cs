@@ -85,6 +85,10 @@ public class TimelineViewModel : IDisposable
 
     public ReactiveCommand Paste { get; } = new();
 
+    public TimeSpan ClickedFrame { get; set; }
+
+    public int ClickedLayer { get; set; }
+
     public void Dispose()
     {
         _disposables.Dispose();

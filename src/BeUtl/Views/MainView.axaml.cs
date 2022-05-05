@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Diagnostics.CodeAnalysis;
 using System.Reactive.Disposables;
 
 using Avalonia;
@@ -41,7 +42,6 @@ namespace BeUtl.Views;
 
 public partial class MainView : UserControl
 {
-    private readonly EditPage _editPage;
     private readonly AvaloniaList<MenuItem> _rawRecentFileItems = new();
     private readonly AvaloniaList<MenuItem> _rawRecentProjItems = new();
     private readonly CompositeDisposable _disposables = new();
@@ -50,8 +50,7 @@ public partial class MainView : UserControl
     {
         InitializeComponent();
 
-        var dataTemplate = new MainViewDataTemplate();
-        NaviContent.ContentTemplate = dataTemplate;
+        NaviContent.ContentTemplate = new MainViewDataTemplate();
         NaviContent.PageTransition = new CustomPageTransition();
 
         // NavigationViewÇÃê›íË
@@ -60,14 +59,13 @@ public partial class MainView : UserControl
 
         NaviContent.Content = EditPageItem.Tag;
 
-        _editPage = (EditPage)dataTemplate._maps[typeof(EditPageViewModel)];
         recentFiles.Items = _rawRecentFileItems;
         recentProjects.Items = _rawRecentProjItems;
     }
 
     private async void SceneSettings_Click(object? sender, RoutedEventArgs e)
     {
-        if (_editPage.tabview.SelectedItem is FATabViewItem { Content: EditView { DataContext: EditViewModel viewModel } })
+        if (TryGetSelectedEditViewModel(out EditViewModel? viewModel))
         {
             var dialog = new SceneSettings()
             {
@@ -137,6 +135,20 @@ public partial class MainView : UserControl
         }
     }
 
+    private bool TryGetSelectedEditViewModel([NotNullWhen(true)] out EditViewModel? viewModel)
+    {
+        if (DataContext is MainViewModel { EditPage.SelectedTabItem.Value.Context: EditViewModel editViewModel })
+        {
+            viewModel = editViewModel;
+            return true;
+        }
+        else
+        {
+            viewModel = null;
+            return false;
+        }
+    }
+
     private void InitCommands(MainViewModel viewModel)
     {
         viewModel.CreateNewProject.Subscribe(async () =>
@@ -153,16 +165,16 @@ public partial class MainView : UserControl
             var dialog = new OpenFileDialog
             {
                 Filters =
+                {
+                    new FileDialogFilter
                     {
-                        new FileDialogFilter
+                        Name = Application.Current?.FindResource("S.Common.ProjectFile") as string,
+                        Extensions =
                         {
-                            Name = Application.Current?.FindResource("S.Common.ProjectFile") as string,
-                            Extensions =
-                            {
-                                "bep"
-                            }
+                            "bep"
                         }
                     }
+                }
             };
 
             if (VisualRoot is Window window)
@@ -219,7 +231,7 @@ public partial class MainView : UserControl
             Project? project = service.CurrentProject.Value;
 
             if (project != null
-                && _editPage.tabview.SelectedItem is FATabViewItem { Content: EditView { DataContext: EditViewModel viewModel } })
+                && TryGetSelectedEditViewModel(out EditViewModel? viewModel))
             {
                 string name = Path.GetFileName(viewModel.Scene.FileName);
                 var dialog = new ContentDialog
@@ -239,12 +251,12 @@ public partial class MainView : UserControl
 
         viewModel.AddLayer.Subscribe(async () =>
         {
-            if (_editPage.tabview.SelectedItem is FATabViewItem { Content: EditView { DataContext: EditViewModel viewModel } editView })
+            if (TryGetSelectedEditViewModel(out EditViewModel? viewModel))
             {
                 var dialog = new AddLayer
                 {
                     DataContext = new AddLayerViewModel(viewModel.Scene,
-                        new LayerDescription(editView.timeline._clickedFrame, TimeSpan.FromSeconds(5), editView.timeline._clickedLayer))
+                        new LayerDescription(viewModel.Timeline.ClickedFrame, TimeSpan.FromSeconds(5), viewModel.Timeline.ClickedLayer))
                 };
                 await dialog.ShowAsync();
             }
@@ -252,7 +264,9 @@ public partial class MainView : UserControl
 
         viewModel.DeleteLayer.Subscribe(async () =>
         {
-            if (_editPage.tabview.SelectedItem is FATabViewItem { Content: EditView { DataContext: EditViewModel { Scene: { SelectedItem: { } layer } scene } } })
+            if (TryGetSelectedEditViewModel(out EditViewModel? viewModel)
+                && viewModel.Scene is Scene scene
+                && scene.SelectedItem is Layer layer)
             {
                 string name = Path.GetFileName(layer.FileName);
                 var dialog = new ContentDialog
@@ -276,7 +290,9 @@ public partial class MainView : UserControl
 
         viewModel.ExcludeLayer.Subscribe(() =>
         {
-            if (_editPage.tabview.SelectedItem is FATabViewItem { Content: EditView { DataContext: EditViewModel { Scene: { SelectedItem: { } layer } scene } } })
+            if (TryGetSelectedEditViewModel(out EditViewModel? viewModel)
+                && viewModel.Scene is Scene scene
+                && scene.SelectedItem is Layer layer)
             {
                 scene.RemoveChild(layer).DoAndRecord(CommandRecorder.Default);
             }
@@ -284,7 +300,9 @@ public partial class MainView : UserControl
 
         viewModel.CutLayer.Subscribe(async () =>
         {
-            if (_editPage.tabview.SelectedItem is FATabViewItem { Content: EditView { DataContext: EditViewModel { Scene: { SelectedItem: { } layer } scene } } })
+            if (TryGetSelectedEditViewModel(out EditViewModel? viewModel)
+                && viewModel.Scene is Scene scene
+                && scene.SelectedItem is Layer layer)
             {
                 IClipboard? clipboard = Application.Current?.Clipboard;
                 if (clipboard != null)
@@ -302,7 +320,9 @@ public partial class MainView : UserControl
 
         viewModel.CopyLayer.Subscribe(async () =>
         {
-            if (_editPage.tabview.SelectedItem is FATabViewItem { Content: EditView { DataContext: EditViewModel { Scene: { SelectedItem: { } layer } scene } } })
+            if (TryGetSelectedEditViewModel(out EditViewModel? viewModel)
+                && viewModel.Scene is Scene scene
+                && scene.SelectedItem is Layer layer)
             {
                 IClipboard? clipboard = Application.Current?.Clipboard;
                 if (clipboard != null)
@@ -319,9 +339,9 @@ public partial class MainView : UserControl
 
         viewModel.PasteLayer.Subscribe(() =>
         {
-            if (_editPage.tabview.SelectedItem is FATabViewItem { Content: EditView { timeline.ViewModel.Paste: { } paste } })
+            if (TryGetSelectedEditViewModel(out EditViewModel? viewModel))
             {
-                paste.Execute();
+                viewModel.Timeline.Paste.Execute();
             }
         }).AddTo(_disposables);
 
@@ -395,7 +415,7 @@ public partial class MainView : UserControl
 
             menuItem.Click += (s, e) =>
             {
-                if (_editPage.tabview.SelectedItem is FATabViewItem { Content: EditView { DataContext: EditViewModel editViewModel } editView }
+                if (TryGetSelectedEditViewModel(out EditViewModel? editViewModel)
                     && s is MenuItem { DataContext: SceneEditorTabExtension ext })
                 {
                     ExtendedEditTabViewModel? tabViewModel = editViewModel.UsingExtensions.FirstOrDefault(i => i.Extension == ext);
@@ -507,7 +527,7 @@ public partial class MainView : UserControl
 
     private sealed class MainViewDataTemplate : IDataTemplate
     {
-        internal readonly Dictionary<Type, IControl> _maps = new()
+        private readonly Dictionary<Type, IControl> _maps = new()
         {
             [typeof(EditPageViewModel)] = new EditPage(),
             [typeof(SettingsPageViewModel)] = new SettingsPage(),
@@ -530,4 +550,32 @@ public partial class MainView : UserControl
             return data != null && _maps.ContainsKey(data.GetType());
         }
     }
+
+    /* ViewÇñàâÒê∂ê¨Ç∑ÇÈèÍçá
+    private sealed class MainViewDataTemplate : IDataTemplate
+    {
+        private readonly Dictionary<Type, Type> _maps = new()
+        {
+            [typeof(EditPageViewModel)] = typeof(EditPage),
+            [typeof(SettingsPageViewModel)] = typeof(SettingsPage),
+        };
+
+        public IControl Build(object param)
+        {
+            if (_maps.TryGetValue(param.GetType(), out Type? value))
+            {
+                return (Activator.CreateInstance(value) as IControl) ?? throw new NotSupportedException();
+            }
+            else
+            {
+                throw new NotSupportedException();
+            }
+        }
+
+        public bool Match(object data)
+        {
+            return data != null && _maps.ContainsKey(data.GetType());
+        }
+    }
+    */
 }
