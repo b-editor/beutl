@@ -19,7 +19,6 @@ public class Scene : Element, IStorable
     public static readonly CoreProperty<TimeSpan> CurrentFrameProperty;
     public static readonly CoreProperty<Layer?> SelectedItemProperty;
     public static readonly CoreProperty<PreviewOptions?> PreviewOptionsProperty;
-    //public static readonly CoreProperty<TimelineOptions> TimelineOptionsProperty;
     public static readonly CoreProperty<IRenderer> RendererProperty;
     private readonly List<string> _includeLayers = new()
     {
@@ -32,7 +31,6 @@ public class Scene : Element, IStorable
     private TimeSpan _currentFrame;
     private Layer? _selectedItem;
     private PreviewOptions? _previewOptions;
-    //private TimelineOptions _timelineOptions = new();
     private IRenderer _renderer;
     private EventHandler? _saved;
     private EventHandler? _restored;
@@ -171,12 +169,6 @@ public class Scene : Element, IStorable
         get => _previewOptions;
         set => SetAndRaise(PreviewOptionsProperty, ref _previewOptions, value);
     }
-
-    //public TimelineOptions TimelineOptions
-    //{
-    //    get => _timelineOptions;
-    //    set => SetAndRaise(TimelineOptionsProperty, ref _timelineOptions, value);
-    //}
 
     public IRenderer Renderer
     {
@@ -359,21 +351,6 @@ public class Scene : Element, IStorable
 
         this.JsonSave(filename);
 
-        // ViewStateを保存
-        //string viewStateDir = ViewStateDirectory();
-        //new SceneViewState(this).JsonSave(Path.Combine(viewStateDir, $"{Path.GetFileNameWithoutExtension(filename)}.config"));
-
-        //foreach (Layer? item in Children.AsSpan())
-        //{
-        //    var array = new JsonArray();
-        //    foreach (LayerOperation? op in item.Children.AsSpan())
-        //    {
-        //        array.Add(op.ViewState.ToJson());
-        //    }
-
-        //    array.JsonSave(Path.Combine(viewStateDir, $"{Path.GetFileNameWithoutExtension(item.FileName)}.config"));
-        //}
-
         _saved?.Invoke(this, EventArgs.Empty);
     }
 
@@ -383,26 +360,6 @@ public class Scene : Element, IStorable
         LastSavedTime = DateTime.Now;
 
         this.JsonRestore(filename);
-
-        // ViewStateを復元
-        //string viewStateDir = ViewStateDirectory();
-        //string viewStateFile = Path.Combine(viewStateDir, $"{Path.GetFileNameWithoutExtension(filename)}.config");
-
-        //if (File.Exists(viewStateFile))
-        //{
-        //    new SceneViewState(this).JsonRestore(viewStateFile);
-        //}
-
-        //foreach (Layer? layer in Children.AsSpan())
-        //{
-        //    JsonNode? node = JsonHelper.JsonRestore(Path.Combine(viewStateDir, $"{Path.GetFileNameWithoutExtension(layer.FileName)}.config"));
-        //    if (node is not JsonArray array) continue;
-
-        //    foreach ((JsonNode json, LayerOperation op) in array.Zip(layer.Children))
-        //    {
-        //        op.ViewState.FromJson(json);
-        //    }
-        //}
 
         _restored?.Invoke(this, EventArgs.Empty);
     }

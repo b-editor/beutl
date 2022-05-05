@@ -86,9 +86,9 @@ public partial class Timeline : UserControl
 
             _viewModel = vm;
 
-            var minHeightBinding = new Binding("TimelineOptions")
+            var minHeightBinding = new Binding("Options.Value")
             {
-                Source = ViewModel.Scene,
+                Source = ViewModel,
                 Converter = new FuncValueConverter<TimelineOptions, double>(x => x.MaxLayerCount * Helper.LayerHeight)
             };
             TimelinePanel[!MinHeightProperty] = minHeightBinding;

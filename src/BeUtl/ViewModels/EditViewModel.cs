@@ -109,6 +109,7 @@ public sealed class EditViewModel : IEditorContext
         var json = new JsonObject
         {
             ["selected-layer"] = Property.Value?.Layer?.ZIndex ?? -1,
+            ["max-layer-count"] = Timeline.Options.Value.MaxLayerCount,
             ["scale"] = Timeline.Options.Value.Scale,
             ["offset"] = new JsonObject
             {
@@ -147,6 +148,16 @@ public sealed class EditViewModel : IEditorContext
                         }
                     }
                 }
+            }
+            catch { }
+
+            try
+            {
+                int layerCount = (int?)json["max-layer-count"] ?? 100;
+                timelineOptions = timelineOptions with
+                {
+                    MaxLayerCount = layerCount
+                };
             }
             catch { }
 

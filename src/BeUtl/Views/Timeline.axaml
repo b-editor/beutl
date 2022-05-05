@@ -32,7 +32,7 @@
                 HorizontalAlignment="Left">
                 <local:TimelineScale
                     x:Name="Scale"
-                    Scale="{Binding Scene.TimelineOptions.Scale}"
+                    Scale="{Binding Options.Value.Scale}"
                     Width="{CompiledBinding PanelWidth.Value}"
                     MinWidth="{Binding #ContentScroll.Bounds.Width}"
                     Height="32"

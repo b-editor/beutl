@@ -5,7 +5,7 @@
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              DragDrop.AllowDrop="True"
              x:Class="BeUtl.Views.Editors.OperationEditor">
-    <Expander Padding="0" IsExpanded="{Binding Model.ViewState.IsExpanded, Mode=TwoWay}">
+    <Expander Padding="0" IsExpanded="{Binding IsExpanded.Value, Mode=TwoWay}">
         <Expander.Header>
             <StackPanel Orientation="Horizontal">
                 <StackPanel.ContextMenu>

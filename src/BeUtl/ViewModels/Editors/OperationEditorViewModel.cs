@@ -1,6 +1,10 @@
-﻿using BeUtl.Collections;
+﻿using System.Text.Json.Nodes;
+
+using BeUtl.Collections;
 using BeUtl.ProjectSystem;
 using BeUtl.Services;
+
+using Reactive.Bindings;
 
 namespace BeUtl.ViewModels.Editors;
 
@@ -30,7 +34,28 @@ public sealed class OperationEditorViewModel : IDisposable
 
     public LayerOperation Model { get; }
 
+    public ReactiveProperty<bool> IsExpanded { get; } = new(true);
+
     public CoreList<BaseEditorViewModel?> Properties { get; } = new();
+
+    public void RestoreState(JsonNode json)
+    {
+        try
+        {
+            IsExpanded.Value = (bool?)json["is-expanded"] ?? true;
+        }
+        catch
+        {
+        }
+    }
+
+    public JsonNode SaveState()
+    {
+        return new JsonObject
+        {
+            ["is-expanded"] = IsExpanded.Value
+        };
+    }
 
     public void Dispose()
     {
