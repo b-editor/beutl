@@ -45,19 +45,23 @@ public partial class MainView : UserControl
     private readonly AvaloniaList<MenuItem> _rawRecentFileItems = new();
     private readonly AvaloniaList<MenuItem> _rawRecentProjItems = new();
     private readonly CompositeDisposable _disposables = new();
+    // 拡張機能対応の時にこれをサービス化する
+    private readonly Dictionary<Type, Type> _contextToView = new()
+    {
+        [typeof(EditPageViewModel)] = typeof(EditPage),
+        [typeof(SettingsPageViewModel)] = typeof(SettingsPage),
+    };
+    private readonly List<IControl> _controls = new();
 
     public MainView()
     {
         InitializeComponent();
 
-        NaviContent.ContentTemplate = new MainViewDataTemplate();
         NaviContent.PageTransition = new CustomPageTransition();
 
         // NavigationViewの設定
         Navi.SelectedItem = EditPageItem;
         Navi.ItemInvoked += NavigationView_ItemInvoked;
-
-        NaviContent.Content = EditPageItem.Tag;
 
         recentFiles.Items = _rawRecentFileItems;
         recentProjects.Items = _rawRecentProjItems;
@@ -78,9 +82,66 @@ public partial class MainView : UserControl
     protected override async void OnDataContextChanged(EventArgs e)
     {
         base.OnDataContextChanged(e);
-        _disposables.Dispose();
+        _disposables.Clear();
         if (DataContext is MainViewModel viewModel)
         {
+            _controls.Clear();
+            viewModel.Pages.ForEachItem(
+                (idx, item) =>
+                {
+                    IControl? view = null;
+                    Exception? exception = null;
+                    if (item != null && _contextToView.TryGetValue(item.GetType(), out Type? viewType))
+                    {
+                        try
+                        {
+                            view = Activator.CreateInstance(viewType) as IControl;
+                        }
+                        catch (Exception e)
+                        {
+                            exception = e;
+                        }
+                    }
+
+                    view ??= new TextBlock()
+                    {
+                        VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
+                        HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center,
+                        Text = exception != null ? @$"
+Error:
+    Viewのインスタンスを作成できませんでした。
+Message:
+    {exception.Message}
+StackTrace:
+    {exception.StackTrace}
+" : @"
+Error:
+    このコンテキストを表示する拡張機能が見つかりません。
+"
+                    };
+
+                    view.DataContext = item;
+
+                    _controls.Insert(idx, view);
+                },
+                (idx, item) =>
+                {
+                    (item as IDisposable)?.Dispose();
+                    _controls.RemoveAt(idx);
+                },
+                () => throw new Exception("'MainViewModel.Pages'は'Clear'メソッドに対応していません。"))
+                .AddTo(_disposables);
+
+            viewModel.SelectedPage.Subscribe(obj =>
+            {
+                if (DataContext is MainViewModel viewModel)
+                {
+                    int idx = viewModel.Pages.IndexOf(obj);
+                    if (idx < 0) return;
+                    NaviContent.Content = _controls[idx];
+                }
+            }).AddTo(_disposables);
+
             InitCommands(viewModel);
 
             await viewModel._packageLoadTask;
@@ -524,58 +585,4 @@ public partial class MainView : UserControl
             }
         }
     }
-
-    private sealed class MainViewDataTemplate : IDataTemplate
-    {
-        private readonly Dictionary<Type, IControl> _maps = new()
-        {
-            [typeof(EditPageViewModel)] = new EditPage(),
-            [typeof(SettingsPageViewModel)] = new SettingsPage(),
-        };
-
-        public IControl Build(object param)
-        {
-            if (_maps.TryGetValue(param.GetType(), out IControl? value))
-            {
-                return value;
-            }
-            else
-            {
-                throw new NotSupportedException();
-            }
-        }
-
-        public bool Match(object data)
-        {
-            return data != null && _maps.ContainsKey(data.GetType());
-        }
-    }
-
-    /* Viewを毎回生成する場合
-    private sealed class MainViewDataTemplate : IDataTemplate
-    {
-        private readonly Dictionary<Type, Type> _maps = new()
-        {
-            [typeof(EditPageViewModel)] = typeof(EditPage),
-            [typeof(SettingsPageViewModel)] = typeof(SettingsPage),
-        };
-
-        public IControl Build(object param)
-        {
-            if (_maps.TryGetValue(param.GetType(), out Type? value))
-            {
-                return (Activator.CreateInstance(value) as IControl) ?? throw new NotSupportedException();
-            }
-            else
-            {
-                throw new NotSupportedException();
-            }
-        }
-
-        public bool Match(object data)
-        {
-            return data != null && _maps.ContainsKey(data.GetType());
-        }
-    }
-    */
 }

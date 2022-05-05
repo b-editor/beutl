@@ -30,7 +30,7 @@ public sealed class ExtendedEditTabViewModel : IDisposable
     }
 }
 
-public sealed class EditViewModel : IDisposable, IEditorContext
+public sealed class EditViewModel : IEditorContext
 {
     private readonly CompositeDisposable _disposables = new();
 

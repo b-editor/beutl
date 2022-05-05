@@ -13,5 +13,8 @@ public interface IEditor : IControl
     [Obsolete("Use 'IEditorContext.Commands'", true)]
     IKnownEditorCommands? Commands => null;
 
-    void Close();
+    [Obsolete("Use 'IEditorContext.Dispose'", true)]
+    void Close()
+    {
+    }
 }

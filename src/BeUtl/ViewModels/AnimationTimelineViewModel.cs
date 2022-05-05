@@ -61,11 +61,6 @@ public sealed class AnimationTimelineViewModel : IDisposable
             .AddTo(_disposables);
     }
 
-    ~AnimationTimelineViewModel()
-    {
-        _disposables.Dispose();
-    }
-
     public Scene Scene { get; }
 
     public Layer Layer { get; }
@@ -91,7 +86,6 @@ public sealed class AnimationTimelineViewModel : IDisposable
     public void Dispose()
     {
         _disposables.Dispose();
-        GC.SuppressFinalize(this);
     }
 
     public void AddAnimation(Easing easing)

@@ -31,6 +31,10 @@ public sealed class TextEditorContext : IEditorContext
 
     public ReactiveProperty<string> Text { get; } = new();
 
+    public void Dispose()
+    {
+    }
+
     private sealed class CommandsImpl : IKnownEditorCommands
     {
         private readonly TextEditorContext _context;

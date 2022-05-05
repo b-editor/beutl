@@ -199,6 +199,7 @@
                 </ui:NavigationViewItem>
                 <ui:NavigationViewItem
                     x:Name="ExtensionsPageItem"
+                    Tag="{CompiledBinding ExtensionsPage}"
                     Classes="SideNavigationViewItem"
                     Content="{DynamicResource S.MainView.Extensions}">
                     <ui:NavigationViewItem.Styles>
@@ -216,6 +217,7 @@
                 </ui:NavigationViewItem>
                 <ui:NavigationViewItem
                     x:Name="OutputPageItem"
+                    Tag="{CompiledBinding OutputPage}"
                     Classes="SideNavigationViewItem"
                     Content="{DynamicResource S.MainView.Output}">
                     <ui:NavigationViewItem.Styles>
@@ -253,7 +255,7 @@
                 </ui:NavigationViewItem>
             </ui:NavigationView.FooterMenuItems>
 
-            <TransitioningContentControl x:Name="NaviContent" Content="{CompiledBinding SelectedPage.Value}" />
+            <TransitioningContentControl x:Name="NaviContent" />
         </ui:NavigationView>
     </Grid>
 

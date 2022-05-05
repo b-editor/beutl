@@ -1,8 +1,5 @@
-using System.Collections.Specialized;
-
 using Avalonia;
 using Avalonia.Collections;
-using Avalonia.Controls;
 using Avalonia.Threading;
 
 using BeUtl.Collections;
@@ -10,7 +7,6 @@ using BeUtl.Configuration;
 using BeUtl.Framework;
 using BeUtl.Framework.Service;
 using BeUtl.Framework.Services;
-using BeUtl.ProjectSystem;
 using BeUtl.Services;
 
 using Microsoft.Extensions.DependencyInjection;
@@ -64,6 +60,13 @@ public class MainViewModel
             });
         });
 
+        Pages = new()
+        {
+            EditPage,
+            ExtensionsPage,
+            OutputPage,
+            SettingsPage
+        };
         SelectedPage.Value = EditPage;
         ViewConfig viewConfig = GlobalConfiguration.Instance.ViewConfig;
         viewConfig.RecentFiles.ForEachItem(
@@ -132,12 +135,17 @@ public class MainViewModel
 
     public ReactiveCommand Exit { get; } = new();
 
-    // Todo: "XXXPageViewModel"を"MainViewModel"からアクセスできるようにする (作業中)
     public EditPageViewModel EditPage { get; } = new();
+
+    public ExtensionsPageViewModel ExtensionsPage { get; } = new();
+
+    public OutputPageViewModel OutputPage { get; } = new();
 
     public SettingsPageViewModel SettingsPage { get; } = new();
 
-    public ReactivePropertySlim<object?> SelectedPage { get; } = new();
+    public CoreList<object?> Pages { get; }
+
+    public ReactiveProperty<object?> SelectedPage { get; } = new();
 
     public IReadOnlyReactiveProperty<bool> IsProjectOpened { get; }
 

@@ -38,6 +38,8 @@ public sealed class EditPageViewModel
 
         public void Dispose()
         {
+            // 閉じるときにViewから呼ばれる
+            Context.Dispose();
         }
     }
 
@@ -251,7 +253,7 @@ public sealed class EditPageViewModel
 
     public void CloseTabItem(string? file)
     {
-        if (TryGetTabItem(file, out var item))
+        if (TryGetTabItem(file, out TabViewModel? item))
         {
             TabItems.Remove(item);
         }

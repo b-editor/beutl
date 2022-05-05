@@ -152,8 +152,7 @@ public sealed partial class EditView : UserControl, IEditor
                     if (tabItem != null)
                     {
                         list.Remove(tabItem);
-                        if (tabItem.DataContext is IDisposable disposable)
-                            disposable.Dispose();
+                        item.Dispose();
                     }
                 },
                 () =>
@@ -165,8 +164,7 @@ public sealed partial class EditView : UserControl, IEditor
                         .Where(v => v.DataContext is AnimationTimelineViewModel).ToArray())
                     {
                         list.Remove(item);
-                        if (item.DataContext is IDisposable disposable)
-                            disposable.Dispose();
+                        (item.DataContext as IDisposable)?.Dispose();
                     }
                 });
 
@@ -228,8 +226,7 @@ public sealed partial class EditView : UserControl, IEditor
                         if (tabItem != null)
                         {
                             list.Remove(tabItem);
-                            if (tabItem.DataContext is IDisposable disposable)
-                                disposable.Dispose();
+                            item.Dispose();
                         }
                     }
                 },
@@ -243,8 +240,7 @@ public sealed partial class EditView : UserControl, IEditor
                             .Where(v => v.DataContext is ExtendedEditTabViewModel).ToArray())
                         {
                             list0.Remove(item);
-                            if (item.DataContext is IDisposable disposable)
-                                disposable.Dispose();
+                            (item.DataContext as IDisposable)?.Dispose();
                         }
 
                         foreach (FATabViewItem item in list1
@@ -252,8 +248,7 @@ public sealed partial class EditView : UserControl, IEditor
                             .Where(v => v.DataContext is ExtendedEditTabViewModel).ToArray())
                         {
                             list1.Remove(item);
-                            if (item.DataContext is IDisposable disposable)
-                                disposable.Dispose();
+                            (item.DataContext as IDisposable)?.Dispose();
                         }
                     }
                 });
@@ -293,9 +288,5 @@ public sealed partial class EditView : UserControl, IEditor
 
             Image.InvalidateVisual();
         }, null);
-    }
-
-    public void Close()
-    {
     }
 }

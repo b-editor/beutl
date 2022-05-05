@@ -1,11 +1,6 @@
 ﻿using System.Reactive.Disposables;
-using System.Reactive.Linq;
-
-using Avalonia;
-using Avalonia.Controls;
 
 using BeUtl.ProjectSystem;
-using BeUtl.Services.Editors;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;

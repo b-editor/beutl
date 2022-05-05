@@ -9,7 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace BeUtl.Framework;
 
-public interface IEditorContext
+public interface IEditorContext : IDisposable
 {
     EditorExtension Extension { get; }
 

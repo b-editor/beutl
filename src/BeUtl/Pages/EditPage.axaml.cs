@@ -32,10 +32,10 @@ public sealed partial class EditPage : UserControl
     protected override void OnDataContextChanged(EventArgs e)
     {
         base.OnDataContextChanged(e);
+        _disposable0?.Dispose();
+        _tabItems.Clear();
         if (DataContext is EditPageViewModel viewModel)
         {
-            _disposable0?.Dispose();
-            _tabItems.Clear();
             _disposable0 = viewModel.TabItems.ForEachItem(
                 (idx, item) =>
                 {
@@ -73,20 +73,15 @@ public sealed partial class EditPage : UserControl
                 },
                 (idx, item) =>
                 {
-                    if (_tabItems[idx] is FATabViewItem { Content: IEditor editor })
-                    {
-                        editor.Close();
-                        item.Dispose();
-                        _tabItems.RemoveAt(idx);
-                    }
+                    item.Dispose();
+                    _tabItems.RemoveAt(idx);
                 },
                 () =>
                 {
                     for (int i = 0; i < _tabItems.Count; i++)
                     {
-                        if (_tabItems[i] is FATabViewItem { Content: IEditor editor, DataContext: EditPageViewModel.TabViewModel itemViewModel })
+                        if (_tabItems[i] is FATabViewItem { DataContext: EditPageViewModel.TabViewModel itemViewModel })
                         {
-                            editor.Close();
                             itemViewModel.Dispose();
                         }
                     }
