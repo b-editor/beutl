@@ -81,7 +81,7 @@ public partial class TimelineLayer : UserControl
     {
         Scene scene = ViewModel.Scene;
         Point point = e.GetPosition(this);
-        float scale = scene.TimelineOptions.Scale;
+        float scale = ViewModel.OptionsProvider.Options.Value.Scale;
         TimeSpan pointerFrame = point.X.ToTimeSpan(scale);
         _pointerPosition = pointerFrame;
 

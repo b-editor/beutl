@@ -19,21 +19,20 @@ public abstract class AnimationEditorViewModel : IDisposable
     protected CompositeDisposable Disposables = new();
     private bool _disposedValue;
 
-    protected AnimationEditorViewModel(IAnimation animation, EditorViewModelDescription description)
+    protected AnimationEditorViewModel(IAnimation animation, EditorViewModelDescription description, ITimelineOptionsProvider optionsProvider)
     {
         Animation = animation;
         Description = description;
-
+        OptionsProvider = optionsProvider;
         Scene = description.PropertyInstance.FindRequiredLogicalParent<Scene>();
-        ISubject<TimelineOptions> optionsSubject = Scene.GetSubject(Scene.TimelineOptionsProperty);
 
         Width = animation.GetSubject(BaseAnimation.DurationProperty)
-            .CombineLatest(optionsSubject)
-            .Select(item => item.First.ToPixel(item.Second.Scale))
+            .CombineLatest(optionsProvider.Scale)
+            .Select(item => item.First.ToPixel(item.Second))
             .ToReactiveProperty()
             .AddTo(Disposables);
 
-        Width.Subscribe(w => animation.Duration = w.ToTimeSpan(Scene.TimelineOptions.Scale)).AddTo(Disposables);
+        Width.Subscribe(w => animation.Duration = w.ToTimeSpan(optionsProvider.Options.Value.Scale)).AddTo(Disposables);
 
         RemoveCommand.Subscribe(() => Setter.RemoveChild(Animation).DoAndRecord(CommandRecorder.Default)).AddTo(Disposables);
 
@@ -62,6 +61,8 @@ public abstract class AnimationEditorViewModel : IDisposable
     public ReactiveProperty<double> Width { get; }
 
     public ReactiveCommand RemoveCommand { get; } = new();
+
+    public ITimelineOptionsProvider OptionsProvider { get; }
 
     public Scene Scene { get; }
 
@@ -156,13 +157,13 @@ public abstract class AnimationEditorViewModel : IDisposable
 public class AnimationEditorViewModel<T> : AnimationEditorViewModel
     where T : struct
 {
-    public AnimationEditorViewModel(Animation<T> animation, EditorViewModelDescription description)
-        : base(animation, description)
+    public AnimationEditorViewModel(Animation<T> animation, EditorViewModelDescription description, ITimelineOptionsProvider optionsProvider)
+        : base(animation, description, optionsProvider)
     {
     }
 
-    internal AnimationEditorViewModel(IAnimation animation, EditorViewModelDescription description)
-        : base(animation, description)
+    internal AnimationEditorViewModel(IAnimation animation, EditorViewModelDescription description, ITimelineOptionsProvider optionsProvider)
+        : base(animation, description, optionsProvider)
     {
     }
 

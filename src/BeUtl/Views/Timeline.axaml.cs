@@ -140,16 +140,17 @@ public partial class Timeline : UserControl
     // ContentScrollがスクロールされた
     private void ContentScroll_ScrollChanged(object? sender, ScrollChangedEventArgs e)
     {
-        Scene scene = ViewModel.Scene;
+        TimelineViewModel viewModel = ViewModel;
         if (_isFirst)
         {
-            ContentScroll.Offset = new(scene.TimelineOptions.Offset.X, scene.TimelineOptions.Offset.Y);
-            PaneScroll.Offset = new(0, scene.TimelineOptions.Offset.Y);
+            Vector2 offset = viewModel.Options.Value.Offset;
+            ContentScroll.Offset = new(offset.X, offset.Y);
+            PaneScroll.Offset = new(0, offset.Y);
 
             _isFirst = false;
         }
 
-        scene.TimelineOptions = scene.TimelineOptions with
+        viewModel.Options.Value = viewModel.Options.Value with
         {
             Offset = new Vector2((float)ContentScroll.Offset.X, (float)ContentScroll.Offset.Y)
         };
@@ -161,21 +162,21 @@ public partial class Timeline : UserControl
     // マウスホイールが動いた
     private void ContentScroll_PointerWheelChanged(object? sender, PointerWheelEventArgs e)
     {
-        Scene scene = ViewModel.Scene;
+        TimelineViewModel viewModel = ViewModel;
         Avalonia.Vector offset = ContentScroll.Offset;
 
         if (e.KeyModifiers == KeyModifiers.Control)
         {
             // 目盛りのスケールを変更
-            float scale = scene.TimelineOptions.Scale;
+            float scale = viewModel.Options.Value.Scale;
             var ts = offset.X.ToTimeSpan(scale);
             float deltaScale = (float)(e.Delta.Y / 120) * 10 * scale;
-            scene.TimelineOptions = scene.TimelineOptions with
+            viewModel.Options.Value = viewModel.Options.Value with
             {
                 Scale = deltaScale + scale,
             };
 
-            offset = offset.WithX(ts.ToPixel(scene.TimelineOptions.Scale));
+            offset = offset.WithX(ts.ToPixel(viewModel.Options.Value.Scale));
         }
         else if (e.KeyModifiers == KeyModifiers.Shift)
         {
@@ -196,7 +197,7 @@ public partial class Timeline : UserControl
     private void TimelinePanel_PointerMoved(object? sender, PointerEventArgs e)
     {
         PointerPoint pointerPt = e.GetCurrentPoint(TimelinePanel);
-        _pointerFrame = pointerPt.Position.X.ToTimeSpan(ViewModel.Scene.TimelineOptions.Scale)
+        _pointerFrame = pointerPt.Position.X.ToTimeSpan(ViewModel.Options.Value.Scale)
             .RoundToRate(ViewModel.Scene.Parent is Project proj ? proj.FrameRate : 30);
         _pointerLayer = pointerPt.Position.Y.ToLayerNumber();
 
@@ -221,7 +222,7 @@ public partial class Timeline : UserControl
     private void TimelinePanel_PointerPressed(object? sender, PointerPressedEventArgs e)
     {
         PointerPoint pointerPt = e.GetCurrentPoint(TimelinePanel);
-        ViewModel.ClickedFrame = pointerPt.Position.X.ToTimeSpan(ViewModel.Scene.TimelineOptions.Scale)
+        ViewModel.ClickedFrame = pointerPt.Position.X.ToTimeSpan(ViewModel.Options.Value.Scale)
             .RoundToRate(ViewModel.Scene.Parent is Project proj ? proj.FrameRate : 30);
         ViewModel.ClickedLayer = pointerPt.Position.Y.ToLayerNumber();
         TimelinePanel.Focus();
@@ -246,7 +247,7 @@ public partial class Timeline : UserControl
         Scene scene = ViewModel.Scene;
         Point pt = e.GetPosition(TimelinePanel);
 
-        ViewModel.ClickedFrame = pt.X.ToTimeSpan(scene.TimelineOptions.Scale)
+        ViewModel.ClickedFrame = pt.X.ToTimeSpan(ViewModel.Options.Value.Scale)
             .RoundToRate(ViewModel.Scene.Parent is Project proj ? proj.FrameRate : 30);
         ViewModel.ClickedLayer = pt.Y.ToLayerNumber();
 

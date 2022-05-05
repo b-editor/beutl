@@ -11,6 +11,8 @@ using BeUtl.ProjectSystem;
 using BeUtl.Services;
 using BeUtl.ViewModels;
 
+using Reactive.Bindings;
+
 using static BeUtl.Views.Timeline;
 
 namespace BeUtl.Views;
@@ -26,7 +28,7 @@ public partial class AnimationTimeline : UserControl
     public AnimationTimeline()
     {
         Resources["AnimationToViewModelConverter"] =
-            new FuncValueConverter<IAnimation, object?>(a => a == null ? null : PropertyEditorService.CreateAnimationEditorViewModel(ViewModel.Description, a));
+            new FuncValueConverter<IAnimation, object?>(a => a == null ? null : PropertyEditorService.CreateAnimationEditorViewModel(ViewModel.Description, a, ViewModel.OptionsProvider));
 
         InitializeComponent();
         ContentScroll.ScrollChanged += ContentScroll_ScrollChanged;
@@ -51,15 +53,15 @@ public partial class AnimationTimeline : UserControl
     // ContentScrollがスクロールされた
     private void ContentScroll_ScrollChanged(object? sender, ScrollChangedEventArgs e)
     {
-        Scene scene = ViewModel.Scene;
+        IReactiveProperty<TimelineOptions>? options = ViewModel.OptionsProvider.Options;
         if (_isFirst)
         {
-            ContentScroll.Offset = new(scene.TimelineOptions.Offset.X, scene.TimelineOptions.Offset.Y);
+            ContentScroll.Offset = new(options.Value.Offset.X, options.Value.Offset.Y);
 
             _isFirst = false;
         }
 
-        scene.TimelineOptions = scene.TimelineOptions with
+        options.Value = options.Value with
         {
             Offset = new Vector2((float)ContentScroll.Offset.X, (float)ContentScroll.Offset.Y)
         };
@@ -70,21 +72,21 @@ public partial class AnimationTimeline : UserControl
     // マウスホイールが動いた
     private void ContentScroll_PointerWheelChanged(object? sender, PointerWheelEventArgs e)
     {
-        Scene scene = ViewModel.Scene;
+        IReactiveProperty<TimelineOptions>? options = ViewModel.OptionsProvider.Options;
         Avalonia.Vector offset = ContentScroll.Offset;
 
         if (e.KeyModifiers == KeyModifiers.Control)
         {
             // 目盛りのスケールを変更
-            float scale = scene.TimelineOptions.Scale;
+            float scale = options.Value.Scale;
             var ts = offset.X.ToTimeSpan(scale);
             float deltaScale = (float)(e.Delta.Y / 120) * 10 * scale;
-            scene.TimelineOptions = scene.TimelineOptions with
+            options.Value = options.Value with
             {
                 Scale = deltaScale + scale,
             };
 
-            offset = offset.WithX(ts.ToPixel(scene.TimelineOptions.Scale));
+            offset = offset.WithX(ts.ToPixel(options.Value.Scale));
         }
         else if (e.KeyModifiers == KeyModifiers.Shift)
         {
@@ -105,7 +107,7 @@ public partial class AnimationTimeline : UserControl
     private void TimelinePanel_PointerMoved(object? sender, PointerEventArgs e)
     {
         PointerPoint pointerPt = e.GetCurrentPoint(TimelinePanel);
-        _pointerFrame = pointerPt.Position.X.ToTimeSpan(ViewModel.Scene.TimelineOptions.Scale)
+        _pointerFrame = pointerPt.Position.X.ToTimeSpan(ViewModel.OptionsProvider.Options.Value.Scale)
             .RoundToRate(ViewModel.Scene.Parent is Project proj ? proj.FrameRate : 30);
 
         if (_seekbarMouseFlag == MouseFlags.MouseDown)
@@ -129,7 +131,7 @@ public partial class AnimationTimeline : UserControl
     private void TimelinePanel_PointerPressed(object? sender, PointerPressedEventArgs e)
     {
         PointerPoint pointerPt = e.GetCurrentPoint(TimelinePanel);
-        _clickedFrame = pointerPt.Position.X.ToTimeSpan(ViewModel.Scene.TimelineOptions.Scale)
+        _clickedFrame = pointerPt.Position.X.ToTimeSpan(ViewModel.OptionsProvider.Options.Value.Scale)
             .RoundToRate(ViewModel.Scene.Parent is Project proj ? proj.FrameRate : 30);
 
         if (pointerPt.Properties.IsLeftButtonPressed)

@@ -6,8 +6,8 @@ namespace BeUtl.ViewModels.AnimationEditors;
 
 public sealed class PixelSizeAnimationEditorViewModel : AnimationEditorViewModel<PixelSize>
 {
-    public PixelSizeAnimationEditorViewModel(Animation<PixelSize> animation, EditorViewModelDescription description)
-        : base(animation, description)
+    public PixelSizeAnimationEditorViewModel(Animation<PixelSize> animation, EditorViewModelDescription description, ITimelineOptionsProvider optionsProvider)
+        : base(animation, description, optionsProvider)
     {
     }
 

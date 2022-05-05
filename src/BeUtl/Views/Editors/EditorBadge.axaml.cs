@@ -1,5 +1,3 @@
-using System.Collections;
-
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
@@ -7,8 +5,6 @@ using Avalonia.LogicalTree;
 using BeUtl.ProjectSystem;
 using BeUtl.ViewModels;
 using BeUtl.ViewModels.Editors;
-
-using FATabViewItem = FluentAvalonia.UI.Controls.TabViewItem;
 
 namespace BeUtl.Views.Editors;
 
@@ -46,7 +42,7 @@ public partial class EditorBadge : UserControl
                 {
                     Layer? layer = setter.FindRequiredLogicalParent<Layer>();
                     editViewModel.AnimationTimelines.Add(
-                        new AnimationTimelineViewModel(layer, setter, viewModel.Description)
+                        new AnimationTimelineViewModel(layer, setter, viewModel.Description, editViewModel.Timeline)
                         {
                             IsSelected =
                             {
