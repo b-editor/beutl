@@ -111,29 +111,10 @@
                     </MenuItem>
                     <Separator />
                     <!--最近使ったプロジェクト-->
-                    <!--
-                        Todo: MenuItemでItemTemplateを使った時の動作が変
-                    -->
                     <MenuItem x:Name="recentFiles"
-                              Header="{DynamicResource S.MainView.File.RecentFiles}">
-                        <!--<MenuItem.ItemTemplate>
-                            <DataTemplate>
-                                <MenuItem Command="{Binding #root.DataContext.OpenRecentFile}"
-                                          CommandParameter="{Binding}"
-                                          Header="{Binding}" />
-                            </DataTemplate>
-                        </MenuItem.ItemTemplate>-->
-                    </MenuItem>
+                              Header="{DynamicResource S.MainView.File.RecentFiles}" />
                     <MenuItem x:Name="recentProjects"
-                              Header="{DynamicResource S.MainView.File.RecentProjects}">
-                        <!--<MenuItem.ItemTemplate>
-                            <DataTemplate>
-                                <MenuItem Command="{Binding #root.DataContext.OpenRecentProject}"
-                                          CommandParameter="{Binding}"
-                                          Header="{Binding}" />
-                            </DataTemplate>
-                        </MenuItem.ItemTemplate>-->                        
-                    </MenuItem>
+                              Header="{DynamicResource S.MainView.File.RecentProjects}" />
 
                     <Separator />
                     <!--終了-->
