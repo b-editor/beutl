@@ -1,4 +1,5 @@
 using System.Collections;
+using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
 using System.Reactive.Disposables;
 
@@ -289,68 +290,87 @@ Error:
             }
         }).AddTo(_disposables);
 
-        viewModel.OpenScene.Subscribe(async () =>
+        viewModel.OpenFile.Subscribe(async () =>
         {
-            IProjectService service = ServiceLocator.Current.GetRequiredService<IProjectService>();
-            Project? project = service.CurrentProject.Value;
-
-            if (VisualRoot is Window window && project != null)
+            if (VisualRoot is not Window root || DataContext is not MainViewModel viewModel)
             {
-                // Todo: 後で拡張子を変更
-                var dialog = new OpenFileDialog
+                return;
+            }
+
+            var dialog = new OpenFileDialog
+            {
+                AllowMultiple = true,
+            };
+
+            dialog.Filters.AddRange(PackageManager.Instance.ExtensionProvider.AllExtensions
+                .OfType<EditorExtension>()
+                .Select(e => new FileDialogFilter()
                 {
-                    Filters =
-                    {
-                        new FileDialogFilter
-                        {
-                            Name = Application.Current?.FindResource("S.Common.SceneFile") as string,
-                            Extensions =
-                            {
-                                "scene"
-                            }
-                        }
-                    }
-                };
-                string[]? files = await dialog.ShowAsync(window);
-                if ((files?.Any() ?? false)
-                    && File.Exists(files[0])
-                    && DataContext is MainViewModel viewModel)
+                    Extensions = e.FileExtensions.ToList(),
+                    Name = Application.Current?.FindResource(e.FileTypeName.Key) as string
+                }));
+
+            string[]? files = await dialog.ShowAsync(root);
+            if (files != null)
+            {
+                foreach (string file in files)
                 {
-                    var scene = new Scene();
-                    scene.Restore(files[0]);
-                    project.Items.Add(scene);
+                    // Todo: プロジェクトに追加するかのダイアログを表示する
+                    viewModel.EditPage.SelectOrAddTabItem(file, EditPageViewModel.TabOpenMode.YourSelf);
                 }
             }
         }).AddTo(_disposables);
 
-        viewModel.AddScene.Subscribe(async () =>
+        viewModel.AddToProject.Subscribe(() =>
         {
-            var dialog = new CreateNewScene();
-            await dialog.ShowAsync();
+            IProjectService service = ServiceLocator.Current.GetRequiredService<IProjectService>();
+            Project? project = service.CurrentProject.Value;
+            IWorkspaceItemContainer resolver = ServiceLocator.Current.GetRequiredService<IWorkspaceItemContainer>();
+
+            if (project != null && DataContext is MainViewModel viewModel && viewModel.EditPage.SelectedTabItem.Value != null)
+            {
+                EditPageViewModel.TabViewModel tabViewModel = viewModel.EditPage.SelectedTabItem.Value;
+                if (project.Items.Any(i => i.FileName == tabViewModel.FilePath))
+                    return;
+
+                if (resolver.TryGetOrCreateItem(tabViewModel.FilePath, out IWorkspaceItem? workspaceItem))
+                {
+                    project.Items.Add(workspaceItem);
+                }
+            }
         }).AddTo(_disposables);
 
-        viewModel.RemoveScene.Subscribe(async () =>
+        viewModel.RemoveFromProject.Subscribe(async () =>
         {
             IProjectService service = ServiceLocator.Current.GetRequiredService<IProjectService>();
             Project? project = service.CurrentProject.Value;
 
-            if (project != null
-                && TryGetSelectedEditViewModel(out EditViewModel? viewModel))
+            if (project != null && DataContext is MainViewModel viewModel && viewModel.EditPage.SelectedTabItem.Value != null)
             {
-                string name = Path.GetFileName(viewModel.Scene.FileName);
+                EditPageViewModel.TabViewModel tabViewModel = viewModel.EditPage.SelectedTabItem.Value;
+                IWorkspaceItem? wsItem = project.Items.FirstOrDefault(i => i.FileName == tabViewModel.FilePath);
+                if (wsItem == null)
+                    return;
+
                 var dialog = new ContentDialog
                 {
                     [!ContentDialog.CloseButtonTextProperty] = new DynamicResourceExtension("S.Common.Cancel"),
                     [!ContentDialog.PrimaryButtonTextProperty] = new DynamicResourceExtension("S.Common.OK"),
                     DefaultButton = ContentDialogButton.Primary,
-                    Content = (Application.Current?.FindResource("S.Message.DoYouWantToExcludeThisSceneFromProject") as string ?? "") + "\n" + name
+                    Content = (Application.Current?.FindResource("S.Message.DoYouWantToExcludeThisItemFromProject") as string ?? "") + "\n" + tabViewModel.FileName
                 };
 
                 if (await dialog.ShowAsync() == ContentDialogResult.Primary)
                 {
-                    project.Items.Remove(viewModel.Scene);
+                    project.Items.Remove(wsItem);
                 }
             }
+        }).AddTo(_disposables);
+
+        viewModel.NewScene.Subscribe(async () =>
+        {
+            var dialog = new CreateNewScene();
+            await dialog.ShowAsync();
         }).AddTo(_disposables);
 
         viewModel.AddLayer.Subscribe(async () =>
@@ -446,36 +466,6 @@ Error:
             if (TryGetSelectedEditViewModel(out EditViewModel? viewModel))
             {
                 viewModel.Timeline.Paste.Execute();
-            }
-        }).AddTo(_disposables);
-
-        viewModel.OpenFile.Subscribe(async () =>
-        {
-            if (VisualRoot is not Window root || DataContext is not MainViewModel viewModel)
-            {
-                return;
-            }
-
-            var dialog = new OpenFileDialog
-            {
-                AllowMultiple = true,
-            };
-
-            dialog.Filters.AddRange(PackageManager.Instance.ExtensionProvider.AllExtensions
-                .OfType<EditorExtension>()
-                .Select(e => new FileDialogFilter()
-                {
-                    Extensions = e.FileExtensions.ToList(),
-                    Name = Application.Current?.FindResource(e.FileTypeName.Key) as string
-                }));
-
-            string[]? files = await dialog.ShowAsync(root);
-            if (files != null)
-            {
-                foreach (string file in files)
-                {
-                    viewModel.EditPage.SelectOrAddTabItem(file, EditPageViewModel.TabOpenMode.YourSelf);
-                }
             }
         }).AddTo(_disposables);
 

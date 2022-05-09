@@ -13,6 +13,7 @@ using Reactive.Bindings;
 
 namespace BeUtl.ViewModels.Dialogs;
 
+// Todo: プロジェクトなしでもいけるようにする (明日の自分へ)
 public sealed class CreateNewSceneViewModel
 {
     private readonly Project _proj;

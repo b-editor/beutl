@@ -1,3 +1,5 @@
+using System.Reactive.Linq;
+
 using Avalonia;
 using Avalonia.Collections;
 using Avalonia.Threading;
@@ -26,19 +28,31 @@ public class MainViewModel
 
         IsProjectOpened = _projectService.IsOpened;
 
-        // プロジェクトが開いている時だけ実行できるコマンド
-        OpenScene = new(_projectService.IsOpened);
-        AddScene = new(_projectService.IsOpened);
-        RemoveScene = new(_projectService.IsOpened);
-        AddLayer = new(_projectService.IsOpened);
-        DeleteLayer = new(_projectService.IsOpened);
-        ExcludeLayer = new(_projectService.IsOpened);
-        CutLayer = new(_projectService.IsOpened);
-        CopyLayer = new(_projectService.IsOpened);
-        PasteLayer = new(_projectService.IsOpened);
-        CloseFile = new(_projectService.IsOpened);
+        IObservable<bool> isProjectOpenedAndTabOpened = _projectService.IsOpened
+            .CombineLatest(EditPage.SelectedTabItem)
+            .Select(i => i.First && i.Second != null);
+        IObservable<bool> isSceneOpened = EditPage.SelectedTabItem.Select(i => i?.Context is EditViewModel);
+
+        AddToProject = new(isProjectOpenedAndTabOpened);
+        RemoveFromProject = new(isProjectOpenedAndTabOpened);
+        AddLayer = new(isSceneOpened);
+        DeleteLayer = new(isSceneOpened);
+        ExcludeLayer = new(isSceneOpened);
+        CutLayer = new(isSceneOpened);
+        CopyLayer = new(isSceneOpened);
+        PasteLayer = new(isSceneOpened);
+        CloseFile = new(EditPage.SelectedTabItem.Select(i => i != null));
         CloseProject = new(_projectService.IsOpened);
 
+        CloseFile.Subscribe(() =>
+        {
+            if (EditPage.SelectedTabItem.Value != null)
+            {
+                EditPage.CloseTabItem(
+                    EditPage.SelectedTabItem.Value.FilePath,
+                    EditPage.SelectedTabItem.Value.TabOpenMode);
+            }
+        });
         CloseProject.Subscribe(() => _projectService.CloseProject());
 
         _packageLoadTask = Task.Run(async () =>
@@ -106,6 +120,20 @@ public class MainViewModel
         });
     }
 
+    // File
+    //    Create new
+    //       Project
+    //       File
+    //    Open
+    //       Project
+    //       File
+    //    Close
+    //    Close project
+    //    Save
+    //    Save all
+    //    Recent files
+    //    Recent projects
+    //    Exit
     public ReactiveCommand CreateNewProject { get; } = new();
 
     public ReactiveCommand CreateNew { get; } = new();
@@ -114,11 +142,38 @@ public class MainViewModel
 
     public ReactiveCommand OpenFile { get; } = new();
 
-    public ReactiveCommand OpenScene { get; }
+    public ReactiveCommand CloseFile { get; }
 
-    public ReactiveCommand AddScene { get; }
+    public ReactiveCommand CloseProject { get; }
 
-    public ReactiveCommand RemoveScene { get; }
+    public ReactiveCommand<string> OpenRecentFile { get; } = new();
+
+    public ReactiveCommand<string> OpenRecentProject { get; } = new();
+
+    public CoreList<string> RecentFileItems { get; } = new();
+
+    public CoreList<string> RecentProjectItems { get; } = new();
+
+    public ReactiveCommand Exit { get; } = new();
+
+    // Project
+    //    Add
+    //    Remove
+    public ReactiveCommand AddToProject { get; }
+
+    public ReactiveCommand RemoveFromProject { get; }
+
+    // Scene
+    //    New
+    //    Settings
+    //    Layer
+    //       Add
+    //       Delete
+    //       Exclude
+    //       Cut
+    //       Copy
+    //       Paste
+    public ReactiveCommand NewScene { get; } = new();
 
     public ReactiveCommand AddLayer { get; }
 
@@ -131,12 +186,6 @@ public class MainViewModel
     public ReactiveCommand CopyLayer { get; }
 
     public ReactiveCommand PasteLayer { get; }
-
-    public ReactiveCommand CloseFile { get; }
-
-    public ReactiveCommand CloseProject { get; }
-
-    public ReactiveCommand Exit { get; } = new();
 
     public EditPageViewModel EditPage { get; } = new();
 
@@ -151,12 +200,4 @@ public class MainViewModel
     public ReactiveProperty<object?> SelectedPage { get; } = new();
 
     public IReadOnlyReactiveProperty<bool> IsProjectOpened { get; }
-
-    public ReactiveCommand<string> OpenRecentFile { get; } = new();
-
-    public ReactiveCommand<string> OpenRecentProject { get; } = new();
-
-    public CoreList<string> RecentFileItems { get; } = new();
-
-    public CoreList<string> RecentProjectItems { get; } = new();
 }
