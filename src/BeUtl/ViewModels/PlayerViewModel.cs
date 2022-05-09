@@ -32,7 +32,7 @@ public sealed class PlayerViewModel
     public async void Play()
     {
         IsPlaying.Value = true;
-        int rate = Project.FrameRate;
+        int rate = Project.GetFrameRate();
         if (rate >= 0)
         {
             rate = 30;
@@ -57,7 +57,7 @@ public sealed class PlayerViewModel
 
     public void Next()
     {
-        int rate = Project.FrameRate;
+        int rate = Project.GetFrameRate();
         if (rate <= 0)
         {
             rate = 30;
@@ -68,7 +68,7 @@ public sealed class PlayerViewModel
 
     public void Previous()
     {
-        int rate = Project.FrameRate;
+        int rate = Project.GetFrameRate();
         if (rate <= 0)
         {
             rate = 30;

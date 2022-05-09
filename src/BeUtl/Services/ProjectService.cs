@@ -66,11 +66,16 @@ public class ProjectService : IProjectService
         {
             location = Path.Combine(location, name);
             var scene = new Scene(width, height, name);
-            var project = new Project(framerate, samplerate)
+            var project = new Project()
             {
-                Children =
+                Items =
                 {
                     scene
+                },
+                Variables =
+                {
+                    [ProjectVariableKeys.FrameRate] = framerate.ToString(),
+                    [ProjectVariableKeys.SampleRate] = samplerate.ToString(),
                 }
             };
 

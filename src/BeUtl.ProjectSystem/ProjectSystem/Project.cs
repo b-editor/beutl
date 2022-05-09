@@ -1,4 +1,5 @@
 ﻿using System.Collections.Specialized;
+using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Text.Json;
@@ -25,28 +26,13 @@ public interface IWorkspaceItem : IStorable, IElement
 {
 }
 
-public interface IWorkspaceItemResolver
+public interface IWorkspaceItemContainer
 {
-    bool TryCreateItem(string file, [NotNullWhen(true)] out IWorkspaceItem? item);
-}
+    bool TryGetOrCreateItem(string file, [NotNullWhen(true)] out IWorkspaceItem? item);
 
-internal sealed class MockResolver : IWorkspaceItemResolver
-{
-    public bool TryCreateItem(string file, [NotNullWhen(true)] out IWorkspaceItem? item)
-    {
-        item = null;
-        if (file.EndsWith(".scene"))
-        {
-            var scene = new Scene();
-            scene.Restore(file);
-            item = new Scene();
-            return true;
-        }
-        else
-        {
-            return false;
-        }
-    }
+    bool IsCreated(string file);
+
+    bool Remove(string file);
 }
 
 public static class ProjectVariableKeys
@@ -77,8 +63,6 @@ public class Project : Element, IStorable, ILogicalElement, IWorkspace
             .Accessor(o => o.MinAppVersion)
             .DefaultValue(new Version(0, 3))
             .Register();
-
-        ServiceLocator.Current.Bind<IWorkspaceItemResolver>().ToSingleton<MockResolver>();
     }
 
     public Project()
@@ -241,10 +225,10 @@ public class Project : Element, IStorable, ILogicalElement, IWorkspace
             _items.Remove(item);
         }
 
-        IWorkspaceItemResolver resolver = ServiceLocator.Current.GetRequiredService<IWorkspaceItemResolver>();
+        IWorkspaceItemContainer resolver = ServiceLocator.Current.GetRequiredService<IWorkspaceItemContainer>();
         foreach (string item in toAddItems)
         {
-            if (resolver.TryCreateItem(item, out IWorkspaceItem? workspaceItem))
+            if (resolver.TryGetOrCreateItem(item, out IWorkspaceItem? workspaceItem))
             {
                 _items.Add(workspaceItem);
             }

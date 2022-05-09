@@ -60,7 +60,7 @@ public sealed class SceneEditorExtension : EditorExtension
         Project? proj = GetCurrentProject();
         if (proj != null)
         {
-            foreach (Scene scn in proj.Children.AsSpan())
+            foreach (Scene scn in proj.Items.OfType<Scene>())
             {
                 if (scn.FileName == file)
                 {
@@ -72,9 +72,10 @@ public sealed class SceneEditorExtension : EditorExtension
         var scn1 = new Scene();
         scn1.Restore(file);
 
+        // Todo: プロジェクトへ自動追加しないようにする
         if (proj != null)
         {
-            proj.Children.Add(scn1);
+            proj.Items.Add(scn1);
         }
 
         return scn1;

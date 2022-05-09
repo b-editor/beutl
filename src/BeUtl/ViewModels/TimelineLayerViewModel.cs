@@ -52,7 +52,7 @@ public class TimelineLayerViewModel : IDisposable
 
         Split.Where(func => func != null).Subscribe(func =>
         {
-            int rate = Scene.Parent is Project proj ? proj.FrameRate : 30;
+            int rate = Scene.Parent is Project proj ? proj.GetFrameRate() : 30;
             TimeSpan absTime = func!().RoundToRate(rate);
             TimeSpan forwardLength = absTime - Model.Start;
             TimeSpan backwardLength = Model.Length - forwardLength;
@@ -135,7 +135,7 @@ public class TimelineLayerViewModel : IDisposable
     public void SyncModelToViewModel()
     {
         float scale = OptionsProvider.Options.Value.Scale;
-        int rate = Scene.Parent is Project proj ? proj.FrameRate : 30;
+        int rate = Scene.Parent is Project proj ? proj.GetFrameRate() : 30;
 
         Model.UpdateTime(
             BorderMargin.Value.Left.ToTimeSpan(scale).RoundToRate(rate),

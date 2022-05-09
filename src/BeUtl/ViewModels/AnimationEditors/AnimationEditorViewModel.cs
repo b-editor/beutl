@@ -70,7 +70,7 @@ public abstract class AnimationEditorViewModel : IDisposable
     {
         if (Scene.Parent is Project proj)
         {
-            @new = @new.RoundToRate(proj.FrameRate);
+            @new = @new.RoundToRate(proj.GetFrameRate());
         }
 
         CommandRecorder.Default.DoAndPush(

@@ -2,6 +2,7 @@
 using System.Reactive.Linq;
 using System.Text.Json.Nodes;
 
+using Avalonia;
 using Avalonia.Media;
 
 using BeUtl.Collections;

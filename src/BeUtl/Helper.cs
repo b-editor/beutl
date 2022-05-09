@@ -19,6 +19,22 @@ internal static class Helper
         LayerHeight = (double)(Application.Current?.FindResource("LayerHeight") ?? 25);
     }
 
+    public static int GetFrameRate(this IWorkspace workspace)
+    {
+        return workspace.Variables.TryGetValue(ProjectVariableKeys.FrameRate, out string? value)
+            && int.TryParse(value, out int rate)
+            ? rate
+            : 30;
+    }
+
+    public static int GetSampleRate(this IWorkspace workspace)
+    {
+        return workspace.Variables.TryGetValue(ProjectVariableKeys.SampleRate, out string? value)
+            && int.TryParse(value, out int rate)
+            ? rate
+            : 44100;
+    }
+
     public static IObservable<T> ToObservable<T>(this ResourceReference<T> resourceReference, T defaultValue)
         where T : class
     {

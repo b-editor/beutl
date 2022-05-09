@@ -198,7 +198,7 @@ public partial class Timeline : UserControl
     {
         PointerPoint pointerPt = e.GetCurrentPoint(TimelinePanel);
         _pointerFrame = pointerPt.Position.X.ToTimeSpan(ViewModel.Options.Value.Scale)
-            .RoundToRate(ViewModel.Scene.Parent is Project proj ? proj.FrameRate : 30);
+            .RoundToRate(ViewModel.Scene.Parent is Project proj ? proj.GetFrameRate() : 30);
         _pointerLayer = pointerPt.Position.Y.ToLayerNumber();
 
         if (_seekbarMouseFlag == MouseFlags.MouseDown)
@@ -223,7 +223,7 @@ public partial class Timeline : UserControl
     {
         PointerPoint pointerPt = e.GetCurrentPoint(TimelinePanel);
         ViewModel.ClickedFrame = pointerPt.Position.X.ToTimeSpan(ViewModel.Options.Value.Scale)
-            .RoundToRate(ViewModel.Scene.Parent is Project proj ? proj.FrameRate : 30);
+            .RoundToRate(ViewModel.Scene.Parent is Project proj ? proj.GetFrameRate() : 30);
         ViewModel.ClickedLayer = pointerPt.Position.Y.ToLayerNumber();
         TimelinePanel.Focus();
 
@@ -248,7 +248,7 @@ public partial class Timeline : UserControl
         Point pt = e.GetPosition(TimelinePanel);
 
         ViewModel.ClickedFrame = pt.X.ToTimeSpan(ViewModel.Options.Value.Scale)
-            .RoundToRate(ViewModel.Scene.Parent is Project proj ? proj.FrameRate : 30);
+            .RoundToRate(ViewModel.Scene.Parent is Project proj ? proj.GetFrameRate() : 30);
         ViewModel.ClickedLayer = pt.Y.ToLayerNumber();
 
         if (e.Data.Get("RenderOperation") is LayerOperationRegistry.RegistryItem item)

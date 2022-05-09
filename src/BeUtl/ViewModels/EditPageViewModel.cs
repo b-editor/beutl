@@ -179,8 +179,8 @@ public sealed class EditPageViewModel
         // プロジェクトが開いた
         if (@new != null)
         {
-            @new.Children.CollectionChanged += Project_Children_CollectionChanged;
-            foreach (Scene item in @new.Children)
+            @new.Items.CollectionChanged += Project_Items_CollectionChanged;
+            foreach (IWorkspaceItem item in @new.Items)
             {
                 SelectOrAddTabItem(item.FileName);
             }
@@ -189,20 +189,20 @@ public sealed class EditPageViewModel
         // プロジェクトが閉じた
         if (old != null)
         {
-            old.Children.CollectionChanged -= Project_Children_CollectionChanged;
-            foreach (Scene item in old.Children)
+            old.Items.CollectionChanged -= Project_Items_CollectionChanged;
+            foreach (IWorkspaceItem item in old.Items)
             {
                 CloseTabItem(item.FileName);
             }
         }
     }
 
-    private void Project_Children_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    private void Project_Items_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
         if (e.Action == NotifyCollectionChangedAction.Add &&
             e.NewItems != null)
         {
-            foreach (Scene item in e.NewItems.OfType<Scene>())
+            foreach (IWorkspaceItem item in e.NewItems.OfType<IWorkspaceItem>())
             {
                 SelectOrAddTabItem(item.FileName);
             }
@@ -210,7 +210,7 @@ public sealed class EditPageViewModel
         else if (e.Action == NotifyCollectionChangedAction.Remove &&
                  e.OldItems != null)
         {
-            foreach (Scene item in e.OldItems.OfType<Scene>())
+            foreach (IWorkspaceItem item in e.OldItems.OfType<IWorkspaceItem>())
             {
                 CloseTabItem(item.FileName);
             }

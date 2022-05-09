@@ -108,7 +108,7 @@ public partial class AnimationTimeline : UserControl
     {
         PointerPoint pointerPt = e.GetCurrentPoint(TimelinePanel);
         _pointerFrame = pointerPt.Position.X.ToTimeSpan(ViewModel.OptionsProvider.Options.Value.Scale)
-            .RoundToRate(ViewModel.Scene.Parent is Project proj ? proj.FrameRate : 30);
+            .RoundToRate(ViewModel.Scene.Parent is Project proj ? proj.GetFrameRate() : 30);
 
         if (_seekbarMouseFlag == MouseFlags.MouseDown)
         {
@@ -132,7 +132,7 @@ public partial class AnimationTimeline : UserControl
     {
         PointerPoint pointerPt = e.GetCurrentPoint(TimelinePanel);
         _clickedFrame = pointerPt.Position.X.ToTimeSpan(ViewModel.OptionsProvider.Options.Value.Scale)
-            .RoundToRate(ViewModel.Scene.Parent is Project proj ? proj.FrameRate : 30);
+            .RoundToRate(ViewModel.Scene.Parent is Project proj ? proj.GetFrameRate() : 30);
 
         if (pointerPt.Properties.IsLeftButtonPressed)
         {

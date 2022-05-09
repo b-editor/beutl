@@ -40,10 +40,49 @@ using PathIcon = Avalonia.Controls.PathIcon;
 
 namespace BeUtl.Views;
 
+internal readonly struct Cache<T>
+    where T : class
+{
+    public readonly T?[] Items;
+
+    public Cache(int size)
+    {
+        Items = new T?[size];
+    }
+
+    public bool Set(T item)
+    {
+        foreach (ref T? item0 in Items.AsSpan())
+        {
+            if (item0 == null)
+            {
+                item0 = item;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public T? Get()
+    {
+        foreach (T? item in Items)
+        {
+            if (item != null)
+            {
+                return item;
+            }
+        }
+
+        return null;
+    }
+}
+
 public partial class MainView : UserControl
 {
     private readonly AvaloniaList<MenuItem> _rawRecentFileItems = new();
     private readonly AvaloniaList<MenuItem> _rawRecentProjItems = new();
+    private readonly Cache<MenuItem> _menuItemCache = new(4);
     private readonly CompositeDisposable _disposables = new();
     // 拡張機能対応の時にこれをサービス化する
     private readonly Dictionary<Type, Type> _contextToView = new()
@@ -259,23 +298,25 @@ Error:
                 var dialog = new OpenFileDialog
                 {
                     Filters =
+                    {
+                        new FileDialogFilter
                         {
-                            new FileDialogFilter
+                            Name = Application.Current?.FindResource("S.Common.SceneFile") as string,
+                            Extensions =
                             {
-                                Name = Application.Current?.FindResource("S.Common.SceneFile") as string,
-                                Extensions =
-                                {
-                                    "scene"
-                                }
+                                "scene"
                             }
                         }
+                    }
                 };
                 string[]? files = await dialog.ShowAsync(window);
-                if ((files?.Any() ?? false) && File.Exists(files[0]))
+                if ((files?.Any() ?? false)
+                    && File.Exists(files[0])
+                    && DataContext is MainViewModel viewModel)
                 {
                     var scene = new Scene();
                     scene.Restore(files[0]);
-                    project.Children.Add(scene);
+                    project.Items.Add(scene);
                 }
             }
         }).AddTo(_disposables);
@@ -305,7 +346,7 @@ Error:
 
                 if (await dialog.ShowAsync() == ContentDialogResult.Primary)
                 {
-                    project.Children.Remove(viewModel.Scene);
+                    project.Items.Remove(viewModel.Scene);
                 }
             }
         }).AddTo(_disposables);
@@ -507,21 +548,22 @@ Error:
     {
         void AddItem(AvaloniaList<MenuItem> list, string item, ReactiveCommand<string> command)
         {
-            list.Add(new MenuItem()
-            {
-                Command = command,
-                CommandParameter = item,
-                Header = item,
-            });
+            MenuItem menuItem = _menuItemCache.Get() ?? new MenuItem();
+            menuItem.Command = command;
+            menuItem.CommandParameter = item;
+            menuItem.Header = item;
+            list.Add(menuItem);
         }
 
         void RemoveItem(AvaloniaList<MenuItem> list, string item)
         {
             for (int i = list.Count - 1; i >= 0; i--)
             {
-                if (list[i].Header is string header && header == item)
+                MenuItem menuItem = list[i];
+                if (menuItem.Header is string header && header == item)
                 {
-                    list.RemoveAt(i);
+                    list.Remove(menuItem);
+                    _menuItemCache.Set(menuItem);
                 }
             }
         }

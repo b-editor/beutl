@@ -67,7 +67,7 @@ public sealed class CreateNewSceneViewModel
             var scene = new Scene(Size.Value.Width, Size.Value.Height, Name.Value);
             scene.Save(Path.Combine(Location.Value, Name.Value, $"{Name.Value}.scene"));
 
-            _proj.Children.Add(scene);
+            _proj.Items.Add(scene);
         });
     }
 
