@@ -17,14 +17,28 @@ namespace BeUtl.ViewModels;
 
 public sealed class EditPageViewModel
 {
+    public enum TabOpenMode
+    {
+        // プロジェクトを開いたときに開かれた
+        FromProject,
+
+        // 手動で開かれた。
+        // NOTE: File>OpenやCtrl+O、Ctrl+Shift+Oなど
+        YourSelf,
+    }
+
+    // Todo: 開く拡張機能を開いている状態で変更できるようにしたい
     public sealed class TabViewModel : IDisposable
     {
-        public TabViewModel(IEditorContext context)
+        public TabViewModel(IEditorContext context, TabOpenMode tabOpenMode)
         {
             Context = context;
+            TabOpenMode = tabOpenMode;
         }
 
         public IEditorContext Context { get; }
+
+        public TabOpenMode TabOpenMode { get; }
 
         public string FilePath => Context.EdittingFile;
 
@@ -182,7 +196,7 @@ public sealed class EditPageViewModel
             @new.Items.CollectionChanged += Project_Items_CollectionChanged;
             foreach (IWorkspaceItem item in @new.Items)
             {
-                SelectOrAddTabItem(item.FileName);
+                SelectOrAddTabItem(item.FileName, TabOpenMode.FromProject);
             }
         }
 
@@ -192,7 +206,7 @@ public sealed class EditPageViewModel
             old.Items.CollectionChanged -= Project_Items_CollectionChanged;
             foreach (IWorkspaceItem item in old.Items)
             {
-                CloseTabItem(item.FileName);
+                CloseTabItem(item.FileName, TabOpenMode.FromProject);
             }
         }
     }
@@ -204,7 +218,7 @@ public sealed class EditPageViewModel
         {
             foreach (IWorkspaceItem item in e.NewItems.OfType<IWorkspaceItem>())
             {
-                SelectOrAddTabItem(item.FileName);
+                SelectOrAddTabItem(item.FileName, TabOpenMode.FromProject);
             }
         }
         else if (e.Action == NotifyCollectionChangedAction.Remove &&
@@ -212,7 +226,7 @@ public sealed class EditPageViewModel
         {
             foreach (IWorkspaceItem item in e.OldItems.OfType<IWorkspaceItem>())
             {
-                CloseTabItem(item.FileName);
+                CloseTabItem(item.FileName, TabOpenMode.FromProject);
             }
         }
     }
@@ -224,7 +238,7 @@ public sealed class EditPageViewModel
         return result != null;
     }
 
-    public void SelectOrAddTabItem(string? file)
+    public void SelectOrAddTabItem(string? file, TabOpenMode tabOpenMode)
     {
         if (File.Exists(file))
         {
@@ -241,7 +255,7 @@ public sealed class EditPageViewModel
 
                 if (ext?.TryCreateContext(file, out IEditorContext? context) == true)
                 {
-                    TabItems.Add(new TabViewModel(context)
+                    TabItems.Add(new TabViewModel(context, tabOpenMode)
                     {
                         IsSelected =
                         {
@@ -253,9 +267,9 @@ public sealed class EditPageViewModel
         }
     }
 
-    public void CloseTabItem(string? file)
+    public void CloseTabItem(string? file, TabOpenMode tabOpenMode)
     {
-        if (TryGetTabItem(file, out TabViewModel? item))
+        if (TryGetTabItem(file, out TabViewModel? item) && item.TabOpenMode == tabOpenMode)
         {
             TabItems.Remove(item);
             item.Dispose();

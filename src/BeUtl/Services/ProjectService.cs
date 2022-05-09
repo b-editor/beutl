@@ -102,8 +102,6 @@ public class ProjectService : IProjectService
     private static void AddToRecentProjects(string file)
     {
         ViewConfig viewConfig = GlobalConfiguration.Instance.ViewConfig;
-        CoreList<string> recentProjects = viewConfig.RecentProjects;
-        recentProjects.Remove(file);
-        recentProjects.Insert(0, file);
+        viewConfig.UpdateRecentProject(file);
     }
 }

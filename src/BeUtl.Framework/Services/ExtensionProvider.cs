@@ -45,4 +45,30 @@ public sealed class ExtensionProvider
             }
         }
     }
+
+    public WorkspaceItemExtension? MatchWorkspaceItemExtension(string file)
+    {
+        foreach (Extension extension in AllExtensions)
+        {
+            if (extension is WorkspaceItemExtension wsiExtension &&
+                wsiExtension.IsSupported(file))
+            {
+                return wsiExtension;
+            }
+        }
+
+        return null;
+    }
+
+    public IEnumerable<WorkspaceItemExtension> MatchWorkspaceItemExtensions(string file)
+    {
+        foreach (Extension extension in AllExtensions)
+        {
+            if (extension is WorkspaceItemExtension wsiExtension &&
+                wsiExtension.IsSupported(file))
+            {
+                yield return wsiExtension;
+            }
+        }
+    }
 }

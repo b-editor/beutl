@@ -8,6 +8,8 @@ using BeUtl.ProjectSystem;
 using BeUtl.ViewModels;
 using BeUtl.Views;
 
+using Microsoft.Extensions.DependencyInjection;
+
 namespace BeUtl.Services;
 
 public sealed class SceneEditorExtension : EditorExtension
@@ -43,9 +45,10 @@ public sealed class SceneEditorExtension : EditorExtension
 
     public override bool TryCreateContext(string file, [NotNullWhen(true)] out IEditorContext? context)
     {
-        if (file.EndsWith(".scene"))
+        if (file.EndsWith(".scene")
+            && ServiceLocator.Current.GetRequiredService<IWorkspaceItemContainer>().TryGetOrCreateItem(file, out Scene? model))
         {
-            context = new EditViewModel(GetOrCreateScene(file));
+            context = new EditViewModel(model);
             return true;
         }
         else
@@ -53,31 +56,5 @@ public sealed class SceneEditorExtension : EditorExtension
             context = null;
             return false;
         }
-    }
-
-    private static Scene GetOrCreateScene(string file)
-    {
-        Project? proj = GetCurrentProject();
-        if (proj != null)
-        {
-            foreach (Scene scn in proj.Items.OfType<Scene>())
-            {
-                if (scn.FileName == file)
-                {
-                    return scn;
-                }
-            }
-        }
-
-        var scn1 = new Scene();
-        scn1.Restore(file);
-
-        // Todo: プロジェクトへ自動追加しないようにする
-        if (proj != null)
-        {
-            proj.Items.Add(scn1);
-        }
-
-        return scn1;
     }
 }

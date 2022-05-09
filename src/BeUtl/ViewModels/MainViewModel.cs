@@ -46,9 +46,12 @@ public class MainViewModel
             PackageManager manager = PackageManager.Instance;
             manager.LoadPackages(manager.GetPackageInfos());
 
+            // Todo: ここでSceneEditorExtensionを登録しているので、
+            //       パッケージとして分離する場合ここを削除
             manager.ExtensionProvider._allExtensions.Add(Package.s_nextId++, new Extension[]
             {
-                SceneEditorExtension.Instance
+                SceneEditorExtension.Instance,
+                SceneWorkspaceItemExtension.Instance,
             });
 
             await Dispatcher.UIThread.InvokeAsync(() =>
@@ -79,7 +82,7 @@ public class MainViewModel
             item => RecentProjectItems.Remove(item),
             () => RecentProjectItems.Clear());
 
-        OpenRecentFile.Subscribe(file => EditPage.SelectOrAddTabItem(file));
+        OpenRecentFile.Subscribe(file => EditPage.SelectOrAddTabItem(file, EditPageViewModel.TabOpenMode.YourSelf));
 
         OpenRecentProject.Subscribe(file =>
         {

@@ -105,7 +105,7 @@ public sealed class ViewConfig : ConfigurationBase
 
     public void UpdateRecentProject(string filename)
     {
-        _recentFiles.Remove(filename);
-        _recentFiles.Insert(0, filename);
+        _recentProjects.Remove(filename);
+        _recentProjects.Insert(0, filename);
     }
 }

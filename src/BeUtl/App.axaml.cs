@@ -14,6 +14,7 @@ using BeUtl.Framework.Service;
 using BeUtl.Framework.Services;
 using BeUtl.Language;
 using BeUtl.Operations;
+using BeUtl.ProjectSystem;
 using BeUtl.Rendering;
 using BeUtl.Services;
 using BeUtl.ViewModels;
@@ -90,6 +91,7 @@ public class App : Application
                 .Bind<IFontManagerImpl>().ToConstant(new CustomFontManagerImpl());
 
         ServiceLocator.Current
+            .Bind<IWorkspaceItemContainer>().ToSingleton<WorkspaceItemContainer>()
             .Bind<IProjectService>().ToSingleton<ProjectService>()
             .Bind<INotificationService>().ToSingleton<NotificationService>()
             .Bind<IResourceProvider>().ToSingleton<DefaultResourceProvider>();

@@ -66,11 +66,13 @@ internal readonly struct Cache<T>
 
     public T? Get()
     {
-        foreach (T? item in Items)
+        foreach (ref T? item in Items.AsSpan())
         {
             if (item != null)
             {
-                return item;
+                T? tmp = item;
+                item = null;
+                return tmp;
             }
         }
 
@@ -472,7 +474,7 @@ Error:
             {
                 foreach (string file in files)
                 {
-                    viewModel.EditPage.SelectOrAddTabItem(file);
+                    viewModel.EditPage.SelectOrAddTabItem(file, EditPageViewModel.TabOpenMode.YourSelf);
                 }
             }
         }).AddTo(_disposables);

@@ -37,7 +37,7 @@ public sealed partial class EditPage : UserControl
         if (DataContext is EditPageViewModel viewModel)
         {
             _disposable0 = viewModel.TabItems.ForEachItem(
-                (idx, item) =>
+                (item) =>
                 {
                     EditorExtension ext = item.Extension;
                     // ‚±‚Ì“à•”‚ÅProject.Children.Add‚µ‚Ä‚¢‚é‚Ì‚Å“ñd‚É’Ç‰Á‚³‚ê‚é
@@ -64,14 +64,26 @@ public sealed partial class EditPage : UserControl
                         {
                             if (s is FATabViewItem { DataContext: EditPageViewModel.TabViewModel itemViewModel } && DataContext is EditPageViewModel viewModel)
                             {
-                                viewModel.CloseTabItem(itemViewModel.FilePath);
+                                viewModel.CloseTabItem(itemViewModel.FilePath, itemViewModel.TabOpenMode);
                             }
                         };
 
-                        _tabItems.Insert(idx, tabItem);
+                        _tabItems.Add(tabItem);
                     }
                 },
-                (idx, _) => _tabItems.RemoveAt(idx),
+                (item) =>
+                {
+                    for (int i = 0; i < _tabItems.Count; i++)
+                    {
+                        FATabViewItem tabItem = _tabItems[i];
+                        if (tabItem.DataContext is EditPageViewModel.TabViewModel itemViewModel
+                            && itemViewModel.FilePath == item.FilePath)
+                        {
+                            _tabItems.RemoveAt(i);
+                            return;
+                        }
+                    }
+                },
                 () => throw new Exception());
         }
     }

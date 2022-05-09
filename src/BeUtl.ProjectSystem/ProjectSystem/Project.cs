@@ -28,6 +28,9 @@ public interface IWorkspaceItem : IStorable, IElement
 
 public interface IWorkspaceItemContainer
 {
+    bool TryGetOrCreateItem<T>(string file, [NotNullWhen(true)] out T? item)
+        where T : class, IWorkspaceItem;
+
     bool TryGetOrCreateItem(string file, [NotNullWhen(true)] out IWorkspaceItem? item);
 
     bool IsCreated(string file);
