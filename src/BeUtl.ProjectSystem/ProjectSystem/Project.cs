@@ -36,6 +36,8 @@ public interface IWorkspaceItemContainer
     bool IsCreated(string file);
 
     bool Remove(string file);
+
+    void Add(IWorkspaceItem item);
 }
 
 public static class ProjectVariableKeys

@@ -3,6 +3,7 @@
 using Avalonia;
 using Avalonia.Controls;
 
+using BeUtl.Configuration;
 using BeUtl.Framework.Services;
 using BeUtl.ProjectSystem;
 using BeUtl.Services;
@@ -13,19 +14,18 @@ using Reactive.Bindings;
 
 namespace BeUtl.ViewModels.Dialogs;
 
-// Todo: プロジェクトなしでもいけるようにする (明日の自分へ)
 public sealed class CreateNewSceneViewModel
 {
-    private readonly Project _proj;
+    private readonly Project? _proj;
 
     public CreateNewSceneViewModel()
     {
         IProjectService service = ServiceLocator.Current.GetRequiredService<IProjectService>();
-        if (!service.IsOpened.Value)
-            throw new Exception("The project has not been opened.");
-        _proj = service.CurrentProject.Value!;
+        _proj = service.CurrentProject.Value;
+        CanAddToCurrentProject = service.CurrentProject.Select(i => i != null).ToReadOnlyReactivePropertySlim();
+        AddToCurrentProject = new(_proj != null);
 
-        Location.Value = _proj.RootDirectory;
+        Location.Value = GetInitialLocation();
         Name.Value = GenSceneName(Location.Value);
 
         Name.SetValidateNotifyError(n =>
@@ -65,10 +65,20 @@ public sealed class CreateNewSceneViewModel
         Create = new ReactiveCommand(CanCreate);
         Create.Subscribe(() =>
         {
+            IWorkspaceItemContainer container = ServiceLocator.Current.GetRequiredService<IWorkspaceItemContainer>();
             var scene = new Scene(Size.Value.Width, Size.Value.Height, Name.Value);
+            container.Add(scene);
             scene.Save(Path.Combine(Location.Value, Name.Value, $"{Name.Value}.scene"));
 
-            _proj.Items.Add(scene);
+            if (_proj != null && AddToCurrentProject.Value)
+            {
+                _proj.Items.Add(scene);
+            }
+            else
+            {
+                // Todo: EditPageViewModelをServiceLocatorから取得して、
+                //       選択状態にする
+            }
         });
     }
 
@@ -78,9 +88,23 @@ public sealed class CreateNewSceneViewModel
 
     public ReactiveProperty<string> Location { get; } = new();
 
+    public ReactivePropertySlim<bool> AddToCurrentProject { get; }
+
+    public ReadOnlyReactivePropertySlim<bool> CanAddToCurrentProject { get; }
+
     public ReadOnlyReactivePropertySlim<bool> CanCreate { get; }
 
     public ReactiveCommand Create { get; }
+
+    private string GetInitialLocation()
+    {
+        if (_proj != null)
+        {
+            return _proj.RootDirectory;
+        }
+
+        return Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+    }
 
     private static string GenSceneName(string location)
     {

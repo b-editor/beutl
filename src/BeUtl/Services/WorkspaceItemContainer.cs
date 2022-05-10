@@ -41,7 +41,7 @@ public sealed class WorkspaceItemContainer : IWorkspaceItemContainer
         {
             if (ext.TryCreateItem(file, out IWorkspaceItem? result) && result is T typed)
             {
-                AddItem(typed);
+                Add(typed);
                 item = typed;
                 return true;
             }
@@ -66,7 +66,7 @@ public sealed class WorkspaceItemContainer : IWorkspaceItemContainer
         {
             if (ext.TryCreateItem(file, out IWorkspaceItem? result))
             {
-                AddItem(result);
+                Add(result);
                 item = result;
                 return true;
             }
@@ -75,7 +75,7 @@ public sealed class WorkspaceItemContainer : IWorkspaceItemContainer
         return false;
     }
 
-    private void AddItem(IWorkspaceItem item)
+    public void Add(IWorkspaceItem item)
     {
         foreach (WeakReference<IWorkspaceItem> wref in _items)
         {

@@ -8,5 +8,6 @@
         <StaticResource x:Key="S.Dialogs.CreateNewScene.Name" ResourceKey="S.Common.Name" />
         <StaticResource x:Key="S.Dialogs.CreateNewScene.Location" ResourceKey="S.Common.Location" />
         <StaticResource x:Key="S.Dialogs.CreateNewScene.Size" ResourceKey="S.Common.Size" />
+        <x:String x:Key="S.Dialogs.CreateNewScene.AddToCurrentProject">Add to current project</x:String>
     </Styles.Resources>
 </Styles>

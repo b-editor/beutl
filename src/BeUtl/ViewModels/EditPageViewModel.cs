@@ -15,6 +15,7 @@ using BeUtl.Framework.Service;
 
 namespace BeUtl.ViewModels;
 
+// Todo: シングルトンにする
 public sealed class EditPageViewModel
 {
     public enum TabOpenMode

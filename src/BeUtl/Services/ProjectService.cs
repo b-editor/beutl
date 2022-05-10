@@ -1,10 +1,11 @@
 ﻿using System.Reactive.Linq;
 using System.Reactive.Subjects;
 
-using BeUtl.Collections;
 using BeUtl.Configuration;
 using BeUtl.Framework.Services;
 using BeUtl.ProjectSystem;
+
+using Microsoft.Extensions.DependencyInjection;
 
 using Reactive.Bindings;
 
@@ -65,7 +66,9 @@ public class ProjectService : IProjectService
         try
         {
             location = Path.Combine(location, name);
+            IWorkspaceItemContainer container = ServiceLocator.Current.GetRequiredService<IWorkspaceItemContainer>();
             var scene = new Scene(width, height, name);
+            container.Add(scene);
             var project = new Project()
             {
                 Items =

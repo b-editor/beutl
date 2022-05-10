@@ -40,5 +40,11 @@
 
         <TextBlock Text="{DynamicResource S.Dialogs.CreateNewScene.Size}" />
         <TextBox Text="{CompiledBinding Size.Value, Mode=TwoWay, Converter={StaticResource PixelSizeConverter}}" />
+
+        <Separator />
+
+        <CheckBox Content="{DynamicResource S.Dialogs.CreateNewScene.AddToCurrentProject}"
+                  IsChecked="{CompiledBinding AddToCurrentProject.Value}"
+                  IsEnabled="{CompiledBinding CanAddToCurrentProject.Value}" />
     </StackPanel>
 </ui:ContentDialog>

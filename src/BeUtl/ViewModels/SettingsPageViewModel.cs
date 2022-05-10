@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 
 namespace BeUtl.ViewModels;
 
+// Todo: シングルトンにする
 public class SettingsPageViewModel
 {
 }
