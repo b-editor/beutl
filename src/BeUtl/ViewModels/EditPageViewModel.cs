@@ -41,6 +41,8 @@ public sealed class EditPageViewModel
 
         public TabOpenMode TabOpenMode { get; }
 
+        public int Order { get; set; } = -1;
+
         public string FilePath => Context.EdittingFile;
 
         public string FileName => Path.GetFileName(FilePath);
