@@ -1,12 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿namespace BeUtl.ViewModels;
 
-namespace BeUtl.ViewModels;
-
-// Todo: シングルトンにする
 public class SettingsPageViewModel
 {
 }

@@ -15,7 +15,6 @@ using BeUtl.Framework.Service;
 
 namespace BeUtl.ViewModels;
 
-// Todo: シングルトンにする
 public sealed class EditPageViewModel
 {
     public enum TabOpenMode
@@ -24,7 +23,7 @@ public sealed class EditPageViewModel
         FromProject,
 
         // 手動で開かれた。
-        // NOTE: File>OpenやCtrl+O、Ctrl+Shift+Oなど
+        // File>OpenやCtrl+O、Ctrl+Shift+Oなど
         YourSelf,
     }
 
