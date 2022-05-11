@@ -3,8 +3,10 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:local="using:BeUtl.Views"
+             xmlns:ctrl="using:BeUtl.Controls"
              xmlns:vm="using:BeUtl.ViewModels"
              xmlns:pages="using:BeUtl.Pages"
+             xmlns:interactivity="using:Avalonia.Xaml.Interactivity"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:uip="using:FluentAvalonia.UI.Controls.Primitives"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
@@ -186,54 +188,36 @@
                     Classes="SideNavigationViewItem"
                     Tag="{CompiledBinding EditPage}"
                     Content="{DynamicResource S.MainView.Edit}">
-                    <ui:NavigationViewItem.Styles>
-                        <Style Selector="uip|NavigationViewItemPresenter#NVIPresenter:selected">
-                            <Setter Property="Icon">
-                                <Template>
-                                    <ui:PathIcon Data="{StaticResource Edit_Filled}" />
-                                </Template>
-                            </Setter>
-                        </Style>
-                    </ui:NavigationViewItem.Styles>
-                    <ui:NavigationViewItem.Icon>
-                        <ui:PathIcon Data="{StaticResource Edit_Regular}" />
-                    </ui:NavigationViewItem.Icon>
+                    <interactivity:Interaction.Behaviors>
+                        <interactivity:BehaviorCollection>
+                            <ctrl:NavItemHelper RegularIcon="{StaticResource Edit_Regular}"
+                                                FilledIcon="{StaticResource Edit_Filled}" />
+                        </interactivity:BehaviorCollection>
+                    </interactivity:Interaction.Behaviors>
                 </ui:NavigationViewItem>
                 <ui:NavigationViewItem
                     x:Name="ExtensionsPageItem"
                     Tag="{CompiledBinding ExtensionsPage}"
                     Classes="SideNavigationViewItem"
                     Content="{DynamicResource S.MainView.Extensions}">
-                    <ui:NavigationViewItem.Styles>
-                        <Style Selector="uip|NavigationViewItemPresenter#NVIPresenter:selected">
-                            <Setter Property="Icon">
-                                <Template>
-                                    <ui:PathIcon Data="{StaticResource Puzzle_piece_Filled}" />
-                                </Template>
-                            </Setter>
-                        </Style>
-                    </ui:NavigationViewItem.Styles>
-                    <ui:NavigationViewItem.Icon>
-                        <ui:PathIcon Data="{StaticResource Puzzle_piece_Regular}" />
-                    </ui:NavigationViewItem.Icon>
+                    <interactivity:Interaction.Behaviors>
+                        <interactivity:BehaviorCollection>
+                            <ctrl:NavItemHelper RegularIcon="{StaticResource Puzzle_piece_Regular}"
+                                                FilledIcon="{StaticResource Puzzle_piece_Filled}" />
+                        </interactivity:BehaviorCollection>
+                    </interactivity:Interaction.Behaviors>
                 </ui:NavigationViewItem>
                 <ui:NavigationViewItem
                     x:Name="OutputPageItem"
                     Tag="{CompiledBinding OutputPage}"
                     Classes="SideNavigationViewItem"
                     Content="{DynamicResource S.MainView.Output}">
-                    <ui:NavigationViewItem.Styles>
-                        <Style Selector="uip|NavigationViewItemPresenter#NVIPresenter:selected">
-                            <Setter Property="Icon">
-                                <Template>
-                                    <ui:PathIcon Data="{StaticResource Arrow_Export_LTR_Filled}" />
-                                </Template>
-                            </Setter>
-                        </Style>
-                    </ui:NavigationViewItem.Styles>
-                    <ui:NavigationViewItem.Icon>
-                        <ui:PathIcon Data="{StaticResource Arrow_Export_LTR_Regular}" />
-                    </ui:NavigationViewItem.Icon>
+                    <interactivity:Interaction.Behaviors>
+                        <interactivity:BehaviorCollection>
+                            <ctrl:NavItemHelper RegularIcon="{StaticResource Arrow_Export_LTR_Regular}"
+                                                FilledIcon="{StaticResource Arrow_Export_LTR_Filled}" />
+                        </interactivity:BehaviorCollection>
+                    </interactivity:Interaction.Behaviors>
                 </ui:NavigationViewItem>
             </ui:NavigationView.MenuItems>
             <ui:NavigationView.FooterMenuItems>
@@ -242,18 +226,12 @@
                     Tag="{CompiledBinding SettingsPage}"
                     Classes="SideNavigationViewItem"
                     Content="{DynamicResource S.MainView.Settings}">
-                    <ui:NavigationViewItem.Styles>
-                        <Style Selector="uip|NavigationViewItemPresenter#NVIPresenter:selected">
-                            <Setter Property="Icon">
-                                <Template>
-                                    <ui:PathIcon Data="{StaticResource Settings_Filled}" />
-                                </Template>
-                            </Setter>
-                        </Style>
-                    </ui:NavigationViewItem.Styles>
-                    <ui:NavigationViewItem.Icon>
-                        <ui:PathIcon Data="{StaticResource Settings_Regular}" />
-                    </ui:NavigationViewItem.Icon>
+                    <interactivity:Interaction.Behaviors>
+                        <interactivity:BehaviorCollection>
+                            <ctrl:NavItemHelper RegularIcon="{StaticResource Settings_Regular}"
+                                                FilledIcon="{StaticResource Settings_Filled}" />
+                        </interactivity:BehaviorCollection>
+                    </interactivity:Interaction.Behaviors>
                 </ui:NavigationViewItem>
             </ui:NavigationView.FooterMenuItems>
 
