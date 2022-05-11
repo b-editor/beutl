@@ -40,7 +40,6 @@ public class ProjectService : IProjectService
             // 値を発行
             _projectObservable.OnNext((New: project, old));
 
-            // Todo: RecentFilesにも追加
             AddToRecentProjects(file);
 
             return project;
@@ -91,7 +90,6 @@ public class ProjectService : IProjectService
             _projectObservable.OnNext((New: project, CurrentProject.Value));
             CurrentProject.Value = project;
 
-            // Todo: RecentFilesにも追加
             AddToRecentProjects(projectFile);
 
             return project;

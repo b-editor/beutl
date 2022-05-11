@@ -118,6 +118,8 @@ public class MainViewModel
                     Message: "プロジェクトが開けなかった"));
             }
         });
+
+        ServiceLocator.Current.BindToSelf(EditPage);
     }
 
     // File
