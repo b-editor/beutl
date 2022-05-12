@@ -91,10 +91,11 @@ public class App : Application
                 .Bind<IFontManagerImpl>().ToConstant(new CustomFontManagerImpl());
 
         ServiceLocator.Current
-            .Bind<IWorkspaceItemContainer>().ToSingleton<WorkspaceItemContainer>()
-            .Bind<IProjectService>().ToSingleton<ProjectService>()
-            .Bind<INotificationService>().ToSingleton<NotificationService>()
-            .Bind<IResourceProvider>().ToSingleton<DefaultResourceProvider>();
+            .BindToSelfSingleton<EditorService>()
+            .BindToSelf<IWorkspaceItemContainer>(new WorkspaceItemContainer())
+            .BindToSelf<IProjectService>(new ProjectService())
+            .BindToSelf<INotificationService>(new NotificationService())
+            .BindToSelf<IResourceProvider>(new DefaultResourceProvider());
 
         RenderOperations.RegisterAll();
         UIDispatcherScheduler.Initialize();

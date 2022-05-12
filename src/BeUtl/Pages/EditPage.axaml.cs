@@ -8,6 +8,7 @@ using Avalonia.VisualTree;
 
 using BeUtl.Collections;
 using BeUtl.Framework;
+using BeUtl.Services;
 using BeUtl.ViewModels;
 using BeUtl.Views;
 using BeUtl.Views.Dialogs;
@@ -42,14 +43,14 @@ public sealed partial class EditPage : UserControl
             _disposable0 = viewModel.TabItems.ForEachItem(
                 (item) =>
                 {
-                    EditorExtension ext = item.Extension;
+                    EditorExtension ext = item.Extension.Value;
                     // ‚±‚Ì“à•”‚ÅProject.Children.Add‚µ‚Ä‚¢‚é‚Ì‚Å“ñd‚É’Ç‰Á‚³‚ê‚é
-                    if (ext.TryCreateEditor(item.FilePath, out IEditor? editor))
+                    if (ext.TryCreateEditor(item.FilePath.Value, out IEditor? editor))
                     {
                         editor.DataContext = item.Context;
                         var tabItem = new FATabViewItem
                         {
-                            [!FATabViewItem.HeaderProperty] = new Binding("FileName"),
+                            [!FATabViewItem.HeaderProperty] = new Binding("FileName.Value"),
                             [!ListBoxItem.IsSelectedProperty] = new Binding("IsSelected.Value", BindingMode.TwoWay),
                             DataContext = item,
                             Content = editor
@@ -65,9 +66,9 @@ public sealed partial class EditPage : UserControl
 
                         tabItem.CloseRequested += (s, _) =>
                         {
-                            if (s is FATabViewItem { DataContext: EditPageViewModel.TabViewModel itemViewModel } && DataContext is EditPageViewModel viewModel)
+                            if (s is FATabViewItem { DataContext: EditorTabItem itemViewModel } && DataContext is EditPageViewModel viewModel)
                             {
-                                viewModel.CloseTabItem(itemViewModel.FilePath, itemViewModel.TabOpenMode);
+                                viewModel.CloseTabItem(itemViewModel.FilePath.Value, itemViewModel.TabOpenMode);
                             }
                         };
 
@@ -80,8 +81,8 @@ public sealed partial class EditPage : UserControl
                     for (int i = 0; i < _tabItems.Count; i++)
                     {
                         FATabViewItem tabItem = _tabItems[i];
-                        if (tabItem.DataContext is EditPageViewModel.TabViewModel itemViewModel
-                            && itemViewModel.FilePath == item.FilePath)
+                        if (tabItem.DataContext is EditorTabItem itemViewModel
+                            && itemViewModel.FilePath.Value == item.FilePath.Value)
                         {
                             itemViewModel.Order = -1;
                             _tabItems.RemoveAt(i);
@@ -97,7 +98,7 @@ public sealed partial class EditPage : UserControl
     {
         if (DataContext is EditPageViewModel viewModel)
         {
-            if (tabview.SelectedItem is FATabViewItem { DataContext: EditPageViewModel.TabViewModel tabViewModel })
+            if (tabview.SelectedItem is FATabViewItem { DataContext: EditorTabItem tabViewModel })
             {
                 viewModel.SelectedTabItem.Value = tabViewModel;
             }
@@ -116,7 +117,7 @@ public sealed partial class EditPage : UserControl
                 for (int i = e.NewStartingIndex; i < _tabItems.Count; i++)
                 {
                     FATabViewItem? item = _tabItems[i];
-                    if (item.DataContext is EditPageViewModel.TabViewModel itemViewModel)
+                    if (item.DataContext is EditorTabItem itemViewModel)
                     {
                         itemViewModel.Order = i;
                     }
@@ -131,7 +132,7 @@ public sealed partial class EditPage : UserControl
                 for (int i = e.OldStartingIndex; i < _tabItems.Count; i++)
                 {
                     FATabViewItem? item = _tabItems[i];
-                    if (item.DataContext is EditPageViewModel.TabViewModel itemViewModel)
+                    if (item.DataContext is EditorTabItem itemViewModel)
                     {
                         itemViewModel.Order = i;
                     }

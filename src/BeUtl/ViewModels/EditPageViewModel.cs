@@ -1,78 +1,35 @@
-﻿using System.Reactive.Linq;
-using System.Collections.Specialized;
-using System.Diagnostics.CodeAnalysis;
+﻿using System.Collections.Specialized;
+using System.Reactive.Linq;
 
 using BeUtl.Collections;
-using BeUtl.Configuration;
 using BeUtl.Framework;
+using BeUtl.Framework.Service;
 using BeUtl.Framework.Services;
 using BeUtl.ProjectSystem;
+using BeUtl.Services;
 
 using Microsoft.Extensions.DependencyInjection;
 
 using Reactive.Bindings;
-using BeUtl.Framework.Service;
+
+using TabViewModel = BeUtl.Services.EditorTabItem;
 
 namespace BeUtl.ViewModels;
 
 public sealed class EditPageViewModel
 {
-    public enum TabOpenMode
-    {
-        // プロジェクトを開いたときに開かれた
-        FromProject,
-
-        // 手動で開かれた。
-        // File>OpenやCtrl+O、Ctrl+Shift+Oなど
-        YourSelf,
-    }
-
-    // Todo: 開く拡張機能を開いている状態で変更できるようにしたい
-    public sealed class TabViewModel : IDisposable
-    {
-        public TabViewModel(IEditorContext context, TabOpenMode tabOpenMode)
-        {
-            Context = context;
-            TabOpenMode = tabOpenMode;
-        }
-
-        public IEditorContext Context { get; }
-
-        public TabOpenMode TabOpenMode { get; }
-
-        public int Order { get; set; } = -1;
-
-        public string FilePath => Context.EdittingFile;
-
-        public string FileName => Path.GetFileName(FilePath);
-
-        public EditorExtension Extension => Context.Extension;
-
-        public IKnownEditorCommands? Commands => Context.Commands;
-
-        public ReactivePropertySlim<bool> IsSelected { get; } = new();
-
-        public void Dispose()
-        {
-            Context.Dispose();
-        }
-    }
-
     private readonly IProjectService _projectService;
+    private readonly EditorService _editorService;
 
     public EditPageViewModel()
     {
         _projectService = ServiceLocator.Current.GetRequiredService<IProjectService>();
-        TabItems = new()
-        {
-            ResetBehavior = ResetBehavior.Remove
-        };
+        _editorService = ServiceLocator.Current.GetRequiredService<EditorService>();
         _projectService.ProjectObservable.Subscribe(item => ProjectChanged(item.New, item.Old));
         Save = new(_projectService.IsOpened);
         SaveAll = new(_projectService.IsOpened);
         Undo = new(_projectService.IsOpened);
         Redo = new(_projectService.IsOpened);
-        KnownCommands = SelectedTabItem.Select(i => i?.Commands).ToReadOnlyReactivePropertySlim();
 
         Save.Subscribe(async () =>
         {
@@ -82,7 +39,7 @@ public sealed class EditPageViewModel
                 INotificationService nservice = ServiceLocator.Current.GetRequiredService<INotificationService>();
                 try
                 {
-                    bool result = await (item.Commands == null ? ValueTask.FromResult(false) : item.Commands.OnSave());
+                    bool result = await (item.Commands.Value == null ? ValueTask.FromResult(false) : item.Commands.Value.OnSave());
 
                     if (result)
                     {
@@ -127,8 +84,8 @@ public sealed class EditPageViewModel
 
                 foreach (TabViewModel? item in TabItems)
                 {
-                    if (item.Commands != null
-                        && await item.Commands.OnSave())
+                    if (item.Commands.Value != null
+                        && await item.Commands.Value.OnSave())
                     {
                         itemsCount++;
                     }
@@ -154,9 +111,11 @@ public sealed class EditPageViewModel
         {
             bool handled = false;
 
-            if (KnownCommands.Value != null)
-                handled = await KnownCommands.Value.OnUndo();
+            IKnownEditorCommands? commands = SelectedTabItem.Value?.Commands.Value;
+            if (commands != null)
+                handled = await commands.OnUndo();
 
+            // Todo: EditViewModelにこの処理を移動する
             if (!handled)
                 CommandRecorder.Default.Undo();
         });
@@ -164,9 +123,11 @@ public sealed class EditPageViewModel
         {
             bool handled = false;
 
-            if (KnownCommands.Value != null)
-                handled = await KnownCommands.Value.OnRedo();
+            IKnownEditorCommands? commands = SelectedTabItem.Value?.Commands.Value;
+            if (commands != null)
+                handled = await commands.OnRedo();
 
+            // Todo: EditViewModelにこの処理を移動する
             if (!handled)
                 CommandRecorder.Default.Redo();
         });
@@ -176,11 +137,9 @@ public sealed class EditPageViewModel
 
     public IReadOnlyReactiveProperty<bool> IsProjectOpened => _projectService.IsOpened;
 
-    public CoreList<TabViewModel> TabItems { get; }
+    public ICoreList<TabViewModel> TabItems => _editorService.TabItems;
 
-    public ReactiveProperty<TabViewModel?> SelectedTabItem { get; } = new();
-
-    public ReadOnlyReactivePropertySlim<IKnownEditorCommands?> KnownCommands { get; }
+    public IReactiveProperty<TabViewModel?> SelectedTabItem => _editorService.SelectedTabItem;
 
     public ReactiveCommand Save { get; }
 
@@ -233,48 +192,13 @@ public sealed class EditPageViewModel
         }
     }
 
-    public bool TryGetTabItem(string? file, [NotNullWhen(true)] out TabViewModel? result)
-    {
-        result = TabItems.FirstOrDefault(i => i.FilePath == file);
-
-        return result != null;
-    }
-
     public void SelectOrAddTabItem(string? file, TabOpenMode tabOpenMode)
     {
-        if (File.Exists(file))
-        {
-            ViewConfig viewConfig = GlobalConfiguration.Instance.ViewConfig;
-            viewConfig.UpdateRecentFile(file);
-
-            if (TryGetTabItem(file, out TabViewModel? tabItem))
-            {
-                tabItem.IsSelected.Value = true;
-            }
-            else
-            {
-                EditorExtension? ext = PackageManager.Instance.ExtensionProvider.MatchEditorExtension(file);
-
-                if (ext?.TryCreateContext(file, out IEditorContext? context) == true)
-                {
-                    TabItems.Add(new TabViewModel(context, tabOpenMode)
-                    {
-                        IsSelected =
-                        {
-                            Value = true
-                        }
-                    });
-                }
-            }
-        }
+        _editorService.ActivateTabItem(file, tabOpenMode);
     }
 
     public void CloseTabItem(string? file, TabOpenMode tabOpenMode)
     {
-        if (TryGetTabItem(file, out TabViewModel? item) && item.TabOpenMode == tabOpenMode)
-        {
-            TabItems.Remove(item);
-            item.Dispose();
-        }
+        _editorService.CloseTabItem(file, tabOpenMode);
     }
 }

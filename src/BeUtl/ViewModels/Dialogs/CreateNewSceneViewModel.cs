@@ -5,6 +5,7 @@ using Avalonia.Controls;
 
 using BeUtl.Framework.Services;
 using BeUtl.ProjectSystem;
+using BeUtl.Services;
 
 using Microsoft.Extensions.DependencyInjection;
 
@@ -64,7 +65,7 @@ public sealed class CreateNewSceneViewModel
         Create.Subscribe(() =>
         {
             IWorkspaceItemContainer container = ServiceLocator.Current.GetRequiredService<IWorkspaceItemContainer>();
-            EditPageViewModel editPage = ServiceLocator.Current.GetRequiredService<EditPageViewModel>();
+            EditorService editPage = ServiceLocator.Current.GetRequiredService<EditorService>();
             var scene = new Scene(Size.Value.Width, Size.Value.Height, Name.Value);
             container.Add(scene);
             scene.Save(Path.Combine(Location.Value, Name.Value, $"{Name.Value}.scene"));
@@ -72,11 +73,11 @@ public sealed class CreateNewSceneViewModel
             if (_proj != null && AddToCurrentProject.Value)
             {
                 _proj.Items.Add(scene);
-                editPage.SelectOrAddTabItem(scene.FileName, EditPageViewModel.TabOpenMode.FromProject);
+                editPage.ActivateTabItem(scene.FileName, TabOpenMode.FromProject);
             }
             else
             {
-                editPage.SelectOrAddTabItem(scene.FileName, EditPageViewModel.TabOpenMode.YourSelf);
+                editPage.ActivateTabItem(scene.FileName, TabOpenMode.YourSelf);
             }
         });
     }

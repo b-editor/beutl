@@ -27,6 +27,7 @@ using BeUtl.Framework.Services;
 using BeUtl.Models;
 using BeUtl.Pages;
 using BeUtl.ProjectSystem;
+using BeUtl.Services;
 using BeUtl.ViewModels;
 using BeUtl.ViewModels.Dialogs;
 using BeUtl.Views.Dialogs;
@@ -93,6 +94,9 @@ public partial class MainView : UserControl
     private readonly CompositeDisposable _disposables = new();
     private readonly List<IControl> _controls = new();
     private readonly AvaloniaList<NavigationViewItem> _navigationItems = new();
+    private readonly EditorService _editorService = ServiceLocator.Current.GetRequiredService<EditorService>();
+    private readonly IProjectService _projectService = ServiceLocator.Current.GetRequiredService<IProjectService>();
+    private readonly IWorkspaceItemContainer _workspaceItemContainer = ServiceLocator.Current.GetRequiredService<IWorkspaceItemContainer>();
     private IControl? _settingsView;
 
     public MainView()
@@ -264,7 +268,7 @@ Error:
 
     private bool TryGetSelectedEditViewModel([NotNullWhen(true)] out EditViewModel? viewModel)
     {
-        if (DataContext is MainViewModel { EditPageContext.SelectedTabItem.Value.Context: EditViewModel editViewModel })
+        if (_editorService.SelectedTabItem.Value?.Context.Value is EditViewModel editViewModel)
         {
             viewModel = editViewModel;
             return true;
@@ -286,8 +290,6 @@ Error:
 
         viewModel.OpenProject.Subscribe(async () =>
         {
-            IProjectService service = ServiceLocator.Current.GetRequiredService<IProjectService>();
-
             // Todo: 後で拡張子を変更
             var dialog = new OpenFileDialog
             {
@@ -309,7 +311,7 @@ Error:
                 string[]? files = await dialog.ShowAsync(window);
                 if ((files?.Any() ?? false) && File.Exists(files[0]))
                 {
-                    service.OpenProject(files[0]);
+                    _projectService.OpenProject(files[0]);
                 }
             }
         }).AddTo(_disposables);
@@ -340,24 +342,23 @@ Error:
                 foreach (string file in files)
                 {
                     // Todo: プロジェクトに追加するかのダイアログを表示する
-                    viewModel.EditPageContext.SelectOrAddTabItem(file, EditPageViewModel.TabOpenMode.YourSelf);
+                    _editorService.ActivateTabItem(file, TabOpenMode.YourSelf);
                 }
             }
         }).AddTo(_disposables);
 
         viewModel.AddToProject.Subscribe(() =>
         {
-            IProjectService service = ServiceLocator.Current.GetRequiredService<IProjectService>();
-            Project? project = service.CurrentProject.Value;
-            IWorkspaceItemContainer resolver = ServiceLocator.Current.GetRequiredService<IWorkspaceItemContainer>();
+            Project? project = _projectService.CurrentProject.Value;
+            EditorTabItem? selectedTabItem = _editorService.SelectedTabItem.Value;
 
-            if (project != null && DataContext is MainViewModel viewModel && viewModel.EditPageContext.SelectedTabItem.Value != null)
+            if (project != null && selectedTabItem != null)
             {
-                EditPageViewModel.TabViewModel tabViewModel = viewModel.EditPageContext.SelectedTabItem.Value;
-                if (project.Items.Any(i => i.FileName == tabViewModel.FilePath))
+                string filePath = selectedTabItem.FilePath.Value;
+                if (project.Items.Any(i => i.FileName == filePath))
                     return;
 
-                if (resolver.TryGetOrCreateItem(tabViewModel.FilePath, out IWorkspaceItem? workspaceItem))
+                if (_workspaceItemContainer.TryGetOrCreateItem(filePath, out IWorkspaceItem? workspaceItem))
                 {
                     project.Items.Add(workspaceItem);
                 }
@@ -366,13 +367,13 @@ Error:
 
         viewModel.RemoveFromProject.Subscribe(async () =>
         {
-            IProjectService service = ServiceLocator.Current.GetRequiredService<IProjectService>();
-            Project? project = service.CurrentProject.Value;
+            Project? project = _projectService.CurrentProject.Value;
+            EditorTabItem? selectedTabItem = _editorService.SelectedTabItem.Value;
 
-            if (project != null && DataContext is MainViewModel viewModel && viewModel.EditPageContext.SelectedTabItem.Value != null)
+            if (project != null && selectedTabItem != null)
             {
-                EditPageViewModel.TabViewModel tabViewModel = viewModel.EditPageContext.SelectedTabItem.Value;
-                IWorkspaceItem? wsItem = project.Items.FirstOrDefault(i => i.FileName == tabViewModel.FilePath);
+                string filePath = selectedTabItem.FilePath.Value;
+                IWorkspaceItem? wsItem = project.Items.FirstOrDefault(i => i.FileName == filePath);
                 if (wsItem == null)
                     return;
 
@@ -381,7 +382,7 @@ Error:
                     [!ContentDialog.CloseButtonTextProperty] = new DynamicResourceExtension("S.Common.Cancel"),
                     [!ContentDialog.PrimaryButtonTextProperty] = new DynamicResourceExtension("S.Common.OK"),
                     DefaultButton = ContentDialogButton.Primary,
-                    Content = (Application.Current?.FindResource("S.Message.DoYouWantToExcludeThisItemFromProject") as string ?? "") + "\n" + tabViewModel.FileName
+                    Content = (Application.Current?.FindResource("S.Message.DoYouWantToExcludeThisItemFromProject") as string ?? "") + "\n" + filePath
                 };
 
                 if (await dialog.ShowAsync() == ContentDialogResult.Primary)
@@ -547,9 +548,9 @@ Error:
                         tabViewModel = new ExtendedEditTabViewModel(ext)
                         {
                             IsSelected =
-                                {
-                                    Value = true
-                                }
+                            {
+                                Value = true
+                            }
                         };
                         editViewModel.UsingExtensions.Add(tabViewModel);
                     }

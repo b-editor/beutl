@@ -3,4 +3,5 @@
     <x:String x:Key="S.SamplePackage.SampleExtension.SampleOp">SampleOp</x:String>
     <x:String x:Key="S.SamplePackage.SSETExtension">Sample tab</x:String>
     <x:String x:Key="S.SamplePackage.SampleEditorExtension.FileTypeName">Text File</x:String>
+    <x:String x:Key="S.SamplePackage.SamplePageExtension.FileTypeName">Mail</x:String>
 </ResourceDictionary>
