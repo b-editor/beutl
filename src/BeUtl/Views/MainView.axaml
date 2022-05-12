@@ -25,11 +25,11 @@
         <KeyBinding Gesture="{DynamicResource CreateNewKeyGesture}" Command="{CompiledBinding CreateNew}" />
         <KeyBinding Gesture="{DynamicResource OpenProjectKeyGesture}" Command="{CompiledBinding OpenProject}" />
         <KeyBinding Gesture="{DynamicResource OpenKeyGesture}" Command="{CompiledBinding OpenFile}" />
-        <KeyBinding Gesture="{DynamicResource SaveKeyGesture}" Command="{CompiledBinding EditPage.Save}" />
-        <KeyBinding Gesture="{DynamicResource SaveAllKeyGesture}" Command="{CompiledBinding EditPage.SaveAll}" />
+        <KeyBinding Gesture="{DynamicResource SaveKeyGesture}" Command="{CompiledBinding EditPageContext.Save}" />
+        <KeyBinding Gesture="{DynamicResource SaveAllKeyGesture}" Command="{CompiledBinding EditPageContext.SaveAll}" />
         <KeyBinding Gesture="{DynamicResource ExitKeyGesture}" Command="{CompiledBinding Exit}" />
-        <KeyBinding Gesture="{DynamicResource UndoKeyGesture}" Command="{CompiledBinding EditPage.Undo}" />
-        <KeyBinding Gesture="{DynamicResource RedoKeyGesture}" Command="{CompiledBinding EditPage.Redo}" />
+        <KeyBinding Gesture="{DynamicResource UndoKeyGesture}" Command="{CompiledBinding EditPageContext.Undo}" />
+        <KeyBinding Gesture="{DynamicResource RedoKeyGesture}" Command="{CompiledBinding EditPageContext.Redo}" />
     </UserControl.KeyBindings>
 
     <Grid RowDefinitions="Auto,*">
@@ -94,7 +94,7 @@
                     <!--上書き保存-->
                     <MenuItem
                         Header="{DynamicResource S.MainView.File.Save}"
-                        Command="{CompiledBinding EditPage.Save}"
+                        Command="{CompiledBinding EditPageContext.Save}"
                         InputGesture="{DynamicResource SaveKeyGesture}"
                         IsEnabled="{CompiledBinding IsProjectOpened.Value}">
                         <MenuItem.Icon>
@@ -104,7 +104,7 @@
                     <!--すべて保存-->
                     <MenuItem
                         Header="{DynamicResource S.MainView.File.SaveAll}"
-                        Command="{CompiledBinding EditPage.SaveAll}"
+                        Command="{CompiledBinding EditPageContext.SaveAll}"
                         InputGesture="{DynamicResource SaveAllKeyGesture}"
                         IsEnabled="{CompiledBinding IsProjectOpened.Value}">
                         <MenuItem.Icon>
@@ -130,7 +130,7 @@
                     <!--元に戻す-->
                     <MenuItem
                         Header="{DynamicResource S.MainView.Edit.Undo}"
-                        Command="{CompiledBinding EditPage.Undo}"
+                        Command="{CompiledBinding EditPageContext.Undo}"
                         InputGesture="{DynamicResource UndoKeyGesture}"
                         IsEnabled="{CompiledBinding IsProjectOpened.Value}">
                         <MenuItem.Icon>
@@ -140,7 +140,7 @@
                     <!--やり直し-->
                     <MenuItem
                         Header="{DynamicResource S.MainView.Edit.Redo}"
-                        Command="{CompiledBinding EditPage.Redo}"
+                        Command="{CompiledBinding EditPageContext.Redo}"
                         InputGesture="{DynamicResource RedoKeyGesture}"
                         IsEnabled="{CompiledBinding IsProjectOpened.Value}">
                         <MenuItem.Icon>
@@ -182,50 +182,11 @@
             IsSettingsVisible="False"
             Classes="SideNavigationView"
             x:Name="Navi">
-            <ui:NavigationView.MenuItems>
-                <ui:NavigationViewItem
-                    x:Name="EditPageItem"
-                    Classes="SideNavigationViewItem"
-                    Tag="{CompiledBinding EditPage}"
-                    Content="{DynamicResource S.MainView.Edit}">
-                    <interactivity:Interaction.Behaviors>
-                        <interactivity:BehaviorCollection>
-                            <ctrl:NavItemHelper RegularIcon="{StaticResource Edit_Regular}"
-                                                FilledIcon="{StaticResource Edit_Filled}" />
-                        </interactivity:BehaviorCollection>
-                    </interactivity:Interaction.Behaviors>
-                </ui:NavigationViewItem>
-                <ui:NavigationViewItem
-                    x:Name="ExtensionsPageItem"
-                    Tag="{CompiledBinding ExtensionsPage}"
-                    Classes="SideNavigationViewItem"
-                    Content="{DynamicResource S.MainView.Extensions}">
-                    <interactivity:Interaction.Behaviors>
-                        <interactivity:BehaviorCollection>
-                            <ctrl:NavItemHelper RegularIcon="{StaticResource Puzzle_piece_Regular}"
-                                                FilledIcon="{StaticResource Puzzle_piece_Filled}" />
-                        </interactivity:BehaviorCollection>
-                    </interactivity:Interaction.Behaviors>
-                </ui:NavigationViewItem>
-                <ui:NavigationViewItem
-                    x:Name="OutputPageItem"
-                    Tag="{CompiledBinding OutputPage}"
-                    Classes="SideNavigationViewItem"
-                    Content="{DynamicResource S.MainView.Output}">
-                    <interactivity:Interaction.Behaviors>
-                        <interactivity:BehaviorCollection>
-                            <ctrl:NavItemHelper RegularIcon="{StaticResource Arrow_Export_LTR_Regular}"
-                                                FilledIcon="{StaticResource Arrow_Export_LTR_Filled}" />
-                        </interactivity:BehaviorCollection>
-                    </interactivity:Interaction.Behaviors>
-                </ui:NavigationViewItem>
-            </ui:NavigationView.MenuItems>
             <ui:NavigationView.FooterMenuItems>
-                <ui:NavigationViewItem
-                    x:Name="SettingsPageItem"
-                    Tag="{CompiledBinding SettingsPage}"
-                    Classes="SideNavigationViewItem"
-                    Content="{DynamicResource S.MainView.Settings}">
+                <ui:NavigationViewItem x:Name="SettingsPageItem"
+                                       DataContext="{CompiledBinding SettingsPage}"
+                                       Classes="SideNavigationViewItem"
+                                       Content="{DynamicResource S.MainView.Settings}">
                     <interactivity:Interaction.Behaviors>
                         <interactivity:BehaviorCollection>
                             <ctrl:NavItemHelper RegularIcon="{StaticResource Settings_Regular}"

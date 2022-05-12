@@ -11,14 +11,17 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Controls.Primitives;
 using Avalonia.Controls.Templates;
+using Avalonia.Data;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Media;
 using Avalonia.Styling;
+using Avalonia.Xaml.Interactivity;
 
 using BeUtl.Collections;
+using BeUtl.Controls;
 using BeUtl.Framework;
 using BeUtl.Framework.Services;
 using BeUtl.Models;
@@ -83,17 +86,14 @@ internal readonly struct Cache<T>
 
 public partial class MainView : UserControl
 {
+    private static readonly Binding s_headerBinding = new("Header.Value");
     private readonly AvaloniaList<MenuItem> _rawRecentFileItems = new();
     private readonly AvaloniaList<MenuItem> _rawRecentProjItems = new();
     private readonly Cache<MenuItem> _menuItemCache = new(4);
     private readonly CompositeDisposable _disposables = new();
-    // 拡張機能対応の時にこれをサービス化する
-    private readonly Dictionary<Type, Type> _contextToView = new()
-    {
-        [typeof(EditPageViewModel)] = typeof(EditPage),
-        [typeof(SettingsPageViewModel)] = typeof(SettingsPage),
-    };
     private readonly List<IControl> _controls = new();
+    private readonly AvaloniaList<NavigationViewItem> _navigationItems = new();
+    private IControl? _settingsView;
 
     public MainView()
     {
@@ -102,7 +102,7 @@ public partial class MainView : UserControl
         NaviContent.PageTransition = new CustomPageTransition();
 
         // NavigationViewの設定
-        Navi.SelectedItem = EditPageItem;
+        Navi.MenuItems = _navigationItems;
         Navi.ItemInvoked += NavigationView_ItemInvoked;
 
         recentFiles.Items = _rawRecentFileItems;
@@ -127,17 +127,22 @@ public partial class MainView : UserControl
         _disposables.Clear();
         if (DataContext is MainViewModel viewModel)
         {
+            _settingsView = new SettingsPage
+            {
+                DataContext = viewModel.SettingsPage.Context
+            };
             _controls.Clear();
+            _navigationItems.Clear();
             viewModel.Pages.ForEachItem(
                 (idx, item) =>
                 {
                     IControl? view = null;
                     Exception? exception = null;
-                    if (item != null && _contextToView.TryGetValue(item.GetType(), out Type? viewType))
+                    if (item.Extension.Control != null)
                     {
                         try
                         {
-                            view = Activator.CreateInstance(viewType) as IControl;
+                            view = Activator.CreateInstance(item.Extension.Control) as IControl;
                         }
                         catch (Exception e)
                         {
@@ -158,18 +163,33 @@ StackTrace:
     {exception.StackTrace}
 " : @"
 Error:
-    このコンテキストを表示する拡張機能が見つかりません。
+    このコンテキストを表示できません。
 "
                     };
 
-                    view.DataContext = item;
+                    view.DataContext = item.Context;
 
                     _controls.Insert(idx, view);
+                    _navigationItems.Insert(idx, new NavigationViewItem()
+                    {
+                        Classes = { "SideNavigationViewItem" },
+                        DataContext = item,
+                        [!ContentProperty] = s_headerBinding,
+                        [Interaction.BehaviorsProperty] = new BehaviorCollection
+                        {
+                            new NavItemHelper()
+                            {
+                                FilledIcon = item.Extension.FilledIcon,
+                                RegularIcon = item.Extension.RegularIcon,
+                            }
+                        }
+                    });
                 },
                 (idx, item) =>
                 {
-                    (item as IDisposable)?.Dispose();
+                    (item.Context as IDisposable)?.Dispose();
                     _controls.RemoveAt(idx);
+                    _navigationItems.RemoveAt(idx);
                 },
                 () => throw new Exception("'MainViewModel.Pages'は'Clear'メソッドに対応していません。"))
                 .AddTo(_disposables);
@@ -178,9 +198,12 @@ Error:
             {
                 if (DataContext is MainViewModel viewModel)
                 {
-                    int idx = viewModel.Pages.IndexOf(obj);
-                    if (idx < 0) return;
-                    NaviContent.Content = _controls[idx];
+                    int idx = obj == null
+                        ? -1
+                        : viewModel.Pages.IndexOf(obj);
+
+                    NaviContent.Content = idx >= 0 ? _controls[idx] : _settingsView;
+                    Navi.SelectedItem = idx >= 0 ? _navigationItems[idx] : Navi.FooterMenuItems.Cast<object>().First();
                 }
             }).AddTo(_disposables);
 
@@ -232,15 +255,16 @@ Error:
 
     private void NavigationView_ItemInvoked(object? sender, NavigationViewItemInvokedEventArgs e)
     {
-        if (e.InvokedItemContainer is NavigationViewItem item && DataContext is MainViewModel viewModel)
+        if (e.InvokedItemContainer.DataContext is MainViewModel.NavItemViewModel itemViewModel
+            && DataContext is MainViewModel viewModel)
         {
-            viewModel.SelectedPage.Value = item.Tag;
+            viewModel.SelectedPage.Value = itemViewModel;
         }
     }
 
     private bool TryGetSelectedEditViewModel([NotNullWhen(true)] out EditViewModel? viewModel)
     {
-        if (DataContext is MainViewModel { EditPage.SelectedTabItem.Value.Context: EditViewModel editViewModel })
+        if (DataContext is MainViewModel { EditPageContext.SelectedTabItem.Value.Context: EditViewModel editViewModel })
         {
             viewModel = editViewModel;
             return true;
@@ -316,7 +340,7 @@ Error:
                 foreach (string file in files)
                 {
                     // Todo: プロジェクトに追加するかのダイアログを表示する
-                    viewModel.EditPage.SelectOrAddTabItem(file, EditPageViewModel.TabOpenMode.YourSelf);
+                    viewModel.EditPageContext.SelectOrAddTabItem(file, EditPageViewModel.TabOpenMode.YourSelf);
                 }
             }
         }).AddTo(_disposables);
@@ -327,9 +351,9 @@ Error:
             Project? project = service.CurrentProject.Value;
             IWorkspaceItemContainer resolver = ServiceLocator.Current.GetRequiredService<IWorkspaceItemContainer>();
 
-            if (project != null && DataContext is MainViewModel viewModel && viewModel.EditPage.SelectedTabItem.Value != null)
+            if (project != null && DataContext is MainViewModel viewModel && viewModel.EditPageContext.SelectedTabItem.Value != null)
             {
-                EditPageViewModel.TabViewModel tabViewModel = viewModel.EditPage.SelectedTabItem.Value;
+                EditPageViewModel.TabViewModel tabViewModel = viewModel.EditPageContext.SelectedTabItem.Value;
                 if (project.Items.Any(i => i.FileName == tabViewModel.FilePath))
                     return;
 
@@ -345,9 +369,9 @@ Error:
             IProjectService service = ServiceLocator.Current.GetRequiredService<IProjectService>();
             Project? project = service.CurrentProject.Value;
 
-            if (project != null && DataContext is MainViewModel viewModel && viewModel.EditPage.SelectedTabItem.Value != null)
+            if (project != null && DataContext is MainViewModel viewModel && viewModel.EditPageContext.SelectedTabItem.Value != null)
             {
-                EditPageViewModel.TabViewModel tabViewModel = viewModel.EditPage.SelectedTabItem.Value;
+                EditPageViewModel.TabViewModel tabViewModel = viewModel.EditPageContext.SelectedTabItem.Value;
                 IWorkspaceItem? wsItem = project.Items.FirstOrDefault(i => i.FileName == tabViewModel.FilePath);
                 if (wsItem == null)
                     return;

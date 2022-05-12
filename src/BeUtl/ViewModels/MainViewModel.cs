@@ -2,10 +2,12 @@ using System.Reactive.Linq;
 
 using Avalonia;
 using Avalonia.Collections;
+using Avalonia.Media;
 using Avalonia.Threading;
 
 using BeUtl.Collections;
 using BeUtl.Configuration;
+using BeUtl.Controls;
 using BeUtl.Framework;
 using BeUtl.Framework.Service;
 using BeUtl.Framework.Services;
@@ -22,6 +24,33 @@ public class MainViewModel
     private readonly IProjectService _projectService;
     internal readonly Task _packageLoadTask;
 
+    public sealed class NavItemViewModel
+    {
+        public NavItemViewModel(PageExtension extension)
+        {
+            Extension = extension;
+            Context = Activator.CreateInstance(extension.Context) ?? throw new Exception("コンテキストを作成できませんでした。");
+            Header = extension.Header.GetResourceObservable()
+                .Select(o => o ?? string.Empty)
+                .ToReadOnlyReactivePropertySlim(string.Empty);
+        }
+        
+        public NavItemViewModel(PageExtension extension, object context)
+        {
+            Extension = extension;
+            Context = context;
+            Header = extension.Header.GetResourceObservable()
+                .Select(o => o ?? string.Empty)
+                .ToReadOnlyReactivePropertySlim(string.Empty);
+        }
+
+        public ReadOnlyReactivePropertySlim<string> Header { get; }
+
+        public PageExtension Extension { get; }
+
+        public object Context { get; }
+    }
+
     public MainViewModel()
     {
         _projectService = ServiceLocator.Current.GetRequiredService<IProjectService>();
@@ -29,9 +58,9 @@ public class MainViewModel
         IsProjectOpened = _projectService.IsOpened;
 
         IObservable<bool> isProjectOpenedAndTabOpened = _projectService.IsOpened
-            .CombineLatest(EditPage.SelectedTabItem)
+            .CombineLatest(EditPageContext.SelectedTabItem)
             .Select(i => i.First && i.Second != null);
-        IObservable<bool> isSceneOpened = EditPage.SelectedTabItem.Select(i => i?.Context is EditViewModel);
+        IObservable<bool> isSceneOpened = EditPageContext.SelectedTabItem.Select(i => i?.Context is EditViewModel);
 
         AddToProject = new(isProjectOpenedAndTabOpened);
         RemoveFromProject = new(isProjectOpenedAndTabOpened);
@@ -41,16 +70,16 @@ public class MainViewModel
         CutLayer = new(isSceneOpened);
         CopyLayer = new(isSceneOpened);
         PasteLayer = new(isSceneOpened);
-        CloseFile = new(EditPage.SelectedTabItem.Select(i => i != null));
+        CloseFile = new(EditPageContext.SelectedTabItem.Select(i => i != null));
         CloseProject = new(_projectService.IsOpened);
 
         CloseFile.Subscribe(() =>
         {
-            if (EditPage.SelectedTabItem.Value != null)
+            if (EditPageContext.SelectedTabItem.Value != null)
             {
-                EditPage.CloseTabItem(
-                    EditPage.SelectedTabItem.Value.FilePath,
-                    EditPage.SelectedTabItem.Value.TabOpenMode);
+                EditPageContext.CloseTabItem(
+                    EditPageContext.SelectedTabItem.Value.FilePath,
+                    EditPageContext.SelectedTabItem.Value.TabOpenMode);
             }
         });
         CloseProject.Subscribe(() => _projectService.CloseProject());
@@ -58,11 +87,22 @@ public class MainViewModel
         _packageLoadTask = Task.Run(async () =>
         {
             PackageManager manager = PackageManager.Instance;
+            int id1 = Package.s_nextId++;
+            int id2 = Package.s_nextId++;
+
             manager.LoadPackages(manager.GetPackageInfos());
+
+            manager.ExtensionProvider._allExtensions.Add(id1, new Extension[]
+            {
+                EditPageExtension.Instance,
+                ExtensionPageExtension.Instance,
+                OutputPageExtension.Instance,
+                SettingsPageExtension.Instance,
+            });
 
             // Todo: ここでSceneEditorExtensionを登録しているので、
             //       パッケージとして分離する場合ここを削除
-            manager.ExtensionProvider._allExtensions.Add(Package.s_nextId++, new Extension[]
+            manager.ExtensionProvider._allExtensions.Add(id2, new Extension[]
             {
                 SceneEditorExtension.Instance,
                 SceneWorkspaceItemExtension.Instance,
@@ -79,12 +119,11 @@ public class MainViewModel
 
         Pages = new()
         {
-            EditPage,
-            ExtensionsPage,
-            OutputPage,
-            SettingsPage
+            new(EditPageExtension.Instance, EditPageContext),
+            new(ExtensionPageExtension.Instance),
+            new(OutputPageExtension.Instance),
         };
-        SelectedPage.Value = EditPage;
+        SelectedPage.Value = Pages[0];
         ViewConfig viewConfig = GlobalConfiguration.Instance.ViewConfig;
         viewConfig.RecentFiles.ForEachItem(
             item => RecentFileItems.Insert(0, item),
@@ -96,7 +135,7 @@ public class MainViewModel
             item => RecentProjectItems.Remove(item),
             () => RecentProjectItems.Clear());
 
-        OpenRecentFile.Subscribe(file => EditPage.SelectOrAddTabItem(file, EditPageViewModel.TabOpenMode.YourSelf));
+        OpenRecentFile.Subscribe(file => EditPageContext.SelectOrAddTabItem(file, EditPageViewModel.TabOpenMode.YourSelf));
 
         OpenRecentProject.Subscribe(file =>
         {
@@ -119,7 +158,7 @@ public class MainViewModel
             }
         });
 
-        ServiceLocator.Current.BindToSelf(EditPage);
+        ServiceLocator.Current.BindToSelf(EditPageContext);
     }
 
     // File
@@ -189,17 +228,15 @@ public class MainViewModel
 
     public ReactiveCommand PasteLayer { get; }
 
-    public EditPageViewModel EditPage { get; } = new();
+    // Todo: EditPageViewModelに依存しないサービスを作る
+    //[Obsolete("Use EditorService")]
+    public EditPageViewModel EditPageContext { get; } = new();
 
-    public ExtensionsPageViewModel ExtensionsPage { get; } = new();
+    public NavItemViewModel SettingsPage { get; } = new(SettingsPageExtension.Instance);
 
-    public OutputPageViewModel OutputPage { get; } = new();
+    public CoreList<NavItemViewModel> Pages { get; }
 
-    public SettingsPageViewModel SettingsPage { get; } = new();
-
-    public CoreList<object?> Pages { get; }
-
-    public ReactiveProperty<object?> SelectedPage { get; } = new();
+    public ReactiveProperty<NavItemViewModel?> SelectedPage { get; } = new();
 
     public IReadOnlyReactiveProperty<bool> IsProjectOpened { get; }
 }

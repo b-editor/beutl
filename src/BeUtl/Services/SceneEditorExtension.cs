@@ -12,6 +12,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace BeUtl.Services;
 
+[PrimitiveImpl]
 public sealed class SceneEditorExtension : EditorExtension
 {
     public static readonly SceneEditorExtension Instance = new();

@@ -8,6 +8,7 @@ using BeUtl.ProjectSystem;
 
 namespace BeUtl.Services;
 
+[PrimitiveImpl]
 public sealed class SceneWorkspaceItemExtension : WorkspaceItemExtension
 {
     public static readonly SceneWorkspaceItemExtension Instance = new();
