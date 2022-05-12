@@ -1,7 +1,9 @@
+using System.Diagnostics;
 using System.Reactive.Linq;
 
 using Avalonia;
 using Avalonia.Collections;
+using Avalonia.Controls;
 using Avalonia.Media;
 using Avalonia.Threading;
 
@@ -11,6 +13,7 @@ using BeUtl.Controls;
 using BeUtl.Framework;
 using BeUtl.Framework.Service;
 using BeUtl.Framework.Services;
+using BeUtl.ProjectSystem;
 using BeUtl.Services;
 
 using DynamicData;
@@ -25,6 +28,7 @@ public class MainViewModel
 {
     private readonly IProjectService _projectService;
     private readonly EditorService _editorService;
+    private readonly INotificationService _notificationService;
     private readonly PageExtension[] _primitivePageExtensions;
     internal readonly Task _packageLoadTask;
 
@@ -59,6 +63,7 @@ public class MainViewModel
     {
         _projectService = ServiceLocator.Current.GetRequiredService<IProjectService>();
         _editorService = ServiceLocator.Current.GetRequiredService<EditorService>();
+        _notificationService = ServiceLocator.Current.GetRequiredService<INotificationService>();
         _primitivePageExtensions = new PageExtension[]
         {
             EditPageExtension.Instance,
@@ -88,6 +93,82 @@ public class MainViewModel
         PasteLayer = new(isSceneOpened);
         CloseFile = new(_editorService.SelectedTabItem.Select(i => i != null));
         CloseProject = new(_projectService.IsOpened);
+        Save = new(_projectService.IsOpened);
+        SaveAll = new(_projectService.IsOpened);
+        Undo = new(_projectService.IsOpened);
+        Redo = new(_projectService.IsOpened);
+
+        Save.Subscribe(async () =>
+        {
+            EditorTabItem? item = _editorService.SelectedTabItem.Value;
+            if (item != null)
+            {
+                try
+                {
+                    bool result = await (item.Commands.Value == null ? ValueTask.FromResult(false) : item.Commands.Value.OnSave());
+
+                    if (result)
+                    {
+                        string message = new ResourceReference<string>("S.Message.ItemSaved").FindOrDefault("{0}");
+                        _notificationService.Show(new Notification(
+                            string.Empty,
+                            string.Format(message, item.FileName),
+                            NotificationType.Success));
+                    }
+                    else
+                    {
+                        string message = new ResourceReference<string>("S.Message.OperationCouldNotBeExecuted").FindOrDefault(string.Empty);
+                        _notificationService.Show(new Notification(
+                            string.Empty,
+                            message,
+                            NotificationType.Information));
+                    }
+                }
+                catch
+                {
+                    string message = new ResourceReference<string>("S.Message.OperationCouldNotBeExecuted").FindOrDefault(string.Empty);
+                    _notificationService.Show(new Notification(
+                        string.Empty,
+                        message,
+                        NotificationType.Error));
+                }
+            }
+        });
+
+        SaveAll.Subscribe(async () =>
+        {
+            Project? project = _projectService.CurrentProject.Value;
+            int itemsCount = 0;
+
+            try
+            {
+                project?.Save(project.FileName);
+                itemsCount++;
+
+                foreach (EditorTabItem? item in _editorService.TabItems)
+                {
+                    if (item.Commands.Value != null
+                        && await item.Commands.Value.OnSave())
+                    {
+                        itemsCount++;
+                    }
+                }
+
+                string message = new ResourceReference<string>("S.Message.ItemsSaved").FindOrDefault(string.Empty);
+                _notificationService.Show(new Notification(
+                    string.Empty,
+                    string.Format(message, itemsCount.ToString()),
+                    NotificationType.Success));
+            }
+            catch
+            {
+                string message = new ResourceReference<string>("S.Message.OperationCouldNotBeExecuted").FindOrDefault(string.Empty);
+                _notificationService.Show(new Notification(
+                    string.Empty,
+                    message,
+                    NotificationType.Error));
+            }
+        });
 
         CloseFile.Subscribe(() =>
         {
@@ -100,6 +181,31 @@ public class MainViewModel
             }
         });
         CloseProject.Subscribe(() => _projectService.CloseProject());
+
+        Undo.Subscribe(async () =>
+        {
+            bool handled = false;
+
+            IKnownEditorCommands? commands = _editorService.SelectedTabItem.Value?.Commands.Value;
+            if (commands != null)
+                handled = await commands.OnUndo();
+
+            // Todo: EditViewModel‚É‚±‚Ìˆ—‚ðˆÚ“®‚·‚é
+            if (!handled)
+                CommandRecorder.Default.Undo();
+        });
+        Redo.Subscribe(async () =>
+        {
+            bool handled = false;
+
+            IKnownEditorCommands? commands = _editorService.SelectedTabItem.Value?.Commands.Value;
+            if (commands != null)
+                handled = await commands.OnRedo();
+
+            // Todo: EditViewModel‚É‚±‚Ìˆ—‚ðˆÚ“®‚·‚é
+            if (!handled)
+                CommandRecorder.Default.Redo();
+        });
 
         _packageLoadTask = Task.Run(async () =>
         {
@@ -178,6 +284,8 @@ public class MainViewModel
         });
     }
 
+    public bool IsDebuggerAttached { get; }= Debugger.IsAttached;
+
     // File
     //    Create new
     //       Project
@@ -204,6 +312,10 @@ public class MainViewModel
 
     public ReactiveCommand CloseProject { get; }
 
+    public ReactiveCommand Save { get; }
+
+    public ReactiveCommand SaveAll { get; }
+
     public ReactiveCommand<string> OpenRecentFile { get; } = new();
 
     public ReactiveCommand<string> OpenRecentProject { get; } = new();
@@ -213,6 +325,13 @@ public class MainViewModel
     public CoreList<string> RecentProjectItems { get; } = new();
 
     public ReactiveCommand Exit { get; } = new();
+
+    // Edit
+    //    Undo
+    //    Redo
+    public ReactiveCommand Undo { get; }
+
+    public ReactiveCommand Redo { get; }
 
     // Project
     //    Add

@@ -44,10 +44,9 @@ public sealed partial class EditPage : UserControl
                 (item) =>
                 {
                     EditorExtension ext = item.Extension.Value;
-                    // Ç±ÇÃì‡ïîÇ≈Project.Children.AddÇµÇƒÇ¢ÇÈÇÃÇ≈ìÒèdÇ…í«â¡Ç≥ÇÍÇÈ
                     if (ext.TryCreateEditor(item.FilePath.Value, out IEditor? editor))
                     {
-                        editor.DataContext = item.Context;
+                        editor.DataContext = item.Context.Value;
                         var tabItem = new FATabViewItem
                         {
                             [!FATabViewItem.HeaderProperty] = new Binding("FileName.Value"),

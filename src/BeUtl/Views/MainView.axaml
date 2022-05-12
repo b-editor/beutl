@@ -25,15 +25,15 @@
         <KeyBinding Gesture="{DynamicResource CreateNewKeyGesture}" Command="{CompiledBinding CreateNew}" />
         <KeyBinding Gesture="{DynamicResource OpenProjectKeyGesture}" Command="{CompiledBinding OpenProject}" />
         <KeyBinding Gesture="{DynamicResource OpenKeyGesture}" Command="{CompiledBinding OpenFile}" />
-        <KeyBinding Gesture="{DynamicResource SaveKeyGesture}" Command="{CompiledBinding EditPageContext.Save}" />
-        <KeyBinding Gesture="{DynamicResource SaveAllKeyGesture}" Command="{CompiledBinding EditPageContext.SaveAll}" />
+        <KeyBinding Gesture="{DynamicResource SaveKeyGesture}" Command="{CompiledBinding Save}" />
+        <KeyBinding Gesture="{DynamicResource SaveAllKeyGesture}" Command="{CompiledBinding SaveAll}" />
         <KeyBinding Gesture="{DynamicResource ExitKeyGesture}" Command="{CompiledBinding Exit}" />
-        <KeyBinding Gesture="{DynamicResource UndoKeyGesture}" Command="{CompiledBinding EditPageContext.Undo}" />
-        <KeyBinding Gesture="{DynamicResource RedoKeyGesture}" Command="{CompiledBinding EditPageContext.Redo}" />
+        <KeyBinding Gesture="{DynamicResource UndoKeyGesture}" Command="{CompiledBinding Undo}" />
+        <KeyBinding Gesture="{DynamicResource RedoKeyGesture}" Command="{CompiledBinding Redo}" />
     </UserControl.KeyBindings>
 
     <Grid RowDefinitions="Auto,*">
-        <Grid ColumnDefinitions="Auto,Auto" x:Name="Titlebar" Background="Transparent">
+        <Grid ColumnDefinitions="Auto,Auto,*" x:Name="Titlebar" Background="Transparent">
             <Image Source="/Assets/logo.ico"
                    MaxWidth="24"
                    MaxHeight="24"
@@ -94,7 +94,7 @@
                     <!--上書き保存-->
                     <MenuItem
                         Header="{DynamicResource S.MainView.File.Save}"
-                        Command="{CompiledBinding EditPageContext.Save}"
+                        Command="{CompiledBinding Save}"
                         InputGesture="{DynamicResource SaveKeyGesture}"
                         IsEnabled="{CompiledBinding IsProjectOpened.Value}">
                         <MenuItem.Icon>
@@ -104,7 +104,7 @@
                     <!--すべて保存-->
                     <MenuItem
                         Header="{DynamicResource S.MainView.File.SaveAll}"
-                        Command="{CompiledBinding EditPageContext.SaveAll}"
+                        Command="{CompiledBinding SaveAll}"
                         InputGesture="{DynamicResource SaveAllKeyGesture}"
                         IsEnabled="{CompiledBinding IsProjectOpened.Value}">
                         <MenuItem.Icon>
@@ -130,7 +130,7 @@
                     <!--元に戻す-->
                     <MenuItem
                         Header="{DynamicResource S.MainView.Edit.Undo}"
-                        Command="{CompiledBinding EditPageContext.Undo}"
+                        Command="{CompiledBinding Undo}"
                         InputGesture="{DynamicResource UndoKeyGesture}"
                         IsEnabled="{CompiledBinding IsProjectOpened.Value}">
                         <MenuItem.Icon>
@@ -140,7 +140,7 @@
                     <!--やり直し-->
                     <MenuItem
                         Header="{DynamicResource S.MainView.Edit.Redo}"
-                        Command="{CompiledBinding EditPageContext.Redo}"
+                        Command="{CompiledBinding Redo}"
                         InputGesture="{DynamicResource RedoKeyGesture}"
                         IsEnabled="{CompiledBinding IsProjectOpened.Value}">
                         <MenuItem.Icon>
@@ -175,6 +175,15 @@
                 <!--ヘルプ-->
                 <MenuItem Header="{DynamicResource S.MainView.Help}" />
             </Menu>
+
+            <Border Grid.Column="2"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Center"
+                    Padding="4"
+                    IsVisible="{CompiledBinding IsDebuggerAttached}"
+                    Background="{DynamicResource ControlFillColorDefaultBrush}">
+                <TextBlock Text="Debug" />
+            </Border>
         </Grid>
 
         <ui:NavigationView
