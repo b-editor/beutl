@@ -2,8 +2,12 @@ using System.Collections.Specialized;
 
 using Avalonia.Collections;
 using Avalonia.Controls;
+using Avalonia.Controls.Presenters;
+using Avalonia.Controls.Templates;
 using Avalonia.Data;
+using Avalonia.Data.Converters;
 using Avalonia.Interactivity;
+using Avalonia.Media;
 using Avalonia.VisualTree;
 
 using BeUtl.Collections;
@@ -21,6 +25,43 @@ namespace BeUtl.Pages;
 
 public sealed partial class EditPage : UserControl
 {
+    private static readonly Binding s_headerBinding = new("FileName.Value");
+    private static readonly Binding s_iconSourceBinding = new("Extension.Value.Icon")
+    {
+        Converter = new FuncValueConverter<Geometry?, FAPathIconSource?>(
+            geometry => geometry != null
+                            ? new FAPathIconSource { Data = geometry }
+                            : null)
+    };
+    private static readonly Binding s_isSelectedBinding = new("IsSelected.Value", BindingMode.TwoWay);
+    private static readonly Binding s_contentBinding = new("Context.Value", BindingMode.OneWay)
+    {
+        Converter = new FuncValueConverter<IEditorContext, object>(
+            (obj) =>
+            {
+                if (obj?.Extension.TryCreateEditor(obj.EdittingFile, out IEditor? editor) == true)
+                {
+                    editor.DataContext = obj;
+                    return editor;
+                }
+                else
+                {
+                    return new TextBlock()
+                    {
+                        Text = obj != null ? @$"
+Error:
+    '{obj.Extension.Name}' 拡張機能で '{Path.GetFileName(obj.EdittingFile)}' を開けませんでした。
+
+Message:
+    エディターコンテキストは既に作成されています。
+" : @"
+Error:
+    エディターコンテキストにNullが指定されました。
+"
+                    };
+                }
+            })
+    };
     private readonly AvaloniaList<FATabViewItem> _tabItems = new();
     private IDisposable? _disposable0;
 
@@ -44,40 +85,29 @@ public sealed partial class EditPage : UserControl
                 (item) =>
                 {
                     EditorExtension ext = item.Extension.Value;
-                    if (ext.TryCreateEditor(item.FilePath.Value, out IEditor? editor))
+                    var tabItem = new FATabViewItem
                     {
-                        editor.DataContext = item.Context.Value;
-                        var tabItem = new FATabViewItem
-                        {
-                            [!FATabViewItem.HeaderProperty] = new Binding("FileName.Value"),
-                            [!ListBoxItem.IsSelectedProperty] = new Binding("IsSelected.Value", BindingMode.TwoWay),
-                            DataContext = item,
-                            Content = editor
-                        };
+                        [!FATabViewItem.HeaderProperty] = s_headerBinding,
+                        [!FATabViewItem.IconSourceProperty] = s_iconSourceBinding,
+                        [!ListBoxItem.IsSelectedProperty] = s_isSelectedBinding,
+                        [!ContentProperty] = s_contentBinding,
+                        DataContext = item
+                    };
 
-                        if (ext.Icon != null)
+                    tabItem.CloseRequested += (s, _) =>
+                    {
+                        if (s is FATabViewItem { DataContext: EditorTabItem itemViewModel } && DataContext is EditPageViewModel viewModel)
                         {
-                            tabItem.IconSource = new FAPathIconSource()
-                            {
-                                Data = ext.Icon,
-                            };
+                            viewModel.CloseTabItem(itemViewModel.FilePath.Value, itemViewModel.TabOpenMode);
                         }
+                    };
 
-                        tabItem.CloseRequested += (s, _) =>
-                        {
-                            if (s is FATabViewItem { DataContext: EditorTabItem itemViewModel } && DataContext is EditPageViewModel viewModel)
-                            {
-                                viewModel.CloseTabItem(itemViewModel.FilePath.Value, itemViewModel.TabOpenMode);
-                            }
-                        };
-
-                        if (item.Order < 0 || item.Order > _tabItems.Count)
-                        {
-                            item.Order = _tabItems.Count;
-                        }
-
-                        _tabItems.Insert(item.Order, tabItem);
+                    if (item.Order < 0 || item.Order > _tabItems.Count)
+                    {
+                        item.Order = _tabItems.Count;
                     }
+
+                    _tabItems.Insert(item.Order, tabItem);
                 },
                 (item) =>
                 {
