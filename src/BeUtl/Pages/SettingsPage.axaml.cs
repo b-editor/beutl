@@ -51,6 +51,15 @@ public partial class SettingsPage : UserControl
             },
             new NavigationViewItem()
             {
+                [!ContentProperty] = new DynamicResourceExtension("S.SettingsPage.Extensions"),
+                Tag = typeof(ExtensionsSettingsPage),
+                Icon = new FluentAvalonia.UI.Controls.PathIcon
+                {
+                    Data = (Geometry)Application.Current!.FindResource("Puzzle_piece_Regular")!
+                }
+            },
+            new NavigationViewItem()
+            {
                 [!ContentProperty] = new DynamicResourceExtension("S.SettingsPage.Info"),
                 Tag = typeof(InfomationPage),
                 Icon = new FluentAvalonia.UI.Controls.PathIcon

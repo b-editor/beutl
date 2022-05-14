@@ -39,7 +39,12 @@ public abstract class EditorExtension : ViewExtension
 
     public virtual bool IsSupported(string file)
     {
-        string ext = Path.GetExtension(file);
+        return MatchFileExtension(Path.GetExtension(file));
+    }
+
+    // extはピリオドを含む
+    public bool MatchFileExtension(string ext)
+    {
         for (int i = 0; i < FileExtensions.Length; i++)
         {
             string item = FileExtensions[i];

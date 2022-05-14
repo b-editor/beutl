@@ -25,4 +25,6 @@ public interface ICoreList<T> : IObservableList<T>, IList, ICoreReadOnlyList<T>
     void RemoveRange(int index, int count);
 
     new void RemoveAt(int index);
+
+    new void Clear();
 }

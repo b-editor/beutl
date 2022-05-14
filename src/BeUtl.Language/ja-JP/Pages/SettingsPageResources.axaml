@@ -4,6 +4,7 @@
         <!--Strings-->
         <StaticResource x:Key="S.SettingsPage.View" ResourceKey="S.Common.View" />
         <StaticResource x:Key="S.SettingsPage.Font" ResourceKey="S.Common.Font" />
+        <StaticResource x:Key="S.SettingsPage.Extensions" ResourceKey="S.Common.Extensions" />
         <StaticResource x:Key="S.SettingsPage.Info" ResourceKey="S.Common.Info" />
 
         <StaticResource x:Key="S.FontSettingsPage.Add" ResourceKey="S.Common.Add" />
@@ -21,5 +22,17 @@
         <StaticResource x:Key="S.ViewSettingsPage.Theme.HighContrast" ResourceKey="S.Common.HighContrast" />
         <StaticResource x:Key="S.ViewSettingsPage.Theme.System" ResourceKey="S.Common.FollowSystem" />
         <StaticResource x:Key="S.ViewSettingsPage.Language" ResourceKey="S.Common.Language" />
+
+        <x:String x:Key="S.ExtensionsSettingsPage.EditorExtensionPriority">エディター拡張の優先順位</x:String>
+        <StaticResource x:Key="S.ExtensionsSettingsPage.EditorExtensionPriority.FileExtension.Add" ResourceKey="S.Common.Add" />
+        <StaticResource x:Key="S.ExtensionsSettingsPage.EditorExtensionPriority.FileExtension.Remove" ResourceKey="S.Common.Remove" />
+        <x:String x:Key="S.ExtensionsSettingsPage.EditorExtensionPriority.Higher">上</x:String>
+        <x:String x:Key="S.ExtensionsSettingsPage.EditorExtensionPriority.Lower">下</x:String>
+        <StaticResource x:Key="S.ExtensionsSettingsPage.EditorExtensionPriority.Remove" ResourceKey="S.Common.Remove" />
+        <StaticResource x:Key="S.ExtensionsSettingsPage.EditorExtensionPriority.Add" ResourceKey="S.Common.Add" />
+        <x:String x:Key="S.ExtensionsSettingsPage.EditorExtensionPriority.All">全てのエディター拡張</x:String>
+        <x:String x:Key="S.ExtensionsSettingsPage.EditorExtensionPriority.Dialog1.Title">ファイル拡張子を追加</x:String>
+        <StaticResource x:Key="S.ExtensionsSettingsPage.EditorExtensionPriority.Dialog1.Add" ResourceKey="S.Common.Add" />
+        <StaticResource x:Key="S.ExtensionsSettingsPage.EditorExtensionPriority.Dialog1.Cancel" ResourceKey="S.Common.Cancel" />
     </Styles.Resources>
 </Styles>
