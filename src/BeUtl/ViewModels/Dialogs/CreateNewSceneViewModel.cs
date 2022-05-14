@@ -1,7 +1,6 @@
 ﻿using System.Reactive.Linq;
 
 using Avalonia;
-using Avalonia.Controls;
 
 using BeUtl.Framework.Services;
 using BeUtl.ProjectSystem;
@@ -10,6 +9,8 @@ using BeUtl.Services;
 using Microsoft.Extensions.DependencyInjection;
 
 using Reactive.Bindings;
+
+using S = BeUtl.Language.StringResources;
 
 namespace BeUtl.ViewModels.Dialogs;
 
@@ -31,7 +32,7 @@ public sealed class CreateNewSceneViewModel
         {
             if (Directory.Exists(Path.Combine(Location.Value, n)))
             {
-                return (string?)Application.Current?.FindResource("S.Warning.ItAlreadyExists");
+                return S.Warning.ItAlreadyExists;
             }
             else
             {
@@ -43,7 +44,7 @@ public sealed class CreateNewSceneViewModel
         {
             if (s.Width <= 0 || s.Height <= 0)
             {
-                return (string?)Application.Current?.FindResource("S.Warning.ValueLessThanOrEqualToZero");
+                return S.Warning.ValueLessThanOrEqualToZero;
             }
             else
             {

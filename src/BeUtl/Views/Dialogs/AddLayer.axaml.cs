@@ -1,11 +1,11 @@
 using Avalonia;
-using Avalonia.Controls;
-using Avalonia.Markup.Xaml;
 using Avalonia.Styling;
 
 using BeUtl.ViewModels.Dialogs;
 
 using FluentAvalonia.UI.Controls;
+
+using S = BeUtl.Language.StringResources;
 
 namespace BeUtl.Views.Dialogs;
 
@@ -32,7 +32,7 @@ public sealed partial class AddLayer : ContentDialog, IStyleable
             // IsSecondaryButtonEnabledのバインド解除
             _sBtnBinding?.Dispose();
             // '追加'を'次へ'に変更
-            SecondaryButtonText = (string?)Application.Current?.FindResource("S.Dialogs.AddLayer.Next") ?? string.Empty;
+            SecondaryButtonText = S.Dialogs.AddLayer.Next;
             // '次へ'を有効化
             IsSecondaryButtonEnabled = true;
             carousel.Previous();
@@ -58,7 +58,7 @@ public sealed partial class AddLayer : ContentDialog, IStyleable
             // IsSecondaryButtonEnabledとCanCreateをバインド
             _sBtnBinding = this.Bind(IsSecondaryButtonEnabledProperty, vm.CanAdd);
             // '次へ'を'追加'に変更
-            SecondaryButtonText = (string?)Application.Current?.FindResource("S.Dialogs.AddLayer.Add") ?? string.Empty;
+            SecondaryButtonText = S.Dialogs.AddLayer.Add;
             carousel.Next();
         }
     }

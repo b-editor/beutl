@@ -1,5 +1,4 @@
 using System.Collections;
-using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
 using System.Reactive.Disposables;
 
@@ -10,7 +9,6 @@ using Avalonia.Collections;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Controls.Primitives;
-using Avalonia.Controls.Templates;
 using Avalonia.Data;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
@@ -40,8 +38,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 
-using FATabViewItem = FluentAvalonia.UI.Controls.TabViewItem;
 using PathIcon = Avalonia.Controls.PathIcon;
+using S = BeUtl.Language.StringResources;
 
 namespace BeUtl.Views;
 
@@ -297,7 +295,7 @@ Error:
                 {
                     new FileDialogFilter
                     {
-                        Name = Application.Current?.FindResource("S.Common.ProjectFile") as string,
+                        Name = S.Common.ProjectFile,
                         Extensions =
                         {
                             "bep"
@@ -382,7 +380,7 @@ Error:
                     [!ContentDialog.CloseButtonTextProperty] = new DynamicResourceExtension("S.Common.Cancel"),
                     [!ContentDialog.PrimaryButtonTextProperty] = new DynamicResourceExtension("S.Common.OK"),
                     DefaultButton = ContentDialogButton.Primary,
-                    Content = (Application.Current?.FindResource("S.Message.DoYouWantToExcludeThisItemFromProject") as string ?? "") + "\n" + filePath
+                    Content = S.Message.DoYouWantToExcludeThisItemFromProject + "\n" + filePath
                 };
 
                 if (await dialog.ShowAsync() == ContentDialogResult.Primary)
@@ -423,7 +421,7 @@ Error:
                     [!ContentDialog.CloseButtonTextProperty] = new DynamicResourceExtension("S.Common.Cancel"),
                     [!ContentDialog.PrimaryButtonTextProperty] = new DynamicResourceExtension("S.Common.OK"),
                     DefaultButton = ContentDialogButton.Primary,
-                    Content = (Application.Current?.FindResource("S.Message.DoYouWantToDeleteThisFile") as string ?? "") + "\n" + name
+                    Content = S.Message.DoYouWantToDeleteThisFile + "\n" + name
                 };
 
                 if (await dialog.ShowAsync() == ContentDialogResult.Primary)

@@ -3,25 +3,23 @@ using System.Reactive.Linq;
 
 using Avalonia;
 using Avalonia.Collections;
-using Avalonia.Controls;
-using Avalonia.Media;
 using Avalonia.Threading;
 
 using BeUtl.Collections;
 using BeUtl.Configuration;
-using BeUtl.Controls;
 using BeUtl.Framework;
 using BeUtl.Framework.Service;
 using BeUtl.Framework.Services;
 using BeUtl.ProjectSystem;
 using BeUtl.Services;
-using BeUtl.Language;
 
 using DynamicData;
 
 using Microsoft.Extensions.DependencyInjection;
 
 using Reactive.Bindings;
+
+using S = BeUtl.Language.StringResources;
 
 namespace BeUtl.ViewModels;
 
@@ -110,27 +108,24 @@ public class MainViewModel
 
                     if (result)
                     {
-                        string message = new ResourceReference<string>("S.Message.ItemSaved").FindOrDefault("{0}");
                         _notificationService.Show(new Notification(
                             string.Empty,
-                            string.Format(message, item.FileName),
+                            string.Format(S.Message.ItemSaved, item.FileName),
                             NotificationType.Success));
                     }
                     else
                     {
-                        string message = new ResourceReference<string>("S.Message.OperationCouldNotBeExecuted").FindOrDefault(string.Empty);
                         _notificationService.Show(new Notification(
                             string.Empty,
-                            message,
+                            S.Message.OperationCouldNotBeExecuted,
                             NotificationType.Information));
                     }
                 }
                 catch
                 {
-                    string message = new ResourceReference<string>("S.Message.OperationCouldNotBeExecuted").FindOrDefault(string.Empty);
                     _notificationService.Show(new Notification(
                         string.Empty,
-                        message,
+                        S.Message.OperationCouldNotBeExecuted,
                         NotificationType.Error));
                 }
             }
@@ -155,18 +150,16 @@ public class MainViewModel
                     }
                 }
 
-                string message = new ResourceReference<string>("S.Message.ItemsSaved").FindOrDefault(string.Empty);
                 _notificationService.Show(new Notification(
                     string.Empty,
-                    string.Format(message, itemsCount.ToString()),
+                    string.Format(S.Message.ItemsSaved, itemsCount.ToString()),
                     NotificationType.Success));
             }
             catch
             {
-                string message = new ResourceReference<string>("S.Message.OperationCouldNotBeExecuted").FindOrDefault(string.Empty);
                 _notificationService.Show(new Notification(
                     string.Empty,
-                    message,
+                    S.Message.OperationCouldNotBeExecuted,
                     NotificationType.Error));
             }
         });
@@ -262,13 +255,13 @@ public class MainViewModel
             {
                 noticeService.Show(new Notification(
                     Title: "",
-                    Message: StringResources.Warning.FileDoesNotExist));
+                    Message: S.Warning.FileDoesNotExist));
             }
             else if (service.OpenProject(file) == null)
             {
                 noticeService.Show(new Notification(
                     Title: "",
-                    Message: StringResources.Warning.CouldNotOpenProject));
+                    Message: S.Warning.CouldNotOpenProject));
             }
         });
 
@@ -281,7 +274,7 @@ public class MainViewModel
         });
     }
 
-    public bool IsDebuggerAttached { get; }= Debugger.IsAttached;
+    public bool IsDebuggerAttached { get; } = Debugger.IsAttached;
 
     // File
     //    Create new

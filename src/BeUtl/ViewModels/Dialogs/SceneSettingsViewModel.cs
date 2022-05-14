@@ -1,11 +1,12 @@
 ﻿using System.Reactive.Linq;
 
 using Avalonia;
-using Avalonia.Controls;
 
 using BeUtl.ProjectSystem;
 
 using Reactive.Bindings;
+
+using S = BeUtl.Language.StringResources;
 
 namespace BeUtl.ViewModels.Dialogs;
 
@@ -22,7 +23,7 @@ public sealed class SceneSettingsViewModel
         {
             if (s.Width <= 0 || s.Height <= 0)
             {
-                return (string?)Application.Current?.FindResource("S.Warning.ValueLessThanOrEqualToZero");
+                return S.Warning.ValueLessThanOrEqualToZero;
             }
             else
             {
@@ -33,7 +34,7 @@ public sealed class SceneSettingsViewModel
         {
             if (time <= TimeSpan.Zero)
             {
-                return (string?)Application.Current?.FindResource("S.Warning.ValueLessThanOrEqualToZero");
+                return S.Warning.ValueLessThanOrEqualToZero;
             }
             else
             {
