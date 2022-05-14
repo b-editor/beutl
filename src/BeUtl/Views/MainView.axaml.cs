@@ -105,7 +105,7 @@ public partial class MainView : UserControl
 
         NaviContent.PageTransition = new CustomPageTransition();
 
-        // NavigationView‚Ìİ’è
+        // NavigationViewã®è¨­å®š
         Navi.MenuItems = _navigationItems;
         Navi.ItemInvoked += NavigationView_ItemInvoked;
 
@@ -160,14 +160,14 @@ public partial class MainView : UserControl
                         HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center,
                         Text = exception != null ? @$"
 Error:
-    View‚ÌƒCƒ“ƒXƒ^ƒ“ƒX‚ğì¬‚Å‚«‚Ü‚¹‚ñ‚Å‚µ‚½B
+    Viewã®ã‚¤ãƒ³ã‚¹ã‚¿ãƒ³ã‚¹ã‚’ä½œæˆã§ãã¾ã›ã‚“ã§ã—ãŸã€‚
 Message:
     {exception.Message}
 StackTrace:
     {exception.StackTrace}
 " : @"
 Error:
-    ‚±‚ÌƒRƒ“ƒeƒLƒXƒg‚ğ•\¦‚Å‚«‚Ü‚¹‚ñB
+    ã“ã®ã‚³ãƒ³ãƒ†ã‚­ã‚¹ãƒˆã‚’è¡¨ç¤ºã§ãã¾ã›ã‚“ã€‚
 "
                     };
 
@@ -195,7 +195,7 @@ Error:
                     _controls.RemoveAt(idx);
                     _navigationItems.RemoveAt(idx);
                 },
-                () => throw new Exception("'MainViewModel.Pages'‚Í'Clear'ƒƒ\ƒbƒh‚É‘Î‰‚µ‚Ä‚¢‚Ü‚¹‚ñB"))
+                () => throw new Exception("'MainViewModel.Pages'ã¯'Clear'ãƒ¡ã‚½ãƒƒãƒ‰ã«å¯¾å¿œã—ã¦ã„ã¾ã›ã‚“ã€‚"))
                 .AddTo(_disposables);
 
             viewModel.SelectedPage.Subscribe(obj =>
@@ -290,7 +290,7 @@ Error:
 
         viewModel.OpenProject.Subscribe(async () =>
         {
-            // Todo: Œã‚ÅŠg’£q‚ğ•ÏX
+            // Todo: å¾Œã§æ‹¡å¼µå­ã‚’å¤‰æ›´
             var dialog = new OpenFileDialog
             {
                 Filters =
@@ -341,7 +341,7 @@ Error:
             {
                 foreach (string file in files)
                 {
-                    // Todo: ƒvƒƒWƒFƒNƒg‚É’Ç‰Á‚·‚é‚©‚Ìƒ_ƒCƒAƒƒO‚ğ•\¦‚·‚é
+                    // Todo: ãƒ—ãƒ­ã‚¸ã‚§ã‚¯ãƒˆã«è¿½åŠ ã™ã‚‹ã‹ã®ãƒ€ã‚¤ã‚¢ãƒ­ã‚°ã‚’è¡¨ç¤ºã™ã‚‹
                     _editorService.ActivateTabItem(file, TabOpenMode.YourSelf);
                 }
             }
@@ -512,8 +512,8 @@ Error:
             sceneEditorMenuItem.Items = items1;
         }
 
-        // Todo: Extension‚ÌÀsƒAƒ“ƒ[ƒh‚ÌÀŒ»A
-        //       ForEachItemƒƒ\ƒbƒh‚ğg‚¤‚©event‚É‚·‚é
+        // Todo: Extensionã®å®Ÿè¡Œæ™‚ã‚¢ãƒ³ãƒ­ãƒ¼ãƒ‰ã®å®Ÿç¾æ™‚ã€
+        //       ForEachItemãƒ¡ã‚½ãƒƒãƒ‰ã‚’ä½¿ã†ã‹eventã«ã™ã‚‹
         foreach (SceneEditorTabExtension item in manager.ExtensionProvider.AllExtensions.OfType<SceneEditorTabExtension>())
         {
             var menuItem = new MenuItem()
@@ -620,7 +620,7 @@ Error:
                     }
                     else
                     {
-                        // Todo: ’Ê’mo‚·
+                        // Todo: é€šçŸ¥å‡ºã™
                     }
                 }
             };
