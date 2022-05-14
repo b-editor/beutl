@@ -148,6 +148,12 @@
                         </MenuItem.Icon>
                     </MenuItem>
                 </MenuItem>
+                <!--表示-->
+                <MenuItem Header="{DynamicResource S.MainView.View}" x:Name="viewMenuItem">
+                    <MenuItem Header="エディタータブ" x:Name="editorTabMenuItem" />
+                    <MenuItem Header="シーンエディター" x:Name="sceneEditorMenuItem" />
+                </MenuItem>
+                <!--プロジェクト-->
                 <MenuItem Header="{DynamicResource S.MainView.Project}">
                     <MenuItem Header="{DynamicResource S.MainView.Project.Add}" Command="{CompiledBinding AddToProject}" />
                     <MenuItem Header="{DynamicResource S.MainView.Project.Remove}" Command="{CompiledBinding RemoveFromProject}" />                    
@@ -168,8 +174,6 @@
                         <MenuItem Header="{DynamicResource S.MainView.Scene.Layer.Paste}" Command="{CompiledBinding PasteLayer}" />
                     </MenuItem>                    
                 </MenuItem>
-                <!--表示-->
-                <MenuItem Header="{DynamicResource S.MainView.View}" x:Name="viewMenu" />
                 <!--オブジェクト-->
                 <MenuItem Header="{DynamicResource S.MainView.Object}" />
                 <!--ヘルプ-->

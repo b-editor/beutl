@@ -34,34 +34,33 @@ public sealed partial class EditPage : UserControl
                             : null)
     };
     private static readonly Binding s_isSelectedBinding = new("IsSelected.Value", BindingMode.TwoWay);
-    private static readonly Binding s_contentBinding = new("Context.Value", BindingMode.OneWay)
-    {
-        Converter = new FuncValueConverter<IEditorContext, object>(
-            (obj) =>
+    private static readonly Binding s_contentBinding = new("Context.Value", BindingMode.OneWay);
+    private static readonly IDataTemplate s_contentTemplate = new FuncDataTemplate<IEditorContext>(
+        (obj, _) =>
+        {
+            if (obj?.Extension.TryCreateEditor(obj.EdittingFile, out IEditor? editor) == true)
             {
-                if (obj?.Extension.TryCreateEditor(obj.EdittingFile, out IEditor? editor) == true)
+                editor.DataContext = obj;
+                return editor;
+            }
+            else
+            {
+                return new TextBlock()
                 {
-                    editor.DataContext = obj;
-                    return editor;
-                }
-                else
-                {
-                    return new TextBlock()
-                    {
-                        Text = obj != null ? @$"
+                    Text = obj != null ? @$"
 Error:
     '{obj.Extension.Name}' 拡張機能で '{Path.GetFileName(obj.EdittingFile)}' を開けませんでした。
 
-Message:
-    エディターコンテキストは既に作成されています。
-" : @"
-Error:
-    エディターコンテキストにNullが指定されました。
-"
-                    };
-                }
-            })
-    };
+                Message:
+                    エディターコンテキストは既に作成されています。
+                " : @"
+                Error:
+                    エディターコンテキストにNullが指定されました。
+                "
+                };
+            }
+        }
+    );
     private readonly AvaloniaList<FATabViewItem> _tabItems = new();
     private IDisposable? _disposable0;
 
@@ -90,8 +89,13 @@ Error:
                         [!FATabViewItem.HeaderProperty] = s_headerBinding,
                         [!FATabViewItem.IconSourceProperty] = s_iconSourceBinding,
                         [!ListBoxItem.IsSelectedProperty] = s_isSelectedBinding,
-                        [!ContentProperty] = s_contentBinding,
-                        DataContext = item
+                        DataContext = item,
+                        Content = new ContentControl
+                        {
+                            [!ContentProperty] = s_contentBinding,
+                            ContentTemplate = s_contentTemplate,
+                            DataContext = item,
+                        }
                     };
 
                     tabItem.CloseRequested += (s, _) =>

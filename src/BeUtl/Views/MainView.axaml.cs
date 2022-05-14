@@ -506,10 +506,10 @@ Error:
     private void InitExtMenuItems()
     {
         PackageManager manager = PackageManager.Instance;
-        if (viewMenu.Items is not IList items)
+        if (sceneEditorMenuItem.Items is not IList items1)
         {
-            items = new AvaloniaList<object>();
-            viewMenu.Items = items;
+            items1 = new AvaloniaList<object>();
+            sceneEditorMenuItem.Items = items1;
         }
 
         // Todo: Extensionの実行時アンロードの実現時、
@@ -557,7 +557,75 @@ Error:
                 }
             };
 
-            items.Add(menuItem);
+            items1.Add(menuItem);
+        }
+
+        if (editorTabMenuItem.Items is not IList items2)
+        {
+            items2 = new AvaloniaList<object>();
+            editorTabMenuItem.Items = items2;
+        }
+
+        viewMenuItem.SubmenuOpened += (s, e) =>
+        {
+            EditorTabItem? selectedTab = _editorService.SelectedTabItem.Value;
+            if (selectedTab != null)
+            {
+                foreach (MenuItem item in items2.OfType<MenuItem>())
+                {
+                    if (item.DataContext is EditorExtension editorExtension)
+                    {
+                        item.IsVisible = editorExtension.IsSupported(selectedTab.FilePath.Value);
+                    }
+                }
+            }
+        };
+
+        foreach (EditorExtension item in manager.ExtensionProvider.AllExtensions.OfType<EditorExtension>())
+        {
+            var menuItem = new MenuItem()
+            {
+                Header = item.DisplayName,
+                DataContext = item,
+                IsVisible = false
+            };
+
+            if (item.Icon != null)
+            {
+                menuItem.Icon = new PathIcon
+                {
+                    Data = item.Icon,
+                    Width = 18,
+                    Height = 18,
+                };
+            }
+
+            menuItem.Click += async (s, e) =>
+            {
+                EditorTabItem? selectedTab = _editorService.SelectedTabItem.Value;
+                if (s is MenuItem { DataContext: EditorExtension editorExtension } menuItem
+                    && selectedTab != null)
+                {
+                    IKnownEditorCommands? commands = selectedTab.Commands.Value;
+                    if (commands != null)
+                    {
+                        await commands.OnSave();
+                    }
+
+                    string file = selectedTab.FilePath.Value;
+                    if (editorExtension.TryCreateContext(file, out IEditorContext? context))
+                    {
+                        selectedTab.Context.Value.Dispose();
+                        selectedTab.Context.Value = context;
+                    }
+                    else
+                    {
+                        // Todo: 通知出す
+                    }
+                }
+            };
+
+            items2.Add(menuItem);
         }
     }
 
