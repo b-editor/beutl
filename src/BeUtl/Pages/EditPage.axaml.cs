@@ -71,8 +71,12 @@ public sealed partial class EditPage : UserControl
                             }
                         };
 
-                        item.Order = _tabItems.Count;
-                        _tabItems.Add(tabItem);
+                        if (item.Order < 0 || item.Order > _tabItems.Count)
+                        {
+                            item.Order = _tabItems.Count;
+                        }
+
+                        _tabItems.Insert(item.Order, tabItem);
                     }
                 },
                 (item) =>
