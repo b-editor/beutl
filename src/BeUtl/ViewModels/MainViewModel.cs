@@ -15,6 +15,7 @@ using BeUtl.Framework.Service;
 using BeUtl.Framework.Services;
 using BeUtl.ProjectSystem;
 using BeUtl.Services;
+using BeUtl.Language;
 
 using DynamicData;
 
@@ -259,17 +260,15 @@ public class MainViewModel
 
             if (!File.Exists(file))
             {
-                // Todo: リソースに置き換え
                 noticeService.Show(new Notification(
                     Title: "",
-                    Message: "ファイルが存在しない"));
+                    Message: StringResources.Warning.FileDoesNotExist));
             }
             else if (service.OpenProject(file) == null)
             {
-                // Todo: リソースに置き換え
                 noticeService.Show(new Notification(
                     Title: "",
-                    Message: "プロジェクトが開けなかった"));
+                    Message: StringResources.Warning.CouldNotOpenProject));
             }
         });
 

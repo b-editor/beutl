@@ -9,5 +9,7 @@
             Cannot rename from "{0}" to "{1}"
             because the new name conflicts with an existing folder.
         </x:String>
+        <x:String x:Key="S.Warning.FileDoesNotExist">File does not exist.</x:String>
+        <x:String x:Key="S.Warning.CouldNotOpenProject">Could not open project.</x:String>
     </Styles.Resources>
 </Styles>

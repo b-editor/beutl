@@ -1,3 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <Import Project="$(RootDirectory)\build\props\Avalonia.props" />
+  <ItemGroup>
+    <ProjectReference Include="..\BeUtl.Core\BeUtl.Core.csproj" />
+  </ItemGroup>
 </Project>

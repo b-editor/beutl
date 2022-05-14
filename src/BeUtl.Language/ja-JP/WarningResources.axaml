@@ -9,5 +9,7 @@
             新しい名前が既存のフォルダーと競合するため、
             "{0}" から "{1}" に名前を変更できません。
         </x:String>
+        <x:String x:Key="S.Warning.FileDoesNotExist">ファイルが存在しません。</x:String>
+        <x:String x:Key="S.Warning.CouldNotOpenProject">プロジェクトを開けませんでした。</x:String>
     </Styles.Resources>
 </Styles>
