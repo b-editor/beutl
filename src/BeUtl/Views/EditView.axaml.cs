@@ -125,6 +125,7 @@ public sealed partial class EditView : UserControl, IEditor
 
                     var tabItem = new FATabViewItem
                     {
+                        // Todo: Bindingをキャッシュする
                         [!ListBoxItem.IsSelectedProperty] = new Binding("IsSelected.Value", BindingMode.TwoWay),
                         Header = $"{item.Layer.Name} / {item.Setter.Property.Name}",
                         DataContext = item,
@@ -178,6 +179,7 @@ public sealed partial class EditView : UserControl, IEditor
                     {
                         var tabItem = new FATabViewItem()
                         {
+                            // Todo: Bindingをキャッシュする
                             [!ListBoxItem.IsSelectedProperty] = new Binding("IsSelected.Value", BindingMode.TwoWay),
                             [!FATabViewItem.HeaderProperty] = new DynamicResourceExtension(extension.Header.Key),
                             Content = extension.CreateContent(viewModel.Scene),

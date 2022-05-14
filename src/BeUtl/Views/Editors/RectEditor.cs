@@ -14,6 +14,7 @@ public sealed class RectEditor : BaseVector4Editor<Graphics.Rect>
         yText[!TextBlock.TextProperty] = new DynamicResourceExtension("S.Editors.Rect.Y");
         zText[!TextBlock.TextProperty] = new DynamicResourceExtension("S.Editors.Rect.Z");
         wText[!TextBlock.TextProperty] = new DynamicResourceExtension("S.Editors.Rect.W");
+        // Todo: Bindingをキャッシュする
         xTextBox[!TextBox.TextProperty] = new Binding("Value.Value.X", BindingMode.OneWay);
         yTextBox[!TextBox.TextProperty] = new Binding("Value.Value.Y", BindingMode.OneWay);
         zTextBox[!TextBox.TextProperty] = new Binding("Value.Value.Width", BindingMode.OneWay);

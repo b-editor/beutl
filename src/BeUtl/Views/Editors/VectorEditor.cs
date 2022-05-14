@@ -13,6 +13,7 @@ public sealed class VectorEditor : BaseVector2Editor<Vector>
     {
         xText[!TextBlock.TextProperty] = new DynamicResourceExtension("S.Editors.Vector.X");
         yText[!TextBlock.TextProperty] = new DynamicResourceExtension("S.Editors.Vector.Y");
+        // Todo: Bindingをキャッシュする
         xTextBox[!TextBox.TextProperty] = new Binding("Value.Value.X", BindingMode.OneWay);
         yTextBox[!TextBox.TextProperty] = new Binding("Value.Value.Y", BindingMode.OneWay);
     }

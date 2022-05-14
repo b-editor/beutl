@@ -16,6 +16,7 @@ public sealed class Vector4Editor : BaseVector4Editor<Vector4>
         yText[!TextBlock.TextProperty] = new DynamicResourceExtension("S.Editors.Vector4.Y");
         zText[!TextBlock.TextProperty] = new DynamicResourceExtension("S.Editors.Vector4.Z");
         wText[!TextBlock.TextProperty] = new DynamicResourceExtension("S.Editors.Vector4.W");
+        // Todo: Bindingをキャッシュする
         xTextBox[!TextBox.TextProperty] = new Binding("Value.Value.X", BindingMode.OneWay);
         yTextBox[!TextBox.TextProperty] = new Binding("Value.Value.Y", BindingMode.OneWay);
         zTextBox[!TextBox.TextProperty] = new Binding("Value.Value.Z", BindingMode.OneWay);

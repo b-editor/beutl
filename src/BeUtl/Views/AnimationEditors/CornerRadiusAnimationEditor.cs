@@ -39,6 +39,7 @@ public sealed class CornerRadiusAnimationEditor : BaseVector4AnimationEditor<Cor
         nextZTextBox.InnerLeftContent = CreateIcon(FluentIconsRegular.Arrow_Down_Left);
         nextWTextBox.InnerLeftContent = bottomRightIcon2;
 
+        // Todo: Bindingをキャッシュする
         prevXTextBox[!TextBox.TextProperty] = new Binding("Animation.Previous.TopLeft", BindingMode.OneWay);
         prevYTextBox[!TextBox.TextProperty] = new Binding("Animation.Previous.TopRight", BindingMode.OneWay);
         prevZTextBox[!TextBox.TextProperty] = new Binding("Animation.Previous.BottomLeft", BindingMode.OneWay);

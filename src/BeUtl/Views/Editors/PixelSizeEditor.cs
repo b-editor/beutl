@@ -12,6 +12,7 @@ public sealed class PixelSizeEditor : BaseVector2Editor<Media.PixelSize>
     {
         xText[!TextBlock.TextProperty] = new DynamicResourceExtension("S.Editors.PixelSize.X");
         yText[!TextBlock.TextProperty] = new DynamicResourceExtension("S.Editors.PixelSize.Y");
+        // Todo: Bindingをキャッシュする
         xTextBox[!TextBox.TextProperty] = new Binding("Value.Value.Width", BindingMode.OneWay);
         yTextBox[!TextBox.TextProperty] = new Binding("Value.Value.Height", BindingMode.OneWay);
     }

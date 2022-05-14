@@ -12,6 +12,7 @@ public sealed class SizeEditor : BaseVector2Editor<Graphics.Size>
     {
         xText[!TextBlock.TextProperty] = new DynamicResourceExtension("S.Editors.Size.X");
         yText[!TextBlock.TextProperty] = new DynamicResourceExtension("S.Editors.Size.Y");
+        // Todo: Bindingをキャッシュする
         xTextBox[!TextBox.TextProperty] = new Binding("Value.Value.Width", BindingMode.OneWay);
         yTextBox[!TextBox.TextProperty] = new Binding("Value.Value.Height", BindingMode.OneWay);
     }

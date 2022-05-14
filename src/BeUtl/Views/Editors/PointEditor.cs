@@ -12,6 +12,7 @@ public sealed class PointEditor : BaseVector2Editor<Graphics.Point>
     {
         xText[!TextBlock.TextProperty] = new DynamicResourceExtension("S.Editors.Point.X");
         yText[!TextBlock.TextProperty] = new DynamicResourceExtension("S.Editors.Point.Y");
+        // Todo: Bindingをキャッシュする
         xTextBox[!TextBox.TextProperty] = new Binding("Value.Value.X", BindingMode.OneWay);
         yTextBox[!TextBox.TextProperty] = new Binding("Value.Value.Y", BindingMode.OneWay);
     }

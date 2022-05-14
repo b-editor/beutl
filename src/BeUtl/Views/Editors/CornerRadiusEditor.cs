@@ -24,6 +24,7 @@ public sealed class CornerRadiusEditor : BaseVector4Editor<CornerRadius>
             };
         }
 
+        // Todo: Bindingをキャッシュする
         xTextBox[!TextBox.TextProperty] = new Binding("Value.Value.TopLeft", BindingMode.OneWay);
         yTextBox[!TextBox.TextProperty] = new Binding("Value.Value.TopRight", BindingMode.OneWay);
         zTextBox[!TextBox.TextProperty] = new Binding("Value.Value.BottomLeft", BindingMode.OneWay);

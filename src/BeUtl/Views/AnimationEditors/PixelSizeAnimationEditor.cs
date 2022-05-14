@@ -17,6 +17,7 @@ public sealed class PixelSizeAnimationEditor : BaseVector2AnimationEditor<Media.
         nextXText[!TextBlock.TextProperty] = xres;
         nextYText[!TextBlock.TextProperty] = yres;
 
+        // Todo: Bindingをキャッシュする
         prevXTextBox[!TextBox.TextProperty] = new Binding("Animation.Previous.Width", BindingMode.OneWay);
         prevYTextBox[!TextBox.TextProperty] = new Binding("Animation.Previous.Height", BindingMode.OneWay);
         nextXTextBox[!TextBox.TextProperty] = new Binding("Animation.Next.Width", BindingMode.OneWay);

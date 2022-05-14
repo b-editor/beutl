@@ -18,6 +18,7 @@ public sealed class VectorAnimationEditor : BaseVector2AnimationEditor<Vector>
         nextXText[!TextBlock.TextProperty] = xres;
         nextYText[!TextBlock.TextProperty] = yres;
 
+        // Todo: Bindingをキャッシュする
         prevXTextBox[!TextBox.TextProperty] = new Binding("Animation.Previous.X", BindingMode.OneWay);
         prevYTextBox[!TextBox.TextProperty] = new Binding("Animation.Previous.Y", BindingMode.OneWay);
         nextXTextBox[!TextBox.TextProperty] = new Binding("Animation.Next.X", BindingMode.OneWay);

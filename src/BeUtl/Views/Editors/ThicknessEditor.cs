@@ -21,6 +21,7 @@ public sealed class ThicknessEditor : BaseVector4Editor<Graphics.Thickness>
             };
         }
 
+        // Todo: Bindingをキャッシュする
         xTextBox[!TextBox.TextProperty] = new Binding("Value.Value.Left", BindingMode.OneWay);
         yTextBox[!TextBox.TextProperty] = new Binding("Value.Value.Top", BindingMode.OneWay);
         zTextBox[!TextBox.TextProperty] = new Binding("Value.Value.Right", BindingMode.OneWay);

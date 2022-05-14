@@ -14,6 +14,7 @@ public sealed class PixelRectEditor : BaseVector4Editor<Media.PixelRect>
         yText[!TextBlock.TextProperty] = new DynamicResourceExtension("S.Editors.PixelRect.Y");
         zText[!TextBlock.TextProperty] = new DynamicResourceExtension("S.Editors.PixelRect.Z");
         wText[!TextBlock.TextProperty] = new DynamicResourceExtension("S.Editors.PixelRect.W");
+        // Todo: Bindingをキャッシュする
         xTextBox[!TextBox.TextProperty] = new Binding("Value.Value.X", BindingMode.OneWay);
         yTextBox[!TextBox.TextProperty] = new Binding("Value.Value.Y", BindingMode.OneWay);
         zTextBox[!TextBox.TextProperty] = new Binding("Value.Value.Width", BindingMode.OneWay);
