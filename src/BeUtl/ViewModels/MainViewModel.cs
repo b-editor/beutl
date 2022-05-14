@@ -210,20 +210,18 @@ public class MainViewModel
         _packageLoadTask = Task.Run(async () =>
         {
             PackageManager manager = PackageManager.Instance;
-            int id1 = Package.s_nextId++;
-            int id2 = Package.s_nextId++;
 
-            manager.LoadPackages(manager.GetPackageInfos());
-
-            manager.ExtensionProvider._allExtensions.Add(id1, _primitivePageExtensions);
+            manager.ExtensionProvider._allExtensions.Add(Package.s_nextId++, _primitivePageExtensions);
 
             // Todo: ここでSceneEditorExtensionを登録しているので、
             //       パッケージとして分離する場合ここを削除
-            manager.ExtensionProvider._allExtensions.Add(id2, new Extension[]
+            manager.ExtensionProvider._allExtensions.Add(Package.s_nextId++, new Extension[]
             {
                 SceneEditorExtension.Instance,
                 SceneWorkspaceItemExtension.Instance,
             });
+
+            manager.LoadPackages(manager.GetPackageInfos());
 
             await Dispatcher.UIThread.InvokeAsync(() =>
             {

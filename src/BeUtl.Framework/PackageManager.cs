@@ -15,7 +15,6 @@ public sealed class PackageManager
 {
     public static readonly PackageManager Instance = new();
     internal readonly List<Package> _loadedPackage = new();
-    private ExtensionProvider? _extensionProvider;
     private ResourceDictionary _resourceDictionary = new();
     private Application? _application;
 
@@ -23,12 +22,12 @@ public sealed class PackageManager
     {
         GlobalConfiguration.Instance.ViewConfig.GetObservable(ViewConfig.UICultureProperty)
             .Subscribe(OnUICultureChanged);
+        ExtensionProvider = new(this);
     }
 
     public IReadOnlyList<Package> LoadedPackage => _loadedPackage;
 
-    public ExtensionProvider ExtensionProvider
-        => _extensionProvider ?? throw new Exception("No packages have been loaded yet.");
+    public ExtensionProvider ExtensionProvider { get; }
 
     public string BaseDirectory { get; }
         = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".beutl", "extensions");
@@ -62,15 +61,17 @@ public sealed class PackageManager
                 package.Info = packageInfo;
                 _loadedPackage.Add(package);
 
-                foreach (Extension extension in package.GetExtensions())
+                Extension[] extensions = package.GetExtensions().ToArray();
+                foreach (Extension extension in extensions)
                 {
                     extension.Load();
                 }
+
+                ExtensionProvider._allExtensions.Add(package._id, extensions);
             }
         }
 
         LoadResources(CultureInfo.CurrentUICulture);
-        _extensionProvider = new ExtensionProvider(this);
     }
 
     public void AttachToApplication(Application app)

@@ -9,11 +9,6 @@ public sealed class ExtensionProvider
     public ExtensionProvider(PackageManager packageManager)
     {
         PackageManager = packageManager;
-
-        foreach (Package package in CollectionsMarshal.AsSpan(PackageManager._loadedPackage))
-        {
-            _allExtensions.Add(package._id, package.GetExtensions().ToArray());
-        }
     }
 
     public PackageManager PackageManager { get; }
