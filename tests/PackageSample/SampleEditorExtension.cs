@@ -76,7 +76,8 @@ public sealed class SampleEditorExtension : EditorExtension
 
     public override string[] FileExtensions { get; } =
     {
-        "txt"
+        "txt",
+        "scene",
     };
 
     public override ResourceReference<string> FileTypeName => "S.SamplePackage.SampleEditorExtension.FileTypeName";
@@ -88,7 +89,7 @@ public sealed class SampleEditorExtension : EditorExtension
     public override bool TryCreateContext(string file, [NotNullWhen(true)] out IEditorContext? context)
     {
         context = null;
-        if (file.EndsWith(".txt"))
+        if (file.EndsWith(".txt") || file.EndsWith(".scene"))
         {
             context = new TextEditorContext(file, this);
             return true;
@@ -102,7 +103,7 @@ public sealed class SampleEditorExtension : EditorExtension
     public override bool TryCreateEditor(string file, [NotNullWhen(true)] out IEditor? editor)
     {
         editor = null;
-        if (file.EndsWith(".txt"))
+        if (file.EndsWith(".txt") || file.EndsWith(".scene"))
         {
             editor = new TextEditor();
             return true;
