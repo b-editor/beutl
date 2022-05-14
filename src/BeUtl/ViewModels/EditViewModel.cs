@@ -191,7 +191,6 @@ public sealed class EditViewModel : IEditorContext
 
             Timeline.Options.Value = timelineOptions;
         }
-
     }
 
     private sealed class KnownCommandsImpl : IKnownEditorCommands

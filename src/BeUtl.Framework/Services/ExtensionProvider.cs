@@ -1,10 +1,14 @@
-﻿using System.Runtime.InteropServices;
+﻿using BeUtl.Collections;
+using BeUtl.Configuration;
+
+using static BeUtl.Configuration.ExtensionConfig;
 
 namespace BeUtl.Framework.Services;
 
 public sealed class ExtensionProvider
 {
     internal readonly Dictionary<int, Extension[]> _allExtensions = new();
+    private readonly ExtensionConfig _config = GlobalConfiguration.Instance.ExtensionConfig;
 
     public ExtensionProvider(PackageManager packageManager)
     {
@@ -17,6 +21,26 @@ public sealed class ExtensionProvider
 
     public EditorExtension? MatchEditorExtension(string file)
     {
+        string? fileExt = Path.GetExtension(file);
+
+        if (_config.EditorExtensions.TryGetValue(fileExt, out ICoreList<TypeLazy>? list))
+        {
+            foreach (Extension extension in AllExtensions)
+            {
+                Type extType = extension.GetType();
+                if (extension is not EditorExtension editorExtension) continue;
+
+                foreach (TypeLazy type in list.AsSpan())
+                {
+                    if (extType == type.Type
+                        && editorExtension.IsSupported(file))
+                    {
+                        return editorExtension;
+                    }
+                }
+            }
+        }
+
         foreach (Extension extension in AllExtensions)
         {
             if (extension is EditorExtension editorExtension &&
@@ -27,18 +51,6 @@ public sealed class ExtensionProvider
         }
 
         return null;
-    }
-
-    public IEnumerable<EditorExtension> MatchEditorExtensions(string file)
-    {
-        foreach (Extension extension in AllExtensions)
-        {
-            if (extension is EditorExtension editorExtension &&
-                editorExtension.IsSupported(file))
-            {
-                yield return editorExtension;
-            }
-        }
     }
 
     public WorkspaceItemExtension? MatchWorkspaceItemExtension(string file)
