@@ -66,7 +66,7 @@ public class TimelineLayerViewModel : IDisposable
             backwardLayer.Length = backwardLength;
             backwardLayer.ZIndex++;
 
-            backwardLayer.Save(Helper.RandomLayerFileName(Path.GetDirectoryName(Scene.FileName)!, "layer"));
+            backwardLayer.Save(Helper.RandomLayerFileName(Path.GetDirectoryName(Scene.FileName)!, Constants.LayerFileExtension));
             Scene.AddChild(backwardLayer).DoAndRecord(CommandRecorder.Default);
         });
 

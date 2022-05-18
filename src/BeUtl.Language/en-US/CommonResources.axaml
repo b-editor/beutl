@@ -133,6 +133,8 @@
         <x:String x:Key="S.Common.ScaleY">Scale y</x:String>
         <x:String x:Key="S.Common.SkewX">Skew x</x:String>
         <x:String x:Key="S.Common.SkewY">Skew y</x:String>
+        <x:String x:Key="S.Common.Yes">Yes</x:String>
+        <x:String x:Key="S.Common.No">No</x:String>
     </Styles.Resources>
 
     <!--Views-->

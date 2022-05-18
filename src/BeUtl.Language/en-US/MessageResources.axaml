@@ -17,5 +17,7 @@
         <x:String x:Key="S.Message.ContextNotCreated">Context not created.</x:String>
         <x:String x:Key="S.Message.EditorContextHasAlreadyBeenCreated">The editor context has already been created.</x:String>
         <x:String x:Key="S.Message.NullWasSpecifiedForEditorContext">Null was specified for the editor context.</x:String>
+        <x:String x:Key="S.Message.DoYouWantToAddThisItemToCurrentProject">Do you want to add this item to current project?</x:String>
+        <x:String x:Key="S.Message.RememberThisChoice">Remember this choice</x:String>
     </Styles.Resources>
 </Styles>

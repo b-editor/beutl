@@ -17,5 +17,7 @@
         <x:String x:Key="S.Message.ContextNotCreated">コンテキストが作成されませんでした。</x:String>
         <x:String x:Key="S.Message.EditorContextHasAlreadyBeenCreated">エディターコンテキストは既に作成されています。</x:String>
         <x:String x:Key="S.Message.NullWasSpecifiedForEditorContext">エディターコンテキストにNullが指定されました。</x:String>
+        <x:String x:Key="S.Message.DoYouWantToAddThisItemToCurrentProject">このアイテムを現在のプロジェクトに追加しますか？</x:String>
+        <x:String x:Key="S.Message.RememberThisChoice">この選択を記憶する</x:String>
     </Styles.Resources>
 </Styles>

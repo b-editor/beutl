@@ -81,7 +81,7 @@ public sealed class AddLayerViewModel
                 Length = Duration.Value,
                 ZIndex = Layer.Value,
                 AccentColor = new(Color.Value.A, Color.Value.R, Color.Value.G, Color.Value.B),
-                FileName = Helper.RandomLayerFileName(Path.GetDirectoryName(_scene.FileName)!, "layer")
+                FileName = Helper.RandomLayerFileName(Path.GetDirectoryName(_scene.FileName)!, Constants.LayerFileExtension)
             };
 
             if (_layerDescription.InitialOperation != null)

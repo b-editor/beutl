@@ -31,6 +31,8 @@ using BeUtl.ViewModels;
 using BeUtl.ViewModels.Dialogs;
 using BeUtl.Views.Dialogs;
 
+using DynamicData;
+
 using FluentAvalonia.Core.ApplicationModel;
 using FluentAvalonia.UI.Controls;
 
@@ -338,9 +340,58 @@ Error:
             string[]? files = await dialog.ShowAsync(root);
             if (files != null)
             {
+                bool? addToProject = null;
+                Project? project = _projectService.CurrentProject.Value;
+
                 foreach (string file in files)
                 {
-                    // Todo: プロジェクトに追加するかのダイアログを表示する
+                    if (project != null && _workspaceItemContainer.TryGetOrCreateItem(file, out IWorkspaceItem? item))
+                    {
+                        if (!addToProject.HasValue)
+                        {
+                            var checkBox = new CheckBox
+                            {
+                                IsChecked = false,
+                                Content = S.Message.RememberThisChoice
+                            };
+                            var contentDialog = new ContentDialog
+                            {
+                                PrimaryButtonText = S.Common.Yes,
+                                CloseButtonText = S.Common.No,
+                                DefaultButton = ContentDialogButton.Primary,
+                                Content = new StackPanel
+                                {
+                                    Children =
+                                    {
+                                        new TextBlock
+                                        {
+                                            Text = S.Message.DoYouWantToAddThisItemToCurrentProject + "\n" + Path.GetFileName(file)
+                                        },
+                                        checkBox
+                                    }
+                                }
+                            };
+
+                            ContentDialogResult result = await contentDialog.ShowAsync();
+                            // 選択を記憶する
+                            if (checkBox.IsChecked.Value)
+                            {
+                                addToProject = result == ContentDialogResult.Primary;
+                            }
+
+                            if (result == ContentDialogResult.Primary)
+                            {
+                                project.Items.Add(item);
+                                _editorService.ActivateTabItem(file, TabOpenMode.FromProject);
+                            }
+                        }
+                        else if (addToProject.Value)
+                        {
+                            project.Items.Add(item);
+                            _editorService.ActivateTabItem(file, TabOpenMode.FromProject);
+                        }
+                    }
+
                     _editorService.ActivateTabItem(file, TabOpenMode.YourSelf);
                 }
             }
