@@ -178,27 +178,15 @@ public class MainViewModel
 
         Undo.Subscribe(async () =>
         {
-            bool handled = false;
-
             IKnownEditorCommands? commands = _editorService.SelectedTabItem.Value?.Commands.Value;
             if (commands != null)
-                handled = await commands.OnUndo();
-
-            // Todo: EditViewModel‚É‚±‚Ìˆ—‚ðˆÚ“®‚·‚é
-            if (!handled)
-                CommandRecorder.Default.Undo();
+                await commands.OnUndo();
         });
         Redo.Subscribe(async () =>
         {
-            bool handled = false;
-
             IKnownEditorCommands? commands = _editorService.SelectedTabItem.Value?.Commands.Value;
             if (commands != null)
-                handled = await commands.OnRedo();
-
-            // Todo: EditViewModel‚É‚±‚Ìˆ—‚ðˆÚ“®‚·‚é
-            if (!handled)
-                CommandRecorder.Default.Redo();
+                await commands.OnRedo();
         });
 
         _packageLoadTask = Task.Run(async () =>

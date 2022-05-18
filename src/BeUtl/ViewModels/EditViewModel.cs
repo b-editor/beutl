@@ -212,5 +212,19 @@ public sealed class EditViewModel : IEditorContext
 
             return ValueTask.FromResult(true);
         }
+
+        public ValueTask<bool> OnUndo()
+        {
+            CommandRecorder.Default.Undo();
+
+            return ValueTask.FromResult(true);
+        }
+
+        public ValueTask<bool> OnRedo()
+        {
+            CommandRecorder.Default.Redo();
+
+            return ValueTask.FromResult(true);
+        }
     }
 }
