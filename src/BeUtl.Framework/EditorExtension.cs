@@ -32,7 +32,7 @@ public abstract class EditorExtension : ViewExtension
         [NotNullWhen(true)] out IEditor? editor);
 
     // NOTE: ここからIWorkspaceItemを取得する場合、
-    //       GetCurrentProjectから取得すればいい
+    //       IWorkspaceItemContainerから取得すればいい
     public abstract bool TryCreateContext(
         string file,
         [NotNullWhen(true)] out IEditorContext? context);

@@ -291,7 +291,6 @@ public abstract class CoreObject : ICoreObject
         JsonNode = json;
         Type ownerType = GetType();
 
-        // Todo: 例外処理
         if (json is JsonObject obj)
         {
             IReadOnlyList<CoreProperty> list = PropertyRegistry.GetRegistered(GetType());

@@ -77,7 +77,6 @@ public class MainViewModel
             .CombineLatest(_editorService.SelectedTabItem)
             .Select(i => i.First && i.Second != null);
 
-        // Todo: SelectManyの使い方あってるかわからんのでテストする
         IObservable<bool> isSceneOpened = _editorService.SelectedTabItem
             .SelectMany(i => i?.Context ?? Observable.Empty<IEditorContext?>())
             .Select(v => v is EditViewModel);

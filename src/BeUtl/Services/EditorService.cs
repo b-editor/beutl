@@ -19,7 +19,6 @@ public enum TabOpenMode
     YourSelf,
 }
 
-// Todo: 開く拡張機能をUI側で変更できるようにしたい
 public sealed class EditorTabItem : IDisposable
 {
     public EditorTabItem(IEditorContext context, TabOpenMode tabOpenMode)

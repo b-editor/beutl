@@ -218,7 +218,7 @@ public class Layer : Element, IStorable, ILogicalElement
 
         if (json is JsonObject jobject)
         {
-            // Todo: 後で削除
+            // NOTE: リリース時に削除。互換性を保つためのコードなので
             if (!jobject.ContainsKey("zIndex") && jobject.TryGetPropertyValue("layer", out JsonNode? layerNode) &&
                 layerNode is JsonValue layerValue &&
                 layerValue.TryGetValue(out int layer))
