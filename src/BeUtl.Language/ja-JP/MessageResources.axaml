@@ -8,5 +8,14 @@
         <x:String x:Key="S.Message.DoYouWantToDeleteThisFile">このファイルを削除しますか？</x:String>
         <x:String x:Key="S.Message.DoYouWantToExcludeThisSceneFromProject">プロジェクトからこのシーンを除外しますか？</x:String>
         <x:String x:Key="S.Message.DoYouWantToExcludeThisItemFromProject">プロジェクトからこのアイテムを除外しますか？</x:String>
+        <x:String x:Key="S.Message.CouldNotOpenFollowingFileWithExtension">
+            '{0}'で次のファイルを開くことができませんでした。
+            '{1}'
+        </x:String>
+        <x:String x:Key="S.Message.CannotDisplayThisContext">このコンテキストを表示できません。</x:String>
+        <x:String x:Key="S.Message.CouldNotCreateInstanceOfView">Viewのインスタンスを作成できませんでした。</x:String>
+        <x:String x:Key="S.Message.ContextNotCreated">コンテキストが作成されませんでした。</x:String>
+        <x:String x:Key="S.Message.EditorContextHasAlreadyBeenCreated">エディターコンテキストは既に作成されています。</x:String>
+        <x:String x:Key="S.Message.NullWasSpecifiedForEditorContext">エディターコンテキストにNullが指定されました。</x:String>
     </Styles.Resources>
 </Styles>

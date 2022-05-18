@@ -2,7 +2,6 @@ using System.Collections.Specialized;
 
 using Avalonia.Collections;
 using Avalonia.Controls;
-using Avalonia.Controls.Presenters;
 using Avalonia.Controls.Templates;
 using Avalonia.Data;
 using Avalonia.Data.Converters;
@@ -20,6 +19,7 @@ using BeUtl.Views.Dialogs;
 using FAPathIconSource = FluentAvalonia.UI.Controls.PathIconSource;
 using FATabView = FluentAvalonia.UI.Controls.TabView;
 using FATabViewItem = FluentAvalonia.UI.Controls.TabViewItem;
+using S = BeUtl.Language.StringResources;
 
 namespace BeUtl.Pages;
 
@@ -49,13 +49,13 @@ public sealed partial class EditPage : UserControl
                 {
                     Text = obj != null ? @$"
 Error:
-    '{obj.Extension.Name}' 拡張機能で '{Path.GetFileName(obj.EdittingFile)}' を開けませんでした。
+    {string.Format(S.Message.CouldNotOpenFollowingFileWithExtension, obj.Extension.DisplayName, Path.GetFileName(obj.EdittingFile))}
 
-                Message:
-                    エディターコンテキストは既に作成されています。
-                " : @"
-                Error:
-                    エディターコンテキストにNullが指定されました。
+Message:
+    {S.Message.EditorContextHasAlreadyBeenCreated}
+                " : @$"
+Error:
+    {S.Message.NullWasSpecifiedForEditorContext}
                 "
                 };
             }

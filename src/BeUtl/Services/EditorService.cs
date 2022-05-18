@@ -4,9 +4,6 @@ using System.Reactive.Linq;
 using BeUtl.Collections;
 using BeUtl.Configuration;
 using BeUtl.Framework;
-using BeUtl.Framework.Services;
-
-using Microsoft.Extensions.DependencyInjection;
 
 using Reactive.Bindings;
 

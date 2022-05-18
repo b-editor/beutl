@@ -128,6 +128,11 @@
         <x:String x:Key="S.Common.Rotation">Rotation</x:String>
         <x:String x:Key="S.Common.RecentFiles">Recent Files</x:String>
         <x:String x:Key="S.Common.RecentProjects">Recent Projects</x:String>
+        <x:String x:Key="S.Common.Scale">Scale</x:String>
+        <x:String x:Key="S.Common.ScaleX">Scale x</x:String>
+        <x:String x:Key="S.Common.ScaleY">Scale y</x:String>
+        <x:String x:Key="S.Common.SkewX">Skew x</x:String>
+        <x:String x:Key="S.Common.SkewY">Skew y</x:String>
     </Styles.Resources>
 
     <!--Views-->

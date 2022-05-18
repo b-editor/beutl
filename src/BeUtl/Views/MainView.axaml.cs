@@ -21,6 +21,7 @@ using Avalonia.Xaml.Interactivity;
 using BeUtl.Collections;
 using BeUtl.Controls;
 using BeUtl.Framework;
+using BeUtl.Framework.Service;
 using BeUtl.Framework.Services;
 using BeUtl.Models;
 using BeUtl.Pages;
@@ -94,6 +95,7 @@ public partial class MainView : UserControl
     private readonly AvaloniaList<NavigationViewItem> _navigationItems = new();
     private readonly EditorService _editorService = ServiceLocator.Current.GetRequiredService<EditorService>();
     private readonly IProjectService _projectService = ServiceLocator.Current.GetRequiredService<IProjectService>();
+    private readonly INotificationService _notificationService = ServiceLocator.Current.GetRequiredService<INotificationService>();
     private readonly IWorkspaceItemContainer _workspaceItemContainer = ServiceLocator.Current.GetRequiredService<IWorkspaceItemContainer>();
     private IControl? _settingsView;
 
@@ -158,14 +160,14 @@ public partial class MainView : UserControl
                         HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center,
                         Text = exception != null ? @$"
 Error:
-    Viewのインスタンスを作成できませんでした。
+    {S.Message.CouldNotCreateInstanceOfView}
 Message:
     {exception.Message}
 StackTrace:
     {exception.StackTrace}
-" : @"
+" : @$"
 Error:
-    このコンテキストを表示できません。
+    {S.Message.CannotDisplayThisContext}
 "
                     };
 
@@ -193,7 +195,7 @@ Error:
                     _controls.RemoveAt(idx);
                     _navigationItems.RemoveAt(idx);
                 },
-                () => throw new Exception("'MainViewModel.Pages'は'Clear'メソッドに対応していません。"))
+                () => throw new Exception("'MainViewModel.Pages' does not support the 'Clear' method."))
                 .AddTo(_disposables);
 
             viewModel.SelectedPage.Subscribe(obj =>
@@ -377,8 +379,8 @@ Error:
 
                 var dialog = new ContentDialog
                 {
-                    [!ContentDialog.CloseButtonTextProperty] = new DynamicResourceExtension("S.Common.Cancel"),
-                    [!ContentDialog.PrimaryButtonTextProperty] = new DynamicResourceExtension("S.Common.OK"),
+                    CloseButtonText = S.Common.Cancel,
+                    PrimaryButtonText = S.Common.OK,
                     DefaultButton = ContentDialogButton.Primary,
                     Content = S.Message.DoYouWantToExcludeThisItemFromProject + "\n" + filePath
                 };
@@ -418,8 +420,8 @@ Error:
                 string name = Path.GetFileName(layer.FileName);
                 var dialog = new ContentDialog
                 {
-                    [!ContentDialog.CloseButtonTextProperty] = new DynamicResourceExtension("S.Common.Cancel"),
-                    [!ContentDialog.PrimaryButtonTextProperty] = new DynamicResourceExtension("S.Common.OK"),
+                    CloseButtonText = S.Common.Cancel,
+                    PrimaryButtonText = S.Common.OK,
                     DefaultButton = ContentDialogButton.Primary,
                     Content = S.Message.DoYouWantToDeleteThisFile + "\n" + name
                 };
@@ -618,7 +620,12 @@ Error:
                     }
                     else
                     {
-                        // Todo: 通知出す
+                        _notificationService.Show(new Notification(
+                            Title: S.Message.ContextNotCreated,
+                            Message: string.Format(
+                                format: S.Message.CouldNotOpenFollowingFileWithExtension,
+                                arg0: editorExtension.DisplayName,
+                                arg1: selectedTab.FileName.Value)));
                     }
                 }
             };
