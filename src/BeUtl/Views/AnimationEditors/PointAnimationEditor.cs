@@ -8,20 +8,23 @@ namespace BeUtl.Views.AnimationEditors;
 
 public sealed class PointAnimationEditor : BaseVector2AnimationEditor<Graphics.Point>
 {
+    private static readonly DynamicResourceExtension s_xResource = new("S.Editors.Point.X");
+    private static readonly DynamicResourceExtension s_yResource = new("S.Editors.Point.Y");
+    private static readonly Binding s_prevX = new("Animation.Previous.X", BindingMode.OneWay);
+    private static readonly Binding s_prevY = new("Animation.Previous.Y", BindingMode.OneWay);
+    private static readonly Binding s_nextX = new("Animation.Next.X", BindingMode.OneWay);
+    private static readonly Binding s_nextY = new("Animation.Next.Y", BindingMode.OneWay);
     public PointAnimationEditor()
     {
-        var xres = new DynamicResourceExtension("S.Editors.Point.X");
-        var yres = new DynamicResourceExtension("S.Editors.Point.Y");
-        prevXText[!TextBlock.TextProperty] = xres;
-        prevYText[!TextBlock.TextProperty] = yres;
-        nextXText[!TextBlock.TextProperty] = xres;
-        nextYText[!TextBlock.TextProperty] = yres;
+        prevXText[!TextBlock.TextProperty] = s_xResource;
+        prevYText[!TextBlock.TextProperty] = s_yResource;
+        nextXText[!TextBlock.TextProperty] = s_xResource;
+        nextYText[!TextBlock.TextProperty] = s_yResource;
 
-        // Todo: Bindingをキャッシュする
-        prevXTextBox[!TextBox.TextProperty] = new Binding("Animation.Previous.X", BindingMode.OneWay);
-        prevYTextBox[!TextBox.TextProperty] = new Binding("Animation.Previous.Y", BindingMode.OneWay);
-        nextXTextBox[!TextBox.TextProperty] = new Binding("Animation.Next.X", BindingMode.OneWay);
-        nextYTextBox[!TextBox.TextProperty] = new Binding("Animation.Next.Y", BindingMode.OneWay);
+        prevXTextBox[!TextBox.TextProperty] = s_prevX;
+        prevYTextBox[!TextBox.TextProperty] = s_prevY;
+        nextXTextBox[!TextBox.TextProperty] = s_nextX;
+        nextYTextBox[!TextBox.TextProperty] = s_nextY;
     }
 
     protected override Graphics.Point Clamp(Graphics.Point value)

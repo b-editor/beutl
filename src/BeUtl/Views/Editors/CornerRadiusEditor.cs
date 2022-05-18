@@ -11,6 +11,11 @@ namespace BeUtl.Views.Editors;
 
 public sealed class CornerRadiusEditor : BaseVector4Editor<CornerRadius>
 {
+    private static readonly Binding s_topLeft = new("Value.Value.TopLeft", BindingMode.OneWay);
+    private static readonly Binding s_topRight = new("Value.Value.TopRight", BindingMode.OneWay);
+    private static readonly Binding s_bottomLeft = new("Value.Value.BottomLeft", BindingMode.OneWay);
+    private static readonly Binding s_bottomRight = new("Value.Value.BottomRight", BindingMode.OneWay);
+
     public CornerRadiusEditor()
     {
         static FluentIconRegular CreateIcon(FluentIconsRegular icon)
@@ -24,11 +29,10 @@ public sealed class CornerRadiusEditor : BaseVector4Editor<CornerRadius>
             };
         }
 
-        // Todo: Bindingをキャッシュする
-        xTextBox[!TextBox.TextProperty] = new Binding("Value.Value.TopLeft", BindingMode.OneWay);
-        yTextBox[!TextBox.TextProperty] = new Binding("Value.Value.TopRight", BindingMode.OneWay);
-        zTextBox[!TextBox.TextProperty] = new Binding("Value.Value.BottomLeft", BindingMode.OneWay);
-        wTextBox[!TextBox.TextProperty] = new Binding("Value.Value.BottomRight", BindingMode.OneWay);
+        xTextBox[!TextBox.TextProperty] = s_topLeft;
+        yTextBox[!TextBox.TextProperty] = s_topRight;
+        zTextBox[!TextBox.TextProperty] = s_bottomLeft;
+        wTextBox[!TextBox.TextProperty] = s_bottomRight;
 
         FluentIconRegular topLeftIcon = CreateIcon(FluentIconsRegular.Arrow_Up_Left);
         FluentIconRegular topRightIcon = CreateIcon(FluentIconsRegular.Arrow_Up_Right);

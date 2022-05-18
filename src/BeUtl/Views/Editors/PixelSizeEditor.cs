@@ -8,13 +8,18 @@ namespace BeUtl.Views.Editors;
 
 public sealed class PixelSizeEditor : BaseVector2Editor<Media.PixelSize>
 {
+    private static readonly DynamicResourceExtension s_xResource = new("S.Editors.PixelSize.X");
+    private static readonly DynamicResourceExtension s_yResource = new("S.Editors.PixelSize.Y");
+    private static readonly Binding s_x = new("Value.Value.Width", BindingMode.OneWay);
+    private static readonly Binding s_y = new("Value.Value.Height", BindingMode.OneWay);
+
     public PixelSizeEditor()
     {
-        xText[!TextBlock.TextProperty] = new DynamicResourceExtension("S.Editors.PixelSize.X");
-        yText[!TextBlock.TextProperty] = new DynamicResourceExtension("S.Editors.PixelSize.Y");
-        // Todo: Bindingをキャッシュする
-        xTextBox[!TextBox.TextProperty] = new Binding("Value.Value.Width", BindingMode.OneWay);
-        yTextBox[!TextBox.TextProperty] = new Binding("Value.Value.Height", BindingMode.OneWay);
+        xText[!TextBlock.TextProperty] = s_xResource;
+        yText[!TextBlock.TextProperty] = s_yResource;
+
+        xTextBox[!TextBox.TextProperty] = s_x;
+        yTextBox[!TextBox.TextProperty] = s_y;
     }
 
     protected override Media.PixelSize Clamp(Media.PixelSize value)

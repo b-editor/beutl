@@ -8,20 +8,24 @@ namespace BeUtl.Views.AnimationEditors;
 
 public sealed class SizeAnimationEditor : BaseVector2AnimationEditor<Graphics.Size>
 {
+    private static readonly DynamicResourceExtension s_xResource = new("S.Editors.Size.X");
+    private static readonly DynamicResourceExtension s_yResource = new("S.Editors.Size.Y");
+    private static readonly Binding s_prevX = new("Animation.Previous.Width", BindingMode.OneWay);
+    private static readonly Binding s_prevY = new("Animation.Previous.Width", BindingMode.OneWay);
+    private static readonly Binding s_nextX = new("Animation.Next.Width", BindingMode.OneWay);
+    private static readonly Binding s_nextY = new("Animation.Next.Height", BindingMode.OneWay);
+
     public SizeAnimationEditor()
     {
-        var xres = new DynamicResourceExtension("S.Editors.Size.X");
-        var yres = new DynamicResourceExtension("S.Editors.Size.Y");
-        prevXText[!TextBlock.TextProperty] = xres;
-        prevYText[!TextBlock.TextProperty] = yres;
-        nextXText[!TextBlock.TextProperty] = xres;
-        nextYText[!TextBlock.TextProperty] = yres;
+        prevXText[!TextBlock.TextProperty] = s_xResource;
+        prevYText[!TextBlock.TextProperty] = s_yResource;
+        nextXText[!TextBlock.TextProperty] = s_xResource;
+        nextYText[!TextBlock.TextProperty] = s_yResource;
 
-        // Todo: Bindingをキャッシュする
-        prevXTextBox[!TextBox.TextProperty] = new Binding("Animation.Previous.Width", BindingMode.OneWay);
-        prevYTextBox[!TextBox.TextProperty] = new Binding("Animation.Previous.Height", BindingMode.OneWay);
-        nextXTextBox[!TextBox.TextProperty] = new Binding("Animation.Next.Width", BindingMode.OneWay);
-        nextYTextBox[!TextBox.TextProperty] = new Binding("Animation.Next.Height", BindingMode.OneWay);
+        prevXTextBox[!TextBox.TextProperty] = s_prevX;
+        prevYTextBox[!TextBox.TextProperty] = s_prevY;
+        nextXTextBox[!TextBox.TextProperty] = s_nextX;
+        nextYTextBox[!TextBox.TextProperty] = s_nextY;
     }
 
     protected override Graphics.Size Clamp(Graphics.Size value)

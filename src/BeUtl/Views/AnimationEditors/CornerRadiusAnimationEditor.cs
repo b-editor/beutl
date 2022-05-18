@@ -11,6 +11,15 @@ namespace BeUtl.Views.AnimationEditors;
 
 public sealed class CornerRadiusAnimationEditor : BaseVector4AnimationEditor<CornerRadius>
 {
+    private static readonly Binding s_prevTopLeft = new("Animation.Previous.TopLeft", BindingMode.OneWay);
+    private static readonly Binding s_prevTopRight = new("Animation.Previous.TopRight", BindingMode.OneWay);
+    private static readonly Binding s_prevBottomLeft = new("Animation.Previous.BottomLeft", BindingMode.OneWay);
+    private static readonly Binding s_prevBottomRight = new("Animation.Previous.BottomRight", BindingMode.OneWay);
+    private static readonly Binding s_nextTopLeft = new("Animation.Next.TopLeft", BindingMode.OneWay);
+    private static readonly Binding s_nextTopRight = new("Animation.Next.TopRight", BindingMode.OneWay);
+    private static readonly Binding s_nextBottomLeft = new("Animation.Next.BottomLeft", BindingMode.OneWay);
+    private static readonly Binding s_nextBottomRight = new("Animation.Next.BottomRight", BindingMode.OneWay);
+
     public CornerRadiusAnimationEditor()
     {
         static FluentIconRegular CreateIcon(FluentIconsRegular icon)
@@ -39,15 +48,14 @@ public sealed class CornerRadiusAnimationEditor : BaseVector4AnimationEditor<Cor
         nextZTextBox.InnerLeftContent = CreateIcon(FluentIconsRegular.Arrow_Down_Left);
         nextWTextBox.InnerLeftContent = bottomRightIcon2;
 
-        // Todo: Bindingをキャッシュする
-        prevXTextBox[!TextBox.TextProperty] = new Binding("Animation.Previous.TopLeft", BindingMode.OneWay);
-        prevYTextBox[!TextBox.TextProperty] = new Binding("Animation.Previous.TopRight", BindingMode.OneWay);
-        prevZTextBox[!TextBox.TextProperty] = new Binding("Animation.Previous.BottomLeft", BindingMode.OneWay);
-        prevWTextBox[!TextBox.TextProperty] = new Binding("Animation.Previous.BottomRight", BindingMode.OneWay);
-        nextXTextBox[!TextBox.TextProperty] = new Binding("Animation.Next.TopLeft", BindingMode.OneWay);
-        nextYTextBox[!TextBox.TextProperty] = new Binding("Animation.Next.TopRight", BindingMode.OneWay);
-        nextZTextBox[!TextBox.TextProperty] = new Binding("Animation.Next.BottomLeft", BindingMode.OneWay);
-        nextWTextBox[!TextBox.TextProperty] = new Binding("Animation.Next.BottomRight", BindingMode.OneWay);
+        prevXTextBox[!TextBox.TextProperty] = s_prevTopLeft;
+        prevYTextBox[!TextBox.TextProperty] = s_prevTopRight;
+        prevZTextBox[!TextBox.TextProperty] = s_prevBottomLeft;
+        prevWTextBox[!TextBox.TextProperty] = s_prevBottomRight;
+        nextXTextBox[!TextBox.TextProperty] = s_nextTopLeft;
+        nextYTextBox[!TextBox.TextProperty] = s_nextTopRight;
+        nextZTextBox[!TextBox.TextProperty] = s_nextBottomLeft;
+        nextWTextBox[!TextBox.TextProperty] = s_nextBottomRight;
     }
 
     protected override CornerRadius Clamp(CornerRadius value)

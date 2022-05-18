@@ -10,17 +10,26 @@ namespace BeUtl.Views.Editors;
 
 public sealed class Vector4Editor : BaseVector4Editor<Vector4>
 {
+    private static readonly DynamicResourceExtension s_xResource = new("S.Editors.Vector4.X");
+    private static readonly DynamicResourceExtension s_yResource = new("S.Editors.Vector4.Y");
+    private static readonly DynamicResourceExtension s_zResource = new("S.Editors.Vector4.Z");
+    private static readonly DynamicResourceExtension s_wResource = new("S.Editors.Vector4.W");
+    private static readonly Binding s_x = new("Value.Value.X", BindingMode.OneWay);
+    private static readonly Binding s_y = new("Value.Value.Y", BindingMode.OneWay);
+    private static readonly Binding s_z = new("Value.Value.Z", BindingMode.OneWay);
+    private static readonly Binding s_w = new("Value.Value.W", BindingMode.OneWay);
+
     public Vector4Editor()
     {
-        xText[!TextBlock.TextProperty] = new DynamicResourceExtension("S.Editors.Vector4.X");
-        yText[!TextBlock.TextProperty] = new DynamicResourceExtension("S.Editors.Vector4.Y");
-        zText[!TextBlock.TextProperty] = new DynamicResourceExtension("S.Editors.Vector4.Z");
-        wText[!TextBlock.TextProperty] = new DynamicResourceExtension("S.Editors.Vector4.W");
-        // Todo: Bindingをキャッシュする
-        xTextBox[!TextBox.TextProperty] = new Binding("Value.Value.X", BindingMode.OneWay);
-        yTextBox[!TextBox.TextProperty] = new Binding("Value.Value.Y", BindingMode.OneWay);
-        zTextBox[!TextBox.TextProperty] = new Binding("Value.Value.Z", BindingMode.OneWay);
-        wTextBox[!TextBox.TextProperty] = new Binding("Value.Value.W", BindingMode.OneWay);
+        xText[!TextBlock.TextProperty] = s_xResource;
+        yText[!TextBlock.TextProperty] = s_yResource;
+        zText[!TextBlock.TextProperty] = s_zResource;
+        wText[!TextBlock.TextProperty] = s_wResource;
+
+        xTextBox[!TextBox.TextProperty] = s_x;
+        yTextBox[!TextBox.TextProperty] = s_y;
+        zTextBox[!TextBox.TextProperty] = s_z;
+        wTextBox[!TextBox.TextProperty] = s_w;
     }
 
     protected override Vector4 Clamp(Vector4 value)

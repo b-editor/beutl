@@ -32,6 +32,7 @@ namespace BeUtl.Views;
 public sealed partial class EditView : UserControl, IEditor
 {
     private readonly SynchronizationContext _syncContext;
+    private static readonly Binding s_isSelectedBinding = new("IsSelected.Value", BindingMode.TwoWay);
     private readonly Binding _bottomHeightBinding;
     private readonly Binding _rightHeightBinding;
     private Image? _image;
@@ -125,8 +126,7 @@ public sealed partial class EditView : UserControl, IEditor
 
                     var tabItem = new FATabViewItem
                     {
-                        // Todo: Bindingをキャッシュする
-                        [!ListBoxItem.IsSelectedProperty] = new Binding("IsSelected.Value", BindingMode.TwoWay),
+                        [!ListBoxItem.IsSelectedProperty] = s_isSelectedBinding,
                         Header = $"{item.Layer.Name} / {item.Setter.Property.Name}",
                         DataContext = item,
                         Content = new AnimationTimeline(),
@@ -179,8 +179,7 @@ public sealed partial class EditView : UserControl, IEditor
                     {
                         var tabItem = new FATabViewItem()
                         {
-                            // Todo: Bindingをキャッシュする
-                            [!ListBoxItem.IsSelectedProperty] = new Binding("IsSelected.Value", BindingMode.TwoWay),
+                            [!ListBoxItem.IsSelectedProperty] = s_isSelectedBinding,
                             [!FATabViewItem.HeaderProperty] = new DynamicResourceExtension(extension.Header.Key),
                             Content = extension.CreateContent(viewModel.Scene),
                             DataContext = item,

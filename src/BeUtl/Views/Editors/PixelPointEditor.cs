@@ -8,13 +8,18 @@ namespace BeUtl.Views.Editors;
 
 public sealed class PixelPointEditor : BaseVector2Editor<Media.PixelPoint>
 {
+    private static readonly DynamicResourceExtension s_xResource = new("S.Editors.PixelPoint.X");
+    private static readonly DynamicResourceExtension s_yResource = new("S.Editors.PixelPoint.Y");
+    private static readonly Binding s_x = new("Value.Value.X", BindingMode.OneWay);
+    private static readonly Binding s_y = new("Value.Value.Y", BindingMode.OneWay);
+
     public PixelPointEditor()
     {
-        xText[!TextBlock.TextProperty] = new DynamicResourceExtension("S.Editors.PixelPoint.X");
-        yText[!TextBlock.TextProperty] = new DynamicResourceExtension("S.Editors.PixelPoint.Y");
-        // Todo: Bindingをキャッシュする
-        xTextBox[!TextBox.TextProperty] = new Binding("Value.Value.X", BindingMode.OneWay);
-        yTextBox[!TextBox.TextProperty] = new Binding("Value.Value.Y", BindingMode.OneWay);
+        xText[!TextBlock.TextProperty] = s_xResource;
+        yText[!TextBlock.TextProperty] = s_yResource;
+
+        xTextBox[!TextBox.TextProperty] = s_x;
+        yTextBox[!TextBox.TextProperty] = s_y;
     }
 
     protected override Media.PixelPoint Clamp(Media.PixelPoint value)
