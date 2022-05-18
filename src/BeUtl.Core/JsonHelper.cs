@@ -1,5 +1,7 @@
-﻿using System.Text.Json;
+﻿using System.Text.Encodings.Web;
+using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.Unicode;
 
 namespace BeUtl;
 
@@ -13,6 +15,7 @@ public static class JsonHelper
     public static JsonSerializerOptions SerializerOptions { get; } = new()
     {
         WriteIndented = true,
+        Encoder = JavaScriptEncoder.Create(UnicodeRanges.All)
     };
 
     public static void JsonSave(this IJsonSerializable serializable, string filename)

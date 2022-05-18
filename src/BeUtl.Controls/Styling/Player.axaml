@@ -103,7 +103,7 @@
                             <ToggleButton
                                 Name="PART_PlayButton"
                                 Grid.Column="3"
-                                IsChecked="{TemplateBinding IsPlaying, Mode=TwoWay}">
+                                IsChecked="{TemplateBinding IsPlaying, Mode=OneWay}">
                                 <ToggleButton.Styles>
                                     <Style Selector="ToggleButton">
                                         <Setter Property="Content">

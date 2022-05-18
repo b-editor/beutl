@@ -8,7 +8,6 @@
         <x:String x:Key="S.OpName.Align">整列</x:String>
         <x:String x:Key="S.OpName.Blend">ブレンド</x:String>
         <x:String x:Key="S.OpName.OffscreenDrawing">オフスクリーン描画</x:String>
-        <x:String x:Key="S.OpName.RenderAll">全て描画</x:String>
         <x:String x:Key="S.OpName.RoundedRect">角丸四角形</x:String>
         <x:String x:Key="S.OpName.Test">テスト</x:String>
 

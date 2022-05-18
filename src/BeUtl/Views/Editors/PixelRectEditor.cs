@@ -8,16 +8,26 @@ namespace BeUtl.Views.Editors;
 
 public sealed class PixelRectEditor : BaseVector4Editor<Media.PixelRect>
 {
+    private static readonly DynamicResourceExtension s_xResource = new("S.Editors.PixelRect.X");
+    private static readonly DynamicResourceExtension s_yResource = new("S.Editors.PixelRect.Y");
+    private static readonly DynamicResourceExtension s_zResource = new("S.Editors.PixelRect.Z");
+    private static readonly DynamicResourceExtension s_wResource = new("S.Editors.PixelRect.W");
+    private static readonly Binding s_x = new("Value.Value.X", BindingMode.OneWay);
+    private static readonly Binding s_y = new("Value.Value.Y", BindingMode.OneWay);
+    private static readonly Binding s_z = new("Value.Value.Width", BindingMode.OneWay);
+    private static readonly Binding s_w = new("Value.Value.Height", BindingMode.OneWay);
+
     public PixelRectEditor()
     {
-        xText[!TextBlock.TextProperty] = new DynamicResourceExtension("S.Editors.PixelRect.X");
-        yText[!TextBlock.TextProperty] = new DynamicResourceExtension("S.Editors.PixelRect.Y");
-        zText[!TextBlock.TextProperty] = new DynamicResourceExtension("S.Editors.PixelRect.Z");
-        wText[!TextBlock.TextProperty] = new DynamicResourceExtension("S.Editors.PixelRect.W");
-        xTextBox[!TextBox.TextProperty] = new Binding("Value.Value.X", BindingMode.OneWay);
-        yTextBox[!TextBox.TextProperty] = new Binding("Value.Value.Y", BindingMode.OneWay);
-        zTextBox[!TextBox.TextProperty] = new Binding("Value.Value.Width", BindingMode.OneWay);
-        wTextBox[!TextBox.TextProperty] = new Binding("Value.Value.Height", BindingMode.OneWay);
+        xText[!TextBlock.TextProperty] = s_xResource;
+        yText[!TextBlock.TextProperty] = s_yResource;
+        zText[!TextBlock.TextProperty] = s_zResource;
+        wText[!TextBlock.TextProperty] = s_wResource;
+
+        xTextBox[!TextBox.TextProperty] = s_x;
+        yTextBox[!TextBox.TextProperty] = s_y;
+        zTextBox[!TextBox.TextProperty] = s_z;
+        wTextBox[!TextBox.TextProperty] = s_w;
     }
 
     protected override Media.PixelRect Clamp(Media.PixelRect value)

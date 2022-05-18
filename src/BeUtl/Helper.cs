@@ -1,7 +1,8 @@
-﻿using Avalonia;
+﻿using System.Reactive.Linq;
+
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
-using Avalonia.Styling;
 
 using BeUtl.ProjectSystem;
 
@@ -16,6 +17,36 @@ internal static class Helper
     {
         SecondWidth = (double)(Application.Current?.FindResource("SecondWidth") ?? 150);
         LayerHeight = (double)(Application.Current?.FindResource("LayerHeight") ?? 25);
+    }
+
+    public static int GetFrameRate(this IWorkspace workspace)
+    {
+        return workspace.Variables.TryGetValue(ProjectVariableKeys.FrameRate, out string? value)
+            && int.TryParse(value, out int rate)
+            ? rate
+            : 30;
+    }
+
+    public static int GetSampleRate(this IWorkspace workspace)
+    {
+        return workspace.Variables.TryGetValue(ProjectVariableKeys.SampleRate, out string? value)
+            && int.TryParse(value, out int rate)
+            ? rate
+            : 44100;
+    }
+
+    public static IObservable<T> ToObservable<T>(this ResourceReference<T> resourceReference, T defaultValue)
+        where T : class
+    {
+        if (resourceReference.Key != null)
+        {
+            return Application.Current!.GetResourceObservable(resourceReference.Key)
+                .Select(i => (i as T) ?? defaultValue);
+        }
+        else
+        {
+            return Observable.Return(defaultValue);
+        }
     }
 
     public static Color ToAvalonia(this in Media.Color color)
@@ -87,7 +118,7 @@ internal static class Helper
             = setter.Property.GetMetadata<OperationPropertyMetadata<T>>(setter.Parent.GetType());
         return metadata.HasMinimum ? metadata.Minimum : defaultValue;
     }
-    
+
     public static object? GetDefaultValue(this IPropertyInstance setter)
     {
         return setter.Property.GetMetadata<ICorePropertyMetadata>(setter.Parent.GetType()).GetDefaultValue();

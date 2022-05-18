@@ -7,6 +7,8 @@ using BeUtl.ViewModels.Dialogs;
 
 using FluentAvalonia.UI.Controls;
 
+using S = BeUtl.Language.StringResources;
+
 namespace BeUtl.Views.Dialogs;
 
 public sealed partial class CreateNewProject : ContentDialog, IStyleable
@@ -32,7 +34,7 @@ public sealed partial class CreateNewProject : ContentDialog, IStyleable
             // IsSecondaryButtonEnabledのバインド解除
             _sBtnBinding?.Dispose();
             // '新規作成'を'次へ'に変更
-            SecondaryButtonText = (string?)Application.Current?.FindResource("S.Dialogs.CreateNewProject.Next") ?? string.Empty;
+            SecondaryButtonText = S.Dialogs.CreateNewProject.Next;
             // '次へ'を有効化
             IsSecondaryButtonEnabled = true;
             carousel.Previous();
@@ -58,7 +60,7 @@ public sealed partial class CreateNewProject : ContentDialog, IStyleable
             // IsSecondaryButtonEnabledとCanCreateをバインド
             _sBtnBinding = this.Bind(IsSecondaryButtonEnabledProperty, vm.CanCreate);
             // '次へ'を'新規作成に変更'
-            SecondaryButtonText = (string?)Application.Current?.FindResource("S.Dialogs.CreateNewProject.CreateNew") ?? string.Empty;
+            SecondaryButtonText = S.Dialogs.CreateNewProject.CreateNew;
             carousel.Next();
         }
     }

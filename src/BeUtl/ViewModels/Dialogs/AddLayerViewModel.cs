@@ -1,17 +1,14 @@
 ﻿using System.Reactive.Linq;
 
-using Avalonia;
-using Avalonia.Controls;
-
 using BeUtl.Media;
 using BeUtl.Models;
 using BeUtl.ProjectSystem;
 
 using FluentAvalonia.UI.Media;
 
-using OpenCvSharp;
-
 using Reactive.Bindings;
+
+using S = BeUtl.Language.StringResources;
 
 namespace BeUtl.ViewModels.Dialogs;
 
@@ -33,7 +30,7 @@ public sealed class AddLayerViewModel
         {
             if (layer < 0)
             {
-                return (string?)Application.Current?.FindResource("S.Warning.ValueLessThanZero");
+                return S.Warning.ValueLessThanZero;
             }
             else
             {
@@ -44,7 +41,7 @@ public sealed class AddLayerViewModel
         {
             if (start < TimeSpan.Zero)
             {
-                return (string?)Application.Current?.FindResource("S.Warning.ValueLessThanZero");
+                return S.Warning.ValueLessThanZero;
             }
             else
             {
@@ -55,7 +52,7 @@ public sealed class AddLayerViewModel
         {
             if (length <= TimeSpan.Zero)
             {
-                return (string?)Application.Current?.FindResource("S.Warning.ValueLessThanOrEqualToZero");
+                return S.Warning.ValueLessThanOrEqualToZero;
             }
             else
             {
@@ -84,7 +81,7 @@ public sealed class AddLayerViewModel
                 Length = Duration.Value,
                 ZIndex = Layer.Value,
                 AccentColor = new(Color.Value.A, Color.Value.R, Color.Value.G, Color.Value.B),
-                FileName = Helper.RandomLayerFileName(Path.GetDirectoryName(_scene.FileName)!, "layer")
+                FileName = Helper.RandomLayerFileName(Path.GetDirectoryName(_scene.FileName)!, Constants.LayerFileExtension)
             };
 
             if (_layerDescription.InitialOperation != null)

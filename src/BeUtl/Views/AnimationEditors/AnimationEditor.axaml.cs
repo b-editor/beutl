@@ -324,7 +324,7 @@ public sealed class AnimationEditorResizeBehavior : Behavior<AnimationEditor>
         _enableDrag = false;
         if (AssociatedObject?.DataContext is AnimationEditorViewModel vm)
         {
-            vm.SetDuration(_oldDuration, AssociatedObject.Bounds.Width.ToTimeSpan(vm.Scene.TimelineOptions.Scale));
+            vm.SetDuration(_oldDuration, AssociatedObject.Bounds.Width.ToTimeSpan(vm.OptionsProvider.Options.Value.Scale));
         }
     }
 }

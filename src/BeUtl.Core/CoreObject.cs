@@ -291,7 +291,6 @@ public abstract class CoreObject : ICoreObject
         JsonNode = json;
         Type ownerType = GetType();
 
-        // Todo: 例外処理
         if (json is JsonObject obj)
         {
             IReadOnlyList<CoreProperty> list = PropertyRegistry.GetRegistered(GetType());
@@ -380,7 +379,7 @@ public abstract class CoreObject : ICoreObject
     {
         if (args is CorePropertyChangedEventArgs coreArgs)
         {
-            bool hasChangedFlag = coreArgs.PropertyMetadata.Observability == PropertyObservability.Changed;
+            bool hasChangedFlag = coreArgs.PropertyMetadata.Observability.HasFlag(PropertyObservability.Changed);
             if (coreArgs.Property.HasObservers)
             {
                 coreArgs.Property.NotifyChanged(coreArgs);

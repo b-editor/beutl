@@ -8,12 +8,18 @@ namespace BeUtl.Views.Editors;
 
 public sealed class PointEditor : BaseVector2Editor<Graphics.Point>
 {
+    private static readonly DynamicResourceExtension s_xResource = new("S.Editors.Point.X");
+    private static readonly DynamicResourceExtension s_yResource = new("S.Editors.Point.Y");
+    private static readonly Binding s_x = new("Value.Value.X", BindingMode.OneWay);
+    private static readonly Binding s_y = new("Value.Value.Y", BindingMode.OneWay);
+
     public PointEditor()
     {
-        xText[!TextBlock.TextProperty] = new DynamicResourceExtension("S.Editors.Point.X");
-        yText[!TextBlock.TextProperty] = new DynamicResourceExtension("S.Editors.Point.Y");
-        xTextBox[!TextBox.TextProperty] = new Binding("Value.Value.X", BindingMode.OneWay);
-        yTextBox[!TextBox.TextProperty] = new Binding("Value.Value.Y", BindingMode.OneWay);
+        xText[!TextBlock.TextProperty] = s_xResource;
+        yText[!TextBlock.TextProperty] = s_yResource;
+
+        xTextBox[!TextBox.TextProperty] = s_x;
+        yTextBox[!TextBox.TextProperty] = s_y;
     }
 
     protected override Graphics.Point Clamp(Graphics.Point value)

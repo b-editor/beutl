@@ -8,6 +8,8 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 
+using FluentAvalonia.UI.Controls;
+
 using IconElement = FluentAvalonia.UI.Controls.IconElement;
 
 namespace BeUtl.Controls;

@@ -28,8 +28,7 @@ public static class DefaultMetadatas
     public static OperationPropertyMetadata<float> Scale => new()
     {
         IsAnimatable = true,
-        //Todo: String resource
-        //Header = "ScaleString",
+        Header = "S.Common.Scale",
         SerializeName = "scale",
         PropertyFlags = PropertyFlags.Designable,
         DefaultValue = 100
@@ -38,8 +37,7 @@ public static class DefaultMetadatas
     public static OperationPropertyMetadata<float> ScaleX => new()
     {
         IsAnimatable = true,
-        //Todo: String resource
-        //Header = "ScaleXString",
+        Header = "S.Common.ScaleX",
         SerializeName = "scaleX",
         PropertyFlags = PropertyFlags.Designable,
         DefaultValue = 100
@@ -48,8 +46,7 @@ public static class DefaultMetadatas
     public static OperationPropertyMetadata<float> ScaleY => new()
     {
         IsAnimatable = true,
-        //Todo: String resource
-        //Header = "ScaleYString",
+        Header = "S.Common.ScaleY",
         SerializeName = "scaleY",
         PropertyFlags = PropertyFlags.Designable,
         DefaultValue = 100
@@ -58,8 +55,7 @@ public static class DefaultMetadatas
     public static OperationPropertyMetadata<float> SkewX => new()
     {
         IsAnimatable = true,
-        //Todo: String resource
-        //Header = "SkewXString",
+        Header = "S.Common.SkewX",
         SerializeName = "skewX",
         PropertyFlags = PropertyFlags.Designable,
     };
@@ -67,8 +63,7 @@ public static class DefaultMetadatas
     public static OperationPropertyMetadata<float> SkewY => new()
     {
         IsAnimatable = true,
-        //Todo: String resource
-        //Header = "SkewYString",
+        Header = "S.Common.SkewY",
         SerializeName = "skewY",
         PropertyFlags = PropertyFlags.Designable,
     };

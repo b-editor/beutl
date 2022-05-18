@@ -9,12 +9,18 @@ namespace BeUtl.Views.Editors;
 
 public sealed class VectorEditor : BaseVector2Editor<Vector>
 {
+    private static readonly DynamicResourceExtension s_xResource = new("S.Editors.Vector.X");
+    private static readonly DynamicResourceExtension s_yResource = new("S.Editors.Vector.Y");
+    private static readonly Binding s_x = new("Value.Value.X", BindingMode.OneWay);
+    private static readonly Binding s_y = new("Value.Value.Y", BindingMode.OneWay);
+
     public VectorEditor()
     {
-        xText[!TextBlock.TextProperty] = new DynamicResourceExtension("S.Editors.Vector.X");
-        yText[!TextBlock.TextProperty] = new DynamicResourceExtension("S.Editors.Vector.Y");
-        xTextBox[!TextBox.TextProperty] = new Binding("Value.Value.X", BindingMode.OneWay);
-        yTextBox[!TextBox.TextProperty] = new Binding("Value.Value.Y", BindingMode.OneWay);
+        xText[!TextBlock.TextProperty] = s_xResource;
+        yText[!TextBlock.TextProperty] = s_yResource;
+
+        xTextBox[!TextBox.TextProperty] = s_x;
+        yTextBox[!TextBox.TextProperty] = s_y;
     }
 
     protected override Vector Clamp(Vector value)

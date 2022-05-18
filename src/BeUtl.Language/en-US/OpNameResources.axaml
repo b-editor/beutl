@@ -8,7 +8,6 @@
         <x:String x:Key="S.OpName.Align">Align</x:String>
         <x:String x:Key="S.OpName.Blend">Blend</x:String>
         <x:String x:Key="S.OpName.OffscreenDrawing">Offscreen drawing</x:String>
-        <x:String x:Key="S.OpName.RenderAll">Render all</x:String>
         <x:String x:Key="S.OpName.RoundedRect">Rounded rect</x:String>
         <x:String x:Key="S.OpName.Test">Test</x:String>
 

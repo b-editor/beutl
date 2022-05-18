@@ -29,6 +29,7 @@
         PointerMoved="Border_PointerMoved"
         Width="{CompiledBinding Width.Value}"
         Margin="{CompiledBinding BorderMargin.Value}"
+        BorderBrush="{DynamicResource TextControlForeground}"
         Background="{CompiledBinding Color.Value, Converter={StaticResource ColorToBrushConverter}}">
         <Border.ContextMenu>
             <ContextMenu>

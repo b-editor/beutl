@@ -3,13 +3,16 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:local="using:BeUtl.Views"
+             xmlns:ctrl="using:BeUtl.Controls"
              xmlns:vm="using:BeUtl.ViewModels"
              xmlns:pages="using:BeUtl.Pages"
+             xmlns:interactivity="using:Avalonia.Xaml.Interactivity"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:uip="using:FluentAvalonia.UI.Controls.Primitives"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              Padding="0"
              Focusable="True"
+             x:Name="root"
              x:DataType="vm:MainViewModel"
              x:Class="BeUtl.Views.MainView">
 
@@ -30,7 +33,7 @@
     </UserControl.KeyBindings>
 
     <Grid RowDefinitions="Auto,*">
-        <Grid ColumnDefinitions="Auto,Auto" x:Name="Titlebar" Background="Transparent">
+        <Grid ColumnDefinitions="Auto,Auto,*" x:Name="Titlebar" Background="Transparent">
             <Image Source="/Assets/logo.ico"
                    MaxWidth="24"
                    MaxHeight="24"
@@ -45,52 +48,52 @@
                 <!--ファイル-->
                 <MenuItem Header="{DynamicResource S.MainView.File}">
                     <!--新規作成-->
-                    <MenuItem Header="{DynamicResource S.MainView.CreateNew}">
+                    <MenuItem Header="{DynamicResource S.MainView.File.CreateNew}">
                         <MenuItem.Icon>
                             <FluentIconRegular IconType="New" Classes="Small" />
                         </MenuItem.Icon>
                         <!--プロジェクト-->
                         <MenuItem
                             InputGesture="{DynamicResource CreateNewProjectKeyGesture}"
-                            Header="{DynamicResource S.MainView.CreateNew.Project}"
+                            Header="{DynamicResource S.MainView.File.CreateNew.Project}"
                             Command="{CompiledBinding CreateNewProject}" />
                         <!--ファイル-->
                         <MenuItem
                             InputGesture="{DynamicResource CreateNewKeyGesture}"
-                            Header="{DynamicResource S.MainView.CreateNew.File}"
+                            Header="{DynamicResource S.MainView.File.CreateNew.File}"
                             Command="{CompiledBinding CreateNew}" />
                     </MenuItem>
                     <Separator />
                     <!--開く-->
-                    <MenuItem Header="{DynamicResource S.MainView.Open}">
+                    <MenuItem Header="{DynamicResource S.MainView.File.Open}">
                         <MenuItem.Icon>
                             <FluentIconRegular IconType="Open" Classes="Small" />
                         </MenuItem.Icon>
                         <!--プロジェクト-->
                         <MenuItem
                             InputGesture="{DynamicResource OpenProjectKeyGesture}"
-                            Header="{DynamicResource S.MainView.Open.Project}"
+                            Header="{DynamicResource S.MainView.File.Open.Project}"
                             Command="{CompiledBinding OpenProject}" />
                         <!--ファイル-->
                         <MenuItem
                             InputGesture="{DynamicResource OpenKeyGesture}"
-                            Header="{DynamicResource S.MainView.Open.File}"
+                            Header="{DynamicResource S.MainView.File.Open.File}"
                             Command="{CompiledBinding OpenFile}" />
                     </MenuItem>
                     <Separator />
                     <!--閉じる-->
                     <MenuItem
-                        Header="{DynamicResource S.MainView.Close}"
+                        Header="{DynamicResource S.MainView.File.Close}"
                         Command="{CompiledBinding CloseFile}" />
                     <!--プロジェクトを閉じる-->
                     <MenuItem
                         IsEnabled="{CompiledBinding IsProjectOpened.Value}"
-                        Header="{DynamicResource S.MainView.CloseProject}"
+                        Header="{DynamicResource S.MainView.File.CloseProject}"
                         Command="{CompiledBinding CloseProject}" />
                     <Separator />
                     <!--上書き保存-->
                     <MenuItem
-                        Header="{DynamicResource S.MainView.Save}"
+                        Header="{DynamicResource S.MainView.File.Save}"
                         Command="{CompiledBinding Save}"
                         InputGesture="{DynamicResource SaveKeyGesture}"
                         IsEnabled="{CompiledBinding IsProjectOpened.Value}">
@@ -100,7 +103,7 @@
                     </MenuItem>
                     <!--すべて保存-->
                     <MenuItem
-                        Header="{DynamicResource S.MainView.SaveAll}"
+                        Header="{DynamicResource S.MainView.File.SaveAll}"
                         Command="{CompiledBinding SaveAll}"
                         InputGesture="{DynamicResource SaveAllKeyGesture}"
                         IsEnabled="{CompiledBinding IsProjectOpened.Value}">
@@ -109,9 +112,16 @@
                         </MenuItem.Icon>
                     </MenuItem>
                     <Separator />
+                    <!--最近使ったプロジェクト-->
+                    <MenuItem x:Name="recentFiles"
+                              Header="{DynamicResource S.MainView.File.RecentFiles}" />
+                    <MenuItem x:Name="recentProjects"
+                              Header="{DynamicResource S.MainView.File.RecentProjects}" />
+
+                    <Separator />
                     <!--終了-->
                     <MenuItem
-                        Header="{DynamicResource S.MainView.Exit}"
+                        Header="{DynamicResource S.MainView.File.Exit}"
                         Command="{CompiledBinding Exit}"
                         InputGesture="{DynamicResource ExitKeyGesture}" />
                 </MenuItem>
@@ -119,7 +129,7 @@
                 <MenuItem Header="{DynamicResource S.MainView.Edit}">
                     <!--元に戻す-->
                     <MenuItem
-                        Header="{DynamicResource S.MainView.Undo}"
+                        Header="{DynamicResource S.MainView.Edit.Undo}"
                         Command="{CompiledBinding Undo}"
                         InputGesture="{DynamicResource UndoKeyGesture}"
                         IsEnabled="{CompiledBinding IsProjectOpened.Value}">
@@ -129,7 +139,7 @@
                     </MenuItem>
                     <!--やり直し-->
                     <MenuItem
-                        Header="{DynamicResource S.MainView.Redo}"
+                        Header="{DynamicResource S.MainView.Edit.Redo}"
                         Command="{CompiledBinding Redo}"
                         InputGesture="{DynamicResource RedoKeyGesture}"
                         IsEnabled="{CompiledBinding IsProjectOpened.Value}">
@@ -139,12 +149,45 @@
                     </MenuItem>
                 </MenuItem>
                 <!--表示-->
-                <MenuItem Header="{DynamicResource S.MainView.View}" />
+                <MenuItem Header="{DynamicResource S.MainView.View}" x:Name="viewMenuItem">
+                    <MenuItem Header="エディタータブ" x:Name="editorTabMenuItem" />
+                    <MenuItem Header="シーンエディター" x:Name="sceneEditorMenuItem" />
+                </MenuItem>
+                <!--プロジェクト-->
+                <MenuItem Header="{DynamicResource S.MainView.Project}">
+                    <MenuItem Header="{DynamicResource S.MainView.Project.Add}" Command="{CompiledBinding AddToProject}" />
+                    <MenuItem Header="{DynamicResource S.MainView.Project.Remove}" Command="{CompiledBinding RemoveFromProject}" />                    
+                </MenuItem>
+                <!--シーン-->
+                <MenuItem Header="{DynamicResource S.MainView.Scene}">
+                    <MenuItem Header="{DynamicResource S.MainView.Scene.CreateNew}" Command="{CompiledBinding NewScene}" />
+                    <MenuItem Header="{DynamicResource S.MainView.Scene.Settings}"
+                              Click="SceneSettings_Click"
+                              IsEnabled="{CompiledBinding IsProjectOpened.Value}" />
+                    <!--レイヤー-->
+                    <MenuItem Header="{DynamicResource S.MainView.Scene.Layer}">
+                        <MenuItem Header="{DynamicResource S.MainView.Scene.Layer.Add}" Command="{CompiledBinding AddLayer}" />
+                        <MenuItem Header="{DynamicResource S.MainView.Scene.Layer.Delete}" Command="{CompiledBinding DeleteLayer}" />
+                        <MenuItem Header="{DynamicResource S.MainView.Scene.Layer.Exclude}" Command="{CompiledBinding ExcludeLayer}" />
+                        <MenuItem Header="{DynamicResource S.MainView.Scene.Layer.Cut}" Command="{CompiledBinding CutLayer}" />
+                        <MenuItem Header="{DynamicResource S.MainView.Scene.Layer.Copy}" Command="{CompiledBinding CopyLayer}" />
+                        <MenuItem Header="{DynamicResource S.MainView.Scene.Layer.Paste}" Command="{CompiledBinding PasteLayer}" />
+                    </MenuItem>                    
+                </MenuItem>
                 <!--オブジェクト-->
                 <MenuItem Header="{DynamicResource S.MainView.Object}" />
                 <!--ヘルプ-->
                 <MenuItem Header="{DynamicResource S.MainView.Help}" />
             </Menu>
+
+            <Border Grid.Column="2"
+                    HorizontalAlignment="Right"
+                    VerticalAlignment="Center"
+                    Padding="4"
+                    IsVisible="{CompiledBinding IsDebuggerAttached}"
+                    Background="{DynamicResource ControlFillColorDefaultBrush}">
+                <TextBlock Text="Debug" />
+            </Border>
         </Grid>
 
         <ui:NavigationView
@@ -152,80 +195,21 @@
             IsSettingsVisible="False"
             Classes="SideNavigationView"
             x:Name="Navi">
-            <ui:NavigationView.MenuItems>
-                <ui:NavigationViewItem
-                    x:Name="EditPageItem"
-                    Classes="SideNavigationViewItem"
-                    Content="{DynamicResource S.MainView.Edit}">
-                    <ui:NavigationViewItem.Styles>
-                        <Style Selector="uip|NavigationViewItemPresenter#NVIPresenter:selected">
-                            <Setter Property="Icon">
-                                <Template>
-                                    <ui:PathIcon Data="{StaticResource Edit_Filled}" />
-                                </Template>
-                            </Setter>
-                        </Style>
-                    </ui:NavigationViewItem.Styles>
-                    <ui:NavigationViewItem.Icon>
-                        <ui:PathIcon Data="{StaticResource Edit_Regular}" />
-                    </ui:NavigationViewItem.Icon>
-                </ui:NavigationViewItem>
-                <ui:NavigationViewItem
-                    x:Name="ExtensionsPageItem"
-                    Classes="SideNavigationViewItem"
-                    Content="{DynamicResource S.MainView.Extensions}">
-                    <ui:NavigationViewItem.Styles>
-                        <Style Selector="uip|NavigationViewItemPresenter#NVIPresenter:selected">
-                            <Setter Property="Icon">
-                                <Template>
-                                    <ui:PathIcon Data="{StaticResource Puzzle_piece_Filled}" />
-                                </Template>
-                            </Setter>
-                        </Style>
-                    </ui:NavigationViewItem.Styles>
-                    <ui:NavigationViewItem.Icon>
-                        <ui:PathIcon Data="{StaticResource Puzzle_piece_Regular}" />
-                    </ui:NavigationViewItem.Icon>
-                </ui:NavigationViewItem>
-                <ui:NavigationViewItem
-                    x:Name="OutputPageItem"
-                    Classes="SideNavigationViewItem"
-                    Content="{DynamicResource S.MainView.Output}">
-                    <ui:NavigationViewItem.Styles>
-                        <Style Selector="uip|NavigationViewItemPresenter#NVIPresenter:selected">
-                            <Setter Property="Icon">
-                                <Template>
-                                    <ui:PathIcon Data="{StaticResource Arrow_Export_LTR_Filled}" />
-                                </Template>
-                            </Setter>
-                        </Style>
-                    </ui:NavigationViewItem.Styles>
-                    <ui:NavigationViewItem.Icon>
-                        <ui:PathIcon Data="{StaticResource Arrow_Export_LTR_Regular}" />
-                    </ui:NavigationViewItem.Icon>
-                </ui:NavigationViewItem>
-            </ui:NavigationView.MenuItems>
             <ui:NavigationView.FooterMenuItems>
-                <ui:NavigationViewItem
-                    x:Name="SettingsPageItem"
-                    Classes="SideNavigationViewItem"
-                    Content="{DynamicResource S.MainView.Settings}">
-                    <ui:NavigationViewItem.Styles>
-                        <Style Selector="uip|NavigationViewItemPresenter#NVIPresenter:selected">
-                            <Setter Property="Icon">
-                                <Template>
-                                    <ui:PathIcon Data="{StaticResource Settings_Filled}" />
-                                </Template>
-                            </Setter>
-                        </Style>
-                    </ui:NavigationViewItem.Styles>
-                    <ui:NavigationViewItem.Icon>
-                        <ui:PathIcon Data="{StaticResource Settings_Regular}" />
-                    </ui:NavigationViewItem.Icon>
+                <ui:NavigationViewItem x:Name="SettingsPageItem"
+                                       DataContext="{CompiledBinding SettingsPage}"
+                                       Classes="SideNavigationViewItem"
+                                       Content="{DynamicResource S.MainView.Settings}">
+                    <interactivity:Interaction.Behaviors>
+                        <interactivity:BehaviorCollection>
+                            <ctrl:NavItemHelper RegularIcon="{StaticResource Settings_Regular}"
+                                                FilledIcon="{StaticResource Settings_Filled}" />
+                        </interactivity:BehaviorCollection>
+                    </interactivity:Interaction.Behaviors>
                 </ui:NavigationViewItem>
             </ui:NavigationView.FooterMenuItems>
 
-            <ContentPresenter x:Name="NaviContent" />
+            <TransitioningContentControl x:Name="NaviContent" />
         </ui:NavigationView>
     </Grid>
 

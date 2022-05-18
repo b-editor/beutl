@@ -19,10 +19,10 @@ public class TimelineLayerViewModel : IDisposable
 {
     private readonly CompositeDisposable _disposables = new();
 
-    public TimelineLayerViewModel(Layer sceneLayer)
+    public TimelineLayerViewModel(Layer sceneLayer, ITimelineOptionsProvider optionsProvider)
     {
         Model = sceneLayer;
-        ISubject<TimelineOptions> optionsSubject = Scene.GetSubject(Scene.TimelineOptionsProperty);
+        OptionsProvider = optionsProvider;
 
         Margin = sceneLayer.GetSubject(Layer.ZIndexProperty)
             .Select(item => new Thickness(0, item.ToLayerPixel(), 0, 0))
@@ -30,14 +30,14 @@ public class TimelineLayerViewModel : IDisposable
             .AddTo(_disposables);
 
         BorderMargin = sceneLayer.GetSubject(Layer.StartProperty)
-            .CombineLatest(optionsSubject)
-            .Select(item => new Thickness(item.First.ToPixel(item.Second.Scale), 0, 0, 0))
+            .CombineLatest(optionsProvider.Scale)
+            .Select(item => new Thickness(item.First.ToPixel(item.Second), 0, 0, 0))
             .ToReactiveProperty()
             .AddTo(_disposables);
 
         Width = sceneLayer.GetSubject(Layer.LengthProperty)
-            .CombineLatest(optionsSubject)
-            .Select(item => item.First.ToPixel(item.Second.Scale))
+            .CombineLatest(optionsProvider.Scale)
+            .Select(item => item.First.ToPixel(item.Second))
             .ToReactiveProperty()
             .AddTo(_disposables);
 
@@ -52,7 +52,7 @@ public class TimelineLayerViewModel : IDisposable
 
         Split.Where(func => func != null).Subscribe(func =>
         {
-            int rate = Scene.Parent is Project proj ? proj.FrameRate : 30;
+            int rate = Scene.Parent is Project proj ? proj.GetFrameRate() : 30;
             TimeSpan absTime = func!().RoundToRate(rate);
             TimeSpan forwardLength = absTime - Model.Start;
             TimeSpan backwardLength = Model.Length - forwardLength;
@@ -66,7 +66,7 @@ public class TimelineLayerViewModel : IDisposable
             backwardLayer.Length = backwardLength;
             backwardLayer.ZIndex++;
 
-            backwardLayer.Save(Helper.RandomLayerFileName(Path.GetDirectoryName(Scene.FileName)!, "layer"));
+            backwardLayer.Save(Helper.RandomLayerFileName(Path.GetDirectoryName(Scene.FileName)!, Constants.LayerFileExtension));
             Scene.AddChild(backwardLayer).DoAndRecord(CommandRecorder.Default);
         });
 
@@ -100,6 +100,8 @@ public class TimelineLayerViewModel : IDisposable
         _disposables.Dispose();
     }
 
+    public ITimelineOptionsProvider OptionsProvider { get; }
+
     public Layer Model { get; }
 
     public Scene Scene => (Scene)Model.Parent!;
@@ -132,8 +134,8 @@ public class TimelineLayerViewModel : IDisposable
 
     public void SyncModelToViewModel()
     {
-        float scale = Scene.TimelineOptions.Scale;
-        int rate = Scene.Parent is Project proj ? proj.FrameRate : 30;
+        float scale = OptionsProvider.Options.Value.Scale;
+        int rate = Scene.Parent is Project proj ? proj.GetFrameRate() : 30;
 
         Model.UpdateTime(
             BorderMargin.Value.Left.ToTimeSpan(scale).RoundToRate(rate),
@@ -154,7 +156,7 @@ public class TimelineLayerViewModel : IDisposable
             string json = Model.ToJson().ToJsonString(JsonHelper.SerializerOptions);
             var data = new DataObject();
             data.Set(DataFormats.Text, json);
-            data.Set(BeUtlDataFormats.Layer, json);
+            data.Set(Constants.Layer, json);
 
             await clipboard.SetDataObjectAsync(data);
             return true;

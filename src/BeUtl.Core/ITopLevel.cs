@@ -1,18 +1,5 @@
 ﻿namespace BeUtl;
 
-// ストレージに保存可能なオブジェクト
-public interface IStorable
-{
-    // 絶対パス
-    string FileName { get; }
-
-    DateTime LastSavedTime { get; }
-
-    void Save(string filename);
-
-    void Restore(string filename);
-}
-
 public interface ITopLevel : IElement
 {
     string RootDirectory { get; }

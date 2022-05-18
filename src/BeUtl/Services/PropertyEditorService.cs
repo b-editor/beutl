@@ -6,6 +6,7 @@ using BeUtl.Animation;
 using BeUtl.Graphics;
 using BeUtl.Media;
 using BeUtl.ProjectSystem;
+using BeUtl.ViewModels;
 using BeUtl.ViewModels.AnimationEditors;
 using BeUtl.ViewModels.Editors;
 using BeUtl.Views.AnimationEditors;
@@ -15,9 +16,9 @@ namespace BeUtl.Services;
 
 public static class PropertyEditorService
 {
-    private record struct Editor(Func<IPropertyInstance, Control?> CreateEditor, Func<IPropertyInstance, object?> CreateViewModel);
+    private record struct Editor(Func<IPropertyInstance, Control?> CreateEditor, Func<IPropertyInstance, BaseEditorViewModel?> CreateViewModel);
 
-    private record struct AnimationEditor(Func<object?, Control?> CreateEditor, Func<IAnimation, BaseEditorViewModel, object?> CreateViewModel);
+    private record struct AnimationEditor(Func<object?, Control?> CreateEditor, Func<IAnimation, EditorViewModelDescription, ITimelineOptionsProvider, object?> CreateViewModel);
 
     private static readonly Dictionary<Type, Editor> s_editors = new()
     {
@@ -55,53 +56,60 @@ public static class PropertyEditorService
     // pixelrect, rect, thickness, vector3, vector4
     private static readonly Dictionary<Type, AnimationEditor> s_animationEditors = new()
     {
-        { typeof(bool), new(_ => new BooleanAnimationEditor(), (a, vm) => new AnimationEditorViewModel<bool>(a, vm)) },
-        { typeof(byte), new(_ => new NumberAnimationEditor<byte>(), (a, vm) => new AnimationEditorViewModel<byte>(a, vm)) },
-        { typeof(Color), new(_ => new ColorAnimationEditor(), (a, vm) => new ColorAnimationEditorViewModel((Animation<Color>)a, (BaseEditorViewModel<Color>)vm)) },
-        { typeof(CornerRadius), new(_ => new CornerRadiusAnimationEditor(), (a, vm) => new CornerRadiusAnimationEditorViewModel((Animation<CornerRadius>)a, (BaseEditorViewModel<CornerRadius>)vm)) },
-        { typeof(decimal), new(_ => new NumberAnimationEditor<decimal>(), (a, vm) => new AnimationEditorViewModel<decimal>(a, vm)) },
-        { typeof(double), new(_ => new NumberAnimationEditor<double>(), (a, vm) => new AnimationEditorViewModel<double>(a, vm)) },
-        { typeof(float), new(_ => new NumberAnimationEditor<float>(), (a, vm) => new AnimationEditorViewModel<float>(a, vm)) },
-        { typeof(short), new(_ => new NumberAnimationEditor<short>(), (a, vm) => new AnimationEditorViewModel<short>(a, vm)) },
-        { typeof(int), new(_ => new NumberAnimationEditor<int>(), (a, vm) => new AnimationEditorViewModel<int>(a, vm)) },
-        { typeof(long), new(_ => new NumberAnimationEditor<long>(), (a, vm) => new AnimationEditorViewModel<long>(a, vm)) },
-        { typeof(PixelPoint), new(_ => new PixelPointAnimationEditor(), (a, vm) => new PixelPointAnimationEditorViewModel((Animation<PixelPoint>)a, (BaseEditorViewModel<PixelPoint>)vm)) },
-        { typeof(PixelSize), new(_ => new PixelSizeAnimationEditor(), (a, vm) => new PixelSizeAnimationEditorViewModel((Animation<PixelSize>)a, (BaseEditorViewModel<PixelSize>)vm)) },
-        { typeof(Point), new(_ => new PointAnimationEditor(), (a, vm) => new PointAnimationEditorViewModel((Animation<Point>)a, (BaseEditorViewModel<Point>)vm)) },
-        { typeof(sbyte), new(_ => new NumberAnimationEditor<sbyte>(), (a, vm) => new AnimationEditorViewModel<sbyte>(a, vm)) },
-        { typeof(Size), new(_ => new SizeAnimationEditor(), (a, vm) => new SizeAnimationEditorViewModel((Animation<Size>)a, (BaseEditorViewModel<Size>)vm)) },
-        { typeof(ushort), new(_ => new NumberAnimationEditor<ushort>(), (a, vm) => new AnimationEditorViewModel<ushort>(a, vm)) },
-        { typeof(uint), new(_ => new NumberAnimationEditor<uint>(), (a, vm) => new AnimationEditorViewModel<uint>(a, vm)) },
-        { typeof(ulong), new(_ => new NumberAnimationEditor<ulong>(), (a, vm) => new AnimationEditorViewModel<ulong>(a, vm)) },
-        { typeof(Vector2), new(_ => new Vector2AnimationEditor(), (a, vm) => new Vector2AnimationEditorViewModel((Animation<Vector2>)a, (BaseEditorViewModel<Vector2>)vm)) },
-        { typeof(Graphics.Vector), new(_ => new VectorAnimationEditor(), (a, vm) => new VectorAnimationEditorViewModel((Animation<Graphics.Vector>)a, (BaseEditorViewModel<Graphics.Vector>)vm)) },
+        { typeof(bool), new(_ => new BooleanAnimationEditor(), (a, desc, ops) => new AnimationEditorViewModel<bool>(a, desc, ops)) },
+        { typeof(byte), new(_ => new NumberAnimationEditor<byte>(), (a, desc, ops) => new AnimationEditorViewModel<byte>(a, desc, ops)) },
+        { typeof(Color), new(_ => new ColorAnimationEditor(), (a, desc, ops) => new ColorAnimationEditorViewModel((Animation<Color>)a, desc, ops)) },
+        { typeof(CornerRadius), new(_ => new CornerRadiusAnimationEditor(), (a, desc, ops) => new CornerRadiusAnimationEditorViewModel((Animation<CornerRadius>)a, desc, ops)) },
+        { typeof(decimal), new(_ => new NumberAnimationEditor<decimal>(), (a, desc, ops) => new AnimationEditorViewModel<decimal>(a, desc, ops)) },
+        { typeof(double), new(_ => new NumberAnimationEditor<double>(), (a, desc, ops) => new AnimationEditorViewModel<double>(a, desc, ops)) },
+        { typeof(float), new(_ => new NumberAnimationEditor<float>(), (a, desc, ops) => new AnimationEditorViewModel<float>(a, desc, ops)) },
+        { typeof(short), new(_ => new NumberAnimationEditor<short>(), (a, desc, ops) => new AnimationEditorViewModel<short>(a, desc, ops)) },
+        { typeof(int), new(_ => new NumberAnimationEditor<int>(), (a, desc, ops) => new AnimationEditorViewModel<int>(a, desc, ops)) },
+        { typeof(long), new(_ => new NumberAnimationEditor<long>(), (a, desc, ops) => new AnimationEditorViewModel<long>(a, desc, ops)) },
+        { typeof(PixelPoint), new(_ => new PixelPointAnimationEditor(), (a, desc, ops) => new PixelPointAnimationEditorViewModel((Animation<PixelPoint>)a, desc, ops)) },
+        { typeof(PixelSize), new(_ => new PixelSizeAnimationEditor(), (a, desc, ops) => new PixelSizeAnimationEditorViewModel((Animation<PixelSize>)a, desc, ops)) },
+        { typeof(Point), new(_ => new PointAnimationEditor(), (a, desc, ops) => new PointAnimationEditorViewModel((Animation<Point>)a, desc, ops)) },
+        { typeof(sbyte), new(_ => new NumberAnimationEditor<sbyte>(), (a, desc, ops) => new AnimationEditorViewModel<sbyte>(a, desc, ops)) },
+        { typeof(Size), new(_ => new SizeAnimationEditor(), (a, desc, ops) => new SizeAnimationEditorViewModel((Animation<Size>)a, desc, ops)) },
+        { typeof(ushort), new(_ => new NumberAnimationEditor<ushort>(), (a, desc, ops) => new AnimationEditorViewModel<ushort>(a, desc, ops)) },
+        { typeof(uint), new(_ => new NumberAnimationEditor<uint>(), (a, desc, ops) => new AnimationEditorViewModel<uint>(a, desc, ops)) },
+        { typeof(ulong), new(_ => new NumberAnimationEditor<ulong>(), (a, desc, ops) => new AnimationEditorViewModel<ulong>(a, desc, ops)) },
+        { typeof(Vector2), new(_ => new Vector2AnimationEditor(), (a, desc, ops) => new Vector2AnimationEditorViewModel((Animation<Vector2>)a, desc, ops)) },
+        { typeof(Graphics.Vector), new(_ => new VectorAnimationEditor(), (a, desc, ops) => new VectorAnimationEditorViewModel((Animation<Graphics.Vector>)a, desc, ops)) },
     };
 
-    public static Control? CreateEditor(IPropertyInstance setter)
+    public static Control? CreateEditor(IPropertyInstance property)
     {
-        Control? Create(Editor editor)
+        if (s_editors.ContainsKey(property.Property.PropertyType))
         {
-            Control? control = editor.CreateEditor(setter);
-
-            if (control != null)
-            {
-                control.DataContext = editor.CreateViewModel(setter);
-            }
-
-            return control;
-        }
-
-        if (s_editors.ContainsKey(setter.Property.PropertyType))
-        {
-            Editor editor = s_editors[setter.Property.PropertyType];
-            return Create(editor);
+            Editor editor = s_editors[property.Property.PropertyType];
+            return editor.CreateEditor(property);
         }
 
         foreach (KeyValuePair<Type, Editor> item in s_editors)
         {
-            if (setter.Property.PropertyType.IsAssignableTo(item.Key))
+            if (property.Property.PropertyType.IsAssignableTo(item.Key))
             {
-                return Create(item.Value);
+                return item.Value.CreateEditor(property);
+            }
+        }
+
+        return null;
+    }
+
+    public static BaseEditorViewModel? CreateEditorViewModel(IPropertyInstance property)
+    {
+        if (s_editors.ContainsKey(property.Property.PropertyType))
+        {
+            Editor editor = s_editors[property.Property.PropertyType];
+            return editor.CreateViewModel(property);
+        }
+
+        foreach (KeyValuePair<Type, Editor> item in s_editors)
+        {
+            if (property.Property.PropertyType.IsAssignableTo(item.Key))
+            {
+                return item.Value.CreateViewModel(property);
             }
         }
 
@@ -119,12 +127,12 @@ public static class PropertyEditorService
         return null;
     }
 
-    public static object? CreateAnimationEditorViewModel(BaseEditorViewModel viewModel, IAnimation animation)
+    public static object? CreateAnimationEditorViewModel(EditorViewModelDescription desc, IAnimation animation, ITimelineOptionsProvider optionsProvider)
     {
-        if (s_animationEditors.ContainsKey(viewModel.Setter.Property.PropertyType))
+        if (s_animationEditors.ContainsKey(desc.PropertyInstance.Property.PropertyType))
         {
-            AnimationEditor editor = s_animationEditors[viewModel.Setter.Property.PropertyType];
-            return editor.CreateViewModel(animation, viewModel);
+            AnimationEditor editor = s_animationEditors[desc.PropertyInstance.Property.PropertyType];
+            return editor.CreateViewModel(animation, desc, optionsProvider);
         }
 
         return null;
@@ -136,9 +144,9 @@ public static class PropertyEditorService
         return (Control?)Activator.CreateInstance(type);
     }
 
-    private static object? CreateEnumViewModel(IPropertyInstance s)
+    private static BaseEditorViewModel? CreateEnumViewModel(IPropertyInstance s)
     {
         Type type = typeof(EnumEditorViewModel<>).MakeGenericType(s.Property.PropertyType);
-        return Activator.CreateInstance(type, s);
+        return Activator.CreateInstance(type, s) as BaseEditorViewModel;
     }
 }

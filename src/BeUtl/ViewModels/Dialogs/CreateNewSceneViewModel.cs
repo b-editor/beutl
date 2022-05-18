@@ -1,8 +1,9 @@
 ﻿using System.Reactive.Linq;
 
 using Avalonia;
-using Avalonia.Controls;
 
+using BeUtl.Framework.Services;
+using BeUtl.Models;
 using BeUtl.ProjectSystem;
 using BeUtl.Services;
 
@@ -10,27 +11,29 @@ using Microsoft.Extensions.DependencyInjection;
 
 using Reactive.Bindings;
 
+using S = BeUtl.Language.StringResources;
+
 namespace BeUtl.ViewModels.Dialogs;
 
 public sealed class CreateNewSceneViewModel
 {
-    private readonly Project _proj;
+    private readonly Project? _proj;
 
     public CreateNewSceneViewModel()
     {
-        ProjectService service = ServiceLocator.Current.GetRequiredService<ProjectService>();
-        if (!service.IsOpened.Value)
-            throw new Exception("The project has not been opened.");
-        _proj = service.CurrentProject.Value!;
+        IProjectService service = ServiceLocator.Current.GetRequiredService<IProjectService>();
+        _proj = service.CurrentProject.Value;
+        CanAddToCurrentProject = service.CurrentProject.Select(i => i != null).ToReadOnlyReactivePropertySlim();
+        AddToCurrentProject = new(_proj != null);
 
-        Location.Value = _proj.RootDirectory;
+        Location.Value = GetInitialLocation();
         Name.Value = GenSceneName(Location.Value);
 
         Name.SetValidateNotifyError(n =>
         {
             if (Directory.Exists(Path.Combine(Location.Value, n)))
             {
-                return (string?)Application.Current?.FindResource("S.Warning.ItAlreadyExists");
+                return S.Warning.ItAlreadyExists;
             }
             else
             {
@@ -42,7 +45,7 @@ public sealed class CreateNewSceneViewModel
         {
             if (s.Width <= 0 || s.Height <= 0)
             {
-                return (string?)Application.Current?.FindResource("S.Warning.ValueLessThanOrEqualToZero");
+                return S.Warning.ValueLessThanOrEqualToZero;
             }
             else
             {
@@ -63,10 +66,21 @@ public sealed class CreateNewSceneViewModel
         Create = new ReactiveCommand(CanCreate);
         Create.Subscribe(() =>
         {
+            IWorkspaceItemContainer container = ServiceLocator.Current.GetRequiredService<IWorkspaceItemContainer>();
+            EditorService editPage = ServiceLocator.Current.GetRequiredService<EditorService>();
             var scene = new Scene(Size.Value.Width, Size.Value.Height, Name.Value);
-            scene.Save(Path.Combine(Location.Value, Name.Value, $"{Name.Value}.scene"));
+            container.Add(scene);
+            scene.Save(Path.Combine(Location.Value, Name.Value, $"{Name.Value}.{Constants.SceneFileExtension}"));
 
-            _proj.Children.Add(scene);
+            if (_proj != null && AddToCurrentProject.Value)
+            {
+                _proj.Items.Add(scene);
+                editPage.ActivateTabItem(scene.FileName, TabOpenMode.FromProject);
+            }
+            else
+            {
+                editPage.ActivateTabItem(scene.FileName, TabOpenMode.YourSelf);
+            }
         });
     }
 
@@ -76,9 +90,23 @@ public sealed class CreateNewSceneViewModel
 
     public ReactiveProperty<string> Location { get; } = new();
 
+    public ReactivePropertySlim<bool> AddToCurrentProject { get; }
+
+    public ReadOnlyReactivePropertySlim<bool> CanAddToCurrentProject { get; }
+
     public ReadOnlyReactivePropertySlim<bool> CanCreate { get; }
 
     public ReactiveCommand Create { get; }
+
+    private string GetInitialLocation()
+    {
+        if (_proj != null)
+        {
+            return _proj.RootDirectory;
+        }
+
+        return Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+    }
 
     private static string GenSceneName(string location)
     {

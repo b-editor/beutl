@@ -7,10 +7,6 @@ using BeUtl.Pages.SettingsPages;
 
 using FluentAvalonia.UI.Controls;
 
-using Microsoft.CodeAnalysis.CSharp.Syntax;
-
-using OpenCvSharp;
-
 namespace BeUtl.Pages;
 
 public partial class SettingsPage : UserControl
@@ -51,6 +47,15 @@ public partial class SettingsPage : UserControl
                 Icon = new SymbolIcon
                 {
                     Symbol = Symbol.Font
+                }
+            },
+            new NavigationViewItem()
+            {
+                [!ContentProperty] = new DynamicResourceExtension("S.SettingsPage.Extensions"),
+                Tag = typeof(ExtensionsSettingsPage),
+                Icon = new FluentAvalonia.UI.Controls.PathIcon
+                {
+                    Data = (Geometry)Application.Current!.FindResource("Puzzle_piece_Regular")!
                 }
             },
             new NavigationViewItem()

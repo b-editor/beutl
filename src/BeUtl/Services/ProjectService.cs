@@ -1,26 +1,33 @@
 ﻿using System.Reactive.Linq;
 using System.Reactive.Subjects;
 
+using BeUtl.Configuration;
+using BeUtl.Framework.Services;
+using BeUtl.Models;
 using BeUtl.ProjectSystem;
+
+using Microsoft.Extensions.DependencyInjection;
 
 using Reactive.Bindings;
 
 namespace BeUtl.Services;
 
-public class ProjectService
+public class ProjectService : IProjectService
 {
     private readonly Subject<(Project? New, Project? Old)> _projectObservable = new();
+    private readonly ReactivePropertySlim<Project?> _currentProject = new();
+    private readonly ReadOnlyReactivePropertySlim<bool> _isOpened;
 
     public ProjectService()
     {
-        IsOpened = CurrentProject.Select(v => v != null).ToReadOnlyReactivePropertySlim();
+        _isOpened = CurrentProject.Select(v => v != null).ToReadOnlyReactivePropertySlim();
     }
 
     public IObservable<(Project? New, Project? Old)> ProjectObservable => _projectObservable;
 
-    public ReactivePropertySlim<Project?> CurrentProject { get; } = new();
+    public IReactiveProperty<Project?> CurrentProject => _currentProject;
 
-    public ReadOnlyReactivePropertySlim<bool> IsOpened { get; }
+    public IReadOnlyReactiveProperty<bool> IsOpened => _isOpened;
 
     public Project? OpenProject(string file)
     {
@@ -33,6 +40,9 @@ public class ProjectService
             CurrentProject.Value = project;
             // 値を発行
             _projectObservable.OnNext((New: project, old));
+
+            AddToRecentProjects(file);
+
             return project;
         }
         catch
@@ -56,27 +66,43 @@ public class ProjectService
         try
         {
             location = Path.Combine(location, name);
+            IWorkspaceItemContainer container = ServiceLocator.Current.GetRequiredService<IWorkspaceItemContainer>();
             var scene = new Scene(width, height, name);
-            var project = new Project(framerate, samplerate)
+            container.Add(scene);
+            var project = new Project()
             {
-                Children =
+                Items =
                 {
                     scene
+                },
+                Variables =
+                {
+                    [ProjectVariableKeys.FrameRate] = framerate.ToString(),
+                    [ProjectVariableKeys.SampleRate] = samplerate.ToString(),
                 }
             };
 
-            // Todo: 後で拡張子を変更
-            scene.Save(Path.Combine(location, name, $"{name}.scene"));
-            project.Save(Path.Combine(location, $"{name}.bep"));
+            scene.Save(Path.Combine(location, name, $"{name}.{Constants.SceneFileExtension}"));
+            string projectFile = Path.Combine(location, $"{name}.{Constants.ProjectFileExtension}");
+            project.Save(projectFile);
 
             // 値を発行
             _projectObservable.OnNext((New: project, CurrentProject.Value));
             CurrentProject.Value = project;
+
+            AddToRecentProjects(projectFile);
+
             return project;
         }
         catch
         {
             return null;
         }
+    }
+
+    private static void AddToRecentProjects(string file)
+    {
+        ViewConfig viewConfig = GlobalConfiguration.Instance.ViewConfig;
+        viewConfig.UpdateRecentProject(file);
     }
 }

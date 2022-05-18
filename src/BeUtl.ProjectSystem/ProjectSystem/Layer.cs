@@ -22,7 +22,8 @@ public class Layer : Element, IStorable, ILogicalElement
     private string? _fileName;
     private bool _isEnabled = true;
     private Renderable? _renderable;
-    private LogicalList<LayerOperation> _children;
+    private EventHandler? _saved;
+    private EventHandler? _restored;
 
     static Layer()
     {
@@ -98,7 +99,19 @@ public class Layer : Element, IStorable, ILogicalElement
 
     public Layer()
     {
-        _children = new LogicalList<LayerOperation>(this);
+        Children = new LogicalList<LayerOperation>(this);
+    }
+
+    event EventHandler IStorable.Saved
+    {
+        add => _saved += value;
+        remove => _saved -= value;
+    }
+
+    event EventHandler IStorable.Restored
+    {
+        add => _restored += value;
+        remove => _restored -= value;
     }
 
     // 0以上
@@ -150,7 +163,7 @@ public class Layer : Element, IStorable, ILogicalElement
 
     public DateTime LastSavedTime { get; private set; }
 
-    public LogicalList<LayerOperation> Children => _children;
+    public LogicalList<LayerOperation> Children { get; }
 
     IEnumerable<ILogicalElement> ILogicalElement.LogicalChildren => Children;
 
@@ -179,6 +192,8 @@ public class Layer : Element, IStorable, ILogicalElement
         using var writer = new Utf8JsonWriter(stream, JsonHelper.WriterOptions);
 
         ToJson().WriteTo(writer, JsonHelper.SerializerOptions);
+
+        _saved?.Invoke(this, EventArgs.Empty);
     }
 
     public void Restore(string filename)
@@ -193,6 +208,8 @@ public class Layer : Element, IStorable, ILogicalElement
         {
             FromJson(node);
         }
+
+        _restored?.Invoke(this, EventArgs.Empty);
     }
 
     public override void FromJson(JsonNode json)
@@ -201,7 +218,7 @@ public class Layer : Element, IStorable, ILogicalElement
 
         if (json is JsonObject jobject)
         {
-            // Todo: 後で削除
+            // NOTE: リリース時に削除。互換性を保つためのコードなので
             if (!jobject.ContainsKey("zIndex") && jobject.TryGetPropertyValue("layer", out JsonNode? layerNode) &&
                 layerNode is JsonValue layerValue &&
                 layerValue.TryGetValue(out int layer))

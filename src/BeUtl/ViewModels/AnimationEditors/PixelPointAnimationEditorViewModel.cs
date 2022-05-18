@@ -6,8 +6,8 @@ namespace BeUtl.ViewModels.AnimationEditors;
 
 public sealed class PixelPointAnimationEditorViewModel : AnimationEditorViewModel<PixelPoint>
 {
-    public PixelPointAnimationEditorViewModel(Animation<PixelPoint> animation, BaseEditorViewModel<PixelPoint> editorViewModel)
-        : base(animation, editorViewModel)
+    public PixelPointAnimationEditorViewModel(Animation<PixelPoint> animation, EditorViewModelDescription description, ITimelineOptionsProvider optionsProvider)
+        : base(animation, description, optionsProvider)
     {
     }
 

@@ -15,9 +15,9 @@ using Avalonia.Media.Transformation;
 using Avalonia.Xaml.Interactivity;
 
 using BeUtl.Commands;
-using BeUtl.Framework;
 using BeUtl.ProjectSystem;
 using BeUtl.Services;
+using BeUtl.ViewModels.Editors;
 
 namespace BeUtl.Views.Editors;
 
@@ -257,7 +257,7 @@ public partial class OperationEditor : UserControl
 {
     public OperationEditor()
     {
-        Resources["ModelToViewConverter"] = ModelToViewConverter.Instance;
+        Resources["ViewModelToViewConverter"] = ViewModelToViewConverter.Instance;
         InitializeComponent();
         Interaction.SetBehaviors(this, new BehaviorCollection
         {
@@ -269,8 +269,9 @@ public partial class OperationEditor : UserControl
 
     public void Remove_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is LayerOperation operation)
+        if (DataContext is OperationEditorViewModel viewModel)
         {
+            LayerOperation operation = viewModel.Model;
             Layer layer = operation.FindRequiredLogicalParent<Layer>();
             layer.RemoveChild(operation)
                 .DoAndRecord(CommandRecorder.Default);
@@ -279,9 +280,10 @@ public partial class OperationEditor : UserControl
 
     private void Drop(object? sender, DragEventArgs e)
     {
-        if (e.Data.Get("RenderOperation") is RenderOperationRegistry.RegistryItem item &&
-            DataContext is LayerOperation operation)
+        if (e.Data.Get("RenderOperation") is LayerOperationRegistry.RegistryItem item
+            && DataContext is OperationEditorViewModel viewModel)
         {
+            LayerOperation operation = viewModel.Model;
             Layer layer = operation.FindRequiredLogicalParent<Layer>();
             Rect bounds = Bounds;
             Point position = e.GetPosition(this);
@@ -318,10 +320,11 @@ public partial class OperationEditor : UserControl
     protected override void OnDataContextChanged(EventArgs e)
     {
         base.OnDataContextChanged(e);
-        if (DataContext is LayerOperation operation)
+        if (DataContext is OperationEditorViewModel viewModel)
         {
+            LayerOperation operation = viewModel.Model;
             Type type = operation.GetType();
-            RenderOperationRegistry.RegistryItem? item = RenderOperationRegistry.FindItem(type);
+            LayerOperationRegistry.RegistryItem? item = LayerOperationRegistry.FindItem(type);
 
             if (item != null)
             {
@@ -332,29 +335,30 @@ public partial class OperationEditor : UserControl
 
     public void Move(int newIndex, int oldIndex)
     {
-        if (DataContext is not LayerOperation operation) return;
+        if (DataContext is not OperationEditorViewModel viewModel) return;
 
+        LayerOperation operation = viewModel.Model;
         if (operation.FindLogicalParent<Layer>()?.Children is IList list)
         {
             CommandRecorder.Default.PushOnly(new MoveCommand(list, newIndex, oldIndex));
         }
     }
 
-    private sealed class ModelToViewConverter : IValueConverter
+    private sealed class ViewModelToViewConverter : IValueConverter
     {
-        public static readonly ModelToViewConverter Instance = new();
+        public static readonly ViewModelToViewConverter Instance = new();
 
         public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
         {
-            if (value is IPropertyInstance setter)
+            if (value is BaseEditorViewModel viewModel)
             {
-                Control? editor = PropertyEditorService.CreateEditor(setter);
+                Control? editor = PropertyEditorService.CreateEditor(viewModel.Setter);
 
                 return editor ?? new Label
                 {
                     Height = 24,
                     Margin = new Thickness(0, 4),
-                    Content = setter.Property.Name
+                    Content = viewModel.Setter.Property.Name
                 };
             }
             else

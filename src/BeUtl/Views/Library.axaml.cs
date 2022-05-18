@@ -26,7 +26,7 @@ public partial class Library : UserControl
         var treelist = new AvaloniaList<TreeViewItem>();
         Tree.Items = treelist;
 
-        foreach (RenderOperationRegistry.BaseRegistryItem item in RenderOperationRegistry.GetRegistered())
+        foreach (LayerOperationRegistry.BaseRegistryItem item in LayerOperationRegistry.GetRegistered())
         {
             var treeitem = new TreeViewItem
             {
@@ -36,18 +36,18 @@ public partial class Library : UserControl
             treelist.Add(treeitem);
             treeitem.AddHandler(PointerPressedEvent, TreeViewPointerPressed, RoutingStrategies.Tunnel);
 
-            if (item is RenderOperationRegistry.GroupableRegistryItem groupable)
+            if (item is LayerOperationRegistry.GroupableRegistryItem groupable)
             {
                 Add(treeitem, groupable);
             }
         }
     }
 
-    private void Add(TreeViewItem treeitem, RenderOperationRegistry.GroupableRegistryItem list)
+    private void Add(TreeViewItem treeitem, LayerOperationRegistry.GroupableRegistryItem list)
     {
         var alist = new AvaloniaList<TreeViewItem>();
         treeitem.Items = alist;
-        foreach (RenderOperationRegistry.RegistryItem item in list.Items)
+        foreach (LayerOperationRegistry.RegistryItem item in list.Items)
         {
             var treeitem2 = new TreeViewItem
             {
@@ -64,7 +64,7 @@ public partial class Library : UserControl
         if (e.GetCurrentPoint(Tree).Properties.IsLeftButtonPressed)
         {
             if (sender is not TreeViewItem select ||
-                select.DataContext is not RenderOperationRegistry.RegistryItem item)
+                select.DataContext is not LayerOperationRegistry.RegistryItem item)
             {
                 return;
             }
@@ -116,7 +116,7 @@ public partial class Library : UserControl
         {
             foreach (TreeViewItem? item in list)
             {
-                if (item.DataContext is RenderOperationRegistry.BaseRegistryItem itemContext)
+                if (item.DataContext is LayerOperationRegistry.BaseRegistryItem itemContext)
                 {
                     item.IsVisible = validate(itemContext.DisplayName.FindOrDefault(string.Empty));
                 }
@@ -126,7 +126,7 @@ public partial class Library : UserControl
             }
         }
 
-        if (treeitem.DataContext is RenderOperationRegistry.BaseRegistryItem treeItemContext)
+        if (treeitem.DataContext is LayerOperationRegistry.BaseRegistryItem treeItemContext)
         {
             v |= validate(treeItemContext.DisplayName.FindOrDefault(string.Empty));
         }

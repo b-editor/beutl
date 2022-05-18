@@ -7,7 +7,6 @@ namespace BeUtl.ProjectSystem;
 public abstract class LayerOperation : Element, ILogicalElement
 {
     public static readonly CoreProperty<bool> IsEnabledProperty;
-    public static readonly CoreProperty<RenderOperationViewState> ViewStateProperty;
     private readonly LogicalList<IPropertyInstance> _properties;
     private bool _isEnabled = true;
 
@@ -19,16 +18,11 @@ public abstract class LayerOperation : Element, ILogicalElement
             .Observability(PropertyObservability.Changed)
             .SerializeName("isEnabled")
             .Register();
-
-        ViewStateProperty = ConfigureProperty<RenderOperationViewState, LayerOperation>(nameof(ViewState))
-            .Observability(PropertyObservability.Changed)
-            .Register();
     }
 
     public LayerOperation()
     {
         _properties = new LogicalList<IPropertyInstance>(this);
-        ViewState = new RenderOperationViewState();
 
         Type ownerType = GetType();
         foreach ((CoreProperty property, CorePropertyMetadata metadata) in PropertyRegistry.GetRegistered(ownerType)
@@ -69,13 +63,7 @@ public abstract class LayerOperation : Element, ILogicalElement
         }
     }
 
-    public RenderOperationViewState ViewState
-    {
-        get => GetValue(ViewStateProperty);
-        set => SetValue(ViewStateProperty, value);
-    }
-
-    public IObservableList<IPropertyInstance> Properties => _properties;
+    public ICoreList<IPropertyInstance> Properties => _properties;
 
     public void Render(ref OperationRenderArgs args)
     {

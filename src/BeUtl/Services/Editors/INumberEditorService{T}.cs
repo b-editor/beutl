@@ -1,4 +1,6 @@
-﻿namespace BeUtl.Services.Editors;
+﻿using BeUtl.ProjectSystem;
+
+namespace BeUtl.Services.Editors;
 
 public interface INumberEditorService<T>
     where T : struct
@@ -10,4 +12,8 @@ public interface INumberEditorService<T>
     T Increment(T value, int increment);
 
     T Decrement(T value, int increment);
+
+    T GetMinimum(PropertyInstance<T> property);
+
+    T GetMaximum(PropertyInstance<T> property);
 }

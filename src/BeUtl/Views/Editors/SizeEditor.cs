@@ -8,12 +8,18 @@ namespace BeUtl.Views.Editors;
 
 public sealed class SizeEditor : BaseVector2Editor<Graphics.Size>
 {
+    private static readonly DynamicResourceExtension s_xResource = new("S.Editors.Size.X");
+    private static readonly DynamicResourceExtension s_yResource = new("S.Editors.Size.Y");
+    private static readonly Binding s_x = new("Value.Value.Width", BindingMode.OneWay);
+    private static readonly Binding s_y = new("Value.Value.Height", BindingMode.OneWay);
+
     public SizeEditor()
     {
-        xText[!TextBlock.TextProperty] = new DynamicResourceExtension("S.Editors.Size.X");
-        yText[!TextBlock.TextProperty] = new DynamicResourceExtension("S.Editors.Size.Y");
-        xTextBox[!TextBox.TextProperty] = new Binding("Value.Value.Width", BindingMode.OneWay);
-        yTextBox[!TextBox.TextProperty] = new Binding("Value.Value.Height", BindingMode.OneWay);
+        xText[!TextBlock.TextProperty] = s_xResource;
+        yText[!TextBlock.TextProperty] = s_yResource;
+
+        xTextBox[!TextBox.TextProperty] = s_x;
+        yTextBox[!TextBox.TextProperty] = s_y;
     }
 
     protected override Graphics.Size Clamp(Graphics.Size value)

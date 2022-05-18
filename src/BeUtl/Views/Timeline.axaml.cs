@@ -1,22 +1,13 @@
-using System.Collections.Specialized;
-using System.Diagnostics;
 using System.Numerics;
-using System.Text;
 using System.Text.Json.Nodes;
 
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Controls.Primitives;
 using Avalonia.Data;
 using Avalonia.Data.Converters;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
-using Avalonia.Layout;
-using Avalonia.Markup.Xaml;
-using Avalonia.Markup.Xaml.MarkupExtensions;
-using Avalonia.Remote.Protocol.Input;
-using Avalonia.VisualTree;
 
 using BeUtl.Collections;
 using BeUtl.Models;
@@ -24,8 +15,6 @@ using BeUtl.ProjectSystem;
 using BeUtl.ViewModels;
 using BeUtl.ViewModels.Dialogs;
 using BeUtl.Views.Dialogs;
-
-using FluentAvalonia.UI.Controls;
 
 namespace BeUtl.Views;
 
@@ -38,13 +27,13 @@ public partial class Timeline : UserControl
     }
 
     internal MouseFlags _seekbarMouseFlag = MouseFlags.MouseUp;
-    private TimeSpan _clickedFrame;
-    private int _clickedLayer;
     internal TimeSpan _pointerFrame;
     internal int _pointerLayer;
     private bool _isFirst = true;
     private TimelineViewModel? _viewModel;
-    private IDisposable? _disposable;
+    private IDisposable? _disposable0;
+    private IDisposable? _disposable1;
+    private IDisposable? _disposable2;
 
     public Timeline()
     {
@@ -90,43 +79,54 @@ public partial class Timeline : UserControl
             {
                 TimelinePanel.Children.RemoveRange(3, TimelinePanel.Children.Count - 3);
 
-                _viewModel.Scene.Children.CollectionChanged -= Children_CollectionChanged;
-
-                _disposable?.Dispose();
+                _disposable0?.Dispose();
+                _disposable1?.Dispose();
+                _disposable2?.Dispose();
             }
 
             _viewModel = vm;
 
-            var minHeightBinding = new Binding("TimelineOptions")
+            var minHeightBinding = new Binding("Options.Value")
             {
-                Source = ViewModel.Scene,
+                Source = ViewModel,
                 Converter = new FuncValueConverter<TimelineOptions, double>(x => x.MaxLayerCount * Helper.LayerHeight)
             };
             TimelinePanel[!MinHeightProperty] = minHeightBinding;
             LeftPanel[!MinHeightProperty] = minHeightBinding;
 
-            ViewModel.Scene.Children.CollectionChanged += Children_CollectionChanged;
-            AddLayers(ViewModel.Scene.Children);
+            _disposable0 = vm.Layers.ForEachItem(
+                AddLayer,
+                RemoveLayer,
+                () => { });
 
-            _disposable = ViewModel.Paste.Subscribe(async () =>
+            _disposable1 = ViewModel.Paste.Subscribe(async () =>
             {
                 if (Application.Current?.Clipboard is IClipboard clipboard)
                 {
                     string[] formats = await clipboard.GetFormatsAsync();
 
-                    if (formats.AsSpan().Contains(BeUtlDataFormats.Layer))
+                    if (formats.AsSpan().Contains(Constants.Layer))
                     {
                         string json = await clipboard.GetTextAsync();
                         var layer = new Layer();
                         layer.FromJson(JsonNode.Parse(json)!);
-                        layer.Start = _clickedFrame;
-                        layer.ZIndex = _clickedLayer;
+                        layer.Start = ViewModel.ClickedFrame;
+                        layer.ZIndex = ViewModel.ClickedLayer;
 
-                        layer.Save(Helper.RandomLayerFileName(Path.GetDirectoryName(ViewModel.Scene.FileName)!, "layer"));
+                        layer.Save(Helper.RandomLayerFileName(Path.GetDirectoryName(ViewModel.Scene.FileName)!, Constants.LayerFileExtension));
 
                         ViewModel.Scene.AddChild(layer).DoAndRecord(CommandRecorder.Default);
                     }
                 }
+            });
+
+            _disposable2 = ViewModel.Scene.GetPropertyChangedObservable(Scene.SelectedItemProperty).Subscribe(e =>
+            {
+                if (e.OldValue != null && FindLayerView(e.OldValue) is TimelineLayer oldView)
+                    oldView.border.BorderThickness = new Thickness(0);
+
+                if (e.NewValue != null && FindLayerView(e.NewValue) is TimelineLayer newView)
+                    newView.border.BorderThickness = new Thickness(1);
             });
         }
     }
@@ -140,16 +140,17 @@ public partial class Timeline : UserControl
     // ContentScrollがスクロールされた
     private void ContentScroll_ScrollChanged(object? sender, ScrollChangedEventArgs e)
     {
-        Scene scene = ViewModel.Scene;
+        TimelineViewModel viewModel = ViewModel;
         if (_isFirst)
         {
-            ContentScroll.Offset = new(scene.TimelineOptions.Offset.X, scene.TimelineOptions.Offset.Y);
-            PaneScroll.Offset = new(0, scene.TimelineOptions.Offset.Y);
+            Vector2 offset = viewModel.Options.Value.Offset;
+            ContentScroll.Offset = new(offset.X, offset.Y);
+            PaneScroll.Offset = new(0, offset.Y);
 
             _isFirst = false;
         }
 
-        scene.TimelineOptions = scene.TimelineOptions with
+        viewModel.Options.Value = viewModel.Options.Value with
         {
             Offset = new Vector2((float)ContentScroll.Offset.X, (float)ContentScroll.Offset.Y)
         };
@@ -161,21 +162,21 @@ public partial class Timeline : UserControl
     // マウスホイールが動いた
     private void ContentScroll_PointerWheelChanged(object? sender, PointerWheelEventArgs e)
     {
-        Scene scene = ViewModel.Scene;
+        TimelineViewModel viewModel = ViewModel;
         Avalonia.Vector offset = ContentScroll.Offset;
 
         if (e.KeyModifiers == KeyModifiers.Control)
         {
             // 目盛りのスケールを変更
-            float scale = scene.TimelineOptions.Scale;
+            float scale = viewModel.Options.Value.Scale;
             var ts = offset.X.ToTimeSpan(scale);
             float deltaScale = (float)(e.Delta.Y / 120) * 10 * scale;
-            scene.TimelineOptions = scene.TimelineOptions with
+            viewModel.Options.Value = viewModel.Options.Value with
             {
                 Scale = deltaScale + scale,
             };
 
-            offset = offset.WithX(ts.ToPixel(scene.TimelineOptions.Scale));
+            offset = offset.WithX(ts.ToPixel(viewModel.Options.Value.Scale));
         }
         else if (e.KeyModifiers == KeyModifiers.Shift)
         {
@@ -196,8 +197,8 @@ public partial class Timeline : UserControl
     private void TimelinePanel_PointerMoved(object? sender, PointerEventArgs e)
     {
         PointerPoint pointerPt = e.GetCurrentPoint(TimelinePanel);
-        _pointerFrame = pointerPt.Position.X.ToTimeSpan(ViewModel.Scene.TimelineOptions.Scale)
-            .RoundToRate(ViewModel.Scene.Parent is Project proj ? proj.FrameRate : 30);
+        _pointerFrame = pointerPt.Position.X.ToTimeSpan(ViewModel.Options.Value.Scale)
+            .RoundToRate(ViewModel.Scene.Parent is Project proj ? proj.GetFrameRate() : 30);
         _pointerLayer = pointerPt.Position.Y.ToLayerNumber();
 
         if (_seekbarMouseFlag == MouseFlags.MouseDown)
@@ -221,15 +222,15 @@ public partial class Timeline : UserControl
     private void TimelinePanel_PointerPressed(object? sender, PointerPressedEventArgs e)
     {
         PointerPoint pointerPt = e.GetCurrentPoint(TimelinePanel);
-        _clickedFrame = pointerPt.Position.X.ToTimeSpan(ViewModel.Scene.TimelineOptions.Scale)
-            .RoundToRate(ViewModel.Scene.Parent is Project proj ? proj.FrameRate : 30);
-        _clickedLayer = pointerPt.Position.Y.ToLayerNumber();
+        ViewModel.ClickedFrame = pointerPt.Position.X.ToTimeSpan(ViewModel.Options.Value.Scale)
+            .RoundToRate(ViewModel.Scene.Parent is Project proj ? proj.GetFrameRate() : 30);
+        ViewModel.ClickedLayer = pointerPt.Position.Y.ToLayerNumber();
         TimelinePanel.Focus();
 
         if (pointerPt.Properties.IsLeftButtonPressed)
         {
             _seekbarMouseFlag = MouseFlags.MouseDown;
-            ViewModel.Scene.CurrentFrame = _clickedFrame;
+            ViewModel.Scene.CurrentFrame = ViewModel.ClickedFrame;
         }
     }
 
@@ -246,31 +247,31 @@ public partial class Timeline : UserControl
         Scene scene = ViewModel.Scene;
         Point pt = e.GetPosition(TimelinePanel);
 
-        _clickedFrame = pt.X.ToTimeSpan(scene.TimelineOptions.Scale)
-            .RoundToRate(ViewModel.Scene.Parent is Project proj ? proj.FrameRate : 30);
-        _clickedLayer = pt.Y.ToLayerNumber();
+        ViewModel.ClickedFrame = pt.X.ToTimeSpan(ViewModel.Options.Value.Scale)
+            .RoundToRate(ViewModel.Scene.Parent is Project proj ? proj.GetFrameRate() : 30);
+        ViewModel.ClickedLayer = pt.Y.ToLayerNumber();
 
-        if (e.Data.Get("RenderOperation") is RenderOperationRegistry.RegistryItem item)
+        if (e.Data.Get("RenderOperation") is LayerOperationRegistry.RegistryItem item)
         {
             if (e.KeyModifiers == KeyModifiers.Control)
             {
                 var dialog = new AddLayer
                 {
-                    DataContext = new AddLayerViewModel(scene, new LayerDescription(_clickedFrame, TimeSpan.FromSeconds(5), _clickedLayer, item))
+                    DataContext = new AddLayerViewModel(scene, new LayerDescription(ViewModel.ClickedFrame, TimeSpan.FromSeconds(5), ViewModel.ClickedLayer, item))
                 };
                 await dialog.ShowAsync();
             }
             else
             {
                 ViewModel.AddLayer.Execute(new LayerDescription(
-                    _clickedFrame, TimeSpan.FromSeconds(5), _clickedLayer, item));
+                    ViewModel.ClickedFrame, TimeSpan.FromSeconds(5), ViewModel.ClickedLayer, item));
             }
         }
     }
 
     private void TimelinePanel_DragOver(object? sender, DragEventArgs e)
     {
-        if(e.Data.Contains("RenderOperation") || (e.Data.GetFileNames()?.Any() ?? false))
+        if (e.Data.Contains("RenderOperation") || (e.Data.GetFileNames()?.Any() ?? false))
         {
             e.DragEffects = DragDropEffects.Copy;
         }
@@ -280,26 +281,13 @@ public partial class Timeline : UserControl
         }
     }
 
-    // Scene.Childrenが変更された
-    private void Children_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
-    {
-        if (e.Action == NotifyCollectionChangedAction.Add && e.NewItems != null)
-        {
-            AddLayers(e.NewItems.OfType<Layer>());
-        }
-        else if (e.Action == NotifyCollectionChangedAction.Remove && e.OldItems != null)
-        {
-            RemoveLayers(e.OldItems.OfType<Layer>());
-        }
-    }
-
     // レイヤーを追加
     private async void AddLayerClick(object? sender, RoutedEventArgs e)
     {
         var dialog = new AddLayer
         {
             DataContext = new AddLayerViewModel(ViewModel.Scene,
-                new LayerDescription(_clickedFrame, TimeSpan.FromSeconds(5), _clickedLayer))
+                new LayerDescription(ViewModel.ClickedFrame, TimeSpan.FromSeconds(5), ViewModel.ClickedLayer))
         };
         await dialog.ShowAsync();
     }
@@ -314,47 +302,49 @@ public partial class Timeline : UserControl
     }
 
     // レイヤーを追加
-    private void AddLayers(IEnumerable<Layer> items)
+    private void AddLayer(int index, TimelineLayerViewModel viewModel)
     {
-        foreach (Layer layer in items)
+        var view = new TimelineLayer
         {
-            var viewModel = new TimelineLayerViewModel(layer);
-            var view = new TimelineLayer
-            {
-                DataContext = viewModel
-            };
+            DataContext = viewModel
+        };
 
-            TimelinePanel.Children.Add(view);
+        TimelinePanel.Children.Add(view);
 
-            LeftPanel.Children.Add(new LayerHeader
-            {
-                DataContext = viewModel
-            });
-        }
+        LeftPanel.Children.Add(new LayerHeader
+        {
+            DataContext = viewModel
+        });
     }
 
     // レイヤーを削除
-    private void RemoveLayers(IEnumerable<Layer> items)
+    private void RemoveLayer(int index, TimelineLayerViewModel viewModel)
     {
-        foreach (Layer layer in items)
-        {
-            for (int i = 0; i < TimelinePanel.Children.Count; i++)
-            {
-                IControl item = TimelinePanel.Children[i];
-                if (item.DataContext is TimelineLayerViewModel vm && vm.Model == layer)
-                {
-                    TimelinePanel.Children.RemoveAt(i);
-                }
-            }
+        Layer layer = viewModel.Model;
 
-            for (int i = 0; i < LeftPanel.Children.Count; i++)
+        for (int i = 0; i < TimelinePanel.Children.Count; i++)
+        {
+            IControl item = TimelinePanel.Children[i];
+            if (item.DataContext is TimelineLayerViewModel vm && vm.Model == layer)
             {
-                IControl item = LeftPanel.Children[i];
-                if (item.DataContext is TimelineLayerViewModel vm && vm.Model == layer)
-                {
-                    LeftPanel.Children.RemoveAt(i);
-                }
+                TimelinePanel.Children.RemoveAt(i);
+                break;
             }
         }
+
+        for (int i = 0; i < LeftPanel.Children.Count; i++)
+        {
+            IControl item = LeftPanel.Children[i];
+            if (item.DataContext is TimelineLayerViewModel vm && vm.Model == layer)
+            {
+                LeftPanel.Children.RemoveAt(i);
+                break;
+            }
+        }
+    }
+
+    private TimelineLayer? FindLayerView(Layer layer)
+    {
+        return TimelinePanel.Children.FirstOrDefault(ctr => ctr.DataContext is TimelineLayerViewModel vm && vm.Model == layer) as TimelineLayer;
     }
 }

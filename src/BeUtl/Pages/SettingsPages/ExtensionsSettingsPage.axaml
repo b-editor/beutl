@@ -1,0 +1,132 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:vm="using:BeUtl.ViewModels.SettingsPages"
+             xmlns:ctrls="using:BeUtl.Controls"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Name="root"
+             x:DataType="vm:ExtensionsSettingsPageViewModel"
+             x:Class="BeUtl.Pages.SettingsPages.ExtensionsSettingsPage">
+    <UserControl.DataContext>
+        <vm:ExtensionsSettingsPageViewModel/>
+    </UserControl.DataContext>
+
+    <ScrollViewer Padding="18">
+        <StackPanel Orientation="Vertical"
+                    VerticalAlignment="Stretch"
+                    Margin="10,0"
+                    Spacing="8">
+            <ctrls:OptionsDisplayItem Header="{DynamicResource S.ExtensionsSettingsPage.EditorExtensionPriority}"
+                                      Expands="True">
+                <ctrls:OptionsDisplayItem.Icon>
+                    <ui:PathIcon Data="{StaticResource Tab_Desktop_Regular}" />
+                </ctrls:OptionsDisplayItem.Icon>
+                <ctrls:OptionsDisplayItem.Content>
+                    <Grid RowDefinitions="Auto,Auto,Auto,Auto">
+                        <ui:CommandBar DefaultLabelPosition="Right">
+                            <ui:CommandBar.PrimaryCommands>
+                                <ui:CommandBarElementContainer VerticalContentAlignment="Center">
+                                    <ComboBox Height="36"
+                                              BorderThickness="0"
+                                              Background="Transparent"
+                                              Items="{CompiledBinding FileExtensions}"
+                                              SelectedItem="{CompiledBinding SelectedFileExtension.Value}" />
+                                </ui:CommandBarElementContainer>
+                                <ui:CommandBarButton Icon="Add"
+                                                     Click="Add_FileExtension"
+                                                     Label="{DynamicResource S.ExtensionsSettingsPage.EditorExtensionPriority.FileExtension.Add}"  />
+                            </ui:CommandBar.PrimaryCommands>
+                            <ui:CommandBar.SecondaryCommands>
+                                <ui:CommandBarButton Icon="Delete"
+                                                     Command="{CompiledBinding RemoveFileExtension}"
+                                                     Label="{DynamicResource S.ExtensionsSettingsPage.EditorExtensionPriority.FileExtension.Remove}"  />
+                            </ui:CommandBar.SecondaryCommands>
+                        </ui:CommandBar>
+
+                        <ListBox Items="{CompiledBinding EditorExtensions1}" Grid.Row="1">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Height="64" ColumnDefinitions="*,Auto,Auto,Auto">
+                                        <StackPanel VerticalAlignment="Center">
+                                            <StackPanel Orientation="Horizontal"
+                                                        Margin="0,0,0,4"
+                                                        Spacing="4">
+                                                <TextBlock Text="{Binding DisplayName}" FontSize="14" />
+                                                <TextBlock Text="{Binding Name}"
+                                                           VerticalAlignment="Bottom"
+                                                           Classes="CaptionTextBlockStyle" />
+                                            </StackPanel>
+                                            <TextBlock Text="{Binding TypeName}" Classes="CaptionTextBlockStyle" />
+                                        </StackPanel>
+
+                                        <ui:CommandBarButton Grid.Column="1"
+                                                             IsVisible="{Binding $parent[ListBoxItem].IsPointerOver}"
+                                                             Icon="ChevronUp"
+                                                             Command="{Binding #root.DataContext.HighPriority}"
+                                                             CommandParameter="{Binding}"
+                                                             Label="{DynamicResource S.ExtensionsSettingsPage.EditorExtensionPriority.Higher}" />
+
+                                        <ui:CommandBarButton Grid.Column="2"
+                                                             IsVisible="{Binding $parent[ListBoxItem].IsPointerOver}"
+                                                             Icon="ChevronDown"
+                                                             Command="{Binding #root.DataContext.LowPriority}"
+                                                             CommandParameter="{Binding}"
+                                                             Label="{DynamicResource S.ExtensionsSettingsPage.EditorExtensionPriority.Lower}" />
+
+                                        <ui:CommandBarButton Grid.Column="3"
+                                                             IsVisible="{Binding $parent[ListBoxItem].IsPointerOver}"
+                                                             Icon="Clear"
+                                                             Command="{Binding #root.DataContext.RemoveExt}"
+                                                             CommandParameter="{Binding}"
+                                                             Label="{DynamicResource S.ExtensionsSettingsPage.EditorExtensionPriority.Remove}" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                        <TextBlock Text="{DynamicResource S.ExtensionsSettingsPage.EditorExtensionPriority.All}"
+                                   Grid.Row="2"
+                                   Margin="4,8,4,4" />
+                        <ListBox Items="{CompiledBinding EditorExtensions2}" Grid.Row="3">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid Height="64" ColumnDefinitions="*,Auto">
+                                        <StackPanel VerticalAlignment="Center">
+                                            <StackPanel Orientation="Horizontal"
+                                                        Margin="0,0,0,4"
+                                                        Spacing="4">
+                                                <TextBlock Text="{Binding DisplayName}" FontSize="14" />
+                                                <TextBlock Text="{Binding Name}"
+                                                           VerticalAlignment="Bottom"
+                                                           Classes="CaptionTextBlockStyle" />
+                                            </StackPanel>
+                                            <TextBlock Text="{Binding TypeName}" Classes="CaptionTextBlockStyle" />
+                                        </StackPanel>
+
+                                        <ui:CommandBarButton Grid.Column="1"
+                                                             IsVisible="{Binding $parent[ListBoxItem].IsPointerOver}"
+                                                             Icon="Add"
+                                                             Command="{Binding #root.DataContext.AddExt}"
+                                                             CommandParameter="{Binding}"
+                                                             Label="{DynamicResource S.ExtensionsSettingsPage.EditorExtensionPriority.Add}" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </Grid>
+                </ctrls:OptionsDisplayItem.Content>
+            </ctrls:OptionsDisplayItem>
+
+            <ui:ContentDialog x:Name="Dialog1"
+                              DataContext="{Binding #root.DataContext}"
+                              Title="{DynamicResource S.ExtensionsSettingsPage.EditorExtensionPriority.Dialog1.Title}"
+                              PrimaryButtonText="{DynamicResource S.ExtensionsSettingsPage.EditorExtensionPriority.Dialog1.Add}"
+                              PrimaryButtonCommand="{Binding AddFileExtension}"
+                              IsPrimaryButtonEnabled="{Binding CanAddFileExtension.Value}"
+                              CloseButtonText="{DynamicResource S.ExtensionsSettingsPage.EditorExtensionPriority.Dialog1.Cancel}">
+                <TextBox Text="{Binding FileExtensionInput.Value, Mode=TwoWay}" />
+            </ui:ContentDialog>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

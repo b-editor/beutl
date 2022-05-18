@@ -11,8 +11,10 @@ using Avalonia.Styling;
 
 using BeUtl.Configuration;
 using BeUtl.Framework.Service;
+using BeUtl.Framework.Services;
 using BeUtl.Language;
 using BeUtl.Operations;
+using BeUtl.ProjectSystem;
 using BeUtl.Rendering;
 using BeUtl.Services;
 using BeUtl.ViewModels;
@@ -88,9 +90,12 @@ public class App : Application
         AvaloniaLocator.CurrentMutable
                 .Bind<IFontManagerImpl>().ToConstant(new CustomFontManagerImpl());
 
-        ServiceLocator.Current.BindToSelfSingleton<ProjectService>()
-            .Bind<INotificationService>().ToSingleton<NotificationService>()
-            .Bind<IResourceProvider>().ToSingleton<DefaultResourceProvider>();
+        ServiceLocator.Current
+            .BindToSelfSingleton<EditorService>()
+            .BindToSelf<IWorkspaceItemContainer>(new WorkspaceItemContainer())
+            .BindToSelf<IProjectService>(new ProjectService())
+            .BindToSelf<INotificationService>(new NotificationService())
+            .BindToSelf<IResourceProvider>(new DefaultResourceProvider());
 
         RenderOperations.RegisterAll();
         UIDispatcherScheduler.Initialize();

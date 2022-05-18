@@ -1,7 +1,19 @@
-﻿namespace BeUtl.Services.Editors;
+﻿using BeUtl.ProjectSystem;
+
+namespace BeUtl.Services.Editors;
 
 public sealed class UInt32EditorService : INumberEditorService<uint>
 {
+    public uint GetMaximum(PropertyInstance<uint> property)
+    {
+        return property.GetMaximumOrDefault(uint.MaxValue);
+    }
+
+    public uint GetMinimum(PropertyInstance<uint> property)
+    {
+        return property.GetMinimumOrDefault(uint.MinValue);
+    }
+
     public uint Clamp(uint value, uint min, uint max)
     {
         return Math.Clamp(value, min, max);

@@ -11,14 +11,7 @@ public sealed class GlobalConfiguration
     {
         get
         {
-            if (OperatingSystem.IsWindows())
-            {
-                return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "beutl", "settings.json");
-            }
-            else
-            {
-                return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".config", "beutl", "settings.json");
-            }
+            return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".beutl", "settings.json");
         }
     }
 
@@ -27,6 +20,8 @@ public sealed class GlobalConfiguration
     public FontConfig FontConfig { get; } = new();
 
     public ViewConfig ViewConfig { get; } = new();
+    
+    public ExtensionConfig ExtensionConfig { get; } = new();
 
     public void Save(string file)
     {
@@ -38,6 +33,7 @@ public sealed class GlobalConfiguration
 
         _json["font"] = FontConfig.ToJson();
         _json["view"] = ViewConfig.ToJson();
+        _json["extension"] = ExtensionConfig.ToJson();
 
         _json.JsonSave(file);
     }
@@ -48,6 +44,7 @@ public sealed class GlobalConfiguration
         {
             FontConfig.FromJson(json["font"]!);
             ViewConfig.FromJson(json["view"]!);
+            ExtensionConfig.FromJson(json["extension"]!);
 
             _json = json;
         }

@@ -1,9 +1,10 @@
-﻿using System.Reactive.Disposables;
+﻿using System.Numerics;
+using System.Reactive.Disposables;
 using System.Reactive.Linq;
 
 using Avalonia;
-using Avalonia.Input;
 
+using BeUtl.Collections;
 using BeUtl.Models;
 using BeUtl.ProjectSystem;
 
@@ -12,7 +13,16 @@ using Reactive.Bindings.Extensions;
 
 namespace BeUtl.ViewModels;
 
-public class TimelineViewModel : IDisposable
+public interface ITimelineOptionsProvider
+{
+    public IReactiveProperty<TimelineOptions> Options { get; }
+
+    public IObservable<float> Scale { get; }
+
+    public IObservable<Vector2> Offset { get; }
+}
+
+public sealed class TimelineViewModel : IDisposable, ITimelineOptionsProvider
 {
     private readonly CompositeDisposable _disposables = new();
 
@@ -20,15 +30,17 @@ public class TimelineViewModel : IDisposable
     {
         Scene = scene;
         Player = player;
+        Scale = Options.Select(o => o.Scale);
+        Offset = Options.Select(o => o.Offset);
         PanelWidth = scene.GetObservable(Scene.DurationProperty)
-            .CombineLatest(scene.GetObservable(Scene.TimelineOptionsProperty))
-            .Select(item => item.First.ToPixel(item.Second.Scale))
+            .CombineLatest(Scale)
+            .Select(item => item.First.ToPixel(item.Second))
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
 
         SeekBarMargin = scene.GetObservable(Scene.CurrentFrameProperty)
-            .CombineLatest(scene.GetObservable(Scene.TimelineOptionsProperty))
-            .Select(item => new Thickness(item.First.ToPixel(item.Second.Scale), 0, 0, 0))
+            .CombineLatest(Scale)
+            .Select(item => new Thickness(item.First.ToPixel(item.Second), 0, 0, 0))
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
 
@@ -43,7 +55,7 @@ public class TimelineViewModel : IDisposable
                 Start = item.Start,
                 Length = item.Length,
                 ZIndex = item.Layer,
-                FileName = Helper.RandomLayerFileName(Path.GetDirectoryName(Scene.FileName)!, "layer")
+                FileName = Helper.RandomLayerFileName(Path.GetDirectoryName(Scene.FileName)!, Constants.LayerFileExtension)
             };
 
             if (item.InitialOperation != null)
@@ -56,11 +68,23 @@ public class TimelineViewModel : IDisposable
             sLayer.Save(sLayer.FileName);
             Scene.AddChild(sLayer).DoAndRecord(CommandRecorder.Default);
         }).AddTo(_disposables);
-    }
 
-    ~TimelineViewModel()
-    {
-        _disposables.Dispose();
+        scene.Children.ForEachItem(
+            (idx, item) => Layers.Insert(idx, new TimelineLayerViewModel(item, this)),
+            (idx, _) =>
+            {
+                Layers[idx].Dispose();
+                Layers.RemoveAt(idx);
+            },
+            () =>
+            {
+                foreach (TimelineLayerViewModel? item in Layers.AsSpan())
+                {
+                    item.Dispose();
+                }
+                Layers.Clear();
+            })
+            .AddTo(_disposables);
     }
 
     public Scene Scene { get; }
@@ -75,11 +99,26 @@ public class TimelineViewModel : IDisposable
 
     public ReactiveCommand<LayerDescription> AddLayer { get; } = new();
 
+    public CoreList<TimelineLayerViewModel> Layers { get; } = new();
+
     public ReactiveCommand Paste { get; } = new();
+
+    public TimeSpan ClickedFrame { get; set; }
+
+    public int ClickedLayer { get; set; }
+
+    public IReactiveProperty<TimelineOptions> Options { get; } = new ReactiveProperty<TimelineOptions>(new TimelineOptions());
+
+    public IObservable<float> Scale { get; }
+
+    public IObservable<Vector2> Offset { get; }
 
     public void Dispose()
     {
         _disposables.Dispose();
-        GC.SuppressFinalize(this);
+        foreach (TimelineLayerViewModel? item in Layers.AsSpan())
+        {
+            item.Dispose();
+        }
     }
 }

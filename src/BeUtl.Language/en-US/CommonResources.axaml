@@ -30,6 +30,7 @@
         <x:String x:Key="S.Common.CreateNewProject">Create new project</x:String>
         <x:String x:Key="S.Common.CreateNewScene">Create new scene</x:String>
         <x:String x:Key="S.Common.Project">Project</x:String>
+        <x:String x:Key="S.Common.Scene">Scene</x:String>
         <x:String x:Key="S.Common.Open">Open</x:String>
         <x:String x:Key="S.Common.Close">Close</x:String>
         <x:String x:Key="S.Common.CloseProject">Close project</x:String>
@@ -125,6 +126,15 @@
         <x:String x:Key="S.Common.Language">Language</x:String>
         <x:String x:Key="S.Common.Text">Text</x:String>
         <x:String x:Key="S.Common.Rotation">Rotation</x:String>
+        <x:String x:Key="S.Common.RecentFiles">Recent Files</x:String>
+        <x:String x:Key="S.Common.RecentProjects">Recent Projects</x:String>
+        <x:String x:Key="S.Common.Scale">Scale</x:String>
+        <x:String x:Key="S.Common.ScaleX">Scale x</x:String>
+        <x:String x:Key="S.Common.ScaleY">Scale y</x:String>
+        <x:String x:Key="S.Common.SkewX">Skew x</x:String>
+        <x:String x:Key="S.Common.SkewY">Skew y</x:String>
+        <x:String x:Key="S.Common.Yes">Yes</x:String>
+        <x:String x:Key="S.Common.No">No</x:String>
     </Styles.Resources>
 
     <!--Views-->

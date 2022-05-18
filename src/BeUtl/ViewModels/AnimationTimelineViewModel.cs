@@ -18,24 +18,27 @@ public sealed class AnimationTimelineViewModel : IDisposable
 {
     private readonly CompositeDisposable _disposables = new();
 
-    public AnimationTimelineViewModel(Layer layer, IAnimatablePropertyInstance setter, BaseEditorViewModel editorViewModel)
+    public AnimationTimelineViewModel(
+        Layer layer,
+        IAnimatablePropertyInstance setter,
+        EditorViewModelDescription description,
+        ITimelineOptionsProvider optionsProvider)
     {
         Layer = layer;
         Setter = setter;
-        EditorViewModel = editorViewModel;
+        Description = description;
+        OptionsProvider = optionsProvider;
         Scene = Layer.FindRequiredLogicalParent<Scene>();
 
-        ISubject<TimelineOptions> optionsSubject = Scene.GetSubject(Scene.TimelineOptionsProperty);
-
         BorderMargin = Layer.GetSubject(Layer.StartProperty)
-            .CombineLatest(optionsSubject)
-            .Select(item => new Thickness(item.First.ToPixel(item.Second.Scale), 0, 0, 0))
+            .CombineLatest(OptionsProvider.Scale)
+            .Select(item => new Thickness(item.First.ToPixel(item.Second), 0, 0, 0))
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
 
         Width = Layer.GetSubject(Layer.LengthProperty)
-            .CombineLatest(optionsSubject)
-            .Select(item => item.First.ToPixel(item.Second.Scale))
+            .CombineLatest(OptionsProvider.Scale)
+            .Select(item => item.First.ToPixel(item.Second))
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
 
@@ -45,14 +48,14 @@ public sealed class AnimationTimelineViewModel : IDisposable
             .AddTo(_disposables);
 
         PanelWidth = Scene.GetObservable(Scene.DurationProperty)
-            .CombineLatest(Scene.GetObservable(Scene.TimelineOptionsProperty))
-            .Select(item => item.First.ToPixel(item.Second.Scale))
+            .CombineLatest(OptionsProvider.Scale)
+            .Select(item => item.First.ToPixel(item.Second))
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
 
         SeekBarMargin = Scene.GetObservable(Scene.CurrentFrameProperty)
-            .CombineLatest(Scene.GetObservable(Scene.TimelineOptionsProperty))
-            .Select(item => new Thickness(item.First.ToPixel(item.Second.Scale), 0, 0, 0))
+            .CombineLatest(OptionsProvider.Scale)
+            .Select(item => new Thickness(item.First.ToPixel(item.Second), 0, 0, 0))
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
 
@@ -61,19 +64,14 @@ public sealed class AnimationTimelineViewModel : IDisposable
             .AddTo(_disposables);
     }
 
-    ~AnimationTimelineViewModel()
-    {
-        _disposables.Dispose();
-    }
-
     public Scene Scene { get; }
 
     public Layer Layer { get; }
 
     public IAnimatablePropertyInstance Setter { get; }
 
-    public BaseEditorViewModel EditorViewModel { get; }
-
+    public EditorViewModelDescription Description { get; }
+    public ITimelineOptionsProvider OptionsProvider { get; }
     public ReadOnlyReactivePropertySlim<Thickness> BorderMargin { get; }
 
     public ReadOnlyReactivePropertySlim<double> Width { get; }
@@ -86,10 +84,11 @@ public sealed class AnimationTimelineViewModel : IDisposable
 
     public ReadOnlyReactivePropertySlim<Thickness> EndingBarMargin { get; }
 
+    public ReactivePropertySlim<bool> IsSelected { get; } = new();
+
     public void Dispose()
     {
         _disposables.Dispose();
-        GC.SuppressFinalize(this);
     }
 
     public void AddAnimation(Easing easing)
