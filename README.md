@@ -28,8 +28,6 @@ BeUtlはクロスプラットフォームで動作する動画編集ソフトウ
 | 名前 | 目標 |
 | --- | --- |
 | main |  |
-| extensions-api | 拡張機能のapiの開発 (実質開発ブランチ) |
-| clean-mvvm | MVVMを綺麗にする |
 
 ## License
 
