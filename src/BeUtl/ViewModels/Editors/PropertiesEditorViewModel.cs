@@ -1,6 +1,7 @@
 ﻿using System.Text.Json.Nodes;
 
 using BeUtl.Collections;
+using BeUtl.Models;
 using BeUtl.ProjectSystem;
 
 namespace BeUtl.ViewModels.Editors;
@@ -47,8 +48,8 @@ public sealed class PropertiesEditorViewModel : IDisposable
     private string ViewStateDirectory()
     {
         string directory = Path.GetDirectoryName(Layer.FileName)!;
-        // Todo: 後で変更
-        directory = Path.Combine(directory, ".beutl", "view-state");
+
+        directory = Path.Combine(directory, Constants.BeutlFolder, Constants.ViewStateFolder);
         if (!Directory.Exists(directory))
         {
             Directory.CreateDirectory(directory);

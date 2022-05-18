@@ -3,6 +3,7 @@ using System.Reactive.Subjects;
 
 using BeUtl.Configuration;
 using BeUtl.Framework.Services;
+using BeUtl.Models;
 using BeUtl.ProjectSystem;
 
 using Microsoft.Extensions.DependencyInjection;
@@ -81,9 +82,8 @@ public class ProjectService : IProjectService
                 }
             };
 
-            // Todo: 後で拡張子を変更
-            scene.Save(Path.Combine(location, name, $"{name}.scene"));
-            string projectFile = Path.Combine(location, $"{name}.bep");
+            scene.Save(Path.Combine(location, name, $"{name}.{Constants.SceneFileExtension}"));
+            string projectFile = Path.Combine(location, $"{name}.{Constants.ProjectFileExtension}");
             project.Save(projectFile);
 
             // 値を発行

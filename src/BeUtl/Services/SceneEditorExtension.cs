@@ -4,6 +4,7 @@ using Avalonia.Media;
 
 using BeUtl.Controls;
 using BeUtl.Framework;
+using BeUtl.Models;
 using BeUtl.ProjectSystem;
 using BeUtl.ViewModels;
 using BeUtl.Views;
@@ -21,7 +22,7 @@ public sealed class SceneEditorExtension : EditorExtension
 
     public override string[] FileExtensions { get; } =
     {
-        "scene"
+        Constants.SceneFileExtension
     };
 
     public override ResourceReference<string> FileTypeName => "S.Common.SceneFile";
@@ -32,7 +33,7 @@ public sealed class SceneEditorExtension : EditorExtension
 
     public override bool TryCreateEditor(string file, [NotNullWhen(true)] out IEditor? editor)
     {
-        if (file.EndsWith(".scene"))
+        if (file.EndsWith($".{Constants.SceneFileExtension}"))
         {
             editor = new EditView();
             return true;
@@ -46,7 +47,7 @@ public sealed class SceneEditorExtension : EditorExtension
 
     public override bool TryCreateContext(string file, [NotNullWhen(true)] out IEditorContext? context)
     {
-        if (file.EndsWith(".scene")
+        if (file.EndsWith($".{Constants.SceneFileExtension}")
             && ServiceLocator.Current.GetRequiredService<IWorkspaceItemContainer>().TryGetOrCreateItem(file, out Scene? model))
         {
             context = new EditViewModel(model);

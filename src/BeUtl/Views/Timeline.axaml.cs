@@ -105,7 +105,7 @@ public partial class Timeline : UserControl
                 {
                     string[] formats = await clipboard.GetFormatsAsync();
 
-                    if (formats.AsSpan().Contains(BeUtlDataFormats.Layer))
+                    if (formats.AsSpan().Contains(Constants.Layer))
                     {
                         string json = await clipboard.GetTextAsync();
                         var layer = new Layer();
@@ -113,7 +113,7 @@ public partial class Timeline : UserControl
                         layer.Start = ViewModel.ClickedFrame;
                         layer.ZIndex = ViewModel.ClickedLayer;
 
-                        layer.Save(Helper.RandomLayerFileName(Path.GetDirectoryName(ViewModel.Scene.FileName)!, "layer"));
+                        layer.Save(Helper.RandomLayerFileName(Path.GetDirectoryName(ViewModel.Scene.FileName)!, Constants.LayerFileExtension));
 
                         ViewModel.Scene.AddChild(layer).DoAndRecord(CommandRecorder.Default);
                     }

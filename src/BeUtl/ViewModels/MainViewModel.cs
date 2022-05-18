@@ -194,7 +194,7 @@ public class MainViewModel
 
             manager.ExtensionProvider._allExtensions.Add(Package.s_nextId++, _primitivePageExtensions);
 
-            // Todo: ここでSceneEditorExtensionを登録しているので、
+            // NOTE: ここでSceneEditorExtensionを登録しているので、
             //       パッケージとして分離する場合ここを削除
             manager.ExtensionProvider._allExtensions.Add(Package.s_nextId++, new Extension[]
             {

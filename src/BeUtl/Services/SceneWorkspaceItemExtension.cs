@@ -4,6 +4,7 @@ using Avalonia.Media;
 
 using BeUtl.Controls;
 using BeUtl.Framework;
+using BeUtl.Models;
 using BeUtl.ProjectSystem;
 
 namespace BeUtl.Services;
@@ -17,7 +18,7 @@ public sealed class SceneWorkspaceItemExtension : WorkspaceItemExtension
 
     public override string[] FileExtensions { get; } =
     {
-        "scene"
+        Constants.SceneFileExtension
     };
 
     public override ResourceReference<string> FileTypeName => "S.Common.SceneFile";
@@ -29,7 +30,7 @@ public sealed class SceneWorkspaceItemExtension : WorkspaceItemExtension
     public override bool TryCreateItem(string file, [NotNullWhen(true)] out IWorkspaceItem? result)
     {
         result = null;
-        if (file.EndsWith(".scene"))
+        if (file.EndsWith($".{Constants.SceneFileExtension}"))
         {
             Scene? scene;
             try

@@ -290,7 +290,6 @@ Error:
 
         viewModel.OpenProject.Subscribe(async () =>
         {
-            // Todo: 後で拡張子を変更
             var dialog = new OpenFileDialog
             {
                 Filters =
@@ -300,7 +299,7 @@ Error:
                         Name = S.Common.ProjectFile,
                         Extensions =
                         {
-                            "bep"
+                            Constants.ProjectFileExtension
                         }
                     }
                 }
@@ -459,7 +458,7 @@ Error:
                     string json = layer.ToJson().ToJsonString(JsonHelper.SerializerOptions);
                     var data = new DataObject();
                     data.Set(DataFormats.Text, json);
-                    data.Set(BeUtlDataFormats.Layer, json);
+                    data.Set(Constants.Layer, json);
 
                     await clipboard.SetDataObjectAsync(data);
                     scene.RemoveChild(layer).DoAndRecord(CommandRecorder.Default);
@@ -479,7 +478,7 @@ Error:
                     string json = layer.ToJson().ToJsonString(JsonHelper.SerializerOptions);
                     var data = new DataObject();
                     data.Set(DataFormats.Text, json);
-                    data.Set(BeUtlDataFormats.Layer, json);
+                    data.Set(Constants.Layer, json);
 
                     await clipboard.SetDataObjectAsync(data);
                 }

@@ -7,6 +7,7 @@ using Avalonia.Media;
 
 using BeUtl.Collections;
 using BeUtl.Framework;
+using BeUtl.Models;
 using BeUtl.ProjectSystem;
 using BeUtl.Services;
 using BeUtl.ViewModels.Editors;
@@ -94,8 +95,8 @@ public sealed class EditViewModel : IEditorContext
     private string ViewStateDirectory()
     {
         string directory = Path.GetDirectoryName(EdittingFile)!;
-        // Todo: 後で変更
-        directory = Path.Combine(directory, ".beutl", "view-state");
+
+        directory = Path.Combine(directory, Constants.BeutlFolder, Constants.ViewStateFolder);
         if (!Directory.Exists(directory))
         {
             Directory.CreateDirectory(directory);

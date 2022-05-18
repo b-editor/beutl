@@ -55,7 +55,7 @@ public sealed class TimelineViewModel : IDisposable, ITimelineOptionsProvider
                 Start = item.Start,
                 Length = item.Length,
                 ZIndex = item.Layer,
-                FileName = Helper.RandomLayerFileName(Path.GetDirectoryName(Scene.FileName)!, "layer")
+                FileName = Helper.RandomLayerFileName(Path.GetDirectoryName(Scene.FileName)!, Constants.LayerFileExtension)
             };
 
             if (item.InitialOperation != null)

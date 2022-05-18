@@ -3,6 +3,7 @@
 using Avalonia;
 
 using BeUtl.Framework.Services;
+using BeUtl.Models;
 using BeUtl.ProjectSystem;
 using BeUtl.Services;
 
@@ -69,7 +70,7 @@ public sealed class CreateNewSceneViewModel
             EditorService editPage = ServiceLocator.Current.GetRequiredService<EditorService>();
             var scene = new Scene(Size.Value.Width, Size.Value.Height, Name.Value);
             container.Add(scene);
-            scene.Save(Path.Combine(Location.Value, Name.Value, $"{Name.Value}.scene"));
+            scene.Save(Path.Combine(Location.Value, Name.Value, $"{Name.Value}.{Constants.SceneFileExtension}"));
 
             if (_proj != null && AddToCurrentProject.Value)
             {

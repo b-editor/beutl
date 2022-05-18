@@ -156,7 +156,7 @@ public class TimelineLayerViewModel : IDisposable
             string json = Model.ToJson().ToJsonString(JsonHelper.SerializerOptions);
             var data = new DataObject();
             data.Set(DataFormats.Text, json);
-            data.Set(BeUtlDataFormats.Layer, json);
+            data.Set(Constants.Layer, json);
 
             await clipboard.SetDataObjectAsync(data);
             return true;
