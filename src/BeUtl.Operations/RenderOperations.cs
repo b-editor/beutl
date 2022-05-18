@@ -31,7 +31,6 @@ public static class RenderOperations
         LayerOperationRegistry.RegisterOperation<ImageFileOperation>("S.OpName.ImageFile");
         LayerOperationRegistry.RegisterOperation<BlendOperation>("S.OpName.Blend");
         LayerOperationRegistry.RegisterOperation<OffscreenDrawing>("S.OpName.OffscreenDrawing");
-        LayerOperationRegistry.RegisterOperation<RenderAllOperation>("S.OpName.RenderAll");
         LayerOperationRegistry.RegisterOperation<TestOperation>("S.OpName.Test");
     }
 }

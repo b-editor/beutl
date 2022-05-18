@@ -20,8 +20,6 @@ public static partial class StringResources
         public static string Blend => "S.OpName.Blend".GetStringResource("Blend");
         //S.OpName.OffscreenDrawing
         public static string OffscreenDrawing => "S.OpName.OffscreenDrawing".GetStringResource("Offscreen drawing");
-        //S.OpName.RenderAll
-        public static string RenderAll => "S.OpName.RenderAll".GetStringResource("Render all");
         //S.OpName.RoundedRect
         public static string RoundedRect => "S.OpName.RoundedRect".GetStringResource("Rounded rect");
         //S.OpName.Test
@@ -65,9 +63,6 @@ public static partial class StringResources
         //S.OpName.OffscreenDrawing
         private static IObservable<string>? s_offscreenDrawing;
         public static IObservable<string> OffscreenDrawingObservable => s_offscreenDrawing ??= "S.OpName.OffscreenDrawing".GetStringObservable("Offscreen drawing");
-        //S.OpName.RenderAll
-        private static IObservable<string>? s_renderAll;
-        public static IObservable<string> RenderAllObservable => s_renderAll ??= "S.OpName.RenderAll".GetStringObservable("Render all");
         //S.OpName.RoundedRect
         private static IObservable<string>? s_roundedRect;
         public static IObservable<string> RoundedRectObservable => s_roundedRect ??= "S.OpName.RoundedRect".GetStringObservable("Rounded rect");
