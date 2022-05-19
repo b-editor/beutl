@@ -2,6 +2,9 @@
 
 public class LayerContext : ILayerContext
 {
+    private TimeSpan? _lastTimeSpan;
+    private LayerNode? _lastTimeResult;
+
     public LayerNode? this[TimeSpan timeSpan] => Get(timeSpan);
 
     public LayerNode? First { get; private set; }
@@ -115,8 +118,17 @@ public class LayerContext : ILayerContext
 
     private LayerNode? Get(TimeSpan timeSpan)
     {
+        if (_lastTimeSpan.HasValue && _lastTimeSpan == timeSpan)
+        {
+            return _lastTimeResult;
+        }
+
+        _lastTimeSpan = timeSpan;
         if (timeSpan > Duration)
+        {
+            _lastTimeResult = null;
             return null;
+        }
 
         LayerNode? node = First;
         TimeSpan x = TimeSpan.Zero;
@@ -126,6 +138,7 @@ public class LayerContext : ILayerContext
             x += node.Offset;
             if (x <= timeSpan && timeSpan < x + node.Duration)
             {
+                _lastTimeResult = node;
                 return node;
             }
 
@@ -133,6 +146,7 @@ public class LayerContext : ILayerContext
             node = node.Next;
         }
 
+        _lastTimeResult = null;
         return null;
     }
 
@@ -152,5 +166,6 @@ public class LayerContext : ILayerContext
 
         Duration = timeSpan;
         Count = count;
+        _lastTimeSpan = null;
     }
 }

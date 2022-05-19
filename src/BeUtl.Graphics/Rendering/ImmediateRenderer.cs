@@ -6,9 +6,11 @@ namespace BeUtl.Rendering;
 
 public class ImmediateRenderer : IRenderer
 {
-    private readonly SortedDictionary<int, IRenderable> _objects = new();
+    private readonly SortedDictionary<int, ILayerContext> _objects = new();
     private readonly Canvas _graphics;
     private readonly FpsText _fpsText = new();
+    private readonly InstanceClock _instanceClock = new();
+    private TimeSpan _lastTimeSpan;
 
     public ImmediateRenderer(int width, int height)
     {
@@ -29,9 +31,9 @@ public class ImmediateRenderer : IRenderer
         set => _fpsText.DrawFps = value;
     }
 
-    public IClock Clock { get; protected set; } = ZeroClock.Instance;
+    public IClock Clock => _instanceClock;
 
-    public IRenderable? this[int index]
+    public ILayerContext? this[int index]
     {
         get => _objects.ContainsKey(index) ? _objects[index] : null;
         set
@@ -63,38 +65,40 @@ public class ImmediateRenderer : IRenderer
     {
         if (RenderInvalidated != null)
         {
-            IRenderer.RenderResult result = await Dispatcher.InvokeAsync(() => Render());
+            IRenderer.RenderResult result = await Dispatcher.InvokeAsync(() => Render(_lastTimeSpan));
             RenderInvalidated.Invoke(this, result);
             result.Bitmap.Dispose();
         }
     }
 
-    public IRenderer.RenderResult Render()
+    public IRenderer.RenderResult Render(TimeSpan timeSpan)
     {
         Dispatcher.VerifyAccess();
         if (!IsRendering)
         {
             IsRendering = true;
+            _instanceClock.CurrentTime = timeSpan;
             using (_fpsText.StartRender(this))
             {
-                RenderCore();
+                RenderCore(timeSpan);
             }
 
             IsRendering = false;
         }
 
+        _lastTimeSpan = timeSpan;
         return new IRenderer.RenderResult(Graphics.GetBitmap());
     }
 
-    protected virtual void RenderCore()
+    protected virtual void RenderCore(TimeSpan timeSpan)
     {
         using (Graphics.PushCanvas())
         {
             Graphics.Clear();
 
-            foreach (KeyValuePair<int, IRenderable> item in _objects)
+            foreach (KeyValuePair<int, ILayerContext> item in _objects)
             {
-                item.Value.Render(this);
+                item.Value[timeSpan]?.Value?.Render(this);
             }
         }
     }

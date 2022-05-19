@@ -9,11 +9,13 @@ namespace BeUtl.Rendering;
 public class DeferredRenderer : IRenderer
 {
     internal static readonly Dispatcher s_dispatcher = Dispatcher.Spawn();
-    private readonly SortedDictionary<int, IRenderable> _objects = new();
+    private readonly SortedDictionary<int, ILayerContext> _objects = new();
     private readonly List<Rect> _clips = new();
     private readonly Canvas _graphics;
     private readonly Rect _canvasBounds;
     private readonly FpsText _fpsText = new();
+    private readonly InstanceClock _instanceClock = new();
+    private TimeSpan _lastTimeSpan;
 
     public DeferredRenderer(int width, int height)
     {
@@ -40,9 +42,9 @@ public class DeferredRenderer : IRenderer
         set => _fpsText.DrawFps = value;
     }
 
-    public IClock Clock { get; protected set; } = ZeroClock.Instance;
+    public IClock Clock => _instanceClock;
 
-    public IRenderable? this[int index]
+    public ILayerContext? this[int index]
     {
         get => _objects.ContainsKey(index) ? _objects[index] : null;
         set
@@ -70,28 +72,30 @@ public class DeferredRenderer : IRenderer
         IsDisposed = true;
     }
 
-    public IRenderer.RenderResult Render()
+    public IRenderer.RenderResult Render(TimeSpan timeSpan)
     {
         Dispatcher.VerifyAccess();
         if (!IsRendering)
         {
             IsRendering = true;
+            _instanceClock.CurrentTime = timeSpan;
             using (_fpsText.StartRender(this))
             {
-                RenderCore();
+                RenderCore(timeSpan);
             }
 
             IsRendering = false;
         }
 
+        _lastTimeSpan = timeSpan;
         return new IRenderer.RenderResult(Graphics.GetBitmap());
     }
 
-    protected virtual void RenderCore()
+    protected virtual void RenderCore(TimeSpan timeSpan)
     {
-        var objects = new KeyValuePair<int, IRenderable>[_objects.Count];
+        var objects = new KeyValuePair<int, ILayerContext>[_objects.Count];
         _objects.CopyTo(objects, 0);
-        Func(objects, 0, objects.Length);
+        Func(objects, 0, objects.Length, timeSpan);
 
         using (Graphics.PushCanvas())
         {
@@ -109,10 +113,10 @@ public class DeferredRenderer : IRenderer
                 Graphics.Clear();
             }
 
-            foreach (KeyValuePair<int, IRenderable> item in objects)
+            foreach (KeyValuePair<int, ILayerContext> item in objects)
             {
-                IRenderable? renderable = item.Value;
-                if (renderable.IsDirty)
+                IRenderable? renderable = item.Value[timeSpan]?.Value;
+                if (renderable?.IsDirty ?? false)
                 {
                     renderable.Render(this);
                 }
@@ -161,12 +165,25 @@ public class DeferredRenderer : IRenderer
 
     // 変更されているオブジェクトのBoundsを_clipsに追加して、
     // そのオブジェクトが影響を与えるオブジェクトも同様の処理をする
-    private void Func(ReadOnlySpan<KeyValuePair<int, IRenderable>> items, int start, int length)
+    private void Func(ReadOnlySpan<KeyValuePair<int, ILayerContext>> items, int start, int length, TimeSpan timeSpan)
     {
         for (int i = length - 1; i >= start; i--)
         {
-            KeyValuePair<int, IRenderable> item = items[i];
-            IRenderable? renderable = item.Value;
+            KeyValuePair<int, ILayerContext> item = items[i];
+            ILayerContext context = item.Value;
+            LayerNode? layerNode = context[timeSpan];
+            LayerNode? lastLayerNode = context[_lastTimeSpan];
+            IRenderable? renderable = layerNode?.Value;
+            IRenderable? lastRenderable = lastLayerNode?.Value;
+
+            if (layerNode != lastLayerNode)
+            {
+                if (lastRenderable is Drawable lastDrawable)
+                {
+                    AddDirtyRect(lastDrawable.Bounds);
+                    lastDrawable.Invalidate();
+                }
+            }
 
             if (renderable is Drawable drawable)
             {
@@ -180,7 +197,7 @@ public class DeferredRenderer : IRenderer
                     drawable.Invalidate();
 
                     //Func(items, 0, i);
-                    Func(items, i + 1, items.Length);
+                    Func(items, i + 1, items.Length, timeSpan);
                 }
                 else if (renderable.IsVisible && HitTestClips(rect1, rect2))
                 {
@@ -218,7 +235,7 @@ public class DeferredRenderer : IRenderer
     {
         if (RenderInvalidated != null)
         {
-            IRenderer.RenderResult result = await Dispatcher.InvokeAsync(() => Render());
+            IRenderer.RenderResult result = await Dispatcher.InvokeAsync(() => Render(_lastTimeSpan));
             RenderInvalidated.Invoke(this, result);
             result.Bitmap.Dispose();
         }

@@ -6,5 +6,7 @@ public interface IRenderable
 
     bool IsDirty { get; }
 
+    void Invalidate();
+
     void Render(IRenderer renderer);
 }
