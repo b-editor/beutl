@@ -1,8 +1,11 @@
-using Avalonia;
+﻿using Avalonia;
+using Avalonia.Animation;
+using Avalonia.Animation.Easings;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
+using Avalonia.Styling;
 
 using BeUtl.Commands;
 using BeUtl.ProjectSystem;
@@ -86,6 +89,44 @@ public sealed partial class LayerHeader : UserControl
     }
 
     private TimelineLayerViewModel ViewModel => (TimelineLayerViewModel)DataContext!;
+
+    protected override void OnDataContextChanged(EventArgs e)
+    {
+        base.OnDataContextChanged(e);
+        if (DataContext is TimelineLayerViewModel viewModel)
+        {
+            viewModel.AnimationRequested2 = async (margin) =>
+            {
+                var animation1 = new Avalonia.Animation.Animation
+                {
+                    Easing = new SplineEasing(0.1, 0.9, 0.2, 1.0),
+                    Duration = TimeSpan.FromSeconds(0.67),
+                    FillMode = FillMode.Forward,
+                    Children =
+                    {
+                        new KeyFrame()
+                        {
+                            Cue = new Cue(0),
+                            Setters =
+                            {
+                                new Setter(MarginProperty, Margin)
+                            }
+                        },
+                        new KeyFrame()
+                        {
+                            Cue = new Cue(1),
+                            Setters =
+                            {
+                                new Setter(MarginProperty, margin)
+                            }
+                        }
+                    }
+                };
+
+                await animation1.RunAsync(this, null);
+            };
+        }
+    }
 
     protected override void OnAttachedToLogicalTree(Avalonia.LogicalTree.LogicalTreeAttachmentEventArgs e)
     {

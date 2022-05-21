@@ -5,23 +5,9 @@ public interface ILayerContext
 {
     LayerNode? this[TimeSpan timeSpan] { get; }
 
-    LayerNode? First { get; }
+    void AddNode(LayerNode node);
 
-    LayerNode? Last { get; }
-
-    int Count { get; }
-
-    TimeSpan Duration { get; }
-
-    void AddAfter(LayerNode node, LayerNode newNode);
-
-    void AddBefore(LayerNode node, LayerNode newNode);
-
-    void AddFirst(LayerNode node);
-
-    void AddLast(LayerNode node);
-
-    void Remove(LayerNode node);
+    void RemoveNode(LayerNode node);
 
     bool ContainsNode(LayerNode node);
 }

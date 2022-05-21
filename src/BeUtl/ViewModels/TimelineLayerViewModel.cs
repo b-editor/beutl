@@ -61,7 +61,7 @@ public class TimelineLayerViewModel : IDisposable
             var backwardLayer = new Layer();
             backwardLayer.FromJson(JsonNode.Parse(json)!);
 
-            Model.UpdateTime(Model.Start, forwardLength).DoAndRecord(CommandRecorder.Default);
+            Scene.MoveChild(Model.ZIndex, Model.Start, forwardLength, Model).DoAndRecord(CommandRecorder.Default);
             backwardLayer.Start = absTime;
             backwardLayer.Length = backwardLength;
             backwardLayer.ZIndex++;
@@ -100,6 +100,10 @@ public class TimelineLayerViewModel : IDisposable
         _disposables.Dispose();
     }
 
+    public Func<(Thickness Margin, Thickness BorderMargin, double Width), Task> AnimationRequested1 { get; set; } = _ => Task.CompletedTask;
+
+    public Func<Thickness, Task> AnimationRequested2 { get; set; } = _ => Task.CompletedTask;
+
     public ITimelineOptionsProvider OptionsProvider { get; }
 
     public Layer Model { get; }
@@ -132,20 +136,34 @@ public class TimelineLayerViewModel : IDisposable
         GC.SuppressFinalize(this);
     }
 
-    public void SyncModelToViewModel()
+    public async void SyncModelToViewModel()
     {
         float scale = OptionsProvider.Options.Value.Scale;
         int rate = Scene.Parent is Project proj ? proj.GetFrameRate() : 30;
-
-        Model.UpdateTime(
-            BorderMargin.Value.Left.ToTimeSpan(scale).RoundToRate(rate),
-            Width.Value.ToTimeSpan(scale).RoundToRate(rate))
-            .DoAndRecord(CommandRecorder.Default);
+        Thickness oldMargin = Margin.Value;
+        Thickness oldBorderMargin = BorderMargin.Value;
+        double oldWidth = Width.Value;
 
         int layerNum = Margin.Value.ToLayerNumber();
-        Scene.MoveChild(layerNum, Model).DoAndRecord(CommandRecorder.Default);
+        Scene.MoveChild(
+            layerNum,
+            BorderMargin.Value.Left.ToTimeSpan(scale).RoundToRate(rate),
+            Width.Value.ToTimeSpan(scale).RoundToRate(rate),
+            Model).DoAndRecord(CommandRecorder.Default);
 
-        Margin.Value = new Thickness(0, layerNum.ToLayerPixel(), 0, 0);
+        var margin = new Thickness(0, Model.ZIndex.ToLayerPixel(), 0, 0);
+        var borderMargin = new Thickness(Model.Start.ToPixel(OptionsProvider.Options.Value.Scale), 0, 0, 0);
+        double width = Model.Length.ToPixel(OptionsProvider.Options.Value.Scale);
+
+        BorderMargin.Value = oldBorderMargin;
+        Margin.Value = oldMargin;
+        Width.Value = oldWidth;
+        Task task1 = AnimationRequested1((margin, borderMargin, width));
+        Task task2 = AnimationRequested2(margin);
+        await Task.WhenAll(task1, task2);
+        BorderMargin.Value = borderMargin;
+        Margin.Value = margin;
+        Width.Value = width;
     }
 
     private async ValueTask<bool> SetClipboard()

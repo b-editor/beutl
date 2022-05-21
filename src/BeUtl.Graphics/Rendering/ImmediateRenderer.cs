@@ -61,11 +61,11 @@ public class ImmediateRenderer : IRenderer
         IsDisposed = true;
     }
 
-    public async void Invalidate()
+    public async void Invalidate(TimeSpan timeSpan)
     {
         if (RenderInvalidated != null)
         {
-            IRenderer.RenderResult result = await Dispatcher.InvokeAsync(() => Render(_lastTimeSpan));
+            IRenderer.RenderResult result = await Dispatcher.InvokeAsync(() => Render(timeSpan));
             RenderInvalidated.Invoke(this, result);
             result.Bitmap.Dispose();
         }

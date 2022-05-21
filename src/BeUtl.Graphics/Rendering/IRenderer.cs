@@ -30,7 +30,7 @@ public interface IRenderer : IDisposable
 
     RenderResult Render(TimeSpan timeSpan);
 
-    void Invalidate();
+    void Invalidate(TimeSpan timeSpan);
 
     public record struct RenderResult(Bitmap<Bgra8888> Bitmap/*, IAudio Audio*/);
 }
