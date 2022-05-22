@@ -132,6 +132,7 @@ public partial class Timeline : UserControl
                     newView.border.BorderThickness = new Thickness(1);
             });
 
+            // Todo: LayerHeaderがとても重い
             _disposable3 = ViewModel.LayerHeaders.ForEachItem(
                 (idx, item) => LeftPanel.Children.Insert(idx, new LayerHeader
                 {

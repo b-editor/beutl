@@ -1,4 +1,5 @@
-using System.Collections.Specialized;
+Ôªøusing System.Collections.Specialized;
+using System.Reactive.Linq;
 
 using Avalonia.Collections;
 using Avalonia.Controls;
@@ -15,6 +16,8 @@ using BeUtl.Services;
 using BeUtl.ViewModels;
 using BeUtl.Views;
 using BeUtl.Views.Dialogs;
+
+using Reactive.Bindings;
 
 using FAPathIconSource = FluentAvalonia.UI.Controls.PathIconSource;
 using FATabView = FluentAvalonia.UI.Controls.TabView;
@@ -34,33 +37,7 @@ public sealed partial class EditPage : UserControl
                             : null)
     };
     private static readonly Binding s_isSelectedBinding = new("IsSelected.Value", BindingMode.TwoWay);
-    private static readonly Binding s_contentBinding = new("Context.Value", BindingMode.OneWay);
-    private static readonly IDataTemplate s_contentTemplate = new FuncDataTemplate<IEditorContext>(
-        (obj, _) =>
-        {
-            if (obj?.Extension.TryCreateEditor(obj.EdittingFile, out IEditor? editor) == true)
-            {
-                editor.DataContext = obj;
-                return editor;
-            }
-            else
-            {
-                return new TextBlock()
-                {
-                    Text = obj != null ? @$"
-Error:
-    {string.Format(S.Message.CouldNotOpenFollowingFileWithExtension, obj.Extension.DisplayName, Path.GetFileName(obj.EdittingFile))}
-
-Message:
-    {S.Message.EditorContextHasAlreadyBeenCreated}
-                " : @$"
-Error:
-    {S.Message.NullWasSpecifiedForEditorContext}
-                "
-                };
-            }
-        }
-    );
+    private static readonly Binding s_contentBinding = new("Value", BindingMode.OneWay);
     private readonly AvaloniaList<FATabViewItem> _tabItems = new();
     private IDisposable? _disposable0;
 
@@ -93,8 +70,30 @@ Error:
                         Content = new ContentControl
                         {
                             [!ContentProperty] = s_contentBinding,
-                            ContentTemplate = s_contentTemplate,
-                            DataContext = item,
+                            DataContext = item.Context.Select<IEditorContext, IControl>(obj =>
+                            {
+                                if (obj?.Extension.TryCreateEditor(obj.EdittingFile, out IEditor? editor) == true)
+                                {
+                                    editor.DataContext = obj;
+                                    return editor;
+                                }
+                                else
+                                {
+                                    return new TextBlock()
+                                    {
+                                        Text = obj != null ? @$"
+Error:
+    {string.Format(S.Message.CouldNotOpenFollowingFileWithExtension, obj.Extension.DisplayName, Path.GetFileName(obj.EdittingFile))}
+
+Message:
+    {S.Message.EditorContextHasAlreadyBeenCreated}
+                " : @$"
+Error:
+    {S.Message.NullWasSpecifiedForEditorContext}
+                "
+                                    };
+                                }
+                            }).ToReadOnlyReactivePropertySlim(),
                         }
                     };
 
@@ -178,7 +177,7 @@ Error:
         }
     }
 
-    // 'äJÇ≠'Ç™ÉNÉäÉbÉNÇ≥ÇÍÇΩ
+    // 'Èñã„Åè'„Åå„ÇØ„É™„ÉÉ„ÇØ„Åï„Çå„Åü
     private void OpenClick(object? sender, RoutedEventArgs e)
     {
         if (this.FindAncestorOfType<MainView>().DataContext is MainViewModel vm &&
@@ -188,7 +187,7 @@ Error:
         }
     }
 
-    // 'êVãKçÏê¨'Ç™ÉNÉäÉbÉNÇ≥ÇÍÇΩ
+    // 'Êñ∞Ë¶è‰ΩúÊàê'„Åå„ÇØ„É™„ÉÉ„ÇØ„Åï„Çå„Åü
     private async void NewClick(object? sender, RoutedEventArgs e)
     {
         if (DataContext is not EditPageViewModel vm) return;
