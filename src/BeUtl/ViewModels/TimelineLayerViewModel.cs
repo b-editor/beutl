@@ -18,25 +18,27 @@ namespace BeUtl.ViewModels;
 public class TimelineLayerViewModel : IDisposable
 {
     private readonly CompositeDisposable _disposables = new();
+    private LayerHeaderViewModel? _layerHeader;
 
-    public TimelineLayerViewModel(Layer sceneLayer, ITimelineOptionsProvider optionsProvider)
+    public TimelineLayerViewModel(Layer sceneLayer, TimelineViewModel timeline)
     {
         Model = sceneLayer;
-        OptionsProvider = optionsProvider;
+        Timeline = timeline;
 
-        Margin = sceneLayer.GetSubject(Layer.ZIndexProperty)
+        ISubject<int> zIndexSubject = sceneLayer.GetSubject(Layer.ZIndexProperty);
+        Margin = zIndexSubject
             .Select(item => new Thickness(0, item.ToLayerPixel(), 0, 0))
             .ToReactiveProperty()
             .AddTo(_disposables);
 
         BorderMargin = sceneLayer.GetSubject(Layer.StartProperty)
-            .CombineLatest(optionsProvider.Scale)
+            .CombineLatest(timeline.Scale)
             .Select(item => new Thickness(item.First.ToPixel(item.Second), 0, 0, 0))
             .ToReactiveProperty()
             .AddTo(_disposables);
 
         Width = sceneLayer.GetSubject(Layer.LengthProperty)
-            .CombineLatest(optionsProvider.Scale)
+            .CombineLatest(timeline.Scale)
             .Select(item => item.First.ToPixel(item.Second))
             .ToReactiveProperty()
             .AddTo(_disposables);
@@ -93,6 +95,18 @@ public class TimelineLayerViewModel : IDisposable
 
         ColorSetter.Subscribe(c => Model.AccentColor = Media.Color.FromArgb(c.A, c.R, c.G, c.B))
             .AddTo(_disposables);
+
+        zIndexSubject.Subscribe(number =>
+        {
+            LayerHeaderViewModel? newLH = Timeline.LayerHeaders.FirstOrDefault(i => i.Number.Value == number);
+
+            if (_layerHeader != null)
+                _layerHeader.ItemsCount.Value--;
+
+            if (newLH != null)
+                newLH.ItemsCount.Value++;
+            _layerHeader = newLH;
+        }).AddTo(_disposables);
     }
 
     ~TimelineLayerViewModel()
@@ -100,11 +114,9 @@ public class TimelineLayerViewModel : IDisposable
         _disposables.Dispose();
     }
 
-    public Func<(Thickness Margin, Thickness BorderMargin, double Width), Task> AnimationRequested1 { get; set; } = _ => Task.CompletedTask;
+    public Func<(Thickness Margin, Thickness BorderMargin, double Width), CancellationToken, Task> AnimationRequested { get; set; } = (_, _) => Task.CompletedTask;
 
-    public Func<Thickness, Task> AnimationRequested2 { get; set; } = _ => Task.CompletedTask;
-
-    public ITimelineOptionsProvider OptionsProvider { get; }
+    public TimelineViewModel Timeline { get; }
 
     public Layer Model { get; }
 
@@ -136,9 +148,21 @@ public class TimelineLayerViewModel : IDisposable
         GC.SuppressFinalize(this);
     }
 
+    public async void AnimationRequest(int layerNum, bool affectModel = true, CancellationToken cancellationToken = default)
+    {
+        var newMargin = new Thickness(0, layerNum.ToLayerPixel(), 0, 0);
+        Thickness oldMargin = Margin.Value;
+        if (affectModel)
+            Model.ZIndex = layerNum;
+
+        Margin.Value = oldMargin;
+        await AnimationRequested((newMargin, BorderMargin.Value, Width.Value), cancellationToken);
+        Margin.Value = newMargin;
+    }
+
     public async void SyncModelToViewModel()
     {
-        float scale = OptionsProvider.Options.Value.Scale;
+        float scale = Timeline.Options.Value.Scale;
         int rate = Scene.Parent is Project proj ? proj.GetFrameRate() : 30;
         Thickness oldMargin = Margin.Value;
         Thickness oldBorderMargin = BorderMargin.Value;
@@ -152,15 +176,13 @@ public class TimelineLayerViewModel : IDisposable
             Model).DoAndRecord(CommandRecorder.Default);
 
         var margin = new Thickness(0, Model.ZIndex.ToLayerPixel(), 0, 0);
-        var borderMargin = new Thickness(Model.Start.ToPixel(OptionsProvider.Options.Value.Scale), 0, 0, 0);
-        double width = Model.Length.ToPixel(OptionsProvider.Options.Value.Scale);
+        var borderMargin = new Thickness(Model.Start.ToPixel(Timeline.Options.Value.Scale), 0, 0, 0);
+        double width = Model.Length.ToPixel(Timeline.Options.Value.Scale);
 
         BorderMargin.Value = oldBorderMargin;
         Margin.Value = oldMargin;
         Width.Value = oldWidth;
-        Task task1 = AnimationRequested1((margin, borderMargin, width));
-        Task task2 = AnimationRequested2(margin);
-        await Task.WhenAll(task1, task2);
+        await AnimationRequested((margin, borderMargin, width), default);
         BorderMargin.Value = borderMargin;
         Margin.Value = margin;
         Width.Value = width;

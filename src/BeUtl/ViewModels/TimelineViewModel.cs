@@ -69,6 +69,7 @@ public sealed class TimelineViewModel : IDisposable, ITimelineOptionsProvider
             Scene.AddChild(sLayer).DoAndRecord(CommandRecorder.Default);
         }).AddTo(_disposables);
 
+        LayerHeaders.AddRange(Enumerable.Range(0, 100).Select(num => new LayerHeaderViewModel(num, this)));
         scene.Children.ForEachItem(
             (idx, item) => Layers.Insert(idx, new TimelineLayerViewModel(item, this)),
             (idx, _) =>
@@ -100,6 +101,8 @@ public sealed class TimelineViewModel : IDisposable, ITimelineOptionsProvider
     public ReactiveCommand<LayerDescription> AddLayer { get; } = new();
 
     public CoreList<TimelineLayerViewModel> Layers { get; } = new();
+
+    public CoreList<LayerHeaderViewModel> LayerHeaders { get; } = new();
 
     public ReactiveCommand Paste { get; } = new();
 

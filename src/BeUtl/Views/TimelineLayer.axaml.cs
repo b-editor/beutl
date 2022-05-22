@@ -50,6 +50,7 @@ public partial class TimelineLayer : UserControl
     private TimeSpan _pointerPosition;
     private Layer? _before;
     private Layer? _after;
+    private IDisposable? _disposable1;
 
     public TimelineLayer()
     {
@@ -74,63 +75,75 @@ public partial class TimelineLayer : UserControl
         base.OnDataContextChanged(e);
         if (DataContext is TimelineLayerViewModel viewModel)
         {
-            viewModel.AnimationRequested1 = async args =>
+            _disposable1?.Dispose();
+            viewModel.AnimationRequested = async (args, token) =>
             {
-                var animation1 = new Avalonia.Animation.Animation
+                await Dispatcher.UIThread.InvokeAsync(async () =>
                 {
-                    Easing = new SplineEasing(0.1, 0.9, 0.2, 1.0),
-                    Duration = TimeSpan.FromSeconds(0.67),
-                    FillMode = FillMode.Forward,
-                    Children =
+                    var animation1 = new Avalonia.Animation.Animation
                     {
-                        new KeyFrame()
+                        Easing = new SplineEasing(0.1, 0.9, 0.2, 1.0),
+                        Duration = TimeSpan.FromSeconds(0.67),
+                        FillMode = FillMode.Forward,
+                        Children =
                         {
-                            Cue = new Cue(0),
-                            Setters =
+                            new KeyFrame()
                             {
-                                new Setter(MarginProperty, border.Margin)
-                            }
-                        },
-                        new KeyFrame()
-                        {
-                            Cue = new Cue(1),
-                            Setters =
+                                Cue = new Cue(0),
+                                Setters =
+                                {
+                                    new Setter(MarginProperty, border.Margin)
+                                }
+                            },
+                            new KeyFrame()
                             {
-                                new Setter(MarginProperty, args.BorderMargin)
+                                Cue = new Cue(1),
+                                Setters =
+                                {
+                                    new Setter(MarginProperty, args.BorderMargin)
+                                }
                             }
                         }
-                    }
-                };
-                var animation2 = new Avalonia.Animation.Animation
-                {
-                    Easing = new SplineEasing(0.1, 0.9, 0.2, 1.0),
-                    Duration = TimeSpan.FromSeconds(0.67),
-                    FillMode = FillMode.Forward,
-                    Children =
+                    };
+                    var animation2 = new Avalonia.Animation.Animation
                     {
-                        new KeyFrame()
+                        Easing = new SplineEasing(0.1, 0.9, 0.2, 1.0),
+                        Duration = TimeSpan.FromSeconds(0.67),
+                        FillMode = FillMode.Forward,
+                        Children =
                         {
-                            Cue = new Cue(0),
-                            Setters =
+                            new KeyFrame()
                             {
-                                new Setter(MarginProperty, Margin)
-                            }
-                        },
-                        new KeyFrame()
-                        {
-                            Cue = new Cue(1),
-                            Setters =
+                                Cue = new Cue(0),
+                                Setters =
+                                {
+                                    new Setter(MarginProperty, Margin)
+                                }
+                            },
+                            new KeyFrame()
                             {
-                                new Setter(MarginProperty, args.Margin)
+                                Cue = new Cue(1),
+                                Setters =
+                                {
+                                    new Setter(MarginProperty, args.Margin)
+                                }
                             }
                         }
-                    }
-                };
+                    };
 
-                Task task1 = animation1.RunAsync(border, null);
-                Task task2 = animation2.RunAsync(this, null);
-                await Task.WhenAll(task1, task2);
+                    Task task1 = animation1.RunAsync(border, null, token);
+                    Task task2 = animation2.RunAsync(this, null, token);
+                    await Task.WhenAll(task1, task2);
+                });
             };
+            _disposable1 = viewModel.Model.GetObservable(Layer.IsEnabledProperty)
+                .Subscribe(b =>
+                {
+                    Dispatcher.UIThread.InvokeAsync(() =>
+                    {
+                        border.Opacity = b ? 1 : 0.5;
+                    });
+                });
         }
     }
 
@@ -149,7 +162,7 @@ public partial class TimelineLayer : UserControl
     {
         Scene scene = ViewModel.Scene;
         Point point = e.GetPosition(this);
-        float scale = ViewModel.OptionsProvider.Options.Value.Scale;
+        float scale = ViewModel.Timeline.Options.Value.Scale;
         TimeSpan pointerFrame = point.X.ToTimeSpan(scale);
         _pointerPosition = pointerFrame;
 

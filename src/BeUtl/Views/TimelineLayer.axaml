@@ -11,6 +11,7 @@
     HorizontalAlignment="Stretch"
     VerticalAlignment="Top"
     Padding="0,1"
+    ClipToBounds="True"
     Focusable="True"
     IsEnabled="{Binding Model.IsEnabled}"
     x:Name="root"
@@ -75,11 +76,6 @@
                 </MenuItem>
             </ContextMenu>
         </Border.ContextMenu>
-        <Border.Styles>
-            <Style Selector="Border:disabled">
-                <Setter Property="Opacity" Value="0.5" />
-            </Style>
-        </Border.Styles>
     </Border>
 
 </UserControl>

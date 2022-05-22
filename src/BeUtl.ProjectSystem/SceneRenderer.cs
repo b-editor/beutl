@@ -44,35 +44,33 @@ internal sealed class SceneRenderer : ImmediateRenderer/*DeferredRenderer*/
         foreach (Layer layer in layers)
         {
             LayerNode? node = layer.Node;
-            if (!layer.IsEnabled)
+            var args = new OperationRenderArgs(this)
             {
-                node.Value = null;
-            }
-            else
+                Result = node.Value
+            };
+            Renderable? prevResult = args.Result;
+            prevResult?.BeginBatchUpdate();
+
+            foreach (LayerOperation? item in layer.Children.AsSpan())
             {
-                var args = new OperationRenderArgs(this)
+                item.Render(ref args);
+                if (prevResult != args.Result)
                 {
-                    Result = node.Value
-                };
-                Renderable? prevResult = args.Result;
-                prevResult?.BeginBatchUpdate();
-                foreach (LayerOperation? item in layer.Children.AsSpan())
-                {
-                    item.Render(ref args);
-                    if (prevResult != args.Result)
-                    {
-                        // Resultが変更された
-                        prevResult?.EndBatchUpdate();
-                        args.Result?.BeginBatchUpdate();
-                        prevResult = args.Result;
-                    }
+                    // Resultが変更された
+                    prevResult?.EndBatchUpdate();
+                    args.Result?.BeginBatchUpdate();
+                    prevResult = args.Result;
                 }
-
-                node.Value = args.Result;
-                node.Value?.ApplyStyling(Clock);
-
-                node.Value?.EndBatchUpdate();
             }
+
+            node.Value = args.Result;
+            node.Value?.ApplyStyling(Clock);
+
+            if (prevResult != null)
+            {
+                prevResult.IsVisible = layer.IsEnabled;
+            }
+            node.Value?.EndBatchUpdate();
         }
 
         foreach (Layer item in end)

@@ -230,7 +230,9 @@ public class Scene : Element, IStorable, IWorkspaceItem
         return new RemoveCommand(this, layer);
     }
 
+#pragma warning disable CA1822
     public IRecordableCommand MoveChild(int layerNum, TimeSpan start, TimeSpan length, Layer layer)
+#pragma warning restore CA1822
     {
         ArgumentNullException.ThrowIfNull(layer);
 
@@ -240,7 +242,7 @@ public class Scene : Element, IStorable, IWorkspaceItem
         if (length <= TimeSpan.Zero)
             throw new ArgumentOutOfRangeException(nameof(length));
 
-        return new MoveCommand(layerNum, this, layer, start, layer.Start, length, layer.Length);
+        return new MoveCommand(layerNum, layer, start, layer.Start, length, layer.Length);
     }
 
     public override void FromJson(JsonNode json)
@@ -545,7 +547,6 @@ public class Scene : Element, IStorable, IWorkspaceItem
 
     private sealed class MoveCommand : IRecordableCommand
     {
-        private readonly Scene _scene;
         private readonly Layer _layer;
         private readonly int _layerNum;
         private readonly int _oldLayerNum;
@@ -556,12 +557,10 @@ public class Scene : Element, IStorable, IWorkspaceItem
 
         public MoveCommand(
             int layerNum,
-            Scene scene,
             Layer layer,
             TimeSpan newStart, TimeSpan oldStart,
             TimeSpan newLength, TimeSpan oldLength)
         {
-            _scene = scene;
             _layer = layer;
             _layerNum = layerNum;
             _oldLayerNum = layer.ZIndex;
