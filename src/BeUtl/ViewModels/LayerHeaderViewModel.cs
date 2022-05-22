@@ -21,10 +21,10 @@ public sealed class LayerHeaderViewModel : IDisposable
     {
         Number = new(num);
         Timeline = timeline;
-        Margin = Number
-            .Select(item => new Thickness(0, item.ToLayerPixel(), 0, 0))
-            .ToReactiveProperty()
-            .AddTo(_disposables);
+        //Margin = Number
+        //    .Select(item => new Thickness(0, item.ToLayerPixel(), 0, 0))
+        //    .ToReactiveProperty()
+        //    .AddTo(_disposables);
 
         HasItems = ItemsCount.Select(i => i > 0)
             .ToReadOnlyReactivePropertySlim()
@@ -51,13 +51,19 @@ public sealed class LayerHeaderViewModel : IDisposable
 
             command?.DoAndRecord(CommandRecorder.Default);
         }).AddTo(_disposables);
+
+        //PosY = Margin.CombineLatest(Number)
+        //    .Select(t => t.First.Top - t.Second.ToLayerPixel())
+        //    .ToReadOnlyReactivePropertySlim();
     }
 
     public ReactiveProperty<int> Number { get; }
 
     public TimelineViewModel Timeline { get; }
 
-    public ReactiveProperty<Thickness> Margin { get; }
+    //public ReactiveProperty<Thickness> Margin { get; }
+
+    public ReactivePropertySlim<double> PosY { get; } = new();
 
     public ReactiveProperty<Color2> Color { get; } = new();
 
@@ -69,19 +75,15 @@ public sealed class LayerHeaderViewModel : IDisposable
 
     public ReadOnlyReactivePropertySlim<bool> HasItems { get; }
 
-    public Func<Thickness, CancellationToken, Task> AnimationRequested { get; set; } = (_, _) => Task.CompletedTask;
+    //public Func<double, CancellationToken, Task> AnimationRequested { get; set; } = (_, _) => Task.CompletedTask;
 
-    public async void AnimationRequest(int layerNum, bool affectModel = true, CancellationToken cancellationToken = default)
+    public void AnimationRequest(int layerNum, bool affectModel = true)
     {
-        var newMargin = new Thickness(0, layerNum.ToLayerPixel(), 0, 0);
-        Thickness oldMargin = Margin.Value;
-
         if (affectModel)
             Number.Value = layerNum;
 
-        Margin.Value = oldMargin;
-        await AnimationRequested(newMargin, cancellationToken);
-        Margin.Value = newMargin;
+        //await AnimationRequested(0, cancellationToken);
+        PosY.Value = 0;
     }
 
     public void Dispose()

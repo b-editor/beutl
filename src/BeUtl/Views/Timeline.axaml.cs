@@ -79,7 +79,7 @@ public partial class Timeline : UserControl
             if (_viewModel != null)
             {
                 TimelinePanel.Children.RemoveRange(3, TimelinePanel.Children.Count - 3);
-                LeftPanel.Children.Clear();
+                //LeftPanel.Children.Clear();
 
                 _disposable0?.Dispose();
                 _disposable1?.Dispose();
@@ -133,13 +133,13 @@ public partial class Timeline : UserControl
             });
 
             // Todo: LayerHeaderがとても重い
-            _disposable3 = ViewModel.LayerHeaders.ForEachItem(
-                (idx, item) => LeftPanel.Children.Insert(idx, new LayerHeader
-                {
-                    DataContext = item
-                }),
-                (idx, _) => LeftPanel.Children.RemoveAt(idx),
-                () => LeftPanel.Children.Clear());
+            //_disposable3 = ViewModel.LayerHeaders.ForEachItem(
+            //    (idx, item) => LeftPanel.Children.Insert(idx, new LayerHeader
+            //    {
+            //        DataContext = item
+            //    }),
+            //    (idx, _) => LeftPanel.Children.RemoveAt(idx),
+            //    () => LeftPanel.Children.Clear());
         }
     }
 

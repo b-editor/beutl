@@ -7,10 +7,13 @@ using Avalonia.Animation.Easings;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.LogicalTree;
+using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.Threading;
 
 using BeUtl.ViewModels;
+
+using FluentAvalonia.UI.Controls;
 
 using static BeUtl.Views.Timeline;
 
@@ -23,7 +26,9 @@ public sealed partial class LayerHeader : UserControl
     private MouseFlags _mouseFlag = MouseFlags.MouseUp;
     private Timeline? _timeline;
     private Point _startRel;
+    private Point _start;
     private TLVM[] _layers = Array.Empty<TLVM>();
+    private int _newLayer;
 
     public LayerHeader()
     {
@@ -31,47 +36,6 @@ public sealed partial class LayerHeader : UserControl
     }
 
     private LayerHeaderViewModel ViewModel => (LayerHeaderViewModel)DataContext!;
-
-    protected override void OnDataContextChanged(EventArgs e)
-    {
-        base.OnDataContextChanged(e);
-        if (DataContext is LayerHeaderViewModel viewModel)
-        {
-            viewModel.AnimationRequested = async (margin, token) =>
-            {
-                await Dispatcher.UIThread.InvokeAsync(async () =>
-                {
-                    var animation = new Avalonia.Animation.Animation
-                    {
-                        Easing = new SplineEasing(0.1, 0.9, 0.2, 1.0),
-                        Duration = TimeSpan.FromSeconds(0.67),
-                        FillMode = FillMode.Forward,
-                        Children =
-                        {
-                            new KeyFrame()
-                            {
-                                Cue = new Cue(0),
-                                Setters =
-                                {
-                                    new Setter(MarginProperty, Margin)
-                                }
-                            },
-                            new KeyFrame()
-                            {
-                                Cue = new Cue(1),
-                                Setters =
-                                {
-                                    new Setter(MarginProperty, margin)
-                                }
-                            }
-                        }
-                    };
-
-                    await animation.RunAsync(this, null, token);
-                });
-            };
-        }
-    }
 
     protected override void OnAttachedToLogicalTree(Avalonia.LogicalTree.LogicalTreeAttachmentEventArgs e)
     {
@@ -84,13 +48,16 @@ public sealed partial class LayerHeader : UserControl
         if (_timeline == null || _mouseFlag == MouseFlags.MouseUp)
             return;
 
+        Point position = e.GetPosition(_timeline.TimelinePanel);
         LayerHeaderViewModel vm = ViewModel;
-        var newMargin = new Thickness(
-            0,
-            Math.Max(e.GetPosition(_timeline.TimelinePanel).Y - _startRel.Y, 0),
-            0,
-            0);
-        vm.Margin.Value = newMargin;
+        var newMargin = new Thickness(0, Math.Max(position.Y - _startRel.Y, 0), 0, 0);
+
+        _newLayer = newMargin.ToLayerNumber();
+
+        if (position.Y >= 0)
+        {
+            vm.PosY.Value = position.Y - _start.Y;
+        }
         foreach (TLVM item in _layers)
         {
             item.Margin.Value = newMargin;
@@ -103,7 +70,7 @@ public sealed partial class LayerHeader : UserControl
     {
         _mouseFlag = MouseFlags.MouseUp;
 
-        int newLayerNum = ViewModel.Margin.Value.ToLayerNumber();
+        int newLayerNum = _newLayer;
         int oldLayerNum = ViewModel.Number.Value;
         new MoveLayerCommand(ViewModel, newLayerNum, oldLayerNum, _layers).DoAndRecord(CommandRecorder.Default);
         _layers = Array.Empty<TLVM>();
@@ -112,10 +79,11 @@ public sealed partial class LayerHeader : UserControl
     private void Border_PointerPressed(object? sender, PointerPressedEventArgs e)
     {
         PointerPoint point = e.GetCurrentPoint(border);
-        if (point.Properties.IsLeftButtonPressed)
+        if (point.Properties.IsLeftButtonPressed && _timeline != null)
         {
             _mouseFlag = MouseFlags.MouseDown;
             _startRel = point.Position;
+            _start = e.GetCurrentPoint(_timeline.TimelinePanel).Position;
             _layers = ViewModel.Timeline.Layers
                 .Where(i => i.Model.ZIndex == ViewModel.Number.Value)
                 .ToArray();
@@ -172,6 +140,8 @@ public sealed partial class LayerHeader : UserControl
                 item.AnimationRequest(item.Number.Value + x);
             }
 
+            _viewModel.Timeline.LayerHeaders.Move(_oldLayerNum, _newLayerNum);
+
             foreach (TLVM item in _items1)
             {
                 item.AnimationRequest(_newLayerNum);
@@ -181,7 +151,6 @@ public sealed partial class LayerHeader : UserControl
             {
                 item.AnimationRequest(item.Model.ZIndex + x);
             }
-
         }
 
         public void Redo()
@@ -191,22 +160,23 @@ public sealed partial class LayerHeader : UserControl
 
         public void Undo()
         {
+            int x = _oldLayerNum > _newLayerNum ? -1 : 1;
+            _viewModel.AnimationRequest(_oldLayerNum);
+            foreach (LayerHeaderViewModel item in CollectionsMarshal.AsSpan(_viewModels))
+            {
+                item.AnimationRequest(item.Number.Value + x);
+            }
+
+            _viewModel.Timeline.LayerHeaders.Move(_newLayerNum, _oldLayerNum);
+
             foreach (TLVM item in _items1)
             {
                 item.AnimationRequest(_oldLayerNum);
             }
 
-            _viewModel.AnimationRequest(_oldLayerNum);
-
-            int x = _oldLayerNum > _newLayerNum ? -1 : 1;
             foreach (TLVM item in CollectionsMarshal.AsSpan(_items2))
             {
                 item.AnimationRequest(item.Model.ZIndex + x);
-            }
-
-            foreach (LayerHeaderViewModel item in CollectionsMarshal.AsSpan(_viewModels))
-            {
-                item.AnimationRequest(item.Number.Value + x);
             }
         }
     }

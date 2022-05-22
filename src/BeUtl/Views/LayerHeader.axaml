@@ -7,12 +7,14 @@
     xmlns:ui="using:FluentAvalonia.UI.Controls"
     mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
     x:DataType="vm:LayerHeaderViewModel"
-    Margin="{CompiledBinding Margin.Value}"
     Height="{DynamicResource LayerHeight}"
     ClipToBounds="True"
     VerticalAlignment="Top"
     HorizontalAlignment="Stretch"
     x:Class="BeUtl.Views.LayerHeader">
+    <UserControl.RenderTransform>
+        <TranslateTransform Y="{CompiledBinding PosY.Value}" />
+    </UserControl.RenderTransform>
     <Grid>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="Auto" />
