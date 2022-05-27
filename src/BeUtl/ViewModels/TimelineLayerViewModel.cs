@@ -18,25 +18,27 @@ namespace BeUtl.ViewModels;
 public class TimelineLayerViewModel : IDisposable
 {
     private readonly CompositeDisposable _disposables = new();
+    private LayerHeaderViewModel? _layerHeader;
 
-    public TimelineLayerViewModel(Layer sceneLayer, ITimelineOptionsProvider optionsProvider)
+    public TimelineLayerViewModel(Layer sceneLayer, TimelineViewModel timeline)
     {
         Model = sceneLayer;
-        OptionsProvider = optionsProvider;
+        Timeline = timeline;
 
-        Margin = sceneLayer.GetSubject(Layer.ZIndexProperty)
+        ISubject<int> zIndexSubject = sceneLayer.GetSubject(Layer.ZIndexProperty);
+        Margin = zIndexSubject
             .Select(item => new Thickness(0, item.ToLayerPixel(), 0, 0))
             .ToReactiveProperty()
             .AddTo(_disposables);
 
         BorderMargin = sceneLayer.GetSubject(Layer.StartProperty)
-            .CombineLatest(optionsProvider.Scale)
+            .CombineLatest(timeline.Scale)
             .Select(item => new Thickness(item.First.ToPixel(item.Second), 0, 0, 0))
             .ToReactiveProperty()
             .AddTo(_disposables);
 
         Width = sceneLayer.GetSubject(Layer.LengthProperty)
-            .CombineLatest(optionsProvider.Scale)
+            .CombineLatest(timeline.Scale)
             .Select(item => item.First.ToPixel(item.Second))
             .ToReactiveProperty()
             .AddTo(_disposables);
@@ -61,7 +63,7 @@ public class TimelineLayerViewModel : IDisposable
             var backwardLayer = new Layer();
             backwardLayer.FromJson(JsonNode.Parse(json)!);
 
-            Model.UpdateTime(Model.Start, forwardLength).DoAndRecord(CommandRecorder.Default);
+            Scene.MoveChild(Model.ZIndex, Model.Start, forwardLength, Model).DoAndRecord(CommandRecorder.Default);
             backwardLayer.Start = absTime;
             backwardLayer.Length = backwardLength;
             backwardLayer.ZIndex++;
@@ -93,6 +95,18 @@ public class TimelineLayerViewModel : IDisposable
 
         ColorSetter.Subscribe(c => Model.AccentColor = Media.Color.FromArgb(c.A, c.R, c.G, c.B))
             .AddTo(_disposables);
+
+        zIndexSubject.Subscribe(number =>
+        {
+            LayerHeaderViewModel? newLH = Timeline.LayerHeaders.FirstOrDefault(i => i.Number.Value == number);
+
+            if (_layerHeader != null)
+                _layerHeader.ItemsCount.Value--;
+
+            if (newLH != null)
+                newLH.ItemsCount.Value++;
+            _layerHeader = newLH;
+        }).AddTo(_disposables);
     }
 
     ~TimelineLayerViewModel()
@@ -100,7 +114,9 @@ public class TimelineLayerViewModel : IDisposable
         _disposables.Dispose();
     }
 
-    public ITimelineOptionsProvider OptionsProvider { get; }
+    public Func<(Thickness Margin, Thickness BorderMargin, double Width), CancellationToken, Task> AnimationRequested { get; set; } = (_, _) => Task.CompletedTask;
+
+    public TimelineViewModel Timeline { get; }
 
     public Layer Model { get; }
 
@@ -132,20 +148,44 @@ public class TimelineLayerViewModel : IDisposable
         GC.SuppressFinalize(this);
     }
 
-    public void SyncModelToViewModel()
+    public async void AnimationRequest(int layerNum, bool affectModel = true, CancellationToken cancellationToken = default)
     {
-        float scale = OptionsProvider.Options.Value.Scale;
-        int rate = Scene.Parent is Project proj ? proj.GetFrameRate() : 30;
+        var newMargin = new Thickness(0, layerNum.ToLayerPixel(), 0, 0);
+        Thickness oldMargin = Margin.Value;
+        if (affectModel)
+            Model.ZIndex = layerNum;
 
-        Model.UpdateTime(
-            BorderMargin.Value.Left.ToTimeSpan(scale).RoundToRate(rate),
-            Width.Value.ToTimeSpan(scale).RoundToRate(rate))
-            .DoAndRecord(CommandRecorder.Default);
+        Margin.Value = oldMargin;
+        await AnimationRequested((newMargin, BorderMargin.Value, Width.Value), cancellationToken);
+        Margin.Value = newMargin;
+    }
+
+    public async void SyncModelToViewModel()
+    {
+        float scale = Timeline.Options.Value.Scale;
+        int rate = Scene.Parent is Project proj ? proj.GetFrameRate() : 30;
+        Thickness oldMargin = Margin.Value;
+        Thickness oldBorderMargin = BorderMargin.Value;
+        double oldWidth = Width.Value;
 
         int layerNum = Margin.Value.ToLayerNumber();
-        Scene.MoveChild(layerNum, Model).DoAndRecord(CommandRecorder.Default);
+        Scene.MoveChild(
+            layerNum,
+            BorderMargin.Value.Left.ToTimeSpan(scale).RoundToRate(rate),
+            Width.Value.ToTimeSpan(scale).RoundToRate(rate),
+            Model).DoAndRecord(CommandRecorder.Default);
 
-        Margin.Value = new Thickness(0, layerNum.ToLayerPixel(), 0, 0);
+        var margin = new Thickness(0, Model.ZIndex.ToLayerPixel(), 0, 0);
+        var borderMargin = new Thickness(Model.Start.ToPixel(Timeline.Options.Value.Scale), 0, 0, 0);
+        double width = Model.Length.ToPixel(Timeline.Options.Value.Scale);
+
+        BorderMargin.Value = oldBorderMargin;
+        Margin.Value = oldMargin;
+        Width.Value = oldWidth;
+        await AnimationRequested((margin, borderMargin, width), default);
+        BorderMargin.Value = borderMargin;
+        Margin.Value = margin;
+        Width.Value = width;
     }
 
     private async ValueTask<bool> SetClipboard()

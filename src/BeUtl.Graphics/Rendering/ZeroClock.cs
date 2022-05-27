@@ -8,3 +8,8 @@ internal sealed class ZeroClock : IClock
 
     public TimeSpan CurrentTime => TimeSpan.Zero;
 }
+
+internal sealed class InstanceClock : IClock
+{
+    public TimeSpan CurrentTime { get; set; }
+}

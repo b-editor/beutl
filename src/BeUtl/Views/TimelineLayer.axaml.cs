@@ -1,5 +1,6 @@
-using Avalonia;
+Ôªøusing Avalonia;
 using Avalonia.Animation;
+using Avalonia.Animation.Easings;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -47,6 +48,9 @@ public partial class TimelineLayer : UserControl
     private Point _layerStartAbs;
     private Point _layerStartRel;
     private TimeSpan _pointerPosition;
+    private Layer? _before;
+    private Layer? _after;
+    private IDisposable? _disposable1;
 
     public TimelineLayer()
     {
@@ -66,6 +70,83 @@ public partial class TimelineLayer : UserControl
         _timeline = this.FindLogicalAncestorOfType<Timeline>();
     }
 
+    protected override void OnDataContextChanged(EventArgs e)
+    {
+        base.OnDataContextChanged(e);
+        if (DataContext is TimelineLayerViewModel viewModel)
+        {
+            _disposable1?.Dispose();
+            viewModel.AnimationRequested = async (args, token) =>
+            {
+                await Dispatcher.UIThread.InvokeAsync(async () =>
+                {
+                    var animation1 = new Avalonia.Animation.Animation
+                    {
+                        Easing = new SplineEasing(0.1, 0.9, 0.2, 1.0),
+                        Duration = TimeSpan.FromSeconds(0.67),
+                        FillMode = FillMode.Forward,
+                        Children =
+                        {
+                            new KeyFrame()
+                            {
+                                Cue = new Cue(0),
+                                Setters =
+                                {
+                                    new Setter(MarginProperty, border.Margin)
+                                }
+                            },
+                            new KeyFrame()
+                            {
+                                Cue = new Cue(1),
+                                Setters =
+                                {
+                                    new Setter(MarginProperty, args.BorderMargin)
+                                }
+                            }
+                        }
+                    };
+                    var animation2 = new Avalonia.Animation.Animation
+                    {
+                        Easing = new SplineEasing(0.1, 0.9, 0.2, 1.0),
+                        Duration = TimeSpan.FromSeconds(0.67),
+                        FillMode = FillMode.Forward,
+                        Children =
+                        {
+                            new KeyFrame()
+                            {
+                                Cue = new Cue(0),
+                                Setters =
+                                {
+                                    new Setter(MarginProperty, Margin)
+                                }
+                            },
+                            new KeyFrame()
+                            {
+                                Cue = new Cue(1),
+                                Setters =
+                                {
+                                    new Setter(MarginProperty, args.Margin)
+                                }
+                            }
+                        }
+                    };
+
+                    Task task1 = animation1.RunAsync(border, null, token);
+                    Task task2 = animation2.RunAsync(this, null, token);
+                    await Task.WhenAll(task1, task2);
+                });
+            };
+            _disposable1 = viewModel.Model.GetObservable(Layer.IsEnabledProperty)
+                .Subscribe(b =>
+                {
+                    Dispatcher.UIThread.InvokeAsync(() =>
+                    {
+                        border.Opacity = b ? 1 : 0.5;
+                    });
+                });
+        }
+    }
+
     private void Layer_PointerPressed(object? sender, PointerPressedEventArgs e)
     {
         Focus();
@@ -73,7 +154,7 @@ public partial class TimelineLayer : UserControl
 
     private void Layer_PointerReleased(object? sender, PointerReleasedEventArgs e)
     {
-        // View (ViewModel)ÇÃà íuèÓïÒÇModelÇ∆ìØä˙Ç∑ÇÈ
+        // View (ViewModel)„ÅÆ‰ΩçÁΩÆÊÉÖÂ†±„ÇíModel„Å®ÂêåÊúü„Åô„Çã
         ViewModel.SyncModelToViewModel();
     }
 
@@ -81,7 +162,7 @@ public partial class TimelineLayer : UserControl
     {
         Scene scene = ViewModel.Scene;
         Point point = e.GetPosition(this);
-        float scale = ViewModel.OptionsProvider.Options.Value.Scale;
+        float scale = ViewModel.Timeline.Options.Value.Scale;
         TimeSpan pointerFrame = point.X.ToTimeSpan(scale);
         _pointerPosition = pointerFrame;
 
@@ -107,15 +188,21 @@ public partial class TimelineLayer : UserControl
         }
         else
         {
-            double move = (pointerFrame - _layerStartAbs.X.ToTimeSpan(scale)).ToPixel(scale); //àÍéûìIÇ»à⁄ìÆó 
+            double move = (pointerFrame - _layerStartAbs.X.ToTimeSpan(scale)).ToPixel(scale); //‰∏ÄÊôÇÁöÑ„Å™ÁßªÂãïÈáè
+            double width = ViewModel.Width.Value;
+            double left = ViewModel.BorderMargin.Value.Left;
+
             if (_resizeType == AlignmentX.Right)
             {
-                // âE
+                // Âè≥
+                double right = width + left;
+                move = _after == null ? move : (Math.Min(_after.Start.ToPixel(scale), right + move) - right);
                 ViewModel.Width.Value += move;
             }
             else if (_resizeType == AlignmentX.Left && pointerFrame >= TimeSpan.Zero)
             {
-                // ç∂
+                // Â∑¶
+                move = Math.Max(_before?.Range.End.ToPixel(scale) ?? 0, left + move) - left;
                 ViewModel.Width.Value -= move;
                 ViewModel.BorderMargin.Value += new Thickness(move, 0, 0, 0);
             }
@@ -132,6 +219,8 @@ public partial class TimelineLayer : UserControl
         PointerPoint point = e.GetCurrentPoint(border);
         if (point.Properties.IsLeftButtonPressed)
         {
+            _before = ViewModel.Model.GetBefore(ViewModel.Model.ZIndex, ViewModel.Model.Start);
+            _after = ViewModel.Model.GetAfter(ViewModel.Model.ZIndex, ViewModel.Model.Range.End);
             Task task1 = s_animation1.RunAsync(border, null);
 
             _mouseFlag = MouseFlags.MouseDown;
@@ -165,7 +254,7 @@ public partial class TimelineLayer : UserControl
         Point point = e.GetPosition(border);
         double horizon = point.X;
 
-        // ç∂âE 10pxì‡ Ç»ÇÁç∂âEñÓàÛ
+        // Â∑¶Âè≥ 10pxÂÜÖ „Å™„ÇâÂ∑¶Âè≥Áü¢Âç∞
         if (horizon < 10)
         {
             Cursor = Cursors.SizeWestEast;

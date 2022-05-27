@@ -6,9 +6,11 @@ using BeUtl.Threading;
 
 namespace BeUtl.Rendering;
 
+// RenderingのApiで時間を考慮する
+// Renderable内で持続時間と開始時間のプロパティを追加
 public interface IRenderer : IDisposable
 {
-    IRenderable? this[int index] { get; set; }
+    ILayerContext? this[int index] { get; set; }
 
     ICanvas Graphics { get; }
 
@@ -26,9 +28,9 @@ public interface IRenderer : IDisposable
 
     event EventHandler<RenderResult> RenderInvalidated;
 
-    RenderResult Render();
+    RenderResult Render(TimeSpan timeSpan);
 
-    void Invalidate();
+    void Invalidate(TimeSpan timeSpan);
 
     public record struct RenderResult(Bitmap<Bgra8888> Bitmap/*, IAudio Audio*/);
 }

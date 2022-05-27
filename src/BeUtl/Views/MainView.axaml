@@ -209,7 +209,8 @@
                 </ui:NavigationViewItem>
             </ui:NavigationView.FooterMenuItems>
 
-            <TransitioningContentControl x:Name="NaviContent" />
+            <!--<TransitioningContentControl x:Name="NaviContent" />-->
+            <Panel x:Name="NaviContent" />
         </ui:NavigationView>
     </Grid>
 
