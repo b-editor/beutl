@@ -105,7 +105,7 @@ public class Scene : Element, IStorable, IWorkspaceItem
         {
             if (e.Sender is Scene scene)
             {
-                scene._renderer.Invalidate();
+                scene._renderer.Invalidate(e.NewValue);
             }
         });
     }
@@ -115,7 +115,7 @@ public class Scene : Element, IStorable, IWorkspaceItem
         add => _saved += value;
         remove => _saved -= value;
     }
-    
+
     event EventHandler IStorable.Restored
     {
         add => _restored += value;
@@ -190,7 +190,13 @@ public class Scene : Element, IStorable, IWorkspaceItem
 
         foreach (Layer item in _children.AsSpan())
         {
-            _renderer[item.ZIndex] = item.Renderable;
+            ILayerContext? context = _renderer[item.ZIndex];
+            if (context == null)
+            {
+                context = new LayerContext();
+                _renderer[item.ZIndex] = context;
+            }
+            context.AddNode(item.Node);
         }
 
         OnPropertyChanged(new CorePropertyChangedEventArgs<int>(
@@ -224,11 +230,19 @@ public class Scene : Element, IStorable, IWorkspaceItem
         return new RemoveCommand(this, layer);
     }
 
-    public IRecordableCommand MoveChild(int layerNum, Layer layer)
+#pragma warning disable CA1822
+    public IRecordableCommand MoveChild(int layerNum, TimeSpan start, TimeSpan length, Layer layer)
+#pragma warning restore CA1822
     {
         ArgumentNullException.ThrowIfNull(layer);
 
-        return new MoveCommand(layerNum, this, layer);
+        if (start < TimeSpan.Zero)
+            throw new ArgumentOutOfRangeException(nameof(start));
+
+        if (length <= TimeSpan.Zero)
+            throw new ArgumentOutOfRangeException(nameof(length));
+
+        return new MoveCommand(layerNum, layer, start, layer.Start, length, layer.Length);
     }
 
     public override void FromJson(JsonNode json)
@@ -430,16 +444,22 @@ public class Scene : Element, IStorable, IWorkspaceItem
 
     private int NearestLayerNumber(Layer layer)
     {
-        if (Children.Select(i => i.ZIndex).Contains(layer.ZIndex))
+        if (Children.Any(i => !(i.ZIndex != layer.ZIndex
+            || i.Range.Intersects(layer.Range)
+            || i.Range.Contains(layer.Range)
+            || layer.Range.Contains(i.Range))))
         {
             int layerMax = Children.Max(i => i.ZIndex);
 
-            // 使われていないレイヤー番号
+            // 使うことができるレイヤー番号
             var numbers = new List<int>();
 
             for (int l = 0; l <= layerMax; l++)
             {
-                if (!Children.Select(i => i.ZIndex).Contains(l))
+                if (Children.Any(i => !(i.ZIndex != l
+                    || i.Range.Intersects(layer.Range)
+                    || i.Range.Contains(layer.Range)
+                    || layer.Range.Contains(i.Range))))
                 {
                     numbers.Add(l);
                 }
@@ -527,99 +547,83 @@ public class Scene : Element, IStorable, IWorkspaceItem
 
     private sealed class MoveCommand : IRecordableCommand
     {
-        private readonly Scene _scene;
         private readonly Layer _layer;
         private readonly int _layerNum;
-        private IRecordableCommand? _inner;
+        private readonly int _oldLayerNum;
+        private readonly TimeSpan _newStart;
+        private readonly TimeSpan _oldStart;
+        private readonly TimeSpan _newLength;
+        private readonly TimeSpan _oldLength;
 
-        public MoveCommand(int layerNum, Scene scene, Layer layer)
+        public MoveCommand(
+            int layerNum,
+            Layer layer,
+            TimeSpan newStart, TimeSpan oldStart,
+            TimeSpan newLength, TimeSpan oldLength)
         {
-            _scene = scene;
             _layer = layer;
             _layerNum = layerNum;
+            _oldLayerNum = layer.ZIndex;
+            _newStart = newStart;
+            _oldStart = oldStart;
+            _newLength = newLength;
+            _oldLength = oldLength;
         }
 
         public void Do()
         {
-            if (_inner != null)
-            {
-                Redo();
-            }
+            TimeSpan newEnd = _newStart + _newLength;
+            (Layer? before, Layer? after, Layer? cover) = _layer.GetBeforeAndAfterAndCover(_layerNum, _newStart, newEnd);
 
-            using var tracker = new PropertyChangeTracker(_scene.Children, 0);
-            Span<Layer> span = _scene.Children.AsSpan();
-
-            // 下に移動
-            if (_layerNum > _layer.ZIndex)
+            if (before != null && before.Range.End >= _newStart)
             {
-                bool insert = false;
-                foreach (Layer item in span)
+                if ((after != null && (after.Start - before.Range.End) >= _newLength) || after == null)
                 {
-                    if (item.ZIndex == _layerNum)
-                    {
-                        insert = true;
-                    }
+                    _layer.Start = before.Range.End;
+                    _layer.Length = _newLength;
+                    _layer.ZIndex = _layerNum;
                 }
-
-                if (insert)
+                else
                 {
-                    foreach (Layer item in span)
-                    {
-                        if (item != _layer)
-                        {
-                            if (item.ZIndex > _layer.ZIndex &&
-                                item.ZIndex <= _layerNum)
-                            {
-                                item.ZIndex--;
-                            }
-                        }
-                    }
+                    Undo();
                 }
             }
-            else if (_layerNum < _layer.ZIndex)
+            else if (after != null && after.Start < newEnd)
             {
-                bool insert = false;
-                foreach (Layer item in span)
+                TimeSpan ns = after.Start - _newLength;
+                if (((before != null && (after.Start - before.Range.End) >= _newLength) || before == null) && ns >= TimeSpan.Zero)
                 {
-                    if (item.ZIndex == _layerNum)
-                    {
-                        insert = true;
-                    }
+                    _layer.Start = ns;
+                    _layer.Length = _newLength;
+                    _layer.ZIndex = _layerNum;
                 }
-
-                if (insert)
+                else
                 {
-                    foreach (Layer item in span)
-                    {
-                        if (item != _layer)
-                        {
-                            if (item.ZIndex < _layer.ZIndex &&
-                                item.ZIndex >= _layerNum)
-                            {
-                                item.ZIndex++;
-                            }
-                        }
-                    }
+                    Undo();
                 }
             }
-
-            _layer.ZIndex = _layerNum;
-
-            _inner = tracker.ToCommand();
+            else if (cover != null)
+            {
+                Undo();
+            }
+            else
+            {
+                _layer.Start = _newStart;
+                _layer.Length = _newLength;
+                _layer.ZIndex = _layerNum;
+            }
         }
 
         public void Redo()
         {
-            if (_inner == null)
-                throw new InvalidOperationException();
-            _inner.Redo();
+            Do();
         }
 
         public void Undo()
         {
-            if (_inner == null)
-                throw new InvalidOperationException();
-            _inner.Undo();
+            _layer.ZIndex = _oldLayerNum;
+            _layer.Start = _oldStart;
+            _layer.Length = _oldLength;
         }
     }
 }

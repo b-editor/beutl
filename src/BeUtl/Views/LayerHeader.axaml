@@ -6,20 +6,21 @@
     xmlns:vm="using:BeUtl.ViewModels"
     xmlns:ui="using:FluentAvalonia.UI.Controls"
     mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-    x:DataType="vm:TimelineLayerViewModel"
-    Margin="{CompiledBinding Margin.Value}"
+    x:DataType="vm:LayerHeaderViewModel"
     Height="{DynamicResource LayerHeight}"
+    ClipToBounds="True"
     VerticalAlignment="Top"
     HorizontalAlignment="Stretch"
     x:Class="BeUtl.Views.LayerHeader">
+    <UserControl.RenderTransform>
+        <TranslateTransform Y="{CompiledBinding PosY.Value}" />
+    </UserControl.RenderTransform>
     <Grid>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="Auto" />
             <ColumnDefinition Width="Auto" />
             <ColumnDefinition Width="Auto" />
             <ColumnDefinition Width="*" MinWidth="100" />
-            <ColumnDefinition Width="90" />
-            <ColumnDefinition Width="90" />
         </Grid.ColumnDefinitions>
         <Grid.Styles>
             <Style Selector="TextBox.custom">
@@ -51,10 +52,11 @@
         <ToggleButton
             Grid.Column="1"
             BorderThickness="0"
-            IsChecked="{Binding Model.IsEnabled}">
+            IsChecked="{CompiledBinding IsEnabled.Value}">
             <ToggleButton.Resources>
                 <SolidColorBrush x:Key="ToggleButtonBackground" Color="Transparent" />
                 <SolidColorBrush x:Key="ToggleButtonBackgroundDisabled" Color="Transparent" />
+
                 <SolidColorBrush x:Key="ToggleButtonBackgroundChecked" Color="Transparent" />
                 <StaticResource x:Key="ToggleButtonBackgroundCheckedPressed" ResourceKey="ControlFillColorTertiaryBrush" />
                 <SolidColorBrush x:Key="ToggleButtonBackgroundCheckedDisabled" Color="Transparent" />
@@ -81,7 +83,7 @@
         <ui:ColorPickerButton
             Grid.Column="2"
             MinHeight="{DynamicResource LayerHeight}"
-            Color="{CompiledBinding ColorSetter.Value}"
+            Color="{CompiledBinding Color.Value}"
             CustomPaletteColors="{StaticResource PaletteColors}"
             UseColorPalette="True"
             IsAlphaEnabled="False">
@@ -125,18 +127,8 @@
 
         <TextBox x:Name="NameTextBox"
                  Classes="custom"
-                 Text="{Binding Model.Name}"
+                 Text="{Binding Name.Value}"
                  InputMethod.IsInputMethodEnabled="True"
                  Grid.Column="3" />
-
-        <TextBox x:Name="StartTextBox"
-                 Classes="custom"
-                 Text="{Binding Model.Start, Mode=OneWay, StringFormat={}{0:hh\\:mm\\:ss\\.ff}}"
-                 Grid.Column="4" />
-
-        <TextBox x:Name="DurationTextBox"
-                 Classes="custom"
-                 Text="{Binding Model.Length, Mode=OneWay, StringFormat={}{0:hh\\:mm\\:ss\\.ff}}"
-                 Grid.Column="5" />
     </Grid>
 </UserControl>

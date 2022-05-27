@@ -1,4 +1,4 @@
-using System.Numerics;
+ï»¿using System.Numerics;
 using System.Text.Json.Nodes;
 
 using Avalonia;
@@ -69,7 +69,7 @@ public partial class Timeline : UserControl
         }
     }
 
-    // DataContext‚ª•ÏX‚³‚ê‚½
+    // DataContextãŒå¤‰æ›´ã•ã‚ŒãŸ
     protected override void OnDataContextChanged(EventArgs e)
     {
         base.OnDataContextChanged(e);
@@ -131,13 +131,13 @@ public partial class Timeline : UserControl
         }
     }
 
-    // PaneScroll‚ªƒXƒNƒ[ƒ‹‚³‚ê‚½
+    // PaneScrollãŒã‚¹ã‚¯ãƒ­ãƒ¼ãƒ«ã•ã‚ŒãŸ
     private void PaneScroll_ScrollChanged(object? sender, ScrollChangedEventArgs e)
     {
         ContentScroll.Offset = ContentScroll.Offset.WithY(PaneScroll.Offset.Y);
     }
 
-    // ContentScroll‚ªƒXƒNƒ[ƒ‹‚³‚ê‚½
+    // ContentScrollãŒã‚¹ã‚¯ãƒ­ãƒ¼ãƒ«ã•ã‚ŒãŸ
     private void ContentScroll_ScrollChanged(object? sender, ScrollChangedEventArgs e)
     {
         TimelineViewModel viewModel = ViewModel;
@@ -159,7 +159,7 @@ public partial class Timeline : UserControl
         PaneScroll.Offset = PaneScroll.Offset.WithY(ContentScroll.Offset.Y);
     }
 
-    // ƒ}ƒEƒXƒzƒC[ƒ‹‚ª“®‚¢‚½
+    // ãƒã‚¦ã‚¹ãƒ›ã‚¤ãƒ¼ãƒ«ãŒå‹•ã„ãŸ
     private void ContentScroll_PointerWheelChanged(object? sender, PointerWheelEventArgs e)
     {
         TimelineViewModel viewModel = ViewModel;
@@ -167,7 +167,7 @@ public partial class Timeline : UserControl
 
         if (e.KeyModifiers == KeyModifiers.Control)
         {
-            // –Ú·‚è‚ÌƒXƒP[ƒ‹‚ğ•ÏX
+            // ç›®ç››ã‚Šã®ã‚¹ã‚±ãƒ¼ãƒ«ã‚’å¤‰æ›´
             float scale = viewModel.Options.Value.Scale;
             var ts = offset.X.ToTimeSpan(scale);
             float deltaScale = (float)(e.Delta.Y / 120) * 10 * scale;
@@ -180,12 +180,12 @@ public partial class Timeline : UserControl
         }
         else if (e.KeyModifiers == KeyModifiers.Shift)
         {
-            // ƒIƒtƒZƒbƒg(Y) ‚ğƒXƒNƒ[ƒ‹
+            // ã‚ªãƒ•ã‚»ãƒƒãƒˆ(Y) ã‚’ã‚¹ã‚¯ãƒ­ãƒ¼ãƒ«
             offset = offset.WithY(offset.Y - (e.Delta.Y * 50));
         }
         else
         {
-            // ƒIƒtƒZƒbƒg(X) ‚ğƒXƒNƒ[ƒ‹
+            // ã‚ªãƒ•ã‚»ãƒƒãƒˆ(X) ã‚’ã‚¹ã‚¯ãƒ­ãƒ¼ãƒ«
             offset = offset.WithX(offset.X - (e.Delta.Y * 50));
         }
 
@@ -193,7 +193,7 @@ public partial class Timeline : UserControl
         e.Handled = true;
     }
 
-    // ƒ|ƒCƒ“ƒ^[ˆÚ“®
+    // ãƒã‚¤ãƒ³ã‚¿ãƒ¼ç§»å‹•
     private void TimelinePanel_PointerMoved(object? sender, PointerEventArgs e)
     {
         PointerPoint pointerPt = e.GetCurrentPoint(TimelinePanel);
@@ -207,7 +207,7 @@ public partial class Timeline : UserControl
         }
     }
 
-    // ƒ|ƒCƒ“ƒ^[‚ª•ú‚³‚ê‚½
+    // ãƒã‚¤ãƒ³ã‚¿ãƒ¼ãŒæ”¾ã•ã‚ŒãŸ
     private void TimelinePanel_PointerReleased(object? sender, PointerReleasedEventArgs e)
     {
         PointerPoint pointerPt = e.GetCurrentPoint(TimelinePanel);
@@ -218,7 +218,7 @@ public partial class Timeline : UserControl
         }
     }
 
-    // ƒ|ƒCƒ“ƒ^[‚ª‰Ÿ‚³‚ê‚½
+    // ãƒã‚¤ãƒ³ã‚¿ãƒ¼ãŒæŠ¼ã•ã‚ŒãŸ
     private void TimelinePanel_PointerPressed(object? sender, PointerPressedEventArgs e)
     {
         PointerPoint pointerPt = e.GetCurrentPoint(TimelinePanel);
@@ -234,13 +234,13 @@ public partial class Timeline : UserControl
         }
     }
 
-    // ƒ|ƒCƒ“ƒ^[‚ª—£‚ê‚½
+    // ãƒã‚¤ãƒ³ã‚¿ãƒ¼ãŒé›¢ã‚ŒãŸ
     private void TimelinePanel_PointerLeave(object? sender, PointerEventArgs e)
     {
         _seekbarMouseFlag = MouseFlags.MouseUp;
     }
 
-    // ƒhƒƒbƒv‚³‚ê‚½
+    // ãƒ‰ãƒ­ãƒƒãƒ—ã•ã‚ŒãŸ
     private async void TimelinePanel_Drop(object? sender, DragEventArgs e)
     {
         TimelinePanel.Cursor = Cursors.Arrow;
@@ -281,7 +281,7 @@ public partial class Timeline : UserControl
         }
     }
 
-    // ƒŒƒCƒ„[‚ğ’Ç‰Á
+    // ãƒ¬ã‚¤ãƒ¤ãƒ¼ã‚’è¿½åŠ 
     private async void AddLayerClick(object? sender, RoutedEventArgs e)
     {
         var dialog = new AddLayer
@@ -301,7 +301,7 @@ public partial class Timeline : UserControl
         await dialog.ShowAsync();
     }
 
-    // ƒŒƒCƒ„[‚ğ’Ç‰Á
+    // ãƒ¬ã‚¤ãƒ¤ãƒ¼ã‚’è¿½åŠ 
     private void AddLayer(int index, TimelineLayerViewModel viewModel)
     {
         var view = new TimelineLayer
@@ -310,14 +310,9 @@ public partial class Timeline : UserControl
         };
 
         TimelinePanel.Children.Add(view);
-
-        LeftPanel.Children.Add(new LayerHeader
-        {
-            DataContext = viewModel
-        });
     }
 
-    // ƒŒƒCƒ„[‚ğíœ
+    // ãƒ¬ã‚¤ãƒ¤ãƒ¼ã‚’å‰Šé™¤
     private void RemoveLayer(int index, TimelineLayerViewModel viewModel)
     {
         Layer layer = viewModel.Model;
@@ -328,16 +323,6 @@ public partial class Timeline : UserControl
             if (item.DataContext is TimelineLayerViewModel vm && vm.Model == layer)
             {
                 TimelinePanel.Children.RemoveAt(i);
-                break;
-            }
-        }
-
-        for (int i = 0; i < LeftPanel.Children.Count; i++)
-        {
-            IControl item = LeftPanel.Children[i];
-            if (item.DataContext is TimelineLayerViewModel vm && vm.Model == layer)
-            {
-                LeftPanel.Children.RemoveAt(i);
                 break;
             }
         }

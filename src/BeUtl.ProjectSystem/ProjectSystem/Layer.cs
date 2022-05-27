@@ -15,13 +15,11 @@ public class Layer : Element, IStorable, ILogicalElement
     public static readonly CoreProperty<int> ZIndexProperty;
     public static readonly CoreProperty<Color> AccentColorProperty;
     public static readonly CoreProperty<bool> IsEnabledProperty;
-    public static readonly CoreProperty<Renderable?> RenderableProperty;
     private TimeSpan _start;
     private TimeSpan _length;
     private int _zIndex;
     private string? _fileName;
     private bool _isEnabled = true;
-    private Renderable? _renderable;
     private EventHandler? _saved;
     private EventHandler? _restored;
 
@@ -58,11 +56,6 @@ public class Layer : Element, IStorable, ILogicalElement
             .SerializeName("isEnabled")
             .Register();
 
-        RenderableProperty = ConfigureProperty<Renderable?, Layer>(nameof(Renderable))
-            .Accessor(o => o.Renderable, (o, v) => o.Renderable = v)
-            .Observability(PropertyObservability.Changed)
-            .Register();
-
         NameProperty.OverrideMetadata<Layer>(new CorePropertyMetadata<string>
         {
             SerializeName = "name"
@@ -72,27 +65,49 @@ public class Layer : Element, IStorable, ILogicalElement
         {
             if (args.Sender is Layer layer && layer.Parent is Scene { Renderer: { IsDisposed: false } renderer })
             {
-                renderer[args.OldValue] = null;
+                renderer[args.OldValue]?.RemoveNode(layer.Node);
                 if (args.NewValue >= 0)
                 {
-                    renderer[args.NewValue] = layer.Renderable;
+                    ILayerContext? context = renderer[args.NewValue];
+                    if (context == null)
+                    {
+                        context = new LayerContext();
+                        renderer[args.NewValue] = context;
+                    }
+                    context.AddNode(layer.Node);
                 }
             }
         });
 
-        RenderableProperty.Changed.Subscribe(args =>
-        {
-            if (args.Sender is Layer layer && layer.Parent is Scene { Renderer: { IsDisposed: false } renderer } && layer.ZIndex >= 0)
-            {
-                renderer[layer.ZIndex] = args.NewValue;
-            }
-        });
+        //RenderableProperty.Changed.Subscribe(args =>
+        //{
+        //    if (args.Sender is Layer layer && layer.Parent is Scene { Renderer: { IsDisposed: false } renderer } && layer.ZIndex >= 0)
+        //    {
+        //        renderer[layer.ZIndex] = args.NewValue;
+        //    }
+        //});
 
         IsEnabledProperty.Changed.Subscribe(args =>
         {
             if (args.Sender is Layer layer)
             {
                 layer.ForceRender();
+            }
+        });
+
+        StartProperty.Changed.Subscribe(e =>
+        {
+            if (e.Sender is Layer layer)
+            {
+                layer.Node.Start = e.NewValue;
+            }
+        });
+
+        LengthProperty.Changed.Subscribe(e =>
+        {
+            if (e.Sender is Layer layer)
+            {
+                layer.Node.Duration = e.NewValue;
             }
         });
     }
@@ -127,6 +142,8 @@ public class Layer : Element, IStorable, ILogicalElement
         set => SetAndRaise(LengthProperty, ref _length, value);
     }
 
+    public TimeRange Range => new(Start, Length);
+
     public int ZIndex
     {
         get => _zIndex;
@@ -145,11 +162,13 @@ public class Layer : Element, IStorable, ILogicalElement
         set => SetAndRaise(IsEnabledProperty, ref _isEnabled, value);
     }
 
-    public Renderable? Renderable
-    {
-        get => _renderable;
-        set => SetAndRaise(RenderableProperty, ref _renderable, value);
-    }
+    public LayerNode Node { get; } = new();
+
+    //public Renderable? Renderable
+    //{
+    //    get => _renderable;
+    //    set => SetAndRaise(RenderableProperty, ref _renderable, value);
+    //}
 
     public string FileName
     {
@@ -166,17 +185,6 @@ public class Layer : Element, IStorable, ILogicalElement
     public LogicalList<LayerOperation> Children { get; }
 
     IEnumerable<ILogicalElement> ILogicalElement.LogicalChildren => Children;
-
-    public IRecordableCommand UpdateTime(TimeSpan start, TimeSpan length)
-    {
-        if (start < TimeSpan.Zero)
-            throw new ArgumentOutOfRangeException(nameof(start));
-
-        if (length <= TimeSpan.Zero)
-            throw new ArgumentOutOfRangeException(nameof(length));
-
-        return new UpdateTimeCommand(this, start, Start, length, Length);
-    }
 
     public void Save(string filename)
     {
@@ -308,7 +316,13 @@ public class Layer : Element, IStorable, ILogicalElement
         base.OnAttachedToLogicalTree(args);
         if (args.Parent is Scene { Renderer: { IsDisposed: false } renderer } && ZIndex >= 0)
         {
-            renderer[ZIndex] = Renderable;
+            ILayerContext? context = renderer[ZIndex];
+            if (context == null)
+            {
+                context = new LayerContext();
+                renderer[ZIndex] = context;
+            }
+            context.AddNode(Node);
         }
     }
 
@@ -317,7 +331,7 @@ public class Layer : Element, IStorable, ILogicalElement
         base.OnDetachedFromLogicalTree(args);
         if (args.Parent is Scene { Renderer: { IsDisposed: false } renderer } && ZIndex >= 0)
         {
-            renderer[ZIndex] = null;
+            renderer[ZIndex]?.RemoveNode(Node);
         }
     }
 
@@ -334,42 +348,86 @@ public class Layer : Element, IStorable, ILogicalElement
             scene.CurrentFrame < Start + Length &&
             scene.Renderer is { IsDisposed: false })
         {
-            scene.Renderer.Invalidate();
+            scene.Renderer.Invalidate(scene.CurrentFrame);
         }
     }
 
-    private sealed class UpdateTimeCommand : IRecordableCommand
+    internal Layer? GetBefore(int zindex, TimeSpan start)
     {
-        private readonly Layer _layer;
-        private readonly TimeSpan _newStart;
-        private readonly TimeSpan _oldStart;
-        private readonly TimeSpan _newLength;
-        private readonly TimeSpan _oldLength;
-
-        public UpdateTimeCommand(Layer layer, TimeSpan newStart, TimeSpan oldStart, TimeSpan newLength, TimeSpan oldLength)
+        if (Parent is Scene scene)
         {
-            _layer = layer;
-            _newStart = newStart;
-            _oldStart = oldStart;
-            _newLength = newLength;
-            _oldLength = oldLength;
+            Layer? tmp = null;
+            foreach (Layer? item in scene.Children.AsSpan())
+            {
+                if (item != this && item.ZIndex == zindex && item.Start < start)
+                {
+                    if (tmp == null || tmp.Start <= item.Start)
+                    {
+                        tmp = item;
+                    }
+                }
+            }
+            return tmp;
         }
 
-        public void Do()
+        return null;
+    }
+
+    internal Layer? GetAfter(int zindex, TimeSpan end)
+    {
+        if (Parent is Scene scene)
         {
-            _layer.Start = _newStart;
-            _layer.Length = _newLength;
+            Layer? tmp = null;
+            foreach (Layer? item in scene.Children.AsSpan())
+            {
+                if (item != this && item.ZIndex == zindex && item.Range.End > end)
+                {
+                    if (tmp == null || tmp.Range.End >= item.Range.End)
+                    {
+                        tmp = item;
+                    }
+                }
+            }
+            return tmp;
         }
 
-        public void Redo()
+        return null;
+    }
+
+    internal (Layer? Before, Layer? After, Layer? Cover) GetBeforeAndAfterAndCover(int zindex, TimeSpan start, TimeSpan end)
+    {
+        if (Parent is Scene scene)
         {
-            Do();
+            Layer? beforeTmp = null;
+            Layer? afterTmp = null;
+            Layer? coverTmp = null;
+            var range = new TimeRange(start, end - start);
+
+            foreach (Layer? item in scene.Children.AsSpan())
+            {
+                if (item != this && item.ZIndex == zindex)
+                {
+                    if (item.Start < start
+                        && (beforeTmp == null || beforeTmp.Start <= item.Start))
+                    {
+                        beforeTmp = item;
+                    }
+
+                    if (item.Range.End > end
+                        && (afterTmp == null || afterTmp.Range.End >= item.Range.End))
+                    {
+                        afterTmp = item;
+                    }
+
+                    if (range.Contains(item.Range))
+                    {
+                        coverTmp = item;
+                    }
+                }
+            }
+            return (beforeTmp, afterTmp, coverTmp);
         }
 
-        public void Undo()
-        {
-            _layer.Start = _oldStart;
-            _layer.Length = _oldLength;
-        }
+        return (null, null, null);
     }
 }

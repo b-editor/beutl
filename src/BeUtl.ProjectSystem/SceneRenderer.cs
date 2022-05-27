@@ -1,4 +1,4 @@
-using System.Runtime.InteropServices;
+﻿using System.Runtime.InteropServices;
 
 using BeUtl.Animation;
 using BeUtl.Graphics;
@@ -10,7 +10,7 @@ using BeUtl.Threading;
 
 namespace BeUtl;
 
-internal sealed class SceneRenderer : ImmediateRenderer/*DeferredRenderer*/, IClock
+internal sealed class SceneRenderer : ImmediateRenderer/*DeferredRenderer*/
 {
     private readonly Scene _scene;
     private readonly List<Layer> _begin = new();
@@ -22,77 +22,74 @@ internal sealed class SceneRenderer : ImmediateRenderer/*DeferredRenderer*/, ICl
         : base(width, height)
     {
         _scene = scene;
-        Clock = this;
     }
 
     public TimeSpan FrameNumber => _scene.CurrentFrame;
 
     public TimeSpan CurrentTime { get; private set; }
 
-    protected override void RenderCore()
+    protected override void RenderCore(TimeSpan timeSpan)
     {
-        TimeSpan timeSpan = _scene.CurrentFrame;
         CurrentTime = timeSpan;
-        DevideLayers(timeSpan);
+        SortLayers(timeSpan);
         Span<Layer> layers = CollectionsMarshal.AsSpan(_layers);
         Span<Layer> begin = CollectionsMarshal.AsSpan(_begin);
         Span<Layer> end = CollectionsMarshal.AsSpan(_end);
 
         foreach (Layer item in begin)
         {
-            item.Renderable?.Invalidate();
+            item.Node.Value?.Invalidate();
         }
 
         foreach (Layer layer in layers)
         {
-            if (!layer.IsEnabled)
+            LayerNode? node = layer.Node;
+            var args = new OperationRenderArgs(this)
             {
-                layer.Renderable = null;
-            }
-            else
+                Result = node.Value
+            };
+            Renderable? prevResult = args.Result;
+            prevResult?.BeginBatchUpdate();
+
+            foreach (LayerOperation? item in layer.Children.AsSpan())
             {
-                var args = new OperationRenderArgs(this)
+                item.Render(ref args);
+                if (prevResult != args.Result)
                 {
-                    Result = layer.Renderable
-                };
-                Renderable? prevResult = args.Result;
-                prevResult?.BeginBatchUpdate();
-                foreach (LayerOperation? item in layer.Children.AsSpan())
-                {
-                    item.Render(ref args);
-                    if (prevResult != args.Result)
-                    {
-                        // Resultが変更された
-                        prevResult?.EndBatchUpdate();
-                        args.Result?.BeginBatchUpdate();
-                        prevResult = args.Result;
-                    }
+                    // Resultが変更された
+                    prevResult?.EndBatchUpdate();
+                    args.Result?.BeginBatchUpdate();
+                    prevResult = args.Result;
                 }
-
-                layer.Renderable = args.Result;
-                layer.Renderable?.ApplyStyling(Clock);
-
-                layer.Renderable?.EndBatchUpdate();
             }
+
+            node.Value = args.Result;
+            node.Value?.ApplyStyling(Clock);
+
+            if (prevResult != null)
+            {
+                prevResult.IsVisible = layer.IsEnabled;
+            }
+            node.Value?.EndBatchUpdate();
         }
 
         foreach (Layer item in end)
         {
-            if (item.Renderable != null)
+            if (item.Node.Value is { } renderable)
             {
-                item.Renderable.IsVisible = false;
+                renderable.IsVisible = false;
 
-                if (item.Renderable is Drawable d)
+                if (renderable is Drawable d)
                     AddDirtyRect(d.Bounds);
             }
         }
 
-        base.RenderCore();
+        base.RenderCore(timeSpan);
         _recentTime = timeSpan;
     }
 
     // Layersを振り分ける
-    private void DevideLayers(TimeSpan timeSpan)
+    private void SortLayers(TimeSpan timeSpan)
     {
         _begin.Clear();
         _end.Clear();

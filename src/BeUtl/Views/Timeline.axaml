@@ -59,8 +59,6 @@
                 <ColumnDefinition Width="38" />
                 <ColumnDefinition Width="60" />
                 <ColumnDefinition Width="*" MinWidth="100" />
-                <ColumnDefinition Width="90" />
-                <ColumnDefinition Width="90" />
             </Grid.ColumnDefinitions>
             <Grid.Styles>
                 <Style Selector="Label">
@@ -72,12 +70,6 @@
             </Grid.Styles>
             <Label Content="{DynamicResource S.Timeline.LayerName}"
                    Grid.Column="3" />
-
-            <Label Content="{DynamicResource S.Timeline.StartTime}"
-                   Grid.Column="4" />
-
-            <Label Content="{DynamicResource S.Timeline.DurationTime}"
-                   Grid.Column="5" />
         </Grid>
 
         <ScrollViewer
@@ -85,11 +77,22 @@
             ScrollChanged="PaneScroll_ScrollChanged"
             Grid.Row="1"
             VerticalScrollBarVisibility="Hidden">
-            <Panel
+            <ItemsControl
                 x:Name="LeftPanel"
+                Items="{CompiledBinding LayerHeaders}"
                 HorizontalAlignment="Stretch"
                 VerticalAlignment="Stretch">
-            </Panel>
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <VirtualizingStackPanel />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <local:LayerHeader />
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
         </ScrollViewer>
 
 
@@ -111,11 +114,11 @@
                 VerticalAlignment="Top"
                 HorizontalAlignment="Left">
                 <Panel.KeyBindings>
-                    <KeyBinding Gesture="{DynamicResource PlayPauseKeyGesture}" Command="{Binding Player.PlayPause}" />
-                    <KeyBinding Gesture="{DynamicResource NextKeyGesture}" Command="{Binding Player.Next}" />
-                    <KeyBinding Gesture="{DynamicResource PreviousKeyGesture}" Command="{Binding Player.Previous}" />
-                    <KeyBinding Gesture="{DynamicResource StartKeyGesture}" Command="{Binding Player.Start}" />
-                    <KeyBinding Gesture="{DynamicResource EndKeyGesture}" Command="{Binding Player.End}" />
+                    <KeyBinding Gesture="{DynamicResource PlayPauseKeyGesture}" Command="{CompiledBinding Player.PlayPause}" />
+                    <KeyBinding Gesture="{DynamicResource NextKeyGesture}" Command="{CompiledBinding Player.Next}" />
+                    <KeyBinding Gesture="{DynamicResource PreviousKeyGesture}" Command="{CompiledBinding Player.Previous}" />
+                    <KeyBinding Gesture="{DynamicResource StartKeyGesture}" Command="{CompiledBinding Player.Start}" />
+                    <KeyBinding Gesture="{DynamicResource EndKeyGesture}" Command="{CompiledBinding Player.End}" />
                     <KeyBinding Gesture="{DynamicResource PasteKeyGesture}" Command="{CompiledBinding Paste}" />
                 </Panel.KeyBindings>
 
