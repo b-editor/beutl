@@ -34,7 +34,6 @@ public partial class Timeline : UserControl
     private IDisposable? _disposable0;
     private IDisposable? _disposable1;
     private IDisposable? _disposable2;
-    private IDisposable? _disposable3;
 
     public Timeline()
     {
@@ -79,12 +78,10 @@ public partial class Timeline : UserControl
             if (_viewModel != null)
             {
                 TimelinePanel.Children.RemoveRange(3, TimelinePanel.Children.Count - 3);
-                //LeftPanel.Children.Clear();
 
                 _disposable0?.Dispose();
                 _disposable1?.Dispose();
                 _disposable2?.Dispose();
-                _disposable3?.Dispose();
             }
 
             _viewModel = vm;
@@ -131,15 +128,6 @@ public partial class Timeline : UserControl
                 if (e.NewValue != null && FindLayerView(e.NewValue) is TimelineLayer newView)
                     newView.border.BorderThickness = new Thickness(1);
             });
-
-            // Todo: LayerHeaderがとても重い
-            //_disposable3 = ViewModel.LayerHeaders.ForEachItem(
-            //    (idx, item) => LeftPanel.Children.Insert(idx, new LayerHeader
-            //    {
-            //        DataContext = item
-            //    }),
-            //    (idx, _) => LeftPanel.Children.RemoveAt(idx),
-            //    () => LeftPanel.Children.Clear());
         }
     }
 
