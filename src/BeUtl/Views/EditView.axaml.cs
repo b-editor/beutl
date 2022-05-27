@@ -1,10 +1,8 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Reactive.Linq;
 
 using Avalonia.Controls;
 using Avalonia.Data;
-using Avalonia.Data.Converters;
-using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Media.Imaging;
@@ -17,9 +15,7 @@ using BeUtl.Framework.Services;
 using BeUtl.Media;
 using BeUtl.Media.Pixel;
 using BeUtl.ProjectSystem;
-using BeUtl.Services;
 using BeUtl.ViewModels;
-using BeUtl.ViewModels.Editors;
 
 using Microsoft.Extensions.DependencyInjection;
 
@@ -129,8 +125,11 @@ public sealed partial class EditView : UserControl, IEditor
                         [!ListBoxItem.IsSelectedProperty] = s_isSelectedBinding,
                         Header = $"{item.Layer.Name} / {item.Setter.Property.Name}",
                         DataContext = item,
-                        Content = new AnimationTimeline(),
-                        IsClosable = true
+                        IsClosable = true,
+                        Content = new AnimationTimeline()
+                        {
+                            [!HeightProperty] = _bottomHeightBinding
+                        },
                     };
                     list.Add(tabItem);
                     tabItem.CloseRequested += (s, _) =>
