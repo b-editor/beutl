@@ -77,12 +77,6 @@
             ScrollChanged="PaneScroll_ScrollChanged"
             Grid.Row="1"
             VerticalScrollBarVisibility="Hidden">
-            <!--<StackPanel
-                x:Name="LeftPanel"
-                ClipToBounds="True"
-                HorizontalAlignment="Stretch"
-                VerticalAlignment="Stretch">
-            </StackPanel>-->
             <ItemsControl
                 x:Name="LeftPanel"
                 Items="{CompiledBinding LayerHeaders}"

@@ -93,19 +93,43 @@ public partial class MainView : UserControl
     private readonly AvaloniaList<MenuItem> _rawRecentProjItems = new();
     private readonly Cache<MenuItem> _menuItemCache = new(4);
     private readonly CompositeDisposable _disposables = new();
-    private readonly List<IControl> _controls = new();
     private readonly AvaloniaList<NavigationViewItem> _navigationItems = new();
     private readonly EditorService _editorService = ServiceLocator.Current.GetRequiredService<EditorService>();
     private readonly IProjectService _projectService = ServiceLocator.Current.GetRequiredService<IProjectService>();
     private readonly INotificationService _notificationService = ServiceLocator.Current.GetRequiredService<INotificationService>();
     private readonly IWorkspaceItemContainer _workspaceItemContainer = ServiceLocator.Current.GetRequiredService<IWorkspaceItemContainer>();
+    private readonly Avalonia.Animation.Animation _animation = new()
+    {
+        Easing = new SplineEasing(0.1, 0.9, 0.2, 1.0),
+        Children =
+        {
+            new KeyFrame
+            {
+                Setters =
+                {
+                    new Setter(OpacityProperty, 0.0),
+                    new Setter(TranslateTransform.YProperty, 28.0)
+                },
+                Cue = new Cue(0d)
+            },
+            new KeyFrame
+            {
+                Setters =
+                {
+                    new Setter(OpacityProperty, 1.0),
+                    new Setter(TranslateTransform.YProperty, 0.0)
+                },
+                Cue = new Cue(1d)
+            }
+        },
+        Duration = TimeSpan.FromSeconds(0.67),
+        FillMode = FillMode.Forward
+    };
     private IControl? _settingsView;
 
     public MainView()
     {
         InitializeComponent();
-
-        NaviContent.PageTransition = new CustomPageTransition();
 
         // NavigationViewの設定
         Navi.MenuItems = _navigationItems;
@@ -137,7 +161,8 @@ public partial class MainView : UserControl
             {
                 DataContext = viewModel.SettingsPage.Context
             };
-            _controls.Clear();
+            NaviContent.Children.Clear();
+            NaviContent.Children.Add(_settingsView);
             _navigationItems.Clear();
             viewModel.Pages.ForEachItem(
                 (idx, item) =>
@@ -174,8 +199,9 @@ Error:
                     };
 
                     view.DataContext = item.Context;
+                    view.IsVisible = false;
 
-                    _controls.Insert(idx, view);
+                    NaviContent.Children.Insert(idx, view);
                     _navigationItems.Insert(idx, new NavigationViewItem()
                     {
                         Classes = { "SideNavigationViewItem" },
@@ -194,22 +220,35 @@ Error:
                 (idx, item) =>
                 {
                     (item.Context as IDisposable)?.Dispose();
-                    _controls.RemoveAt(idx);
+                    NaviContent.Children.RemoveAt(idx);
                     _navigationItems.RemoveAt(idx);
                 },
                 () => throw new Exception("'MainViewModel.Pages' does not support the 'Clear' method."))
                 .AddTo(_disposables);
 
-            viewModel.SelectedPage.Subscribe(obj =>
+            viewModel.SelectedPage.Subscribe(async obj =>
             {
                 if (DataContext is MainViewModel viewModel)
                 {
-                    int idx = obj == null
-                        ? -1
-                        : viewModel.Pages.IndexOf(obj);
+                    int idx = obj == null ? -1 : viewModel.Pages.IndexOf(obj);
 
-                    NaviContent.Content = idx >= 0 ? _controls[idx] : _settingsView;
+                    IControl? oldControl = null;
+                    for (int i = 0; i < NaviContent.Children.Count; i++)
+                    {
+                        if (NaviContent.Children[i] is IControl { IsVisible: true } control)
+                        {
+                            control.IsVisible = false;
+                            oldControl = control;
+                        }
+                    }
+
                     Navi.SelectedItem = idx >= 0 ? _navigationItems[idx] : Navi.FooterMenuItems.Cast<object>().First();
+                    IControl newControl = idx >= 0 ? NaviContent.Children[idx] : _settingsView;
+
+                    newControl.IsVisible = true;
+                    newControl.Opacity = 0;
+                    await _animation.RunAsync((Animatable)newControl, null);
+                    newControl.Opacity = 1;
                 }
             }).AddTo(_disposables);
 
@@ -719,52 +758,5 @@ Error:
             item => RemoveItem(_rawRecentProjItems, item),
             () => _rawRecentProjItems.Clear())
             .AddTo(_disposables);
-    }
-
-    private sealed class CustomPageTransition : IPageTransition
-    {
-        private readonly Avalonia.Animation.Animation _animation;
-
-        public CustomPageTransition()
-        {
-            _animation = new Avalonia.Animation.Animation
-            {
-                Easing = new SplineEasing(0.1, 0.9, 0.2, 1.0),
-                Children =
-                {
-                    new KeyFrame
-                    {
-                        Setters =
-                        {
-                            new Setter(OpacityProperty, 0.0),
-                            new Setter(TranslateTransform.YProperty, 28.0)
-                        },
-                        Cue = new Cue(0d)
-                    },
-                    new KeyFrame
-                    {
-                        Setters =
-                        {
-                            new Setter(OpacityProperty, 1.0),
-                            new Setter(TranslateTransform.YProperty, 0.0)
-                        },
-                        Cue = new Cue(1d)
-                    }
-                },
-                Duration = TimeSpan.FromSeconds(0.67),
-                FillMode = FillMode.Forward
-            };
-        }
-
-        public async Task Start(Visual from, Visual to, bool forward, CancellationToken cancellationToken)
-        {
-            if (to != null)
-            {
-                _animation.FillMode = forward ? FillMode.Forward : FillMode.Backward;
-                await _animation.RunAsync(to, null, cancellationToken);
-
-                to.Opacity = forward ? 1 : 0;
-            }
-        }
     }
 }
