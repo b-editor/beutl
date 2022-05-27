@@ -1,0 +1,5 @@
+<Project>
+  <ItemGroup>
+    <PackageReference Include="Google.Cloud.Firestore" Version="2.5.0" />
+  </ItemGroup>
+</Project>

@@ -1,6 +1,6 @@
 ﻿namespace BeUtl.Models;
 
-public static class Constants
+public static partial class Constants
 {
     public const string Layer = "BeUtlLayerJson";
     public const string LayerFileExtension = "layer";

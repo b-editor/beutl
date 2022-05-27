@@ -30,7 +30,11 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Props", "Props", "{74C34E00
 		build\props\Avalonia.props = build\props\Avalonia.props
 		build\props\Avalonia.Xaml.Interactivity.props = build\props\Avalonia.Xaml.Interactivity.props
 		build\props\CoreLibraries.props = build\props\CoreLibraries.props
+		build\props\FirebaseAuthentication.net.props = build\props\FirebaseAuthentication.net.props
+		build\props\FirebaseDatabase.net.props = build\props\FirebaseDatabase.net.props
+		build\props\FirebaseStorage.net.props = build\props\FirebaseStorage.net.props
 		build\props\FluentAvalonia.props = build\props\FluentAvalonia.props
+		build\props\Google.Cloud.Firestore.props = build\props\Google.Cloud.Firestore.props
 		build\props\Microsoft.CodeAnalysis.CSharp.Scripting.props = build\props\Microsoft.CodeAnalysis.CSharp.Scripting.props
 		build\props\Microsoft.Extensions.DependencyInjection.props = build\props\Microsoft.Extensions.DependencyInjection.props
 		build\props\Microsoft.Extensions.FileSystemGlobbing.props = build\props\Microsoft.Extensions.FileSystemGlobbing.props
@@ -82,7 +86,11 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BeUtl.NetCore", "src\BeUtl.
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "DirectoryViewTest", "tests\DirectoryViewTest\DirectoryViewTest.csproj", "{5F9713D1-E237-461D-A83A-A23A64E7CE02}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PackageSample", "tests\PackageSample\PackageSample.csproj", "{BBC27A44-A56C-4706-856C-8911C656E02A}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "PackageSample", "tests\PackageSample\PackageSample.csproj", "{BBC27A44-A56C-4706-856C-8911C656E02A}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Generators", "Generators", "{D6C0F32B-62A6-48BA-867E-BCDD88B71748}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "ApiKeyGenerator", "build\generators\ApiKeyGenerator\ApiKeyGenerator.csproj", "{0A0D1850-41BA-41AD-A93A-9CEFD8D29949}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -276,6 +284,14 @@ Global
 		{BBC27A44-A56C-4706-856C-8911C656E02A}.Release|Any CPU.Build.0 = Release|Any CPU
 		{BBC27A44-A56C-4706-856C-8911C656E02A}.Release|x64.ActiveCfg = Release|Any CPU
 		{BBC27A44-A56C-4706-856C-8911C656E02A}.Release|x64.Build.0 = Release|Any CPU
+		{0A0D1850-41BA-41AD-A93A-9CEFD8D29949}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0A0D1850-41BA-41AD-A93A-9CEFD8D29949}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0A0D1850-41BA-41AD-A93A-9CEFD8D29949}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{0A0D1850-41BA-41AD-A93A-9CEFD8D29949}.Debug|x64.Build.0 = Debug|Any CPU
+		{0A0D1850-41BA-41AD-A93A-9CEFD8D29949}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0A0D1850-41BA-41AD-A93A-9CEFD8D29949}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0A0D1850-41BA-41AD-A93A-9CEFD8D29949}.Release|x64.ActiveCfg = Release|Any CPU
+		{0A0D1850-41BA-41AD-A93A-9CEFD8D29949}.Release|x64.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -292,6 +308,8 @@ Global
 		{2A0FD83A-3430-47EE-9C0D-0502802E6CAA} = {791EB029-7801-45FA-9AB5-5E953FFA003A}
 		{5F9713D1-E237-461D-A83A-A23A64E7CE02} = {791EB029-7801-45FA-9AB5-5E953FFA003A}
 		{BBC27A44-A56C-4706-856C-8911C656E02A} = {791EB029-7801-45FA-9AB5-5E953FFA003A}
+		{D6C0F32B-62A6-48BA-867E-BCDD88B71748} = {BBF37951-9757-4F4A-9FEE-130C4A218B94}
+		{0A0D1850-41BA-41AD-A93A-9CEFD8D29949} = {D6C0F32B-62A6-48BA-867E-BCDD88B71748}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {CC3F8F37-EB22-4418-978D-C844095F8C4D}
