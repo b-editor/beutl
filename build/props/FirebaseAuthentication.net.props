@@ -1,5 +1,0 @@
-<Project>
-  <ItemGroup>
-    <PackageReference Include="FirebaseAuthentication.net" Version="4.0.0-alpha.2" />
-  </ItemGroup>
-</Project>
