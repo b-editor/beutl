@@ -225,6 +225,10 @@ public static partial class StringResources
         public static string Yes => "S.Common.Yes".GetStringResource("Yes");
         //S.Common.No
         public static string No => "S.Common.No".GetStringResource("No");
+        //S.Common.Account
+        public static string Account => "S.Common.Account".GetStringResource("Account");
+        //S.Common.Password
+        public static string Password => "S.Common.Password".GetStringResource("Password");
 
         //S.Common.File
         private static IObservable<string>? s_file;
@@ -556,5 +560,11 @@ public static partial class StringResources
         //S.Common.No
         private static IObservable<string>? s_no;
         public static IObservable<string> NoObservable => s_no ??= "S.Common.No".GetStringObservable(StringResources.Common.No);
+        //S.Common.Account
+        private static IObservable<string>? s_account;
+        public static IObservable<string> AccountObservable => s_account ??= "S.Common.Account".GetStringObservable(StringResources.Common.Account);
+        //S.Common.Password
+        private static IObservable<string>? s_password;
+        public static IObservable<string> PasswordObservable => s_password ??= "S.Common.Password".GetStringObservable(StringResources.Common.Password);
     }
 }

@@ -1,4 +1,4 @@
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Media;
@@ -31,6 +31,15 @@ public partial class SettingsPage : UserControl
     {
         return new List<NavigationViewItem>()
         {
+            new NavigationViewItem()
+            {
+                [!ContentProperty] = new DynamicResourceExtension("S.SettingsPage.Account"),
+                Tag = typeof(AccountSettingsPage),
+                Icon = new SymbolIcon
+                {
+                    Symbol = Symbol.People
+                }
+            },
             new NavigationViewItem()
             {
                 [!ContentProperty] = new DynamicResourceExtension("S.SettingsPage.View"),

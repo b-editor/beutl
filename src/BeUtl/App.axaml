@@ -11,5 +11,12 @@
     </Application.Resources>
     <Application.Styles>
         <StyleInclude Source="avares://BeUtl.Controls/Styles.axaml" />
+
+        <Style Selector="TextBlock.ErrorTextBlockStyle">
+            <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCriticalBrush}" />
+            <Setter Property="Opacity" Value="0.7" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="FontSize" Value="12" />
+        </Style>
     </Application.Styles>
 </Application>

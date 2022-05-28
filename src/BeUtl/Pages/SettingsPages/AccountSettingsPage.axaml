@@ -1,0 +1,177 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             xmlns:ctrls="using:BeUtl.Controls"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:fau="using:Firebase.Auth.UI"
+             xmlns:vm="using:BeUtl.ViewModels.SettingsPages"
+             x:DataType="vm:AccountSettingsPageViewModel"
+             x:Class="BeUtl.Pages.SettingsPages.AccountSettingsPage">
+    <UserControl.DataContext>
+        <vm:AccountSettingsPageViewModel />
+    </UserControl.DataContext>
+    <Panel>
+        <ScrollViewer Padding="18"
+                      x:Name="scrollViewer"
+                      IsVisible="{CompiledBinding SignedIn.Value}">
+            <StackPanel Orientation="Vertical"
+                        VerticalAlignment="Stretch"
+                        HorizontalAlignment="Stretch"
+                        Margin="10,0"
+                        Spacing="8">
+                <Grid ColumnDefinitions="Auto,16,Auto,*" Margin="0,32,0,0">
+                    <!--プロフィール画像-->
+                    <Border CornerRadius="32"
+                            Width="64" Height="64"
+                            IsVisible="{CompiledBinding !HasProfileImage.Value}"
+                            Background="{DynamicResource ControlSolidFillColorDefaultBrush}">
+                        <ctrls:FluentIconRegular IconType="Person" Width="32" Height="32" />
+                    </Border>
+                    <Image Source="{CompiledBinding ProfileImage.Value}"
+                           Width="64" Height="64"
+                           IsVisible="{CompiledBinding HasProfileImage.Value}">
+                        <Image.Clip>
+                            <EllipseGeometry Center="32,32" RadiusX="32" RadiusY="32" />
+                        </Image.Clip>
+                    </Image>
+                    <Button CornerRadius="32"
+                            Padding="0"
+                            HorizontalContentAlignment="Stretch"
+                            VerticalContentAlignment="Stretch"
+                            Click="UploadProfileImage_Click"
+                            Width="64" Height="64">
+                        <Button.Styles>
+                            <Style Selector="Button:pointerover">
+                                <Setter Property="Content">
+                                    <Template>
+                                        <Border Background="Gray"
+                                                CornerRadius="32"
+                                                Opacity="0.8"
+                                                HorizontalAlignment="Stretch"
+                                                VerticalAlignment="Stretch">
+                                            <ctrls:FluentIconRegular IconType="Edit" Width="24" Height="24" />
+                                        </Border>
+                                    </Template>
+                                </Setter>
+                            </Style>
+                        </Button.Styles>
+                    </Button>
+
+                    <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                        <TextBlock Classes="SubtitleTextBlockStyle"
+                                   Text="{CompiledBinding DisplayName.Value}" />
+
+                        <TextBlock Classes="CaptionTextBlockStyle"
+                                   Opacity="0.8"
+                                   Text="{CompiledBinding User.Value.Info.Email}" />
+                    </StackPanel>
+
+                    <ui:CommandBar Grid.Column="3" DefaultLabelPosition="Right"
+                                   HorizontalAlignment="Right"
+                                   VerticalAlignment="Center">
+                        <ui:CommandBar.PrimaryCommands>
+                            <ui:CommandBarButton
+                                Command="{CompiledBinding SignOut}"
+                                Label="{DynamicResource S.AccountSettingsPage.SignOut}">
+                                <ui:CommandBarButton.Icon>
+                                    <ui:PathIcon Data="{StaticResource Sign_Out_Regular}"
+                                                 Width="16" Height="16" />
+                                </ui:CommandBarButton.Icon>
+                            </ui:CommandBarButton>
+                        </ui:CommandBar.PrimaryCommands>
+                    </ui:CommandBar>
+                </Grid>
+
+                <ctrls:OptionsDisplayItem
+                    x:Name="optionsItem1"
+                    Margin="0,24,0,0"
+                    Expands="True"
+                    Header="{DynamicResource S.AccountSettingsPage.ChangeDisplayName}">
+
+                    <ctrls:OptionsDisplayItem.Icon>
+                        <ui:PathIcon Data="{DynamicResource Rename_Regular}" Width="16" Height="16" />
+                    </ctrls:OptionsDisplayItem.Icon>
+                    
+                    <ctrls:OptionsDisplayItem.Content>
+                        <StackPanel Spacing="8">
+                            <TextBlock Classes="BodyTextBlockStyle"
+                                       Text="{DynamicResource S.AccountSettingsPage.ChangeDisplayName}" />
+
+                            <TextBox Text="{CompiledBinding DisplayNameInput.Value}" />
+
+                            <Button HorizontalAlignment="Right"
+                                    Command="{CompiledBinding ChangeDisplayName}"
+                                    Content="{DynamicResource S.AccountSettingsPage.Change}" />
+                        </StackPanel>
+                    </ctrls:OptionsDisplayItem.Content>
+                </ctrls:OptionsDisplayItem>
+
+                <ctrls:OptionsDisplayItem
+                    x:Name="optionsItem2"
+                    Navigates="True"
+                    NavigationRequested="DeleteAccount_Click"
+                    Header="{DynamicResource S.AccountSettingsPage.DeleteAccount}">
+
+                    <ctrls:OptionsDisplayItem.Icon>
+                        <ui:PathIcon Data="{DynamicResource Person_Subtract_Regular}" Width="16" Height="16" />
+                    </ctrls:OptionsDisplayItem.Icon>
+                </ctrls:OptionsDisplayItem>
+
+                <ctrls:OptionsDisplayItem
+                    x:Name="optionsItem3"
+                    Expands="True"
+                    Header="{DynamicResource S.AccountSettingsPage.ChangePassword}">
+
+                    <ctrls:OptionsDisplayItem.Icon>
+                        <ui:PathIcon Data="{DynamicResource Person_Subtract_Regular}" Width="16" Height="16" />
+                    </ctrls:OptionsDisplayItem.Icon>
+
+                    <ctrls:OptionsDisplayItem.Content>
+                        <StackPanel>
+                            <TextBlock Classes="BodyTextBlockStyle"
+                                       Text="{DynamicResource S.AccountSettingsPage.ChangePassword}" />
+
+                            <TextBlock Classes="CaptionTextBlockStyle"
+                                       Margin="0,12,0,8"
+                                       Text="{DynamicResource S.Common.Password}" />
+
+                            <TextBox Text="{CompiledBinding Password.Value}"
+                                     Classes="revealPasswordButton"
+                                     PasswordChar="*" />
+
+                            <TextBlock Classes="CaptionTextBlockStyle"
+                                       Margin="0,12,0,8"
+                                       Text="{DynamicResource S.AccountSettingsPage.NewPassword}" />
+
+                            <TextBox Text="{CompiledBinding NewPassword.Value}"
+                                     Classes="revealPasswordButton"
+                                     PasswordChar="*" />
+
+                            <TextBlock Classes="ErrorTextBlockStyle"
+                                       Margin="0,8,0,0"
+                                       Text="{CompiledBinding ChangePasswordError.Value}" />
+
+                            <ProgressBar
+                                IsVisible="{CompiledBinding ChangePasswordInProgress.Value}"
+                                Margin="0,12,0,0"
+                                IsIndeterminate="True" />
+
+                            <Button HorizontalAlignment="Right"
+                                    Margin="0,8,0,0"
+                                    Command="{CompiledBinding ChangePassword}"
+                                    Content="{DynamicResource S.AccountSettingsPage.Change}" />
+                        </StackPanel>
+                    </ctrls:OptionsDisplayItem.Content>
+                </ctrls:OptionsDisplayItem>
+            </StackPanel>
+
+            
+        </ScrollViewer>
+
+        <fau:FirebaseUIControl IsVisible="{CompiledBinding !SignedIn.Value}"
+                               VerticalAlignment="Center"
+                               HorizontalAlignment="Center" />
+    </Panel>
+</UserControl>

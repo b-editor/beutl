@@ -135,6 +135,8 @@
         <x:String x:Key="S.Common.SkewY">Skew y</x:String>
         <x:String x:Key="S.Common.Yes">Yes</x:String>
         <x:String x:Key="S.Common.No">No</x:String>
+        <x:String x:Key="S.Common.Account">Account</x:String>
+        <x:String x:Key="S.Common.Password">Password</x:String>
     </Styles.Resources>
 
     <!--Views-->

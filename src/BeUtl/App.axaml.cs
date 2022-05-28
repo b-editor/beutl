@@ -13,12 +13,17 @@ using BeUtl.Configuration;
 using BeUtl.Framework.Service;
 using BeUtl.Framework.Services;
 using BeUtl.Language;
+using BeUtl.Models;
 using BeUtl.Operations;
 using BeUtl.ProjectSystem;
 using BeUtl.Rendering;
 using BeUtl.Services;
 using BeUtl.ViewModels;
 using BeUtl.Views;
+
+using Firebase.Auth.Providers;
+using Firebase.Auth.Repository;
+using Firebase.Auth.UI;
 
 using FluentAvalonia.Styling;
 
@@ -82,6 +87,27 @@ public class App : Application
                 CultureInfo.CurrentUICulture = v;
             }
         });
+
+        FirebaseUI.Initialize(new FirebaseUIConfig
+        {
+            ApiKey = Constants.FirebaseKey,
+            AuthDomain = "beutl-458eb.firebaseapp.com",
+            Providers = new FirebaseAuthProvider[]
+            {
+                new GoogleProvider(),
+                new EmailProvider(),
+            },
+            PrivacyPolicyUrl = "https://github.com/b-editor/BeUtl",
+            TermsOfServiceUrl = "https://github.com/b-editor/BeUtl",
+            IsAnonymousAllowed = true,
+            AutoUpgradeAnonymousUsers = true,
+            UserRepository = new FileUserRepository("beutl"),
+            // Func called when upgrade of anonymous user fails because the user already exists
+            // You should grab any data created under your anonymous user, sign in with the pending credential
+            // and copy the existing data to the new user
+            // see details here: https://github.com/firebase/firebaseui-web#upgrading-anonymous-users
+            AnonymousUpgradeConflict = conflict => conflict.SignInWithPendingCredentialAsync(true)
+        });
     }
 
     public override void RegisterServices()
@@ -92,6 +118,7 @@ public class App : Application
 
         ServiceLocator.Current
             .BindToSelfSingleton<EditorService>()
+            .BindToSelfSingleton<HttpClient>()
             .BindToSelf<IWorkspaceItemContainer>(new WorkspaceItemContainer())
             .BindToSelf<IProjectService>(new ProjectService())
             .BindToSelf<INotificationService>(new NotificationService())

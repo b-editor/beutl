@@ -18,6 +18,8 @@ public static partial class StringResources
         public static string FileDoesNotExist => "S.Warning.FileDoesNotExist".GetStringResource("File does not exist.");
         //S.Warning.CouldNotOpenProject
         public static string CouldNotOpenProject => "S.Warning.CouldNotOpenProject".GetStringResource("Could not open project.");
+        //S.Warning.NameCannotBeLeftBlank
+        public static string NameCannotBeLeftBlank => "S.Warning.NameCannotBeLeftBlank".GetStringResource("Name cannot be left blank.");
 
         //S.Warning.ItAlreadyExists
         private static IObservable<string>? s_itAlreadyExists;
@@ -37,5 +39,8 @@ public static partial class StringResources
         //S.Warning.CouldNotOpenProject
         private static IObservable<string>? s_couldNotOpenProject;
         public static IObservable<string> CouldNotOpenProjectObservable => s_couldNotOpenProject ??= "S.Warning.CouldNotOpenProject".GetStringObservable(StringResources.Warning.CouldNotOpenProject);
+        //S.Warning.NameCannotBeLeftBlank
+        private static IObservable<string>? s_nameCannotBeLeftBlank;
+        public static IObservable<string> NameCannotBeLeftBlankObservable => s_nameCannotBeLeftBlank ??= "S.Warning.NameCannotBeLeftBlank".GetStringObservable(StringResources.Warning.NameCannotBeLeftBlank);
     }
 }
