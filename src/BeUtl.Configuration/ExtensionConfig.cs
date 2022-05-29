@@ -6,6 +6,11 @@ namespace BeUtl.Configuration;
 
 public sealed class ExtensionConfig : ConfigurationBase
 {
+    public ExtensionConfig()
+    {
+        EditorExtensions.CollectionChanged += (_, _) => OnChanged();
+    }
+
     public struct TypeLazy
     {
         private Type? _type = null;
@@ -23,9 +28,9 @@ public sealed class ExtensionConfig : ConfigurationBase
     // Keyには拡張子を含める
     public CoreDictionary<string, ICoreList<TypeLazy>> EditorExtensions { get; } = new();
 
-    public override void FromJson(JsonNode json)
+    public override void ReadFromJson(JsonNode json)
     {
-        base.FromJson(json);
+        base.ReadFromJson(json);
         if (json is JsonObject jsonObject)
         {
             if (jsonObject.TryGetPropertyValue("editor-extensions", out JsonNode? eeNode)
@@ -46,10 +51,10 @@ public sealed class ExtensionConfig : ConfigurationBase
         }
     }
 
-    public override JsonNode ToJson()
+    public override void WriteToJson(ref JsonNode json)
     {
-        JsonNode jsonNode = base.ToJson();
-
+        base.WriteToJson(ref json);
+        
         var eeObject = new JsonObject();
         foreach ((string key, ICoreList<TypeLazy> value) in EditorExtensions)
         {
@@ -59,7 +64,6 @@ public sealed class ExtensionConfig : ConfigurationBase
                 .ToArray()));
         }
 
-        jsonNode["editor-extensions"] = eeObject;
-        return JsonNode;
+        json["editor-extensions"] = eeObject;
     }
 }

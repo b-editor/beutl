@@ -190,17 +190,7 @@ public class Layer : Element, IStorable, ILogicalElement
     {
         _fileName = filename;
         LastSavedTime = DateTime.Now;
-        string? directory = Path.GetDirectoryName(_fileName);
-        if (directory != null && !Directory.Exists(directory))
-        {
-            Directory.CreateDirectory(directory);
-        }
-
-        using var stream = new FileStream(filename, FileMode.Create, FileAccess.Write, FileShare.Write);
-        using var writer = new Utf8JsonWriter(stream, JsonHelper.WriterOptions);
-
-        ToJson().WriteTo(writer, JsonHelper.SerializerOptions);
-
+        this.JsonSave(filename);
         _saved?.Invoke(this, EventArgs.Empty);
     }
 
@@ -209,20 +199,14 @@ public class Layer : Element, IStorable, ILogicalElement
         _fileName = filename;
         LastSavedTime = DateTime.Now;
 
-        using var stream = new FileStream(filename, FileMode.Open, FileAccess.Read, FileShare.Read);
-        var node = JsonNode.Parse(stream);
-
-        if (node != null)
-        {
-            FromJson(node);
-        }
+        this.JsonRestore(filename);
 
         _restored?.Invoke(this, EventArgs.Empty);
     }
 
-    public override void FromJson(JsonNode json)
+    public override void ReadFromJson(JsonNode json)
     {
-        base.FromJson(json);
+        base.ReadFromJson(json);
 
         if (json is JsonObject jobject)
         {
@@ -252,7 +236,7 @@ public class Layer : Element, IStorable, ILogicalElement
                         }
 
                         operation ??= new EmptyOperation();
-                        operation.FromJson(operationJson);
+                        operation.ReadFromJson(operationJson);
                         Children.Add(operation);
                     }
                 }
@@ -260,34 +244,28 @@ public class Layer : Element, IStorable, ILogicalElement
         }
     }
 
-    public override JsonNode ToJson()
+    public override void WriteToJson(ref JsonNode json)
     {
-        JsonNode node = base.ToJson();
+        base.WriteToJson(ref json);
 
-        if (node is JsonObject jobject)
+        if (json is JsonObject jobject)
         {
             var array = new JsonArray();
 
             foreach (LayerOperation item in Children)
             {
-                JsonNode json = item.ToJson();
+                JsonNode node = new JsonObject();
+                item.WriteToJson(ref node);
                 if (item is not EmptyOperation)
                 {
-                    json["@type"] = TypeFormat.ToString(item.GetType());
+                    node["@type"] = TypeFormat.ToString(item.GetType());
                 }
 
-                if (json.Parent != null)
-                {
-                    json = JsonNode.Parse(json.ToJsonString())!;
-                }
-
-                array.Add(json);
+                array.Add(node);
             }
 
             jobject["operations"] = array;
         }
-
-        return node;
     }
 
     public IRecordableCommand AddChild(LayerOperation operation)

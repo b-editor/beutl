@@ -22,8 +22,10 @@ public static class JsonHelper
     {
         using var stream = new FileStream(filename, FileMode.Create, FileAccess.Write, FileShare.Write);
         using var writer = new Utf8JsonWriter(stream, WriterOptions);
+        JsonNode json = new JsonObject();
 
-        serializable.ToJson().WriteTo(writer, SerializerOptions);
+        serializable.WriteToJson(ref json);
+        json.WriteTo(writer, SerializerOptions);
     }
 
     public static void JsonRestore(this IJsonSerializable serializable, string filename)
@@ -33,7 +35,7 @@ public static class JsonHelper
 
         if (node != null)
         {
-            serializable.FromJson(node);
+            serializable.ReadFromJson(node);
         }
     }
 

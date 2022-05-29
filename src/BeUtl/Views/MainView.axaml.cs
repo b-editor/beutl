@@ -1,6 +1,7 @@
 ﻿using System.Collections;
 using System.Diagnostics.CodeAnalysis;
 using System.Reactive.Disposables;
+using System.Text.Json.Nodes;
 
 using Avalonia;
 using Avalonia.Animation;
@@ -545,7 +546,9 @@ Error:
                 IClipboard? clipboard = Application.Current?.Clipboard;
                 if (clipboard != null)
                 {
-                    string json = layer.ToJson().ToJsonString(JsonHelper.SerializerOptions);
+                    JsonNode jsonNode = new JsonObject();
+                    layer.WriteToJson(ref jsonNode);
+                    string json = jsonNode.ToJsonString(JsonHelper.SerializerOptions);
                     var data = new DataObject();
                     data.Set(DataFormats.Text, json);
                     data.Set(Constants.Layer, json);
@@ -565,7 +568,9 @@ Error:
                 IClipboard? clipboard = Application.Current?.Clipboard;
                 if (clipboard != null)
                 {
-                    string json = layer.ToJson().ToJsonString(JsonHelper.SerializerOptions);
+                    JsonNode jsonNode = new JsonObject();
+                    layer.WriteToJson(ref jsonNode);
+                    string json = jsonNode.ToJsonString(JsonHelper.SerializerOptions);
                     var data = new DataObject();
                     data.Set(DataFormats.Text, json);
                     data.Set(Constants.Layer, json);

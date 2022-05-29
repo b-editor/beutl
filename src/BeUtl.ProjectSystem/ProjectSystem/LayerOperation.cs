@@ -86,7 +86,7 @@ public abstract class LayerOperation : Element, ILogicalElement
     {
     }
 
-    public override void FromJson(JsonNode json)
+    public override void ReadFromJson(JsonNode json)
     {
         var removed = new List<KeyValuePair<string, JsonNode>>();
         if (json is JsonObject jsonObject)
@@ -98,7 +98,7 @@ public abstract class LayerOperation : Element, ILogicalElement
                 string? jsonName = prop.Property.GetMetadata<CorePropertyMetadata>(ownerType).SerializeName;
                 if (jsonName != null && jsonObject.TryGetPropertyValue(jsonName, out JsonNode? node))
                 {
-                    prop.FromJson(node!);
+                    prop.ReadFromJson(node!);
 
                     removed.Add(new(jsonName, node!));
                     jsonObject.Remove(jsonName);
@@ -106,7 +106,7 @@ public abstract class LayerOperation : Element, ILogicalElement
             }
         }
 
-        base.FromJson(json);
+        base.ReadFromJson(json);
 
         for (int i = 0; i < removed.Count; i++)
         {
@@ -115,11 +115,11 @@ public abstract class LayerOperation : Element, ILogicalElement
         }
     }
 
-    public override JsonNode ToJson()
+    public override void WriteToJson(ref JsonNode json)
     {
-        JsonNode node = base.ToJson();
+        base.WriteToJson(ref json);
 
-        if (node is JsonObject jsonObject)
+        if (json is JsonObject jsonObject)
         {
             Type ownerType = GetType();
             for (int i = 0; i < _properties.Count; i++)
@@ -128,12 +128,12 @@ public abstract class LayerOperation : Element, ILogicalElement
                 string? jsonName = prop.Property.GetMetadata<CorePropertyMetadata>(ownerType).SerializeName;
                 if (jsonName != null)
                 {
-                    jsonObject[jsonName] = prop.ToJson();
+                    JsonNode node = new JsonObject();
+                    prop.WriteToJson(ref node);
+                    jsonObject[jsonName] = node;
                 }
             }
         }
-
-        return node;
     }
 
     protected IPropertyInstance? FindPropertyInstance(CoreProperty property)

@@ -1,4 +1,5 @@
-﻿using System.Globalization;
+﻿using System.ComponentModel;
+using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
@@ -38,6 +39,12 @@ public sealed class ViewConfig : ConfigurationBase
             .Register();
     }
 
+    public ViewConfig()
+    {
+        _recentFiles.CollectionChanged += (_, _) => OnChanged();
+        _recentProjects.CollectionChanged += (_, _) => OnChanged();
+    }
+
     public ViewTheme Theme
     {
         get => GetValue(ThemeProperty);
@@ -70,9 +77,9 @@ public sealed class ViewConfig : ConfigurationBase
         System
     }
 
-    public override void FromJson(JsonNode json)
+    public override void ReadFromJson(JsonNode json)
     {
-        base.FromJson(json);
+        base.ReadFromJson(json);
 
         if (json is JsonObject jsonObject)
         {
@@ -88,13 +95,11 @@ public sealed class ViewConfig : ConfigurationBase
         }
     }
 
-    public override JsonNode ToJson()
+    public override void WriteToJson(ref JsonNode json)
     {
-        JsonNode json = base.ToJson();
+        base.WriteToJson(ref json);
         json["recent-files"] = JsonSerializer.SerializeToNode(_recentFiles, JsonHelper.SerializerOptions);
         json["recent-projects"] = JsonSerializer.SerializeToNode(_recentProjects, JsonHelper.SerializerOptions);
-
-        return json;
     }
 
     public void UpdateRecentFile(string filename)
@@ -107,5 +112,14 @@ public sealed class ViewConfig : ConfigurationBase
     {
         _recentProjects.Remove(filename);
         _recentProjects.Insert(0, filename);
+    }
+
+    protected override void OnPropertyChanged(PropertyChangedEventArgs args)
+    {
+        base.OnPropertyChanged(args);
+        if (args.PropertyName is "Theme" or "UICulture")
+        {
+            OnChanged();
+        }
     }
 }

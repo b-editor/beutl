@@ -54,14 +54,17 @@ public class TimelineLayerViewModel : IDisposable
 
         Split.Where(func => func != null).Subscribe(func =>
         {
+            // Todo: レイヤー内複数オブジェクトに対応する
             int rate = Scene.Parent is Project proj ? proj.GetFrameRate() : 30;
             TimeSpan absTime = func!().RoundToRate(rate);
             TimeSpan forwardLength = absTime - Model.Start;
             TimeSpan backwardLength = Model.Length - forwardLength;
 
-            string json = Model.ToJson().ToJsonString(JsonHelper.SerializerOptions);
+            JsonNode jsonNode = new JsonObject();
+            Model.WriteToJson(ref jsonNode);
+            string json = jsonNode.ToJsonString(JsonHelper.SerializerOptions);
             var backwardLayer = new Layer();
-            backwardLayer.FromJson(JsonNode.Parse(json)!);
+            backwardLayer.ReadFromJson(JsonNode.Parse(json)!);
 
             Scene.MoveChild(Model.ZIndex, Model.Start, forwardLength, Model).DoAndRecord(CommandRecorder.Default);
             backwardLayer.Start = absTime;
@@ -193,7 +196,9 @@ public class TimelineLayerViewModel : IDisposable
         IClipboard? clipboard = Application.Current?.Clipboard;
         if (clipboard != null)
         {
-            string json = Model.ToJson().ToJsonString(JsonHelper.SerializerOptions);
+            JsonNode jsonNode = new JsonObject();
+            Model.WriteToJson(ref jsonNode);
+            string json = jsonNode.ToJsonString(JsonHelper.SerializerOptions);
             var data = new DataObject();
             data.Set(DataFormats.Text, json);
             data.Set(Constants.Layer, json);

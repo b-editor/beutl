@@ -23,7 +23,7 @@ public abstract class BaseViewState : INotifyPropertyChanged, IJsonSerializable
         }
     }
 
-    public abstract void FromJson(JsonNode json);
+    public abstract void ReadFromJson(JsonNode json);
 
-    public abstract JsonNode ToJson();
+    public abstract void WriteToJson(ref JsonNode json);
 }

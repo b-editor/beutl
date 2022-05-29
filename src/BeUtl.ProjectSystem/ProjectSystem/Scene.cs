@@ -245,7 +245,7 @@ public class Scene : Element, IStorable, IWorkspaceItem
         return new MoveCommand(layerNum, layer, start, layer.Start, length, layer.Length);
     }
 
-    public override void FromJson(JsonNode json)
+    public override void ReadFromJson(JsonNode json)
     {
         static void Process(Func<string, Matcher> add, JsonNode node, List<string> list)
         {
@@ -269,22 +269,22 @@ public class Scene : Element, IStorable, IWorkspaceItem
             }
         }
 
-        base.FromJson(json);
+        base.ReadFromJson(json);
 
         if (json is JsonObject jobject)
         {
-            if (jobject.TryGetPropertyValue("width", out JsonNode? widthNode) &&
-                jobject.TryGetPropertyValue("height", out JsonNode? heightNode) &&
-                widthNode != null &&
-                heightNode != null &&
-                widthNode.AsValue().TryGetValue(out int width) &&
-                heightNode.AsValue().TryGetValue(out int height))
+            if (jobject.TryGetPropertyValue("width", out JsonNode? widthNode)
+                && jobject.TryGetPropertyValue("height", out JsonNode? heightNode)
+                && widthNode != null
+                && heightNode != null
+                && widthNode.AsValue().TryGetValue(out int width)
+                && heightNode.AsValue().TryGetValue(out int height))
             {
                 Initialize(width, height);
             }
 
-            if (jobject.TryGetPropertyValue("layers", out JsonNode? layersNode) &&
-                layersNode is JsonObject layersJson)
+            if (jobject.TryGetPropertyValue("layers", out JsonNode? layersNode)
+                && layersNode is JsonObject layersJson)
             {
                 var matcher = new Matcher();
                 var directory = new DirectoryInfoWrapper(new DirectoryInfo(Path.GetDirectoryName(FileName)!));
@@ -311,7 +311,7 @@ public class Scene : Element, IStorable, IWorkspaceItem
         }
     }
 
-    public override JsonNode ToJson()
+    public override void WriteToJson(ref JsonNode json)
     {
         static void Process(JsonObject jobject, string jsonName, List<string> list)
         {
@@ -335,21 +335,16 @@ public class Scene : Element, IStorable, IWorkspaceItem
             }
         }
 
-        JsonNode node = base.ToJson();
+        base.WriteToJson(ref json);
 
-        if (node is JsonObject jobject)
-        {
-            var layersNode = new JsonObject();
+        var layersNode = new JsonObject();
 
-            UpdateInclude();
+        UpdateInclude();
 
-            Process(layersNode, "include", _includeLayers);
-            Process(layersNode, "exclude", _excludeLayers);
+        Process(layersNode, "include", _includeLayers);
+        Process(layersNode, "exclude", _excludeLayers);
 
-            jobject["layers"] = layersNode;
-        }
-
-        return node;
+        json["layers"] = layersNode;
     }
 
     public void Save(string filename)

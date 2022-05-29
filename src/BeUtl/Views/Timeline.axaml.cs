@@ -109,7 +109,7 @@ public partial class Timeline : UserControl
                     {
                         string json = await clipboard.GetTextAsync();
                         var layer = new Layer();
-                        layer.FromJson(JsonNode.Parse(json)!);
+                        layer.ReadFromJson(JsonNode.Parse(json)!);
                         layer.Start = ViewModel.ClickedFrame;
                         layer.ZIndex = ViewModel.ClickedLayer;
 

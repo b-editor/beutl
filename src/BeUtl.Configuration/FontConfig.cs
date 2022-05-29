@@ -5,15 +5,20 @@ namespace BeUtl.Configuration;
 
 public sealed class FontConfig : ConfigurationBase
 {
+    public FontConfig()
+    {
+        FontDirectories.CollectionChanged += (_, _) => OnChanged();
+    }
+
     public ObservableCollection<string> FontDirectories { get; } = CreateDefaultFontDirectories();
 
-    public override void FromJson(JsonNode json)
+    public override void ReadFromJson(JsonNode json)
     {
-        base.FromJson(json);
+        base.ReadFromJson(json);
         if (json is JsonObject jsonObject)
         {
-            if (jsonObject.TryGetPropertyValue("directories", out JsonNode? dirsNode) &&
-                dirsNode is JsonArray dirsArray)
+            if (jsonObject.TryGetPropertyValue("directories", out JsonNode? dirsNode)
+                && dirsNode is JsonArray dirsArray)
             {
                 string[] array = dirsArray.Select(i => (string?)i).Where(i => i != null).ToArray()!;
 
@@ -30,12 +35,10 @@ public sealed class FontConfig : ConfigurationBase
         }
     }
 
-    public override JsonNode ToJson()
+    public override void WriteToJson(ref JsonNode json)
     {
-        JsonNode obj = base.ToJson();
-        obj["directories"] = new JsonArray(FontDirectories.Select(i => JsonValue.Create(i)).ToArray());
-
-        return obj;
+        base.WriteToJson(ref json);
+        json["directories"] = new JsonArray(FontDirectories.Select(i => JsonValue.Create(i)).ToArray());
     }
 
     private static ObservableCollection<string> CreateDefaultFontDirectories()

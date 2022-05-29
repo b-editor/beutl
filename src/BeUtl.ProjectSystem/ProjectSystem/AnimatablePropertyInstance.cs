@@ -101,7 +101,7 @@ public class AnimatablePropertyInstance<T> : PropertyInstance<T>, IAnimatablePro
         return new AddCommand<Animation<T>>(_children, animation, index);
     }
 
-    public override void FromJson(JsonNode json)
+    public override void ReadFromJson(JsonNode json)
     {
         _children.Clear();
         if (json is JsonObject jsonobj)
@@ -114,7 +114,7 @@ public class AnimatablePropertyInstance<T> : PropertyInstance<T>, IAnimatablePro
                     if (item is JsonObject jobj)
                     {
                         var anm = new Animation<T>();
-                        anm.FromJson(jobj);
+                        anm.ReadFromJson(jobj);
                         _children.Add(anm);
                     }
                 }
@@ -135,11 +135,11 @@ public class AnimatablePropertyInstance<T> : PropertyInstance<T>, IAnimatablePro
         }
     }
 
-    public override JsonNode ToJson()
+    public override void WriteToJson(ref JsonNode node)
     {
         if (Children.Count == 0)
         {
-            return JsonSerializer.SerializeToNode(Value, JsonHelper.SerializerOptions)!;
+            node = JsonSerializer.SerializeToNode(Value, JsonHelper.SerializerOptions)!;
         }
         else
         {
@@ -147,20 +147,15 @@ public class AnimatablePropertyInstance<T> : PropertyInstance<T>, IAnimatablePro
             var jsonArray = new JsonArray();
             foreach (Animation<T> item in _children)
             {
-                JsonNode? json = item.ToJson();
-
-                if (json.Parent != null)
-                {
-                    json = JsonNode.Parse(json.ToJsonString())!;
-                }
-
+                JsonNode json = new JsonObject();
+                item.WriteToJson(ref json);
                 jsonArray.Add(json);
             }
 
             jsonObj["value"] = JsonSerializer.SerializeToNode(Value, JsonHelper.SerializerOptions);
             jsonObj["children"] = jsonArray;
 
-            return jsonObj;
+            node = jsonObj;
         }
     }
 

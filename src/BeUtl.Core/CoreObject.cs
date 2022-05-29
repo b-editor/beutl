@@ -50,7 +50,7 @@ public abstract class CoreObject : ICoreObject
     /// <summary>
     /// The last JsonNode that was used.
     /// </summary>
-    protected JsonNode? JsonNode;
+    //protected JsonNode? JsonNode;
 
     private Dictionary<int, IEntry>? _values;
     private Dictionary<int, IBatchEntry>? _batchChanges;
@@ -285,10 +285,55 @@ public abstract class CoreObject : ICoreObject
         SetValue(property, property.GetMetadata<CorePropertyMetadata>(GetType()).GetDefaultValue());
     }
 
-    [MemberNotNull("JsonNode")]
-    public virtual void FromJson(JsonNode json)
+    public virtual void WriteToJson(ref JsonNode json)
     {
-        JsonNode = json;
+        if (json is JsonObject jsonObject)
+        {
+            Type ownerType = GetType();
+
+            IReadOnlyList<CoreProperty> list = PropertyRegistry.GetRegistered(GetType());
+            for (int i = 0; i < list.Count; i++)
+            {
+                CoreProperty item = list[i];
+                CorePropertyMetadata metadata = item.GetMetadata<CorePropertyMetadata>(ownerType);
+                string? jsonName = metadata.SerializeName;
+                if (jsonName != null)
+                {
+                    object? obj = GetValue(item);
+                    object? def = metadata.GetDefaultValue();
+
+                    // デフォルトの値と取得した値が同じ場合、保存しない
+                    if (RuntimeHelpers.Equals(def, obj))
+                    {
+                        jsonObject.Remove(jsonName);
+                        continue;
+                    }
+
+                    if (obj is IJsonSerializable child)
+                    {
+                        if (jsonObject.TryGetPropertyValue(jsonName, out JsonNode? jsonNode))
+                        {
+                            child.WriteToJson(ref jsonNode!);
+                            jsonObject[jsonName] = jsonNode;
+                        }
+                        else
+                        {
+                            JsonNode jsonObject2 = new JsonObject();
+                            child.WriteToJson(ref jsonObject2);
+                            jsonObject[jsonName] = jsonObject2;
+                        }
+                    }
+                    else
+                    {
+                        jsonObject[jsonName] = JsonSerializer.SerializeToNode(obj, item.PropertyType, JsonHelper.SerializerOptions);
+                    }
+                }
+            }
+        }
+    }
+
+    public virtual void ReadFromJson(JsonNode json)
+    {
         Type ownerType = GetType();
 
         if (json is JsonObject obj)
@@ -301,16 +346,16 @@ public abstract class CoreObject : ICoreObject
                 string? jsonName = metadata.SerializeName;
                 Type type = item.PropertyType;
 
-                if (jsonName != null &&
-                    obj.TryGetPropertyValue(jsonName, out JsonNode? jsonNode) &&
-                    jsonNode != null)
+                if (jsonName != null
+                    && obj.TryGetPropertyValue(jsonName, out JsonNode? jsonNode)
+                    && jsonNode != null)
                 {
                     if (type.IsAssignableTo(typeof(IJsonSerializable)))
                     {
                         var sobj = (IJsonSerializable?)Activator.CreateInstance(type);
                         if (sobj != null)
                         {
-                            sobj.FromJson(jsonNode!);
+                            sobj.ReadFromJson(jsonNode!);
                             SetValue(item, sobj);
                         }
                     }
@@ -325,54 +370,6 @@ public abstract class CoreObject : ICoreObject
                 }
             }
         }
-    }
-
-    [MemberNotNull("JsonNode")]
-    public virtual JsonNode ToJson()
-    {
-        JsonObject? json;
-        Type ownerType = GetType();
-
-        if (JsonNode is JsonObject jsonNodeObj)
-        {
-            json = jsonNodeObj;
-        }
-        else
-        {
-            json = new JsonObject();
-            JsonNode = json;
-        }
-
-        IReadOnlyList<CoreProperty> list = PropertyRegistry.GetRegistered(GetType());
-        for (int i = 0; i < list.Count; i++)
-        {
-            CoreProperty item = list[i];
-            CorePropertyMetadata metadata = item.GetMetadata<CorePropertyMetadata>(ownerType);
-            string? jsonName = metadata.SerializeName;
-            if (jsonName != null)
-            {
-                object? obj = GetValue(item);
-                object? def = metadata.GetDefaultValue();
-
-                // デフォルトの値と取得した値が同じ場合、保存しない
-                if (RuntimeHelpers.Equals(def, obj))
-                {
-                    json.Remove(jsonName);
-                    continue;
-                }
-
-                if (obj is IJsonSerializable child)
-                {
-                    json[jsonName] = child.ToJson();
-                }
-                else
-                {
-                    json[jsonName] = JsonSerializer.SerializeToNode(obj, item.PropertyType, JsonHelper.SerializerOptions);
-                }
-            }
-        }
-
-        return json;
     }
 
     protected virtual void OnPropertyChanged(PropertyChangedEventArgs args)

@@ -43,11 +43,11 @@ public abstract class BaseAnimation : CoreObject
         set => SetAndRaise(DurationProperty, ref _duration, value);
     }
 
-    public override JsonNode ToJson()
+    public override void WriteToJson(ref JsonNode json)
     {
-        JsonNode node = base.ToJson();
+        base.WriteToJson(ref json);
 
-        if (node is JsonObject jsonObject)
+        if (json is JsonObject jsonObject)
         {
             if (Easing is SplineEasing splineEasing)
             {
@@ -64,20 +64,18 @@ public abstract class BaseAnimation : CoreObject
                 jsonObject["easing"] = JsonValue.Create(TypeFormat.ToString(Easing.GetType()));
             }
         }
-
-        return node;
     }
 
-    public override void FromJson(JsonNode json)
+    public override void ReadFromJson(JsonNode json)
     {
-        base.FromJson(json);
+        base.ReadFromJson(json);
 
         if (json is JsonObject jsonObject)
         {
             if (jsonObject.TryGetPropertyValue("easing", out JsonNode? easingNode))
             {
-                if (easingNode is JsonValue easingTypeValue &&
-                    easingTypeValue.TryGetValue(out string? easingType))
+                if (easingNode is JsonValue easingTypeValue
+                    && easingTypeValue.TryGetValue(out string? easingType))
                 {
                     Type type = TypeFormat.ToType(easingType) ?? typeof(LinearEasing);
 

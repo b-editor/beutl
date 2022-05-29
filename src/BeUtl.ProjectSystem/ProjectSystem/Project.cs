@@ -111,13 +111,7 @@ public class Project : Element, IStorable, ILogicalElement, IWorkspace
         _rootDirectory = Path.GetDirectoryName(filename);
         LastSavedTime = DateTime.Now;
 
-        using var stream = new FileStream(filename, FileMode.Open, FileAccess.Read, FileShare.Read);
-        var node = JsonNode.Parse(stream);
-
-        if (node != null)
-        {
-            FromJson(node);
-        }
+        this.JsonRestore(filename);
 
         _restored?.Invoke(this, EventArgs.Empty);
     }
@@ -128,22 +122,14 @@ public class Project : Element, IStorable, ILogicalElement, IWorkspace
         _rootDirectory = Path.GetDirectoryName(filename);
         LastSavedTime = DateTime.Now;
 
-        if (_rootDirectory != null && !Directory.Exists(_rootDirectory))
-        {
-            Directory.CreateDirectory(_rootDirectory);
-        }
-
-        using var stream = new FileStream(filename, FileMode.Create);
-        using var writer = new Utf8JsonWriter(stream, JsonHelper.WriterOptions);
-
-        ToJson().WriteTo(writer, JsonHelper.SerializerOptions);
+        this.JsonSave(filename);
 
         _saved?.Invoke(this, EventArgs.Empty);
     }
 
-    public override void FromJson(JsonNode json)
+    public override void ReadFromJson(JsonNode json)
     {
-        base.FromJson(json);
+        base.ReadFromJson(json);
 
         if (json is JsonObject jobject)
         {
@@ -178,11 +164,11 @@ public class Project : Element, IStorable, ILogicalElement, IWorkspace
         }
     }
 
-    public override JsonNode ToJson()
+    public override void WriteToJson(ref JsonNode json)
     {
-        JsonNode node = base.ToJson();
+        base.WriteToJson(ref json);
 
-        if (node is JsonObject jobject)
+        if (json is JsonObject jobject)
         {
             jobject["appVersion"] = JsonValue.Create(AppVersion);
             jobject["minAppVersion"] = JsonValue.Create(MinAppVersion);
@@ -205,8 +191,6 @@ public class Project : Element, IStorable, ILogicalElement, IWorkspace
 
             jobject["variables"] = variables;
         }
-
-        return node;
     }
 
     private void Items_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)

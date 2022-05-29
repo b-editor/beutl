@@ -94,7 +94,7 @@ public class PropertyInstance<T> : IPropertyInstance
     public event EventHandler<LogicalTreeAttachmentEventArgs>? AttachedToLogicalTree;
     public event EventHandler<LogicalTreeAttachmentEventArgs>? DetachedFromLogicalTree;
 
-    public virtual void FromJson(JsonNode json)
+    public virtual void ReadFromJson(JsonNode json)
     {
         T? value = JsonSerializer.Deserialize<T>(json, JsonHelper.SerializerOptions);
         if (value != null)
@@ -111,9 +111,9 @@ public class PropertyInstance<T> : IPropertyInstance
         }
     }
 
-    public virtual JsonNode ToJson()
+    public virtual void WriteToJson(ref JsonNode json)
     {
-        return JsonSerializer.SerializeToNode(Value, JsonHelper.SerializerOptions)!;
+        json = JsonSerializer.SerializeToNode(Value, JsonHelper.SerializerOptions)!;
     }
 
     public ISubject<T?> GetSubject()
