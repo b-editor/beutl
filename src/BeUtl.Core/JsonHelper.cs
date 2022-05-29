@@ -53,4 +53,34 @@ public static class JsonHelper
         using var stream = new FileStream(filename, FileMode.Open, FileAccess.Read, FileShare.Read);
         return JsonNode.Parse(stream);
     }
+
+
+    private static Dictionary<string, object> ParseJson(string json)
+    {
+        Dictionary<string, JsonElement> dic = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(json)!;
+
+        return dic.ToDictionary(x => x.Key, x => ParseJsonElement(x.Value)!);
+    }
+
+    private static object? ParseJsonElement(JsonElement elem)
+    {
+        return elem.ValueKind switch
+        {
+            JsonValueKind.String => elem.GetString(),
+            JsonValueKind.Number => elem.GetDouble(),
+            JsonValueKind.False => false,
+            JsonValueKind.True => true,
+            JsonValueKind.Array => elem.EnumerateArray().Select(e => ParseJsonElement(e)).ToArray(),
+            JsonValueKind.Null => null,
+            JsonValueKind.Object => ParseJson(elem.GetRawText()),
+            _ => throw new NotSupportedException(),
+        };
+    }
+
+    public static Dictionary<string, object> ToDictionary(this JsonNode json)
+    {
+        Dictionary<string, JsonElement> dic = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(json)!;
+
+        return dic.ToDictionary(x => x.Key, x => ParseJsonElement(x.Value)!);
+    }
 }
