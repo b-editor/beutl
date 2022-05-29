@@ -4,6 +4,7 @@ using System.Reactive.Linq;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 
+using BeUtl.Framework.Service;
 using BeUtl.Language;
 
 using Firebase.Auth;
@@ -14,12 +15,15 @@ using Microsoft.Extensions.DependencyInjection;
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 
+using S = BeUtl.Language.StringResources;
+
 namespace BeUtl.ViewModels.SettingsPages;
 
 public sealed class AccountSettingsPageViewModel : IDisposable
 {
     private readonly CompositeDisposable _disposables = new();
     private readonly HttpClient _httpClient = ServiceLocator.Current.GetRequiredService<HttpClient>();
+    private readonly INotificationService _notification = ServiceLocator.Current.GetRequiredService<INotificationService>();
 
     public AccountSettingsPageViewModel()
     {
@@ -33,6 +37,9 @@ public sealed class AccountSettingsPageViewModel : IDisposable
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
         HasProfileImage = User.Select(u => u?.Info?.PhotoUrl != null)
+            .ToReadOnlyReactivePropertySlim()
+            .AddTo(_disposables);
+        SignInWithGoogle = User.Select(u => u?.Credential?.ProviderType == FirebaseProviderType.Google)
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
 
@@ -82,7 +89,21 @@ public sealed class AccountSettingsPageViewModel : IDisposable
         {
             if (user != null)
             {
-                await user.DeleteAsync();
+                try
+                {
+                    await user.DeleteAsync();
+                    _notification.Show(new Notification(
+                        string.Empty,
+                        S.Message.YourAccountHasBeenDeleted,
+                        NotificationType.Success));
+                }
+                catch
+                {
+                    _notification.Show(new Notification(
+                        string.Empty,
+                        S.Message.OperationCouldNotBeExecuted,
+                        NotificationType.Warning));
+                }
             }
         }).AddTo(_disposables);
 
@@ -100,6 +121,10 @@ public sealed class AccountSettingsPageViewModel : IDisposable
                     Password.Value = "";
                     NewPassword.Value = "";
                     ChangePasswordError.Value = "";
+                    _notification.Show(new Notification(
+                        string.Empty,
+                        S.Message.PasswordHasBeenChanged,
+                        NotificationType.Success));
                 }
                 catch (FirebaseAuthException ex)
                 {
@@ -123,22 +148,24 @@ public sealed class AccountSettingsPageViewModel : IDisposable
 
     public ReadOnlyReactivePropertySlim<bool> HasProfileImage { get; }
 
+    public ReadOnlyReactivePropertySlim<bool> SignInWithGoogle { get; }
+
     public ReactiveCommand SignOut { get; }
 
     public ReactiveProperty<string> DisplayNameInput { get; } = new();
 
     public AsyncReactiveCommand ChangeDisplayName { get; }
-    
+
     public ReactiveCommand<User> DeleteAccount { get; }
 
     public ReactivePropertySlim<string> Password { get; } = new();
-    
+
     public ReactivePropertySlim<string> NewPassword { get; } = new();
-    
+
     public ReactivePropertySlim<string> ChangePasswordError { get; } = new();
-    
+
     public ReactivePropertySlim<bool> ChangePasswordInProgress { get; } = new();
-    
+
     public ReactiveCommand ChangePassword { get; }
 
     public void Dispose()

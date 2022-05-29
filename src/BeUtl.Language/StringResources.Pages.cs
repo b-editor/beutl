@@ -185,6 +185,8 @@ public static partial class StringResources
         public static string ChangePassword => "S.AccountSettingsPage.ChangePassword".GetStringResource("Change password");
         //S.AccountSettingsPage.NewPassword
         public static string NewPassword => "S.AccountSettingsPage.NewPassword".GetStringResource("New password");
+        //S.AccountSettingsPage.YourEmailAddressHasBeenVerified
+        public static string YourEmailAddressHasBeenVerified => "S.AccountSettingsPage.YourEmailAddressHasBeenVerified".GetStringResource("Your email address has been verified.");
 
         //S.AccountSettingsPage.SignOut
         private static IObservable<string>? s_signOut;
@@ -204,6 +206,9 @@ public static partial class StringResources
         //S.AccountSettingsPage.NewPassword
         private static IObservable<string>? s_newPassword;
         public static IObservable<string> NewPasswordObservable => s_newPassword ??= "S.AccountSettingsPage.NewPassword".GetStringObservable(StringResources.AccountSettingsPage.NewPassword);
+        //S.AccountSettingsPage.YourEmailAddressHasBeenVerified
+        private static IObservable<string>? s_yourEmailAddressHasBeenVerified;
+        public static IObservable<string> YourEmailAddressHasBeenVerifiedObservable => s_yourEmailAddressHasBeenVerified ??= "S.AccountSettingsPage.YourEmailAddressHasBeenVerified".GetStringObservable(StringResources.AccountSettingsPage.YourEmailAddressHasBeenVerified);
 
         public static class Dialog1
         {

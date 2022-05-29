@@ -36,6 +36,10 @@ public static partial class StringResources
         public static string DoYouWantToAddThisItemToCurrentProject => "S.Message.DoYouWantToAddThisItemToCurrentProject".GetStringResource("Do you want to add this item to current project?");
         //S.Message.RememberThisChoice
         public static string RememberThisChoice => "S.Message.RememberThisChoice".GetStringResource("Remember this choice");
+        //S.Message.YourAccountHasBeenDeleted
+        public static string YourAccountHasBeenDeleted => "S.Message.YourAccountHasBeenDeleted".GetStringResource("Your account has been deleted.");
+        //S.Message.PasswordHasBeenChanged
+        public static string PasswordHasBeenChanged => "S.Message.PasswordHasBeenChanged".GetStringResource("Password has been changed.");
 
         //S.Message.ItemsSaved
         private static IObservable<string>? s_itemsSaved;
@@ -82,5 +86,11 @@ public static partial class StringResources
         //S.Message.RememberThisChoice
         private static IObservable<string>? s_rememberThisChoice;
         public static IObservable<string> RememberThisChoiceObservable => s_rememberThisChoice ??= "S.Message.RememberThisChoice".GetStringObservable(StringResources.Message.RememberThisChoice);
+        //S.Message.YourAccountHasBeenDeleted
+        private static IObservable<string>? s_yourAccountHasBeenDeleted;
+        public static IObservable<string> YourAccountHasBeenDeletedObservable => s_yourAccountHasBeenDeleted ??= "S.Message.YourAccountHasBeenDeleted".GetStringObservable(StringResources.Message.YourAccountHasBeenDeleted);
+        //S.Message.PasswordHasBeenChanged
+        private static IObservable<string>? s_passwordHasBeenChanged;
+        public static IObservable<string> PasswordHasBeenChangedObservable => s_passwordHasBeenChanged ??= "S.Message.PasswordHasBeenChanged".GetStringObservable(StringResources.Message.PasswordHasBeenChanged);
     }
 }

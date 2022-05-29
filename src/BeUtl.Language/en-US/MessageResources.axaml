@@ -1,4 +1,4 @@
-﻿<Styles xmlns="https://github.com/avaloniaui"
+<Styles xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <Styles.Resources>
         <x:String x:Key="S.Message.ItemsSaved">{0} items saved!</x:String>
@@ -19,5 +19,7 @@
         <x:String x:Key="S.Message.NullWasSpecifiedForEditorContext">Null was specified for the editor context.</x:String>
         <x:String x:Key="S.Message.DoYouWantToAddThisItemToCurrentProject">Do you want to add this item to current project?</x:String>
         <x:String x:Key="S.Message.RememberThisChoice">Remember this choice</x:String>
+        <x:String x:Key="S.Message.YourAccountHasBeenDeleted">Your account has been deleted.</x:String>
+        <x:String x:Key="S.Message.PasswordHasBeenChanged">Password has been changed.</x:String>
     </Styles.Resources>
 </Styles>

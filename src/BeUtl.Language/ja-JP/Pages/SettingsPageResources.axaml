@@ -42,6 +42,7 @@
         <x:String x:Key="S.AccountSettingsPage.DeleteAccount">アカウントを削除</x:String>
         <x:String x:Key="S.AccountSettingsPage.ChangePassword">パスワードを変更</x:String>
         <x:String x:Key="S.AccountSettingsPage.NewPassword">新しいパスワード</x:String>
+        <x:String x:Key="S.AccountSettingsPage.YourEmailAddressHasBeenVerified">メールアドレスが認証されています</x:String>
         <x:String x:Key="S.AccountSettingsPage.Dialog1.Title">アカウントを削除しますか？</x:String>
         <x:String x:Key="S.AccountSettingsPage.Dialog1.Content">
 '{0}' のアカウントを削除します。

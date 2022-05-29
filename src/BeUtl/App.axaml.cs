@@ -99,14 +99,14 @@ public class App : Application
             },
             PrivacyPolicyUrl = "https://github.com/b-editor/BeUtl",
             TermsOfServiceUrl = "https://github.com/b-editor/BeUtl",
-            IsAnonymousAllowed = true,
-            AutoUpgradeAnonymousUsers = true,
+            IsAnonymousAllowed = false,
+            AutoUpgradeAnonymousUsers = false,
             UserRepository = new FileUserRepository("beutl"),
             // Func called when upgrade of anonymous user fails because the user already exists
             // You should grab any data created under your anonymous user, sign in with the pending credential
             // and copy the existing data to the new user
             // see details here: https://github.com/firebase/firebaseui-web#upgrading-anonymous-users
-            AnonymousUpgradeConflict = conflict => conflict.SignInWithPendingCredentialAsync(true)
+            //AnonymousUpgradeConflict = conflict => conflict.SignInWithPendingCredentialAsync(true)
         });
     }
 
