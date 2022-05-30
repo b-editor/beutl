@@ -25,6 +25,8 @@ public static partial class StringResources
         public static string Extensions => StringResources.Common.Extensions;
         //S.SettingsPage.Info
         public static string Info => StringResources.Common.Info;
+        //S.SettingsPage.Backup
+        public static string Backup => StringResources.Common.Backup;
 
         //S.SettingsPage.View
         public static IObservable<string> ViewObservable => StringResources.Common.ViewObservable;
@@ -34,6 +36,8 @@ public static partial class StringResources
         public static IObservable<string> ExtensionsObservable => StringResources.Common.ExtensionsObservable;
         //S.SettingsPage.Info
         public static IObservable<string> InfoObservable => StringResources.Common.InfoObservable;
+        //S.SettingsPage.Backup
+        public static IObservable<string> BackupObservable => StringResources.Common.BackupObservable;
     }
 
     public static class FontSettingsPage
@@ -232,5 +236,15 @@ public static partial class StringResources
             //S.AccountSettingsPage.Dialog1.No
             public static IObservable<string> NoObservable => StringResources.Common.NoObservable;
         }
+    }
+
+    public static class BackupSettingsPage
+    {
+        //S.BackupSettingsPage.BackupSettings
+        public static string BackupSettings => "S.BackupSettingsPage.BackupSettings".GetStringResource("Back up settings");
+
+        //S.BackupSettingsPage.BackupSettings
+        private static IObservable<string>? s_backupSettings;
+        public static IObservable<string> BackupSettingsObservable => s_backupSettings ??= "S.BackupSettingsPage.BackupSettings".GetStringObservable(StringResources.BackupSettingsPage.BackupSettings);
     }
 }

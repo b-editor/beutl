@@ -69,6 +69,15 @@ public partial class SettingsPage : UserControl
             },
             new NavigationViewItem()
             {
+                [!ContentProperty] = new DynamicResourceExtension("S.SettingsPage.Backup"),
+                Tag = typeof(BackupSettingsPage),
+                Icon = new SymbolIcon
+                {
+                    Symbol = Symbol.CloudBackup
+                }
+            },
+            new NavigationViewItem()
+            {
                 [!ContentProperty] = new DynamicResourceExtension("S.SettingsPage.Info"),
                 Tag = typeof(InfomationPage),
                 Icon = new FluentAvalonia.UI.Controls.PathIcon

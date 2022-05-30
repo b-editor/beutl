@@ -137,6 +137,7 @@
         <x:String x:Key="S.Common.No">No</x:String>
         <x:String x:Key="S.Common.Account">Account</x:String>
         <x:String x:Key="S.Common.Password">Password</x:String>
+        <x:String x:Key="S.Common.Backup">Backup</x:String>
     </Styles.Resources>
 
     <!--Views-->

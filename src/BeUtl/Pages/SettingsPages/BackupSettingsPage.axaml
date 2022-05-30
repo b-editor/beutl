@@ -1,0 +1,30 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             xmlns:ctrls="using:BeUtl.Controls"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:vm="using:BeUtl.ViewModels.SettingsPages"
+             x:DataType="vm:BackupSettingsPageViewModel"
+             x:Class="BeUtl.Pages.SettingsPages.BackupSettingsPage">
+    <UserControl.DataContext>
+        <vm:BackupSettingsPageViewModel />
+    </UserControl.DataContext>
+    <ScrollViewer Padding="18">
+        <StackPanel Orientation="Vertical"
+                    VerticalAlignment="Stretch"
+                    Margin="10,0"
+                    Spacing="8">
+            <ctrls:OptionsDisplayItem Header="{DynamicResource S.BackupSettingsPage.BackupSettings}">
+                <ctrls:OptionsDisplayItem.Icon>
+                    <ui:SymbolIcon Symbol="CloudBackup" />
+                </ctrls:OptionsDisplayItem.Icon>
+
+                <ctrls:OptionsDisplayItem.ActionButton>
+                    <ToggleSwitch IsChecked="{CompiledBinding BackupSettings.Value}" Margin="0,0,-72,0" />
+                </ctrls:OptionsDisplayItem.ActionButton>
+            </ctrls:OptionsDisplayItem>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

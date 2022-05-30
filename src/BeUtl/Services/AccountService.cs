@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reactive.Linq;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -44,17 +45,40 @@ public class AccountService
         });
 
         _db = CreateFirestoreDbAuthentication();
-        GlobalConfiguration.Instance.ConfigurationChanged += OnConfigurationChanged;
-        FirebaseUI.Instance.Client.AuthStateChanged += Client_AuthStateChanged;
+        GlobalConfiguration.Instance.ConfigurationChanged += async (_, e) => await PushSettings(e);
+
+        GlobalConfiguration.Instance.BackupConfig
+            .GetObservable(BackupConfig.BackupSettingsProperty)
+            .CombineLatest(FirebaseUI.Instance.Client.GetUserObservable())
+            .Where(t => t.Second != null && t.First)
+            .Subscribe(async _ => await PullAllSettings());
     }
 
-    private void Client_AuthStateChanged(object? sender, UserEventArgs e)
+    public async ValueTask PullSettings(params ConfigurationBase[] configurations)
     {
-        FirebaseUI.Instance.Client.AuthStateChanged -= Client_AuthStateChanged;
-        PullSettings();
+        async ValueTask PullSection(ConfigurationBase config, User user)
+        {
+            DocumentReference docRef = _db.Collection("users").Document($"{user.Uid}/settings/{GetPath(config)}");
+
+            DocumentSnapshot snapshot = await docRef.GetSnapshotAsync();
+            JsonNode? node = JsonSerializer.SerializeToNode(snapshot.ToDictionary());
+
+            if (node != null && config != null)
+            {
+                config.ReadFromJson(node);
+            }
+        }
+
+        if (GetUser() is User user)
+        {
+            foreach (ConfigurationBase item in configurations)
+            {
+                await PullSection(item, user);
+            }
+        }
     }
 
-    public async void PullSettings()
+    public async ValueTask PullAllSettings()
     {
         if (GetUser() is User user)
         {
@@ -73,17 +97,25 @@ public class AccountService
         }
     }
 
-    private async void OnConfigurationChanged(object? sender, ConfigurationBase e)
+    public async ValueTask PushSettings(params ConfigurationBase[] configurations)
     {
-        if (GetUser() is User user)
+        async ValueTask PushSection(ConfigurationBase config, User user)
         {
-            DocumentReference docRef = _db.Collection("users").Document($"{user.Uid}/settings/{GetPath(e)}");
+            DocumentReference docRef = _db.Collection("users").Document($"{user.Uid}/settings/{GetPath(config)}");
 
             JsonNode json = new JsonObject();
-            e.WriteToJson(ref json);
+            config.WriteToJson(ref json);
             Dictionary<string, object> dictionary = json.ToDictionary();
 
             await docRef.SetAsync(dictionary);
+        }
+
+        if (GetUser() is User user && GlobalConfiguration.Instance.BackupConfig.BackupSettings)
+        {
+            foreach (ConfigurationBase config in configurations)
+            {
+                await PushSection(config, user);
+            }
         }
     }
 
@@ -118,12 +150,7 @@ public class AccountService
 
     private static FirestoreDb CreateFirestoreDbAuthentication()
     {
-        // Create a custom authentication mechanism for Email/Password authentication
-        // If the authentication is successful, we will get back the current authentication token and the refresh token
-        // The authentication expires every hour, so we need to use the obtained refresh token to obtain a new authentication token as the previous one expires
-        //var authProvider = new FirebaseAuthProvider(new FirebaseConfig(firebaseApiKey));
-        //var auth = authProvider.SignInWithEmailAndPasswordAsync(emailAddress, password).Result;
-        var callCredentials = CallCredentials.FromInterceptor(async (context, metadata) =>
+        var callCredentials = CallCredentials.FromInterceptor(async (_, metadata) =>
         {
             User? user = FirebaseUI.Instance.Client.User;
             if (user != null)
