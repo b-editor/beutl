@@ -14,6 +14,7 @@ using Firebase.Auth;
 using Firebase.Auth.Providers;
 using Firebase.Auth.Repository;
 using Firebase.Auth.UI;
+using Firebase.Storage;
 
 using Google.Cloud.Firestore;
 using Google.Cloud.Firestore.V1;
@@ -25,6 +26,7 @@ namespace BeUtl.Services;
 public class AccountService
 {
     private readonly FirestoreDb _db;
+    private readonly FirebaseStorage _storage;
 
     public AccountService()
     {
@@ -45,6 +47,13 @@ public class AccountService
         });
 
         _db = CreateFirestoreDbAuthentication();
+        _storage = new FirebaseStorage(
+            "beutl-458eb.appspot.com",
+            new FirebaseStorageOptions
+            {
+                AuthTokenAsyncFactory = () => FirebaseUI.Instance.Client.User.GetIdTokenAsync(),
+            });
+
         GlobalConfiguration.Instance.ConfigurationChanged += async (_, e) => await PushSettings(e);
 
         GlobalConfiguration.Instance.BackupConfig
@@ -52,6 +61,27 @@ public class AccountService
             .CombineLatest(FirebaseUI.Instance.Client.GetUserObservable())
             .Where(t => t.Second != null && t.First)
             .Subscribe(async _ => await PullAllSettings());
+    }
+
+    public async ValueTask DeleteAccount(User user)
+    {
+        DocumentReference docRef = _db.Collection("users").Document($"{user.Uid}");
+        await docRef.DeleteAsync();
+
+        await _storage.Child($"users/{user.Uid}").DeleteAsync();
+
+        await user.DeleteAsync();
+    }
+
+    public async ValueTask UploadProfileImage(User user, Stream stream)
+    {
+        string downloadLink = await _storage
+            .Child("users")
+            .Child(user.Uid)
+            .Child("profile.jpg")
+            .PutAsync(stream, default, mimeType: "image/jpeg");
+
+        await user.ChangePhotoUrlAsync(downloadLink);
     }
 
     public async ValueTask PullSettings(params ConfigurationBase[] configurations)

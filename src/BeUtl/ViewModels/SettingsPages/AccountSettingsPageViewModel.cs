@@ -1,11 +1,14 @@
 ﻿using System.Reactive.Disposables;
 using System.Reactive.Linq;
 
+using Avalonia;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
+using Avalonia.Skia;
 
 using BeUtl.Framework.Service;
 using BeUtl.Language;
+using BeUtl.Services;
 
 using Firebase.Auth;
 using Firebase.Auth.UI;
@@ -14,6 +17,8 @@ using Microsoft.Extensions.DependencyInjection;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
+
+using SkiaSharp;
 
 using S = BeUtl.Language.StringResources;
 
@@ -24,6 +29,7 @@ public sealed class AccountSettingsPageViewModel : IDisposable
     private readonly CompositeDisposable _disposables = new();
     private readonly HttpClient _httpClient = ServiceLocator.Current.GetRequiredService<HttpClient>();
     private readonly INotificationService _notification = ServiceLocator.Current.GetRequiredService<INotificationService>();
+    private readonly AccountService _accountService = ServiceLocator.Current.GetRequiredService<AccountService>();
 
     public AccountSettingsPageViewModel()
     {
@@ -45,6 +51,37 @@ public sealed class AccountSettingsPageViewModel : IDisposable
 
         SignOut = new(SignedIn);
         SignOut.Subscribe(async () => await FirebaseUI.Instance.Client.SignOutAsync());
+
+        UploadPhotoImage = new(SignedIn);
+        UploadPhotoImage.Subscribe(async path =>
+        {
+            if (User.Value != null)
+            {
+                const int SIZE = 400;
+                var dstBmp = new SKBitmap(SIZE, SIZE, SKColorType.Bgra8888, SKAlphaType.Opaque);
+                using (FileStream stream = File.OpenRead(path))
+                using (var srcBmp = SKBitmap.Decode(stream))
+                using (var canvas = new SKCanvas(dstBmp))
+                {
+                    float x = SIZE / (float)srcBmp.Width;
+                    float y = SIZE / (float)srcBmp.Height;
+                    float w = srcBmp.Width * MathF.Max(x, y);
+                    float h = srcBmp.Height * MathF.Max(x, y);
+                    var rect = new Rect(0, 0, SIZE, SIZE)
+                        .CenterRect(new Rect(0, 0, w, h));
+                    canvas.DrawBitmap(srcBmp, rect.ToSKRect());
+                    canvas.Flush();
+                }
+
+                using var dstStream = new MemoryStream();
+                dstBmp.Encode(dstStream, SKEncodedImageFormat.Jpeg, 100);
+                dstBmp.Dispose();
+                dstStream.Position = 0;
+
+                await _accountService.UploadProfileImage(User.Value, dstStream);
+                User.ForceNotify();
+            }
+        });
 
         User.Subscribe(async user =>
         {
@@ -91,7 +128,7 @@ public sealed class AccountSettingsPageViewModel : IDisposable
             {
                 try
                 {
-                    await user.DeleteAsync();
+                    await _accountService.DeleteAccount(user);
                     _notification.Show(new Notification(
                         string.Empty,
                         S.Message.YourAccountHasBeenDeleted,
@@ -151,6 +188,8 @@ public sealed class AccountSettingsPageViewModel : IDisposable
     public ReadOnlyReactivePropertySlim<bool> SignInWithGoogle { get; }
 
     public ReactiveCommand SignOut { get; }
+
+    public ReactiveCommand<string> UploadPhotoImage { get; }
 
     public ReactiveProperty<string> DisplayNameInput { get; } = new();
 

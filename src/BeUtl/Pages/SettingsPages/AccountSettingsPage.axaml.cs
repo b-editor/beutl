@@ -22,8 +22,28 @@ public sealed partial class AccountSettingsPage : UserControl
         InitializeComponent();
     }
 
-    private void UploadProfileImage_Click(object? sender, RoutedEventArgs e)
+    private async void UploadProfileImage_Click(object? sender, RoutedEventArgs e)
     {
+        if (DataContext is AccountSettingsPageViewModel viewModel
+            && viewModel.User.Value is not null)
+        {
+            Window? window = this.FindLogicalAncestorOfType<Window>();
+            var dialog = new OpenFileDialog
+            {
+                AllowMultiple = false,
+                Filters =
+                {
+                    new FileDialogFilter()
+                    {
+                        Extensions = { "jpg", "jpeg", "png" }
+                    }
+                }
+            };
+            if ((await dialog.ShowAsync(window)) is string[] items && items.Length > 0)
+            {
+                viewModel.UploadPhotoImage.Execute(items[0]);
+            }
+        }
     }
 
     private void DeleteAccount_Click(object? sender, RoutedEventArgs e)
