@@ -65,11 +65,9 @@ public sealed partial class AccountSettingsPage : UserControl
 
     private async void SignInWithGoogleClick(object? sender, RoutedEventArgs e)
     {
-        var flow = new InternalFirebaseUIFlow(this.FindLogicalAncestorOfType<Window>());
-
         try
         {
-            UserCredential userCredential = await FirebaseUI.Instance.SignInAsync(flow, FirebaseProviderType.Google);
+            UserCredential userCredential = await FirebaseUI.Instance.SignInAsync(firebaseControl, FirebaseProviderType.Google);
             _userCredential!.SetResult(userCredential);
             dialog1Google.IsPrimaryButtonEnabled = userCredential != null;
             dialog1GoogleSignIn.IsEnabled = userCredential == null;
@@ -127,30 +125,5 @@ public sealed partial class AccountSettingsPage : UserControl
                 goto Label1;
             }
         }
-    }
-
-    private sealed class InternalFirebaseUIFlow : IFirebaseUIFlow
-    {
-        private readonly Window _window;
-
-        public InternalFirebaseUIFlow(Window window)
-        {
-            _window = window;
-        }
-
-        Task<string> IFirebaseUIFlow.GetRedirectResponseUriAsync(FirebaseProviderType provider, string uri)
-        {
-            string redirectUri = FirebaseUI.Instance.Config.RedirectUri;
-            return WebAuthenticationBroker.AuthenticateAsync(_window, provider, uri, redirectUri);
-        }
-        Task<string> IFirebaseUIFlow.PromptForEmailAsync(string error) => throw new NotImplementedException();
-        Task<EmailUser> IFirebaseUIFlow.PromptForEmailPasswordNameAsync(string email, string error) => throw new NotImplementedException();
-        Task<EmailPasswordResult> IFirebaseUIFlow.PromptForPasswordAsync(string email, bool oauthEmailAttempt, string error) => throw new NotImplementedException();
-        Task<object> IFirebaseUIFlow.PromptForPasswordResetAsync(string email, string error) => throw new NotImplementedException();
-        void IFirebaseUIFlow.Reset()
-        {
-        }
-        Task<bool> IFirebaseUIFlow.ShowEmailProviderConflictAsync(string email, FirebaseProviderType providerType) => throw new NotImplementedException();
-        Task IFirebaseUIFlow.ShowPasswordResetConfirmationAsync(string email) => throw new NotImplementedException();
     }
 }

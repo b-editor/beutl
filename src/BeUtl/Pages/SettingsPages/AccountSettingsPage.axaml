@@ -182,6 +182,7 @@
         </ScrollViewer>
 
         <fau:FirebaseUIControl IsVisible="{CompiledBinding !SignedIn.Value}"
+                               x:Name="firebaseControl"
                                VerticalAlignment="Center"
                                HorizontalAlignment="Center" />
 
