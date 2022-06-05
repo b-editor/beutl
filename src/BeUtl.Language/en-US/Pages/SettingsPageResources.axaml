@@ -51,6 +51,14 @@ This operation cannot be undone.
         </x:String>
         <StaticResource x:Key="S.AccountSettingsPage.Dialog1.Yes" ResourceKey="S.Common.Yes" />
         <StaticResource x:Key="S.AccountSettingsPage.Dialog1.No" ResourceKey="S.Common.No" />
+        <x:String x:Key="S.AccountSettingsPage.WithGoogle">With Google.</x:String>
+        <x:String x:Key="S.AccountSettingsPage.WithPassword">With Password.</x:String>
+        <x:String x:Key="S.AccountSettingsPage.UnlinkFromGoogle">Unlink from Google</x:String>
+        <x:String x:Key="S.AccountSettingsPage.UnlinkFromGoogleBody">
+Unlink from Google.
+If you perform this operation, you will not be able to sign in using your Google account.
+Do you want to remove the linkage?
+        </x:String>
 
         <x:String x:Key="S.BackupSettingsPage.BackupSettings">Back up settings</x:String>
     </Styles.Resources>

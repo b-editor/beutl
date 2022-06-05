@@ -130,7 +130,7 @@
                 </ctrls:OptionsDisplayItem>
 
                 <ctrls:OptionsDisplayItem
-                    IsVisible="{CompiledBinding !SignInWithGoogle.Value}"
+                    IsVisible="{CompiledBinding SignInWithEmail.Value}"
                     x:Name="optionsItem3"
                     Expands="True"
                     Header="{DynamicResource S.AccountSettingsPage.ChangePassword}">
@@ -176,6 +176,20 @@
                         </StackPanel>
                     </ctrls:OptionsDisplayItem.Content>
                 </ctrls:OptionsDisplayItem>
+
+                <ctrls:OptionsDisplayItem
+                    IsVisible="{CompiledBinding SignInWithGoogleAndEmail.Value}"
+                    x:Name="optionsItem4"
+                    NavigationRequested="UnlinkGoogle_Click"
+                    Navigates="True"
+                    Header="{DynamicResource S.AccountSettingsPage.UnlinkFromGoogle}">
+
+                    <ctrls:OptionsDisplayItem.Icon>
+                        <ui:ImageIcon Source="avares://Firebase.Auth.UI.Avalonia/Assets/google.png" Width="16" Height="16" />
+                    </ctrls:OptionsDisplayItem.Icon>
+
+                </ctrls:OptionsDisplayItem>
+
             </StackPanel>
 
             
@@ -190,6 +204,7 @@
         <ui:ContentDialog x:Name="dialog1"
                           Title="{DynamicResource S.AccountSettingsPage.Dialog1.Title}"
                           DefaultButton="Close"
+                          SecondaryButtonText="{DynamicResource S.AccountSettingsPage.WithGoogle}"
                           CloseButtonText="{DynamicResource S.AccountSettingsPage.Dialog1.No}"
                           PrimaryButtonText="{DynamicResource S.AccountSettingsPage.Dialog1.Yes}">
             <StackPanel>
@@ -208,10 +223,11 @@
             </StackPanel>
         </ui:ContentDialog>
 
-        <!--ダイアログ1-->
+        <!--ダイアログ1 Google-->
         <ui:ContentDialog x:Name="dialog1Google"
                           Title="{DynamicResource S.AccountSettingsPage.Dialog1.Title}"
                           DefaultButton="Close"
+                          SecondaryButtonText="{DynamicResource S.AccountSettingsPage.WithPassword}"
                           CloseButtonText="{DynamicResource S.AccountSettingsPage.Dialog1.No}"
                           PrimaryButtonText="{DynamicResource S.AccountSettingsPage.Dialog1.Yes}">
             <StackPanel>
@@ -221,38 +237,33 @@
                     <ContentControl.Resources>
                         <fauConverter:BackgroundTransparentConverter x:Key="BackgroundTransparentConverter" />
                     </ContentControl.Resources>
-                    <ContentControl.Styles>
-                        <Style Selector="Button">
-                            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
-                            <Setter Property="VerticalAlignment" Value="Center" />
-                            <Setter Property="BorderBrush" Value="Transparent" />
-                            <Setter Property="Margin" Value="25 6" />
-                        </Style>
-
-                        <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-                            <Setter Property="Background" Value="{Binding $parent[Button].Background, Converter={StaticResource BackgroundTransparentConverter}}" />
-                        </Style>
-
-                        <Style Selector="TextBlock">
-                            <Setter Property="Foreground" Value="White" />
-                            <Setter Property="FontSize" Value="14" />
-                            <Setter Property="FontWeight" Value="Medium" />
-                            <Setter Property="VerticalAlignment" Value="Center" />
-                            <Setter Property="Margin" Value="0 0 12 0" />
-                        </Style>
-
-                        <Style Selector="Image">
-                            <Setter Property="Height" Value="20" />
-                            <Setter Property="Width" Value="20" />
-                            <Setter Property="Margin" Value="18 9" />
-                        </Style>
-                    </ContentControl.Styles>
-
                     <Button
                         x:Name="dialog1GoogleSignIn"
                         HorizontalAlignment="Stretch"
+                        HorizontalContentAlignment="Stretch"
+                        VerticalAlignment="Center"
+                        BorderBrush="Transparent"
+                        Margin="25,6"
                         Background="White"
                         Click="SignInWithGoogleClick">
+                        <Button.Styles>
+                            <Style Selector="Button:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+                                <Setter Property="Background" Value="{Binding $parent[Button].Background, Converter={StaticResource BackgroundTransparentConverter}}" />
+                            </Style>
+                            <Style Selector="TextBlock">
+                                <Setter Property="Foreground" Value="White" />
+                                <Setter Property="FontSize" Value="14" />
+                                <Setter Property="FontWeight" Value="Medium" />
+                                <Setter Property="VerticalAlignment" Value="Center" />
+                                <Setter Property="Margin" Value="0 0 12 0" />
+                            </Style>
+
+                            <Style Selector="Image">
+                                <Setter Property="Height" Value="20" />
+                                <Setter Property="Width" Value="20" />
+                                <Setter Property="Margin" Value="18 9" />
+                            </Style>
+                        </Button.Styles>
 
                         <StackPanel Orientation="Horizontal">
                             <Image Source="avares://Firebase.Auth.UI.Avalonia/Assets/google.png" />

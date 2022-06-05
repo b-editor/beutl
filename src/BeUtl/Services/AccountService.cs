@@ -44,6 +44,7 @@ public class AccountService
             IsAnonymousAllowed = false,
             AutoUpgradeAnonymousUsers = false,
             UserRepository = new FileUserRepository("beutl"),
+            AnonymousUpgradeConflict = conflict => conflict.SignInWithPendingCredentialAsync(true)
         });
 
         _db = CreateFirestoreDbAuthentication();

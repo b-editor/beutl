@@ -51,12 +51,12 @@ public sealed partial class AccountSettingsPage : UserControl
         if (DataContext is AccountSettingsPageViewModel viewModel
             && viewModel.User.Value is User user)
         {
-            switch (viewModel.SignInWithGoogle.Value)
+            switch ((viewModel.SignInWithGoogle.Value, viewModel.SignInWithEmail.Value))
             {
-                case true:
+                case (true, _):
                     DeleteAccountGoogle(viewModel, user);
                     break;
-                default:
+                case (_, true):
                     DeleteAccountEmail(viewModel, user);
                     break;
             }
@@ -90,19 +90,26 @@ public sealed partial class AccountSettingsPage : UserControl
         _userCredential = new TaskCompletionSource<UserCredential?>();
         Task<ContentDialogResult> showDialogTask = dialog1Google.ShowAsync();
 
-        if (await showDialogTask == ContentDialogResult.Primary)
+        switch (await showDialogTask)
         {
-            try
-            {
-                UserCredential credential = _userCredential.Task.Result!;
-                viewModel.DeleteAccount.Execute(credential.User);
-            }
-            catch (FirebaseAuthException ex)
-            {
-                dialog1Error.Text = FirebaseErrorLookup.LookupError(ex);
-                dialog1Error.Opacity = 1;
-                goto Label1;
-            }
+            case ContentDialogResult.None:
+                break;
+            case ContentDialogResult.Primary:
+                try
+                {
+                    UserCredential credential = _userCredential.Task.Result!;
+                    viewModel.DeleteAccount.Execute(credential.User);
+                }
+                catch (FirebaseAuthException ex)
+                {
+                    dialog1Error.Text = FirebaseErrorLookup.LookupError(ex);
+                    dialog1Error.Opacity = 1;
+                    goto Label1;
+                }
+                break;
+            case ContentDialogResult.Secondary:
+                DeleteAccountEmail(viewModel, user);
+                break;
         }
     }
 
@@ -111,18 +118,44 @@ public sealed partial class AccountSettingsPage : UserControl
         dialog1Text.Text = string.Format(S.AccountSettingsPage.Dialog1.Content, user.Info.Email);
 
     Label1:
-        if (await dialog1.ShowAsync() == ContentDialogResult.Primary)
+        switch (await dialog1.ShowAsync())
         {
-            try
+            case ContentDialogResult.None:
+                break;
+            case ContentDialogResult.Primary:
+                try
+                {
+                    UserCredential credential = await FirebaseUI.Instance.Client.SignInWithEmailAndPasswordAsync(user.Info.Email, dialog1Password.Text);
+                    viewModel.DeleteAccount.Execute(credential.User);
+                }
+                catch (FirebaseAuthException ex)
+                {
+                    dialog1Error.Text = FirebaseErrorLookup.LookupError(ex);
+                    dialog1Error.Opacity = 1;
+                    goto Label1;
+                }
+                break;
+            case ContentDialogResult.Secondary:
+                DeleteAccountGoogle(viewModel, user);
+                break;
+        }
+    }
+
+    private async void UnlinkGoogle_Click(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is AccountSettingsPageViewModel viewModel
+            && viewModel.User.Value is User user)
+        {
+            var dialog = new ContentDialog
             {
-                UserCredential credential = await FirebaseUI.Instance.Client.SignInWithEmailAndPasswordAsync(user.Info.Email, dialog1Password.Text);
-                viewModel.DeleteAccount.Execute(credential.User);
-            }
-            catch (FirebaseAuthException ex)
+                Title = S.AccountSettingsPage.UnlinkFromGoogle,
+                Content = S.AccountSettingsPage.UnlinkFromGoogleBody,
+                CloseButtonText = S.Common.No,
+                PrimaryButtonText = S.Common.Yes,
+            };
+            if (await dialog.ShowAsync() == ContentDialogResult.Primary)
             {
-                dialog1Error.Text = FirebaseErrorLookup.LookupError(ex);
-                dialog1Error.Opacity = 1;
-                goto Label1;
+                viewModel.UnlinkFromGoogle.Execute(user);
             }
         }
     }

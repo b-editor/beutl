@@ -191,6 +191,14 @@ public static partial class StringResources
         public static string NewPassword => "S.AccountSettingsPage.NewPassword".GetStringResource("New password");
         //S.AccountSettingsPage.YourEmailAddressHasBeenVerified
         public static string YourEmailAddressHasBeenVerified => "S.AccountSettingsPage.YourEmailAddressHasBeenVerified".GetStringResource("Your email address has been verified.");
+        //S.AccountSettingsPage.WithGoogle
+        public static string WithGoogle => "S.AccountSettingsPage.WithGoogle".GetStringResource("With Google.");
+        //S.AccountSettingsPage.WithPassword
+        public static string WithPassword => "S.AccountSettingsPage.WithPassword".GetStringResource("With Password.");
+        //S.AccountSettingsPage.UnlinkFromGoogle
+        public static string UnlinkFromGoogle => "S.AccountSettingsPage.UnlinkFromGoogle".GetStringResource("Unlink from Google");
+        //S.AccountSettingsPage.UnlinkFromGoogleBody
+        public static string UnlinkFromGoogleBody => "S.AccountSettingsPage.UnlinkFromGoogleBody".GetStringResource("Unlink from Google.\nIf you perform this operation, you will not be able to sign in using your Google account.\nDo you want to remove the linkage?");
 
         //S.AccountSettingsPage.SignOut
         private static IObservable<string>? s_signOut;
@@ -213,6 +221,18 @@ public static partial class StringResources
         //S.AccountSettingsPage.YourEmailAddressHasBeenVerified
         private static IObservable<string>? s_yourEmailAddressHasBeenVerified;
         public static IObservable<string> YourEmailAddressHasBeenVerifiedObservable => s_yourEmailAddressHasBeenVerified ??= "S.AccountSettingsPage.YourEmailAddressHasBeenVerified".GetStringObservable(StringResources.AccountSettingsPage.YourEmailAddressHasBeenVerified);
+        //S.AccountSettingsPage.WithGoogle
+        private static IObservable<string>? s_withGoogle;
+        public static IObservable<string> WithGoogleObservable => s_withGoogle ??= "S.AccountSettingsPage.WithGoogle".GetStringObservable(StringResources.AccountSettingsPage.WithGoogle);
+        //S.AccountSettingsPage.WithPassword
+        private static IObservable<string>? s_withPassword;
+        public static IObservable<string> WithPasswordObservable => s_withPassword ??= "S.AccountSettingsPage.WithPassword".GetStringObservable(StringResources.AccountSettingsPage.WithPassword);
+        //S.AccountSettingsPage.UnlinkFromGoogle
+        private static IObservable<string>? s_unlinkFromGoogle;
+        public static IObservable<string> UnlinkFromGoogleObservable => s_unlinkFromGoogle ??= "S.AccountSettingsPage.UnlinkFromGoogle".GetStringObservable(StringResources.AccountSettingsPage.UnlinkFromGoogle);
+        //S.AccountSettingsPage.UnlinkFromGoogleBody
+        private static IObservable<string>? s_unlinkFromGoogleBody;
+        public static IObservable<string> UnlinkFromGoogleBodyObservable => s_unlinkFromGoogleBody ??= "S.AccountSettingsPage.UnlinkFromGoogleBody".GetStringObservable(StringResources.AccountSettingsPage.UnlinkFromGoogleBody);
 
         public static class Dialog1
         {

@@ -11,6 +11,7 @@ using BeUtl.Language;
 using BeUtl.Services;
 
 using Firebase.Auth;
+using Firebase.Auth.Providers;
 using Firebase.Auth.UI;
 
 using Microsoft.Extensions.DependencyInjection;
@@ -45,7 +46,21 @@ public sealed class AccountSettingsPageViewModel : IDisposable
         HasProfileImage = User.Select(u => u?.Info?.PhotoUrl != null)
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
-        SignInWithGoogle = User.Select(u => u?.Credential?.ProviderType == FirebaseProviderType.Google)
+
+        IObservable<FetchUserProvidersResult?> fetchProviders = User.SelectMany(u => u == null
+            ? Task.FromResult((FetchUserProvidersResult?)null)
+            : FirebaseUI.Instance.Client.FetchSignInMethodsForEmailAsync(u.Info.Email));
+        SignInWithGoogle = fetchProviders
+            .Select(r => r?.SignInProviders.Contains(FirebaseProviderType.Google) ?? false)
+            .ToReadOnlyReactivePropertySlim()
+            .AddTo(_disposables);
+        SignInWithEmail = fetchProviders
+            .Select(r => r?.SignInProviders.Contains(FirebaseProviderType.EmailAndPassword) ?? false)
+            .ToReadOnlyReactivePropertySlim()
+            .AddTo(_disposables);
+        SignInWithGoogleAndEmail = SignInWithEmail
+            .CombineLatest(SignInWithGoogle)
+            .Select(t => t.First && t.Second)
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
 
@@ -173,6 +188,33 @@ public sealed class AccountSettingsPageViewModel : IDisposable
                 }
             }
         }).AddTo(_disposables);
+
+        UnlinkFromGoogle = new ReactiveCommand();
+        UnlinkFromGoogle.Subscribe(async () =>
+        {
+            User? user = User.Value;
+            if (user != null)
+            {
+                try
+                {
+                    await user.UnlinkAsync(FirebaseProviderType.Google);
+
+                    _notification.Show(new Notification(
+                        string.Empty,
+                        S.Message.PasswordHasBeenChanged,
+                        NotificationType.Success));
+
+                    User.ForceNotify();
+                }
+                catch (FirebaseAuthHttpException ex)
+                {
+                    _notification.Show(new Notification(
+                        string.Empty,
+                        FirebaseErrorLookup.LookupError(ex),
+                        NotificationType.Error));
+                }
+            }
+        }).AddTo(_disposables);
     }
 
     public ReactiveProperty<User?> User { get; }
@@ -186,6 +228,10 @@ public sealed class AccountSettingsPageViewModel : IDisposable
     public ReadOnlyReactivePropertySlim<bool> HasProfileImage { get; }
 
     public ReadOnlyReactivePropertySlim<bool> SignInWithGoogle { get; }
+
+    public ReadOnlyReactivePropertySlim<bool> SignInWithEmail { get; }
+
+    public ReadOnlyReactivePropertySlim<bool> SignInWithGoogleAndEmail { get; }
 
     public ReactiveCommand SignOut { get; }
 
@@ -206,6 +252,8 @@ public sealed class AccountSettingsPageViewModel : IDisposable
     public ReactivePropertySlim<bool> ChangePasswordInProgress { get; } = new();
 
     public ReactiveCommand ChangePassword { get; }
+
+    public ReactiveCommand UnlinkFromGoogle { get; }
 
     public void Dispose()
     {
