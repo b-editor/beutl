@@ -2,6 +2,7 @@
 using System.Reactive.Linq;
 
 using Avalonia;
+using Avalonia.Media;
 
 using BeUtl.Commands;
 using BeUtl.ProjectSystem;
@@ -65,7 +66,7 @@ public sealed class LayerHeaderViewModel : IDisposable
 
     public ReactivePropertySlim<double> PosY { get; } = new();
 
-    public ReactiveProperty<Color2> Color { get; } = new();
+    public ReactiveProperty<Color> Color { get; } = new();
 
     public ReactiveProperty<string> Name { get; } = new();
 

@@ -334,7 +334,7 @@ Error:
         {
             var dialog = new OpenFileDialog
             {
-                Filters =
+                Filters = new()
                 {
                     new FileDialogFilter
                     {
@@ -368,8 +368,8 @@ Error:
             {
                 AllowMultiple = true,
             };
-
-            dialog.Filters.AddRange(PackageManager.Instance.ExtensionProvider.AllExtensions
+            List<FileDialogFilter> filters = dialog.Filters ??= new List<FileDialogFilter>();
+            filters.AddRange(PackageManager.Instance.ExtensionProvider.AllExtensions
                 .OfType<EditorExtension>()
                 .Select(e => new FileDialogFilter()
                 {

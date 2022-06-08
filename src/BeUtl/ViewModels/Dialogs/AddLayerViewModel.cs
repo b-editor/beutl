@@ -9,6 +9,7 @@ using FluentAvalonia.UI.Media;
 using Reactive.Bindings;
 
 using S = BeUtl.Language.StringResources;
+using AColor = Avalonia.Media.Color;
 
 namespace BeUtl.ViewModels.Dialogs;
 
@@ -97,7 +98,7 @@ public sealed class AddLayerViewModel
 
     public ReactivePropertySlim<string> Name { get; } = new();
 
-    public ReactivePropertySlim<Color2> Color { get; } = new();
+    public ReactivePropertySlim<AColor> Color { get; } = new();
 
     public ReactiveProperty<TimeSpan> Start { get; } = new();
 

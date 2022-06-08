@@ -1,4 +1,4 @@
-using Avalonia.Controls;
+﻿using Avalonia.Controls;
 
 using BeUtl.ViewModels.Editors;
 
@@ -11,14 +11,15 @@ public sealed partial class ColorEditor : UserControl
     public ColorEditor()
     {
         InitializeComponent();
-        colorPicker.ColorChanged += ColorPicker_ColorChanged;
+        colorPicker.FlyoutConfirmed += ColorPicker_ColorChanged;
     }
 
-    private void ColorPicker_ColorChanged(ColorPickerButton sender, ColorChangedEventArgs e)
+    private void ColorPicker_ColorChanged(ColorPickerButton sender, ColorButtonColorChangedEventArgs e)
     {
-        if (DataContext is ColorEditorViewModel vm)
+        Avalonia.Media.Color? newColor = e.NewColor;
+        if (DataContext is ColorEditorViewModel vm && newColor.HasValue)
         {
-            vm.SetValue(vm.Setter.Value, ((Avalonia.Media.Color)e.NewColor).ToMedia());
+            vm.SetValue(vm.Setter.Value, newColor.Value.ToMedia());
         }
     }
 }

@@ -45,10 +45,6 @@ public class TimelineLayerViewModel : IDisposable
 
         Color = sceneLayer.GetSubject(Layer.AccentColorProperty)
             .Select(c => c.ToAvalonia())
-            .ToReadOnlyReactivePropertySlim()
-            .AddTo(_disposables);
-
-        ColorSetter = Color.Select(i => (FluentAvalonia.UI.Media.Color2)i)
             .ToReactiveProperty()
             .AddTo(_disposables);
 
@@ -96,7 +92,7 @@ public class TimelineLayerViewModel : IDisposable
             }
         });
 
-        ColorSetter.Subscribe(c => Model.AccentColor = Media.Color.FromArgb(c.A, c.R, c.G, c.B))
+        Color.Subscribe(c => Model.AccentColor = Media.Color.FromArgb(c.A, c.R, c.G, c.B))
             .AddTo(_disposables);
 
         zIndexSubject.Subscribe(number =>
@@ -131,9 +127,7 @@ public class TimelineLayerViewModel : IDisposable
 
     public ReactiveProperty<double> Width { get; }
 
-    public ReadOnlyReactivePropertySlim<Avalonia.Media.Color> Color { get; }
-
-    public ReactiveProperty<FluentAvalonia.UI.Media.Color2> ColorSetter { get; }
+    public ReactiveProperty<Avalonia.Media.Color> Color { get; }
 
     public ReactiveCommand<Func<TimeSpan>?> Split { get; } = new();
 
