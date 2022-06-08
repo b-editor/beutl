@@ -31,7 +31,7 @@ public sealed partial class AccountSettingsPage : UserControl
             var dialog = new OpenFileDialog
             {
                 AllowMultiple = false,
-                Filters =
+                Filters = new()
                 {
                     new FileDialogFilter()
                     {
