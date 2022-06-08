@@ -63,6 +63,11 @@ public sealed class AccountSettingsPageViewModel : IDisposable
             .Select(t => t.First && t.Second)
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
+        SignInWithEmailOnly = SignInWithEmail
+            .CombineLatest(SignInWithGoogle)
+            .Select(t => t.First && !t.Second)
+            .ToReadOnlyReactivePropertySlim()
+            .AddTo(_disposables);
 
         SignOut = new(SignedIn);
         SignOut.Subscribe(async () => await FirebaseUI.Instance.Client.SignOutAsync());
@@ -232,6 +237,8 @@ public sealed class AccountSettingsPageViewModel : IDisposable
     public ReadOnlyReactivePropertySlim<bool> SignInWithEmail { get; }
 
     public ReadOnlyReactivePropertySlim<bool> SignInWithGoogleAndEmail { get; }
+    
+    public ReadOnlyReactivePropertySlim<bool> SignInWithEmailOnly { get; }
 
     public ReactiveCommand SignOut { get; }
 

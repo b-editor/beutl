@@ -159,4 +159,29 @@ public sealed partial class AccountSettingsPage : UserControl
             }
         }
     }
+
+    private async void LinkGoogle_Click(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is AccountSettingsPageViewModel viewModel
+            && viewModel.User.Value is User user)
+        {
+            var cts = new CancellationTokenSource();
+            var dialog = new ContentDialog
+            {
+                Content = "Open browser to sign in with your provider",
+                Title = "Sign in with your provider",
+                PrimaryButtonText = "Close"
+            };
+
+            _ = dialog.ShowAsync().ContinueWith(t =>
+            {
+                if (t.Result == ContentDialogResult.Primary)
+                    cts.Cancel();
+            });
+
+            await user.LinkWithRedirectAsync(FirebaseProviderType.Google, cts.Token);
+
+            dialog.Hide(ContentDialogResult.None);
+        }
+    }
 }

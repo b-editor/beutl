@@ -64,6 +64,7 @@
                     <StackPanel Grid.Column="2" VerticalAlignment="Center">
                         <StackPanel Spacing="8" Orientation="Horizontal">
 
+                            <!--名前表示-->
                             <TextBlock Classes="SubtitleTextBlockStyle"
                                        Text="{CompiledBinding DisplayName.Value}" />
                             
@@ -73,6 +74,7 @@
 
                         </StackPanel>
 
+                        <!--メールアドレス-->
                         <TextBlock Classes="CaptionTextBlockStyle"
                                    Opacity="0.8"
                                    Text="{CompiledBinding User.Value.Info.Email}" />
@@ -94,6 +96,7 @@
                     </ui:CommandBar>
                 </Grid>
 
+                <!--表示名を変更-->
                 <ctrls:OptionsDisplayItem
                     x:Name="optionsItem1"
                     Margin="0,24,0,0"
@@ -118,6 +121,7 @@
                     </ctrls:OptionsDisplayItem.Content>
                 </ctrls:OptionsDisplayItem>
 
+                <!--アカウントを削除-->
                 <ctrls:OptionsDisplayItem
                     x:Name="optionsItem2"
                     Navigates="True"
@@ -129,6 +133,7 @@
                     </ctrls:OptionsDisplayItem.Icon>
                 </ctrls:OptionsDisplayItem>
 
+                <!--パスワードを変更-->
                 <ctrls:OptionsDisplayItem
                     IsVisible="{CompiledBinding SignInWithEmail.Value}"
                     x:Name="optionsItem3"
@@ -177,12 +182,27 @@
                     </ctrls:OptionsDisplayItem.Content>
                 </ctrls:OptionsDisplayItem>
 
+                <!--Googleとの連携を解除-->
                 <ctrls:OptionsDisplayItem
                     IsVisible="{CompiledBinding SignInWithGoogleAndEmail.Value}"
                     x:Name="optionsItem4"
                     NavigationRequested="UnlinkGoogle_Click"
                     Navigates="True"
                     Header="{DynamicResource S.AccountSettingsPage.UnlinkFromGoogle}">
+
+                    <ctrls:OptionsDisplayItem.Icon>
+                        <ui:ImageIcon Source="avares://Firebase.Auth.UI.Avalonia/Assets/google.png" Width="16" Height="16" />
+                    </ctrls:OptionsDisplayItem.Icon>
+
+                </ctrls:OptionsDisplayItem>
+
+                <!--Googleと連携-->
+                <ctrls:OptionsDisplayItem
+                    IsVisible="{CompiledBinding SignInWithEmailOnly.Value}"
+                    x:Name="optionsItem5"
+                    NavigationRequested="LinkGoogle_Click"
+                    Navigates="True"
+                    Header="{DynamicResource S.AccountSettingsPage.LinkWithGoogle}">
 
                     <ctrls:OptionsDisplayItem.Icon>
                         <ui:ImageIcon Source="avares://Firebase.Auth.UI.Avalonia/Assets/google.png" Width="16" Height="16" />

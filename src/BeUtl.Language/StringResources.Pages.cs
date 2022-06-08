@@ -199,6 +199,8 @@ public static partial class StringResources
         public static string UnlinkFromGoogle => "S.AccountSettingsPage.UnlinkFromGoogle".GetStringResource("Unlink from Google");
         //S.AccountSettingsPage.UnlinkFromGoogleBody
         public static string UnlinkFromGoogleBody => "S.AccountSettingsPage.UnlinkFromGoogleBody".GetStringResource("Unlink from Google.\nIf you perform this operation, you will not be able to sign in using your Google account.\nDo you want to remove the linkage?");
+        //S.AccountSettingsPage.LinkWithGoogle
+        public static string LinkWithGoogle => "S.AccountSettingsPage.LinkWithGoogle".GetStringResource("Link with Google");
 
         //S.AccountSettingsPage.SignOut
         private static IObservable<string>? s_signOut;
@@ -233,6 +235,9 @@ public static partial class StringResources
         //S.AccountSettingsPage.UnlinkFromGoogleBody
         private static IObservable<string>? s_unlinkFromGoogleBody;
         public static IObservable<string> UnlinkFromGoogleBodyObservable => s_unlinkFromGoogleBody ??= "S.AccountSettingsPage.UnlinkFromGoogleBody".GetStringObservable(StringResources.AccountSettingsPage.UnlinkFromGoogleBody);
+        //S.AccountSettingsPage.LinkWithGoogle
+        private static IObservable<string>? s_linkWithGoogle;
+        public static IObservable<string> LinkWithGoogleObservable => s_linkWithGoogle ??= "S.AccountSettingsPage.LinkWithGoogle".GetStringObservable(StringResources.AccountSettingsPage.LinkWithGoogle);
 
         public static class Dialog1
         {
