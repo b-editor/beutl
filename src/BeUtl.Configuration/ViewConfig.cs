@@ -11,6 +11,7 @@ public sealed class ViewConfig : ConfigurationBase
 {
     public static readonly CoreProperty<ViewTheme> ThemeProperty;
     public static readonly CoreProperty<CultureInfo> UICultureProperty;
+    public static readonly CoreProperty<bool> IsMicaEffectEnabledProperty;
     public static readonly CoreProperty<CoreList<string>> RecentFilesProperty;
     public static readonly CoreProperty<CoreList<string>> RecentProjectsProperty;
     private readonly CoreList<string> _recentFiles = new();
@@ -20,13 +21,19 @@ public sealed class ViewConfig : ConfigurationBase
     {
         ThemeProperty = ConfigureProperty<ViewTheme, ViewConfig>("Theme")
             .SerializeName("theme")
-            .DefaultValue(ViewTheme.System)
+            .DefaultValue(ViewTheme.Dark)
             .Observability(PropertyObservability.Changed)
             .Register();
 
         UICultureProperty = ConfigureProperty<CultureInfo, ViewConfig>("UICulture")
             .SerializeName("ui-culture")
             .DefaultValue(CultureInfo.InstalledUICulture)
+            .Observability(PropertyObservability.Changed)
+            .Register();
+
+        IsMicaEffectEnabledProperty = ConfigureProperty<bool, ViewConfig>("IsMicaEffectEnabled")
+            .SerializeName("is-mica-enabled")
+            .DefaultValue(false)
             .Observability(PropertyObservability.Changed)
             .Register();
 
@@ -55,6 +62,12 @@ public sealed class ViewConfig : ConfigurationBase
     {
         get => GetValue(UICultureProperty);
         set => SetValue(UICultureProperty, value);
+    }
+
+    public bool IsMicaEffectEnabled
+    {
+        get => GetValue(IsMicaEffectEnabledProperty);
+        set => SetValue(IsMicaEffectEnabledProperty, value);
     }
 
     public CoreList<string> RecentFiles
@@ -117,7 +130,7 @@ public sealed class ViewConfig : ConfigurationBase
     protected override void OnPropertyChanged(PropertyChangedEventArgs args)
     {
         base.OnPropertyChanged(args);
-        if (args.PropertyName is "Theme" or "UICulture")
+        if (args.PropertyName is "Theme" or "UICulture" or "IsMicaEffectEnabled")
         {
             OnChanged();
         }

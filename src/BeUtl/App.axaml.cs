@@ -62,9 +62,9 @@ public class App : Application
                     case ViewConfig.ViewTheme.HighContrast:
                         thm.RequestedTheme = FluentAvaloniaTheme.HighContrastModeString;
                         break;
-                    case ViewConfig.ViewTheme.System when OperatingSystem.IsWindows():
-                        // https://github.com/amwx/FluentAvalonia/blob/master/FluentAvalonia/Styling/Core/FluentAvaloniaTheme.cs#L414
-                        //thm.RequestedTheme = null;
+                    case ViewConfig.ViewTheme.System:
+                        thm.PreferSystemTheme = true;
+                        thm.InvalidateThemingFromSystemThemeChanged();
                         break;
                 }
             });

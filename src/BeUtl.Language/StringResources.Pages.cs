@@ -88,6 +88,8 @@ public static partial class StringResources
         public static string HighContrast => StringResources.Common.HighContrast;
         //S.ViewSettingsPage.Theme.System
         public static string System => StringResources.Common.FollowSystem;
+        //S.ViewSettingsPage.Theme.MicaEffect
+        public static string MicaEffect => "S.ViewSettingsPage.MicaEffect".GetStringResource("Mica Effect");
         //S.ViewSettingsPage.Language
         public static string Language => StringResources.Common.Language;
 
@@ -106,6 +108,9 @@ public static partial class StringResources
         public static IObservable<string> SystemObservable => StringResources.Common.FollowSystemObservable;
         //S.ViewSettingsPage.Language
         public static IObservable<string> LanguageObservable => StringResources.Common.LanguageObservable;
+        //S.ViewSettingsPage.MicaEffect
+        private static IObservable<string>? s_micaEffect;
+        public static IObservable<string> MicaEffectObservable => s_micaEffect ??= "S.ViewSettingsPage.MicaEffect".GetStringObservable(StringResources.ViewSettingsPage.MicaEffect);
     }
 
     public static class ExtensionsSettingsPage

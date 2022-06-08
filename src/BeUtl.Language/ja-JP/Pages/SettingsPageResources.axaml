@@ -23,6 +23,7 @@
         <StaticResource x:Key="S.ViewSettingsPage.Theme.Dark" ResourceKey="S.Common.Dark" />
         <StaticResource x:Key="S.ViewSettingsPage.Theme.HighContrast" ResourceKey="S.Common.HighContrast" />
         <StaticResource x:Key="S.ViewSettingsPage.Theme.System" ResourceKey="S.Common.FollowSystem" />
+        <x:String x:Key="S.ViewSettingsPage.MicaEffect">Mica効果</x:String>
         <StaticResource x:Key="S.ViewSettingsPage.Language" ResourceKey="S.Common.Language" />
 
         <x:String x:Key="S.ExtensionsSettingsPage.EditorExtensionPriority">エディター拡張の優先順位</x:String>

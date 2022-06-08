@@ -30,6 +30,16 @@
                 </ctrls:OptionsDisplayItem.ActionButton>
             </ctrls:OptionsDisplayItem>
 
+            <ctrls:OptionsDisplayItem Header="{DynamicResource S.ViewSettingsPage.MicaEffect}">
+                <ctrls:OptionsDisplayItem.Icon>
+                    <ui:SymbolIcon Symbol="Cloud" />
+                </ctrls:OptionsDisplayItem.Icon>
+
+                <ctrls:OptionsDisplayItem.ActionButton>
+                    <ToggleSwitch IsChecked="{CompiledBinding IsMicaEnabled.Value}" Margin="0,0,-72,0" />
+                </ctrls:OptionsDisplayItem.ActionButton>
+            </ctrls:OptionsDisplayItem>
+
             <ctrls:OptionsDisplayItem Header="{DynamicResource S.ViewSettingsPage.Language}">
                 <ctrls:OptionsDisplayItem.Icon>
                     <ui:PathIcon Data="{DynamicResource Local_Language_Regular}" />
