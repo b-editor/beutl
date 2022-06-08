@@ -1,0 +1,38 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="BeUtl.Pages.ExtensionsPage">
+    <ui:NavigationView IsSettingsVisible="False"
+                       IsBackButtonVisible="True"
+                       IsBackEnabled="{Binding #frame.CanGoBack}"
+                       PaneDisplayMode="Top"
+                       x:Name="nav">
+        <ui:NavigationView.Styles>
+            <Style Selector="ui|NavigationView /template/ SplitView Border#ContentGridBorder">
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="BorderBrush" Value="Transparent" />
+                <Setter Property="BorderThickness" Value="0" />
+                <Setter Property="Margin" Value="{DynamicResource NavigationViewContentMargin}" />
+                <Setter Property="CornerRadius" Value="{DynamicResource NavigationViewContentGridCornerRadius}" />
+            </Style>
+        </ui:NavigationView.Styles>
+        <ui:NavigationView.PaneCustomContent>
+            <TextBox VerticalAlignment="Center"
+                     HorizontalAlignment="Right"
+                     Margin="8,0"
+                     Watermark="{DynamicResource S.Common.Search}"
+                     MinWidth="250">
+                <TextBox.InnerRightContent>
+                    <Button Classes="AppBarButton">
+                        <ui:SymbolIcon Symbol="Find" />
+                    </Button>
+                </TextBox.InnerRightContent>
+            </TextBox>
+        </ui:NavigationView.PaneCustomContent>
+
+        <ui:Frame x:Name="frame" />
+    </ui:NavigationView>
+</UserControl>

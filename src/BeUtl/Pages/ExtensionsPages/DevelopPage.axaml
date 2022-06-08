@@ -1,0 +1,40 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:ctrls="using:BeUtl.Controls"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="BeUtl.Pages.ExtensionsPages.DevelopPage">
+    <ScrollViewer>
+        <StackPanel Margin="8" Spacing="8">
+            <TextBlock Text="ショートカット" Classes="SubtitleTextBlockStyle" />
+
+            <ScrollViewer VerticalScrollBarVisibility="Disabled"
+                          HorizontalScrollBarVisibility="Auto">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <ctrls:OptionsDisplayItem
+                        NavigationRequested="CreateNewPackage_Click"
+                        Header="パッケージを新規作成"
+                        Description="配布するパッケージを新規作成します">
+                        <ctrls:OptionsDisplayItem.Icon>
+                            <ui:SymbolIcon Symbol="New" />
+                        </ctrls:OptionsDisplayItem.Icon>
+                    </ctrls:OptionsDisplayItem>
+
+                    <ctrls:OptionsDisplayItem
+                        Header="ドキュメント"
+                        Description="開発者向けのドキュメント">
+                        <ctrls:OptionsDisplayItem.Icon>
+                            <ui:SymbolIcon Symbol="Document" />
+                        </ctrls:OptionsDisplayItem.Icon>
+                    </ctrls:OptionsDisplayItem>
+                </StackPanel>
+            </ScrollViewer>
+
+            <Separator Height="8" />
+            <TextBlock Text="パッケージ" Classes="SubtitleTextBlockStyle" />
+
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

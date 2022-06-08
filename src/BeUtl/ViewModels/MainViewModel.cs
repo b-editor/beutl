@@ -66,7 +66,7 @@ public class MainViewModel
         _primitivePageExtensions = new PageExtension[]
         {
             EditPageExtension.Instance,
-            ExtensionPageExtension.Instance,
+            ExtensionsPageExtension.Instance,
             OutputPageExtension.Instance,
             SettingsPageExtension.Instance,
         };
@@ -216,7 +216,7 @@ public class MainViewModel
         Pages = new()
         {
             new(EditPageExtension.Instance),
-            new(ExtensionPageExtension.Instance),
+            new(ExtensionsPageExtension.Instance),
             new(OutputPageExtension.Instance),
         };
         SelectedPage.Value = Pages[0];
