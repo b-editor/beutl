@@ -4,8 +4,13 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:ctrls="using:BeUtl.Controls"
+             xmlns:viewModels="using:BeUtl.ViewModels.ExtensionsPages"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:DataType="viewModels:DevelopPageViewModel"
              x:Class="BeUtl.Pages.ExtensionsPages.DevelopPage">
+    <UserControl.DataContext>
+        <viewModels:DevelopPageViewModel />
+    </UserControl.DataContext>
     <ScrollViewer>
         <StackPanel Margin="8" Spacing="8">
             <TextBlock Text="ショートカット" Classes="SubtitleTextBlockStyle" />
@@ -14,6 +19,7 @@
                           HorizontalScrollBarVisibility="Auto">
                 <StackPanel Orientation="Horizontal" Spacing="8">
                     <ctrls:OptionsDisplayItem
+                        Navigates="True"
                         NavigationRequested="CreateNewPackage_Click"
                         Header="パッケージを新規作成"
                         Description="配布するパッケージを新規作成します">
@@ -35,6 +41,17 @@
             <Separator Height="8" />
             <TextBlock Text="パッケージ" Classes="SubtitleTextBlockStyle" />
 
+            <ListBox Items="{CompiledBinding Packages}" x:Name="packagesList">
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <StackPanel>
+                            <TextBlock Text="{Binding Name.Value}" />
+                            <TextBlock Text="{Binding DisplayName.Value}" />
+                        </StackPanel>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+            
         </StackPanel>
     </ScrollViewer>
 </UserControl>

@@ -23,6 +23,8 @@ using BeUtl.Views;
 
 using FluentAvalonia.Styling;
 
+using Microsoft.Extensions.DependencyInjection;
+
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 
@@ -102,6 +104,7 @@ public class App : Application
             .BindToSelfSingleton<EditorService>()
             .BindToSelfSingleton<HttpClient>()
             .BindToSelf(new AccountService())
+            .Bind<PackageController>().ToLazy(() => new PackageController(ServiceLocator.Current.GetRequiredService<AccountService>()))
             .BindToSelf<IWorkspaceItemContainer>(new WorkspaceItemContainer())
             .BindToSelf<IProjectService>(new ProjectService())
             .BindToSelf<INotificationService>(new NotificationService())

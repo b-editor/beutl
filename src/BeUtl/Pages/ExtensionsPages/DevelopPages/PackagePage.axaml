@@ -1,0 +1,70 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:viewModels="using:BeUtl.ViewModels.ExtensionsPages.DevelopPages"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:DataType="viewModels:PackagePageViewModel"
+             x:Class="BeUtl.Pages.ExtensionsPages.DevelopPages.PackagePage">
+    <UserControl.Styles>
+        <Style Selector="TextBox.customStyle">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0,1,0,0" />
+            <Setter Property="MinWidth" Value="175" />
+            <Setter Property="HorizontalAlignment" Value="Left" />
+            <Setter Property="Margin" Value="0,4" />
+        </Style>
+    </UserControl.Styles>
+    <ScrollViewer>
+        <TabControl>
+            <TabItem Header="概要">
+                <StackPanel>
+                    <Grid RowDefinitions="Auto,Auto,Auto,Auto" Margin="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" MinWidth="160" />
+                            <ColumnDefinition />
+                        </Grid.ColumnDefinitions>
+
+                        <TextBlock Text="名前"
+                                   Grid.Column="0"
+                                   Grid.Row="0"
+                                   VerticalAlignment="Center" />
+
+                        <TextBox Text="{CompiledBinding Name.Value}"
+                                 Classes="customStyle"
+                                 Grid.Column="1"
+                                 Grid.Row="0" />
+
+                        <TextBlock Text="表示名"
+                                   Grid.Column="0"
+                                   Grid.Row="1"
+                                   VerticalAlignment="Center" />
+
+                        <TextBox Text="{CompiledBinding DisplayName.Value}"
+                                 Classes="customStyle"
+                                 Grid.Column="1"
+                                 Grid.Row="1" />
+
+                        <TextBlock Text="説明"
+                                   Grid.Column="0"
+                                   Grid.Row="2"
+                                   Margin="0,4"
+                                   VerticalAlignment="Center" />
+
+                        <TextBox Text="{CompiledBinding Description.Value}"
+                                 Classes="customStyle"
+                                 MinWidth="335"
+                                 MinHeight="80"
+                                 Grid.ColumnSpan="2"
+                                 Grid.Row="3" />
+                    </Grid>
+
+                    <Button Content="保存"
+                            Classes="accent"
+                            Margin="8"
+                            Command="{CompiledBinding Save}" />
+                </StackPanel>
+            </TabItem>
+        </TabControl>
+    </ScrollViewer>
+</UserControl>

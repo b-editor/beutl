@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
 
 using FluentAvalonia.UI.Controls;
+using FluentAvalonia.UI.Navigation;
 
 namespace BeUtl.Pages;
 
@@ -71,11 +72,25 @@ public partial class ExtensionsPage : UserControl
         }
     }
 
-    private void Frame_Navigated(object sender, FluentAvalonia.UI.Navigation.NavigationEventArgs e)
+    private void Frame_Navigated(object sender, NavigationEventArgs e)
     {
+        if (e.Content is StyledElement content && e.Parameter is { } param)
+        {
+            content.DataContext = param;
+        }
+
         foreach (NavigationViewItem nvi in nav.MenuItems)
         {
             if (nvi.Tag is Type tag && tag == e.SourcePageType)
+            {
+                nav.SelectedItem = nvi;
+                return;
+            }
+        }
+
+        foreach (NavigationViewItem nvi in nav.MenuItems)
+        {
+            if (nvi.Tag is Type tag && e.SourcePageType.Namespace?.EndsWith($"{tag.Name}s") == true)
             {
                 nav.SelectedItem = nvi;
                 return;
