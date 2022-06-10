@@ -1,17 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Linq;
-using System.Reactive.Disposables;
+﻿using System.Reactive.Disposables;
 using System.Reactive.Linq;
-using System.Reactive.Subjects;
-using System.Text;
-using System.Threading.Tasks;
 
 using Google.Cloud.Firestore;
 
 using Reactive.Bindings;
-using Reactive.Bindings.Extensions;
 
 namespace BeUtl.ViewModels.ExtensionsPages.DevelopPages;
 
@@ -22,6 +14,8 @@ public sealed class PackagePageViewModel : IDisposable
     public PackagePageViewModel(DocumentReference docRef)
     {
         Reference = docRef;
+        ResourcesViewModel = new MoreResourcesPageViewModel(this);
+
         IObservable<DocumentSnapshot> observable = Reference.ToObservable();
 
         observable.Select(d => d.GetValue<string>("name"))
@@ -54,10 +48,12 @@ public sealed class PackagePageViewModel : IDisposable
             Description.Value = snapshot.GetValue<string>("description");
         }).DisposeWith(_disposables);
 
-        Delete.Subscribe(async () => await docRef.DeleteAsync()).DisposeWith(_disposables);
+        Delete.Subscribe(async () => await Reference.DeleteAsync()).DisposeWith(_disposables);
     }
 
     public DocumentReference Reference { get; }
+
+    public MoreResourcesPageViewModel ResourcesViewModel { get; }
 
     public ReactivePropertySlim<string> ActualName { get; } = new();
 

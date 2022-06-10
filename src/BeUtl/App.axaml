@@ -29,21 +29,35 @@
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="BorderBrush" Value="Transparent" />
             <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Foreground" Value="{DynamicResource ButtonForegroundPressed}" />
         </Style>
 
+        <Style Selector="Button.breadcrumb /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Transitions">
+                <Transitions />
+            </Setter>
+        </Style>
+
+        <Style Selector="Button.breadcrumb:pointerover /template/ Border#BorderElement">
+            <Setter Property="BorderBrush" Value="Transparent" />
+        </Style>
         <Style Selector="Button.breadcrumb:pointerover /template/ ContentPresenter#PART_ContentPresenter">
             <Setter Property="Background" Value="Transparent" />
-            <Setter Property="Opacity" Value="0.8" />
+            <Setter Property="TextBlock.Foreground" Value="{DynamicResource ButtonForeground}" />
         </Style>
 
+        <Style Selector="Button.breadcrumb:pointerover /template/ Border#BorderElement">
+            <Setter Property="BorderBrush" Value="Transparent" />
+        </Style>
         <Style Selector="Button.breadcrumb:pressed /template/ ContentPresenter#PART_ContentPresenter">
             <Setter Property="Background" Value="Transparent" />
-            <Setter Property="TextBlock.Foreground" Value="{DynamicResource ButtonForegroundPressed}" />
+            <Setter Property="TextBlock.Foreground" Value="{DynamicResource ButtonForeground}" />
+            <Setter Property="Opacity" Value="0.5" />
         </Style>
 
         <Style Selector="Label.breadcrumb">
             <Setter Property="FontFamily" Value="{DynamicResource SymbolThemeFontFamily}" />
-            <Setter Property="FontSize" Value="24" />
+            <Setter Property="FontSize" Value="16" />
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="TextBlock.TextTrimming" Value="CharacterEllipsis" />
             <Setter Property="TextBlock.TextWrapping" Value="Wrap" />

@@ -101,5 +101,11 @@ public sealed class DevelopPageViewModel : IDisposable
     {
         _disposables.Dispose();
         _packagesListener?.StopAsync();
+        foreach (var item in Packages)
+        {
+            item.Dispose();
+        }
+
+        Packages.Clear();
     }
 }

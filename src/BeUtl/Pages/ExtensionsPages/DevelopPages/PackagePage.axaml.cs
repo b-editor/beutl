@@ -12,6 +12,8 @@ namespace BeUtl.Pages.ExtensionsPages.DevelopPages;
 
 public partial class PackagePage : UserControl
 {
+    private PackagePageViewModel? _viewModel;
+
     public PackagePage()
     {
         InitializeComponent();
@@ -27,16 +29,8 @@ public partial class PackagePage : UserControl
                 FromHorizontalOffset = 28,
                 FromVerticalOffset = 0
             };
-            var options = new FrameNavigationOptions()
-            {
-                TransitionInfoOverride = transitionInfo,
-                IsNavigationStackEnabled = false
-            };
 
-            frame.NavigateToType(
-                sourcePageType: typeof(MoreResourcesPage),
-                parameter: new MoreResourcesPageViewModel(viewModel),
-                navOptions: options);
+            frame.Navigate(typeof(MoreResourcesPage), viewModel.ResourcesViewModel, transitionInfo);
         }
     }
 
@@ -54,13 +48,13 @@ public partial class PackagePage : UserControl
                 SecondaryButtonText = type == 0 ? "いいえ" : "はい",
                 DefaultButton = (ContentDialogButton)Random.Shared.Next(0, 4)
             };
-            
+
             if (type == 0) dialog.IsPrimaryButtonEnabled = false;
             else dialog.IsSecondaryButtonEnabled = false;
 
             Task<ContentDialogResult> task = dialog.ShowAsync();
 
-            await Task.Delay(Random.Shared.Next(0, 1500));
+            await Task.Delay(Random.Shared.Next(0, 1000));
             if (type == 0) dialog.IsPrimaryButtonEnabled = true;
             else dialog.IsSecondaryButtonEnabled = true;
 
