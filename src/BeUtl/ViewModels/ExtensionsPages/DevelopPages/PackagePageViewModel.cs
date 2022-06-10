@@ -34,6 +34,17 @@ public sealed class PackagePageViewModel : IDisposable
             .Subscribe(s => ShortDescription.Value = ActualShortDescription.Value = s)
             .DisposeWith(_disposables);
 
+        Name.SetValidateNotifyError(NotNullOrWhitespace);
+        DisplayName.SetValidateNotifyError(NotNullOrWhitespace);
+        Description.SetValidateNotifyError(NotNullOrWhitespace);
+        ShortDescription.SetValidateNotifyError(NotNullOrWhitespace);
+
+        Save = new AsyncReactiveCommand(Name.ObserveHasErrors
+            .CombineLatest(
+                DisplayName.ObserveHasErrors,
+                Description.ObserveHasErrors,
+                ShortDescription.ObserveHasErrors)
+            .Select(t => !(t.First || t.Second || t.Third || t.Fourth)));
         Save.Subscribe(async () =>
         {
             await Reference.UpdateAsync(new Dictionary<string, object>
@@ -77,7 +88,7 @@ public sealed class PackagePageViewModel : IDisposable
 
     public ReactiveProperty<string> ShortDescription { get; } = new();
 
-    public AsyncReactiveCommand Save { get; } = new();
+    public AsyncReactiveCommand Save { get; }
 
     public AsyncReactiveCommand DiscardChanges { get; } = new();
 
@@ -86,5 +97,17 @@ public sealed class PackagePageViewModel : IDisposable
     public void Dispose()
     {
         _disposables?.Dispose();
+    }
+
+    private static string NotNullOrWhitespace(string str)
+    {
+        if (!string.IsNullOrWhiteSpace(str))
+        {
+            return null!;
+        }
+        else
+        {
+            return "Please enter a string.";
+        }
     }
 }
