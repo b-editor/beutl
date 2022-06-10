@@ -14,6 +14,11 @@
                   DefaultButton="Primary"
                   x:DataType="viewModels:MoreResourcesPageViewModel"
                   x:Class="BeUtl.Pages.ExtensionsPages.DevelopPages.Dialogs.AddResourceDialog">
+    <ui:ContentDialog.Styles>
+        <Style Selector="ui|ContentDialog /template/ Border#BackgroundElement">
+            <Setter Property="Width" Value="{DynamicResource ContentDialogMaxWidth}" />
+        </Style>
+    </ui:ContentDialog.Styles>
     <StackPanel Spacing="8">
         <StackPanel.Styles>
             <Style Selector="TextBox.customStyle">
@@ -25,7 +30,8 @@
                 <Setter Property="Opacity" Value="0.8" />
             </Style>
         </StackPanel.Styles>
-        <ctrls:OptionsDisplayItem Header="言語"
+        <ctrls:OptionsDisplayItem x:Name="OptionsItem1"
+                                  Header="言語"
                                   Expands="True"
                                   Description="このリソースを表示する言語圏">
             <ctrls:OptionsDisplayItem.ActionButton>
@@ -38,7 +44,8 @@
             </ctrls:OptionsDisplayItem.Content>
         </ctrls:OptionsDisplayItem>
 
-        <ctrls:OptionsDisplayItem Header="表示名"
+        <ctrls:OptionsDisplayItem x:Name="OptionsItem2"
+                                  Header="表示名"
                                   Expands="True"
                                   Description="パッケージの名前">
             <ctrls:OptionsDisplayItem.ActionButton>
@@ -54,7 +61,8 @@
             </ctrls:OptionsDisplayItem.Content>
         </ctrls:OptionsDisplayItem>
 
-        <ctrls:OptionsDisplayItem Header="説明"
+        <ctrls:OptionsDisplayItem x:Name="OptionsItem3"
+                                  Header="説明"
                                   Description="パッケージの説明"
                                   Expands="True">
             <ctrls:OptionsDisplayItem.ActionButton>
@@ -70,7 +78,8 @@
             </ctrls:OptionsDisplayItem.Content>
         </ctrls:OptionsDisplayItem>
 
-        <ctrls:OptionsDisplayItem Header="短い説明"
+        <ctrls:OptionsDisplayItem x:Name="OptionsItem4"
+                                  Header="短い説明"
                                   Description="パッケージの短い説明"
                                   Expands="True">
             <ctrls:OptionsDisplayItem.ActionButton>

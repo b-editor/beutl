@@ -24,9 +24,10 @@ public static class FirestoreExtensions
 
         protected override async void Subscribed(IObserver<DocumentSnapshot> observer, bool first)
         {
-            if (_snapshot != null)
+            DocumentSnapshot? snapshot = Volatile.Read(ref _snapshot);
+            if (snapshot != null)
             {
-                observer.OnNext(_snapshot);
+                observer.OnNext(snapshot);
             }
             else
             {
@@ -36,26 +37,27 @@ public static class FirestoreExtensions
 
         protected override async void Deinitialize()
         {
-            if (_listener != null)
-            {
-                if (_snapshot?.Exists != true)
-                    await _listener.StopAsync();
+            FirestoreChangeListener? listener = _listener;
+            DocumentSnapshot? snapshot = _snapshot;
 
-                _listener = null;
-                _snapshot = null;
+            Volatile.Write(ref _listener, null);
+            Volatile.Write(ref _snapshot, null);
+            if (listener != null && snapshot?.Exists != true)
+            {
+                await listener.StopAsync();
             }
         }
 
         protected override void Initialize()
         {
-            _listener = _docRef.Listen(snapshot =>
+            Volatile.Write(ref _listener, _docRef.Listen(snapshot =>
             {
-                _snapshot = snapshot;
+                Volatile.Write(ref _snapshot, snapshot);
                 if (snapshot.Exists)
                     PublishNext(snapshot);
                 else
                     PublishCompleted();
-            });
+            }));
         }
     }
 }

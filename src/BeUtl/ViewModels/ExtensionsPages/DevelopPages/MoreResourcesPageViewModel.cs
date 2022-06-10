@@ -7,6 +7,7 @@ using BeUtl.Collections;
 
 using DynamicData.Binding;
 
+using Google.Apis.Logging;
 using Google.Cloud.Firestore;
 
 using Reactive.Bindings;
@@ -80,10 +81,49 @@ public sealed class MoreResourcesPageViewModel : IDisposable
             .ToReadOnlyReactivePropertySlim();
 
         NewDisplayName = new ReactiveProperty<string>();
+        NewDisplayName.SetValidateNotifyError(str =>
+        {
+            if (string.IsNullOrWhiteSpace(str))
+            {
+                return "Please enter a string";
+            }
+            else
+            {
+                return null!;
+            }
+        });
         NewDescription = new ReactiveProperty<string>();
+        NewDescription.SetValidateNotifyError(str =>
+        {
+            if (string.IsNullOrWhiteSpace(str))
+            {
+                return "Please enter a string";
+            }
+            else
+            {
+                return null!;
+            }
+        });
         NewShortDescription = new ReactiveProperty<string>();
+        NewShortDescription.SetValidateNotifyError(str =>
+        {
+            if (string.IsNullOrWhiteSpace(str))
+            {
+                return "Please enter a string";
+            }
+            else
+            {
+                return null!;
+            }
+        });
 
-        CanAddResource = NewCulture.Select(v => v != null).ToReadOnlyReactivePropertySlim();
+        CanAddResource = NewCultureInput.ObserveHasErrors
+            .CombineLatest(
+                NewDisplayName.ObserveHasErrors,
+                NewDescription.ObserveHasErrors,
+                NewShortDescription.ObserveHasErrors)
+            .Select(t => !(t.First || t.Second || t.Third || t.Fourth))
+            .ToReadOnlyReactivePropertySlim();
 
         AddResource = new ReactiveCommand(CanAddResource);
         AddResource.Subscribe(async () =>
@@ -96,7 +136,7 @@ public sealed class MoreResourcesPageViewModel : IDisposable
                     displayName = NewDisplayName.Value,
                     description = NewDescription.Value,
                     shortDescription = NewShortDescription.Value,
-                    culture = NewCulture.Value
+                    culture = NewCulture.Value.Name,
                 });
 
                 NewDisplayName.Value = "";
