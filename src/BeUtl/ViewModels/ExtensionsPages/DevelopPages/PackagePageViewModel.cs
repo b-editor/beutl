@@ -25,15 +25,15 @@ public sealed class PackagePageViewModel : IDisposable
         IObservable<DocumentSnapshot> observable = Reference.ToObservable();
 
         observable.Select(d => d.GetValue<string>("name"))
-            .Subscribe(s => Name.Value = s)
+            .Subscribe(s => Name.Value = ActualName.Value = s)
             .DisposeWith(_disposables);
 
         observable.Select(d => d.GetValue<string>("displayName"))
-            .Subscribe(s => DisplayName.Value = s)
+            .Subscribe(s => DisplayName.Value = ActualDisplayName.Value = s)
             .DisposeWith(_disposables);
 
         observable.Select(d => d.GetValue<string>("description"))
-            .Subscribe(s => Description.Value = s)
+            .Subscribe(s => Description.Value = ActualDescription.Value = s)
             .DisposeWith(_disposables);
 
         Save.Subscribe(async () =>
@@ -44,10 +44,26 @@ public sealed class PackagePageViewModel : IDisposable
                 ["displayName"] = DisplayName.Value,
                 ["description"] = Description.Value
             });
-        });
+        }).DisposeWith(_disposables);
+
+        DiscardChanges.Subscribe(async () =>
+        {
+            DocumentSnapshot snapshot = await Reference.GetSnapshotAsync();
+            Name.Value = snapshot.GetValue<string>("name");
+            DisplayName.Value = snapshot.GetValue<string>("displayName");
+            Description.Value = snapshot.GetValue<string>("description");
+        }).DisposeWith(_disposables);
+
+        Delete.Subscribe(async () => await docRef.DeleteAsync()).DisposeWith(_disposables);
     }
 
     public DocumentReference Reference { get; }
+
+    public ReactivePropertySlim<string> ActualName { get; } = new();
+
+    public ReactivePropertySlim<string> ActualDisplayName { get; } = new();
+
+    public ReactivePropertySlim<string> ActualDescription { get; } = new();
 
     public ReactiveProperty<string> Name { get; } = new();
 
@@ -56,6 +72,10 @@ public sealed class PackagePageViewModel : IDisposable
     public ReactiveProperty<string> Description { get; } = new();
 
     public AsyncReactiveCommand Save { get; } = new();
+
+    public AsyncReactiveCommand DiscardChanges { get; } = new();
+
+    public ReactiveCommand Delete { get; } = new();
 
     public void Dispose()
     {

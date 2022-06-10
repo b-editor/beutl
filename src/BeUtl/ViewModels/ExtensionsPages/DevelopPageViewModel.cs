@@ -30,17 +30,17 @@ public sealed class DevelopPageViewModel : IDisposable
             DocumentReference? docRef = await _packageController.NewPackage();
             if (docRef != null)
             {
-                PackagePageViewModel? viewModel = Packages.FirstOrDefault(p => p.Reference.Id == docRef.Id);
                 lock (_lockObject)
                 {
+                    PackagePageViewModel? viewModel = Packages.FirstOrDefault(p => p.Reference.Id == docRef.Id);
                     if (viewModel == null)
                     {
                         viewModel = new PackagePageViewModel(docRef);
                         Packages.Add(viewModel);
                     }
-                }
 
-                frame.Navigate(typeof(PackagePage), viewModel);
+                    frame.Navigate(typeof(PackagePage), viewModel);
+                }
             }
         });
 

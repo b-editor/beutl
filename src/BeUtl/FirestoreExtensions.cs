@@ -38,7 +38,9 @@ public static class FirestoreExtensions
         {
             if (_listener != null)
             {
-                await _listener.StopAsync();
+                if (_snapshot?.Exists != true)
+                    await _listener.StopAsync();
+
                 _listener = null;
                 _snapshot = null;
             }

@@ -3,68 +3,110 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:viewModels="using:BeUtl.ViewModels.ExtensionsPages.DevelopPages"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:ctrls="using:BeUtl.Controls"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:DataType="viewModels:PackagePageViewModel"
              x:Class="BeUtl.Pages.ExtensionsPages.DevelopPages.PackagePage">
     <UserControl.Styles>
         <Style Selector="TextBox.customStyle">
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="BorderThickness" Value="0,1,0,0" />
-            <Setter Property="MinWidth" Value="175" />
+            <Setter Property="MinWidth" Value="250" />
             <Setter Property="HorizontalAlignment" Value="Left" />
-            <Setter Property="Margin" Value="0,4" />
+        </Style>
+        <Style Selector="TextBlock.description">
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Opacity" Value="0.8" />
         </Style>
     </UserControl.Styles>
-    <ScrollViewer>
-        <TabControl>
-            <TabItem Header="概要">
-                <StackPanel>
-                    <Grid RowDefinitions="Auto,Auto,Auto,Auto" Margin="8">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto" MinWidth="160" />
-                            <ColumnDefinition />
-                        </Grid.ColumnDefinitions>
 
-                        <TextBlock Text="名前"
-                                   Grid.Column="0"
-                                   Grid.Row="0"
-                                   VerticalAlignment="Center" />
+    <Grid RowDefinitions="Auto,*,Auto">
+        <TextBlock Text="{CompiledBinding ActualName.Value}"
+                   Margin="10,8"
+                   Classes="breadcrumb" />
 
+        <ScrollViewer Grid.Row="1" Margin="10,0">
+            <StackPanel Spacing="8">
+                <TextBlock Classes="SubtitleTextBlockStyle"
+                           Text="リソース" />
+
+                <ctrls:OptionsDisplayItem Header="名前"
+                                          Description="パッケージを識別するための文字列"
+                                          Expands="True">
+                    <ctrls:OptionsDisplayItem.ActionButton>
+                        <TextBlock Text="{CompiledBinding ActualName.Value}"
+                                   Classes="description" />
+                    </ctrls:OptionsDisplayItem.ActionButton>
+                    <ctrls:OptionsDisplayItem.Content>
                         <TextBox Text="{CompiledBinding Name.Value}"
-                                 Classes="customStyle"
-                                 Grid.Column="1"
-                                 Grid.Row="0" />
+                                 Classes="customStyle" />
+                    </ctrls:OptionsDisplayItem.Content>
+                </ctrls:OptionsDisplayItem>
 
-                        <TextBlock Text="表示名"
-                                   Grid.Column="0"
-                                   Grid.Row="1"
-                                   VerticalAlignment="Center" />
+                <TextBlock Margin="0,8,0,0"
+                           FontStyle="Italic"
+                           Text="この項目の値は'詳細なリソース'で設定されていないカルチャで表示されます。" />
 
+                <ctrls:OptionsDisplayItem Header="表示名"
+                                          Description="パッケージの名前"
+                                          Expands="True">
+                    <ctrls:OptionsDisplayItem.ActionButton>
+                        <TextBlock Text="{CompiledBinding ActualDisplayName.Value}"
+                                   Classes="description" />
+                    </ctrls:OptionsDisplayItem.ActionButton>
+                    <ctrls:OptionsDisplayItem.Content>
                         <TextBox Text="{CompiledBinding DisplayName.Value}"
-                                 Classes="customStyle"
-                                 Grid.Column="1"
-                                 Grid.Row="1" />
+                                 Classes="customStyle" />
+                    </ctrls:OptionsDisplayItem.Content>
+                </ctrls:OptionsDisplayItem>
 
-                        <TextBlock Text="説明"
-                                   Grid.Column="0"
-                                   Grid.Row="2"
-                                   Margin="0,4"
-                                   VerticalAlignment="Center" />
-
+                <ctrls:OptionsDisplayItem Header="説明"
+                                          Description="パッケージの説明"
+                                          Expands="True">
+                    <ctrls:OptionsDisplayItem.ActionButton>
+                        <TextBlock Text="{CompiledBinding ActualDescription.Value}"
+                                   MaxWidth="150"
+                                   TextTrimming="CharacterEllipsis"
+                                   Classes="description" />
+                    </ctrls:OptionsDisplayItem.ActionButton>
+                    <ctrls:OptionsDisplayItem.Content>
                         <TextBox Text="{CompiledBinding Description.Value}"
-                                 Classes="customStyle"
-                                 MinWidth="335"
-                                 MinHeight="80"
-                                 Grid.ColumnSpan="2"
-                                 Grid.Row="3" />
-                    </Grid>
+                                 AcceptsReturn="True"
+                                 Classes="customStyle" />
+                    </ctrls:OptionsDisplayItem.Content>
+                </ctrls:OptionsDisplayItem>
 
-                    <Button Content="保存"
-                            Classes="accent"
-                            Margin="8"
-                            Command="{CompiledBinding Save}" />
-                </StackPanel>
-            </TabItem>
-        </TabControl>
-    </ScrollViewer>
+                <ctrls:OptionsDisplayItem Header="詳細なリソース"
+                                          Description="カルチャごとにリソースを設定します。"
+                                          NavigationRequested="NavigateToResourceSettings_Click"
+                                          Navigates="True" />
+                
+                <TextBlock Margin="0,8,0,0"
+                           Classes="SubtitleTextBlockStyle"
+                           Text="設定" />
+
+                <ctrls:OptionsDisplayItem Header="パッケージを削除"
+                                          Icon="Delete"
+                                          Navigates="True"
+                                          NavigationRequested="DeletePackage_Click"
+                                          Description="パッケージを削除します。" />
+            </StackPanel>
+        </ScrollViewer>
+
+        <Border Grid.Row="2"
+                Padding="32,24"
+                BorderBrush="{DynamicResource ControlElevationBorderBrush}"
+                BorderThickness="0,1,0,0">
+            <StackPanel HorizontalAlignment="Right"
+                        Spacing="8"
+                        Orientation="Horizontal">
+                <Button Content="変更を破棄する"
+                        Command="{CompiledBinding DiscardChanges}" />
+
+                <Button Content="保存"
+                        Classes="accent"
+                        Command="{CompiledBinding Save}" />
+            </StackPanel>
+        </Border>
+
+    </Grid>
 </UserControl>

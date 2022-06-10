@@ -1,0 +1,33 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:viewModels="using:BeUtl.ViewModels.ExtensionsPages.DevelopPages"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:ctrls="using:BeUtl.Controls"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:DataType="viewModels:MoreResourcesPageViewModel"
+             x:Class="BeUtl.Pages.ExtensionsPages.DevelopPages.MoreResourcesPage">
+
+    <Grid RowDefinitions="Auto,*,Auto">
+        <StackPanel Margin="10,8"
+                    Spacing="16"
+                    Orientation="Horizontal">
+            <Button Content="{CompiledBinding ActualName.Value}"
+                    Classes="breadcrumb"
+                    Click="NavigatePackagePage_Click" />
+
+            <Label Classes="breadcrumb" />
+
+            <TextBlock Text="詳細なリソース"
+                       Classes="breadcrumb" />
+        </StackPanel>
+
+        <ScrollViewer Grid.Row="1" Margin="10,0">
+
+            <StackPanel Spacing="8">
+
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</UserControl>

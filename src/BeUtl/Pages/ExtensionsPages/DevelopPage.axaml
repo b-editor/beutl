@@ -11,7 +11,7 @@
     <UserControl.DataContext>
         <viewModels:DevelopPageViewModel />
     </UserControl.DataContext>
-    <ScrollViewer>
+    <ScrollViewer Padding="18">
         <StackPanel Margin="8" Spacing="8">
             <TextBlock Text="ショートカット" Classes="SubtitleTextBlockStyle" />
 
@@ -51,7 +51,7 @@
                     </DataTemplate>
                 </ListBox.ItemTemplate>
             </ListBox>
-            
+
         </StackPanel>
     </ScrollViewer>
 </UserControl>
