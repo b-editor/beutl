@@ -12,8 +12,6 @@ namespace BeUtl.Pages.ExtensionsPages.DevelopPages;
 
 public partial class PackagePage : UserControl
 {
-    private PackagePageViewModel? _viewModel;
-
     public PackagePage()
     {
         InitializeComponent();

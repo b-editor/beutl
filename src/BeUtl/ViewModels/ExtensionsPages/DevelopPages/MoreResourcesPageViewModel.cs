@@ -1,5 +1,6 @@
 ﻿using System.Globalization;
 using System.Reactive.Disposables;
+using System.Reactive.Linq;
 using System.Reactive.Threading.Tasks;
 
 using BeUtl.Collections;
@@ -46,11 +47,83 @@ public sealed class MoreResourcesPageViewModel : IDisposable
     {
         _viewModel = viewModel;
         ActualName = viewModel.ActualName;
+
+        NewCultureInput = new ReactiveProperty<string>();
+        NewCultureInput.SetValidateNotifyError(str =>
+        {
+            if (!string.IsNullOrWhiteSpace(str))
+            {
+                try
+                {
+                    CultureInfo.GetCultureInfo(str);
+                    return null!;
+                }
+                catch { }
+            }
+
+            return "CultureNotFoundException";
+        });
+
+        NewCulture = NewCultureInput.Select(str =>
+            {
+                if (!string.IsNullOrWhiteSpace(str))
+                {
+                    try
+                    {
+                        return CultureInfo.GetCultureInfo(str);
+                    }
+                    catch { }
+                }
+
+                return null;
+            })
+            .ToReadOnlyReactivePropertySlim();
+
+        NewDisplayName = new ReactiveProperty<string>();
+        NewDescription = new ReactiveProperty<string>();
+        NewShortDescription = new ReactiveProperty<string>();
+
+        CanAddResource = NewCulture.Select(v => v != null).ToReadOnlyReactivePropertySlim();
+
+        AddResource = new ReactiveCommand(CanAddResource);
+        AddResource.Subscribe(async () =>
+        {
+            if (NewCulture.Value != null)
+            {
+                CollectionReference? resources = _viewModel.Reference.Collection("resources");
+                await resources.AddAsync(new
+                {
+                    displayName = NewDisplayName.Value,
+                    description = NewDescription.Value,
+                    shortDescription = NewShortDescription.Value,
+                    culture = NewCulture.Value
+                });
+
+                NewDisplayName.Value = "";
+                NewDescription.Value = "";
+                NewShortDescription.Value = "";
+                NewCultureInput.Value = "";
+            }
+        }).DisposeWith(_disposables);
     }
 
     public CoreList<ResourcePageViewModel> Items { get; } = new();
 
     public ReactivePropertySlim<string> ActualName { get; }
+
+    public ReactiveProperty<string> NewCultureInput { get; }
+
+    public ReadOnlyReactivePropertySlim<CultureInfo?> NewCulture { get; }
+
+    public ReactiveProperty<string> NewDisplayName { get; }
+
+    public ReactiveProperty<string> NewDescription { get; }
+
+    public ReactiveProperty<string> NewShortDescription { get; }
+
+    public ReadOnlyReactivePropertySlim<bool> CanAddResource { get; }
+
+    public ReactiveCommand AddResource { get; }
 
     public bool IsInitialized { get; private set; }
 

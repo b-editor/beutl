@@ -1,9 +1,13 @@
-﻿using Avalonia;
+﻿using System.Globalization;
+
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using Avalonia.VisualTree;
+using Avalonia.Xaml.Interactions.Custom;
 
+using BeUtl.Pages.ExtensionsPages.DevelopPages.Dialogs;
 using BeUtl.ViewModels.ExtensionsPages.DevelopPages;
 
 using FluentAvalonia.UI.Controls;
@@ -42,16 +46,11 @@ public partial class MoreResourcesPage : UserControl
 
     private async void Add_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is not MoreResourcesPageViewModel viewModel) return;
-        AddDialog_DisplayName.Text = "";
-        AddDialog_Description.Text = "";
-        AddDialog_Culture.Items = viewModel.GetCultures().ToArray();
-        AddDialog_Culture.SelectedIndex = 0;
-
-        if (await AddDialog.ShowAsync() == ContentDialogResult.Primary)
+        var dialog = new AddResourceDialog
         {
-
-        }
+            DataContext = DataContext
+        };
+        await dialog.ShowAsync();
     }
 
     private void Edit_Click(object? sender, RoutedEventArgs e)

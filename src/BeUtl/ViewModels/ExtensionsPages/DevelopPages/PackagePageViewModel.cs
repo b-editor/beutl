@@ -30,13 +30,18 @@ public sealed class PackagePageViewModel : IDisposable
             .Subscribe(s => Description.Value = ActualDescription.Value = s)
             .DisposeWith(_disposables);
 
+        observable.Select(d => d.GetValue<string>("shortDescription"))
+            .Subscribe(s => ShortDescription.Value = ActualShortDescription.Value = s)
+            .DisposeWith(_disposables);
+
         Save.Subscribe(async () =>
         {
             await Reference.UpdateAsync(new Dictionary<string, object>
             {
                 ["name"] = Name.Value,
                 ["displayName"] = DisplayName.Value,
-                ["description"] = Description.Value
+                ["description"] = Description.Value,
+                ["shortDescription"] = Description.Value
             });
         }).DisposeWith(_disposables);
 
@@ -46,6 +51,7 @@ public sealed class PackagePageViewModel : IDisposable
             Name.Value = snapshot.GetValue<string>("name");
             DisplayName.Value = snapshot.GetValue<string>("displayName");
             Description.Value = snapshot.GetValue<string>("description");
+            ShortDescription.Value = snapshot.GetValue<string>("shortDescription");
         }).DisposeWith(_disposables);
 
         Delete.Subscribe(async () => await Reference.DeleteAsync()).DisposeWith(_disposables);
@@ -61,11 +67,15 @@ public sealed class PackagePageViewModel : IDisposable
 
     public ReactivePropertySlim<string> ActualDescription { get; } = new();
 
+    public ReactivePropertySlim<string> ActualShortDescription { get; } = new();
+
     public ReactiveProperty<string> Name { get; } = new();
 
     public ReactiveProperty<string> DisplayName { get; } = new();
 
     public ReactiveProperty<string> Description { get; } = new();
+
+    public ReactiveProperty<string> ShortDescription { get; } = new();
 
     public AsyncReactiveCommand Save { get; } = new();
 

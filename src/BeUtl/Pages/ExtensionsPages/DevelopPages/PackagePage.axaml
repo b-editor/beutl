@@ -75,6 +75,21 @@
                     </ctrls:OptionsDisplayItem.Content>
                 </ctrls:OptionsDisplayItem>
 
+                <ctrls:OptionsDisplayItem Header="短い説明"
+                                          Description="パッケージの短い説明"
+                                          Expands="True">
+                    <ctrls:OptionsDisplayItem.ActionButton>
+                        <TextBlock Text="{CompiledBinding ActualShortDescription.Value}"
+                                   MaxWidth="150"
+                                   TextTrimming="CharacterEllipsis"
+                                   Classes="description" />
+                    </ctrls:OptionsDisplayItem.ActionButton>
+                    <ctrls:OptionsDisplayItem.Content>
+                        <TextBox Text="{CompiledBinding ShortDescription.Value}"
+                                 Classes="customStyle" />
+                    </ctrls:OptionsDisplayItem.Content>
+                </ctrls:OptionsDisplayItem>
+
                 <ctrls:OptionsDisplayItem Header="詳細なリソース"
                                           Description="カルチャごとにリソースを設定します。"
                                           NavigationRequested="NavigateToResourceSettings_Click"

@@ -33,7 +33,8 @@ public class PackageController
         CollectionReference colRef = db.Collection($"users/{user.Uid}/packages");
         return await colRef.AddAsync(new
         {
-            description = "New Package",
+            description = "Description",
+            shortDescription = "Short Description",
             displayName = "New Package",
             name = "New Package",
             draft = true
