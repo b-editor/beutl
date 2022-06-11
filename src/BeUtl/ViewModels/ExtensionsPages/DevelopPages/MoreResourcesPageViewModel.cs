@@ -115,6 +115,66 @@ public sealed class MoreResourcesPageViewModel : IDisposable
                 NewCultureInput.Value = "";
             }
         });
+
+        CollectionReference? resources = Parent.Reference.Collection("resources");
+        resources?.GetSnapshotAsync()
+            .ToObservable()
+            .Subscribe(snapshot =>
+            {
+                foreach (DocumentSnapshot item in snapshot.Documents)
+                {
+                    lock (_lockObject)
+                    {
+                        if (!Items.Any(p => p.Reference.Id == item.Reference.Id))
+                        {
+                            var viewModel = new ResourcePageViewModel(item.Reference, this);
+                            viewModel.Update(item);
+                            Items.Add(viewModel);
+                        }
+                    }
+                }
+            });
+
+        _listener = resources?.Listen(snapshot =>
+        {
+            foreach (DocumentChange item in snapshot.Changes)
+            {
+                lock (_lockObject)
+                {
+                    switch (item.ChangeType)
+                    {
+                        case DocumentChange.Type.Added when item.NewIndex.HasValue:
+                            if (!Items.Any(p => p.Reference.Id == item.Document.Reference.Id))
+                            {
+                                var viewModel = new ResourcePageViewModel(item.Document.Reference, this);
+                                viewModel.Update(item.Document);
+                                Items.Add(viewModel);
+                            }
+                            break;
+                        case DocumentChange.Type.Removed when item.OldIndex.HasValue:
+                            foreach (ResourcePageViewModel viewModel in Items)
+                            {
+                                if (viewModel.Reference.Id == item.Document.Id)
+                                {
+                                    Items.Remove(viewModel);
+                                    return;
+                                }
+                            }
+                            break;
+                        case DocumentChange.Type.Modified:
+                            foreach (ResourcePageViewModel viewModel in Items)
+                            {
+                                if (viewModel.Reference.Id == item.Document.Id)
+                                {
+                                    viewModel.Update(item.Document);
+                                    return;
+                                }
+                            }
+                            break;
+                    }
+                }
+            }
+        });
     }
 
     public PackagePageViewModel Parent { get; }
@@ -135,85 +195,10 @@ public sealed class MoreResourcesPageViewModel : IDisposable
 
     public ReactiveCommand AddResource { get; }
 
-    public bool IsInitialized { get; private set; }
-
-    public void Initialize()
-    {
-        if (!IsInitialized)
-        {
-            CollectionReference? resources = Parent.Reference.Collection("resources");
-            resources?.GetSnapshotAsync()
-                .ToObservable()
-                .Subscribe(snapshot =>
-                {
-                    foreach (DocumentSnapshot item in snapshot.Documents)
-                    {
-                        lock (_lockObject)
-                        {
-                            if (!Items.Any(p => p.Reference.Id == item.Reference.Id))
-                            {
-                                var viewModel = new ResourcePageViewModel(item.Reference, this);
-                                viewModel.Update(item);
-                                Items.Add(viewModel);
-                            }
-                        }
-                    }
-                });
-
-            _listener = resources?.Listen(snapshot =>
-            {
-                foreach (DocumentChange item in snapshot.Changes)
-                {
-                    lock (_lockObject)
-                    {
-                        switch (item.ChangeType)
-                        {
-                            case DocumentChange.Type.Added when item.NewIndex.HasValue:
-                                if (!Items.Any(p => p.Reference.Id == item.Document.Reference.Id))
-                                {
-                                    var viewModel = new ResourcePageViewModel(item.Document.Reference, this);
-                                    viewModel.Update(item.Document);
-                                    Items.Add(viewModel);
-                                }
-                                break;
-                            case DocumentChange.Type.Removed when item.OldIndex.HasValue:
-                                foreach (ResourcePageViewModel viewModel in Items)
-                                {
-                                    if (viewModel.Reference.Id == item.Document.Id)
-                                    {
-                                        Items.Remove(viewModel);
-                                        return;
-                                    }
-                                }
-                                break;
-                            case DocumentChange.Type.Modified:
-                                foreach (ResourcePageViewModel viewModel in Items)
-                                {
-                                    if (viewModel.Reference.Id == item.Document.Id)
-                                    {
-                                        viewModel.Update(item.Document);
-                                        return;
-                                    }
-                                }
-                                break;
-                        }
-                    }
-                }
-            });
-
-            IsInitialized = true;
-        }
-    }
-
     public void Dispose()
     {
-        if (IsInitialized)
-        {
-            _listener?.StopAsync();
+        _listener?.StopAsync();
 
-            Items.Clear();
-
-            IsInitialized = false;
-        }
+        Items.Clear();
     }
 }

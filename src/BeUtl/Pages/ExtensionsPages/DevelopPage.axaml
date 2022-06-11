@@ -44,9 +44,38 @@
             <ListBox Items="{CompiledBinding Packages}" x:Name="packagesList">
                 <ListBox.ItemTemplate>
                     <DataTemplate>
-                        <StackPanel>
-                            <TextBlock Text="{Binding Name.Value}" />
-                            <TextBlock Text="{Binding DisplayName.Value}" />
+                        <StackPanel Spacing="8">
+                            <TextBlock Text="{CompiledBinding Name.Value}" />
+
+                            <StackPanel Orientation="Horizontal"
+                                        IsVisible="{CompiledBinding HasLocalizedDisplayName.Value}">
+                                <StackPanel.Styles>
+                                    <Style Selector="TextBlock">
+                                        <Setter Property="FontFamily" Value="XamlAutoFontFamily" />
+                                        <Setter Property="FontSize" Value="16" />
+                                        <Setter Property="FontWeight" Value="SemiBold" />
+                                        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+                                        <Setter Property="TextWrapping" Value="Wrap" />
+                                    </Style>
+                                </StackPanel.Styles>
+                                <TextBlock Text="{CompiledBinding LocalizedDisplayName.Value}" />
+                                <TextBlock Text=" (" />
+                                <TextBlock Text="{CompiledBinding ActualDisplayName.Value}" />
+                                <TextBlock Text=")" />
+                            </StackPanel>
+
+                            <TextBlock Text="{CompiledBinding ActualDisplayName.Value}"
+                                       IsVisible="{CompiledBinding !HasLocalizedDisplayName.Value}">
+                                <TextBlock.Styles>
+                                    <Style Selector="TextBlock">
+                                        <Setter Property="FontFamily" Value="XamlAutoFontFamily" />
+                                        <Setter Property="FontSize" Value="16" />
+                                        <Setter Property="FontWeight" Value="SemiBold" />
+                                        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+                                        <Setter Property="TextWrapping" Value="Wrap" />
+                                    </Style>
+                                </TextBlock.Styles>
+                            </TextBlock>
                         </StackPanel>
                     </DataTemplate>
                 </ListBox.ItemTemplate>

@@ -13,30 +13,9 @@ namespace BeUtl.Pages.ExtensionsPages.DevelopPages;
 
 public partial class MoreResourcesPage : UserControl
 {
-    private MoreResourcesPageViewModel? _viewModel;
-
     public MoreResourcesPage()
     {
         InitializeComponent();
-    }
-
-    protected override void OnDataContextChanged(EventArgs e)
-    {
-        base.OnDataContextChanged(e);
-        if (DataContext is MoreResourcesPageViewModel viewModel)
-        {
-            _viewModel?.Dispose();
-            viewModel.Initialize();
-            _viewModel = viewModel;
-        }
-    }
-
-    protected override void OnDetachedFromLogicalTree(Avalonia.LogicalTree.LogicalTreeAttachmentEventArgs e)
-    {
-        base.OnDetachedFromLogicalTree(e);
-
-        _viewModel?.Dispose();
-        DataContext = _viewModel = null;
     }
 
     private async void Add_Click(object? sender, RoutedEventArgs e)

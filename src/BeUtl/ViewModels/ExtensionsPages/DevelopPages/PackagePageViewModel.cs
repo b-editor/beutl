@@ -1,4 +1,5 @@
-﻿using System.Reactive.Disposables;
+﻿using System.Globalization;
+using System.Reactive.Disposables;
 using System.Reactive.Linq;
 
 using Google.Cloud.Firestore;
@@ -34,11 +35,13 @@ public sealed class PackagePageViewModel : IDisposable
             .Subscribe(s => ShortDescription.Value = ActualShortDescription.Value = s)
             .DisposeWith(_disposables);
 
+        // データ検証を設定
         Name.SetValidateNotifyError(NotNullOrWhitespace);
         DisplayName.SetValidateNotifyError(NotNullOrWhitespace);
         Description.SetValidateNotifyError(NotNullOrWhitespace);
         ShortDescription.SetValidateNotifyError(NotNullOrWhitespace);
 
+        // コマンドを初期化
         Save = new AsyncReactiveCommand(Name.ObserveHasErrors
             .CombineLatest(
                 DisplayName.ObserveHasErrors,
@@ -66,6 +69,21 @@ public sealed class PackagePageViewModel : IDisposable
         }).DisposeWith(_disposables);
 
         Delete.Subscribe(async () => await Reference.DeleteAsync()).DisposeWith(_disposables);
+
+        LocalizedDisplayName = ResourcesViewModel.Items.ToCollectionChanged<ResourcePageViewModel>()
+            .SelectMany(_ => ResourcesViewModel.Items.Count > 0
+                ? ResourcesViewModel.Items.ToObservable()
+                    .SelectMany(i => i.ActualCulture
+                        .CombineLatest(i.ActualDisplayName)
+                        .Select(ii => ii.First.Equals(CultureInfo.CurrentUICulture) ? ii.Second : null))
+                : Observable.Return<string?>(null))
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposables);
+
+        HasLocalizedDisplayName = LocalizedDisplayName
+            .Select(i => !string.IsNullOrWhiteSpace(i))
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposables);
     }
 
     public DocumentReference Reference { get; }
@@ -79,6 +97,10 @@ public sealed class PackagePageViewModel : IDisposable
     public ReactivePropertySlim<string> ActualDescription { get; } = new();
 
     public ReactivePropertySlim<string> ActualShortDescription { get; } = new();
+
+    public ReadOnlyReactivePropertySlim<string?> LocalizedDisplayName { get; }
+
+    public ReadOnlyReactivePropertySlim<bool> HasLocalizedDisplayName { get; }
 
     public ReactiveProperty<string> Name { get; } = new();
 
