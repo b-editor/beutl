@@ -35,6 +35,19 @@ public sealed class PackagePageViewModel : IDisposable
             .Subscribe(s => ShortDescription.Value = ActualShortDescription.Value = s)
             .DisposeWith(_disposables);
 
+        IsPublic = observable.Select(d => d.GetValue<bool>("visible"))
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposables);
+
+        IsChanging = Name.CombineLatest(ActualName).Select(t => t.First == t.Second)
+            .CombineLatest(
+                DisplayName.CombineLatest(ActualDisplayName).Select(t => t.First == t.Second),
+                Description.CombineLatest(ActualDescription).Select(t => t.First == t.Second),
+                ShortDescription.CombineLatest(ActualShortDescription).Select(t => t.First == t.Second))
+            .Select(t => !(t.First && t.Second && t.Third && t.Fourth))
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposables);
+
         // データ検証を設定
         Name.SetValidateNotifyError(NotNullOrWhitespace);
         DisplayName.SetValidateNotifyError(NotNullOrWhitespace);
@@ -70,6 +83,10 @@ public sealed class PackagePageViewModel : IDisposable
 
         Delete.Subscribe(async () => await Reference.DeleteAsync()).DisposeWith(_disposables);
 
+        MakePublic.Subscribe(async () => await Reference.UpdateAsync("visible", true)).DisposeWith(_disposables);
+
+        MakePrivate.Subscribe(async () => await Reference.UpdateAsync("visible", false)).DisposeWith(_disposables);
+
         LocalizedDisplayName = ResourcesViewModel.Items.ToCollectionChanged<ResourcePageViewModel>()
             .SelectMany(_ => ResourcesViewModel.Items.Count > 0
                 ? ResourcesViewModel.Items.ToObservable()
@@ -102,6 +119,10 @@ public sealed class PackagePageViewModel : IDisposable
 
     public ReadOnlyReactivePropertySlim<bool> HasLocalizedDisplayName { get; }
 
+    public ReadOnlyReactivePropertySlim<bool> IsChanging { get; }
+
+    public ReadOnlyReactivePropertySlim<bool> IsPublic { get; }
+
     public ReactiveProperty<string> Name { get; } = new();
 
     public ReactiveProperty<string> DisplayName { get; } = new();
@@ -115,6 +136,10 @@ public sealed class PackagePageViewModel : IDisposable
     public AsyncReactiveCommand DiscardChanges { get; } = new();
 
     public ReactiveCommand Delete { get; } = new();
+
+    public ReactiveCommand MakePublic { get; } = new();
+
+    public ReactiveCommand MakePrivate { get; } = new();
 
     public void Dispose()
     {

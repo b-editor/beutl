@@ -104,6 +104,26 @@
                                           Navigates="True"
                                           NavigationRequested="DeletePackage_Click"
                                           Description="パッケージを削除します。" />
+
+                <ctrls:OptionsDisplayItem Header="パブリックにする"
+                                          IsVisible="{CompiledBinding !IsPublic.Value}"
+                                          Navigates="True"
+                                          NavigationRequested="MakePublic_Click"
+                                          Description="パッケージを公開します。">
+                    <ctrls:OptionsDisplayItem.Icon>
+                        <ui:PathIcon Data="{StaticResource Eye_Show_Regular}" />
+                    </ctrls:OptionsDisplayItem.Icon>
+                </ctrls:OptionsDisplayItem>
+
+                <ctrls:OptionsDisplayItem Header="プライベートにする"
+                                          IsVisible="{CompiledBinding IsPublic.Value}"
+                                          Navigates="True"
+                                          NavigationRequested="MakePrivate_Click"
+                                          Description="パッケージを非公開にします。">
+                    <ctrls:OptionsDisplayItem.Icon>
+                        <ui:PathIcon Data="{StaticResource Eye_Hide_Regular}" />
+                    </ctrls:OptionsDisplayItem.Icon>
+                </ctrls:OptionsDisplayItem>
             </StackPanel>
         </ScrollViewer>
 
@@ -115,9 +135,11 @@
                         Spacing="8"
                         Orientation="Horizontal">
                 <Button Content="変更を破棄する"
+                        IsEnabled="{CompiledBinding IsChanging.Value}"
                         Command="{CompiledBinding DiscardChanges}" />
 
                 <Button Content="保存"
+                        IsEnabled="{CompiledBinding IsChanging.Value}"
                         Classes="accent"
                         Command="{CompiledBinding Save}" />
             </StackPanel>

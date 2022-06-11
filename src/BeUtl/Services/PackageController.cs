@@ -37,7 +37,7 @@ public class PackageController
             shortDescription = "Short Description",
             displayName = "New Package",
             name = "New Package",
-            draft = true
+            visible = false
         });
     }
 }

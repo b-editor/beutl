@@ -41,42 +41,56 @@
             <Separator Height="8" />
             <TextBlock Text="パッケージ" Classes="SubtitleTextBlockStyle" />
 
-            <ListBox Items="{CompiledBinding Packages}" x:Name="packagesList">
+            <ListBox Items="{CompiledBinding Packages}"
+                     SelectionMode="Multiple"
+                     x:Name="PackagesList">
                 <ListBox.ItemTemplate>
                     <DataTemplate>
-                        <StackPanel Spacing="8">
-                            <TextBlock Text="{CompiledBinding Name.Value}" />
+                        <Grid ColumnDefinitions="Auto,16,*,Auto">
+                            <ui:PathIcon IsVisible="{CompiledBinding IsPublic.Value}" Data="{StaticResource Eye_Show_Regular}" />
+                            <ui:PathIcon IsVisible="{CompiledBinding !IsPublic.Value}" Data="{StaticResource Eye_Hide_Regular}" />
 
-                            <StackPanel Orientation="Horizontal"
-                                        IsVisible="{CompiledBinding HasLocalizedDisplayName.Value}">
-                                <StackPanel.Styles>
-                                    <Style Selector="TextBlock">
-                                        <Setter Property="FontFamily" Value="XamlAutoFontFamily" />
-                                        <Setter Property="FontSize" Value="16" />
-                                        <Setter Property="FontWeight" Value="SemiBold" />
-                                        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
-                                        <Setter Property="TextWrapping" Value="Wrap" />
-                                    </Style>
-                                </StackPanel.Styles>
-                                <TextBlock Text="{CompiledBinding LocalizedDisplayName.Value}" />
-                                <TextBlock Text=" (" />
-                                <TextBlock Text="{CompiledBinding ActualDisplayName.Value}" />
-                                <TextBlock Text=")" />
+                            <StackPanel Spacing="4"
+                                        VerticalAlignment="Center"
+                                        Grid.Column="2">
+                                <TextBlock Text="{CompiledBinding Name.Value}" />
+
+                                <StackPanel Orientation="Horizontal"
+                                            IsVisible="{CompiledBinding HasLocalizedDisplayName.Value}">
+                                    <StackPanel.Styles>
+                                        <Style Selector="TextBlock">
+                                            <Setter Property="FontFamily" Value="XamlAutoFontFamily" />
+                                            <Setter Property="FontSize" Value="16" />
+                                            <Setter Property="FontWeight" Value="SemiBold" />
+                                            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+                                            <Setter Property="TextWrapping" Value="Wrap" />
+                                        </Style>
+                                    </StackPanel.Styles>
+                                    <TextBlock Text="{CompiledBinding LocalizedDisplayName.Value}" />
+                                    <TextBlock Text=" (" />
+                                    <TextBlock Text="{CompiledBinding ActualDisplayName.Value}" />
+                                    <TextBlock Text=")" />
+                                </StackPanel>
+
+                                <TextBlock Text="{CompiledBinding ActualDisplayName.Value}"
+                                           IsVisible="{CompiledBinding !HasLocalizedDisplayName.Value}">
+                                    <TextBlock.Styles>
+                                        <Style Selector="TextBlock">
+                                            <Setter Property="FontFamily" Value="XamlAutoFontFamily" />
+                                            <Setter Property="FontSize" Value="16" />
+                                            <Setter Property="FontWeight" Value="SemiBold" />
+                                            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+                                            <Setter Property="TextWrapping" Value="Wrap" />
+                                        </Style>
+                                    </TextBlock.Styles>
+                                </TextBlock>
                             </StackPanel>
 
-                            <TextBlock Text="{CompiledBinding ActualDisplayName.Value}"
-                                       IsVisible="{CompiledBinding !HasLocalizedDisplayName.Value}">
-                                <TextBlock.Styles>
-                                    <Style Selector="TextBlock">
-                                        <Setter Property="FontFamily" Value="XamlAutoFontFamily" />
-                                        <Setter Property="FontSize" Value="16" />
-                                        <Setter Property="FontWeight" Value="SemiBold" />
-                                        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
-                                        <Setter Property="TextWrapping" Value="Wrap" />
-                                    </Style>
-                                </TextBlock.Styles>
-                            </TextBlock>
-                        </StackPanel>
+                            <ui:CommandBarButton Label="編集"
+                                                 Grid.Column="3"
+                                                 Click="Edit_Click"
+                                                 Icon="Edit" />
+                        </Grid>
                     </DataTemplate>
                 </ListBox.ItemTemplate>
             </ListBox>

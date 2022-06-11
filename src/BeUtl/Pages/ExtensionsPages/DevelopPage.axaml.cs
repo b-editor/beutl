@@ -6,6 +6,7 @@ using FluentAvalonia.UI.Controls;
 using Avalonia.Input;
 using BeUtl.ViewModels.ExtensionsPages.DevelopPages;
 using BeUtl.Pages.ExtensionsPages.DevelopPages;
+using Avalonia;
 
 namespace BeUtl.Pages.ExtensionsPages;
 
@@ -16,15 +17,15 @@ public partial class DevelopPage : UserControl
     public DevelopPage()
     {
         InitializeComponent();
-        packagesList.AddHandler(PointerPressedEvent, PackagesList_PointerPressed, RoutingStrategies.Tunnel);
-        packagesList.AddHandler(PointerReleasedEvent, PackagesList_PointerReleased, RoutingStrategies.Tunnel);
+        PackagesList.AddHandler(PointerPressedEvent, PackagesList_PointerPressed, RoutingStrategies.Tunnel);
+        PackagesList.AddHandler(PointerReleasedEvent, PackagesList_PointerReleased, RoutingStrategies.Tunnel);
     }
 
     private void PackagesList_PointerReleased(object? sender, PointerReleasedEventArgs e)
     {
         if (flag)
         {
-            if (packagesList.SelectedItem is PackagePageViewModel selectedItem)
+            if (PackagesList.SelectedItem is PackagePageViewModel selectedItem)
             {
                 Frame frame = this.FindAncestorOfType<Frame>();
                 frame.Navigate(typeof(PackagePage), selectedItem);
@@ -38,6 +39,15 @@ public partial class DevelopPage : UserControl
         if (e.ClickCount == 2)
         {
             flag = true;
+        }
+    }
+
+    private void Edit_Click(object? sender, RoutedEventArgs e)
+    {
+        if (sender is StyledElement { DataContext: PackagePageViewModel item })
+        {
+            Frame frame = this.FindAncestorOfType<Frame>();
+            frame.Navigate(typeof(PackagePage), item);
         }
     }
 

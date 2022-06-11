@@ -1,5 +1,6 @@
 ﻿using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
 
@@ -13,9 +14,34 @@ namespace BeUtl.Pages.ExtensionsPages.DevelopPages;
 
 public partial class MoreResourcesPage : UserControl
 {
+    private bool flag;
+
     public MoreResourcesPage()
     {
         InitializeComponent();
+        ResourcesList.AddHandler(PointerPressedEvent, ResourcesList_PointerPressed, RoutingStrategies.Tunnel);
+        ResourcesList.AddHandler(PointerReleasedEvent, ResourcesList_PointerReleased, RoutingStrategies.Tunnel);
+    }
+
+    private void ResourcesList_PointerReleased(object? sender, PointerReleasedEventArgs e)
+    {
+        if (flag)
+        {
+            if (ResourcesList.SelectedItem is ResourcePageViewModel item)
+            {
+                Frame frame = this.FindAncestorOfType<Frame>();
+                frame.Navigate(typeof(ResourcePage), item);
+            }
+            flag = false;
+        }
+    }
+
+    private void ResourcesList_PointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (e.ClickCount == 2)
+        {
+            flag = true;
+        }
     }
 
     private async void Add_Click(object? sender, RoutedEventArgs e)
