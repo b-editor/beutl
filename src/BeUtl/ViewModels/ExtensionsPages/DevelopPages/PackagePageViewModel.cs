@@ -52,7 +52,7 @@ public sealed class PackagePageViewModel : IDisposable
                 ["name"] = Name.Value,
                 ["displayName"] = DisplayName.Value,
                 ["description"] = Description.Value,
-                ["shortDescription"] = Description.Value
+                ["shortDescription"] = ShortDescription.Value
             });
         }).DisposeWith(_disposables);
 

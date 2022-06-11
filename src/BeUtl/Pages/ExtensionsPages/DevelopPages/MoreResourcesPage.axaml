@@ -12,7 +12,7 @@
         <StackPanel Margin="10,8"
                     Spacing="16"
                     Orientation="Horizontal">
-            <Button Content="{CompiledBinding ActualName.Value}"
+            <Button Content="{CompiledBinding Parent.ActualName.Value}"
                     Classes="breadcrumb"
                     Click="NavigatePackagePage_Click" />
 
@@ -35,28 +35,33 @@
                  Margin="10,0">
             <ListBox.ItemTemplate>
                 <DataTemplate>
-                    <Grid ColumnDefinitions="*,Auto,Auto">
-                        <StackPanel Grid.Column="0"
-                                    VerticalAlignment="Center"
-                                    Spacing="8">
-                            <TextBlock Classes="BodyStrongTextBlockStyle"
-                                       HorizontalAlignment="Left"
-                                       Text="{CompiledBinding DisplayName.Value}" />
+                    <Grid ColumnDefinitions="*,*,*,Auto,Auto" MaxHeight="64">
+                        <TextBlock Text="{CompiledBinding ActualCulture.Value.DisplayName}"
+                                   HorizontalAlignment="Left"
+                                   VerticalAlignment="Center"
+                                   Margin="0,0,16,0"
+                                   Classes="BodyStrongTextBlockStyle" />
 
-                            <TextBlock Opacity="0.8"
-                                       HorizontalAlignment="Left"                                       
-                                       TextTrimming="CharacterEllipsis"
-                                       MaxWidth="150"
-                                       Text="{CompiledBinding Description.Value}" />
-                        </StackPanel>
+                        <TextBlock Classes="BodyStrongTextBlockStyle"
+                                   Grid.Column="1"
+                                   HorizontalAlignment="Left"
+                                   VerticalAlignment="Center"
+                                   Text="{CompiledBinding ActualDisplayName.Value}" />
+
+                        <TextBlock Opacity="0.8"
+                                   Grid.Column="2"
+                                   HorizontalAlignment="Left"
+                                   VerticalAlignment="Center"
+                                   TextTrimming="CharacterEllipsis"
+                                   Text="{CompiledBinding ActualDescription.Value}" />
 
                         <ui:CommandBarButton Label="編集"
-                                             Grid.Column="1"
+                                             Grid.Column="3"
                                              Click="Edit_Click"
                                              Icon="Edit" />
 
                         <ui:CommandBarButton Label="削除"
-                                             Grid.Column="2"
+                                             Grid.Column="4"
                                              Click="Delete_Click"
                                              Icon="Delete" />
                     </Grid>

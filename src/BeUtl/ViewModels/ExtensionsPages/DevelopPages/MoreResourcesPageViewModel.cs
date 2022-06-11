@@ -1,53 +1,23 @@
 ﻿using System.Globalization;
-using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using System.Reactive.Threading.Tasks;
 
 using BeUtl.Collections;
 
-using DynamicData.Binding;
-
-using Google.Apis.Logging;
 using Google.Cloud.Firestore;
 
 using Reactive.Bindings;
 
 namespace BeUtl.ViewModels.ExtensionsPages.DevelopPages;
 
-public sealed class ResourcePageViewModel
-{
-    public ResourcePageViewModel(DocumentReference reference)
-    {
-        Reference = reference;
-    }
-
-    public DocumentReference Reference { get; }
-
-    public ReactiveProperty<string> DisplayName { get; } = new();
-
-    public ReactiveProperty<string> Description { get; } = new();
-
-    public ReactiveProperty<CultureInfo> Culture { get; } = new();
-
-    public void Update(DocumentSnapshot snapshot)
-    {
-        DisplayName.Value = snapshot.GetValue<string>("displayName");
-        Description.Value = snapshot.GetValue<string>("description");
-        Culture.Value = new CultureInfo(snapshot.GetValue<string>("culture"));
-    }
-}
-
 public sealed class MoreResourcesPageViewModel : IDisposable
 {
-    internal readonly PackagePageViewModel _viewModel;
     private readonly object _lockObject = new();
-    private readonly CompositeDisposable _disposables = new();
     private FirestoreChangeListener? _listener;
 
-    public MoreResourcesPageViewModel(PackagePageViewModel viewModel)
+    public MoreResourcesPageViewModel(PackagePageViewModel parent)
     {
-        _viewModel = viewModel;
-        ActualName = viewModel.ActualName;
+        Parent = parent;
 
         NewCultureInput = new ReactiveProperty<string>();
         NewCultureInput.SetValidateNotifyError(str =>
@@ -130,7 +100,7 @@ public sealed class MoreResourcesPageViewModel : IDisposable
         {
             if (NewCulture.Value != null)
             {
-                CollectionReference? resources = _viewModel.Reference.Collection("resources");
+                CollectionReference? resources = Parent.Reference.Collection("resources");
                 await resources.AddAsync(new
                 {
                     displayName = NewDisplayName.Value,
@@ -144,12 +114,12 @@ public sealed class MoreResourcesPageViewModel : IDisposable
                 NewShortDescription.Value = "";
                 NewCultureInput.Value = "";
             }
-        }).DisposeWith(_disposables);
+        });
     }
 
-    public CoreList<ResourcePageViewModel> Items { get; } = new();
+    public PackagePageViewModel Parent { get; }
 
-    public ReactivePropertySlim<string> ActualName { get; }
+    public CoreList<ResourcePageViewModel> Items { get; } = new();
 
     public ReactiveProperty<string> NewCultureInput { get; }
 
@@ -167,16 +137,11 @@ public sealed class MoreResourcesPageViewModel : IDisposable
 
     public bool IsInitialized { get; private set; }
 
-    public IEnumerable<CultureInfo> GetCultures()
-    {
-        return CultureInfo.GetCultures(CultureTypes.AllCultures).Except(Items.Select(i => i.Culture.Value));
-    }
-
     public void Initialize()
     {
         if (!IsInitialized)
         {
-            CollectionReference? resources = _viewModel.Reference.Collection("resources");
+            CollectionReference? resources = Parent.Reference.Collection("resources");
             resources?.GetSnapshotAsync()
                 .ToObservable()
                 .Subscribe(snapshot =>
@@ -187,14 +152,13 @@ public sealed class MoreResourcesPageViewModel : IDisposable
                         {
                             if (!Items.Any(p => p.Reference.Id == item.Reference.Id))
                             {
-                                var viewModel = new ResourcePageViewModel(item.Reference);
+                                var viewModel = new ResourcePageViewModel(item.Reference, this);
                                 viewModel.Update(item);
                                 Items.Add(viewModel);
                             }
                         }
                     }
-                })
-                .DisposeWith(_disposables);
+                });
 
             _listener = resources?.Listen(snapshot =>
             {
@@ -207,7 +171,7 @@ public sealed class MoreResourcesPageViewModel : IDisposable
                             case DocumentChange.Type.Added when item.NewIndex.HasValue:
                                 if (!Items.Any(p => p.Reference.Id == item.Document.Reference.Id))
                                 {
-                                    var viewModel = new ResourcePageViewModel(item.Document.Reference);
+                                    var viewModel = new ResourcePageViewModel(item.Document.Reference, this);
                                     viewModel.Update(item.Document);
                                     Items.Add(viewModel);
                                 }
@@ -246,7 +210,7 @@ public sealed class MoreResourcesPageViewModel : IDisposable
         if (IsInitialized)
         {
             _listener?.StopAsync();
-            _disposables.Clear();
+
             Items.Clear();
 
             IsInitialized = false;

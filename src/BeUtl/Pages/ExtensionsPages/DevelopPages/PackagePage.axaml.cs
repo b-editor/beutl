@@ -37,29 +37,16 @@ public partial class PackagePage : UserControl
         if (DataContext is PackagePageViewModel viewModel)
         {
             Frame frame = this.FindAncestorOfType<Frame>();
-            int type = Random.Shared.Next(0, 2);
             var dialog = new ContentDialog
             {
                 Title = "パッケージを削除",
                 Content = "パッケージを削除してもよろしいですか？",
-                PrimaryButtonText = type == 0 ? "はい" : "いいえ",
-                SecondaryButtonText = type == 0 ? "いいえ" : "はい",
-                DefaultButton = (ContentDialogButton)Random.Shared.Next(0, 4)
+                PrimaryButtonText = "はい",
+                CloseButtonText = "いいえ",
+                DefaultButton = ContentDialogButton.Primary
             };
 
-            if (type == 0) dialog.IsPrimaryButtonEnabled = false;
-            else dialog.IsSecondaryButtonEnabled = false;
-
-            Task<ContentDialogResult> task = dialog.ShowAsync();
-
-            await Task.Delay(Random.Shared.Next(0, 1000));
-            if (type == 0) dialog.IsPrimaryButtonEnabled = true;
-            else dialog.IsSecondaryButtonEnabled = true;
-
-            ContentDialogResult result = await task;
-
-            if ((result == ContentDialogResult.Primary && type == 0)
-                || (result == ContentDialogResult.Secondary && type == 1))
+            if (await dialog.ShowAsync() == ContentDialogResult.Primary)
             {
                 viewModel.Delete.Execute();
                 frame.GoBack();

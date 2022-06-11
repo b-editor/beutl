@@ -1,18 +1,13 @@
-﻿using System.Globalization;
-
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
-using Avalonia.Markup.Xaml;
 using Avalonia.VisualTree;
-using Avalonia.Xaml.Interactions.Custom;
 
 using BeUtl.Pages.ExtensionsPages.DevelopPages.Dialogs;
 using BeUtl.ViewModels.ExtensionsPages.DevelopPages;
 
 using FluentAvalonia.UI.Controls;
 using FluentAvalonia.UI.Media.Animation;
-using FluentAvalonia.UI.Navigation;
 
 namespace BeUtl.Pages.ExtensionsPages.DevelopPages;
 
@@ -55,12 +50,31 @@ public partial class MoreResourcesPage : UserControl
 
     private void Edit_Click(object? sender, RoutedEventArgs e)
     {
-
+        if (sender is StyledElement { DataContext: ResourcePageViewModel item })
+        {
+            Frame frame = this.FindAncestorOfType<Frame>();
+            frame.Navigate(typeof(ResourcePage), item);
+        }
     }
 
-    private void Delete_Click(object? sender, RoutedEventArgs e)
+    private async void Delete_Click(object? sender, RoutedEventArgs e)
     {
+        if (sender is StyledElement { DataContext: ResourcePageViewModel item })
+        {
+            var dialog = new ContentDialog
+            {
+                Title = "リソースを削除",
+                Content = "リソースを削除してもよろしいですか？",
+                PrimaryButtonText = "はい",
+                CloseButtonText = "いいえ",
+                DefaultButton = ContentDialogButton.Primary
+            };
 
+            if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+            {
+                item.Delete.Execute();
+            }
+        }
     }
 
     private void NavigatePackagePage_Click(object? sender, RoutedEventArgs e)
@@ -74,7 +88,7 @@ public partial class MoreResourcesPage : UserControl
                 FromVerticalOffset = 0
             };
 
-            frame.Navigate(typeof(PackagePage), viewModel._viewModel, transitionInfo);
+            frame.Navigate(typeof(PackagePage), viewModel.Parent, transitionInfo);
         }
     }
 }

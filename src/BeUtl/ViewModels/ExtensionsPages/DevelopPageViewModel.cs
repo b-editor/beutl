@@ -53,8 +53,11 @@ public sealed class DevelopPageViewModel : IDisposable
                 {
                     lock (_lockObject)
                     {
-                        var viewModel = new PackagePageViewModel(item.Reference);
-                        Packages.Add(viewModel);
+                        if (!Packages.Any(p => p.Reference.Id == item.Reference.Id))
+                        {
+                            var viewModel = new PackagePageViewModel(item.Reference);
+                            Packages.Add(viewModel);
+                        }
                     }
                 }
             });

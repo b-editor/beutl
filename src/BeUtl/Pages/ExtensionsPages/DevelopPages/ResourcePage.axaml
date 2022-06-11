@@ -1,0 +1,130 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:viewModels="using:BeUtl.ViewModels.ExtensionsPages.DevelopPages"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:ctrls="using:BeUtl.Controls"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:DataType="viewModels:ResourcePageViewModel"
+             x:Class="BeUtl.Pages.ExtensionsPages.DevelopPages.ResourcePage">
+    <UserControl.Styles>
+        <Style Selector="TextBox.customStyle">
+            <Setter Property="MinWidth" Value="250" />
+            <Setter Property="HorizontalAlignment" Value="Left" />
+        </Style>
+        <Style Selector="TextBlock.description">
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Opacity" Value="0.8" />
+        </Style>
+    </UserControl.Styles>
+
+    <Grid RowDefinitions="Auto,*,Auto">
+        <StackPanel Margin="10,8"
+                    Spacing="16"
+                    Orientation="Horizontal">
+            <Button Content="{CompiledBinding Parent.Parent.ActualName.Value}"
+                    Classes="breadcrumb"
+                    Click="NavigatePackagePage_Click" />
+
+            <Label Classes="breadcrumb" />
+
+            <Button Content="詳細なリソース"
+                    Classes="breadcrumb"
+                    Click="NavigateMoreResourcesPage_Click" />
+
+            <Label Classes="breadcrumb" />
+
+            <TextBlock Text="{CompiledBinding ActualCulture.Value.DisplayName}"
+                       Classes="breadcrumb" />
+        </StackPanel>
+
+
+        <ScrollViewer Grid.Row="1" Margin="10,0">
+            <StackPanel Spacing="8">
+                <TextBlock Classes="SubtitleTextBlockStyle"
+                           Text="リソース" />
+
+                <ctrls:OptionsDisplayItem Header="言語"
+                                          Expands="True"
+                                          Description="このリソースを表示する言語圏">
+                    <ctrls:OptionsDisplayItem.ActionButton>
+                        <TextBlock Text="{CompiledBinding ActualCulture.Value.DisplayName}"
+                                   Classes="description" />
+                    </ctrls:OptionsDisplayItem.ActionButton>
+                    <ctrls:OptionsDisplayItem.Content>
+                        <TextBox Text="{CompiledBinding CultureInput.Value}"
+                                 Classes="customStyle" />
+                    </ctrls:OptionsDisplayItem.Content>
+                </ctrls:OptionsDisplayItem>
+
+                <ctrls:OptionsDisplayItem Header="表示名"
+                                          Description="パッケージの名前"
+                                          Expands="True">
+                    <ctrls:OptionsDisplayItem.ActionButton>
+                        <TextBlock Text="{CompiledBinding ActualDisplayName.Value}"
+                                   Classes="description" />
+                    </ctrls:OptionsDisplayItem.ActionButton>
+                    <ctrls:OptionsDisplayItem.Content>
+                        <TextBox Text="{CompiledBinding DisplayName.Value}"
+                                 Classes="customStyle" />
+                    </ctrls:OptionsDisplayItem.Content>
+                </ctrls:OptionsDisplayItem>
+
+                <ctrls:OptionsDisplayItem Header="説明"
+                                          Description="パッケージの説明"
+                                          Expands="True">
+                    <ctrls:OptionsDisplayItem.ActionButton>
+                        <TextBlock Text="{CompiledBinding ActualDescription.Value}"
+                                   MaxWidth="150"
+                                   TextTrimming="CharacterEllipsis"
+                                   Classes="description" />
+                    </ctrls:OptionsDisplayItem.ActionButton>
+                    <ctrls:OptionsDisplayItem.Content>
+                        <TextBox Text="{CompiledBinding Description.Value}"
+                                 AcceptsReturn="True"
+                                 Classes="customStyle" />
+                    </ctrls:OptionsDisplayItem.Content>
+                </ctrls:OptionsDisplayItem>
+
+                <ctrls:OptionsDisplayItem Header="短い説明"
+                                          Description="パッケージの短い説明"
+                                          Expands="True">
+                    <ctrls:OptionsDisplayItem.ActionButton>
+                        <TextBlock Text="{CompiledBinding ActualShortDescription.Value}"
+                                   MaxWidth="150"
+                                   TextTrimming="CharacterEllipsis"
+                                   Classes="description" />
+                    </ctrls:OptionsDisplayItem.ActionButton>
+                    <ctrls:OptionsDisplayItem.Content>
+                        <TextBox Text="{CompiledBinding ShortDescription.Value}"
+                                 Classes="customStyle" />
+                    </ctrls:OptionsDisplayItem.Content>
+                </ctrls:OptionsDisplayItem>
+
+                <ctrls:OptionsDisplayItem Header="削除"
+                                          Icon="Delete"
+                                          Navigates="True"
+                                          NavigationRequested="DeleteResource_Click"
+                                          Description="リソースを削除します。" />
+            </StackPanel>
+        </ScrollViewer>
+
+        <Border Grid.Row="2"
+                Padding="32,24"
+                BorderBrush="{DynamicResource ControlElevationBorderBrush}"
+                BorderThickness="0,1,0,0">
+            <StackPanel HorizontalAlignment="Right"
+                        Spacing="8"
+                        Orientation="Horizontal">
+                <Button Content="変更を破棄する"
+                        Command="{CompiledBinding DiscardChanges}" />
+
+                <Button Content="保存"
+                        Classes="accent"
+                        Command="{CompiledBinding Save}" />
+            </StackPanel>
+        </Border>
+
+    </Grid>
+</UserControl>
