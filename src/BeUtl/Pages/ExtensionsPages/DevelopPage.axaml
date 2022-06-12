@@ -68,11 +68,11 @@
                                     </StackPanel.Styles>
                                     <TextBlock Text="{CompiledBinding LocalizedDisplayName.Value}" />
                                     <TextBlock Text=" (" />
-                                    <TextBlock Text="{CompiledBinding ActualDisplayName.Value}" />
+                                    <TextBlock Text="{CompiledBinding DisplayName.Value}" />
                                     <TextBlock Text=")" />
                                 </StackPanel>
 
-                                <TextBlock Text="{CompiledBinding ActualDisplayName.Value}"
+                                <TextBlock Text="{CompiledBinding DisplayName.Value}"
                                            IsVisible="{CompiledBinding !HasLocalizedDisplayName.Value}">
                                     <TextBlock.Styles>
                                         <Style Selector="TextBlock">

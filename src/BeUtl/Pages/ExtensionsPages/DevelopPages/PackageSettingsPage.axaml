@@ -6,8 +6,8 @@
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:ctrls="using:BeUtl.Controls"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-             x:DataType="viewModels:PackagePageViewModel"
-             x:Class="BeUtl.Pages.ExtensionsPages.DevelopPages.PackagePage">
+             x:DataType="viewModels:PackageSettingsPageViewModel"
+             x:Class="BeUtl.Pages.ExtensionsPages.DevelopPages.PackageSettingsPage">
     <UserControl.Styles>
         <Style Selector="TextBox.customStyle">
             <Setter Property="MinWidth" Value="250" />
@@ -20,9 +20,18 @@
     </UserControl.Styles>
 
     <Grid RowDefinitions="Auto,*,Auto">
-        <TextBlock Text="{CompiledBinding ActualName.Value}"
-                   Margin="10,8"
-                   Classes="breadcrumb" />
+        <StackPanel Margin="10,8"
+                           Spacing="16"
+                           Orientation="Horizontal">
+            <Button Content="{CompiledBinding Parent.Name.Value}"
+                    Classes="breadcrumb"
+                    Click="NavigatePackageDetailsPage_Click" />
+
+            <Label Classes="breadcrumb" />
+
+            <TextBlock Text="設定"
+                       Classes="breadcrumb" />
+        </StackPanel>
 
         <ScrollViewer Grid.Row="1" Margin="10,0">
             <StackPanel Spacing="8">
@@ -33,7 +42,7 @@
                                           Description="パッケージを識別するための文字列"
                                           Expands="True">
                     <ctrls:OptionsDisplayItem.ActionButton>
-                        <TextBlock Text="{CompiledBinding ActualName.Value}"
+                        <TextBlock Text="{CompiledBinding Parent.Name.Value}"
                                    Classes="description" />
                     </ctrls:OptionsDisplayItem.ActionButton>
                     <ctrls:OptionsDisplayItem.Content>
@@ -50,7 +59,7 @@
                                           Description="パッケージの名前"
                                           Expands="True">
                     <ctrls:OptionsDisplayItem.ActionButton>
-                        <TextBlock Text="{CompiledBinding ActualDisplayName.Value}"
+                        <TextBlock Text="{CompiledBinding Parent.DisplayName.Value}"
                                    Classes="description" />
                     </ctrls:OptionsDisplayItem.ActionButton>
                     <ctrls:OptionsDisplayItem.Content>
@@ -63,7 +72,7 @@
                                           Description="パッケージの説明"
                                           Expands="True">
                     <ctrls:OptionsDisplayItem.ActionButton>
-                        <TextBlock Text="{CompiledBinding ActualDescription.Value}"
+                        <TextBlock Text="{CompiledBinding Parent.Description.Value}"
                                    MaxWidth="150"
                                    TextTrimming="CharacterEllipsis"
                                    Classes="description" />
@@ -79,7 +88,7 @@
                                           Description="パッケージの短い説明"
                                           Expands="True">
                     <ctrls:OptionsDisplayItem.ActionButton>
-                        <TextBlock Text="{CompiledBinding ActualShortDescription.Value}"
+                        <TextBlock Text="{CompiledBinding Parent.ShortDescription.Value}"
                                    MaxWidth="150"
                                    TextTrimming="CharacterEllipsis"
                                    Classes="description" />
@@ -106,7 +115,7 @@
                                           Description="パッケージを削除します。" />
 
                 <ctrls:OptionsDisplayItem Header="パブリックにする"
-                                          IsVisible="{CompiledBinding !IsPublic.Value}"
+                                          IsVisible="{CompiledBinding !Parent.IsPublic.Value}"
                                           Navigates="True"
                                           NavigationRequested="MakePublic_Click"
                                           Description="パッケージを公開します。">
@@ -116,7 +125,7 @@
                 </ctrls:OptionsDisplayItem>
 
                 <ctrls:OptionsDisplayItem Header="プライベートにする"
-                                          IsVisible="{CompiledBinding IsPublic.Value}"
+                                          IsVisible="{CompiledBinding Parent.IsPublic.Value}"
                                           Navigates="True"
                                           NavigationRequested="MakePrivate_Click"
                                           Description="パッケージを非公開にします。">

@@ -23,9 +23,15 @@
         <StackPanel Margin="10,8"
                     Spacing="16"
                     Orientation="Horizontal">
-            <Button Content="{CompiledBinding Parent.Parent.ActualName.Value}"
+            <Button Content="{CompiledBinding Parent.Parent.Parent.Name.Value}"
                     Classes="breadcrumb"
-                    Click="NavigatePackagePage_Click" />
+                    Click="NavigatePackageDetailsPage_Click" />
+
+            <Label Classes="breadcrumb" />
+
+            <Button Content="設定"
+                    Classes="breadcrumb"
+                    Click="NavigatePackageSettingsPage_Click" />
 
             <Label Classes="breadcrumb" />
 

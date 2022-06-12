@@ -10,16 +10,31 @@ using FluentAvalonia.UI.Media.Animation;
 
 namespace BeUtl.Pages.ExtensionsPages.DevelopPages;
 
-public partial class PackagePage : UserControl
+public partial class PackageSettingsPage : UserControl
 {
-    public PackagePage()
+    public PackageSettingsPage()
     {
         InitializeComponent();
     }
 
+    private void NavigatePackageDetailsPage_Click(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is PackageSettingsPageViewModel viewModel)
+        {
+            Frame frame = this.FindAncestorOfType<Frame>();
+            var transitionInfo = new EntranceNavigationTransitionInfo
+            {
+                FromHorizontalOffset = -28,
+                FromVerticalOffset = 0
+            };
+
+            frame.Navigate(typeof(PackageDetailsPage), viewModel.Parent, transitionInfo);
+        }
+    }
+
     private void NavigateToResourceSettings_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is PackagePageViewModel viewModel)
+        if (DataContext is PackageSettingsPageViewModel viewModel)
         {
             Frame frame = this.FindAncestorOfType<Frame>();
             var transitionInfo = new EntranceNavigationTransitionInfo
@@ -28,13 +43,13 @@ public partial class PackagePage : UserControl
                 FromVerticalOffset = 0
             };
 
-            frame.Navigate(typeof(MoreResourcesPage), viewModel.ResourcesViewModel, transitionInfo);
+            frame.Navigate(typeof(MoreResourcesPage), viewModel.Resources, transitionInfo);
         }
     }
 
     private async void DeletePackage_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is PackagePageViewModel viewModel)
+        if (DataContext is PackageSettingsPageViewModel viewModel)
         {
             Frame frame = this.FindAncestorOfType<Frame>();
             var dialog = new ContentDialog
@@ -56,7 +71,7 @@ public partial class PackagePage : UserControl
 
     private async void MakePublic_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is PackagePageViewModel viewModel)
+        if (DataContext is PackageSettingsPageViewModel viewModel)
         {
             var dialog = new ContentDialog
             {
@@ -76,7 +91,7 @@ public partial class PackagePage : UserControl
 
     private async void MakePrivate_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is PackagePageViewModel viewModel)
+        if (DataContext is PackageSettingsPageViewModel viewModel)
         {
             var dialog = new ContentDialog
             {

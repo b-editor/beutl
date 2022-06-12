@@ -32,14 +32,14 @@ public sealed class DevelopPageViewModel : IDisposable
             {
                 lock (_lockObject)
                 {
-                    PackagePageViewModel? viewModel = Packages.FirstOrDefault(p => p.Reference.Id == docRef.Id);
+                    PackageDetailsPageViewModel? viewModel = Packages.FirstOrDefault(p => p.Reference.Id == docRef.Id);
                     if (viewModel == null)
                     {
-                        viewModel = new PackagePageViewModel(docRef);
+                        viewModel = new PackageDetailsPageViewModel(docRef);
                         Packages.Add(viewModel);
                     }
 
-                    frame.Navigate(typeof(PackagePage), viewModel);
+                    frame.Navigate(typeof(PackageDetailsPage), viewModel);
                 }
             }
         });
@@ -55,7 +55,7 @@ public sealed class DevelopPageViewModel : IDisposable
                     {
                         if (!Packages.Any(p => p.Reference.Id == item.Reference.Id))
                         {
-                            var viewModel = new PackagePageViewModel(item.Reference);
+                            var viewModel = new PackageDetailsPageViewModel(item.Reference);
                             Packages.Add(viewModel);
                         }
                     }
@@ -73,12 +73,12 @@ public sealed class DevelopPageViewModel : IDisposable
                         case DocumentChange.Type.Added when item.NewIndex.HasValue:
                             if (!Packages.Any(p => p.Reference.Id == item.Document.Reference.Id))
                             {
-                                var viewModel = new PackagePageViewModel(item.Document.Reference);
+                                var viewModel = new PackageDetailsPageViewModel(item.Document.Reference);
                                 Packages.Add(viewModel);
                             }
                             break;
                         case DocumentChange.Type.Removed when item.OldIndex.HasValue:
-                            foreach (PackagePageViewModel pkg in Packages)
+                            foreach (PackageDetailsPageViewModel pkg in Packages)
                             {
                                 if (pkg.Reference.Id == item.Document.Id)
                                 {
@@ -96,7 +96,7 @@ public sealed class DevelopPageViewModel : IDisposable
         });
     }
 
-    public CoreList<PackagePageViewModel> Packages { get; } = new();
+    public CoreList<PackageDetailsPageViewModel> Packages { get; } = new();
 
     public ReactiveCommand<Frame> CreateNewPackage { get; } = new();
 

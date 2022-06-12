@@ -38,7 +38,7 @@ public partial class ResourcePage : UserControl
         }
     }
 
-    private void NavigatePackagePage_Click(object? sender, RoutedEventArgs e)
+    private void NavigatePackageDetailsPage_Click(object? sender, RoutedEventArgs e)
     {
         if (DataContext is ResourcePageViewModel viewModel)
         {
@@ -49,7 +49,22 @@ public partial class ResourcePage : UserControl
                 FromVerticalOffset = 0
             };
 
-            frame.Navigate(typeof(PackagePage), viewModel.Parent.Parent, transitionInfo);
+            frame.Navigate(typeof(PackageDetailsPage), viewModel.Parent.Parent.Parent, transitionInfo);
+        }
+    }
+
+    private void NavigatePackageSettingsPage_Click(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is ResourcePageViewModel viewModel)
+        {
+            Frame frame = this.FindAncestorOfType<Frame>();
+            var transitionInfo = new EntranceNavigationTransitionInfo
+            {
+                FromHorizontalOffset = -28,
+                FromVerticalOffset = 0
+            };
+
+            frame.Navigate(typeof(PackageSettingsPage), viewModel.Parent.Parent, transitionInfo);
         }
     }
 

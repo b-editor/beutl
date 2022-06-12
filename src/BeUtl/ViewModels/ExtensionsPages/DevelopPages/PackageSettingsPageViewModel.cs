@@ -1,5 +1,4 @@
-﻿using System.Globalization;
-using System.Reactive.Disposables;
+﻿using System.Reactive.Disposables;
 using System.Reactive.Linq;
 
 using Google.Cloud.Firestore;
@@ -8,42 +7,21 @@ using Reactive.Bindings;
 
 namespace BeUtl.ViewModels.ExtensionsPages.DevelopPages;
 
-public sealed class PackagePageViewModel : IDisposable
+public sealed class PackageSettingsPageViewModel : IDisposable
 {
     private readonly CompositeDisposable _disposables = new();
 
-    public PackagePageViewModel(DocumentReference docRef)
+    public PackageSettingsPageViewModel(DocumentReference docRef, PackageDetailsPageViewModel parent)
     {
         Reference = docRef;
-        ResourcesViewModel = new MoreResourcesPageViewModel(this);
+        Parent = parent;
+        Resources = new MoreResourcesPageViewModel(this);
 
-        IObservable<DocumentSnapshot> observable = Reference.ToObservable();
-
-        observable.Select(d => d.GetValue<string>("name"))
-            .Subscribe(s => Name.Value = ActualName.Value = s)
-            .DisposeWith(_disposables);
-
-        observable.Select(d => d.GetValue<string>("displayName"))
-            .Subscribe(s => DisplayName.Value = ActualDisplayName.Value = s)
-            .DisposeWith(_disposables);
-
-        observable.Select(d => d.GetValue<string>("description"))
-            .Subscribe(s => Description.Value = ActualDescription.Value = s)
-            .DisposeWith(_disposables);
-
-        observable.Select(d => d.GetValue<string>("shortDescription"))
-            .Subscribe(s => ShortDescription.Value = ActualShortDescription.Value = s)
-            .DisposeWith(_disposables);
-
-        IsPublic = observable.Select(d => d.GetValue<bool>("visible"))
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(_disposables);
-
-        IsChanging = Name.CombineLatest(ActualName).Select(t => t.First == t.Second)
+        IsChanging = Name.CombineLatest(parent.Name).Select(t => t.First == t.Second)
             .CombineLatest(
-                DisplayName.CombineLatest(ActualDisplayName).Select(t => t.First == t.Second),
-                Description.CombineLatest(ActualDescription).Select(t => t.First == t.Second),
-                ShortDescription.CombineLatest(ActualShortDescription).Select(t => t.First == t.Second))
+                DisplayName.CombineLatest(parent.DisplayName).Select(t => t.First == t.Second),
+                Description.CombineLatest(parent.Description).Select(t => t.First == t.Second),
+                ShortDescription.CombineLatest(parent.ShortDescription).Select(t => t.First == t.Second))
             .Select(t => !(t.First && t.Second && t.Third && t.Fourth))
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
@@ -86,42 +64,15 @@ public sealed class PackagePageViewModel : IDisposable
         MakePublic.Subscribe(async () => await Reference.UpdateAsync("visible", true)).DisposeWith(_disposables);
 
         MakePrivate.Subscribe(async () => await Reference.UpdateAsync("visible", false)).DisposeWith(_disposables);
-
-        LocalizedDisplayName = ResourcesViewModel.Items.ToCollectionChanged<ResourcePageViewModel>()
-            .SelectMany(_ => ResourcesViewModel.Items.Count > 0
-                ? ResourcesViewModel.Items.ToObservable()
-                    .SelectMany(i => i.ActualCulture
-                        .CombineLatest(i.ActualDisplayName)
-                        .Select(ii => ii.First.Equals(CultureInfo.CurrentUICulture) ? ii.Second : null))
-                : Observable.Return<string?>(null))
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(_disposables);
-
-        HasLocalizedDisplayName = LocalizedDisplayName
-            .Select(i => !string.IsNullOrWhiteSpace(i))
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(_disposables);
     }
 
     public DocumentReference Reference { get; }
 
-    public MoreResourcesPageViewModel ResourcesViewModel { get; }
+    public PackageDetailsPageViewModel Parent { get; }
 
-    public ReactivePropertySlim<string> ActualName { get; } = new();
-
-    public ReactivePropertySlim<string> ActualDisplayName { get; } = new();
-
-    public ReactivePropertySlim<string> ActualDescription { get; } = new();
-
-    public ReactivePropertySlim<string> ActualShortDescription { get; } = new();
-
-    public ReadOnlyReactivePropertySlim<string?> LocalizedDisplayName { get; }
-
-    public ReadOnlyReactivePropertySlim<bool> HasLocalizedDisplayName { get; }
+    public MoreResourcesPageViewModel Resources { get; }
 
     public ReadOnlyReactivePropertySlim<bool> IsChanging { get; }
-
-    public ReadOnlyReactivePropertySlim<bool> IsPublic { get; }
 
     public ReactiveProperty<string> Name { get; } = new();
 

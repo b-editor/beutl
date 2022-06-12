@@ -1,0 +1,44 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:viewModels="using:BeUtl.ViewModels.ExtensionsPages.DevelopPages"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:ctrls="using:BeUtl.Controls"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:DataType="viewModels:PackageDetailsPageViewModel"
+             x:Class="BeUtl.Pages.ExtensionsPages.DevelopPages.PackageDetailsPage">
+    <UserControl.Styles>
+        <Style Selector="TextBox.customStyle">
+            <Setter Property="MinWidth" Value="250" />
+            <Setter Property="HorizontalAlignment" Value="Left" />
+        </Style>
+        <Style Selector="TextBlock.description">
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Opacity" Value="0.8" />
+        </Style>
+    </UserControl.Styles>
+
+    <Grid RowDefinitions="Auto,*,Auto">
+        <TextBlock Text="{CompiledBinding Name.Value}"
+                   Margin="10,8"
+                   Classes="breadcrumb" />
+
+        <ScrollViewer Grid.Row="1" Margin="10,0">
+            <StackPanel Spacing="8">
+                <ctrls:OptionsDisplayItem Header="設定"
+                                          Icon="Settings"
+                                          Description="パッケージの設定"
+                                          Navigates="True"
+                                          NavigationRequested="NavigatePackageSettingsPage_Click" />
+
+                <ctrls:OptionsDisplayItem Header="リリース"
+                                          Icon="Document"
+                                          Description="パッケージのリリースを管理します。"
+                                          Navigates="True"
+                                          NavigationRequested="NavigatePackageReleasesPage_Click" />
+            </StackPanel>
+        </ScrollViewer>
+
+    </Grid>
+</UserControl>

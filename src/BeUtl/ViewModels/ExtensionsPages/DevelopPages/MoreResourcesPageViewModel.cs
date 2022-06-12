@@ -15,7 +15,7 @@ public sealed class MoreResourcesPageViewModel : IDisposable
     private readonly object _lockObject = new();
     private FirestoreChangeListener? _listener;
 
-    public MoreResourcesPageViewModel(PackagePageViewModel parent)
+    public MoreResourcesPageViewModel(PackageSettingsPageViewModel parent)
     {
         Parent = parent;
 
@@ -177,7 +177,7 @@ public sealed class MoreResourcesPageViewModel : IDisposable
         });
     }
 
-    public PackagePageViewModel Parent { get; }
+    public PackageSettingsPageViewModel Parent { get; }
 
     public CoreList<ResourcePageViewModel> Items { get; } = new();
 

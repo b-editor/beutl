@@ -25,10 +25,10 @@ public partial class DevelopPage : UserControl
     {
         if (flag)
         {
-            if (PackagesList.SelectedItem is PackagePageViewModel selectedItem)
+            if (PackagesList.SelectedItem is PackageDetailsPageViewModel selectedItem)
             {
                 Frame frame = this.FindAncestorOfType<Frame>();
-                frame.Navigate(typeof(PackagePage), selectedItem);
+                frame.Navigate(typeof(PackageDetailsPage), selectedItem);
             }
             flag = false;
         }
@@ -44,10 +44,10 @@ public partial class DevelopPage : UserControl
 
     private void Edit_Click(object? sender, RoutedEventArgs e)
     {
-        if (sender is StyledElement { DataContext: PackagePageViewModel item })
+        if (sender is StyledElement { DataContext: PackageDetailsPageViewModel item })
         {
             Frame frame = this.FindAncestorOfType<Frame>();
-            frame.Navigate(typeof(PackagePage), item);
+            frame.Navigate(typeof(PackageDetailsPage), item);
         }
     }
 
