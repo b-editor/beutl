@@ -17,6 +17,11 @@ public sealed class PackageSettingsPageViewModel : IDisposable
         Parent = parent;
         Resources = new MoreResourcesPageViewModel(this);
 
+        Name = parent.Name.ToReactiveProperty("");
+        DisplayName = parent.DisplayName.ToReactiveProperty("");
+        Description = parent.Description.ToReactiveProperty("");
+        ShortDescription = parent.ShortDescription.ToReactiveProperty("");
+
         IsChanging = Name.CombineLatest(parent.Name).Select(t => t.First == t.Second)
             .CombineLatest(
                 DisplayName.CombineLatest(parent.DisplayName).Select(t => t.First == t.Second),

@@ -124,9 +124,11 @@
                         Spacing="8"
                         Orientation="Horizontal">
                 <Button Content="変更を破棄する"
+                        IsEnabled="{CompiledBinding IsChanging.Value}"
                         Command="{CompiledBinding DiscardChanges}" />
 
                 <Button Content="保存"
+                        IsEnabled="{CompiledBinding IsChanging.Value}"
                         Classes="accent"
                         Command="{CompiledBinding Save}" />
             </StackPanel>

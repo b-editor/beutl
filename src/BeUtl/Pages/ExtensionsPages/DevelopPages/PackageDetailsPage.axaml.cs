@@ -43,7 +43,7 @@ public partial class PackageDetailsPage : UserControl
                 FromVerticalOffset = 0
             };
 
-            frame.Navigate(typeof(PackageSettingsPage), viewModel.Settings, transitionInfo);
+            frame.Navigate(typeof(PackageReleasesPage), viewModel.Releases, transitionInfo);
         }
     }
 }

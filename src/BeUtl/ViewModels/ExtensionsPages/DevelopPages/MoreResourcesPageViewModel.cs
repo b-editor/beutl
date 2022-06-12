@@ -13,7 +13,7 @@ namespace BeUtl.ViewModels.ExtensionsPages.DevelopPages;
 public sealed class MoreResourcesPageViewModel : IDisposable
 {
     private readonly object _lockObject = new();
-    private FirestoreChangeListener? _listener;
+    private readonly FirestoreChangeListener? _listener;
 
     public MoreResourcesPageViewModel(PackageSettingsPageViewModel parent)
     {

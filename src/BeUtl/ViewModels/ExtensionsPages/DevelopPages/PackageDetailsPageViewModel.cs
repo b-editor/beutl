@@ -39,6 +39,7 @@ public sealed class PackageDetailsPageViewModel : IDisposable
             .DisposeWith(_disposables);
 
         Settings = new PackageSettingsPageViewModel(docRef, this);
+        Releases = new PackageReleasesPageViewModel(this);
 
         LocalizedDisplayName = Settings.Resources.Items.ToCollectionChanged<ResourcePageViewModel>()
             .SelectMany(_ => Settings.Resources.Items.Count > 0
@@ -57,6 +58,8 @@ public sealed class PackageDetailsPageViewModel : IDisposable
     }
 
     public PackageSettingsPageViewModel Settings { get; }
+    
+    public PackageReleasesPageViewModel Releases { get; }
 
     public DocumentReference Reference { get; }
 

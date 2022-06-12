@@ -49,6 +49,14 @@ public sealed class ResourcePageViewModel
         Description.SetValidateNotifyError(NotNullOrWhitespace);
         ShortDescription.SetValidateNotifyError(NotNullOrWhitespace);
 
+        IsChanging = Culture.CombineLatest(ActualCulture).Select(t => t.First?.Name == t.Second?.Name)
+            .CombineLatest(
+                DisplayName.CombineLatest(ActualDisplayName).Select(t => t.First == t.Second),
+                Description.CombineLatest(ActualDescription).Select(t => t.First == t.Second),
+                ShortDescription.CombineLatest(ActualShortDescription).Select(t => t.First == t.Second))
+            .Select(t => !(t.First && t.Second && t.Third && t.Fourth))
+            .ToReadOnlyReactivePropertySlim();
+
         Save = new AsyncReactiveCommand(CultureInput.ObserveHasErrors
             .CombineLatest(DisplayName.ObserveHasErrors, Description.ObserveHasErrors, ShortDescription.ObserveHasErrors)
             .Select(t => !(t.First || t.Second || t.Third || t.Fourth)));
@@ -98,6 +106,8 @@ public sealed class ResourcePageViewModel
     public ReactiveProperty<string> CultureInput { get; } = new();
 
     public ReadOnlyReactivePropertySlim<CultureInfo?> Culture { get; }
+
+    public ReadOnlyReactivePropertySlim<bool> IsChanging { get; }
 
     public AsyncReactiveCommand Save { get; }
 
