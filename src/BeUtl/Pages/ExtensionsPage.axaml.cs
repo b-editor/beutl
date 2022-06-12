@@ -1,8 +1,11 @@
 ﻿using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Markup.Xaml;
+
+using BeUtl.Pages.ExtensionsPages;
+using BeUtl.Pages.ExtensionsPages.DevelopPages;
 
 using FluentAvalonia.UI.Controls;
+using FluentAvalonia.UI.Media.Animation;
 using FluentAvalonia.UI.Navigation;
 
 namespace BeUtl.Pages;
@@ -18,6 +21,7 @@ public partial class ExtensionsPage : UserControl
         NavigationViewItem selected = items[0];
 
         frame.Navigated += Frame_Navigated;
+        frame.Navigating += Frame_Navigating;
         nav.ItemInvoked += Nav_ItemInvoked;
         nav.BackRequested += Nav_BackRequested;
 
@@ -72,6 +76,37 @@ public partial class ExtensionsPage : UserControl
         }
     }
 
+    private void Frame_Navigating(object sender, NavigatingCancelEventArgs e)
+    {
+        if (e.NavigationTransitionInfo is EntranceNavigationTransitionInfo entrance)
+        {
+            if (e.NavigationMode is NavigationMode.Back)
+            {
+                entrance.FromHorizontalOffset = -28;
+            }
+            else if (e.NavigationMode is NavigationMode.Forward or NavigationMode.Refresh)
+            {
+                entrance.FromHorizontalOffset = 28;
+            }
+            else
+            {
+                Type type1 = frame.CurrentSourcePageType;
+                Type type2 = e.SourcePageType;
+                int num1 = ToNumber(type1);
+                int num2 = ToNumber(type2);
+                if (num1 > num2)
+                {
+                    entrance.FromHorizontalOffset = -28;
+                }
+                else
+                {
+                    entrance.FromHorizontalOffset = 28;
+                }
+            }
+            entrance.FromVerticalOffset = 0;
+        }
+    }
+
     private void Frame_Navigated(object sender, NavigationEventArgs e)
     {
         if (e.Content is StyledElement content && e.Parameter is { } param)
@@ -96,5 +131,22 @@ public partial class ExtensionsPage : UserControl
                 return;
             }
         }
+    }
+
+    private static int ToNumber(Type type)
+    {
+        if (type == typeof(DevelopPage))
+            return 0;
+        else if (type == typeof(PackageDetailsPage))
+            return 1;
+        else if (type == typeof(PackageReleasesPage))
+            return 1;
+        else if (type == typeof(PackageSettingsPage))
+            return 2;
+        else if (type == typeof(ResourcePage))
+            return 3;
+        else if (type == typeof(ReleasePage))
+            return 3;
+        return -1;
     }
 }

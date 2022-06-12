@@ -25,8 +25,6 @@ public sealed class ReleaseResourceViewModel
 
     public ReactivePropertySlim<string> Body { get; } = new();
 
-    public ReactivePropertySlim<Version> Version { get; } = new();
-
     public ReactivePropertySlim<CultureInfo> Culture { get; } = new();
 
     public ReactiveCommand Delete { get; } = new();
@@ -35,7 +33,6 @@ public sealed class ReleaseResourceViewModel
     {
         Title.Value = snapshot.GetValue<string>("title");
         Body.Value = snapshot.GetValue<string>("body");
-        Version.Value = System.Version.Parse(snapshot.GetValue<string>("version"));
         Culture.Value = CultureInfo.GetCultureInfo(snapshot.GetValue<string>("culture"));
     }
 }
@@ -59,6 +56,14 @@ public sealed class ReleasePageViewModel : IDisposable
         Title.SetValidateNotifyError(NotNullOrWhitespace);
         Body.SetValidateNotifyError(NotNullOrWhitespace);
 
+        IsChanging = Version.CombineLatest(ActualVersion).Select(t => t.First == t.Second)
+            .CombineLatest(
+                Title.CombineLatest(ActualTitle).Select(t => t.First == t.Second),
+                Body.CombineLatest(ActualBody).Select(t => t.First == t.Second))
+            .Select(t => !(t.First && t.Second && t.Third))
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposables);
+
         Save = new AsyncReactiveCommand(Title.ObserveHasErrors
             .CombineLatest(Body.ObserveHasErrors, VersionInput.ObserveHasErrors)
             .Select(t => !(t.First || t.Second || t.Third)));
@@ -81,8 +86,12 @@ public sealed class ReleasePageViewModel : IDisposable
 
         Delete.Subscribe(async () => await Reference.DeleteAsync());
 
-        CollectionReference? resources = reference.Collection("resources");
-        resources?.GetSnapshotAsync()
+        MakePublic.Subscribe(async () => await Reference.UpdateAsync("visible", true)).DisposeWith(_disposables);
+
+        MakePrivate.Subscribe(async () => await Reference.UpdateAsync("visible", false)).DisposeWith(_disposables);
+
+        CollectionReference resources = reference.Collection("resources");
+        resources.GetSnapshotAsync()
             .ToObservable()
             .Subscribe(snapshot =>
             {
@@ -100,7 +109,7 @@ public sealed class ReleasePageViewModel : IDisposable
                 }
             });
 
-        _listener = resources?.Listen(snapshot =>
+        _listener = resources.Listen(snapshot =>
         {
             foreach (DocumentChange item in snapshot.Changes)
             {
@@ -153,7 +162,7 @@ public sealed class ReleasePageViewModel : IDisposable
     public ReactivePropertySlim<Version> ActualVersion { get; } = new();
 
     public ReactivePropertySlim<bool> IsPublic { get; } = new();
-    
+
     public ReactiveProperty<string> Title { get; } = new();
 
     public ReactiveProperty<string> Body { get; } = new();
@@ -162,11 +171,17 @@ public sealed class ReleasePageViewModel : IDisposable
 
     public ReadOnlyReactivePropertySlim<Version?> Version { get; }
 
+    public ReadOnlyReactivePropertySlim<bool> IsChanging { get; }
+
     public AsyncReactiveCommand Save { get; }
 
     public AsyncReactiveCommand DiscardChanges { get; } = new();
 
     public ReactiveCommand Delete { get; } = new();
+
+    public ReactiveCommand MakePublic { get; } = new();
+
+    public ReactiveCommand MakePrivate { get; } = new();
 
     public CoreList<ReleaseResourceViewModel> Items { get; } = new();
 

@@ -15,7 +15,7 @@
         </Style>
         <Style Selector="TextBlock.description">
             <Setter Property="VerticalAlignment" Value="Center" />
-            <Setter Property="Opacity" Value="0.8" />
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
         </Style>
     </UserControl.Styles>
 
@@ -25,7 +25,9 @@
                    Classes="breadcrumb" />
 
         <ScrollViewer Grid.Row="1" Margin="10,0">
-            <StackPanel Spacing="8">
+            <StackPanel Spacing="4">
+                <Separator Height="16" />
+                
                 <ctrls:OptionsDisplayItem Header="設定"
                                           Icon="Settings"
                                           Description="パッケージの設定"

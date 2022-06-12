@@ -23,7 +23,7 @@
         <StackPanel Margin="10,8"
                     Spacing="16"
                     Orientation="Horizontal">
-            <Button Content="{CompiledBinding Parent.Parent.Parent.Name.Value}"
+            <Button Content="{CompiledBinding Parent.Parent.Name.Value}"
                     Classes="breadcrumb"
                     Click="NavigatePackageDetailsPage_Click" />
 
@@ -35,20 +35,15 @@
 
             <Label Classes="breadcrumb" />
 
-            <Button Content="詳細なリソース"
-                    Classes="breadcrumb"
-                    Click="NavigateMoreResourcesPage_Click" />
-
-            <Label Classes="breadcrumb" />
-
             <TextBlock Text="{CompiledBinding ActualCulture.Value.DisplayName}"
                        Classes="breadcrumb" />
         </StackPanel>
 
 
         <ScrollViewer Grid.Row="1" Margin="10,0">
-            <StackPanel Spacing="8">
-                <TextBlock Classes="SubtitleTextBlockStyle"
+            <StackPanel Spacing="4">
+                <TextBlock Classes="BodyStrongTextBlockStyle"
+                           Margin="0,16,0,0"
                            Text="リソース" />
 
                 <ctrls:OptionsDisplayItem Header="言語"

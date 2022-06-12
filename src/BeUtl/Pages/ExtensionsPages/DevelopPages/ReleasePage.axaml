@@ -5,9 +5,9 @@
              xmlns:viewModels="using:BeUtl.ViewModels.ExtensionsPages.DevelopPages"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:ctrls="using:BeUtl.Controls"
-             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-             x:DataType="viewModels:PackageSettingsPageViewModel"
-             x:Class="BeUtl.Pages.ExtensionsPages.DevelopPages.PackageSettingsPage">
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="600"
+             x:DataType="viewModels:ReleasePageViewModel"
+             x:Class="BeUtl.Pages.ExtensionsPages.DevelopPages.ReleasePage">
     <UserControl.Styles>
         <Style Selector="TextBox.customStyle">
             <Setter Property="MinWidth" Value="250" />
@@ -21,85 +21,69 @@
 
     <Grid RowDefinitions="Auto,*,Auto">
         <StackPanel Margin="10,8"
-                           Spacing="16"
-                           Orientation="Horizontal">
-            <Button Content="{CompiledBinding Parent.Name.Value}"
+                    Spacing="16"
+                    Orientation="Horizontal">
+            <Button Content="{CompiledBinding Parent.Parent.Name.Value}"
                     Classes="breadcrumb"
                     Click="NavigatePackageDetailsPage_Click" />
 
             <Label Classes="breadcrumb" />
 
-            <TextBlock Text="設定"
+            <Button Content="リリースを管理"
+                    Classes="breadcrumb"
+                    Click="NavigatePackageReleasesPage_Click" />
+
+            <Label Classes="breadcrumb" />
+
+            <TextBlock Text="{CompiledBinding ActualTitle.Value}"
                        Classes="breadcrumb" />
         </StackPanel>
 
+
         <ScrollViewer Grid.Row="1" Margin="10,0">
             <StackPanel Spacing="4">
-                <TextBlock Classes="BodyStrongTextBlockStyle"
-                           Margin="0,16,0,0"
-                           Text="リソース" />
-
-                <ctrls:OptionsDisplayItem Header="名前"
-                                          Description="パッケージを識別するための文字列"
-                                          Expands="True">
+                <ctrls:OptionsDisplayItem Header="タイトル"
+                                          Expands="True"
+                                          Description="このリリースのタイトル">
                     <ctrls:OptionsDisplayItem.ActionButton>
-                        <TextBlock Text="{CompiledBinding Parent.Name.Value}"
+                        <TextBlock Text="{CompiledBinding ActualTitle.Value}"
                                    Classes="description" />
                     </ctrls:OptionsDisplayItem.ActionButton>
                     <ctrls:OptionsDisplayItem.Content>
-                        <TextBox Text="{CompiledBinding Name.Value}"
+                        <TextBox Text="{CompiledBinding Title.Value}"
                                  Classes="customStyle" />
                     </ctrls:OptionsDisplayItem.Content>
                 </ctrls:OptionsDisplayItem>
 
-                <TextBlock Margin="0,8,0,0"
-                           FontStyle="Italic"
-                           Classes="BodyStrongTextBlockStyle"
-                           Text="この項目の値は'詳細なリソース'で設定されていないカルチャで表示されます。" />
-
-                <ctrls:OptionsDisplayItem Header="表示名"
-                                          Description="パッケージの名前"
+                <ctrls:OptionsDisplayItem Header="リリースノート"
+                                          Description="このリリースを説明"
                                           Expands="True">
                     <ctrls:OptionsDisplayItem.ActionButton>
-                        <TextBlock Text="{CompiledBinding Parent.DisplayName.Value}"
-                                   Classes="description" />
-                    </ctrls:OptionsDisplayItem.ActionButton>
-                    <ctrls:OptionsDisplayItem.Content>
-                        <TextBox Text="{CompiledBinding DisplayName.Value}"
-                                 Classes="customStyle" />
-                    </ctrls:OptionsDisplayItem.Content>
-                </ctrls:OptionsDisplayItem>
-
-                <ctrls:OptionsDisplayItem Header="説明"
-                                          Description="パッケージの説明"
-                                          Expands="True">
-                    <ctrls:OptionsDisplayItem.ActionButton>
-                        <TextBlock Text="{CompiledBinding Parent.Description.Value}"
+                        <TextBlock Text="{CompiledBinding ActualBody.Value}"
                                    MaxWidth="150"
                                    TextTrimming="CharacterEllipsis"
                                    Classes="description" />
                     </ctrls:OptionsDisplayItem.ActionButton>
                     <ctrls:OptionsDisplayItem.Content>
-                        <TextBox Text="{CompiledBinding Description.Value}"
+                        <TextBox Text="{CompiledBinding Body.Value}"
                                  AcceptsReturn="True"
                                  Classes="customStyle" />
                     </ctrls:OptionsDisplayItem.Content>
                 </ctrls:OptionsDisplayItem>
 
-                <ctrls:OptionsDisplayItem Header="短い説明"
-                                          Description="パッケージの短い説明"
+                <ctrls:OptionsDisplayItem Header="バージョン"
+                                          Description="このリリースのバージョン"
                                           Expands="True">
                     <ctrls:OptionsDisplayItem.ActionButton>
-                        <TextBlock Text="{CompiledBinding Parent.ShortDescription.Value}"
-                                   MaxWidth="150"
-                                   TextTrimming="CharacterEllipsis"
+                        <TextBlock Text="{CompiledBinding ActualVersion.Value}"
                                    Classes="description" />
                     </ctrls:OptionsDisplayItem.ActionButton>
                     <ctrls:OptionsDisplayItem.Content>
-                        <TextBox Text="{CompiledBinding ShortDescription.Value}"
+                        <TextBox Text="{CompiledBinding VersionInput.Value}"
                                  Classes="customStyle" />
                     </ctrls:OptionsDisplayItem.Content>
                 </ctrls:OptionsDisplayItem>
+
 
                 <TextBlock Margin="0,16,0,0"
                            Classes="BodyStrongTextBlockStyle"
@@ -132,13 +116,13 @@
                                     <StackPanel Grid.Column="0"
                                                 Orientation="Vertical"
                                                 VerticalAlignment="Center">
-                                        <TextBlock Text="{CompiledBinding ActualCulture.Value.DisplayName}"
+                                        <TextBlock Text="{CompiledBinding Culture.Value.DisplayName}"
                                                    Classes="BodyStrongTextBlockStyle" />
 
                                         <StackPanel Orientation="Horizontal" Spacing="8">
-                                            <TextBlock Text="{CompiledBinding ActualDisplayName.Value}" Classes="CaptionTextBlockStyle" />
+                                            <TextBlock Text="{CompiledBinding Title.Value}" Classes="CaptionTextBlockStyle" />
 
-                                            <TextBlock Text="{CompiledBinding ActualShortDescription.Value}"
+                                            <TextBlock Text="{CompiledBinding Body.Value}"
                                                        MaxLines="1"
                                                        Classes="CaptionTextBlockStyle"
                                                        Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
@@ -166,27 +150,27 @@
                            Classes="BodyStrongTextBlockStyle"
                            Text="設定" />
 
-                <ctrls:OptionsDisplayItem Header="パッケージを削除"
+                <ctrls:OptionsDisplayItem Header="削除"
                                           Icon="Delete"
                                           Navigates="True"
-                                          NavigationRequested="DeletePackage_Click"
-                                          Description="パッケージを削除します。" />
+                                          NavigationRequested="DeleteRelease_Click"
+                                          Description="リリースを削除します。" />
 
                 <ctrls:OptionsDisplayItem Header="パブリックにする"
-                                          IsVisible="{CompiledBinding !Parent.IsPublic.Value}"
+                                          IsVisible="{CompiledBinding !IsPublic.Value}"
                                           Navigates="True"
                                           NavigationRequested="MakePublic_Click"
-                                          Description="パッケージを公開します。">
+                                          Description="リリースを公開します。">
                     <ctrls:OptionsDisplayItem.Icon>
                         <ui:PathIcon Data="{StaticResource Eye_Show_Regular}" />
                     </ctrls:OptionsDisplayItem.Icon>
                 </ctrls:OptionsDisplayItem>
 
                 <ctrls:OptionsDisplayItem Header="プライベートにする"
-                                          IsVisible="{CompiledBinding Parent.IsPublic.Value}"
+                                          IsVisible="{CompiledBinding IsPublic.Value}"
                                           Navigates="True"
                                           NavigationRequested="MakePrivate_Click"
-                                          Description="パッケージを非公開にします。">
+                                          Description="リリースを非公開にします。">
                     <ctrls:OptionsDisplayItem.Icon>
                         <ui:PathIcon Data="{StaticResource Eye_Hide_Regular}" />
                     </ctrls:OptionsDisplayItem.Icon>

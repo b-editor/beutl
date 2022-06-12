@@ -2,11 +2,13 @@
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
 
-using BeUtl.Controls;
+using BeUtl.Pages.ExtensionsPages.DevelopPages.Dialogs;
 using BeUtl.ViewModels.ExtensionsPages.DevelopPages;
+using BeUtl.ViewModels.ExtensionsPages.DevelopPages.Dialogs;
 
 using FluentAvalonia.UI.Controls;
-using FluentAvalonia.UI.Media.Animation;
+
+using Button = Avalonia.Controls.Button;
 
 namespace BeUtl.Pages.ExtensionsPages.DevelopPages;
 
@@ -22,28 +24,48 @@ public partial class PackageSettingsPage : UserControl
         if (DataContext is PackageSettingsPageViewModel viewModel)
         {
             Frame frame = this.FindAncestorOfType<Frame>();
-            var transitionInfo = new EntranceNavigationTransitionInfo
-            {
-                FromHorizontalOffset = -28,
-                FromVerticalOffset = 0
-            };
-
-            frame.Navigate(typeof(PackageDetailsPage), viewModel.Parent, transitionInfo);
+            frame.Navigate(typeof(PackageDetailsPage), viewModel.Parent, SharedNavigationTransitionInfo.Instance);
         }
     }
 
-    private void NavigateToResourceSettings_Click(object? sender, RoutedEventArgs e)
+    private async void AddResource_Click(object? sender, RoutedEventArgs e)
     {
         if (DataContext is PackageSettingsPageViewModel viewModel)
         {
-            Frame frame = this.FindAncestorOfType<Frame>();
-            var transitionInfo = new EntranceNavigationTransitionInfo
+            var dialog = new AddResourceDialog
             {
-                FromHorizontalOffset = 28,
-                FromVerticalOffset = 0
+                DataContext = new AddResourceDialogViewModel(viewModel.Reference.Collection("resources"))
+            };
+            await dialog.ShowAsync();
+        }
+    }
+
+    private void EditResource_Click(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Button { DataContext: ResourcePageViewModel itemViewModel })
+        {
+            Frame frame = this.FindAncestorOfType<Frame>();
+            frame.Navigate(typeof(ResourcePage), itemViewModel, SharedNavigationTransitionInfo.Instance);
+        }
+    }
+
+    private async void DeleteResource_Click(object? sender, RoutedEventArgs e)
+    {
+        if (sender is Button { DataContext: ResourcePageViewModel itemViewModel })
+        {
+            var dialog = new ContentDialog
+            {
+                Title = "リソースを削除",
+                Content = "リソースを削除してもよろしいですか？",
+                PrimaryButtonText = "はい",
+                CloseButtonText = "いいえ",
+                DefaultButton = ContentDialogButton.Primary
             };
 
-            frame.Navigate(typeof(MoreResourcesPage), viewModel.Resources, transitionInfo);
+            if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+            {
+                itemViewModel.Delete.Execute();
+            }
         }
     }
 

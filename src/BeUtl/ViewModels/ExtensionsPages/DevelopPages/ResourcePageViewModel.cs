@@ -10,7 +10,7 @@ namespace BeUtl.ViewModels.ExtensionsPages.DevelopPages;
 
 public sealed class ResourcePageViewModel
 {
-    public ResourcePageViewModel(DocumentReference reference, MoreResourcesPageViewModel parent)
+    public ResourcePageViewModel(DocumentReference reference, PackageSettingsPageViewModel parent)
     {
         Reference = reference;
         Parent = parent;
@@ -87,7 +87,7 @@ public sealed class ResourcePageViewModel
 
     public DocumentReference Reference { get; }
 
-    public MoreResourcesPageViewModel Parent { get; }
+    public PackageSettingsPageViewModel Parent { get; }
 
     public ReactivePropertySlim<string> ActualDisplayName { get; } = new();
 

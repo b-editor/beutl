@@ -1,0 +1,64 @@
+<ui:ContentDialog xmlns="https://github.com/avaloniaui"
+                  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                  xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+                  xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+                  xmlns:viewModels="using:BeUtl.ViewModels.ExtensionsPages.DevelopPages.Dialogs"
+                  xmlns:ui="using:FluentAvalonia.UI.Controls"
+                  xmlns:ctrls="using:BeUtl.Controls"
+                  mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+                  Title="リリースを追加"
+                  PrimaryButtonText="追加"
+                  PrimaryButtonCommand="{CompiledBinding Add}"
+                  IsPrimaryButtonEnabled="{CompiledBinding IsValid.Value}"
+                  CloseButtonText="キャンセル"
+                  DefaultButton="Primary"
+                  x:DataType="viewModels:AddReleaseResourceDialogViewModel"
+                  x:Class="BeUtl.Pages.ExtensionsPages.DevelopPages.Dialogs.AddReleaseResourceDialog">
+    <ui:ContentDialog.Styles>
+        <Style Selector="ui|ContentDialog /template/ Border#BackgroundElement">
+            <Setter Property="Width" Value="{DynamicResource ContentDialogMaxWidth}" />
+        </Style>
+    </ui:ContentDialog.Styles>
+    <StackPanel Spacing="4">
+        <StackPanel.Styles>
+            <Style Selector="TextBox.customStyle">
+                <Setter Property="MinWidth" Value="250" />
+                <Setter Property="HorizontalAlignment" Value="Left" />
+            </Style>
+            <Style Selector="TextBlock.description">
+                <Setter Property="VerticalAlignment" Value="Center" />
+                <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+            </Style>
+        </StackPanel.Styles>
+        <ctrls:OptionsDisplayItem Header="タイトル"
+                                  Description="このリリースのタイトル">
+            <ctrls:OptionsDisplayItem.ActionButton>
+                <TextBox Text="{CompiledBinding Title.Value}"
+                         Classes="customStyle" />
+            </ctrls:OptionsDisplayItem.ActionButton>
+        </ctrls:OptionsDisplayItem>
+
+        <ctrls:OptionsDisplayItem Header="リリースノート"
+                                  Expands="True"
+                                  Description="このリリースを説明">
+            <ctrls:OptionsDisplayItem.Content>
+                <TextBox Text="{CompiledBinding Body.Value}"
+                         AcceptsReturn="True"
+                         Classes="customStyle" />
+            </ctrls:OptionsDisplayItem.Content>
+        </ctrls:OptionsDisplayItem>
+
+        <ctrls:OptionsDisplayItem Header="言語"
+                                  Expands="True"
+                                  Description="このリソースを表示する言語圏">
+            <ctrls:OptionsDisplayItem.ActionButton>
+                <TextBlock Text="{CompiledBinding Culture.Value.DisplayName}"
+                           Classes="description" />
+            </ctrls:OptionsDisplayItem.ActionButton>
+            <ctrls:OptionsDisplayItem.Content>
+                <TextBox Text="{CompiledBinding CultureInput.Value}"
+                         Classes="customStyle" />
+            </ctrls:OptionsDisplayItem.Content>
+        </ctrls:OptionsDisplayItem>
+    </StackPanel>
+</ui:ContentDialog>

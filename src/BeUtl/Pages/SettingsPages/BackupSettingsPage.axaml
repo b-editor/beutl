@@ -15,14 +15,14 @@
         <StackPanel Orientation="Vertical"
                     VerticalAlignment="Stretch"
                     Margin="10,0"
-                    Spacing="8">
+                    Spacing="4">
             <ctrls:OptionsDisplayItem Header="{DynamicResource S.BackupSettingsPage.BackupSettings}">
                 <ctrls:OptionsDisplayItem.Icon>
                     <ui:SymbolIcon Symbol="CloudBackup" />
                 </ctrls:OptionsDisplayItem.Icon>
 
                 <ctrls:OptionsDisplayItem.ActionButton>
-                    <ToggleSwitch IsChecked="{CompiledBinding BackupSettings.Value}" Margin="0,0,-72,0" />
+                    <ToggleSwitch IsChecked="{CompiledBinding BackupSettings.Value}" Margin="0,-4,-72,-4" />
                 </ctrls:OptionsDisplayItem.ActionButton>
             </ctrls:OptionsDisplayItem>
         </StackPanel>

@@ -41,9 +41,9 @@ public sealed class PackageDetailsPageViewModel : IDisposable
         Settings = new PackageSettingsPageViewModel(docRef, this);
         Releases = new PackageReleasesPageViewModel(this);
 
-        LocalizedDisplayName = Settings.Resources.Items.ToCollectionChanged<ResourcePageViewModel>()
-            .SelectMany(_ => Settings.Resources.Items.Count > 0
-                ? Settings.Resources.Items.ToObservable()
+        LocalizedDisplayName = Settings.Items.ToCollectionChanged<ResourcePageViewModel>()
+            .SelectMany(_ => Settings.Items.Count > 0
+                ? Settings.Items.ToObservable()
                     .SelectMany(i => i.ActualCulture
                         .CombineLatest(i.ActualDisplayName)
                         .Select(ii => ii.First.Equals(CultureInfo.CurrentUICulture) ? ii.Second : null))
@@ -58,7 +58,7 @@ public sealed class PackageDetailsPageViewModel : IDisposable
     }
 
     public PackageSettingsPageViewModel Settings { get; }
-    
+
     public PackageReleasesPageViewModel Releases { get; }
 
     public DocumentReference Reference { get; }

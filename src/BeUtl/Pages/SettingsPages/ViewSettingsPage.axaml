@@ -15,13 +15,13 @@
         <StackPanel Orientation="Vertical"
                     VerticalAlignment="Stretch"
                     Margin="10,0"
-                    Spacing="8">
+                    Spacing="4">
             <ctrls:OptionsDisplayItem Header="{DynamicResource S.ViewSettingsPage.Theme}"
                                       Description="{DynamicResource S.ViewSettingsPage.ThemeDescription}"
                                       Icon="DarkTheme">
 
                 <ctrls:OptionsDisplayItem.ActionButton>
-                    <ComboBox SelectedIndex="{CompiledBinding SelectedTheme.Value}">
+                    <ComboBox SelectedIndex="{CompiledBinding SelectedTheme.Value}" MinWidth="250">
                         <ComboBoxItem Content="{DynamicResource S.ViewSettingsPage.Theme.Light}" />
                         <ComboBoxItem Content="{DynamicResource S.ViewSettingsPage.Theme.Dark}" />
                         <ComboBoxItem Content="{DynamicResource S.ViewSettingsPage.Theme.HighContrast}" />
@@ -36,7 +36,7 @@
                 </ctrls:OptionsDisplayItem.Icon>
 
                 <ctrls:OptionsDisplayItem.ActionButton>
-                    <ToggleSwitch IsChecked="{CompiledBinding IsMicaEnabled.Value}" Margin="0,0,-72,0" />
+                    <ToggleSwitch IsChecked="{CompiledBinding IsMicaEnabled.Value}" Margin="0,-4,-72,-4" />
                 </ctrls:OptionsDisplayItem.ActionButton>
             </ctrls:OptionsDisplayItem>
 
@@ -46,7 +46,9 @@
                 </ctrls:OptionsDisplayItem.Icon>
 
                 <ctrls:OptionsDisplayItem.ActionButton>
-                    <ComboBox SelectedItem="{CompiledBinding SelectedLanguage.Value}" Items="{CompiledBinding Cultures}">
+                    <ComboBox SelectedItem="{CompiledBinding SelectedLanguage.Value}"
+                              Items="{CompiledBinding Cultures}"
+                              MinWidth="250">
                         <ComboBox.ItemTemplate>
                             <DataTemplate>
                                 <TextBlock Text="{Binding DisplayName}" />

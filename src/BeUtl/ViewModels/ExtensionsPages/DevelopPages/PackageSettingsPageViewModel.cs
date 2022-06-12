@@ -1,5 +1,8 @@
 ﻿using System.Reactive.Disposables;
 using System.Reactive.Linq;
+using System.Reactive.Threading.Tasks;
+
+using BeUtl.Collections;
 
 using Google.Cloud.Firestore;
 
@@ -10,12 +13,13 @@ namespace BeUtl.ViewModels.ExtensionsPages.DevelopPages;
 public sealed class PackageSettingsPageViewModel : IDisposable
 {
     private readonly CompositeDisposable _disposables = new();
+    private readonly object _lockObject = new();
+    private readonly FirestoreChangeListener? _listener;
 
     public PackageSettingsPageViewModel(DocumentReference docRef, PackageDetailsPageViewModel parent)
     {
         Reference = docRef;
         Parent = parent;
-        Resources = new MoreResourcesPageViewModel(this);
 
         Name = parent.Name.ToReactiveProperty("");
         DisplayName = parent.DisplayName.ToReactiveProperty("");
@@ -69,13 +73,71 @@ public sealed class PackageSettingsPageViewModel : IDisposable
         MakePublic.Subscribe(async () => await Reference.UpdateAsync("visible", true)).DisposeWith(_disposables);
 
         MakePrivate.Subscribe(async () => await Reference.UpdateAsync("visible", false)).DisposeWith(_disposables);
+
+        CollectionReference? resources = Parent.Reference.Collection("resources");
+        resources?.GetSnapshotAsync()
+            .ToObservable()
+            .Subscribe(snapshot =>
+            {
+                foreach (DocumentSnapshot item in snapshot.Documents)
+                {
+                    lock (_lockObject)
+                    {
+                        if (!Items.Any(p => p.Reference.Id == item.Reference.Id))
+                        {
+                            var viewModel = new ResourcePageViewModel(item.Reference, this);
+                            viewModel.Update(item);
+                            Items.Add(viewModel);
+                        }
+                    }
+                }
+            });
+
+        _listener = resources?.Listen(snapshot =>
+        {
+            foreach (DocumentChange item in snapshot.Changes)
+            {
+                lock (_lockObject)
+                {
+                    switch (item.ChangeType)
+                    {
+                        case DocumentChange.Type.Added when item.NewIndex.HasValue:
+                            if (!Items.Any(p => p.Reference.Id == item.Document.Reference.Id))
+                            {
+                                var viewModel = new ResourcePageViewModel(item.Document.Reference, this);
+                                viewModel.Update(item.Document);
+                                Items.Add(viewModel);
+                            }
+                            break;
+                        case DocumentChange.Type.Removed when item.OldIndex.HasValue:
+                            foreach (ResourcePageViewModel viewModel in Items)
+                            {
+                                if (viewModel.Reference.Id == item.Document.Id)
+                                {
+                                    Items.Remove(viewModel);
+                                    return;
+                                }
+                            }
+                            break;
+                        case DocumentChange.Type.Modified:
+                            foreach (ResourcePageViewModel viewModel in Items)
+                            {
+                                if (viewModel.Reference.Id == item.Document.Id)
+                                {
+                                    viewModel.Update(item.Document);
+                                    return;
+                                }
+                            }
+                            break;
+                    }
+                }
+            }
+        });
     }
 
     public DocumentReference Reference { get; }
 
     public PackageDetailsPageViewModel Parent { get; }
-
-    public MoreResourcesPageViewModel Resources { get; }
 
     public ReadOnlyReactivePropertySlim<bool> IsChanging { get; }
 
@@ -97,9 +159,15 @@ public sealed class PackageSettingsPageViewModel : IDisposable
 
     public ReactiveCommand MakePrivate { get; } = new();
 
+    public CoreList<ResourcePageViewModel> Items { get; } = new();
+
     public void Dispose()
     {
         _disposables?.Dispose();
+
+        _listener?.StopAsync();
+
+        Items.Clear();        
     }
 
     private static string NotNullOrWhitespace(string str)

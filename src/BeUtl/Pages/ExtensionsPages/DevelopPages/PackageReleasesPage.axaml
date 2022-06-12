@@ -31,40 +31,45 @@
         </ui:CommandBar>
 
         <ListBox Items="{CompiledBinding Items}"
+                 x:Name="ReleasesList"
                  Grid.Row="2"
                  Margin="10,0">
             <ListBox.ItemTemplate>
                 <DataTemplate>
-                    <Grid ColumnDefinitions="Auto,*,*,*,Auto,Auto" MaxHeight="64">
-                        <ui:PathIcon IsVisible="{CompiledBinding IsPublic.Value}" Data="{StaticResource Eye_Show_Regular}" />
-                        <ui:PathIcon IsVisible="{CompiledBinding !IsPublic.Value}" Data="{StaticResource Eye_Hide_Regular}" />
+                    <Grid ColumnDefinitions="Auto,*,2*,Auto,Auto" MaxHeight="64">
+                        <ui:PathIcon IsVisible="{CompiledBinding IsPublic.Value}"
+                                     Margin="0,0,16,0"
+                                     Data="{StaticResource Eye_Show_Regular}" />
+                        <ui:PathIcon IsVisible="{CompiledBinding !IsPublic.Value}"
+                                     Margin="0,0,16,0"
+                                     Data="{StaticResource Eye_Hide_Regular}" />
 
-                        <TextBlock Text="{CompiledBinding ActualTitle.Value}"
-                                   HorizontalAlignment="Left"
-                                   VerticalAlignment="Center"
-                                   Margin="0,0,16,0"
-                                   Grid.Column="1"
-                                   Classes="BodyStrongTextBlockStyle" />
+                        <StackPanel Orientation="Vertical"
+                                    HorizontalAlignment="Left"
+                                    VerticalAlignment="Center"
+                                    Margin="0,0,16,0"
+                                    Grid.Column="1">
+                            <TextBlock Text="{CompiledBinding ActualTitle.Value}"
+                                       Classes="BodyStrongTextBlockStyle" />
+
+                            <TextBlock Text="{CompiledBinding ActualVersion.Value}" />
+                        </StackPanel>
 
                         <TextBlock Grid.Column="2"
                                    HorizontalAlignment="Left"
                                    VerticalAlignment="Center"
-                                   Opacity="0.8"
+                                   Margin="0,0,16,0"
+                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                                    TextTrimming="CharacterEllipsis"
                                    Text="{CompiledBinding ActualBody.Value}" />
 
-                        <TextBlock Grid.Column="3"
-                                   HorizontalAlignment="Right"
-                                   VerticalAlignment="Center"
-                                   Text="{CompiledBinding ActualVersion.Value}" />
-
                         <ui:CommandBarButton Label="編集"
-                                             Grid.Column="4"
+                                             Grid.Column="3"
                                              Click="Edit_Click"
                                              Icon="Edit" />
 
                         <ui:CommandBarButton Label="削除"
-                                             Grid.Column="5"
+                                             Grid.Column="4"
                                              Click="Delete_Click"
                                              Icon="Delete" />
                     </Grid>

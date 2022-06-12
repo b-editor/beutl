@@ -22,13 +22,7 @@ public partial class PackageDetailsPage : UserControl
         if (DataContext is PackageDetailsPageViewModel viewModel)
         {
             Frame frame = this.FindAncestorOfType<Frame>();
-            var transitionInfo = new EntranceNavigationTransitionInfo
-            {
-                FromHorizontalOffset = 28,
-                FromVerticalOffset = 0
-            };
-
-            frame.Navigate(typeof(PackageSettingsPage), viewModel.Settings, transitionInfo);
+            frame.Navigate(typeof(PackageSettingsPage), viewModel.Settings, SharedNavigationTransitionInfo.Instance);
         }
     }
 
@@ -37,13 +31,7 @@ public partial class PackageDetailsPage : UserControl
         if (DataContext is PackageDetailsPageViewModel viewModel)
         {
             Frame frame = this.FindAncestorOfType<Frame>();
-            var transitionInfo = new EntranceNavigationTransitionInfo
-            {
-                FromHorizontalOffset = 28,
-                FromVerticalOffset = 0
-            };
-
-            frame.Navigate(typeof(PackageReleasesPage), viewModel.Releases, transitionInfo);
+            frame.Navigate(typeof(PackageReleasesPage), viewModel.Releases, SharedNavigationTransitionInfo.Instance);
         }
     }
 }

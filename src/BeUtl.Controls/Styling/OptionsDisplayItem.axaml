@@ -10,6 +10,9 @@
                                           Description="This is a description of whatver this does"
                                           Icon="Save"
                                           Navigates="True"/>
+                <local:OptionsDisplayItem Header="Header"
+                                          Description="This is a description of whatver this does"
+                                          Icon="Save"/>
 
                 <local:OptionsDisplayItem Header="Header"
                                           Description="This is a description of whatver this does"
@@ -73,10 +76,16 @@
                                               HorizontalAlignment="Right"
                                               Margin="8 4" />
 
-                            <ui:SymbolIcon Name="Chevron"
-                                           Margin="8 4"
-                                           Grid.Column="3"
-                                           FontSize="20"/>
+                            <Border CornerRadius="{DynamicResource ControlCornerRadius}"
+                                    Margin="4,0"
+                                    VerticalAlignment="Center"
+                                    Name="ChevronBorder"
+                                    Grid.Column="3">
+
+                                <ui:SymbolIcon Name="Chevron"
+                                               Margin="4,4"
+                                               FontSize="20"/>
+                            </Border>
                         </Grid>
                     </Border>
 
@@ -115,10 +124,10 @@
         </Setter>
     </Style>
 
-    <Style Selector="local|OptionsDisplayItem /template/ Border#LayoutRoot:pointerover">
+    <Style Selector="local|OptionsDisplayItem:navigates /template/ Border#LayoutRoot:pointerover">
         <Setter Property="Background" Value="{DynamicResource ControlFillColorSecondaryBrush}" />
     </Style>
-    <Style Selector="local|OptionsDisplayItem:pressed /template/ Border#LayoutRoot:pointerover">
+    <Style Selector="local|OptionsDisplayItem:navigates:pressed /template/ Border#LayoutRoot:pointerover">
         <Setter Property="Background" Value="{DynamicResource ControlFillColorTertiaryBrush}" />
     </Style>
 
@@ -131,6 +140,20 @@
         <Setter Property="Symbol" Value="ChevronRight" />
     </Style>
 
+
+    <Style Selector="local|OptionsDisplayItem:expands /template/ Border#LayoutRoot:pointerover">
+        <Setter Property="Background" Value="{DynamicResource ControlFillColorSecondaryBrush}" />
+    </Style>
+    <Style Selector="local|OptionsDisplayItem:expands:pressed /template/ Border#LayoutRoot">
+        <Setter Property="Background" Value="{DynamicResource ControlFillColorSecondaryBrush}" />
+    </Style>
+
+    <!--<Style Selector="local|OptionsDisplayItem:expands /template/ Border#LayoutRoot:pointerover Border#ChevronBorder">
+        <Setter Property="Background" Value="{DynamicResource ControlFillColorSecondaryBrush}" />
+    </Style>
+    <Style Selector="local|OptionsDisplayItem:expands:pressed /template/ Border#ChevronBorder">
+        <Setter Property="Background" Value="{DynamicResource ControlFillColorSecondaryBrush}" />
+    </Style>-->
 
     <Style Selector="local|OptionsDisplayItem:expands /template/ ui|SymbolIcon#Chevron">
         <Setter Property="IsVisible" Value="True" />

@@ -28,7 +28,7 @@ public partial class DevelopPage : UserControl
             if (PackagesList.SelectedItem is PackageDetailsPageViewModel selectedItem)
             {
                 Frame frame = this.FindAncestorOfType<Frame>();
-                frame.Navigate(typeof(PackageDetailsPage), selectedItem);
+                frame.Navigate(typeof(PackageDetailsPage), selectedItem, SharedNavigationTransitionInfo.Instance);
             }
             flag = false;
         }
@@ -47,7 +47,7 @@ public partial class DevelopPage : UserControl
         if (sender is StyledElement { DataContext: PackageDetailsPageViewModel item })
         {
             Frame frame = this.FindAncestorOfType<Frame>();
-            frame.Navigate(typeof(PackageDetailsPage), item);
+            frame.Navigate(typeof(PackageDetailsPage), item, SharedNavigationTransitionInfo.Instance);
         }
     }
 

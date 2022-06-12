@@ -6,6 +6,7 @@ using System.Text;
 using System.Threading.Tasks;
 
 using BeUtl.Collections;
+using BeUtl.ViewModels.ExtensionsPages.DevelopPages.Dialogs;
 
 using FluentAvalonia.UI.Controls;
 
@@ -19,13 +20,13 @@ public sealed class PackageReleasesPageViewModel : IDisposable
 {
     private readonly object _lockObject = new();
     private readonly FirestoreChangeListener? _listener;
-    
+
     public PackageReleasesPageViewModel(PackageDetailsPageViewModel parent)
     {
         Parent = parent;
 
-        CollectionReference? releases = parent.Reference.Collection("releases");
-        releases?.GetSnapshotAsync()
+        Reference = parent.Reference.Collection("releases");
+        Reference.GetSnapshotAsync()
             .ToObservable()
             .Subscribe(snapshot =>
             {
@@ -43,7 +44,7 @@ public sealed class PackageReleasesPageViewModel : IDisposable
                 }
             });
 
-        _listener = releases?.Listen(snapshot =>
+        _listener = Reference.Listen(snapshot =>
         {
             foreach (DocumentChange item in snapshot.Changes)
             {
@@ -83,13 +84,26 @@ public sealed class PackageReleasesPageViewModel : IDisposable
                 }
             }
         });
+
+        Add.Subscribe(async p =>
+        {
+            await Reference.AddAsync(new
+            {
+                version = p.Version.Value,
+                title = p.Title.Value,
+                body = p.Body.Value,
+                visible = false
+            });
+        });
     }
 
     public PackageDetailsPageViewModel Parent { get; }
 
+    public CollectionReference Reference { get; }
+
     public CoreList<ReleasePageViewModel> Items { get; } = new();
 
-    public AsyncReactiveCommand<Frame> Add { get; } = new();
+    public AsyncReactiveCommand<AddReleaseDialogViewModel> Add { get; } = new();
 
     public void Dispose()
     {
