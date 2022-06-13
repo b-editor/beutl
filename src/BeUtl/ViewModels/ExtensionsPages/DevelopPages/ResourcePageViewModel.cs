@@ -52,9 +52,9 @@ public sealed class ResourcePageViewModel
         Description.SetValidateNotifyError(NotWhitespace);
         ShortDescription.SetValidateNotifyError(NotWhitespace);
 
-        ChangeDisplayName.Where(b => !b).Subscribe(_ => DisplayName.Value = null);
-        ChangeDescription.Where(b => !b).Subscribe(_ => Description.Value = null);
-        ChangeShortDescription.Where(b => !b).Subscribe(_ => ShortDescription.Value = null);
+        InheritDisplayName.Where(b => b).Subscribe(_ => DisplayName.Value = null);
+        InheritDescription.Where(b => b).Subscribe(_ => Description.Value = null);
+        InheritShortDescription.Where(b => b).Subscribe(_ => ShortDescription.Value = null);
 
         IsChanging = Culture.CombineLatest(ActualCulture).Select(t => t.First?.Name == t.Second?.Name)
             .CombineLatest(
@@ -75,15 +75,15 @@ public sealed class ResourcePageViewModel
                 ["culture"] = (ActualCulture.Value = Culture.Value!).Name,
             };
 
-            if (ChangeDisplayName.Value && DisplayName.Value != null)
+            if (!InheritDisplayName.Value && DisplayName.Value != null)
             {
                 dict["displayName"] = ActualDisplayName.Value = DisplayName.Value;
             }
-            if (ChangeDescription.Value && Description.Value != null)
+            if (!InheritDescription.Value && Description.Value != null)
             {
                 dict["description"] = ActualDescription.Value = Description.Value;
             }
-            if (ChangeShortDescription.Value && ShortDescription.Value != null)
+            if (!InheritShortDescription.Value && ShortDescription.Value != null)
             {
                 dict["shortDescription"] = ActualShortDescription.Value = ShortDescription.Value;
             }
@@ -120,11 +120,11 @@ public sealed class ResourcePageViewModel
 
     public ReactiveProperty<string?> ShortDescription { get; } = new();
 
-    public ReactiveProperty<bool> ChangeDisplayName { get; } = new();
+    public ReactiveProperty<bool> InheritDisplayName { get; } = new();
 
-    public ReactiveProperty<bool> ChangeDescription { get; } = new();
+    public ReactiveProperty<bool> InheritDescription { get; } = new();
 
-    public ReactiveProperty<bool> ChangeShortDescription { get; } = new();
+    public ReactiveProperty<bool> InheritShortDescription { get; } = new();
 
     public ReactiveProperty<string> CultureInput { get; } = new();
 
@@ -146,19 +146,19 @@ public sealed class ResourcePageViewModel
             {
                 property1.Value = value;
                 property2.Value = value;
-                property3.Value = true;
+                property3.Value = false;
             }
             else
             {
                 property1.Value = null;
                 property2.Value = null;
-                property3.Value = false;
+                property3.Value = true;
             }
         }
 
-        Set("displayName", ActualDisplayName, DisplayName, ChangeDisplayName);
-        Set("description", ActualDescription, Description, ChangeDescription);
-        Set("shortDescription", ActualShortDescription, ShortDescription, ChangeShortDescription);
+        Set("displayName", ActualDisplayName, DisplayName, InheritDisplayName);
+        Set("description", ActualDescription, Description, InheritDescription);
+        Set("shortDescription", ActualShortDescription, ShortDescription, InheritShortDescription);
 
         ActualCulture.Value = new CultureInfo(CultureInput.Value = snapshot.GetValue<string>("culture"));
     }

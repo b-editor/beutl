@@ -74,11 +74,11 @@
                     </ctrls:OptionsDisplayItem.ActionButton>
                     <ctrls:OptionsDisplayItem.Content>
                         <StackPanel Spacing="16">
-                            <CheckBox IsChecked="{CompiledBinding ChangeDisplayName.Value}"
-                                      Content="上書きする" />
+                            <CheckBox IsChecked="{CompiledBinding InheritDisplayName.Value}"
+                                      Content="値を継承する" />
 
                             <TextBox Text="{CompiledBinding DisplayName.Value}"
-                                     IsEnabled="{CompiledBinding ChangeDisplayName.Value}"
+                                     IsEnabled="{CompiledBinding !InheritDisplayName.Value}"
                                      Classes="customStyle" />
                         </StackPanel>
                     </ctrls:OptionsDisplayItem.Content>
@@ -104,12 +104,12 @@
                     </ctrls:OptionsDisplayItem.ActionButton>
                     <ctrls:OptionsDisplayItem.Content>
                         <StackPanel Spacing="16">
-                            <CheckBox IsChecked="{CompiledBinding ChangeDescription.Value}"
-                                      Content="上書きする" />
+                            <CheckBox IsChecked="{CompiledBinding InheritDescription.Value}"
+                                      Content="値を継承する" />
                             
                             <TextBox Text="{CompiledBinding Description.Value}"
                                      AcceptsReturn="True"
-                                     IsEnabled="{CompiledBinding ChangeDescription.Value}"
+                                     IsEnabled="{CompiledBinding !InheritDescription.Value}"
                                      Classes="customStyle" />
                         </StackPanel>
                     </ctrls:OptionsDisplayItem.Content>
@@ -135,11 +135,11 @@
                     </ctrls:OptionsDisplayItem.ActionButton>
                     <ctrls:OptionsDisplayItem.Content>
                         <StackPanel Spacing="16">
-                            <CheckBox IsChecked="{CompiledBinding ChangeShortDescription.Value}"
-                                      Content="上書きする" />
+                            <CheckBox IsChecked="{CompiledBinding InheritShortDescription.Value}"
+                                      Content="値を継承する" />
 
                             <TextBox Text="{CompiledBinding ShortDescription.Value}"
-                                     IsEnabled="{CompiledBinding ChangeShortDescription.Value}"
+                                     IsEnabled="{CompiledBinding !InheritShortDescription.Value}"
                                      Classes="customStyle" />
                         </StackPanel>
                     </ctrls:OptionsDisplayItem.Content>
