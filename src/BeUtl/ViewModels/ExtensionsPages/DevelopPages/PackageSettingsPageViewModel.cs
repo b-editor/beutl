@@ -48,8 +48,11 @@ public sealed class PackageSettingsPageViewModel : IDisposable
         ShortDescription = parent.ShortDescription.ToReactiveProperty("").DisposeWith(_disposables);
         Logo = parent.Logo.ToReactiveProperty()
             .DisposeWith(_disposables);
-        LogoStream = Logo.SelectMany(async uri => uri != null ? await _httpClient.GetByteArrayAsync(uri) : null)
+        LogoStream = Logo
+            .Do(_ => IsLogoLoading.Value = true)
+            .SelectMany(async uri => uri != null ? await _httpClient.GetByteArrayAsync(uri) : null)
             .Select(arr => arr != null ? new MemoryStream(arr) : null)
+            .Do(_ => IsLogoLoading.Value = false)
             .DisposePreviousValue()
             .ToReactiveProperty()
             .DisposeWith(_disposables);
@@ -62,6 +65,7 @@ public sealed class PackageSettingsPageViewModel : IDisposable
         ScreenshotsArray = parent.Screenshots.ToReactiveProperty(Array.Empty<string>());
         ScreenshotsArray.Subscribe(async array =>
         {
+            IsScreenshotLoading.Value = true;
             var cache = new ImageModel[array.Length];
             for (int i = 0; i < array.Length; i++)
             {
@@ -89,6 +93,7 @@ public sealed class PackageSettingsPageViewModel : IDisposable
                 Screenshots.Clear();
                 Screenshots.AddRange(cache);
             });
+            IsScreenshotLoading.Value = false;
 
             foreach (ImageModel item in excepted)
             {
@@ -97,6 +102,7 @@ public sealed class PackageSettingsPageViewModel : IDisposable
             }
         }).DisposeWith(_disposables);
 
+        // 値が変更されるか
         IsChanging = Name.CombineLatest(parent.Name).Select(t => t.First == t.Second)
             .CombineLatest(
                 DisplayName.CombineLatest(parent.DisplayName).Select(t => t.First == t.Second),
@@ -116,6 +122,7 @@ public sealed class PackageSettingsPageViewModel : IDisposable
         ShortDescription.SetValidateNotifyError(NotNullOrWhitespace);
 
         // コマンドを初期化
+        // Todo: IsLogoLoading, IsScreenshotLoadingの場合、実行できないようにする。
         Save = new AsyncReactiveCommand(Name.ObserveHasErrors
             .CombineLatest(
                 DisplayName.ObserveHasErrors,
@@ -151,7 +158,7 @@ public sealed class PackageSettingsPageViewModel : IDisposable
             {
                 dict["logo"] = Parent.LogoId.Value;
             }
-            
+
             LogoNoChanged.Value = true;
 
             string[] oldScreenshots = ScreenshotsArray.Value;
@@ -368,7 +375,9 @@ public sealed class PackageSettingsPageViewModel : IDisposable
 
     public ReactiveProperty<MemoryStream?> LogoStream { get; }
 
-    public ReactiveProperty<bool> LogoNoChanged { get; } = new(true);
+    public ReactivePropertySlim<bool> LogoNoChanged { get; } = new(true);
+
+    public ReactivePropertySlim<bool> IsLogoLoading { get; } = new(false);
 
     public ReadOnlyReactivePropertySlim<Bitmap?> LogoImage { get; }
 
@@ -377,6 +386,8 @@ public sealed class PackageSettingsPageViewModel : IDisposable
     public ReactiveProperty<string[]> ScreenshotsArray { get; }
 
     public CoreList<ImageModel> Screenshots { get; } = new();
+
+    public ReactivePropertySlim<bool> IsScreenshotLoading { get; } = new(false);
 
     public AsyncReactiveCommand Save { get; }
 
