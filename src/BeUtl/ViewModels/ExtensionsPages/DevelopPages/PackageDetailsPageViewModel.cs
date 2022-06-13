@@ -2,17 +2,23 @@
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
 
-using Google.Cloud.Firestore;
+using Avalonia.Media.Imaging;
+
 using BeUtl.Services;
+
+using Google.Cloud.Firestore;
+
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection.Extensions;
+
 using Reactive.Bindings;
+using Reactive.Bindings.Extensions;
 
 namespace BeUtl.ViewModels.ExtensionsPages.DevelopPages;
 
 public sealed class PackageDetailsPageViewModel : IDisposable
 {
     private readonly PackageController _packageController = ServiceLocator.Current.GetRequiredService<PackageController>();
+    private readonly HttpClient _httpClient = ServiceLocator.Current.GetRequiredService<HttpClient>();
     private readonly CompositeDisposable _disposables = new();
 
     public PackageDetailsPageViewModel(DocumentReference docRef)
@@ -47,6 +53,19 @@ public sealed class PackageDetailsPageViewModel : IDisposable
             .ToReadOnlyReactivePropertySlim(null)
             .DisposeWith(_disposables);
 
+        LogoImage = Logo.SelectMany(async uri => uri != null ? await _httpClient.GetByteArrayAsync(uri) : null)
+            .Select(arr => arr != null ? new MemoryStream(arr) : null)
+            .Select(st => (st, st != null ? new Bitmap(st) : null))
+            .Do(t => t.st?.Dispose())
+            .Select(t => t.Item2)
+            .DisposePreviousValue()
+            .ToReadOnlyReactivePropertySlim(null)
+            .DisposeWith(_disposables);
+
+        HasLogoImage = LogoImage.Select(i => i != null)
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposables);
+
         IsPublic = observable.Select(d => d.GetValue<bool>("visible"))
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
@@ -54,18 +73,34 @@ public sealed class PackageDetailsPageViewModel : IDisposable
         Settings = new PackageSettingsPageViewModel(docRef, this);
         Releases = new PackageReleasesPageViewModel(this);
 
-        LocalizedDisplayName = Settings.Items.ToCollectionChanged<ResourcePageViewModel>()
+        IObservable<CollectionChanged<ResourcePageViewModel>> resourceObservable = Settings.Items.ToCollectionChanged<ResourcePageViewModel>();
+        LocalizedDisplayName = observable
             .SelectMany(_ => Settings.Items.Count > 0
                 ? Settings.Items.ToObservable()
                     .SelectMany(i => i.ActualCulture
                         .CombineLatest(i.ActualDisplayName)
                         .Select(ii => ii.First.Equals(CultureInfo.CurrentUICulture) ? ii.Second : null))
                 : Observable.Return<string?>(null))
+            .CombineLatest(DisplayName)
+            .Select(t => t.First ?? t.Second)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
         HasLocalizedDisplayName = LocalizedDisplayName
-            .Select(i => !string.IsNullOrWhiteSpace(i))
+            .CombineLatest(DisplayName)
+            .Select(t => t.First != t.Second)
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposables);
+
+        LocalizedDescription = observable
+            .SelectMany(_ => Settings.Items.Count > 0
+                ? Settings.Items.ToObservable()
+                    .SelectMany(i => i.ActualCulture
+                        .CombineLatest(i.ActualDescription)
+                        .Select(ii => ii.First.Equals(CultureInfo.CurrentUICulture) ? ii.Second : null))
+                : Observable.Return<string?>(null))
+            .CombineLatest(Description)
+            .Select(t => t.First ?? t.Second)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
     }
@@ -88,7 +123,13 @@ public sealed class PackageDetailsPageViewModel : IDisposable
 
     public ReadOnlyReactivePropertySlim<Uri?> Logo { get; }
 
+    public ReadOnlyReactivePropertySlim<Bitmap?> LogoImage { get; }
+
+    public ReadOnlyReactivePropertySlim<bool> HasLogoImage { get; }
+
     public ReadOnlyReactivePropertySlim<string?> LocalizedDisplayName { get; }
+
+    public ReadOnlyReactivePropertySlim<string?> LocalizedDescription { get; }
 
     public ReadOnlyReactivePropertySlim<bool> HasLocalizedDisplayName { get; }
 

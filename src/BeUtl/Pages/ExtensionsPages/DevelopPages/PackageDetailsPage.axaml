@@ -19,15 +19,56 @@
         </Style>
     </UserControl.Styles>
 
-    <Grid RowDefinitions="Auto,*,Auto">
-        <TextBlock Text="{CompiledBinding Name.Value}"
-                   Margin="10,8"
-                   Classes="breadcrumb" />
+    <Grid RowDefinitions="*,Auto" ColumnDefinitions="380,*">
+        <ScrollViewer Margin="10,12,0,8">
+            <Border Background="{DynamicResource ControlFillColorDefaultBrush}"
+                    BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    Padding="12"
+                    CornerRadius="{StaticResource ControlCornerRadius}">
+                <StackPanel>
+                    <Border CornerRadius="{StaticResource ControlCornerRadius}"
+                            IsVisible="{CompiledBinding HasLogoImage.Value}"
+                            Width="140"
+                            Margin="0,16,0,0"
+                            Height="140">
+                        <Border.Background>
+                            <ImageBrush Source="{CompiledBinding LogoImage.Value}" />
+                        </Border.Background>
+                    </Border>
 
-        <ScrollViewer Grid.Row="1" Margin="10,0">
+                    <Label Content="ロゴ画像がありません"
+                           IsVisible="{CompiledBinding !HasLogoImage.Value}"
+                           HorizontalContentAlignment="Center"
+                           VerticalContentAlignment="Center"
+                           Width="140"
+                           Margin="0,16,0,0"
+                           Height="140" />
+
+
+                    <TextBlock IsVisible="{CompiledBinding HasLocalizedDisplayName.Value}"
+                               HorizontalAlignment="Center"
+                               Margin="0,32"
+                               Classes="SubtitleTextBlockStyle"
+                               Text="{CompiledBinding LocalizedDisplayName.Value}" />
+
+                    <TextBlock IsVisible="{CompiledBinding !HasLocalizedDisplayName.Value}"
+                               HorizontalAlignment="Center"
+                               Margin="0,32"
+                               Classes="SubtitleTextBlockStyle"
+                               Text="{CompiledBinding DisplayName.Value}" />
+
+                    <TextBlock HorizontalAlignment="Center"
+                               Text="{CompiledBinding LocalizedDescription.Value}" />
+                </StackPanel>
+            </Border>
+        </ScrollViewer>
+
+        <ScrollViewer Grid.Column="1"
+                      Margin="4,0,10,0">
             <StackPanel Spacing="4">
-                <Separator Height="16" />
-                
+                <Separator Height="8" />
+
                 <ctrls:OptionsDisplayItem Header="設定"
                                           Icon="Settings"
                                           Description="パッケージの設定"
