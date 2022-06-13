@@ -1,5 +1,6 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Avalonia.LogicalTree;
 using Avalonia.VisualTree;
 
 using BeUtl.Pages.ExtensionsPages.DevelopPages.Dialogs;
@@ -127,6 +128,29 @@ public partial class PackageSettingsPage : UserControl
             if (await dialog.ShowAsync() == ContentDialogResult.Primary)
             {
                 viewModel.MakePrivate.Execute();
+            }
+        }
+    }
+
+    private async void OpenLogoFile_Click(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is PackageSettingsPageViewModel viewModel)
+        {
+            Window? window = this.FindLogicalAncestorOfType<Window>();
+            var dialog = new OpenFileDialog
+            {
+                AllowMultiple = false,
+                Filters = new()
+                {
+                    new FileDialogFilter()
+                    {
+                        Extensions = { "jpg", "jpeg", "png" }
+                    }
+                }
+            };
+            if ((await dialog.ShowAsync(window)) is string[] items && items.Length > 0)
+            {
+                viewModel.SetLogo.Execute(items[0]);
             }
         }
     }

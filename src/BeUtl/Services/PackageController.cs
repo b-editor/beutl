@@ -1,6 +1,8 @@
 ﻿using Firebase.Auth;
 
 using Google.Cloud.Firestore;
+using Firebase.Storage;
+using SkiaSharp;
 
 namespace BeUtl.Services;
 
@@ -11,6 +13,22 @@ public class PackageController
     public PackageController(AccountService accountService)
     {
         _accountService = accountService;
+    }
+
+    public FirebaseStorageReference GetPackageImageRef(string packageId, string name)
+    {
+        return _accountService._storage
+            .Child("users")
+            .Child(_accountService.User!.Uid)
+            .Child("packages")
+            .Child(packageId)
+            .Child("images")
+            .Child(name);
+    }
+
+    public async ValueTask<Uri> UploadImage(Stream stream, FirebaseStorageReference reference)
+    {
+        return new Uri(await reference.PutAsync(stream, default, mimeType: "image/jpeg"));
     }
 
     public CollectionReference? GetPackages()

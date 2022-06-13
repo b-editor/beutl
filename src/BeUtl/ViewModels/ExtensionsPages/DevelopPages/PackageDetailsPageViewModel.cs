@@ -3,13 +3,16 @@ using System.Reactive.Disposables;
 using System.Reactive.Linq;
 
 using Google.Cloud.Firestore;
-
+using BeUtl.Services;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Reactive.Bindings;
 
 namespace BeUtl.ViewModels.ExtensionsPages.DevelopPages;
 
 public sealed class PackageDetailsPageViewModel : IDisposable
 {
+    private readonly PackageController _packageController = ServiceLocator.Current.GetRequiredService<PackageController>();
     private readonly CompositeDisposable _disposables = new();
 
     public PackageDetailsPageViewModel(DocumentReference docRef)
@@ -32,6 +35,16 @@ public sealed class PackageDetailsPageViewModel : IDisposable
 
         ShortDescription = observable.Select(d => d.GetValue<string>("shortDescription"))
             .ToReadOnlyReactivePropertySlim("")
+            .DisposeWith(_disposables);
+
+        LogoId = observable.Select(d => d.TryGetValue("logo", out string val) ? val : null)
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposables);
+
+        Logo = LogoId.Select(id => id != null ? _packageController.GetPackageImageRef(Reference.Id, id) : null)
+            .SelectMany(r => r?.GetDownloadUrlAsync() ?? Task.FromResult<string?>(null))
+            .Select(s => s != null ? new Uri(s) : null)
+            .ToReadOnlyReactivePropertySlim(null)
             .DisposeWith(_disposables);
 
         IsPublic = observable.Select(d => d.GetValue<bool>("visible"))
@@ -70,6 +83,10 @@ public sealed class PackageDetailsPageViewModel : IDisposable
     public ReadOnlyReactivePropertySlim<string> Description { get; }
 
     public ReadOnlyReactivePropertySlim<string> ShortDescription { get; }
+
+    public ReadOnlyReactivePropertySlim<string?> LogoId { get; }
+
+    public ReadOnlyReactivePropertySlim<Uri?> Logo { get; }
 
     public ReadOnlyReactivePropertySlim<string?> LocalizedDisplayName { get; }
 

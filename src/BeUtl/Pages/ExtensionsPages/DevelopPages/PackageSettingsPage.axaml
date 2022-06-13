@@ -101,6 +101,22 @@
                     </ctrls:OptionsDisplayItem.Content>
                 </ctrls:OptionsDisplayItem>
 
+                <ctrls:OptionsDisplayItem Header="ロゴ"
+                                          Description="パッケージのロゴを設定"
+                                          Expands="True">
+                    <ctrls:OptionsDisplayItem.ActionButton>
+                        <Button Content="参照" Click="OpenLogoFile_Click" />
+                    </ctrls:OptionsDisplayItem.ActionButton>
+                    <ctrls:OptionsDisplayItem.Content>
+                        <StackPanel>
+                            <TextBlock Text="一分以内に変更を保存しない場合変更が削除されます" />
+                            <Image Source="{CompiledBinding LogoImage.Value}"
+                                   MaxWidth="300" MaxHeight="300"
+                                   HorizontalAlignment="Left" />
+                        </StackPanel>
+                    </ctrls:OptionsDisplayItem.Content>
+                </ctrls:OptionsDisplayItem>
+
                 <TextBlock Margin="0,16,0,0"
                            Classes="BodyStrongTextBlockStyle"
                            Text="詳細なリソース" />
@@ -136,11 +152,23 @@
                                                    Classes="BodyStrongTextBlockStyle" />
 
                                         <StackPanel Orientation="Horizontal" Spacing="8">
-                                            <TextBlock Text="{CompiledBinding ActualDisplayName.Value}" Classes="CaptionTextBlockStyle" />
+                                            <TextBlock Text="{CompiledBinding ActualDisplayName.Value}"
+                                                       IsVisible="{CompiledBinding HasDisplayName.Value}"
+                                                       Classes="CaptionTextBlockStyle" />
+                                            <TextBlock Text="{CompiledBinding Parent.Parent.DisplayName.Value}"
+                                                       IsVisible="{CompiledBinding !HasDisplayName.Value}"
+                                                       Classes="CaptionTextBlockStyle" />
 
                                             <TextBlock Text="{CompiledBinding ActualShortDescription.Value}"
                                                        MaxLines="1"
                                                        Classes="CaptionTextBlockStyle"
+                                                       IsVisible="{CompiledBinding HasShortDescription.Value}"
+                                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+
+                                            <TextBlock Text="{CompiledBinding Parent.Parent.ShortDescription.Value}"
+                                                       MaxLines="1"
+                                                       Classes="CaptionTextBlockStyle"
+                                                       IsVisible="{CompiledBinding !HasShortDescription.Value}"
                                                        Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
                                         </StackPanel>
                                     </StackPanel>

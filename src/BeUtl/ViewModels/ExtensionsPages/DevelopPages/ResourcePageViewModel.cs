@@ -1,5 +1,4 @@
 ﻿using System.Globalization;
-using System.Reactive.Disposables;
 using System.Reactive.Linq;
 
 using Google.Cloud.Firestore;
@@ -45,9 +44,17 @@ public sealed class ResourcePageViewModel
         })
             .ToReadOnlyReactivePropertySlim();
 
-        DisplayName.SetValidateNotifyError(NotNullOrWhitespace);
-        Description.SetValidateNotifyError(NotNullOrWhitespace);
-        ShortDescription.SetValidateNotifyError(NotNullOrWhitespace);
+        HasDisplayName = ActualDisplayName.Select(s => s != null).ToReadOnlyReactivePropertySlim();
+        HasDescription = ActualDescription.Select(s => s != null).ToReadOnlyReactivePropertySlim();
+        HasShortDescription = ActualShortDescription.Select(s => s != null).ToReadOnlyReactivePropertySlim();
+
+        DisplayName.SetValidateNotifyError(NotWhitespace);
+        Description.SetValidateNotifyError(NotWhitespace);
+        ShortDescription.SetValidateNotifyError(NotWhitespace);
+
+        ChangeDisplayName.Where(b => !b).Subscribe(_ => DisplayName.Value = null);
+        ChangeDescription.Where(b => !b).Subscribe(_ => Description.Value = null);
+        ChangeShortDescription.Where(b => !b).Subscribe(_ => ShortDescription.Value = null);
 
         IsChanging = Culture.CombineLatest(ActualCulture).Select(t => t.First?.Name == t.Second?.Name)
             .CombineLatest(
@@ -63,24 +70,28 @@ public sealed class ResourcePageViewModel
 
         Save.Subscribe(async () =>
         {
-            await Reference.UpdateAsync(new Dictionary<string, object>
+            var dict = new Dictionary<string, object>
             {
                 ["culture"] = (ActualCulture.Value = Culture.Value!).Name,
-                ["displayName"] = ActualDisplayName.Value = DisplayName.Value,
-                ["description"] = ActualDescription.Value = Description.Value,
-                ["shortDescription"] = ActualShortDescription.Value = ShortDescription.Value
-            });
+            };
+
+            if (ChangeDisplayName.Value && DisplayName.Value != null)
+            {
+                dict["displayName"] = ActualDisplayName.Value = DisplayName.Value;
+            }
+            if (ChangeDescription.Value && Description.Value != null)
+            {
+                dict["description"] = ActualDescription.Value = Description.Value;
+            }
+            if (ChangeShortDescription.Value && ShortDescription.Value != null)
+            {
+                dict["shortDescription"] = ActualShortDescription.Value = ShortDescription.Value;
+            }
+
+            await Reference.SetAsync(dict, SetOptions.Overwrite);
         });
 
-        DiscardChanges.Subscribe(async () =>
-        {
-            DocumentSnapshot snapshot = await Reference.GetSnapshotAsync();
-            ActualDisplayName.Value = DisplayName.Value = snapshot.GetValue<string>("displayName");
-            ActualDescription.Value = Description.Value = snapshot.GetValue<string>("description");
-            ActualShortDescription.Value = ShortDescription.Value = snapshot.GetValue<string>("shortDescription");
-            CultureInput.Value = snapshot.GetValue<string>("culture");
-            ActualCulture.Value = Culture.Value!;
-        });
+        DiscardChanges.Subscribe(async () => Update(await Reference.GetSnapshotAsync()));
 
         Delete.Subscribe(async () => await Reference.DeleteAsync());
     }
@@ -89,19 +100,31 @@ public sealed class ResourcePageViewModel
 
     public PackageSettingsPageViewModel Parent { get; }
 
-    public ReactivePropertySlim<string> ActualDisplayName { get; } = new();
+    public ReactivePropertySlim<string?> ActualDisplayName { get; } = new();
 
-    public ReactivePropertySlim<string> ActualDescription { get; } = new();
+    public ReactivePropertySlim<string?> ActualDescription { get; } = new();
 
-    public ReactivePropertySlim<string> ActualShortDescription { get; } = new();
+    public ReactivePropertySlim<string?> ActualShortDescription { get; } = new();
+
+    public ReadOnlyReactivePropertySlim<bool> HasDisplayName { get; }
+
+    public ReadOnlyReactivePropertySlim<bool> HasDescription { get; }
+
+    public ReadOnlyReactivePropertySlim<bool> HasShortDescription { get; }
 
     public ReactivePropertySlim<CultureInfo> ActualCulture { get; } = new();
 
-    public ReactiveProperty<string> DisplayName { get; } = new();
+    public ReactiveProperty<string?> DisplayName { get; } = new();
 
-    public ReactiveProperty<string> Description { get; } = new();
+    public ReactiveProperty<string?> Description { get; } = new();
 
-    public ReactiveProperty<string> ShortDescription { get; } = new();
+    public ReactiveProperty<string?> ShortDescription { get; } = new();
+
+    public ReactiveProperty<bool> ChangeDisplayName { get; } = new();
+
+    public ReactiveProperty<bool> ChangeDescription { get; } = new();
+
+    public ReactiveProperty<bool> ChangeShortDescription { get; } = new();
 
     public ReactiveProperty<string> CultureInput { get; } = new();
 
@@ -117,15 +140,32 @@ public sealed class ResourcePageViewModel
 
     public void Update(DocumentSnapshot snapshot)
     {
-        ActualDisplayName.Value = DisplayName.Value = snapshot.GetValue<string>("displayName");
-        ActualDescription.Value = Description.Value = snapshot.GetValue<string>("description");
-        ActualShortDescription.Value = ShortDescription.Value = snapshot.GetValue<string>("shortDescription");
+        void Set(string name, IReactiveProperty<string?> property1, IReactiveProperty<string?> property2, IReactiveProperty<bool> property3)
+        {
+            if (snapshot.TryGetValue<string>(name, out string? value))
+            {
+                property1.Value = value;
+                property2.Value = value;
+                property3.Value = true;
+            }
+            else
+            {
+                property1.Value = null;
+                property2.Value = null;
+                property3.Value = false;
+            }
+        }
+
+        Set("displayName", ActualDisplayName, DisplayName, ChangeDisplayName);
+        Set("description", ActualDescription, Description, ChangeDescription);
+        Set("shortDescription", ActualShortDescription, ShortDescription, ChangeShortDescription);
+
         ActualCulture.Value = new CultureInfo(CultureInput.Value = snapshot.GetValue<string>("culture"));
     }
 
-    private static string NotNullOrWhitespace(string str)
+    private static string NotWhitespace(string? str)
     {
-        if (!string.IsNullOrWhiteSpace(str))
+        if (str == null || !string.IsNullOrWhiteSpace(str))
         {
             return null!;
         }
