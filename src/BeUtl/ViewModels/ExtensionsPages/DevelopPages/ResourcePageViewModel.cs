@@ -52,9 +52,9 @@ public sealed class ResourcePageViewModel
         Description.SetValidateNotifyError(NotWhitespace);
         ShortDescription.SetValidateNotifyError(NotWhitespace);
 
-        InheritDisplayName.Where(b => b).Subscribe(_ => DisplayName.Value = null);
-        InheritDescription.Where(b => b).Subscribe(_ => Description.Value = null);
-        InheritShortDescription.Where(b => b).Subscribe(_ => ShortDescription.Value = null);
+        InheritDisplayName.Subscribe(b => DisplayName.Value = b ? null : ActualDisplayName.Value);
+        InheritDescription.Subscribe(b => Description.Value = b ? null : ActualDescription.Value);
+        InheritShortDescription.Subscribe(b => ShortDescription.Value = b ? null : ActualShortDescription.Value);
 
         IsChanging = Culture.CombineLatest(ActualCulture).Select(t => t.First?.Name == t.Second?.Name)
             .CombineLatest(
