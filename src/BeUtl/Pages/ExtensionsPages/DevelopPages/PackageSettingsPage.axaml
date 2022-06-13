@@ -109,7 +109,6 @@
                     </ctrls:OptionsDisplayItem.ActionButton>
                     <ctrls:OptionsDisplayItem.Content>
                         <StackPanel>
-                            <TextBlock Text="一分以内に変更を保存しない場合変更が削除されます" />
                             <Image Source="{CompiledBinding LogoImage.Value}"
                                    MaxWidth="300" MaxHeight="300"
                                    HorizontalAlignment="Left" />

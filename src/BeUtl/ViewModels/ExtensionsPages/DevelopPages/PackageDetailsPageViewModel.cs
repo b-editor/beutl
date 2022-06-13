@@ -44,7 +44,7 @@ public sealed class PackageDetailsPageViewModel : IDisposable
             .DisposeWith(_disposables);
 
         LogoId = observable.Select(d => d.TryGetValue("logo", out string val) ? val : null)
-            .ToReadOnlyReactivePropertySlim()
+            .ToReadOnlyReactivePropertySlim(mode: ReactivePropertyMode.RaiseLatestValueOnSubscribe)
             .DisposeWith(_disposables);
 
         Logo = LogoId.Select(id => id != null ? _packageController.GetPackageImageRef(Reference.Id, id) : null)

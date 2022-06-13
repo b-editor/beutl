@@ -27,12 +27,10 @@ namespace BeUtl.ViewModels.ExtensionsPages.DevelopPages;
 public sealed class PackageSettingsPageViewModel : IDisposable
 {
     private readonly PackageController _packageController = ServiceLocator.Current.GetRequiredService<PackageController>();
-    private readonly INotificationService _notification = ServiceLocator.Current.GetRequiredService<INotificationService>();
     private readonly HttpClient _httpClient = ServiceLocator.Current.GetRequiredService<HttpClient>();
     private readonly CompositeDisposable _disposables = new();
     private readonly object _lockObject = new();
     private readonly FirestoreChangeListener? _listener;
-    private CancellationTokenSource? _cts;
 
     public PackageSettingsPageViewModel(DocumentReference docRef, PackageDetailsPageViewModel parent)
     {
@@ -43,13 +41,15 @@ public sealed class PackageSettingsPageViewModel : IDisposable
         DisplayName = parent.DisplayName.ToReactiveProperty("").DisposeWith(_disposables);
         Description = parent.Description.ToReactiveProperty("").DisposeWith(_disposables);
         ShortDescription = parent.ShortDescription.ToReactiveProperty("").DisposeWith(_disposables);
-        Logo = parent.Logo.ToReactiveProperty().DisposeWith(_disposables);
-        LogoId = parent.LogoId.ToReactiveProperty().DisposeWith(_disposables);
-        LogoImage = Logo.SelectMany(async uri => uri != null ? await _httpClient.GetByteArrayAsync(uri) : null)
+        Logo = parent.Logo.ToReactiveProperty()
+            .DisposeWith(_disposables);
+        LogoStream = parent.Logo.SelectMany(async uri => uri != null ? await _httpClient.GetByteArrayAsync(uri) : null)
             .Select(arr => arr != null ? new MemoryStream(arr) : null)
-            .Select(st => (st, st != null ? new Bitmap(st) : null))
-            .Do(t => t.st?.Dispose())
-            .Select(t => t.Item2)
+            .DisposePreviousValue()
+            .ToReactiveProperty()
+            .DisposeWith(_disposables);
+        LogoImage = LogoStream
+            .Select(st => st != null ? new Bitmap(st) : null)
             .DisposePreviousValue()
             .ToReadOnlyReactivePropertySlim(null)
             .DisposeWith(_disposables);
@@ -59,7 +59,7 @@ public sealed class PackageSettingsPageViewModel : IDisposable
                 DisplayName.CombineLatest(parent.DisplayName).Select(t => t.First == t.Second),
                 Description.CombineLatest(parent.Description).Select(t => t.First == t.Second),
                 ShortDescription.CombineLatest(parent.ShortDescription).Select(t => t.First == t.Second),
-                LogoId.CombineLatest(parent.LogoId).Select(t => t.First == t.Second))
+                LogoNoChanged)
             .Select(t => !(t.First && t.Second && t.Third && t.Fourth && t.Fifth))
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
@@ -88,16 +88,21 @@ public sealed class PackageSettingsPageViewModel : IDisposable
                 ["visible"] = Parent.IsPublic.Value
             };
 
-            if (LogoId.Value is string newLogo)
+            if (LogoStream.Value?.CanRead == true)
             {
-                dict["logo"] = newLogo;
+                var newName = Guid.NewGuid().ToString();
+                dict["logo"] = newName;
+                LogoStream.Value.Position = 0;
+                await _packageController.GetPackageImageRef(Reference.Id, newName)
+                    .PutAsync(LogoStream.Value, default, "image/jpeg");
 
-                if (Parent.LogoId.Value is string oldLogo && newLogo != oldLogo)
+                if (Parent.LogoId.Value is string oldName)
                 {
-                    await _packageController.GetPackageImageRef(Reference.Id, oldLogo)
+                    await _packageController.GetPackageImageRef(Reference.Id, oldName)
                         .DeleteAsync();
                 }
             }
+            LogoNoChanged.Value = true;
 
             await Reference.SetAsync(dict, SetOptions.Overwrite);
         }).DisposeWith(_disposables);
@@ -109,15 +114,8 @@ public sealed class PackageSettingsPageViewModel : IDisposable
             DisplayName.Value = snapshot.GetValue<string>("displayName");
             Description.Value = snapshot.GetValue<string>("description");
             ShortDescription.Value = snapshot.GetValue<string>("shortDescription");
-
-            if (LogoId.Value is string logo && Parent.LogoId.Value != logo)
-            {
-                await _packageController.GetPackageImageRef(Reference.Id, logo)
-                    .DeleteAsync();
-            }
-
-            Logo.Value = Parent.Logo.Value;
-            LogoId.Value = Parent.LogoId.Value;
+            Logo.ForceNotify();
+            LogoNoChanged.Value = true;
         }).DisposeWith(_disposables);
 
         Delete.Subscribe(async () => await Reference.DeleteAsync()).DisposeWith(_disposables);
@@ -126,11 +124,10 @@ public sealed class PackageSettingsPageViewModel : IDisposable
 
         MakePrivate.Subscribe(async () => await Reference.UpdateAsync("visible", false)).DisposeWith(_disposables);
 
-        SetLogo.Subscribe(async file =>
+        SetLogo.Subscribe(file =>
         {
             if (File.Exists(file))
             {
-                _cts?.Cancel();
                 const int SIZE = 400;
                 var dstBmp = new SKBitmap(SIZE, SIZE, SKColorType.Bgra8888, SKAlphaType.Opaque);
                 using (var srcBmp = SKBitmap.Decode(file))
@@ -146,31 +143,13 @@ public sealed class PackageSettingsPageViewModel : IDisposable
                     canvas.Flush();
                 }
 
-                using var dstStream = new MemoryStream();
-                dstBmp.Encode(dstStream, SKEncodedImageFormat.Jpeg, 100);
+                var stream = new MemoryStream();
+                dstBmp.Encode(stream, SKEncodedImageFormat.Jpeg, 100);
                 dstBmp.Dispose();
-                dstStream.Position = 0;
+                stream.Position = 0;
+                LogoStream.Value = stream;
 
-                string name = Parent.LogoId.Value == "logo1" ? "logo2" : "logo1";
-                FirebaseStorageReference reference = _packageController.GetPackageImageRef(Reference.Id, name);
-                Logo.Value = await _packageController.UploadImage(dstStream, reference);
-                LogoId.Value = name;
-
-                _cts = new CancellationTokenSource();
-                CancellationToken token = _cts.Token;
-                await Task.Delay(TimeSpan.FromMinutes(1));
-
-                if (!token.IsCancellationRequested
-                    && LogoId.Value is string logo
-                    && Parent.LogoId.Value != logo)
-                {
-                    Logo.Value = Parent.Logo.Value;
-                    LogoId.Value = Parent.LogoId.Value;
-                    await _packageController.GetPackageImageRef(Reference.Id, logo)
-                        .DeleteAsync();
-
-                    _notification.Show(new Notification(Parent.Name.Value, "ロゴ画像の変更がキャンセルされました。"));
-                }
+                LogoNoChanged.Value = false;
             }
         }).DisposeWith(_disposables);
 
@@ -249,11 +228,13 @@ public sealed class PackageSettingsPageViewModel : IDisposable
 
     public ReactiveProperty<string> ShortDescription { get; } = new();
 
+    public ReactiveProperty<Uri?> Logo { get; }
+
+    public ReactiveProperty<MemoryStream?> LogoStream { get; }
+
+    public ReactivePropertySlim<bool> LogoNoChanged { get; } = new(true);
+
     public ReadOnlyReactivePropertySlim<Bitmap?> LogoImage { get; }
-
-    public ReactiveProperty<Uri?> Logo { get; } = new();
-
-    public ReactiveProperty<string?> LogoId { get; } = new();
 
     public ReactiveCommand<string> SetLogo { get; } = new();
 
