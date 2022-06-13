@@ -44,7 +44,11 @@ public sealed class PackageDetailsPageViewModel : IDisposable
             .DisposeWith(_disposables);
 
         LogoId = observable.Select(d => d.TryGetValue("logo", out string val) ? val : null)
-            .ToReadOnlyReactivePropertySlim(mode: ReactivePropertyMode.RaiseLatestValueOnSubscribe)
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposables);
+
+        Screenshots = observable.Select(d => d.TryGetValue("screenshots", out string[] val) ? val : Array.Empty<string>())
+            .ToReadOnlyReactivePropertySlim(Array.Empty<string>())
             .DisposeWith(_disposables);
 
         Logo = LogoId.Select(id => id != null ? _packageController.GetPackageImageRef(Reference.Id, id) : null)
@@ -124,6 +128,8 @@ public sealed class PackageDetailsPageViewModel : IDisposable
     public ReadOnlyReactivePropertySlim<Uri?> Logo { get; }
 
     public ReadOnlyReactivePropertySlim<Bitmap?> LogoImage { get; }
+    
+    public ReadOnlyReactivePropertySlim<string[]> Screenshots { get; }
 
     public ReadOnlyReactivePropertySlim<bool> HasLogoImage { get; }
 

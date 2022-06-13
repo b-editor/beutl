@@ -6,6 +6,7 @@
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:ctrls="using:BeUtl.Controls"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Name="root"
              x:DataType="viewModels:PackageSettingsPageViewModel"
              x:Class="BeUtl.Pages.ExtensionsPages.DevelopPages.PackageSettingsPage">
     <UserControl.Styles>
@@ -113,6 +114,67 @@
                                    MaxWidth="300" MaxHeight="300"
                                    HorizontalAlignment="Left" />
                         </StackPanel>
+                    </ctrls:OptionsDisplayItem.Content>
+                </ctrls:OptionsDisplayItem>
+
+                <ctrls:OptionsDisplayItem Header="スクリーンショット"
+                                          Description="パッケージのスクリーンショットを設定 (最大４枚まで)"
+                                          Expands="True">
+                    <ctrls:OptionsDisplayItem.Content>
+                        <Grid RowDefinitions="Auto,*">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <Button Content="追加"
+                                        Classes="accent"
+                                        IsEnabled="{CompiledBinding CanAddScreenshot.Value}"
+                                        Click="AddScreenshotFile_Click" />
+                            </StackPanel>
+
+                            <ScrollViewer HorizontalScrollBarVisibility="Visible"
+                                          x:Name="ScreenshotsScrollViewer"
+                                          Margin="0,8,0,0"
+                                          Grid.Row="1"
+                                          VerticalScrollBarVisibility="Disabled">
+                                <ItemsControl Items="{CompiledBinding Screenshots}" Margin="0,0,0,8">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <StackPanel Orientation="Horizontal" Spacing="8" />
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Image Source="{CompiledBinding Bitmap}"
+                                                   MaxHeight="300">
+                                                <Image.ContextMenu>
+                                                    <ContextMenu>
+                                                        <MenuItem Header="削除"
+                                                                  CommandParameter="{Binding}"
+                                                                  Command="{Binding #root.DataContext.DeleteScreenshot}">
+                                                            <MenuItem.Icon>
+                                                                <ctrls:FluentIconRegular IconType="Delete" />
+                                                            </MenuItem.Icon>
+                                                        </MenuItem>
+                                                        <MenuItem Header="１つ手前に移動"
+                                                                  CommandParameter="{Binding}"
+                                                                  Command="{Binding #root.DataContext.MoveScreenshotFront}">
+                                                            <MenuItem.Icon>
+                                                                <ctrls:FluentIconRegular IconType="Arrow_Left" />
+                                                            </MenuItem.Icon>
+                                                        </MenuItem>
+                                                        <MenuItem Header="１つ後ろに移動"
+                                                                  CommandParameter="{Binding}"
+                                                                  Command="{Binding #root.DataContext.MoveScreenshotBack}">
+                                                            <MenuItem.Icon>
+                                                                <ctrls:FluentIconRegular IconType="Arrow_Right" />
+                                                            </MenuItem.Icon>
+                                                        </MenuItem>
+                                                    </ContextMenu>
+                                                </Image.ContextMenu>
+                                            </Image>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </Grid>
                     </ctrls:OptionsDisplayItem.Content>
                 </ctrls:OptionsDisplayItem>
 

@@ -6,10 +6,13 @@ using Avalonia;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Skia;
+using Avalonia.Threading;
 
 using BeUtl.Collections;
 using BeUtl.Framework.Service;
 using BeUtl.Services;
+
+using DynamicData;
 
 using Firebase.Storage;
 
@@ -32,6 +35,8 @@ public sealed class PackageSettingsPageViewModel : IDisposable
     private readonly object _lockObject = new();
     private readonly FirestoreChangeListener? _listener;
 
+    public record ImageModel(MemoryStream Stream, Bitmap Bitmap, string Name);
+
     public PackageSettingsPageViewModel(DocumentReference docRef, PackageDetailsPageViewModel parent)
     {
         Reference = docRef;
@@ -43,7 +48,7 @@ public sealed class PackageSettingsPageViewModel : IDisposable
         ShortDescription = parent.ShortDescription.ToReactiveProperty("").DisposeWith(_disposables);
         Logo = parent.Logo.ToReactiveProperty()
             .DisposeWith(_disposables);
-        LogoStream = parent.Logo.SelectMany(async uri => uri != null ? await _httpClient.GetByteArrayAsync(uri) : null)
+        LogoStream = Logo.SelectMany(async uri => uri != null ? await _httpClient.GetByteArrayAsync(uri) : null)
             .Select(arr => arr != null ? new MemoryStream(arr) : null)
             .DisposePreviousValue()
             .ToReactiveProperty()
@@ -54,13 +59,53 @@ public sealed class PackageSettingsPageViewModel : IDisposable
             .ToReadOnlyReactivePropertySlim(null)
             .DisposeWith(_disposables);
 
+        ScreenshotsArray = parent.Screenshots.ToReactiveProperty(Array.Empty<string>());
+        ScreenshotsArray.Subscribe(async array =>
+        {
+            var cache = new ImageModel[array.Length];
+            for (int i = 0; i < array.Length; i++)
+            {
+                string? item = array[i];
+                ImageModel? exits = Screenshots.FirstOrDefault(i => i.Name == item);
+
+                if (exits != null)
+                {
+                    cache[i] = exits;
+                }
+                else
+                {
+                    FirebaseStorageReference reference = _packageController.GetPackageImageRef(Reference.Id, item);
+                    string link = await reference.GetDownloadUrlAsync();
+                    var stream = new MemoryStream(await _httpClient.GetByteArrayAsync(link));
+                    var bitmap = new Bitmap(stream);
+                    cache[i] = new ImageModel(stream, bitmap, item);
+                }
+            }
+
+            ImageModel[] excepted = Screenshots.Except(cache).ToArray();
+
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                Screenshots.Clear();
+                Screenshots.AddRange(cache);
+            });
+
+            foreach (ImageModel item in excepted)
+            {
+                item.Stream.Dispose();
+                item.Bitmap.Dispose();
+            }
+        }).DisposeWith(_disposables);
+
         IsChanging = Name.CombineLatest(parent.Name).Select(t => t.First == t.Second)
             .CombineLatest(
                 DisplayName.CombineLatest(parent.DisplayName).Select(t => t.First == t.Second),
                 Description.CombineLatest(parent.Description).Select(t => t.First == t.Second),
                 ShortDescription.CombineLatest(parent.ShortDescription).Select(t => t.First == t.Second),
-                LogoNoChanged)
-            .Select(t => !(t.First && t.Second && t.Third && t.Fourth && t.Fifth))
+                LogoNoChanged,
+                ScreenshotsArray.CombineLatest(Screenshots.ToCollectionChanged<ImageModel>().Select(_ => Screenshots).Publish(Screenshots).RefCount())
+                    .Select(t => t.First.SequenceEqual(t.Second.Select(i => i.Name))))
+            .Select(t => !(t.First && t.Second && t.Third && t.Fourth && t.Fifth && t.Sixth))
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
@@ -88,9 +133,9 @@ public sealed class PackageSettingsPageViewModel : IDisposable
                 ["visible"] = Parent.IsPublic.Value
             };
 
-            if (LogoStream.Value?.CanRead == true)
+            if (LogoStream.Value?.CanRead == true && !LogoNoChanged.Value)
             {
-                var newName = Guid.NewGuid().ToString();
+                string? newName = Guid.NewGuid().ToString();
                 dict["logo"] = newName;
                 LogoStream.Value.Position = 0;
                 await _packageController.GetPackageImageRef(Reference.Id, newName)
@@ -102,9 +147,37 @@ public sealed class PackageSettingsPageViewModel : IDisposable
                         .DeleteAsync();
                 }
             }
+            else if (Parent.LogoId.Value != null)
+            {
+                dict["logo"] = Parent.LogoId.Value;
+            }
+            
             LogoNoChanged.Value = true;
 
+            string[] oldScreenshots = ScreenshotsArray.Value;
+            ImageModel[] newScreenshots = Screenshots.ToArray();
+
+            if (Screenshots.Count > 0)
+            {
+                dict["screenshots"] = newScreenshots.Select(i => i.Name).ToArray();
+
+                // 作成
+                foreach (ImageModel item in newScreenshots.ExceptBy(oldScreenshots, i => i.Name))
+                {
+                    item.Stream.Position = 0;
+                    await _packageController.GetPackageImageRef(Reference.Id, item.Name)
+                        .PutAsync(item.Stream, default, "image/jpeg");
+                }
+            }
+
             await Reference.SetAsync(dict, SetOptions.Overwrite);
+
+            // 削除
+            foreach (string item in oldScreenshots.Except(newScreenshots.Select(i => i.Name)))
+            {
+                await _packageController.GetPackageImageRef(Reference.Id, item)
+                    .DeleteAsync();
+            }
         }).DisposeWith(_disposables);
 
         DiscardChanges.Subscribe(async () =>
@@ -116,6 +189,8 @@ public sealed class PackageSettingsPageViewModel : IDisposable
             ShortDescription.Value = snapshot.GetValue<string>("shortDescription");
             Logo.ForceNotify();
             LogoNoChanged.Value = true;
+
+            ScreenshotsArray.ForceNotify();
         }).DisposeWith(_disposables);
 
         Delete.Subscribe(async () => await Reference.DeleteAsync()).DisposeWith(_disposables);
@@ -151,6 +226,67 @@ public sealed class PackageSettingsPageViewModel : IDisposable
 
                 LogoNoChanged.Value = false;
             }
+        }).DisposeWith(_disposables);
+
+        CanAddScreenshot = Screenshots.ObserveProperty(i => i.Count)
+            .Select(c => c < 4)
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposables);
+        AddScreenshot = new ReactiveCommand<string>(CanAddScreenshot);
+        AddScreenshot.Subscribe(file =>
+        {
+            if (File.Exists(file))
+            {
+                const int SIZE = 800;
+
+                using (var srcBmp = SKBitmap.Decode(file))
+                {
+                    float x = SIZE / (float)srcBmp.Width;
+                    float y = SIZE / (float)srcBmp.Height;
+                    float w = srcBmp.Width * MathF.Max(x, y);
+                    float h = srcBmp.Height * MathF.Max(x, y);
+                    SKBitmap dstBmp = srcBmp.Resize(new SKImageInfo((int)w, (int)h, SKColorType.Bgra8888, SKAlphaType.Opaque), SKFilterQuality.Medium);
+                    var stream = new MemoryStream();
+                    dstBmp.Encode(stream, SKEncodedImageFormat.Jpeg, 100);
+                    dstBmp.Dispose();
+                    stream.Position = 0;
+
+                    Screenshots.Add(new ImageModel(stream, new Bitmap(stream), Guid.NewGuid().ToString()));
+                }
+            }
+        }).DisposeWith(_disposables);
+
+        MoveScreenshotFront.Subscribe(item =>
+        {
+            int idx = Screenshots.IndexOf(item);
+            if (idx == 0)
+            {
+                Screenshots.Move(idx, Screenshots.Count - 1);
+            }
+            else
+            {
+                Screenshots.Move(idx, idx - 1);
+            }
+        }).DisposeWith(_disposables);
+
+        MoveScreenshotBack.Subscribe(item =>
+        {
+            int idx = Screenshots.IndexOf(item);
+            if (idx == Screenshots.Count - 1)
+            {
+                Screenshots.Move(idx, 0);
+            }
+            else
+            {
+                Screenshots.Move(idx, idx + 1);
+            }
+        }).DisposeWith(_disposables);
+
+        DeleteScreenshot.Subscribe(item =>
+        {
+            Screenshots.Remove(item);
+            item.Bitmap.Dispose();
+            item.Stream.Dispose();
         }).DisposeWith(_disposables);
 
         CollectionReference? resources = Parent.Reference.Collection("resources");
@@ -232,13 +368,27 @@ public sealed class PackageSettingsPageViewModel : IDisposable
 
     public ReactiveProperty<MemoryStream?> LogoStream { get; }
 
-    public ReactivePropertySlim<bool> LogoNoChanged { get; } = new(true);
+    public ReactiveProperty<bool> LogoNoChanged { get; } = new(true);
 
     public ReadOnlyReactivePropertySlim<Bitmap?> LogoImage { get; }
 
     public ReactiveCommand<string> SetLogo { get; } = new();
 
+    public ReactiveProperty<string[]> ScreenshotsArray { get; }
+
+    public CoreList<ImageModel> Screenshots { get; } = new();
+
     public AsyncReactiveCommand Save { get; }
+
+    public ReadOnlyReactivePropertySlim<bool> CanAddScreenshot { get; }
+
+    public ReactiveCommand<string> AddScreenshot { get; }
+
+    public ReactiveCommand<ImageModel> MoveScreenshotFront { get; } = new();
+
+    public ReactiveCommand<ImageModel> MoveScreenshotBack { get; } = new();
+
+    public ReactiveCommand<ImageModel> DeleteScreenshot { get; } = new();
 
     public AsyncReactiveCommand DiscardChanges { get; } = new();
 
