@@ -46,6 +46,9 @@ public sealed class AddResourceDialogViewModel
         DisplayName.SetValidateNotifyError(NotNullOrWhitespace);
         Description.SetValidateNotifyError(NotNullOrWhitespace);
         ShortDescription.SetValidateNotifyError(NotNullOrWhitespace);
+        InheritDisplayName.Where(b => b).Subscribe(_ => DisplayName.Value = null);
+        InheritDescription.Where(b => b).Subscribe(_ => Description.Value = null);
+        InheritShortDescription.Where(b => b).Subscribe(_ => ShortDescription.Value = null);
 
         IsValid = CultureInput.ObserveHasErrors
             .CombineLatest(
@@ -60,13 +63,27 @@ public sealed class AddResourceDialogViewModel
         {
             if (Culture.Value != null)
             {
-                await Reference.AddAsync(new
+                var dict = new Dictionary<string, object>
                 {
-                    displayName = DisplayName.Value,
-                    description = Description.Value,
-                    shortDescription = ShortDescription.Value,
-                    culture = Culture.Value.Name,
-                });
+                    ["culture"] = Culture.Value.Name
+                };
+
+                if (!InheritDisplayName.Value && DisplayName.Value != null)
+                {
+                    dict["displayName"] = DisplayName.Value;
+                }
+
+                if (!InheritDescription.Value && Description.Value != null)
+                {
+                    dict["description"] = Description.Value;
+                }
+
+                if (!InheritShortDescription.Value && ShortDescription.Value != null)
+                {
+                    dict["shortDescription"] = ShortDescription.Value;
+                }
+
+                await Reference.AddAsync(dict);
             }
         });
     }
@@ -77,19 +94,25 @@ public sealed class AddResourceDialogViewModel
 
     public ReadOnlyReactivePropertySlim<CultureInfo?> Culture { get; }
 
-    public ReactiveProperty<string> DisplayName { get; } = new();
+    public ReactiveProperty<string?> DisplayName { get; } = new("");
 
-    public ReactiveProperty<string> Description { get; } = new();
+    public ReactiveProperty<string?> Description { get; } = new("");
 
-    public ReactiveProperty<string> ShortDescription { get; } = new();
+    public ReactiveProperty<string?> ShortDescription { get; } = new("");
 
     public ReadOnlyReactivePropertySlim<bool> IsValid { get; }
 
+    public ReactiveProperty<bool> InheritDisplayName { get; } = new();
+
+    public ReactiveProperty<bool> InheritDescription { get; } = new();
+
+    public ReactiveProperty<bool> InheritShortDescription { get; } = new();
+
     public AsyncReactiveCommand Add { get; }
 
-    private static string NotNullOrWhitespace(string str)
+    private static string NotNullOrWhitespace(string? str)
     {
-        if (!string.IsNullOrWhiteSpace(str))
+        if (str == null || !string.IsNullOrWhiteSpace(str))
         {
             return null!;
         }

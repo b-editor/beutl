@@ -9,6 +9,7 @@
                   Title="リソースを追加"
                   PrimaryButtonText="追加"
                   PrimaryButtonCommand="{CompiledBinding Add}"
+                  IsPrimaryButtonEnabled="{CompiledBinding IsValid.Value}"
                   CloseButtonText="キャンセル"
                   DefaultButton="Primary"
                   x:DataType="viewModels:AddResourceDialogViewModel"
@@ -54,9 +55,13 @@
                            Classes="description" />
             </ctrls:OptionsDisplayItem.ActionButton>
             <ctrls:OptionsDisplayItem.Content>
-                <TextBox Text="{CompiledBinding DisplayName.Value}"
-                         AcceptsReturn="True"
+                <StackPanel Spacing="16">
+                    <CheckBox IsChecked="{CompiledBinding InheritDisplayName.Value}"
+                              Content="値を継承する" />
+
+                    <TextBox Text="{CompiledBinding DisplayName.Value}"
                          Classes="customStyle" />
+                </StackPanel>
             </ctrls:OptionsDisplayItem.Content>
         </ctrls:OptionsDisplayItem>
 
@@ -71,9 +76,14 @@
                            Classes="description" />
             </ctrls:OptionsDisplayItem.ActionButton>
             <ctrls:OptionsDisplayItem.Content>
-                <TextBox Text="{CompiledBinding Description.Value}"
-                         AcceptsReturn="True"
-                         Classes="customStyle" />
+                <StackPanel Spacing="16">
+                    <CheckBox IsChecked="{CompiledBinding InheritDescription.Value}"
+                              Content="値を継承する" />
+
+                    <TextBox Text="{CompiledBinding Description.Value}"
+                             AcceptsReturn="True"
+                             Classes="customStyle" />
+                </StackPanel>
             </ctrls:OptionsDisplayItem.Content>
         </ctrls:OptionsDisplayItem>
 
@@ -88,8 +98,13 @@
                            Classes="description" />
             </ctrls:OptionsDisplayItem.ActionButton>
             <ctrls:OptionsDisplayItem.Content>
-                <TextBox Text="{CompiledBinding ShortDescription.Value}"
-                         Classes="customStyle" />
+                <StackPanel Spacing="16">
+                    <CheckBox IsChecked="{CompiledBinding InheritShortDescription.Value}"
+                              Content="値を継承する" />
+
+                    <TextBox Text="{CompiledBinding ShortDescription.Value}"
+                             Classes="customStyle" />
+                </StackPanel>
             </ctrls:OptionsDisplayItem.Content>
         </ctrls:OptionsDisplayItem>
     </StackPanel>
