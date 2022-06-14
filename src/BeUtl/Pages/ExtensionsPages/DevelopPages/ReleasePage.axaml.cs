@@ -53,6 +53,12 @@ public partial class ReleasePage : UserControl
 
             if (await dialog.ShowAsync() == ContentDialogResult.Primary)
             {
+                string releaseId = viewModel.Reference.Id;
+                string packageId = viewModel.Parent.Parent.Reference.Id;
+                frame.RemoveAllStack(item => item is ReleasePageViewModel p
+                    && p.Reference.Id == releaseId
+                    && p.Parent.Parent.Reference.Id == packageId);
+
                 viewModel.Delete.Execute();
                 frame.GoBack();
             }

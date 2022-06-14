@@ -19,7 +19,7 @@ public sealed class PackageDetailsPageViewModel : IDisposable
 {
     private readonly PackageController _packageController = ServiceLocator.Current.GetRequiredService<PackageController>();
     private readonly HttpClient _httpClient = ServiceLocator.Current.GetRequiredService<HttpClient>();
-    private readonly CompositeDisposable _disposables = new();
+    private readonly CompositeDisposable _disposables = new(15);
 
     public PackageDetailsPageViewModel(DocumentReference docRef)
     {
@@ -74,8 +74,10 @@ public sealed class PackageDetailsPageViewModel : IDisposable
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        Settings = new PackageSettingsPageViewModel(docRef, this);
-        Releases = new PackageReleasesPageViewModel(this);
+        Settings = new PackageSettingsPageViewModel(docRef, this)
+            .DisposeWith(_disposables);
+        Releases = new PackageReleasesPageViewModel(this)
+            .DisposeWith(_disposables);
 
         IObservable<CollectionChanged<ResourcePageViewModel>> resourceObservable = Settings.Items.ToCollectionChanged<ResourcePageViewModel>();
         LocalizedDisplayName = observable
@@ -128,7 +130,7 @@ public sealed class PackageDetailsPageViewModel : IDisposable
     public ReadOnlyReactivePropertySlim<Uri?> Logo { get; }
 
     public ReadOnlyReactivePropertySlim<Bitmap?> LogoImage { get; }
-    
+
     public ReadOnlyReactivePropertySlim<string[]> Screenshots { get; }
 
     public ReadOnlyReactivePropertySlim<bool> HasLogoImage { get; }
@@ -144,6 +146,5 @@ public sealed class PackageDetailsPageViewModel : IDisposable
     public void Dispose()
     {
         _disposables.Dispose();
-        Settings.Dispose();
     }
 }

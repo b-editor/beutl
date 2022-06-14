@@ -9,6 +9,7 @@ using BeUtl.ViewModels.ExtensionsPages.DevelopPages;
 using BeUtl.ViewModels.ExtensionsPages.DevelopPages.Dialogs;
 
 using FluentAvalonia.UI.Controls;
+using FluentAvalonia.UI.Navigation;
 
 using Button = Avalonia.Controls.Button;
 
@@ -66,6 +67,7 @@ public partial class PackageSettingsPage : UserControl
     {
         if (sender is Button { DataContext: ResourcePageViewModel itemViewModel })
         {
+            Frame frame = this.FindAncestorOfType<Frame>();
             var dialog = new ContentDialog
             {
                 Title = "リソースを削除",
@@ -77,6 +79,12 @@ public partial class PackageSettingsPage : UserControl
 
             if (await dialog.ShowAsync() == ContentDialogResult.Primary)
             {
+                string resourceId = itemViewModel.Reference.Id;
+                string packageId = itemViewModel.Parent.Reference.Id;
+                frame.RemoveAllStack(item => item is ResourcePageViewModel p
+                    && p.Reference.Id == resourceId
+                    && p.Parent.Reference.Id == packageId);
+
                 itemViewModel.Delete.Execute();
             }
         }
@@ -98,7 +106,16 @@ public partial class PackageSettingsPage : UserControl
 
             if (await dialog.ShowAsync() == ContentDialogResult.Primary)
             {
+                string packageId = viewModel.Reference.Id;
+                frame.RemoveAllStack(
+                    item => (item is PackageDetailsPageViewModel p1 && p1.Reference.Id == packageId)
+                         || (item is PackageSettingsPageViewModel p2 && p2.Reference.Id == packageId)
+                         || (item is ResourcePageViewModel p3 && p3.Parent.Reference.Id == packageId)
+                         || (item is ReleasePageViewModel p4 && p4.Parent.Parent.Reference.Id == packageId)
+                         || (item is PackageReleasesPageViewModel p5 && p5.Parent.Reference.Id == packageId));
+
                 viewModel.Delete.Execute();
+
                 frame.GoBack();
             }
         }

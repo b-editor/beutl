@@ -26,7 +26,21 @@ public partial class ExtensionsPage : UserControl
         nav.BackRequested += Nav_BackRequested;
 
         nav.SelectedItem = selected;
-        frame.Navigate((Type)selected.Tag!);
+
+        this.GetObservable(IsVisibleProperty).Subscribe(b =>
+        {
+            if (b)
+            {
+                if (nav.SelectedItem is NavigationViewItem selected)
+                {
+                    frame.Navigate((Type)selected.Tag!);
+                }
+            }
+            else
+            {
+                frame.SetNavigationState("|\n0\n0");
+            }
+        });
     }
 
     private static List<NavigationViewItem> GetItems()

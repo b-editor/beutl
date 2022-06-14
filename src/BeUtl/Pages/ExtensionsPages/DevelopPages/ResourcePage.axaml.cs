@@ -32,6 +32,12 @@ public partial class ResourcePage : UserControl
 
             if (await dialog.ShowAsync() == ContentDialogResult.Primary)
             {
+                string resourceId = viewModel.Reference.Id;
+                string packageId = viewModel.Parent.Reference.Id;
+                frame.RemoveAllStack(item => item is ResourcePageViewModel p
+                    && p.Reference.Id == resourceId
+                    && p.Parent.Reference.Id == packageId);
+
                 viewModel.Delete.Execute();
                 frame.GoBack();
             }

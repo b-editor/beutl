@@ -10,6 +10,7 @@ using Avalonia.Threading;
 
 using BeUtl.Collections;
 using BeUtl.Framework.Service;
+using BeUtl.Models.ExtensionsPages.DevelopPages;
 using BeUtl.Services;
 
 using DynamicData;
@@ -31,16 +32,15 @@ public sealed class PackageSettingsPageViewModel : IDisposable
 {
     private readonly PackageController _packageController = ServiceLocator.Current.GetRequiredService<PackageController>();
     private readonly HttpClient _httpClient = ServiceLocator.Current.GetRequiredService<HttpClient>();
-    private readonly CompositeDisposable _disposables = new();
+    private readonly CompositeDisposable _disposables = new(23);
     private readonly object _lockObject = new();
-    private readonly FirestoreChangeListener? _listener;
-
-    public record ImageModel(MemoryStream Stream, Bitmap Bitmap, string Name);
+    private readonly FirestoreChangeListener _listener;
+    private readonly WeakReference<PackageDetailsPageViewModel?> _parentWeak;
 
     public PackageSettingsPageViewModel(DocumentReference docRef, PackageDetailsPageViewModel parent)
     {
         Reference = docRef;
-        Parent = parent;
+        _parentWeak = new WeakReference<PackageDetailsPageViewModel?>(parent);
 
         Name = parent.Name.ToReactiveProperty("").DisposeWith(_disposables);
         DisplayName = parent.DisplayName.ToReactiveProperty("").DisposeWith(_disposables);
@@ -62,7 +62,8 @@ public sealed class PackageSettingsPageViewModel : IDisposable
             .ToReadOnlyReactivePropertySlim(null)
             .DisposeWith(_disposables);
 
-        ScreenshotsArray = parent.Screenshots.ToReactiveProperty(Array.Empty<string>());
+        ScreenshotsArray = parent.Screenshots.ToReactiveProperty(Array.Empty<string>())
+            .DisposeWith(_disposables);
         ScreenshotsArray.Subscribe(async array =>
         {
             IsScreenshotLoading.Value = true;
@@ -128,7 +129,8 @@ public sealed class PackageSettingsPageViewModel : IDisposable
                 DisplayName.ObserveHasErrors,
                 Description.ObserveHasErrors,
                 ShortDescription.ObserveHasErrors)
-            .Select(t => !(t.First || t.Second || t.Third || t.Fourth)));
+            .Select(t => !(t.First || t.Second || t.Third || t.Fourth)))
+            .DisposeWith(_disposables);
         Save.Subscribe(async () =>
         {
             var dict = new Dictionary<string, object>
@@ -200,7 +202,11 @@ public sealed class PackageSettingsPageViewModel : IDisposable
             ScreenshotsArray.ForceNotify();
         }).DisposeWith(_disposables);
 
-        Delete.Subscribe(async () => await Reference.DeleteAsync()).DisposeWith(_disposables);
+        Delete.Subscribe(async () =>
+        {
+            // Todo: コレクションやストレージのファイルを削除する
+            await Reference.DeleteAsync();
+        }).DisposeWith(_disposables);
 
         MakePublic.Subscribe(async () => await Reference.UpdateAsync("visible", true)).DisposeWith(_disposables);
 
@@ -239,7 +245,8 @@ public sealed class PackageSettingsPageViewModel : IDisposable
             .Select(c => c < 4)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
-        AddScreenshot = new ReactiveCommand<string>(CanAddScreenshot);
+        AddScreenshot = new ReactiveCommand<string>(CanAddScreenshot)
+            .DisposeWith(_disposables);
         AddScreenshot.Subscribe(file =>
         {
             if (File.Exists(file))
@@ -296,8 +303,8 @@ public sealed class PackageSettingsPageViewModel : IDisposable
             item.Stream.Dispose();
         }).DisposeWith(_disposables);
 
-        CollectionReference? resources = Parent.Reference.Collection("resources");
-        resources?.GetSnapshotAsync()
+        CollectionReference resources = Parent.Reference.Collection("resources");
+        resources.GetSnapshotAsync()
             .ToObservable()
             .Subscribe(snapshot =>
             {
@@ -315,7 +322,7 @@ public sealed class PackageSettingsPageViewModel : IDisposable
                 }
             });
 
-        _listener = resources?.Listen(snapshot =>
+        _listener = resources.Listen(snapshot =>
         {
             foreach (DocumentChange item in snapshot.Changes)
             {
@@ -337,6 +344,7 @@ public sealed class PackageSettingsPageViewModel : IDisposable
                                 if (viewModel.Reference.Id == item.Document.Id)
                                 {
                                     Items.Remove(viewModel);
+                                    viewModel.Dispose();
                                     return;
                                 }
                             }
@@ -357,9 +365,17 @@ public sealed class PackageSettingsPageViewModel : IDisposable
         });
     }
 
+    ~PackageSettingsPageViewModel()
+    {
+        Dispose();
+    }
+
     public DocumentReference Reference { get; }
 
-    public PackageDetailsPageViewModel Parent { get; }
+    public PackageDetailsPageViewModel Parent
+        => _parentWeak.TryGetTarget(out PackageDetailsPageViewModel? parent)
+            ? parent
+            : null!;
 
     public ReadOnlyReactivePropertySlim<bool> IsChanging { get; }
 
@@ -413,11 +429,17 @@ public sealed class PackageSettingsPageViewModel : IDisposable
 
     public void Dispose()
     {
-        _disposables?.Dispose();
+        _disposables.Dispose();
 
-        _listener?.StopAsync();
+        _listener.StopAsync();
 
+        foreach (ResourcePageViewModel item in Items.AsSpan())
+        {
+            item.Dispose();
+        }
         Items.Clear();
+
+        GC.SuppressFinalize(this);
     }
 
     private static string NotNullOrWhitespace(string str)

@@ -14,7 +14,7 @@ namespace BeUtl.Pages.ExtensionsPages.DevelopPages;
 
 public partial class PackageReleasesPage : UserControl
 {
-    private bool flag;
+    private bool _flag;
 
     public PackageReleasesPage()
     {
@@ -25,14 +25,14 @@ public partial class PackageReleasesPage : UserControl
 
     private void ReleasesList_PointerReleased(object? sender, PointerReleasedEventArgs e)
     {
-        if (flag)
+        if (_flag)
         {
             if (ReleasesList.SelectedItem is ReleasePageViewModel item)
             {
                 Frame frame = this.FindAncestorOfType<Frame>();
                 frame.Navigate(typeof(ReleasePage), item, SharedNavigationTransitionInfo.Instance);
             }
-            flag = false;
+            _flag = false;
         }
     }
 
@@ -40,7 +40,7 @@ public partial class PackageReleasesPage : UserControl
     {
         if (e.ClickCount == 2)
         {
-            flag = true;
+            _flag = true;
         }
     }
 
@@ -74,6 +74,7 @@ public partial class PackageReleasesPage : UserControl
     {
         if (sender is StyledElement { DataContext: ReleasePageViewModel item })
         {
+            Frame frame = this.FindAncestorOfType<Frame>();
             var dialog = new ContentDialog
             {
                 Title = "リリースを削除",
@@ -85,6 +86,12 @@ public partial class PackageReleasesPage : UserControl
 
             if (await dialog.ShowAsync() == ContentDialogResult.Primary)
             {
+                string releaseId = item.Reference.Id;
+                string packageId = item.Parent.Parent.Reference.Id;
+                frame.RemoveAllStack(item => item is ReleasePageViewModel p
+                    && p.Reference.Id == releaseId
+                    && p.Parent.Parent.Reference.Id == packageId);
+
                 item.Delete.Execute();
             }
         }
