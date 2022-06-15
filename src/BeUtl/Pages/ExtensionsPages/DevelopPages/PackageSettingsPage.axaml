@@ -109,7 +109,7 @@
                         <Button Content="参照" Click="OpenLogoFile_Click" />
                     </ctrls:OptionsDisplayItem.ActionButton>
                     <ctrls:OptionsDisplayItem.Content>
-                        <StackPanel>
+                        <StackPanel Spacing="16">
                             <Image Source="{CompiledBinding LogoImage.Value}"
                                    MaxWidth="300" MaxHeight="300"
                                    HorizontalAlignment="Left" />

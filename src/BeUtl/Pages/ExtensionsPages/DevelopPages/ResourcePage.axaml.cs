@@ -1,5 +1,6 @@
 ﻿using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Avalonia.LogicalTree;
 using Avalonia.VisualTree;
 
 using BeUtl.ViewModels.ExtensionsPages.DevelopPages;
@@ -59,6 +60,29 @@ public partial class ResourcePage : UserControl
         {
             Frame frame = this.FindAncestorOfType<Frame>();
             frame.Navigate(typeof(PackageSettingsPage), viewModel.Parent, SharedNavigationTransitionInfo.Instance);
+        }
+    }
+
+    private async void OpenLogoFile_Click(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is ResourcePageViewModel viewModel)
+        {
+            Window? window = this.FindLogicalAncestorOfType<Window>();
+            var dialog = new OpenFileDialog
+            {
+                AllowMultiple = false,
+                Filters = new()
+                {
+                    new FileDialogFilter()
+                    {
+                        Extensions = { "jpg", "jpeg", "png" }
+                    }
+                }
+            };
+            if ((await dialog.ShowAsync(window)) is string[] items && items.Length > 0)
+            {
+                viewModel.SetLogo.Execute(items[0]);
+            }
         }
     }
 }

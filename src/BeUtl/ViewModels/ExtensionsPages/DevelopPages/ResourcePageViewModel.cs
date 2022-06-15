@@ -1,17 +1,31 @@
-﻿using System.Globalization;
+﻿using System.Diagnostics;
+using System.Globalization;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
 
+using Avalonia;
+using Avalonia.Media.Imaging;
+using Avalonia.Skia;
+
+using BeUtl.Services;
+
 using Google.Cloud.Firestore;
 
+using Microsoft.Extensions.DependencyInjection;
+
 using Reactive.Bindings;
+using Reactive.Bindings.Extensions;
+
+using SkiaSharp;
 
 namespace BeUtl.ViewModels.ExtensionsPages.DevelopPages;
 
 public sealed class ResourcePageViewModel : IDisposable
 {
+    private readonly PackageController _packageController = ServiceLocator.Current.GetRequiredService<PackageController>();
+    private readonly HttpClient _httpClient = ServiceLocator.Current.GetRequiredService<HttpClient>();
     private readonly WeakReference<PackageSettingsPageViewModel?> _parentWeak;
-    private readonly CompositeDisposable _disposables = new(12);
+    private readonly CompositeDisposable _disposables = new();
 
     public ResourcePageViewModel(DocumentReference reference, PackageSettingsPageViewModel parent)
     {
@@ -63,19 +77,37 @@ public sealed class ResourcePageViewModel : IDisposable
         Description.SetValidateNotifyError(NotWhitespace);
         ShortDescription.SetValidateNotifyError(NotWhitespace);
 
+        LogoStream = ActualLogoImageId
+            .Do(_ => IsLogoLoading.Value = true)
+            .SelectMany(id => _packageController.GetPackageImageStream(Parent.Reference.Id, id))
+            .Do(_ => IsLogoLoading.Value = false)
+            .DisposePreviousValue()
+            .ToReactiveProperty()
+            .DisposeWith(_disposables);
+        LogoImage = LogoStream
+            .Select(st => st != null ? new Bitmap(st) : null)
+            .DisposePreviousValue()
+            .ToReadOnlyReactivePropertySlim(null)
+            .DisposeWith(_disposables);
+
         InheritDisplayName.Subscribe(b => DisplayName.Value = b ? null : ActualDisplayName.Value)
             .DisposeWith(_disposables);
         InheritDescription.Subscribe(b => Description.Value = b ? null : ActualDescription.Value)
             .DisposeWith(_disposables);
         InheritShortDescription.Subscribe(b => ShortDescription.Value = b ? null : ActualShortDescription.Value)
             .DisposeWith(_disposables);
+        InheritLogo
+            .Do(b => LogoStream.Value = b ? null : LogoStream.Value)
+            .Subscribe(b => LogoImageId.Value = b ? null : ActualLogoImageId.Value)
+            .DisposeWith(_disposables);
 
         IsChanging = Culture.CombineLatest(ActualCulture).Select(t => t.First?.Name == t.Second?.Name)
             .CombineLatest(
                 DisplayName.CombineLatest(ActualDisplayName).Select(t => t.First == t.Second),
                 Description.CombineLatest(ActualDescription).Select(t => t.First == t.Second),
-                ShortDescription.CombineLatest(ActualShortDescription).Select(t => t.First == t.Second))
-            .Select(t => !(t.First && t.Second && t.Third && t.Fourth))
+                ShortDescription.CombineLatest(ActualShortDescription).Select(t => t.First == t.Second),
+                LogoImageId.CombineLatest(ActualLogoImageId).Select(t => t.First == t.Second))
+            .Select(t => !(t.First && t.Second && t.Third && t.Fourth && t.Fifth))
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
@@ -104,6 +136,34 @@ public sealed class ResourcePageViewModel : IDisposable
                 dict["shortDescription"] = ActualShortDescription.Value = ShortDescription.Value;
             }
 
+            if (!InheritLogo.Value)
+            {
+                if (LogoStream.Value?.CanRead == true
+                    && LogoImageId.Value is string newName)
+                {
+                    dict["logo"] = newName;
+                    LogoStream.Value.Position = 0;
+                    await _packageController.GetPackageImageRef(Parent.Reference.Id, newName)
+                        .PutAsync(LogoStream.Value, default, "image/jpeg");
+
+                    if (ActualLogoImageId.Value is string oldName0)
+                    {
+                        await _packageController.GetPackageImageRef(Parent.Reference.Id, oldName0)
+                            .DeleteAsync();
+                    }
+                }
+                else if (ActualLogoImageId.Value != null)
+                {
+                    dict["logo"] = ActualLogoImageId.Value;
+                }
+            }
+
+            if (InheritLogo.Value && ActualLogoImageId.Value is string oldName1)
+            {
+                await _packageController.GetPackageImageRef(Parent.Reference.Id, oldName1)
+                    .DeleteAsync();
+            }
+
             await Reference.SetAsync(dict, SetOptions.Overwrite);
         })
             .DisposeWith(_disposables);
@@ -111,8 +171,42 @@ public sealed class ResourcePageViewModel : IDisposable
         DiscardChanges.Subscribe(async () => Update(await Reference.GetSnapshotAsync()))
             .DisposeWith(_disposables);
 
-        Delete.Subscribe(async () => await Reference.DeleteAsync())
+        Delete.Subscribe(async () =>
+            {
+                //Todo: 画像リソースの削除
+                await Reference.DeleteAsync();
+            })
             .DisposeWith(_disposables);
+
+        SetLogo.Subscribe(file =>
+        {
+            if (File.Exists(file))
+            {
+                const int SIZE = 400;
+                var dstBmp = new SKBitmap(SIZE, SIZE, SKColorType.Bgra8888, SKAlphaType.Opaque);
+                using (var srcBmp = SKBitmap.Decode(file))
+                using (var canvas = new SKCanvas(dstBmp))
+                {
+                    float x = SIZE / (float)srcBmp.Width;
+                    float y = SIZE / (float)srcBmp.Height;
+                    float w = srcBmp.Width * MathF.Max(x, y);
+                    float h = srcBmp.Height * MathF.Max(x, y);
+                    Rect rect = new Rect(0, 0, SIZE, SIZE)
+                        .CenterRect(new Rect(0, 0, w, h));
+                    canvas.DrawBitmap(srcBmp, rect.ToSKRect());
+                    canvas.Flush();
+                }
+
+                var stream = new MemoryStream();
+                dstBmp.Encode(stream, SKEncodedImageFormat.Jpeg, 100);
+                dstBmp.Dispose();
+                stream.Position = 0;
+                LogoStream.Value = stream;
+
+                InheritLogo.Value = false;
+                LogoImageId.Value = Guid.NewGuid().ToString();
+            }
+        }).DisposeWith(_disposables);
     }
 
     ~ResourcePageViewModel()
@@ -133,6 +227,8 @@ public sealed class ResourcePageViewModel : IDisposable
 
     public ReactivePropertySlim<string?> ActualShortDescription { get; } = new();
 
+    public ReactivePropertySlim<string?> ActualLogoImageId { get; } = new();
+
     public ReadOnlyReactivePropertySlim<bool> HasDisplayName { get; }
 
     public ReadOnlyReactivePropertySlim<bool> HasDescription { get; }
@@ -147,12 +243,23 @@ public sealed class ResourcePageViewModel : IDisposable
 
     public ReactiveProperty<string?> ShortDescription { get; } = new();
 
+    public ReactiveProperty<string?> LogoImageId { get; } = new();
+
+    public ReactiveProperty<MemoryStream?> LogoStream { get; }
+
+    public ReactivePropertySlim<bool> IsLogoLoading { get; } = new(false);
+
+    public ReadOnlyReactivePropertySlim<Bitmap?> LogoImage { get; }
+
+    public ReactiveCommand<string> SetLogo { get; } = new();
+
     public ReactiveProperty<bool> InheritDisplayName { get; } = new();
 
     public ReactiveProperty<bool> InheritDescription { get; } = new();
 
     public ReactiveProperty<bool> InheritShortDescription { get; } = new();
 
+    // Todo: Logo, screenshotsの設定
     public ReactiveProperty<bool> InheritLogo { get; } = new();
 
     public ReactiveProperty<bool> InheritScreenshots { get; } = new();
@@ -191,6 +298,8 @@ public sealed class ResourcePageViewModel : IDisposable
         Set("description", ActualDescription, Description, InheritDescription);
         Set("shortDescription", ActualShortDescription, ShortDescription, InheritShortDescription);
 
+        Set("logo", ActualLogoImageId, LogoImageId, InheritLogo);
+
         ActualCulture.Value = new CultureInfo(CultureInput.Value = snapshot.GetValue<string>("culture"));
     }
 
@@ -208,6 +317,8 @@ public sealed class ResourcePageViewModel : IDisposable
 
     public void Dispose()
     {
+        Debug.WriteLine($"{GetType().Name} disposed (Count: {_disposables.Count}).");
+
         _disposables.Dispose();
         GC.SuppressFinalize(this);
     }

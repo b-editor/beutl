@@ -1,4 +1,5 @@
-﻿using System.Reactive.Disposables;
+﻿using System.Diagnostics;
+using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using System.Reactive.Threading.Tasks;
 
@@ -42,16 +43,19 @@ public sealed class PackageSettingsPageViewModel : IDisposable
         Reference = docRef;
         _parentWeak = new WeakReference<PackageDetailsPageViewModel?>(parent);
 
+        // 入力用プロパティの作成（オリジナルが変更されたら同期する）
         Name = parent.Name.ToReactiveProperty("").DisposeWith(_disposables);
         DisplayName = parent.DisplayName.ToReactiveProperty("").DisposeWith(_disposables);
         Description = parent.Description.ToReactiveProperty("").DisposeWith(_disposables);
         ShortDescription = parent.ShortDescription.ToReactiveProperty("").DisposeWith(_disposables);
-        Logo = parent.Logo.ToReactiveProperty()
+        LogoImageId = parent.LogoId.ToReactiveProperty()
             .DisposeWith(_disposables);
-        LogoStream = Logo
+
+        // ロゴ画像
+        // 1. IDからストレージへの参照を作成
+        LogoStream = LogoImageId
             .Do(_ => IsLogoLoading.Value = true)
-            .SelectMany(async uri => uri != null ? await _httpClient.GetByteArrayAsync(uri) : null)
-            .Select(arr => arr != null ? new MemoryStream(arr) : null)
+            .SelectMany(id => _packageController.GetPackageImageStream(Reference.Id, id))
             .Do(_ => IsLogoLoading.Value = false)
             .DisposePreviousValue()
             .ToReactiveProperty()
@@ -67,32 +71,32 @@ public sealed class PackageSettingsPageViewModel : IDisposable
         ScreenshotsArray.Subscribe(async array =>
         {
             IsScreenshotLoading.Value = true;
-            var cache = new ImageModel[array.Length];
-            for (int i = 0; i < array.Length; i++)
+            var list = new List<ImageModel>(array.Length);
+            foreach (string item in array)
             {
-                string? item = array[i];
                 ImageModel? exits = Screenshots.FirstOrDefault(i => i.Name == item);
 
                 if (exits != null)
                 {
-                    cache[i] = exits;
+                    list.Add(exits);
                 }
                 else
                 {
-                    FirebaseStorageReference reference = _packageController.GetPackageImageRef(Reference.Id, item);
-                    string link = await reference.GetDownloadUrlAsync();
-                    var stream = new MemoryStream(await _httpClient.GetByteArrayAsync(link));
-                    var bitmap = new Bitmap(stream);
-                    cache[i] = new ImageModel(stream, bitmap, item);
+                    MemoryStream? stream = await _packageController.GetPackageImageStream(Reference.Id, item);
+                    if (stream != null)
+                    {
+                        var bitmap = new Bitmap(stream);
+                        list.Add(new ImageModel(stream, bitmap, item));
+                    }
                 }
             }
 
-            ImageModel[] excepted = Screenshots.Except(cache).ToArray();
+            ImageModel[] excepted = Screenshots.Except(list).ToArray();
 
             await Dispatcher.UIThread.InvokeAsync(() =>
             {
                 Screenshots.Clear();
-                Screenshots.AddRange(cache);
+                Screenshots.AddRange(list);
             });
             IsScreenshotLoading.Value = false;
 
@@ -150,7 +154,7 @@ public sealed class PackageSettingsPageViewModel : IDisposable
                 await _packageController.GetPackageImageRef(Reference.Id, newName)
                     .PutAsync(LogoStream.Value, default, "image/jpeg");
 
-                if (Parent.LogoId.Value is string oldName)
+                if (Parent.LogoId.Value is string oldName && Parent.LogoImage.Value != null)
                 {
                     await _packageController.GetPackageImageRef(Reference.Id, oldName)
                         .DeleteAsync();
@@ -196,7 +200,7 @@ public sealed class PackageSettingsPageViewModel : IDisposable
             DisplayName.Value = snapshot.GetValue<string>("displayName");
             Description.Value = snapshot.GetValue<string>("description");
             ShortDescription.Value = snapshot.GetValue<string>("shortDescription");
-            Logo.ForceNotify();
+            LogoImageId.ForceNotify();
             LogoNoChanged.Value = true;
 
             ScreenshotsArray.ForceNotify();
@@ -387,7 +391,7 @@ public sealed class PackageSettingsPageViewModel : IDisposable
 
     public ReactiveProperty<string> ShortDescription { get; } = new();
 
-    public ReactiveProperty<Uri?> Logo { get; }
+    public ReactiveProperty<string?> LogoImageId { get; }
 
     public ReactiveProperty<MemoryStream?> LogoStream { get; }
 
@@ -429,6 +433,8 @@ public sealed class PackageSettingsPageViewModel : IDisposable
 
     public void Dispose()
     {
+        Debug.WriteLine($"{GetType().Name} disposed (Count: {_disposables.Count}).");
+
         _disposables.Dispose();
 
         _listener.StopAsync();

@@ -3,16 +3,41 @@
 using Google.Cloud.Firestore;
 using Firebase.Storage;
 using SkiaSharp;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace BeUtl.Services;
 
 public class PackageController
 {
+    private readonly HttpClient _httpClient = ServiceLocator.Current.GetRequiredService<HttpClient>();
     private readonly AccountService _accountService;
 
     public PackageController(AccountService accountService)
     {
         _accountService = accountService;
+    }
+
+    public async Task<MemoryStream?> GetPackageImageStream(string packageId, string? name)
+    {
+        try
+        {
+            if (name == null)
+                return null;
+
+            string? link = await GetPackageImageRef(packageId, name)
+                .GetDownloadUrlAsync();
+
+            if (link != null)
+            {
+                byte[] array = await _httpClient.GetByteArrayAsync(link);
+                return new MemoryStream(array);
+            }
+        }
+        catch
+        {
+        }
+
+        return null;
     }
 
     public FirebaseStorageReference GetPackageImageRef(string packageId, string name)

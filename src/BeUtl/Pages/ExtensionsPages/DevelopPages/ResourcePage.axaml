@@ -145,6 +145,29 @@
                     </ctrls:OptionsDisplayItem.Content>
                 </ctrls:OptionsDisplayItem>
 
+                <ctrls:OptionsDisplayItem Header="ロゴ"
+                                          Description="パッケージのロゴを設定"
+                                          Expands="True">
+                    <ctrls:OptionsDisplayItem.ActionButton>
+                        <Button Content="参照"
+                                IsEnabled="{CompiledBinding !InheritLogo.Value}"
+                                Click="OpenLogoFile_Click" />
+                    </ctrls:OptionsDisplayItem.ActionButton>
+                    <ctrls:OptionsDisplayItem.Content>
+                        <StackPanel Spacing="16">
+                            <CheckBox IsChecked="{CompiledBinding InheritLogo.Value}"
+                                      Content="値を継承する" />
+
+                            <Image Source="{CompiledBinding LogoImage.Value}"
+                                   MaxWidth="300" MaxHeight="300"
+                                   HorizontalAlignment="Left" />
+
+                            <ProgressBar IsVisible="{CompiledBinding IsLogoLoading.Value}"
+                                         IsIndeterminate="{CompiledBinding IsLogoLoading.Value}" />
+                        </StackPanel>
+                    </ctrls:OptionsDisplayItem.Content>
+                </ctrls:OptionsDisplayItem>
+
                 <ctrls:OptionsDisplayItem Header="削除"
                                           Icon="Delete"
                                           Navigates="True"

@@ -24,6 +24,7 @@ public sealed class PackageDetailsPageViewModel : IDisposable
     public PackageDetailsPageViewModel(DocumentReference docRef)
     {
         Reference = docRef;
+        DisplayCulture.Value = CultureInfo.CurrentUICulture;
 
         IObservable<DocumentSnapshot> observable = Reference.ToObservable();
 
@@ -51,14 +52,8 @@ public sealed class PackageDetailsPageViewModel : IDisposable
             .ToReadOnlyReactivePropertySlim(Array.Empty<string>())
             .DisposeWith(_disposables);
 
-        Logo = LogoId.Select(id => id != null ? _packageController.GetPackageImageRef(Reference.Id, id) : null)
-            .SelectMany(r => r?.GetDownloadUrlAsync() ?? Task.FromResult<string?>(null))
-            .Select(s => s != null ? new Uri(s) : null)
-            .ToReadOnlyReactivePropertySlim(null)
-            .DisposeWith(_disposables);
-
-        LogoImage = Logo.SelectMany(async uri => uri != null ? await _httpClient.GetByteArrayAsync(uri) : null)
-            .Select(arr => arr != null ? new MemoryStream(arr) : null)
+        LogoImage = LogoId
+            .SelectMany(id => _packageController.GetPackageImageStream(Reference.Id, id))
             .Select(st => (st, st != null ? new Bitmap(st) : null))
             .Do(t => t.st?.Dispose())
             .Select(t => t.Item2)
@@ -80,13 +75,21 @@ public sealed class PackageDetailsPageViewModel : IDisposable
             .DisposeWith(_disposables);
 
         IObservable<CollectionChanged<ResourcePageViewModel>> resourceObservable = Settings.Items.ToCollectionChanged<ResourcePageViewModel>();
-        LocalizedDisplayName = observable
-            .SelectMany(_ => Settings.Items.Count > 0
-                ? Settings.Items.ToObservable()
-                    .SelectMany(i => i.ActualCulture
-                        .CombineLatest(i.ActualDisplayName)
-                        .Select(ii => ii.First.Equals(CultureInfo.CurrentUICulture) ? ii.Second : null))
-                : Observable.Return<string?>(null))
+
+        IObservable<T?> CreateResourceObservable<T>(Func<ResourcePageViewModel, IObservable<T?>> func)
+            where T : class
+        {
+            return observable
+                .CombineLatest(resourceObservable)
+                .SelectMany(_ => Settings.Items.Count > 0
+                    ? Settings.Items.ToObservable()
+                        .SelectMany(i => i.ActualCulture
+                            .CombineLatest(func(i), DisplayCulture)
+                            .Select(ii => ii.First?.Name == ii.Third?.Name ? ii.Second : null))
+                    : Observable.Return<T?>(null));
+        }
+
+        LocalizedDisplayName = CreateResourceObservable(v => v.ActualDisplayName)
             .CombineLatest(DisplayName)
             .Select(t => t.First ?? t.Second)
             .ToReadOnlyReactivePropertySlim()
@@ -98,13 +101,7 @@ public sealed class PackageDetailsPageViewModel : IDisposable
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        LocalizedDescription = observable
-            .SelectMany(_ => Settings.Items.Count > 0
-                ? Settings.Items.ToObservable()
-                    .SelectMany(i => i.ActualCulture
-                        .CombineLatest(i.ActualDescription)
-                        .Select(ii => ii.First.Equals(CultureInfo.CurrentUICulture) ? ii.Second : null))
-                : Observable.Return<string?>(null))
+        LocalizedDescription = CreateResourceObservable(v => v.ActualDescription)
             .CombineLatest(Description)
             .Select(t => t.First ?? t.Second)
             .ToReadOnlyReactivePropertySlim()
@@ -127,8 +124,6 @@ public sealed class PackageDetailsPageViewModel : IDisposable
 
     public ReadOnlyReactivePropertySlim<string?> LogoId { get; }
 
-    public ReadOnlyReactivePropertySlim<Uri?> Logo { get; }
-
     public ReadOnlyReactivePropertySlim<Bitmap?> LogoImage { get; }
 
     public ReadOnlyReactivePropertySlim<string[]> Screenshots { get; }
@@ -142,6 +137,8 @@ public sealed class PackageDetailsPageViewModel : IDisposable
     public ReadOnlyReactivePropertySlim<bool> HasLocalizedDisplayName { get; }
 
     public ReadOnlyReactivePropertySlim<bool> IsPublic { get; }
+
+    public ReactiveProperty<CultureInfo> DisplayCulture { get; } = new();
 
     public void Dispose()
     {
