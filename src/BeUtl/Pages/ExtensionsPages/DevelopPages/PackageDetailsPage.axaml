@@ -33,7 +33,7 @@
                             Margin="0,16,0,0"
                             Height="140">
                         <Border.Background>
-                            <ImageBrush Source="{CompiledBinding LogoImage.Value}" />
+                            <ImageBrush Source="{CompiledBinding LocalizedLogoImage.Value}" />
                         </Border.Background>
                     </Border>
 

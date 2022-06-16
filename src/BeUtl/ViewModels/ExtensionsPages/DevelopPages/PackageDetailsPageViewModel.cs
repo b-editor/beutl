@@ -106,6 +106,16 @@ public sealed class PackageDetailsPageViewModel : IDisposable
             .Select(t => t.First ?? t.Second)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
+
+        LocalizedLogoImage = CreateResourceObservable(v => v.ActualLogoImageId)
+            .CombineLatest(LogoId)
+            .Select(t => t.First ?? t.Second)
+            .SelectMany(async id => id != null ? await _packageController.GetPackageImageStream(Reference.Id, id) : null)
+            .DisposePreviousValue()
+            .Select(stream => stream != null ? new Bitmap(stream) : null)
+            .DisposePreviousValue()
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposables);
     }
 
     public PackageSettingsPageViewModel Settings { get; }
@@ -133,6 +143,8 @@ public sealed class PackageDetailsPageViewModel : IDisposable
     public ReadOnlyReactivePropertySlim<string?> LocalizedDisplayName { get; }
 
     public ReadOnlyReactivePropertySlim<string?> LocalizedDescription { get; }
+
+    public ReadOnlyReactivePropertySlim<Bitmap?> LocalizedLogoImage { get; }
 
     public ReadOnlyReactivePropertySlim<bool> HasLocalizedDisplayName { get; }
 
