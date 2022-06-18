@@ -141,7 +141,7 @@ public class PackageLink : IPackage.ILink
         {
             dict["logo"] = logoImage.Name;
         }
-        if (!fieldsMask.HasFlag(PackageInfoFields.Screenshots) && value.Screenshots.Length > 0)
+        if (!fieldsMask.HasFlag(PackageInfoFields.Screenshots))
         {
             dict["screenshots"] = value.Screenshots.Select(item => item.Name).ToArray();
         }

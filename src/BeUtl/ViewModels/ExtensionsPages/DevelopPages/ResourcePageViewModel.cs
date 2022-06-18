@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
 using System.Globalization;
+using System.Reactive;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
 
@@ -9,6 +10,7 @@ using Avalonia.Skia;
 using Avalonia.Threading;
 
 using BeUtl.Collections;
+using BeUtl.Models.Extensions.Develop;
 using BeUtl.Models.ExtensionsPages.DevelopPages;
 using BeUtl.Services;
 
@@ -26,30 +28,25 @@ namespace BeUtl.ViewModels.ExtensionsPages.DevelopPages;
 public sealed class ResourcePageViewModel : IDisposable
 {
     private readonly PackageController _packageController = ServiceLocator.Current.GetRequiredService<PackageController>();
-    private readonly HttpClient _httpClient = ServiceLocator.Current.GetRequiredService<HttpClient>();
     private readonly WeakReference<PackageSettingsPageViewModel?> _parentWeak;
     private readonly CompositeDisposable _disposables = new();
+    private readonly string _imagesPath;
 
-    public ResourcePageViewModel(DocumentReference reference, PackageSettingsPageViewModel parent)
+    public ResourcePageViewModel(DocumentReference reference, PackageSettingsPageViewModel parent, ILocalizedPackageResource.ILink link)
     {
         Reference = reference;
+        _imagesPath = $"users/{parent.Reference.Parent.Parent.Id}/packages/{parent.Reference.Id}/images";
+        Resource = link.GetObservable().ToReadOnlyReactivePropertySlim(link).DisposeWith(_disposables);
         _parentWeak = new WeakReference<PackageSettingsPageViewModel?>(parent);
 
-        CultureInput.SetValidateNotifyError(str =>
-        {
-            if (!string.IsNullOrWhiteSpace(str))
-            {
-                try
-                {
-                    CultureInfo.GetCultureInfo(str);
-                    return null!;
-                }
-                catch { }
-            }
+        // 入力用のプロパティ
+        CultureInput = CreateStringInput(p => p.Culture.Name, Resource.Value.Culture.Name)!;
+        DisplayName = CreateStringInput(p => p.DisplayName, "");
+        Description = CreateStringInput(p => p.Description, "");
+        ShortDescription = CreateStringInput(p => p.ShortDescription, "");
+        LogoImageId = CreateStringInput(i => i.LogoImage?.Name, null);
 
-            return "CultureNotFoundException";
-        });
-
+        // 入力用プロパティ -> CultureInfo, Bitmap...
         Culture = CultureInput.Select(str =>
         {
             if (!string.IsNullOrWhiteSpace(str))
@@ -66,23 +63,9 @@ public sealed class ResourcePageViewModel : IDisposable
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        HasDisplayName = ActualDisplayName.Select(s => s != null)
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(_disposables);
-        HasDescription = ActualDescription.Select(s => s != null)
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(_disposables);
-        HasShortDescription = ActualShortDescription.Select(s => s != null)
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(_disposables);
-
-        DisplayName.SetValidateNotifyError(NotWhitespace);
-        Description.SetValidateNotifyError(NotWhitespace);
-        ShortDescription.SetValidateNotifyError(NotWhitespace);
-
-        LogoStream = ActualLogoImageId
+        LogoStream = Resource.Select(i => i.LogoImage)
             .Do(_ => IsLogoLoading.Value = true)
-            .SelectMany(id => _packageController.GetPackageImageStream(Parent.Reference.Id, id))
+            .SelectMany(async link => link != null ? await link.TryGetStreamAsync() : null)
             .Do(_ => IsLogoLoading.Value = false)
             .DisposePreviousValue()
             .ToReactiveProperty()
@@ -93,54 +76,95 @@ public sealed class ResourcePageViewModel : IDisposable
             .ToReadOnlyReactivePropertySlim(null)
             .DisposeWith(_disposables);
 
-        ActualScreenshots.Subscribe(async array =>
-        {
-            IsScreenshotLoading.Value = true;
-            var list = new List<ImageModel>(array.Length);
-            foreach (string item in array)
+        ScreenshotsArray = Resource.Select(p => p.Screenshots)
+            .ToReactiveProperty(Resource.Value.Screenshots)
+            .DisposeWith(_disposables);
+        ScreenshotsArray
+            .SelectMany(async array =>
             {
-                ImageModel? exits = Screenshots.FirstOrDefault(i => i.Name == item);
+                IsScreenshotLoading.Value = true;
+                var list = new List<ImageModel>(array.Length);
+                foreach (ImageLink item in array)
+                {
+                    ImageModel? exits = Screenshots.FirstOrDefault(i => i.Name == item.Name);
 
-                if (exits != null)
-                {
-                    list.Add(exits);
-                }
-                else
-                {
-                    MemoryStream? stream = await _packageController.GetPackageImageStream(Parent.Reference.Id, item);
-                    if (stream != null)
+                    if (exits != null)
                     {
-                        var bitmap = new Bitmap(stream);
-                        list.Add(new ImageModel(stream, bitmap, item));
+                        list.Add(exits);
+                    }
+                    else
+                    {
+                        MemoryStream? stream = await item.TryGetStreamAsync();
+                        if (stream != null)
+                        {
+                            var bitmap = new Bitmap(stream);
+                            list.Add(new ImageModel(stream, bitmap, item.Name));
+                        }
                     }
                 }
+
+                ImageModel[] excepted = Screenshots.Except(list).ToArray();
+
+                await Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    Screenshots.Clear();
+                    Screenshots.AddRange(list);
+                });
+                IsScreenshotLoading.Value = false;
+
+                foreach (ImageModel item in excepted)
+                {
+                    item.Stream.Dispose();
+                    item.Bitmap.Dispose();
+                }
+
+                return Unit.Default;
+            })
+            .Subscribe()
+            .DisposeWith(_disposables);
+
+        // 値を継承するかどうか
+        InheritDisplayName = CreateInheritXXX(p => p.DisplayName == null);
+        InheritDescription = CreateInheritXXX(p => p.Description == null);
+        InheritShortDescription = CreateInheritXXX(p => p.ShortDescription == null);
+        InheritLogo = CreateInheritXXX(i => i.LogoImage == null);
+        InheritScreenshots = CreateInheritXXX(i => i.Screenshots.Length == 0);
+
+        // 値を持っているか (nullじゃない)
+        HasDisplayName = CreateHasXXX(s => s.DisplayName != null);
+        HasDescription = CreateHasXXX(s => s.Description != null);
+        HasShortDescription = CreateHasXXX(s => s.ShortDescription != null);
+
+        // データ検証
+        CultureInput.SetValidateNotifyError(str =>
+        {
+            if (!string.IsNullOrWhiteSpace(str))
+            {
+                try
+                {
+                    CultureInfo.GetCultureInfo(str);
+                    return null!;
+                }
+                catch { }
             }
 
-            ImageModel[] excepted = Screenshots.Except(list).ToArray();
+            return "CultureNotFoundException";
+        });
+        DisplayName.SetValidateNotifyError(NotWhitespace);
+        Description.SetValidateNotifyError(NotWhitespace);
+        ShortDescription.SetValidateNotifyError(NotWhitespace);
 
-            await Dispatcher.UIThread.InvokeAsync(() =>
-            {
-                Screenshots.Clear();
-                Screenshots.AddRange(list);
-            });
-            IsScreenshotLoading.Value = false;
-
-            foreach (ImageModel item in excepted)
-            {
-                item.Stream.Dispose();
-                item.Bitmap.Dispose();
-            }
-        }).DisposeWith(_disposables);
-
-        InheritDisplayName.Subscribe(b => DisplayName.Value = b ? null : ActualDisplayName.Value)
+        // プロパティを購読
+        // 値を継承する場合、入力用プロパティにnullを、それ以外はもともとの値を設定する
+        InheritDisplayName.Subscribe(b => DisplayName.Value = b ? null : Resource.Value.DisplayName)
             .DisposeWith(_disposables);
-        InheritDescription.Subscribe(b => Description.Value = b ? null : ActualDescription.Value)
+        InheritDescription.Subscribe(b => Description.Value = b ? null : Resource.Value.Description)
             .DisposeWith(_disposables);
-        InheritShortDescription.Subscribe(b => ShortDescription.Value = b ? null : ActualShortDescription.Value)
+        InheritShortDescription.Subscribe(b => ShortDescription.Value = b ? null : Resource.Value.ShortDescription)
             .DisposeWith(_disposables);
         InheritLogo
-            .Do(b => LogoStream.Value = b ? null : LogoStream.Value)
-            .Subscribe(b => LogoImageId.Value = b ? null : ActualLogoImageId.Value)
+            .Do(async b => LogoStream.Value = b ? null : Resource.Value.LogoImage?.TryGetStreamAsync() is ValueTask<MemoryStream> mst ? await mst : null)
+            .Subscribe(b => LogoImageId.Value = b ? null : Resource.Value.LogoImage?.Name)
             .DisposeWith(_disposables);
         InheritScreenshots
             .Where(b => b)
@@ -148,21 +172,23 @@ public sealed class ResourcePageViewModel : IDisposable
             .DisposeWith(_disposables);
         InheritScreenshots
             .Where(b => !b)
-            .Subscribe(_ => ActualScreenshots.ForceNotify())
+            .Subscribe(_ => ScreenshotsArray.ForceNotify())
             .DisposeWith(_disposables);
 
-        IsChanging = Culture.CombineLatest(ActualCulture).Select(t => t.First?.Name == t.Second?.Name)
+        // 入力用プロパティが一つでも変更されたら、trueになる
+        IsChanging = Culture.CombineLatest(Resource).Select(t => t.First?.Name == t.Second.Culture.Name)
             .CombineLatest(
-                DisplayName.CombineLatest(ActualDisplayName).Select(t => t.First == t.Second),
-                Description.CombineLatest(ActualDescription).Select(t => t.First == t.Second),
-                ShortDescription.CombineLatest(ActualShortDescription).Select(t => t.First == t.Second),
-                LogoImageId.CombineLatest(ActualLogoImageId).Select(t => t.First == t.Second),
-                ActualScreenshots.CombineLatest(Screenshots.ToCollectionChanged<ImageModel>().Select(_ => Screenshots).Publish(Screenshots).RefCount())
-                    .Select(t => t.First.SequenceEqual(t.Second.Select(i => i.Name))))
+                DisplayName.CombineLatest(Resource).Select(t => t.First == t.Second.DisplayName),
+                Description.CombineLatest(Resource).Select(t => t.First == t.Second.Description),
+                ShortDescription.CombineLatest(Resource).Select(t => t.First == t.Second.ShortDescription),
+                LogoImageId.CombineLatest(Resource).Select(t => t.First == t.Second.LogoImage?.Name),
+                ScreenshotsArray.CombineLatest(Screenshots.ToCollectionChanged<ImageModel>().Select(_ => Screenshots).Publish(Screenshots).RefCount())
+                    .Select(t => t.First.Select(i => i.Name).SequenceEqual(t.Second.Select(i => i.Name))))
             .Select(t => !(t.First && t.Second && t.Third && t.Fourth && t.Fifth && t.Sixth))
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
+        // コマンド設定
         Save = new AsyncReactiveCommand(CultureInput.ObserveHasErrors
             .CombineLatest(DisplayName.ObserveHasErrors, Description.ObserveHasErrors, ShortDescription.ObserveHasErrors)
             .Select(t => !(t.First || t.Second || t.Third || t.Fourth)))
@@ -170,65 +196,50 @@ public sealed class ResourcePageViewModel : IDisposable
 
         Save.Subscribe(async () =>
         {
-            var dict = new Dictionary<string, object>
-            {
-                ["culture"] = (ActualCulture.Value = Culture.Value!).Name,
-            };
-
-            if (!InheritDisplayName.Value && DisplayName.Value != null)
-            {
-                dict["displayName"] = ActualDisplayName.Value = DisplayName.Value;
-            }
-            if (!InheritDescription.Value && Description.Value != null)
-            {
-                dict["description"] = ActualDescription.Value = Description.Value;
-            }
-            if (!InheritShortDescription.Value && ShortDescription.Value != null)
-            {
-                dict["shortDescription"] = ActualShortDescription.Value = ShortDescription.Value;
-            }
-
+            ImageLink? newLogo = null;
             if (!InheritLogo.Value)
             {
                 if (LogoStream.Value?.CanRead == true
                     && LogoImageId.Value is string newName)
                 {
-                    dict["logo"] = newName;
                     LogoStream.Value.Position = 0;
-                    await _packageController.GetPackageImageRef(Parent.Reference.Id, newName)
-                        .PutAsync(LogoStream.Value, default, "image/jpeg");
+                    newLogo = await ImageLink.UploadAsync(_imagesPath, LogoImageId.Value, LogoStream.Value.GetBuffer());
 
-                    if (ActualLogoImageId.Value is string oldName0)
+                    if (Resource.Value.LogoImage is ImageLink oldLogo)
                     {
-                        await _packageController.GetPackageImageRef(Parent.Reference.Id, oldName0)
-                            .DeleteAsync();
+                        await oldLogo.DeleteAsync();
                     }
                 }
-                else if (ActualLogoImageId.Value != null)
+                else if (Resource.Value.LogoImage != null)
                 {
-                    dict["logo"] = ActualLogoImageId.Value;
+                    newLogo = Resource.Value.LogoImage;
                 }
             }
 
-            if (InheritLogo.Value && ActualLogoImageId.Value is string oldName1)
+            if (InheritLogo.Value && Resource.Value.LogoImage is ImageLink oldLogo1)
             {
-                await _packageController.GetPackageImageRef(Parent.Reference.Id, oldName1)
-                    .DeleteAsync();
+                await oldLogo1.DeleteAsync();
             }
 
-            string[]? oldScreenshots;
+            var newResource = new LocalizedPackageResource(
+                InheritDisplayName.Value ? null : DisplayName.Value,
+                InheritDescription.Value ? null : Description.Value,
+                InheritShortDescription.Value ? null : ShortDescription.Value,
+                newLogo,
+                Screenshots.Select(i => ImageLink.Open(_imagesPath, i.Name)).ToArray(),
+                Culture.Value!);
+
+            ImageLink[]? oldScreenshots;
             ImageModel[]? newScreenshots;
             if (!InheritScreenshots.Value)
             {
-                oldScreenshots = ActualScreenshots.Value;
+                oldScreenshots = ScreenshotsArray.Value;
                 newScreenshots = Screenshots.ToArray();
 
                 if (Screenshots.Count > 0)
                 {
-                    dict["screenshots"] = newScreenshots.Select(i => i.Name).ToArray();
-
                     // 作成
-                    foreach (ImageModel item in newScreenshots.ExceptBy(oldScreenshots, i => i.Name))
+                    foreach (ImageModel item in newScreenshots.ExceptBy(oldScreenshots.Select(i => i.Name), i => i.Name))
                     {
                         item.Stream.Position = 0;
                         await _packageController.GetPackageImageRef(Parent.Reference.Id, item.Name)
@@ -238,29 +249,32 @@ public sealed class ResourcePageViewModel : IDisposable
             }
             else
             {
-                oldScreenshots = ActualScreenshots.Value;
+                oldScreenshots = ScreenshotsArray.Value;
                 newScreenshots = Array.Empty<ImageModel>();
             }
 
-            await Reference.SetAsync(dict, SetOptions.Overwrite);
+            await Resource.Value.SyncronizeToAsync(newResource, PackageResourceFields.None);
 
             // 削除
-            foreach (string item in oldScreenshots.Except(newScreenshots.Select(i => i.Name)))
+            foreach (ImageLink item in oldScreenshots.ExceptBy(newScreenshots.Select(i => i.Name), i => i.Name))
             {
-                await _packageController.GetPackageImageRef(Parent.Reference.Id, item)
-                    .DeleteAsync();
+                await item.DeleteAsync();
             }
         })
             .DisposeWith(_disposables);
 
-        DiscardChanges.Subscribe(async () => Update(await Reference.GetSnapshotAsync()))
+        DiscardChanges.Subscribe(() =>
+        {
+            ILocalizedPackageResource.ILink link = Resource.Value;
+            InheritDisplayName.Value = link.DisplayName == null;
+            InheritDescription.Value = link.Description == null;
+            InheritShortDescription.Value = link.ShortDescription == null;
+            InheritLogo.Value = link.LogoImage == null;
+            InheritScreenshots.Value = ScreenshotsArray.Value.Length == 0;
+        })
             .DisposeWith(_disposables);
 
-        Delete.Subscribe(async () =>
-            {
-                //Todo: 画像リソースの削除
-                await Reference.DeleteAsync();
-            })
+        Delete.Subscribe(async () => await Resource.Value.PermanentlyDeleteAsync())
             .DisposeWith(_disposables);
 
         SetLogo.Subscribe(file =>
@@ -292,6 +306,7 @@ public sealed class ResourcePageViewModel : IDisposable
                 LogoImageId.Value = Guid.NewGuid().ToString();
             }
         }).DisposeWith(_disposables);
+
         CanAddScreenshot = Screenshots.ObserveProperty(i => i.Count)
             .CombineLatest(InheritScreenshots)
             .Select(t => t.First < 4 && !t.Second)
@@ -321,7 +336,6 @@ public sealed class ResourcePageViewModel : IDisposable
                 }
             }
         }).DisposeWith(_disposables);
-
         MoveScreenshotFront.Subscribe(item =>
         {
             int idx = Screenshots.IndexOf(item);
@@ -334,7 +348,6 @@ public sealed class ResourcePageViewModel : IDisposable
                 Screenshots.Move(idx, idx - 1);
             }
         }).DisposeWith(_disposables);
-
         MoveScreenshotBack.Subscribe(item =>
         {
             int idx = Screenshots.IndexOf(item);
@@ -347,7 +360,6 @@ public sealed class ResourcePageViewModel : IDisposable
                 Screenshots.Move(idx, idx + 1);
             }
         }).DisposeWith(_disposables);
-
         DeleteScreenshot.Subscribe(item =>
         {
             Screenshots.Remove(item);
@@ -363,18 +375,12 @@ public sealed class ResourcePageViewModel : IDisposable
 
     public DocumentReference Reference { get; }
 
+    public ReadOnlyReactivePropertySlim<ILocalizedPackageResource.ILink> Resource { get; }
+
     public PackageSettingsPageViewModel Parent
         => _parentWeak.TryGetTarget(out PackageSettingsPageViewModel? parent)
             ? parent
             : null!;
-
-    public ReactivePropertySlim<string?> ActualDisplayName { get; } = new();
-
-    public ReactivePropertySlim<string?> ActualDescription { get; } = new();
-
-    public ReactivePropertySlim<string?> ActualShortDescription { get; } = new();
-
-    public ReactivePropertySlim<string?> ActualLogoImageId { get; } = new();
 
     public ReadOnlyReactivePropertySlim<bool> HasDisplayName { get; }
 
@@ -382,15 +388,13 @@ public sealed class ResourcePageViewModel : IDisposable
 
     public ReadOnlyReactivePropertySlim<bool> HasShortDescription { get; }
 
-    public ReactivePropertySlim<CultureInfo> ActualCulture { get; } = new();
-
     public ReactiveProperty<string?> DisplayName { get; } = new();
 
     public ReactiveProperty<string?> Description { get; } = new();
 
     public ReactiveProperty<string?> ShortDescription { get; } = new();
 
-    public ReactiveProperty<string?> LogoImageId { get; } = new();
+    public ReactiveProperty<string?> LogoImageId { get; }
 
     public ReactiveProperty<MemoryStream?> LogoStream { get; }
 
@@ -400,7 +404,7 @@ public sealed class ResourcePageViewModel : IDisposable
 
     public ReactiveCommand<string> SetLogo { get; } = new();
 
-    public ReactiveProperty<string[]> ActualScreenshots { get; } = new(Array.Empty<string>());
+    public ReactiveProperty<ImageLink[]> ScreenshotsArray { get; }
 
     public CoreList<ImageModel> Screenshots { get; } = new();
 
@@ -422,7 +426,6 @@ public sealed class ResourcePageViewModel : IDisposable
 
     public ReactiveProperty<bool> InheritShortDescription { get; } = new();
 
-    // Todo: Logo, screenshotsの設定
     public ReactiveProperty<bool> InheritLogo { get; } = new();
 
     public ReactiveProperty<bool> InheritScreenshots { get; } = new();
@@ -435,47 +438,9 @@ public sealed class ResourcePageViewModel : IDisposable
 
     public AsyncReactiveCommand Save { get; }
 
-    public AsyncReactiveCommand DiscardChanges { get; } = new();
+    public ReactiveCommand DiscardChanges { get; } = new();
 
     public ReactiveCommand Delete { get; } = new();
-
-    public void Update(DocumentSnapshot snapshot)
-    {
-        void Set(string name, IReactiveProperty<string?> property1, IReactiveProperty<string?> property2, IReactiveProperty<bool> property3)
-        {
-            if (snapshot.TryGetValue<string>(name, out string? value))
-            {
-                property1.Value = value;
-                property2.Value = value;
-                property3.Value = false;
-            }
-            else
-            {
-                property1.Value = null;
-                property2.Value = null;
-                property3.Value = true;
-            }
-        }
-
-        Set("displayName", ActualDisplayName, DisplayName, InheritDisplayName);
-        Set("description", ActualDescription, Description, InheritDescription);
-        Set("shortDescription", ActualShortDescription, ShortDescription, InheritShortDescription);
-
-        Set("logo", ActualLogoImageId, LogoImageId, InheritLogo);
-
-        if (snapshot.TryGetValue<string[]>("screenshots", out string[]? screenshots))
-        {
-            ActualScreenshots.Value = screenshots;
-            InheritScreenshots.Value = false;
-        }
-        else
-        {
-            ActualScreenshots.Value = Array.Empty<string>();
-            InheritScreenshots.Value = false;
-        }
-
-        ActualCulture.Value = new CultureInfo(CultureInput.Value = snapshot.GetValue<string>("culture"));
-    }
 
     private static string NotWhitespace(string? str)
     {
@@ -487,6 +452,27 @@ public sealed class ResourcePageViewModel : IDisposable
         {
             return "Please enter a string.";
         }
+    }
+
+    private ReactiveProperty<string?> CreateStringInput(Func<ILocalizedPackageResource.ILink, string?> func, string? initial)
+    {
+        return Resource.Select(func)
+            .ToReactiveProperty(initial)
+            .DisposeWith(_disposables);
+    }
+
+    private ReadOnlyReactivePropertySlim<bool> CreateHasXXX(Func<ILocalizedPackageResource.ILink, bool> func)
+    {
+        return Resource.Select(func)
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposables);
+    }
+
+    private ReactiveProperty<bool> CreateInheritXXX(Func<ILocalizedPackageResource.ILink, bool> func)
+    {
+        return Resource.Select(func)
+            .ToReactiveProperty()
+            .DisposeWith(_disposables);
     }
 
     public void Dispose()

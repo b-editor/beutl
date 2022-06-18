@@ -32,16 +32,6 @@ public sealed class PackageDetailsPageViewModel : IDisposable
         Package = package.GetObservable()
             .ToReadOnlyReactivePropertySlim(package);
 
-        LogoImage = Package
-            .Select(p => p.LogoImage)
-            .SelectMany(async il => il != null ? await il.TryGetBitmapAsync() : null)
-            .ToReadOnlyReactivePropertySlim(null)
-            .DisposeWith(_disposables);
-
-        HasLogoImage = LogoImage.Select(i => i != null)
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(_disposables);
-
         IsPublic = Package.Select(p => p.IsVisible)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
@@ -56,7 +46,7 @@ public sealed class PackageDetailsPageViewModel : IDisposable
             .Publish(Settings.Items)
             .RefCount();
 
-        IObservable<T?> CreateResourceObservable<T>(Func<ResourcePageViewModel, IObservable<T?>> func)
+        IObservable<T?> CreateResourceObservable<T>(Func<ILocalizedPackageResource, T?> func)
             where T : class
         {
             return Package
@@ -65,9 +55,9 @@ public sealed class PackageDetailsPageViewModel : IDisposable
                 {
                     foreach (var item in t.Second)
                     {
-                        if (item.ActualCulture.Value.Name == t.Third.Name)
+                        if (item.Resource.Value.Culture.Name == t.Third.Name)
                         {
-                            return func(item);
+                            return item.Resource.Select(func);
                         }
                     }
 
@@ -75,25 +65,26 @@ public sealed class PackageDetailsPageViewModel : IDisposable
                 });
         }
 
-        LocalizedDisplayName = CreateResourceObservable(v => v.ActualDisplayName)
+        LocalizedDisplayName = CreateResourceObservable(v => v.DisplayName)
             .CombineLatest(Package)
             .Select(t => t.First ?? t.Second.DisplayName)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        LocalizedDescription = CreateResourceObservable(v => v.ActualDescription)
+        LocalizedDescription = CreateResourceObservable(v => v.Description)
             .CombineLatest(Package)
             .Select(t => t.First ?? t.Second.Description)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        LocalizedLogoImage = CreateResourceObservable(v => v.ActualLogoImageId)
+        LocalizedLogoImage = CreateResourceObservable(v => v.LogoImage)
             .CombineLatest(Package)
-            .Select(t => t.First ?? t.Second.LogoImage?.Name)
-            .SelectMany(async id => id != null ? await _packageController.GetPackageImageStream(Reference.Id, id) : null)
-            .DisposePreviousValue()
-            .Select(stream => stream != null ? new Bitmap(stream) : null)
-            .DisposePreviousValue()
+            .Select(t => t.First ?? t.Second.LogoImage)
+            .SelectMany(async link => link != null ? await link.TryGetBitmapAsync() : null)
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(_disposables);
+
+        HasLogoImage = LocalizedLogoImage.Select(i => i != null)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
     }
@@ -105,8 +96,6 @@ public sealed class PackageDetailsPageViewModel : IDisposable
     public PackageReleasesPageViewModel Releases { get; }
 
     public DocumentReference Reference { get; }
-
-    public ReadOnlyReactivePropertySlim<Bitmap?> LogoImage { get; }
 
     public ReadOnlyReactivePropertySlim<bool> HasLogoImage { get; }
 

@@ -216,18 +216,18 @@
                                     <StackPanel Grid.Column="0"
                                                 Orientation="Vertical"
                                                 VerticalAlignment="Center">
-                                        <TextBlock Text="{CompiledBinding ActualCulture.Value.DisplayName}"
+                                        <TextBlock Text="{CompiledBinding Resource.Value.Culture.DisplayName}"
                                                    Classes="BodyStrongTextBlockStyle" />
 
                                         <StackPanel Orientation="Horizontal" Spacing="8">
-                                            <TextBlock Text="{CompiledBinding ActualDisplayName.Value}"
+                                            <TextBlock Text="{CompiledBinding Resource.Value.DisplayName}"
                                                        IsVisible="{CompiledBinding HasDisplayName.Value}"
                                                        Classes="CaptionTextBlockStyle" />
                                             <TextBlock Text="{CompiledBinding Parent.Parent.Package.Value.DisplayName}"
                                                        IsVisible="{CompiledBinding !HasDisplayName.Value}"
                                                        Classes="CaptionTextBlockStyle" />
 
-                                            <TextBlock Text="{CompiledBinding ActualShortDescription.Value}"
+                                            <TextBlock Text="{CompiledBinding Resource.Value.ShortDescription}"
                                                        MaxLines="1"
                                                        Classes="CaptionTextBlockStyle"
                                                        IsVisible="{CompiledBinding HasShortDescription.Value}"

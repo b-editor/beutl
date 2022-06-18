@@ -19,7 +19,10 @@ public class LocalizedPackageResourceLink : ILocalizedPackageResource.ILink
     public LocalizedPackageResourceLink(DocumentSnapshot snapshot)
     {
         Snapshot = snapshot;
-        string imagesPath = $"users/{snapshot.Reference.Parent.Parent.Parent.Parent.Id}/packages/{snapshot.Id}/images";
+
+        DocumentReference package = snapshot.Reference.Parent.Parent;
+        DocumentReference user = package.Parent.Parent;
+        string imagesPath = $"users/{user.Id}/packages/{package.Id}/images";
         DisplayName = Snapshot.TryGetValue("displayName", out string displayName) ? displayName : null;
         Description = Snapshot.TryGetValue("description", out string description) ? description : null;
         ShortDescription = Snapshot.TryGetValue("shortDescription", out string shortDescription) ? shortDescription : null;
@@ -96,7 +99,14 @@ public class LocalizedPackageResourceLink : ILocalizedPackageResource.ILink
             ["culture"]          = (fieldsMask.HasFlag(PackageResourceFields.Culture)          ? this : value).Culture.Name
         };
 #pragma warning restore IDE0055
+
         cancellationToken.ThrowIfCancellationRequested();
+
+        foreach (string item in dict.Keys)
+        {
+            if (dict[item] == null)
+                dict.Remove(item);
+        }
 
         await reference.SetAsync(dict, SetOptions.Overwrite, cancellationToken: cancellationToken);
 

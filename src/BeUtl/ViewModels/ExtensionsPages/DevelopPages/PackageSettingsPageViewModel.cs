@@ -33,7 +33,6 @@ namespace BeUtl.ViewModels.ExtensionsPages.DevelopPages;
 public sealed class PackageSettingsPageViewModel : IDisposable
 {
     private readonly PackageController _packageController = ServiceLocator.Current.GetRequiredService<PackageController>();
-    private readonly HttpClient _httpClient = ServiceLocator.Current.GetRequiredService<HttpClient>();
     private readonly CompositeDisposable _disposables = new();
     private readonly WeakReference<PackageDetailsPageViewModel?> _parentWeak;
     private readonly string _imagesPath;
@@ -61,24 +60,30 @@ public sealed class PackageSettingsPageViewModel : IDisposable
             .ToReactiveProperty()
             .DisposeWith(_disposables);
 
-        LogoImage = LogoImageLink
+        LogoStream = LogoImageLink
             .Do(_ => IsLogoLoading.Value = true)
-            .SelectMany(async st => st != null ? await st.TryGetBitmapAsync() : null)
+            .SelectMany(async st => st != null ? await st.TryGetStreamAsync() : null)
             .Do(_ => IsLogoLoading.Value = false)
+            .ToReactiveProperty()
+            .DisposeWith(_disposables);
+
+        LogoImage = LogoStream
+            .Select(st => st != null ? new Bitmap(st) : null)
+            .DisposePreviousValue()
             .ToReadOnlyReactivePropertySlim(null)
             .DisposeWith(_disposables);
 
         ScreenshotsArray = parent.Package
-            .Select(i => i.Screenshots.Select(ii => ii.Name).ToArray())
-            .ToReactiveProperty(Array.Empty<string>())
+            .Select(i => i.Screenshots)
+            .ToReactiveProperty(Array.Empty<ImageLink>())
             .DisposeWith(_disposables);
         ScreenshotsArray.Subscribe(async array =>
         {
             IsScreenshotLoading.Value = true;
             var list = new List<ImageModel>(array.Length);
-            foreach (string item in array)
+            foreach (ImageLink item in array)
             {
-                ImageModel? exits = Screenshots.FirstOrDefault(i => i.Name == item);
+                ImageModel? exits = Screenshots.FirstOrDefault(i => i.Name == item.Name);
 
                 if (exits != null)
                 {
@@ -86,16 +91,16 @@ public sealed class PackageSettingsPageViewModel : IDisposable
                 }
                 else
                 {
-                    MemoryStream? stream = await _packageController.GetPackageImageStream(Reference.Id, item);
+                    MemoryStream? stream = await item.TryGetStreamAsync();
                     if (stream != null)
                     {
                         var bitmap = new Bitmap(stream);
-                        list.Add(new ImageModel(stream, bitmap, item));
+                        list.Add(new ImageModel(stream, bitmap, item.Name));
                     }
                 }
             }
 
-            ImageModel[] excepted = Screenshots.Except(list).ToArray();
+            ImageModel[] excepted = Screenshots.ExceptBy(list.Select(i => i.Name), i => i.Name).ToArray();
 
             await Dispatcher.UIThread.InvokeAsync(() =>
             {
@@ -117,9 +122,9 @@ public sealed class PackageSettingsPageViewModel : IDisposable
                 DisplayName.CombineLatest(parent.Package).Select(t => t.First == t.Second.DisplayName),
                 Description.CombineLatest(parent.Package).Select(t => t.First == t.Second.Description),
                 ShortDescription.CombineLatest(parent.Package).Select(t => t.First == t.Second.ShortDescription),
-                LogoImageLink.CombineLatest(parent.Package).Select(t => t.First == t.Second.LogoImage),
+                LogoNoChanged,
                 ScreenshotsArray.CombineLatest(Screenshots.ToCollectionChanged<ImageModel>().Select(_ => Screenshots).Publish(Screenshots).RefCount())
-                    .Select(t => t.First.SequenceEqual(t.Second.Select(i => i.Name))))
+                    .Select(t => t.First.Select(i => i.Name).SequenceEqual(t.Second.Select(i => i.Name))))
             .Select(t => !(t.First && t.Second && t.Third && t.Fourth && t.Fifth && t.Sixth))
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
@@ -141,29 +146,42 @@ public sealed class PackageSettingsPageViewModel : IDisposable
             .DisposeWith(_disposables);
         Save.Subscribe(async () =>
         {
+            ImageLink? newLogo;
+            if (LogoStream.Value?.CanRead == true && !LogoNoChanged.Value)
+            {
+                string? newName = Guid.NewGuid().ToString();
+                LogoStream.Value.Position = 0;
+                newLogo = await ImageLink.UploadAsync(_imagesPath, newName, LogoStream.Value.GetBuffer());
+
+                if (LogoImageLink.Value is ImageLink oldLogo)
+                {
+                    await oldLogo.DeleteAsync();
+                }
+            }
+            else
+            {
+                newLogo = LogoImageLink.Value;
+            }
+
+            LogoNoChanged.Value = true;
+
             var newValue = new PackageInfo(
                 DisplayName: Name.Value,
                 Name: DisplayName.Value,
                 Description: Description.Value,
                 ShortDescription: ShortDescription.Value,
                 IsVisible: Parent.IsPublic.Value,
-                LogoImage: LogoImageLink.Value,
+                LogoImage: newLogo,
                 Screenshots: Screenshots.Select(i => ImageLink.Open(_imagesPath, i.Name)).ToArray());
 
-            ImageLink? newLogo = LogoImageLink.Value;
-            ImageLink? oldLogo = Parent.Package.Value.LogoImage;
-            if (newLogo != oldLogo && oldLogo != null)
-            {
-                await oldLogo.DeleteAsync();
-            }
-
-            string[] oldScreenshots = ScreenshotsArray.Value;
+            ImageLink[] oldScreenshots = ScreenshotsArray.Value;
             ImageModel[] newScreenshots = Screenshots.ToArray();
 
             // 作成
-            foreach (ImageModel item in newScreenshots.ExceptBy(oldScreenshots, i => i.Name))
+            foreach (ImageModel item in newScreenshots.ExceptBy(oldScreenshots.Select(i => i.Name), i => i.Name))
             {
                 item.Stream.Position = 0;
+
                 await _packageController.GetPackageImageRef(Reference.Id, item.Name)
                     .PutAsync(item.Stream, default, "image/jpeg");
             }
@@ -171,14 +189,13 @@ public sealed class PackageSettingsPageViewModel : IDisposable
             await Parent.Package.Value.SyncronizeToAsync(newValue, PackageInfoFields.None);
 
             // 削除
-            foreach (string item in oldScreenshots.Except(newScreenshots.Select(i => i.Name)))
+            foreach (ImageLink item in oldScreenshots.ExceptBy(newScreenshots.Select(i => i.Name), i => i.Name))
             {
-                await _packageController.GetPackageImageRef(Reference.Id, item)
-                    .DeleteAsync();
+                await item.DeleteAsync();
             }
         }).DisposeWith(_disposables);
 
-        DiscardChanges.Subscribe(async () =>
+        DiscardChanges.Subscribe(() =>
         {
             IPackage.ILink link = Parent.Package.Value;
             Name.Value = link.Name;
@@ -186,29 +203,20 @@ public sealed class PackageSettingsPageViewModel : IDisposable
             Description.Value = link.Description;
             ShortDescription.Value = link.ShortDescription;
 
-            ImageLink? newLogo = LogoImageLink.Value;
-            if (link.LogoImage != newLogo && newLogo != null)
-            {
-                await newLogo.DeleteAsync();
-            }
-            LogoImageLink.Value = link.LogoImage;
+            LogoImageLink.ForceNotify();
+            LogoNoChanged.Value = true;
 
             ScreenshotsArray.ForceNotify();
         }).DisposeWith(_disposables);
 
-        Delete.Subscribe(async () =>
-        {
-            // Todo: コレクションやストレージのファイルを削除する
-            await Parent.Package.Value.PermanentlyDeleteAsync();
-        }).DisposeWith(_disposables);
+        Delete.Subscribe(async () => await Parent.Package.Value.PermanentlyDeleteAsync()).DisposeWith(_disposables);
 
         MakePublic.Subscribe(async () => await Parent.Package.Value.ChangeVisibility(true)).DisposeWith(_disposables);
 
         MakePrivate.Subscribe(async () => await Parent.Package.Value.ChangeVisibility(false)).DisposeWith(_disposables);
 
-        SetLogo.Subscribe(async file =>
+        SetLogo.Subscribe(file =>
         {
-            IsLogoLoading.Value = true;
             if (File.Exists(file))
             {
                 const int SIZE = 400;
@@ -230,10 +238,10 @@ public sealed class PackageSettingsPageViewModel : IDisposable
                 dstBmp.Encode(stream, SKEncodedImageFormat.Jpeg, 100);
                 dstBmp.Dispose();
                 stream.Position = 0;
+                LogoStream.Value = stream;
 
-                LogoImageLink.Value = await ImageLink.UploadAsync(_imagesPath, Guid.NewGuid().ToString(), stream.GetBuffer());
+                LogoNoChanged.Value = false;
             }
-            IsLogoLoading.Value = false;
         }).DisposeWith(_disposables);
 
         CanAddScreenshot = Screenshots.ObserveProperty(i => i.Count)
@@ -303,8 +311,7 @@ public sealed class PackageSettingsPageViewModel : IDisposable
             {
                 if (!Items.Any(p => p.Reference.Id == item.Id))
                 {
-                    ResourcePageViewModel viewModel = new(item.Reference, this);
-                    viewModel.Update(item);
+                    ResourcePageViewModel viewModel = new(item.Reference, this, new LocalizedPackageResourceLink(item));
                     Items.Add(viewModel);
                 }
             },
@@ -316,11 +323,7 @@ public sealed class PackageSettingsPageViewModel : IDisposable
                     Items.Remove(viewModel);
                 }
             },
-            item =>
-            {
-                ResourcePageViewModel? viewModel = Items.FirstOrDefault(p => p.Reference.Id == item.Id);
-                viewModel?.Update(item);
-            })
+            _ => { })
             .DisposeWith(_disposables);
     }
 
@@ -348,13 +351,17 @@ public sealed class PackageSettingsPageViewModel : IDisposable
 
     public ReactiveProperty<ImageLink?> LogoImageLink { get; }
 
+    public ReactiveProperty<MemoryStream?> LogoStream { get; }
+
+    public ReactivePropertySlim<bool> LogoNoChanged { get; } = new(true);
+
     public ReactivePropertySlim<bool> IsLogoLoading { get; } = new(false);
 
     public ReadOnlyReactivePropertySlim<Bitmap?> LogoImage { get; }
 
     public ReactiveCommand<string> SetLogo { get; } = new();
 
-    public ReactiveProperty<string[]> ScreenshotsArray { get; }
+    public ReactiveProperty<ImageLink[]> ScreenshotsArray { get; }
 
     public CoreList<ImageModel> Screenshots { get; } = new();
 
@@ -372,7 +379,7 @@ public sealed class PackageSettingsPageViewModel : IDisposable
 
     public ReactiveCommand<ImageModel> DeleteScreenshot { get; } = new();
 
-    public AsyncReactiveCommand DiscardChanges { get; } = new();
+    public ReactiveCommand DiscardChanges { get; } = new();
 
     public ReactiveCommand Delete { get; } = new();
 

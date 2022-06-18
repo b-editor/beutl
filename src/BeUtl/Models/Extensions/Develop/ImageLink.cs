@@ -56,6 +56,33 @@ public sealed class ImageLink : IDisposable, IEquatable<ImageLink?>
         return link;
     }
 
+    public async ValueTask<MemoryStream?> TryGetStreamAsync()
+    {
+        try
+        {
+            if (_stream == null)
+            {
+                AccountService service = ServiceLocator.Current.GetRequiredService<AccountService>();
+                HttpClient client = ServiceLocator.Current.GetRequiredService<HttpClient>();
+                FirebaseStorageReference reference = service._storage.Child(Path)
+                    .Child(Name);
+                string? downloadLink = await reference.GetDownloadUrlAsync();
+
+                if (downloadLink == null)
+                {
+                    return null;
+                }
+                _stream = new MemoryStream(await client.GetByteArrayAsync(downloadLink));
+            }
+
+            return _stream;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     //新規の場合ダウンロードし弱参照でキャッシュする
     public async ValueTask<Bitmap?> TryGetBitmapAsync()
     {
@@ -79,6 +106,7 @@ public sealed class ImageLink : IDisposable, IEquatable<ImageLink?>
                     _stream = new MemoryStream(await client.GetByteArrayAsync(downloadLink));
                 }
 
+                _stream.Position = 0;
                 bitmap = new Bitmap(_stream);
                 _bitmap.SetTarget(bitmap);
             }
@@ -96,7 +124,15 @@ public sealed class ImageLink : IDisposable, IEquatable<ImageLink?>
         AccountService service = ServiceLocator.Current.GetRequiredService<AccountService>();
         FirebaseStorageReference reference = service._storage.Child(Path)
             .Child(Name);
-        return await reference.GetDownloadUrlAsync() != null;
+
+        try
+        {
+            return await reference.GetDownloadUrlAsync() != null;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     public async ValueTask DeleteAsync()
@@ -104,7 +140,11 @@ public sealed class ImageLink : IDisposable, IEquatable<ImageLink?>
         AccountService service = ServiceLocator.Current.GetRequiredService<AccountService>();
         FirebaseStorageReference reference = service._storage.Child(Path)
             .Child(Name);
-        await reference.DeleteAsync();
+
+        if (await IsExistsAsync())
+        {
+            await reference.DeleteAsync();
+        }
     }
 
     public void Dispose()
