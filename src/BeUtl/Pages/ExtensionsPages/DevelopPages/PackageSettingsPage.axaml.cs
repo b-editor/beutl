@@ -9,7 +9,6 @@ using BeUtl.ViewModels.ExtensionsPages.DevelopPages;
 using BeUtl.ViewModels.ExtensionsPages.DevelopPages.Dialogs;
 
 using FluentAvalonia.UI.Controls;
-using FluentAvalonia.UI.Navigation;
 
 using Button = Avalonia.Controls.Button;
 
@@ -48,7 +47,7 @@ public partial class PackageSettingsPage : UserControl
         {
             var dialog = new AddResourceDialog
             {
-                DataContext = new AddResourceDialogViewModel(viewModel.Reference.Collection("resources"))
+                DataContext = new AddResourceDialogViewModel(viewModel.Parent.Package.Value)
             };
             await dialog.ShowAsync();
         }

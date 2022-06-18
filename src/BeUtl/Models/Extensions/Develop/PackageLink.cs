@@ -80,6 +80,65 @@ public class PackageLink : IPackage.ILink
         return Disposable.Create(listener, async listener => await listener.StopAsync());
     }
 
+    public IDisposable SubscribeReleases(Action<DocumentSnapshot> added, Action<DocumentSnapshot> removed, Action<DocumentSnapshot> modified)
+    {
+        object lockObject = new();
+        CollectionReference collection = Snapshot.Reference.Collection("releases");
+        FirestoreChangeListener listener = collection.Listen(snapshot =>
+        {
+            foreach (DocumentChange item in snapshot.Changes)
+            {
+                lock (lockObject)
+                {
+                    if (item.ChangeType == DocumentChange.Type.Added)
+                    {
+                        added(item.Document);
+                    }
+                    else if (item.ChangeType == DocumentChange.Type.Removed)
+                    {
+                        removed(item.Document);
+                    }
+                    else if (item.ChangeType == DocumentChange.Type.Modified)
+                    {
+                        modified(item.Document);
+                    }
+                }
+            }
+        });
+
+        _ = collection.GetSnapshotAsync();
+
+        return Disposable.Create(listener, async listener => await listener.StopAsync());
+    }
+
+    public async ValueTask<ILocalizedPackageResource.ILink[]> GetResources()
+    {
+        QuerySnapshot collection = await Snapshot.Reference.Collection("resources").GetSnapshotAsync();
+
+        var array = new ILocalizedPackageResource.ILink[collection.Count];
+        for (int i = 0; i < collection.Count; i++)
+        {
+            var item = collection[i];
+            array[i] = new LocalizedPackageResourceLink(item);
+        }
+
+        return array;
+    }
+
+    public async ValueTask<IPackageRelease.ILink[]> GetReleases()
+    {
+        QuerySnapshot collection = await Snapshot.Reference.Collection("releases").GetSnapshotAsync();
+
+        var array = new IPackageRelease.ILink[collection.Count];
+        for (int i = 0; i < collection.Count; i++)
+        {
+            var item = collection[i];
+            array[i] = new PackageReleaseLink(item);
+        }
+
+        return array;
+    }
+
     public IObservable<IPackage.ILink> GetObservable()
     {
         return Snapshot.Reference.ToObservable()
@@ -90,6 +149,7 @@ public class PackageLink : IPackage.ILink
     public async ValueTask PermanentlyDeleteAsync()
     {
         DocumentReference reference = Snapshot.Reference;
+        ILocalizedPackageResource.ILink[] resources = await GetResources();
 
         if (LogoImage is ImageLink logoImage)
         {
@@ -103,8 +163,12 @@ public class PackageLink : IPackage.ILink
 
         await reference.DeleteAsync();
 
+        foreach (ILocalizedPackageResource.ILink item in resources)
+        {
+            await item.PermanentlyDeleteAsync();
+        }
+
         // Todo: どこかから'releases','resources'を表すクラスをとってきて削除するメソッドを実行する
-        //reference.Collection("releases").DeleteAsync();
         //reference.Collection("resources").DeleteAsync();
     }
 
@@ -160,5 +224,60 @@ public class PackageLink : IPackage.ILink
         await reference.UpdateAsync("visible", visibility, cancellationToken: cancellationToken);
 
         return await OpenAsync(reference, cancellationToken);
+    }
+
+    public async ValueTask<ILocalizedPackageResource.ILink> AddResource(ILocalizedPackageResource resource)
+    {
+        var dict = new Dictionary<string, object?>();
+        CollectionReference resources = Snapshot.Reference.Collection("resources");
+
+        dict["culture"] = resource.Culture.Name;
+        if (resource.DisplayName != null)
+        {
+            dict["displayName"] = resource.DisplayName;
+        }
+        if (resource.Description != null)
+        {
+            dict["description"] = resource.Description;
+        }
+        if (resource.ShortDescription != null)
+        {
+            dict["shortDescription"] = resource.ShortDescription;
+        }
+        if (resource.LogoImage != null)
+        {
+            dict["logo"] = resource.LogoImage.Name;
+        }
+        if (resource.Screenshots != null)
+        {
+            dict["screenshots"] = resource.Screenshots.Select(item => item.Name).ToArray();
+        }
+
+        DocumentReference docRef = await resources.AddAsync(dict);
+        return await LocalizedPackageResourceLink.OpenAsync(docRef);
+    }
+
+    public async ValueTask<IPackageRelease.ILink> AddRelease(IPackageRelease release)
+    {
+        var dict = new Dictionary<string, object?>
+        {
+            ["version"] = release.Version.ToString(),
+            ["title"] = release.Title,
+            ["body"] = release.Body,
+            ["visible"] = release.IsVisible
+        };
+        if (release.DownloadLink != null)
+        {
+            dict["downloadLink"] = release.DownloadLink;
+        }
+        if (release.SHA256 != null)
+        {
+            dict["sha256"] = release.SHA256;
+        }
+
+        CollectionReference resources = Snapshot.Reference.Collection("releases");
+
+        DocumentReference docRef = await resources.AddAsync(dict);
+        return await PackageReleaseLink.OpenAsync(docRef);
     }
 }

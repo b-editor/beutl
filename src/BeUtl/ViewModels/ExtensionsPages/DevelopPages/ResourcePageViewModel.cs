@@ -242,8 +242,7 @@ public sealed class ResourcePageViewModel : IDisposable
                     foreach (ImageModel item in newScreenshots.ExceptBy(oldScreenshots.Select(i => i.Name), i => i.Name))
                     {
                         item.Stream.Position = 0;
-                        await _packageController.GetPackageImageRef(Parent.Reference.Id, item.Name)
-                            .PutAsync(item.Stream, default, "image/jpeg");
+                        await ImageLink.UploadAsync(_imagesPath, item.Name, item.Stream.GetBuffer());
                     }
                 }
             }

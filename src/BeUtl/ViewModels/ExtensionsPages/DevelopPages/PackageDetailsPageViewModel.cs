@@ -1,27 +1,20 @@
 ﻿using System.Globalization;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
-using System.Reactive.Threading.Tasks;
 
 using Avalonia.Media.Imaging;
 
 using BeUtl.Collections;
 using BeUtl.Models.Extensions.Develop;
-using BeUtl.Services;
 
 using Google.Cloud.Firestore;
 
-using Microsoft.Extensions.DependencyInjection;
-
 using Reactive.Bindings;
-using Reactive.Bindings.Extensions;
 
 namespace BeUtl.ViewModels.ExtensionsPages.DevelopPages;
 
 public sealed class PackageDetailsPageViewModel : IDisposable
 {
-    private readonly PackageController _packageController = ServiceLocator.Current.GetRequiredService<PackageController>();
-    private readonly HttpClient _httpClient = ServiceLocator.Current.GetRequiredService<HttpClient>();
     private readonly CompositeDisposable _disposables = new(15);
 
     public PackageDetailsPageViewModel(DocumentReference docRef, IPackage.ILink package)
@@ -31,10 +24,6 @@ public sealed class PackageDetailsPageViewModel : IDisposable
 
         Package = package.GetObservable()
             .ToReadOnlyReactivePropertySlim(package);
-
-        IsPublic = Package.Select(p => p.IsVisible)
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(_disposables);
 
         Settings = new PackageSettingsPageViewModel(docRef, this)
             .DisposeWith(_disposables);
@@ -104,8 +93,6 @@ public sealed class PackageDetailsPageViewModel : IDisposable
     public ReadOnlyReactivePropertySlim<string?> LocalizedDescription { get; }
 
     public ReadOnlyReactivePropertySlim<Bitmap?> LocalizedLogoImage { get; }
-
-    public ReadOnlyReactivePropertySlim<bool> IsPublic { get; }
 
     public ReactiveProperty<CultureInfo> DisplayCulture { get; } = new();
 

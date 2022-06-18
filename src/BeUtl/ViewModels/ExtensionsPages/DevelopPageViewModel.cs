@@ -1,7 +1,5 @@
-﻿using System.Globalization;
-using System.Reactive.Disposables;
+﻿using System.Reactive.Disposables;
 using System.Reactive.Linq;
-using System.Reactive.Threading.Tasks;
 
 using BeUtl.Collections;
 using BeUtl.Models.Extensions.Develop;
@@ -13,7 +11,6 @@ using FluentAvalonia.UI.Controls;
 
 using Google.Cloud.Firestore;
 
-using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.Extensions.DependencyInjection;
 
 using Reactive.Bindings;
@@ -24,7 +21,6 @@ public sealed class DevelopPageViewModel : IDisposable
 {
     private readonly PackageController _packageController = ServiceLocator.Current.GetRequiredService<PackageController>();
     private readonly CompositeDisposable _disposables = new();
-    private readonly FirestoreChangeListener? _packagesListener;
     private readonly object _lockObject = new();
 
     public DevelopPageViewModel()
@@ -37,68 +33,62 @@ public sealed class DevelopPageViewModel : IDisposable
                 PackageLink newItem = await PackageLink.OpenAsync(docRef);
                 lock (_lockObject)
                 {
-                    PackageDetailsPageViewModel? pkg = Packages.FirstOrDefault(p => p.Reference.Id == docRef.Id);
-                    if (pkg == null)
+                    PackageDetailsPageViewModel? viewModel = Packages.FirstOrDefault(p => p.Reference.Id == docRef.Id);
+                    if (viewModel == null)
                     {
-                        var viewModel = new PackageDetailsPageViewModel(docRef, newItem);
+                        viewModel = new PackageDetailsPageViewModel(docRef, newItem);
+
+                        for (int i = 0; i < Packages.Count; i++)
+                        {
+                            int item = Packages[i].Package.Value.Snapshot.Id.CompareTo(docRef.Id);
+
+                            if (item <= 0)
+                            {
+                                Packages.Insert(i, viewModel);
+                                return;
+                            }
+                        }
+
                         Packages.Add(viewModel);
                     }
+                    frame.Navigate(typeof(PackageDetailsPage), viewModel);
                 }
-
-                frame.Navigate(typeof(PackageDetailsPage), new PackageDetailsPageViewModel(docRef, newItem));
             }
         });
 
-        CollectionReference? packages = _packageController.GetPackages();
-        packages?.GetSnapshotAsync()
-            .ToObservable()
-            .Subscribe(snapshot =>
+        _packageController.SubscribePackages(
+            snapshot =>
             {
-                foreach (DocumentSnapshot item in snapshot.Documents)
+                if (!Packages.Any(p => p.Reference.Id == snapshot.Id))
                 {
-                    lock (_lockObject)
+                    var newItem = new PackageDetailsPageViewModel(snapshot.Reference, new PackageLink(snapshot));
+
+                    for (int i = 0; i < Packages.Count; i++)
                     {
-                        if (!Packages.Any(p => p.Reference.Id == item.Id))
+                        int item = snapshot.Id.CompareTo(Packages[i].Package.Value.Snapshot.Id);
+
+                        if (item <= 0)
                         {
-                            var newItem = new PackageDetailsPageViewModel(item.Reference, new PackageLink(item));
-                            Packages.Add(newItem);
+                            Packages.Insert(i, newItem);
+                            return;
                         }
                     }
-                }
-            });
 
-        _packagesListener = packages?.Listen(snapshot =>
-        {
-            foreach (DocumentChange item in snapshot.Changes)
-            {
-                lock (_lockObject)
-                {
-                    switch (item.ChangeType)
-                    {
-                        case DocumentChange.Type.Added when item.NewIndex.HasValue:
-                            if (!Packages.Any(p => p.Reference.Id == item.Document.Id))
-                            {
-                                var newItem = new PackageDetailsPageViewModel(item.Document.Reference, new PackageLink(item.Document));
-                                Packages.Add(newItem);
-                            }
-                            break;
-                        case DocumentChange.Type.Removed when item.OldIndex.HasValue:
-                            foreach (PackageDetailsPageViewModel pkg in Packages)
-                            {
-                                if (pkg.Reference.Id == item.Document.Id)
-                                {
-                                    Packages.Remove(pkg);
-                                    pkg.Dispose();
-                                    return;
-                                }
-                            }
-                            break;
-                        case DocumentChange.Type.Modified:
-                            break;
-                    }
+                    Packages.Add(newItem);
                 }
-            }
-        });
+            },
+            snapshot =>
+            {
+                PackageDetailsPageViewModel? item = Packages.FirstOrDefault(p => p.Reference.Id == snapshot.Id);
+                if (item != null)
+                {
+                    Packages.Remove(item);
+                    item.Dispose();
+                }
+            },
+            _ => { },
+            _lockObject)
+            .DisposeWith(_disposables);
     }
 
     public CoreList<PackageDetailsPageViewModel> Packages { get; } = new();
@@ -108,7 +98,6 @@ public sealed class DevelopPageViewModel : IDisposable
     public void Dispose()
     {
         _disposables.Dispose();
-        _packagesListener?.StopAsync();
         foreach (var item in Packages.AsSpan())
         {
             item.Dispose();

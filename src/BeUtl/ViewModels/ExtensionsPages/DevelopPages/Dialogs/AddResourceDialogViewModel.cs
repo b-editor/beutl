@@ -1,7 +1,7 @@
 ﻿using System.Globalization;
 using System.Reactive.Linq;
 
-using Google.Cloud.Firestore;
+using BeUtl.Models.Extensions.Develop;
 
 using Reactive.Bindings;
 
@@ -9,9 +9,9 @@ namespace BeUtl.ViewModels.ExtensionsPages.DevelopPages.Dialogs;
 
 public sealed class AddResourceDialogViewModel
 {
-    public AddResourceDialogViewModel(CollectionReference reference)
+    public AddResourceDialogViewModel(IPackage.ILink package)
     {
-        Reference = reference;
+        Package = package;
 
         CultureInput.SetValidateNotifyError(str =>
         {
@@ -63,32 +63,18 @@ public sealed class AddResourceDialogViewModel
         {
             if (Culture.Value != null)
             {
-                var dict = new Dictionary<string, object>
-                {
-                    ["culture"] = Culture.Value.Name
-                };
-
-                if (!InheritDisplayName.Value && DisplayName.Value != null)
-                {
-                    dict["displayName"] = DisplayName.Value;
-                }
-
-                if (!InheritDescription.Value && Description.Value != null)
-                {
-                    dict["description"] = Description.Value;
-                }
-
-                if (!InheritShortDescription.Value && ShortDescription.Value != null)
-                {
-                    dict["shortDescription"] = ShortDescription.Value;
-                }
-
-                await Reference.AddAsync(dict);
+                await Package.AddResource(new LocalizedPackageResource(
+                    InheritDisplayName.Value ? null : DisplayName.Value,
+                    InheritDescription.Value ? null : Description.Value,
+                    InheritShortDescription.Value ? null : ShortDescription.Value,
+                    null,
+                    Array.Empty<ImageLink>(),
+                    Culture.Value));
             }
         });
     }
 
-    public CollectionReference Reference { get; }
+    public IPackage.ILink Package { get; }
 
     public ReactiveProperty<string> CultureInput { get; } = new();
 

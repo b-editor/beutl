@@ -170,7 +170,7 @@ public sealed class PackageSettingsPageViewModel : IDisposable
                 Name: DisplayName.Value,
                 Description: Description.Value,
                 ShortDescription: ShortDescription.Value,
-                IsVisible: Parent.IsPublic.Value,
+                IsVisible: Parent.Package.Value.IsVisible,
                 LogoImage: newLogo,
                 Screenshots: Screenshots.Select(i => ImageLink.Open(_imagesPath, i.Name)).ToArray());
 
@@ -181,9 +181,7 @@ public sealed class PackageSettingsPageViewModel : IDisposable
             foreach (ImageModel item in newScreenshots.ExceptBy(oldScreenshots.Select(i => i.Name), i => i.Name))
             {
                 item.Stream.Position = 0;
-
-                await _packageController.GetPackageImageRef(Reference.Id, item.Name)
-                    .PutAsync(item.Stream, default, "image/jpeg");
+                await ImageLink.UploadAsync(_imagesPath, item.Name, item.Stream.GetBuffer());
             }
 
             await Parent.Package.Value.SyncronizeToAsync(newValue, PackageInfoFields.None);

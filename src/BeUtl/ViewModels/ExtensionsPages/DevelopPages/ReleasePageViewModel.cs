@@ -4,6 +4,7 @@ using System.Reactive.Linq;
 using System.Reactive.Threading.Tasks;
 
 using BeUtl.Collections;
+using BeUtl.Models.Extensions.Develop;
 
 using Google.Cloud.Firestore;
 
@@ -43,10 +44,10 @@ public sealed class ReleasePageViewModel : IDisposable
     private readonly object _lockObject = new();
     private readonly FirestoreChangeListener? _listener;
 
-    public ReleasePageViewModel(DocumentReference reference, PackageReleasesPageViewModel parent)
+    public ReleasePageViewModel(IPackageRelease.ILink release, PackageReleasesPageViewModel parent)
     {
         Parent = parent;
-        Reference = reference;
+        Release = release;
 
         VersionInput.SetValidateNotifyError(str => System.Version.TryParse(str, out _) ? null : "CultureNotFoundException");
 
@@ -70,90 +71,57 @@ public sealed class ReleasePageViewModel : IDisposable
 
         Save.Subscribe(async () =>
         {
-            await Reference.UpdateAsync(new Dictionary<string, object>
-            {
-                ["version"] = (ActualVersion.Value = Version.Value!).ToString(),
-                ["title"] = ActualTitle.Value = Title.Value,
-                ["body"] = ActualBody.Value = Body.Value,
-            });
+            await Release.SyncronizeToAsync(new PackageRelease(
+                ActualVersion.Value = Version.Value!,
+                ActualTitle.Value = Title.Value,
+                ActualBody.Value = Body.Value,
+                false,
+                null,
+                null),
+                PackageReleaseFields.All & ~(PackageReleaseFields.SHA256 | PackageReleaseFields.DownloadLink | PackageReleaseFields.IsVisible));
         });
 
         DiscardChanges.Subscribe(async () =>
         {
-            DocumentSnapshot snapshot = await Reference.GetSnapshotAsync();
+            DocumentSnapshot snapshot = await Release.Snapshot.Reference.GetSnapshotAsync();
             Update(snapshot);
         });
 
-        Delete.Subscribe(async () => await Reference.DeleteAsync());
+        Delete.Subscribe(async () => await Release.PermanentlyDeleteAsync());
 
-        MakePublic.Subscribe(async () => await Reference.UpdateAsync("visible", true)).DisposeWith(_disposables);
+        MakePublic.Subscribe(async () => await Release.ChangeVisibility(true)).DisposeWith(_disposables);
 
-        MakePrivate.Subscribe(async () => await Reference.UpdateAsync("visible", false)).DisposeWith(_disposables);
+        MakePrivate.Subscribe(async () => await Release.ChangeVisibility(false)).DisposeWith(_disposables);
 
-        CollectionReference resources = reference.Collection("resources");
-        resources.GetSnapshotAsync()
-            .ToObservable()
-            .Subscribe(snapshot =>
+        release.SubscribeResources(
+            item =>
             {
-                foreach (DocumentSnapshot item in snapshot.Documents)
+                if (!Items.Any(p => p.Reference.Id == item.Reference.Id))
                 {
-                    lock (_lockObject)
-                    {
-                        if (!Items.Any(p => p.Reference.Id == item.Reference.Id))
-                        {
-                            var viewModel = new ReleaseResourceViewModel(item.Reference);
-                            viewModel.Update(item);
-                            Items.Add(viewModel);
-                        }
-                    }
+                    var viewModel = new ReleaseResourceViewModel(item.Reference);
+                    viewModel.Update(item);
+                    Items.Add(viewModel);
                 }
-            });
-
-        _listener = resources.Listen(snapshot =>
-        {
-            foreach (DocumentChange item in snapshot.Changes)
+            },
+            item =>
             {
-                lock (_lockObject)
+                var viewModel = Items.FirstOrDefault(p => p.Reference.Id == item.Reference.Id);
+                if (viewModel != null)
                 {
-                    switch (item.ChangeType)
-                    {
-                        case DocumentChange.Type.Added when item.NewIndex.HasValue:
-                            if (!Items.Any(p => p.Reference.Id == item.Document.Reference.Id))
-                            {
-                                var viewModel = new ReleaseResourceViewModel(item.Document.Reference);
-                                viewModel.Update(item.Document);
-                                Items.Add(viewModel);
-                            }
-                            break;
-                        case DocumentChange.Type.Removed when item.OldIndex.HasValue:
-                            foreach (ReleaseResourceViewModel viewModel in Items)
-                            {
-                                if (viewModel.Reference.Id == item.Document.Id)
-                                {
-                                    Items.Remove(viewModel);
-                                    return;
-                                }
-                            }
-                            break;
-                        case DocumentChange.Type.Modified:
-                            foreach (ReleaseResourceViewModel viewModel in Items)
-                            {
-                                if (viewModel.Reference.Id == item.Document.Id)
-                                {
-                                    viewModel.Update(item.Document);
-                                    return;
-                                }
-                            }
-                            break;
-                    }
+                    Items.Remove(viewModel);
                 }
-            }
-        });
+            },
+            item =>
+            {
+                var viewModel = Items.FirstOrDefault(p => p.Reference.Id == item.Reference.Id);
+                viewModel?.Update(item);
+            })
+            .DisposeWith(_disposables);
     }
 
     public PackageReleasesPageViewModel Parent { get; }
 
-    public DocumentReference Reference { get; }
+    public IPackageRelease.ILink Release { get; }
 
     public ReactivePropertySlim<string> ActualTitle { get; } = new();
 

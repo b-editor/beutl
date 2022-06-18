@@ -6,6 +6,7 @@ using System.Text;
 using System.Threading.Tasks;
 
 using BeUtl.Collections;
+using BeUtl.Models.Extensions.Develop;
 using BeUtl.ViewModels.ExtensionsPages.DevelopPages.Dialogs;
 
 using FluentAvalonia.UI.Controls;
@@ -18,82 +19,48 @@ namespace BeUtl.ViewModels.ExtensionsPages.DevelopPages;
 
 public sealed class PackageReleasesPageViewModel : IDisposable
 {
-    private readonly object _lockObject = new();
-    private readonly FirestoreChangeListener? _listener;
+    private readonly IDisposable _disposable;
 
     public PackageReleasesPageViewModel(PackageDetailsPageViewModel parent)
     {
         Parent = parent;
 
-        Reference = parent.Reference.Collection("releases");
-        Reference.GetSnapshotAsync()
-            .ToObservable()
-            .Subscribe(snapshot =>
+        _disposable = parent.Package.Value.SubscribeReleases(
+            item =>
             {
-                foreach (DocumentSnapshot item in snapshot.Documents)
+                if (!Items.Any(p => p.Release.Snapshot.Id == item.Id))
                 {
-                    lock (_lockObject)
-                    {
-                        if (!Items.Any(p => p.Reference.Id == item.Reference.Id))
-                        {
-                            var viewModel = new ReleasePageViewModel(item.Reference, this);
-                            viewModel.Update(item);
-                            Items.Add(viewModel);
-                        }
-                    }
+                    var viewModel = new ReleasePageViewModel(new PackageReleaseLink(item), this);
+                    viewModel.Update(item);
+                    Items.Add(viewModel);
                 }
+            },
+            item =>
+            {
+                var viewModel = Items.FirstOrDefault(p => p.Release.Snapshot.Id == item.Id);
+                if (viewModel != null)
+                {
+                    Items.Remove(viewModel);
+                    viewModel.Dispose();
+                }
+            },
+            item =>
+            {
+                var viewModel = Items.FirstOrDefault(p => p.Release.Snapshot.Id == item.Id);
+                viewModel?.Update(item);
             });
 
-        _listener = Reference.Listen(snapshot =>
-        {
-            foreach (DocumentChange item in snapshot.Changes)
-            {
-                lock (_lockObject)
-                {
-                    switch (item.ChangeType)
-                    {
-                        case DocumentChange.Type.Added when item.NewIndex.HasValue:
-                            if (!Items.Any(p => p.Reference.Id == item.Document.Reference.Id))
-                            {
-                                var viewModel = new ReleasePageViewModel(item.Document.Reference, this);
-                                viewModel.Update(item.Document);
-                                Items.Add(viewModel);
-                            }
-                            break;
-                        case DocumentChange.Type.Removed when item.OldIndex.HasValue:
-                            foreach (ReleasePageViewModel viewModel in Items)
-                            {
-                                if (viewModel.Reference.Id == item.Document.Id)
-                                {
-                                    Items.Remove(viewModel);
-                                    return;
-                                }
-                            }
-                            break;
-                        case DocumentChange.Type.Modified:
-                            foreach (ReleasePageViewModel viewModel in Items)
-                            {
-                                if (viewModel.Reference.Id == item.Document.Id)
-                                {
-                                    viewModel.Update(item.Document);
-                                    return;
-                                }
-                            }
-                            break;
-                    }
-                }
-            }
-        });
+        Reference = parent.Reference.Collection("releases");
 
         Add.Subscribe(async p =>
         {
-            await Reference.AddAsync(new
-            {
-                version = p.Version.Value,
-                title = p.Title.Value,
-                body = p.Body.Value,
-                visible = false
-            });
+            await Parent.Package.Value.AddRelease(new PackageRelease(
+                Version: Version.Parse(p.Version.Value),
+                Title: p.Title.Value,
+                Body: p.Body.Value,
+                IsVisible: false,
+                DownloadLink: null,
+                SHA256: null));
         });
     }
 
@@ -107,8 +74,12 @@ public sealed class PackageReleasesPageViewModel : IDisposable
 
     public void Dispose()
     {
-        _listener?.StopAsync();
+        _disposable.Dispose();
 
+        foreach (var item in Items)
+        {
+            item.Dispose();
+        }
         Items.Clear();
     }
 }

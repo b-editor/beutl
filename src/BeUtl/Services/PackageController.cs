@@ -1,8 +1,9 @@
-﻿using Firebase.Auth;
+﻿using System.Reactive.Disposables;
+
+using Firebase.Auth;
 
 using Google.Cloud.Firestore;
-using Firebase.Storage;
-using SkiaSharp;
+
 using Microsoft.Extensions.DependencyInjection;
 
 namespace BeUtl.Services;
@@ -17,53 +18,46 @@ public class PackageController
         _accountService = accountService;
     }
 
-    public async Task<MemoryStream?> GetPackageImageStream(string packageId, string? name)
+    public IDisposable SubscribePackages(
+        Action<DocumentSnapshot> added,
+        Action<DocumentSnapshot> removed,
+        Action<DocumentSnapshot> modified,
+        object? lockObject = null)
     {
-        try
+        lockObject ??= new();
+        FirestoreDb db = _accountService._db;
+        User user = _accountService.User!;
+
+        Query query = db.Collection($"users/{user.Uid}/packages");
+        bool initial = true;
+        FirestoreChangeListener listener = query.Listen(snapshot =>
         {
-            if (name == null)
-                return null;
-
-            string? link = await GetPackageImageRef(packageId, name)
-                .GetDownloadUrlAsync();
-
-            if (link != null)
+            IEnumerable<DocumentChange> enumerable
+                = initial ? snapshot.Changes.OrderBy(i => i.Document.Id) : snapshot.Changes;
+            initial = false;
+            foreach (DocumentChange item in enumerable)
             {
-                byte[] array = await _httpClient.GetByteArrayAsync(link);
-                return new MemoryStream(array);
+                lock (lockObject)
+                {
+                    if (item.ChangeType == DocumentChange.Type.Added)
+                    {
+                        added(item.Document);
+                    }
+                    else if (item.ChangeType == DocumentChange.Type.Removed)
+                    {
+                        removed(item.Document);
+                    }
+                    else if (item.ChangeType == DocumentChange.Type.Modified)
+                    {
+                        modified(item.Document);
+                    }
+                }
             }
-        }
-        catch
-        {
-        }
+        });
 
-        return null;
-    }
+        _ = query.GetSnapshotAsync();
 
-    public FirebaseStorageReference GetPackageImageRef(string packageId, string name)
-    {
-        return _accountService._storage
-            .Child("users")
-            .Child(_accountService.User!.Uid)
-            .Child("packages")
-            .Child(packageId)
-            .Child("images")
-            .Child(name);
-    }
-
-    public async ValueTask<Uri> UploadImage(Stream stream, FirebaseStorageReference reference)
-    {
-        return new Uri(await reference.PutAsync(stream, default, mimeType: "image/jpeg"));
-    }
-
-    public CollectionReference? GetPackages()
-    {
-        FirestoreDb? db = _accountService._db;
-        User? user = _accountService.User;
-        if (user == null)
-            return null;
-
-        return db.Collection($"users/{user.Uid}/packages");
+        return Disposable.Create(listener, async listener => await listener.StopAsync());
     }
 
     public async ValueTask<DocumentReference?> NewPackage()
