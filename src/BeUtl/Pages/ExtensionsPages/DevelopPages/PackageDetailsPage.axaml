@@ -46,17 +46,10 @@
                            Height="140" />
 
 
-                    <TextBlock IsVisible="{CompiledBinding HasLocalizedDisplayName.Value}"
-                               HorizontalAlignment="Center"
+                    <TextBlock HorizontalAlignment="Center"
                                Margin="0,32"
                                Classes="SubtitleTextBlockStyle"
                                Text="{CompiledBinding LocalizedDisplayName.Value}" />
-
-                    <TextBlock IsVisible="{CompiledBinding !HasLocalizedDisplayName.Value}"
-                               HorizontalAlignment="Center"
-                               Margin="0,32"
-                               Classes="SubtitleTextBlockStyle"
-                               Text="{CompiledBinding DisplayName.Value}" />
 
                     <TextBlock HorizontalAlignment="Center"
                                Text="{CompiledBinding LocalizedDescription.Value}" />

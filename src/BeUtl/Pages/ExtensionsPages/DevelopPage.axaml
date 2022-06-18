@@ -47,33 +47,15 @@
                 <ListBox.ItemTemplate>
                     <DataTemplate>
                         <Grid ColumnDefinitions="Auto,16,*,Auto">
-                            <ui:PathIcon IsVisible="{CompiledBinding IsPublic.Value}" Data="{StaticResource Eye_Show_Regular}" />
-                            <ui:PathIcon IsVisible="{CompiledBinding !IsPublic.Value}" Data="{StaticResource Eye_Hide_Regular}" />
+                            <ui:PathIcon IsVisible="{CompiledBinding Package.Value.IsVisible}" Data="{StaticResource Eye_Show_Regular}" />
+                            <ui:PathIcon IsVisible="{CompiledBinding !Package.Value.IsVisible}" Data="{StaticResource Eye_Hide_Regular}" />
 
                             <StackPanel Spacing="4"
                                         VerticalAlignment="Center"
                                         Grid.Column="2">
-                                <TextBlock Text="{CompiledBinding Name.Value}" />
+                                <TextBlock Text="{CompiledBinding Package.Value.Name}" />
 
-                                <StackPanel Orientation="Horizontal"
-                                            IsVisible="{CompiledBinding HasLocalizedDisplayName.Value}">
-                                    <StackPanel.Styles>
-                                        <Style Selector="TextBlock">
-                                            <Setter Property="FontFamily" Value="XamlAutoFontFamily" />
-                                            <Setter Property="FontSize" Value="16" />
-                                            <Setter Property="FontWeight" Value="SemiBold" />
-                                            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
-                                            <Setter Property="TextWrapping" Value="Wrap" />
-                                        </Style>
-                                    </StackPanel.Styles>
-                                    <TextBlock Text="{CompiledBinding LocalizedDisplayName.Value}" />
-                                    <TextBlock Text=" (" />
-                                    <TextBlock Text="{CompiledBinding DisplayName.Value}" />
-                                    <TextBlock Text=")" />
-                                </StackPanel>
-
-                                <TextBlock Text="{CompiledBinding DisplayName.Value}"
-                                           IsVisible="{CompiledBinding !HasLocalizedDisplayName.Value}">
+                                <TextBlock Text="{CompiledBinding LocalizedDisplayName.Value}">
                                     <TextBlock.Styles>
                                         <Style Selector="TextBlock">
                                             <Setter Property="FontFamily" Value="XamlAutoFontFamily" />

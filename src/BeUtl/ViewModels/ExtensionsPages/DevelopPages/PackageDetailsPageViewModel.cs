@@ -1,9 +1,12 @@
 ﻿using System.Globalization;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
+using System.Reactive.Threading.Tasks;
 
 using Avalonia.Media.Imaging;
 
+using BeUtl.Collections;
+using BeUtl.Models.Extensions.Develop;
 using BeUtl.Services;
 
 using Google.Cloud.Firestore;
@@ -21,43 +24,17 @@ public sealed class PackageDetailsPageViewModel : IDisposable
     private readonly HttpClient _httpClient = ServiceLocator.Current.GetRequiredService<HttpClient>();
     private readonly CompositeDisposable _disposables = new(15);
 
-    public PackageDetailsPageViewModel(DocumentReference docRef)
+    public PackageDetailsPageViewModel(DocumentReference docRef, IPackage.ILink package)
     {
         Reference = docRef;
         DisplayCulture.Value = CultureInfo.CurrentUICulture;
 
-        IObservable<DocumentSnapshot> observable = Reference.ToObservable();
+        Package = package.GetObservable()
+            .ToReadOnlyReactivePropertySlim(package);
 
-        Name = observable.Select(d => d.GetValue<string>("name"))
-            .ToReadOnlyReactivePropertySlim("")
-            .DisposeWith(_disposables);
-
-        DisplayName = observable.Select(d => d.GetValue<string>("displayName"))
-            .ToReadOnlyReactivePropertySlim("")
-            .DisposeWith(_disposables);
-
-        Description = observable.Select(d => d.GetValue<string>("description"))
-            .ToReadOnlyReactivePropertySlim("")
-            .DisposeWith(_disposables);
-
-        ShortDescription = observable.Select(d => d.GetValue<string>("shortDescription"))
-            .ToReadOnlyReactivePropertySlim("")
-            .DisposeWith(_disposables);
-
-        LogoId = observable.Select(d => d.TryGetValue("logo", out string val) ? val : null)
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(_disposables);
-
-        Screenshots = observable.Select(d => d.TryGetValue("screenshots", out string[] val) ? val : Array.Empty<string>())
-            .ToReadOnlyReactivePropertySlim(Array.Empty<string>())
-            .DisposeWith(_disposables);
-
-        LogoImage = LogoId
-            .SelectMany(id => _packageController.GetPackageImageStream(Reference.Id, id))
-            .Select(st => (st, st != null ? new Bitmap(st) : null))
-            .Do(t => t.st?.Dispose())
-            .Select(t => t.Item2)
-            .DisposePreviousValue()
+        LogoImage = Package
+            .Select(p => p.LogoImage)
+            .SelectMany(async il => il != null ? await il.TryGetBitmapAsync() : null)
             .ToReadOnlyReactivePropertySlim(null)
             .DisposeWith(_disposables);
 
@@ -65,7 +42,7 @@ public sealed class PackageDetailsPageViewModel : IDisposable
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
-        IsPublic = observable.Select(d => d.GetValue<bool>("visible"))
+        IsPublic = Package.Select(p => p.IsVisible)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
@@ -74,42 +51,45 @@ public sealed class PackageDetailsPageViewModel : IDisposable
         Releases = new PackageReleasesPageViewModel(this)
             .DisposeWith(_disposables);
 
-        IObservable<CollectionChanged<ResourcePageViewModel>> resourceObservable = Settings.Items.ToCollectionChanged<ResourcePageViewModel>();
+        IObservable<CoreList<ResourcePageViewModel>> resourceObservable = Settings.Items.ToCollectionChanged<ResourcePageViewModel>()
+            .Select(_ => Settings.Items)
+            .Publish(Settings.Items)
+            .RefCount();
 
         IObservable<T?> CreateResourceObservable<T>(Func<ResourcePageViewModel, IObservable<T?>> func)
             where T : class
         {
-            return observable
-                .CombineLatest(resourceObservable)
-                .SelectMany(_ => Settings.Items.Count > 0
-                    ? Settings.Items.ToObservable()
-                        .SelectMany(i => i.ActualCulture
-                            .CombineLatest(func(i), DisplayCulture)
-                            .Select(ii => ii.First?.Name == ii.Third?.Name ? ii.Second : null))
-                    : Observable.Return<T?>(null));
+            return Package
+                .CombineLatest(resourceObservable, DisplayCulture)
+                .SelectMany(t =>
+                {
+                    foreach (var item in t.Second)
+                    {
+                        if (item.ActualCulture.Value.Name == t.Third.Name)
+                        {
+                            return func(item);
+                        }
+                    }
+
+                    return Observable.Return<T?>(null);
+                });
         }
 
         LocalizedDisplayName = CreateResourceObservable(v => v.ActualDisplayName)
-            .CombineLatest(DisplayName)
-            .Select(t => t.First ?? t.Second)
-            .ToReadOnlyReactivePropertySlim()
-            .DisposeWith(_disposables);
-
-        HasLocalizedDisplayName = LocalizedDisplayName
-            .CombineLatest(DisplayName)
-            .Select(t => t.First != t.Second)
+            .CombineLatest(Package)
+            .Select(t => t.First ?? t.Second.DisplayName)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
         LocalizedDescription = CreateResourceObservable(v => v.ActualDescription)
-            .CombineLatest(Description)
-            .Select(t => t.First ?? t.Second)
+            .CombineLatest(Package)
+            .Select(t => t.First ?? t.Second.Description)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
 
         LocalizedLogoImage = CreateResourceObservable(v => v.ActualLogoImageId)
-            .CombineLatest(LogoId)
-            .Select(t => t.First ?? t.Second)
+            .CombineLatest(Package)
+            .Select(t => t.First ?? t.Second.LogoImage?.Name)
             .SelectMany(async id => id != null ? await _packageController.GetPackageImageStream(Reference.Id, id) : null)
             .DisposePreviousValue()
             .Select(stream => stream != null ? new Bitmap(stream) : null)
@@ -118,25 +98,15 @@ public sealed class PackageDetailsPageViewModel : IDisposable
             .DisposeWith(_disposables);
     }
 
+    public ReadOnlyReactivePropertySlim<IPackage.ILink> Package { get; }
+
     public PackageSettingsPageViewModel Settings { get; }
 
     public PackageReleasesPageViewModel Releases { get; }
 
     public DocumentReference Reference { get; }
 
-    public ReadOnlyReactivePropertySlim<string> Name { get; }
-
-    public ReadOnlyReactivePropertySlim<string> DisplayName { get; }
-
-    public ReadOnlyReactivePropertySlim<string> Description { get; }
-
-    public ReadOnlyReactivePropertySlim<string> ShortDescription { get; }
-
-    public ReadOnlyReactivePropertySlim<string?> LogoId { get; }
-
     public ReadOnlyReactivePropertySlim<Bitmap?> LogoImage { get; }
-
-    public ReadOnlyReactivePropertySlim<string[]> Screenshots { get; }
 
     public ReadOnlyReactivePropertySlim<bool> HasLogoImage { get; }
 
@@ -145,8 +115,6 @@ public sealed class PackageDetailsPageViewModel : IDisposable
     public ReadOnlyReactivePropertySlim<string?> LocalizedDescription { get; }
 
     public ReadOnlyReactivePropertySlim<Bitmap?> LocalizedLogoImage { get; }
-
-    public ReadOnlyReactivePropertySlim<bool> HasLocalizedDisplayName { get; }
 
     public ReadOnlyReactivePropertySlim<bool> IsPublic { get; }
 

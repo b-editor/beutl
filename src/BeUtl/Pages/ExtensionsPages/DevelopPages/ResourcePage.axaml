@@ -24,7 +24,7 @@
         <StackPanel Margin="10,8"
                     Spacing="16"
                     Orientation="Horizontal">
-            <Button Content="{CompiledBinding Parent.Parent.Name.Value}"
+            <Button Content="{CompiledBinding Parent.Parent.Package.Value.Name}"
                     Classes="breadcrumb"
                     Click="NavigatePackageDetailsPage_Click" />
 
@@ -68,7 +68,7 @@
                             <TextBlock Text="{CompiledBinding ActualDisplayName.Value}"
                                        IsVisible="{CompiledBinding HasDisplayName.Value}"
                                        Classes="description" />
-                            <TextBlock Text="{CompiledBinding Parent.Parent.DisplayName.Value}"
+                            <TextBlock Text="{CompiledBinding Parent.Parent.Package.Value.DisplayName}"
                                        IsVisible="{CompiledBinding !HasDisplayName.Value}"
                                        Classes="description" />
                         </Panel>
@@ -96,7 +96,7 @@
                                        TextTrimming="CharacterEllipsis"
                                        Classes="description" />
 
-                            <TextBlock Text="{CompiledBinding Parent.Parent.Description.Value}"
+                            <TextBlock Text="{CompiledBinding Parent.Parent.Package.Value.Description}"
                                        MaxWidth="150"
                                        IsVisible="{CompiledBinding !HasDescription.Value}"
                                        TextTrimming="CharacterEllipsis"
@@ -127,7 +127,7 @@
                                        TextTrimming="CharacterEllipsis"
                                        Classes="description" />
 
-                            <TextBlock Text="{CompiledBinding Parent.Parent.ShortDescription.Value}"
+                            <TextBlock Text="{CompiledBinding Parent.Parent.Package.Value.ShortDescription}"
                                        MaxWidth="150"
                                        IsVisible="{CompiledBinding !HasShortDescription.Value}"
                                        TextTrimming="CharacterEllipsis"

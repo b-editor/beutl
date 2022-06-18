@@ -7,6 +7,7 @@ using Avalonia.Input;
 using BeUtl.ViewModels.ExtensionsPages.DevelopPages;
 using BeUtl.Pages.ExtensionsPages.DevelopPages;
 using Avalonia;
+using BeUtl.Models.Extensions.Develop;
 
 namespace BeUtl.Pages.ExtensionsPages;
 

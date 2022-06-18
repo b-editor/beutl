@@ -11,6 +11,7 @@ using Avalonia.Threading;
 
 using BeUtl.Collections;
 using BeUtl.Framework.Service;
+using BeUtl.Models.Extensions.Develop;
 using BeUtl.Models.ExtensionsPages.DevelopPages;
 using BeUtl.Services;
 
@@ -33,40 +34,43 @@ public sealed class PackageSettingsPageViewModel : IDisposable
 {
     private readonly PackageController _packageController = ServiceLocator.Current.GetRequiredService<PackageController>();
     private readonly HttpClient _httpClient = ServiceLocator.Current.GetRequiredService<HttpClient>();
-    private readonly CompositeDisposable _disposables = new(23);
-    private readonly object _lockObject = new();
-    private readonly FirestoreChangeListener _listener;
+    private readonly CompositeDisposable _disposables = new();
     private readonly WeakReference<PackageDetailsPageViewModel?> _parentWeak;
+    private readonly string _imagesPath;
 
     public PackageSettingsPageViewModel(DocumentReference docRef, PackageDetailsPageViewModel parent)
     {
         Reference = docRef;
+        _imagesPath = $"users/{Reference.Parent.Parent.Id}/packages/{Reference.Id}/images";
         _parentWeak = new WeakReference<PackageDetailsPageViewModel?>(parent);
 
         // 入力用プロパティの作成（オリジナルが変更されたら同期する）
-        Name = parent.Name.ToReactiveProperty("").DisposeWith(_disposables);
-        DisplayName = parent.DisplayName.ToReactiveProperty("").DisposeWith(_disposables);
-        Description = parent.Description.ToReactiveProperty("").DisposeWith(_disposables);
-        ShortDescription = parent.ShortDescription.ToReactiveProperty("").DisposeWith(_disposables);
-        LogoImageId = parent.LogoId.ToReactiveProperty()
+        Name = parent.Package.Select(p => p.Name)
+            .ToReactiveProperty("")
             .DisposeWith(_disposables);
-
-        // ロゴ画像
-        // 1. IDからストレージへの参照を作成
-        LogoStream = LogoImageId
-            .Do(_ => IsLogoLoading.Value = true)
-            .SelectMany(id => _packageController.GetPackageImageStream(Reference.Id, id))
-            .Do(_ => IsLogoLoading.Value = false)
-            .DisposePreviousValue()
+        DisplayName = parent.Package.Select(p => p.DisplayName)
+            .ToReactiveProperty("")
+            .DisposeWith(_disposables);
+        Description = parent.Package.Select(p => p.Description)
+            .ToReactiveProperty("")
+            .DisposeWith(_disposables);
+        ShortDescription = parent.Package.Select(p => p.ShortDescription)
+            .ToReactiveProperty("")
+            .DisposeWith(_disposables);
+        LogoImageLink = parent.Package.Select(i => i.LogoImage)
             .ToReactiveProperty()
             .DisposeWith(_disposables);
-        LogoImage = LogoStream
-            .Select(st => st != null ? new Bitmap(st) : null)
-            .DisposePreviousValue()
+
+        LogoImage = LogoImageLink
+            .Do(_ => IsLogoLoading.Value = true)
+            .SelectMany(async st => st != null ? await st.TryGetBitmapAsync() : null)
+            .Do(_ => IsLogoLoading.Value = false)
             .ToReadOnlyReactivePropertySlim(null)
             .DisposeWith(_disposables);
 
-        ScreenshotsArray = parent.Screenshots.ToReactiveProperty(Array.Empty<string>())
+        ScreenshotsArray = parent.Package
+            .Select(i => i.Screenshots.Select(ii => ii.Name).ToArray())
+            .ToReactiveProperty(Array.Empty<string>())
             .DisposeWith(_disposables);
         ScreenshotsArray.Subscribe(async array =>
         {
@@ -108,12 +112,12 @@ public sealed class PackageSettingsPageViewModel : IDisposable
         }).DisposeWith(_disposables);
 
         // 値が変更されるか
-        IsChanging = Name.CombineLatest(parent.Name).Select(t => t.First == t.Second)
+        IsChanging = Name.CombineLatest(parent.Package).Select(t => t.First == t.Second.Name)
             .CombineLatest(
-                DisplayName.CombineLatest(parent.DisplayName).Select(t => t.First == t.Second),
-                Description.CombineLatest(parent.Description).Select(t => t.First == t.Second),
-                ShortDescription.CombineLatest(parent.ShortDescription).Select(t => t.First == t.Second),
-                LogoNoChanged,
+                DisplayName.CombineLatest(parent.Package).Select(t => t.First == t.Second.DisplayName),
+                Description.CombineLatest(parent.Package).Select(t => t.First == t.Second.Description),
+                ShortDescription.CombineLatest(parent.Package).Select(t => t.First == t.Second.ShortDescription),
+                LogoImageLink.CombineLatest(parent.Package).Select(t => t.First == t.Second.LogoImage),
                 ScreenshotsArray.CombineLatest(Screenshots.ToCollectionChanged<ImageModel>().Select(_ => Screenshots).Publish(Screenshots).RefCount())
                     .Select(t => t.First.SequenceEqual(t.Second.Select(i => i.Name))))
             .Select(t => !(t.First && t.Second && t.Third && t.Fourth && t.Fifth && t.Sixth))
@@ -137,53 +141,34 @@ public sealed class PackageSettingsPageViewModel : IDisposable
             .DisposeWith(_disposables);
         Save.Subscribe(async () =>
         {
-            var dict = new Dictionary<string, object>
-            {
-                ["name"] = Name.Value,
-                ["displayName"] = DisplayName.Value,
-                ["description"] = Description.Value,
-                ["shortDescription"] = ShortDescription.Value,
-                ["visible"] = Parent.IsPublic.Value
-            };
+            var newValue = new PackageInfo(
+                DisplayName: Name.Value,
+                Name: DisplayName.Value,
+                Description: Description.Value,
+                ShortDescription: ShortDescription.Value,
+                IsVisible: Parent.IsPublic.Value,
+                LogoImage: LogoImageLink.Value,
+                Screenshots: Screenshots.Select(i => ImageLink.Open(_imagesPath, i.Name)).ToArray());
 
-            if (LogoStream.Value?.CanRead == true && !LogoNoChanged.Value)
+            ImageLink? newLogo = LogoImageLink.Value;
+            ImageLink? oldLogo = Parent.Package.Value.LogoImage;
+            if (newLogo != oldLogo && oldLogo != null)
             {
-                string? newName = Guid.NewGuid().ToString();
-                dict["logo"] = newName;
-                LogoStream.Value.Position = 0;
-                await _packageController.GetPackageImageRef(Reference.Id, newName)
-                    .PutAsync(LogoStream.Value, default, "image/jpeg");
-
-                if (Parent.LogoId.Value is string oldName && Parent.LogoImage.Value != null)
-                {
-                    await _packageController.GetPackageImageRef(Reference.Id, oldName)
-                        .DeleteAsync();
-                }
+                await oldLogo.DeleteAsync();
             }
-            else if (Parent.LogoId.Value != null)
-            {
-                dict["logo"] = Parent.LogoId.Value;
-            }
-
-            LogoNoChanged.Value = true;
 
             string[] oldScreenshots = ScreenshotsArray.Value;
             ImageModel[] newScreenshots = Screenshots.ToArray();
 
-            if (Screenshots.Count > 0)
+            // 作成
+            foreach (ImageModel item in newScreenshots.ExceptBy(oldScreenshots, i => i.Name))
             {
-                dict["screenshots"] = newScreenshots.Select(i => i.Name).ToArray();
-
-                // 作成
-                foreach (ImageModel item in newScreenshots.ExceptBy(oldScreenshots, i => i.Name))
-                {
-                    item.Stream.Position = 0;
-                    await _packageController.GetPackageImageRef(Reference.Id, item.Name)
-                        .PutAsync(item.Stream, default, "image/jpeg");
-                }
+                item.Stream.Position = 0;
+                await _packageController.GetPackageImageRef(Reference.Id, item.Name)
+                    .PutAsync(item.Stream, default, "image/jpeg");
             }
 
-            await Reference.SetAsync(dict, SetOptions.Overwrite);
+            await Parent.Package.Value.SyncronizeToAsync(newValue, PackageInfoFields.None);
 
             // 削除
             foreach (string item in oldScreenshots.Except(newScreenshots.Select(i => i.Name)))
@@ -195,13 +180,18 @@ public sealed class PackageSettingsPageViewModel : IDisposable
 
         DiscardChanges.Subscribe(async () =>
         {
-            DocumentSnapshot snapshot = await Reference.GetSnapshotAsync();
-            Name.Value = snapshot.GetValue<string>("name");
-            DisplayName.Value = snapshot.GetValue<string>("displayName");
-            Description.Value = snapshot.GetValue<string>("description");
-            ShortDescription.Value = snapshot.GetValue<string>("shortDescription");
-            LogoImageId.ForceNotify();
-            LogoNoChanged.Value = true;
+            IPackage.ILink link = Parent.Package.Value;
+            Name.Value = link.Name;
+            DisplayName.Value = link.DisplayName;
+            Description.Value = link.Description;
+            ShortDescription.Value = link.ShortDescription;
+
+            ImageLink? newLogo = LogoImageLink.Value;
+            if (link.LogoImage != newLogo && newLogo != null)
+            {
+                await newLogo.DeleteAsync();
+            }
+            LogoImageLink.Value = link.LogoImage;
 
             ScreenshotsArray.ForceNotify();
         }).DisposeWith(_disposables);
@@ -209,15 +199,16 @@ public sealed class PackageSettingsPageViewModel : IDisposable
         Delete.Subscribe(async () =>
         {
             // Todo: コレクションやストレージのファイルを削除する
-            await Reference.DeleteAsync();
+            await Parent.Package.Value.PermanentlyDeleteAsync();
         }).DisposeWith(_disposables);
 
-        MakePublic.Subscribe(async () => await Reference.UpdateAsync("visible", true)).DisposeWith(_disposables);
+        MakePublic.Subscribe(async () => await Parent.Package.Value.ChangeVisibility(true)).DisposeWith(_disposables);
 
-        MakePrivate.Subscribe(async () => await Reference.UpdateAsync("visible", false)).DisposeWith(_disposables);
+        MakePrivate.Subscribe(async () => await Parent.Package.Value.ChangeVisibility(false)).DisposeWith(_disposables);
 
-        SetLogo.Subscribe(file =>
+        SetLogo.Subscribe(async file =>
         {
+            IsLogoLoading.Value = true;
             if (File.Exists(file))
             {
                 const int SIZE = 400;
@@ -239,10 +230,10 @@ public sealed class PackageSettingsPageViewModel : IDisposable
                 dstBmp.Encode(stream, SKEncodedImageFormat.Jpeg, 100);
                 dstBmp.Dispose();
                 stream.Position = 0;
-                LogoStream.Value = stream;
 
-                LogoNoChanged.Value = false;
+                LogoImageLink.Value = await ImageLink.UploadAsync(_imagesPath, Guid.NewGuid().ToString(), stream.GetBuffer());
             }
+            IsLogoLoading.Value = false;
         }).DisposeWith(_disposables);
 
         CanAddScreenshot = Screenshots.ObserveProperty(i => i.Count)
@@ -307,66 +298,30 @@ public sealed class PackageSettingsPageViewModel : IDisposable
             item.Stream.Dispose();
         }).DisposeWith(_disposables);
 
-        CollectionReference resources = Parent.Reference.Collection("resources");
-        resources.GetSnapshotAsync()
-            .ToObservable()
-            .Subscribe(snapshot =>
+        Parent.Package.Value.SubscribeResources(
+            item =>
             {
-                foreach (DocumentSnapshot item in snapshot.Documents)
+                if (!Items.Any(p => p.Reference.Id == item.Id))
                 {
-                    lock (_lockObject)
-                    {
-                        if (!Items.Any(p => p.Reference.Id == item.Reference.Id))
-                        {
-                            var viewModel = new ResourcePageViewModel(item.Reference, this);
-                            viewModel.Update(item);
-                            Items.Add(viewModel);
-                        }
-                    }
+                    ResourcePageViewModel viewModel = new(item.Reference, this);
+                    viewModel.Update(item);
+                    Items.Add(viewModel);
                 }
-            });
-
-        _listener = resources.Listen(snapshot =>
-        {
-            foreach (DocumentChange item in snapshot.Changes)
+            },
+            item =>
             {
-                lock (_lockObject)
+                ResourcePageViewModel? viewModel = Items.FirstOrDefault(p => p.Reference.Id == item.Id);
+                if (viewModel != null)
                 {
-                    switch (item.ChangeType)
-                    {
-                        case DocumentChange.Type.Added when item.NewIndex.HasValue:
-                            if (!Items.Any(p => p.Reference.Id == item.Document.Reference.Id))
-                            {
-                                var viewModel = new ResourcePageViewModel(item.Document.Reference, this);
-                                viewModel.Update(item.Document);
-                                Items.Add(viewModel);
-                            }
-                            break;
-                        case DocumentChange.Type.Removed when item.OldIndex.HasValue:
-                            foreach (ResourcePageViewModel viewModel in Items)
-                            {
-                                if (viewModel.Reference.Id == item.Document.Id)
-                                {
-                                    Items.Remove(viewModel);
-                                    viewModel.Dispose();
-                                    return;
-                                }
-                            }
-                            break;
-                        case DocumentChange.Type.Modified:
-                            foreach (ResourcePageViewModel viewModel in Items)
-                            {
-                                if (viewModel.Reference.Id == item.Document.Id)
-                                {
-                                    viewModel.Update(item.Document);
-                                    return;
-                                }
-                            }
-                            break;
-                    }
+                    Items.Remove(viewModel);
                 }
-            }
-        });
+            },
+            item =>
+            {
+                ResourcePageViewModel? viewModel = Items.FirstOrDefault(p => p.Reference.Id == item.Id);
+                viewModel?.Update(item);
+            })
+            .DisposeWith(_disposables);
     }
 
     ~PackageSettingsPageViewModel()
@@ -391,11 +346,7 @@ public sealed class PackageSettingsPageViewModel : IDisposable
 
     public ReactiveProperty<string> ShortDescription { get; } = new();
 
-    public ReactiveProperty<string?> LogoImageId { get; }
-
-    public ReactiveProperty<MemoryStream?> LogoStream { get; }
-
-    public ReactivePropertySlim<bool> LogoNoChanged { get; } = new(true);
+    public ReactiveProperty<ImageLink?> LogoImageLink { get; }
 
     public ReactivePropertySlim<bool> IsLogoLoading { get; } = new(false);
 
@@ -436,8 +387,6 @@ public sealed class PackageSettingsPageViewModel : IDisposable
         Debug.WriteLine($"{GetType().Name} disposed (Count: {_disposables.Count}).");
 
         _disposables.Dispose();
-
-        _listener.StopAsync();
 
         foreach (ResourcePageViewModel item in Items.AsSpan())
         {

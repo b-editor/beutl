@@ -1,7 +1,10 @@
-﻿using System.Reactive.Disposables;
+﻿using System.Globalization;
+using System.Reactive.Disposables;
+using System.Reactive.Linq;
 using System.Reactive.Threading.Tasks;
 
 using BeUtl.Collections;
+using BeUtl.Models.Extensions.Develop;
 using BeUtl.Pages.ExtensionsPages.DevelopPages;
 using BeUtl.Services;
 using BeUtl.ViewModels.ExtensionsPages.DevelopPages;
@@ -10,6 +13,7 @@ using FluentAvalonia.UI.Controls;
 
 using Google.Cloud.Firestore;
 
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.Extensions.DependencyInjection;
 
 using Reactive.Bindings;
@@ -30,17 +34,18 @@ public sealed class DevelopPageViewModel : IDisposable
             DocumentReference? docRef = await _packageController.NewPackage();
             if (docRef != null)
             {
+                PackageLink newItem = await PackageLink.OpenAsync(docRef);
                 lock (_lockObject)
                 {
-                    PackageDetailsPageViewModel? viewModel = Packages.FirstOrDefault(p => p.Reference.Id == docRef.Id);
-                    if (viewModel == null)
+                    PackageDetailsPageViewModel? pkg = Packages.FirstOrDefault(p => p.Reference.Id == docRef.Id);
+                    if (pkg == null)
                     {
-                        viewModel = new PackageDetailsPageViewModel(docRef);
+                        var viewModel = new PackageDetailsPageViewModel(docRef, newItem);
                         Packages.Add(viewModel);
                     }
-
-                    frame.Navigate(typeof(PackageDetailsPage), viewModel);
                 }
+
+                frame.Navigate(typeof(PackageDetailsPage), new PackageDetailsPageViewModel(docRef, newItem));
             }
         });
 
@@ -53,10 +58,10 @@ public sealed class DevelopPageViewModel : IDisposable
                 {
                     lock (_lockObject)
                     {
-                        if (!Packages.Any(p => p.Reference.Id == item.Reference.Id))
+                        if (!Packages.Any(p => p.Reference.Id == item.Id))
                         {
-                            var viewModel = new PackageDetailsPageViewModel(item.Reference);
-                            Packages.Add(viewModel);
+                            var newItem = new PackageDetailsPageViewModel(item.Reference, new PackageLink(item));
+                            Packages.Add(newItem);
                         }
                     }
                 }
@@ -71,10 +76,10 @@ public sealed class DevelopPageViewModel : IDisposable
                     switch (item.ChangeType)
                     {
                         case DocumentChange.Type.Added when item.NewIndex.HasValue:
-                            if (!Packages.Any(p => p.Reference.Id == item.Document.Reference.Id))
+                            if (!Packages.Any(p => p.Reference.Id == item.Document.Id))
                             {
-                                var viewModel = new PackageDetailsPageViewModel(item.Document.Reference);
-                                Packages.Add(viewModel);
+                                var newItem = new PackageDetailsPageViewModel(item.Document.Reference, new PackageLink(item.Document));
+                                Packages.Add(newItem);
                             }
                             break;
                         case DocumentChange.Type.Removed when item.OldIndex.HasValue:

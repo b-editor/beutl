@@ -12,7 +12,7 @@
         <StackPanel Margin="10,8"
                     Spacing="16"
                     Orientation="Horizontal">
-            <Button Content="{CompiledBinding Parent.Name.Value}"
+            <Button Content="{CompiledBinding Parent.Package.Value.Name}"
                     Classes="breadcrumb"
                     Click="NavigatePackageDetailsPage_Click" />
 
