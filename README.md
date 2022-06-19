@@ -30,7 +30,7 @@ BeUtlはクロスプラットフォームで動作する動画編集ソフトウ
 それ以外の用途の場合、[日次ビルド](https://github.com/b-editor/BeUtl/actions/workflows/daily-build.yml)
 からダウンロードしたものを使用してください。
 1. このリポジトリを`--recursive`を付けてクローンします。
-3. Authentification(Email, Google)、Firestore, Storageを有効にしたFirebaseプロジェクトを用意します。
+3. Authentication(Email, Google)、Firestore, Storageを有効にしたFirebaseプロジェクトを用意します。
 4. 環境変数`BEUTL_FIREBASE_KEY`に上のAPIキーを設定します。
 5. `src/BeUtl/Models/Constants.cs`の`FirebaseProjectId`変数の値を変更します。
 6. `src/BeUtl.NetCore`内で`dotnet build`コマンドを実行
