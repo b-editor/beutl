@@ -21,13 +21,14 @@ public sealed class FontConfig : ConfigurationBase
                 && dirsNode is JsonArray dirsArray)
             {
                 string[] array = dirsArray.Select(i => (string?)i).Where(i => i != null).ToArray()!;
+                string[] fontDirs = FontDirectories.ToArray();
 
-                foreach (string item in array.Except(FontDirectories))
+                foreach (string item in array.Except(fontDirs))
                 {
                     FontDirectories.Add(item);
                 }
 
-                foreach (string item in FontDirectories.Except(array))
+                foreach (string item in fontDirs.Except(array))
                 {
                     FontDirectories.Remove(item);
                 }
