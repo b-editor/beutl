@@ -26,6 +26,8 @@ jobs:
 
     - name: Build
       run: dotnet publish ./src/BeUtl/BeUtl.csproj -c Release -r ${{matrix.rid}} --no-self-contained
+      env:
+        BEUTL_FIREBASE_KEY: ${{ secrets.BEUTL_FIREBASE_KEY }}
 
     - name: Save
       uses: actions/upload-artifact@v2
