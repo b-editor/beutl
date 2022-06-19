@@ -96,9 +96,6 @@ public sealed class PackageDetailsPageViewModel : IDisposable
         Debug.WriteLine($"{GetType().Name} disposed (Count: {_disposables.Count}).");
         _disposables.Dispose();
 
-        Settings.Dispose();
-        Releases.Dispose();
-
         GC.SuppressFinalize(this);
     }
 }
