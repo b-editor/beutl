@@ -8,5 +8,6 @@ public record ImageModel(MemoryStream Stream, Bitmap Bitmap, string Name) : IDis
     {
         Stream.Dispose();
         Bitmap.Dispose();
+        GC.SuppressFinalize(this);
     }
 }
