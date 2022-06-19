@@ -49,7 +49,7 @@ public class AccountService
 
         _db = CreateFirestoreDbAuthentication();
         _storage = new FirebaseStorage(
-            "beutl-458eb.appspot.com",
+            $"{Constants.FirebaseProjectId}.appspot.com",
             new FirebaseStorageOptions
             {
                 AuthTokenAsyncFactory = () => FirebaseUI.Instance.Client.User.GetIdTokenAsync(),
