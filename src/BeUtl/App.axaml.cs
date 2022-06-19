@@ -8,6 +8,7 @@ using Avalonia.Markup.Xaml.Styling;
 using Avalonia.Media;
 using Avalonia.Platform;
 using Avalonia.Styling;
+using Avalonia.Threading;
 
 using BeUtl.Configuration;
 using BeUtl.Framework.Service;
@@ -22,7 +23,10 @@ using BeUtl.Views;
 
 using FluentAvalonia.Styling;
 
+using Microsoft.Extensions.DependencyInjection;
+
 using Reactive.Bindings;
+using Reactive.Bindings.Extensions;
 
 namespace BeUtl;
 
@@ -38,49 +42,55 @@ public class App : Application
         PropertyInfo[] colors = colorsType.GetProperties(BindingFlags.Public | BindingFlags.GetProperty | BindingFlags.Static);
         Resources["PaletteColors"] = colors.Select(p => p.GetValue(null)).OfType<Color>().ToArray();
 
-        AvaloniaXamlLoader.Load(this);
-
         GlobalConfiguration config = GlobalConfiguration.Instance;
         config.Restore(GlobalConfiguration.DefaultFilePath);
+
+        AvaloniaXamlLoader.Load(this);
 
         ViewConfig view = config.ViewConfig;
         view.GetObservable(ViewConfig.ThemeProperty).Subscribe(v =>
         {
-            FluentAvaloniaTheme thm = AvaloniaLocator.Current.GetService<FluentAvaloniaTheme>()!;
-            switch (v)
+            Dispatcher.UIThread.InvokeAsync(() =>
             {
-                case ViewConfig.ViewTheme.Light:
-                    thm.RequestedTheme = FluentAvaloniaTheme.LightModeString;
-                    break;
-                case ViewConfig.ViewTheme.Dark:
-                    thm.RequestedTheme = FluentAvaloniaTheme.DarkModeString;
-                    break;
-                case ViewConfig.ViewTheme.HighContrast:
-                    thm.RequestedTheme = FluentAvaloniaTheme.HighContrastModeString;
-                    break;
-                case ViewConfig.ViewTheme.System when OperatingSystem.IsWindows():
-                    // https://github.com/amwx/FluentAvalonia/blob/master/FluentAvalonia/Styling/Core/FluentAvaloniaTheme.cs#L414
-                    //thm.RequestedTheme = null;
-                    break;
-            }
+                FluentAvaloniaTheme thm = AvaloniaLocator.Current.GetService<FluentAvaloniaTheme>()!;
+                switch (v)
+                {
+                    case ViewConfig.ViewTheme.Light:
+                        thm.RequestedTheme = FluentAvaloniaTheme.LightModeString;
+                        break;
+                    case ViewConfig.ViewTheme.Dark:
+                        thm.RequestedTheme = FluentAvaloniaTheme.DarkModeString;
+                        break;
+                    case ViewConfig.ViewTheme.HighContrast:
+                        thm.RequestedTheme = FluentAvaloniaTheme.HighContrastModeString;
+                        break;
+                    case ViewConfig.ViewTheme.System:
+                        thm.PreferSystemTheme = true;
+                        thm.InvalidateThemingFromSystemThemeChanged();
+                        break;
+                }
+            });
         });
 
         view.GetObservable(ViewConfig.UICultureProperty).Subscribe(v =>
         {
-            if (LocalizeService.Instance.IsSupportedCulture(v))
+            Dispatcher.UIThread.InvokeAsync(() =>
             {
-                IStyle? tmp = _cultureStyle;
-                _cultureStyle = new StyleInclude(_baseUri)
+                if (LocalizeService.Instance.IsSupportedCulture(v))
                 {
-                    Source = LocalizeService.Instance.GetUri(v)
-                };
-                Styles.Add(_cultureStyle);
-                if (tmp != null)
-                {
-                    Styles.Remove(tmp);
+                    IStyle? tmp = _cultureStyle;
+                    _cultureStyle = new StyleInclude(_baseUri)
+                    {
+                        Source = LocalizeService.Instance.GetUri(v)
+                    };
+                    Styles.Add(_cultureStyle);
+                    if (tmp != null)
+                    {
+                        Styles.Remove(tmp);
+                    }
+                    CultureInfo.CurrentUICulture = v;
                 }
-                CultureInfo.CurrentUICulture = v;
-            }
+            });
         });
     }
 
@@ -92,6 +102,9 @@ public class App : Application
 
         ServiceLocator.Current
             .BindToSelfSingleton<EditorService>()
+            .BindToSelfSingleton<HttpClient>()
+            .BindToSelf(new AccountService())
+            .Bind<PackageController>().ToLazy(() => new PackageController(ServiceLocator.Current.GetRequiredService<AccountService>()))
             .BindToSelf<IWorkspaceItemContainer>(new WorkspaceItemContainer())
             .BindToSelf<IProjectService>(new ProjectService())
             .BindToSelf<INotificationService>(new NotificationService())

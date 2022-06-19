@@ -1,4 +1,6 @@
-﻿namespace BeUtl.Language;
+﻿using System.Data;
+
+namespace BeUtl.Language;
 
 #pragma warning disable IDE0002
 
@@ -25,6 +27,8 @@ public static partial class StringResources
         public static string Extensions => StringResources.Common.Extensions;
         //S.SettingsPage.Info
         public static string Info => StringResources.Common.Info;
+        //S.SettingsPage.Backup
+        public static string Backup => StringResources.Common.Backup;
 
         //S.SettingsPage.View
         public static IObservable<string> ViewObservable => StringResources.Common.ViewObservable;
@@ -34,6 +38,8 @@ public static partial class StringResources
         public static IObservable<string> ExtensionsObservable => StringResources.Common.ExtensionsObservable;
         //S.SettingsPage.Info
         public static IObservable<string> InfoObservable => StringResources.Common.InfoObservable;
+        //S.SettingsPage.Backup
+        public static IObservable<string> BackupObservable => StringResources.Common.BackupObservable;
     }
 
     public static class FontSettingsPage
@@ -84,6 +90,8 @@ public static partial class StringResources
         public static string HighContrast => StringResources.Common.HighContrast;
         //S.ViewSettingsPage.Theme.System
         public static string System => StringResources.Common.FollowSystem;
+        //S.ViewSettingsPage.Theme.MicaEffect
+        public static string MicaEffect => "S.ViewSettingsPage.MicaEffect".GetStringResource("Mica Effect");
         //S.ViewSettingsPage.Language
         public static string Language => StringResources.Common.Language;
 
@@ -102,6 +110,9 @@ public static partial class StringResources
         public static IObservable<string> SystemObservable => StringResources.Common.FollowSystemObservable;
         //S.ViewSettingsPage.Language
         public static IObservable<string> LanguageObservable => StringResources.Common.LanguageObservable;
+        //S.ViewSettingsPage.MicaEffect
+        private static IObservable<string>? s_micaEffect;
+        public static IObservable<string> MicaEffectObservable => s_micaEffect ??= "S.ViewSettingsPage.MicaEffect".GetStringObservable(StringResources.ViewSettingsPage.MicaEffect);
     }
 
     public static class ExtensionsSettingsPage
@@ -168,6 +179,212 @@ public static partial class StringResources
                 //S.ExtensionsSettingsPage.EditorExtensionPriority.Dialog1.Cancel
                 public static IObservable<string> CancelObservable => StringResources.Common.CancelObservable;
             }
+        }
+    }
+
+    public static class AccountSettingsPage
+    {
+        //S.AccountSettingsPage.SignOut
+        public static string SignOut => "S.AccountSettingsPage.SignOut".GetStringResource("Sign out");
+        //S.AccountSettingsPage.ChangeDisplayName
+        public static string ChangeDisplayName => "S.AccountSettingsPage.ChangeDisplayName".GetStringResource("Change display name");
+        //S.AccountSettingsPage.Change
+        public static string Change => "S.AccountSettingsPage.Change".GetStringResource("Change");
+        //S.AccountSettingsPage.DeleteAccount
+        public static string DeleteAccount => "S.AccountSettingsPage.DeleteAccount".GetStringResource("Delete account");
+        //S.AccountSettingsPage.ChangePassword
+        public static string ChangePassword => "S.AccountSettingsPage.ChangePassword".GetStringResource("Change password");
+        //S.AccountSettingsPage.NewPassword
+        public static string NewPassword => "S.AccountSettingsPage.NewPassword".GetStringResource("New password");
+        //S.AccountSettingsPage.YourEmailAddressHasBeenVerified
+        public static string YourEmailAddressHasBeenVerified => "S.AccountSettingsPage.YourEmailAddressHasBeenVerified".GetStringResource("Your email address has been verified.");
+        //S.AccountSettingsPage.WithGoogle
+        public static string WithGoogle => "S.AccountSettingsPage.WithGoogle".GetStringResource("With Google.");
+        //S.AccountSettingsPage.WithPassword
+        public static string WithPassword => "S.AccountSettingsPage.WithPassword".GetStringResource("With Password.");
+        //S.AccountSettingsPage.UnlinkFromGoogle
+        public static string UnlinkFromGoogle => "S.AccountSettingsPage.UnlinkFromGoogle".GetStringResource("Unlink from Google");
+        //S.AccountSettingsPage.UnlinkFromGoogleBody
+        public static string UnlinkFromGoogleBody => "S.AccountSettingsPage.UnlinkFromGoogleBody".GetStringResource("Unlink from Google.\nIf you perform this operation, you will not be able to sign in using your Google account.\nDo you want to remove the linkage?");
+        //S.AccountSettingsPage.LinkWithGoogle
+        public static string LinkWithGoogle => "S.AccountSettingsPage.LinkWithGoogle".GetStringResource("Link with Google");
+
+        //S.AccountSettingsPage.SignOut
+        private static IObservable<string>? s_signOut;
+        public static IObservable<string> SignOutObservable => s_signOut ??= "S.AccountSettingsPage.SignOut".GetStringObservable(StringResources.AccountSettingsPage.SignOut);
+        //S.AccountSettingsPage.ChangeDisplayName
+        private static IObservable<string>? s_changeDisplayName;
+        public static IObservable<string> ChangeDisplayNameObservable => s_changeDisplayName ??= "S.AccountSettingsPage.ChangeDisplayName".GetStringObservable(StringResources.AccountSettingsPage.ChangeDisplayName);
+        //S.AccountSettingsPage.Change
+        private static IObservable<string>? s_change;
+        public static IObservable<string> ChangeObservable => s_change ??= "S.AccountSettingsPage.Change".GetStringObservable(StringResources.AccountSettingsPage.Change);
+        //S.AccountSettingsPage.DeleteAccount
+        private static IObservable<string>? s_deleteAccount;
+        public static IObservable<string> DeleteAccountObservable => s_deleteAccount ??= "S.AccountSettingsPage.DeleteAccount".GetStringObservable(StringResources.AccountSettingsPage.DeleteAccount);
+        //S.AccountSettingsPage.ChangePassword
+        private static IObservable<string>? s_changePassword;
+        public static IObservable<string> ChangePasswordObservable => s_changePassword ??= "S.AccountSettingsPage.ChangePassword".GetStringObservable(StringResources.AccountSettingsPage.ChangePassword);
+        //S.AccountSettingsPage.NewPassword
+        private static IObservable<string>? s_newPassword;
+        public static IObservable<string> NewPasswordObservable => s_newPassword ??= "S.AccountSettingsPage.NewPassword".GetStringObservable(StringResources.AccountSettingsPage.NewPassword);
+        //S.AccountSettingsPage.YourEmailAddressHasBeenVerified
+        private static IObservable<string>? s_yourEmailAddressHasBeenVerified;
+        public static IObservable<string> YourEmailAddressHasBeenVerifiedObservable => s_yourEmailAddressHasBeenVerified ??= "S.AccountSettingsPage.YourEmailAddressHasBeenVerified".GetStringObservable(StringResources.AccountSettingsPage.YourEmailAddressHasBeenVerified);
+        //S.AccountSettingsPage.WithGoogle
+        private static IObservable<string>? s_withGoogle;
+        public static IObservable<string> WithGoogleObservable => s_withGoogle ??= "S.AccountSettingsPage.WithGoogle".GetStringObservable(StringResources.AccountSettingsPage.WithGoogle);
+        //S.AccountSettingsPage.WithPassword
+        private static IObservable<string>? s_withPassword;
+        public static IObservable<string> WithPasswordObservable => s_withPassword ??= "S.AccountSettingsPage.WithPassword".GetStringObservable(StringResources.AccountSettingsPage.WithPassword);
+        //S.AccountSettingsPage.UnlinkFromGoogle
+        private static IObservable<string>? s_unlinkFromGoogle;
+        public static IObservable<string> UnlinkFromGoogleObservable => s_unlinkFromGoogle ??= "S.AccountSettingsPage.UnlinkFromGoogle".GetStringObservable(StringResources.AccountSettingsPage.UnlinkFromGoogle);
+        //S.AccountSettingsPage.UnlinkFromGoogleBody
+        private static IObservable<string>? s_unlinkFromGoogleBody;
+        public static IObservable<string> UnlinkFromGoogleBodyObservable => s_unlinkFromGoogleBody ??= "S.AccountSettingsPage.UnlinkFromGoogleBody".GetStringObservable(StringResources.AccountSettingsPage.UnlinkFromGoogleBody);
+        //S.AccountSettingsPage.LinkWithGoogle
+        private static IObservable<string>? s_linkWithGoogle;
+        public static IObservable<string> LinkWithGoogleObservable => s_linkWithGoogle ??= "S.AccountSettingsPage.LinkWithGoogle".GetStringObservable(StringResources.AccountSettingsPage.LinkWithGoogle);
+
+        public static class Dialog1
+        {
+            //S.AccountSettingsPage.Dialog1.Title
+            public static string Title => "S.AccountSettingsPage.Dialog1.Title".GetStringResource("Do you want to delete your account?");
+            //S.AccountSettingsPage.Dialog1.Content
+            public static string Content => "S.AccountSettingsPage.Dialog1.Content".GetStringResource("Delete the '{0}' account.\nThis operation cannot be undone.\n");
+            //S.AccountSettingsPage.Dialog1.Yes
+            public static string Yes => StringResources.Common.Yes;
+            //S.AccountSettingsPage.Dialog1.No
+            public static string No => StringResources.Common.No;
+
+            //S.AccountSettingsPage.Dialog1.Title
+            private static IObservable<string>? s_title;
+            public static IObservable<string> TitleObservable => s_title ??= "S.AccountSettingsPage.Dialog1.Title".GetStringObservable(StringResources.AccountSettingsPage.Dialog1.Title);
+            //S.AccountSettingsPage.Dialog1.Content
+            private static IObservable<string>? s_content;
+            public static IObservable<string> ContentObservable => s_content ??= "S.AccountSettingsPage.Dialog1.Content".GetStringObservable(StringResources.AccountSettingsPage.Dialog1.Content);
+            //S.AccountSettingsPage.Dialog1.Yes
+            public static IObservable<string> YesObservable => StringResources.Common.YesObservable;
+            //S.AccountSettingsPage.Dialog1.No
+            public static IObservable<string> NoObservable => StringResources.Common.NoObservable;
+        }
+    }
+
+    public static class BackupSettingsPage
+    {
+        //S.BackupSettingsPage.BackupSettings
+        public static string BackupSettings => "S.BackupSettingsPage.BackupSettings".GetStringResource("Back up settings");
+
+        //S.BackupSettingsPage.BackupSettings
+        private static IObservable<string>? s_backupSettings;
+        public static IObservable<string> BackupSettingsObservable => s_backupSettings ??= "S.BackupSettingsPage.BackupSettings".GetStringObservable(StringResources.BackupSettingsPage.BackupSettings);
+    }
+
+    public static class DevelopPage
+    {
+        public static class DeletePackage
+        {
+            //S.DevelopPage.DeletePackage.Title
+            public static string Title => "S.DevelopPage.DeletePackage.Title".GetStringResource("Delete package");
+            //S.DevelopPage.DeletePackage.Content
+            public static string Content => "S.DevelopPage.DeletePackage.Content".GetStringResource("Are you sure you want to delete the package?\nIf you do this, you will never be able to access this package again.\n");
+
+            //S.DevelopPage.DeletePackage.Title
+            private static IObservable<string>? s_title;
+            public static IObservable<string> TitleObservable => s_title ??= "S.DevelopPage.DeletePackage.Title".GetStringObservable(StringResources.DevelopPage.DeletePackage.Title);
+            //S.DevelopPage.DeletePackage.Content
+            private static IObservable<string>? s_content;
+            public static IObservable<string> ContentObservable => s_content ??= "S.DevelopPage.DeletePackage.Content".GetStringObservable(StringResources.DevelopPage.DeletePackage.Content);
+        }
+
+        public static class DeleteRelease
+        {
+            //S.DevelopPage.DeleteRelease.Title
+            public static string Title => "S.DevelopPage.DeleteRelease.Title".GetStringResource("Delete release");
+            //S.DevelopPage.DeleteRelease.Content
+            public static string Content => "S.DevelopPage.DeleteRelease.Content".GetStringResource("Are you sure you want to delete the release?\nIf you do this, you will never be able to access this release again.\n");
+
+            //S.DevelopPage.DeleteRelease.Title
+            private static IObservable<string>? s_title;
+            public static IObservable<string> TitleObservable => s_title ??= "S.DevelopPage.DeleteRelease.Title".GetStringObservable(StringResources.DevelopPage.DeleteRelease.Title);
+            //S.DevelopPage.DeleteRelease.Content
+            private static IObservable<string>? s_content;
+            public static IObservable<string> ContentObservable => s_content ??= "S.DevelopPage.DeleteRelease.Content".GetStringObservable(StringResources.DevelopPage.DeleteRelease.Content);
+        }
+
+        public static class DeleteResource
+        {
+            //S.DevelopPage.DeleteResource.Title
+            public static string Title => "S.DevelopPage.DeleteResource.Title".GetStringResource("Delete resource");
+            //S.DevelopPage.DeleteResource.Content
+            public static string Content => "S.DevelopPage.DeleteResource.Content".GetStringResource("Are you sure you want to delete the resource?");
+
+            //S.DevelopPage.DeleteResource.Title
+            private static IObservable<string>? s_title;
+            public static IObservable<string> TitleObservable => s_title ??= "S.DevelopPage.DeleteResource.Title".GetStringObservable(StringResources.DevelopPage.DeleteResource.Title);
+            //S.DevelopPage.DeleteResource.Content
+            private static IObservable<string>? s_content;
+            public static IObservable<string> ContentObservable => s_content ??= "S.DevelopPage.DeleteResource.Content".GetStringObservable(StringResources.DevelopPage.DeleteResource.Content);
+        }
+
+        public static class MakePublicPackage
+        {
+            //S.DevelopPage.MakePublicPackage.Title
+            public static string Title => "S.DevelopPage.MakePublicPackage.Title".GetStringResource("Publish package");
+            //S.DevelopPage.MakePublicPackage.Content
+            public static string Content => "S.DevelopPage.MakePublicPackage.Content".GetStringResource("Are you sure you want to publish this package?\nDoing so will allow others to download this package.\n");
+
+            //S.DevelopPage.MakePublicPackage.Title
+            private static IObservable<string>? s_title;
+            public static IObservable<string> TitleObservable => s_title ??= "S.DevelopPage.MakePublicPackage.Title".GetStringObservable(StringResources.DevelopPage.MakePublicPackage.Title);
+            //S.DevelopPage.MakePublicPackage.Content
+            private static IObservable<string>? s_content;
+            public static IObservable<string> ContentObservable => s_content ??= "S.DevelopPage.MakePublicPackage.Content".GetStringObservable(StringResources.DevelopPage.MakePublicPackage.Content);
+        }
+
+        public static class MakePrivatePackage
+        {
+            //S.DevelopPage.MakePrivatePackage.Title
+            public static string Title => "S.DevelopPage.MakePrivatePackage.Title".GetStringResource("Make the package private");
+            //S.DevelopPage.MakePrivatePackage.Content
+            public static string Content => "S.DevelopPage.MakePrivatePackage.Content".GetStringResource("Are you sure you want to keep this package private?\nDoing so will prevent others from downloading this package.\n");
+
+            //S.DevelopPage.MakePrivatePackage.Title
+            private static IObservable<string>? s_title;
+            public static IObservable<string> TitleObservable => s_title ??= "S.DevelopPage.MakePrivatePackage.Title".GetStringObservable(StringResources.DevelopPage.MakePrivatePackage.Title);
+            //S.DevelopPage.MakePrivatePackage.Content
+            private static IObservable<string>? s_content;
+            public static IObservable<string> ContentObservable => s_content ??= "S.DevelopPage.MakePrivatePackage.Content".GetStringObservable(StringResources.DevelopPage.MakePrivatePackage.Content);
+        }
+
+        public static class MakePublicRelease
+        {
+            //S.DevelopPage.MakePublicRelease.Title
+            public static string Title => "S.DevelopPage.MakePublicRelease.Title".GetStringResource("Publish release");
+            //S.DevelopPage.MakePublicRelease.Content
+            public static string Content => "S.DevelopPage.MakePublicRelease.Content".GetStringResource("Are you sure you want to publish this release?\nDoing so will allow others to download this release.\n");
+
+            //S.DevelopPage.MakePublicRelease.Title
+            private static IObservable<string>? s_title;
+            public static IObservable<string> TitleObservable => s_title ??= "S.DevelopPage.MakePublicRelease.Title".GetStringObservable(StringResources.DevelopPage.MakePublicPackage.Title);
+            //S.DevelopPage.MakePublicRelease.Content
+            private static IObservable<string>? s_content;
+            public static IObservable<string> ContentObservable => s_content ??= "S.DevelopPage.MakePublicRelease.Content".GetStringObservable(StringResources.DevelopPage.MakePublicPackage.Content);
+        }
+
+        public static class MakePrivateRelease
+        {
+            //S.DevelopPage.MakePrivateRelease.Title
+            public static string Title => "S.DevelopPage.MakePrivateRelease.Title".GetStringResource("Make the release private");
+            //S.DevelopPage.MakePrivateRelease.Content
+            public static string Content => "S.DevelopPage.MakePrivateRelease.Content".GetStringResource("Are you sure you want to keep this release private?\nDoing so will prevent others from downloading this release.\n");
+
+            //S.DevelopPage.MakePrivateRelease.Title
+            private static IObservable<string>? s_title;
+            public static IObservable<string> TitleObservable => s_title ??= "S.DevelopPage.MakePrivateRelease.Title".GetStringObservable(StringResources.DevelopPage.MakePrivatePackage.Title);
+            //S.DevelopPage.MakePrivateRelease.Content
+            private static IObservable<string>? s_content;
+            public static IObservable<string> ContentObservable => s_content ??= "S.DevelopPage.MakePrivateRelease.Content".GetStringObservable(StringResources.DevelopPage.MakePrivatePackage.Content);
         }
     }
 }

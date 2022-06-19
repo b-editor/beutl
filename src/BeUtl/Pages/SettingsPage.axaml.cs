@@ -1,4 +1,4 @@
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Media;
@@ -33,6 +33,15 @@ public partial class SettingsPage : UserControl
         {
             new NavigationViewItem()
             {
+                [!ContentProperty] = new DynamicResourceExtension("S.SettingsPage.Account"),
+                Tag = typeof(AccountSettingsPage),
+                Icon = new SymbolIcon
+                {
+                    Symbol = Symbol.People
+                }
+            },
+            new NavigationViewItem()
+            {
                 [!ContentProperty] = new DynamicResourceExtension("S.SettingsPage.View"),
                 Tag = typeof(ViewSettingsPage),
                 Icon = new SymbolIcon
@@ -56,6 +65,15 @@ public partial class SettingsPage : UserControl
                 Icon = new FluentAvalonia.UI.Controls.PathIcon
                 {
                     Data = (Geometry)Application.Current!.FindResource("Puzzle_piece_Regular")!
+                }
+            },
+            new NavigationViewItem()
+            {
+                [!ContentProperty] = new DynamicResourceExtension("S.SettingsPage.Backup"),
+                Tag = typeof(BackupSettingsPage),
+                Icon = new SymbolIcon
+                {
+                    Symbol = Symbol.CloudBackup
                 }
             },
             new NavigationViewItem()

@@ -11,7 +11,7 @@
         <StackPanel Orientation="Vertical"
                     VerticalAlignment="Stretch"
                     Margin="10,0"
-                    Spacing="8">
+                    Spacing="4">
             <ctrls:OptionsDisplayItem Header="{DynamicResource S.InfomationPage.Links}"
                                       Icon="Link"
                                       Expands="True">

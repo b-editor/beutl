@@ -1,0 +1,80 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:viewModels="using:BeUtl.ViewModels.ExtensionsPages.DevelopPages"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:ctrls="using:BeUtl.Controls"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:DataType="viewModels:PackageDetailsPageViewModel"
+             x:Class="BeUtl.Pages.ExtensionsPages.DevelopPages.PackageDetailsPage">
+    <UserControl.Styles>
+        <Style Selector="TextBox.customStyle">
+            <Setter Property="MinWidth" Value="250" />
+            <Setter Property="HorizontalAlignment" Value="Left" />
+        </Style>
+        <Style Selector="TextBlock.description">
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+        </Style>
+    </UserControl.Styles>
+
+    <Grid RowDefinitions="*,Auto" ColumnDefinitions="380,*">
+        <ScrollViewer Margin="10,12,0,8">
+            <Border Background="{DynamicResource ControlFillColorDefaultBrush}"
+                    BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    Padding="12"
+                    CornerRadius="{StaticResource ControlCornerRadius}">
+                <StackPanel>
+                    <Border CornerRadius="{StaticResource ControlCornerRadius}"
+                            IsVisible="{CompiledBinding HasLogoImage.Value}"
+                            Width="140"
+                            Margin="0,16,0,0"
+                            Height="140">
+                        <Border.Background>
+                            <ImageBrush Source="{CompiledBinding LocalizedLogoImage.Value}" />
+                        </Border.Background>
+                    </Border>
+
+                    <Label Content="{DynamicResource S.DevelopPage.Package.NoLogoImageAvailable}"
+                           IsVisible="{CompiledBinding !HasLogoImage.Value}"
+                           HorizontalContentAlignment="Center"
+                           VerticalContentAlignment="Center"
+                           Width="140"
+                           Margin="0,16,0,0"
+                           Height="140" />
+
+
+                    <TextBlock HorizontalAlignment="Center"
+                               Margin="0,32"
+                               Classes="SubtitleTextBlockStyle"
+                               Text="{CompiledBinding LocalizedDisplayName.Value}" />
+
+                    <TextBlock HorizontalAlignment="Center"
+                               Text="{CompiledBinding LocalizedDescription.Value}" />
+                </StackPanel>
+            </Border>
+        </ScrollViewer>
+
+        <ScrollViewer Grid.Column="1"
+                      Margin="4,0,10,0">
+            <StackPanel Spacing="4">
+                <Separator Height="8" />
+
+                <ctrls:OptionsDisplayItem Header="{DynamicResource S.DevelopPage.Package.Settings}"
+                                          Icon="Settings"
+                                          Description="{DynamicResource S.DevelopPage.Package.SettingsDescription}"
+                                          Navigates="True"
+                                          NavigationRequested="NavigatePackageSettingsPage_Click" />
+
+                <ctrls:OptionsDisplayItem Header="{DynamicResource S.DevelopPage.Package.Releases}"
+                                          Icon="Document"
+                                          Description="{DynamicResource S.DevelopPage.Package.ReleasesDescription}"
+                                          Navigates="True"
+                                          NavigationRequested="NavigatePackageReleasesPage_Click" />
+            </StackPanel>
+        </ScrollViewer>
+
+    </Grid>
+</UserControl>

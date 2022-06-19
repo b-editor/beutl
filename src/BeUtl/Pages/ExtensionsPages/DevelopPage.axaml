@@ -1,0 +1,82 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:ctrls="using:BeUtl.Controls"
+             xmlns:viewModels="using:BeUtl.ViewModels.ExtensionsPages"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:DataType="viewModels:DevelopPageViewModel"
+             x:Class="BeUtl.Pages.ExtensionsPages.DevelopPage">
+    <UserControl.DataContext>
+        <viewModels:DevelopPageViewModel />
+    </UserControl.DataContext>
+    <ScrollViewer Padding="18">
+        <StackPanel Margin="8" Spacing="8">
+            <TextBlock Text="ショートカット" Classes="SubtitleTextBlockStyle" />
+
+            <ScrollViewer VerticalScrollBarVisibility="Disabled"
+                          HorizontalScrollBarVisibility="Auto">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <ctrls:OptionsDisplayItem
+                        Navigates="True"
+                        NavigationRequested="CreateNewPackage_Click"
+                        Header="パッケージを新規作成"
+                        Description="配布するパッケージを新規作成します">
+                        <ctrls:OptionsDisplayItem.Icon>
+                            <ui:SymbolIcon Symbol="New" />
+                        </ctrls:OptionsDisplayItem.Icon>
+                    </ctrls:OptionsDisplayItem>
+
+                    <ctrls:OptionsDisplayItem
+                        Header="ドキュメント"
+                        Description="開発者向けのドキュメント">
+                        <ctrls:OptionsDisplayItem.Icon>
+                            <ui:SymbolIcon Symbol="Document" />
+                        </ctrls:OptionsDisplayItem.Icon>
+                    </ctrls:OptionsDisplayItem>
+                </StackPanel>
+            </ScrollViewer>
+
+            <Separator Height="8" />
+            <TextBlock Text="パッケージ" Classes="SubtitleTextBlockStyle" />
+
+            <ListBox Items="{CompiledBinding Packages}"
+                     SelectionMode="Multiple"
+                     x:Name="PackagesList">
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <Grid ColumnDefinitions="Auto,16,*,Auto">
+                            <ui:PathIcon IsVisible="{CompiledBinding Package.Value.IsVisible}" Data="{StaticResource Eye_Show_Regular}" />
+                            <ui:PathIcon IsVisible="{CompiledBinding !Package.Value.IsVisible}" Data="{StaticResource Eye_Hide_Regular}" />
+
+                            <StackPanel Spacing="4"
+                                        VerticalAlignment="Center"
+                                        Grid.Column="2">
+                                <TextBlock Text="{CompiledBinding Package.Value.Name}" />
+
+                                <TextBlock Text="{CompiledBinding LocalizedDisplayName.Value}">
+                                    <TextBlock.Styles>
+                                        <Style Selector="TextBlock">
+                                            <Setter Property="FontFamily" Value="XamlAutoFontFamily" />
+                                            <Setter Property="FontSize" Value="16" />
+                                            <Setter Property="FontWeight" Value="SemiBold" />
+                                            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+                                            <Setter Property="TextWrapping" Value="Wrap" />
+                                        </Style>
+                                    </TextBlock.Styles>
+                                </TextBlock>
+                            </StackPanel>
+
+                            <ui:CommandBarButton Label="編集"
+                                                 Grid.Column="3"
+                                                 Click="Edit_Click"
+                                                 Icon="Edit" />
+                        </Grid>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

@@ -1,4 +1,4 @@
-﻿<Styles xmlns="https://github.com/avaloniaui"
+<Styles xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <Styles.Resources>
         <!--Strings-->
@@ -11,5 +11,6 @@
         </x:String>
         <x:String x:Key="S.Warning.FileDoesNotExist">ファイルが存在しません。</x:String>
         <x:String x:Key="S.Warning.CouldNotOpenProject">プロジェクトを開けませんでした。</x:String>
+        <x:String x:Key="S.Warning.NameCannotBeLeftBlank">名前は空白にできません</x:String>
     </Styles.Resources>
 </Styles>

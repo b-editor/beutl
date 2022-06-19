@@ -29,6 +29,8 @@ public sealed class GlobalConfiguration
     public ViewConfig ViewConfig { get; } = new();
 
     public ExtensionConfig ExtensionConfig { get; } = new();
+    
+    public BackupConfig BackupConfig { get; } = new();
 
     public void Save(string file)
     {
@@ -52,6 +54,10 @@ public sealed class GlobalConfiguration
             JsonNode extensionNode = new JsonObject();
             ExtensionConfig.WriteToJson(ref extensionNode);
             _json["extension"] = extensionNode;
+            
+            JsonNode backupNode = new JsonObject();
+            BackupConfig.WriteToJson(ref backupNode);
+            _json["backup"] = backupNode;
 
             _json.JsonSave(file);
         }
@@ -71,6 +77,7 @@ public sealed class GlobalConfiguration
                 FontConfig.ReadFromJson(json["font"]!);
                 ViewConfig.ReadFromJson(json["view"]!);
                 ExtensionConfig.ReadFromJson(json["extension"]!);
+                BackupConfig.ReadFromJson(json["backup"]!);
 
                 _json = json;
             }

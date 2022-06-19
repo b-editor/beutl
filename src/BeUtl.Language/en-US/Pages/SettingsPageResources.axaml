@@ -1,11 +1,13 @@
-﻿<Styles xmlns="https://github.com/avaloniaui"
+<Styles xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <Styles.Resources>
         <!--Strings-->
+        <StaticResource x:Key="S.SettingsPage.Account" ResourceKey="S.Common.Account" />
         <StaticResource x:Key="S.SettingsPage.View" ResourceKey="S.Common.View" />
         <StaticResource x:Key="S.SettingsPage.Font" ResourceKey="S.Common.Font" />
         <StaticResource x:Key="S.SettingsPage.Extensions" ResourceKey="S.Common.Extensions" />
         <StaticResource x:Key="S.SettingsPage.Info" ResourceKey="S.Common.Info" />
+        <StaticResource x:Key="S.SettingsPage.Backup" ResourceKey="S.Common.Backup" />
 
         <StaticResource x:Key="S.FontSettingsPage.Add" ResourceKey="S.Common.Add" />
         <StaticResource x:Key="S.FontSettingsPage.Remove" ResourceKey="S.Common.Remove" />
@@ -21,6 +23,7 @@
         <StaticResource x:Key="S.ViewSettingsPage.Theme.Dark" ResourceKey="S.Common.Dark" />
         <StaticResource x:Key="S.ViewSettingsPage.Theme.HighContrast" ResourceKey="S.Common.HighContrast" />
         <StaticResource x:Key="S.ViewSettingsPage.Theme.System" ResourceKey="S.Common.FollowSystem" />
+        <x:String x:Key="S.ViewSettingsPage.MicaEffect">Mica Effect</x:String>
         <StaticResource x:Key="S.ViewSettingsPage.Language" ResourceKey="S.Common.Language" />
 
         <x:String x:Key="S.ExtensionsSettingsPage.EditorExtensionPriority">Editor Extension Priority</x:String>
@@ -34,5 +37,31 @@
         <x:String x:Key="S.ExtensionsSettingsPage.EditorExtensionPriority.Dialog1.Title">Add file extension</x:String>
         <StaticResource x:Key="S.ExtensionsSettingsPage.EditorExtensionPriority.Dialog1.Add" ResourceKey="S.Common.Add" />
         <StaticResource x:Key="S.ExtensionsSettingsPage.EditorExtensionPriority.Dialog1.Cancel" ResourceKey="S.Common.Cancel" />
+
+        <x:String x:Key="S.AccountSettingsPage.SignOut">Sign out</x:String>
+        <x:String x:Key="S.AccountSettingsPage.ChangeDisplayName">Change display name</x:String>
+        <x:String x:Key="S.AccountSettingsPage.Change">Change</x:String>
+        <x:String x:Key="S.AccountSettingsPage.DeleteAccount">Delete account</x:String>
+        <x:String x:Key="S.AccountSettingsPage.ChangePassword">Change password</x:String>
+        <x:String x:Key="S.AccountSettingsPage.NewPassword">New password</x:String>
+        <x:String x:Key="S.AccountSettingsPage.YourEmailAddressHasBeenVerified">Your email address has been verified.</x:String>
+        <x:String x:Key="S.AccountSettingsPage.Dialog1.Title">Do you want to delete your account?</x:String>
+        <x:String x:Key="S.AccountSettingsPage.Dialog1.Content">
+Delete the '{0}' account.
+This operation cannot be undone.
+        </x:String>
+        <StaticResource x:Key="S.AccountSettingsPage.Dialog1.Yes" ResourceKey="S.Common.Yes" />
+        <StaticResource x:Key="S.AccountSettingsPage.Dialog1.No" ResourceKey="S.Common.No" />
+        <x:String x:Key="S.AccountSettingsPage.WithGoogle">With Google.</x:String>
+        <x:String x:Key="S.AccountSettingsPage.WithPassword">With Password.</x:String>
+        <x:String x:Key="S.AccountSettingsPage.UnlinkFromGoogle">Unlink from Google</x:String>
+        <x:String x:Key="S.AccountSettingsPage.UnlinkFromGoogleBody">
+Unlink from Google.
+If you perform this operation, you will not be able to sign in using your Google account.
+Do you want to remove the linkage?
+        </x:String>
+        <x:String x:Key="S.AccountSettingsPage.LinkWithGoogle">Link with Google</x:String>
+
+        <x:String x:Key="S.BackupSettingsPage.BackupSettings">Back up settings</x:String>
     </Styles.Resources>
 </Styles>

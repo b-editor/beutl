@@ -5,8 +5,11 @@
 public static partial class StringResources
 {
     public static class Common
-    {//S.Common.File
+    {
+        //S.Common.File
         public static string File => "S.Common.File".GetStringResource("File");
+        //S.Common.Create
+        public static string Create => "S.Common.Create".GetStringResource("CreateNew");
         //S.Common.CreateNew
         public static string CreateNew => "S.Common.CreateNew".GetStringResource("Create New");
         //S.Common.CreateNewProject
@@ -225,10 +228,19 @@ public static partial class StringResources
         public static string Yes => "S.Common.Yes".GetStringResource("Yes");
         //S.Common.No
         public static string No => "S.Common.No".GetStringResource("No");
+        //S.Common.Account
+        public static string Account => "S.Common.Account".GetStringResource("Account");
+        //S.Common.Password
+        public static string Password => "S.Common.Password".GetStringResource("Password");
+        //S.Common.Backup
+        public static string Backup => "S.Common.Backup".GetStringResource("Backup");
 
         //S.Common.File
         private static IObservable<string>? s_file;
         public static IObservable<string> FileObservable => s_file ??= "S.Common.File".GetStringObservable(StringResources.Common.File);
+        //S.Common.Create
+        private static IObservable<string>? s_create;
+        public static IObservable<string> CreateObservable => s_create ??= "S.Common.Create".GetStringObservable(StringResources.Common.Create);
         //S.Common.CreateNew
         private static IObservable<string>? s_createNew;
         public static IObservable<string> CreateNewObservable => s_createNew ??= "S.Common.CreateNew".GetStringObservable(StringResources.Common.CreateNew);
@@ -556,5 +568,14 @@ public static partial class StringResources
         //S.Common.No
         private static IObservable<string>? s_no;
         public static IObservable<string> NoObservable => s_no ??= "S.Common.No".GetStringObservable(StringResources.Common.No);
+        //S.Common.Account
+        private static IObservable<string>? s_account;
+        public static IObservable<string> AccountObservable => s_account ??= "S.Common.Account".GetStringObservable(StringResources.Common.Account);
+        //S.Common.Password
+        private static IObservable<string>? s_password;
+        public static IObservable<string> PasswordObservable => s_password ??= "S.Common.Password".GetStringObservable(StringResources.Common.Password);
+        //S.Common.Backup
+        private static IObservable<string>? s_backup;
+        public static IObservable<string> BackupObservable => s_backup ??= "S.Common.Backup".GetStringObservable(StringResources.Common.Backup);
     }
 }

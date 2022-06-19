@@ -10,7 +10,7 @@
     <UserControl.DataContext>
         <vm:FontSettingsPageViewModel/>
     </UserControl.DataContext>
-    <StackPanel>
+    <StackPanel Margin="10,0">
         <ui:CommandBar DefaultLabelPosition="Right">
             <ui:CommandBar.PrimaryCommands>
                 <ui:CommandBarButton Icon="Add"

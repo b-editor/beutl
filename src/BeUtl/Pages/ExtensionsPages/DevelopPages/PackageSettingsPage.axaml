@@ -1,0 +1,309 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:viewModels="using:BeUtl.ViewModels.ExtensionsPages.DevelopPages"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:ctrls="using:BeUtl.Controls"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Name="root"
+             x:DataType="viewModels:PackageSettingsPageViewModel"
+             x:Class="BeUtl.Pages.ExtensionsPages.DevelopPages.PackageSettingsPage">
+    <UserControl.Styles>
+        <Style Selector="TextBox.customStyle">
+            <Setter Property="MinWidth" Value="250" />
+            <Setter Property="HorizontalAlignment" Value="Left" />
+        </Style>
+        <Style Selector="TextBlock.description">
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+        </Style>
+    </UserControl.Styles>
+
+    <Grid RowDefinitions="Auto,*,Auto">
+        <StackPanel Margin="10,8"
+                           Spacing="16"
+                           Orientation="Horizontal">
+            <Button Content="{CompiledBinding Parent.Package.Value.Name}"
+                    Classes="breadcrumb"
+                    Click="NavigatePackageDetailsPage_Click" />
+
+            <Label Classes="breadcrumb" />
+
+            <TextBlock Text="{DynamicResource S.Common.Settings}"
+                       Classes="breadcrumb" />
+        </StackPanel>
+
+        <ScrollViewer Grid.Row="1" Margin="10,0">
+            <StackPanel Spacing="4">
+                <TextBlock Classes="BodyStrongTextBlockStyle"
+                           Margin="0,16,0,0"
+                           Text="{DynamicResource S.DevelopPage.Package.Resource}" />
+
+                <ctrls:OptionsDisplayItem Header="{DynamicResource S.DevelopPage.Package.Fields.Name}"
+                                          Description="{DynamicResource S.DevelopPage.Package.Fields.NameDescription}"
+                                          Expands="True">
+                    <ctrls:OptionsDisplayItem.ActionButton>
+                        <TextBlock Text="{CompiledBinding Parent.Package.Value.Name}"
+                                   Classes="description" />
+                    </ctrls:OptionsDisplayItem.ActionButton>
+                    <ctrls:OptionsDisplayItem.Content>
+                        <TextBox Text="{CompiledBinding Name.Value}"
+                                 Classes="customStyle" />
+                    </ctrls:OptionsDisplayItem.Content>
+                </ctrls:OptionsDisplayItem>
+
+                <TextBlock Margin="0,8,0,0"
+                           FontStyle="Italic"
+                           Classes="BodyStrongTextBlockStyle"
+                           Text="{DynamicResource S.DevelopPage.Package.BaseResourceDescription}" />
+
+                <ctrls:OptionsDisplayItem Header="{DynamicResource S.DevelopPage.Package.Fields.DisplayName}"
+                                          Description="{DynamicResource S.DevelopPage.Package.Fields.DisplayNameDescription}"
+                                          Expands="True">
+                    <ctrls:OptionsDisplayItem.ActionButton>
+                        <TextBlock Text="{CompiledBinding Parent.Package.Value.DisplayName}"
+                                   Classes="description" />
+                    </ctrls:OptionsDisplayItem.ActionButton>
+                    <ctrls:OptionsDisplayItem.Content>
+                        <TextBox Text="{CompiledBinding DisplayName.Value}"
+                                 Classes="customStyle" />
+                    </ctrls:OptionsDisplayItem.Content>
+                </ctrls:OptionsDisplayItem>
+
+                <ctrls:OptionsDisplayItem Header="{DynamicResource S.DevelopPage.Package.Fields.Description}"
+                                          Description="{DynamicResource S.DevelopPage.Package.Fields.DescriptionDescription}"
+                                          Expands="True">
+                    <ctrls:OptionsDisplayItem.ActionButton>
+                        <TextBlock Text="{CompiledBinding Parent.Package.Value.Description}"
+                                   MaxWidth="150"
+                                   TextTrimming="CharacterEllipsis"
+                                   Classes="description" />
+                    </ctrls:OptionsDisplayItem.ActionButton>
+                    <ctrls:OptionsDisplayItem.Content>
+                        <TextBox Text="{CompiledBinding Description.Value}"
+                                 AcceptsReturn="True"
+                                 Classes="customStyle" />
+                    </ctrls:OptionsDisplayItem.Content>
+                </ctrls:OptionsDisplayItem>
+
+                <ctrls:OptionsDisplayItem Header="{DynamicResource S.DevelopPage.Package.Fields.ShortDescription}"
+                                          Description="{DynamicResource S.DevelopPage.Package.Fields.ShortDescriptionDescription}"
+                                          Expands="True">
+                    <ctrls:OptionsDisplayItem.ActionButton>
+                        <TextBlock Text="{CompiledBinding Parent.Package.Value.ShortDescription}"
+                                   MaxWidth="150"
+                                   TextTrimming="CharacterEllipsis"
+                                   Classes="description" />
+                    </ctrls:OptionsDisplayItem.ActionButton>
+                    <ctrls:OptionsDisplayItem.Content>
+                        <TextBox Text="{CompiledBinding ShortDescription.Value}"
+                                 Classes="customStyle" />
+                    </ctrls:OptionsDisplayItem.Content>
+                </ctrls:OptionsDisplayItem>
+
+                <ctrls:OptionsDisplayItem Header="{DynamicResource S.DevelopPage.Package.Fields.LogoImage}"
+                                          Description="{DynamicResource S.DevelopPage.Package.Fields.LogoImageDescription}"
+                                          Expands="True">
+                    <ctrls:OptionsDisplayItem.ActionButton>
+                        <Button Content="{DynamicResource S.Common.Open}" Click="OpenLogoFile_Click" />
+                    </ctrls:OptionsDisplayItem.ActionButton>
+                    <ctrls:OptionsDisplayItem.Content>
+                        <StackPanel Spacing="16">
+                            <Image Source="{CompiledBinding LogoImage.Value}"
+                                   MaxWidth="300" MaxHeight="300"
+                                   HorizontalAlignment="Left" />
+
+                            <ProgressBar IsVisible="{CompiledBinding IsLogoLoading.Value}"
+                                         IsIndeterminate="{CompiledBinding IsLogoLoading.Value}" />
+                        </StackPanel>
+                    </ctrls:OptionsDisplayItem.Content>
+                </ctrls:OptionsDisplayItem>
+
+                <ctrls:OptionsDisplayItem Header="{DynamicResource S.DevelopPage.Package.Fields.Screenshots}"
+                                          Description="{DynamicResource S.DevelopPage.Package.Fields.ScreenshotsDescription}"
+                                          Expands="True">
+                    <ctrls:OptionsDisplayItem.Content>
+                        <Grid RowDefinitions="Auto,*,Auto">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <Button Content="{DynamicResource S.Common.Add}"
+                                        Classes="accent"
+                                        IsEnabled="{CompiledBinding CanAddScreenshot.Value}"
+                                        Click="AddScreenshotFile_Click" />
+                            </StackPanel>
+
+                            <ScrollViewer HorizontalScrollBarVisibility="Visible"
+                                          x:Name="ScreenshotsScrollViewer"
+                                          Margin="0,8,0,0"
+                                          Grid.Row="1"
+                                          VerticalScrollBarVisibility="Disabled">
+                                <ItemsControl Items="{CompiledBinding Screenshots}" Margin="0,0,0,8">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <StackPanel Orientation="Horizontal" Spacing="8" />
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Image Source="{CompiledBinding Bitmap}"
+                                                   MaxHeight="300">
+                                                <Image.ContextMenu>
+                                                    <ContextMenu>
+                                                        <MenuItem Header="{DynamicResource S.Common.Delete}"
+                                                                  CommandParameter="{Binding}"
+                                                                  Command="{Binding #root.DataContext.DeleteScreenshot}">
+                                                            <MenuItem.Icon>
+                                                                <ctrls:FluentIconRegular IconType="Delete" />
+                                                            </MenuItem.Icon>
+                                                        </MenuItem>
+                                                        <MenuItem Header="{DynamicResource S.DevelopPage.Package.MoveOneFront}"
+                                                                  CommandParameter="{Binding}"
+                                                                  Command="{Binding #root.DataContext.MoveScreenshotFront}">
+                                                            <MenuItem.Icon>
+                                                                <ctrls:FluentIconRegular IconType="Arrow_Left" />
+                                                            </MenuItem.Icon>
+                                                        </MenuItem>
+                                                        <MenuItem Header="{DynamicResource S.DevelopPage.Package.MoveOneBack}"
+                                                                  CommandParameter="{Binding}"
+                                                                  Command="{Binding #root.DataContext.MoveScreenshotBack}">
+                                                            <MenuItem.Icon>
+                                                                <ctrls:FluentIconRegular IconType="Arrow_Right" />
+                                                            </MenuItem.Icon>
+                                                        </MenuItem>
+                                                    </ContextMenu>
+                                                </Image.ContextMenu>
+                                            </Image>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+
+                            <ProgressBar Grid.Row="2"
+                                         IsVisible="{CompiledBinding IsScreenshotLoading.Value}"
+                                         IsIndeterminate="{CompiledBinding IsScreenshotLoading.Value}" />
+                        </Grid>
+                    </ctrls:OptionsDisplayItem.Content>
+                </ctrls:OptionsDisplayItem>
+
+                <TextBlock Margin="0,16,0,0"
+                           Classes="BodyStrongTextBlockStyle"
+                           Text="{DynamicResource S.DevelopPage.Package.LocaleSpecificResources}" />
+
+                <ctrls:OptionsDisplayItem Header="{DynamicResource S.DevelopPage.Package.LocaleSpecificResources}"
+                                          Description="{DynamicResource S.DevelopPage.Package.LocaleSpecificResourcesDescription}">
+                    <ctrls:OptionsDisplayItem.ActionButton>
+                        <Button Classes="accent"
+                                Click="AddResource_Click"
+                                Content="{DynamicResource S.Common.Add}" />
+                    </ctrls:OptionsDisplayItem.ActionButton>
+                </ctrls:OptionsDisplayItem>
+
+                <ItemsControl Items="{CompiledBinding Items}" Margin="0,4,0,0">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <StackPanel Spacing="4" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <Border Background="{DynamicResource ControlFillColorDefaultBrush}"
+                                    BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                                    BorderThickness="1"
+                                    Padding="12"
+                                    CornerRadius="{StaticResource ControlCornerRadius}">
+                                <Grid ColumnDefinitions="*,Auto,8,Auto,16">
+
+                                    <StackPanel Grid.Column="0"
+                                                Orientation="Vertical"
+                                                VerticalAlignment="Center">
+                                        <TextBlock Text="{CompiledBinding Resource.Value.Culture.DisplayName}"
+                                                   Classes="BodyStrongTextBlockStyle" />
+
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <TextBlock Text="{CompiledBinding Resource.Value.DisplayName}"
+                                                       IsVisible="{CompiledBinding HasDisplayName.Value}"
+                                                       Classes="CaptionTextBlockStyle" />
+                                            <TextBlock Text="{CompiledBinding Parent.Parent.Package.Value.DisplayName}"
+                                                       IsVisible="{CompiledBinding !HasDisplayName.Value}"
+                                                       Classes="CaptionTextBlockStyle" />
+
+                                            <TextBlock Text="{CompiledBinding Resource.Value.ShortDescription}"
+                                                       MaxLines="1"
+                                                       Classes="CaptionTextBlockStyle"
+                                                       IsVisible="{CompiledBinding HasShortDescription.Value}"
+                                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+
+                                            <TextBlock Text="{CompiledBinding Parent.Parent.Package.Value.ShortDescription}"
+                                                       MaxLines="1"
+                                                       Classes="CaptionTextBlockStyle"
+                                                       IsVisible="{CompiledBinding !HasShortDescription.Value}"
+                                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                        </StackPanel>
+                                    </StackPanel>
+
+                                    <Button Grid.Column="1"
+                                            Padding="11"
+                                            Click="EditResource_Click">
+                                        <ui:SymbolIcon Symbol="Edit" FontSize="16" />
+                                    </Button>
+
+                                    <Button Grid.Column="3"
+                                            Padding="11"
+                                            Click="DeleteResource_Click">
+                                        <ui:SymbolIcon Symbol="Delete" FontSize="16" />
+                                    </Button>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <TextBlock Margin="0,16,0,0"
+                           Classes="BodyStrongTextBlockStyle"
+                           Text="{DynamicResource S.Common.Settings}" />
+
+                <ctrls:OptionsDisplayItem Header="{DynamicResource S.DevelopPage.DeletePackage.Title}"
+                                          Icon="Delete"
+                                          Navigates="True"
+                                          NavigationRequested="DeletePackage_Click" />
+
+                <ctrls:OptionsDisplayItem Header="{DynamicResource S.DevelopPage.MakePublicPackage.Title}"
+                                          IsVisible="{CompiledBinding !Parent.Package.Value.IsVisible}"
+                                          Navigates="True"
+                                          NavigationRequested="MakePublic_Click">
+                    <ctrls:OptionsDisplayItem.Icon>
+                        <ui:PathIcon Data="{StaticResource Eye_Show_Regular}" />
+                    </ctrls:OptionsDisplayItem.Icon>
+                </ctrls:OptionsDisplayItem>
+
+                <ctrls:OptionsDisplayItem Header="{DynamicResource S.DevelopPage.MakePrivatePackage.Title}"
+                                          IsVisible="{CompiledBinding Parent.Package.Value.IsVisible}"
+                                          Navigates="True"
+                                          NavigationRequested="MakePrivate_Click">
+                    <ctrls:OptionsDisplayItem.Icon>
+                        <ui:PathIcon Data="{StaticResource Eye_Hide_Regular}" />
+                    </ctrls:OptionsDisplayItem.Icon>
+                </ctrls:OptionsDisplayItem>
+            </StackPanel>
+        </ScrollViewer>
+
+        <Border Grid.Row="2"
+                Padding="32,24"
+                BorderBrush="{DynamicResource ControlElevationBorderBrush}"
+                BorderThickness="0,1,0,0">
+            <StackPanel HorizontalAlignment="Right"
+                        Spacing="8"
+                        Orientation="Horizontal">
+                <Button Content="{DynamicResource S.DevelopPage.DiscardChanges}"
+                        IsEnabled="{CompiledBinding IsChanging.Value}"
+                        Command="{CompiledBinding DiscardChanges}" />
+
+                <Button Content="{DynamicResource S.Common.Save}"
+                        IsEnabled="{CompiledBinding IsChanging.Value}"
+                        Classes="accent"
+                        Command="{CompiledBinding Save}" />
+            </StackPanel>
+        </Border>
+
+    </Grid>
+</UserControl>
