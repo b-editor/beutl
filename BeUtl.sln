@@ -101,6 +101,17 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Auth.UI", "external\firebas
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Firebase.Auth.UI", "external\firebase-authentication-dotnet\src\Firebase.Auth.UI\Firebase.Auth.UI.csproj", "{B06ADC65-3AC3-4A23-AF58-AD5A5194E524}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "GitHub", "GitHub", "{464CEA08-D77A-4CB8-9B03-BEF0C852B907}"
+	ProjectSection(SolutionItems) = preProject
+		.github\dependabot.yml = .github\dependabot.yml
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Workflows", "Workflows", "{ED8EECC3-4BDC-4B29-A17B-1044C7534BB2}"
+	ProjectSection(SolutionItems) = preProject
+		.github\workflows\daily-build.yml = .github\workflows\daily-build.yml
+		.github\workflows\dotnet.yml = .github\workflows\dotnet.yml
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -347,6 +358,7 @@ Global
 		{786A3252-9A40-4D22-A2C6-B437C598FBC7} = {E7ED6BF0-EEC7-48F3-A6AD-00B5C8052ABE}
 		{6610F46B-2135-4759-8068-5D260FA5F014} = {E7ED6BF0-EEC7-48F3-A6AD-00B5C8052ABE}
 		{B06ADC65-3AC3-4A23-AF58-AD5A5194E524} = {E7ED6BF0-EEC7-48F3-A6AD-00B5C8052ABE}
+		{ED8EECC3-4BDC-4B29-A17B-1044C7534BB2} = {464CEA08-D77A-4CB8-9B03-BEF0C852B907}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {CC3F8F37-EB22-4418-978D-C844095F8C4D}
