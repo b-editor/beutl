@@ -5,8 +5,11 @@
 public static partial class StringResources
 {
     public static class Common
-    {//S.Common.File
+    {
+        //S.Common.File
         public static string File => "S.Common.File".GetStringResource("File");
+        //S.Common.Create
+        public static string Create => "S.Common.Create".GetStringResource("CreateNew");
         //S.Common.CreateNew
         public static string CreateNew => "S.Common.CreateNew".GetStringResource("Create New");
         //S.Common.CreateNewProject
@@ -235,6 +238,9 @@ public static partial class StringResources
         //S.Common.File
         private static IObservable<string>? s_file;
         public static IObservable<string> FileObservable => s_file ??= "S.Common.File".GetStringObservable(StringResources.Common.File);
+        //S.Common.Create
+        private static IObservable<string>? s_create;
+        public static IObservable<string> CreateObservable => s_create ??= "S.Common.Create".GetStringObservable(StringResources.Common.Create);
         //S.Common.CreateNew
         private static IObservable<string>? s_createNew;
         public static IObservable<string> CreateNewObservable => s_createNew ??= "S.Common.CreateNew".GetStringObservable(StringResources.Common.CreateNew);

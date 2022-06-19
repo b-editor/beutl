@@ -17,7 +17,7 @@
         <StackPanel Orientation="Vertical"
                     VerticalAlignment="Stretch"
                     Margin="10,0"
-                    Spacing="8">
+                    Spacing="4">
             <ctrls:OptionsDisplayItem Header="{DynamicResource S.ExtensionsSettingsPage.EditorExtensionPriority}"
                                       Expands="True">
                 <ctrls:OptionsDisplayItem.Icon>
@@ -29,6 +29,7 @@
                             <ui:CommandBar.PrimaryCommands>
                                 <ui:CommandBarElementContainer VerticalContentAlignment="Center">
                                     <ComboBox Height="36"
+                                              MinWidth="250"
                                               BorderThickness="0"
                                               Background="Transparent"
                                               Items="{CompiledBinding FileExtensions}"

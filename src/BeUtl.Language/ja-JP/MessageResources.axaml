@@ -20,5 +20,7 @@
         <x:String x:Key="S.Message.DoYouWantToAddThisItemToCurrentProject">このアイテムを現在のプロジェクトに追加しますか？</x:String>
         <x:String x:Key="S.Message.RememberThisChoice">この選択を記憶する</x:String>
         <x:String x:Key="S.Message.YourAccountHasBeenDeleted">アカウントが削除されました</x:String>
+        <x:String x:Key="S.Message.PleaseEnterString">文字列を入力してください。</x:String>
+        <x:String x:Key="S.Message.InvalidString">無効な文字列です。</x:String>
     </Styles.Resources>
 </Styles>

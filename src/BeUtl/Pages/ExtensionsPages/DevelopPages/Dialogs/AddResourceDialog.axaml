@@ -1,0 +1,111 @@
+<ui:ContentDialog xmlns="https://github.com/avaloniaui"
+                  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                  xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+                  xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+                  xmlns:viewModels="using:BeUtl.ViewModels.ExtensionsPages.DevelopPages.Dialogs"
+                  xmlns:ui="using:FluentAvalonia.UI.Controls"
+                  xmlns:ctrls="using:BeUtl.Controls"
+                  mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+                  Title="{DynamicResource S.DevelopPage.AddResource.Title}"
+                  PrimaryButtonText="{DynamicResource S.Common.Add}"
+                  PrimaryButtonCommand="{CompiledBinding Add}"
+                  IsPrimaryButtonEnabled="{CompiledBinding IsValid.Value}"
+                  CloseButtonText="{DynamicResource S.Common.Cancel}"
+                  DefaultButton="Primary"
+                  x:DataType="viewModels:AddResourceDialogViewModel"
+                  x:Class="BeUtl.Pages.ExtensionsPages.DevelopPages.Dialogs.AddResourceDialog">
+    <ui:ContentDialog.Styles>
+        <Style Selector="ui|ContentDialog /template/ Border#BackgroundElement">
+            <Setter Property="Width" Value="{DynamicResource ContentDialogMaxWidth}" />
+        </Style>
+    </ui:ContentDialog.Styles>
+    <StackPanel Spacing="4">
+        <StackPanel.Styles>
+            <Style Selector="TextBox.customStyle">
+                <Setter Property="MinWidth" Value="250" />
+                <Setter Property="HorizontalAlignment" Value="Left" />
+            </Style>
+            <Style Selector="TextBlock.description">
+                <Setter Property="VerticalAlignment" Value="Center" />
+                <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+            </Style>
+        </StackPanel.Styles>
+        <ctrls:OptionsDisplayItem x:Name="OptionsItem1"
+                                  Header="{DynamicResource S.DevelopPage.Resource.Fields.Culture}"
+                                  Expands="True"
+                                  Description="{DynamicResource S.DevelopPage.Resource.Fields.CultureDescription}">
+            <ctrls:OptionsDisplayItem.ActionButton>
+                <TextBlock Text="{CompiledBinding Culture.Value.DisplayName}"
+                           Classes="description" />
+            </ctrls:OptionsDisplayItem.ActionButton>
+            <ctrls:OptionsDisplayItem.Content>
+                <TextBox Text="{CompiledBinding CultureInput.Value}"
+                         Classes="customStyle" />
+            </ctrls:OptionsDisplayItem.Content>
+        </ctrls:OptionsDisplayItem>
+
+        <ctrls:OptionsDisplayItem x:Name="OptionsItem2"
+                                  Header="{DynamicResource S.DevelopPage.Package.Fields.DisplayName}"
+                                  Expands="True"
+                                  Description="{DynamicResource S.DevelopPage.Package.Fields.DisplayNameDescription}">
+            <ctrls:OptionsDisplayItem.ActionButton>
+                <TextBlock Text="{CompiledBinding DisplayName.Value}"
+                           MaxWidth="150"
+                           TextTrimming="CharacterEllipsis"
+                           Classes="description" />
+            </ctrls:OptionsDisplayItem.ActionButton>
+            <ctrls:OptionsDisplayItem.Content>
+                <StackPanel Spacing="16">
+                    <CheckBox IsChecked="{CompiledBinding InheritDisplayName.Value}"
+                              Content="{DynamicResource S.DevelopPage.Resource.Fields.InheritField}" />
+
+                    <TextBox Text="{CompiledBinding DisplayName.Value}"
+                         Classes="customStyle" />
+                </StackPanel>
+            </ctrls:OptionsDisplayItem.Content>
+        </ctrls:OptionsDisplayItem>
+
+        <ctrls:OptionsDisplayItem x:Name="OptionsItem3"
+                                  Header="{DynamicResource S.DevelopPage.Package.Fields.Description}"
+                                  Description="{DynamicResource S.DevelopPage.Package.Fields.DescriptionDescription}"
+                                  Expands="True">
+            <ctrls:OptionsDisplayItem.ActionButton>
+                <TextBlock Text="{CompiledBinding Description.Value}"
+                           MaxWidth="150"
+                           TextTrimming="CharacterEllipsis"
+                           Classes="description" />
+            </ctrls:OptionsDisplayItem.ActionButton>
+            <ctrls:OptionsDisplayItem.Content>
+                <StackPanel Spacing="16">
+                    <CheckBox IsChecked="{CompiledBinding InheritDescription.Value}"
+                              Content="{DynamicResource S.DevelopPage.Resource.Fields.InheritField}" />
+
+                    <TextBox Text="{CompiledBinding Description.Value}"
+                             AcceptsReturn="True"
+                             Classes="customStyle" />
+                </StackPanel>
+            </ctrls:OptionsDisplayItem.Content>
+        </ctrls:OptionsDisplayItem>
+
+        <ctrls:OptionsDisplayItem x:Name="OptionsItem4"
+                                  Header="{DynamicResource S.DevelopPage.Package.Fields.ShortDescription}"
+                                  Description="{DynamicResource S.DevelopPage.Package.Fields.ShortDescriptionDescription}"
+                                  Expands="True">
+            <ctrls:OptionsDisplayItem.ActionButton>
+                <TextBlock Text="{CompiledBinding ShortDescription.Value}"
+                           MaxWidth="150"
+                           TextTrimming="CharacterEllipsis"
+                           Classes="description" />
+            </ctrls:OptionsDisplayItem.ActionButton>
+            <ctrls:OptionsDisplayItem.Content>
+                <StackPanel Spacing="16">
+                    <CheckBox IsChecked="{CompiledBinding InheritShortDescription.Value}"
+                              Content="{DynamicResource S.DevelopPage.Resource.Fields.InheritField}" />
+
+                    <TextBox Text="{CompiledBinding ShortDescription.Value}"
+                             Classes="customStyle" />
+                </StackPanel>
+            </ctrls:OptionsDisplayItem.Content>
+        </ctrls:OptionsDisplayItem>
+    </StackPanel>
+</ui:ContentDialog>

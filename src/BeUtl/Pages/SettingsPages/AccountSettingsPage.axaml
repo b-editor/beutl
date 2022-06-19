@@ -22,7 +22,7 @@
                         VerticalAlignment="Stretch"
                         HorizontalAlignment="Stretch"
                         Margin="10,0"
-                        Spacing="8">
+                        Spacing="4">
                 <Grid ColumnDefinitions="Auto,16,Auto,*" Margin="0,32,0,0">
                     <!--プロフィール画像-->
                     <Border CornerRadius="32"

@@ -25,8 +25,8 @@ namespace BeUtl.Services;
 
 public class AccountService
 {
-    private readonly FirestoreDb _db;
-    private readonly FirebaseStorage _storage;
+    internal readonly FirestoreDb _db;
+    internal readonly FirebaseStorage _storage;
 
     public AccountService()
     {
@@ -64,6 +64,10 @@ public class AccountService
             .Subscribe(async _ => await PullAllSettings());
     }
 
+#pragma warning disable CA1822
+    public User? User => FirebaseUI.Instance.Client.User;
+#pragma warning restore CA1822
+
     public async ValueTask DeleteAccount(User user)
     {
         DocumentReference docRef = _db.Collection("users").Document($"{user.Uid}");
@@ -100,7 +104,7 @@ public class AccountService
             }
         }
 
-        if (GetUser() is User user)
+        if (User is User user)
         {
             foreach (ConfigurationBase item in configurations)
             {
@@ -111,7 +115,7 @@ public class AccountService
 
     public async ValueTask PullAllSettings()
     {
-        if (GetUser() is User user)
+        if (User is User user)
         {
             CollectionReference collectionRef = _db.Collection("users").Document($"{user.Uid}").Collection("settings");
 
@@ -141,7 +145,7 @@ public class AccountService
             await docRef.SetAsync(dictionary);
         }
 
-        if (GetUser() is User user && GlobalConfiguration.Instance.BackupConfig.BackupSettings)
+        if (User is User user && GlobalConfiguration.Instance.BackupConfig.BackupSettings)
         {
             foreach (ConfigurationBase config in configurations)
             {
@@ -172,11 +176,6 @@ public class AccountService
             ExtensionConfig => "extension",
             _ => throw new NotImplementedException()
         };
-    }
-
-    private static User? GetUser()
-    {
-        return FirebaseUI.Instance.Client.User;
     }
 
     private static FirestoreDb CreateFirestoreDbAuthentication()

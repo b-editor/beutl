@@ -1,0 +1,81 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Styles.Resources>
+        <!--Strings-->
+        <x:String x:Key="S.DevelopPage.DeletePackage.Title">パッケージを削除</x:String>
+        <x:String x:Key="S.DevelopPage.DeletePackage.Content">
+            パッケージを削除してもよろしいですか？
+            この操作を実行するとこのパッケージには二度とアクセスできなくなります。
+        </x:String>
+        <x:String x:Key="S.DevelopPage.DeleteRelease.Title">リリースを削除</x:String>
+        <x:String x:Key="S.DevelopPage.DeleteRelease.Content">
+            リリースを削除してもよろしいですか？
+            この操作を実行するとこのリリースには二度とアクセスできなくなります。
+        </x:String>
+        <x:String x:Key="S.DevelopPage.DeleteResource.Title">リソースを削除</x:String>
+        <x:String x:Key="S.DevelopPage.DeleteResource.Content">リソースを削除してもよろしいですか？</x:String>
+        <x:String x:Key="S.DevelopPage.MakePublicPackage.Title">パッケージを公開</x:String>
+        <x:String x:Key="S.DevelopPage.MakePublicPackage.Content">
+            パッケージを公開してもよろしいですか？
+            この操作を実行すると他人がこのパッケージをダウンロードできるようになります。
+        </x:String>
+        <x:String x:Key="S.DevelopPage.MakePrivatePackage.Title">パッケージを非公開にする</x:String>
+        <x:String x:Key="S.DevelopPage.MakePrivatePackage.Content">
+            パッケージを非公開にしてもよろしいですか？
+            この操作を実行すると他人がこのパッケージをダウンロードできなくなります。
+        </x:String>
+        <x:String x:Key="S.DevelopPage.MakePublicRelease.Title">リリースを公開</x:String>
+        <x:String x:Key="S.DevelopPage.MakePublicRelease.Content">
+            リリースを公開してもよろしいですか？
+            この操作を実行すると他人がこのリリースをダウンロードできるようになります。
+        </x:String> 
+        <x:String x:Key="S.DevelopPage.MakePrivateRelease.Title">リリースを非公開にする</x:String>
+        <x:String x:Key="S.DevelopPage.MakePrivateRelease.Content">
+            リリースを非公開にしてもよろしいですか？
+            この操作を実行すると他人がこのリリースをダウンロードできなくなります。
+        </x:String>
+
+        <x:String x:Key="S.DevelopPage.AddRelease.Title">リリースを追加</x:String>
+        <x:String x:Key="S.DevelopPage.EditRelease.Title">リリースを編集</x:String>
+        <x:String x:Key="S.DevelopPage.Release.Fields.Title">タイトル</x:String>
+        <x:String x:Key="S.DevelopPage.Release.Fields.TitleDescription">リリースのタイトル。</x:String>
+        <x:String x:Key="S.DevelopPage.Release.Fields.Body">リリースノート</x:String>
+        <x:String x:Key="S.DevelopPage.Release.Fields.BodyDescription">リリースの説明。</x:String>
+        <x:String x:Key="S.DevelopPage.Release.Fields.Version">バージョン</x:String>
+        <x:String x:Key="S.DevelopPage.Release.Fields.VersionDescription">リリースのバージョン。</x:String>
+
+        <x:String x:Key="S.DevelopPage.AddResource.Title">リソースを追加</x:String>
+        <x:String x:Key="S.DevelopPage.Resource.Fields.Culture">言語圏</x:String>
+        <x:String x:Key="S.DevelopPage.Resource.Fields.CultureDescription">このリソースを表示する言語圏。</x:String>
+        <x:String x:Key="S.DevelopPage.Resource.Fields.InheritField">値を継承する</x:String>
+
+
+        <x:String x:Key="S.DevelopPage.Package.Fields.Name">名前</x:String>
+        <x:String x:Key="S.DevelopPage.Package.Fields.NameDescription">このパッケージを識別するための文字列。</x:String>
+        <x:String x:Key="S.DevelopPage.Package.Fields.DisplayName">表示名</x:String>
+        <x:String x:Key="S.DevelopPage.Package.Fields.DisplayNameDescription">このパッケージの表示名。</x:String>
+        <x:String x:Key="S.DevelopPage.Package.Fields.Description">説明</x:String>
+        <x:String x:Key="S.DevelopPage.Package.Fields.DescriptionDescription">このパッケージの説明。</x:String>
+        <x:String x:Key="S.DevelopPage.Package.Fields.ShortDescription">短い説明</x:String>
+        <x:String x:Key="S.DevelopPage.Package.Fields.ShortDescriptionDescription">このパッケージの短い説明。</x:String>
+        <x:String x:Key="S.DevelopPage.Package.Fields.LogoImage">ロゴ画像</x:String>
+        <x:String x:Key="S.DevelopPage.Package.Fields.LogoImageDescription">このパッケージのロゴ画像。</x:String>
+        <x:String x:Key="S.DevelopPage.Package.Fields.Screenshots">スクリーンショット</x:String>
+        <x:String x:Key="S.DevelopPage.Package.Fields.ScreenshotsDescription">このパッケージのスクリーンショット。 (最大4枚)</x:String>
+
+        <x:String x:Key="S.DevelopPage.Package.NoLogoImageAvailable">ロゴ画像がありません</x:String>
+        <StaticResource x:Key="S.DevelopPage.Package.Settings" ResourceKey="S.Common.Settings" />
+        <x:String x:Key="S.DevelopPage.Package.SettingsDescription">パッケージの設定。</x:String>
+        <x:String x:Key="S.DevelopPage.Package.Releases">リリース</x:String>
+        <x:String x:Key="S.DevelopPage.Package.ReleasesDescription">リリースを管理</x:String>
+
+        <x:String x:Key="S.DevelopPage.Package.Resource">リソース</x:String>
+        <x:String x:Key="S.DevelopPage.Package.BaseResourceDescription">この項目の値は、「ロケール固有のリソース」で設定されていないロケールで表示されます。</x:String>
+        <x:String x:Key="S.DevelopPage.Package.LocaleSpecificResources">ロケール固有のリソース</x:String>
+        <x:String x:Key="S.DevelopPage.Package.LocaleSpecificResourcesDescription">ここで追加されたリソースは、そのロケールで表示されます。</x:String>
+        <x:String x:Key="S.DevelopPage.Package.MoveOneFront">1つ前に移動</x:String>
+        <x:String x:Key="S.DevelopPage.Package.MoveOneBack">1つ後ろに移動</x:String>
+
+        <x:String x:Key="S.DevelopPage.DiscardChanges">変更を破棄する</x:String>
+    </Styles.Resources>
+</Styles>

@@ -1,0 +1,82 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Styles.Resources>
+        <!--Strings-->
+        <x:String x:Key="S.DevelopPage.DeletePackage.Title">Delete package</x:String>
+        <x:String x:Key="S.DevelopPage.DeletePackage.Content">
+            Are you sure you want to delete the package?
+            If you do this, you will never be able to access this package again.
+        </x:String>
+        <x:String x:Key="S.DevelopPage.DeleteRelease.Title">Delete release</x:String>
+        <x:String x:Key="S.DevelopPage.DeleteRelease.Content">
+            Are you sure you want to delete the release?
+            If you do this, you will never be able to access this release again.
+        </x:String>
+        <x:String x:Key="S.DevelopPage.DeleteResource.Title">Delete resource</x:String>
+        <x:String x:Key="S.DevelopPage.DeleteResource.Content">Are you sure you want to delete the resource?</x:String>
+        <x:String x:Key="S.DevelopPage.MakePublicPackage.Title">Publish package</x:String>
+        <x:String x:Key="S.DevelopPage.MakePublicPackage.Content">
+            Are you sure you want to publish this package?
+            Doing so will allow others to download this package.
+        </x:String>
+        <x:String x:Key="S.DevelopPage.MakePrivatePackage.Title">Make the package private</x:String>
+        <x:String x:Key="S.DevelopPage.MakePrivatePackage.Content">
+            Are you sure you want to keep this package private?
+            Doing so will prevent others from downloading this package.
+        </x:String>
+        <x:String x:Key="S.DevelopPage.MakePublicRelease.Title">Publish release</x:String>
+        <x:String x:Key="S.DevelopPage.MakePublicRelease.Content">
+            Are you sure you want to publish this release?
+            Doing so will allow others to download this release.
+        </x:String>
+        <x:String x:Key="S.DevelopPage.MakePrivateRelease.Title">Make the release private</x:String>
+        <x:String x:Key="S.DevelopPage.MakePrivateRelease.Content">
+            Are you sure you want to keep this release private?
+            Doing so will prevent others from downloading this release.
+        </x:String>
+
+        <!---->
+        <x:String x:Key="S.DevelopPage.AddRelease.Title">Add release</x:String>
+        <x:String x:Key="S.DevelopPage.EditRelease.Title">Edit release</x:String>
+        <x:String x:Key="S.DevelopPage.Release.Fields.Title">Title</x:String>
+        <x:String x:Key="S.DevelopPage.Release.Fields.TitleDescription">Title of this release</x:String>
+        <x:String x:Key="S.DevelopPage.Release.Fields.Body">Release note</x:String>
+        <x:String x:Key="S.DevelopPage.Release.Fields.BodyDescription">Description of this release.</x:String>
+        <x:String x:Key="S.DevelopPage.Release.Fields.Version">Version</x:String>
+        <x:String x:Key="S.DevelopPage.Release.Fields.VersionDescription">Version of this release.</x:String>
+        
+        <x:String x:Key="S.DevelopPage.AddResource.Title">Add resource</x:String>
+        <x:String x:Key="S.DevelopPage.Resource.Fields.Culture">Locale</x:String>
+        <x:String x:Key="S.DevelopPage.Resource.Fields.CultureDescription">Locale in which this resource is displayed.</x:String>
+        <x:String x:Key="S.DevelopPage.Resource.Fields.InheritField">Inherit value</x:String>
+
+
+        <x:String x:Key="S.DevelopPage.Package.Fields.Name">Name</x:String>
+        <x:String x:Key="S.DevelopPage.Package.Fields.NameDescription">String to identify this package.</x:String>
+        <x:String x:Key="S.DevelopPage.Package.Fields.DisplayName">Display name</x:String>
+        <x:String x:Key="S.DevelopPage.Package.Fields.DisplayNameDescription">Display name of this package.</x:String>
+        <x:String x:Key="S.DevelopPage.Package.Fields.Description">Description</x:String>
+        <x:String x:Key="S.DevelopPage.Package.Fields.DescriptionDescription">Description of this package.</x:String>
+        <x:String x:Key="S.DevelopPage.Package.Fields.ShortDescription">Short description</x:String>
+        <x:String x:Key="S.DevelopPage.Package.Fields.ShortDescriptionDescription">Short description of this package.</x:String>
+        <x:String x:Key="S.DevelopPage.Package.Fields.LogoImage">Logo image</x:String>
+        <x:String x:Key="S.DevelopPage.Package.Fields.LogoImageDescription">Logo image of this package.</x:String>
+        <x:String x:Key="S.DevelopPage.Package.Fields.Screenshots">Screenshots</x:String>
+        <x:String x:Key="S.DevelopPage.Package.Fields.ScreenshotsDescription">Screenshots of this package (max. 4)</x:String>
+
+        <x:String x:Key="S.DevelopPage.Package.NoLogoImageAvailable">No logo image available</x:String>
+        <StaticResource x:Key="S.DevelopPage.Package.Settings" ResourceKey="S.Common.Settings" />
+        <x:String x:Key="S.DevelopPage.Package.SettingsDescription">Settings of this package.</x:String>
+        <x:String x:Key="S.DevelopPage.Package.Releases">Releases</x:String>
+        <x:String x:Key="S.DevelopPage.Package.ReleasesDescription">Manage releases</x:String>
+
+        <x:String x:Key="S.DevelopPage.Package.Resource">Resource</x:String>
+        <x:String x:Key="S.DevelopPage.Package.BaseResourceDescription">The value of this item is displayed in the locale not set in 'Locale-specific resources'.</x:String>
+        <x:String x:Key="S.DevelopPage.Package.LocaleSpecificResources">Locale-specific resources</x:String>
+        <x:String x:Key="S.DevelopPage.Package.LocaleSpecificResourcesDescription">Resources added here will be displayed in that locale.</x:String>
+        <x:String x:Key="S.DevelopPage.Package.MoveOneFront">Move one front</x:String>
+        <x:String x:Key="S.DevelopPage.Package.MoveOneBack">Move one back</x:String>
+
+        <x:String x:Key="S.DevelopPage.DiscardChanges">Discard changes</x:String>
+    </Styles.Resources>
+</Styles>
