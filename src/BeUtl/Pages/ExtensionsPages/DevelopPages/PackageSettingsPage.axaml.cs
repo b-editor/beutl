@@ -78,10 +78,10 @@ public partial class PackageSettingsPage : UserControl
 
             if (await dialog.ShowAsync() == ContentDialogResult.Primary)
             {
-                string resourceId = itemViewModel.Reference.Id;
+                string resourceId = itemViewModel.Resource.Value.Snapshot.Id;
                 string packageId = itemViewModel.Parent.Reference.Id;
                 frame.RemoveAllStack(item => item is ResourcePageViewModel p
-                    && p.Reference.Id == resourceId
+                    && p.Resource.Value.Snapshot.Id == resourceId
                     && p.Parent.Reference.Id == packageId);
 
                 itemViewModel.Delete.Execute();

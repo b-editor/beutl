@@ -53,10 +53,10 @@ public partial class ReleasePage : UserControl
 
             if (await dialog.ShowAsync() == ContentDialogResult.Primary)
             {
-                string releaseId = viewModel.Reference.Id;
+                string releaseId = viewModel.Release.Value.Snapshot.Id;
                 string packageId = viewModel.Parent.Parent.Reference.Id;
                 frame.RemoveAllStack(item => item is ReleasePageViewModel p
-                    && p.Reference.Id == releaseId
+                    && p.Release.Value.Snapshot.Id == releaseId
                     && p.Parent.Parent.Reference.Id == packageId);
 
                 viewModel.Delete.Execute();
@@ -71,7 +71,7 @@ public partial class ReleasePage : UserControl
         {
             var dialog = new AddReleaseResourceDialog
             {
-                DataContext = new AddReleaseResourceDialogViewModel(viewModel.Reference.Collection("resources"))
+                DataContext = new AddReleaseResourceDialogViewModel(viewModel.Release.Value)
             };
             await dialog.ShowAsync();
         }
@@ -83,12 +83,7 @@ public partial class ReleasePage : UserControl
         {
             var dialog = new EditReleaseResourceDialog
             {
-                DataContext = new EditReleaseResourceDialogViewModel(itemViewModel.Reference)
-                {
-                    Title = { Value = itemViewModel.Title.Value },
-                    Body = { Value = itemViewModel.Body.Value },
-                    CultureInput = { Value = itemViewModel.Culture.Value.Name },
-                }
+                DataContext = new EditReleaseResourceDialogViewModel(itemViewModel.Resource)
             };
             await dialog.ShowAsync();
         }

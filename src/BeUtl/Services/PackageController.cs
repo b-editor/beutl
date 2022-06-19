@@ -10,7 +10,6 @@ namespace BeUtl.Services;
 
 public class PackageController
 {
-    private readonly HttpClient _httpClient = ServiceLocator.Current.GetRequiredService<HttpClient>();
     private readonly AccountService _accountService;
 
     public PackageController(AccountService accountService)

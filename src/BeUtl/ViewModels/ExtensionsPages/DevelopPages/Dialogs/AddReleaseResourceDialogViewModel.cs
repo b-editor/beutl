@@ -1,7 +1,7 @@
 ﻿using System.Globalization;
 using System.Reactive.Linq;
 
-using Google.Cloud.Firestore;
+using BeUtl.Models.Extensions.Develop;
 
 using Reactive.Bindings;
 
@@ -9,9 +9,9 @@ namespace BeUtl.ViewModels.ExtensionsPages.DevelopPages.Dialogs;
 
 public sealed class AddReleaseResourceDialogViewModel
 {
-    public AddReleaseResourceDialogViewModel(CollectionReference reference)
+    public AddReleaseResourceDialogViewModel(IPackageRelease.ILink release)
     {
-        Reference = reference;
+        Release = release;
         CultureInput.SetValidateNotifyError(str =>
         {
             if (!string.IsNullOrWhiteSpace(str))
@@ -41,7 +41,7 @@ public sealed class AddReleaseResourceDialogViewModel
             return null;
         })
             .ToReadOnlyReactivePropertySlim();
-        
+
         Title.SetValidateNotifyError(NotNullOrWhitespace);
         Body.SetValidateNotifyError(NotNullOrWhitespace);
 
@@ -52,16 +52,11 @@ public sealed class AddReleaseResourceDialogViewModel
 
         Add.Subscribe(async () =>
         {
-            await Reference.AddAsync(new
-            {
-                title = Title.Value,
-                body = Body.Value,
-                culture = CultureInput.Value
-            });
+            await Release.AddResource(new LocalizedReleaseResource(Title.Value, Body.Value, Culture.Value!));
         });
     }
 
-    public CollectionReference Reference { get; }
+    public IPackageRelease.ILink Release { get; }
 
     public ReactiveProperty<string> Title { get; } = new();
 

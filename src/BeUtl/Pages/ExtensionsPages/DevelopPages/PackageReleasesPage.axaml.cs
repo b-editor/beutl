@@ -86,10 +86,10 @@ public partial class PackageReleasesPage : UserControl
 
             if (await dialog.ShowAsync() == ContentDialogResult.Primary)
             {
-                string releaseId = item.Reference.Id;
+                string releaseId = item.Release.Value.Snapshot.Id;
                 string packageId = item.Parent.Parent.Reference.Id;
                 frame.RemoveAllStack(item => item is ReleasePageViewModel p
-                    && p.Reference.Id == releaseId
+                    && p.Release.Value.Snapshot.Id == releaseId
                     && p.Parent.Parent.Reference.Id == packageId);
 
                 item.Delete.Execute();

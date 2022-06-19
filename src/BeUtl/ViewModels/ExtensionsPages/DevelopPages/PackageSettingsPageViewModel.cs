@@ -32,7 +32,6 @@ namespace BeUtl.ViewModels.ExtensionsPages.DevelopPages;
 
 public sealed class PackageSettingsPageViewModel : IDisposable
 {
-    private readonly PackageController _packageController = ServiceLocator.Current.GetRequiredService<PackageController>();
     private readonly CompositeDisposable _disposables = new();
     private readonly WeakReference<PackageDetailsPageViewModel?> _parentWeak;
     private readonly string _imagesPath;
@@ -166,8 +165,8 @@ public sealed class PackageSettingsPageViewModel : IDisposable
             LogoNoChanged.Value = true;
 
             var newValue = new PackageInfo(
-                DisplayName: Name.Value,
-                Name: DisplayName.Value,
+                DisplayName: DisplayName.Value,
+                Name: Name.Value,
                 Description: Description.Value,
                 ShortDescription: ShortDescription.Value,
                 IsVisible: Parent.Package.Value.IsVisible,
@@ -307,15 +306,15 @@ public sealed class PackageSettingsPageViewModel : IDisposable
         Parent.Package.Value.SubscribeResources(
             item =>
             {
-                if (!Items.Any(p => p.Reference.Id == item.Id))
+                if (!Items.Any(p => p.Resource.Value.Snapshot.Id == item.Id))
                 {
-                    ResourcePageViewModel viewModel = new(item.Reference, this, new LocalizedPackageResourceLink(item));
+                    ResourcePageViewModel viewModel = new(this, new LocalizedPackageResourceLink(item));
                     Items.Add(viewModel);
                 }
             },
             item =>
             {
-                ResourcePageViewModel? viewModel = Items.FirstOrDefault(p => p.Reference.Id == item.Id);
+                ResourcePageViewModel? viewModel = Items.FirstOrDefault(p => p.Resource.Value.Snapshot.Id == item.Id);
                 if (viewModel != null)
                 {
                     Items.Remove(viewModel);

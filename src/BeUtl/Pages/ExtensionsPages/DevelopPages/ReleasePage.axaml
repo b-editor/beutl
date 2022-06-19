@@ -35,7 +35,7 @@
 
             <Label Classes="breadcrumb" />
 
-            <TextBlock Text="{CompiledBinding ActualTitle.Value}"
+            <TextBlock Text="{CompiledBinding Release.Value.Title}"
                        Classes="breadcrumb" />
         </StackPanel>
 
@@ -46,7 +46,7 @@
                                           Expands="True"
                                           Description="このリリースのタイトル">
                     <ctrls:OptionsDisplayItem.ActionButton>
-                        <TextBlock Text="{CompiledBinding ActualTitle.Value}"
+                        <TextBlock Text="{CompiledBinding Release.Value.Title}"
                                    Classes="description" />
                     </ctrls:OptionsDisplayItem.ActionButton>
                     <ctrls:OptionsDisplayItem.Content>
@@ -59,7 +59,7 @@
                                           Description="このリリースを説明"
                                           Expands="True">
                     <ctrls:OptionsDisplayItem.ActionButton>
-                        <TextBlock Text="{CompiledBinding ActualBody.Value}"
+                        <TextBlock Text="{CompiledBinding Release.Value.Body}"
                                    MaxWidth="150"
                                    TextTrimming="CharacterEllipsis"
                                    Classes="description" />
@@ -75,7 +75,7 @@
                                           Description="このリリースのバージョン"
                                           Expands="True">
                     <ctrls:OptionsDisplayItem.ActionButton>
-                        <TextBlock Text="{CompiledBinding ActualVersion.Value}"
+                        <TextBlock Text="{CompiledBinding Release.Value.Version}"
                                    Classes="description" />
                     </ctrls:OptionsDisplayItem.ActionButton>
                     <ctrls:OptionsDisplayItem.Content>
@@ -157,7 +157,7 @@
                                           Description="リリースを削除します。" />
 
                 <ctrls:OptionsDisplayItem Header="パブリックにする"
-                                          IsVisible="{CompiledBinding !IsPublic.Value}"
+                                          IsVisible="{CompiledBinding !Release.Value.IsVisible}"
                                           Navigates="True"
                                           NavigationRequested="MakePublic_Click"
                                           Description="リリースを公開します。">
@@ -167,7 +167,7 @@
                 </ctrls:OptionsDisplayItem>
 
                 <ctrls:OptionsDisplayItem Header="プライベートにする"
-                                          IsVisible="{CompiledBinding IsPublic.Value}"
+                                          IsVisible="{CompiledBinding Release.Value.IsVisible}"
                                           Navigates="True"
                                           NavigationRequested="MakePrivate_Click"
                                           Description="リリースを非公開にします。">

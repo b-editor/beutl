@@ -6,9 +6,9 @@ namespace BeUtl.Models.Extensions.Develop;
 
 public interface ILocalizedReleaseResource
 {
-    string? Title { get; }
+    string Title { get; }
 
-    string? Body { get; }
+    string Body { get; }
 
     CultureInfo Culture { get; }
 

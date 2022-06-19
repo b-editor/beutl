@@ -1,17 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Reactive.Threading.Tasks;
-using System.Text;
-using System.Threading.Tasks;
-
-using BeUtl.Collections;
+﻿using BeUtl.Collections;
 using BeUtl.Models.Extensions.Develop;
 using BeUtl.ViewModels.ExtensionsPages.DevelopPages.Dialogs;
-
-using FluentAvalonia.UI.Controls;
-
-using Google.Cloud.Firestore;
 
 using Reactive.Bindings;
 
@@ -28,29 +17,22 @@ public sealed class PackageReleasesPageViewModel : IDisposable
         _disposable = parent.Package.Value.SubscribeReleases(
             item =>
             {
-                if (!Items.Any(p => p.Release.Snapshot.Id == item.Id))
+                if (!Items.Any(p => p.Release.Value.Snapshot.Id == item.Id))
                 {
                     var viewModel = new ReleasePageViewModel(new PackageReleaseLink(item), this);
-                    viewModel.Update(item);
                     Items.Add(viewModel);
                 }
             },
             item =>
             {
-                var viewModel = Items.FirstOrDefault(p => p.Release.Snapshot.Id == item.Id);
+                ReleasePageViewModel? viewModel = Items.FirstOrDefault(p => p.Release.Value.Snapshot.Id == item.Id);
                 if (viewModel != null)
                 {
                     Items.Remove(viewModel);
                     viewModel.Dispose();
                 }
             },
-            item =>
-            {
-                var viewModel = Items.FirstOrDefault(p => p.Release.Snapshot.Id == item.Id);
-                viewModel?.Update(item);
-            });
-
-        Reference = parent.Reference.Collection("releases");
+            _ => { });
 
         Add.Subscribe(async p =>
         {
@@ -66,8 +48,6 @@ public sealed class PackageReleasesPageViewModel : IDisposable
 
     public PackageDetailsPageViewModel Parent { get; }
 
-    public CollectionReference Reference { get; }
-
     public CoreList<ReleasePageViewModel> Items { get; } = new();
 
     public AsyncReactiveCommand<AddReleaseDialogViewModel> Add { get; } = new();
@@ -76,7 +56,7 @@ public sealed class PackageReleasesPageViewModel : IDisposable
     {
         _disposable.Dispose();
 
-        foreach (var item in Items)
+        foreach (ReleasePageViewModel item in Items)
         {
             item.Dispose();
         }

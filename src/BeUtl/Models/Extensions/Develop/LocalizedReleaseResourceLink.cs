@@ -5,21 +5,27 @@ using Google.Cloud.Firestore;
 
 namespace BeUtl.Models.Extensions.Develop;
 
+public record LocalizedReleaseResource(
+    string Title,
+    string Body,
+    CultureInfo Culture)
+    : ILocalizedReleaseResource;
+
 public class LocalizedReleaseResourceLink : ILocalizedReleaseResource.ILink
 {
     public LocalizedReleaseResourceLink(DocumentSnapshot snapshot)
     {
         Snapshot = snapshot;
         Culture = CultureInfo.GetCultureInfo(Snapshot.GetValue<string>("culture"));
-        Title = Snapshot.TryGetValue("title", out string? title) ? title : null;
-        Body = Snapshot.TryGetValue("body", out string? body) ? body : null;
+        Title = Snapshot.GetValue<string>("title");
+        Body = Snapshot.GetValue<string>("body");
     }
 
     public DocumentSnapshot Snapshot { get; }
 
-    public string? Title { get; }
+    public string Title { get; }
 
-    public string? Body { get; }
+    public string Body { get; }
 
     public CultureInfo Culture { get; }
 
@@ -33,7 +39,6 @@ public class LocalizedReleaseResourceLink : ILocalizedReleaseResource.ILink
     {
         return Snapshot.Reference.ToObservable()
             .Select(snapshot => new LocalizedReleaseResourceLink(snapshot));
-
     }
 
     public async ValueTask PermanentlyDeleteAsync()
@@ -50,7 +55,7 @@ public class LocalizedReleaseResourceLink : ILocalizedReleaseResource.ILink
     {
         DocumentReference reference = Snapshot.Reference;
 #pragma warning disable IDE0055
-        var dict = new Dictionary<string, string?>
+        var dict = new Dictionary<string, string>
         {
             ["title"]   = (fieldsMask.HasFlag(ReleaseResourceFields.Title)   ? this : value).Title,
             ["body"]    = (fieldsMask.HasFlag(ReleaseResourceFields.Body)    ? this : value).Body,
@@ -59,12 +64,6 @@ public class LocalizedReleaseResourceLink : ILocalizedReleaseResource.ILink
 #pragma warning restore IDE0055
 
         cancellationToken.ThrowIfCancellationRequested();
-
-        foreach (string item in dict.Keys)
-        {
-            if (dict[item] == null)
-                dict.Remove(item);
-        }
 
         await reference.SetAsync(dict, SetOptions.Overwrite, cancellationToken: cancellationToken);
 

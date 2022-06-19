@@ -1,7 +1,6 @@
 ﻿using System.Globalization;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
-using System.Reactive.Threading.Tasks;
 
 using BeUtl.Collections;
 using BeUtl.Models.Extensions.Develop;
@@ -14,13 +13,13 @@ namespace BeUtl.ViewModels.ExtensionsPages.DevelopPages;
 
 public sealed class ReleaseResourceViewModel
 {
-    public ReleaseResourceViewModel(DocumentReference reference)
+    public ReleaseResourceViewModel(ILocalizedReleaseResource.ILink resource)
     {
-        Reference = reference;
-        Delete.Subscribe(() => Reference.DeleteAsync());
+        Resource = resource;
+        Delete.Subscribe(async () => await Resource.PermanentlyDeleteAsync());
     }
 
-    public DocumentReference Reference { get; }
+    public ILocalizedReleaseResource.ILink Resource { get; }
 
     public ReactivePropertySlim<string> Title { get; } = new();
 
@@ -28,7 +27,7 @@ public sealed class ReleaseResourceViewModel
 
     public ReactivePropertySlim<CultureInfo> Culture { get; } = new();
 
-    public ReactiveCommand Delete { get; } = new();
+    public AsyncReactiveCommand Delete { get; } = new();
 
     public void Update(DocumentSnapshot snapshot)
     {
@@ -41,26 +40,35 @@ public sealed class ReleaseResourceViewModel
 public sealed class ReleasePageViewModel : IDisposable
 {
     private readonly CompositeDisposable _disposables = new();
-    private readonly object _lockObject = new();
-    private readonly FirestoreChangeListener? _listener;
 
     public ReleasePageViewModel(IPackageRelease.ILink release, PackageReleasesPageViewModel parent)
     {
         Parent = parent;
-        Release = release;
+        Release = release.GetObservable()
+            .ToReadOnlyReactivePropertySlim(release)
+            .DisposeWith(_disposables);
+
+        Title = Release.Select(x => x.Title)
+            .ToReactiveProperty(release.Title)
+            .DisposeWith(_disposables);
+        Body = Release.Select(x => x.Body)
+            .ToReactiveProperty(release.Body)
+            .DisposeWith(_disposables);
+        VersionInput = Release.Select(x => x.Version.ToString())
+            .ToReactiveProperty(release.Version.ToString())
+            .DisposeWith(_disposables);
 
         VersionInput.SetValidateNotifyError(str => System.Version.TryParse(str, out _) ? null : "CultureNotFoundException");
 
         Version = VersionInput.Select(str => System.Version.TryParse(str, out Version? v) ? v : null)
             .ToReadOnlyReactivePropertySlim();
-
         Title.SetValidateNotifyError(NotNullOrWhitespace);
         Body.SetValidateNotifyError(NotNullOrWhitespace);
 
-        IsChanging = Version.CombineLatest(ActualVersion).Select(t => t.First == t.Second)
+        IsChanging = Version.CombineLatest(Release).Select(t => t.First == t.Second.Version)
             .CombineLatest(
-                Title.CombineLatest(ActualTitle).Select(t => t.First == t.Second),
-                Body.CombineLatest(ActualBody).Select(t => t.First == t.Second))
+                Title.CombineLatest(Release).Select(t => t.First == t.Second.Title),
+                Body.CombineLatest(Release).Select(t => t.First == t.Second.Body))
             .Select(t => !(t.First && t.Second && t.Third))
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(_disposables);
@@ -71,41 +79,42 @@ public sealed class ReleasePageViewModel : IDisposable
 
         Save.Subscribe(async () =>
         {
-            await Release.SyncronizeToAsync(new PackageRelease(
-                ActualVersion.Value = Version.Value!,
-                ActualTitle.Value = Title.Value,
-                ActualBody.Value = Body.Value,
-                false,
-                null,
-                null),
+            await Release.Value.SyncronizeToAsync(new PackageRelease(
+                Version: Version.Value!,
+                Title: Title.Value,
+                Body: Body.Value,
+                IsVisible: false,
+                DownloadLink: null,
+                SHA256: null),
                 PackageReleaseFields.All & ~(PackageReleaseFields.SHA256 | PackageReleaseFields.DownloadLink | PackageReleaseFields.IsVisible));
         });
 
-        DiscardChanges.Subscribe(async () =>
+        DiscardChanges.Subscribe(() =>
         {
-            DocumentSnapshot snapshot = await Release.Snapshot.Reference.GetSnapshotAsync();
-            Update(snapshot);
+            Title.Value = Release.Value.Title;
+            Body.Value = Release.Value.Body;
+            VersionInput.Value = Release.Value.Version.ToString();
         });
 
-        Delete.Subscribe(async () => await Release.PermanentlyDeleteAsync());
+        Delete.Subscribe(async () => await Release.Value.PermanentlyDeleteAsync());
 
-        MakePublic.Subscribe(async () => await Release.ChangeVisibility(true)).DisposeWith(_disposables);
+        MakePublic.Subscribe(async () => await Release.Value.ChangeVisibility(true)).DisposeWith(_disposables);
 
-        MakePrivate.Subscribe(async () => await Release.ChangeVisibility(false)).DisposeWith(_disposables);
+        MakePrivate.Subscribe(async () => await Release.Value.ChangeVisibility(false)).DisposeWith(_disposables);
 
         release.SubscribeResources(
             item =>
             {
-                if (!Items.Any(p => p.Reference.Id == item.Reference.Id))
+                if (!Items.Any(p => p.Resource.Snapshot.Id == item.Reference.Id))
                 {
-                    var viewModel = new ReleaseResourceViewModel(item.Reference);
+                    var viewModel = new ReleaseResourceViewModel(new LocalizedReleaseResourceLink(item));
                     viewModel.Update(item);
                     Items.Add(viewModel);
                 }
             },
             item =>
             {
-                var viewModel = Items.FirstOrDefault(p => p.Reference.Id == item.Reference.Id);
+                ReleaseResourceViewModel? viewModel = Items.FirstOrDefault(p => p.Resource.Snapshot.Id == item.Reference.Id);
                 if (viewModel != null)
                 {
                     Items.Remove(viewModel);
@@ -113,7 +122,7 @@ public sealed class ReleasePageViewModel : IDisposable
             },
             item =>
             {
-                var viewModel = Items.FirstOrDefault(p => p.Reference.Id == item.Reference.Id);
+                ReleaseResourceViewModel? viewModel = Items.FirstOrDefault(p => p.Resource.Snapshot.Id == item.Reference.Id);
                 viewModel?.Update(item);
             })
             .DisposeWith(_disposables);
@@ -121,21 +130,13 @@ public sealed class ReleasePageViewModel : IDisposable
 
     public PackageReleasesPageViewModel Parent { get; }
 
-    public IPackageRelease.ILink Release { get; }
+    public ReadOnlyReactivePropertySlim<IPackageRelease.ILink> Release { get; }
 
-    public ReactivePropertySlim<string> ActualTitle { get; } = new();
+    public ReactiveProperty<string> Title { get; }
 
-    public ReactivePropertySlim<string> ActualBody { get; } = new();
+    public ReactiveProperty<string> Body { get; }
 
-    public ReactivePropertySlim<Version> ActualVersion { get; } = new();
-
-    public ReactivePropertySlim<bool> IsPublic { get; } = new();
-
-    public ReactiveProperty<string> Title { get; } = new();
-
-    public ReactiveProperty<string> Body { get; } = new();
-
-    public ReactiveProperty<string> VersionInput { get; } = new();
+    public ReactiveProperty<string> VersionInput { get; }
 
     public ReadOnlyReactivePropertySlim<Version?> Version { get; }
 
@@ -143,7 +144,7 @@ public sealed class ReleasePageViewModel : IDisposable
 
     public AsyncReactiveCommand Save { get; }
 
-    public AsyncReactiveCommand DiscardChanges { get; } = new();
+    public ReactiveCommand DiscardChanges { get; } = new();
 
     public ReactiveCommand Delete { get; } = new();
 
@@ -156,17 +157,8 @@ public sealed class ReleasePageViewModel : IDisposable
     public void Dispose()
     {
         _disposables.Dispose();
-        _listener?.StopAsync();
 
         Items.Clear();
-    }
-
-    public void Update(DocumentSnapshot snapshot)
-    {
-        ActualTitle.Value = Title.Value = snapshot.GetValue<string>("title");
-        ActualBody.Value = Body.Value = snapshot.GetValue<string>("body");
-        ActualVersion.Value = System.Version.Parse(VersionInput.Value = snapshot.GetValue<string>("version"));
-        IsPublic.Value = snapshot.GetValue<bool>("visible");
     }
 
     private static string NotNullOrWhitespace(string str)

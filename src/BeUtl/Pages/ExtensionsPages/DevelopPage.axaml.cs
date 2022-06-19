@@ -1,19 +1,20 @@
-﻿using Avalonia.Interactivity;
+﻿using Avalonia;
 using Avalonia.Controls;
-using BeUtl.ViewModels.ExtensionsPages;
-using Avalonia.VisualTree;
-using FluentAvalonia.UI.Controls;
 using Avalonia.Input;
-using BeUtl.ViewModels.ExtensionsPages.DevelopPages;
+using Avalonia.Interactivity;
+using Avalonia.VisualTree;
+
 using BeUtl.Pages.ExtensionsPages.DevelopPages;
-using Avalonia;
-using BeUtl.Models.Extensions.Develop;
+using BeUtl.ViewModels.ExtensionsPages;
+using BeUtl.ViewModels.ExtensionsPages.DevelopPages;
+
+using FluentAvalonia.UI.Controls;
 
 namespace BeUtl.Pages.ExtensionsPages;
 
 public partial class DevelopPage : UserControl
 {
-    private bool flag;
+    private bool _flag;
 
     public DevelopPage()
     {
@@ -24,14 +25,14 @@ public partial class DevelopPage : UserControl
 
     private void PackagesList_PointerReleased(object? sender, PointerReleasedEventArgs e)
     {
-        if (flag)
+        if (_flag)
         {
             if (PackagesList.SelectedItem is PackageDetailsPageViewModel selectedItem)
             {
                 Frame frame = this.FindAncestorOfType<Frame>();
                 frame.Navigate(typeof(PackageDetailsPage), selectedItem, SharedNavigationTransitionInfo.Instance);
             }
-            flag = false;
+            _flag = false;
         }
     }
 
@@ -39,7 +40,7 @@ public partial class DevelopPage : UserControl
     {
         if (e.ClickCount == 2)
         {
-            flag = true;
+            _flag = true;
         }
     }
 

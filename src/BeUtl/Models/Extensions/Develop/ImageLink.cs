@@ -1,12 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-using Avalonia.Media.Imaging;
-using Avalonia.Platform;
+﻿using Avalonia.Media.Imaging;
 
 using BeUtl.Services;
 
@@ -46,8 +38,7 @@ public sealed class ImageLink : IDisposable, IEquatable<ImageLink?>
     public static async ValueTask<ImageLink> UploadAsync(string path, string name, byte[] jpeg)
     {
         AccountService service = ServiceLocator.Current.GetRequiredService<AccountService>();
-        FirebaseStorageReference reference = service._storage.Child(path)
-            .Child(name);
+        FirebaseStorageReference reference = service._storage.Child(path).Child(name);
 
         var stream = new MemoryStream(jpeg);
         var link = new ImageLink(path, name, stream);
@@ -64,8 +55,7 @@ public sealed class ImageLink : IDisposable, IEquatable<ImageLink?>
             {
                 AccountService service = ServiceLocator.Current.GetRequiredService<AccountService>();
                 HttpClient client = ServiceLocator.Current.GetRequiredService<HttpClient>();
-                FirebaseStorageReference reference = service._storage.Child(Path)
-                    .Child(Name);
+                FirebaseStorageReference reference = service._storage.Child(Path).Child(Name);
                 string? downloadLink = await reference.GetDownloadUrlAsync();
 
                 if (downloadLink == null)
@@ -73,6 +63,11 @@ public sealed class ImageLink : IDisposable, IEquatable<ImageLink?>
                     return null;
                 }
                 _stream = new MemoryStream(await client.GetByteArrayAsync(downloadLink));
+            }
+
+            if (_stream != null)
+            {
+                _stream.Position = 0;
             }
 
             return _stream;
@@ -90,25 +85,12 @@ public sealed class ImageLink : IDisposable, IEquatable<ImageLink?>
         {
             if (!_bitmap.TryGetTarget(out Bitmap? bitmap))
             {
-                AccountService service = ServiceLocator.Current.GetRequiredService<AccountService>();
-                HttpClient client = ServiceLocator.Current.GetRequiredService<HttpClient>();
-                FirebaseStorageReference reference = service._storage.Child(Path)
-                    .Child(Name);
-
-                if (_stream == null)
+                MemoryStream? stream = await TryGetStreamAsync();
+                if (stream != null)
                 {
-                    string? downloadLink = await reference.GetDownloadUrlAsync();
-
-                    if (downloadLink == null)
-                    {
-                        return null;
-                    }
-                    _stream = new MemoryStream(await client.GetByteArrayAsync(downloadLink));
+                    bitmap = new Bitmap(_stream);
+                    _bitmap.SetTarget(bitmap);
                 }
-
-                _stream.Position = 0;
-                bitmap = new Bitmap(_stream);
-                _bitmap.SetTarget(bitmap);
             }
 
             return bitmap;
@@ -122,8 +104,7 @@ public sealed class ImageLink : IDisposable, IEquatable<ImageLink?>
     public async ValueTask<bool> IsExistsAsync()
     {
         AccountService service = ServiceLocator.Current.GetRequiredService<AccountService>();
-        FirebaseStorageReference reference = service._storage.Child(Path)
-            .Child(Name);
+        FirebaseStorageReference reference = service._storage.Child(Path).Child(Name);
 
         try
         {
@@ -138,8 +119,7 @@ public sealed class ImageLink : IDisposable, IEquatable<ImageLink?>
     public async ValueTask DeleteAsync()
     {
         AccountService service = ServiceLocator.Current.GetRequiredService<AccountService>();
-        FirebaseStorageReference reference = service._storage.Child(Path)
-            .Child(Name);
+        FirebaseStorageReference reference = service._storage.Child(Path).Child(Name);
 
         if (await IsExistsAsync())
         {

@@ -64,12 +64,12 @@ public sealed class AddResourceDialogViewModel
             if (Culture.Value != null)
             {
                 await Package.AddResource(new LocalizedPackageResource(
-                    InheritDisplayName.Value ? null : DisplayName.Value,
-                    InheritDescription.Value ? null : Description.Value,
-                    InheritShortDescription.Value ? null : ShortDescription.Value,
-                    null,
-                    Array.Empty<ImageLink>(),
-                    Culture.Value));
+                    DisplayName: InheritDisplayName.Value ? null : DisplayName.Value,
+                    Description: InheritDescription.Value ? null : Description.Value,
+                    ShortDescription: InheritShortDescription.Value ? null : ShortDescription.Value,
+                    LogoImage: null,
+                    Screenshots: Array.Empty<ImageLink>(),
+                    Culture: Culture.Value));
             }
         });
     }

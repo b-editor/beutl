@@ -37,10 +37,10 @@
             <ListBox.ItemTemplate>
                 <DataTemplate>
                     <Grid ColumnDefinitions="Auto,*,2*,Auto,Auto" MaxHeight="64">
-                        <ui:PathIcon IsVisible="{CompiledBinding IsPublic.Value}"
+                        <ui:PathIcon IsVisible="{CompiledBinding Release.Value.IsVisible}"
                                      Margin="0,0,16,0"
                                      Data="{StaticResource Eye_Show_Regular}" />
-                        <ui:PathIcon IsVisible="{CompiledBinding !IsPublic.Value}"
+                        <ui:PathIcon IsVisible="{CompiledBinding !Release.Value.IsVisible}"
                                      Margin="0,0,16,0"
                                      Data="{StaticResource Eye_Hide_Regular}" />
 
@@ -49,10 +49,10 @@
                                     VerticalAlignment="Center"
                                     Margin="0,0,16,0"
                                     Grid.Column="1">
-                            <TextBlock Text="{CompiledBinding ActualTitle.Value}"
+                            <TextBlock Text="{CompiledBinding Release.Value.Title}"
                                        Classes="BodyStrongTextBlockStyle" />
 
-                            <TextBlock Text="{CompiledBinding ActualVersion.Value}" />
+                            <TextBlock Text="{CompiledBinding Release.Value.Version}" />
                         </StackPanel>
 
                         <TextBlock Grid.Column="2"
@@ -61,7 +61,7 @@
                                    Margin="0,0,16,0"
                                    Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                                    TextTrimming="CharacterEllipsis"
-                                   Text="{CompiledBinding ActualBody.Value}" />
+                                   Text="{CompiledBinding Release.Value.Body}" />
 
                         <ui:CommandBarButton Label="編集"
                                              Grid.Column="3"

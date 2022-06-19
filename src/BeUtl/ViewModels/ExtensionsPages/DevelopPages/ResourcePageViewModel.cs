@@ -27,14 +27,12 @@ namespace BeUtl.ViewModels.ExtensionsPages.DevelopPages;
 
 public sealed class ResourcePageViewModel : IDisposable
 {
-    private readonly PackageController _packageController = ServiceLocator.Current.GetRequiredService<PackageController>();
     private readonly WeakReference<PackageSettingsPageViewModel?> _parentWeak;
     private readonly CompositeDisposable _disposables = new();
     private readonly string _imagesPath;
 
-    public ResourcePageViewModel(DocumentReference reference, PackageSettingsPageViewModel parent, ILocalizedPackageResource.ILink link)
+    public ResourcePageViewModel(PackageSettingsPageViewModel parent, ILocalizedPackageResource.ILink link)
     {
-        Reference = reference;
         _imagesPath = $"users/{parent.Reference.Parent.Parent.Id}/packages/{parent.Reference.Id}/images";
         Resource = link.GetObservable().ToReadOnlyReactivePropertySlim(link).DisposeWith(_disposables);
         _parentWeak = new WeakReference<PackageSettingsPageViewModel?>(parent);
@@ -67,7 +65,7 @@ public sealed class ResourcePageViewModel : IDisposable
             .Do(_ => IsLogoLoading.Value = true)
             .SelectMany(async link => link != null ? await link.TryGetStreamAsync() : null)
             .Do(_ => IsLogoLoading.Value = false)
-            .DisposePreviousValue()
+            .Do(ms => { if (ms != null) ms.Position = 0; })
             .ToReactiveProperty()
             .DisposeWith(_disposables);
         LogoImage = LogoStream
@@ -163,7 +161,7 @@ public sealed class ResourcePageViewModel : IDisposable
         InheritShortDescription.Subscribe(b => ShortDescription.Value = b ? null : Resource.Value.ShortDescription)
             .DisposeWith(_disposables);
         InheritLogo
-            .Do(async b => LogoStream.Value = b ? null : Resource.Value.LogoImage?.TryGetStreamAsync() is ValueTask<MemoryStream> mst ? await mst : null)
+            .Do(async b => LogoStream.Value = (!b && Resource.Value.LogoImage is ImageLink logo) ? await logo.TryGetStreamAsync() : null)
             .Subscribe(b => LogoImageId.Value = b ? null : Resource.Value.LogoImage?.Name)
             .DisposeWith(_disposables);
         InheritScreenshots
@@ -222,12 +220,12 @@ public sealed class ResourcePageViewModel : IDisposable
             }
 
             var newResource = new LocalizedPackageResource(
-                InheritDisplayName.Value ? null : DisplayName.Value,
-                InheritDescription.Value ? null : Description.Value,
-                InheritShortDescription.Value ? null : ShortDescription.Value,
-                newLogo,
-                Screenshots.Select(i => ImageLink.Open(_imagesPath, i.Name)).ToArray(),
-                Culture.Value!);
+                DisplayName: InheritDisplayName.Value ? null : DisplayName.Value,
+                Description: InheritDescription.Value ? null : Description.Value,
+                ShortDescription: InheritShortDescription.Value ? null : ShortDescription.Value,
+                LogoImage: newLogo,
+                Screenshots: Screenshots.Select(i => ImageLink.Open(_imagesPath, i.Name)).ToArray(),
+                Culture: Culture.Value!);
 
             ImageLink[]? oldScreenshots;
             ImageModel[]? newScreenshots;
@@ -371,8 +369,6 @@ public sealed class ResourcePageViewModel : IDisposable
     {
         Dispose();
     }
-
-    public DocumentReference Reference { get; }
 
     public ReadOnlyReactivePropertySlim<ILocalizedPackageResource.ILink> Resource { get; }
 
