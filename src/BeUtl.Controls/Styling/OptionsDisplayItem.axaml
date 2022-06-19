@@ -61,6 +61,7 @@
 
                                 <TextBlock Text="{TemplateBinding Header}"
                                            Classes="BaseTextBlockStyle"
+                                           FontWeight="Normal"
                                            HorizontalAlignment="Left"
                                            TextTrimming="CharacterEllipsis"/>
 

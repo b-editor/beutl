@@ -10,6 +10,8 @@ using BeUtl.ViewModels.ExtensionsPages.DevelopPages.Dialogs;
 
 using FluentAvalonia.UI.Controls;
 
+using S = BeUtl.Language.StringResources;
+
 namespace BeUtl.Pages.ExtensionsPages.DevelopPages;
 
 public partial class PackageReleasesPage : UserControl
@@ -77,20 +79,20 @@ public partial class PackageReleasesPage : UserControl
             Frame frame = this.FindAncestorOfType<Frame>();
             var dialog = new ContentDialog
             {
-                Title = "リリースを削除",
-                Content = "リリースを削除してもよろしいですか？",
-                PrimaryButtonText = "はい",
-                CloseButtonText = "いいえ",
+                Title = S.DevelopPage.DeleteResource.Title,
+                Content = S.DevelopPage.DeleteResource.Content,
+                PrimaryButtonText = S.Common.Yes,
+                CloseButtonText = S.Common.No,
                 DefaultButton = ContentDialogButton.Primary
             };
 
             if (await dialog.ShowAsync() == ContentDialogResult.Primary)
             {
                 string releaseId = item.Release.Value.Snapshot.Id;
-                string packageId = item.Parent.Parent.Reference.Id;
+                string packageId = item.Parent.Parent.Package.Value.Snapshot.Id;
                 frame.RemoveAllStack(item => item is ReleasePageViewModel p
                     && p.Release.Value.Snapshot.Id == releaseId
-                    && p.Parent.Parent.Reference.Id == packageId);
+                    && p.Parent.Parent.Package.Value.Snapshot.Id == packageId);
 
                 item.Delete.Execute();
             }

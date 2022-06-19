@@ -1,7 +1,4 @@
-﻿using System.Globalization;
-using System.Reactive.Linq;
-
-using BeUtl.Models.Extensions.Develop;
+﻿using BeUtl.Models.Extensions.Develop;
 
 using Reactive.Bindings;
 
@@ -27,7 +24,7 @@ public sealed class EditReleaseResourceDialogViewModel
                 catch { }
             }
 
-            return "CultureNotFoundException";
+            return StringResources.Message.InvalidString;
         });
 
         Culture = CultureInput.Select(str =>
@@ -83,7 +80,7 @@ public sealed class EditReleaseResourceDialogViewModel
         }
         else
         {
-            return "Please enter a string.";
+            return StringResources.Message.PleaseEnterString;
         }
     }
 }

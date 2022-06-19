@@ -21,5 +21,7 @@
         <x:String x:Key="S.Message.RememberThisChoice">Remember this choice</x:String>
         <x:String x:Key="S.Message.YourAccountHasBeenDeleted">Your account has been deleted.</x:String>
         <x:String x:Key="S.Message.PasswordHasBeenChanged">Password has been changed.</x:String>
+        <x:String x:Key="S.Message.PleaseEnterString">Please enter a string.</x:String>
+        <x:String x:Key="S.Message.InvalidString">Invalid string.</x:String>
     </Styles.Resources>
 </Styles>

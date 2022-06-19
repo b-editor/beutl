@@ -1,8 +1,4 @@
-﻿using System.Reactive.Disposables;
-using System.Reactive.Linq;
-
-using BeUtl.Collections;
-using BeUtl.Models.Extensions.Develop;
+﻿using BeUtl.Models.Extensions.Develop;
 using BeUtl.Pages.ExtensionsPages.DevelopPages;
 using BeUtl.Services;
 using BeUtl.ViewModels.ExtensionsPages.DevelopPages;
@@ -33,10 +29,10 @@ public sealed class DevelopPageViewModel : IDisposable
                 PackageLink newItem = await PackageLink.OpenAsync(docRef);
                 lock (_lockObject)
                 {
-                    PackageDetailsPageViewModel? viewModel = Packages.FirstOrDefault(p => p.Reference.Id == docRef.Id);
+                    PackageDetailsPageViewModel? viewModel = Packages.FirstOrDefault(p => p.Package.Value.Snapshot.Id == docRef.Id);
                     if (viewModel == null)
                     {
-                        viewModel = new PackageDetailsPageViewModel(docRef, newItem);
+                        viewModel = new PackageDetailsPageViewModel(newItem);
 
                         for (int i = 0; i < Packages.Count; i++)
                         {
@@ -59,9 +55,9 @@ public sealed class DevelopPageViewModel : IDisposable
         _packageController.SubscribePackages(
             snapshot =>
             {
-                if (!Packages.Any(p => p.Reference.Id == snapshot.Id))
+                if (!Packages.Any(p => p.Package.Value.Snapshot.Id == snapshot.Id))
                 {
-                    var newItem = new PackageDetailsPageViewModel(snapshot.Reference, new PackageLink(snapshot));
+                    var newItem = new PackageDetailsPageViewModel(new PackageLink(snapshot));
 
                     for (int i = 0; i < Packages.Count; i++)
                     {
@@ -79,7 +75,7 @@ public sealed class DevelopPageViewModel : IDisposable
             },
             snapshot =>
             {
-                PackageDetailsPageViewModel? item = Packages.FirstOrDefault(p => p.Reference.Id == snapshot.Id);
+                PackageDetailsPageViewModel? item = Packages.FirstOrDefault(p => p.Package.Value.Snapshot.Id == snapshot.Id);
                 if (item != null)
                 {
                     Packages.Remove(item);
@@ -91,6 +87,11 @@ public sealed class DevelopPageViewModel : IDisposable
             .DisposeWith(_disposables);
     }
 
+    ~DevelopPageViewModel()
+    {
+        Dispose();
+    }
+
     public CoreList<PackageDetailsPageViewModel> Packages { get; } = new();
 
     public ReactiveCommand<Frame> CreateNewPackage { get; } = new();
@@ -98,11 +99,13 @@ public sealed class DevelopPageViewModel : IDisposable
     public void Dispose()
     {
         _disposables.Dispose();
-        foreach (var item in Packages.AsSpan())
+        foreach (PackageDetailsPageViewModel item in Packages.AsSpan())
         {
             item.Dispose();
         }
 
         Packages.Clear();
+
+        GC.SuppressFinalize(this);
     }
 }

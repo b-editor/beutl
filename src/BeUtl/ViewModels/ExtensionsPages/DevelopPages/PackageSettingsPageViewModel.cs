@@ -1,27 +1,14 @@
-﻿using System.Diagnostics;
-using System.Reactive.Disposables;
-using System.Reactive.Linq;
-using System.Reactive.Threading.Tasks;
-
-using Avalonia;
-using Avalonia.Media;
+﻿using Avalonia;
 using Avalonia.Media.Imaging;
 using Avalonia.Skia;
 using Avalonia.Threading;
 
-using BeUtl.Collections;
-using BeUtl.Framework.Service;
 using BeUtl.Models.Extensions.Develop;
 using BeUtl.Models.ExtensionsPages.DevelopPages;
-using BeUtl.Services;
 
 using DynamicData;
 
-using Firebase.Storage;
-
 using Google.Cloud.Firestore;
-
-using Microsoft.Extensions.DependencyInjection;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
@@ -36,11 +23,10 @@ public sealed class PackageSettingsPageViewModel : IDisposable
     private readonly WeakReference<PackageDetailsPageViewModel?> _parentWeak;
     private readonly string _imagesPath;
 
-    public PackageSettingsPageViewModel(DocumentReference docRef, PackageDetailsPageViewModel parent)
+    public PackageSettingsPageViewModel(PackageDetailsPageViewModel parent)
     {
-        Reference = docRef;
-        _imagesPath = $"users/{Reference.Parent.Parent.Id}/packages/{Reference.Id}/images";
         _parentWeak = new WeakReference<PackageDetailsPageViewModel?>(parent);
+        _imagesPath = $"users/{Reference.Parent.Parent.Id}/packages/{Reference.Id}/images";
 
         // 入力用プロパティの作成（オリジナルが変更されたら同期する）
         Name = parent.Package.Select(p => p.Name)
@@ -329,7 +315,7 @@ public sealed class PackageSettingsPageViewModel : IDisposable
         Dispose();
     }
 
-    public DocumentReference Reference { get; }
+    public DocumentReference Reference => Parent.Package.Value.Snapshot.Reference;
 
     public PackageDetailsPageViewModel Parent
         => _parentWeak.TryGetTarget(out PackageDetailsPageViewModel? parent)
@@ -409,7 +395,7 @@ public sealed class PackageSettingsPageViewModel : IDisposable
         }
         else
         {
-            return "Please enter a string.";
+            return StringResources.Message.PleaseEnterString;
         }
     }
 }

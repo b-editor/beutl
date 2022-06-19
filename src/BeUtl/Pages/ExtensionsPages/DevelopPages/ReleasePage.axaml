@@ -29,7 +29,7 @@
 
             <Label Classes="breadcrumb" />
 
-            <Button Content="リリースを管理"
+            <Button Content="{DynamicResource S.DevelopPage.Package.ReleasesDescription}"
                     Classes="breadcrumb"
                     Click="NavigatePackageReleasesPage_Click" />
 
@@ -42,9 +42,9 @@
 
         <ScrollViewer Grid.Row="1" Margin="10,0">
             <StackPanel Spacing="4">
-                <ctrls:OptionsDisplayItem Header="タイトル"
+                <ctrls:OptionsDisplayItem Header="{DynamicResource S.DevelopPage.Release.Fields.Title}"
                                           Expands="True"
-                                          Description="このリリースのタイトル">
+                                          Description="{DynamicResource S.DevelopPage.Release.Fields.TitleDescription}">
                     <ctrls:OptionsDisplayItem.ActionButton>
                         <TextBlock Text="{CompiledBinding Release.Value.Title}"
                                    Classes="description" />
@@ -55,8 +55,8 @@
                     </ctrls:OptionsDisplayItem.Content>
                 </ctrls:OptionsDisplayItem>
 
-                <ctrls:OptionsDisplayItem Header="リリースノート"
-                                          Description="このリリースを説明"
+                <ctrls:OptionsDisplayItem Header="{DynamicResource S.DevelopPage.Release.Fields.Body}"
+                                          Description="{DynamicResource S.DevelopPage.Release.Fields.BodyDescription}"
                                           Expands="True">
                     <ctrls:OptionsDisplayItem.ActionButton>
                         <TextBlock Text="{CompiledBinding Release.Value.Body}"
@@ -71,8 +71,8 @@
                     </ctrls:OptionsDisplayItem.Content>
                 </ctrls:OptionsDisplayItem>
 
-                <ctrls:OptionsDisplayItem Header="バージョン"
-                                          Description="このリリースのバージョン"
+                <ctrls:OptionsDisplayItem Header="{DynamicResource S.DevelopPage.Release.Fields.Version}"
+                                          Description="{DynamicResource S.DevelopPage.Release.Fields.VersionDescription}"
                                           Expands="True">
                     <ctrls:OptionsDisplayItem.ActionButton>
                         <TextBlock Text="{CompiledBinding Release.Value.Version}"
@@ -87,14 +87,14 @@
 
                 <TextBlock Margin="0,16,0,0"
                            Classes="BodyStrongTextBlockStyle"
-                           Text="詳細なリソース" />
+                           Text="{DynamicResource S.DevelopPage.Package.LocaleSpecificResources}" />
 
-                <ctrls:OptionsDisplayItem Header="言語別のリソース"
-                                          Description="ここで追加したリソースはそのカルチャで表示されます">
+                <ctrls:OptionsDisplayItem Header="{DynamicResource S.DevelopPage.Package.LocaleSpecificResources}"
+                                          Description="{DynamicResource S.DevelopPage.Package.LocaleSpecificResourcesDescription}">
                     <ctrls:OptionsDisplayItem.ActionButton>
                         <Button Classes="accent"
                                 Click="AddResource_Click"
-                                Content="リソース追加" />
+                                Content="{DynamicResource S.Common.Add}" />
                     </ctrls:OptionsDisplayItem.ActionButton>
                 </ctrls:OptionsDisplayItem>
 
@@ -148,29 +148,26 @@
 
                 <TextBlock Margin="0,16,0,0"
                            Classes="BodyStrongTextBlockStyle"
-                           Text="設定" />
+                           Text="{DynamicResource S.Common.Settings}" />
 
-                <ctrls:OptionsDisplayItem Header="削除"
+                <ctrls:OptionsDisplayItem Header="{DynamicResource S.Common.Delete}"
                                           Icon="Delete"
                                           Navigates="True"
-                                          NavigationRequested="DeleteRelease_Click"
-                                          Description="リリースを削除します。" />
+                                          NavigationRequested="DeleteRelease_Click" />
 
-                <ctrls:OptionsDisplayItem Header="パブリックにする"
+                <ctrls:OptionsDisplayItem Header="{DynamicResource S.DevelopPage.MakePublicRelease.Title}"
                                           IsVisible="{CompiledBinding !Release.Value.IsVisible}"
                                           Navigates="True"
-                                          NavigationRequested="MakePublic_Click"
-                                          Description="リリースを公開します。">
+                                          NavigationRequested="MakePublic_Click">
                     <ctrls:OptionsDisplayItem.Icon>
                         <ui:PathIcon Data="{StaticResource Eye_Show_Regular}" />
                     </ctrls:OptionsDisplayItem.Icon>
                 </ctrls:OptionsDisplayItem>
 
-                <ctrls:OptionsDisplayItem Header="プライベートにする"
+                <ctrls:OptionsDisplayItem Header="{DynamicResource S.DevelopPage.MakePrivateRelease.Title}"
                                           IsVisible="{CompiledBinding Release.Value.IsVisible}"
                                           Navigates="True"
-                                          NavigationRequested="MakePrivate_Click"
-                                          Description="リリースを非公開にします。">
+                                          NavigationRequested="MakePrivate_Click">
                     <ctrls:OptionsDisplayItem.Icon>
                         <ui:PathIcon Data="{StaticResource Eye_Hide_Regular}" />
                     </ctrls:OptionsDisplayItem.Icon>
@@ -185,11 +182,11 @@
             <StackPanel HorizontalAlignment="Right"
                         Spacing="8"
                         Orientation="Horizontal">
-                <Button Content="変更を破棄する"
+                <Button Content="{DynamicResource S.DevelopPage.DiscardChanges}"
                         IsEnabled="{CompiledBinding IsChanging.Value}"
                         Command="{CompiledBinding DiscardChanges}" />
 
-                <Button Content="保存"
+                <Button Content="{DynamicResource S.Common.Save}"
                         IsEnabled="{CompiledBinding IsChanging.Value}"
                         Classes="accent"
                         Command="{CompiledBinding Save}" />

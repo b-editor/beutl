@@ -3,4 +3,9 @@
   <ItemGroup>
     <ProjectReference Include="..\BeUtl.Core\BeUtl.Core.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <AvaloniaXaml Update="ja-JP\Pages\ExtensionsPageResources.axaml">
+      <SubType>Designer</SubType>
+    </AvaloniaXaml>
+  </ItemGroup>
 </Project>

@@ -30,7 +30,7 @@
 
             <Label Classes="breadcrumb" />
 
-            <TextBlock Text="設定"
+            <TextBlock Text="{DynamicResource S.Common.Settings}"
                        Classes="breadcrumb" />
         </StackPanel>
 
@@ -38,10 +38,10 @@
             <StackPanel Spacing="4">
                 <TextBlock Classes="BodyStrongTextBlockStyle"
                            Margin="0,16,0,0"
-                           Text="リソース" />
+                           Text="{DynamicResource S.DevelopPage.Package.Resource}" />
 
-                <ctrls:OptionsDisplayItem Header="名前"
-                                          Description="パッケージを識別するための文字列"
+                <ctrls:OptionsDisplayItem Header="{DynamicResource S.DevelopPage.Package.Fields.Name}"
+                                          Description="{DynamicResource S.DevelopPage.Package.Fields.NameDescription}"
                                           Expands="True">
                     <ctrls:OptionsDisplayItem.ActionButton>
                         <TextBlock Text="{CompiledBinding Parent.Package.Value.Name}"
@@ -56,10 +56,10 @@
                 <TextBlock Margin="0,8,0,0"
                            FontStyle="Italic"
                            Classes="BodyStrongTextBlockStyle"
-                           Text="この項目の値は'詳細なリソース'で設定されていないカルチャで表示されます。" />
+                           Text="{DynamicResource S.DevelopPage.Package.BaseResourceDescription}" />
 
-                <ctrls:OptionsDisplayItem Header="表示名"
-                                          Description="パッケージの名前"
+                <ctrls:OptionsDisplayItem Header="{DynamicResource S.DevelopPage.Package.Fields.DisplayName}"
+                                          Description="{DynamicResource S.DevelopPage.Package.Fields.DisplayNameDescription}"
                                           Expands="True">
                     <ctrls:OptionsDisplayItem.ActionButton>
                         <TextBlock Text="{CompiledBinding Parent.Package.Value.DisplayName}"
@@ -71,8 +71,8 @@
                     </ctrls:OptionsDisplayItem.Content>
                 </ctrls:OptionsDisplayItem>
 
-                <ctrls:OptionsDisplayItem Header="説明"
-                                          Description="パッケージの説明"
+                <ctrls:OptionsDisplayItem Header="{DynamicResource S.DevelopPage.Package.Fields.Description}"
+                                          Description="{DynamicResource S.DevelopPage.Package.Fields.DescriptionDescription}"
                                           Expands="True">
                     <ctrls:OptionsDisplayItem.ActionButton>
                         <TextBlock Text="{CompiledBinding Parent.Package.Value.Description}"
@@ -87,8 +87,8 @@
                     </ctrls:OptionsDisplayItem.Content>
                 </ctrls:OptionsDisplayItem>
 
-                <ctrls:OptionsDisplayItem Header="短い説明"
-                                          Description="パッケージの短い説明"
+                <ctrls:OptionsDisplayItem Header="{DynamicResource S.DevelopPage.Package.Fields.ShortDescription}"
+                                          Description="{DynamicResource S.DevelopPage.Package.Fields.ShortDescriptionDescription}"
                                           Expands="True">
                     <ctrls:OptionsDisplayItem.ActionButton>
                         <TextBlock Text="{CompiledBinding Parent.Package.Value.ShortDescription}"
@@ -102,11 +102,11 @@
                     </ctrls:OptionsDisplayItem.Content>
                 </ctrls:OptionsDisplayItem>
 
-                <ctrls:OptionsDisplayItem Header="ロゴ"
-                                          Description="パッケージのロゴを設定"
+                <ctrls:OptionsDisplayItem Header="{DynamicResource S.DevelopPage.Package.Fields.LogoImage}"
+                                          Description="{DynamicResource S.DevelopPage.Package.Fields.LogoImageDescription}"
                                           Expands="True">
                     <ctrls:OptionsDisplayItem.ActionButton>
-                        <Button Content="参照" Click="OpenLogoFile_Click" />
+                        <Button Content="{DynamicResource S.Common.Open}" Click="OpenLogoFile_Click" />
                     </ctrls:OptionsDisplayItem.ActionButton>
                     <ctrls:OptionsDisplayItem.Content>
                         <StackPanel Spacing="16">
@@ -120,13 +120,13 @@
                     </ctrls:OptionsDisplayItem.Content>
                 </ctrls:OptionsDisplayItem>
 
-                <ctrls:OptionsDisplayItem Header="スクリーンショット"
-                                          Description="パッケージのスクリーンショットを設定 (最大４枚まで)"
+                <ctrls:OptionsDisplayItem Header="{DynamicResource S.DevelopPage.Package.Fields.Screenshots}"
+                                          Description="{DynamicResource S.DevelopPage.Package.Fields.ScreenshotsDescription}"
                                           Expands="True">
                     <ctrls:OptionsDisplayItem.Content>
                         <Grid RowDefinitions="Auto,*,Auto">
                             <StackPanel Orientation="Horizontal" Spacing="8">
-                                <Button Content="追加"
+                                <Button Content="{DynamicResource S.Common.Add}"
                                         Classes="accent"
                                         IsEnabled="{CompiledBinding CanAddScreenshot.Value}"
                                         Click="AddScreenshotFile_Click" />
@@ -149,21 +149,21 @@
                                                    MaxHeight="300">
                                                 <Image.ContextMenu>
                                                     <ContextMenu>
-                                                        <MenuItem Header="削除"
+                                                        <MenuItem Header="{DynamicResource S.Common.Delete}"
                                                                   CommandParameter="{Binding}"
                                                                   Command="{Binding #root.DataContext.DeleteScreenshot}">
                                                             <MenuItem.Icon>
                                                                 <ctrls:FluentIconRegular IconType="Delete" />
                                                             </MenuItem.Icon>
                                                         </MenuItem>
-                                                        <MenuItem Header="１つ手前に移動"
+                                                        <MenuItem Header="{DynamicResource S.DevelopPage.Package.MoveOneFront}"
                                                                   CommandParameter="{Binding}"
                                                                   Command="{Binding #root.DataContext.MoveScreenshotFront}">
                                                             <MenuItem.Icon>
                                                                 <ctrls:FluentIconRegular IconType="Arrow_Left" />
                                                             </MenuItem.Icon>
                                                         </MenuItem>
-                                                        <MenuItem Header="１つ後ろに移動"
+                                                        <MenuItem Header="{DynamicResource S.DevelopPage.Package.MoveOneBack}"
                                                                   CommandParameter="{Binding}"
                                                                   Command="{Binding #root.DataContext.MoveScreenshotBack}">
                                                             <MenuItem.Icon>
@@ -187,14 +187,14 @@
 
                 <TextBlock Margin="0,16,0,0"
                            Classes="BodyStrongTextBlockStyle"
-                           Text="詳細なリソース" />
+                           Text="{DynamicResource S.DevelopPage.Package.LocaleSpecificResources}" />
 
-                <ctrls:OptionsDisplayItem Header="言語別のリソース"
-                                          Description="ここで追加したリソースはそのカルチャで表示されます">
+                <ctrls:OptionsDisplayItem Header="{DynamicResource S.DevelopPage.Package.LocaleSpecificResources}"
+                                          Description="{DynamicResource S.DevelopPage.Package.LocaleSpecificResourcesDescription}">
                     <ctrls:OptionsDisplayItem.ActionButton>
                         <Button Classes="accent"
                                 Click="AddResource_Click"
-                                Content="リソース追加" />
+                                Content="{DynamicResource S.Common.Add}" />
                     </ctrls:OptionsDisplayItem.ActionButton>
                 </ctrls:OptionsDisplayItem>
 
@@ -260,29 +260,26 @@
 
                 <TextBlock Margin="0,16,0,0"
                            Classes="BodyStrongTextBlockStyle"
-                           Text="設定" />
+                           Text="{DynamicResource S.Common.Settings}" />
 
-                <ctrls:OptionsDisplayItem Header="パッケージを削除"
+                <ctrls:OptionsDisplayItem Header="{DynamicResource S.DevelopPage.DeletePackage.Title}"
                                           Icon="Delete"
                                           Navigates="True"
-                                          NavigationRequested="DeletePackage_Click"
-                                          Description="パッケージを削除します。" />
+                                          NavigationRequested="DeletePackage_Click" />
 
-                <ctrls:OptionsDisplayItem Header="パブリックにする"
+                <ctrls:OptionsDisplayItem Header="{DynamicResource S.DevelopPage.MakePublicPackage.Title}"
                                           IsVisible="{CompiledBinding !Parent.Package.Value.IsVisible}"
                                           Navigates="True"
-                                          NavigationRequested="MakePublic_Click"
-                                          Description="パッケージを公開します。">
+                                          NavigationRequested="MakePublic_Click">
                     <ctrls:OptionsDisplayItem.Icon>
                         <ui:PathIcon Data="{StaticResource Eye_Show_Regular}" />
                     </ctrls:OptionsDisplayItem.Icon>
                 </ctrls:OptionsDisplayItem>
 
-                <ctrls:OptionsDisplayItem Header="プライベートにする"
+                <ctrls:OptionsDisplayItem Header="{DynamicResource S.DevelopPage.MakePrivatePackage.Title}"
                                           IsVisible="{CompiledBinding Parent.Package.Value.IsVisible}"
                                           Navigates="True"
-                                          NavigationRequested="MakePrivate_Click"
-                                          Description="パッケージを非公開にします。">
+                                          NavigationRequested="MakePrivate_Click">
                     <ctrls:OptionsDisplayItem.Icon>
                         <ui:PathIcon Data="{StaticResource Eye_Hide_Regular}" />
                     </ctrls:OptionsDisplayItem.Icon>
@@ -297,11 +294,11 @@
             <StackPanel HorizontalAlignment="Right"
                         Spacing="8"
                         Orientation="Horizontal">
-                <Button Content="変更を破棄する"
+                <Button Content="{DynamicResource S.DevelopPage.DiscardChanges}"
                         IsEnabled="{CompiledBinding IsChanging.Value}"
                         Command="{CompiledBinding DiscardChanges}" />
 
-                <Button Content="保存"
+                <Button Content="{DynamicResource S.Common.Save}"
                         IsEnabled="{CompiledBinding IsChanging.Value}"
                         Classes="accent"
                         Command="{CompiledBinding Save}" />

@@ -1,9 +1,4 @@
-﻿using System.Globalization;
-using System.Reactive.Disposables;
-using System.Reactive.Linq;
-
-using BeUtl.Collections;
-using BeUtl.Models.Extensions.Develop;
+﻿using BeUtl.Models.Extensions.Develop;
 
 using Google.Cloud.Firestore;
 
@@ -40,10 +35,11 @@ public sealed class ReleaseResourceViewModel
 public sealed class ReleasePageViewModel : IDisposable
 {
     private readonly CompositeDisposable _disposables = new();
+    private readonly WeakReference<PackageReleasesPageViewModel> _parentWeak;
 
     public ReleasePageViewModel(IPackageRelease.ILink release, PackageReleasesPageViewModel parent)
     {
-        Parent = parent;
+        _parentWeak = new WeakReference<PackageReleasesPageViewModel>(parent);
         Release = release.GetObservable()
             .ToReadOnlyReactivePropertySlim(release)
             .DisposeWith(_disposables);
@@ -58,7 +54,7 @@ public sealed class ReleasePageViewModel : IDisposable
             .ToReactiveProperty(release.Version.ToString())
             .DisposeWith(_disposables);
 
-        VersionInput.SetValidateNotifyError(str => System.Version.TryParse(str, out _) ? null : "CultureNotFoundException");
+        VersionInput.SetValidateNotifyError(str => System.Version.TryParse(str, out _) ? null : StringResources.Message.InvalidString);
 
         Version = VersionInput.Select(str => System.Version.TryParse(str, out Version? v) ? v : null)
             .ToReadOnlyReactivePropertySlim();
@@ -128,7 +124,15 @@ public sealed class ReleasePageViewModel : IDisposable
             .DisposeWith(_disposables);
     }
 
-    public PackageReleasesPageViewModel Parent { get; }
+    ~ReleasePageViewModel()
+    {
+        Dispose();
+    }
+
+    public PackageReleasesPageViewModel Parent
+        => _parentWeak.TryGetTarget(out PackageReleasesPageViewModel? parent)
+            ? parent
+            : null!;
 
     public ReadOnlyReactivePropertySlim<IPackageRelease.ILink> Release { get; }
 
@@ -156,9 +160,12 @@ public sealed class ReleasePageViewModel : IDisposable
 
     public void Dispose()
     {
+        Debug.WriteLine($"{GetType().Name} disposed (Count: {_disposables.Count}).");
         _disposables.Dispose();
 
         Items.Clear();
+
+        GC.SuppressFinalize(this);
     }
 
     private static string NotNullOrWhitespace(string str)
@@ -169,7 +176,7 @@ public sealed class ReleasePageViewModel : IDisposable
         }
         else
         {
-            return "Please enter a string.";
+            return StringResources.Message.PleaseEnterString;
         }
     }
 }

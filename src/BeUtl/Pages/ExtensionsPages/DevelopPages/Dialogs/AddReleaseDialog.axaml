@@ -6,10 +6,10 @@
                   xmlns:ui="using:FluentAvalonia.UI.Controls"
                   xmlns:ctrls="using:BeUtl.Controls"
                   mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-                  Title="リリースを追加"
-                  PrimaryButtonText="作成"
+                  Title="{DynamicResource S.DevelopPage.AddRelease.Title}"
+                  PrimaryButtonText="{DynamicResource S.Common.Create}"
                   IsPrimaryButtonEnabled="{CompiledBinding IsValid.Value}"
-                  CloseButtonText="キャンセル"
+                  CloseButtonText="{DynamicResource S.Common.Cancel}"
                   DefaultButton="Primary"
                   x:DataType="viewModels:AddReleaseDialogViewModel"
                   x:Class="BeUtl.Pages.ExtensionsPages.DevelopPages.Dialogs.AddReleaseDialog">
@@ -29,17 +29,17 @@
                 <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
             </Style>
         </StackPanel.Styles>
-        <ctrls:OptionsDisplayItem Header="タイトル"
-                                  Description="このリリースのタイトル">
+        <ctrls:OptionsDisplayItem Header="{DynamicResource S.DevelopPage.Release.Fields.Title}"
+                                  Description="{DynamicResource S.DevelopPage.Release.Fields.TitleDescription}">
             <ctrls:OptionsDisplayItem.ActionButton>
                 <TextBox Text="{CompiledBinding Title.Value}"
                          Classes="customStyle" />
             </ctrls:OptionsDisplayItem.ActionButton>
         </ctrls:OptionsDisplayItem>
 
-        <ctrls:OptionsDisplayItem Header="リリースノート"
+        <ctrls:OptionsDisplayItem Header="{DynamicResource S.DevelopPage.Release.Fields.Body}"
                                   Expands="True"
-                                  Description="このリリースを説明">
+                                  Description="{DynamicResource S.DevelopPage.Release.Fields.BodyDescription}">
             <ctrls:OptionsDisplayItem.Content>
                 <TextBox Text="{CompiledBinding Body.Value}"
                          AcceptsReturn="True"
@@ -47,8 +47,8 @@
             </ctrls:OptionsDisplayItem.Content>
         </ctrls:OptionsDisplayItem>
 
-        <ctrls:OptionsDisplayItem Header="バージョン"
-                                  Description="このリリースのバージョン">
+        <ctrls:OptionsDisplayItem Header="{DynamicResource S.DevelopPage.Release.Fields.Version}"
+                                  Description="{DynamicResource S.DevelopPage.Release.Fields.VersionDescription}">
             <ctrls:OptionsDisplayItem.ActionButton>
                 <TextBox Text="{CompiledBinding Version.Value}"
                          Classes="customStyle" />

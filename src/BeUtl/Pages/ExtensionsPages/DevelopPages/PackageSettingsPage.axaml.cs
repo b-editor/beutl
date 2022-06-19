@@ -11,6 +11,7 @@ using BeUtl.ViewModels.ExtensionsPages.DevelopPages.Dialogs;
 using FluentAvalonia.UI.Controls;
 
 using Button = Avalonia.Controls.Button;
+using S = BeUtl.Language.StringResources;
 
 namespace BeUtl.Pages.ExtensionsPages.DevelopPages;
 
@@ -69,10 +70,10 @@ public partial class PackageSettingsPage : UserControl
             Frame frame = this.FindAncestorOfType<Frame>();
             var dialog = new ContentDialog
             {
-                Title = "リソースを削除",
-                Content = "リソースを削除してもよろしいですか？",
-                PrimaryButtonText = "はい",
-                CloseButtonText = "いいえ",
+                Title = S.DevelopPage.DeleteResource.Title,
+                Content = S.DevelopPage.DeleteResource.Content,
+                PrimaryButtonText = S.Common.Yes,
+                CloseButtonText = S.Common.No,
                 DefaultButton = ContentDialogButton.Primary
             };
 
@@ -96,10 +97,10 @@ public partial class PackageSettingsPage : UserControl
             Frame frame = this.FindAncestorOfType<Frame>();
             var dialog = new ContentDialog
             {
-                Title = "パッケージを削除",
-                Content = "パッケージを削除してもよろしいですか？\nこの操作を実行するとこのパッケージには二度とアクセスできなくなります。",
-                PrimaryButtonText = "はい",
-                CloseButtonText = "いいえ",
+                Title = S.DevelopPage.DeletePackage.Title,
+                Content = S.DevelopPage.DeletePackage.Content,
+                PrimaryButtonText = S.Common.Yes,
+                CloseButtonText = S.Common.No,
                 DefaultButton = ContentDialogButton.Primary
             };
 
@@ -107,11 +108,11 @@ public partial class PackageSettingsPage : UserControl
             {
                 string packageId = viewModel.Reference.Id;
                 frame.RemoveAllStack(
-                    item => (item is PackageDetailsPageViewModel p1 && p1.Reference.Id == packageId)
+                    item => (item is PackageDetailsPageViewModel p1 && p1.Package.Value.Snapshot.Id == packageId)
                          || (item is PackageSettingsPageViewModel p2 && p2.Reference.Id == packageId)
                          || (item is ResourcePageViewModel p3 && p3.Parent.Reference.Id == packageId)
-                         || (item is ReleasePageViewModel p4 && p4.Parent.Parent.Reference.Id == packageId)
-                         || (item is PackageReleasesPageViewModel p5 && p5.Parent.Reference.Id == packageId));
+                         || (item is ReleasePageViewModel p4 && p4.Parent.Parent.Package.Value.Snapshot.Id == packageId)
+                         || (item is PackageReleasesPageViewModel p5 && p5.Parent.Package.Value.Snapshot.Id == packageId));
 
                 viewModel.Delete.Execute();
 
@@ -126,10 +127,10 @@ public partial class PackageSettingsPage : UserControl
         {
             var dialog = new ContentDialog
             {
-                Title = "パッケージを公開",
-                Content = "パッケージを公開してもよろしいですか？\nこの操作を実行すると他人がこのパッケージをダウンロードできるようになります。",
-                PrimaryButtonText = "はい",
-                CloseButtonText = "いいえ",
+                Title = S.DevelopPage.MakePublicPackage.Title,
+                Content = S.DevelopPage.MakePublicPackage.Content,
+                PrimaryButtonText = S.Common.Yes,
+                CloseButtonText = S.Common.No,
                 DefaultButton = ContentDialogButton.Primary
             };
 
@@ -146,10 +147,10 @@ public partial class PackageSettingsPage : UserControl
         {
             var dialog = new ContentDialog
             {
-                Title = "パッケージを非公開にする",
-                Content = "パッケージを非公開にしてもよろしいですか？\nこの操作を実行すると他人がこのパッケージをダウンロードできなくなります。",
-                PrimaryButtonText = "はい",
-                CloseButtonText = "いいえ",
+                Title = S.DevelopPage.MakePrivatePackage.Title,
+                Content = S.DevelopPage.MakePrivatePackage.Content,
+                PrimaryButtonText = S.Common.Yes,
+                CloseButtonText = S.Common.No,
                 DefaultButton = ContentDialogButton.Primary
             };
 

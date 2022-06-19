@@ -6,11 +6,11 @@
                   xmlns:ui="using:FluentAvalonia.UI.Controls"
                   xmlns:ctrls="using:BeUtl.Controls"
                   mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-                  Title="リソースを追加"
-                  PrimaryButtonText="追加"
+                  Title="{DynamicResource S.DevelopPage.AddResource.Title}"
+                  PrimaryButtonText="{DynamicResource S.Common.Add}"
                   PrimaryButtonCommand="{CompiledBinding Add}"
                   IsPrimaryButtonEnabled="{CompiledBinding IsValid.Value}"
-                  CloseButtonText="キャンセル"
+                  CloseButtonText="{DynamicResource S.Common.Cancel}"
                   DefaultButton="Primary"
                   x:DataType="viewModels:AddResourceDialogViewModel"
                   x:Class="BeUtl.Pages.ExtensionsPages.DevelopPages.Dialogs.AddResourceDialog">
@@ -31,9 +31,9 @@
             </Style>
         </StackPanel.Styles>
         <ctrls:OptionsDisplayItem x:Name="OptionsItem1"
-                                  Header="言語"
+                                  Header="{DynamicResource S.DevelopPage.Resource.Fields.Culture}"
                                   Expands="True"
-                                  Description="このリソースを表示する言語圏">
+                                  Description="{DynamicResource S.DevelopPage.Resource.Fields.CultureDescription}">
             <ctrls:OptionsDisplayItem.ActionButton>
                 <TextBlock Text="{CompiledBinding Culture.Value.DisplayName}"
                            Classes="description" />
@@ -45,9 +45,9 @@
         </ctrls:OptionsDisplayItem>
 
         <ctrls:OptionsDisplayItem x:Name="OptionsItem2"
-                                  Header="表示名"
+                                  Header="{DynamicResource S.DevelopPage.Package.Fields.DisplayName}"
                                   Expands="True"
-                                  Description="パッケージの名前">
+                                  Description="{DynamicResource S.DevelopPage.Package.Fields.DisplayNameDescription}">
             <ctrls:OptionsDisplayItem.ActionButton>
                 <TextBlock Text="{CompiledBinding DisplayName.Value}"
                            MaxWidth="150"
@@ -57,7 +57,7 @@
             <ctrls:OptionsDisplayItem.Content>
                 <StackPanel Spacing="16">
                     <CheckBox IsChecked="{CompiledBinding InheritDisplayName.Value}"
-                              Content="値を継承する" />
+                              Content="{DynamicResource S.DevelopPage.Resource.Fields.InheritField}" />
 
                     <TextBox Text="{CompiledBinding DisplayName.Value}"
                          Classes="customStyle" />
@@ -66,8 +66,8 @@
         </ctrls:OptionsDisplayItem>
 
         <ctrls:OptionsDisplayItem x:Name="OptionsItem3"
-                                  Header="説明"
-                                  Description="パッケージの説明"
+                                  Header="{DynamicResource S.DevelopPage.Package.Fields.Description}"
+                                  Description="{DynamicResource S.DevelopPage.Package.Fields.DescriptionDescription}"
                                   Expands="True">
             <ctrls:OptionsDisplayItem.ActionButton>
                 <TextBlock Text="{CompiledBinding Description.Value}"
@@ -78,7 +78,7 @@
             <ctrls:OptionsDisplayItem.Content>
                 <StackPanel Spacing="16">
                     <CheckBox IsChecked="{CompiledBinding InheritDescription.Value}"
-                              Content="値を継承する" />
+                              Content="{DynamicResource S.DevelopPage.Resource.Fields.InheritField}" />
 
                     <TextBox Text="{CompiledBinding Description.Value}"
                              AcceptsReturn="True"
@@ -88,8 +88,8 @@
         </ctrls:OptionsDisplayItem>
 
         <ctrls:OptionsDisplayItem x:Name="OptionsItem4"
-                                  Header="短い説明"
-                                  Description="パッケージの短い説明"
+                                  Header="{DynamicResource S.DevelopPage.Package.Fields.ShortDescription}"
+                                  Description="{DynamicResource S.DevelopPage.Package.Fields.ShortDescriptionDescription}"
                                   Expands="True">
             <ctrls:OptionsDisplayItem.ActionButton>
                 <TextBlock Text="{CompiledBinding ShortDescription.Value}"
@@ -100,7 +100,7 @@
             <ctrls:OptionsDisplayItem.Content>
                 <StackPanel Spacing="16">
                     <CheckBox IsChecked="{CompiledBinding InheritShortDescription.Value}"
-                              Content="値を継承する" />
+                              Content="{DynamicResource S.DevelopPage.Resource.Fields.InheritField}" />
 
                     <TextBox Text="{CompiledBinding ShortDescription.Value}"
                              Classes="customStyle" />

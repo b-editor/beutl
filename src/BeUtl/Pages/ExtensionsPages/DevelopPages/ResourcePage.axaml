@@ -30,7 +30,7 @@
 
             <Label Classes="breadcrumb" />
 
-            <Button Content="設定"
+            <Button Content="{DynamicResource S.Common.Settings}"
                     Classes="breadcrumb"
                     Click="NavigatePackageSettingsPage_Click" />
 
@@ -45,11 +45,11 @@
             <StackPanel Spacing="4">
                 <TextBlock Classes="BodyStrongTextBlockStyle"
                            Margin="0,16,0,0"
-                           Text="リソース" />
+                           Text="{DynamicResource S.DevelopPage.Package.Resource}" />
 
-                <ctrls:OptionsDisplayItem Header="言語"
+                <ctrls:OptionsDisplayItem Header="{DynamicResource S.DevelopPage.Resource.Fields.Culture}"
                                           Expands="True"
-                                          Description="このリソースを表示する言語圏">
+                                          Description="{DynamicResource S.DevelopPage.Resource.Fields.CultureDescription}">
                     <ctrls:OptionsDisplayItem.ActionButton>
                         <TextBlock Text="{CompiledBinding Resource.Value.Culture.DisplayName}"
                                    Classes="description" />
@@ -60,8 +60,8 @@
                     </ctrls:OptionsDisplayItem.Content>
                 </ctrls:OptionsDisplayItem>
 
-                <ctrls:OptionsDisplayItem Header="表示名"
-                                          Description="パッケージの名前"
+                <ctrls:OptionsDisplayItem Header="{DynamicResource S.DevelopPage.Package.Fields.DisplayName}"
+                                          Description="{DynamicResource S.DevelopPage.Package.Fields.DisplayNameDescription}"
                                           Expands="True">
                     <ctrls:OptionsDisplayItem.ActionButton>
                         <Panel>
@@ -76,7 +76,7 @@
                     <ctrls:OptionsDisplayItem.Content>
                         <StackPanel Spacing="16">
                             <CheckBox IsChecked="{CompiledBinding InheritDisplayName.Value}"
-                                      Content="値を継承する" />
+                                      Content="{DynamicResource S.DevelopPage.Resource.Fields.InheritField}" />
 
                             <TextBox Text="{CompiledBinding DisplayName.Value}"
                                      IsEnabled="{CompiledBinding !InheritDisplayName.Value}"
@@ -85,8 +85,8 @@
                     </ctrls:OptionsDisplayItem.Content>
                 </ctrls:OptionsDisplayItem>
 
-                <ctrls:OptionsDisplayItem Header="説明"
-                                          Description="パッケージの説明"
+                <ctrls:OptionsDisplayItem Header="{DynamicResource S.DevelopPage.Package.Fields.Description}"
+                                          Description="{DynamicResource S.DevelopPage.Package.Fields.DescriptionDescription}"
                                           Expands="True">
                     <ctrls:OptionsDisplayItem.ActionButton>
                         <Panel>
@@ -106,7 +106,7 @@
                     <ctrls:OptionsDisplayItem.Content>
                         <StackPanel Spacing="16">
                             <CheckBox IsChecked="{CompiledBinding InheritDescription.Value}"
-                                      Content="値を継承する" />
+                                      Content="{DynamicResource S.DevelopPage.Resource.Fields.InheritField}" />
                             
                             <TextBox Text="{CompiledBinding Description.Value}"
                                      AcceptsReturn="True"
@@ -116,8 +116,8 @@
                     </ctrls:OptionsDisplayItem.Content>
                 </ctrls:OptionsDisplayItem>
 
-                <ctrls:OptionsDisplayItem Header="短い説明"
-                                          Description="パッケージの短い説明"
+                <ctrls:OptionsDisplayItem Header="{DynamicResource S.DevelopPage.Package.Fields.ShortDescription}"
+                                          Description="{DynamicResource S.DevelopPage.Package.Fields.ShortDescriptionDescription}"
                                           Expands="True">
                     <ctrls:OptionsDisplayItem.ActionButton>
                         <Panel>
@@ -137,7 +137,7 @@
                     <ctrls:OptionsDisplayItem.Content>
                         <StackPanel Spacing="16">
                             <CheckBox IsChecked="{CompiledBinding InheritShortDescription.Value}"
-                                      Content="値を継承する" />
+                                      Content="{DynamicResource S.DevelopPage.Resource.Fields.InheritField}" />
 
                             <TextBox Text="{CompiledBinding ShortDescription.Value}"
                                      IsEnabled="{CompiledBinding !InheritShortDescription.Value}"
@@ -146,18 +146,18 @@
                     </ctrls:OptionsDisplayItem.Content>
                 </ctrls:OptionsDisplayItem>
 
-                <ctrls:OptionsDisplayItem Header="ロゴ"
-                                          Description="パッケージのロゴを設定"
+                <ctrls:OptionsDisplayItem Header="{DynamicResource S.DevelopPage.Package.Fields.LogoImage}"
+                                          Description="{DynamicResource S.DevelopPage.Package.Fields.LogoImageDescription}"
                                           Expands="True">
                     <ctrls:OptionsDisplayItem.ActionButton>
-                        <Button Content="参照"
+                        <Button Content="{DynamicResource S.Common.Open}"
                                 IsEnabled="{CompiledBinding !InheritLogo.Value}"
                                 Click="OpenLogoFile_Click" />
                     </ctrls:OptionsDisplayItem.ActionButton>
                     <ctrls:OptionsDisplayItem.Content>
                         <StackPanel Spacing="16">
                             <CheckBox IsChecked="{CompiledBinding InheritLogo.Value}"
-                                      Content="値を継承する" />
+                                      Content="{DynamicResource S.DevelopPage.Resource.Fields.InheritField}" />
 
                             <Image Source="{CompiledBinding LogoImage.Value}"
                                    MaxWidth="300" MaxHeight="300"
@@ -169,19 +169,19 @@
                     </ctrls:OptionsDisplayItem.Content>
                 </ctrls:OptionsDisplayItem>
 
-                <ctrls:OptionsDisplayItem Header="スクリーンショット"
-                                          Description="パッケージのスクリーンショットを設定 (最大４枚まで)"
+                <ctrls:OptionsDisplayItem Header="{DynamicResource S.DevelopPage.Package.Fields.Screenshots}"
+                                          Description="{DynamicResource S.DevelopPage.Package.Fields.ScreenshotsDescription}"
                                           Expands="True">
                     <ctrls:OptionsDisplayItem.Content>
                         <Grid RowDefinitions="Auto,*,Auto">
                             <StackPanel Orientation="Horizontal" Spacing="8">
-                                <Button Content="追加"
+                                <Button Content="{DynamicResource S.Common.Add}"
                                         Classes="accent"
                                         IsEnabled="{CompiledBinding CanAddScreenshot.Value}"
                                         Click="AddScreenshotFile_Click" />
 
                                 <CheckBox IsChecked="{CompiledBinding InheritScreenshots.Value}"
-                                          Content="値を継承する" />
+                                          Content="{DynamicResource S.DevelopPage.Resource.Fields.InheritField}" />
                             </StackPanel>
 
                             <ScrollViewer HorizontalScrollBarVisibility="Visible"
@@ -201,21 +201,21 @@
                                                    MaxHeight="300">
                                                 <Image.ContextMenu>
                                                     <ContextMenu>
-                                                        <MenuItem Header="削除"
+                                                        <MenuItem Header="{DynamicResource S.Common.Delete}"
                                                                   CommandParameter="{Binding}"
                                                                   Command="{Binding #root.DataContext.DeleteScreenshot}">
                                                             <MenuItem.Icon>
                                                                 <ctrls:FluentIconRegular IconType="Delete" />
                                                             </MenuItem.Icon>
                                                         </MenuItem>
-                                                        <MenuItem Header="１つ手前に移動"
+                                                        <MenuItem Header="{DynamicResource S.DevelopPage.Package.MoveOneFront}"
                                                                   CommandParameter="{Binding}"
                                                                   Command="{Binding #root.DataContext.MoveScreenshotFront}">
                                                             <MenuItem.Icon>
                                                                 <ctrls:FluentIconRegular IconType="Arrow_Left" />
                                                             </MenuItem.Icon>
                                                         </MenuItem>
-                                                        <MenuItem Header="１つ後ろに移動"
+                                                        <MenuItem Header="{DynamicResource S.DevelopPage.Package.MoveOneBack}"
                                                                   CommandParameter="{Binding}"
                                                                   Command="{Binding #root.DataContext.MoveScreenshotBack}">
                                                             <MenuItem.Icon>
@@ -237,11 +237,10 @@
                     </ctrls:OptionsDisplayItem.Content>
                 </ctrls:OptionsDisplayItem>
 
-                <ctrls:OptionsDisplayItem Header="削除"
+                <ctrls:OptionsDisplayItem Header="{DynamicResource S.Common.Delete}"
                                           Icon="Delete"
                                           Navigates="True"
-                                          NavigationRequested="DeleteResource_Click"
-                                          Description="リソースを削除します。" />
+                                          NavigationRequested="DeleteResource_Click" />
             </StackPanel>
         </ScrollViewer>
 
@@ -252,11 +251,11 @@
             <StackPanel HorizontalAlignment="Right"
                         Spacing="8"
                         Orientation="Horizontal">
-                <Button Content="変更を破棄する"
+                <Button Content="{DynamicResource S.DevelopPage.DiscardChanges}"
                         IsEnabled="{CompiledBinding IsChanging.Value}"
                         Command="{CompiledBinding DiscardChanges}" />
 
-                <Button Content="保存"
+                <Button Content="{DynamicResource S.Common.Save}"
                         IsEnabled="{CompiledBinding IsChanging.Value}"
                         Classes="accent"
                         Command="{CompiledBinding Save}" />

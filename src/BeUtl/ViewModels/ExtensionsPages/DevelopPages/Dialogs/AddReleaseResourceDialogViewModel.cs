@@ -1,7 +1,4 @@
-﻿using System.Globalization;
-using System.Reactive.Linq;
-
-using BeUtl.Models.Extensions.Develop;
+﻿using BeUtl.Models.Extensions.Develop;
 
 using Reactive.Bindings;
 
@@ -24,7 +21,7 @@ public sealed class AddReleaseResourceDialogViewModel
                 catch { }
             }
 
-            return "CultureNotFoundException";
+            return StringResources.Message.InvalidString;
         });
 
         Culture = CultureInput.Select(str =>
@@ -50,10 +47,7 @@ public sealed class AddReleaseResourceDialogViewModel
             .Select(t => !(t.First || t.Second || t.Third))
             .ToReadOnlyReactivePropertySlim();
 
-        Add.Subscribe(async () =>
-        {
-            await Release.AddResource(new LocalizedReleaseResource(Title.Value, Body.Value, Culture.Value!));
-        });
+        Add.Subscribe(async () => await Release.AddResource(new LocalizedReleaseResource(Title.Value, Body.Value, Culture.Value!)));
     }
 
     public IPackageRelease.ILink Release { get; }
@@ -78,7 +72,7 @@ public sealed class AddReleaseResourceDialogViewModel
         }
         else
         {
-            return "Please enter a string.";
+            return StringResources.Message.PleaseEnterString;
         }
     }
 }

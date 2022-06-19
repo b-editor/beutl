@@ -37,7 +37,7 @@
                         </Border.Background>
                     </Border>
 
-                    <Label Content="ロゴ画像がありません"
+                    <Label Content="{DynamicResource S.DevelopPage.Package.NoLogoImageAvailable}"
                            IsVisible="{CompiledBinding !HasLogoImage.Value}"
                            HorizontalContentAlignment="Center"
                            VerticalContentAlignment="Center"
@@ -62,15 +62,15 @@
             <StackPanel Spacing="4">
                 <Separator Height="8" />
 
-                <ctrls:OptionsDisplayItem Header="設定"
+                <ctrls:OptionsDisplayItem Header="{DynamicResource S.DevelopPage.Package.Settings}"
                                           Icon="Settings"
-                                          Description="パッケージの設定"
+                                          Description="{DynamicResource S.DevelopPage.Package.SettingsDescription}"
                                           Navigates="True"
                                           NavigationRequested="NavigatePackageSettingsPage_Click" />
 
-                <ctrls:OptionsDisplayItem Header="リリース"
+                <ctrls:OptionsDisplayItem Header="{DynamicResource S.DevelopPage.Package.Releases}"
                                           Icon="Document"
-                                          Description="パッケージのリリースを管理します。"
+                                          Description="{DynamicResource S.DevelopPage.Package.ReleasesDescription}"
                                           Navigates="True"
                                           NavigationRequested="NavigatePackageReleasesPage_Click" />
             </StackPanel>

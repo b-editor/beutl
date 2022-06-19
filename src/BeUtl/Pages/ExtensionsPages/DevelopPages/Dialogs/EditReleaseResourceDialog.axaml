@@ -6,11 +6,11 @@
                   xmlns:ui="using:FluentAvalonia.UI.Controls"
                   xmlns:ctrls="using:BeUtl.Controls"
                   mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-                  Title="リリースを編集"
-                  PrimaryButtonText="決定"
+                  Title="{DynamicResource S.DevelopPage.EditRelease.Title}"
+                  PrimaryButtonText="{DynamicResource S.Common.Done}"
                   PrimaryButtonCommand="{CompiledBinding Apply}"
                   IsPrimaryButtonEnabled="{CompiledBinding IsValid.Value}"
-                  CloseButtonText="キャンセル"
+                  CloseButtonText="{DynamicResource S.Common.Cancel}"
                   DefaultButton="Primary"
                   x:DataType="viewModels:EditReleaseResourceDialogViewModel"
                   x:Class="BeUtl.Pages.ExtensionsPages.DevelopPages.Dialogs.EditReleaseResourceDialog">
@@ -30,17 +30,17 @@
                 <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
             </Style>
         </StackPanel.Styles>
-        <ctrls:OptionsDisplayItem Header="タイトル"
-                                  Description="このリリースのタイトル">
+        <ctrls:OptionsDisplayItem Header="{DynamicResource S.DevelopPage.Release.Fields.Title}"
+                                  Description="{DynamicResource S.DevelopPage.Release.Fields.TitleDescription}">
             <ctrls:OptionsDisplayItem.ActionButton>
                 <TextBox Text="{CompiledBinding Title.Value}"
                          Classes="customStyle" />
             </ctrls:OptionsDisplayItem.ActionButton>
         </ctrls:OptionsDisplayItem>
 
-        <ctrls:OptionsDisplayItem Header="リリースノート"
+        <ctrls:OptionsDisplayItem Header="{DynamicResource S.DevelopPage.Release.Fields.Body}"
                                   Expands="True"
-                                  Description="このリリースを説明">
+                                  Description="{DynamicResource S.DevelopPage.Release.Fields.BodyDescription}">
             <ctrls:OptionsDisplayItem.Content>
                 <TextBox Text="{CompiledBinding Body.Value}"
                          AcceptsReturn="True"
@@ -48,9 +48,9 @@
             </ctrls:OptionsDisplayItem.Content>
         </ctrls:OptionsDisplayItem>
 
-        <ctrls:OptionsDisplayItem Header="言語"
+        <ctrls:OptionsDisplayItem Header="{DynamicResource S.DevelopPage.Resource.Fields.Culture}"
                                   Expands="True"
-                                  Description="このリソースを表示する言語圏">
+                                  Description="{DynamicResource S.DevelopPage.Resource.Fields.CultureDescription}">
             <ctrls:OptionsDisplayItem.ActionButton>
                 <TextBlock Text="{CompiledBinding Culture.Value.DisplayName}"
                            Classes="description" />

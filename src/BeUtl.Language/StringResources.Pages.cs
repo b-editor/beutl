@@ -1,4 +1,6 @@
-﻿namespace BeUtl.Language;
+﻿using System.Data;
+
+namespace BeUtl.Language;
 
 #pragma warning disable IDE0002
 
@@ -276,5 +278,113 @@ public static partial class StringResources
         //S.BackupSettingsPage.BackupSettings
         private static IObservable<string>? s_backupSettings;
         public static IObservable<string> BackupSettingsObservable => s_backupSettings ??= "S.BackupSettingsPage.BackupSettings".GetStringObservable(StringResources.BackupSettingsPage.BackupSettings);
+    }
+
+    public static class DevelopPage
+    {
+        public static class DeletePackage
+        {
+            //S.DevelopPage.DeletePackage.Title
+            public static string Title => "S.DevelopPage.DeletePackage.Title".GetStringResource("Delete package");
+            //S.DevelopPage.DeletePackage.Content
+            public static string Content => "S.DevelopPage.DeletePackage.Content".GetStringResource("Are you sure you want to delete the package?\nIf you do this, you will never be able to access this package again.\n");
+
+            //S.DevelopPage.DeletePackage.Title
+            private static IObservable<string>? s_title;
+            public static IObservable<string> TitleObservable => s_title ??= "S.DevelopPage.DeletePackage.Title".GetStringObservable(StringResources.DevelopPage.DeletePackage.Title);
+            //S.DevelopPage.DeletePackage.Content
+            private static IObservable<string>? s_content;
+            public static IObservable<string> ContentObservable => s_content ??= "S.DevelopPage.DeletePackage.Content".GetStringObservable(StringResources.DevelopPage.DeletePackage.Content);
+        }
+
+        public static class DeleteRelease
+        {
+            //S.DevelopPage.DeleteRelease.Title
+            public static string Title => "S.DevelopPage.DeleteRelease.Title".GetStringResource("Delete release");
+            //S.DevelopPage.DeleteRelease.Content
+            public static string Content => "S.DevelopPage.DeleteRelease.Content".GetStringResource("Are you sure you want to delete the release?\nIf you do this, you will never be able to access this release again.\n");
+
+            //S.DevelopPage.DeleteRelease.Title
+            private static IObservable<string>? s_title;
+            public static IObservable<string> TitleObservable => s_title ??= "S.DevelopPage.DeleteRelease.Title".GetStringObservable(StringResources.DevelopPage.DeleteRelease.Title);
+            //S.DevelopPage.DeleteRelease.Content
+            private static IObservable<string>? s_content;
+            public static IObservable<string> ContentObservable => s_content ??= "S.DevelopPage.DeleteRelease.Content".GetStringObservable(StringResources.DevelopPage.DeleteRelease.Content);
+        }
+
+        public static class DeleteResource
+        {
+            //S.DevelopPage.DeleteResource.Title
+            public static string Title => "S.DevelopPage.DeleteResource.Title".GetStringResource("Delete resource");
+            //S.DevelopPage.DeleteResource.Content
+            public static string Content => "S.DevelopPage.DeleteResource.Content".GetStringResource("Are you sure you want to delete the resource?");
+
+            //S.DevelopPage.DeleteResource.Title
+            private static IObservable<string>? s_title;
+            public static IObservable<string> TitleObservable => s_title ??= "S.DevelopPage.DeleteResource.Title".GetStringObservable(StringResources.DevelopPage.DeleteResource.Title);
+            //S.DevelopPage.DeleteResource.Content
+            private static IObservable<string>? s_content;
+            public static IObservable<string> ContentObservable => s_content ??= "S.DevelopPage.DeleteResource.Content".GetStringObservable(StringResources.DevelopPage.DeleteResource.Content);
+        }
+
+        public static class MakePublicPackage
+        {
+            //S.DevelopPage.MakePublicPackage.Title
+            public static string Title => "S.DevelopPage.MakePublicPackage.Title".GetStringResource("Publish package");
+            //S.DevelopPage.MakePublicPackage.Content
+            public static string Content => "S.DevelopPage.MakePublicPackage.Content".GetStringResource("Are you sure you want to publish this package?\nDoing so will allow others to download this package.\n");
+
+            //S.DevelopPage.MakePublicPackage.Title
+            private static IObservable<string>? s_title;
+            public static IObservable<string> TitleObservable => s_title ??= "S.DevelopPage.MakePublicPackage.Title".GetStringObservable(StringResources.DevelopPage.MakePublicPackage.Title);
+            //S.DevelopPage.MakePublicPackage.Content
+            private static IObservable<string>? s_content;
+            public static IObservable<string> ContentObservable => s_content ??= "S.DevelopPage.MakePublicPackage.Content".GetStringObservable(StringResources.DevelopPage.MakePublicPackage.Content);
+        }
+
+        public static class MakePrivatePackage
+        {
+            //S.DevelopPage.MakePrivatePackage.Title
+            public static string Title => "S.DevelopPage.MakePrivatePackage.Title".GetStringResource("Make the package private");
+            //S.DevelopPage.MakePrivatePackage.Content
+            public static string Content => "S.DevelopPage.MakePrivatePackage.Content".GetStringResource("Are you sure you want to keep this package private?\nDoing so will prevent others from downloading this package.\n");
+
+            //S.DevelopPage.MakePrivatePackage.Title
+            private static IObservable<string>? s_title;
+            public static IObservable<string> TitleObservable => s_title ??= "S.DevelopPage.MakePrivatePackage.Title".GetStringObservable(StringResources.DevelopPage.MakePrivatePackage.Title);
+            //S.DevelopPage.MakePrivatePackage.Content
+            private static IObservable<string>? s_content;
+            public static IObservable<string> ContentObservable => s_content ??= "S.DevelopPage.MakePrivatePackage.Content".GetStringObservable(StringResources.DevelopPage.MakePrivatePackage.Content);
+        }
+
+        public static class MakePublicRelease
+        {
+            //S.DevelopPage.MakePublicRelease.Title
+            public static string Title => "S.DevelopPage.MakePublicRelease.Title".GetStringResource("Publish release");
+            //S.DevelopPage.MakePublicRelease.Content
+            public static string Content => "S.DevelopPage.MakePublicRelease.Content".GetStringResource("Are you sure you want to publish this release?\nDoing so will allow others to download this release.\n");
+
+            //S.DevelopPage.MakePublicRelease.Title
+            private static IObservable<string>? s_title;
+            public static IObservable<string> TitleObservable => s_title ??= "S.DevelopPage.MakePublicRelease.Title".GetStringObservable(StringResources.DevelopPage.MakePublicPackage.Title);
+            //S.DevelopPage.MakePublicRelease.Content
+            private static IObservable<string>? s_content;
+            public static IObservable<string> ContentObservable => s_content ??= "S.DevelopPage.MakePublicRelease.Content".GetStringObservable(StringResources.DevelopPage.MakePublicPackage.Content);
+        }
+
+        public static class MakePrivateRelease
+        {
+            //S.DevelopPage.MakePrivateRelease.Title
+            public static string Title => "S.DevelopPage.MakePrivateRelease.Title".GetStringResource("Make the release private");
+            //S.DevelopPage.MakePrivateRelease.Content
+            public static string Content => "S.DevelopPage.MakePrivateRelease.Content".GetStringResource("Are you sure you want to keep this release private?\nDoing so will prevent others from downloading this release.\n");
+
+            //S.DevelopPage.MakePrivateRelease.Title
+            private static IObservable<string>? s_title;
+            public static IObservable<string> TitleObservable => s_title ??= "S.DevelopPage.MakePrivateRelease.Title".GetStringObservable(StringResources.DevelopPage.MakePrivatePackage.Title);
+            //S.DevelopPage.MakePrivateRelease.Content
+            private static IObservable<string>? s_content;
+            public static IObservable<string> ContentObservable => s_content ??= "S.DevelopPage.MakePrivateRelease.Content".GetStringObservable(StringResources.DevelopPage.MakePrivatePackage.Content);
+        }
     }
 }

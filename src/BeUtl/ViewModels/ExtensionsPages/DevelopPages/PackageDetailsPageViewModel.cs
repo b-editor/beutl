@@ -1,13 +1,6 @@
-﻿using System.Globalization;
-using System.Reactive.Disposables;
-using System.Reactive.Linq;
+﻿using Avalonia.Media.Imaging;
 
-using Avalonia.Media.Imaging;
-
-using BeUtl.Collections;
 using BeUtl.Models.Extensions.Develop;
-
-using Google.Cloud.Firestore;
 
 using Reactive.Bindings;
 
@@ -15,17 +8,16 @@ namespace BeUtl.ViewModels.ExtensionsPages.DevelopPages;
 
 public sealed class PackageDetailsPageViewModel : IDisposable
 {
-    private readonly CompositeDisposable _disposables = new(15);
+    private readonly CompositeDisposable _disposables = new();
 
-    public PackageDetailsPageViewModel(DocumentReference docRef, IPackage.ILink package)
+    public PackageDetailsPageViewModel(IPackage.ILink package)
     {
-        Reference = docRef;
         DisplayCulture.Value = CultureInfo.CurrentUICulture;
 
         Package = package.GetObservable()
             .ToReadOnlyReactivePropertySlim(package);
 
-        Settings = new PackageSettingsPageViewModel(docRef, this)
+        Settings = new PackageSettingsPageViewModel(this)
             .DisposeWith(_disposables);
         Releases = new PackageReleasesPageViewModel(this)
             .DisposeWith(_disposables);
@@ -42,7 +34,7 @@ public sealed class PackageDetailsPageViewModel : IDisposable
                 .CombineLatest(resourceObservable, DisplayCulture)
                 .SelectMany(t =>
                 {
-                    foreach (var item in t.Second)
+                    foreach (ResourcePageViewModel item in t.Second)
                     {
                         if (item.Resource.Value.Culture.Name == t.Third.Name)
                         {
@@ -78,13 +70,16 @@ public sealed class PackageDetailsPageViewModel : IDisposable
             .DisposeWith(_disposables);
     }
 
+    ~PackageDetailsPageViewModel()
+    {
+        Dispose();
+    }
+
     public ReadOnlyReactivePropertySlim<IPackage.ILink> Package { get; }
 
     public PackageSettingsPageViewModel Settings { get; }
 
     public PackageReleasesPageViewModel Releases { get; }
-
-    public DocumentReference Reference { get; }
 
     public ReadOnlyReactivePropertySlim<bool> HasLogoImage { get; }
 
@@ -98,6 +93,12 @@ public sealed class PackageDetailsPageViewModel : IDisposable
 
     public void Dispose()
     {
+        Debug.WriteLine($"{GetType().Name} disposed (Count: {_disposables.Count}).");
         _disposables.Dispose();
+
+        Settings.Dispose();
+        Releases.Dispose();
+
+        GC.SuppressFinalize(this);
     }
 }

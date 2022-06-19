@@ -7,7 +7,8 @@ using Avalonia.VisualTree;
 using BeUtl.ViewModels.ExtensionsPages.DevelopPages;
 
 using FluentAvalonia.UI.Controls;
-using FluentAvalonia.UI.Media.Animation;
+
+using S = BeUtl.Language.StringResources;
 
 namespace BeUtl.Pages.ExtensionsPages.DevelopPages;
 
@@ -36,10 +37,10 @@ public partial class ResourcePage : UserControl
             Frame frame = this.FindAncestorOfType<Frame>();
             var dialog = new ContentDialog
             {
-                Title = "リソースを削除",
-                Content = "リソースを削除してもよろしいですか？",
-                PrimaryButtonText = "はい",
-                CloseButtonText = "いいえ",
+                Title = S.DevelopPage.DeleteResource.Title,
+                Content = S.DevelopPage.DeleteResource.Content,
+                PrimaryButtonText = S.Common.Yes,
+                CloseButtonText = S.Common.No,
                 DefaultButton = ContentDialogButton.Primary
             };
 

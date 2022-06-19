@@ -1,5 +1,4 @@
-﻿using BeUtl.Collections;
-using BeUtl.Models.Extensions.Develop;
+﻿using BeUtl.Models.Extensions.Develop;
 using BeUtl.ViewModels.ExtensionsPages.DevelopPages.Dialogs;
 
 using Reactive.Bindings;
@@ -9,10 +8,11 @@ namespace BeUtl.ViewModels.ExtensionsPages.DevelopPages;
 public sealed class PackageReleasesPageViewModel : IDisposable
 {
     private readonly IDisposable _disposable;
+    private readonly WeakReference<PackageDetailsPageViewModel> _parentWeak;
 
     public PackageReleasesPageViewModel(PackageDetailsPageViewModel parent)
     {
-        Parent = parent;
+        _parentWeak = new WeakReference<PackageDetailsPageViewModel>(parent);
 
         _disposable = parent.Package.Value.SubscribeReleases(
             item =>
@@ -46,7 +46,15 @@ public sealed class PackageReleasesPageViewModel : IDisposable
         });
     }
 
-    public PackageDetailsPageViewModel Parent { get; }
+    ~PackageReleasesPageViewModel()
+    {
+        Dispose();
+    }
+
+    public PackageDetailsPageViewModel Parent
+        => _parentWeak.TryGetTarget(out PackageDetailsPageViewModel? parent)
+            ? parent
+            : null!;
 
     public CoreList<ReleasePageViewModel> Items { get; } = new();
 
@@ -61,5 +69,7 @@ public sealed class PackageReleasesPageViewModel : IDisposable
             item.Dispose();
         }
         Items.Clear();
+
+        GC.SuppressFinalize(this);
     }
 }

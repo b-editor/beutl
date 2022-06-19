@@ -154,7 +154,7 @@ public partial class ExtensionsPage : UserControl
         else if (type == typeof(PackageDetailsPage))
             return 1;
         else if (type == typeof(PackageReleasesPage))
-            return 1;
+            return 2;
         else if (type == typeof(PackageSettingsPage))
             return 2;
         else if (type == typeof(ResourcePage))

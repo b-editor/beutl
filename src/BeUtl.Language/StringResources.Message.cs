@@ -40,6 +40,10 @@ public static partial class StringResources
         public static string YourAccountHasBeenDeleted => "S.Message.YourAccountHasBeenDeleted".GetStringResource("Your account has been deleted.");
         //S.Message.PasswordHasBeenChanged
         public static string PasswordHasBeenChanged => "S.Message.PasswordHasBeenChanged".GetStringResource("Password has been changed.");
+        //S.Message.PleaseEnterString
+        public static string PleaseEnterString => "S.Message.PleaseEnterString".GetStringResource("Please enter a string.");
+        //S.Message.InvalidString
+        public static string InvalidString => "S.Message.InvalidString".GetStringResource("Invalid string.");
 
         //S.Message.ItemsSaved
         private static IObservable<string>? s_itemsSaved;
@@ -92,5 +96,11 @@ public static partial class StringResources
         //S.Message.PasswordHasBeenChanged
         private static IObservable<string>? s_passwordHasBeenChanged;
         public static IObservable<string> PasswordHasBeenChangedObservable => s_passwordHasBeenChanged ??= "S.Message.PasswordHasBeenChanged".GetStringObservable(StringResources.Message.PasswordHasBeenChanged);
+        //S.Message.PleaseEnterString
+        private static IObservable<string>? s_pleaseEnterString;
+        public static IObservable<string> PleaseEnterStringObservable => s_pleaseEnterString ??= "S.Message.PleaseEnterString".GetStringObservable(StringResources.Message.PleaseEnterString);
+        //S.Message.InvalidString
+        private static IObservable<string>? s_invalidString;
+        public static IObservable<string> InvalidStringObservable => s_invalidString ??= "S.Message.InvalidString".GetStringObservable(StringResources.Message.InvalidString);
     }
 }

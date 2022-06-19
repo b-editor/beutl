@@ -26,6 +26,7 @@
 
         <!--Strings-->
         <x:String x:Key="S.Common.File">File</x:String>
+        <x:String x:Key="S.Common.Create">Create</x:String>
         <x:String x:Key="S.Common.CreateNew">Create New</x:String>
         <x:String x:Key="S.Common.CreateNewProject">Create new project</x:String>
         <x:String x:Key="S.Common.CreateNewScene">Create new scene</x:String>
@@ -35,6 +36,7 @@
         <x:String x:Key="S.Common.Close">Close</x:String>
         <x:String x:Key="S.Common.CloseProject">Close project</x:String>
         <x:String x:Key="S.Common.Save">Save</x:String>
+        <x:String x:Key="S.Common.SaveOverWrite">Save</x:String>
         <x:String x:Key="S.Common.SaveAll">Save all</x:String>
         <x:String x:Key="S.Common.SaveAs">Save as</x:String>
         <x:String x:Key="S.Common.Exit">Exit</x:String>
@@ -160,6 +162,7 @@
 
     <!--Pages-->
     <StyleInclude Source="/en-US/Pages/EditPageResources.axaml" />
+    <StyleInclude Source="/en-US/Pages/ExtensionsPageResources.axaml" />
     <StyleInclude Source="/en-US/Pages/SettingsPageResources.axaml" />
 
     <!--Messages-->

@@ -18,7 +18,7 @@
 
             <Label Classes="breadcrumb" />
 
-            <TextBlock Text="リリースを管理"
+            <TextBlock Text="{DynamicResource S.DevelopPage.Package.ReleasesDescription}"
                        Classes="breadcrumb" />
         </StackPanel>
 
@@ -26,7 +26,7 @@
                        Margin="10,0"
                        DefaultLabelPosition="Right">
             <ui:CommandBar.PrimaryCommands>
-                <ui:CommandBarButton Label="追加" Icon="Add" Click="Add_Click" />
+                <ui:CommandBarButton Label="{DynamicResource S.Common.Add}" Icon="Add" Click="Add_Click" />
             </ui:CommandBar.PrimaryCommands>
         </ui:CommandBar>
 
@@ -63,12 +63,12 @@
                                    TextTrimming="CharacterEllipsis"
                                    Text="{CompiledBinding Release.Value.Body}" />
 
-                        <ui:CommandBarButton Label="編集"
+                        <ui:CommandBarButton Label="{DynamicResource S.Common.Edit}"
                                              Grid.Column="3"
                                              Click="Edit_Click"
                                              Icon="Edit" />
 
-                        <ui:CommandBarButton Label="削除"
+                        <ui:CommandBarButton Label="{DynamicResource S.Common.Delete}"
                                              Grid.Column="4"
                                              Click="Delete_Click"
                                              Icon="Delete" />

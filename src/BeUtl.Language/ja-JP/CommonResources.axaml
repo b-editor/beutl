@@ -26,6 +26,7 @@
 
         <!--Strings-->
         <x:String x:Key="S.Common.File">ファイル</x:String>
+        <x:String x:Key="S.Common.Create">作成</x:String>
         <x:String x:Key="S.Common.CreateNew">新規作成</x:String>
         <x:String x:Key="S.Common.CreateNewProject">プロジェクトを新規作成</x:String>
         <x:String x:Key="S.Common.CreateNewScene">シーンを新規作成</x:String>
@@ -34,7 +35,8 @@
         <x:String x:Key="S.Common.Open">開く</x:String>
         <x:String x:Key="S.Common.Close">閉じる</x:String>
         <x:String x:Key="S.Common.CloseProject">プロジェクトを閉じる</x:String>
-        <x:String x:Key="S.Common.Save">上書き保存</x:String>
+        <x:String x:Key="S.Common.Save">保存</x:String>
+        <x:String x:Key="S.Common.SaveOverWrite">上書き保存</x:String>
         <x:String x:Key="S.Common.SaveAll">すべて保存</x:String>
         <x:String x:Key="S.Common.SaveAs">名前を付けて保存</x:String>
         <x:String x:Key="S.Common.Exit">終了</x:String>
@@ -160,6 +162,7 @@
 
     <!--Pages-->
     <StyleInclude Source="/ja-JP/Pages/EditPageResources.axaml" />
+    <StyleInclude Source="/ja-JP/Pages/ExtensionsPageResources.axaml" />
     <StyleInclude Source="/ja-JP/Pages/SettingsPageResources.axaml" />
 
     <!--Messages-->

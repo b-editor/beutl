@@ -1,22 +1,10 @@
-﻿using System.Diagnostics;
-using System.Globalization;
-using System.Reactive;
-using System.Reactive.Disposables;
-using System.Reactive.Linq;
-
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Media.Imaging;
 using Avalonia.Skia;
 using Avalonia.Threading;
 
-using BeUtl.Collections;
 using BeUtl.Models.Extensions.Develop;
 using BeUtl.Models.ExtensionsPages.DevelopPages;
-using BeUtl.Services;
-
-using Google.Cloud.Firestore;
-
-using Microsoft.Extensions.DependencyInjection;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
@@ -33,9 +21,9 @@ public sealed class ResourcePageViewModel : IDisposable
 
     public ResourcePageViewModel(PackageSettingsPageViewModel parent, ILocalizedPackageResource.ILink link)
     {
+        _parentWeak = new WeakReference<PackageSettingsPageViewModel?>(parent);
         _imagesPath = $"users/{parent.Reference.Parent.Parent.Id}/packages/{parent.Reference.Id}/images";
         Resource = link.GetObservable().ToReadOnlyReactivePropertySlim(link).DisposeWith(_disposables);
-        _parentWeak = new WeakReference<PackageSettingsPageViewModel?>(parent);
 
         // 入力用のプロパティ
         CultureInput = CreateStringInput(p => p.Culture.Name, Resource.Value.Culture.Name)!;
@@ -146,7 +134,7 @@ public sealed class ResourcePageViewModel : IDisposable
                 catch { }
             }
 
-            return "CultureNotFoundException";
+            return StringResources.Message.InvalidString;
         });
         DisplayName.SetValidateNotifyError(NotWhitespace);
         Description.SetValidateNotifyError(NotWhitespace);
@@ -445,7 +433,7 @@ public sealed class ResourcePageViewModel : IDisposable
         }
         else
         {
-            return "Please enter a string.";
+            return StringResources.Message.PleaseEnterString;
         }
     }
 
