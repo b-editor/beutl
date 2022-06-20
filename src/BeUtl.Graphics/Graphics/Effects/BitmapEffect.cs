@@ -1,37 +1,25 @@
-﻿using BeUtl.Media;
-using BeUtl.Styling;
+﻿using BeUtl.Styling;
 
-using SkiaSharp;
+namespace BeUtl.Graphics.Effects;
 
-namespace BeUtl.Graphics.Filters;
-
-public interface IImageFilter : IAffectsRender
-{
-    Rect TransformBounds(Rect rect);
-
-    SKImageFilter ToSKImageFilter();
-}
-
-public interface IMutableImageFilter : IStyleable, IImageFilter
-{
-}
-
-public abstract class ImageFilter : Styleable, IMutableImageFilter
+public abstract class BitmapEffect : Styleable, IBitmapEffect
 {
     public static readonly CoreProperty<bool> IsEnabledProperty;
     private bool _isEnabled;
 
-    static ImageFilter()
+    static BitmapEffect()
     {
-        IsEnabledProperty = ConfigureProperty<bool, ImageFilter>(nameof(IsEnabled))
+        IsEnabledProperty = ConfigureProperty<bool, BitmapEffect>(nameof(IsEnabled))
             .Accessor(o => o.IsEnabled, (o, v) => o.IsEnabled = v)
             .DefaultValue(true)
             .Register();
 
-        AffectsRender<ImageFilter>(IsEnabledProperty);
+        AffectsRender<BitmapEffect>(IsEnabledProperty);
     }
 
     public event EventHandler? Invalidated;
+
+    public abstract IBitmapProcessor Processor { get; }
 
     public bool IsEnabled
     {
@@ -44,10 +32,8 @@ public abstract class ImageFilter : Styleable, IMutableImageFilter
         return rect;
     }
 
-    protected internal abstract SKImageFilter ToSKImageFilter();
-
     protected static void AffectsRender<T>(params CoreProperty[] properties)
-        where T : ImageFilter
+        where T : BitmapEffect
     {
         foreach (CoreProperty? item in properties)
         {
@@ -64,10 +50,5 @@ public abstract class ImageFilter : Styleable, IMutableImageFilter
     protected void RaiseInvalidated()
     {
         Invalidated?.Invoke(this, EventArgs.Empty);
-    }
-
-    SKImageFilter IImageFilter.ToSKImageFilter()
-    {
-        return ToSKImageFilter();
     }
 }

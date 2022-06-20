@@ -48,10 +48,10 @@ public sealed class AlignOperation : LayerOperation
         {
             if (!IsEnabled)
             {
-                drawable.CanvasAlignmentX |= AlignmentX.Left;
-                drawable.AlignmentX |= AlignmentX.Left;
-                drawable.CanvasAlignmentY |= AlignmentY.Top;
-                drawable.AlignmentY |= AlignmentY.Top;
+                drawable.CanvasAlignmentX = AlignmentX.Left;
+                drawable.AlignmentX = AlignmentX.Left;
+                drawable.CanvasAlignmentY = AlignmentY.Top;
+                drawable.AlignmentY = AlignmentY.Top;
             }
             else
             {

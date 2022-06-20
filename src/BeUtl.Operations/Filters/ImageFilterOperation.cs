@@ -24,7 +24,7 @@ public abstract class ImageFilterOperation<T> : LayerOperation
     {
         if (args.Result is Drawable drawable)
         {
-            //Filter.IsEnabled = IsEnabled;
+            Filter.IsEnabled = IsEnabled;
             if (_drawable != drawable)
             {
                 if (drawable.Filter is not ImageFilterGroup group)

@@ -32,5 +32,6 @@ public static class RenderOperations
         LayerOperationRegistry.RegisterOperation<BlendOperation>("S.OpName.Blend");
         LayerOperationRegistry.RegisterOperation<OffscreenDrawing>("S.OpName.OffscreenDrawing");
         LayerOperationRegistry.RegisterOperation<TestOperation>("S.OpName.Test");
+        LayerOperationRegistry.RegisterOperation<Effects.BlurOperation>("S.OpName.Blur");
     }
 }

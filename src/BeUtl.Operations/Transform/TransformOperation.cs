@@ -23,7 +23,7 @@ public abstract class TransformOperation : LayerOperation
     {
         if (args.Result is Drawable drawable)
         {
-            //Transform.IsEnabled = IsEnabled;
+            Transform.IsEnabled = IsEnabled;
             if (_drawable != drawable)
             {
                 if (drawable.Transform is not TransformGroup group)

@@ -39,7 +39,8 @@ public sealed class ImageFilterGroup : ImageFilter
 
         foreach (ImageFilter item in _children.AsSpan())
         {
-            rect = item.TransformBounds(original).Union(rect);
+            if (item.IsEnabled)
+                rect = item.TransformBounds(original).Union(rect);
         }
 
         return rect;
@@ -99,15 +100,30 @@ public sealed class ImageFilterGroup : ImageFilter
 
     protected internal override SKImageFilter ToSKImageFilter()
     {
-        var array = new SKImageFilter[_children.Count];
+        var array = new SKImageFilter[ValidEffectCount()];
         int index = 0;
         foreach (ImageFilter item in _children.AsSpan())
         {
-            array[index] = item.ToSKImageFilter();
-
-            index++;
+            if (item.IsEnabled)
+            {
+                array[index] = item.ToSKImageFilter();
+                index++;
+            }
         }
 
         return SKImageFilter.CreateMerge(array);
+    }
+
+    private int ValidEffectCount()
+    {
+        int count = 0;
+        foreach (ImageFilter item in _children.AsSpan())
+        {
+            if (item.IsEnabled)
+            {
+                count++;
+            }
+        }
+        return count;
     }
 }
