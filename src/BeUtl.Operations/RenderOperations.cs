@@ -33,5 +33,6 @@ public static class RenderOperations
         LayerOperationRegistry.RegisterOperation<OffscreenDrawing>("S.OpName.OffscreenDrawing");
         LayerOperationRegistry.RegisterOperation<TestOperation>("S.OpName.Test");
         LayerOperationRegistry.RegisterOperation<Effects.BlurOperation>("S.OpName.Blur");
+        LayerOperationRegistry.RegisterOperation<Effects.InnerShadowOperation>("S.OpName.InnerShadow");
     }
 }
