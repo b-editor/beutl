@@ -1,4 +1,4 @@
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -157,14 +157,19 @@ public abstract class BaseVector2AnimationEditor<T> : BaseVector2AnimationEditor
 
         if (textBox.IsKeyboardFocusWithin && PrevTryParse(out T value))
         {
-            int increment = 10;
-
-            if (e.KeyModifiers == KeyModifiers.Shift)
+            value = e.Delta.Y switch
             {
-                increment = 1;
-            }
+                < 0 => func(value, -10),
+                > 0 => func(value, 10),
+                _ => value
+            };
 
-            value = func(value, (e.Delta.Y < 0) ? -increment : increment);
+            value = e.Delta.X switch
+            {
+                < 0 => func(value, -1),
+                > 0 => func(value, 1),
+                _ => value
+            };
 
             vm.Animation.Previous = Clamp(value);
 
@@ -178,14 +183,19 @@ public abstract class BaseVector2AnimationEditor<T> : BaseVector2AnimationEditor
 
         if (textBox.IsKeyboardFocusWithin && NextTryParse(out T value))
         {
-            int increment = 10;
-
-            if (e.KeyModifiers == KeyModifiers.Shift)
+            value = e.Delta.Y switch
             {
-                increment = 1;
-            }
+                < 0 => func(value, -10),
+                > 0 => func(value, 10),
+                _ => value
+            };
 
-            value = func(value, (e.Delta.Y < 0) ? -increment : increment);
+            value = e.Delta.X switch
+            {
+                < 0 => func(value, -1),
+                > 0 => func(value, 1),
+                _ => value
+            };
 
             vm.Animation.Next = Clamp(value);
 

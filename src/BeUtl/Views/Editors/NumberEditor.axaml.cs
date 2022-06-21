@@ -1,4 +1,4 @@
-using System.Reactive.Linq;
+﻿using System.Reactive.Linq;
 
 using Avalonia;
 using Avalonia.Controls;
@@ -70,22 +70,20 @@ public sealed class NumberEditor<T> : NumberEditor
 
         if (textBox.IsKeyboardFocusWithin && vm.EditorService.TryParse(textBox.Text, out T value))
         {
-            int increment = 10;
-
-            if (e.KeyModifiers == KeyModifiers.Shift)
+            value = e.Delta.Y switch
             {
-                increment = 1;
-            }
-
-            if (e.Delta.Y < 0)
+                < 0 => vm.EditorService.Decrement(value, 10),
+                > 0 => vm.EditorService.Increment(value, 10),
+                _ => value
+            };
+            
+            value = e.Delta.X switch
             {
-                value = vm.EditorService.Decrement(value, increment);
-            }
-            else
-            {
-                value = vm.EditorService.Increment(value, increment);
-            }
-
+                < 0 => vm.EditorService.Decrement(value, 1),
+                > 0 => vm.EditorService.Increment(value, 1),
+                _ => value
+            };
+            
             vm.Setter.Value = vm.EditorService.Clamp(value, vm.Minimum, vm.Maximum);
 
             e.Handled = true;

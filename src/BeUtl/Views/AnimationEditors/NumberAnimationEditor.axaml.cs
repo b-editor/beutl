@@ -1,4 +1,4 @@
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -127,21 +127,19 @@ public class NumberAnimationEditor<T> : NumberAnimationEditor
 
         if (prevTextBox.IsKeyboardFocusWithin && numService.TryParse(prevTextBox.Text, out T value))
         {
-            int increment = 10;
+            value = e.Delta.Y switch
+            {
+                < 0 => numService.Decrement(value, 10),
+                > 0 => numService.Increment(value, 10),
+                _ => value
+            };
 
-            if (e.KeyModifiers == KeyModifiers.Shift)
+            value = e.Delta.X switch
             {
-                increment = 1;
-            }
-
-            if (e.Delta.Y < 0)
-            {
-                value = numService.Decrement(value, increment);
-            }
-            else
-            {
-                value = numService.Increment(value, increment);
-            }
+                < 0 => numService.Decrement(value, 1),
+                > 0 => numService.Increment(value, 1),
+                _ => value
+            };
 
             vm.Animation.Previous = numService.Clamp(value, numService.GetMinimum(vm.Setter), numService.GetMaximum(vm.Setter));
 
@@ -159,21 +157,19 @@ public class NumberAnimationEditor<T> : NumberAnimationEditor
 
         if (nextTextBox.IsKeyboardFocusWithin && numService.TryParse(nextTextBox.Text, out T value))
         {
-            int increment = 10;
+            value = e.Delta.Y switch
+            {
+                < 0 => numService.Decrement(value, 10),
+                > 0 => numService.Increment(value, 10),
+                _ => value
+            };
 
-            if (e.KeyModifiers == KeyModifiers.Shift)
+            value = e.Delta.X switch
             {
-                increment = 1;
-            }
-
-            if (e.Delta.Y < 0)
-            {
-                value = numService.Decrement(value, increment);
-            }
-            else
-            {
-                value = numService.Increment(value, increment);
-            }
+                < 0 => numService.Decrement(value, 1),
+                > 0 => numService.Increment(value, 1),
+                _ => value
+            };
 
             vm.Animation.Next = numService.Clamp(value, numService.GetMinimum(vm.Setter), numService.GetMaximum(vm.Setter));
 
