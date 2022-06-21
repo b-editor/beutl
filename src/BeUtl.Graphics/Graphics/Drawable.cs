@@ -2,6 +2,7 @@
 
 using BeUtl.Graphics.Effects;
 using BeUtl.Graphics.Filters;
+using BeUtl.Graphics.Shapes;
 using BeUtl.Graphics.Transformation;
 using BeUtl.Media;
 using BeUtl.Media.Pixel;
@@ -224,11 +225,12 @@ public abstract class Drawable : Renderable, IDrawable, ILogicalElement
     public IBitmap ToBitmap()
     {
         Size size = MeasureCore(Size.Infinity);
-        using var canvas = new Canvas((int)size.Width, (int)size.Height);
-
-        OnDraw(canvas);
-
-        return canvas.GetBitmap();
+        using (var canvas = new Canvas((int)size.Width, (int)size.Height))
+        using (Foreground == null ? new() : canvas.PushForeground(Foreground))
+        {
+            OnDraw(canvas);
+            return canvas.GetBitmap();
+        }
     }
 
     public void Measure(Size availableSize)
@@ -354,7 +356,7 @@ public abstract class Drawable : Renderable, IDrawable, ILogicalElement
 
         IsDirty = false;
 #if DEBUG
-        Rect bounds = Bounds;
+        Rect bounds = Bounds.Inflate(10);
         using (canvas.PushTransform(Matrix.CreateTranslation(bounds.Position)))
         using (canvas.PushStrokeWidth(5))
         {
