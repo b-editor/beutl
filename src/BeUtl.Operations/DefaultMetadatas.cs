@@ -205,10 +205,18 @@ public static class DefaultMetadatas
     public static OperationPropertyMetadata<PixelSize> KernelSize => new()
     {
         IsAnimatable = true,
-        Header = "S.Common.Sigma",
+        Header = "S.Common.KernelSize",
         SerializeName = "kernel",
         PropertyFlags = PropertyFlags.Designable,
         Minimum = new PixelSize(1, 1)
+    };
+    
+    public static OperationPropertyMetadata<bool> FixImageSize => new()
+    {
+        IsAnimatable = true,
+        Header = "S.Common.FixImageSize",
+        SerializeName = "fixImageSize",
+        PropertyFlags = PropertyFlags.Designable,
     };
     
     public static OperationPropertyMetadata<Vector> Sigma => new()
