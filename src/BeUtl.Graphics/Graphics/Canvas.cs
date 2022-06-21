@@ -1,4 +1,4 @@
-using System.Runtime.CompilerServices;
+﻿using System.Runtime.CompilerServices;
 
 using BeUtl.Graphics.Filters;
 using BeUtl.Media;
@@ -13,18 +13,17 @@ using SkiaSharp;
 
 namespace BeUtl.Graphics;
 
+// https://github.com/AvaloniaUI/Avalonia/blob/master/src/Skia/Avalonia.Skia/DrawingContextImpl.cs
 public class Canvas : ICanvas
 {
     private readonly SKSurface _surface;
     internal readonly SKCanvas _canvas;
-    private readonly SKPaint _paint;
     private readonly Dispatcher? _dispatcher;
     private readonly Stack<IBrush> _brushesStack = new();
-    private readonly Stack<SKPaint> _maskStack = new();
+    private readonly Stack<MaskInfo> _maskStack = new();
     private readonly Stack<IImageFilter?> _filterStack = new();
     private readonly Stack<float> _strokeWidthStack = new();
     private readonly Stack<BlendMode> _blendModeStack = new();
-    private IImageFilter? _filter;
     private Matrix _currentTransform;
 
     public Canvas(int width, int height)
@@ -36,7 +35,6 @@ public class Canvas : ICanvas
         _surface = SKSurface.Create(info);
 
         _canvas = _surface.Canvas;
-        _paint = new SKPaint();
         _currentTransform = _canvas.TotalMatrix.ToMatrix();
     }
 
@@ -49,11 +47,7 @@ public class Canvas : ICanvas
 
     public IBrush Foreground { get; set; } = Brushes.White;
 
-    public IImageFilter? Filter
-    {
-        get => _filter;
-        set => _filter = value;
-    }
+    public IImageFilter? Filter { get; set; }
 
     public float StrokeWidth { get; set; }
 
@@ -103,7 +97,6 @@ public class Canvas : ICanvas
         void DisposeCore()
         {
             _surface.Dispose();
-            _paint.Dispose();
             GC.SuppressFinalize(this);
             IsDisposed = true;
         }
@@ -127,25 +120,27 @@ public class Canvas : ICanvas
             return;
 
         VerifyAccess();
-        ConfigurePaint(_paint, new Size(bmp.Width, bmp.Height));
+        using var paint = new SKPaint();
+        ConfigurePaint(paint, new Size(bmp.Width, bmp.Height));
 
         if (bmp is Bitmap<Bgra8888>)
         {
             using var img = SKImage.FromPixels(new SKImageInfo(bmp.Width, bmp.Height, SKColorType.Bgra8888), bmp.Data);
 
-            _canvas.DrawImage(img, SKPoint.Empty, _paint);
+            _canvas.DrawImage(img, SKPoint.Empty, paint);
         }
         else
         {
             using var skbmp = bmp.ToSKBitmap();
-            _canvas.DrawBitmap(skbmp, SKPoint.Empty, _paint);
+            _canvas.DrawBitmap(skbmp, SKPoint.Empty, paint);
         }
     }
 
     public void DrawCircle(Size size)
     {
         VerifyAccess();
-        ConfigurePaint(_paint, size);
+        using var paint = new SKPaint();
+        ConfigurePaint(paint, size);
         float line = StrokeWidth;
 
         if (line >= MathF.Min(size.Width, size.Height) / 2)
@@ -156,57 +151,63 @@ public class Canvas : ICanvas
         if (line < min) min = line;
         if (min < 0) min = 0;
 
-        _paint.Style = SKPaintStyle.Stroke;
-        _paint.StrokeWidth = min;
+
+        paint.Style = SKPaintStyle.Stroke;
+        paint.StrokeWidth = min;
 
         _canvas.DrawOval(
             size.Width / 2, size.Height / 2,
             (size.Width - min) / 2, (size.Height - min) / 2,
-            _paint);
+            paint);
     }
 
     public void DrawRect(Size size)
     {
         VerifyAccess();
-        ConfigurePaint(_paint, size);
+        using var paint = new SKPaint();
+        ConfigurePaint(paint, size);
         float stroke = Math.Min(StrokeWidth, Math.Min(size.Width, size.Height));
 
-        _paint.Style = SKPaintStyle.Stroke;
-        _paint.StrokeWidth = stroke;
+        paint.Style = SKPaintStyle.Stroke;
+        paint.StrokeWidth = stroke;
 
         _canvas.DrawRect(
             stroke / 2, stroke / 2,
             size.Width - stroke, size.Height - stroke,
-            _paint);
+            paint);
     }
 
     public void FillCircle(Size size)
     {
         VerifyAccess();
-        ConfigurePaint(_paint, size);
-        _paint.Style = SKPaintStyle.Fill;
 
-        _canvas.DrawOval(SKPoint.Empty, size.ToSKSize(), _paint);
+        using var paint = new SKPaint();
+        ConfigurePaint(paint, size);
+        paint.Style = SKPaintStyle.Fill;
+
+        _canvas.DrawOval(SKPoint.Empty, size.ToSKSize(), paint);
     }
 
     public void FillRect(Size size)
     {
         VerifyAccess();
-        ConfigurePaint(_paint, size);
+        using var paint = new SKPaint();
+        ConfigurePaint(paint, size);
 
-        _paint.Style = SKPaintStyle.Fill;
+        paint.Style = SKPaintStyle.Fill;
 
-        _canvas.DrawRect(0, 0, size.Width, size.Height, _paint);
+        _canvas.DrawRect(0, 0, size.Width, size.Height, paint);
     }
 
     // Marginを考慮しない
     public void DrawText(TextElement text, Size size)
     {
         VerifyAccess();
-        ConfigurePaint(_paint, size);
-        _paint.TextSize = text.Size;
-        _paint.Typeface = text.Typeface.ToSkia();
-        _paint.Style = SKPaintStyle.Fill;
+        using var paint = new SKPaint();
+        ConfigurePaint(paint, size);
+        paint.TextSize = text.Size;
+        paint.Typeface = text.Typeface.ToSkia();
+        paint.Style = SKPaintStyle.Fill;
         Span<char> sc = stackalloc char[1];
         float prevRight = 0;
 
@@ -214,17 +215,17 @@ public class Canvas : ICanvas
         {
             sc[0] = item;
             var bounds = default(SKRect);
-            float w = _paint.MeasureText(sc, ref bounds);
+            float w = paint.MeasureText(sc, ref bounds);
 
             _canvas.Save();
             _canvas.Translate(prevRight + bounds.Left, 0);
 
-            SKPath path = _paint.GetTextPath(
+            SKPath path = paint.GetTextPath(
                 sc,
                 (bounds.Width / 2) - bounds.MidX,
                 0/*-_paint.FontMetrics.Ascent*/);
 
-            _canvas.DrawPath(path, _paint);
+            _canvas.DrawPath(path, paint);
             path.Dispose();
 
             prevRight += text.Spacing;
@@ -273,27 +274,29 @@ public class Canvas : ICanvas
         _currentTransform = _canvas.TotalMatrix.ToMatrix();
     }
 
-    public PushedState PushOpacityMask(IBrush mask, Rect bounds)
+    public PushedState PushOpacityMask(IBrush mask, Rect bounds, bool invert = false)
     {
         VerifyAccess();
         var paint = new SKPaint();
 
         int level = _canvas.SaveLayer(paint);
         ConfigurePaint(paint, bounds.Size, mask, (BlendMode)paint.BlendMode, null, paint.StrokeWidth);
-        _maskStack.Push(paint);
+        _maskStack.Push(new MaskInfo(invert, paint));
         return new PushedState(this, level, PushedStateType.OpacityMask);
     }
 
     public void PopOpacityMask(int level = -1)
     {
         VerifyAccess();
-        using (var paint = new SKPaint { BlendMode = SKBlendMode.DstIn })
+        MaskInfo maskInfo = _maskStack.Pop();
+        using (var paint = new SKPaint { BlendMode = maskInfo.Invert ? SKBlendMode.DstOut : SKBlendMode.DstIn })
         {
             _canvas.SaveLayer(paint);
-            using (SKPaint maskPaint = _maskStack.Pop())
+            using (SKPaint maskPaint = maskInfo.Paint)
             {
                 _canvas.DrawPaint(maskPaint);
             }
+
             _canvas.Restore();
         }
 
@@ -346,7 +349,7 @@ public class Canvas : ICanvas
     {
         VerifyAccess();
         int level = _filterStack.Count;
-        _filterStack.Push(_filter);
+        _filterStack.Push(Filter);
         Filter = filter;
         return new PushedState(this, level, PushedStateType.Filter);
     }
@@ -456,7 +459,7 @@ public class Canvas : ICanvas
     {
         var tileMode = gradientBrush.SpreadMethod.ToSKShaderTileMode();
         SKColor[] stopColors = gradientBrush.GradientStops.Select(s => s.Color.ToSKColor()).ToArray();
-        float[] stopOffsets = gradientBrush.GradientStops.Select(s => (float)s.Offset).ToArray();
+        float[] stopOffsets = gradientBrush.GradientStops.Select(s => s.Offset).ToArray();
 
         switch (gradientBrush)
         {
@@ -465,26 +468,53 @@ public class Canvas : ICanvas
                     var start = linearGradient.StartPoint.ToPixels(targetSize).ToSKPoint();
                     var end = linearGradient.EndPoint.ToPixels(targetSize).ToSKPoint();
 
-                    using (var shader = SKShader.CreateLinearGradient(start, end, stopColors, stopOffsets, tileMode))
+                    if (linearGradient.Transform is null)
                     {
-                        paint.Shader = shader;
+                        using (var shader = SKShader.CreateLinearGradient(start, end, stopColors, stopOffsets, tileMode))
+                        {
+                            paint.Shader = shader;
+                        }
+                    }
+                    else
+                    {
+                        Point transformOrigin = linearGradient.TransformOrigin.ToPixels(targetSize);
+                        var offset = Matrix.CreateTranslation(transformOrigin);
+                        Matrix transform = (-offset) * linearGradient.Transform.Value * offset;
+
+                        using (var shader = SKShader.CreateLinearGradient(start, end, stopColors, stopOffsets, tileMode, transform.ToSKMatrix()))
+                        {
+                            paint.Shader = shader;
+                        }
                     }
 
                     break;
                 }
             case IRadialGradientBrush radialGradient:
                 {
-                    SKPoint center = radialGradient.Center.ToPixels(targetSize).ToSKPoint();
+                    var center = radialGradient.Center.ToPixels(targetSize).ToSKPoint();
                     float radius = radialGradient.Radius * targetSize.Width;
-
                     var origin = radialGradient.GradientOrigin.ToPixels(targetSize).ToSKPoint();
 
                     if (origin.Equals(center))
                     {
                         // when the origin is the same as the center the Skia RadialGradient acts the same as D2D
-                        using (var shader = SKShader.CreateRadialGradient(center, radius, stopColors, stopOffsets, tileMode))
+                        if (radialGradient.Transform is null)
                         {
-                            paint.Shader = shader;
+                            using (var shader = SKShader.CreateRadialGradient(center, radius, stopColors, stopOffsets, tileMode))
+                            {
+                                paint.Shader = shader;
+                            }
+                        }
+                        else
+                        {
+                            Point transformOrigin = radialGradient.TransformOrigin.ToPixels(targetSize);
+                            var offset = Matrix.CreateTranslation(transformOrigin);
+                            Matrix transform = (-offset) * radialGradient.Transform.Value * (offset);
+
+                            using (var shader = SKShader.CreateRadialGradient(center, radius, stopColors, stopOffsets, tileMode, transform.ToSKMatrix()))
+                            {
+                                paint.Shader = shader;
+                            }
                         }
                     }
                     else
@@ -508,12 +538,30 @@ public class Canvas : ICanvas
                         }
 
                         // compose with a background colour of the final stop to match D2D's behaviour of filling with the final color
-                        using (var shader = SKShader.CreateCompose(
-                            SKShader.CreateColor(reversedColors[0]),
-                            SKShader.CreateTwoPointConicalGradient(center, radius, origin, 0, reversedColors, reversedStops, tileMode)
-                        ))
+                        if (radialGradient.Transform is null)
                         {
-                            paint.Shader = shader;
+                            using (var shader = SKShader.CreateCompose(
+                                SKShader.CreateColor(reversedColors[0]),
+                                SKShader.CreateTwoPointConicalGradient(center, radius, origin, 0, reversedColors, reversedStops, tileMode)
+                            ))
+                            {
+                                paint.Shader = shader;
+                            }
+                        }
+                        else
+                        {
+
+                            Point transformOrigin = radialGradient.TransformOrigin.ToPixels(targetSize);
+                            var offset = Matrix.CreateTranslation(transformOrigin);
+                            Matrix transform = (-offset) * radialGradient.Transform.Value * (offset);
+
+                            using (var shader = SKShader.CreateCompose(
+                                SKShader.CreateColor(reversedColors[0]),
+                                SKShader.CreateTwoPointConicalGradient(center, radius, origin, 0, reversedColors, reversedStops, tileMode, transform.ToSKMatrix())
+                            ))
+                            {
+                                paint.Shader = shader;
+                            }
                         }
                     }
 
@@ -525,11 +573,19 @@ public class Canvas : ICanvas
 
                     // Skia's default is that angle 0 is from the right hand side of the center point
                     // but we are matching CSS where the vertical point above the center is 0.
-                    float angle = (float)(conicGradient.Angle - 90);
+                    float angle = conicGradient.Angle - 90;
                     var rotation = SKMatrix.CreateRotationDegrees(angle, center.X, center.Y);
 
-                    using (var shader =
-                        SKShader.CreateSweepGradient(center, stopColors, stopOffsets, rotation))
+                    if (conicGradient.Transform is { })
+                    {
+                        Point transformOrigin = conicGradient.TransformOrigin.ToPixels(targetSize);
+                        var offset = Matrix.CreateTranslation(transformOrigin);
+                        Matrix transform = (-offset) * conicGradient.Transform.Value * (offset);
+
+                        rotation = rotation.PreConcat(transform.ToSKMatrix());
+                    }
+
+                    using (var shader = SKShader.CreateSweepGradient(center, stopColors, stopOffsets, rotation))
                     {
                         paint.Shader = shader;
                     }
@@ -541,9 +597,43 @@ public class Canvas : ICanvas
 
     private static void ConfigureTileBrush(SKPaint paint, Size targetSize, ITileBrush tileBrush)
     {
-        Rect tileDstRect = tileBrush.DestinationRect.ToPixels(targetSize);
+        IBitmap? bitmap;
+        if (tileBrush is IDrawableBrush { Drawable: { } } drawableBrush)
+        {
+            bitmap = drawableBrush.Drawable.ToBitmap();
+        }
+        else if (tileBrush is IImageBrush { Source.IsDisposed: false } imageBrush)
+        {
+            bitmap = (IBitmap)imageBrush.Source.Clone();
+        }
+        else
+        {
+            throw new InvalidOperationException();
+        }
+
+        var calc = new TileBrushCalculator(tileBrush, new Size(bitmap.Width, bitmap.Height), targetSize);
+        SKSizeI intermediateSize = calc.IntermediateSize.ToSKSize().ToSizeI();
+
+        var intermediate = new SKBitmap(new SKImageInfo(intermediateSize.Width, intermediateSize.Height, SKColorType.Bgra8888));
+        using (var canvas = new SKCanvas(intermediate))
+        {
+            using var target = bitmap.ToSKBitmap();
+            using var ipaint = new SKPaint();
+            ipaint.FilterQuality = tileBrush.BitmapInterpolationMode.ToSKFilterQuality();
+
+            canvas.Clear();
+            canvas.Save();
+            canvas.ClipRect(calc.IntermediateClip.ToSKRect());
+            canvas.SetMatrix(calc.IntermediateTransform.ToSKMatrix());
+
+            canvas.DrawBitmap(target, (SKPoint)default, ipaint);
+            canvas.Restore();
+        }
+
+        bitmap.Dispose();
+
         SKMatrix tileTransform = tileBrush.TileMode != TileMode.None
-            ? SKMatrix.CreateTranslation(-tileDstRect.X, -tileDstRect.Y)
+            ? SKMatrix.CreateTranslation(-calc.DestinationRect.X, -calc.DestinationRect.Y)
             : SKMatrix.CreateIdentity();
 
         SKShaderTileMode tileX = tileBrush.TileMode == TileMode.None
@@ -558,25 +648,19 @@ public class Canvas : ICanvas
                 ? SKShaderTileMode.Mirror
                 : SKShaderTileMode.Repeat;
 
-        var paintTransform = default(SKMatrix);
 
-        paintTransform = SKMatrix.Concat(paintTransform, tileTransform);
-
-        if (tileBrush is IDrawableBrush { Drawable: { } } drawableBrush)
+        if (tileBrush.Transform is { })
         {
-            using IBitmap bmp = drawableBrush.Drawable.ToBitmap();
-            using var skbmp = bmp.ToSKBitmap();
-            using var shader = SKShader.CreateBitmap(skbmp, tileX, tileY, paintTransform);
+            Point origin = tileBrush.TransformOrigin.ToPixels(targetSize);
+            var offset = Matrix.CreateTranslation(origin);
+            Matrix transform = (-offset) * tileBrush.Transform.Value * offset;
 
-            paint.Shader = shader;
+            tileTransform = tileTransform.PreConcat(transform.ToSKMatrix());
         }
-        else if (tileBrush is IImageBrush { Source: { IsDisposed: false } } imageBrush)
-        {
-            using var bmp = imageBrush.Source.ToSKBitmap();
-            using var shader = SKShader.CreateBitmap(bmp, tileX, tileY, paintTransform);
 
-            paint.Shader = shader;
-        }
+        SKShader shader = intermediate.ToShader(tileX, tileY, tileTransform);
+
+        paint.Shader = shader;
     }
 
     private void ConfigurePaint(SKPaint paint, Size targetSize)
@@ -614,6 +698,146 @@ public class Canvas : ICanvas
         else
         {
             paint.Color = new SKColor(255, 255, 255, 0);
+        }
+    }
+
+    private readonly record struct MaskInfo(bool Invert, SKPaint Paint);
+
+    private class TileBrushCalculator
+    {
+        private readonly Size _imageSize;
+        private readonly Rect _drawRect;
+
+        public bool IsValid { get; }
+
+        public TileBrushCalculator(ITileBrush brush, Size contentSize, Size targetSize)
+            : this(
+                  brush.TileMode,
+                  brush.Stretch,
+                  brush.AlignmentX,
+                  brush.AlignmentY,
+                  brush.SourceRect,
+                  brush.DestinationRect,
+                  contentSize,
+                  targetSize)
+        {
+        }
+
+        public TileBrushCalculator(
+            TileMode tileMode,
+            Stretch stretch,
+            AlignmentX alignmentX,
+            AlignmentY alignmentY,
+            RelativeRect sourceRect,
+            RelativeRect destinationRect,
+            Size contentSize,
+            Size targetSize)
+        {
+            _imageSize = contentSize;
+
+            SourceRect = sourceRect.ToPixels(_imageSize);
+            DestinationRect = destinationRect.ToPixels(targetSize);
+
+            Vector scale = stretch.CalculateScaling(DestinationRect.Size, SourceRect.Size);
+            Vector translate = CalculateTranslate(alignmentX, alignmentY, SourceRect, DestinationRect, scale);
+
+            IntermediateSize = tileMode == TileMode.None ? targetSize : DestinationRect.Size;
+            IntermediateTransform = CalculateIntermediateTransform(
+                tileMode,
+                SourceRect,
+                DestinationRect,
+                scale,
+                translate,
+                out _drawRect);
+        }
+
+        public Rect DestinationRect { get; }
+
+        public Rect IntermediateClip => _drawRect;
+
+        public Size IntermediateSize { get; }
+
+        public Matrix IntermediateTransform { get; }
+
+        public bool NeedsIntermediate
+        {
+            get
+            {
+                if (IntermediateTransform != Matrix.Identity)
+                    return true;
+                if (SourceRect.Position != default)
+                    return true;
+                if (SourceRect.Size.AspectRatio == _imageSize.AspectRatio)
+                    return false;
+                if (SourceRect.Width != _imageSize.Width ||
+                    SourceRect.Height != _imageSize.Height)
+                    return true;
+                return false;
+            }
+        }
+
+        public Rect SourceRect { get; }
+
+        public static Vector CalculateTranslate(
+            AlignmentX alignmentX,
+            AlignmentY alignmentY,
+            Rect sourceRect,
+            Rect destinationRect,
+            Vector scale)
+        {
+            float x = 0.0f;
+            float y = 0.0f;
+            Size size = sourceRect.Size * scale;
+
+            switch (alignmentX)
+            {
+                case AlignmentX.Center:
+                    x += (destinationRect.Width - size.Width) / 2;
+                    break;
+                case AlignmentX.Right:
+                    x += destinationRect.Width - size.Width;
+                    break;
+            }
+
+            switch (alignmentY)
+            {
+                case AlignmentY.Center:
+                    y += (destinationRect.Height - size.Height) / 2;
+                    break;
+                case AlignmentY.Bottom:
+                    y += destinationRect.Height - size.Height;
+                    break;
+            }
+
+            return new Vector(x, y);
+        }
+
+        public static Matrix CalculateIntermediateTransform(
+            TileMode tileMode,
+            Rect sourceRect,
+            Rect destinationRect,
+            Vector scale,
+            Vector translate,
+            out Rect drawRect)
+        {
+            Matrix transform = Matrix.CreateTranslation(-sourceRect.Position) *
+                               Matrix.CreateScale(scale) *
+                               Matrix.CreateTranslation(translate);
+            Rect dr;
+
+            if (tileMode == TileMode.None)
+            {
+                dr = destinationRect;
+                transform *= Matrix.CreateTranslation(destinationRect.Position);
+            }
+            else
+            {
+                dr = new Rect(destinationRect.Size);
+            }
+
+            drawRect = dr;
+
+            return transform;
         }
     }
 }

@@ -53,6 +53,6 @@ public sealed class LinearGradientBrush : GradientBrush, ILinearGradientBrush
     /// <inheritdoc/>
     public override IBrush ToImmutable()
     {
-        return new ImmutableLinearGradientBrush(GradientStops, Opacity, SpreadMethod, StartPoint, EndPoint);
+        return new ImmutableLinearGradientBrush(this);
     }
 }

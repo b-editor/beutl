@@ -73,6 +73,6 @@ public sealed class RadialGradientBrush : GradientBrush, IRadialGradientBrush
     /// <inheritdoc/>
     public override IBrush ToImmutable()
     {
-        return new ImmutableRadialGradientBrush(GradientStops, Opacity, SpreadMethod, Center, GradientOrigin, Radius);
+        return new ImmutableRadialGradientBrush(this);
     }
 }

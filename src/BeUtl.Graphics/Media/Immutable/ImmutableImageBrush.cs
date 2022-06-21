@@ -3,22 +3,40 @@ using BeUtl.Graphics;
 
 namespace BeUtl.Media.Immutable;
 
-public sealed record ImmutableImageBrush(
-    IBitmap? Source,
-    AlignmentX AlignmentX,
-    AlignmentY AlignmentY,
-    RelativeRect DestinationRect,
-    float Opacity,
-    RelativeRect SourceRect,
-    Stretch Stretch,
-    TileMode TileMode,
-    BitmapInterpolationMode BitmapInterpolationMode)
-    : ImmutableTileBrush(
-        AlignmentX,
-        AlignmentY,
-        DestinationRect,
-        Opacity,
-        SourceRect,
-        Stretch,
-        TileMode,
-        BitmapInterpolationMode), IImageBrush;
+public class ImmutableImageBrush : ImmutableTileBrush, IImageBrush
+{
+    public ImmutableImageBrush(
+        IBitmap source,
+        AlignmentX alignmentX = AlignmentX.Center,
+        AlignmentY alignmentY = AlignmentY.Center,
+        RelativeRect? destinationRect = null,
+        float opacity = 1,
+        ImmutableTransform? transform = null,
+        RelativePoint transformOrigin = new RelativePoint(),
+        RelativeRect? sourceRect = null,
+        Stretch stretch = Stretch.Uniform,
+        TileMode tileMode = TileMode.None,
+        BitmapInterpolationMode bitmapInterpolationMode = BitmapInterpolationMode.Default)
+        : base(
+              alignmentX,
+              alignmentY,
+              destinationRect ?? RelativeRect.Fill,
+              opacity,
+              transform,
+              transformOrigin,
+              sourceRect ?? RelativeRect.Fill,
+              stretch,
+              tileMode,
+              bitmapInterpolationMode)
+    {
+        Source = source;
+    }
+
+    public ImmutableImageBrush(IImageBrush source)
+        : base(source)
+    {
+        Source = source.Source;
+    }
+
+    public IBitmap? Source { get; }
+}

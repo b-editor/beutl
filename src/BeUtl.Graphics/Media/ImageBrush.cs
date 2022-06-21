@@ -48,12 +48,6 @@ public class ImageBrush : TileBrush, IImageBrush
     /// <inheritdoc/>
     public override IBrush ToImmutable()
     {
-        return new ImmutableImageBrush(
-            Source,
-            AlignmentX, AlignmentY,
-            DestinationRect,
-            Opacity,
-            SourceRect,
-            Stretch, TileMode, BitmapInterpolationMode);
+        return new ImmutableImageBrush(this);
     }
 }
