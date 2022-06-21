@@ -7,7 +7,7 @@ public sealed class RoundedRect : Drawable
 {
     public static readonly CoreProperty<float> StrokeWidthProperty;
     public static readonly CoreProperty<CornerRadius> CornerRadiusProperty;
-    private float _strokeWidth;
+    private float _strokeWidth = 4000;
     private CornerRadius _cornerRadius;
 
     static RoundedRect()
