@@ -111,7 +111,14 @@ public sealed class ImageFilterGroup : ImageFilter
             }
         }
 
-        return SKImageFilter.CreateMerge(array);
+        if(array.Length > 0)
+        {
+            return SKImageFilter.CreateMerge(array);
+        }
+        else
+        {
+            return SKImageFilter.CreateOffset(0, 0);
+        }
     }
 
     private int ValidEffectCount()

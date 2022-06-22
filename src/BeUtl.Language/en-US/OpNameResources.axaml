@@ -22,5 +22,6 @@
         <x:String x:Key="S.OpName.Blur">Blur</x:String>
         <x:String x:Key="S.OpName.DropShadow">DropShadow</x:String>
         <x:String x:Key="S.OpName.InnerShadow">InnerShadow</x:String>
+        <x:String x:Key="S.OpName.Border">Border</x:String>
     </Styles.Resources>
 </Styles>

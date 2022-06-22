@@ -34,5 +34,6 @@ public static class RenderOperations
         LayerOperationRegistry.RegisterOperation<TestOperation>("S.OpName.Test");
         LayerOperationRegistry.RegisterOperation<Effects.BlurOperation>("S.OpName.Blur");
         LayerOperationRegistry.RegisterOperation<Effects.InnerShadowOperation>("S.OpName.InnerShadow");
+        LayerOperationRegistry.RegisterOperation<Effects.BorderOperation>("S.OpName.Border");
     }
 }

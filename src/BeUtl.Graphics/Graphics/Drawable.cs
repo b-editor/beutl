@@ -272,19 +272,22 @@ public abstract class Drawable : Renderable, IDrawable, ILogicalElement
         Size availableSize = canvas.Size.ToSize(1);
         Size size = MeasureCore(availableSize);
         var rect = new Rect(size);
+        Matrix transform = GetTransformMatrix(availableSize, size);
+        Matrix transformFact = transform;
         if (_effect != null)
         {
             rect = _effect.TransformBounds(rect);
+            transformFact = transform.Append(Matrix.CreateTranslation(rect.Position));
         }
         if (_filter != null)
         {
             rect = _filter.TransformBounds(rect);
         }
 
-        Matrix transform = GetTransformMatrix(availableSize, rect.Size);
+        rect = rect.TransformToAABB(transform);
         using (Foreground == null ? new() : canvas.PushForeground(Foreground))
         using (canvas.PushBlendMode(BlendMode))
-        using (canvas.PushTransform(transform))
+        using (canvas.PushTransform(transformFact))
         using (_filter == null ? new() : canvas.PushFilters(_filter))
         using (OpacityMask == null ? new() : canvas.PushOpacityMask(OpacityMask, rect))
         {
@@ -318,7 +321,7 @@ public abstract class Drawable : Renderable, IDrawable, ILogicalElement
             }
         }
 
-        Bounds = rect.TransformToAABB(transform);
+        Bounds = rect;
     }
 
     public void Draw(ICanvas canvas)
@@ -356,12 +359,12 @@ public abstract class Drawable : Renderable, IDrawable, ILogicalElement
 
         IsDirty = false;
 #if DEBUG
-        //Rect bounds = Bounds.Inflate(10);
-        //using (canvas.PushTransform(Matrix.CreateTranslation(bounds.Position)))
-        //using (canvas.PushStrokeWidth(5))
-        //{
-        //    canvas.DrawRect(bounds.Size);
-        //}
+        Rect bounds = Bounds.Inflate(10);
+        using (canvas.PushTransform(Matrix.CreateTranslation(bounds.Position)))
+        using (canvas.PushStrokeWidth(5))
+        {
+            canvas.DrawRect(bounds.Size);
+        }
 #endif
     }
 

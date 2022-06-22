@@ -22,5 +22,6 @@
         <x:String x:Key="S.OpName.Blur">ブラー</x:String>
         <x:String x:Key="S.OpName.DropShadow">ドロップシャドウ</x:String>
         <x:String x:Key="S.OpName.InnerShadow">内側シャドウ</x:String>
+        <x:String x:Key="S.OpName.Border">縁取り</x:String>
     </Styles.Resources>
 </Styles>
