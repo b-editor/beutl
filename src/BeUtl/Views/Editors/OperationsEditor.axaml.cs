@@ -1,4 +1,4 @@
-using Avalonia.Controls;
+﻿using Avalonia.Controls;
 using Avalonia.Input;
 
 using BeUtl.ProjectSystem;
@@ -6,9 +6,9 @@ using BeUtl.ViewModels.Editors;
 
 namespace BeUtl.Views.Editors;
 
-public partial class PropertiesEditor : UserControl
+public partial class OperationsEditor : UserControl
 {
-    public PropertiesEditor()
+    public OperationsEditor()
     {
         InitializeComponent();
         AddHandler(DragDrop.DragOverEvent, DragOver);
@@ -17,11 +17,10 @@ public partial class PropertiesEditor : UserControl
 
     private void Drop(object? sender, DragEventArgs e)
     {
-        if (e.Data.Get("RenderOperation") is LayerOperationRegistry.RegistryItem item &&
-            DataContext is PropertiesEditorViewModel vm)
+        if (e.Data.Get("RenderOperation") is LayerOperationRegistry.RegistryItem item
+            && DataContext is OperationsEditorViewModel vm
+            && vm.Layer.Value is Layer layer)
         {
-            Layer layer = vm.Layer;
-
             layer.AddChild((LayerOperation)Activator.CreateInstance(item.Type)!)
                 .DoAndRecord(CommandRecorder.Default);
 

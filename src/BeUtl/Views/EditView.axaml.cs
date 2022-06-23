@@ -30,10 +30,8 @@ namespace BeUtl.Views;
 public sealed partial class EditView : UserControl, IEditor
 {
     private readonly SynchronizationContext _syncContext;
-    private static readonly Binding s_isSelectedBinding = new("IsSelected.Value", BindingMode.TwoWay);
-    private static readonly Binding s_headerBinding = new("Header.Value");
-    //private readonly Binding _bottomHeightBinding;
-    //private readonly Binding _rightHeightBinding;
+    private static readonly Binding s_isSelectedBinding = new("Context.IsSelected.Value", BindingMode.TwoWay);
+    private static readonly Binding s_headerBinding = new("Context.Header.Value");
     private readonly AvaloniaList<FATabViewItem> _bottomTabItems = new();
     private readonly AvaloniaList<FATabViewItem> _rightTabItems = new();
     private Image? _image;
@@ -47,19 +45,53 @@ public sealed partial class EditView : UserControl, IEditor
         InitializeComponent();
         _syncContext = SynchronizationContext.Current!;
 
+        // 下部のタブ
         BottomTabView.TabItems = _bottomTabItems;
+        _bottomTabItems.CollectionChanged += TabItems_CollectionChanged;
+
+        // 右側のタブ
         RightTabView.TabItems = _rightTabItems;
-        //_bottomHeightBinding = new Binding("Bounds.Height")
-        //{
-        //    Source = timeline
-        //};
-        //_rightHeightBinding = new Binding("Bounds.Height")
-        //{
-        //    Source = propertiesEditor
-        //};
+        _rightTabItems.CollectionChanged += TabItems_CollectionChanged;
     }
 
     private Image Image => _image ??= Player.GetImage();
+
+    private void TabItems_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        if (sender is FATabView { TabItems: AvaloniaList<FATabViewItem> tabItems })
+        {
+            switch (e.Action)
+            {
+                case NotifyCollectionChangedAction.Add:
+                    for (int i = e.NewStartingIndex; i < tabItems.Count; i++)
+                    {
+                        FATabViewItem? item = tabItems[i];
+                        if (item.DataContext is ToolTabViewModel itemViewModel)
+                        {
+                            itemViewModel.Order = i;
+                        }
+                    }
+                    break;
+
+                case NotifyCollectionChangedAction.Move:
+                case NotifyCollectionChangedAction.Replace:
+                case NotifyCollectionChangedAction.Reset:
+                    throw new Exception("Not supported action (Move, Replace, Reset).");
+                case NotifyCollectionChangedAction.Remove:
+                    for (int i = e.OldStartingIndex; i < tabItems.Count; i++)
+                    {
+                        FATabViewItem? item = tabItems[i];
+                        if (item.DataContext is ToolTabViewModel itemViewModel)
+                        {
+                            itemViewModel.Order = i;
+                        }
+                    }
+                    break;
+                default:
+                    break;
+            }
+        }
+    }
 
     protected override void OnAttachedToLogicalTree(Avalonia.LogicalTree.LogicalTreeAttachmentEventArgs e)
     {
@@ -124,10 +156,10 @@ public sealed partial class EditView : UserControl, IEditor
 
             _disposable1?.Dispose();
             _disposable1 = vm.BottomTabItems.ForEachItem(
-                (index, item) =>
+                (item) =>
                 {
-                    ToolTabExtension ext = item.Extension;
-                    if (DataContext is not IEditorContext editorContext || !item.Extension.TryCreateContent(editorContext, out IControl? control))
+                    ToolTabExtension ext = item.Context.Extension;
+                    if (DataContext is not IEditorContext editorContext || !item.Context.Extension.TryCreateContent(editorContext, out IControl? control))
                     {
                         control = new TextBlock()
                         {
@@ -137,6 +169,7 @@ Error:
                         };
                     }
 
+                    control.DataContext = item.Context;
                     var tabItem = new FATabViewItem
                     {
                         [!FATabViewItem.HeaderProperty] = s_headerBinding,
@@ -147,23 +180,41 @@ Error:
 
                     tabItem.CloseRequested += (s, _) =>
                     {
-                        if (s is FATabViewItem { DataContext: IToolContext toolContext } && DataContext is IEditorContext viewModel)
+                        if (s is FATabViewItem { DataContext: ToolTabViewModel tabViewModel } && DataContext is IEditorContext viewModel)
                         {
-                            viewModel.CloseToolTab(toolContext);
+                            viewModel.CloseToolTab(tabViewModel.Context);
                         }
                     };
 
-                    _bottomTabItems.Insert(index, tabItem);
+                    if (item.Order < 0 || item.Order > _bottomTabItems.Count)
+                    {
+                        item.Order = _bottomTabItems.Count;
+                    }
+
+                    _bottomTabItems.Insert(item.Order, tabItem);
                 },
-                (index, _) => _bottomTabItems.RemoveAt(index),
+                (item) =>
+                {
+                    for (int i = 0; i < _bottomTabItems.Count; i++)
+                    {
+                        FATabViewItem tabItem = _bottomTabItems[i];
+                        if (tabItem.DataContext is ToolTabViewModel itemViewModel
+                            && itemViewModel.Context == item.Context)
+                        {
+                            itemViewModel.Order = -1;
+                            _bottomTabItems.RemoveAt(i);
+                            return;
+                        }
+                    }
+                },
                 () => throw new Exception());
 
             _disposable2?.Dispose();
             _disposable2 = vm.RightTabItems.ForEachItem(
-                (index, item) =>
+                (item) =>
                 {
-                    ToolTabExtension ext = item.Extension;
-                    if (DataContext is not IEditorContext editorContext || !item.Extension.TryCreateContent(editorContext, out IControl? control))
+                    ToolTabExtension ext = item.Context.Extension;
+                    if (DataContext is not IEditorContext editorContext || !item.Context.Extension.TryCreateContent(editorContext, out IControl? control))
                     {
                         control = new TextBlock()
                         {
@@ -173,6 +224,7 @@ Error:
                         };
                     }
 
+                    control.DataContext = item.Context;
                     var tabItem = new FATabViewItem
                     {
                         [!FATabViewItem.HeaderProperty] = s_headerBinding,
@@ -183,15 +235,33 @@ Error:
 
                     tabItem.CloseRequested += (s, _) =>
                     {
-                        if (s is FATabViewItem { DataContext: IToolContext toolContext } && DataContext is IEditorContext viewModel)
+                        if (s is FATabViewItem { DataContext: ToolTabViewModel tabViewModel } && DataContext is IEditorContext viewModel)
                         {
-                            viewModel.CloseToolTab(toolContext);
+                            viewModel.CloseToolTab(tabViewModel.Context);
                         }
                     };
 
-                    _rightTabItems.Insert(index, tabItem);
+                    if (item.Order < 0 || item.Order > _rightTabItems.Count)
+                    {
+                        item.Order = _rightTabItems.Count;
+                    }
+
+                    _rightTabItems.Insert(item.Order, tabItem);
                 },
-                (index, _) => _rightTabItems.RemoveAt(index),
+                (item) =>
+                {
+                    for (int i = 0; i < _rightTabItems.Count; i++)
+                    {
+                        FATabViewItem tabItem = _rightTabItems[i];
+                        if (tabItem.DataContext is ToolTabViewModel itemViewModel
+                            && itemViewModel.Context == item.Context)
+                        {
+                            itemViewModel.Order = -1;
+                            _rightTabItems.RemoveAt(i);
+                            return;
+                        }
+                    }
+                },
                 () => throw new Exception());
         }
     }

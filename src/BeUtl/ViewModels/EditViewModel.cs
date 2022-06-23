@@ -19,6 +19,23 @@ using Reactive.Bindings.Extensions;
 
 namespace BeUtl.ViewModels;
 
+public sealed class ToolTabViewModel : IDisposable
+{
+    public ToolTabViewModel(IToolContext context)
+    {
+        Context = context;
+    }
+
+    public IToolContext Context { get; }
+
+    public int Order { get; set; } = -1;
+
+    public void Dispose()
+    {
+        Context.Dispose();
+    }
+}
+
 public sealed class EditViewModel : IEditorContext
 {
     private readonly CompositeDisposable _disposables = new();
@@ -27,21 +44,19 @@ public sealed class EditViewModel : IEditorContext
     {
         Scene = scene;
         Player = new PlayerViewModel(scene);
-        //Easings = new EasingsViewModel();
-        //Property = scene.GetObservable(Scene.SelectedItemProperty)
-        //    .Select(o => o == null ? null : new PropertiesEditorViewModel(o))
-        //    .DisposePreviousValue()
-        //    .ToReadOnlyReactivePropertySlim()
-        //    .AddTo(_disposables);
         Commands = new KnownCommandsImpl(scene);
 
-        BottomTabItems = new CoreList<IToolContext>() { ResetBehavior = ResetBehavior.Remove };
-        RightTabItems = new CoreList<IToolContext>() { ResetBehavior = ResetBehavior.Remove };
+        BottomTabItems = new CoreList<ToolTabViewModel>() { ResetBehavior = ResetBehavior.Remove };
+        RightTabItems = new CoreList<ToolTabViewModel>() { ResetBehavior = ResetBehavior.Remove };
 
-        if (TimelineTabExtension.Instance.TryCreateContext(this, out IToolContext? context))
+        if (TimelineTabExtension.Instance.TryCreateContext(this, out IToolContext? timeline)
+            && OperationsTabExtension.Instance.TryCreateContext(this, out IToolContext? operations))
         {
-            Timeline = (TimelineViewModel?)context!;
-            BottomTabItems.Add(context);
+            Timeline = (TimelineViewModel?)timeline!;
+            BottomTabItems.Add(new(timeline));
+
+            Operations = (OperationsEditorViewModel?)operations!;
+            RightTabItems.Add(new(operations));
         }
         else
         {
@@ -55,9 +70,11 @@ public sealed class EditViewModel : IEditorContext
 
     public TimelineViewModel Timeline { get; }
 
-    public CoreList<IToolContext> BottomTabItems { get; }
+    public OperationsEditorViewModel Operations { get; }
 
-    public CoreList<IToolContext> RightTabItems { get; }
+    public CoreList<ToolTabViewModel> BottomTabItems { get; }
+
+    public CoreList<ToolTabViewModel> RightTabItems { get; }
 
     public PlayerViewModel Player { get; }
 
@@ -90,29 +107,34 @@ public sealed class EditViewModel : IEditorContext
 
     public bool OpenToolTab(IToolContext item)
     {
-        if (BottomTabItems.Contains(item) || RightTabItems.Contains(item))
+        if (BottomTabItems.Any(x => x.Context == item) || RightTabItems.Any(x => x.Context == item))
         {
             item.IsSelected.Value = true;
             return true;
         }
         else if (!item.Extension.CanMultiple
-            && (BottomTabItems.Any(i => i.Extension == item.Extension)
-            || RightTabItems.Any(i => i.Extension == item.Extension)))
+            && (BottomTabItems.Any(x => x.Context.Extension == item.Extension)
+            || RightTabItems.Any(x => x.Context.Extension == item.Extension)))
         {
             return false;
         }
         else
         {
-            (item.Placement == ToolTabExtension.TabPlacement.Bottom ? BottomTabItems : RightTabItems).Add(item);
+            CoreList<ToolTabViewModel> list = item.Placement == ToolTabExtension.TabPlacement.Bottom ? BottomTabItems : RightTabItems;
+            list.Add(new ToolTabViewModel(item));
             return true;
         }
     }
 
     public void CloseToolTab(IToolContext item)
     {
-        if (!BottomTabItems.Remove(item))
+        if (BottomTabItems.FirstOrDefault(x => x.Context == item) is { } found0)
         {
-            RightTabItems.Remove(item);
+            BottomTabItems.Remove(found0);
+        }
+        else if (RightTabItems.FirstOrDefault(x => x.Context == item) is { } found1)
+        {
+            RightTabItems.Remove(found1);
         }
     }
 

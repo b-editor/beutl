@@ -203,6 +203,7 @@ public class MainViewModel
                 SceneWorkspaceItemExtension.Instance,
                 TimelineTabExtension.Instance,
                 AnimationTimelineTabExtension.Instance,
+                OperationsTabExtension.Instance,
             });
 
             manager.LoadPackages(manager.GetPackageInfos());

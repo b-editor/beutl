@@ -234,6 +234,8 @@ public static partial class StringResources
         public static string Password => "S.Common.Password".GetStringResource("Password");
         //S.Common.Backup
         public static string Backup => "S.Common.Backup".GetStringResource("Backup");
+        //S.Common.Operations
+        public static string Operations => "S.Common.Operations".GetStringResource("Operations");
 
         //S.Common.File
         private static IObservable<string>? s_file;
@@ -577,5 +579,8 @@ public static partial class StringResources
         //S.Common.Backup
         private static IObservable<string>? s_backup;
         public static IObservable<string> BackupObservable => s_backup ??= "S.Common.Backup".GetStringObservable(StringResources.Common.Backup);
+        //S.Common.Operations
+        private static IObservable<string>? s_operations;
+        public static IObservable<string> OperationsObservable => s_operations ??= "S.Common.Operations".GetStringObservable(StringResources.Common.Operations);
     }
 }

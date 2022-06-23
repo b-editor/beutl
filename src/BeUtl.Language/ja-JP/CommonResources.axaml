@@ -140,6 +140,7 @@
         <x:String x:Key="S.Common.Account">アカウント</x:String>
         <x:String x:Key="S.Common.Password">パスワード</x:String>
         <x:String x:Key="S.Common.Backup">バックアップ</x:String>
+        <x:String x:Key="S.Common.Operations">オペレーション</x:String>
     </Styles.Resources>
 
     <!--Views-->
