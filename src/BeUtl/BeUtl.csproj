@@ -1,6 +1,13 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
     <AvaloniaResource Include="Assets\**" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="Views\Editors\Editors.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Editors.tt</DependentUpon>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Roslynator.Analyzers" Version="4.1.1">
@@ -14,6 +21,36 @@
     <ProjectReference Include="..\..\external\firebase-authentication-dotnet\src\Firebase.Auth.UI\Firebase.Auth.UI.csproj" />
     <ProjectReference Include="..\..\build\generators\ApiKeyGenerator\ApiKeyGenerator.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
     <ProjectReference Include="..\BeUtl.Controls\BeUtl.Controls.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Update="ViewModels\Editors\EditorViewModels.tt">
+      <Generator>TextTemplatingFileGenerator</Generator>
+      <LastGenOutput>EditorViewModels.cs</LastGenOutput>
+    </None>
+    <None Update="ViewModels\Editors\EditorViewModels.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>EditorViewModels.tt</DependentUpon>
+    </None>
+    <None Update="Views\Editors\Editors.tt">
+      <Generator>TextTemplatingFileGenerator</Generator>
+      <LastGenOutput>Editors.cs</LastGenOutput>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <Service Include="{508349b6-6b84-4df5-91f0-309beebad82d}" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Update="ViewModels\Editors\EditorViewModels.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>EditorViewModels.tt</DependentUpon>
+    </Compile>
+    <Compile Update="Views\Editors\Editors.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Editors.tt</DependentUpon>
+    </Compile>
   </ItemGroup>
   <Import Project="$(RootDirectory)\build\props\Avalonia.props" />
   <Import Project="$(RootDirectory)\build\props\Avalonia.Xaml.Interactivity.props" />

@@ -1,0 +1,147 @@
+<#@ template debug="false" hostspecific="false" language="C#" #>
+<#@ assembly name="System.Core" #>
+<#@ import namespace="System.Linq" #>
+<#@ import namespace="System.Text" #>
+<#@ import namespace="System.Collections.Generic" #>
+<#@ output extension=".cs" #>
+<#
+    var numberTypes = new Type[]
+    {
+        typeof(byte),
+        typeof(decimal),
+        typeof(double),
+        typeof(float),
+        typeof(short),
+        typeof(int),
+        typeof(long),
+        typeof(sbyte),
+        typeof(ushort),
+        typeof(uint),
+        typeof(ulong),
+    };
+
+    var vec2Types = new (string Namespace, string Name, string Element)[]
+    {
+        ("BeUtl.Media", "PixelPoint", "System.Int32"),
+        ("BeUtl.Media", "PixelSize", "System.Int32"),
+        ("BeUtl.Graphics", "Point", "System.Single"),
+        ("BeUtl.Graphics", "Size", "System.Single"),
+        ("BeUtl.Graphics", "Vector", "System.Single"),
+        ("System.Numerics", "Vector2", "System.Single"),
+    };
+
+    var vec3Types = new (string Namespace, string Name, string Element)[]
+    {
+        ("System.Numerics", "Vector3", "System.Single"),
+    };
+
+    var vec4Types = new (string Namespace, string Name, string Element)[]
+    {
+        ("BeUtl.Media", "PixelRect", "System.Int32"),
+        ("BeUtl.Media", "CornerRadius", "System.Single"),
+        ("BeUtl.Graphics", "Thickness", "System.Single"),
+        ("BeUtl.Graphics", "Rect", "System.Single"),
+        ("System.Numerics", "Vector4", "System.Single"),
+    };
+#>
+using BeUtl.ProjectSystem;
+using BeUtl.Services.Editors;
+
+using Reactive.Bindings;
+using Reactive.Bindings.Extensions;
+
+#pragma warning disable IDE0001, IDE0049
+
+namespace BeUtl.ViewModels.Editors
+{
+    // Number
+<# foreach(var t in numberTypes) { #>
+    public sealed class <#= t.Name #>EditorViewModel : BaseNumberEditorViewModel<<#= t.FullName #>>
+    {
+        public <#= t.Name #>EditorViewModel(PropertyInstance<<#= t.FullName #>> pi)
+            : base(pi)
+        {
+            Value = pi.GetObservable()
+                .ToReadOnlyReactivePropertySlim()
+                .AddTo(Disposables);
+        }
+
+        public ReadOnlyReactivePropertySlim<<#= t.FullName #>> Value { get; }
+
+        public override <#= t.FullName #> Maximum => Setter.GetMaximumOrDefault(<#= t.FullName #>.MaxValue);
+
+        public override <#= t.FullName #> Minimum => Setter.GetMinimumOrDefault(<#= t.FullName #>.MinValue);
+
+        public override INumberEditorService<<#= t.FullName #>> EditorService { get; } = NumberEditorService.Instance.Get<<#= t.FullName #>>();
+    }
+<# } #>
+
+    // Vector2
+<# foreach(var t in vec2Types) { #>
+<# var fullName = $"{t.Namespace}.{t.Name}"; #>
+<# var maxElement = $"{t.Element}.MaxValue"; #>
+<# var minElement = $"{t.Element}.MinValue"; #>
+    public sealed class <#= t.Name #>EditorViewModel : BaseEditorViewModel<<#= fullName #>>
+    {
+        public <#= t.Name #>EditorViewModel(PropertyInstance<<#= fullName #>> pi)
+            : base(pi)
+        {
+            Value = pi.GetObservable()
+                .ToReadOnlyReactivePropertySlim()
+                .AddTo(Disposables);
+        }
+
+        public ReadOnlyReactivePropertySlim<<#= fullName #>> Value { get; }
+
+        public <#= fullName #> Maximum => Setter.GetMaximumOrDefault(new <#= fullName #>(<#= maxElement #>, <#= maxElement #>));
+
+        public <#= fullName #> Minimum => Setter.GetMinimumOrDefault(new <#= fullName #>(<#= minElement #>, <#= minElement #>));
+    }
+<# } #>
+
+    // Vector3
+<# foreach(var t in vec3Types) { #>
+<# var fullName = $"{t.Namespace}.{t.Name}"; #>
+<# var maxElement = $"{t.Element}.MaxValue"; #>
+<# var minElement = $"{t.Element}.MinValue"; #>
+    public sealed class <#= t.Name #>EditorViewModel : BaseEditorViewModel<<#= fullName #>>
+    {
+        public <#= t.Name #>EditorViewModel(PropertyInstance<<#= fullName #>> pi)
+            : base(pi)
+        {
+            Value = pi.GetObservable()
+                .ToReadOnlyReactivePropertySlim()
+                .AddTo(Disposables);
+        }
+
+        public ReadOnlyReactivePropertySlim<<#= fullName #>> Value { get; }
+
+        public <#= fullName #> Maximum => Setter.GetMaximumOrDefault(new <#= fullName #>(<#= maxElement #>, <#= maxElement #>, <#= maxElement #>));
+
+        public <#= fullName #> Minimum => Setter.GetMinimumOrDefault(new <#= fullName #>(<#= minElement #>, <#= minElement #>, <#= minElement #>));
+    }
+<# } #>
+
+    // Vector4
+<# foreach(var t in vec4Types) { #>
+<# var fullName = $"{t.Namespace}.{t.Name}"; #>
+<# var maxElement = $"{t.Element}.MaxValue"; #>
+<# var minElement = $"{t.Element}.MinValue"; #>
+    public sealed class <#= t.Name #>EditorViewModel : BaseEditorViewModel<<#= fullName #>>
+    {
+        public <#= t.Name #>EditorViewModel(PropertyInstance<<#= fullName #>> pi)
+            : base(pi)
+        {
+            Value = pi.GetObservable()
+                .ToReadOnlyReactivePropertySlim()
+                .AddTo(Disposables);
+        }
+
+        public ReadOnlyReactivePropertySlim<<#= fullName #>> Value { get; }
+
+        public <#= fullName #> Maximum => Setter.GetMaximumOrDefault(new <#= fullName #>(<#= maxElement #>, <#= maxElement #>, <#= maxElement #>, <#= maxElement #>));
+
+        public <#= fullName #> Minimum => Setter.GetMinimumOrDefault(new <#= fullName #>(<#= minElement #>, <#= minElement #>, <#= minElement #>, <#= minElement #>));
+    }
+<# } #>
+}

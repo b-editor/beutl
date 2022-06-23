@@ -30,7 +30,7 @@ public static class PropertyEditorService
         { typeof(double), new(_ => new NumberEditor<double>(), s => new DoubleEditorViewModel((PropertyInstance<double>)s)) },
         { typeof(Enum), new(CreateEnumEditor, CreateEnumViewModel) },
         { typeof(FileInfo), new(_ => new FileInfoEditor(), s => new FileInfoEditorViewModel((PropertyInstance<FileInfo>)s)) },
-        { typeof(float), new(_ => new NumberEditor<float>(), s => new FloatEditorViewModel((PropertyInstance<float>)s)) },
+        { typeof(float), new(_ => new NumberEditor<float>(), s => new SingleEditorViewModel((PropertyInstance<float>)s)) },
         { typeof(FontFamily), new(_ => new FontFamilyEditor(), s => new FontFamilyEditorViewModel((PropertyInstance<FontFamily>)s)) },
         { typeof(short), new(_ => new NumberEditor<short>(), s => new Int16EditorViewModel((PropertyInstance<short>)s)) },
         { typeof(int), new(_ => new NumberEditor<int>(), s => new Int32EditorViewModel((PropertyInstance<int>)s)) },
