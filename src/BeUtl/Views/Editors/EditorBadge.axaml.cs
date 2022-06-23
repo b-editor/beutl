@@ -1,4 +1,4 @@
-using Avalonia.Controls;
+﻿using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
 
@@ -31,25 +31,27 @@ public partial class EditorBadge : UserControl
             EditView editView = this.FindLogicalAncestorOfType<EditView>();
             if (editView.DataContext is EditViewModel editViewModel)
             {
+                Layer? layer = setter.FindRequiredLogicalParent<Layer>();
                 AnimationTimelineViewModel? anmViewModel =
-                    editViewModel.AnimationTimelines.FirstOrDefault(i => ReferenceEquals(i.Setter, setter));
+                    editViewModel.BottomTabItems.OfType<AnimationTimelineViewModel>()
+                        .FirstOrDefault(anmtl => ReferenceEquals(anmtl.Setter, setter));
 
-                if (anmViewModel != null)
+                if (anmViewModel == null)
                 {
-                    anmViewModel.IsSelected.Value = true;
-                }
-                else
-                {
-                    Layer? layer = setter.FindRequiredLogicalParent<Layer>();
-                    editViewModel.AnimationTimelines.Add(
-                        new AnimationTimelineViewModel(layer, setter, viewModel.Description, editViewModel.Timeline)
+                    anmViewModel = new AnimationTimelineViewModel(
+                        layer,
+                        setter,
+                        viewModel.Description,
+                        editViewModel.Timeline)
+                    {
+                        IsSelected =
                         {
-                            IsSelected =
-                            {
-                                Value = true
-                            }
-                        });
+                            Value = true
+                        }
+                    };
                 }
+
+                editViewModel.OpenToolTab(anmViewModel);
             }
         }
     }

@@ -608,45 +608,27 @@ Error:
 
         // Todo: Extensionの実行時アンロードの実現時、
         //       ForEachItemメソッドを使うかeventにする
-        foreach (SceneEditorTabExtension item in manager.ExtensionProvider.AllExtensions.OfType<SceneEditorTabExtension>())
+        foreach (ToolTabExtension item in manager.ExtensionProvider.AllExtensions.OfType<ToolTabExtension>())
         {
+            if (!item.Header.HasValue)
+                continue;
+
             var menuItem = new MenuItem()
             {
-                [!HeaderedSelectingItemsControl.HeaderProperty] = new DynamicResourceExtension(item.Header.Key),
+                [!HeaderedSelectingItemsControl.HeaderProperty] = new DynamicResourceExtension(item.Header.Value.Key),
                 DataContext = item
             };
 
-            if (item.Icon != null)
-            {
-                menuItem.Icon = new PathIcon
-                {
-                    Data = item.Icon,
-                    Width = 18,
-                    Height = 18,
-                };
-            }
-
             menuItem.Click += (s, e) =>
             {
-                if (TryGetSelectedEditViewModel(out EditViewModel? editViewModel)
-                    && s is MenuItem { DataContext: SceneEditorTabExtension ext })
+                if (_editorService.SelectedTabItem.Value?.Context.Value is IEditorContext editorContext
+                    && s is MenuItem { DataContext: ToolTabExtension ext }
+                    && ext.TryCreateContext(editorContext, out IToolContext? toolContext))
                 {
-                    ExtendedEditTabViewModel? tabViewModel = editViewModel.UsingExtensions.FirstOrDefault(i => i.Extension == ext);
-
-                    if (tabViewModel != null)
+                    bool result = editorContext.OpenToolTab(toolContext);
+                    if (!result)
                     {
-                        tabViewModel.IsSelected.Value = true;
-                    }
-                    else
-                    {
-                        tabViewModel = new ExtendedEditTabViewModel(ext)
-                        {
-                            IsSelected =
-                            {
-                                Value = true
-                            }
-                        };
-                        editViewModel.UsingExtensions.Add(tabViewModel);
+                        toolContext.Dispose();
                     }
                 }
             };

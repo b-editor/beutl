@@ -11,7 +11,7 @@ using BeUtl.Views;
 
 using Microsoft.Extensions.DependencyInjection;
 
-namespace BeUtl.Services;
+namespace BeUtl.Services.PrimitiveImpls;
 
 [PrimitiveImpl]
 public sealed class SceneEditorExtension : EditorExtension

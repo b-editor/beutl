@@ -6,7 +6,7 @@ using BeUtl.Framework;
 using BeUtl.Pages;
 using BeUtl.ViewModels;
 
-namespace BeUtl.Services;
+namespace BeUtl.Services.PrimitiveImpls;
 
 [PrimitiveImpl]
 public sealed class SettingsPageExtension : PageExtension

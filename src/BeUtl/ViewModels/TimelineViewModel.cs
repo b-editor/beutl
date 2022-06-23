@@ -5,8 +5,10 @@ using System.Reactive.Linq;
 using Avalonia;
 
 using BeUtl.Collections;
+using BeUtl.Framework;
 using BeUtl.Models;
 using BeUtl.ProjectSystem;
+using BeUtl.Services.PrimitiveImpls;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
@@ -22,7 +24,7 @@ public interface ITimelineOptionsProvider
     public IObservable<Vector2> Offset { get; }
 }
 
-public sealed class TimelineViewModel : IDisposable, ITimelineOptionsProvider
+public sealed class TimelineViewModel : IDisposable, ITimelineOptionsProvider, IToolContext
 {
     private readonly CompositeDisposable _disposables = new();
 
@@ -86,6 +88,10 @@ public sealed class TimelineViewModel : IDisposable, ITimelineOptionsProvider
                 Layers.Clear();
             })
             .AddTo(_disposables);
+
+        Header = StringResources.Common.TimelineObservable
+            .ToReadOnlyReactivePropertySlim(StringResources.Common.Timeline)
+            .AddTo(_disposables);
     }
 
     public Scene Scene { get; }
@@ -115,6 +121,14 @@ public sealed class TimelineViewModel : IDisposable, ITimelineOptionsProvider
     public IObservable<float> Scale { get; }
 
     public IObservable<Vector2> Offset { get; }
+
+    public ToolTabExtension Extension => TimelineTabExtension.Instance;
+
+    public IReactiveProperty<bool> IsSelected { get; } = new ReactivePropertySlim<bool>();
+
+    public IReadOnlyReactiveProperty<string> Header { get; }
+
+    public ToolTabExtension.TabPlacement Placement => ToolTabExtension.TabPlacement.Bottom;
 
     public void Dispose()
     {

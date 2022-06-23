@@ -9,7 +9,7 @@ using BeUtl.Collections;
 using BeUtl.Framework;
 using BeUtl.Models;
 using BeUtl.ProjectSystem;
-using BeUtl.Services;
+using BeUtl.Services.PrimitiveImpls;
 using BeUtl.ViewModels.Editors;
 
 using OpenCvSharp;
@@ -19,22 +19,6 @@ using Reactive.Bindings.Extensions;
 
 namespace BeUtl.ViewModels;
 
-public sealed class ExtendedEditTabViewModel : IDisposable
-{
-    public ExtendedEditTabViewModel(SceneEditorTabExtension extension)
-    {
-        Extension = extension;
-    }
-
-    public SceneEditorTabExtension Extension { get; }
-
-    public ReactivePropertySlim<bool> IsSelected { get; } = new();
-
-    public void Dispose()
-    {
-    }
-}
-
 public sealed class EditViewModel : IEditorContext
 {
     private readonly CompositeDisposable _disposables = new();
@@ -42,17 +26,27 @@ public sealed class EditViewModel : IEditorContext
     public EditViewModel(Scene scene)
     {
         Scene = scene;
-        AnimationTimelines = new();
-        UsingExtensions = new();
         Player = new PlayerViewModel(scene);
-        Timeline = new TimelineViewModel(scene, Player).AddTo(_disposables);
-        Easings = new EasingsViewModel();
-        Property = scene.GetObservable(Scene.SelectedItemProperty)
-            .Select(o => o == null ? null : new PropertiesEditorViewModel(o))
-            .DisposePreviousValue()
-            .ToReadOnlyReactivePropertySlim()
-            .AddTo(_disposables);
+        //Easings = new EasingsViewModel();
+        //Property = scene.GetObservable(Scene.SelectedItemProperty)
+        //    .Select(o => o == null ? null : new PropertiesEditorViewModel(o))
+        //    .DisposePreviousValue()
+        //    .ToReadOnlyReactivePropertySlim()
+        //    .AddTo(_disposables);
         Commands = new KnownCommandsImpl(scene);
+
+        BottomTabItems = new CoreList<IToolContext>() { ResetBehavior = ResetBehavior.Remove };
+        RightTabItems = new CoreList<IToolContext>() { ResetBehavior = ResetBehavior.Remove };
+
+        if (TimelineTabExtension.Instance.TryCreateContext(this, out IToolContext? context))
+        {
+            Timeline = (TimelineViewModel?)context!;
+            BottomTabItems.Add(context);
+        }
+        else
+        {
+            throw new Exception();
+        }
 
         RestoreState();
     }
@@ -61,15 +55,15 @@ public sealed class EditViewModel : IEditorContext
 
     public TimelineViewModel Timeline { get; }
 
-    public CoreList<AnimationTimelineViewModel> AnimationTimelines { get; }
+    public CoreList<IToolContext> BottomTabItems { get; }
 
-    public CoreList<ExtendedEditTabViewModel> UsingExtensions { get; }
+    public CoreList<IToolContext> RightTabItems { get; }
 
     public PlayerViewModel Player { get; }
 
-    public EasingsViewModel Easings { get; }
+    //public EasingsViewModel Easings { get; }
 
-    public ReadOnlyReactivePropertySlim<PropertiesEditorViewModel?> Property { get; }
+    //public ReadOnlyReactivePropertySlim<PropertiesEditorViewModel?> Property { get; }
 
     public EditorExtension Extension => SceneEditorExtension.Instance;
 
@@ -77,18 +71,48 @@ public sealed class EditViewModel : IEditorContext
 
     public IKnownEditorCommands? Commands { get; }
 
+    public AnimationTimelineViewModel? RequestingAnimationTimeline { get; internal set; }
+
     public void Dispose()
     {
         SaveState();
         _disposables.Dispose();
-        Property.Value?.Dispose();
-        foreach (AnimationTimelineViewModel item in AnimationTimelines.AsSpan())
+
+        foreach (var item in BottomTabItems.AsSpan())
         {
             item.Dispose();
         }
-        foreach (ExtendedEditTabViewModel item in UsingExtensions)
+        foreach (var item in RightTabItems.AsSpan())
         {
             item.Dispose();
+        }
+    }
+
+    public bool OpenToolTab(IToolContext item)
+    {
+        if (BottomTabItems.Contains(item) || RightTabItems.Contains(item))
+        {
+            item.IsSelected.Value = true;
+            return true;
+        }
+        else if (!item.Extension.CanMultiple
+            && (BottomTabItems.Any(i => i.Extension == item.Extension)
+            || RightTabItems.Any(i => i.Extension == item.Extension)))
+        {
+            return false;
+        }
+        else
+        {
+            (item.Placement == ToolTabExtension.TabPlacement.Bottom ? BottomTabItems : RightTabItems).Add(item);
+            return true;
+        }
+    }
+
+    public void CloseToolTab(IToolContext item)
+    {
+        if (!BottomTabItems.Remove(item))
+        {
+            RightTabItems.Remove(item);
         }
     }
 
@@ -110,7 +134,7 @@ public sealed class EditViewModel : IEditorContext
         string viewStateDir = ViewStateDirectory();
         var json = new JsonObject
         {
-            ["selected-layer"] = Property.Value?.Layer?.ZIndex ?? -1,
+            //["selected-layer"] = Property.Value?.Layer?.ZIndex ?? -1,
             ["max-layer-count"] = Timeline.Options.Value.MaxLayerCount,
             ["scale"] = Timeline.Options.Value.Scale,
             ["offset"] = new JsonObject
@@ -136,22 +160,22 @@ public sealed class EditViewModel : IEditorContext
                 return;
             var timelineOptions = new TimelineOptions();
 
-            try
-            {
-                int layer = (int?)json["selected-layer"] ?? -1;
-                if (layer >= 0)
-                {
-                    foreach (Layer item in Scene.Children.AsSpan())
-                    {
-                        if (item.ZIndex == layer)
-                        {
-                            Scene.SelectedItem = item;
-                            break;
-                        }
-                    }
-                }
-            }
-            catch { }
+            //try
+            //{
+            //    int layer = (int?)json["selected-layer"] ?? -1;
+            //    if (layer >= 0)
+            //    {
+            //        foreach (Layer item in Scene.Children.AsSpan())
+            //        {
+            //            if (item.ZIndex == layer)
+            //            {
+            //                Scene.SelectedItem = item;
+            //                break;
+            //            }
+            //        }
+            //    }
+            //}
+            //catch { }
 
             try
             {

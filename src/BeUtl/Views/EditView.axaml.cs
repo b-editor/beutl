@@ -1,6 +1,8 @@
 ﻿using System.Collections;
+using System.Collections.Specialized;
 using System.Reactive.Linq;
 
+using Avalonia.Collections;
 using Avalonia.Controls;
 using Avalonia.Data;
 using Avalonia.Layout;
@@ -29,10 +31,13 @@ public sealed partial class EditView : UserControl, IEditor
 {
     private readonly SynchronizationContext _syncContext;
     private static readonly Binding s_isSelectedBinding = new("IsSelected.Value", BindingMode.TwoWay);
-    private readonly Binding _bottomHeightBinding;
-    private readonly Binding _rightHeightBinding;
+    private static readonly Binding s_headerBinding = new("Header.Value");
+    //private readonly Binding _bottomHeightBinding;
+    //private readonly Binding _rightHeightBinding;
+    private readonly AvaloniaList<FATabViewItem> _bottomTabItems = new();
+    private readonly AvaloniaList<FATabViewItem> _rightTabItems = new();
     private Image? _image;
-    private FileSystemWatcher? _watcher;
+    //private FileSystemWatcher? _watcher;
     private IDisposable? _disposable0;
     private IDisposable? _disposable1;
     private IDisposable? _disposable2;
@@ -41,56 +46,59 @@ public sealed partial class EditView : UserControl, IEditor
     {
         InitializeComponent();
         _syncContext = SynchronizationContext.Current!;
-        _bottomHeightBinding = new Binding("Bounds.Height")
-        {
-            Source = timeline
-        };
-        _rightHeightBinding = new Binding("Bounds.Height")
-        {
-            Source = propertiesEditor
-        };
+
+        BottomTabView.TabItems = _bottomTabItems;
+        RightTabView.TabItems = _rightTabItems;
+        //_bottomHeightBinding = new Binding("Bounds.Height")
+        //{
+        //    Source = timeline
+        //};
+        //_rightHeightBinding = new Binding("Bounds.Height")
+        //{
+        //    Source = propertiesEditor
+        //};
     }
 
     private Image Image => _image ??= Player.GetImage();
 
     protected override void OnAttachedToLogicalTree(Avalonia.LogicalTree.LogicalTreeAttachmentEventArgs e)
     {
-        static object? DataContextFactory(string filename)
-        {
-            IProjectService service = ServiceLocator.Current.GetRequiredService<IProjectService>();
-            if (service.CurrentProject.Value != null)
-            {
-                foreach (IStorable item in service.CurrentProject.Value.EnumerateAllChildren<IStorable>())
-                {
-                    if (item.FileName == filename)
-                    {
-                        return item;
-                    }
-                }
-            }
+        //static object? DataContextFactory(string filename)
+        //{
+        //    IProjectService service = ServiceLocator.Current.GetRequiredService<IProjectService>();
+        //    if (service.CurrentProject.Value != null)
+        //    {
+        //        foreach (IStorable item in service.CurrentProject.Value.EnumerateAllChildren<IStorable>())
+        //        {
+        //            if (item.FileName == filename)
+        //            {
+        //                return item;
+        //            }
+        //        }
+        //    }
 
-            return null;
-        }
+        //    return null;
+        //}
 
         base.OnAttachedToLogicalTree(e);
         IProjectService service = ServiceLocator.Current.GetRequiredService<IProjectService>();
         if (service.CurrentProject.Value != null)
         {
-            _watcher = new FileSystemWatcher(service.CurrentProject.Value.RootDirectory)
-            {
-                EnableRaisingEvents = true,
-                IncludeSubdirectories = true,
-            };
-            Explorer.Content = new DirectoryTreeView(_watcher, DataContextFactory);
+            //_watcher = new FileSystemWatcher(service.CurrentProject.Value.RootDirectory)
+            //{
+            //    EnableRaisingEvents = true,
+            //    IncludeSubdirectories = true,
+            //};
+            //Explorer.Content = new DirectoryTreeView(_watcher, DataContextFactory);
         }
     }
 
     protected override void OnDetachedFromLogicalTree(Avalonia.LogicalTree.LogicalTreeAttachmentEventArgs e)
     {
         base.OnDetachedFromLogicalTree(e);
-        Explorer.Content = null;
-        _watcher?.Dispose();
-        _watcher = null;
+        //Explorer.Content = null;
+        //_watcher?.Dispose();
+        //_watcher = null;
     }
 
     protected override void OnDataContextChanged(EventArgs e)
@@ -115,143 +123,76 @@ public sealed partial class EditView : UserControl, IEditor
                 });
 
             _disposable1?.Dispose();
-            _disposable1 = vm.AnimationTimelines.ForEachItem(
-                (item) =>
+            _disposable1 = vm.BottomTabItems.ForEachItem(
+                (index, item) =>
                 {
-                    if (BottomTabView.TabItems is not IList list) return;
+                    ToolTabExtension ext = item.Extension;
+                    if (DataContext is not IEditorContext editorContext || !item.Extension.TryCreateContent(editorContext, out IControl? control))
+                    {
+                        control = new TextBlock()
+                        {
+                            Text = @$"
+Error:
+    {StringResources.Message.CannotDisplayThisContext}"
+                        };
+                    }
 
                     var tabItem = new FATabViewItem
                     {
+                        [!FATabViewItem.HeaderProperty] = s_headerBinding,
                         [!ListBoxItem.IsSelectedProperty] = s_isSelectedBinding,
-                        Header = $"{item.Layer.Name} / {item.Setter.Property.Name}",
                         DataContext = item,
-                        IsClosable = true,
-                        Content = new AnimationTimeline()
-                        {
-                            [!HeightProperty] = _bottomHeightBinding
-                        },
+                        Content = control,
                     };
-                    list.Add(tabItem);
+
                     tabItem.CloseRequested += (s, _) =>
                     {
-                        if (DataContext is EditViewModel viewModel
-                            && s.DataContext is AnimationTimelineViewModel anmViewModel)
+                        if (s is FATabViewItem { DataContext: IToolContext toolContext } && DataContext is IEditorContext viewModel)
                         {
-                            viewModel.AnimationTimelines.Remove(anmViewModel);
+                            viewModel.CloseToolTab(toolContext);
                         }
                     };
+
+                    _bottomTabItems.Insert(index, tabItem);
                 },
-                (item) =>
-                {
-                    if (BottomTabView.TabItems is not IList list) return;
-
-                    FATabViewItem? tabItem = BottomTabView.TabItems
-                        .OfType<FATabViewItem>()
-                        .FirstOrDefault(i => i.DataContext == item);
-
-                    if (tabItem != null)
-                    {
-                        list.Remove(tabItem);
-                        item.Dispose();
-                    }
-                },
-                () =>
-                {
-                    if (BottomTabView.TabItems is not IList list) return;
-
-                    foreach (FATabViewItem item in BottomTabView.TabItems
-                        .OfType<FATabViewItem>()
-                        .Where(v => v.DataContext is AnimationTimelineViewModel).ToArray())
-                    {
-                        list.Remove(item);
-                        (item.DataContext as IDisposable)?.Dispose();
-                    }
-                });
+                (index, _) => _bottomTabItems.RemoveAt(index),
+                () => throw new Exception());
 
             _disposable2?.Dispose();
-            _disposable2 = vm.UsingExtensions.ForEachItem(
-                (item) =>
+            _disposable2 = vm.RightTabItems.ForEachItem(
+                (index, item) =>
                 {
-                    SceneEditorTabExtension extension = item.Extension;
-                    FATabView tabView = extension.Placement == SceneEditorTabExtension.TabPlacement.Bottom ? BottomTabView : RightTabView;
-                    if (tabView.TabItems is IList list && DataContext is EditViewModel viewModel)
+                    ToolTabExtension ext = item.Extension;
+                    if (DataContext is not IEditorContext editorContext || !item.Extension.TryCreateContent(editorContext, out IControl? control))
                     {
-                        var tabItem = new FATabViewItem()
+                        control = new TextBlock()
                         {
-                            [!ListBoxItem.IsSelectedProperty] = s_isSelectedBinding,
-                            [!FATabViewItem.HeaderProperty] = new DynamicResourceExtension(extension.Header.Key),
-                            Content = extension.CreateContent(viewModel.Scene),
-                            DataContext = item,
-                            IsClosable = extension.IsClosable
-                        };
-
-                        if (tabItem.Content is Layoutable content)
-                        {
-                            content[!HeightProperty] =
-                                extension.Placement == SceneEditorTabExtension.TabPlacement.Bottom
-                                ? _bottomHeightBinding
-                                : _rightHeightBinding;
-                        }
-
-                        if (extension.Icon != null)
-                        {
-                            tabItem.IconSource = new FAPathIconSource
-                            {
-                                Data = extension.Icon
-                            };
-                        }
-
-                        list.Add(tabItem);
-
-                        tabItem.CloseRequested += (s, _) =>
-                        {
-                            if (DataContext is EditViewModel viewModel
-                                && s.DataContext is ExtendedEditTabViewModel tabViewModel)
-                            {
-                                viewModel.UsingExtensions.Remove(tabViewModel);
-                            }
+                            Text = @$"
+Error:
+    {StringResources.Message.CannotDisplayThisContext}"
                         };
                     }
-                },
-                (item) =>
-                {
-                    SceneEditorTabExtension extension = item.Extension;
-                    FATabView tabView = extension.Placement == SceneEditorTabExtension.TabPlacement.Bottom ? BottomTabView : RightTabView;
-                    if (tabView.TabItems is IList list && DataContext is EditViewModel viewModel)
-                    {
-                        FATabViewItem? tabItem = list
-                            .OfType<FATabViewItem>()
-                            .FirstOrDefault(i => i.DataContext == item);
 
-                        if (tabItem != null)
-                        {
-                            list.Remove(tabItem);
-                            item.Dispose();
-                        }
-                    }
-                },
-                () =>
-                {
-                    if (BottomTabView.TabItems is IList list0
-                        && RightTabView.TabItems is IList list1)
+                    var tabItem = new FATabViewItem
                     {
-                        foreach (FATabViewItem item in list0
-                            .OfType<FATabViewItem>()
-                            .Where(v => v.DataContext is ExtendedEditTabViewModel).ToArray())
-                        {
-                            list0.Remove(item);
-                            (item.DataContext as IDisposable)?.Dispose();
-                        }
+                        [!FATabViewItem.HeaderProperty] = s_headerBinding,
+                        [!ListBoxItem.IsSelectedProperty] = s_isSelectedBinding,
+                        DataContext = item,
+                        Content = control,
+                    };
 
-                        foreach (FATabViewItem item in list1
-                            .OfType<FATabViewItem>()
-                            .Where(v => v.DataContext is ExtendedEditTabViewModel).ToArray())
+                    tabItem.CloseRequested += (s, _) =>
+                    {
+                        if (s is FATabViewItem { DataContext: IToolContext toolContext } && DataContext is IEditorContext viewModel)
                         {
-                            list1.Remove(item);
-                            (item.DataContext as IDisposable)?.Dispose();
+                            viewModel.CloseToolTab(toolContext);
                         }
-                    }
-                });
+                    };
+
+                    _rightTabItems.Insert(index, tabItem);
+                },
+                (index, _) => _rightTabItems.RemoveAt(index),
+                () => throw new Exception());
         }
     }
 

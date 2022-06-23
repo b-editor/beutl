@@ -1,10 +1,23 @@
-﻿using Avalonia.Media;
+﻿using System.Diagnostics.CodeAnalysis;
 
-using BeUtl.ProjectSystem;
+using Avalonia.Controls;
+
+using Reactive.Bindings;
 
 namespace BeUtl.Framework;
 
-public abstract class SceneEditorTabExtension : ViewExtension
+public interface IToolContext : IDisposable
+{
+    ToolTabExtension Extension { get; }
+
+    IReactiveProperty<bool> IsSelected { get; }
+
+    IReadOnlyReactiveProperty<string> Header { get; }
+
+    ToolTabExtension.TabPlacement Placement { get; }
+}
+
+public abstract class ToolTabExtension : ViewExtension
 {
     public enum TabPlacement
     {
@@ -12,13 +25,15 @@ public abstract class SceneEditorTabExtension : ViewExtension
         Right
     }
 
-    public abstract Geometry? Icon { get; }
+    public abstract bool CanMultiple { get; }
 
-    public abstract TabPlacement Placement { get; }
+    public virtual ResourceReference<string>? Header => null;
 
-    public abstract bool IsClosable { get; }
+    public abstract bool TryCreateContent(
+        IEditorContext editorContext,
+        [NotNullWhen(true)] out IControl? control);
 
-    public abstract ResourceReference<string> Header { get; }
-
-    public abstract object CreateContent(Scene scene);
+    public abstract bool TryCreateContext(
+        IEditorContext editorContext,
+        [NotNullWhen(true)] out IToolContext? context);
 }

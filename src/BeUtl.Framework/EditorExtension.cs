@@ -16,6 +16,10 @@ public interface IEditorContext : IDisposable
     string EdittingFile { get; }
 
     IKnownEditorCommands? Commands { get; }
+
+    bool OpenToolTab(IToolContext item);
+
+    void CloseToolTab(IToolContext item);
 }
 
 // ファイルのエディタを追加

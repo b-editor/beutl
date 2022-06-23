@@ -7,7 +7,7 @@ using BeUtl.Framework;
 using BeUtl.Models;
 using BeUtl.ProjectSystem;
 
-namespace BeUtl.Services;
+namespace BeUtl.Services.PrimitiveImpls;
 
 [PrimitiveImpl]
 public sealed class SceneWorkspaceItemExtension : WorkspaceItemExtension

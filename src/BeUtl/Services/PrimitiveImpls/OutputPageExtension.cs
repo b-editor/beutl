@@ -4,7 +4,7 @@ using BeUtl.Controls;
 using BeUtl.Framework;
 using BeUtl.ViewModels;
 
-namespace BeUtl.Services;
+namespace BeUtl.Services.PrimitiveImpls;
 
 [PrimitiveImpl]
 public sealed class OutputPageExtension : PageExtension
