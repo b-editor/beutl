@@ -1,10 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-using BeUtl.Media;
+﻿using BeUtl.Media;
+using BeUtl.Media.Immutable;
 using BeUtl.Media.Pixel;
 
 using OpenCvSharp;
@@ -134,7 +129,7 @@ public class Border : BitmapEffect
 
     public override Rect TransformBounds(Rect rect)
     {
-        return rect.Union(rect.Translate(_offset).Inflate(_thickness));
+        return rect.Union(rect.Translate(new Vector(_offset.X, _offset.Y)).Inflate(_thickness / 2)).Inflate(8);
     }
 
     private sealed class _ : IBitmapProcessor
@@ -149,47 +144,45 @@ public class Border : BitmapEffect
         public void Process(in Bitmap<Bgra8888> src, out Bitmap<Bgra8888> dst)
         {
             Point offset = _border._offset;
-            int thickness = _border._thickness;
+            int thickness = _border._thickness / 2;
             MaskTypes maskType = _border._maskType;
             BorderStyles style = _border._style;
+
+            // 縁取りの画像を生成
             using Bitmap<Bgra8888> border = GetBorderBitmap(src);
             var rect = new Rect(0, 0, src.Width, src.Height);
-            var borderBounds = rect.Translate(offset).Inflate(thickness);
-            var bounds1 = rect.Union(borderBounds);
-            var canvasSize = bounds1.Size;
+            Rect borderBounds = rect.Translate(offset).Inflate(thickness);
+            Rect canvasRect = rect.Union(borderBounds).Inflate(8);
+            var borderRect = new Rect(0, 0, border.Width, border.Height);
 
-            ImageBrush? maskBrush = maskType != MaskTypes.None ? new ImageBrush(src) : null;
-            if (maskBrush != null)
+            ImmutableImageBrush? maskBrush = maskType != MaskTypes.None
+                ? new ImmutableImageBrush(src, stretch: Stretch.None)
+                : null;
+
+            using (var canvas = new Canvas((int)canvasRect.Width, (int)canvasRect.Height))
+            using (canvas.PushTransform(Matrix.CreateTranslation(8, 8)))
             {
-                maskBrush.Stretch = Stretch.None;
-            }
-
-            var bounds = new Rect(0, 0, border.Width, border.Height);
-
-            using (var canvas = new Canvas((int)canvasSize.Width, (int)canvasSize.Height))
-            {
-                canvas.Clear(Colors.Gray);
-
-                // 最低でもthickness分の移動量は打ち消す、
-                var translate = Matrix.CreateTranslation(
+                var srcTranslate = Matrix.CreateTranslation(
                     thickness - Math.Min(offset.X, thickness),
                     thickness - Math.Min(offset.Y, thickness));
-                var translate2 = Matrix.CreateTranslation((canvas.Size.Width - border.Width) / 2, (canvas.Size.Height - border.Height) / 2);
                 if (style == BorderStyles.Foreground)
                 {
-                    using (canvas.PushTransform(translate))
+                    using (canvas.PushTransform(srcTranslate))
                         canvas.DrawBitmap(src);
                 }
 
-                //using (maskBrush != null ? canvas.PushOpacityMask(maskBrush, bounds, maskType == MaskTypes.Invert) : new())
-                //using (canvas.PushTransform(translate2.Append(Matrix.CreateTranslation(offset))))
-                //{
-                //    canvas.DrawBitmap(border);
-                //}
+                float xx = -(offset.X - Math.Max(offset.X, thickness)) - thickness;
+                float yy = -(offset.Y - Math.Max(offset.Y, thickness)) - thickness;
+
+                using (canvas.PushTransform(Matrix.CreateTranslation(offset.X + xx, offset.Y + yy)))
+                using (maskBrush != null ? canvas.PushOpacityMask(maskBrush, borderRect, maskType == MaskTypes.Invert) : new())
+                {
+                    canvas.DrawBitmap(border);
+                }
 
                 if (style == BorderStyles.Background)
                 {
-                    using (canvas.PushTransform(translate))
+                    using (canvas.PushTransform(srcTranslate))
                         canvas.DrawBitmap(src);
                 }
 
@@ -201,8 +194,8 @@ public class Border : BitmapEffect
         {
             Color col = _border._color;
             int size = _border._thickness;
-            int newWidth = src.Width + (size * 2);
-            int newHeight = src.Height + (size * 2);
+            int newWidth = src.Width + size;
+            int newHeight = src.Height + size;
 
             using Bitmap<Bgra8888> src2 = src.MakeBorder(newWidth, newHeight);
 

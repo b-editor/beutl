@@ -359,12 +359,12 @@ public abstract class Drawable : Renderable, IDrawable, ILogicalElement
 
         IsDirty = false;
 #if DEBUG
-        Rect bounds = Bounds.Inflate(10);
-        using (canvas.PushTransform(Matrix.CreateTranslation(bounds.Position)))
-        using (canvas.PushStrokeWidth(5))
-        {
-            canvas.DrawRect(bounds.Size);
-        }
+        //Rect bounds = Bounds.Inflate(10);
+        //using (canvas.PushTransform(Matrix.CreateTranslation(bounds.Position)))
+        //using (canvas.PushStrokeWidth(5))
+        //{
+        //    canvas.DrawRect(bounds.Size);
+        //}
 #endif
     }
 
