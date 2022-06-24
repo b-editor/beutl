@@ -93,7 +93,7 @@ public class NumberAnimationEditor<T> : NumberAnimationEditor
 
             if (numService.TryParse(prevTextBox.Text, out T value))
             {
-                vm.Animation.Previous = numService.Clamp(value, numService.GetMinimum(vm.Setter), numService.GetMaximum(vm.Setter));
+                vm.Animation.Previous = numService.Clamp(value, numService.GetMinimum(vm.WrappedProperty), numService.GetMaximum(vm.WrappedProperty));
             }
         });
     }
@@ -112,7 +112,7 @@ public class NumberAnimationEditor<T> : NumberAnimationEditor
 
             if (numService.TryParse(nextTextBox.Text, out T value))
             {
-                vm.Animation.Next = numService.Clamp(value, numService.GetMinimum(vm.Setter), numService.GetMaximum(vm.Setter));
+                vm.Animation.Next = numService.Clamp(value, numService.GetMinimum(vm.WrappedProperty), numService.GetMaximum(vm.WrappedProperty));
             }
         });
     }
@@ -141,7 +141,7 @@ public class NumberAnimationEditor<T> : NumberAnimationEditor
                 _ => value
             };
 
-            vm.Animation.Previous = numService.Clamp(value, numService.GetMinimum(vm.Setter), numService.GetMaximum(vm.Setter));
+            vm.Animation.Previous = numService.Clamp(value, numService.GetMinimum(vm.WrappedProperty), numService.GetMaximum(vm.WrappedProperty));
 
             e.Handled = true;
         }
@@ -171,7 +171,7 @@ public class NumberAnimationEditor<T> : NumberAnimationEditor
                 _ => value
             };
 
-            vm.Animation.Next = numService.Clamp(value, numService.GetMinimum(vm.Setter), numService.GetMaximum(vm.Setter));
+            vm.Animation.Next = numService.Clamp(value, numService.GetMinimum(vm.WrappedProperty), numService.GetMaximum(vm.WrappedProperty));
 
             e.Handled = true;
         }

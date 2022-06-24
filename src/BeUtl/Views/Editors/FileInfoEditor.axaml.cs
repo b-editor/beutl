@@ -1,4 +1,4 @@
-using System.Collections.Immutable;
+﻿using System.Collections.Immutable;
 
 using Avalonia.Controls;
 
@@ -20,12 +20,13 @@ public partial class FileInfoEditor : UserControl
         if (DataContext is not FileInfoEditorViewModel vm || VisualRoot is not Window window) return;
 
         string? filterName = vm.Header.Value;
-        ImmutableArray<string> exts = vm.Setter.Property.GetMetadata<FilePropertyMetadata>(vm.Setter.Parent.GetType()).Extensions;
+        ImmutableArray<string> exts = vm.WrappedProperty.GetMetadataExt<FilePropertyMetadata>().Extensions;
 
         var dialog = new OpenFileDialog();
 
         if (!exts.IsDefaultOrEmpty)
         {
+            dialog.Filters ??= new();
             dialog.Filters.Add(new FileDialogFilter()
             {
                 Name = filterName,
@@ -35,7 +36,7 @@ public partial class FileInfoEditor : UserControl
 
         if (await dialog.ShowAsync(window) is string[] files && files.Length != 0)
         {
-            vm.SetValue(vm.Setter.Value, new FileInfo(files[0]));
+            vm.SetValue(vm.WrappedProperty.GetValue(), new FileInfo(files[0]));
         }
     }
 }

@@ -11,7 +11,7 @@ public sealed class PixelPointAnimationEditorViewModel : AnimationEditorViewMode
     {
     }
 
-    public PixelPoint Maximum => Setter.GetMaximumOrDefault(new PixelPoint(int.MaxValue, int.MaxValue));
+    public PixelPoint Maximum => WrappedProperty.GetMaximumOrDefault(new PixelPoint(int.MaxValue, int.MaxValue));
 
-    public PixelPoint Minimum => Setter.GetMinimumOrDefault(new PixelPoint(int.MinValue, int.MinValue));
+    public PixelPoint Minimum => WrappedProperty.GetMinimumOrDefault(new PixelPoint(int.MinValue, int.MinValue));
 }

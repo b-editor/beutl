@@ -26,7 +26,7 @@ public partial class EditorBadge : UserControl
     private void EditAnimation_Click(object? sender, RoutedEventArgs e)
     {
         if (DataContext is BaseEditorViewModel viewModel
-            && viewModel.Setter is IAnimatablePropertyInstance setter)
+            && viewModel.WrappedProperty is IAnimatablePropertyInstance setter)
         {
             EditView editView = this.FindLogicalAncestorOfType<EditView>();
             if (editView.DataContext is EditViewModel editViewModel)

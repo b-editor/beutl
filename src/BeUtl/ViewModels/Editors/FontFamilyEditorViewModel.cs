@@ -1,12 +1,12 @@
 ﻿using BeUtl.Media;
-using BeUtl.ProjectSystem;
+using BeUtl.Services.Editors.Wrappers;
 
 namespace BeUtl.ViewModels.Editors;
 
 public sealed class FontFamilyEditorViewModel : BaseEditorViewModel<FontFamily>
 {
-    public FontFamilyEditorViewModel(PropertyInstance<FontFamily> setter)
-        : base(setter)
+    public FontFamilyEditorViewModel(IWrappedProperty<FontFamily> property)
+        : base(property)
     {
     }
 }

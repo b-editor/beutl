@@ -1,4 +1,4 @@
-using Avalonia.Controls;
+﻿using Avalonia.Controls;
 
 using BeUtl.ViewModels.Dialogs;
 using BeUtl.ViewModels.Editors;
@@ -24,7 +24,7 @@ public sealed partial class FontFamilyEditor : UserControl
         {
             SelectedItem =
             {
-                Value = vm.Setter.Value
+                Value = vm.WrappedProperty.GetValue()
             }
         };
         var dialog = new PickFontFamily
@@ -34,7 +34,7 @@ public sealed partial class FontFamilyEditor : UserControl
 
         if (await dialog.ShowAsync() == ContentDialogResult.Primary)
         {
-            vm.SetValue(vm.Setter.Value, dialogViewModel.SelectedItem.Value);
+            vm.SetValue(vm.WrappedProperty.GetValue(), dialogViewModel.SelectedItem.Value);
         }
     }
 }

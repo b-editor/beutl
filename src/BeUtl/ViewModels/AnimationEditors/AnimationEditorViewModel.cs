@@ -1,12 +1,10 @@
 ﻿using System.Collections;
-using System.Reactive.Disposables;
-using System.Reactive.Linq;
-using System.Reactive.Subjects;
 
 using BeUtl.Animation;
 using BeUtl.Animation.Easings;
 using BeUtl.Commands;
 using BeUtl.ProjectSystem;
+using BeUtl.Services.Editors.Wrappers;
 using BeUtl.ViewModels.Editors;
 
 using Reactive.Bindings;
@@ -24,7 +22,6 @@ public abstract class AnimationEditorViewModel : IDisposable
         Animation = animation;
         Description = description;
         OptionsProvider = optionsProvider;
-        Scene = description.PropertyInstance.FindRequiredLogicalParent<Scene>();
 
         Width = animation.GetSubject(BaseAnimation.DurationProperty)
             .CombineLatest(optionsProvider.Scale)
@@ -34,10 +31,9 @@ public abstract class AnimationEditorViewModel : IDisposable
 
         Width.Subscribe(w => animation.Duration = w.ToTimeSpan(optionsProvider.Options.Value.Scale)).AddTo(Disposables);
 
-        RemoveCommand.Subscribe(() => Setter.RemoveChild(Animation).DoAndRecord(CommandRecorder.Default)).AddTo(Disposables);
+        RemoveCommand.Subscribe(() => RemoveItem()).AddTo(Disposables);
 
-        IOperationPropertyMetadata metadata = Setter.Property.GetMetadata<IOperationPropertyMetadata>(Setter.Parent.GetType());
-        Header = metadata.Header.ToObservable(Setter.Property.Name)
+        Header = WrappedProperty.Header
             .ToReadOnlyReactivePropertySlim()
             .AddTo(Disposables);
     }
@@ -50,11 +46,11 @@ public abstract class AnimationEditorViewModel : IDisposable
 
     public IAnimation Animation { get; }
 
-    public IAnimatablePropertyInstance Setter => (IAnimatablePropertyInstance)Description.PropertyInstance;
+    public IWrappedProperty.IAnimatable WrappedProperty => (IWrappedProperty.IAnimatable)Description.WrappedProperty;
 
     public EditorViewModelDescription Description { get; }
 
-    public bool CanReset => Setter.GetDefaultValue() != null;
+    public bool CanReset => WrappedProperty.GetDefaultValue() != null;
 
     public ReadOnlyReactivePropertySlim<string?> Header { get; }
 
@@ -64,11 +60,9 @@ public abstract class AnimationEditorViewModel : IDisposable
 
     public ITimelineOptionsProvider OptionsProvider { get; }
 
-    public Scene Scene { get; }
-
     public void SetDuration(TimeSpan old, TimeSpan @new)
     {
-        if (Scene.Parent is Project proj)
+        if (OptionsProvider.Scene.Parent is Project proj)
         {
             @new = @new.RoundToRate(proj.GetFrameRate());
         }
@@ -84,7 +78,7 @@ public abstract class AnimationEditorViewModel : IDisposable
 
     public void Move(int newIndex, int oldIndex)
     {
-        if (Setter.Children is IList list)
+        if (WrappedProperty.Animations is IList list)
         {
             CommandRecorder.Default.PushOnly(new MoveCommand(list, newIndex, oldIndex));
         }
@@ -92,16 +86,16 @@ public abstract class AnimationEditorViewModel : IDisposable
 
     public void InsertForward(Easing easing)
     {
-        if (Setter.Children is IList list)
+        if (WrappedProperty.Animations is IList list)
         {
             int index = list.IndexOf(Animation);
-            Type type = typeof(Animation<>).MakeGenericType(Setter.Property.PropertyType);
+            Type type = typeof(Animation<>).MakeGenericType(WrappedProperty.AssociatedProperty.PropertyType);
 
             if (Activator.CreateInstance(type) is IAnimation animation)
             {
                 animation.Easing = easing;
                 animation.Duration = TimeSpan.FromSeconds(2);
-                object? value = Setter.Value;
+                object? value = WrappedProperty.GetValue();
 
                 if (value != null)
                 {
@@ -109,23 +103,23 @@ public abstract class AnimationEditorViewModel : IDisposable
                     animation.Next = value;
                 }
 
-                Setter.InsertChild(index, animation).DoAndRecord(CommandRecorder.Default);
+                InsertItem(index, animation);
             }
         }
     }
 
     public void InsertBackward(Easing easing)
     {
-        if (Setter.Children is IList list)
+        if (WrappedProperty.Animations is IList list)
         {
             int index = list.IndexOf(Animation);
-            Type type = typeof(Animation<>).MakeGenericType(Setter.Property.PropertyType);
+            Type type = typeof(Animation<>).MakeGenericType(WrappedProperty.AssociatedProperty.PropertyType);
 
             if (Activator.CreateInstance(type) is IAnimation animation)
             {
                 animation.Easing = easing;
                 animation.Duration = TimeSpan.FromSeconds(2);
-                object? value = Setter.Value;
+                object? value = WrappedProperty.GetValue();
 
                 if (value != null)
                 {
@@ -133,7 +127,7 @@ public abstract class AnimationEditorViewModel : IDisposable
                     animation.Next = value;
                 }
 
-                Setter.InsertChild(index + 1, animation).DoAndRecord(CommandRecorder.Default);
+                InsertItem(index + 1, animation);
             }
         }
     }
@@ -145,6 +139,22 @@ public abstract class AnimationEditorViewModel : IDisposable
             Dispose(true);
             _disposedValue = true;
             GC.SuppressFinalize(this);
+        }
+    }
+
+    private void InsertItem(int index, IAnimation item)
+    {
+        if (WrappedProperty.Animations is IList list)
+        {
+            new AddCommand(list, item, index).DoAndRecord(CommandRecorder.Default);
+        }
+    }
+
+    private void RemoveItem()
+    {
+        if (WrappedProperty.Animations is IList list)
+        {
+            new RemoveCommand(list, Animation).DoAndRecord(CommandRecorder.Default);
         }
     }
 
@@ -169,23 +179,23 @@ public class AnimationEditorViewModel<T> : AnimationEditorViewModel
 
     public new Animation<T> Animation => (Animation<T>)base.Animation;
 
-    public new AnimatablePropertyInstance<T> Setter => (AnimatablePropertyInstance<T>)base.Setter;
+    public new IWrappedProperty<T>.IAnimatable WrappedProperty => (IWrappedProperty<T>.IAnimatable)base.WrappedProperty;
 
     public void ResetPrevious()
     {
-        object? defaultValue = Setter.GetDefaultValue();
+        object? defaultValue = WrappedProperty.GetDefaultValue();
         if (defaultValue != null)
         {
-            SetPrevious(Setter.Value, (T)defaultValue);
+            SetPrevious(WrappedProperty.GetValue(), (T)defaultValue);
         }
     }
 
     public void ResetNext()
     {
-        object? defaultValue = Setter.GetDefaultValue();
+        object? defaultValue = WrappedProperty.GetDefaultValue();
         if (defaultValue != null)
         {
-            SetNext(Setter.Value, (T)defaultValue);
+            SetNext(WrappedProperty.GetValue(), (T)defaultValue);
         }
     }
 

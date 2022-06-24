@@ -1,6 +1,4 @@
-﻿using System.Reactive.Linq;
-
-using BeUtl.ProjectSystem;
+﻿using BeUtl.Services.Editors.Wrappers;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
@@ -9,10 +7,10 @@ namespace BeUtl.ViewModels.Editors;
 
 public sealed class StringEditorViewModel : BaseEditorViewModel<string>
 {
-    public StringEditorViewModel(PropertyInstance<string> setter)
-        : base(setter)
+    public StringEditorViewModel(IWrappedProperty<string> property)
+        : base(property)
     {
-        Value = setter.GetObservable()
+        Value = property.GetObservable()
             .Select(x => x ?? string.Empty)
             .ToReadOnlyReactivePropertySlim()
             .AddTo(Disposables)!;

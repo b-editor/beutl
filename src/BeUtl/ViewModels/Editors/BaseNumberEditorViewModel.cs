@@ -1,13 +1,13 @@
-﻿using BeUtl.ProjectSystem;
-using BeUtl.Services.Editors;
+﻿using BeUtl.Services.Editors;
+using BeUtl.Services.Editors.Wrappers;
 
 namespace BeUtl.ViewModels.Editors;
 
 public abstract class BaseNumberEditorViewModel<T> : BaseEditorViewModel<T>, INumberEditorViewModel<T>
     where T : struct
 {
-    protected BaseNumberEditorViewModel(PropertyInstance<T> setter)
-        : base(setter)
+    protected BaseNumberEditorViewModel(IWrappedProperty<T> property)
+        : base(property)
     {
     }
 

@@ -1,4 +1,4 @@
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using System.Globalization;
 using System.Reflection;
 
@@ -33,7 +33,7 @@ public sealed class EnumEditor<T> : EnumEditor
     {
         if (DataContext is EnumEditorViewModel<T> vm && comboBox.SelectedItem is T item)
         {
-            vm.SetValue(vm.Setter.Value, item);
+            vm.SetValue(vm.WrappedProperty.GetValue(), item);
         }
     }
 

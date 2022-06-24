@@ -352,7 +352,7 @@ public partial class AnimationEditor : UserControl
 
         if (editDialog.Content == null)
         {
-            editDialog.Content = PropertyEditorService.CreateAnimationEditor(vm.Setter);
+            editDialog.Content = PropertyEditorService.CreateAnimationEditor(vm.WrappedProperty);
         }
 
         editDialog.DataContext = vm;

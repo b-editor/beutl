@@ -17,11 +17,13 @@ namespace BeUtl.ViewModels;
 
 public interface ITimelineOptionsProvider
 {
-    public IReactiveProperty<TimelineOptions> Options { get; }
+    Scene Scene { get; }
 
-    public IObservable<float> Scale { get; }
+    IReactiveProperty<TimelineOptions> Options { get; }
 
-    public IObservable<Vector2> Offset { get; }
+    IObservable<float> Scale { get; }
+
+    IObservable<Vector2> Offset { get; }
 }
 
 public sealed class TimelineViewModel : IDisposable, ITimelineOptionsProvider, IToolContext

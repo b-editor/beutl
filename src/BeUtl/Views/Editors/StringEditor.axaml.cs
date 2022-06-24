@@ -1,4 +1,4 @@
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -25,7 +25,7 @@ public sealed partial class StringEditor : UserControl
     {
         if (DataContext is not StringEditorViewModel vm) return;
 
-        _oldValue = vm.Setter.Value;
+        _oldValue = vm.WrappedProperty.GetValue();
     }
 
     private void TextBox_LostFocus(object? sender, RoutedEventArgs e)
@@ -43,7 +43,7 @@ public sealed partial class StringEditor : UserControl
 
             await Task.Delay(10);
 
-            vm.Setter.Value = textBox.Text;
+            vm.WrappedProperty.SetValue(textBox.Text);
         });
     }
 }

@@ -11,7 +11,7 @@ public sealed class VectorAnimationEditorViewModel : AnimationEditorViewModel<Ve
     {
     }
 
-    public Vector Maximum => Setter.GetMaximumOrDefault(new Vector(float.MaxValue, float.MaxValue));
+    public Vector Maximum => WrappedProperty.GetMaximumOrDefault(new Vector(float.MaxValue, float.MaxValue));
 
-    public Vector Minimum => Setter.GetMinimumOrDefault(new Vector(float.MinValue, float.MinValue));
+    public Vector Minimum => WrappedProperty.GetMinimumOrDefault(new Vector(float.MinValue, float.MinValue));
 }

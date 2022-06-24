@@ -1,25 +1,23 @@
-﻿using System.Reactive.Disposables;
-
-using BeUtl.ProjectSystem;
+﻿using BeUtl.ProjectSystem;
+using BeUtl.Services.Editors.Wrappers;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 
 namespace BeUtl.ViewModels.Editors;
 
-public record struct EditorViewModelDescription(IPropertyInstance PropertyInstance, object? NumberEditorService = null);
+public record struct EditorViewModelDescription(IWrappedProperty WrappedProperty, object? NumberEditorService = null);
 
 public abstract class BaseEditorViewModel : IDisposable
 {
     protected CompositeDisposable Disposables = new();
     private bool _disposedValue;
 
-    protected BaseEditorViewModel(IPropertyInstance setter)
+    protected BaseEditorViewModel(IWrappedProperty property)
     {
-        Setter = setter;
+        WrappedProperty = property;
 
-        IOperationPropertyMetadata metadata = Setter.Property.GetMetadata<IOperationPropertyMetadata>(Setter.Parent.GetType());
-        Header = metadata.Header.ToObservable(Setter.Property.Name)
+        Header = WrappedProperty.Header
             .ToReadOnlyReactivePropertySlim()
             .AddTo(Disposables);
     }
@@ -30,15 +28,15 @@ public abstract class BaseEditorViewModel : IDisposable
             Dispose(false);
     }
 
-    public IPropertyInstance Setter { get; }
+    public IWrappedProperty WrappedProperty { get; }
 
-    public bool CanReset => Setter.GetDefaultValue() != null;
+    public bool CanReset => WrappedProperty.GetDefaultValue() != null;
 
     public ReadOnlyReactivePropertySlim<string?> Header { get; }
 
-    public virtual EditorViewModelDescription Description => new(Setter);
+    public virtual EditorViewModelDescription Description => new(WrappedProperty);
 
-    public bool IsAnimatable => Setter is IAnimatablePropertyInstance;
+    public bool IsAnimatable => WrappedProperty is IAnimatablePropertyInstance;
 
     public void Dispose()
     {
@@ -58,19 +56,19 @@ public abstract class BaseEditorViewModel : IDisposable
 
 public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
 {
-    protected BaseEditorViewModel(PropertyInstance<T> setter)
-        : base(setter)
+    protected BaseEditorViewModel(IWrappedProperty<T> property)
+        : base(property)
     {
     }
 
-    public new PropertyInstance<T> Setter => (PropertyInstance<T>)base.Setter;
+    public new IWrappedProperty<T> WrappedProperty => (IWrappedProperty<T>)base.WrappedProperty;
 
     public void Reset()
     {
-        object? defaultValue = Setter.GetDefaultValue();
+        object? defaultValue = WrappedProperty.GetDefaultValue();
         if (defaultValue != null)
         {
-            SetValue(Setter.Value, (T?)defaultValue);
+            SetValue(WrappedProperty.GetValue(), (T?)defaultValue);
         }
     }
 
@@ -78,17 +76,17 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
     {
         if (!EqualityComparer<T>.Default.Equals(oldValue, newValue))
         {
-            CommandRecorder.Default.DoAndPush(new SetCommand(Setter, oldValue, newValue));
+            CommandRecorder.Default.DoAndPush(new SetCommand(WrappedProperty, oldValue, newValue));
         }
     }
 
     private sealed class SetCommand : IRecordableCommand
     {
-        private readonly PropertyInstance<T> _setter;
+        private readonly IWrappedProperty<T> _setter;
         private readonly T? _oldValue;
         private readonly T? _newValue;
 
-        public SetCommand(PropertyInstance<T> setter, T? oldValue, T? newValue)
+        public SetCommand(IWrappedProperty<T> setter, T? oldValue, T? newValue)
         {
             _setter = setter;
             _oldValue = oldValue;
@@ -97,7 +95,7 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
 
         public void Do()
         {
-            _setter.Value = _newValue;
+            _setter.SetValue(_newValue);
         }
 
         public void Redo()
@@ -107,7 +105,7 @@ public abstract class BaseEditorViewModel<T> : BaseEditorViewModel
 
         public void Undo()
         {
-            _setter.Value = _oldValue;
+            _setter.SetValue(_oldValue);
         }
     }
 }

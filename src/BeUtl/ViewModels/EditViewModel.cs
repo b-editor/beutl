@@ -95,11 +95,11 @@ public sealed class EditViewModel : IEditorContext
         SaveState();
         _disposables.Dispose();
 
-        foreach (var item in BottomTabItems.AsSpan())
+        foreach (ToolTabViewModel item in BottomTabItems.AsSpan())
         {
             item.Dispose();
         }
-        foreach (var item in RightTabItems.AsSpan())
+        foreach (ToolTabViewModel item in RightTabItems.AsSpan())
         {
             item.Dispose();
         }

@@ -1,8 +1,8 @@
 ﻿using System.Text.Json.Nodes;
 
-using BeUtl.Collections;
 using BeUtl.ProjectSystem;
 using BeUtl.Services;
+using BeUtl.Services.Editors.Wrappers;
 
 using Reactive.Bindings;
 
@@ -16,7 +16,14 @@ public sealed class OperationEditorViewModel : IDisposable
     {
         Model = model;
         _disposable0 = model.Properties.ForEachItem(
-            (idx, item) => Properties.Insert(idx, PropertyEditorService.CreateEditorViewModel(item)),
+            (idx, item) =>
+            {
+                Type type = typeof(PropertyInstanceWrapper<>);
+                type = type.MakeGenericType(item.Property.PropertyType);
+                IWrappedProperty wrapper = (IWrappedProperty)Activator.CreateInstance(type, item)!;
+
+                Properties.Insert(idx, PropertyEditorService.CreateEditorViewModel(wrapper));
+            },
             (idx, _) =>
             {
                 Properties[idx]?.Dispose();

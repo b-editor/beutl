@@ -1,17 +1,11 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-using BeUtl.ProjectSystem;
+﻿using BeUtl.Services.Editors.Wrappers;
 
 namespace BeUtl.ViewModels.Editors;
 
 public sealed class FileInfoEditorViewModel : BaseEditorViewModel<FileInfo>
 {
-    public FileInfoEditorViewModel(PropertyInstance<FileInfo> setter)
-        : base(setter)
+    public FileInfoEditorViewModel(IWrappedProperty<FileInfo> property)
+        : base(property)
     {
     }
 }

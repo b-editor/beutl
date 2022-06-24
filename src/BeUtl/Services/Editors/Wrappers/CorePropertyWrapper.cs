@@ -23,7 +23,12 @@ public sealed class CorePropertyWrapper<T> : IWrappedProperty<T>
         return _observable ??= ((CoreObject)Tag).GetObservable(AssociatedProperty);
     }
 
-    public void SetValue(T value)
+    public T? GetValue()
+    {
+        return ((CoreObject)Tag).GetValue(AssociatedProperty);
+    }
+
+    public void SetValue(T? value)
     {
         ((CoreObject)Tag).SetValue(AssociatedProperty, value);
     }

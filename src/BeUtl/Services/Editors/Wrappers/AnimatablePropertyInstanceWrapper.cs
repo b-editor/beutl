@@ -11,4 +11,6 @@ public sealed class AnimatablePropertyInstanceWrapper<T> : PropertyInstanceWrapp
     }
 
     public IObservableList<Animation<T>> Animations => ((AnimatablePropertyInstance<T>)Tag).Children;
+
+    IReadOnlyList<IAnimation> IWrappedProperty.IAnimatable.Animations => ((IAnimatablePropertyInstance)Tag).Children;
 }

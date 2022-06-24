@@ -55,7 +55,7 @@ public abstract class BaseVector3Editor<T> : BaseVector3Editor
     private void TextBox_GotFocus(object? sender, GotFocusEventArgs e)
     {
         if (DataContext is not BaseEditorViewModel<T> vm) return;
-        OldValue = vm.Setter.Value;
+        OldValue = vm.WrappedProperty.GetValue();
     }
 
     private void TextBox_LostFocus(object? sender, RoutedEventArgs e)
@@ -74,7 +74,7 @@ public abstract class BaseVector3Editor<T> : BaseVector3Editor
 
         if (TryParseCore(out T newValue))
         {
-            vm.Setter.Value = Clamp(newValue);
+            vm.WrappedProperty.SetValue(Clamp(newValue));
         }
     }
 
@@ -113,7 +113,7 @@ public abstract class BaseVector3Editor<T> : BaseVector3Editor
                 _ => value
             };
 
-            vm.Setter.Value = Clamp(value);
+            vm.WrappedProperty.SetValue(Clamp(value));
 
             e.Handled = true;
         }

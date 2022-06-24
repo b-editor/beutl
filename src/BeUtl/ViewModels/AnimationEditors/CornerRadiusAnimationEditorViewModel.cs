@@ -11,7 +11,7 @@ public sealed class CornerRadiusAnimationEditorViewModel : AnimationEditorViewMo
     {
     }
 
-    public CornerRadius Maximum => Setter.GetMaximumOrDefault(new CornerRadius(float.MaxValue, float.MaxValue, float.MaxValue, float.MaxValue));
+    public CornerRadius Maximum => WrappedProperty.GetMaximumOrDefault(new CornerRadius(float.MaxValue, float.MaxValue, float.MaxValue, float.MaxValue));
 
-    public CornerRadius Minimum => Setter.GetMinimumOrDefault(new CornerRadius(float.MinValue, float.MinValue, float.MinValue, float.MinValue));
+    public CornerRadius Minimum => WrappedProperty.GetMinimumOrDefault(new CornerRadius(float.MinValue, float.MinValue, float.MinValue, float.MinValue));
 }

@@ -2,6 +2,25 @@
 
 namespace BeUtl.Services.Editors.Wrappers;
 
+public static class WrappedPropertyExtensions
+{
+    public static CoreObject? GetObject(this IWrappedProperty property)
+    {
+        if (property.Tag is IPropertyInstance pi)
+        {
+            return pi.Parent;
+        }
+        else if (property.Tag is CoreObject obj)
+        {
+            return obj;
+        }
+        else
+        {
+            return null;
+        }
+    }
+}
+
 public class PropertyInstanceWrapper<T> : IWrappedProperty<T>
 {
     private IObservable<T?>? _observable;
@@ -26,8 +45,13 @@ public class PropertyInstanceWrapper<T> : IWrappedProperty<T>
         return _observable ??= ((PropertyInstance<T>)Tag).GetObservable();
     }
 
-    public void SetValue(T value)
+    public void SetValue(T? value)
     {
         ((PropertyInstance<T>)Tag).Value = value;
+    }
+
+    public T? GetValue()
+    {
+        return ((PropertyInstance<T>)Tag).Value;
     }
 }

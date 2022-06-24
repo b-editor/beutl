@@ -1,6 +1,4 @@
-﻿using System.Reactive.Linq;
-
-using Avalonia;
+﻿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -36,7 +34,7 @@ public sealed class NumberEditor<T> : NumberEditor
     {
         if (DataContext is not BaseNumberEditorViewModel<T> vm) return;
 
-        _oldValue = vm.Setter.Value;
+        _oldValue = vm.WrappedProperty.GetValue();
     }
 
     private void TextBox_LostFocus(object? sender, RoutedEventArgs e)
@@ -59,7 +57,7 @@ public sealed class NumberEditor<T> : NumberEditor
 
             if (vm.EditorService.TryParse(textBox.Text, out T value))
             {
-                vm.Setter.Value = vm.EditorService.Clamp(value, vm.Minimum, vm.Maximum);
+                vm.WrappedProperty.SetValue(vm.EditorService.Clamp(value, vm.Minimum, vm.Maximum));
             }
         });
     }
@@ -76,15 +74,15 @@ public sealed class NumberEditor<T> : NumberEditor
                 > 0 => vm.EditorService.Increment(value, 10),
                 _ => value
             };
-            
+
             value = e.Delta.X switch
             {
                 < 0 => vm.EditorService.Decrement(value, 1),
                 > 0 => vm.EditorService.Increment(value, 1),
                 _ => value
             };
-            
-            vm.Setter.Value = vm.EditorService.Clamp(value, vm.Minimum, vm.Maximum);
+
+            vm.WrappedProperty.SetValue(vm.EditorService.Clamp(value, vm.Minimum, vm.Maximum));
 
             e.Handled = true;
         }

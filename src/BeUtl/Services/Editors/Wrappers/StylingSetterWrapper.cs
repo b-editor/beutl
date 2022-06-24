@@ -21,12 +21,19 @@ public sealed class StylingSetterWrapper<T> : IWrappedProperty<T>.IAnimatable
 
     public IObservableList<Animation<T>> Animations => ((Setter<T>)Tag).Animations;
 
+    IReadOnlyList<IAnimation> IWrappedProperty.IAnimatable.Animations => ((ISetter)Tag).Animations;
+
     public IObservable<T?> GetObservable()
     {
         return (Setter<T>)Tag;
     }
 
-    public void SetValue(T value)
+    public T? GetValue()
+    {
+        return ((Setter<T>)Tag).Value;
+    }
+
+    public void SetValue(T? value)
     {
         ((Setter<T>)Tag).Value = value;
     }
