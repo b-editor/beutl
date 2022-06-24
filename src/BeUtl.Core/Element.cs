@@ -18,10 +18,25 @@ public interface IElement : ICoreObject, ILogicalElement
 /// </summary>
 public abstract class Element : CoreObject, IElement
 {
+    public static readonly CoreProperty<Element?> ParentProperty;
+    private Element? _parent;
+
+    static Element()
+    {
+        ParentProperty = ConfigureProperty<Element?, Element>(nameof(Parent))
+            .Observability(PropertyObservability.Changed)
+            .Accessor(o => o.Parent, (o, v) => o.Parent = v)
+            .Register();
+    }
+
     /// <summary>
     /// Gets or sets the parent element.
     /// </summary>
-    public Element? Parent { get; private set; }
+    public Element? Parent
+    {
+        get => _parent;
+        private set => SetAndRaise(ParentProperty, ref _parent, value);
+    }
 
     ILogicalElement? ILogicalElement.LogicalParent => Parent;
 

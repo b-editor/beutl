@@ -504,8 +504,8 @@ public class Scene : Element, IStorable, IWorkspaceItem
 
         public void Undo()
         {
-            _layer.ZIndex = -1;
             _scene.Children.Remove(_layer);
+            _layer.ZIndex = -1;
         }
     }
 
@@ -524,8 +524,8 @@ public class Scene : Element, IStorable, IWorkspaceItem
         public void Do()
         {
             _layerNum = _layer.ZIndex;
-            _layer.ZIndex = -1;
             _scene.Children.Remove(_layer);
+            _layer.ZIndex = -1;
         }
 
         public void Redo()

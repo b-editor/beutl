@@ -204,6 +204,7 @@ public class MainViewModel
                 TimelineTabExtension.Instance,
                 AnimationTimelineTabExtension.Instance,
                 OperationsTabExtension.Instance,
+                ObjectPropertyTabExtension.Instance,
             });
 
             manager.LoadPackages(manager.GetPackageInfos());

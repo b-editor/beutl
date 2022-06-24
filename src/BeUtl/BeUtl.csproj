@@ -43,6 +43,9 @@
       <AutoGen>True</AutoGen>
       <DependentUpon>EditorViewModels.tt</DependentUpon>
     </Compile>
+    <Compile Update="Views\Editors\ObjectPropertyEditor.axaml.cs">
+      <DependentUpon>ObjectPropertyEditor.axaml</DependentUpon>
+    </Compile>
     <Compile Update="Views\Editors\Editors.cs">
       <DesignTime>True</DesignTime>
       <AutoGen>True</AutoGen>

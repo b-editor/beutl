@@ -1,6 +1,5 @@
 ﻿using System.Text.Json.Nodes;
 
-using BeUtl.Collections;
 using BeUtl.Framework;
 using BeUtl.Models;
 using BeUtl.ProjectSystem;

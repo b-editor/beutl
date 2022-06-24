@@ -109,39 +109,48 @@ internal static class Helper
 
     public static T? GetMaximumOrDefault<T>(this IWrappedProperty wrappedProp, T defaultValue, Type? type = null)
     {
-        OperationPropertyMetadata<T> metadata
+        OperationPropertyMetadata<T>? metadata
             = wrappedProp.GetMetadataExt<OperationPropertyMetadata<T>>(type);
-        return metadata.HasMaximum ? metadata.Maximum : defaultValue;
+        return metadata?.HasMaximum == true ? metadata.Maximum : defaultValue;
     }
 
     public static T? GetMinimumOrDefault<T>(this IWrappedProperty wrappedProp, T defaultValue, Type? type = null)
     {
-        OperationPropertyMetadata<T> metadata
+        OperationPropertyMetadata<T>? metadata
             = wrappedProp.GetMetadataExt<OperationPropertyMetadata<T>>(type);
-        return metadata.HasMinimum ? metadata.Minimum : defaultValue;
+        return metadata?.HasMinimum == true ? metadata.Minimum : defaultValue;
     }
 
     public static object? GetDefaultValue(this IWrappedProperty wrappedProp, Type? type = null)
     {
-        return wrappedProp.GetMetadataExt<ICorePropertyMetadata>(type).GetDefaultValue();
+        return wrappedProp.GetMetadataExt<ICorePropertyMetadata>(type)?.GetDefaultValue();
     }
 
-    public static TMetadata GetMetadataExt<TMetadata>(this IWrappedProperty wrappedProp, Type? type = null)
-        where TMetadata: ICorePropertyMetadata
+    public static TMetadata? GetMetadataExt<TMetadata>(this IWrappedProperty wrappedProp, Type? type = null)
+        where TMetadata : ICorePropertyMetadata
     {
+        TMetadata? result = default;
         if (type != null)
         {
-            return wrappedProp.AssociatedProperty.GetMetadata<TMetadata>(type);
+            wrappedProp.AssociatedProperty.TryGetMetadata(type, out result);
         }
         else
         {
-            return wrappedProp.Tag switch
+            switch (wrappedProp.Tag)
             {
-                CoreObject obj => wrappedProp.AssociatedProperty.GetMetadata<TMetadata>(obj.GetType()),
-                IPropertyInstance pi => wrappedProp.AssociatedProperty.GetMetadata<TMetadata>(pi.Parent.GetType()),
-                _ => wrappedProp.AssociatedProperty.GetMetadata<TMetadata>(wrappedProp.AssociatedProperty.OwnerType),
-            };
+                case CoreObject obj:
+                    wrappedProp.AssociatedProperty.TryGetMetadata(obj.GetType(), out result);
+                    break;
+                case IPropertyInstance pi:
+                    wrappedProp.AssociatedProperty.TryGetMetadata(pi.Parent.GetType(), out result);
+                    break;
+                default:
+                    wrappedProp.AssociatedProperty.TryGetMetadata(wrappedProp.AssociatedProperty.OwnerType, out result);
+                    break;
+            }
         }
+
+        return result;
     }
 
     private static string RandomString()

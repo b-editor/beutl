@@ -45,6 +45,9 @@ public sealed class EditViewModel : IEditorContext
         Scene = scene;
         Player = new PlayerViewModel(scene);
         Commands = new KnownCommandsImpl(scene);
+        SelectedObject = scene.GetObservable(Scene.SelectedItemProperty)
+            .ToReactiveProperty<CoreObject?>()
+            .DisposeWith(_disposables);
 
         BottomTabItems = new CoreList<ToolTabViewModel>() { ResetBehavior = ResetBehavior.Remove };
         RightTabItems = new CoreList<ToolTabViewModel>() { ResetBehavior = ResetBehavior.Remove };
@@ -75,6 +78,8 @@ public sealed class EditViewModel : IEditorContext
     public CoreList<ToolTabViewModel> BottomTabItems { get; }
 
     public CoreList<ToolTabViewModel> RightTabItems { get; }
+
+    public ReactiveProperty<CoreObject?> SelectedObject { get; }
 
     public PlayerViewModel Player { get; }
 

@@ -1,4 +1,5 @@
-﻿using System.Reactive.Subjects;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Reactive.Subjects;
 
 namespace BeUtl;
 
@@ -67,7 +68,29 @@ public abstract class CoreProperty
             return (TMetadata)_defaultMetadata;
         }
 
-        return GetMetadataWithOverrides<TMetadata>(type);
+        return GetMetadataWithOverrides<TMetadata>(type) ?? throw new InvalidOperationException();
+    }
+
+    public bool TryGetMetadata<T, TMetadata>([NotNullWhen(true)] out TMetadata? result)
+        where T : ICoreObject
+        where TMetadata : ICorePropertyMetadata
+    {
+        return TryGetMetadata(typeof(T), out result);
+    }
+
+    public bool TryGetMetadata<TMetadata>(Type type, [NotNullWhen(true)] out TMetadata? result)
+        where TMetadata : ICorePropertyMetadata
+    {
+        if (!_hasMetadataOverrides && _defaultMetadata is TMetadata metadata)
+        {
+            result = metadata;
+            return true;
+        }
+        else
+        {
+            result = GetMetadataWithOverrides<TMetadata>(type);
+            return result != null;
+        }
     }
 
     public void OverrideMetadata<T>(CorePropertyMetadata metadata)
@@ -95,7 +118,7 @@ public abstract class CoreProperty
         _hasMetadataOverrides = true;
     }
 
-    private TMetadata GetMetadataWithOverrides<TMetadata>(Type type)
+    private TMetadata? GetMetadataWithOverrides<TMetadata>(Type type)
         where TMetadata : ICorePropertyMetadata
     {
         if (type is null)
@@ -124,7 +147,7 @@ public abstract class CoreProperty
 
         _metadataCache[type] = _defaultMetadata;
 
-        return (TMetadata)_defaultMetadata;
+        return _defaultMetadata is TMetadata ? (TMetadata)_defaultMetadata : default;
     }
 
     public override bool Equals(object? obj)

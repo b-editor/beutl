@@ -15,6 +15,7 @@ public class Layer : Element, IStorable, ILogicalElement
     public static readonly CoreProperty<int> ZIndexProperty;
     public static readonly CoreProperty<Color> AccentColorProperty;
     public static readonly CoreProperty<bool> IsEnabledProperty;
+    public static readonly CoreProperty<LayerNode> NodeProperty;
     private TimeSpan _start;
     private TimeSpan _length;
     private int _zIndex;
@@ -54,6 +55,11 @@ public class Layer : Element, IStorable, ILogicalElement
             .DefaultValue(true)
             .Observability(PropertyObservability.Changed)
             .SerializeName("isEnabled")
+            .Register();
+
+        NodeProperty = ConfigureProperty<LayerNode, Layer>(nameof(Node))
+            .Accessor(o => o.Node, null)
+            .Observability(PropertyObservability.Changed)
             .Register();
 
         NameProperty.OverrideMetadata<Layer>(new CorePropertyMetadata<string>
