@@ -34,6 +34,7 @@ public partial class Timeline : UserControl
     private IDisposable? _disposable0;
     private IDisposable? _disposable1;
     private IDisposable? _disposable2;
+    private TimelineLayer? _selectedLayer;
 
     public Timeline()
     {
@@ -120,13 +121,19 @@ public partial class Timeline : UserControl
                 }
             });
 
-            _disposable2 = ViewModel.Scene.GetPropertyChangedObservable(Scene.SelectedItemProperty).Subscribe(e =>
+            _disposable2 = ViewModel.EditorContext.SelectedObject.Subscribe(e =>
             {
-                if (e.OldValue != null && FindLayerView(e.OldValue) is TimelineLayer oldView)
-                    oldView.border.BorderThickness = new Thickness(0);
+                if (_selectedLayer != null)
+                {
+                    _selectedLayer.border.BorderThickness = new Thickness(0);
+                    _selectedLayer = null;
+                }
 
-                if (e.NewValue != null && FindLayerView(e.NewValue) is TimelineLayer newView)
+                if (e is Layer layer && FindLayerView(layer) is TimelineLayer newView)
+                {
                     newView.border.BorderThickness = new Thickness(1);
+                    _selectedLayer = newView;
+                }
             });
         }
     }

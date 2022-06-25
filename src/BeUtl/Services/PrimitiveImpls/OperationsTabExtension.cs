@@ -45,7 +45,7 @@ public sealed class OperationsTabExtension : ToolTabExtension
     {
         if (editorContext is EditViewModel editViewModel)
         {
-            context = new OperationsEditorViewModel(editViewModel.Scene);
+            context = new OperationsEditorViewModel(editViewModel);
             return true;
         }
         else

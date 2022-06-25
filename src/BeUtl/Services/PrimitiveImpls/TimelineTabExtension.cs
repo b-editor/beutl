@@ -39,7 +39,7 @@ public sealed class TimelineTabExtension : ToolTabExtension
     {
         if (editorContext is EditViewModel editViewModel)
         {
-            context = new TimelineViewModel(editViewModel.Scene, editViewModel.Player);
+            context = new TimelineViewModel(editViewModel);
             return true;
         }
         else

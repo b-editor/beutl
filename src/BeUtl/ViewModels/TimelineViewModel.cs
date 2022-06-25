@@ -30,19 +30,20 @@ public sealed class TimelineViewModel : IDisposable, ITimelineOptionsProvider, I
 {
     private readonly CompositeDisposable _disposables = new();
 
-    public TimelineViewModel(Scene scene, PlayerViewModel player)
+    public TimelineViewModel(EditViewModel editViewModel)
     {
-        Scene = scene;
-        Player = player;
+        EditorContext = editViewModel;
+        Scene = editViewModel.Scene;
+        Player = editViewModel.Player;
         Scale = Options.Select(o => o.Scale);
         Offset = Options.Select(o => o.Offset);
-        PanelWidth = scene.GetObservable(Scene.DurationProperty)
+        PanelWidth = Scene.GetObservable(Scene.DurationProperty)
             .CombineLatest(Scale)
             .Select(item => item.First.ToPixel(item.Second))
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
 
-        SeekBarMargin = scene.GetObservable(Scene.CurrentFrameProperty)
+        SeekBarMargin = Scene.GetObservable(Scene.CurrentFrameProperty)
             .CombineLatest(Scale)
             .Select(item => new Thickness(item.First.ToPixel(item.Second), 0, 0, 0))
             .ToReadOnlyReactivePropertySlim()
@@ -74,7 +75,7 @@ public sealed class TimelineViewModel : IDisposable, ITimelineOptionsProvider, I
         }).AddTo(_disposables);
 
         LayerHeaders.AddRange(Enumerable.Range(0, 100).Select(num => new LayerHeaderViewModel(num, this)));
-        scene.Children.ForEachItem(
+        Scene.Children.ForEachItem(
             (idx, item) => Layers.Insert(idx, new TimelineLayerViewModel(item, this)),
             (idx, _) =>
             {
@@ -99,6 +100,8 @@ public sealed class TimelineViewModel : IDisposable, ITimelineOptionsProvider, I
     public Scene Scene { get; }
 
     public PlayerViewModel Player { get; }
+
+    public EditViewModel EditorContext { get; }
 
     public ReadOnlyReactivePropertySlim<double> PanelWidth { get; }
 

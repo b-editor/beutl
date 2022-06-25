@@ -45,8 +45,7 @@ public sealed class EditViewModel : IEditorContext
         Scene = scene;
         Player = new PlayerViewModel(scene);
         Commands = new KnownCommandsImpl(scene);
-        SelectedObject = scene.GetObservable(Scene.SelectedItemProperty)
-            .ToReactiveProperty<CoreObject?>()
+        SelectedObject = new ReactiveProperty<CoreObject?>()
             .DisposeWith(_disposables);
 
         BottomTabItems = new CoreList<ToolTabViewModel>() { ResetBehavior = ResetBehavior.Remove };
@@ -161,7 +160,7 @@ public sealed class EditViewModel : IEditorContext
         string viewStateDir = ViewStateDirectory();
         var json = new JsonObject
         {
-            //["selected-layer"] = Property.Value?.Layer?.ZIndex ?? -1,
+            ["selected-layer"] = (SelectedObject.Value as Layer)?.ZIndex ?? -1,
             ["max-layer-count"] = Timeline.Options.Value.MaxLayerCount,
             ["scale"] = Timeline.Options.Value.Scale,
             ["offset"] = new JsonObject
@@ -187,22 +186,22 @@ public sealed class EditViewModel : IEditorContext
                 return;
             var timelineOptions = new TimelineOptions();
 
-            //try
-            //{
-            //    int layer = (int?)json["selected-layer"] ?? -1;
-            //    if (layer >= 0)
-            //    {
-            //        foreach (Layer item in Scene.Children.AsSpan())
-            //        {
-            //            if (item.ZIndex == layer)
-            //            {
-            //                Scene.SelectedItem = item;
-            //                break;
-            //            }
-            //        }
-            //    }
-            //}
-            //catch { }
+            try
+            {
+                int layer = (int?)json["selected-layer"] ?? -1;
+                if (layer >= 0)
+                {
+                    foreach (Layer item in Scene.Children.AsSpan())
+                    {
+                        if (item.ZIndex == layer)
+                        {
+                            SelectedObject.Value = item;
+                            break;
+                        }
+                    }
+                }
+            }
+            catch { }
 
             try
             {

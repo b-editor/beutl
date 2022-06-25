@@ -15,9 +15,10 @@ public sealed class OperationsEditorViewModel : IToolContext
     private IDisposable? _disposable1;
     private Layer? _oldLayer;
 
-    public OperationsEditorViewModel(Scene scene)
+    public OperationsEditorViewModel(EditViewModel editViewModel)
     {
-        Layer = scene.GetObservable(Scene.SelectedItemProperty)
+        Layer = editViewModel.SelectedObject
+            .Select(x => x as Layer)
             .ToReadOnlyReactivePropertySlim();
 
         Header = StringResources.Common.OperationsObservable.ToReadOnlyReactivePropertySlim()!;

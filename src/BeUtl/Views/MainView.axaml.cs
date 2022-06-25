@@ -505,7 +505,7 @@ Error:
         {
             if (TryGetSelectedEditViewModel(out EditViewModel? viewModel)
                 && viewModel.Scene is Scene scene
-                && scene.SelectedItem is Layer layer)
+                && viewModel.SelectedObject.Value is Layer layer)
             {
                 string name = Path.GetFileName(layer.FileName);
                 var dialog = new ContentDialog
@@ -531,7 +531,7 @@ Error:
         {
             if (TryGetSelectedEditViewModel(out EditViewModel? viewModel)
                 && viewModel.Scene is Scene scene
-                && scene.SelectedItem is Layer layer)
+                && viewModel.SelectedObject.Value is Layer layer)
             {
                 scene.RemoveChild(layer).DoAndRecord(CommandRecorder.Default);
             }
@@ -541,7 +541,7 @@ Error:
         {
             if (TryGetSelectedEditViewModel(out EditViewModel? viewModel)
                 && viewModel.Scene is Scene scene
-                && scene.SelectedItem is Layer layer)
+                && viewModel.SelectedObject.Value is Layer layer)
             {
                 IClipboard? clipboard = Application.Current?.Clipboard;
                 if (clipboard != null)
@@ -563,7 +563,7 @@ Error:
         {
             if (TryGetSelectedEditViewModel(out EditViewModel? viewModel)
                 && viewModel.Scene is Scene scene
-                && scene.SelectedItem is Layer layer)
+                && viewModel.SelectedObject.Value is Layer layer)
             {
                 IClipboard? clipboard = Application.Current?.Clipboard;
                 if (clipboard != null)
