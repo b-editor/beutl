@@ -16,7 +16,7 @@
         <ui:DropDownButton Grid.Column="1"
                            x:Name="button"
                            HorizontalAlignment="Stretch"
-                           Content="{Binding Setter.Value.Name, Mode=OneWay}"
+                           Content="{Binding Value.Value.Name, Mode=OneWay}"
                            Margin="4" />
 
         <local:EditorBadge Grid.Column="2" />
