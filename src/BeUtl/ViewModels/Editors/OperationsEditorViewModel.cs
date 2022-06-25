@@ -130,4 +130,12 @@ public sealed class OperationsEditorViewModel : IToolContext
         }
         Items.Clear();
     }
+
+    public void ReadFromJson(JsonNode json)
+    {
+    }
+
+    public void WriteToJson(ref JsonNode json)
+    {
+    }
 }

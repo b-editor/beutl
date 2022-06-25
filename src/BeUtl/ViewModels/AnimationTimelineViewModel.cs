@@ -1,6 +1,7 @@
 ﻿using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
+using System.Text.Json.Nodes;
 
 using Avalonia;
 
@@ -124,5 +125,13 @@ public sealed class AnimationTimelineViewModel : IDisposable, IToolContext
 
             Setter.AddChild(animation).DoAndRecord(CommandRecorder.Default);
         }
+    }
+
+    public void ReadFromJson(JsonNode json)
+    {
+    }
+
+    public void WriteToJson(ref JsonNode json)
+    {
     }
 }

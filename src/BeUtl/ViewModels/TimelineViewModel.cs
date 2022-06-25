@@ -1,6 +1,7 @@
 ﻿using System.Numerics;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
+using System.Text.Json.Nodes;
 
 using Avalonia;
 
@@ -26,7 +27,7 @@ public interface ITimelineOptionsProvider
     IObservable<Vector2> Offset { get; }
 }
 
-public sealed class TimelineViewModel : IDisposable, ITimelineOptionsProvider, IToolContext
+public sealed class TimelineViewModel : IToolContext
 {
     private readonly CompositeDisposable _disposables = new();
 
@@ -35,16 +36,14 @@ public sealed class TimelineViewModel : IDisposable, ITimelineOptionsProvider, I
         EditorContext = editViewModel;
         Scene = editViewModel.Scene;
         Player = editViewModel.Player;
-        Scale = Options.Select(o => o.Scale);
-        Offset = Options.Select(o => o.Offset);
         PanelWidth = Scene.GetObservable(Scene.DurationProperty)
-            .CombineLatest(Scale)
+            .CombineLatest(editViewModel.Scale)
             .Select(item => item.First.ToPixel(item.Second))
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
 
         SeekBarMargin = Scene.GetObservable(Scene.CurrentFrameProperty)
-            .CombineLatest(Scale)
+            .CombineLatest(editViewModel.Scale)
             .Select(item => new Thickness(item.First.ToPixel(item.Second), 0, 0, 0))
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
@@ -121,11 +120,7 @@ public sealed class TimelineViewModel : IDisposable, ITimelineOptionsProvider, I
 
     public int ClickedLayer { get; set; }
 
-    public IReactiveProperty<TimelineOptions> Options { get; } = new ReactiveProperty<TimelineOptions>(new TimelineOptions());
-
-    public IObservable<float> Scale { get; }
-
-    public IObservable<Vector2> Offset { get; }
+    public IReactiveProperty<TimelineOptions> Options => EditorContext.Options;
 
     public ToolTabExtension Extension => TimelineTabExtension.Instance;
 
@@ -142,5 +137,13 @@ public sealed class TimelineViewModel : IDisposable, ITimelineOptionsProvider, I
         {
             item.Dispose();
         }
+    }
+
+    public void ReadFromJson(JsonNode json)
+    {
+    }
+
+    public void WriteToJson(ref JsonNode json)
+    {
     }
 }

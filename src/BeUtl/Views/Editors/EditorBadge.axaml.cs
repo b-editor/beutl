@@ -26,7 +26,7 @@ public partial class EditorBadge : UserControl
     private void EditAnimation_Click(object? sender, RoutedEventArgs e)
     {
         if (DataContext is BaseEditorViewModel viewModel
-            && viewModel.WrappedProperty is IAnimatablePropertyInstance setter)
+            && viewModel.WrappedProperty.Tag is IAnimatablePropertyInstance setter)
         {
             EditView editView = this.FindLogicalAncestorOfType<EditView>();
             if (editView.DataContext is EditViewModel editViewModel)
@@ -42,7 +42,7 @@ public partial class EditorBadge : UserControl
                         layer,
                         setter,
                         viewModel.Description,
-                        editViewModel.Timeline)
+                        editViewModel)
                     {
                         IsSelected =
                         {

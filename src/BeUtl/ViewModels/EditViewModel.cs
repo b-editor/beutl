@@ -1,4 +1,5 @@
-﻿using System.Reactive.Disposables;
+﻿using System.Numerics;
+using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using System.Text.Json.Nodes;
 
@@ -7,6 +8,7 @@ using Avalonia.Media;
 
 using BeUtl.Collections;
 using BeUtl.Framework;
+using BeUtl.Framework.Services;
 using BeUtl.Models;
 using BeUtl.ProjectSystem;
 using BeUtl.Services.PrimitiveImpls;
@@ -36,7 +38,7 @@ public sealed class ToolTabViewModel : IDisposable
     }
 }
 
-public sealed class EditViewModel : IEditorContext
+public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider
 {
     private readonly CompositeDisposable _disposables = new();
 
@@ -51,28 +53,13 @@ public sealed class EditViewModel : IEditorContext
         BottomTabItems = new CoreList<ToolTabViewModel>() { ResetBehavior = ResetBehavior.Remove };
         RightTabItems = new CoreList<ToolTabViewModel>() { ResetBehavior = ResetBehavior.Remove };
 
-        if (TimelineTabExtension.Instance.TryCreateContext(this, out IToolContext? timeline)
-            && OperationsTabExtension.Instance.TryCreateContext(this, out IToolContext? operations))
-        {
-            Timeline = (TimelineViewModel?)timeline!;
-            BottomTabItems.Add(new(timeline));
-
-            Operations = (OperationsEditorViewModel?)operations!;
-            RightTabItems.Add(new(operations));
-        }
-        else
-        {
-            throw new Exception();
-        }
+        Scale = Options.Select(o => o.Scale);
+        Offset = Options.Select(o => o.Offset);
 
         RestoreState();
     }
 
     public Scene Scene { get; set; }
-
-    public TimelineViewModel Timeline { get; }
-
-    public OperationsEditorViewModel Operations { get; }
 
     public CoreList<ToolTabViewModel> BottomTabItems { get; }
 
@@ -92,7 +79,11 @@ public sealed class EditViewModel : IEditorContext
 
     public IKnownEditorCommands? Commands { get; }
 
-    public AnimationTimelineViewModel? RequestingAnimationTimeline { get; internal set; }
+    public IReactiveProperty<TimelineOptions> Options { get; } = new ReactiveProperty<TimelineOptions>(new TimelineOptions());
+
+    public IObservable<float> Scale { get; }
+
+    public IObservable<Vector2> Offset { get; }
 
     public void Dispose()
     {
@@ -107,6 +98,52 @@ public sealed class EditViewModel : IEditorContext
         {
             item.Dispose();
         }
+    }
+
+    public T? FindToolTab<T>(Func<T, bool> condition)
+        where T : IToolContext
+    {
+        for (int i = 0; i < BottomTabItems.Count; i++)
+        {
+            var item = BottomTabItems[i];
+            if (item is T typed && condition(typed))
+            {
+                return typed;
+            }
+        }
+
+        for (int i = 0; i < RightTabItems.Count; i++)
+        {
+            var item = RightTabItems[i];
+            if (item is T typed && condition(typed))
+            {
+                return typed;
+            }
+        }
+
+        return default;
+    }
+
+    public T? FindToolTab<T>()
+        where T : IToolContext
+    {
+        for (int i = 0; i < BottomTabItems.Count; i++)
+        {
+            if (BottomTabItems[i] is T typed)
+            {
+                return typed;
+            }
+        }
+
+        for (int i = 0; i < RightTabItems.Count; i++)
+        {
+            if (RightTabItems[i] is T typed)
+            {
+                return typed;
+            }
+        }
+
+        return default;
     }
 
     public bool OpenToolTab(IToolContext item)
@@ -161,14 +198,38 @@ public sealed class EditViewModel : IEditorContext
         var json = new JsonObject
         {
             ["selected-layer"] = (SelectedObject.Value as Layer)?.ZIndex ?? -1,
-            ["max-layer-count"] = Timeline.Options.Value.MaxLayerCount,
-            ["scale"] = Timeline.Options.Value.Scale,
+            ["max-layer-count"] = Options.Value.MaxLayerCount,
+            ["scale"] = Options.Value.Scale,
             ["offset"] = new JsonObject
             {
-                ["x"] = Timeline.Options.Value.Offset.X,
-                ["y"] = Timeline.Options.Value.Offset.Y,
+                ["x"] = Options.Value.Offset.X,
+                ["y"] = Options.Value.Offset.Y,
             }
         };
+
+        var bottomItems = new JsonArray();
+        foreach (ToolTabViewModel? item in BottomTabItems.OrderBy(x => x.Order))
+        {
+            JsonNode itemJson = new JsonObject();
+            item.Context.WriteToJson(ref itemJson);
+
+            itemJson["@type"] = TypeFormat.ToString(item.Context.Extension.GetType());
+            bottomItems.Add(itemJson);
+        }
+
+        json["bottom-items"] = bottomItems;
+
+        var rightItems = new JsonArray();
+        foreach (ToolTabViewModel? item in RightTabItems.OrderBy(x => x.Order))
+        {
+            JsonNode itemJson = new JsonObject();
+            item.Context.WriteToJson(ref itemJson);
+
+            itemJson["@type"] = TypeFormat.ToString(item.Context.Extension.GetType());
+            rightItems.Add(itemJson);
+        }
+
+        json["right-items"] = rightItems;
 
         json.JsonSave(Path.Combine(viewStateDir, $"{Path.GetFileNameWithoutExtension(EdittingFile)}.config"));
     }
@@ -182,9 +243,8 @@ public sealed class EditViewModel : IEditorContext
         {
             using var stream = new FileStream(viewStateFile, FileMode.Open, FileAccess.Read, FileShare.Read);
             var json = JsonNode.Parse(stream);
-            if (json == null)
+            if (json is not JsonObject jsonObject)
                 return;
-            var timelineOptions = new TimelineOptions();
 
             try
             {
@@ -203,44 +263,84 @@ public sealed class EditViewModel : IEditorContext
             }
             catch { }
 
-            try
+            var timelineOptions = new TimelineOptions();
+
+            if (jsonObject.TryGetPropertyValue("max-layer-count", out JsonNode? maxLayer)
+                && maxLayer is JsonValue maxLayerValue
+                && maxLayerValue.TryGetValue(out int maxLayerCount))
             {
-                int layerCount = (int?)json["max-layer-count"] ?? 100;
                 timelineOptions = timelineOptions with
                 {
-                    MaxLayerCount = layerCount
+                    MaxLayerCount = maxLayerCount
                 };
             }
-            catch { }
 
-            try
+            if (jsonObject.TryGetPropertyValue("scale", out JsonNode? scaleNode)
+                && scaleNode is JsonValue scaleValue
+                && scaleValue.TryGetValue(out float scale))
             {
-                float scale = (float?)json["scale"] ?? 1;
                 timelineOptions = timelineOptions with
                 {
                     Scale = scale
                 };
             }
-            catch { }
 
-            try
+            if (jsonObject.TryGetPropertyValue("offset", out JsonNode? offsetNode)
+                && offsetNode is JsonObject offsetObj
+                && offsetObj.TryGetPropertyValue("x", out JsonNode? xNode)
+                && offsetObj.TryGetPropertyValue("y", out JsonNode? yNode)
+                && xNode is JsonValue xValue
+                && yNode is JsonValue yValue
+                && xValue.TryGetValue(out float x)
+                && yValue.TryGetValue(out float y))
             {
-                JsonNode? offset = json["offset"];
-
-                if (offset != null)
+                timelineOptions = timelineOptions with
                 {
-                    float x = (float?)offset["x"] ?? 0;
-                    float y = (float?)offset["y"] ?? 0;
+                    Offset = new Vector2(x, y)
+                };
+            }
 
-                    timelineOptions = timelineOptions with
+            Options.Value = timelineOptions;
+
+            BottomTabItems.Clear();
+            RightTabItems.Clear();
+
+            void RestoreTabItems(JsonArray source, CoreList<ToolTabViewModel> destination)
+            {
+                ExtensionProvider provider = PackageManager.Instance.ExtensionProvider;
+                int count = 0;
+                foreach (JsonNode? item in source)
+                {
+                    if (item is JsonObject itemObject
+                        && itemObject.TryGetPropertyValue("@type", out JsonNode? typeNode)
+                        && typeNode is JsonValue typeValue
+                        && typeValue.TryGetValue(out string? typeStr)
+                        && typeStr != null
+                        && TypeFormat.ToType(typeStr) is Type type
+                        && provider.AllExtensions.FirstOrDefault(x => x.GetType() == type) is ToolTabExtension extension
+                        && extension.TryCreateContext(this, out IToolContext? context))
                     {
-                        Offset = new System.Numerics.Vector2(x, y)
-                    };
+                        context.ReadFromJson(item);
+                        destination.Add(new ToolTabViewModel(context)
+                        {
+                            Order = count
+                        });
+                        count++;
+                    }
                 }
             }
-            catch { }
 
-            Timeline.Options.Value = timelineOptions;
+            if (jsonObject.TryGetPropertyValue("bottom-items", out JsonNode? bottomNode)
+                && bottomNode is JsonArray bottomItems)
+            {
+                RestoreTabItems(bottomItems, BottomTabItems);
+            }
+
+            if (jsonObject.TryGetPropertyValue("right-items", out JsonNode? rightNode)
+                && rightNode is JsonArray rightItems)
+            {
+                RestoreTabItems(rightItems, RightTabItems);
+            }
         }
     }
 

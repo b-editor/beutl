@@ -32,13 +32,13 @@ public class TimelineLayerViewModel : IDisposable
             .AddTo(_disposables);
 
         BorderMargin = sceneLayer.GetSubject(Layer.StartProperty)
-            .CombineLatest(timeline.Scale)
+            .CombineLatest(timeline.EditorContext.Scale)
             .Select(item => new Thickness(item.First.ToPixel(item.Second), 0, 0, 0))
             .ToReactiveProperty()
             .AddTo(_disposables);
 
         Width = sceneLayer.GetSubject(Layer.LengthProperty)
-            .CombineLatest(timeline.Scale)
+            .CombineLatest(timeline.EditorContext.Scale)
             .Select(item => item.First.ToPixel(item.Second))
             .ToReactiveProperty()
             .AddTo(_disposables);

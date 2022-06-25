@@ -1,4 +1,5 @@
 ﻿using System.Runtime.CompilerServices;
+using System.Text.Json.Nodes;
 
 using BeUtl.Framework;
 using BeUtl.Services;
@@ -159,6 +160,14 @@ public sealed class ObjectPropertyEditorViewModel : IToolContext
     public void Dispose()
     {
         _disposables.Dispose();
+    }
+
+    public void ReadFromJson(JsonNode json)
+    {
+    }
+
+    public void WriteToJson(ref JsonNode json)
+    {
     }
 
     public interface INavigationButtonViewModel

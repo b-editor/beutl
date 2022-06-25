@@ -490,12 +490,13 @@ Error:
 
         viewModel.AddLayer.Subscribe(async () =>
         {
-            if (TryGetSelectedEditViewModel(out EditViewModel? viewModel))
+            if (TryGetSelectedEditViewModel(out EditViewModel? viewModel)
+                && viewModel.FindToolTab<TimelineViewModel>() is TimelineViewModel timeline)
             {
                 var dialog = new AddLayer
                 {
                     DataContext = new AddLayerViewModel(viewModel.Scene,
-                        new LayerDescription(viewModel.Timeline.ClickedFrame, TimeSpan.FromSeconds(5), viewModel.Timeline.ClickedLayer))
+                        new LayerDescription(timeline.ClickedFrame, TimeSpan.FromSeconds(5), timeline.ClickedLayer))
                 };
                 await dialog.ShowAsync();
             }
@@ -582,9 +583,10 @@ Error:
 
         viewModel.PasteLayer.Subscribe(() =>
         {
-            if (TryGetSelectedEditViewModel(out EditViewModel? viewModel))
+            if (TryGetSelectedEditViewModel(out EditViewModel? viewModel)
+                && viewModel.FindToolTab<TimelineViewModel>() is TimelineViewModel timeline)
             {
-                viewModel.Timeline.Paste.Execute();
+                timeline.Paste.Execute();
             }
         }).AddTo(_disposables);
 

@@ -18,9 +18,12 @@ public sealed class OperationEditorViewModel : IDisposable
         _disposable0 = model.Properties.ForEachItem(
             (idx, item) =>
             {
-                Type type = typeof(PropertyInstanceWrapper<>);
+                Type type = item is IAnimatablePropertyInstance animatable
+                    ? typeof(AnimatablePropertyInstanceWrapper<>)
+                    : typeof(PropertyInstanceWrapper<>);
+
                 type = type.MakeGenericType(item.Property.PropertyType);
-                IWrappedProperty wrapper = (IWrappedProperty)Activator.CreateInstance(type, item)!;
+                var wrapper = (IWrappedProperty)Activator.CreateInstance(type, item)!;
 
                 Properties.Insert(idx, PropertyEditorService.CreateEditorViewModel(wrapper));
             },
