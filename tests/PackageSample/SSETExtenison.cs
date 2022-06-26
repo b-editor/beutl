@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics.CodeAnalysis;
+using System.Text.Json.Nodes;
 
 using Avalonia.Controls;
 using Avalonia.Layout;
@@ -56,6 +57,16 @@ public sealed class SSETExtenison : ToolTabExtension
 
         public void Dispose()
         {
+        }
+
+        public void ReadFromJson(JsonNode json)
+        {
+
+        }
+
+        public void WriteToJson(ref JsonNode json)
+        {
+
         }
     }
 }

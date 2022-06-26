@@ -14,6 +14,8 @@ public interface IWrappedProperty
 
     object? GetValue();
 
+    IObservable<object?> GetObservable();
+
     public interface IAnimatable : IWrappedProperty
     {
         IReadOnlyList<IAnimation> Animations { get; }
@@ -22,7 +24,7 @@ public interface IWrappedProperty
 
 public interface IWrappedProperty<T> : IWrappedProperty
 {
-    IObservable<T?> GetObservable();
+    new IObservable<T?> GetObservable();
 
     void SetValue(T? value);
 
@@ -45,6 +47,11 @@ public interface IWrappedProperty<T> : IWrappedProperty
     object? IWrappedProperty.GetValue()
     {
         return GetValue();
+    }
+
+    IObservable<object?> IWrappedProperty.GetObservable()
+    {
+        return GetObservable().Select(x => (object?)x);
     }
 
     CoreProperty IWrappedProperty.AssociatedProperty => AssociatedProperty;

@@ -16,6 +16,7 @@ public class Layer : Element, IStorable, ILogicalElement
     public static readonly CoreProperty<Color> AccentColorProperty;
     public static readonly CoreProperty<bool> IsEnabledProperty;
     public static readonly CoreProperty<LayerNode> NodeProperty;
+    public static readonly CoreProperty<LogicalList<LayerOperation>> ChildrenProperty;
     private TimeSpan _start;
     private TimeSpan _length;
     private int _zIndex;
@@ -60,6 +61,10 @@ public class Layer : Element, IStorable, ILogicalElement
         NodeProperty = ConfigureProperty<LayerNode, Layer>(nameof(Node))
             .Accessor(o => o.Node, null)
             .Observability(PropertyObservability.Changed)
+            .Register();
+
+        ChildrenProperty = ConfigureProperty<LogicalList<LayerOperation>, Layer>(nameof(Children))
+            .Accessor(o => o.Children, null)
             .Register();
 
         NameProperty.OverrideMetadata<Layer>(new CorePropertyMetadata<string>

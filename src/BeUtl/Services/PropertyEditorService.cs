@@ -1,4 +1,5 @@
-﻿using System.Numerics;
+﻿using System.Collections;
+using System.Numerics;
 
 using Avalonia.Controls;
 
@@ -52,6 +53,7 @@ public static class PropertyEditorService
         { typeof(Vector3), new(_ => new Vector3Editor(), s => new Vector3EditorViewModel(s.ToTyped<Vector3>())) },
         { typeof(Vector4), new(_ => new Vector4Editor(), s => new Vector4EditorViewModel(s.ToTyped<Vector4>())) },
         { typeof(Graphics.Vector), new(_ => new VectorEditor(), s => new VectorEditorViewModel(s.ToTyped<Graphics.Vector>())) },
+        { typeof(IList), new(_ => new ListEditor(), s => new ListEditorViewModel(s)) },
     };
 
     // pixelrect, rect, thickness, vector3, vector4
