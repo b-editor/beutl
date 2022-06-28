@@ -28,16 +28,7 @@ public partial class ObjectPropertyEditor : UserControl
             {
                 Control? editor = PropertyEditorService.CreateEditor(viewModel.WrappedProperty);
 
-                if (editor != null)
-                {
-                    return editor;
-                }
-                else if (viewModel is ObjectPropertyEditorViewModel.INavigationButtonViewModel)
-                {
-                    return new NavigateButton();
-                }
-
-                return new Label
+                return editor ?? new Label
                 {
                     Height = 24,
                     Margin = new Thickness(0, 4),

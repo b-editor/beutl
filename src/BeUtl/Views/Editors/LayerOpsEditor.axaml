@@ -8,7 +8,7 @@
              xmlns:interactivity="using:Avalonia.Xaml.Interactivity"
              xmlns:interactions="using:Avalonia.Xaml.Interactions.Core"
              mc:Ignorable="d" d:DesignWidth="300" d:DesignHeight="70"
-             x:Class="BeUtl.Views.Editors.ListEditor">
+             x:Class="BeUtl.Views.Editors.LayerOpsEditor">
     <Grid ColumnDefinitions="*,24" RowDefinitions="Auto,Auto">
         <ToggleButton Margin="0,4"
                       Padding="0"
@@ -203,24 +203,6 @@
               Grid.ColumnSpan="3"
               IsVisible="False"
               Margin="16,0,0,0">
-            <Grid ColumnDefinitions="*,Auto">
-                <ProgressBar VerticalAlignment="Center"
-                             IsIndeterminate="True"
-                             IsVisible="False"
-                             MinWidth="100"
-                             Margin="0,0,8,0"
-                             x:Name="progress" />
-                
-                <Button Click="Add_Click"
-                        Grid.Column="1"
-                        Margin="0,4,24,4">
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                        <ui:SymbolIcon Symbol="Add" />
-                        <TextBlock Text="追加" />
-                    </StackPanel>
-                </Button>
-            </Grid>
-
             <ItemsControl x:Name="items"
                           Items="{Binding List.Value}"
                           Grid.Row="1">
@@ -246,7 +228,7 @@
 
                             <Button Grid.Column="2"
                                     Click="Edit_Click"
-                                    Content="{Binding}"
+                                    Content="{Binding Converter={StaticResource LayerOpNameConverter}}"
                                     Background="Transparent"
                                     HorizontalContentAlignment="Left"
                                     HorizontalAlignment="Stretch"

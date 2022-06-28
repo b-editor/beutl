@@ -53,7 +53,9 @@ public static class PropertyEditorService
         { typeof(Vector3), new(_ => new Vector3Editor(), s => new Vector3EditorViewModel(s.ToTyped<Vector3>())) },
         { typeof(Vector4), new(_ => new Vector4Editor(), s => new Vector4EditorViewModel(s.ToTyped<Vector4>())) },
         { typeof(Graphics.Vector), new(_ => new VectorEditor(), s => new VectorEditorViewModel(s.ToTyped<Graphics.Vector>())) },
+        { typeof(IList<LayerOperation>), new(_ => new LayerOpsEditor(), s => new LayerOpsEditorViewModel(s)) },
         { typeof(IList), new(_ => new ListEditor(), s => new ListEditorViewModel(s)) },
+        { typeof(CoreObject), new(_ => new NavigateButton(), CreateNavigationButtonViewModel) },
     };
 
     // pixelrect, rect, thickness, vector3, vector4
@@ -156,5 +158,12 @@ public static class PropertyEditorService
     {
         Type type = typeof(EnumEditorViewModel<>).MakeGenericType(s.AssociatedProperty.PropertyType);
         return Activator.CreateInstance(type, s) as BaseEditorViewModel;
+    }
+
+    private static BaseEditorViewModel? CreateNavigationButtonViewModel(IWrappedProperty s)
+    {
+        Type viewModelType = typeof(NavigationButtonViewModel<>);
+        viewModelType = viewModelType.MakeGenericType(s.AssociatedProperty.PropertyType);
+        return Activator.CreateInstance(viewModelType, s) as BaseEditorViewModel;
     }
 }

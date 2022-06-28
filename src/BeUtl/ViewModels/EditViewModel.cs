@@ -106,7 +106,7 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider
         for (int i = 0; i < BottomTabItems.Count; i++)
         {
             var item = BottomTabItems[i];
-            if (item is T typed && condition(typed))
+            if (item.Context is T typed && condition(typed))
             {
                 return typed;
             }
@@ -115,7 +115,7 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider
         for (int i = 0; i < RightTabItems.Count; i++)
         {
             var item = RightTabItems[i];
-            if (item is T typed && condition(typed))
+            if (item.Context is T typed && condition(typed))
             {
                 return typed;
             }
@@ -129,7 +129,7 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider
     {
         for (int i = 0; i < BottomTabItems.Count; i++)
         {
-            if (BottomTabItems[i] is T typed)
+            if (BottomTabItems[i].Context is T typed)
             {
                 return typed;
             }
@@ -137,7 +137,7 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider
 
         for (int i = 0; i < RightTabItems.Count; i++)
         {
-            if (RightTabItems[i] is T typed)
+            if (RightTabItems[i].Context is T typed)
             {
                 return typed;
             }

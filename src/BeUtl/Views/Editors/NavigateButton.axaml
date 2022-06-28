@@ -18,6 +18,7 @@
                 Margin="4"
                 HorizontalAlignment="Stretch"
                 HorizontalContentAlignment="Left"
+                IsVisible="{Binding IsSet.Value}"
                 Click="Navigate_Click">
             <StackPanel Orientation="Horizontal" Spacing="16">
                 <ui:SymbolIcon Symbol="Open" />
@@ -25,5 +26,40 @@
             </StackPanel>
         </Button>
 
+        <Button Grid.Column="1"
+                Margin="4"
+                HorizontalAlignment="Stretch"
+                HorizontalContentAlignment="Left"
+                IsVisible="{Binding IsNotSetAndCanWrite.Value}"
+                Click="New_Click">
+            <StackPanel Orientation="Horizontal" Spacing="16">
+                <ui:SymbolIcon Symbol="New" />
+                <TextBlock Text="{DynamicResource S.Common.New}" />
+            </StackPanel>
+        </Button>
+
+        <Button Width="24" Height="24"
+                Grid.Column="2"
+                Padding="0" BorderThickness="0"
+                Click="Menu_Click"
+                HorizontalAlignment="Center"
+                Background="Transparent">
+            <Button.ContextMenu>
+                <ContextMenu>
+                    <MenuItem Click="Navigate_Click"
+                              IsEnabled="{Binding IsSet.Value}"
+                              Header="編集" />
+                    <MenuItem Click="New_Click"
+                              IsEnabled="{Binding CanWrite}"
+                              Header="新規作成" />
+                    <MenuItem Click="Delete_Click"
+                              IsEnabled="{Binding CanDelete}"
+                              Header="削除" />
+                </ContextMenu>
+            </Button.ContextMenu>
+            <FluentIconRegular Width="16" Height="16"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                               IconType="More_Vertical" />
+        </Button>
     </Grid>
 </UserControl>

@@ -19,7 +19,7 @@ public sealed class OperationsEditorViewModel : IToolContext
     {
         Layer = editViewModel.SelectedObject
             .Select(x => x as Layer)
-            .ToReadOnlyReactivePropertySlim();
+            .ToReactiveProperty();
 
         Header = StringResources.Common.OperationsObservable.ToReadOnlyReactivePropertySlim()!;
 
@@ -49,7 +49,9 @@ public sealed class OperationsEditorViewModel : IToolContext
         });
     }
 
-    public ReadOnlyReactivePropertySlim<Layer?> Layer { get; }
+    public Action<LayerOperation>? RequestScroll { get; set; }
+
+    public ReactiveProperty<Layer?> Layer { get; }
 
     public CoreList<OperationEditorViewModel> Items { get; } = new();
 
@@ -60,6 +62,11 @@ public sealed class OperationsEditorViewModel : IToolContext
     public IReadOnlyReactiveProperty<string> Header { get; }
 
     public ToolTabExtension.TabPlacement Placement => ToolTabExtension.TabPlacement.Right;
+
+    public void ScrollTo(LayerOperation obj)
+    {
+        RequestScroll?.Invoke(obj);
+    }
 
     public void Dispose()
     {

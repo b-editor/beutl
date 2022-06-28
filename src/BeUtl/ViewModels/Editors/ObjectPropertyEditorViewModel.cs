@@ -33,6 +33,8 @@ public sealed class ObjectPropertyEditorViewModel : IToolContext
 
     public ToolTabExtension Extension => ObjectPropertyTabExtension.Instance;
 
+    public IEditorContext ParentContext => _viewModel;
+
     public CoreList<BaseEditorViewModel> Properties { get; } = new();
 
     public IReadOnlyReactiveProperty<bool> CanBack => _canBack;
@@ -95,12 +97,6 @@ public sealed class ObjectPropertyEditorViewModel : IToolContext
                     var wrapper = (IWrappedProperty)Activator.CreateInstance(wrapperGType, item, obj)!;
 
                     BaseEditorViewModel? itemViewModel = PropertyEditorService.CreateEditorViewModel(wrapper);
-                    if (itemViewModel == null && item.PropertyType.IsAssignableTo(typeof(CoreObject)))
-                    {
-                        Type viewModelType = typeof(NavigationButtonViewModel<>);
-                        viewModelType = viewModelType.MakeGenericType(item.PropertyType);
-                        itemViewModel = (BaseEditorViewModel)Activator.CreateInstance(viewModelType, wrapper)!;
-                    }
 
                     if (itemViewModel != null)
                     {
@@ -168,24 +164,5 @@ public sealed class ObjectPropertyEditorViewModel : IToolContext
 
     public void WriteToJson(ref JsonNode json)
     {
-    }
-
-    public interface INavigationButtonViewModel
-    {
-        CoreObject? GetObject();
-    }
-
-    public sealed class NavigationButtonViewModel<T> : BaseEditorViewModel<T>, INavigationButtonViewModel
-        where T : CoreObject
-    {
-        public NavigationButtonViewModel(IWrappedProperty<T> property)
-            : base(property)
-        {
-        }
-
-        public CoreObject? GetObject()
-        {
-            return WrappedProperty.GetValue();
-        }
     }
 }

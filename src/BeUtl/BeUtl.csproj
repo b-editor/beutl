@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
   <ItemGroup>
     <AvaloniaResource Include="Assets\**" />
   </ItemGroup>
@@ -42,9 +42,6 @@
       <DesignTime>True</DesignTime>
       <AutoGen>True</AutoGen>
       <DependentUpon>EditorViewModels.tt</DependentUpon>
-    </Compile>
-    <Compile Update="Views\Editors\ObjectPropertyEditor.axaml.cs">
-      <DependentUpon>ObjectPropertyEditor.axaml</DependentUpon>
     </Compile>
     <Compile Update="Views\Editors\Editors.cs">
       <DesignTime>True</DesignTime>

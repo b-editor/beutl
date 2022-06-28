@@ -10,8 +10,8 @@
     DragDrop.AllowDrop="True"
     x:DataType="vm:OperationsEditorViewModel"
     x:Class="BeUtl.Views.Editors.OperationsEditor">
-    <ScrollViewer>
-        <ItemsControl Items="{CompiledBinding Items}">
+    <ScrollViewer x:Name="scrollViewer">
+        <ItemsControl Items="{CompiledBinding Items}" x:Name="itemsControl">
             <ItemsControl.ItemTemplate>
                 <DataTemplate>
                     <local:OperationEditor />
