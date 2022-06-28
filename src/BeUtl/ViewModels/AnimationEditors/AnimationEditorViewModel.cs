@@ -23,7 +23,7 @@ public abstract class AnimationEditorViewModel : IDisposable
         Description = description;
         OptionsProvider = optionsProvider;
 
-        Width = animation.GetSubject(BaseAnimation.DurationProperty)
+        Width = animation.GetObservable(BaseAnimation.DurationProperty)
             .CombineLatest(optionsProvider.Scale)
             .Select(item => item.First.ToPixel(item.Second))
             .ToReactiveProperty()

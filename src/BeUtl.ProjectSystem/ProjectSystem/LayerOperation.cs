@@ -168,7 +168,7 @@ public abstract class LayerOperation : Element, ILogicalElement
             layer.IsEnabled &&
             layer.Start <= scene.CurrentFrame &&
             scene.CurrentFrame < layer.Start + layer.Length &&
-            scene?.Renderer is SceneRenderer renderer)
+            scene?.Renderer is SceneRenderer { IsDisposed: false, IsRendering: false } renderer)
         {
             renderer.Invalidate(scene.CurrentFrame);
         }

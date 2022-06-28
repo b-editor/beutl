@@ -33,19 +33,19 @@ public sealed class AnimationTimelineViewModel : IDisposable, IToolContext
         OptionsProvider = optionsProvider;
         Scene = Layer.FindRequiredLogicalParent<Scene>();
 
-        BorderMargin = Layer.GetSubject(Layer.StartProperty)
+        BorderMargin = Layer.GetObservable(Layer.StartProperty)
             .CombineLatest(OptionsProvider.Scale)
             .Select(item => new Thickness(item.First.ToPixel(item.Second), 0, 0, 0))
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
 
-        Width = Layer.GetSubject(Layer.LengthProperty)
+        Width = Layer.GetObservable(Layer.LengthProperty)
             .CombineLatest(OptionsProvider.Scale)
             .Select(item => item.First.ToPixel(item.Second))
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
 
-        Color = Layer.GetSubject(Layer.AccentColorProperty)
+        Color = Layer.GetObservable(Layer.AccentColorProperty)
             .Select(c => c.ToAvalonia())
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);

@@ -1,4 +1,6 @@
-﻿using System.Text.Json;
+﻿using System.Reactive;
+using System.Reactive.Linq;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 
 using BeUtl.Collections;
@@ -24,6 +26,7 @@ public class Layer : Element, IStorable, ILogicalElement
     private bool _isEnabled = true;
     private EventHandler? _saved;
     private EventHandler? _restored;
+    private IDisposable? _disposable;
 
     static Layer()
     {
@@ -312,6 +315,8 @@ public class Layer : Element, IStorable, ILogicalElement
                 renderer[ZIndex] = context;
             }
             context.AddNode(Node);
+
+            _disposable = SubscribeToLayerNode();
         }
     }
 
@@ -321,6 +326,8 @@ public class Layer : Element, IStorable, ILogicalElement
         if (args.Parent is Scene { Renderer: { IsDisposed: false } renderer } && ZIndex >= 0)
         {
             renderer[ZIndex]?.RemoveNode(Node);
+            _disposable?.Dispose();
+            _disposable = null;
         }
     }
 
@@ -335,10 +342,22 @@ public class Layer : Element, IStorable, ILogicalElement
         if (scene != null &&
             Start <= scene.CurrentFrame &&
             scene.CurrentFrame < Start + Length &&
-            scene.Renderer is { IsDisposed: false })
+            scene.Renderer is { IsDisposed: false, IsRendering: false })
         {
             scene.Renderer.Invalidate(scene.CurrentFrame);
         }
+    }
+
+    private IDisposable SubscribeToLayerNode()
+    {
+        return Node.GetObservable(LayerNode.ValueProperty)
+            .SelectMany(value => value != null
+                ? Observable.FromEventPattern(h => value.Invalidated += h, h => value.Invalidated -= h)
+                    .Select(_ => Unit.Default)
+                    .Publish(Unit.Default)
+                    .RefCount()
+                : Observable.Return(Unit.Default))
+            .Subscribe(_ => ForceRender());
     }
 
     internal Layer? GetBefore(int zindex, TimeSpan start)
