@@ -39,6 +39,16 @@ public sealed class TextEditorContext : IEditorContext
     {
     }
 
+    public T? FindToolTab<T>(Func<T, bool> condition) where T : IToolContext
+    {
+        return default;
+    }
+
+    public T? FindToolTab<T>() where T : IToolContext
+    {
+        return default;
+    }
+
     public bool OpenToolTab(IToolContext item)
     {
         return false;

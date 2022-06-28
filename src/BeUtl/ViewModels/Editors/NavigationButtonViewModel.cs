@@ -8,11 +8,10 @@ namespace BeUtl.ViewModels.Editors;
 
 public interface INavigationButtonViewModel
 {
-    CoreObject? GetObject();
 }
 
 public sealed class NavigationButtonViewModel<T> : BaseEditorViewModel<T>, INavigationButtonViewModel
-    where T : CoreObject
+    where T : ICoreObject
 {
     private static readonly NullabilityInfoContext s_context = new();
 
@@ -34,8 +33,14 @@ public sealed class NavigationButtonViewModel<T> : BaseEditorViewModel<T>, INavi
         IsNotSetAndCanWrite = IsSet.Select(x => !x && CanWrite)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
+
+        Value = property.GetObservable()
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(Disposables);
     }
 
+    public ReadOnlyReactivePropertySlim<T?> Value { get; }
+    
     public ReadOnlyReactivePropertySlim<bool> IsSet { get; }
 
     public ReadOnlyReactivePropertySlim<bool> IsNotSetAndCanWrite { get; }
@@ -43,9 +48,4 @@ public sealed class NavigationButtonViewModel<T> : BaseEditorViewModel<T>, INavi
     public bool CanWrite { get; }
 
     public bool CanDelete { get; }
-
-    public CoreObject? GetObject()
-    {
-        return WrappedProperty.GetValue();
-    }
 }

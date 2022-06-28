@@ -12,7 +12,7 @@ public sealed class RotationTransform : Transform
         RotationProperty = ConfigureProperty<float, RotationTransform>(nameof(Rotation))
             .Accessor(o => o.Rotation, (o, v) => o.Rotation = v)
             .DefaultValue(0)
-            .PropertyFlags(PropertyFlags.Styleable | PropertyFlags.Designable)
+            .PropertyFlags(PropertyFlags.KnownFlags_1)
             .Register();
 
         AffectsRender<RotationTransform>(RotationProperty);

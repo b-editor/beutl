@@ -67,15 +67,18 @@ public abstract class LayerOperation : Element, ILogicalElement
 
     public void Render(ref OperationRenderArgs args)
     {
-        foreach (IPropertyInstance? item in _properties.AsSpan())
+        if (IsEnabled)
         {
-            if (item is IAnimatablePropertyInstance anmProp)
+            foreach (IPropertyInstance? item in _properties.AsSpan())
             {
-                anmProp.SetProperty(args.Renderer.Clock.CurrentTime);
-            }
-            else
-            {
-                item.SetProperty();
+                if (item is IAnimatablePropertyInstance anmProp)
+                {
+                    anmProp.SetProperty(args.Renderer.Clock.CurrentTime);
+                }
+                else
+                {
+                    item.SetProperty();
+                }
             }
         }
 

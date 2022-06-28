@@ -376,7 +376,8 @@ public abstract class CoreObject : ICoreObject
     {
         if (args is CorePropertyChangedEventArgs coreArgs)
         {
-            bool hasChangedFlag = coreArgs.PropertyMetadata.Observability.HasFlag(PropertyObservability.Changed);
+            bool hasChangedFlag = coreArgs.PropertyMetadata.Observability.HasFlag(PropertyObservability.Changed)
+                || coreArgs.PropertyMetadata.PropertyFlags.HasFlag(PropertyFlags.NotifyChanged);
             if (coreArgs.Property.HasObservers)
             {
                 coreArgs.Property.NotifyChanged(coreArgs);

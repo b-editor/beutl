@@ -13,6 +13,7 @@ using Avalonia.Media.Transformation;
 using Avalonia.Threading;
 using Avalonia.Xaml.Interactivity;
 
+using BeUtl.Commands;
 using BeUtl.ViewModels.Editors;
 
 using FluentAvalonia.UI.Controls;
@@ -239,9 +240,7 @@ public sealed class ListEditorDragBehavior : Behavior<Border>
             return;
         }
 
-        object? draggedItem = items[draggedIndex];
-        items.RemoveAt(draggedIndex);
-        items.Insert(targetIndex, draggedItem);
+        new MoveCommand(items, targetIndex, draggedIndex).DoAndRecord(CommandRecorder.Default);
     }
 
     private static void SetTranslateTransform(IControl control, double x, double y)
@@ -296,14 +295,14 @@ public partial class ListEditor : UserControl
                         .Where(x => !x.IsAbstract
                             && x.IsPublic
                             && x.IsAssignableTo(itemtype)
-                            && itemtype.GetConstructor(Array.Empty<Type>()) != null)
+                            && x.GetConstructor(Array.Empty<Type>()) != null)
                         .ToArray();
                     Type? type2 = null;
                     ConstructorInfo? constructorInfo = null;
 
                     if (types.Length == 1)
                     {
-                        type = types[0];
+                        type2 = types[0];
                     }
                     else if (types.Length > 1)
                     {
@@ -389,7 +388,7 @@ public partial class ListEditor : UserControl
 
             if (index >= 0)
             {
-                list.RemoveAt(index);
+                new RemoveCommand(list, list[index]).DoAndRecord(CommandRecorder.Default);
             }
         }
     }

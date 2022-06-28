@@ -15,8 +15,8 @@ public sealed class ObjectPropertyEditorViewModel : IToolContext
     private readonly CompositeDisposable _disposables = new();
     private readonly EditViewModel _viewModel;
     // インデックスが大きい方が新しい
-    private readonly List<(CoreObject, BaseEditorViewModel[])> _cache = new(8);
-    private readonly List<WeakReference<CoreObject>> _backStack = new(32);
+    private readonly List<(ICoreObject, BaseEditorViewModel[])> _cache = new(8);
+    private readonly List<WeakReference<ICoreObject>> _backStack = new(32);
     private readonly ReactivePropertySlim<bool> _canBack = new();
 
     public ObjectPropertyEditorViewModel(EditViewModel viewModel)
@@ -49,8 +49,8 @@ public sealed class ObjectPropertyEditorViewModel : IToolContext
     {
         for (int i = _backStack.Count - 2; i >= 0; i--)
         {
-            WeakReference<CoreObject> item = _backStack[i];
-            if (item.TryGetTarget(out CoreObject? obj))
+            WeakReference<ICoreObject> item = _backStack[i];
+            if (item.TryGetTarget(out ICoreObject? obj))
             {
                 NavigateCore(obj, true);
                 return;
@@ -63,15 +63,15 @@ public sealed class ObjectPropertyEditorViewModel : IToolContext
         _canBack.Value = false;
     }
 
-    public void NavigateCore(CoreObject? obj, bool back)
+    public void NavigateCore(ICoreObject? obj, bool back)
     {
         Properties.Clear();
-        WeakReference<CoreObject> weakRef = _backStack.Find(x => x.TryGetTarget(out CoreObject? item) && ReferenceEquals(item, obj))
-            ?? new WeakReference<CoreObject>(obj!);
+        WeakReference<ICoreObject> weakRef = _backStack.Find(x => x.TryGetTarget(out ICoreObject? item) && ReferenceEquals(item, obj))
+            ?? new WeakReference<ICoreObject>(obj!);
 
         if (obj != null)
         {
-            (CoreObject, BaseEditorViewModel[]) result = _cache.Find(x => ReferenceEquals(x.Item1, obj));
+            (ICoreObject, BaseEditorViewModel[]) result = _cache.Find(x => ReferenceEquals(x.Item1, obj));
 
             if (result.Item2 != null)
             {
@@ -112,7 +112,7 @@ public sealed class ObjectPropertyEditorViewModel : IToolContext
                 int count = _cache.Count - 7;
                 for (int i = 0; i < count; i++)
                 {
-                    (CoreObject, BaseEditorViewModel[]) item = _cache[i];
+                    (ICoreObject, BaseEditorViewModel[]) item = _cache[i];
                     for (int i1 = 0; i1 < item.Item2.Length; i1++)
                     {
                         BaseEditorViewModel editor = item.Item2[i1];
@@ -133,7 +133,7 @@ public sealed class ObjectPropertyEditorViewModel : IToolContext
             int count = 1;
             for (int i = _backStack.Count - 2; i >= 0; i--)
             {
-                if (_backStack[i].TryGetTarget(out CoreObject? item) && ReferenceEquals(item, obj))
+                if (_backStack[i].TryGetTarget(out ICoreObject? item) && ReferenceEquals(item, obj))
                 {
                     start = i;
                     break;
@@ -141,7 +141,7 @@ public sealed class ObjectPropertyEditorViewModel : IToolContext
                 count++;
             }
 
-            _backStack.RemoveRange(start, count);
+            _backStack.RemoveRange(start + 1, count);
         }
 
         _backStack.RemoveAll(x => !x.TryGetTarget(out _));

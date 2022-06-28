@@ -16,7 +16,7 @@ public sealed class TextLine : Drawable, ILogicalElement
     {
         ElementsProperty = ConfigureProperty<TextElements, TextLine>(nameof(Elements))
             .Accessor(o => o.Elements, (o, v) => o.Elements = v)
-            .PropertyFlags(PropertyFlags.Styleable | PropertyFlags.Designable)
+            .PropertyFlags(PropertyFlags.KnownFlags_1)
             .Register();
     }
 

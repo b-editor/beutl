@@ -6,6 +6,7 @@ using Avalonia.Data.Converters;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
 
+using BeUtl.Commands;
 using BeUtl.Framework;
 using BeUtl.ProjectSystem;
 using BeUtl.ViewModels.Editors;
@@ -83,12 +84,12 @@ public partial class LayerOpsEditor : UserControl
         if (sender is MenuItem menuItem
             && DataContext is LayerOpsEditorViewModel { List.Value: { } list } viewModel)
         {
-            var grid = menuItem.FindLogicalAncestorOfType<Grid>();
-            var index = items.ItemContainerGenerator.IndexFromContainer(grid.Parent);
+            Grid grid = menuItem.FindLogicalAncestorOfType<Grid>();
+            int index = items.ItemContainerGenerator.IndexFromContainer(grid.Parent);
 
             if (index >= 0)
             {
-                list.RemoveAt(index);
+                new RemoveCommand<LayerOperation>(list, list[index]).DoAndRecord(CommandRecorder.Default);
             }
         }
     }

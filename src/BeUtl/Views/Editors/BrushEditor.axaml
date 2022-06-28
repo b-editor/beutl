@@ -2,29 +2,36 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:vm="using:BeUtl.ViewModels.Editors"
              xmlns:local="using:BeUtl.Views.Editors"
-             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:media="using:BeUtl.Media"
              mc:Ignorable="d" d:DesignWidth="300"
-             x:Class="BeUtl.Views.Editors.NavigateButton">
-    <Grid ColumnDefinitions="2*,3*,24">
+             x:DataType="vm:BrushEditorViewModel"
+             x:Class="BeUtl.Views.Editors.BrushEditor">
+    <Grid ColumnDefinitions="2*,3*,Auto">
         <TextBlock
             Margin="10,0,0,0"
-            Text="{Binding Header.Value}"
+            Text="{CompiledBinding Header.Value}"
             HorizontalAlignment="Left"
             VerticalAlignment="Center" />
 
-        <Button Grid.Column="1"
-                Margin="4"
-                HorizontalAlignment="Stretch"
-                HorizontalContentAlignment="Left"
-                IsVisible="{Binding IsSet.Value}"
-                Click="Navigate_Click">
-            <StackPanel Orientation="Horizontal" Spacing="16">
-                <ui:SymbolIcon Symbol="Open" />
-                <TextBlock Text="{DynamicResource S.Common.Edit}" />
-            </StackPanel>
-        </Button>
+        <ContentPresenter Grid.Column="1" Content="{CompiledBinding Value.Value}">
+            <ContentPresenter.DataTemplates>
+                <DataTemplate>
+                    <Button Margin="4"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Left"
+                            IsVisible="{Binding IsSet.Value}"
+                            Click="Navigate_Click">
+                        <StackPanel Orientation="Horizontal" Spacing="16">
+                            <ui:SymbolIcon Symbol="Open" />
+                            <TextBlock Text="{DynamicResource S.Common.Edit}" />
+                        </StackPanel>
+                    </Button>                    
+                </DataTemplate>
+            </ContentPresenter.DataTemplates>
+        </ContentPresenter>
 
         <Button Grid.Column="1"
                 Margin="4"

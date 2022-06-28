@@ -18,13 +18,13 @@ public sealed class LinearGradientBrush : GradientBrush, ILinearGradientBrush
         StartPointProperty = ConfigureProperty<RelativePoint, LinearGradientBrush>(nameof(StartPoint))
             .DefaultValue(RelativePoint.TopLeft)
             .Accessor(o => o.StartPoint, (o, v) => o.StartPoint = v)
-            .PropertyFlags(PropertyFlags.Styleable | PropertyFlags.Designable)
+            .PropertyFlags(PropertyFlags.KnownFlags_1)
             .Register();
 
         EndPointProperty = ConfigureProperty<RelativePoint, LinearGradientBrush>(nameof(EndPoint))
             .DefaultValue(RelativePoint.BottomRight)
             .Accessor(o => o.EndPoint, (o, v) => o.EndPoint = v)
-            .PropertyFlags(PropertyFlags.Styleable | PropertyFlags.Designable)
+            .PropertyFlags(PropertyFlags.KnownFlags_1)
             .Register();
 
         AffectsRender<LinearGradientBrush>(StartPointProperty, EndPointProperty);
