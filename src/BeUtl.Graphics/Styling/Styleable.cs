@@ -1,13 +1,11 @@
-﻿using System.Collections.Specialized;
-
-using BeUtl.Animation;
+﻿using BeUtl.Animation;
 
 namespace BeUtl.Styling;
 
 public abstract class Styleable : Element, IStyleable
 {
     public static readonly CoreProperty<Styles> StylesProperty;
-    private readonly Styles _styles = new();
+    private readonly Styles _styles;
     private IStyleInstance? _styleInstance;
 
     static Styleable()
@@ -20,12 +18,17 @@ public abstract class Styleable : Element, IStyleable
 
     protected Styleable()
     {
-        _styles.CollectionChanged += Styles_CollectionChanged;
+        _styles = new()
+        {
+            Attached = item => item.Invalidated += Style_Invalidated,
+            Detached = item => item.Invalidated -= Style_Invalidated
+        };
+        _styles.CollectionChanged += Style_Invalidated;
     }
 
-    private void Styles_CollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    private void Style_Invalidated(object? sender, EventArgs e)
     {
-        _styleInstance = null;
+        InvalidateStyles();
     }
 
     public Styles Styles

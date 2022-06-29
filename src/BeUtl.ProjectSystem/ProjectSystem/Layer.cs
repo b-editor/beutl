@@ -241,13 +241,8 @@ public class Layer : Element, IStorable, ILogicalElement
                 && renderableType.IsAssignableTo(typeof(Renderable))
                 && Activator.CreateInstance(renderableType) is Renderable renderable)
             {
-                //_disposable?.Dispose();
                 renderable.ReadFromJson(renderableObj);
                 Node.Value = renderable;
-                //if (_disposable != null)
-                //{
-                //    _disposable = SubscribeToLayerNode();
-                //}
             }
 
             if (jobject.TryGetPropertyValue("operations", out JsonNode? operationsNode)
