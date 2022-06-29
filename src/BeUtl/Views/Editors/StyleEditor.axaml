@@ -1,0 +1,34 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="using:BeUtl.ViewModels.Editors"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:DataType="vm:StyleEditorViewModel"
+             x:Class="BeUtl.Views.Editors.StyleEditor">
+    <ScrollViewer>
+        <StackPanel>
+            <Grid ColumnDefinitions="2*,3*,24">
+                <TextBlock
+                    Margin="10,10,0,0"
+                    Text="対象型"
+                    HorizontalAlignment="Left"
+                    VerticalAlignment="Top" />
+
+                <AutoCompleteBox x:Name="targetTypeBox"
+                                 InputMethod.IsInputMethodEnabled="True"
+                                 Grid.Column="1"
+                                 Items="{CompiledBinding StyleableTypes.Value}"
+                                 SelectedItem="{CompiledBinding TargetType.Value}">
+                    <AutoCompleteBox.Styles>
+                        <Style Selector="AutoCompleteBox">
+                            <Setter Property="Margin" Value="4" />
+                            <Setter Property="HorizontalAlignment" Value="Stretch" />
+                            <Setter Property="VerticalAlignment" Value="Stretch" />
+                        </Style>
+                    </AutoCompleteBox.Styles>
+                </AutoCompleteBox>
+            </Grid>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

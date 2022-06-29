@@ -14,6 +14,7 @@ using Avalonia.Threading;
 using Avalonia.Xaml.Interactivity;
 
 using BeUtl.Commands;
+using BeUtl.ViewModels;
 using BeUtl.ViewModels.Editors;
 
 using FluentAvalonia.UI.Controls;
@@ -371,9 +372,23 @@ public partial class ListEditor : UserControl
             var grid = logical.FindLogicalAncestorOfType<Grid>();
             var index = items.ItemContainerGenerator.IndexFromContainer(grid.Parent);
 
-            if (index >= 0 && list[index] is CoreObject obj)
+            if (index >= 0)
             {
-                parentViewModel.NavigateCore(obj, false);
+                switch (list[index])
+                {
+                    case CoreObject coreObject:
+                        parentViewModel.NavigateCore(coreObject, false);
+                        break;
+                    case Styling.Style style when parentViewModel.ParentContext is EditViewModel editViewModel:
+                        StyleEditorViewModel styleEditor
+                            = parentViewModel.ParentContext.FindToolTab<StyleEditorViewModel>(x => ReferenceEquals(x.Style, style))
+                                ?? new StyleEditorViewModel(editViewModel, style);
+
+                        editViewModel.OpenToolTab(styleEditor);
+                        break;
+                    default:
+                        break;
+                }
             }
         }
     }

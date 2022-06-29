@@ -6,8 +6,17 @@ namespace BeUtl.Styling;
 
 public abstract class Styleable : Element, IStyleable
 {
+    public static readonly CoreProperty<Styles> StylesProperty;
     private readonly Styles _styles = new();
     private IStyleInstance? _styleInstance;
+
+    static Styleable()
+    {
+        StylesProperty = ConfigureProperty<Styles, Styleable>(nameof(Styles))
+            .SerializeName("styles")
+            .Accessor(o => o.Styles, (o, v) => o.Styles = v)
+            .Register();
+    }
 
     protected Styleable()
     {

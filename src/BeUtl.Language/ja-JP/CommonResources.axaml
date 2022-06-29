@@ -141,6 +141,7 @@
         <x:String x:Key="S.Common.Password">パスワード</x:String>
         <x:String x:Key="S.Common.Backup">バックアップ</x:String>
         <x:String x:Key="S.Common.Operations">オペレーション</x:String>
+        <x:String x:Key="S.Common.Style">スタイル</x:String>
     </Styles.Resources>
 
     <!--Views-->

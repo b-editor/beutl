@@ -61,7 +61,7 @@ public partial class LayerOpsEditor : UserControl
             && this.FindLogicalAncestorOfType<ObjectPropertyEditor>().DataContext is ObjectPropertyEditorViewModel parentViewModel)
         {
             Grid grid = logical.FindLogicalAncestorOfType<Grid>();
-            var index = items.ItemContainerGenerator.IndexFromContainer(grid.Parent);
+            int index = items.ItemContainerGenerator.IndexFromContainer(grid.Parent);
 
             if (index >= 0 && list[index] is LayerOperation obj
                 && obj.Parent is Layer layer)
