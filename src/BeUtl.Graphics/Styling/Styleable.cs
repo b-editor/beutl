@@ -31,7 +31,7 @@ public abstract class Styleable : Element, IStyleable
 
     private void Style_Invalidated(object? sender, EventArgs e)
     {
-        InvalidateStyles();
+        _styleInstance = null;
     }
 
     public Styles Styles
