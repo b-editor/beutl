@@ -3,7 +3,8 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="using:BeUtl.ViewModels.Editors"
-             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             mc:Ignorable="d" d:DesignWidth="300" d:DesignHeight="450"
              x:DataType="vm:StyleEditorViewModel"
              x:Class="BeUtl.Views.Editors.StyleEditor">
     <ScrollViewer>
@@ -18,6 +19,7 @@
                 <AutoCompleteBox x:Name="targetTypeBox"
                                  InputMethod.IsInputMethodEnabled="True"
                                  Grid.Column="1"
+                                 IsEnabled="{CompiledBinding IsStyleNotNull.Value}"
                                  Items="{CompiledBinding StyleableTypes.Value}"
                                  SelectedItem="{CompiledBinding TargetType.Value}">
                     <AutoCompleteBox.Styles>
@@ -29,6 +31,24 @@
                     </AutoCompleteBox.Styles>
                 </AutoCompleteBox>
             </Grid>
+
+            <ItemsControl Items="{Binding Items}">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <ContentControl Content="{Binding Converter={StaticResource ViewModelToViewConverter}}" />
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <Button Click="Add_Click"
+                    Grid.Column="1"
+                    IsEnabled="{CompiledBinding IsStyleNotNull.Value}"
+                    Margin="0,4,24,4">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <ui:SymbolIcon Symbol="Add" />
+                    <TextBlock Text="追加" />
+                </StackPanel>
+            </Button>
         </StackPanel>
     </ScrollViewer>
 </UserControl>

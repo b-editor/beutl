@@ -3,7 +3,12 @@ using BeUtl.Styling;
 
 namespace BeUtl.Services.Editors.Wrappers;
 
-public sealed class StylingSetterWrapper<T> : IWrappedProperty<T>.IAnimatable
+public interface IStylingSetterWrapper : IWrappedProperty
+{
+
+}
+
+public sealed class StylingSetterWrapper<T> : IWrappedProperty<T>.IAnimatable, IStylingSetterWrapper
 {
     public StylingSetterWrapper(Setter<T> setter)
     {

@@ -25,6 +25,10 @@
                 <MenuItem
                     Click="EditAnimation_Click"
                     Header="{DynamicResource S.Editors.Badge.EditAnimation}" />
+                <MenuItem
+                    IsVisible="{CompiledBinding IsStylingSetter}"
+                    Click="DeleteSetter_Click"
+                    Header="{DynamicResource S.Common.Delete}" />
             </ContextMenu>
         </Button.ContextMenu>
         <FluentIconRegular

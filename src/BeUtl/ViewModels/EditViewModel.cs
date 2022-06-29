@@ -162,6 +162,7 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider
         else
         {
             CoreList<ToolTabViewModel> list = item.Placement == ToolTabExtension.TabPlacement.Bottom ? BottomTabItems : RightTabItems;
+            item.IsSelected.Value = true;
             list.Add(new ToolTabViewModel(item));
             return true;
         }

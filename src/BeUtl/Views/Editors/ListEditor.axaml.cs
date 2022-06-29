@@ -381,9 +381,10 @@ public partial class ListEditor : UserControl
                         break;
                     case Styling.Style style when parentViewModel.ParentContext is EditViewModel editViewModel:
                         StyleEditorViewModel styleEditor
-                            = parentViewModel.ParentContext.FindToolTab<StyleEditorViewModel>(x => ReferenceEquals(x.Style, style))
-                                ?? new StyleEditorViewModel(editViewModel, style);
+                            = parentViewModel.ParentContext.FindToolTab<StyleEditorViewModel>()
+                                ?? new StyleEditorViewModel(editViewModel);
 
+                        styleEditor.Style.Value = style;
                         editViewModel.OpenToolTab(styleEditor);
                         break;
                     default:

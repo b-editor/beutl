@@ -1,14 +1,14 @@
-﻿using System.Reflection;
-
-using Avalonia;
-using Avalonia.Controls;
+﻿using Avalonia.Controls;
+using Avalonia.Controls.Presenters;
 using Avalonia.Controls.Templates;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
-using Avalonia.Markup.Xaml;
-using Avalonia.Threading;
+using Avalonia.Markup.Xaml.Templates;
 
+using BeUtl.Commands;
 using BeUtl.Media;
+using BeUtl.Services.Editors.Wrappers;
+using BeUtl.Styling;
 using BeUtl.ViewModels;
 using BeUtl.ViewModels.Editors;
 
@@ -94,7 +94,17 @@ public partial class BrushEditor : UserControl
     {
         if (DataContext is BrushEditorViewModel viewModel)
         {
-            viewModel.SetValue(viewModel.Value.Value, default);
+            if (this.FindLogicalAncestorOfType<StyleEditor>()?.DataContext is StyleEditorViewModel parentViewModel
+                && viewModel.WrappedProperty is IStylingSetterWrapper wrapper
+                && parentViewModel.Style.Value is Style style
+                && wrapper.Tag is ISetter setter)
+            {
+                new RemoveCommand<ISetter>(style.Setters, setter).DoAndRecord(CommandRecorder.Default);
+            }
+            else
+            {
+                viewModel.SetValue(viewModel.Value.Value, default);
+            }
         }
     }
 }

@@ -6,6 +6,8 @@ using System.Text.Json.Nodes;
 using System.Threading.Tasks;
 
 using BeUtl.Framework;
+using BeUtl.Services;
+using BeUtl.Services.Editors.Wrappers;
 using BeUtl.Services.PrimitiveImpls;
 using BeUtl.Styling;
 
@@ -16,12 +18,13 @@ namespace BeUtl.ViewModels.Editors;
 public class StyleEditorViewModel : IToolContext
 {
     private static Type[]? s_cache;
+    private readonly IDisposable _disposable0;
+    private IDisposable? _disposable1;
 
-    public StyleEditorViewModel(EditViewModel editViewModel, Style style)
+    public StyleEditorViewModel(EditViewModel editViewModel)
     {
-        Style = style;
         EditorContext = editViewModel;
-        Header = new ReactivePropertySlim<string>("AAAA");
+        Header = new ReactivePropertySlim<string>("Style");
 
         if (s_cache != null)
         {
@@ -33,23 +36,62 @@ public class StyleEditorViewModel : IToolContext
             {
                 StyleableTypes.Value = s_cache = AppDomain.CurrentDomain.GetAssemblies()
                     .SelectMany(x => x.GetTypes())
-                    .Where(x => !x.IsAbstract
-                        && x.IsPublic
-                        && x.IsAssignableTo(typeof(IStyleable))
-                        && x.GetConstructor(Array.Empty<Type>()) != null)
+                    .Where(x => x.IsPublic && x.IsAssignableTo(typeof(IStyleable)))
                     .ToArray();
             });
         }
 
-        TargetType.Value = Style.TargetType;
-        TargetType.Subscribe(v => Style.TargetType = v ?? typeof(Styleable));
+        IsStyleNotNull = Style.Select(x => x != null).ToReadOnlyReactivePropertySlim();
+        TargetType = Style.Select(x => x?.TargetType).ToReactiveProperty();
+        TargetType.Subscribe(v =>
+        {
+            if (Style.Value != null)
+            {
+                Style.Value.TargetType = v ?? typeof(Styleable);
+            }
+        });
+
+        _disposable0 = Style.Subscribe(style =>
+        {
+            ClearItems();
+            _disposable1?.Dispose();
+            _disposable1 = null;
+            if (style != null)
+            {
+                _disposable1 = style.Setters.ForEachItem(
+                    (idx, item) =>
+                    {
+                        Type wrapperType = typeof(StylingSetterWrapper<>);
+                        wrapperType = wrapperType.MakeGenericType(item.Property.PropertyType);
+                        var wrapper = (IWrappedProperty)Activator.CreateInstance(wrapperType, item)!;
+
+                        BaseEditorViewModel? itemViewModel = PropertyEditorService.CreateEditorViewModel(wrapper);
+
+                        Items.Insert(idx, itemViewModel);
+                    },
+                    (idx, _) =>
+                    {
+                        BaseEditorViewModel? vm = Items[idx];
+                        Items.RemoveAt(idx);
+                        vm?.Dispose();
+                    },
+                    () => ClearItems());
+            }
+        });
     }
 
-    public Style Style { get; }
+    public ReactiveProperty<Style?> Style { get; } = new();
+
+    public ReadOnlyReactivePropertySlim<bool> IsStyleNotNull { get; }
+
+    public CoreList<BaseEditorViewModel?> Items { get; } = new()
+    {
+        ResetBehavior = ResetBehavior.Remove
+    };
 
     public ReactivePropertySlim<Type[]?> StyleableTypes { get; } = new();
 
-    public ReactivePropertySlim<Type?> TargetType { get; } = new();
+    public ReactiveProperty<Type?> TargetType { get; } = new();
 
     public EditViewModel EditorContext { get; }
 
@@ -61,9 +103,19 @@ public class StyleEditorViewModel : IToolContext
 
     public ToolTabExtension.TabPlacement Placement => ToolTabExtension.TabPlacement.Right;
 
+    private void ClearItems()
+    {
+        var tmp = Items.AsSpan().ToArray();
+        Items.Clear();
+        foreach (var item in tmp)
+        {
+            item?.Dispose();
+        }
+    }
+
     public void Dispose()
     {
-
+        _disposable0.Dispose();
     }
 
     public void ReadFromJson(JsonNode json)

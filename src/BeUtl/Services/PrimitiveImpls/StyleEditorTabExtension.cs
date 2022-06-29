@@ -14,13 +14,13 @@ public sealed class StyleEditorTabExtension : ToolTabExtension
 {
     public static readonly StyleEditorTabExtension Instance = new();
 
-    public override bool CanMultiple => true;
+    public override bool CanMultiple => false;
 
     public override string Name => "Style editor";
 
     public override string DisplayName => "Style editor";
 
-    //public override ResourceReference<string>? Header => "S.Common.Style";
+    public override ResourceReference<string>? Header => "S.Common.Style";
 
     public override bool TryCreateContent(IEditorContext editorContext, [NotNullWhen(true)] out IControl? control)
     {
@@ -38,7 +38,15 @@ public sealed class StyleEditorTabExtension : ToolTabExtension
 
     public override bool TryCreateContext(IEditorContext editorContext, [NotNullWhen(true)] out IToolContext? context)
     {
-        context = null;
-        return false;
+        if (editorContext is EditViewModel viewModel)
+        {
+            context = new StyleEditorViewModel(viewModel);
+            return true;
+        }
+        else
+        {
+            context = null;
+            return false;
+        }
     }
 }

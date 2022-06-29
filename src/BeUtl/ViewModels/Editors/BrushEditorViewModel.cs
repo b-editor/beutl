@@ -24,7 +24,8 @@ public class BrushEditorViewModel : BaseEditorViewModel
         NullabilityInfo? nullabilityInfo = s_context.Create(propertyInfo);
 
         CanWrite = propertyInfo.SetMethod?.IsPublic == true;
-        CanDelete = CanWrite && nullabilityInfo.WriteState == NullabilityState.Nullable;
+        CanDelete = (CanWrite && nullabilityInfo.WriteState == NullabilityState.Nullable)
+            || IsStylingSetter;
 
         IsSet = property.GetObservable()
             .Select(x => x != null)

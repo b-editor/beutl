@@ -2,7 +2,10 @@
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
 
+using BeUtl.Commands;
 using BeUtl.ProjectSystem;
+using BeUtl.Services.Editors.Wrappers;
+using BeUtl.Styling;
 using BeUtl.ViewModels;
 using BeUtl.ViewModels.Editors;
 
@@ -53,6 +56,18 @@ public partial class EditorBadge : UserControl
 
                 editViewModel.OpenToolTab(anmViewModel);
             }
+        }
+    }
+
+    private void DeleteSetter_Click(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is BaseEditorViewModel viewModel
+            && this.FindLogicalAncestorOfType<StyleEditor>()?.DataContext is StyleEditorViewModel parentViewModel
+            && viewModel.WrappedProperty is IStylingSetterWrapper wrapper
+            && parentViewModel.Style.Value is Style style
+            && wrapper.Tag is ISetter setter)
+        {
+            new RemoveCommand<ISetter>(style.Setters, setter).DoAndRecord(CommandRecorder.Default);
         }
     }
 }

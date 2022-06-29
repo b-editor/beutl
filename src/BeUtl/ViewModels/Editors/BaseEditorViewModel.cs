@@ -38,6 +38,8 @@ public abstract class BaseEditorViewModel : IDisposable
 
     public bool IsAnimatable => WrappedProperty is IAnimatablePropertyInstance;
 
+    public bool IsStylingSetter => WrappedProperty is IStylingSetterWrapper;
+
     public void Dispose()
     {
         if (!_disposedValue)

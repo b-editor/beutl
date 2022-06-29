@@ -5,6 +5,9 @@ using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
 using Avalonia.Threading;
 
+using BeUtl.Commands;
+using BeUtl.Styling;
+using BeUtl.Services.Editors.Wrappers;
 using BeUtl.ViewModels;
 using BeUtl.ViewModels.Editors;
 
@@ -142,10 +145,19 @@ public class NavigateButton<T> : NavigateButton
 
     protected override void OnDelete()
     {
-        if (DataContext is NavigationButtonViewModel<T> viewModel
-            && viewModel.Value.Value is T obj)
+        if (DataContext is NavigationButtonViewModel<T> viewModel)
         {
-            viewModel.SetValue(obj, default);
+            if (this.FindLogicalAncestorOfType<StyleEditor>()?.DataContext is StyleEditorViewModel parentViewModel
+                && viewModel.WrappedProperty is IStylingSetterWrapper wrapper
+                && parentViewModel.Style.Value is Style style
+                && wrapper.Tag is ISetter setter)
+            {
+                new RemoveCommand<ISetter>(style.Setters, setter).DoAndRecord(CommandRecorder.Default);
+            }
+            else if(viewModel.Value.Value is T obj)
+            {
+                viewModel.SetValue(obj, default);
+            }
         }
     }
 }
