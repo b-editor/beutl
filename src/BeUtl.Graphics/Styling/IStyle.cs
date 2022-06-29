@@ -7,6 +7,8 @@ public interface IStyle
 {
     ICoreList<ISetter> Setters { get; }
 
+    Type TargetType { get; }
+
     event EventHandler? Invalidated;
 
     IStyleInstance Instance(IStyleable target, IStyleInstance? baseStyle = null);

@@ -178,6 +178,8 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider
         {
             RightTabItems.Remove(found1);
         }
+
+        item.Dispose();
     }
 
     private string ViewStateDirectory()

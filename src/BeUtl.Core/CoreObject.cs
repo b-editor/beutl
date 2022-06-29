@@ -311,17 +311,19 @@ public abstract class CoreObject : ICoreObject
 
                     if (obj is IJsonSerializable child)
                     {
-                        if (jsonObject.TryGetPropertyValue(jsonName, out JsonNode? jsonNode))
+                        if (!jsonObject.TryGetPropertyValue(jsonName, out JsonNode? jsonNode))
                         {
-                            child.WriteToJson(ref jsonNode!);
-                            jsonObject[jsonName] = jsonNode;
+                            jsonNode = new JsonObject();
                         }
-                        else
+                        child.WriteToJson(ref jsonNode!);
+
+                        var objType = obj.GetType();
+                        if (objType != item.PropertyType && jsonNode is JsonObject)
                         {
-                            JsonNode jsonObject2 = new JsonObject();
-                            child.WriteToJson(ref jsonObject2);
-                            jsonObject[jsonName] = jsonObject2;
+                            jsonNode["@type"] = TypeFormat.ToString(objType);
                         }
+
+                        jsonObject[jsonName] = jsonNode;
                     }
                     else
                     {
@@ -350,16 +352,7 @@ public abstract class CoreObject : ICoreObject
                     && obj.TryGetPropertyValue(jsonName, out JsonNode? jsonNode)
                     && jsonNode != null)
                 {
-                    if (type.IsAssignableTo(typeof(IJsonSerializable)))
-                    {
-                        var sobj = (IJsonSerializable?)Activator.CreateInstance(type);
-                        if (sobj != null)
-                        {
-                            sobj.ReadFromJson(jsonNode!);
-                            SetValue(item, sobj);
-                        }
-                    }
-                    else if (jsonNode is JsonObject jsonObject
+                    if (jsonNode is JsonObject jsonObject
                         && jsonObject.TryGetPropertyValue("@type", out JsonNode? atTypeNode)
                         && atTypeNode is JsonValue atTypeValue
                         && atTypeValue.TryGetValue(out string? atTypeStr)
@@ -367,6 +360,15 @@ public abstract class CoreObject : ICoreObject
                         && realType.IsAssignableTo(typeof(IJsonSerializable)))
                     {
                         var sobj = (IJsonSerializable?)Activator.CreateInstance(realType);
+                        if (sobj != null)
+                        {
+                            sobj.ReadFromJson(jsonNode!);
+                            SetValue(item, sobj);
+                        }
+                    }
+                    else if (type.IsAssignableTo(typeof(IJsonSerializable)))
+                    {
+                        var sobj = (IJsonSerializable?)Activator.CreateInstance(type);
                         if (sobj != null)
                         {
                             sobj.ReadFromJson(jsonNode!);
