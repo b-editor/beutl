@@ -1,5 +1,10 @@
-﻿namespace BeUtl.Media;
+﻿using System.Text.Json.Serialization;
 
+using BeUtl.Converters;
+
+namespace BeUtl.Media;
+
+[JsonConverter(typeof(TypefaceJsonConverter))]
 public readonly struct Typeface : IEquatable<Typeface>
 {
     public Typeface(FontFamily fontFamily,

@@ -5,6 +5,8 @@ using Avalonia.Controls;
 using Avalonia.Media;
 
 using BeUtl.ProjectSystem;
+using BeUtl.Services.Editors.Wrappers;
+using BeUtl.Styling;
 
 namespace BeUtl;
 
@@ -105,23 +107,50 @@ internal static class Helper
         return filename;
     }
 
-    public static T? GetMaximumOrDefault<T>(this IPropertyInstance setter, T defaultValue)
+    public static T? GetMaximumOrDefault<T>(this IWrappedProperty wrappedProp, T defaultValue, Type? type = null)
     {
-        OperationPropertyMetadata<T> metadata
-            = setter.Property.GetMetadata<OperationPropertyMetadata<T>>(setter.Parent.GetType());
-        return metadata.HasMaximum ? metadata.Maximum : defaultValue;
+        OperationPropertyMetadata<T>? metadata
+            = wrappedProp.GetMetadataExt<OperationPropertyMetadata<T>>(type);
+        return metadata?.HasMaximum == true ? metadata.Maximum : defaultValue;
     }
 
-    public static T? GetMinimumOrDefault<T>(this IPropertyInstance setter, T defaultValue)
+    public static T? GetMinimumOrDefault<T>(this IWrappedProperty wrappedProp, T defaultValue, Type? type = null)
     {
-        OperationPropertyMetadata<T> metadata
-            = setter.Property.GetMetadata<OperationPropertyMetadata<T>>(setter.Parent.GetType());
-        return metadata.HasMinimum ? metadata.Minimum : defaultValue;
+        OperationPropertyMetadata<T>? metadata
+            = wrappedProp.GetMetadataExt<OperationPropertyMetadata<T>>(type);
+        return metadata?.HasMinimum == true ? metadata.Minimum : defaultValue;
     }
 
-    public static object? GetDefaultValue(this IPropertyInstance setter)
+    public static object? GetDefaultValue(this IWrappedProperty wrappedProp, Type? type = null)
     {
-        return setter.Property.GetMetadata<ICorePropertyMetadata>(setter.Parent.GetType()).GetDefaultValue();
+        return wrappedProp.GetMetadataExt<ICorePropertyMetadata>(type)?.GetDefaultValue();
+    }
+
+    public static TMetadata? GetMetadataExt<TMetadata>(this IWrappedProperty wrappedProp, Type? type = null)
+        where TMetadata : ICorePropertyMetadata
+    {
+        TMetadata? result = default;
+        if (type != null)
+        {
+            wrappedProp.AssociatedProperty.TryGetMetadata(type, out result);
+        }
+        else
+        {
+            switch (wrappedProp.Tag)
+            {
+                case CoreObject obj:
+                    wrappedProp.AssociatedProperty.TryGetMetadata(obj.GetType(), out result);
+                    break;
+                case IPropertyInstance pi:
+                    wrappedProp.AssociatedProperty.TryGetMetadata(pi.Parent.GetType(), out result);
+                    break;
+                default:
+                    wrappedProp.AssociatedProperty.TryGetMetadata(wrappedProp.AssociatedProperty.OwnerType, out result);
+                    break;
+            }
+        }
+
+        return result;
     }
 
     private static string RandomString()

@@ -25,44 +25,51 @@ public sealed class Rotation3DTransform : Transform
     {
         RotationXProperty = ConfigureProperty<float, Rotation3DTransform>(nameof(RotationX))
             .Accessor(o => o.RotationX, (o, v) => o.RotationX = v)
-            .PropertyFlags(PropertyFlags.Styleable | PropertyFlags.Designable)
+            .PropertyFlags(PropertyFlags.KnownFlags_1)
             .DefaultValue(0)
+            .SerializeName("rotation-x")
             .Register();
 
         RotationYProperty = ConfigureProperty<float, Rotation3DTransform>(nameof(RotationY))
             .Accessor(o => o.RotationY, (o, v) => o.RotationY = v)
-            .PropertyFlags(PropertyFlags.Styleable | PropertyFlags.Designable)
+            .PropertyFlags(PropertyFlags.KnownFlags_1)
             .DefaultValue(0)
+            .SerializeName("rotation-y")
             .Register();
 
         RotationZProperty = ConfigureProperty<float, Rotation3DTransform>(nameof(RotationZ))
             .Accessor(o => o.RotationZ, (o, v) => o.RotationZ = v)
-            .PropertyFlags(PropertyFlags.Styleable | PropertyFlags.Designable)
+            .PropertyFlags(PropertyFlags.KnownFlags_1)
             .DefaultValue(0)
+            .SerializeName("rotation-z")
             .Register();
 
         CenterXProperty = ConfigureProperty<float, Rotation3DTransform>(nameof(CenterX))
             .Accessor(o => o.CenterX, (o, v) => o.CenterX = v)
-            .PropertyFlags(PropertyFlags.Styleable | PropertyFlags.Designable)
+            .PropertyFlags(PropertyFlags.KnownFlags_1)
             .DefaultValue(0)
+            .SerializeName("center-x")
             .Register();
 
         CenterYProperty = ConfigureProperty<float, Rotation3DTransform>(nameof(CenterY))
             .Accessor(o => o.CenterY, (o, v) => o.CenterY = v)
-            .PropertyFlags(PropertyFlags.Styleable | PropertyFlags.Designable)
+            .PropertyFlags(PropertyFlags.KnownFlags_1)
             .DefaultValue(0)
+            .SerializeName("center-y")
             .Register();
 
         CenterZProperty = ConfigureProperty<float, Rotation3DTransform>(nameof(CenterZ))
             .Accessor(o => o.CenterZ, (o, v) => o.CenterZ = v)
-            .PropertyFlags(PropertyFlags.Styleable | PropertyFlags.Designable)
+            .PropertyFlags(PropertyFlags.KnownFlags_1)
             .DefaultValue(0)
+            .SerializeName("center-z")
             .Register();
 
         DepthProperty = ConfigureProperty<float, Rotation3DTransform>(nameof(Depth))
             .Accessor(o => o.Depth, (o, v) => o.Depth = v)
-            .PropertyFlags(PropertyFlags.Styleable | PropertyFlags.Designable)
+            .PropertyFlags(PropertyFlags.KnownFlags_1)
             .DefaultValue(0)
+            .SerializeName("depth")
             .Register();
 
         AffectsRender<Rotation3DTransform>(

@@ -137,13 +137,7 @@ public partial class TimelineLayer : UserControl
                 });
             };
             _disposable1 = viewModel.Model.GetObservable(Layer.IsEnabledProperty)
-                .Subscribe(b =>
-                {
-                    Dispatcher.UIThread.InvokeAsync(() =>
-                    {
-                        border.Opacity = b ? 1 : 0.5;
-                    });
-                });
+                .Subscribe(b => Dispatcher.UIThread.InvokeAsync(() => border.Opacity = b ? 1 : 0.5));
         }
     }
 
@@ -226,7 +220,8 @@ public partial class TimelineLayer : UserControl
             _mouseFlag = MouseFlags.MouseDown;
             _layerStartAbs = e.GetPosition(this);
             _layerStartRel = point.Position;
-            _timeline.ViewModel.Scene.SelectedItem = ViewModel.Model;
+            EditViewModel editorContext = _timeline.ViewModel.EditorContext;
+            editorContext.SelectedObject.Value = ViewModel.Model;
 
             e.Handled = true;
 
@@ -238,11 +233,14 @@ public partial class TimelineLayer : UserControl
 
     private async void Border_PointerReleased(object? sender, PointerReleasedEventArgs e)
     {
+        if (_timeline == null) return;
+
         _mouseFlag = MouseFlags.MouseUp;
         s_animation1.PlaybackDirection = PlaybackDirection.Reverse;
         Task task1 = s_animation1.RunAsync(border, null);
 
-        ViewModel.Scene.SelectedItem = ViewModel.Model;
+        EditViewModel editorContext = _timeline.ViewModel.EditorContext;
+        editorContext.SelectedObject.Value = ViewModel.Model;
         await task1;
         border.Opacity = 1;
     }

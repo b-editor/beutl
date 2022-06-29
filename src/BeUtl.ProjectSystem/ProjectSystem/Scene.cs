@@ -17,7 +17,6 @@ public class Scene : Element, IStorable, IWorkspaceItem
     public static readonly CoreProperty<Layers> ChildrenProperty;
     public static readonly CoreProperty<TimeSpan> DurationProperty;
     public static readonly CoreProperty<TimeSpan> CurrentFrameProperty;
-    public static readonly CoreProperty<Layer?> SelectedItemProperty;
     public static readonly CoreProperty<PreviewOptions?> PreviewOptionsProperty;
     public static readonly CoreProperty<IRenderer> RendererProperty;
     private readonly List<string> _includeLayers = new()
@@ -29,7 +28,6 @@ public class Scene : Element, IStorable, IWorkspaceItem
     private string? _fileName;
     private TimeSpan _duration = TimeSpan.FromMinutes(5);
     private TimeSpan _currentFrame;
-    private Layer? _selectedItem;
     private PreviewOptions? _previewOptions;
     private IRenderer _renderer;
     private EventHandler? _saved;
@@ -76,20 +74,10 @@ public class Scene : Element, IStorable, IWorkspaceItem
             .SerializeName("currentFrame")
             .Register();
 
-        SelectedItemProperty = ConfigureProperty<Layer?, Scene>(nameof(SelectedItem))
-            .Accessor(o => o.SelectedItem, (o, v) => o.SelectedItem = v)
-            .Observability(PropertyObservability.DoNotNotifyLogicalTree)
-            .Register();
-
         PreviewOptionsProperty = ConfigureProperty<PreviewOptions?, Scene>(nameof(PreviewOptions))
             .Accessor(o => o.PreviewOptions, (o, v) => o.PreviewOptions = v)
             .Observability(PropertyObservability.Changed)
             .Register();
-
-        //TimelineOptionsProperty = ConfigureProperty<TimelineOptions, Scene>(nameof(TimelineOptions))
-        //    .Accessor(o => o.TimelineOptions, (o, v) => o.TimelineOptions = v)
-        //    .Observability(PropertyObservability.Changed)
-        //    .Register();
 
         RendererProperty = ConfigureProperty<IRenderer, Scene>(nameof(Renderer))
             .Accessor(o => o.Renderer, (o, v) => o.Renderer = v)
@@ -156,12 +144,6 @@ public class Scene : Element, IStorable, IWorkspaceItem
     {
         get => _children;
         set => _children.Replace(value);
-    }
-
-    public Layer? SelectedItem
-    {
-        get => _selectedItem;
-        set => SetAndRaise(SelectedItemProperty, ref _selectedItem, value);
     }
 
     public PreviewOptions? PreviewOptions
@@ -504,8 +486,8 @@ public class Scene : Element, IStorable, IWorkspaceItem
 
         public void Undo()
         {
-            _layer.ZIndex = -1;
             _scene.Children.Remove(_layer);
+            _layer.ZIndex = -1;
         }
     }
 
@@ -524,8 +506,8 @@ public class Scene : Element, IStorable, IWorkspaceItem
         public void Do()
         {
             _layerNum = _layer.ZIndex;
-            _layer.ZIndex = -1;
             _scene.Children.Remove(_layer);
+            _layer.ZIndex = -1;
         }
 
         public void Redo()

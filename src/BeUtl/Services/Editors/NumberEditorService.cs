@@ -8,7 +8,7 @@ public class NumberEditorService
         { typeof(byte), new ByteEditorService() },
         { typeof(decimal), new DecimalEditorService() },
         { typeof(double), new DoubleEditorService() },
-        { typeof(float), new FloatEditorService() },
+        { typeof(float), new SingleEditorService() },
         { typeof(short), new Int16EditorService() },
         { typeof(int), new Int32EditorService() },
         { typeof(long), new Int64EditorService() },

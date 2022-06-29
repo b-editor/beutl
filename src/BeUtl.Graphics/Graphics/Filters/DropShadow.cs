@@ -20,25 +20,29 @@ public sealed class DropShadow : ImageFilter
         PositionProperty = ConfigureProperty<Point, DropShadow>(nameof(Position))
             .Accessor(o => o.Position, (o, v) => o.Position = v)
             .DefaultValue(new Point())
-            .PropertyFlags(PropertyFlags.Styleable | PropertyFlags.Designable)
+            .PropertyFlags(PropertyFlags.KnownFlags_1)
+            .SerializeName("position")
             .Register();
 
         SigmaProperty = ConfigureProperty<Vector, DropShadow>(nameof(Sigma))
             .Accessor(o => o.Sigma, (o, v) => o.Sigma = v)
             .DefaultValue(Vector.Zero)
-            .PropertyFlags(PropertyFlags.Styleable | PropertyFlags.Designable)
+            .PropertyFlags(PropertyFlags.KnownFlags_1)
+            .SerializeName("sigma")
             .Register();
 
         ColorProperty = ConfigureProperty<Color, DropShadow>(nameof(Color))
             .Accessor(o => o.Color, (o, v) => o.Color = v)
             .DefaultValue(Colors.Transparent)
-            .PropertyFlags(PropertyFlags.Styleable | PropertyFlags.Designable)
+            .PropertyFlags(PropertyFlags.KnownFlags_1)
+            .SerializeName("color")
             .Register();
 
         ShadowOnlyProperty = ConfigureProperty<bool, DropShadow>(nameof(ShadowOnly))
             .Accessor(o => o.ShadowOnly, (o, v) => o.ShadowOnly = v)
             .DefaultValue(false)
-            .PropertyFlags(PropertyFlags.Styleable | PropertyFlags.Designable)
+            .PropertyFlags(PropertyFlags.KnownFlags_1)
+            .SerializeName("shadow-only")
             .Register();
 
         AffectsRender<DropShadow>(PositionProperty, SigmaProperty, ColorProperty, ShadowOnlyProperty);

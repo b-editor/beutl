@@ -1,8 +1,15 @@
-﻿namespace BeUtl.Styling;
+﻿using BeUtl.Collections;
+using BeUtl.Media;
+
+namespace BeUtl.Styling;
 
 public interface IStyle
 {
-    IList<ISetter> Setters { get; }
+    ICoreList<ISetter> Setters { get; }
+
+    Type TargetType { get; }
+
+    event EventHandler? Invalidated;
 
     IStyleInstance Instance(IStyleable target, IStyleInstance? baseStyle = null);
 }

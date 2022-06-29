@@ -53,14 +53,6 @@ public static class ElementExtensions
         return new CoreObjectSubject<T>(obj, property);
     }
 
-    public static ISubject<T> GetSubject<T>(this ICoreObject obj, CoreProperty<T> property)
-    {
-        ArgumentNullException.ThrowIfNull(obj);
-        ArgumentNullException.ThrowIfNull(property);
-
-        return new CoreObjectSubject<T>(obj, property);
-    }
-
     private sealed class CorePropertyChangedObservable<T> : LightweightObservableBase<CorePropertyChangedEventArgs<T>>
     {
         private readonly CoreProperty<T> _property;

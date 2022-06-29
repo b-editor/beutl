@@ -31,8 +31,27 @@ public sealed class TextEditorContext : IEditorContext
 
     public ReactiveProperty<string> Text { get; } = new();
 
+    public void CloseToolTab(IToolContext item)
+    {
+    }
+
     public void Dispose()
     {
+    }
+
+    public T? FindToolTab<T>(Func<T, bool> condition) where T : IToolContext
+    {
+        return default;
+    }
+
+    public T? FindToolTab<T>() where T : IToolContext
+    {
+        return default;
+    }
+
+    public bool OpenToolTab(IToolContext item)
+    {
+        return false;
     }
 
     private sealed class CommandsImpl : IKnownEditorCommands

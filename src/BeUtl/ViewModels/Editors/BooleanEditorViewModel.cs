@@ -1,4 +1,4 @@
-﻿using BeUtl.ProjectSystem;
+﻿using BeUtl.Services.Editors.Wrappers;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
@@ -7,10 +7,10 @@ namespace BeUtl.ViewModels.Editors;
 
 public sealed class BooleanEditorViewModel : BaseEditorViewModel<bool>
 {
-    public BooleanEditorViewModel(PropertyInstance<bool> setter)
-        : base(setter)
+    public BooleanEditorViewModel(IWrappedProperty<bool> property)
+        : base(property)
     {
-        Value = setter.GetObservable()
+        Value = property.GetObservable()
             .ToReadOnlyReactivePropertySlim()
             .AddTo(Disposables);
     }

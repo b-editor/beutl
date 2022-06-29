@@ -1,12 +1,15 @@
 ﻿using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
+using System.Text.Json.Nodes;
 
 using Avalonia;
 
 using BeUtl.Animation;
 using BeUtl.Animation.Easings;
+using BeUtl.Framework;
 using BeUtl.ProjectSystem;
+using BeUtl.Services.PrimitiveImpls;
 using BeUtl.ViewModels.Editors;
 
 using Reactive.Bindings;
@@ -14,7 +17,7 @@ using Reactive.Bindings.Extensions;
 
 namespace BeUtl.ViewModels;
 
-public sealed class AnimationTimelineViewModel : IDisposable
+public sealed class AnimationTimelineViewModel : IDisposable, IToolContext
 {
     private readonly CompositeDisposable _disposables = new();
 
@@ -30,19 +33,19 @@ public sealed class AnimationTimelineViewModel : IDisposable
         OptionsProvider = optionsProvider;
         Scene = Layer.FindRequiredLogicalParent<Scene>();
 
-        BorderMargin = Layer.GetSubject(Layer.StartProperty)
+        BorderMargin = Layer.GetObservable(Layer.StartProperty)
             .CombineLatest(OptionsProvider.Scale)
             .Select(item => new Thickness(item.First.ToPixel(item.Second), 0, 0, 0))
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
 
-        Width = Layer.GetSubject(Layer.LengthProperty)
+        Width = Layer.GetObservable(Layer.LengthProperty)
             .CombineLatest(OptionsProvider.Scale)
             .Select(item => item.First.ToPixel(item.Second))
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
 
-        Color = Layer.GetSubject(Layer.AccentColorProperty)
+        Color = Layer.GetObservable(Layer.AccentColorProperty)
             .Select(c => c.ToAvalonia())
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
@@ -62,6 +65,11 @@ public sealed class AnimationTimelineViewModel : IDisposable
         EndingBarMargin = PanelWidth.Select(p => new Thickness(p, 0, 0, 0))
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
+
+        Header = layer.GetObservable(CoreObject.NameProperty)
+            .Select(n => $"{n} / {Setter.Property.Name}")
+            .ToReadOnlyReactivePropertySlim($"{layer.Name} / {Setter.Property.Name}")
+            .AddTo(_disposables);
     }
 
     public Scene Scene { get; }
@@ -71,7 +79,9 @@ public sealed class AnimationTimelineViewModel : IDisposable
     public IAnimatablePropertyInstance Setter { get; }
 
     public EditorViewModelDescription Description { get; }
+
     public ITimelineOptionsProvider OptionsProvider { get; }
+
     public ReadOnlyReactivePropertySlim<Thickness> BorderMargin { get; }
 
     public ReadOnlyReactivePropertySlim<double> Width { get; }
@@ -84,7 +94,13 @@ public sealed class AnimationTimelineViewModel : IDisposable
 
     public ReadOnlyReactivePropertySlim<Thickness> EndingBarMargin { get; }
 
-    public ReactivePropertySlim<bool> IsSelected { get; } = new();
+    public IReactiveProperty<bool> IsSelected { get; } = new ReactivePropertySlim<bool>();
+
+    public ToolTabExtension Extension => AnimationTimelineTabExtension.Instance;
+
+    public IReadOnlyReactiveProperty<string> Header { get; }
+
+    public ToolTabExtension.TabPlacement Placement => ToolTabExtension.TabPlacement.Bottom;
 
     public void Dispose()
     {
@@ -109,5 +125,13 @@ public sealed class AnimationTimelineViewModel : IDisposable
 
             Setter.AddChild(animation).DoAndRecord(CommandRecorder.Default);
         }
+    }
+
+    public void ReadFromJson(JsonNode json)
+    {
+    }
+
+    public void WriteToJson(ref JsonNode json)
+    {
     }
 }

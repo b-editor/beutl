@@ -1,0 +1,73 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:vm="using:BeUtl.ViewModels.Editors"
+             xmlns:local="using:BeUtl.Views.Editors"
+             xmlns:media="using:BeUtl.Media"
+             mc:Ignorable="d" d:DesignWidth="300"
+             x:Name="root"
+             x:DataType="vm:BrushEditorViewModel"
+             x:Class="BeUtl.Views.Editors.BrushEditor">
+    <Grid ColumnDefinitions="2*,3*,Auto">
+        <TextBlock
+            Margin="10,0,0,0"
+            Text="{CompiledBinding Header.Value}"
+            HorizontalAlignment="Left"
+            VerticalAlignment="Center" />
+
+        <Label Grid.Column="1" Content="{Binding Value.Value}" Padding="0">
+            <Label.DataTemplates>
+                <DataTemplate>
+                    <Button Margin="4"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Left"
+                            IsVisible="{Binding #root.DataContext.IsSet.Value}"
+                            Click="Navigate_Click">
+                        <StackPanel Orientation="Horizontal" Spacing="16">
+                            <ui:SymbolIcon Symbol="Open" />
+                            <TextBlock Text="{DynamicResource S.Common.Edit}" />
+                        </StackPanel>
+                    </Button>
+                </DataTemplate>
+            </Label.DataTemplates>
+        </Label>
+
+        <Button Grid.Column="1"
+                Margin="4"
+                HorizontalAlignment="Stretch"
+                HorizontalContentAlignment="Left"
+                IsVisible="{Binding IsNotSetAndCanWrite.Value}"
+                Click="New_Click">
+            <StackPanel Orientation="Horizontal" Spacing="16">
+                <ui:SymbolIcon Symbol="New" />
+                <TextBlock Text="{DynamicResource S.Common.CreateNew}" />
+            </StackPanel>
+        </Button>
+
+        <Button Width="24" Height="24"
+                Grid.Column="2"
+                Padding="0" BorderThickness="0"
+                Click="Menu_Click"
+                HorizontalAlignment="Center"
+                Background="Transparent">
+            <Button.ContextMenu>
+                <ContextMenu>
+                    <MenuItem Click="Navigate_Click"
+                              IsEnabled="{Binding IsSet.Value}"
+                              Header="編集" />
+                    <MenuItem Click="New_Click"
+                              IsEnabled="{Binding CanWrite}"
+                              Header="新規作成" />
+                    <MenuItem Click="Delete_Click"
+                              IsEnabled="{Binding CanDelete}"
+                              Header="削除" />
+                </ContextMenu>
+            </Button.ContextMenu>
+            <FluentIconRegular Width="16" Height="16"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                               IconType="More_Vertical" />
+        </Button>
+    </Grid>
+</UserControl>

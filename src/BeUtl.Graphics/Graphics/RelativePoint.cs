@@ -1,5 +1,7 @@
 ﻿using System.Globalization;
+using System.Text.Json.Serialization;
 
+using BeUtl.Converters;
 using BeUtl.Utilities;
 
 namespace BeUtl.Graphics;
@@ -7,6 +9,7 @@ namespace BeUtl.Graphics;
 /// <summary>
 /// Defines a point that may be defined relative to a containing element.
 /// </summary>
+[JsonConverter(typeof(RelativePointJsonConverter))]
 public readonly struct RelativePoint : IEquatable<RelativePoint>
 {
     /// <summary>

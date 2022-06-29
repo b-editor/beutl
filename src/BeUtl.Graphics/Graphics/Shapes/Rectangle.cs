@@ -3,14 +3,15 @@
 public sealed class Rectangle : Drawable
 {
     public static readonly CoreProperty<float> StrokeWidthProperty;
-    private float _strokeWidth;
+    private float _strokeWidth = 4000;
 
     static Rectangle()
     {
         StrokeWidthProperty = ConfigureProperty<float, Rectangle>(nameof(StrokeWidth))
             .Accessor(o => o.StrokeWidth, (o, v) => o.StrokeWidth = v)
-            .PropertyFlags(PropertyFlags.Styleable | PropertyFlags.Designable)
+            .PropertyFlags(PropertyFlags.KnownFlags_1)
             .DefaultValue(4000)
+            .SerializeName("stroke-width")
             .Register();
 
         AffectsRender<Rectangle>(StrokeWidthProperty);

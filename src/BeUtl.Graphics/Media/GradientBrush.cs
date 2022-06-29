@@ -1,4 +1,6 @@
-﻿namespace BeUtl.Media;
+﻿using System.Text.Json.Nodes;
+
+namespace BeUtl.Media;
 
 /// <summary>
 /// Base class for brushes that draw with a gradient.
@@ -14,13 +16,14 @@ public abstract class GradientBrush : Brush, IGradientBrush
     {
         SpreadMethodProperty = ConfigureProperty<GradientSpreadMethod, GradientBrush>(nameof(SpreadMethod))
             .Accessor(o => o.SpreadMethod, (o, v) => o.SpreadMethod = v)
-            .PropertyFlags(PropertyFlags.Styleable | PropertyFlags.Designable)
+            .PropertyFlags(PropertyFlags.KnownFlags_1)
             .DefaultValue(GradientSpreadMethod.Pad)
+            .SerializeName("spread-method")
             .Register();
 
         GradientStopsProperty = ConfigureProperty<GradientStops, GradientBrush>(nameof(GradientStops))
             .Accessor(o => o.GradientStops, (o, v) => o.GradientStops = v)
-            .PropertyFlags(PropertyFlags.Styleable | PropertyFlags.Designable)
+            .PropertyFlags(PropertyFlags.KnownFlags_1)
             .Register();
 
         AffectsRender<GradientBrush>(SpreadMethodProperty, GradientStopsProperty);
@@ -55,4 +58,48 @@ public abstract class GradientBrush : Brush, IGradientBrush
 
     /// <inheritdoc/>
     IReadOnlyList<IGradientStop> IGradientBrush.GradientStops => GradientStops;
+
+    public override void ReadFromJson(JsonNode json)
+    {
+        base.ReadFromJson(json);
+        if (json is JsonObject jobject)
+        {
+            if (jobject.TryGetPropertyValue("gradient-stops", out JsonNode? childrenNode)
+                && childrenNode is JsonArray childrenArray)
+            {
+                _gradientStops.Clear();
+                if (_gradientStops.Capacity < childrenArray.Count)
+                {
+                    _gradientStops.Capacity = childrenArray.Count;
+                }
+
+                foreach (JsonObject childJson in childrenArray.OfType<JsonObject>())
+                {
+                    var item = new GradientStop();
+                    item.ReadFromJson(childJson);
+                    _gradientStops.Add(item);
+                }
+            }
+        }
+    }
+
+    public override void WriteToJson(ref JsonNode json)
+    {
+        base.WriteToJson(ref json);
+
+        if (json is JsonObject jobject)
+        {
+            var array = new JsonArray();
+
+            foreach (GradientStop item in _gradientStops.AsSpan())
+            {
+                JsonNode node = new JsonObject();
+                item.WriteToJson(ref node);
+
+                array.Add(node);
+            }
+
+            jobject["gradient-stops"] = array;
+        }
+    }
 }

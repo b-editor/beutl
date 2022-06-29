@@ -14,8 +14,9 @@ public abstract class Brush : Styleable, IMutableBrush
     {
         OpacityProperty = ConfigureProperty<float, Brush>(nameof(Opacity))
             .Accessor(o => o.Opacity, (o, v) => o.Opacity = v)
-            .PropertyFlags(PropertyFlags.Styleable | PropertyFlags.Designable)
+            .PropertyFlags(PropertyFlags.KnownFlags_1)
             .DefaultValue(1f)
+            .SerializeName("opacity")
             .Register();
 
         AffectsRender<Brush>(OpacityProperty);
@@ -41,13 +42,13 @@ public abstract class Brush : Styleable, IMutableBrush
         CoreProperty? property4 = null)
         where T : Brush
     {
-        Action<CorePropertyChangedEventArgs> onNext = e =>
+        static void onNext(CorePropertyChangedEventArgs e)
         {
             if (e.Sender is T s)
             {
                 s.RaiseInvalidated();
             }
-        };
+        }
 
         property1?.Changed.Subscribe(onNext);
         property2?.Changed.Subscribe(onNext);

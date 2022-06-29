@@ -1,4 +1,6 @@
-﻿using System.Text.Json;
+﻿using System.Reactive;
+using System.Reactive.Linq;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 
 using BeUtl.Collections;
@@ -15,6 +17,8 @@ public class Layer : Element, IStorable, ILogicalElement
     public static readonly CoreProperty<int> ZIndexProperty;
     public static readonly CoreProperty<Color> AccentColorProperty;
     public static readonly CoreProperty<bool> IsEnabledProperty;
+    public static readonly CoreProperty<LayerNode> NodeProperty;
+    public static readonly CoreProperty<LogicalList<LayerOperation>> ChildrenProperty;
     private TimeSpan _start;
     private TimeSpan _length;
     private int _zIndex;
@@ -22,6 +26,7 @@ public class Layer : Element, IStorable, ILogicalElement
     private bool _isEnabled = true;
     private EventHandler? _saved;
     private EventHandler? _restored;
+    private IDisposable? _disposable;
 
     static Layer()
     {
@@ -54,6 +59,15 @@ public class Layer : Element, IStorable, ILogicalElement
             .DefaultValue(true)
             .Observability(PropertyObservability.Changed)
             .SerializeName("isEnabled")
+            .Register();
+
+        NodeProperty = ConfigureProperty<LayerNode, Layer>(nameof(Node))
+            .Accessor(o => o.Node, null)
+            .Observability(PropertyObservability.Changed)
+            .Register();
+
+        ChildrenProperty = ConfigureProperty<LogicalList<LayerOperation>, Layer>(nameof(Children))
+            .Accessor(o => o.Children, null)
             .Register();
 
         NameProperty.OverrideMetadata<Layer>(new CorePropertyMetadata<string>
@@ -211,21 +225,34 @@ public class Layer : Element, IStorable, ILogicalElement
         if (json is JsonObject jobject)
         {
             // NOTE: リリース時に削除。互換性を保つためのコードなので
-            if (!jobject.ContainsKey("zIndex") && jobject.TryGetPropertyValue("layer", out JsonNode? layerNode) &&
-                layerNode is JsonValue layerValue &&
-                layerValue.TryGetValue(out int layer))
+            if (!jobject.ContainsKey("zIndex") && jobject.TryGetPropertyValue("layer", out JsonNode? layerNode)
+                && layerNode is JsonValue layerValue
+                && layerValue.TryGetValue(out int layer))
             {
                 ZIndex = layer;
             }
 
-            if (jobject.TryGetPropertyValue("operations", out JsonNode? operationsNode) &&
-                operationsNode is JsonArray operationsArray)
+            if (jobject.TryGetPropertyValue("renderable", out JsonNode? renderableNode)
+                && renderableNode is JsonObject renderableObj
+                && renderableObj.TryGetPropertyValue("@type", out JsonNode? renderableTypeNode)
+                && renderableTypeNode is JsonValue renderableTypeValue
+                && renderableTypeValue.TryGetValue(out string? renderableTypeStr)
+                && TypeFormat.ToType(renderableTypeStr) is Type renderableType
+                && renderableType.IsAssignableTo(typeof(Renderable))
+                && Activator.CreateInstance(renderableType) is Renderable renderable)
+            {
+                renderable.ReadFromJson(renderableObj);
+                Node.Value = renderable;
+            }
+
+            if (jobject.TryGetPropertyValue("operations", out JsonNode? operationsNode)
+                && operationsNode is JsonArray operationsArray)
             {
                 foreach (JsonObject operationJson in operationsArray.OfType<JsonObject>())
                 {
-                    if (operationJson.TryGetPropertyValue("@type", out JsonNode? atTypeNode) &&
-                        atTypeNode is JsonValue atTypeValue &&
-                        atTypeValue.TryGetValue(out string? atType))
+                    if (operationJson.TryGetPropertyValue("@type", out JsonNode? atTypeNode)
+                        && atTypeNode is JsonValue atTypeValue
+                        && atTypeValue.TryGetValue(out string? atType))
                     {
                         var type = TypeFormat.ToType(atType);
                         LayerOperation? operation = null;
@@ -250,21 +277,33 @@ public class Layer : Element, IStorable, ILogicalElement
 
         if (json is JsonObject jobject)
         {
-            var array = new JsonArray();
-
-            foreach (LayerOperation item in Children)
+            if (Node.Value is Renderable renderable)
             {
                 JsonNode node = new JsonObject();
-                item.WriteToJson(ref node);
-                if (item is not EmptyOperation)
-                {
-                    node["@type"] = TypeFormat.ToString(item.GetType());
-                }
-
-                array.Add(node);
+                renderable.WriteToJson(ref node);
+                node["@type"] = TypeFormat.ToString(renderable.GetType());
+                jobject["renderable"] = node;
             }
 
-            jobject["operations"] = array;
+            Span<LayerOperation> children = Children.AsSpan();
+            if (children.Length > 0)
+            {
+                var array = new JsonArray();
+
+                foreach (LayerOperation item in children)
+                {
+                    JsonNode node = new JsonObject();
+                    item.WriteToJson(ref node);
+                    if (item is not EmptyOperation)
+                    {
+                        node["@type"] = TypeFormat.ToString(item.GetType());
+                    }
+
+                    array.Add(node);
+                }
+
+                jobject["operations"] = array;
+            }
         }
     }
 
@@ -301,6 +340,8 @@ public class Layer : Element, IStorable, ILogicalElement
                 renderer[ZIndex] = context;
             }
             context.AddNode(Node);
+
+            _disposable = SubscribeToLayerNode();
         }
     }
 
@@ -310,6 +351,8 @@ public class Layer : Element, IStorable, ILogicalElement
         if (args.Parent is Scene { Renderer: { IsDisposed: false } renderer } && ZIndex >= 0)
         {
             renderer[ZIndex]?.RemoveNode(Node);
+            _disposable?.Dispose();
+            _disposable = null;
         }
     }
 
@@ -324,10 +367,22 @@ public class Layer : Element, IStorable, ILogicalElement
         if (scene != null &&
             Start <= scene.CurrentFrame &&
             scene.CurrentFrame < Start + Length &&
-            scene.Renderer is { IsDisposed: false })
+            scene.Renderer is { IsDisposed: false, IsRendering: false })
         {
             scene.Renderer.Invalidate(scene.CurrentFrame);
         }
+    }
+
+    private IDisposable SubscribeToLayerNode()
+    {
+        return Node.GetObservable(LayerNode.ValueProperty)
+            .SelectMany(value => value != null
+                ? Observable.FromEventPattern(h => value.Invalidated += h, h => value.Invalidated -= h)
+                    .Select(_ => Unit.Default)
+                    .Publish(Unit.Default)
+                    .RefCount()
+                : Observable.Return(Unit.Default))
+            .Subscribe(_ => ForceRender());
     }
 
     internal Layer? GetBefore(int zindex, TimeSpan start)

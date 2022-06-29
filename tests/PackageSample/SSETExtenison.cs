@@ -1,33 +1,72 @@
-﻿using Avalonia.Controls;
-using Avalonia.Media;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Text.Json.Nodes;
+
+using Avalonia.Controls;
+using Avalonia.Layout;
 
 using BeUtl;
-using BeUtl.Controls;
 using BeUtl.Framework;
-using BeUtl.ProjectSystem;
+
+using Reactive.Bindings;
 
 namespace PackageSample;
 
 // SampleSceneEditorTabExtenison
-public sealed class SSETExtenison : SceneEditorTabExtension
+public sealed class SSETExtenison : ToolTabExtension
 {
-    public override Geometry? Icon { get; } = FluentIconsRegular.Document.GetGeometry();
-
-    public override TabPlacement Placement { get; }
-
-    public override bool IsClosable { get; }
-
-    public override ResourceReference<string> Header => "S.SamplePackage.SSETExtension";
+    public override bool CanMultiple => true;
 
     public override string Name => "Sample tab";
 
     public override string DisplayName => "Sample tab";
 
-    public override object CreateContent(Scene scene)
+    public override ResourceReference<string>? Header => "S.SamplePackage.SSETExtension";
+
+    public override bool TryCreateContent(IEditorContext editorContext, [NotNullWhen(true)] out IControl? control)
     {
-        return new TextBlock
+        control = new TextBlock()
         {
-            Text = "Tab content"
+            Text = "Hello world!",
+            VerticalAlignment = VerticalAlignment.Center,
+            HorizontalAlignment = HorizontalAlignment.Center,
         };
+        return true;
+    }
+
+    public override bool TryCreateContext(IEditorContext editorContext, [NotNullWhen(true)] out IToolContext? context)
+    {
+        context = new Context(this);
+        return true;
+    }
+
+    private sealed class Context : IToolContext
+    {
+        public Context(ToolTabExtension extension)
+        {
+            Extension = extension;
+            IsSelected = new ReactiveProperty<bool>();
+        }
+
+        public ToolTabExtension Extension { get; }
+
+        public IReactiveProperty<bool> IsSelected { get; }
+
+        public IReadOnlyReactiveProperty<string> Header { get; } = new ReactivePropertySlim<string>("Sample tab");
+
+        public TabPlacement Placement => TabPlacement.Bottom;
+
+        public void Dispose()
+        {
+        }
+
+        public void ReadFromJson(JsonNode json)
+        {
+
+        }
+
+        public void WriteToJson(ref JsonNode json)
+        {
+
+        }
     }
 }

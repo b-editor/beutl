@@ -12,7 +12,7 @@ public sealed class Vector2AnimationEditorViewModel : AnimationEditorViewModel<V
     {
     }
 
-    public Vector2 Maximum => Setter.GetMaximumOrDefault(new Vector2(float.MaxValue, float.MaxValue));
+    public Vector2 Maximum => WrappedProperty.GetMaximumOrDefault(new Vector2(float.MaxValue, float.MaxValue));
 
-    public Vector2 Minimum => Setter.GetMinimumOrDefault(new Vector2(float.MinValue, float.MinValue));
+    public Vector2 Minimum => WrappedProperty.GetMinimumOrDefault(new Vector2(float.MinValue, float.MinValue));
 }

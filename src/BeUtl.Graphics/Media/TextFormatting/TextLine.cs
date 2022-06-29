@@ -1,4 +1,6 @@
-﻿using BeUtl.Graphics;
+﻿using System.Text.Json.Nodes;
+
+using BeUtl.Graphics;
 
 namespace BeUtl.Media.TextFormatting;
 
@@ -16,7 +18,7 @@ public sealed class TextLine : Drawable, ILogicalElement
     {
         ElementsProperty = ConfigureProperty<TextElements, TextLine>(nameof(Elements))
             .Accessor(o => o.Elements, (o, v) => o.Elements = v)
-            .PropertyFlags(PropertyFlags.Styleable | PropertyFlags.Designable)
+            .PropertyFlags(PropertyFlags.KnownFlags_1)
             .Register();
     }
 
@@ -47,6 +49,50 @@ public sealed class TextLine : Drawable, ILogicalElement
         }
 
         return ascent;
+    }
+
+    public override void ReadFromJson(JsonNode json)
+    {
+        base.ReadFromJson(json);
+        if (json is JsonObject jobject)
+        {
+            if (jobject.TryGetPropertyValue("elements", out JsonNode? childrenNode)
+                && childrenNode is JsonArray childrenArray)
+            {
+                _elements.Clear();
+                if (_elements.Capacity < childrenArray.Count)
+                {
+                    _elements.Capacity = childrenArray.Count;
+                }
+
+                foreach (JsonObject childJson in childrenArray.OfType<JsonObject>())
+                {
+                    var item = new TextElement();
+                    item.ReadFromJson(childJson);
+                    _elements.Add(item);
+                }
+            }
+        }
+    }
+
+    public override void WriteToJson(ref JsonNode json)
+    {
+        base.WriteToJson(ref json);
+
+        if (json is JsonObject jobject)
+        {
+            var array = new JsonArray();
+
+            foreach (TextElement item in _elements.AsSpan())
+            {
+                JsonNode node = new JsonObject();
+                item.WriteToJson(ref node);
+
+                array.Add(node);
+            }
+
+            jobject["elements"] = array;
+        }
     }
 
     protected override Size MeasureCore(Size availableSize)

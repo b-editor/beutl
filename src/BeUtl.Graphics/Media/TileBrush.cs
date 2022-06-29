@@ -26,44 +26,51 @@ public abstract class TileBrush : Brush, ITileBrush
     {
         AlignmentXProperty = ConfigureProperty<AlignmentX, TileBrush>(nameof(AlignmentX))
             .Accessor(o => o.AlignmentX, (o, v) => o.AlignmentX = v)
-            .PropertyFlags(PropertyFlags.Styleable | PropertyFlags.Designable)
+            .PropertyFlags(PropertyFlags.KnownFlags_1)
             .DefaultValue(AlignmentX.Center)
+            .SerializeName("alignment-x")
             .Register();
 
         AlignmentYProperty = ConfigureProperty<AlignmentY, TileBrush>(nameof(AlignmentY))
             .Accessor(o => o.AlignmentY, (o, v) => o.AlignmentY = v)
-            .PropertyFlags(PropertyFlags.Styleable | PropertyFlags.Designable)
+            .PropertyFlags(PropertyFlags.KnownFlags_1)
             .DefaultValue(AlignmentY.Center)
+            .SerializeName("alignment-y")
             .Register();
 
         DestinationRectProperty = ConfigureProperty<RelativeRect, TileBrush>(nameof(DestinationRect))
             .Accessor(o => o.DestinationRect, (o, v) => o.DestinationRect = v)
-            .PropertyFlags(PropertyFlags.Styleable | PropertyFlags.Designable)
+            .PropertyFlags(PropertyFlags.KnownFlags_1)
             .DefaultValue(RelativeRect.Fill)
+            .SerializeName("destination-rect")
             .Register();
 
         SourceRectProperty = ConfigureProperty<RelativeRect, TileBrush>(nameof(SourceRect))
             .Accessor(o => o.SourceRect, (o, v) => o.SourceRect = v)
-            .PropertyFlags(PropertyFlags.Styleable | PropertyFlags.Designable)
+            .PropertyFlags(PropertyFlags.KnownFlags_1)
             .DefaultValue(RelativeRect.Fill)
+            .SerializeName("source-rect")
             .Register();
 
         StretchProperty = ConfigureProperty<Stretch, TileBrush>(nameof(Stretch))
             .Accessor(o => o.Stretch, (o, v) => o.Stretch = v)
-            .PropertyFlags(PropertyFlags.Styleable | PropertyFlags.Designable)
+            .PropertyFlags(PropertyFlags.KnownFlags_1)
             .DefaultValue(Stretch.Uniform)
+            .SerializeName("stretch")
             .Register();
 
         TileModeProperty = ConfigureProperty<TileMode, TileBrush>(nameof(TileMode))
             .Accessor(o => o.TileMode, (o, v) => o.TileMode = v)
-            .PropertyFlags(PropertyFlags.Styleable | PropertyFlags.Designable)
+            .PropertyFlags(PropertyFlags.KnownFlags_1)
             .DefaultValue(TileMode.None)
+            .SerializeName("tile-mode")
             .Register();
 
         BitmapInterpolationModeProperty = ConfigureProperty<BitmapInterpolationMode, TileBrush>(nameof(BitmapInterpolationMode))
             .Accessor(o => o.BitmapInterpolationMode, (o, v) => o.BitmapInterpolationMode = v)
-            .PropertyFlags(PropertyFlags.Styleable | PropertyFlags.Designable)
+            .PropertyFlags(PropertyFlags.KnownFlags_1)
             .DefaultValue(BitmapInterpolationMode.Default)
+            .SerializeName("interpolation-mode")
             .Register();
 
         AffectsRender<TileBrush>(

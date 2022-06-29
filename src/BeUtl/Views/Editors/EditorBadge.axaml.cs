@@ -1,8 +1,11 @@
-using Avalonia.Controls;
+﻿using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
 
+using BeUtl.Commands;
 using BeUtl.ProjectSystem;
+using BeUtl.Services.Editors.Wrappers;
+using BeUtl.Styling;
 using BeUtl.ViewModels;
 using BeUtl.ViewModels.Editors;
 
@@ -26,31 +29,45 @@ public partial class EditorBadge : UserControl
     private void EditAnimation_Click(object? sender, RoutedEventArgs e)
     {
         if (DataContext is BaseEditorViewModel viewModel
-            && viewModel.Setter is IAnimatablePropertyInstance setter)
+            && viewModel.WrappedProperty.Tag is IAnimatablePropertyInstance setter)
         {
             EditView editView = this.FindLogicalAncestorOfType<EditView>();
             if (editView.DataContext is EditViewModel editViewModel)
             {
+                Layer? layer = setter.FindRequiredLogicalParent<Layer>();
                 AnimationTimelineViewModel? anmViewModel =
-                    editViewModel.AnimationTimelines.FirstOrDefault(i => ReferenceEquals(i.Setter, setter));
+                    editViewModel.BottomTabItems.OfType<AnimationTimelineViewModel>()
+                        .FirstOrDefault(anmtl => ReferenceEquals(anmtl.Setter, setter));
 
-                if (anmViewModel != null)
+                if (anmViewModel == null)
                 {
-                    anmViewModel.IsSelected.Value = true;
-                }
-                else
-                {
-                    Layer? layer = setter.FindRequiredLogicalParent<Layer>();
-                    editViewModel.AnimationTimelines.Add(
-                        new AnimationTimelineViewModel(layer, setter, viewModel.Description, editViewModel.Timeline)
+                    anmViewModel = new AnimationTimelineViewModel(
+                        layer,
+                        setter,
+                        viewModel.Description,
+                        editViewModel)
+                    {
+                        IsSelected =
                         {
-                            IsSelected =
-                            {
-                                Value = true
-                            }
-                        });
+                            Value = true
+                        }
+                    };
                 }
+
+                editViewModel.OpenToolTab(anmViewModel);
             }
+        }
+    }
+
+    private void DeleteSetter_Click(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is BaseEditorViewModel viewModel
+            && this.FindLogicalAncestorOfType<StyleEditor>()?.DataContext is StyleEditorViewModel parentViewModel
+            && viewModel.WrappedProperty is IStylingSetterWrapper wrapper
+            && parentViewModel.Style.Value is Style style
+            && wrapper.Tag is ISetter setter)
+        {
+            new RemoveCommand<ISetter>(style.Setters, setter).DoAndRecord(CommandRecorder.Default);
         }
     }
 }

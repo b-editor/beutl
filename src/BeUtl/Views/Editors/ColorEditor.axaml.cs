@@ -19,7 +19,7 @@ public sealed partial class ColorEditor : UserControl
         Avalonia.Media.Color? newColor = e.NewColor;
         if (DataContext is ColorEditorViewModel vm && newColor.HasValue)
         {
-            vm.SetValue(vm.Setter.Value, newColor.Value.ToMedia());
+            vm.SetValue(vm.WrappedProperty.GetValue(), newColor.Value.ToMedia());
         }
     }
 }

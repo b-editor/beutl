@@ -25,25 +25,25 @@ public class TimelineLayerViewModel : IDisposable
         Model = sceneLayer;
         Timeline = timeline;
 
-        ISubject<int> zIndexSubject = sceneLayer.GetSubject(Layer.ZIndexProperty);
+        IObservable<int> zIndexSubject = sceneLayer.GetObservable(Layer.ZIndexProperty);
         Margin = zIndexSubject
             .Select(item => new Thickness(0, item.ToLayerPixel(), 0, 0))
             .ToReactiveProperty()
             .AddTo(_disposables);
 
-        BorderMargin = sceneLayer.GetSubject(Layer.StartProperty)
-            .CombineLatest(timeline.Scale)
+        BorderMargin = sceneLayer.GetObservable(Layer.StartProperty)
+            .CombineLatest(timeline.EditorContext.Scale)
             .Select(item => new Thickness(item.First.ToPixel(item.Second), 0, 0, 0))
             .ToReactiveProperty()
             .AddTo(_disposables);
 
-        Width = sceneLayer.GetSubject(Layer.LengthProperty)
-            .CombineLatest(timeline.Scale)
+        Width = sceneLayer.GetObservable(Layer.LengthProperty)
+            .CombineLatest(timeline.EditorContext.Scale)
             .Select(item => item.First.ToPixel(item.Second))
             .ToReactiveProperty()
             .AddTo(_disposables);
 
-        Color = sceneLayer.GetSubject(Layer.AccentColorProperty)
+        Color = sceneLayer.GetObservable(Layer.AccentColorProperty)
             .Select(c => c.ToAvalonia())
             .ToReactiveProperty()
             .AddTo(_disposables);

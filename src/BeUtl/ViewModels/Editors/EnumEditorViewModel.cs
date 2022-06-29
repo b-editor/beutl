@@ -1,4 +1,4 @@
-﻿using BeUtl.ProjectSystem;
+﻿using BeUtl.Services.Editors.Wrappers;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
@@ -8,10 +8,10 @@ namespace BeUtl.ViewModels.Editors;
 public sealed class EnumEditorViewModel<T> : BaseEditorViewModel<T>
     where T : struct, Enum
 {
-    public EnumEditorViewModel(PropertyInstance<T> setter)
-        : base(setter)
+    public EnumEditorViewModel(IWrappedProperty<T> property)
+        : base(property)
     {
-        Value = setter.GetObservable()
+        Value = property.GetObservable()
             .ToReadOnlyReactivePropertySlim()
             .AddTo(Disposables);
     }

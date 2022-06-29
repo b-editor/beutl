@@ -1,12 +1,15 @@
 ﻿using System.Numerics;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
+using System.Text.Json.Nodes;
 
 using Avalonia;
 
 using BeUtl.Collections;
+using BeUtl.Framework;
 using BeUtl.Models;
 using BeUtl.ProjectSystem;
+using BeUtl.Services.PrimitiveImpls;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
@@ -15,31 +18,32 @@ namespace BeUtl.ViewModels;
 
 public interface ITimelineOptionsProvider
 {
-    public IReactiveProperty<TimelineOptions> Options { get; }
+    Scene Scene { get; }
 
-    public IObservable<float> Scale { get; }
+    IReactiveProperty<TimelineOptions> Options { get; }
 
-    public IObservable<Vector2> Offset { get; }
+    IObservable<float> Scale { get; }
+
+    IObservable<Vector2> Offset { get; }
 }
 
-public sealed class TimelineViewModel : IDisposable, ITimelineOptionsProvider
+public sealed class TimelineViewModel : IToolContext
 {
     private readonly CompositeDisposable _disposables = new();
 
-    public TimelineViewModel(Scene scene, PlayerViewModel player)
+    public TimelineViewModel(EditViewModel editViewModel)
     {
-        Scene = scene;
-        Player = player;
-        Scale = Options.Select(o => o.Scale);
-        Offset = Options.Select(o => o.Offset);
-        PanelWidth = scene.GetObservable(Scene.DurationProperty)
-            .CombineLatest(Scale)
+        EditorContext = editViewModel;
+        Scene = editViewModel.Scene;
+        Player = editViewModel.Player;
+        PanelWidth = Scene.GetObservable(Scene.DurationProperty)
+            .CombineLatest(editViewModel.Scale)
             .Select(item => item.First.ToPixel(item.Second))
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
 
-        SeekBarMargin = scene.GetObservable(Scene.CurrentFrameProperty)
-            .CombineLatest(Scale)
+        SeekBarMargin = Scene.GetObservable(Scene.CurrentFrameProperty)
+            .CombineLatest(editViewModel.Scale)
             .Select(item => new Thickness(item.First.ToPixel(item.Second), 0, 0, 0))
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
@@ -70,7 +74,7 @@ public sealed class TimelineViewModel : IDisposable, ITimelineOptionsProvider
         }).AddTo(_disposables);
 
         LayerHeaders.AddRange(Enumerable.Range(0, 100).Select(num => new LayerHeaderViewModel(num, this)));
-        scene.Children.ForEachItem(
+        Scene.Children.ForEachItem(
             (idx, item) => Layers.Insert(idx, new TimelineLayerViewModel(item, this)),
             (idx, _) =>
             {
@@ -86,11 +90,17 @@ public sealed class TimelineViewModel : IDisposable, ITimelineOptionsProvider
                 Layers.Clear();
             })
             .AddTo(_disposables);
+
+        Header = StringResources.Common.TimelineObservable
+            .ToReadOnlyReactivePropertySlim(StringResources.Common.Timeline)
+            .AddTo(_disposables);
     }
 
     public Scene Scene { get; }
 
     public PlayerViewModel Player { get; }
+
+    public EditViewModel EditorContext { get; }
 
     public ReadOnlyReactivePropertySlim<double> PanelWidth { get; }
 
@@ -110,11 +120,15 @@ public sealed class TimelineViewModel : IDisposable, ITimelineOptionsProvider
 
     public int ClickedLayer { get; set; }
 
-    public IReactiveProperty<TimelineOptions> Options { get; } = new ReactiveProperty<TimelineOptions>(new TimelineOptions());
+    public IReactiveProperty<TimelineOptions> Options => EditorContext.Options;
 
-    public IObservable<float> Scale { get; }
+    public ToolTabExtension Extension => TimelineTabExtension.Instance;
 
-    public IObservable<Vector2> Offset { get; }
+    public IReactiveProperty<bool> IsSelected { get; } = new ReactivePropertySlim<bool>();
+
+    public IReadOnlyReactiveProperty<string> Header { get; }
+
+    public ToolTabExtension.TabPlacement Placement => ToolTabExtension.TabPlacement.Bottom;
 
     public void Dispose()
     {
@@ -123,5 +137,13 @@ public sealed class TimelineViewModel : IDisposable, ITimelineOptionsProvider
         {
             item.Dispose();
         }
+    }
+
+    public void ReadFromJson(JsonNode json)
+    {
+    }
+
+    public void WriteToJson(ref JsonNode json)
+    {
     }
 }

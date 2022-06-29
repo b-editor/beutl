@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Diagnostics;
 using System.Globalization;
 
@@ -352,13 +352,13 @@ public partial class OperationEditor : UserControl
         {
             if (value is BaseEditorViewModel viewModel)
             {
-                Control? editor = PropertyEditorService.CreateEditor(viewModel.Setter);
+                Control? editor = PropertyEditorService.CreateEditor(viewModel.WrappedProperty);
 
                 return editor ?? new Label
                 {
                     Height = 24,
                     Margin = new Thickness(0, 4),
-                    Content = viewModel.Setter.Property.Name
+                    Content = viewModel.WrappedProperty.AssociatedProperty.Name
                 };
             }
             else

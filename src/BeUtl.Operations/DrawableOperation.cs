@@ -11,5 +11,6 @@ public abstract class DrawableOperation : LayerOperation
     {
         Drawable.IsVisible = IsEnabled;
         args.Result = Drawable;
+        //args.Result = IsEnabled ? Drawable : null;
     }
 }

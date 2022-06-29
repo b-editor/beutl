@@ -14,14 +14,16 @@ public sealed class RoundedRect : Drawable
     {
         StrokeWidthProperty = ConfigureProperty<float, RoundedRect>(nameof(StrokeWidth))
             .Accessor(o => o.StrokeWidth, (o, v) => o.StrokeWidth = v)
-            .PropertyFlags(PropertyFlags.Styleable | PropertyFlags.Designable)
+            .PropertyFlags(PropertyFlags.KnownFlags_1)
             .DefaultValue(4000)
+            .SerializeName("stroke-width")
             .Register();
 
         CornerRadiusProperty = ConfigureProperty<CornerRadius, RoundedRect>(nameof(CornerRadius))
             .Accessor(o => o.CornerRadius, (o, v) => o.CornerRadius = v)
-            .PropertyFlags(PropertyFlags.Styleable | PropertyFlags.Designable)
+            .PropertyFlags(PropertyFlags.KnownFlags_1)
             .DefaultValue(new CornerRadius())
+            .SerializeName("corner-radius")
             .Register();
 
         AffectsRender<RoundedRect>(StrokeWidthProperty, CornerRadiusProperty);

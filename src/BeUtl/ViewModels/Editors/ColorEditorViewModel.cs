@@ -1,7 +1,5 @@
-﻿using System.Reactive.Linq;
-
-using BeUtl.Media;
-using BeUtl.ProjectSystem;
+﻿using BeUtl.Media;
+using BeUtl.Services.Editors.Wrappers;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
@@ -12,10 +10,10 @@ namespace BeUtl.ViewModels.Editors;
 
 public sealed class ColorEditorViewModel : BaseEditorViewModel<Color>
 {
-    public ColorEditorViewModel(PropertyInstance<Color> setter)
-        : base(setter)
+    public ColorEditorViewModel(IWrappedProperty<Color> property)
+        : base(property)
     {
-        Value = setter.GetObservable()
+        Value = property.GetObservable()
             .Select(x => x.ToAvalonia())
             .ToReadOnlyReactivePropertySlim()
             .AddTo(Disposables);

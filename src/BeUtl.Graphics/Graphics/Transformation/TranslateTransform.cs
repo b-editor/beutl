@@ -12,13 +12,15 @@ public sealed class TranslateTransform : Transform
         XProperty = ConfigureProperty<float, TranslateTransform>(nameof(X))
             .Accessor(o => o.X, (o, v) => o.X = v)
             .DefaultValue(0)
-            .PropertyFlags(PropertyFlags.Styleable | PropertyFlags.Designable)
+            .PropertyFlags(PropertyFlags.KnownFlags_1)
+            .SerializeName("x")
             .Register();
 
         YProperty = ConfigureProperty<float, TranslateTransform>(nameof(Y))
             .Accessor(o => o.Y, (o, v) => o.Y = v)
             .DefaultValue(0)
-            .PropertyFlags(PropertyFlags.Styleable | PropertyFlags.Designable)
+            .PropertyFlags(PropertyFlags.KnownFlags_1)
+            .SerializeName("y")
             .Register();
 
         AffectsRender<TranslateTransform>(XProperty, YProperty);

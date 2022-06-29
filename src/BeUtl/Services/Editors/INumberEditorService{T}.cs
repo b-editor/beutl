@@ -1,4 +1,5 @@
 ﻿using BeUtl.ProjectSystem;
+using BeUtl.Services.Editors.Wrappers;
 
 namespace BeUtl.Services.Editors;
 
@@ -13,7 +14,7 @@ public interface INumberEditorService<T>
 
     T Decrement(T value, int increment);
 
-    T GetMinimum(PropertyInstance<T> property);
+    T GetMinimum(IWrappedProperty<T> property);
 
-    T GetMaximum(PropertyInstance<T> property);
+    T GetMaximum(IWrappedProperty<T> property);
 }

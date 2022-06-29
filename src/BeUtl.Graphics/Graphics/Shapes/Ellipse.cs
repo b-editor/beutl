@@ -3,14 +3,15 @@
 public sealed class Ellipse : Drawable
 {
     public static readonly CoreProperty<float> StrokeWidthProperty;
-    private float _strokeWidth;
+    private float _strokeWidth = 4000;
 
     static Ellipse()
     {
         StrokeWidthProperty = ConfigureProperty<float, Ellipse>(nameof(StrokeWidth))
             .Accessor(o => o.StrokeWidth, (o, v) => o.StrokeWidth = v)
-            .PropertyFlags(PropertyFlags.Styleable | PropertyFlags.Designable)
+            .PropertyFlags(PropertyFlags.KnownFlags_1)
             .DefaultValue(4000)
+            .SerializeName("stroke-width")
             .Register();
 
         AffectsRender<Ellipse>(StrokeWidthProperty);

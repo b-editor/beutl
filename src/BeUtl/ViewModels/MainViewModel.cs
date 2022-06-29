@@ -1,4 +1,4 @@
-using System.Diagnostics;
+ï»¿using System.Diagnostics;
 using System.Reactive.Linq;
 
 using Avalonia;
@@ -12,6 +12,7 @@ using BeUtl.Framework.Service;
 using BeUtl.Framework.Services;
 using BeUtl.ProjectSystem;
 using BeUtl.Services;
+using BeUtl.Services.PrimitiveImpls;
 
 using DynamicData;
 
@@ -36,7 +37,7 @@ public class MainViewModel
         public NavItemViewModel(PageExtension extension)
         {
             Extension = extension;
-            Context = Activator.CreateInstance(extension.Context) ?? throw new Exception("ƒRƒ“ƒeƒLƒXƒg‚ğì¬‚Å‚«‚Ü‚¹‚ñ‚Å‚µ‚½B");
+            Context = Activator.CreateInstance(extension.Context) ?? throw new Exception("ã‚³ãƒ³ãƒ†ã‚­ã‚¹ãƒˆã‚’ä½œæˆã§ãã¾ã›ã‚“ã§ã—ãŸã€‚");
             Header = extension.Header.GetResourceObservable()
                 .Select(o => o ?? string.Empty)
                 .ToReadOnlyReactivePropertySlim(string.Empty);
@@ -194,12 +195,17 @@ public class MainViewModel
 
             manager.ExtensionProvider._allExtensions.Add(Package.s_nextId++, _primitivePageExtensions);
 
-            // NOTE: ‚±‚±‚ÅSceneEditorExtension‚ğ“o˜^‚µ‚Ä‚¢‚é‚Ì‚ÅA
-            //       ƒpƒbƒP[ƒW‚Æ‚µ‚Ä•ª—£‚·‚éê‡‚±‚±‚ğíœ
+            // NOTE: ã“ã“ã§SceneEditorExtensionã‚’ç™»éŒ²ã—ã¦ã„ã‚‹ã®ã§ã€
+            //       ãƒ‘ãƒƒã‚±ãƒ¼ã‚¸ã¨ã—ã¦åˆ†é›¢ã™ã‚‹å ´åˆã“ã“ã‚’å‰Šé™¤
             manager.ExtensionProvider._allExtensions.Add(Package.s_nextId++, new Extension[]
             {
                 SceneEditorExtension.Instance,
                 SceneWorkspaceItemExtension.Instance,
+                TimelineTabExtension.Instance,
+                AnimationTimelineTabExtension.Instance,
+                OperationsTabExtension.Instance,
+                ObjectPropertyTabExtension.Instance,
+                StyleEditorTabExtension.Instance,
             });
 
             manager.LoadPackages(manager.GetPackageInfos());
