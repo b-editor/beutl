@@ -42,8 +42,10 @@
 
             <Button Click="Add_Click"
                     Grid.Column="1"
-                    IsEnabled="{CompiledBinding IsStyleNotNull.Value}"
-                    Margin="0,4,24,4">
+                    HorizontalContentAlignment="Left"
+                    HorizontalAlignment="Stretch"
+                    Margin="10,4,28,4"
+                    IsEnabled="{CompiledBinding IsStyleNotNull.Value}">
                 <StackPanel Orientation="Horizontal" Spacing="8">
                     <ui:SymbolIcon Symbol="Add" />
                     <TextBlock Text="追加" />

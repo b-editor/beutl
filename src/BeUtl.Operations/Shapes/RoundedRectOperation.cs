@@ -62,7 +62,17 @@ public sealed class RoundedRectOperation : DrawableOperation
     public Color Color
     {
         get => _drawable.Foreground?.TryGetColorOrDefault(Colors.Transparent) ?? Colors.Transparent;
-        set => _drawable.Foreground = value.ToImmutableBrush();
+        set
+        {
+            if (_drawable.Foreground is SolidColorBrush solidColorBrush)
+            {
+                solidColorBrush.Color = value;
+            }
+            else
+            {
+                _drawable.Foreground = new SolidColorBrush(value);
+            }
+        }
     }
 
     public CornerRadius CornerRadius
