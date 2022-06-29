@@ -26,30 +26,35 @@ public class TextElement : Drawable
             .Accessor(o => o.Typeface, (o, v) => o.Typeface = v)
             .PropertyFlags(PropertyFlags.KnownFlags_1)
             .DefaultValue(new(FontFamily.Default, FontStyle.Normal, FontWeight.Regular))
+            .SerializeName("typeface")
             .Register();
 
         SizeProperty = ConfigureProperty<float, TextElement>(nameof(Size))
             .Accessor(o => o.Size, (o, v) => o.Size = v)
             .PropertyFlags(PropertyFlags.KnownFlags_1)
             .DefaultValue(0)
+            .SerializeName("size")
             .Register();
 
         SpacingProperty = ConfigureProperty<float, TextElement>(nameof(Spacing))
             .Accessor(o => o.Spacing, (o, v) => o.Spacing = v)
             .PropertyFlags(PropertyFlags.KnownFlags_1)
             .DefaultValue(0)
+            .SerializeName("spacing")
             .Register();
 
         TextProperty = ConfigureProperty<string, TextElement>(nameof(Text))
             .Accessor(o => o.Text, (o, v) => o.Text = v)
             .PropertyFlags(PropertyFlags.KnownFlags_1)
             .DefaultValue(string.Empty)
+            .SerializeName("text")
             .Register();
 
         MarginProperty = ConfigureProperty<Thickness, TextElement>(nameof(Margin))
             .Accessor(o => o.Margin, (o, v) => o.Margin = v)
             .PropertyFlags(PropertyFlags.KnownFlags_1)
             .DefaultValue(new Thickness())
+            .SerializeName("margin")
             .Register();
 
         AffectsRender<TextElement>(TypefaceProperty, SizeProperty, SpacingProperty, TextProperty, MarginProperty);

@@ -11,6 +11,7 @@ public sealed class MatrixTransform : Transform
             .Accessor(o => o.Matrix, (o, v) => o.Matrix = v)
             .DefaultValue(Matrix.Identity)
             .PropertyFlags(PropertyFlags.KnownFlags_1)
+            .SerializeName("matrix")
             .Register();
 
         AffectsRender<MatrixTransform>(MatrixProperty);

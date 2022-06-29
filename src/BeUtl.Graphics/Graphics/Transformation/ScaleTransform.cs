@@ -1,4 +1,6 @@
-﻿namespace BeUtl.Graphics.Transformation;
+﻿using BeUtl.Utilities;
+
+namespace BeUtl.Graphics.Transformation;
 
 public sealed class ScaleTransform : Transform
 {
@@ -15,18 +17,21 @@ public sealed class ScaleTransform : Transform
             .Accessor(o => o.Scale, (o, v) => o.Scale = v)
             .DefaultValue(1)
             .PropertyFlags(PropertyFlags.KnownFlags_1)
+            .SerializeName("scale")
             .Register();
 
         ScaleXProperty = ConfigureProperty<float, ScaleTransform>(nameof(ScaleX))
             .Accessor(o => o.ScaleX, (o, v) => o.ScaleX = v)
             .DefaultValue(1)
             .PropertyFlags(PropertyFlags.KnownFlags_1)
+            .SerializeName("scale-x")
             .Register();
 
         ScaleYProperty = ConfigureProperty<float, ScaleTransform>(nameof(ScaleY))
             .Accessor(o => o.ScaleY, (o, v) => o.ScaleY = v)
             .DefaultValue(1)
             .PropertyFlags(PropertyFlags.KnownFlags_1)
+            .SerializeName("scale-y")
             .Register();
 
         AffectsRender<ScaleTransform>(ScaleProperty, ScaleXProperty, ScaleYProperty);

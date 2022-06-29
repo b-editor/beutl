@@ -225,21 +225,39 @@ public class Layer : Element, IStorable, ILogicalElement
         if (json is JsonObject jobject)
         {
             // NOTE: リリース時に削除。互換性を保つためのコードなので
-            if (!jobject.ContainsKey("zIndex") && jobject.TryGetPropertyValue("layer", out JsonNode? layerNode) &&
-                layerNode is JsonValue layerValue &&
-                layerValue.TryGetValue(out int layer))
+            if (!jobject.ContainsKey("zIndex") && jobject.TryGetPropertyValue("layer", out JsonNode? layerNode)
+                && layerNode is JsonValue layerValue
+                && layerValue.TryGetValue(out int layer))
             {
                 ZIndex = layer;
             }
 
-            if (jobject.TryGetPropertyValue("operations", out JsonNode? operationsNode) &&
-                operationsNode is JsonArray operationsArray)
+            if (jobject.TryGetPropertyValue("renderable", out JsonNode? renderableNode)
+                && renderableNode is JsonObject renderableObj
+                && renderableObj.TryGetPropertyValue("@type", out JsonNode? renderableTypeNode)
+                && renderableTypeNode is JsonValue renderableTypeValue
+                && renderableTypeValue.TryGetValue(out string? renderableTypeStr)
+                && TypeFormat.ToType(renderableTypeStr) is Type renderableType
+                && renderableType.IsAssignableTo(typeof(Renderable))
+                && Activator.CreateInstance(renderableType) is Renderable renderable)
+            {
+                //_disposable?.Dispose();
+                renderable.ReadFromJson(renderableObj);
+                Node.Value = renderable;
+                //if (_disposable != null)
+                //{
+                //    _disposable = SubscribeToLayerNode();
+                //}
+            }
+
+            if (jobject.TryGetPropertyValue("operations", out JsonNode? operationsNode)
+                && operationsNode is JsonArray operationsArray)
             {
                 foreach (JsonObject operationJson in operationsArray.OfType<JsonObject>())
                 {
-                    if (operationJson.TryGetPropertyValue("@type", out JsonNode? atTypeNode) &&
-                        atTypeNode is JsonValue atTypeValue &&
-                        atTypeValue.TryGetValue(out string? atType))
+                    if (operationJson.TryGetPropertyValue("@type", out JsonNode? atTypeNode)
+                        && atTypeNode is JsonValue atTypeValue
+                        && atTypeValue.TryGetValue(out string? atType))
                     {
                         var type = TypeFormat.ToType(atType);
                         LayerOperation? operation = null;
@@ -264,21 +282,33 @@ public class Layer : Element, IStorable, ILogicalElement
 
         if (json is JsonObject jobject)
         {
-            var array = new JsonArray();
-
-            foreach (LayerOperation item in Children)
+            if (Node.Value is Renderable renderable)
             {
                 JsonNode node = new JsonObject();
-                item.WriteToJson(ref node);
-                if (item is not EmptyOperation)
-                {
-                    node["@type"] = TypeFormat.ToString(item.GetType());
-                }
-
-                array.Add(node);
+                renderable.WriteToJson(ref node);
+                node["@type"] = TypeFormat.ToString(renderable.GetType());
+                jobject["renderable"] = node;
             }
 
-            jobject["operations"] = array;
+            Span<LayerOperation> children = Children.AsSpan();
+            if (children.Length > 0)
+            {
+                var array = new JsonArray();
+
+                foreach (LayerOperation item in children)
+                {
+                    JsonNode node = new JsonObject();
+                    item.WriteToJson(ref node);
+                    if (item is not EmptyOperation)
+                    {
+                        node["@type"] = TypeFormat.ToString(item.GetType());
+                    }
+
+                    array.Add(node);
+                }
+
+                jobject["operations"] = array;
+            }
         }
     }
 

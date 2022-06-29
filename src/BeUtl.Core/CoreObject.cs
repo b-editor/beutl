@@ -359,6 +359,20 @@ public abstract class CoreObject : ICoreObject
                             SetValue(item, sobj);
                         }
                     }
+                    else if (jsonNode is JsonObject jsonObject
+                        && jsonObject.TryGetPropertyValue("@type", out JsonNode? atTypeNode)
+                        && atTypeNode is JsonValue atTypeValue
+                        && atTypeValue.TryGetValue(out string? atTypeStr)
+                        && TypeFormat.ToType(atTypeStr) is Type realType
+                        && realType.IsAssignableTo(typeof(IJsonSerializable)))
+                    {
+                        var sobj = (IJsonSerializable?)Activator.CreateInstance(realType);
+                        if (sobj != null)
+                        {
+                            sobj.ReadFromJson(jsonNode!);
+                            SetValue(item, sobj);
+                        }
+                    }
                     else
                     {
                         object? value = JsonSerializer.Deserialize(jsonNode, type, JsonHelper.SerializerOptions);

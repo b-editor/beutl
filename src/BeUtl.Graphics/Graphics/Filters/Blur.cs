@@ -13,6 +13,7 @@ public sealed class Blur : ImageFilter
             .Accessor(o => o.Sigma, (o, v) => o.Sigma = v)
             .DefaultValue(Vector.Zero)
             .PropertyFlags(PropertyFlags.KnownFlags_1)
+            .SerializeName("sigma")
             .Register();
 
         AffectsRender<Blur>(SigmaProperty);

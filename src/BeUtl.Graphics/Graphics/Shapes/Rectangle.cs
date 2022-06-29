@@ -3,7 +3,7 @@
 public sealed class Rectangle : Drawable
 {
     public static readonly CoreProperty<float> StrokeWidthProperty;
-    private float _strokeWidth;
+    private float _strokeWidth = 4000;
 
     static Rectangle()
     {
@@ -11,6 +11,7 @@ public sealed class Rectangle : Drawable
             .Accessor(o => o.StrokeWidth, (o, v) => o.StrokeWidth = v)
             .PropertyFlags(PropertyFlags.KnownFlags_1)
             .DefaultValue(4000)
+            .SerializeName("stroke-width")
             .Register();
 
         AffectsRender<Rectangle>(StrokeWidthProperty);

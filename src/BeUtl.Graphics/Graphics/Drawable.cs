@@ -37,65 +37,76 @@ public abstract class Drawable : Renderable, IDrawable, ILogicalElement
             .Accessor(o => o.Width, (o, v) => o.Width = v)
             .PropertyFlags(PropertyFlags.KnownFlags_1)
             .DefaultValue(0)
+            .SerializeName("width")
             .Register();
 
         HeightProperty = ConfigureProperty<float, Drawable>(nameof(Height))
             .Accessor(o => o.Height, (o, v) => o.Height = v)
             .PropertyFlags(PropertyFlags.KnownFlags_1)
             .DefaultValue(0)
+            .SerializeName("height")
             .Register();
 
         TransformProperty = ConfigureProperty<ITransform?, Drawable>(nameof(Transform))
             .Accessor(o => o.Transform, (o, v) => o.Transform = v)
             .PropertyFlags(PropertyFlags.KnownFlags_1)
             .DefaultValue(null)
+            .SerializeName("transform")
             .Register();
 
         FilterProperty = ConfigureProperty<IImageFilter?, Drawable>(nameof(Filter))
             .Accessor(o => o.Filter, (o, v) => o.Filter = v)
             .PropertyFlags(PropertyFlags.KnownFlags_1)
             .DefaultValue(null)
+            .SerializeName("filter")
             .Register();
 
         CanvasAlignmentXProperty = ConfigureProperty<AlignmentX, Drawable>(nameof(CanvasAlignmentX))
             .Accessor(o => o.CanvasAlignmentX, (o, v) => o.CanvasAlignmentX = v)
             .PropertyFlags(PropertyFlags.KnownFlags_1)
             .DefaultValue(AlignmentX.Left)
+            .SerializeName("canvas-align-x")
             .Register();
 
         CanvasAlignmentYProperty = ConfigureProperty<AlignmentY, Drawable>(nameof(CanvasAlignmentY))
             .Accessor(o => o.CanvasAlignmentY, (o, v) => o.CanvasAlignmentY = v)
             .PropertyFlags(PropertyFlags.KnownFlags_1)
             .DefaultValue(AlignmentY.Top)
+            .SerializeName("canvas-align-y")
             .Register();
 
         AlignmentXProperty = ConfigureProperty<AlignmentX, Drawable>(nameof(AlignmentX))
             .Accessor(o => o.AlignmentX, (o, v) => o.AlignmentX = v)
             .PropertyFlags(PropertyFlags.KnownFlags_1)
             .DefaultValue(AlignmentX.Left)
+            .SerializeName("align-x")
             .Register();
 
         AlignmentYProperty = ConfigureProperty<AlignmentY, Drawable>(nameof(AlignmentY))
             .Accessor(o => o.AlignmentY, (o, v) => o.AlignmentY = v)
             .PropertyFlags(PropertyFlags.KnownFlags_1)
             .DefaultValue(AlignmentY.Top)
+            .SerializeName("align-y")
             .Register();
 
         ForegroundProperty = ConfigureProperty<IBrush?, Drawable>(nameof(Foreground))
             .Accessor(o => o.Foreground, (o, v) => o.Foreground = v)
             .PropertyFlags(PropertyFlags.KnownFlags_1)
+            .SerializeName("foreground")
             .Register();
 
         OpacityMaskProperty = ConfigureProperty<IBrush?, Drawable>(nameof(OpacityMask))
             .Accessor(o => o.OpacityMask, (o, v) => o.OpacityMask = v)
             .PropertyFlags(PropertyFlags.KnownFlags_1)
             .DefaultValue(null)
+            .SerializeName("opacity-mask")
             .Register();
 
         BlendModeProperty = ConfigureProperty<BlendMode, Drawable>(nameof(BlendMode))
             .Accessor(o => o.BlendMode, (o, v) => o.BlendMode = v)
             .PropertyFlags(PropertyFlags.KnownFlags_1)
             .DefaultValue(BlendMode.SrcOver)
+            .SerializeName("blend-mode")
             .Register();
 
         AffectsRender<Drawable>(

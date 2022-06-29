@@ -13,6 +13,7 @@ public sealed class RotationTransform : Transform
             .Accessor(o => o.Rotation, (o, v) => o.Rotation = v)
             .DefaultValue(0)
             .PropertyFlags(PropertyFlags.KnownFlags_1)
+            .SerializeName("rotation")
             .Register();
 
         AffectsRender<RotationTransform>(RotationProperty);

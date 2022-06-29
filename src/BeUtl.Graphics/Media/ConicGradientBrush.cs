@@ -19,12 +19,14 @@ public sealed class ConicGradientBrush : GradientBrush, IConicGradientBrush
             .Accessor(o => o.Center, (o, v) => o.Center = v)
             .PropertyFlags(PropertyFlags.KnownFlags_1)
             .DefaultValue(RelativePoint.Center)
+            .SerializeName("center")
             .Register();
 
         AngleProperty = ConfigureProperty<float, ConicGradientBrush>(nameof(Angle))
             .Accessor(o => o.Angle, (o, v) => o.Angle = v)
             .PropertyFlags(PropertyFlags.KnownFlags_1)
             .DefaultValue(0)
+            .SerializeName("angle")
             .Register();
 
         AffectsRender<ConicGradientBrush>(CenterProperty, AngleProperty);
