@@ -24,7 +24,7 @@ public abstract class Element : CoreObject, IElement
     static Element()
     {
         ParentProperty = ConfigureProperty<Element?, Element>(nameof(Parent))
-            .Observability(PropertyObservability.Changed)
+            .Observability(PropertyObservability.DoNotNotifyLogicalTree)
             .Accessor(o => o.Parent, (o, v) => o.Parent = v)
             .Register();
     }
@@ -85,7 +85,7 @@ public abstract class Element : CoreObject, IElement
     void ILogicalElement.NotifyDetachedFromLogicalTree(in LogicalTreeAttachmentEventArgs e)
     {
         OnDetachedFromLogicalTree(e);
-        Parent = e.Parent as Element;
+        Parent = null;
         DetachedFromLogicalTree?.Invoke(this, e);
     }
 }
