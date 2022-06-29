@@ -68,7 +68,7 @@ public abstract class Drawable : Renderable, IDrawable, ILogicalElement
             .SerializeName("filter")
             .Register();
 
-        EffectProperty = ConfigureProperty<IBitmapEffect?, Drawable>(nameof(_effect))
+        EffectProperty = ConfigureProperty<IBitmapEffect?, Drawable>(nameof(Effect))
             .Accessor(o => o.Effect, (o, v) => o.Effect = v)
             .PropertyFlags(PropertyFlags.KnownFlags_1)
             .DefaultValue(null)
