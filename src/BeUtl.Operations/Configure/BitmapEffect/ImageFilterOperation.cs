@@ -2,12 +2,12 @@
 using BeUtl.Graphics.Effects;
 using BeUtl.ProjectSystem;
 
-namespace BeUtl.Operations.Effects;
+namespace BeUtl.Operations.Configure.BitmapEffect;
 
 public abstract class BitmapEffectOperation<T> : LayerOperation
-    where T : BitmapEffect
+    where T : Graphics.Effects.BitmapEffect
 {
-    private Drawable? _drawable;
+    private Graphics.Drawable? _drawable;
 
     public abstract T Effect { get; }
 
@@ -22,7 +22,7 @@ public abstract class BitmapEffectOperation<T> : LayerOperation
 
     protected override void RenderCore(ref OperationRenderArgs args)
     {
-        if (args.Result is Drawable drawable)
+        if (args.Result is Graphics.Drawable drawable)
         {
             Effect.IsEnabled = IsEnabled;
             if (_drawable != drawable)

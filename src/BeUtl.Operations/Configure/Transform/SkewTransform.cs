@@ -1,4 +1,4 @@
-﻿namespace BeUtl.Operations.Transform;
+﻿namespace BeUtl.Operations.Configure.Transform;
 
 public sealed class SkewTransform : TransformOperation
 {

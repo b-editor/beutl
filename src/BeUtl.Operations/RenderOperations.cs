@@ -1,8 +1,4 @@
-﻿using BeUtl.Media;
-using BeUtl.Operations.Filters;
-using BeUtl.Operations.Shapes;
-using BeUtl.Operations.Transform;
-using BeUtl.ProjectSystem;
+﻿using BeUtl.ProjectSystem;
 
 namespace BeUtl.Operations;
 
@@ -10,33 +6,33 @@ public static class RenderOperations
 {
     public static void RegisterAll()
     {
-        LayerOperationRegistry.RegisterOperations("S.OpName.ImageFilter", Colors.Teal)
-            .Add<BlurOperation>("S.OpName.Blur")
-            .Add<DropShadowOperation>("S.OpName.DropShadow")
+        LayerOperationRegistry.RegisterOperations("S.Opearations.Source")
+            .Add<Source.EllipseOperation>("S.Opearations.Source.Ellipse")
+            .Add<Source.RectOperation>("S.Opearations.Source.Rect")
+            .Add<Source.RoundedRectOperation>("S.Opearations.Source.RoundedRect")
+            .Add<Source.FormattedTextOperation>("S.Opearations.Source.Text")
+            .Add<Source.ImageFileOperation>("S.Opearations.Source.ImageFile")
             .Register();
 
-        LayerOperationRegistry.RegisterOperations("S.OpName.BitmapEffect", Colors.Teal)
-            .Add<Effects.BlurOperation>("S.OpName.Blur")
-            .Add<Effects.InnerShadowOperation>("S.OpName.InnerShadow")
-            .Add<Effects.BorderOperation>("S.OpName.Border")
+        LayerOperationRegistry.RegisterOperations("S.Opearations.Configure")
+            .Add<Configure.AlignOperation>("S.Opearations.Configure.Alignment")
+            .Add<Configure.BlendOperation>("S.Opearations.Configure.Blend")
+            .AddGroup("S.Opearations.Configure.ImageFilter", helper => helper
+                .Add<Configure.ImageFilter.BlurOperation>("S.Opearations.Configure.ImageFilter.Blur")
+                .Add<Configure.ImageFilter.DropShadowOperation>("S.Opearations.Configure.ImageFilter.DropShadow")
+                .Register())
+            .AddGroup("S.Opearations.Configure.BitmapEffect", helper => helper
+                .Add<Configure.BitmapEffect.BlurOperation>("S.Opearations.Configure.BitmapEffect.Blur")
+                .Add<Configure.BitmapEffect.InnerShadowOperation>("S.Opearations.Configure.BitmapEffect.InnerShadow")
+                .Add<Configure.BitmapEffect.BorderOperation>("S.Opearations.Configure.BitmapEffect.Border")
+                .Register())
+            .AddGroup("S.Opearations.Configure.Transform", helper => helper
+                .Add<Configure.Transform.RotateTransform>("S.Opearations.Configure.Transform.Rotation")
+                .Add<Configure.Transform.Rotate3DTransform>("S.Opearations.Configure.Transform.Rotation3D")
+                .Add<Configure.Transform.ScaleTransform>("S.Opearations.Configure.Transform.Scale")
+                .Add<Configure.Transform.SkewTransform>("S.Opearations.Configure.Transform.Skew")
+                .Add<Configure.Transform.TranslateTransform>("S.Opearations.Configure.Transform.Translate")
+                .Register())
             .Register();
-
-        LayerOperationRegistry.RegisterOperations("S.OpName.Transform", Colors.Teal)
-            .Add<RotateTransform>("S.OpName.Rotate")
-            .Add<Rotate3DTransform>("S.OpName.Rotate3D")
-            .Add<ScaleTransform>("S.OpName.Scale")
-            .Add<SkewTransform>("S.OpName.Skew")
-            .Add<TranslateTransform>("S.OpName.Translate")
-            .Add<AlignOperation>("S.OpName.Align")
-            .Register();
-
-        LayerOperationRegistry.RegisterOperation<EllipseOperation>("S.OpName.Ellipse");
-        LayerOperationRegistry.RegisterOperation<RectOperation>("S.OpName.Rect");
-        LayerOperationRegistry.RegisterOperation<RoundedRectOperation>("S.OpName.RoundedRect");
-        LayerOperationRegistry.RegisterOperation<FormattedTextOperation>("S.OpName.Text");
-        LayerOperationRegistry.RegisterOperation<ImageFileOperation>("S.OpName.ImageFile");
-        LayerOperationRegistry.RegisterOperation<BlendOperation>("S.OpName.Blend");
-        LayerOperationRegistry.RegisterOperation<OffscreenDrawing>("S.OpName.OffscreenDrawing");
-        LayerOperationRegistry.RegisterOperation<TestOperation>("S.OpName.Test");
     }
 }

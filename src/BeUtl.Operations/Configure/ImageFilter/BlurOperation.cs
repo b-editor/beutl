@@ -1,7 +1,7 @@
 ﻿using BeUtl.Graphics;
 using BeUtl.Graphics.Filters;
 
-namespace BeUtl.Operations.Filters;
+namespace BeUtl.Operations.Configure.ImageFilter;
 
 public sealed class BlurOperation : ImageFilterOperation<Blur>
 {

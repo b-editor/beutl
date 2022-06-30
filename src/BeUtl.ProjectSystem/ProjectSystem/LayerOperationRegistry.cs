@@ -39,7 +39,7 @@ public class LayerOperationRegistry
     {
         return RegisterOperations(displayName, Colors.Teal);
     }
-    
+
     public static RegistrationHelper RegisterOperations(ResourceReference<string> displayName, Color accentColor)
     {
         return new RegistrationHelper(new GroupableRegistryItem(displayName, accentColor));
@@ -101,7 +101,15 @@ public class LayerOperationRegistry
 
     private static void Register(BaseRegistryItem item)
     {
-        s_operations.Add(item);
+        if (item is GroupableRegistryItem groupable
+            && s_operations.FirstOrDefault(x => x.DisplayName.Key == item.DisplayName.Key) is GroupableRegistryItem registered)
+        {
+            registered.Merge(groupable.Items);
+        }
+        else
+        {
+            s_operations.Add(item);
+        }
     }
 
     public record BaseRegistryItem(ResourceReference<string> DisplayName, Color AccentColor);
@@ -118,6 +126,22 @@ public class LayerOperationRegistry
         : BaseRegistryItem(DisplayName, AccentColor)
     {
         public List<BaseRegistryItem> Items { get; } = new();
+
+        internal void Merge(List<BaseRegistryItem> items)
+        {
+            foreach (BaseRegistryItem item in items)
+            {
+                if (item is GroupableRegistryItem groupable1
+                    && Items.FirstOrDefault(x => x.DisplayName.Key == item.DisplayName.Key) is GroupableRegistryItem groupable2)
+                {
+                    groupable2.Merge(groupable1.Items);
+                }
+                else
+                {
+                    Items.Add(item);
+                }
+            }
+        }
     }
 
     public class RegistrationHelper
@@ -175,7 +199,7 @@ public class LayerOperationRegistry
 
             return this;
         }
-        
+
         public RegistrationHelper AddGroup(ResourceReference<string> displayName, Action<RegistrationHelper> action, Color accentColor)
         {
             var item = new GroupableRegistryItem(displayName, accentColor);

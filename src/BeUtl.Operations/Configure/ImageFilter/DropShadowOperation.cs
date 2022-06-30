@@ -2,7 +2,7 @@
 using BeUtl.Graphics.Filters;
 using BeUtl.Media;
 
-namespace BeUtl.Operations.Filters;
+namespace BeUtl.Operations.Configure.ImageFilter;
 
 public sealed class DropShadowOperation : ImageFilterOperation<DropShadow>
 {

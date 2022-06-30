@@ -8,7 +8,7 @@ using BeUtl.Graphics;
 using BeUtl.Graphics.Effects;
 using BeUtl.Media;
 
-namespace BeUtl.Operations.Effects;
+namespace BeUtl.Operations.Configure.BitmapEffect;
 
 public class BorderOperation : BitmapEffectOperation<Border>
 {

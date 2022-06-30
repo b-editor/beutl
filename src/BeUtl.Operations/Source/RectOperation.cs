@@ -2,7 +2,7 @@
 using BeUtl.Graphics.Shapes;
 using BeUtl.Media;
 
-namespace BeUtl.Operations.Shapes;
+namespace BeUtl.Operations.Source;
 
 public sealed class RectOperation : DrawableOperation
 {

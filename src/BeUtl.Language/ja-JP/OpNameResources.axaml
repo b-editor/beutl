@@ -1,28 +1,33 @@
 <Styles xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <Styles.Resources>
-        <x:String x:Key="S.OpName.Ellipse">楕円</x:String>
-        <x:String x:Key="S.OpName.Rect">四角形</x:String>
-        <StaticResource x:Key="S.OpName.Text" ResourceKey="S.Common.Text" />
-        <x:String x:Key="S.OpName.ImageFile">画像ファイル</x:String>
-        <x:String x:Key="S.OpName.Align">整列</x:String>
-        <x:String x:Key="S.OpName.Blend">ブレンド</x:String>
-        <x:String x:Key="S.OpName.OffscreenDrawing">オフスクリーン描画</x:String>
-        <x:String x:Key="S.OpName.RoundedRect">角丸四角形</x:String>
-        <x:String x:Key="S.OpName.Test">テスト</x:String>
+        <x:String x:Key="S.Opearations.Source">ソース</x:String>
+        <x:String x:Key="S.Opearations.Source.Ellipse">楕円</x:String>
+        <x:String x:Key="S.Opearations.Source.Rect">四角形</x:String>
+        <x:String x:Key="S.Opearations.Source.RoundedRect">角丸四角形</x:String>
+        <x:String x:Key="S.Opearations.Source.Text">テキスト</x:String>
+        <x:String x:Key="S.Opearations.Source.ImageFile">画像ファイル</x:String>
 
-        <x:String x:Key="S.OpName.Transform">トランスフォーム</x:String>
-        <x:String x:Key="S.OpName.Rotate">回転</x:String>
-        <x:String x:Key="S.OpName.Rotate3D">回転3D</x:String>
-        <x:String x:Key="S.OpName.Scale">スケール</x:String>
-        <x:String x:Key="S.OpName.Skew">斜め</x:String>
-        <x:String x:Key="S.OpName.Translate">移動</x:String>
+        
+        <x:String x:Key="S.Opearations.Configure">構成</x:String>
+        <x:String x:Key="S.Opearations.Configure.Alignment">整列</x:String>
+        <x:String x:Key="S.Opearations.Configure.Blend">合成モード</x:String>
+        
+        <x:String x:Key="S.Opearations.Configure.ImageFilter">画像フィルター</x:String>
+        <x:String x:Key="S.Opearations.Configure.ImageFilter.Blur">ブラー</x:String>
+        <x:String x:Key="S.Opearations.Configure.ImageFilter.DropShadow">ドロップシャドウ</x:String>
+        
+        <x:String x:Key="S.Opearations.Configure.BitmapEffect">ビットマップエフェクト</x:String>
+        <x:String x:Key="S.Opearations.Configure.BitmapEffect.Blur">ブラー</x:String>
+        <x:String x:Key="S.Opearations.Configure.BitmapEffect.InnerShadow">内側シャドウ</x:String>
+        <x:String x:Key="S.Opearations.Configure.BitmapEffect.Border">縁取り</x:String>
+        
+        <x:String x:Key="S.Opearations.Configure.Transform">トランスフォーム</x:String>
+        <x:String x:Key="S.Opearations.Configure.Transform.Rotation">回転</x:String>
+        <x:String x:Key="S.Opearations.Configure.Transform.Rotation3D">回転3D</x:String>
+        <x:String x:Key="S.Opearations.Configure.Transform.Scale">スケール</x:String>
+        <x:String x:Key="S.Opearations.Configure.Transform.Skew">斜め</x:String>
+        <x:String x:Key="S.Opearations.Configure.Transform.Translate">移動</x:String>
 
-        <x:String x:Key="S.OpName.ImageFilter">画像フィルター</x:String>
-        <x:String x:Key="S.OpName.BitmapEffect">ビットマップエフェクト</x:String>
-        <x:String x:Key="S.OpName.Blur">ブラー</x:String>
-        <x:String x:Key="S.OpName.DropShadow">ドロップシャドウ</x:String>
-        <x:String x:Key="S.OpName.InnerShadow">内側シャドウ</x:String>
-        <x:String x:Key="S.OpName.Border">縁取り</x:String>
     </Styles.Resources>
 </Styles>

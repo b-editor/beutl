@@ -1,7 +1,7 @@
 ﻿using BeUtl.Graphics.Transformation;
 using BeUtl.ProjectSystem;
 
-namespace BeUtl.Operations.Transform;
+namespace BeUtl.Operations.Configure.Transform;
 
 public sealed class Rotate3DTransform : TransformOperation
 {

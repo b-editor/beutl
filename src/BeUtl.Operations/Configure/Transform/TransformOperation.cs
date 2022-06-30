@@ -2,11 +2,11 @@
 using BeUtl.Graphics.Transformation;
 using BeUtl.ProjectSystem;
 
-namespace BeUtl.Operations.Transform;
+namespace BeUtl.Operations.Configure.Transform;
 
 public abstract class TransformOperation : LayerOperation
 {
-    private Drawable? _drawable;
+    private Graphics.Drawable? _drawable;
 
     public abstract Graphics.Transformation.Transform Transform { get; }
 
@@ -21,7 +21,7 @@ public abstract class TransformOperation : LayerOperation
 
     protected override void RenderCore(ref OperationRenderArgs args)
     {
-        if (args.Result is Drawable drawable)
+        if (args.Result is Graphics.Drawable drawable)
         {
             Transform.IsEnabled = IsEnabled;
             if (_drawable != drawable)

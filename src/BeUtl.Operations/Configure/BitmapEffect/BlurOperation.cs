@@ -1,7 +1,7 @@
 ﻿using BeUtl.Graphics.Effects.OpenCv;
 using BeUtl.Media;
 
-namespace BeUtl.Operations.Effects;
+namespace BeUtl.Operations.Configure.BitmapEffect;
 
 public sealed class BlurOperation : BitmapEffectOperation<Blur>
 {

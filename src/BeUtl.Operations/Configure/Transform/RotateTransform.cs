@@ -1,6 +1,6 @@
 ﻿using BeUtl.Graphics.Transformation;
 
-namespace BeUtl.Operations.Transform;
+namespace BeUtl.Operations.Configure.Transform;
 
 public sealed class RotateTransform : TransformOperation
 {
