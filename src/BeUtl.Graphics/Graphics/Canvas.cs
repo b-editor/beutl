@@ -24,6 +24,7 @@ public class Canvas : ICanvas
     private readonly Stack<IImageFilter?> _filterStack = new();
     private readonly Stack<float> _strokeWidthStack = new();
     private readonly Stack<BlendMode> _blendModeStack = new();
+    private readonly SKPaint _sharedPaint = new();
     private Matrix _currentTransform;
 
     public Canvas(int width, int height)
@@ -97,6 +98,7 @@ public class Canvas : ICanvas
         void DisposeCore()
         {
             _surface.Dispose();
+            _sharedPaint.Dispose();
             GC.SuppressFinalize(this);
             IsDisposed = true;
         }
@@ -120,27 +122,27 @@ public class Canvas : ICanvas
             return;
 
         VerifyAccess();
-        using var paint = new SKPaint();
-        ConfigurePaint(paint, new Size(bmp.Width, bmp.Height));
+        _sharedPaint.Reset();
+        ConfigurePaint(_sharedPaint, new Size(bmp.Width, bmp.Height));
 
         if (bmp is Bitmap<Bgra8888>)
         {
             using var img = SKImage.FromPixels(new SKImageInfo(bmp.Width, bmp.Height, SKColorType.Bgra8888), bmp.Data);
 
-            _canvas.DrawImage(img, SKPoint.Empty, paint);
+            _canvas.DrawImage(img, SKPoint.Empty, _sharedPaint);
         }
         else
         {
             using var skbmp = bmp.ToSKBitmap();
-            _canvas.DrawBitmap(skbmp, SKPoint.Empty, paint);
+            _canvas.DrawBitmap(skbmp, SKPoint.Empty, _sharedPaint);
         }
     }
 
     public void DrawCircle(Size size)
     {
         VerifyAccess();
-        using var paint = new SKPaint();
-        ConfigurePaint(paint, size);
+        _sharedPaint.Reset();
+        ConfigurePaint(_sharedPaint, size);
         float line = StrokeWidth;
 
         if (line >= MathF.Min(size.Width, size.Height) / 2)
@@ -152,62 +154,61 @@ public class Canvas : ICanvas
         if (min < 0) min = 0;
 
 
-        paint.Style = SKPaintStyle.Stroke;
-        paint.StrokeWidth = min;
+        _sharedPaint.Style = SKPaintStyle.Stroke;
+        _sharedPaint.StrokeWidth = min;
 
         _canvas.DrawOval(
             size.Width / 2, size.Height / 2,
             (size.Width - min) / 2, (size.Height - min) / 2,
-            paint);
+            _sharedPaint);
     }
 
     public void DrawRect(Size size)
     {
         VerifyAccess();
-        using var paint = new SKPaint();
-        ConfigurePaint(paint, size);
+        _sharedPaint.Reset();
+        ConfigurePaint(_sharedPaint, size);
         float stroke = Math.Min(StrokeWidth, Math.Min(size.Width, size.Height));
 
-        paint.Style = SKPaintStyle.Stroke;
-        paint.StrokeWidth = stroke;
+        _sharedPaint.Style = SKPaintStyle.Stroke;
+        _sharedPaint.StrokeWidth = stroke;
 
         _canvas.DrawRect(
             stroke / 2, stroke / 2,
             size.Width - stroke, size.Height - stroke,
-            paint);
+            _sharedPaint);
     }
 
     public void FillCircle(Size size)
     {
         VerifyAccess();
+        _sharedPaint.Reset();
+        ConfigurePaint(_sharedPaint, size);
+        _sharedPaint.Style = SKPaintStyle.Fill;
 
-        using var paint = new SKPaint();
-        ConfigurePaint(paint, size);
-        paint.Style = SKPaintStyle.Fill;
-
-        _canvas.DrawOval(SKPoint.Empty, size.ToSKSize(), paint);
+        _canvas.DrawOval(SKPoint.Empty, size.ToSKSize(), _sharedPaint);
     }
 
     public void FillRect(Size size)
     {
         VerifyAccess();
-        using var paint = new SKPaint();
-        ConfigurePaint(paint, size);
+        _sharedPaint.Reset();
+        ConfigurePaint(_sharedPaint, size);
 
-        paint.Style = SKPaintStyle.Fill;
+        _sharedPaint.Style = SKPaintStyle.Fill;
 
-        _canvas.DrawRect(0, 0, size.Width, size.Height, paint);
+        _canvas.DrawRect(0, 0, size.Width, size.Height, _sharedPaint);
     }
 
     // Marginを考慮しない
     public void DrawText(TextElement text, Size size)
     {
         VerifyAccess();
-        using var paint = new SKPaint();
-        ConfigurePaint(paint, size);
-        paint.TextSize = text.Size;
-        paint.Typeface = text.Typeface.ToSkia();
-        paint.Style = SKPaintStyle.Fill;
+        _sharedPaint.Reset();
+        ConfigurePaint(_sharedPaint, size);
+        _sharedPaint.TextSize = text.Size;
+        _sharedPaint.Typeface = text.Typeface.ToSkia();
+        _sharedPaint.Style = SKPaintStyle.Fill;
         Span<char> sc = stackalloc char[1];
         float prevRight = 0;
 
@@ -215,17 +216,17 @@ public class Canvas : ICanvas
         {
             sc[0] = item;
             var bounds = default(SKRect);
-            float w = paint.MeasureText(sc, ref bounds);
+            float w = _sharedPaint.MeasureText(sc, ref bounds);
 
             _canvas.Save();
             _canvas.Translate(prevRight + bounds.Left, 0);
 
-            SKPath path = paint.GetTextPath(
+            SKPath path = _sharedPaint.GetTextPath(
                 sc,
                 (bounds.Width / 2) - bounds.MidX,
                 0/*-_paint.FontMetrics.Ascent*/);
 
-            _canvas.DrawPath(path, paint);
+            _canvas.DrawPath(path, _sharedPaint);
             path.Dispose();
 
             prevRight += text.Spacing;
@@ -289,16 +290,16 @@ public class Canvas : ICanvas
     {
         VerifyAccess();
         MaskInfo maskInfo = _maskStack.Pop();
-        using (var paint = new SKPaint { BlendMode = maskInfo.Invert ? SKBlendMode.DstOut : SKBlendMode.DstIn })
-        {
-            _canvas.SaveLayer(paint);
-            using (SKPaint maskPaint = maskInfo.Paint)
-            {
-                _canvas.DrawPaint(maskPaint);
-            }
+        _sharedPaint.Reset();
+        _sharedPaint.BlendMode = maskInfo.Invert ? SKBlendMode.DstOut : SKBlendMode.DstIn;
 
-            _canvas.Restore();
+        _canvas.SaveLayer(_sharedPaint);
+        using (SKPaint maskPaint = maskInfo.Paint)
+        {
+            _canvas.DrawPaint(maskPaint);
         }
+
+        _canvas.Restore();
 
         _canvas.RestoreToCount(level);
     }
@@ -458,8 +459,8 @@ public class Canvas : ICanvas
     private static void ConfigureGradientBrush(SKPaint paint, Size targetSize, IGradientBrush gradientBrush)
     {
         var tileMode = gradientBrush.SpreadMethod.ToSKShaderTileMode();
-        SKColor[] stopColors = gradientBrush.GradientStops.Select(s => s.Color.ToSKColor()).ToArray();
-        float[] stopOffsets = gradientBrush.GradientStops.Select(s => s.Offset).ToArray();
+        SKColor[] stopColors = gradientBrush.GradientStops.SelectArray(s => s.Color.ToSKColor());
+        float[] stopOffsets = gradientBrush.GradientStops.SelectArray(s => s.Offset);
 
         switch (gradientBrush)
         {
@@ -703,12 +704,10 @@ public class Canvas : ICanvas
 
     private readonly record struct MaskInfo(bool Invert, SKPaint Paint);
 
-    private class TileBrushCalculator
+    private struct TileBrushCalculator
     {
         private readonly Size _imageSize;
         private readonly Rect _drawRect;
-
-        public bool IsValid { get; }
 
         public TileBrushCalculator(ITileBrush brush, Size contentSize, Size targetSize)
             : this(
