@@ -31,7 +31,7 @@ public sealed class BlendOperation : LayerOperation
         if (args.Result is not Graphics.Drawable obj) return;
         obj.BlendMode = BlendMode;
 
-        if (obj.Foreground is Brush brush)
+        if (obj.Foreground is Media.Brush brush)
         {
             brush.Opacity = Opacity / 100;
         }

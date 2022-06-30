@@ -17,6 +17,9 @@ public static class RenderOperations
         LayerOperationRegistry.RegisterOperations("S.Opearations.Configure")
             .Add<Configure.AlignOperation>("S.Opearations.Configure.Alignment")
             .Add<Configure.BlendOperation>("S.Opearations.Configure.Blend")
+            .AddGroup("S.Opearations.Configure.Brush", helper => helper
+                .Add<Configure.Brush.LinearGradientBrushOperation>("S.Opearations.Configure.Brush.LinearGradientBrush")
+                .Register())
             .AddGroup("S.Opearations.Configure.ImageFilter", helper => helper
                 .Add<Configure.ImageFilter.BlurOperation>("S.Opearations.Configure.ImageFilter.Blur")
                 .Add<Configure.ImageFilter.DropShadowOperation>("S.Opearations.Configure.ImageFilter.DropShadow")

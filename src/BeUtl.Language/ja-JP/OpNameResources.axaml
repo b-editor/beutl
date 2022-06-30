@@ -12,6 +12,8 @@
         <x:String x:Key="S.Opearations.Configure">構成</x:String>
         <x:String x:Key="S.Opearations.Configure.Alignment">整列</x:String>
         <x:String x:Key="S.Opearations.Configure.Blend">合成モード</x:String>
+        <x:String x:Key="S.Opearations.Configure.Brush">ブラシ</x:String>
+        <x:String x:Key="S.Opearations.Configure.Brush.LinearGradientBrush">リニアグラデーション</x:String>
         
         <x:String x:Key="S.Opearations.Configure.ImageFilter">画像フィルター</x:String>
         <x:String x:Key="S.Opearations.Configure.ImageFilter.Blur">ブラー</x:String>
@@ -28,6 +30,5 @@
         <x:String x:Key="S.Opearations.Configure.Transform.Scale">スケール</x:String>
         <x:String x:Key="S.Opearations.Configure.Transform.Skew">斜め</x:String>
         <x:String x:Key="S.Opearations.Configure.Transform.Translate">移動</x:String>
-
     </Styles.Resources>
 </Styles>
