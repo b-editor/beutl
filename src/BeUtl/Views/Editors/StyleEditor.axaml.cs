@@ -18,7 +18,7 @@ using Reactive.Bindings;
 
 namespace BeUtl.Views.Editors;
 
-public partial class StyleEditor : UserControl
+public sealed partial class StyleEditor : UserControl
 {
     private IDisposable? _disposable;
 

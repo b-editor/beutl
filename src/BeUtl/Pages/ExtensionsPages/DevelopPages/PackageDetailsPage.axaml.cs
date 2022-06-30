@@ -2,15 +2,13 @@
 using Avalonia.Interactivity;
 using Avalonia.VisualTree;
 
-using BeUtl.Controls;
 using BeUtl.ViewModels.ExtensionsPages.DevelopPages;
 
 using FluentAvalonia.UI.Controls;
-using FluentAvalonia.UI.Media.Animation;
 
 namespace BeUtl.Pages.ExtensionsPages.DevelopPages;
 
-public partial class PackageDetailsPage : UserControl
+public sealed partial class PackageDetailsPage : UserControl
 {
     public PackageDetailsPage()
     {

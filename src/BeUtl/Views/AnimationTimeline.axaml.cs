@@ -1,4 +1,4 @@
-using System.Numerics;
+ï»¿using System.Numerics;
 
 using Avalonia.Controls;
 using Avalonia.Data.Converters;
@@ -17,7 +17,7 @@ using static BeUtl.Views.Timeline;
 
 namespace BeUtl.Views;
 
-public partial class AnimationTimeline : UserControl
+public sealed partial class AnimationTimeline : UserControl
 {
     internal MouseFlags _seekbarMouseFlag = MouseFlags.MouseUp;
     private TimeSpan _clickedFrame;
@@ -40,7 +40,7 @@ public partial class AnimationTimeline : UserControl
 
     internal AnimationTimelineViewModel ViewModel => _viewModel!;
 
-    // DataContext‚ª•ÏX‚³‚ê‚½
+    // DataContextãŒå¤‰æ›´ã•ã‚ŒãŸ
     protected override void OnDataContextChanged(EventArgs e)
     {
         base.OnDataContextChanged(e);
@@ -50,7 +50,7 @@ public partial class AnimationTimeline : UserControl
         }
     }
 
-    // ContentScroll‚ªƒXƒNƒ[ƒ‹‚³‚ê‚½
+    // ContentScrollãŒã‚¹ã‚¯ãƒ­ãƒ¼ãƒ«ã•ã‚ŒãŸ
     private void ContentScroll_ScrollChanged(object? sender, ScrollChangedEventArgs e)
     {
         IReactiveProperty<TimelineOptions>? options = ViewModel.OptionsProvider.Options;
@@ -69,7 +69,7 @@ public partial class AnimationTimeline : UserControl
         ScaleScroll.Offset = new(ContentScroll.Offset.X, 0);
     }
 
-    // ƒ}ƒEƒXƒzƒC[ƒ‹‚ª“®‚¢‚½
+    // ãƒã‚¦ã‚¹ãƒ›ã‚¤ãƒ¼ãƒ«ãŒå‹•ã„ãŸ
     private void ContentScroll_PointerWheelChanged(object? sender, PointerWheelEventArgs e)
     {
         IReactiveProperty<TimelineOptions>? options = ViewModel.OptionsProvider.Options;
@@ -77,7 +77,7 @@ public partial class AnimationTimeline : UserControl
 
         if (e.KeyModifiers == KeyModifiers.Control)
         {
-            // –Ú·‚è‚ÌƒXƒP[ƒ‹‚ğ•ÏX
+            // ç›®ç››ã‚Šã®ã‚¹ã‚±ãƒ¼ãƒ«ã‚’å¤‰æ›´
             float scale = options.Value.Scale;
             var ts = offset.X.ToTimeSpan(scale);
             float deltaScale = (float)(e.Delta.Y / 120) * 10 * scale;
@@ -90,12 +90,12 @@ public partial class AnimationTimeline : UserControl
         }
         else if (e.KeyModifiers == KeyModifiers.Shift)
         {
-            // ƒIƒtƒZƒbƒg(Y) ‚ğƒXƒNƒ[ƒ‹
+            // ã‚ªãƒ•ã‚»ãƒƒãƒˆ(Y) ã‚’ã‚¹ã‚¯ãƒ­ãƒ¼ãƒ«
             offset = offset.WithY(offset.Y - (e.Delta.Y * 50));
         }
         else
         {
-            // ƒIƒtƒZƒbƒg(X) ‚ğƒXƒNƒ[ƒ‹
+            // ã‚ªãƒ•ã‚»ãƒƒãƒˆ(X) ã‚’ã‚¹ã‚¯ãƒ­ãƒ¼ãƒ«
             offset = offset.WithX(offset.X - (e.Delta.Y * 50));
         }
 
@@ -103,7 +103,7 @@ public partial class AnimationTimeline : UserControl
         e.Handled = true;
     }
 
-    // ƒ|ƒCƒ“ƒ^[ˆÚ“®
+    // ãƒã‚¤ãƒ³ã‚¿ãƒ¼ç§»å‹•
     private void TimelinePanel_PointerMoved(object? sender, PointerEventArgs e)
     {
         PointerPoint pointerPt = e.GetCurrentPoint(TimelinePanel);
@@ -116,7 +116,7 @@ public partial class AnimationTimeline : UserControl
         }
     }
 
-    // ƒ|ƒCƒ“ƒ^[‚ª•ú‚³‚ê‚½
+    // ãƒã‚¤ãƒ³ã‚¿ãƒ¼ãŒæ”¾ã•ã‚ŒãŸ
     private void TimelinePanel_PointerReleased(object? sender, PointerReleasedEventArgs e)
     {
         PointerPoint pointerPt = e.GetCurrentPoint(TimelinePanel);
@@ -127,7 +127,7 @@ public partial class AnimationTimeline : UserControl
         }
     }
 
-    // ƒ|ƒCƒ“ƒ^[‚ª‰Ÿ‚³‚ê‚½
+    // ãƒã‚¤ãƒ³ã‚¿ãƒ¼ãŒæŠ¼ã•ã‚ŒãŸ
     private void TimelinePanel_PointerPressed(object? sender, PointerPressedEventArgs e)
     {
         PointerPoint pointerPt = e.GetCurrentPoint(TimelinePanel);
@@ -141,7 +141,7 @@ public partial class AnimationTimeline : UserControl
         }
     }
 
-    // ƒ|ƒCƒ“ƒ^[‚ª—£‚ê‚½
+    // ãƒã‚¤ãƒ³ã‚¿ãƒ¼ãŒé›¢ã‚ŒãŸ
     private void TimelinePanel_PointerLeave(object? sender, PointerEventArgs e)
     {
         _seekbarMouseFlag = MouseFlags.MouseUp;

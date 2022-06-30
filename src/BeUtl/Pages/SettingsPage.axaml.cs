@@ -9,7 +9,7 @@ using FluentAvalonia.UI.Controls;
 
 namespace BeUtl.Pages;
 
-public partial class SettingsPage : UserControl
+public sealed partial class SettingsPage : UserControl
 {
     public SettingsPage()
     {

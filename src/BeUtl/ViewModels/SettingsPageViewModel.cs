@@ -1,5 +1,5 @@
 ﻿namespace BeUtl.ViewModels;
 
-public class SettingsPageViewModel
+public sealed class SettingsPageViewModel
 {
 }

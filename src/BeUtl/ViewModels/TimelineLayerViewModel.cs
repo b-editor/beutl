@@ -15,7 +15,7 @@ using Reactive.Bindings.Extensions;
 
 namespace BeUtl.ViewModels;
 
-public class TimelineLayerViewModel : IDisposable
+public sealed class TimelineLayerViewModel : IDisposable
 {
     private readonly CompositeDisposable _disposables = new();
     private LayerHeaderViewModel? _layerHeader;

@@ -10,14 +10,14 @@ using Reactive.Bindings;
 
 namespace BeUtl.ViewModels.SettingsPages;
 
-public class ExtensionsSettingsPageViewModel
+public sealed class ExtensionsSettingsPageViewModel
 {
     private readonly ExtensionConfig _extensionConfig = GlobalConfiguration.Instance.ExtensionConfig;
     private readonly ExtensionProvider _extensionProvider = PackageManager.Instance.ExtensionProvider;
     private readonly EditorExtension[] _loadedEExt;
     private IDisposable? _disposable1;
 
-    public record EditorExtensionWrapper(string DisplayName, string Name, string TypeName);
+    public sealed record EditorExtensionWrapper(string DisplayName, string Name, string TypeName);
 
     public ExtensionsSettingsPageViewModel()
     {

@@ -1,19 +1,11 @@
-﻿using System.Reactive.Linq;
-using System.Runtime.InteropServices;
+﻿using System.Runtime.InteropServices;
 
 using Avalonia;
-using Avalonia.Animation;
-using Avalonia.Animation.Easings;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.LogicalTree;
-using Avalonia.Media;
-using Avalonia.Styling;
-using Avalonia.Threading;
 
 using BeUtl.ViewModels;
-
-using FluentAvalonia.UI.Controls;
 
 using static BeUtl.Views.Timeline;
 

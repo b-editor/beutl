@@ -13,7 +13,7 @@ using S = BeUtl.Language.StringResources;
 
 namespace BeUtl.Pages.ExtensionsPages.DevelopPages;
 
-public partial class ReleasePage : UserControl
+public sealed partial class ReleasePage : UserControl
 {
     public ReleasePage()
     {

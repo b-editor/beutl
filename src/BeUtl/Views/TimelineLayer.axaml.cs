@@ -17,7 +17,7 @@ using Setter = Avalonia.Styling.Setter;
 
 namespace BeUtl.Views;
 
-public partial class TimelineLayer : UserControl
+public sealed partial class TimelineLayer : UserControl
 {
     private static readonly Avalonia.Animation.Animation s_animation1 = new()
     {

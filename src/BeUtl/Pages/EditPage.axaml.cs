@@ -1,16 +1,13 @@
 ﻿using System.Collections.Specialized;
-using System.Reactive.Linq;
 
 using Avalonia.Collections;
 using Avalonia.Controls;
-using Avalonia.Controls.Templates;
 using Avalonia.Data;
 using Avalonia.Data.Converters;
 using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.VisualTree;
 
-using BeUtl.Collections;
 using BeUtl.Framework;
 using BeUtl.Services;
 using BeUtl.ViewModels;

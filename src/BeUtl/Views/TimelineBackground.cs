@@ -4,7 +4,7 @@ using Avalonia.Media;
 
 namespace BeUtl.Views;
 
-public class TimelineBackground : TemplatedControl
+public sealed class TimelineBackground : TemplatedControl
 {
     public static readonly StyledProperty<double> ItemHeightProperty = AvaloniaProperty.Register<TimelineBackground, double>(nameof(ItemHeight), 25);
 

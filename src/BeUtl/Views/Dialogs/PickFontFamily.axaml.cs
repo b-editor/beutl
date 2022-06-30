@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Text.RegularExpressions;
 
 using Avalonia;
@@ -15,7 +15,7 @@ using FluentAvalonia.UI.Controls;
 
 namespace BeUtl.Views.Dialogs;
 
-public partial class PickFontFamily : ContentDialog, IStyleable
+public sealed partial class PickFontFamily : ContentDialog, IStyleable
 {
     private Regex[]? _regies;
 

@@ -1,6 +1,4 @@
-﻿using System.Reactive.Linq;
-using System.Runtime.InteropServices;
-
+﻿
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Notifications;
@@ -37,15 +35,11 @@ public sealed partial class MainWindow : CoreWindow
         mainView.Focus();
         FluentAvaloniaTheme thm = AvaloniaLocator.Current.GetService<FluentAvaloniaTheme>()!;
         ViewConfig viewConfig = GlobalConfiguration.Instance.ViewConfig;
-        thm.RequestedThemeChanged += (s, e) => OnThemeChanged(e.NewTheme, viewConfig.IsMicaEffectEnabled);
+        thm.RequestedThemeChanged += (_, e) => OnThemeChanged(e.NewTheme, viewConfig.IsMicaEffectEnabled);
 
-        viewConfig.GetObservable(ViewConfig.IsMicaEffectEnabledProperty).Subscribe(value =>
-        {
-            Dispatcher.UIThread.InvokeAsync(() =>
-            {
-                OnThemeChanged(thm.RequestedTheme, value);
-            });
-        });
+        viewConfig.GetObservable(ViewConfig.IsMicaEffectEnabledProperty).Subscribe(value
+            => Dispatcher.UIThread.InvokeAsync(()
+                => OnThemeChanged(thm.RequestedTheme, value)));
 
         if (OperatingSystem.IsWindows())
         {

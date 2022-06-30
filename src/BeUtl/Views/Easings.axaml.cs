@@ -1,12 +1,10 @@
-using Avalonia;
-using Avalonia.Controls;
+﻿using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
-using Avalonia.Markup.Xaml;
 
 namespace BeUtl.Views;
 
-public partial class Easings : UserControl
+public sealed partial class Easings : UserControl
 {
     public Easings()
     {

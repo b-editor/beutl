@@ -12,7 +12,7 @@ using FluentAvalonia.UI.Controls;
 
 namespace BeUtl.Pages.ExtensionsPages;
 
-public partial class DevelopPage : UserControl
+public sealed partial class DevelopPage : UserControl
 {
     private bool _flag;
 

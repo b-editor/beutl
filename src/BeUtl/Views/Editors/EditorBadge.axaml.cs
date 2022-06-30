@@ -11,7 +11,7 @@ using BeUtl.ViewModels.Editors;
 
 namespace BeUtl.Views.Editors;
 
-public partial class EditorBadge : UserControl
+public sealed partial class EditorBadge : UserControl
 {
     public EditorBadge()
     {

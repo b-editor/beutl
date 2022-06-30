@@ -1,9 +1,9 @@
-using Avalonia.Controls;
+﻿using Avalonia.Controls;
 using Avalonia.Interactivity;
 
 namespace BeUtl.Pages.SettingsPages;
 
-public partial class ExtensionsSettingsPage : UserControl
+public sealed partial class ExtensionsSettingsPage : UserControl
 {
     public ExtensionsSettingsPage()
     {

@@ -1,17 +1,10 @@
-using Avalonia;
-using Avalonia.Controls;
-using Avalonia.Markup.Xaml;
+﻿using Avalonia.Controls;
 
 namespace BeUtl.Pages.ExtensionsPages;
-public partial class LibraryPage : UserControl
+public sealed partial class LibraryPage : UserControl
 {
     public LibraryPage()
     {
         InitializeComponent();
-    }
-
-    private void InitializeComponent()
-    {
-        AvaloniaXamlLoader.Load(this);
     }
 }

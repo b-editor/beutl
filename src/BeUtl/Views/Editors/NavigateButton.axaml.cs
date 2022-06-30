@@ -59,7 +59,7 @@ public partial class NavigateButton : UserControl
     }
 }
 
-public class NavigateButton<T> : NavigateButton
+public sealed class NavigateButton<T> : NavigateButton
     where T : ICoreObject
 {
     protected override void OnNavigate()
@@ -84,7 +84,7 @@ public class NavigateButton<T> : NavigateButton
             await Task.Run(async () =>
             {
                 Type type = viewModel.WrappedProperty.AssociatedProperty.PropertyType;
-                var types = AppDomain.CurrentDomain.GetAssemblies()
+                Type[] types = AppDomain.CurrentDomain.GetAssemblies()
                     .SelectMany(x => x.GetTypes())
                     .Where(x => !x.IsAbstract
                         && x.IsPublic

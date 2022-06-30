@@ -1,5 +1,4 @@
-﻿using System.Globalization;
-using System.Reflection;
+﻿using System.Reflection;
 
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
@@ -13,7 +12,6 @@ using Avalonia.Threading;
 using BeUtl.Configuration;
 using BeUtl.Framework.Service;
 using BeUtl.Framework.Services;
-using BeUtl.Language;
 using BeUtl.Operations;
 using BeUtl.ProjectSystem;
 using BeUtl.Rendering;
@@ -26,11 +24,10 @@ using FluentAvalonia.Styling;
 using Microsoft.Extensions.DependencyInjection;
 
 using Reactive.Bindings;
-using Reactive.Bindings.Extensions;
 
 namespace BeUtl;
 
-public class App : Application
+public sealed class App : Application
 {
     private readonly Uri _baseUri = new("avares://BeUtl/App.axaml");
     private IStyle? _cultureStyle;

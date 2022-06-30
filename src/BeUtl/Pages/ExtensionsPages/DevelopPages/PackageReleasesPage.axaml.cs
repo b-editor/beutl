@@ -14,7 +14,7 @@ using S = BeUtl.Language.StringResources;
 
 namespace BeUtl.Pages.ExtensionsPages.DevelopPages;
 
-public partial class PackageReleasesPage : UserControl
+public sealed partial class PackageReleasesPage : UserControl
 {
     private bool _flag;
 

@@ -1,6 +1,6 @@
 ﻿namespace BeUtl.Models.Extensions.Develop;
 
-public record PackageInfo(
+public sealed record PackageInfo(
     string DisplayName,
     string Name,
     string Description,

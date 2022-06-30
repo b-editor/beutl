@@ -55,7 +55,7 @@ public sealed class PlayerViewModel
     public ReactivePropertySlim<bool> IsPlaying { get; } = new();
 
     public ReactiveCommand PlayPause { get; } = new();
-    
+
     public ReactiveCommand Next { get; } = new();
 
     public ReactiveCommand Previous { get; } = new();

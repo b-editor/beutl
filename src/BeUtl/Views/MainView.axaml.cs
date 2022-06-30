@@ -87,7 +87,7 @@ internal readonly struct Cache<T>
     }
 }
 
-public partial class MainView : UserControl
+public sealed partial class MainView : UserControl
 {
     private static readonly Binding s_headerBinding = new("Header.Value");
     private readonly AvaloniaList<MenuItem> _rawRecentFileItems = new();

@@ -18,7 +18,7 @@ using BeUtl.Views.Dialogs;
 
 namespace BeUtl.Views;
 
-public partial class Timeline : UserControl
+public sealed partial class Timeline : UserControl
 {
     internal enum MouseFlags
     {

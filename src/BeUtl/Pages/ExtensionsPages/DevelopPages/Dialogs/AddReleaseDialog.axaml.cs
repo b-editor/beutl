@@ -4,7 +4,7 @@ using FluentAvalonia.UI.Controls;
 
 namespace BeUtl.Pages.ExtensionsPages.DevelopPages.Dialogs;
 
-public partial class AddReleaseDialog : ContentDialog, IStyleable
+public sealed partial class AddReleaseDialog : ContentDialog, IStyleable
 {
     public AddReleaseDialog()
     {

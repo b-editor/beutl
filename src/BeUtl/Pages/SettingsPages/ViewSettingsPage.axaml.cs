@@ -1,10 +1,8 @@
-using Avalonia;
-using Avalonia.Controls;
-using Avalonia.Markup.Xaml;
+﻿using Avalonia.Controls;
 
 namespace BeUtl.Pages.SettingsPages;
 
-public partial class ViewSettingsPage : UserControl
+public sealed partial class ViewSettingsPage : UserControl
 {
     public ViewSettingsPage()
     {

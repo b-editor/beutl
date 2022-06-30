@@ -1,12 +1,9 @@
 ﻿
-using System.Reactive.Disposables;
-using System.Reactive.Linq;
-
 using Google.Cloud.Firestore;
 
 namespace BeUtl.Models.Extensions.Develop;
 
-public class PackageLink : IPackage.ILink
+public sealed class PackageLink : IPackage.ILink
 {
     public PackageLink(DocumentSnapshot snapshot)
     {

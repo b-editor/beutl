@@ -12,7 +12,7 @@ using Reactive.Bindings;
 
 namespace BeUtl.Services;
 
-public class ProjectService : IProjectService
+public sealed class ProjectService : IProjectService
 {
     private readonly Subject<(Project? New, Project? Old)> _projectObservable = new();
     private readonly ReactivePropertySlim<Project?> _currentProject = new();

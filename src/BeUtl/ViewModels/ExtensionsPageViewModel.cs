@@ -1,5 +1,5 @@
 ﻿namespace BeUtl.ViewModels;
 
-public class ExtensionsPageViewModel
+public sealed class ExtensionsPageViewModel
 {
 }

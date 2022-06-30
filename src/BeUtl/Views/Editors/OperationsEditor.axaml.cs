@@ -6,7 +6,7 @@ using BeUtl.ViewModels.Editors;
 
 namespace BeUtl.Views.Editors;
 
-public partial class OperationsEditor : UserControl
+public sealed partial class OperationsEditor : UserControl
 {
     public OperationsEditor()
     {
@@ -23,7 +23,7 @@ public partial class OperationsEditor : UserControl
             var self = new WeakReference<OperationsEditor>(this);
             viewModel.RequestScroll = obj =>
             {
-                if (self.TryGetTarget(out var @this) && @this.DataContext is OperationsEditorViewModel viewModel)
+                if (self.TryGetTarget(out OperationsEditor? @this) && @this.DataContext is OperationsEditorViewModel viewModel)
                 {
                     int index = 0;
                     bool found = false;

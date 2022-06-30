@@ -1,11 +1,9 @@
-﻿using System.Globalization;
-using System.Reactive.Linq;
-
+﻿
 using Google.Cloud.Firestore;
 
 namespace BeUtl.Models.Extensions.Develop;
 
-public class LocalizedPackageResourceLink : ILocalizedPackageResource.ILink
+public sealed class LocalizedPackageResourceLink : ILocalizedPackageResource.ILink
 {
     public LocalizedPackageResourceLink(DocumentSnapshot snapshot)
     {

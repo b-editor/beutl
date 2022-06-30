@@ -7,7 +7,7 @@ using BeUtl.ViewModels.Editors;
 
 namespace BeUtl.Views.Editors;
 
-public partial class FileInfoEditor : UserControl
+public sealed partial class FileInfoEditor : UserControl
 {
     public FileInfoEditor()
     {
@@ -20,7 +20,7 @@ public partial class FileInfoEditor : UserControl
         if (DataContext is not FileInfoEditorViewModel vm || VisualRoot is not Window window) return;
 
         string? filterName = vm.Header.Value;
-        ImmutableArray<string> exts = vm.WrappedProperty.GetMetadataExt<FilePropertyMetadata>().Extensions;
+        ImmutableArray<string> exts = vm.WrappedProperty.GetMetadataExt<FilePropertyMetadata>()?.Extensions ?? ImmutableArray<string>.Empty;
 
         var dialog = new OpenFileDialog();
 

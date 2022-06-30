@@ -1,11 +1,11 @@
-using Avalonia.Controls;
+﻿using Avalonia.Controls;
 using Avalonia.Interactivity;
 
 using BeUtl.ViewModels.SettingsPages;
 
 namespace BeUtl.Pages.SettingsPages;
 
-public partial class FontSettingsPage : UserControl
+public sealed partial class FontSettingsPage : UserControl
 {
     public FontSettingsPage()
     {

@@ -1,17 +1,15 @@
-﻿using System.Globalization;
-using System.Reactive.Linq;
-
+﻿
 using Google.Cloud.Firestore;
 
 namespace BeUtl.Models.Extensions.Develop;
 
-public record LocalizedReleaseResource(
+public sealed record LocalizedReleaseResource(
     string Title,
     string Body,
     CultureInfo Culture)
     : ILocalizedReleaseResource;
 
-public class LocalizedReleaseResourceLink : ILocalizedReleaseResource.ILink
+public sealed class LocalizedReleaseResourceLink : ILocalizedReleaseResource.ILink
 {
     public LocalizedReleaseResourceLink(DocumentSnapshot snapshot)
     {

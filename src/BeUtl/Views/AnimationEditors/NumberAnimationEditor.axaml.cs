@@ -18,7 +18,7 @@ public partial class NumberAnimationEditor : UserControl
     }
 }
 
-public class NumberAnimationEditor<T> : NumberAnimationEditor
+public sealed class NumberAnimationEditor<T> : NumberAnimationEditor
     where T : struct
 {
     private T _oldPrev;

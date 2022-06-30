@@ -2,15 +2,13 @@
 using Avalonia.Controls;
 using Avalonia.Data;
 using Avalonia.Data.Converters;
-using Avalonia.Markup.Xaml;
-using Avalonia.Markup.Xaml.MarkupExtensions;
 
 using BeUtl.Services;
 using BeUtl.ViewModels.Editors;
 
 namespace BeUtl.Views.Editors;
 
-public partial class ObjectPropertyEditor : UserControl
+public sealed partial class ObjectPropertyEditor : UserControl
 {
     public ObjectPropertyEditor()
     {

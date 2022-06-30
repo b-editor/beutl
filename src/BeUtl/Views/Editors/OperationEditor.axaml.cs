@@ -253,7 +253,7 @@ public sealed class OperationEditorDragBehavior : Behavior<OperationEditor>
     }
 }
 
-public partial class OperationEditor : UserControl
+public sealed partial class OperationEditor : UserControl
 {
     public OperationEditor()
     {

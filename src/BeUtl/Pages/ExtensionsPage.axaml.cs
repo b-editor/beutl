@@ -10,7 +10,7 @@ using FluentAvalonia.UI.Navigation;
 
 namespace BeUtl.Pages;
 
-public partial class ExtensionsPage : UserControl
+public sealed partial class ExtensionsPage : UserControl
 {
     public ExtensionsPage()
     {

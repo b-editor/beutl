@@ -1,8 +1,6 @@
-﻿using System.Globalization;
+﻿namespace BeUtl.Models.Extensions.Develop;
 
-namespace BeUtl.Models.Extensions.Develop;
-
-public record LocalizedPackageResource(
+public sealed record LocalizedPackageResource(
     string? DisplayName,
     string? Description,
     string? ShortDescription,

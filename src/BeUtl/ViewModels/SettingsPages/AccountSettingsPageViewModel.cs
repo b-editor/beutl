@@ -87,7 +87,7 @@ public sealed class AccountSettingsPageViewModel : IDisposable
                     float y = SIZE / (float)srcBmp.Height;
                     float w = srcBmp.Width * MathF.Max(x, y);
                     float h = srcBmp.Height * MathF.Max(x, y);
-                    var rect = new Rect(0, 0, SIZE, SIZE)
+                    Rect rect = new Rect(0, 0, SIZE, SIZE)
                         .CenterRect(new Rect(0, 0, w, h));
                     canvas.DrawBitmap(srcBmp, rect.ToSKRect());
                     canvas.Flush();
@@ -237,7 +237,7 @@ public sealed class AccountSettingsPageViewModel : IDisposable
     public ReadOnlyReactivePropertySlim<bool> SignInWithEmail { get; }
 
     public ReadOnlyReactivePropertySlim<bool> SignInWithGoogleAndEmail { get; }
-    
+
     public ReadOnlyReactivePropertySlim<bool> SignInWithEmailOnly { get; }
 
     public ReactiveCommand SignOut { get; }

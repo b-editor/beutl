@@ -8,7 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace BeUtl.Services;
 
-public class PackageController
+public sealed class PackageController
 {
     private readonly AccountService _accountService;
 

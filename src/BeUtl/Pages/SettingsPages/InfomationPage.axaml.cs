@@ -1,17 +1,10 @@
-using Avalonia;
-using Avalonia.Controls;
-using Avalonia.Markup.Xaml;
+﻿using Avalonia.Controls;
 
 namespace BeUtl.Pages.SettingsPages;
-public partial class InfomationPage : UserControl
+public sealed partial class InfomationPage : UserControl
 {
     public InfomationPage()
     {
         InitializeComponent();
-    }
-
-    private void InitializeComponent()
-    {
-        AvaloniaXamlLoader.Load(this);
     }
 }

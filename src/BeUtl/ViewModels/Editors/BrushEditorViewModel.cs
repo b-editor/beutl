@@ -12,7 +12,7 @@ using Reactive.Bindings;
 
 namespace BeUtl.ViewModels.Editors;
 
-public class BrushEditorViewModel : BaseEditorViewModel
+public sealed class BrushEditorViewModel : BaseEditorViewModel
 {
     private static readonly NullabilityInfoContext s_context = new();
 

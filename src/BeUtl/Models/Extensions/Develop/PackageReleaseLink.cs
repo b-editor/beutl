@@ -1,11 +1,9 @@
-﻿using System.Reactive.Disposables;
-using System.Reactive.Linq;
-
+﻿
 using Google.Cloud.Firestore;
 
 namespace BeUtl.Models.Extensions.Develop;
 
-public record PackageRelease(
+public sealed record PackageRelease(
     Version Version,
     string Title,
     string Body,
@@ -14,7 +12,7 @@ public record PackageRelease(
     string? SHA256)
     : IPackageRelease;
 
-public class PackageReleaseLink : IPackageRelease.ILink
+public sealed class PackageReleaseLink : IPackageRelease.ILink
 {
     public PackageReleaseLink(DocumentSnapshot snapshot)
     {

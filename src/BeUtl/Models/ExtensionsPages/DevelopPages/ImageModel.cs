@@ -2,7 +2,7 @@
 
 namespace BeUtl.Models.ExtensionsPages.DevelopPages;
 
-public record ImageModel(MemoryStream Stream, Bitmap Bitmap, string Name) : IDisposable
+public sealed record ImageModel(MemoryStream Stream, Bitmap Bitmap, string Name) : IDisposable
 {
     public void Dispose()
     {

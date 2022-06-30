@@ -1,11 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Reactive.Linq;
-using System.Text;
-using System.Text.Json;
+﻿using System.Text.Json;
 using System.Text.Json.Nodes;
-using System.Threading.Tasks;
 
 using BeUtl.Configuration;
 using BeUtl.Models;
@@ -23,7 +17,7 @@ using Grpc.Core;
 
 namespace BeUtl.Services;
 
-public class AccountService
+public sealed class AccountService
 {
     internal readonly FirestoreDb _db;
     internal readonly FirebaseStorage _storage;

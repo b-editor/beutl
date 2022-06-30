@@ -24,7 +24,7 @@ using S = BeUtl.Language.StringResources;
 
 namespace BeUtl.ViewModels;
 
-public class MainViewModel
+public sealed class MainViewModel
 {
     private readonly IProjectService _projectService;
     private readonly EditorService _editorService;

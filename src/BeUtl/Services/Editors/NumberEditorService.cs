@@ -1,6 +1,6 @@
 ﻿namespace BeUtl.Services.Editors;
 
-public class NumberEditorService
+public sealed class NumberEditorService
 {
     public static readonly NumberEditorService Instance = new();
     private readonly Dictionary<Type, object> _editors = new()

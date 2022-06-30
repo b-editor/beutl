@@ -1,4 +1,4 @@
-using System.Text.RegularExpressions;
+ï»¿using System.Text.RegularExpressions;
 
 using Avalonia;
 using Avalonia.Collections;
@@ -12,7 +12,7 @@ using BeUtl.ProjectSystem;
 
 namespace BeUtl.Views;
 
-public partial class Library : UserControl
+public sealed partial class Library : UserControl
 {
     public Library()
     {
@@ -106,7 +106,7 @@ public partial class Library : UserControl
         }
     }
 
-    // ˆê‚Â‚Å‚àIsVisible‚ªtrue‚¾‚Á‚½‚çtrue‚ğ•Ô‚·
+    // ä¸€ã¤ã§ã‚‚IsVisibleãŒtrueã ã£ãŸã‚‰trueã‚’è¿”ã™
     private bool SetIsVisible(TreeViewItem treeitem, Func<string, bool> validate)
     {
         // IsVisible

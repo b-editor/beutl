@@ -1,4 +1,6 @@
-﻿using Avalonia.Controls;
+﻿using System.Reflection;
+
+using Avalonia.Controls;
 using Avalonia.Controls.Presenters;
 using Avalonia.Controls.Templates;
 using Avalonia.Interactivity;
@@ -17,7 +19,7 @@ using ContentDialogResult = FluentAvalonia.UI.Controls.ContentDialogResult;
 
 namespace BeUtl.Views.Editors;
 
-public partial class BrushEditor : UserControl
+public sealed partial class BrushEditor : UserControl
 {
     public BrushEditor()
     {
@@ -80,7 +82,7 @@ public partial class BrushEditor : UserControl
             if (await dialog.ShowAsync() == ContentDialogResult.Primary
                 && combobox.SelectedItem is (Type type, string _))
             {
-                var constructorInfo = type.GetConstructor(Array.Empty<Type>());
+                ConstructorInfo? constructorInfo = type.GetConstructor(Array.Empty<Type>());
 
                 if (constructorInfo?.Invoke(null) is IBrush typed)
                 {

@@ -287,11 +287,11 @@ public partial class ListEditor : UserControl
             await Task.Run(async () =>
             {
                 Type type = viewModel.WrappedProperty.AssociatedProperty.PropertyType;
-                Type? interfaceType = type.GetInterfaces().FirstOrDefault(x => x.IsGenericType && x.GetGenericTypeDefinition() == typeof(IList<>));
+                Type? interfaceType = Array.Find(type.GetInterfaces(), x => x.IsGenericType && x.GetGenericTypeDefinition() == typeof(IList<>));
                 Type? itemtype = interfaceType?.GenericTypeArguments?.FirstOrDefault();
                 if (itemtype != null)
                 {
-                    var types = AppDomain.CurrentDomain.GetAssemblies()
+                    Type[] types = AppDomain.CurrentDomain.GetAssemblies()
                         .SelectMany(x => x.GetTypes())
                         .Where(x => !x.IsAbstract
                             && x.IsPublic
@@ -342,7 +342,7 @@ public partial class ListEditor : UserControl
 
                     if (constructorInfo != null)
                     {
-                        var obj = constructorInfo.Invoke(null);
+                        object? obj = constructorInfo.Invoke(null);
                         if (obj != null)
                         {
                             await Dispatcher.UIThread.InvokeAsync(() => viewModel.List.Value.Add(obj));
@@ -369,8 +369,8 @@ public partial class ListEditor : UserControl
             && DataContext is ListEditorViewModel { List.Value: { } list } viewModel
             && this.FindLogicalAncestorOfType<ObjectPropertyEditor>().DataContext is ObjectPropertyEditorViewModel parentViewModel)
         {
-            var grid = logical.FindLogicalAncestorOfType<Grid>();
-            var index = items.ItemContainerGenerator.IndexFromContainer(grid.Parent);
+            Grid grid = logical.FindLogicalAncestorOfType<Grid>();
+            int index = items.ItemContainerGenerator.IndexFromContainer(grid.Parent);
 
             if (index >= 0)
             {
@@ -387,8 +387,6 @@ public partial class ListEditor : UserControl
                         styleEditor.Style.Value = style;
                         editViewModel.OpenToolTab(styleEditor);
                         break;
-                    default:
-                        break;
                 }
             }
         }
@@ -399,8 +397,8 @@ public partial class ListEditor : UserControl
         if (sender is MenuItem menuItem
             && DataContext is ListEditorViewModel { List.Value: { } list } viewModel)
         {
-            var grid = menuItem.FindLogicalAncestorOfType<Grid>();
-            var index = items.ItemContainerGenerator.IndexFromContainer(grid.Parent);
+            Grid grid = menuItem.FindLogicalAncestorOfType<Grid>();
+            int index = items.ItemContainerGenerator.IndexFromContainer(grid.Parent);
 
             if (index >= 0)
             {

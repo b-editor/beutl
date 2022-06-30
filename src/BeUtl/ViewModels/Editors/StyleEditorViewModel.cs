@@ -15,7 +15,7 @@ using Reactive.Bindings;
 
 namespace BeUtl.ViewModels.Editors;
 
-public class StyleEditorViewModel : IToolContext
+public sealed class StyleEditorViewModel : IToolContext
 {
     private static Type[]? s_cache;
     private readonly IDisposable _disposable0;
@@ -105,9 +105,9 @@ public class StyleEditorViewModel : IToolContext
 
     private void ClearItems()
     {
-        var tmp = Items.AsSpan().ToArray();
+        BaseEditorViewModel?[] tmp = Items.AsSpan().ToArray();
         Items.Clear();
-        foreach (var item in tmp)
+        foreach (BaseEditorViewModel? item in tmp)
         {
             item?.Dispose();
         }
@@ -120,11 +120,9 @@ public class StyleEditorViewModel : IToolContext
 
     public void ReadFromJson(JsonNode json)
     {
-
     }
 
     public void WriteToJson(ref JsonNode json)
     {
-
     }
 }

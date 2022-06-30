@@ -10,7 +10,7 @@ using FluentAvalonia.UI.Controls;
 
 namespace BeUtl.Pages.ExtensionsPages.DevelopPages.Dialogs;
 
-public partial class AddResourceDialog : ContentDialog, IStyleable
+public sealed partial class AddResourceDialog : ContentDialog, IStyleable
 {
     private IDisposable? _disposable1;
     private IDisposable? _disposable2;

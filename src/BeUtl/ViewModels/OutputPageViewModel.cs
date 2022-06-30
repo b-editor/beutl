@@ -1,5 +1,5 @@
 ﻿namespace BeUtl.ViewModels;
 
-public class OutputPageViewModel
+public sealed class OutputPageViewModel
 {
 }

@@ -15,7 +15,7 @@ using S = BeUtl.Language.StringResources;
 
 namespace BeUtl.Pages.ExtensionsPages.DevelopPages;
 
-public partial class PackageSettingsPage : UserControl
+public sealed partial class PackageSettingsPage : UserControl
 {
     public PackageSettingsPage()
     {

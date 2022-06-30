@@ -15,7 +15,7 @@ using Button = Avalonia.Controls.Button;
 
 namespace BeUtl.Views.Editors;
 
-public partial class LayerOpsEditor : UserControl
+public sealed partial class LayerOpsEditor : UserControl
 {
     private static readonly Lazy<CrossFade> s_crossFade = new(() => new(TimeSpan.FromSeconds(0.25)));
     private CancellationTokenSource? _lastTransitionCts;
