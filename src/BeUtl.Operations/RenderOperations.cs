@@ -10,9 +10,15 @@ public static class RenderOperations
 {
     public static void RegisterAll()
     {
-        LayerOperationRegistry.RegisterOperations("S.OpName.Effect", Colors.Teal)
+        LayerOperationRegistry.RegisterOperations("S.OpName.ImageFilter", Colors.Teal)
             .Add<BlurOperation>("S.OpName.Blur")
             .Add<DropShadowOperation>("S.OpName.DropShadow")
+            .Register();
+        
+        LayerOperationRegistry.RegisterOperations("S.OpName.BitmapEffect", Colors.Teal)
+            .Add<Effects.BlurOperation>("S.OpName.Blur")
+            .Add<Effects.InnerShadowOperation>("S.OpName.InnerShadow")
+            .Add<Effects.BorderOperation>("S.OpName.Border")
             .Register();
 
         LayerOperationRegistry.RegisterOperations("S.OpName.Transform", Colors.Teal)
@@ -32,8 +38,5 @@ public static class RenderOperations
         LayerOperationRegistry.RegisterOperation<BlendOperation>("S.OpName.Blend");
         LayerOperationRegistry.RegisterOperation<OffscreenDrawing>("S.OpName.OffscreenDrawing");
         LayerOperationRegistry.RegisterOperation<TestOperation>("S.OpName.Test");
-        LayerOperationRegistry.RegisterOperation<Effects.BlurOperation>("S.OpName.Blur");
-        LayerOperationRegistry.RegisterOperation<Effects.InnerShadowOperation>("S.OpName.InnerShadow");
-        LayerOperationRegistry.RegisterOperation<Effects.BorderOperation>("S.OpName.Border");
     }
 }

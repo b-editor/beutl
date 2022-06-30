@@ -18,7 +18,8 @@
         <x:String x:Key="S.OpName.Skew">斜め</x:String>
         <x:String x:Key="S.OpName.Translate">移動</x:String>
 
-        <x:String x:Key="S.OpName.Effect">エフェクト</x:String>
+        <x:String x:Key="S.OpName.ImageFilter">画像フィルター</x:String>
+        <x:String x:Key="S.OpName.BitmapEffect">ビットマップエフェクト</x:String>
         <x:String x:Key="S.OpName.Blur">ブラー</x:String>
         <x:String x:Key="S.OpName.DropShadow">ドロップシャドウ</x:String>
         <x:String x:Key="S.OpName.InnerShadow">内側シャドウ</x:String>
