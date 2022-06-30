@@ -35,6 +35,11 @@ public class LayerOperationRegistry
         });
     }
 
+    public static RegistrationHelper RegisterOperations(ResourceReference<string> displayName)
+    {
+        return RegisterOperations(displayName, Colors.Teal);
+    }
+    
     public static RegistrationHelper RegisterOperations(ResourceReference<string> displayName, Color accentColor)
     {
         return new RegistrationHelper(new GroupableRegistryItem(displayName, accentColor));
@@ -47,15 +52,23 @@ public class LayerOperationRegistry
 
     public static RegistryItem? FindItem(Type type)
     {
-        static RegistryItem? Find(List<RegistryItem> list, Type type)
+        static RegistryItem? Find(List<BaseRegistryItem> list, Type type)
         {
             for (int i = 0; i < list.Count; i++)
             {
-                RegistryItem item = list[i];
+                BaseRegistryItem item = list[i];
 
-                if (item.Type == type)
+                if (item is RegistryItem registryItem && registryItem.Type == type)
                 {
-                    return item;
+                    return registryItem;
+                }
+                else if (item is GroupableRegistryItem groupable)
+                {
+                    RegistryItem? result = Find(groupable.Items, type);
+                    if (result != null)
+                    {
+                        return result;
+                    }
                 }
             }
 
@@ -67,7 +80,6 @@ public class LayerOperationRegistry
         for (int i = 0; i < s_operations.Count; i++)
         {
             BaseRegistryItem item = s_operations[i];
-
 
             if (item is GroupableRegistryItem group)
             {
@@ -105,16 +117,18 @@ public class LayerOperationRegistry
     public record GroupableRegistryItem(ResourceReference<string> DisplayName, Color AccentColor)
         : BaseRegistryItem(DisplayName, AccentColor)
     {
-        public List<RegistryItem> Items { get; } = new();
+        public List<BaseRegistryItem> Items { get; } = new();
     }
 
     public class RegistrationHelper
     {
         private readonly GroupableRegistryItem _item;
+        private readonly Action<GroupableRegistryItem> _register;
 
-        internal RegistrationHelper(GroupableRegistryItem item)
+        internal RegistrationHelper(GroupableRegistryItem item, Action<GroupableRegistryItem>? register = null)
         {
             _item = item;
+            _register = register ?? (item => LayerOperationRegistry.Register(item));
         }
 
         public RegistrationHelper Add<T>(ResourceReference<string> displayName)
@@ -128,7 +142,7 @@ public class LayerOperationRegistry
         public RegistrationHelper Add<T>(ResourceReference<string> displayName, Color accentColor)
             where T : LayerOperation, new()
         {
-            _item.Items!.Add(new RegistryItem(displayName, accentColor, typeof(T)));
+            _item.Items.Add(new RegistryItem(displayName, accentColor, typeof(T)));
 
             return this;
         }
@@ -143,7 +157,7 @@ public class LayerOperationRegistry
             ArgumentNullException.ThrowIfNull(canOpen);
             ArgumentNullException.ThrowIfNull(openFile);
 
-            _item.Items!.Add(new RegistryItem(displayName, accentColor, typeof(T))
+            _item.Items.Add(new RegistryItem(displayName, accentColor, typeof(T))
             {
                 CanOpen = canOpen,
                 OpenFile = openFile
@@ -152,9 +166,29 @@ public class LayerOperationRegistry
             return this;
         }
 
+        public RegistrationHelper AddGroup(ResourceReference<string> displayName, Action<RegistrationHelper> action)
+        {
+            var item = new GroupableRegistryItem(displayName, Colors.Teal);
+            var helper = new RegistrationHelper(item, x => _item.Items.Add(x));
+
+            action(helper);
+
+            return this;
+        }
+        
+        public RegistrationHelper AddGroup(ResourceReference<string> displayName, Action<RegistrationHelper> action, Color accentColor)
+        {
+            var item = new GroupableRegistryItem(displayName, accentColor);
+            var helper = new RegistrationHelper(item, x => _item.Items.Add(x));
+
+            action(helper);
+
+            return this;
+        }
+
         public void Register()
         {
-            LayerOperationRegistry.Register(_item);
+            _register(_item);
         }
     }
 }

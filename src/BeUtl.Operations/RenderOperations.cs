@@ -14,7 +14,7 @@ public static class RenderOperations
             .Add<BlurOperation>("S.OpName.Blur")
             .Add<DropShadowOperation>("S.OpName.DropShadow")
             .Register();
-        
+
         LayerOperationRegistry.RegisterOperations("S.OpName.BitmapEffect", Colors.Teal)
             .Add<Effects.BlurOperation>("S.OpName.Blur")
             .Add<Effects.InnerShadowOperation>("S.OpName.InnerShadow")
