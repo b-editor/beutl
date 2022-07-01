@@ -55,6 +55,7 @@ public static class PropertyEditorService
         { typeof(Graphics.Vector), new(_ => new VectorEditor(), s => new VectorEditorViewModel(s.ToTyped<Graphics.Vector>())) },
         { typeof(RelativePoint), new(_ => new RelativePointEditor(), s => new RelativePointEditorViewModel(s.ToTyped<RelativePoint>())) },
         { typeof(IBrush), new(_ => new BrushEditor(), s => new BrushEditorViewModel(s)) },
+        { typeof(GradientStops), new(_ => new GradientStopsEditor(), s => new GradientStopsEditorViewModel(s.ToTyped<GradientStops>())) },
         { typeof(IList<LayerOperation>), new(_ => new LayerOpsEditor(), s => new LayerOpsEditorViewModel(s)) },
         { typeof(IList), new(_ => new ListEditor(), s => new ListEditorViewModel(s)) },
         { typeof(ICoreObject), new(CreateNavigationButton, CreateNavigationButtonViewModel) },
