@@ -47,15 +47,23 @@ public sealed partial class Library : UserControl
     {
         var alist = new AvaloniaList<TreeViewItem>();
         treeitem.Items = alist;
-        foreach (LayerOperationRegistry.RegistryItem item in list.Items)
+        foreach (LayerOperationRegistry.BaseRegistryItem item in list.Items)
         {
             var treeitem2 = new TreeViewItem
             {
                 [!HeaderedItemsControl.HeaderProperty] = new DynamicResourceExtension(item.DisplayName.Key),
                 DataContext = item,
             };
+
+            if (item is LayerOperationRegistry.GroupableRegistryItem inner)
+            {
+                Add(treeitem2, inner);
+            }
+            else
+            {
+                treeitem2.AddHandler(PointerPressedEvent, TreeViewPointerPressed, RoutingStrategies.Tunnel);
+            }
             alist.Add(treeitem2);
-            treeitem2.AddHandler(PointerPressedEvent, TreeViewPointerPressed, RoutingStrategies.Tunnel);
         }
     }
 

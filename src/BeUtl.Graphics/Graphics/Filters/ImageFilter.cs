@@ -18,7 +18,27 @@ public interface IMutableImageFilter : IStyleable, IImageFilter
 
 public abstract class ImageFilter : Styleable, IMutableImageFilter
 {
+    public static readonly CoreProperty<bool> IsEnabledProperty;
+    private bool _isEnabled;
+
+    static ImageFilter()
+    {
+        IsEnabledProperty = ConfigureProperty<bool, ImageFilter>(nameof(IsEnabled))
+            .Accessor(o => o.IsEnabled, (o, v) => o.IsEnabled = v)
+            .DefaultValue(true)
+            .SerializeName("is-enabled")
+            .Register();
+
+        AffectsRender<ImageFilter>(IsEnabledProperty);
+    }
+
     public event EventHandler? Invalidated;
+
+    public bool IsEnabled
+    {
+        get => _isEnabled;
+        set => SetAndRaise(IsEnabledProperty, ref _isEnabled, value);
+    }
 
     public virtual Rect TransformBounds(Rect rect)
     {

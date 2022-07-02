@@ -5,6 +5,8 @@ namespace BeUtl.Graphics.Transformation;
 
 public interface ITransform : IAffectsRender
 {
+    bool IsEnabled { get; }
+
     Matrix Value { get; }
 }
 

@@ -53,6 +53,6 @@ public sealed class ConicGradientBrush : GradientBrush, IConicGradientBrush
     /// <inheritdoc/>
     public override IBrush ToImmutable()
     {
-        return new ImmutableConicGradientBrush(GradientStops, Opacity, SpreadMethod, Center, Angle);
+        return new ImmutableConicGradientBrush(this);
     }
 }

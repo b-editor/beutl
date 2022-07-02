@@ -92,7 +92,7 @@ internal sealed class NullCanvas : ICanvas
 
     public PushedState PushForeground(IBrush brush) => throw new NotImplementedException();
 
-    public PushedState PushOpacityMask(IBrush mask, Rect bounds) => throw new NotImplementedException();
+    public PushedState PushOpacityMask(IBrush mask, Rect bounds, bool invert = false) => throw new NotImplementedException();
 
     public PushedState PushStrokeWidth(float strokeWidth) => throw new NotImplementedException();
 

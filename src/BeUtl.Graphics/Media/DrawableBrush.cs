@@ -50,12 +50,6 @@ public class DrawableBrush : TileBrush, IDrawableBrush
     /// <inheritdoc/>
     public override IBrush ToImmutable()
     {
-        return new ImmutableDrawableBrush(
-            Drawable,
-            AlignmentX, AlignmentY,
-            DestinationRect,
-            Opacity,
-            SourceRect,
-            Stretch, TileMode, BitmapInterpolationMode);
+        return new ImmutableDrawableBrush(this);
     }
 }

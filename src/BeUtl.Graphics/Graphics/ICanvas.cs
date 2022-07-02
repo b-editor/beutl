@@ -53,7 +53,7 @@ public interface ICanvas : IDisposable
 
     void PopCanvas(int level = -1);
 
-    PushedState PushOpacityMask(IBrush mask, Rect bounds);
+    PushedState PushOpacityMask(IBrush mask, Rect bounds, bool invert = false);
 
     void PopOpacityMask(int level = -1);
 

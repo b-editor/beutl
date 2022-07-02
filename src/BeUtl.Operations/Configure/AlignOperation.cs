@@ -2,7 +2,7 @@
 using BeUtl.Media;
 using BeUtl.ProjectSystem;
 
-namespace BeUtl.Operations;
+namespace BeUtl.Operations.Configure;
 
 public sealed class AlignOperation : LayerOperation
 {
@@ -44,14 +44,14 @@ public sealed class AlignOperation : LayerOperation
 
     protected override void RenderCore(ref OperationRenderArgs args)
     {
-        if (args.Result is Drawable drawable)
+        if (args.Result is Graphics.Drawable drawable)
         {
             if (!IsEnabled)
             {
-                drawable.CanvasAlignmentX |= AlignmentX.Left;
-                drawable.AlignmentX |= AlignmentX.Left;
-                drawable.CanvasAlignmentY |= AlignmentY.Top;
-                drawable.AlignmentY |= AlignmentY.Top;
+                drawable.CanvasAlignmentX = AlignmentX.Left;
+                drawable.AlignmentX = AlignmentX.Left;
+                drawable.CanvasAlignmentY = AlignmentY.Top;
+                drawable.AlignmentY = AlignmentY.Top;
             }
             else
             {

@@ -6,11 +6,31 @@ namespace BeUtl.Graphics.Transformation;
 
 public abstract class Transform : Styleable, IMutableTransform
 {
+    public static readonly CoreProperty<bool> IsEnabledProperty;
+    private bool _isEnabled;
+
+    static Transform()
+    {
+        IsEnabledProperty = ConfigureProperty<bool, Transform>(nameof(IsEnabled))
+            .Accessor(o => o.IsEnabled, (o, v) => o.IsEnabled = v)
+            .DefaultValue(true)
+            .SerializeName("is-enabled")
+            .Register();
+
+        AffectsRender<Transform>(IsEnabledProperty);
+    }
+
     public event EventHandler? Invalidated;
 
     public static ITransform Identity { get; } = new IdentityTransform();
 
     public abstract Matrix Value { get; }
+
+    public bool IsEnabled
+    {
+        get => _isEnabled;
+        set => SetAndRaise(IsEnabledProperty, ref _isEnabled, value);
+    }
 
     public static bool TryParse(string s, [NotNullWhen(true)] out ITransform? transform)
     {
@@ -85,6 +105,8 @@ public abstract class Transform : Styleable, IMutableTransform
     private sealed class IdentityTransform : ITransform
     {
         public Matrix Value => Matrix.Identity;
+
+        public bool IsEnabled => true;
 
         public event EventHandler? Invalidated
         {

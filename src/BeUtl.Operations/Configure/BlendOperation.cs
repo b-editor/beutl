@@ -2,7 +2,7 @@
 using BeUtl.Media;
 using BeUtl.ProjectSystem;
 
-namespace BeUtl.Operations;
+namespace BeUtl.Operations.Configure;
 
 public sealed class BlendOperation : LayerOperation
 {
@@ -13,7 +13,7 @@ public sealed class BlendOperation : LayerOperation
     {
         OpacityProperty = ConfigureProperty<float, BlendOperation>(nameof(Opacity))
             .Accessor(o => o.Opacity, (o, v) => o.Opacity = v)
-            .OverrideMetadata(DefaultMetadatas.Opacity)    
+            .OverrideMetadata(DefaultMetadatas.Opacity)
             .Register();
 
         BlendModeProperty = ConfigureProperty<BlendMode, BlendOperation>(nameof(BlendMode))
@@ -28,10 +28,10 @@ public sealed class BlendOperation : LayerOperation
 
     protected override void RenderCore(ref OperationRenderArgs args)
     {
-        if (args.Result is not Drawable obj) return;
+        if (args.Result is not Graphics.Drawable obj) return;
         obj.BlendMode = BlendMode;
 
-        if (obj.Foreground is Brush brush)
+        if (obj.Foreground is Media.Brush brush)
         {
             brush.Opacity = Opacity / 100;
         }

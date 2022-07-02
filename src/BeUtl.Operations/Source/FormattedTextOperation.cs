@@ -4,7 +4,7 @@ using BeUtl.Media.TextFormatting;
 using BeUtl.ProjectSystem;
 using BeUtl.Rendering;
 
-namespace BeUtl.Operations;
+namespace BeUtl.Operations.Source;
 
 public sealed class FormattedTextOperation : DrawableOperation
 {

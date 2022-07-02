@@ -2,36 +2,42 @@
 using BeUtl.Graphics.Shapes;
 using BeUtl.Media;
 
-namespace BeUtl.Operations.Shapes;
+namespace BeUtl.Operations.Source;
 
-public sealed class EllipseOperation : DrawableOperation
+public sealed class RoundedRectOperation : DrawableOperation
 {
     public static readonly CoreProperty<float> WidthProperty;
     public static readonly CoreProperty<float> HeightProperty;
     public static readonly CoreProperty<float> StrokeWidthProperty;
     public static readonly CoreProperty<Color> ColorProperty;
-    private readonly Ellipse _drawable = new();
+    public static readonly CoreProperty<CornerRadius> CornerRadiusProperty;
+    private readonly RoundedRect _drawable = new();
 
-    static EllipseOperation()
+    static RoundedRectOperation()
     {
-        WidthProperty = ConfigureProperty<float, EllipseOperation>(nameof(Width))
-            .Accessor(o => o.Width, (o, v) => o.Width = v)
+        WidthProperty = ConfigureProperty<float, RoundedRectOperation>(nameof(Width))
+            .Accessor(owner => owner.Width, (owner, obj) => owner.Width = obj)
             .OverrideMetadata(DefaultMetadatas.Width)
             .Register();
 
-        HeightProperty = ConfigureProperty<float, EllipseOperation>(nameof(Height))
-            .Accessor(o => o.Height, (o, v) => o.Height = v)
+        HeightProperty = ConfigureProperty<float, RoundedRectOperation>(nameof(Height))
+            .Accessor(owner => owner.Height, (owner, obj) => owner.Height = obj)
             .OverrideMetadata(DefaultMetadatas.Height)
             .Register();
 
-        StrokeWidthProperty = ConfigureProperty<float, EllipseOperation>(nameof(StrokeWidth))
-            .Accessor(o => o.StrokeWidth, (o, v) => o.StrokeWidth = v)
+        StrokeWidthProperty = ConfigureProperty<float, RoundedRectOperation>(nameof(StrokeWidth))
+            .Accessor(owner => owner.StrokeWidth, (owner, obj) => owner.StrokeWidth = obj)
             .OverrideMetadata(DefaultMetadatas.StrokeWidth)
             .Register();
 
-        ColorProperty = ConfigureProperty<Color, EllipseOperation>(nameof(Color))
-            .Accessor(o => o.Color, (o, v) => o.Color = v)
+        ColorProperty = ConfigureProperty<Color, RoundedRectOperation>(nameof(Color))
+            .Accessor(owner => owner.Color, (owner, obj) => owner.Color = obj)
             .OverrideMetadata(DefaultMetadatas.Color)
+            .Register();
+
+        CornerRadiusProperty = ConfigureProperty<CornerRadius, RoundedRectOperation>(nameof(CornerRadius))
+            .Accessor(owner => owner.CornerRadius, (owner, obj) => owner.CornerRadius = obj)
+            .OverrideMetadata(DefaultMetadatas.CornerRadius)
             .Register();
     }
 
@@ -67,6 +73,12 @@ public sealed class EllipseOperation : DrawableOperation
                 _drawable.Foreground = new SolidColorBrush(value);
             }
         }
+    }
+
+    public CornerRadius CornerRadius
+    {
+        get => _drawable.CornerRadius;
+        set => _drawable.CornerRadius = value;
     }
 
     public override Drawable Drawable => _drawable;

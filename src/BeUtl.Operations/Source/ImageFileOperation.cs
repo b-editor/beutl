@@ -3,7 +3,7 @@ using BeUtl.Media;
 using BeUtl.Media.Pixel;
 using BeUtl.ProjectSystem;
 
-namespace BeUtl.Operations;
+namespace BeUtl.Operations.Source;
 
 public sealed class ImageFileOperation : DrawableOperation
 {

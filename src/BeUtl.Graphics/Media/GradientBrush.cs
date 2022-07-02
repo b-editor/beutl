@@ -58,48 +58,4 @@ public abstract class GradientBrush : Brush, IGradientBrush
 
     /// <inheritdoc/>
     IReadOnlyList<IGradientStop> IGradientBrush.GradientStops => GradientStops;
-
-    public override void ReadFromJson(JsonNode json)
-    {
-        base.ReadFromJson(json);
-        if (json is JsonObject jobject)
-        {
-            if (jobject.TryGetPropertyValue("gradient-stops", out JsonNode? childrenNode)
-                && childrenNode is JsonArray childrenArray)
-            {
-                _gradientStops.Clear();
-                if (_gradientStops.Capacity < childrenArray.Count)
-                {
-                    _gradientStops.Capacity = childrenArray.Count;
-                }
-
-                foreach (JsonObject childJson in childrenArray.OfType<JsonObject>())
-                {
-                    var item = new GradientStop();
-                    item.ReadFromJson(childJson);
-                    _gradientStops.Add(item);
-                }
-            }
-        }
-    }
-
-    public override void WriteToJson(ref JsonNode json)
-    {
-        base.WriteToJson(ref json);
-
-        if (json is JsonObject jobject)
-        {
-            var array = new JsonArray();
-
-            foreach (GradientStop item in _gradientStops.AsSpan())
-            {
-                JsonNode node = new JsonObject();
-                item.WriteToJson(ref node);
-
-                array.Add(node);
-            }
-
-            jobject["gradient-stops"] = array;
-        }
-    }
 }

@@ -7,7 +7,7 @@ public sealed class RoundedRect : Drawable
 {
     public static readonly CoreProperty<float> StrokeWidthProperty;
     public static readonly CoreProperty<CornerRadius> CornerRadiusProperty;
-    private float _strokeWidth;
+    private float _strokeWidth = 4000;
     private CornerRadius _cornerRadius;
 
     static RoundedRect()
@@ -105,7 +105,7 @@ public sealed class RoundedRect : Drawable
         using (Bitmap<Bgra8888> bottomleft = Corner(cornerRadius.BottomLeft))
         using (Bitmap<Bgra8888> bottomleft1 = bottomleft[new PixelRect(0, bottomleftI, bottomleftI, bottomleftI)])
         {
-            bitmap[new PixelRect(0, bitmap.Width - bottomleftI, bottomleftI, bottomleftI)] = bottomleft1;
+            bitmap[new PixelRect(0, bitmap.Height - bottomleftI, bottomleftI, bottomleftI)] = bottomleft1;
         }
     }
 

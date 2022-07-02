@@ -281,7 +281,7 @@ public partial class ListEditor : UserControl
 
     private async void Add_Click(object? sender, RoutedEventArgs e)
     {
-        progress.IsVisible = true;
+        progress.IsVisible = progress.IsIndeterminate = true;
         if (DataContext is ListEditorViewModel viewModel && viewModel.List.Value != null)
         {
             await Task.Run(async () =>
@@ -352,7 +352,7 @@ public partial class ListEditor : UserControl
             });
         }
 
-        progress.IsVisible = false;
+        progress.IsVisible = progress.IsIndeterminate = false;
     }
 
     private void Menu_Click(object? sender, RoutedEventArgs e)
@@ -365,23 +365,27 @@ public partial class ListEditor : UserControl
 
     private void Edit_Click(object? sender, RoutedEventArgs e)
     {
-        if (sender is ILogical logical
-            && DataContext is ListEditorViewModel { List.Value: { } list } viewModel
-            && this.FindLogicalAncestorOfType<ObjectPropertyEditor>().DataContext is ObjectPropertyEditorViewModel parentViewModel)
+        if (this.FindLogicalAncestorOfType<EditView>().DataContext is EditViewModel editViewModel
+            && sender is ILogical logical
+            && DataContext is ListEditorViewModel { List.Value: { } list } viewModel)
         {
-            Grid grid = logical.FindLogicalAncestorOfType<Grid>();
-            int index = items.ItemContainerGenerator.IndexFromContainer(grid.Parent);
+            ObjectPropertyEditorViewModel objViewModel
+                = editViewModel.FindToolTab<ObjectPropertyEditorViewModel>()
+                    ?? new ObjectPropertyEditorViewModel(editViewModel);
+
+            var grid = logical.FindLogicalAncestorOfType<Grid>();
+            var index = items.ItemContainerGenerator.IndexFromContainer(grid.Parent);
 
             if (index >= 0)
             {
                 switch (list[index])
                 {
                     case CoreObject coreObject:
-                        parentViewModel.NavigateCore(coreObject, false);
+                        objViewModel.NavigateCore(coreObject, false);
                         break;
-                    case Styling.Style style when parentViewModel.ParentContext is EditViewModel editViewModel:
+                    case Styling.Style style:
                         StyleEditorViewModel styleEditor
-                            = parentViewModel.ParentContext.FindToolTab<StyleEditorViewModel>()
+                            = objViewModel.ParentContext.FindToolTab<StyleEditorViewModel>()
                                 ?? new StyleEditorViewModel(editViewModel);
 
                         styleEditor.Style.Value = style;
@@ -389,6 +393,7 @@ public partial class ListEditor : UserControl
                         break;
                 }
             }
+            editViewModel.OpenToolTab(objViewModel);
         }
     }
 

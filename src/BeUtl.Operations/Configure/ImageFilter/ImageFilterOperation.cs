@@ -2,12 +2,12 @@
 using BeUtl.Graphics.Filters;
 using BeUtl.ProjectSystem;
 
-namespace BeUtl.Operations.Filters;
+namespace BeUtl.Operations.Configure.ImageFilter;
 
 public abstract class ImageFilterOperation<T> : LayerOperation
-    where T : ImageFilter
+    where T : Graphics.Filters.ImageFilter
 {
-    private Drawable? _drawable;
+    private Graphics.Drawable? _drawable;
 
     public abstract T Filter { get; }
 
@@ -22,9 +22,9 @@ public abstract class ImageFilterOperation<T> : LayerOperation
 
     protected override void RenderCore(ref OperationRenderArgs args)
     {
-        if (args.Result is Drawable drawable)
+        if (args.Result is Graphics.Drawable drawable)
         {
-            //Filter.IsEnabled = IsEnabled;
+            Filter.IsEnabled = IsEnabled;
             if (_drawable != drawable)
             {
                 if (drawable.Filter is not ImageFilterGroup group)

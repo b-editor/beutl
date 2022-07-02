@@ -24,7 +24,7 @@ public static class DefaultMetadatas
         SerializeName = "y",
         PropertyFlags = PropertyFlags.Designable,
     };
-    
+
     public static OperationPropertyMetadata<float> Scale => new()
     {
         IsAnimatable = true,
@@ -33,7 +33,7 @@ public static class DefaultMetadatas
         PropertyFlags = PropertyFlags.Designable,
         DefaultValue = 100
     };
-    
+
     public static OperationPropertyMetadata<float> ScaleX => new()
     {
         IsAnimatable = true,
@@ -51,7 +51,7 @@ public static class DefaultMetadatas
         PropertyFlags = PropertyFlags.Designable,
         DefaultValue = 100
     };
-    
+
     public static OperationPropertyMetadata<float> SkewX => new()
     {
         IsAnimatable = true,
@@ -67,7 +67,7 @@ public static class DefaultMetadatas
         SerializeName = "skewY",
         PropertyFlags = PropertyFlags.Designable,
     };
-    
+
     public static OperationPropertyMetadata<float> Rotation => new()
     {
         IsAnimatable = true,
@@ -199,6 +199,56 @@ public static class DefaultMetadatas
         IsAnimatable = true,
         Header = "S.Common.Position",
         SerializeName = "position",
+        PropertyFlags = PropertyFlags.Designable,
+    };
+
+    public static OperationPropertyMetadata<Point> Offset => new()
+    {
+        IsAnimatable = true,
+        Header = "S.Common.Offset",
+        SerializeName = "offset",
+        PropertyFlags = PropertyFlags.Designable,
+    };
+
+    public static OperationPropertyMetadata<int> Thickness => new()
+    {
+        IsAnimatable = true,
+        Header = "S.Common.Thickness",
+        SerializeName = "thickness",
+        Minimum = 0,
+        PropertyFlags = PropertyFlags.Designable,
+    };
+
+    public static OperationPropertyMetadata<Graphics.Effects.Border.MaskTypes> BorderMaskType => new()
+    {
+        Header = "S.Common.MaskType",
+        SerializeName = "maskType",
+        PropertyFlags = PropertyFlags.Designable,
+        DefaultValue = Graphics.Effects.Border.MaskTypes.None
+    };
+
+    public static OperationPropertyMetadata<Graphics.Effects.Border.BorderStyles> BorderStyle => new()
+    {
+        Header = "S.Common.BorderStyle",
+        SerializeName = "style",
+        PropertyFlags = PropertyFlags.Designable,
+        DefaultValue = Graphics.Effects.Border.BorderStyles.Background
+    };
+
+    public static OperationPropertyMetadata<PixelSize> KernelSize => new()
+    {
+        IsAnimatable = true,
+        Header = "S.Common.KernelSize",
+        SerializeName = "kernel",
+        PropertyFlags = PropertyFlags.Designable,
+        Minimum = new PixelSize(1, 1)
+    };
+
+    public static OperationPropertyMetadata<bool> FixImageSize => new()
+    {
+        IsAnimatable = true,
+        Header = "S.Common.FixImageSize",
+        SerializeName = "fixImageSize",
         PropertyFlags = PropertyFlags.Designable,
     };
 

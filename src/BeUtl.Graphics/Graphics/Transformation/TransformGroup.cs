@@ -39,7 +39,8 @@ public sealed class TransformGroup : Transform
 
             foreach (Transform item in _children.AsSpan())
             {
-                value = item.Value * value;
+                if (item.IsEnabled)
+                    value = item.Value * value;
             }
 
             return value;
@@ -49,7 +50,7 @@ public sealed class TransformGroup : Transform
     public override void ReadFromJson(JsonNode json)
     {
         base.ReadFromJson(json);
-        if(json is JsonObject jobject)
+        if (json is JsonObject jobject)
         {
             if (jobject.TryGetPropertyValue("children", out JsonNode? childrenNode)
                 && childrenNode is JsonArray childrenArray)

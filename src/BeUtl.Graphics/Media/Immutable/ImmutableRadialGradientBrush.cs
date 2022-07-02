@@ -1,13 +1,36 @@
-﻿
-using BeUtl.Graphics;
+﻿using BeUtl.Graphics;
 
 namespace BeUtl.Media.Immutable;
 
-public sealed record ImmutableRadialGradientBrush(
-    IReadOnlyList<IGradientStop> GradientStops,
-    float Opacity,
-    GradientSpreadMethod SpreadMethod,
-    RelativePoint Center,
-    RelativePoint GradientOrigin,
-    float Radius)
-    : ImmutableGradientBrush(GradientStops, Opacity, SpreadMethod), IRadialGradientBrush;
+public class ImmutableRadialGradientBrush : ImmutableGradientBrush, IRadialGradientBrush
+{
+    public ImmutableRadialGradientBrush(
+        IReadOnlyList<ImmutableGradientStop> gradientStops,
+        float opacity = 1,
+        ImmutableTransform? transform = null,
+        RelativePoint? transformOrigin = null,
+        GradientSpreadMethod spreadMethod = GradientSpreadMethod.Pad,
+        RelativePoint? center = null,
+        RelativePoint? gradientOrigin = null,
+        float radius = 0.5f)
+        : base(gradientStops, opacity, transform, transformOrigin, spreadMethod)
+    {
+        Center = center ?? RelativePoint.Center;
+        GradientOrigin = gradientOrigin ?? RelativePoint.Center;
+        Radius = radius;
+    }
+
+    public ImmutableRadialGradientBrush(RadialGradientBrush source)
+        : base(source)
+    {
+        Center = source.Center;
+        GradientOrigin = source.GradientOrigin;
+        Radius = source.Radius;
+    }
+
+    public RelativePoint Center { get; }
+
+    public RelativePoint GradientOrigin { get; }
+
+    public float Radius { get; }
+}

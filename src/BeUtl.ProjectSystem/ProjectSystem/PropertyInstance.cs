@@ -96,10 +96,37 @@ public class PropertyInstance<T> : IPropertyInstance
 
     public virtual void ReadFromJson(JsonNode json)
     {
-        T? value = JsonSerializer.Deserialize<T>(json, JsonHelper.SerializerOptions);
-        if (value != null)
+        Type type = typeof(T);
+        if (json is JsonObject jsonObject
+            && jsonObject.TryGetPropertyValue("@type", out JsonNode? atTypeNode)
+            && atTypeNode is JsonValue atTypeValue
+            && atTypeValue.TryGetValue(out string? atTypeStr)
+            && TypeFormat.ToType(atTypeStr) is Type realType
+            && realType.IsAssignableTo(typeof(IJsonSerializable)))
         {
-            Value = value;
+            if (Activator.CreateInstance(realType) is IJsonSerializable jsonSerializable
+                && jsonSerializable is T typedValue)
+            {
+                jsonSerializable.ReadFromJson(json!);
+                Value = typedValue;
+            }
+        }
+        else if (type.IsAssignableTo(typeof(IJsonSerializable)))
+        {
+            if (Activator.CreateInstance(type) is IJsonSerializable jsonSerializable
+                && jsonSerializable is T typedValue)
+            {
+                jsonSerializable.ReadFromJson(json!);
+                Value = typedValue;
+            }
+        }
+        else
+        {
+            T? value = JsonSerializer.Deserialize<T>(json, JsonHelper.SerializerOptions);
+            if (value != null)
+            {
+                Value = value;
+            }
         }
     }
 
@@ -113,7 +140,20 @@ public class PropertyInstance<T> : IPropertyInstance
 
     public virtual void WriteToJson(ref JsonNode json)
     {
-        json = JsonSerializer.SerializeToNode(Value, JsonHelper.SerializerOptions)!;
+        if (Value is IJsonSerializable child)
+        {
+            child.WriteToJson(ref json);
+
+            Type objType = Value.GetType();
+            if (objType != Property.PropertyType && json is JsonObject)
+            {
+                json["@type"] = TypeFormat.ToString(objType);
+            }
+        }
+        else
+        {
+            json = JsonSerializer.SerializeToNode(Value, JsonHelper.SerializerOptions)!;
+        }
     }
 
     public ISubject<T?> GetSubject()

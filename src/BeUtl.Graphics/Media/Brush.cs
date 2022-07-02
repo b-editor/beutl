@@ -1,4 +1,6 @@
-﻿using BeUtl.Styling;
+﻿using BeUtl.Graphics;
+using BeUtl.Graphics.Transformation;
+using BeUtl.Styling;
 
 namespace BeUtl.Media;
 
@@ -8,7 +10,11 @@ namespace BeUtl.Media;
 public abstract class Brush : Styleable, IMutableBrush
 {
     public static readonly CoreProperty<float> OpacityProperty;
+    public static readonly CoreProperty<ITransform?> TransformProperty;
+    public static readonly CoreProperty<RelativePoint> TransformOriginProperty;
     private float _opacity = 1;
+    private ITransform? _transform;
+    private RelativePoint _transformOrigin;
 
     static Brush()
     {
@@ -19,7 +25,19 @@ public abstract class Brush : Styleable, IMutableBrush
             .SerializeName("opacity")
             .Register();
 
-        AffectsRender<Brush>(OpacityProperty);
+        TransformProperty = ConfigureProperty<ITransform?, Brush>(nameof(Transform))
+            .Accessor(o => o.Transform, (o, v) => o.Transform = v)
+            .PropertyFlags(PropertyFlags.KnownFlags_1)
+            .SerializeName("transform")
+            .Register();
+
+        TransformOriginProperty = ConfigureProperty<RelativePoint, Brush>(nameof(TransformOrigin))
+            .Accessor(o => o.TransformOrigin, (o, v) => o.TransformOrigin = v)
+            .PropertyFlags(PropertyFlags.KnownFlags_1)
+            .SerializeName("transform-origin")
+            .Register();
+
+        AffectsRender<Brush>(OpacityProperty, TransformProperty, TransformOriginProperty);
     }
 
     public event EventHandler? Invalidated;
@@ -31,6 +49,24 @@ public abstract class Brush : Styleable, IMutableBrush
     {
         get => _opacity;
         set => SetAndRaise(OpacityProperty, ref _opacity, value);
+    }
+
+    /// <summary>
+    /// Gets or sets the transform of the brush.
+    /// </summary>
+    public ITransform? Transform
+    {
+        get => _transform;
+        set => SetAndRaise(TransformProperty, ref _transform, value);
+    }
+
+    /// <summary>
+    /// Gets or sets the origin of the brush <see cref="Transform"/>
+    /// </summary>
+    public RelativePoint TransformOrigin
+    {
+        get => _transformOrigin;
+        set => SetAndRaise(TransformOriginProperty, ref _transformOrigin, value);
     }
 
     public abstract IBrush ToImmutable();

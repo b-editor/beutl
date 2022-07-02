@@ -1,6 +1,11 @@
-﻿using BeUtl.Graphics.Filters;
+﻿using System.Diagnostics.CodeAnalysis;
+
+using BeUtl.Graphics.Effects;
+using BeUtl.Graphics.Filters;
+using BeUtl.Graphics.Shapes;
 using BeUtl.Graphics.Transformation;
 using BeUtl.Media;
+using BeUtl.Media.Pixel;
 using BeUtl.Rendering;
 using BeUtl.Styling;
 
@@ -12,6 +17,7 @@ public abstract class Drawable : Renderable, IDrawable, ILogicalElement
     public static readonly CoreProperty<float> HeightProperty;
     public static readonly CoreProperty<ITransform?> TransformProperty;
     public static readonly CoreProperty<IImageFilter?> FilterProperty;
+    public static readonly CoreProperty<IBitmapEffect?> EffectProperty;
     public static readonly CoreProperty<AlignmentX> CanvasAlignmentXProperty;
     public static readonly CoreProperty<AlignmentY> CanvasAlignmentYProperty;
     public static readonly CoreProperty<AlignmentX> AlignmentXProperty;
@@ -23,6 +29,7 @@ public abstract class Drawable : Renderable, IDrawable, ILogicalElement
     private float _height = 0;
     private ITransform? _transform;
     private IImageFilter? _filter;
+    private IBitmapEffect? _effect;
     private AlignmentX _cAlignX;
     private AlignmentY _cAlignY;
     private AlignmentX _alignX;
@@ -59,6 +66,13 @@ public abstract class Drawable : Renderable, IDrawable, ILogicalElement
             .PropertyFlags(PropertyFlags.KnownFlags_1)
             .DefaultValue(null)
             .SerializeName("filter")
+            .Register();
+
+        EffectProperty = ConfigureProperty<IBitmapEffect?, Drawable>(nameof(Effect))
+            .Accessor(o => o.Effect, (o, v) => o.Effect = v)
+            .PropertyFlags(PropertyFlags.KnownFlags_1)
+            .DefaultValue(null)
+            .SerializeName("effect")
             .Register();
 
         CanvasAlignmentXProperty = ConfigureProperty<AlignmentX, Drawable>(nameof(CanvasAlignmentX))
@@ -111,7 +125,7 @@ public abstract class Drawable : Renderable, IDrawable, ILogicalElement
 
         AffectsRender<Drawable>(
             WidthProperty, HeightProperty,
-            TransformProperty, FilterProperty,
+            TransformProperty, FilterProperty, EffectProperty,
             CanvasAlignmentXProperty, CanvasAlignmentYProperty,
             AlignmentXProperty, AlignmentYProperty,
             ForegroundProperty, OpacityMaskProperty,
@@ -142,6 +156,12 @@ public abstract class Drawable : Renderable, IDrawable, ILogicalElement
     {
         get => _filter;
         set => SetAndRaise(FilterProperty, ref _filter, value);
+    }
+
+    public IBitmapEffect? Effect
+    {
+        get => _effect;
+        set => SetAndRaise(EffectProperty, ref _effect, value);
     }
 
     public AlignmentX CanvasAlignmentX
@@ -205,11 +225,12 @@ public abstract class Drawable : Renderable, IDrawable, ILogicalElement
     public IBitmap ToBitmap()
     {
         Size size = MeasureCore(Size.Infinity);
-        using var canvas = new Canvas((int)size.Width, (int)size.Height);
-
-        OnDraw(canvas);
-
-        return canvas.GetBitmap();
+        using (var canvas = new Canvas((int)size.Width, (int)size.Height))
+        using (Foreground == null ? new() : canvas.PushForeground(Foreground))
+        {
+            OnDraw(canvas);
+            return canvas.GetBitmap();
+        }
     }
 
     public void Measure(Size availableSize)
@@ -222,39 +243,123 @@ public abstract class Drawable : Renderable, IDrawable, ILogicalElement
             Matrix.CreateTranslation(relpt) * Transform.Value * Matrix.CreateTranslation(pt);
         var rect = new Rect(size);
 
-        Bounds = (Filter?.TransformBounds(rect) ?? rect).TransformToAABB(transform);
+        if (_effect != null)
+        {
+            rect = _effect.TransformBounds(rect);
+        }
+
+        if (_filter != null)
+        {
+            rect = _filter.TransformBounds(rect);
+        }
+
+        Bounds = rect.TransformToAABB(transform);
     }
 
     protected abstract Size MeasureCore(Size availableSize);
+
+    private Matrix GetTransformMatrix(Size availableSize, Size coreBounds)
+    {
+        Vector pt = CreatePoint(availableSize);
+        Vector relpt = CreateRelPoint(coreBounds);
+        return Transform?.Value == null ?
+            Matrix.CreateTranslation(relpt) * Matrix.CreateTranslation(pt) :
+            Matrix.CreateTranslation(relpt) * Transform.Value * Matrix.CreateTranslation(pt);
+    }
+
+    private void HasBitmapEffect(ICanvas canvas)
+    {
+        Size availableSize = canvas.Size.ToSize(1);
+        Size size = MeasureCore(availableSize);
+        var rect = new Rect(size);
+        Matrix transform = GetTransformMatrix(availableSize, size);
+        Matrix transformFact = transform;
+        if (_effect != null)
+        {
+            rect = _effect.TransformBounds(rect);
+            transformFact = transform.Append(Matrix.CreateTranslation(rect.Position));
+        }
+        if (_filter != null)
+        {
+            rect = _filter.TransformBounds(rect);
+        }
+
+        rect = rect.TransformToAABB(transform);
+        using (Foreground == null ? new() : canvas.PushForeground(Foreground))
+        using (canvas.PushBlendMode(BlendMode))
+        using (canvas.PushTransform(transformFact))
+        using (_filter == null ? new() : canvas.PushFilters(_filter))
+        using (OpacityMask == null ? new() : canvas.PushOpacityMask(OpacityMask, rect))
+        {
+            IBitmap bitmap = ToBitmap();
+            if (bitmap is Bitmap<Bgra8888> bmp)
+            {
+                _effect!.Processor.Process(in bmp, out Bitmap<Bgra8888> outBmp);
+                if (bmp != outBmp)
+                {
+                    bmp.Dispose();
+                }
+
+                //if (Width > 0 && Height > 0)
+                //{
+                //    using (canvas.PushTransform(Matrix.CreateScale(Width / outBmp.Width, Height / outBmp.Height)))
+                //    {
+                //        canvas.DrawBitmap(outBmp);
+                //    }
+                //}
+                //else
+                {
+                    canvas.DrawBitmap(outBmp);
+                }
+
+                outBmp.Dispose();
+            }
+            else
+            {
+                bitmap.Dispose();
+                OnDraw(canvas);
+            }
+        }
+
+        Bounds = rect;
+    }
 
     public void Draw(ICanvas canvas)
     {
         if (IsVisible)
         {
-            Size availableSize = canvas.Size.ToSize(1);
-            Size size = MeasureCore(availableSize);
-            Vector pt = CreatePoint(availableSize);
-            Vector relpt = CreateRelPoint(size);
-            Matrix transform = Transform?.Value == null ?
-                Matrix.CreateTranslation(relpt) * Matrix.CreateTranslation(pt) :
-                Matrix.CreateTranslation(relpt) * Transform.Value * Matrix.CreateTranslation(pt);
-            var rect = new Rect(size);
-
-            using (Foreground == null ? new() : canvas.PushForeground(Foreground))
-            using (canvas.PushBlendMode(BlendMode))
-            using (canvas.PushTransform(transform))
-            using (Filter == null ? new() : canvas.PushFilters(Filter))
-            using (OpacityMask == null ? new() : canvas.PushOpacityMask(OpacityMask, new Rect(size)))
+            if (_effect != null)
             {
-                OnDraw(canvas);
+                HasBitmapEffect(canvas);
             }
+            else
+            {
+                Size availableSize = canvas.Size.ToSize(1);
+                Size size = MeasureCore(availableSize);
+                var rect = new Rect(size);
+                if (_filter != null)
+                {
+                    rect = _filter.TransformBounds(rect);
+                }
 
-            Bounds = (Filter?.TransformBounds(rect) ?? rect).TransformToAABB(transform);
+                Matrix transform = GetTransformMatrix(availableSize, size);
+
+                using (Foreground == null ? new() : canvas.PushForeground(Foreground))
+                using (canvas.PushBlendMode(BlendMode))
+                using (canvas.PushTransform(transform))
+                using (_filter == null ? new() : canvas.PushFilters(_filter))
+                using (OpacityMask == null ? new() : canvas.PushOpacityMask(OpacityMask, new Rect(size)))
+                {
+                    OnDraw(canvas);
+                }
+
+                Bounds = rect.TransformToAABB(transform);
+            }
         }
 
         IsDirty = false;
 #if DEBUG
-        //Rect bounds = Bounds;
+        //Rect bounds = Bounds.Inflate(10);
         //using (canvas.PushTransform(Matrix.CreateTranslation(bounds.Position)))
         //using (canvas.PushStrokeWidth(5))
         //{

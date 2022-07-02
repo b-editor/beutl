@@ -122,16 +122,12 @@ public class AnimatablePropertyInstance<T> : PropertyInstance<T>, IAnimatablePro
 
             if (jsonobj.TryGetPropertyValue("value", out JsonNode? valueNode))
             {
-                T? value = JsonSerializer.Deserialize<T>(valueNode, JsonHelper.SerializerOptions);
-                if (value != null)
-                    Value = (T)value;
+                base.ReadFromJson(valueNode!);
             }
         }
-        else if (json is JsonValue jsonValue)
+        else
         {
-            T? value = JsonSerializer.Deserialize<T>(jsonValue, JsonHelper.SerializerOptions);
-            if (value != null)
-                Value = (T)value;
+            base.ReadFromJson(json);
         }
     }
 
@@ -139,7 +135,7 @@ public class AnimatablePropertyInstance<T> : PropertyInstance<T>, IAnimatablePro
     {
         if (Children.Count == 0)
         {
-            node = JsonSerializer.SerializeToNode(Value, JsonHelper.SerializerOptions)!;
+            base.WriteToJson(ref node);
         }
         else
         {
@@ -152,7 +148,9 @@ public class AnimatablePropertyInstance<T> : PropertyInstance<T>, IAnimatablePro
                 jsonArray.Add(json);
             }
 
-            jsonObj["value"] = JsonSerializer.SerializeToNode(Value, JsonHelper.SerializerOptions);
+            JsonNode valueNode = new JsonObject();
+            base.WriteToJson(ref valueNode);
+            jsonObj["value"] = valueNode;
             jsonObj["children"] = jsonArray;
 
             node = jsonObj;

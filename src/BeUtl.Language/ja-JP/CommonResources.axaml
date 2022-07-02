@@ -140,6 +140,12 @@
         <x:String x:Key="S.Common.Account">アカウント</x:String>
         <x:String x:Key="S.Common.Password">パスワード</x:String>
         <x:String x:Key="S.Common.Backup">バックアップ</x:String>
+        <x:String x:Key="S.Common.KernelSize">カーネルサイズ</x:String>
+        <x:String x:Key="S.Common.FixImageSize">画像サイズを固定</x:String>
+        <x:String x:Key="S.Common.Offset">オフセット</x:String>
+        <x:String x:Key="S.Common.Thickness">Thickness</x:String>
+        <x:String x:Key="S.Common.MaskType">MaskType</x:String>
+        <x:String x:Key="S.Common.BorderStyle">BorderStyle</x:String>
         <x:String x:Key="S.Common.Operations">オペレーション</x:String>
         <x:String x:Key="S.Common.Style">スタイル</x:String>
     </Styles.Resources>
