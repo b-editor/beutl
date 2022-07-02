@@ -1,50 +1,8 @@
 ﻿using BeUtl.Animation;
-using BeUtl.Media;
 using BeUtl.Rendering;
 using BeUtl.Styling;
 
-namespace BeUtl.ProjectSystem;
-
-// PropertyInstanceに依存しない代替案
-public abstract class StreamOperator : Element, IAffectsRender
-{
-    public static readonly CoreProperty<bool> IsEnabledProperty;
-    private bool _isEnabled = true;
-
-    static StreamOperator()
-    {
-        IsEnabledProperty = ConfigureProperty<bool, LayerOperation>(nameof(IsEnabled))
-            .Accessor(o => o.IsEnabled, (o, v) => o.IsEnabled = v)
-            .DefaultValue(true)
-            .Observability(PropertyObservability.Changed)
-            .SerializeName("is-enabled")
-            .Register();
-    }
-
-    public bool IsEnabled
-    {
-        get => _isEnabled;
-        set
-        {
-            if (SetAndRaise(IsEnabledProperty, ref _isEnabled, value))
-            {
-                RaiseInvalidated();
-            }
-        }
-    }
-
-    public event EventHandler? Invalidated;
-
-    protected void RaiseInvalidated()
-    {
-        Invalidated?.Invoke(this, EventArgs.Empty);
-    }
-}
-
-public abstract class StreamSource : StreamOperator
-{
-    public abstract IRenderable? Publish(IClock clock);
-}
+namespace BeUtl.Streaming;
 
 public abstract class StreamStyledSource : StreamSource
 {
