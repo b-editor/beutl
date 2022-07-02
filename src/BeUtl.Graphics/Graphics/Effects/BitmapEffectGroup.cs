@@ -1,3 +1,5 @@
+using System.Text.Json.Nodes;
+
 namespace BeUtl.Graphics.Effects;
 
 public sealed class BitmapEffectGroup : BitmapEffect
