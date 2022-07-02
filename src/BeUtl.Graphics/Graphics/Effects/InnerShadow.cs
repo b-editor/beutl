@@ -20,18 +20,21 @@ public class InnerShadow : BitmapEffect
         PositionProperty = ConfigureProperty<Point, InnerShadow>(nameof(Position))
             .Accessor(o => o.Position, (o, v) => o.Position = v)
             .DefaultValue(new Point())
-            .PropertyFlags(PropertyFlags.Styleable | PropertyFlags.Designable)
+            .PropertyFlags(PropertyFlags.KnownFlags_1)
+            .SerializeName("position")
             .Register();
 
         KernelSizeProperty = ConfigureProperty<PixelSize, InnerShadow>(nameof(KernelSize))
             .Accessor(o => o.KernelSize, (o, v) => o.KernelSize = v)
-            .PropertyFlags(PropertyFlags.Styleable | PropertyFlags.Designable)
+            .PropertyFlags(PropertyFlags.KnownFlags_1)
+            .SerializeName("kernel-size")
             .Register();
 
         ColorProperty = ConfigureProperty<Color, InnerShadow>(nameof(Color))
             .Accessor(o => o.Color, (o, v) => o.Color = v)
             .DefaultValue(Colors.Transparent)
-            .PropertyFlags(PropertyFlags.Styleable | PropertyFlags.Designable)
+            .PropertyFlags(PropertyFlags.KnownFlags_1)
+            .SerializeName("color")
             .Register();
 
         AffectsRender<InnerShadow>(PositionProperty, KernelSizeProperty, ColorProperty);
