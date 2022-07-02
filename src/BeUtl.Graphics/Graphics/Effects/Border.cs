@@ -1,4 +1,4 @@
-﻿using BeUtl.Media;
+using BeUtl.Media;
 using BeUtl.Media.Immutable;
 using BeUtl.Media.Pixel;
 
@@ -55,31 +55,36 @@ public class Border : BitmapEffect
         OffsetProperty = ConfigureProperty<Point, Border>(nameof(Offset))
             .Accessor(o => o.Offset, (o, v) => o.Offset = v)
             .DefaultValue(default(Point))
-            .PropertyFlags(PropertyFlags.Styleable | PropertyFlags.Designable)
+            .PropertyFlags(PropertyFlags.KnownFlags_1)
+            .SerializeName("offset")
             .Register();
 
         ThicknessProperty = ConfigureProperty<int, Border>(nameof(Thickness))
             .Accessor(o => o.Thickness, (o, v) => o.Thickness = v)
             .DefaultValue(0)
-            .PropertyFlags(PropertyFlags.Styleable | PropertyFlags.Designable)
+            .PropertyFlags(PropertyFlags.KnownFlags_1)
+            .SerializeName("thickness")
             .Register();
 
         ColorProperty = ConfigureProperty<Color, Border>(nameof(Color))
             .Accessor(o => o.Color, (o, v) => o.Color = v)
             .DefaultValue(Colors.White)
-            .PropertyFlags(PropertyFlags.Styleable | PropertyFlags.Designable)
+            .PropertyFlags(PropertyFlags.KnownFlags_1)
+            .SerializeName("color")
             .Register();
 
         MaskTypeProperty = ConfigureProperty<MaskTypes, Border>(nameof(MaskType))
             .Accessor(o => o.MaskType, (o, v) => o.MaskType = v)
             .DefaultValue(MaskTypes.None)
-            .PropertyFlags(PropertyFlags.Styleable | PropertyFlags.Designable)
+            .PropertyFlags(PropertyFlags.KnownFlags_1)
+            .SerializeName("mask-type")
             .Register();
 
         StyleProperty = ConfigureProperty<BorderStyles, Border>(nameof(Style))
             .Accessor(o => o.Style, (o, v) => o.Style = v)
             .DefaultValue(BorderStyles.Background)
-            .PropertyFlags(PropertyFlags.Styleable | PropertyFlags.Designable)
+            .PropertyFlags(PropertyFlags.KnownFlags_1)
+            .SerializeName("border-style")
             .Register();
 
         AffectsRender<Border>(
