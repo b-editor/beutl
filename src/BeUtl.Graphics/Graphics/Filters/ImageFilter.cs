@@ -26,6 +26,7 @@ public abstract class ImageFilter : Styleable, IMutableImageFilter
         IsEnabledProperty = ConfigureProperty<bool, ImageFilter>(nameof(IsEnabled))
             .Accessor(o => o.IsEnabled, (o, v) => o.IsEnabled = v)
             .DefaultValue(true)
+            .SerializeName("is-enabled")
             .Register();
 
         AffectsRender<ImageFilter>(IsEnabledProperty);
