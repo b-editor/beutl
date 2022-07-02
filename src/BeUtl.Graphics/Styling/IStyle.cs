@@ -5,7 +5,7 @@ namespace BeUtl.Styling;
 
 public interface IStyle
 {
-    ICoreList<ISetter> Setters { get; }
+    ICoreReadOnlyList<ISetter> Setters { get; }
 
     Type TargetType { get; }
 
