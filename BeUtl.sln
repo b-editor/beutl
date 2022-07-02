@@ -112,6 +112,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Workflows", "Workflows", "{
 		.github\workflows\dotnet.yml = .github\workflows\dotnet.yml
 	EndProjectSection
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "BeUtl.Operators", "src\BeUtl.Operators\BeUtl.Operators.csproj", "{5B97917E-A771-496A-80C9-4F3B87FB443D}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -336,6 +338,14 @@ Global
 		{B06ADC65-3AC3-4A23-AF58-AD5A5194E524}.Release|Any CPU.Build.0 = Release|Any CPU
 		{B06ADC65-3AC3-4A23-AF58-AD5A5194E524}.Release|x64.ActiveCfg = Release|Any CPU
 		{B06ADC65-3AC3-4A23-AF58-AD5A5194E524}.Release|x64.Build.0 = Release|Any CPU
+		{5B97917E-A771-496A-80C9-4F3B87FB443D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5B97917E-A771-496A-80C9-4F3B87FB443D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5B97917E-A771-496A-80C9-4F3B87FB443D}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{5B97917E-A771-496A-80C9-4F3B87FB443D}.Debug|x64.Build.0 = Debug|Any CPU
+		{5B97917E-A771-496A-80C9-4F3B87FB443D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5B97917E-A771-496A-80C9-4F3B87FB443D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{5B97917E-A771-496A-80C9-4F3B87FB443D}.Release|x64.ActiveCfg = Release|Any CPU
+		{5B97917E-A771-496A-80C9-4F3B87FB443D}.Release|x64.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

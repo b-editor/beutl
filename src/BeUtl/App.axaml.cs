@@ -13,6 +13,7 @@ using BeUtl.Configuration;
 using BeUtl.Framework.Service;
 using BeUtl.Framework.Services;
 using BeUtl.Operations;
+using BeUtl.Operators;
 using BeUtl.ProjectSystem;
 using BeUtl.Rendering;
 using BeUtl.Services;
@@ -108,6 +109,7 @@ public sealed class App : Application
             .BindToSelf<IResourceProvider>(new DefaultResourceProvider());
 
         RenderOperations.RegisterAll();
+        OperatorsRegistrar.RegisterAll();
         UIDispatcherScheduler.Initialize();
     }
 
