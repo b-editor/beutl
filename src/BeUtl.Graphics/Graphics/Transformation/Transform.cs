@@ -14,6 +14,7 @@ public abstract class Transform : Styleable, IMutableTransform
         IsEnabledProperty = ConfigureProperty<bool, Transform>(nameof(IsEnabled))
             .Accessor(o => o.IsEnabled, (o, v) => o.IsEnabled = v)
             .DefaultValue(true)
+            .SerializeName("is-enabled")
             .Register();
 
         AffectsRender<Transform>(IsEnabledProperty);
