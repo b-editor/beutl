@@ -19,19 +19,22 @@ public class GaussianBlur : BitmapEffect
         KernelSizeProperty = ConfigureProperty<PixelSize, GaussianBlur>(nameof(KernelSize))
             .Accessor(o => o.KernelSize, (o, v) => o.KernelSize = v)
             .DefaultValue(PixelSize.Empty)
-            .PropertyFlags(PropertyFlags.Styleable | PropertyFlags.Designable)
+            .PropertyFlags(PropertyFlags.KnownFlags_1)
+            .SerializeName("kernel-size")
             .Register();
 
         SigmaProperty = ConfigureProperty<Vector, GaussianBlur>(nameof(Sigma))
             .Accessor(o => o.Sigma, (o, v) => o.Sigma = v)
             .DefaultValue(Vector.Zero)
-            .PropertyFlags(PropertyFlags.Styleable | PropertyFlags.Designable)
+            .PropertyFlags(PropertyFlags.KnownFlags_1)
+            .SerializeName("sigma")
             .Register();
 
         FixImageSizeProperty = ConfigureProperty<bool, GaussianBlur>(nameof(FixImageSize))
             .Accessor(o => o.FixImageSize, (o, v) => o.FixImageSize = v)
             .DefaultValue(false)
-            .PropertyFlags(PropertyFlags.Styleable | PropertyFlags.Designable)
+            .PropertyFlags(PropertyFlags.KnownFlags_1)
+            .SerializeName("fix-image-size")
             .Register();
 
         AffectsRender<GaussianBlur>(KernelSizeProperty, SigmaProperty, FixImageSizeProperty);
