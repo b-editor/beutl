@@ -9,7 +9,6 @@
     <Application.Resources>
         <convert:PixelSizeConverter x:Key="PixelSizeConverter" />
         <convert:TimeSpanToDoubleConverter x:Key="TimeSpanToDoubleConverter" />
-        <convert:SolidColorBrushToAColorConverter x:Key="SolidColorBrushToAColorConverter" />
         <aconverters:ColorToBrushConverter x:Key="ColorToBrushConverter" />
     </Application.Resources>
     <Application.Styles>
