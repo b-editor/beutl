@@ -1,4 +1,6 @@
-﻿using BeUtl.Media.Immutable;
+﻿using BeUtl.Graphics;
+using BeUtl.Graphics.Transformation;
+using BeUtl.Media.Immutable;
 
 namespace BeUtl.Media;
 
@@ -18,6 +20,14 @@ public class SolidColorBrush : Brush, ISolidColorBrush
             .SerializeName("color")
             .Register();
 
+        TransformOriginProperty.OverrideMetadata<SolidColorBrush>(new CorePropertyMetadata<RelativePoint>
+        {
+            PropertyFlags = PropertyFlags.Styleable | PropertyFlags.NotifyChanged,
+        });
+        TransformProperty.OverrideMetadata<SolidColorBrush>(new CorePropertyMetadata<ITransform?>
+        {
+            PropertyFlags = PropertyFlags.Styleable | PropertyFlags.NotifyChanged,
+        });
         AffectsRender<SolidColorBrush>(ColorProperty);
     }
 
