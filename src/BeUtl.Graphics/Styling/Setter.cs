@@ -38,6 +38,7 @@ public class Setter<T> : LightweightObservableBase<T?>, ISetter
             {
                 _value = value;
                 PublishNext(value);
+                Invalidated?.Invoke(this, EventArgs.Empty);
             }
         }
     }
@@ -49,6 +50,8 @@ public class Setter<T> : LightweightObservableBase<T?>, ISetter
     object? ISetter.Value => Value;
 
     ICoreReadOnlyList<IAnimation> ISetter.Animations => Animations;
+
+    public event EventHandler? Invalidated;
 
     public ISetterInstance Instance(IStyleable target)
     {

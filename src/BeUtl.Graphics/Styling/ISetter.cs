@@ -13,6 +13,8 @@ public interface ISetter
 
     ICoreReadOnlyList<IAnimation> Animations { get; }
 
+    event EventHandler? Invalidated;
+
     ISetterInstance Instance(IStyleable target);
 
     IObservable<Unit> GetObservable();

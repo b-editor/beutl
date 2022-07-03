@@ -1,15 +1,16 @@
-﻿using BeUtl.Collections;
+﻿
+using BeUtl.Collections;
 
 namespace BeUtl.Styling;
 
 public class Style : IStyle
 {
-    private readonly CoreList<ISetter> _setters = new();
+    private readonly Setters _setters = new();
     private Type _targetType = typeof(Styleable);
 
     public Style()
     {
-        _setters.CollectionChanged += (_, _) => Invalidated?.Invoke(this, EventArgs.Empty);
+        _setters.Invalidated += (_, _) => Invalidated?.Invoke(this, EventArgs.Empty);
     }
 
     public virtual Type TargetType

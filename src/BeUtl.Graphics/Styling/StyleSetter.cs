@@ -33,10 +33,21 @@ public class StyleSetter<T> : LightweightObservableBase<Style?>, ISetter
         get => _value;
         set
         {
+            if (_value != null)
+            {
+                _value.Invalidated -= OnInvalidated;
+            }
+            if (value != null)
+            {
+                value.Invalidated += OnInvalidated;
+            }
+
             if (_value != value)
             {
                 _value = value;
                 PublishNext(value);
+
+                Invalidated?.Invoke(this, EventArgs.Empty);
             }
         }
     }
@@ -46,6 +57,8 @@ public class StyleSetter<T> : LightweightObservableBase<Style?>, ISetter
     object? ISetter.Value => Value;
 
     ICoreReadOnlyList<IAnimation> ISetter.Animations => throw new InvalidOperationException();
+
+    public event EventHandler? Invalidated;
 
     public ISetterInstance Instance(IStyleable target)
     {
@@ -72,5 +85,10 @@ public class StyleSetter<T> : LightweightObservableBase<Style?>, ISetter
 
     protected override void Deinitialize()
     {
+    }
+
+    private void OnInvalidated(object? sender, EventArgs e)
+    {
+        Invalidated?.Invoke(this, EventArgs.Empty);
     }
 }
