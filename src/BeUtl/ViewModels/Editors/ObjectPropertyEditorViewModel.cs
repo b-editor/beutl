@@ -1,9 +1,6 @@
-﻿using System.Runtime.CompilerServices;
-using System.Text.Json.Nodes;
+﻿using System.Text.Json.Nodes;
 
 using BeUtl.Framework;
-using BeUtl.Services;
-using BeUtl.Services.Editors.Wrappers;
 using BeUtl.Services.PrimitiveImpls;
 
 using Reactive.Bindings;
@@ -15,7 +12,7 @@ public sealed class ObjectPropertyEditorViewModel : IToolContext
     private readonly CompositeDisposable _disposables = new();
     private readonly EditViewModel _viewModel;
     // インデックスが大きい方が新しい
-    private readonly List<(ICoreObject, BaseEditorViewModel[])> _cache = new(8);
+    private readonly List<PropertiesEditorViewModel> _cache = new(8);
     private readonly List<WeakReference<ICoreObject>> _backStack = new(32);
     private readonly ReactivePropertySlim<bool> _canBack = new();
 
@@ -35,7 +32,7 @@ public sealed class ObjectPropertyEditorViewModel : IToolContext
 
     public IEditorContext ParentContext => _viewModel;
 
-    public CoreList<BaseEditorViewModel> Properties { get; } = new();
+    public ReactiveProperty<PropertiesEditorViewModel?> ChildContext { get; } = new();
 
     public IReadOnlyReactiveProperty<bool> CanBack => _canBack;
 
@@ -57,7 +54,7 @@ public sealed class ObjectPropertyEditorViewModel : IToolContext
             }
         }
 
-        Properties.Clear();
+        ChildContext.Value = null;
         _backStack.Clear();
 
         _canBack.Value = false;
@@ -65,46 +62,24 @@ public sealed class ObjectPropertyEditorViewModel : IToolContext
 
     public void NavigateCore(ICoreObject? obj, bool back)
     {
-        Properties.Clear();
+        ChildContext.Value = null;
         WeakReference<ICoreObject> weakRef = _backStack.Find(x => x.TryGetTarget(out ICoreObject? item) && ReferenceEquals(item, obj))
             ?? new WeakReference<ICoreObject>(obj!);
 
         if (obj != null)
         {
-            (ICoreObject, BaseEditorViewModel[]) result = _cache.Find(x => ReferenceEquals(x.Item1, obj));
+            PropertiesEditorViewModel? result = _cache.Find(x => ReferenceEquals(x.Target, obj));
 
-            if (result.Item2 != null)
+            if (result != null)
             {
-                Properties.AddRange(result.Item2);
+                ChildContext.Value = result;
                 _cache.Remove(result);
                 _cache.Add(result);
             }
             else
             {
-                Type objType = obj.GetType();
-                Type wrapperType = typeof(CorePropertyWrapper<>);
-
-                IReadOnlyList<CoreProperty> props = PropertyRegistry.GetRegistered(objType);
-                if (Properties.Capacity < props.Count)
-                {
-                    Properties.Capacity = props.Count;
-                }
-
-                for (int i = 0; i < props.Count; i++)
-                {
-                    CoreProperty item = props[i];
-                    Type wrapperGType = wrapperType.MakeGenericType(item.PropertyType);
-                    var wrapper = (IWrappedProperty)Activator.CreateInstance(wrapperGType, item, obj)!;
-
-                    BaseEditorViewModel? itemViewModel = PropertyEditorService.CreateEditorViewModel(wrapper);
-
-                    if (itemViewModel != null)
-                    {
-                        Properties.Add(itemViewModel);
-                    }
-                }
-
-                _cache.Add((obj, Properties.AsSpan().ToArray()));
+                ChildContext.Value = new PropertiesEditorViewModel(obj);
+                _cache.Add(ChildContext.Value);
             }
 
             if (_cache.Count > 7)
@@ -112,12 +87,7 @@ public sealed class ObjectPropertyEditorViewModel : IToolContext
                 int count = _cache.Count - 7;
                 for (int i = 0; i < count; i++)
                 {
-                    (ICoreObject, BaseEditorViewModel[]) item = _cache[i];
-                    for (int i1 = 0; i1 < item.Item2.Length; i1++)
-                    {
-                        BaseEditorViewModel editor = item.Item2[i1];
-                        editor.Dispose();
-                    }
+                    _cache[i].Dispose();
                 }
                 _cache.RemoveRange(0, count);
             }
