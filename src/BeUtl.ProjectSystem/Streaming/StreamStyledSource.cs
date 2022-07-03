@@ -112,9 +112,9 @@ public abstract class StreamStyledSource : StylingOperator, IStreamSource
     public virtual IRenderable? Publish(IClock clock)
     {
         OnPrePublish();
-        IRenderable? renderable = null;
+        IRenderable? renderable = Instance?.Target as IRenderable;
 
-        if (ReferenceEquals(Style, Instance?.Source) || Instance?.Target == null)
+        if (!ReferenceEquals(Style, Instance?.Source) || Instance?.Target == null)
         {
             renderable = Activator.CreateInstance(Style.TargetType) as IRenderable;
             if (renderable is IStyleable styleable)
