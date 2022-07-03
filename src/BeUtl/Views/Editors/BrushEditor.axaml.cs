@@ -14,6 +14,8 @@ using BeUtl.Styling;
 using BeUtl.ViewModels;
 using BeUtl.ViewModels.Editors;
 
+using ColorPickerButton = FluentAvalonia.UI.Controls.ColorPickerButton;
+using ColorButtonColorChangedEventArgs = FluentAvalonia.UI.Controls.ColorButtonColorChangedEventArgs;
 using ContentDialog = FluentAvalonia.UI.Controls.ContentDialog;
 using ContentDialogResult = FluentAvalonia.UI.Controls.ContentDialogResult;
 
@@ -24,6 +26,22 @@ public sealed partial class BrushEditor : UserControl
     public BrushEditor()
     {
         InitializeComponent();
+    }
+
+    public void ColorPicker_FlyoutConfirmed(ColorPickerButton sender, ColorButtonColorChangedEventArgs e)
+    {
+        if (DataContext is BrushEditorViewModel viewModel
+            && viewModel.Value.Value is SolidColorBrush brush
+            && e.NewColor.HasValue)
+        {
+            var command = new ChangePropertyCommand<Color>(
+                obj: brush,
+                property: SolidColorBrush.ColorProperty,
+                newValue: e.NewColor.Value.ToMedia(),
+                oldValue: brush.Color);
+
+            command.DoAndRecord(CommandRecorder.Default);
+        }
     }
 
     private void Navigate_Click(object? sender, RoutedEventArgs e)

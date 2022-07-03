@@ -40,9 +40,16 @@ public sealed class BrushEditorViewModel : BaseEditorViewModel
             .Select(x => x as IBrush)
             .ToReadOnlyReactivePropertySlim()
             .DisposeWith(Disposables);
+
+        ChildContext = Value.Select(v => v as ICoreObject)
+            .Select(x => x != null ? new PropertiesEditorViewModel(x, m => m.PropertyFlags.HasFlag(PropertyFlags.Designable)) : null)
+            .ToReadOnlyReactivePropertySlim()
+            .DisposeWith(Disposables);
     }
 
     public ReadOnlyReactivePropertySlim<IBrush?> Value { get; }
+
+    public ReadOnlyReactivePropertySlim<PropertiesEditorViewModel?> ChildContext { get; }
 
     public ReadOnlyReactivePropertySlim<bool> IsSet { get; }
 

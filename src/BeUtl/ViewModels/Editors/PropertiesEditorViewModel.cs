@@ -1,11 +1,13 @@
-﻿using BeUtl.Services;
+﻿using Avalonia;
+
+using BeUtl.Services;
 using BeUtl.Services.Editors.Wrappers;
 
 namespace BeUtl.ViewModels.Editors;
 
 public sealed class PropertiesEditorViewModel : IDisposable
 {
-    public PropertiesEditorViewModel(ICoreObject obj)
+    public PropertiesEditorViewModel(ICoreObject obj, Predicate<CorePropertyMetadata>? predicate = null)
     {
         Target = obj;
         Type objType = obj.GetType();
@@ -20,14 +22,17 @@ public sealed class PropertiesEditorViewModel : IDisposable
         for (int i = 0; i < props.Count; i++)
         {
             CoreProperty item = props[i];
-            Type wrapperGType = wrapperType.MakeGenericType(item.PropertyType);
-            var wrapper = (IWrappedProperty)Activator.CreateInstance(wrapperGType, item, obj)!;
-
-            BaseEditorViewModel? itemViewModel = PropertyEditorService.CreateEditorViewModel(wrapper);
-
-            if (itemViewModel != null)
+            if (predicate?.Invoke(item.GetMetadata<CorePropertyMetadata>(objType)) ?? true)
             {
-                Properties.Add(itemViewModel);
+                Type wrapperGType = wrapperType.MakeGenericType(item.PropertyType);
+                var wrapper = (IWrappedProperty)Activator.CreateInstance(wrapperGType, item, obj)!;
+
+                BaseEditorViewModel? itemViewModel = PropertyEditorService.CreateEditorViewModel(wrapper);
+
+                if (itemViewModel != null)
+                {
+                    Properties.Add(itemViewModel);
+                }
             }
         }
     }
