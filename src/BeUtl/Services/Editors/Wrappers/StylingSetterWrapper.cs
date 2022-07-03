@@ -1,4 +1,5 @@
 ﻿using BeUtl.Animation;
+using BeUtl.Streaming;
 using BeUtl.Styling;
 
 namespace BeUtl.Services.Editors.Wrappers;
@@ -15,7 +16,14 @@ public sealed class StylingSetterWrapper<T> : IWrappedProperty<T>.IAnimatable, I
         AssociatedProperty = setter.Property;
         Tag = setter;
 
-        Header = Observable.Return(setter.Property.Name);
+        if (setter is SetterDescription<T>.InternalSetter { Description.Header: { } header })
+        {
+            Header = header;
+        }
+        else
+        {
+            Header = Observable.Return(setter.Property.Name);
+        }
     }
 
     public CoreProperty<T> AssociatedProperty { get; }
