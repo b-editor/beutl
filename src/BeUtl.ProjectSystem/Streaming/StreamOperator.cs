@@ -41,5 +41,19 @@ public class StreamOperator : Element, IStreamOperator
     protected void RaiseInvalidated()
     {
         Invalidated?.Invoke(this, EventArgs.Empty);
+
+        // Todo: Layer.OperatorsでInvalidatedを購読して、プレビューを更新するようにする。
+        Layer? layer = this.FindLogicalParent<Layer>();
+        Scene? scene = this.FindLogicalParent<Scene>();
+
+        if (scene != null
+            && layer != null
+            && layer.IsEnabled
+            && layer.Start <= scene.CurrentFrame
+            && scene.CurrentFrame < layer.Start + layer.Length
+            && scene?.Renderer is SceneRenderer { IsDisposed: false, IsRendering: false } renderer)
+        {
+            renderer.Invalidate(scene.CurrentFrame);
+        }
     }
 }
