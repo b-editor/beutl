@@ -14,6 +14,8 @@ public abstract class StylingOperator : StreamOperator
             OnInitializeSetters(list);
             return list.ConvertAll(x => x.ToSetter(this));
         });
+
+        Style.Invalidated += (_, _) => RaiseInvalidated();
     }
 
     public IStyle Style { get; }
