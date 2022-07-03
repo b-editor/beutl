@@ -179,7 +179,7 @@ public sealed class OperationEditorDragBehavior : Behavior<OperationEditor>
         if (_dragStarted && _draggedIndex >= 0 && _targetIndex >= 0 && _draggedIndex != _targetIndex)
         {
             Debug.WriteLine($"MoveItem {_draggedIndex} -> {_targetIndex}");
-            MoveDraggedItem(_itemsControl, _draggedIndex, _targetIndex);
+            //MoveDraggedItem(_itemsControl, _draggedIndex, _targetIndex);
 
             AssociatedObject?.Move(_targetIndex, _draggedIndex);
         }
@@ -232,18 +232,6 @@ public sealed class OperationEditorDragBehavior : Behavior<OperationEditor>
 
             i++;
         }
-    }
-
-    private static void MoveDraggedItem(ItemsControl? itemsControl, int draggedIndex, int targetIndex)
-    {
-        if (itemsControl?.Items is not IList items)
-        {
-            return;
-        }
-
-        object? draggedItem = items[draggedIndex];
-        items.RemoveAt(draggedIndex);
-        items.Insert(targetIndex, draggedItem);
     }
 
     private static void SetTranslateTransform(IControl control, double x, double y)
@@ -382,7 +370,7 @@ public sealed partial class OperationEditor : UserControl
             LayerOperation operation = viewModel.Model;
             if (operation.FindLogicalParent<Layer>()?.Children is IList list)
             {
-                CommandRecorder.Default.PushOnly(new MoveCommand(list, newIndex, oldIndex));
+                CommandRecorder.Default.DoAndPush(new MoveCommand(list, newIndex, oldIndex));
             }
         }
         else if (DataContext is StylingOperatorEditorViewModel viewModel2)
@@ -390,7 +378,7 @@ public sealed partial class OperationEditor : UserControl
             StylingOperator operation = viewModel2.Model;
             if (operation.FindLogicalParent<Layer>()?.Operators is IList list)
             {
-                CommandRecorder.Default.PushOnly(new MoveCommand(list, newIndex, oldIndex));
+                CommandRecorder.Default.DoAndPush(new MoveCommand(list, newIndex, oldIndex));
             }
         }        
     }
