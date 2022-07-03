@@ -9,6 +9,7 @@
     <Application.Resources>
         <convert:PixelSizeConverter x:Key="PixelSizeConverter" />
         <convert:TimeSpanToDoubleConverter x:Key="TimeSpanToDoubleConverter" />
+        <convert:SolidColorBrushToAColorConverter x:Key="SolidColorBrushToAColorConverter" />
         <aconverters:ColorToBrushConverter x:Key="ColorToBrushConverter" />
     </Application.Resources>
     <Application.Styles>
@@ -75,7 +76,16 @@
             <Setter Property="TextBlock.TextWrapping" Value="Wrap" />
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
+
         <Style Selector="ui|TabView.bottom">
+            <Style.Resources>
+                <Thickness x:Key="TabViewHeaderPadding">2,0,2,8</Thickness>
+                <Thickness x:Key="TabViewSelectedItemHeaderPadding">9,4,5,3</Thickness>
+                <Thickness x:Key="TabViewItemLeftScrollButtonContainerPadding">8,3,3,0</Thickness>
+                <Thickness x:Key="TabViewItemRightScrollButtonContainerPadding">3,3,8,0</Thickness>
+                <Thickness x:Key="TabViewItemAddButtonContainerPadding">3,3,0,0</Thickness>
+                <Thickness x:Key="TabViewSelectedItemBorderThickness">1,0,1,1</Thickness>
+            </Style.Resources>
             <Setter Property="CornerRadius" Value="{DynamicResource ControlCornerRadius}" />
             <Setter Property="Padding" Value="2,0,2,8" />
             <Setter Property="Template">
@@ -153,7 +163,100 @@
             </Setter>
         </Style>
 
+        <Style Selector="ScrollViewer.TabScrollViewerStyle_bottom">
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border Name="Root"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}">
+
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" MinWidth="2" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+
+                            <Border Name="LeftBottomBorderLine"
+                                    BorderBrush="{DynamicResource TabViewBorderBrush}"
+                                    BorderThickness="1"
+                                    Height="1"
+                                    VerticalAlignment="Top"/>
+
+                            <Border Name="RightBottomBorderLine"
+                                    BorderBrush="{DynamicResource TabViewBorderBrush}"
+                                    BorderThickness="1"
+                                    Height="1"
+                                    Grid.Column="2"
+                                    VerticalAlignment="Top"/>
+
+                            <Border Name="ScrollDecreaseButtonContainer"
+                                    IsVisible="{Binding HorizontalScrollBarVisibility, RelativeSource={RelativeSource TemplatedParent}, Converter={StaticResource SVVTBC}}"
+                                    Padding="{DynamicResource TabViewItemLeftScrollButtonContainerPadding}"
+                                    VerticalAlignment="Top">
+                                <RepeatButton Name="ScrollDecreaseButton"
+                                              Delay="50"
+                                              Interval="100"
+                                              Content="&#xEDD9;"
+                                              Classes="TabViewScrollButtonStyle"/>
+                            </Border>
+
+                            <ScrollContentPresenter Name="ScrollContentPresenter"
+                                                    Grid.Column="1"
+                                                    Padding="1 0 0 0"
+                                                    KeyboardNavigation.TabNavigation="Once"
+                                                    Content="{TemplateBinding Content}"
+                                                    CanHorizontallyScroll="{TemplateBinding CanHorizontallyScroll}"
+                                                    CanVerticallyScroll="{TemplateBinding CanVerticallyScroll}"
+                                                    Extent="{TemplateBinding Extent, Mode=TwoWay}"
+                                                    Offset="{TemplateBinding Offset, Mode=TwoWay}"
+                                                    Viewport="{TemplateBinding Viewport, Mode=TwoWay}"/>
+
+                            <Border Name="ScrollIncreaseButtonContainer"
+                                    IsVisible="{Binding HorizontalScrollBarVisibility, RelativeSource={RelativeSource TemplatedParent}, Converter={StaticResource SVVTBC}}"
+                                    Grid.Column="2"
+                                    Padding="{DynamicResource TabViewItemRightScrollButtonContainerPadding}"
+                                    VerticalAlignment="Top">
+                                <RepeatButton Name="ScrollIncreaseButton"
+                                              Delay="50"
+                                              Interval="100"
+                                              Content="&#xEDDA;"
+                                              Classes="TabViewScrollButtonStyle"/>
+                            </Border>
+
+                        </Grid>
+
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        
         <Style Selector="uip|TabViewListView.bottom">
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="{TemplateBinding CornerRadius}">
+
+                        <ScrollViewer HorizontalScrollBarVisibility="{TemplateBinding ScrollViewer.HorizontalScrollBarVisibility}"
+                                      VerticalScrollBarVisibility="{TemplateBinding ScrollViewer.VerticalScrollBarVisibility}"
+                                      Classes="TabScrollViewerStyle_bottom"
+                                      Name="ScrollViewer">
+                            <!-- 
+                        We don't have Header and footer properties, will ignore for now
+                        Also ignore visual states since they are for these
+                        -->
+                            <ItemsPresenter Name="TabItemsPresenter"
+                                            Margin="{TemplateBinding Padding}"
+                                            Items="{TemplateBinding Items}"
+                                            ItemTemplate="{TemplateBinding ItemTemplate}"
+                                            ItemsPanel="{TemplateBinding ItemsPanel}" />
+                        </ScrollViewer>
+
+                    </Border>
+                </ControlTemplate>
+            </Setter>
         </Style>
 
         <Style Selector="uip|TabViewListView.bottom > ui|TabViewItem">
