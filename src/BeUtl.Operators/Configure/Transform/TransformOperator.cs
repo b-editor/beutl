@@ -17,13 +17,20 @@ public abstract class TransformOperator : StreamStyler
 
     protected override IStyleInstance? GetInstance(IRenderable value)
     {
-        if (Style.TargetType.IsAssignableTo(typeof(Transform)))
+        if (!ReferenceEquals(_previous, value))
         {
-            return Style.Instance(CreateTargetValue(Style.TargetType));
+            if (Style.TargetType.IsAssignableTo(typeof(Transform)))
+            {
+                return Style.Instance(CreateTargetValue(Style.TargetType));
+            }
+            else
+            {
+                return null;
+            }
         }
         else
         {
-            return null;
+            return Instance;
         }
     }
 
@@ -53,6 +60,10 @@ public abstract class TransformOperator : StreamStyler
                 _previous = current;
                 _instance = transform;
             }
+
+            instance.Begin();
+            instance.Apply(clock);
+            instance.End();
         }
     }
 
