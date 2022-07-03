@@ -9,7 +9,6 @@
     <Application.Resources>
         <convert:PixelSizeConverter x:Key="PixelSizeConverter" />
         <convert:TimeSpanToDoubleConverter x:Key="TimeSpanToDoubleConverter" />
-        <convert:SolidColorBrushToAColorConverter x:Key="SolidColorBrushToAColorConverter" />
         <aconverters:ColorToBrushConverter x:Key="ColorToBrushConverter" />
     </Application.Resources>
     <Application.Styles>
@@ -79,15 +78,15 @@
 
         <Style Selector="ui|TabView.bottom">
             <Style.Resources>
-                <Thickness x:Key="TabViewHeaderPadding">2,0,2,8</Thickness>
-                <Thickness x:Key="TabViewSelectedItemHeaderPadding">9,4,5,3</Thickness>
-                <Thickness x:Key="TabViewItemLeftScrollButtonContainerPadding">8,3,3,0</Thickness>
-                <Thickness x:Key="TabViewItemRightScrollButtonContainerPadding">3,3,8,0</Thickness>
-                <Thickness x:Key="TabViewItemAddButtonContainerPadding">3,3,0,0</Thickness>
-                <Thickness x:Key="TabViewSelectedItemBorderThickness">1,0,1,1</Thickness>
+                <Thickness x:Key="TabViewHeaderPadding_Bottom">2,0,2,8</Thickness>
+                <Thickness x:Key="TabViewSelectedItemHeaderPadding_Bottom">9,4,5,3</Thickness>
+                <Thickness x:Key="TabViewItemLeftScrollButtonContainerPadding_Bottom">8,3,3,0</Thickness>
+                <Thickness x:Key="TabViewItemRightScrollButtonContainerPadding_Bottom">3,3,8,0</Thickness>
+                <Thickness x:Key="TabViewItemAddButtonContainerPadding_Bottom">3,3,0,0</Thickness>
+                <Thickness x:Key="TabViewSelectedItemBorderThickness_Bottom">1,0,1,1</Thickness>
             </Style.Resources>
             <Setter Property="CornerRadius" Value="{DynamicResource ControlCornerRadius}" />
-            <Setter Property="Padding" Value="2,0,2,8" />
+            <Setter Property="Padding" Value="{DynamicResource TabViewHeaderPadding_Bottom}" />
             <Setter Property="Template">
                 <ControlTemplate>
                     <Grid RowDefinitions="*,Auto">
@@ -141,7 +140,7 @@
 
                             <Border IsVisible="{Binding IsAddTabButtonVisible, RelativeSource={RelativeSource TemplatedParent}}"
                                      Grid.Column="2"
-                                     Padding="{DynamicResource TabViewItemAddButtonContainerPadding}"
+                                     Padding="{DynamicResource TabViewItemAddButtonContainerPadding_Bottom}"
                                      VerticalAlignment="Bottom">
                                 <ui:Button Name="AddButton"
                                            HorizontalAlignment="Center"
@@ -193,7 +192,7 @@
 
                             <Border Name="ScrollDecreaseButtonContainer"
                                     IsVisible="{Binding HorizontalScrollBarVisibility, RelativeSource={RelativeSource TemplatedParent}, Converter={StaticResource SVVTBC}}"
-                                    Padding="{DynamicResource TabViewItemLeftScrollButtonContainerPadding}"
+                                    Padding="{DynamicResource TabViewItemLeftScrollButtonContainerPadding_Bottom}"
                                     VerticalAlignment="Top">
                                 <RepeatButton Name="ScrollDecreaseButton"
                                               Delay="50"
@@ -216,7 +215,7 @@
                             <Border Name="ScrollIncreaseButtonContainer"
                                     IsVisible="{Binding HorizontalScrollBarVisibility, RelativeSource={RelativeSource TemplatedParent}, Converter={StaticResource SVVTBC}}"
                                     Grid.Column="2"
-                                    Padding="{DynamicResource TabViewItemRightScrollButtonContainerPadding}"
+                                    Padding="{DynamicResource TabViewItemRightScrollButtonContainerPadding_Bottom}"
                                     VerticalAlignment="Top">
                                 <RepeatButton Name="ScrollIncreaseButton"
                                               Delay="50"
@@ -231,7 +230,7 @@
                 </ControlTemplate>
             </Setter>
         </Style>
-        
+
         <Style Selector="uip|TabViewListView.bottom">
             <Setter Property="Template">
                 <ControlTemplate>
@@ -342,7 +341,8 @@
             </Setter>
         </Style>
         <Style Selector="uip|TabViewListView.bottom > ui|TabViewItem:selected /template/ Border#TabContainerBorder">
-            <Setter Property="BorderThickness" Value="1,0,1,1" />
+            <Setter Property="BorderThickness" Value="{DynamicResource TabViewSelectedItemBorderThickness_Bottom}" />
+            <Setter Property="Padding" Value="{DynamicResource TabViewSelectedItemHeaderPadding_Bottom}" />
         </Style>
     </Application.Styles>
 </Application>
