@@ -16,6 +16,13 @@ public interface ISetterDescription
     object? DefaultValue { get; }
 
     ISetter ToSetter(StreamOperator streamOperator);
+
+    internal interface IInternalSetter : ISetter
+    {
+        ISetterDescription Description { get; }
+
+        StreamOperator StreamOperator { get; }
+    }
 }
 
 public record SetterDescription<T>(CoreProperty<T> Property) : ISetterDescription
@@ -83,7 +90,7 @@ public record SetterDescription<T>(CoreProperty<T> Property) : ISetterDescriptio
         return new InternalSetter(Property, DefaultValue, this, streamOperator);
     }
 
-    internal sealed class InternalSetter : Setter<T>
+    internal sealed class InternalSetter : Setter<T>, ISetterDescription.IInternalSetter
     {
         public InternalSetter(CoreProperty<T> property, T? value, SetterDescription<T> description, StreamOperator streamOperator)
             : base(property, value)
@@ -95,6 +102,8 @@ public record SetterDescription<T>(CoreProperty<T> Property) : ISetterDescriptio
         public SetterDescription<T> Description { get; }
 
         public StreamOperator StreamOperator { get; }
+
+        ISetterDescription ISetterDescription.IInternalSetter.Description => Description;
     }
 }
 

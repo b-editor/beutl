@@ -17,6 +17,7 @@ using Avalonia.Xaml.Interactivity;
 using BeUtl.Commands;
 using BeUtl.ProjectSystem;
 using BeUtl.Services;
+using BeUtl.Streaming;
 using BeUtl.ViewModels.Editors;
 
 namespace BeUtl.Views.Editors;
@@ -276,6 +277,13 @@ public sealed partial class OperationEditor : UserControl
             layer.RemoveChild(operation)
                 .DoAndRecord(CommandRecorder.Default);
         }
+        else if (DataContext is StylingOperatorEditorViewModel viewModel2)
+        {
+            StylingOperator operation = viewModel2.Model;
+            Layer layer = operation.FindRequiredLogicalParent<Layer>();
+            layer.RemoveChild(operation)
+                .DoAndRecord(CommandRecorder.Default);
+        }
     }
 
     private void Drop(object? sender, DragEventArgs e)
@@ -303,11 +311,34 @@ public sealed partial class OperationEditor : UserControl
 
             e.Handled = true;
         }
+        else if (e.Data.Get("StreamOperator") is OperatorRegistry.RegistryItem item2
+            && DataContext is StylingOperatorEditorViewModel viewModel2)
+        {
+            StylingOperator operation = viewModel2.Model;
+            Layer layer = operation.FindRequiredLogicalParent<Layer>();
+            Rect bounds = Bounds;
+            Point position = e.GetPosition(this);
+            double half = bounds.Height / 2;
+            int index = layer.Operators.IndexOf(operation);
+
+            if (half < position.Y)
+            {
+                layer.InsertChild(index + 1, (StylingOperator)Activator.CreateInstance(item2.Type)!)
+                    .DoAndRecord(CommandRecorder.Default);
+            }
+            else
+            {
+                layer.InsertChild(index, (StylingOperator)Activator.CreateInstance(item2.Type)!)
+                    .DoAndRecord(CommandRecorder.Default);
+            }
+
+            e.Handled = true;
+        }
     }
 
     private void DragOver(object? sender, DragEventArgs e)
     {
-        if (e.Data.Contains("RenderOperation"))
+        if (e.Data.Contains("RenderOperation") || e.Data.Contains("StreamOperator"))
         {
             e.DragEffects = DragDropEffects.Copy | DragDropEffects.Link;
         }
@@ -331,17 +362,37 @@ public sealed partial class OperationEditor : UserControl
                 headerText[!TextBlock.TextProperty] = new DynamicResourceExtension(item.DisplayName.Key);
             }
         }
+        else if (DataContext is StylingOperatorEditorViewModel viewModel2)
+        {
+            StylingOperator operation = viewModel2.Model;
+            Type type = operation.GetType();
+            OperatorRegistry.RegistryItem? item = OperatorRegistry.FindItem(type);
+
+            if (item != null)
+            {
+                headerText[!TextBlock.TextProperty] = new DynamicResourceExtension(item.DisplayName.Key);
+            }
+        }
     }
 
     public void Move(int newIndex, int oldIndex)
     {
-        if (DataContext is not OperationEditorViewModel viewModel) return;
-
-        LayerOperation operation = viewModel.Model;
-        if (operation.FindLogicalParent<Layer>()?.Children is IList list)
+        if (DataContext is OperationEditorViewModel viewModel)
         {
-            CommandRecorder.Default.PushOnly(new MoveCommand(list, newIndex, oldIndex));
+            LayerOperation operation = viewModel.Model;
+            if (operation.FindLogicalParent<Layer>()?.Children is IList list)
+            {
+                CommandRecorder.Default.PushOnly(new MoveCommand(list, newIndex, oldIndex));
+            }
         }
+        else if (DataContext is StylingOperatorEditorViewModel viewModel2)
+        {
+            StylingOperator operation = viewModel2.Model;
+            if (operation.FindLogicalParent<Layer>()?.Operators is IList list)
+            {
+                CommandRecorder.Default.PushOnly(new MoveCommand(list, newIndex, oldIndex));
+            }
+        }        
     }
 
     private sealed class ViewModelToViewConverter : IValueConverter

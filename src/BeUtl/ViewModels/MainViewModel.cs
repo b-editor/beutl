@@ -206,6 +206,7 @@ public sealed class MainViewModel
                 OperationsTabExtension.Instance,
                 ObjectPropertyTabExtension.Instance,
                 StyleEditorTabExtension.Instance,
+                StreamOperatorsTabExtension.Instance,
             });
 
             manager.LoadPackages(manager.GetPackageInfos());

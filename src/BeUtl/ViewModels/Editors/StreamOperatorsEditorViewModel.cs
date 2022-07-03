@@ -4,18 +4,19 @@ using BeUtl.Framework;
 using BeUtl.Models;
 using BeUtl.ProjectSystem;
 using BeUtl.Services.PrimitiveImpls;
+using BeUtl.Streaming;
 
 using Reactive.Bindings;
 
 namespace BeUtl.ViewModels.Editors;
 
-public sealed class OperationsEditorViewModel : IToolContext
+public sealed class StreamOperatorsEditorViewModel : IToolContext
 {
     private readonly IDisposable _disposable0;
     private IDisposable? _disposable1;
     private Layer? _oldLayer;
 
-    public OperationsEditorViewModel(EditViewModel editViewModel)
+    public StreamOperatorsEditorViewModel(EditViewModel editViewModel)
     {
         Layer = editViewModel.SelectedObject
             .Select(x => x as Layer)
@@ -35,11 +36,21 @@ public sealed class OperationsEditorViewModel : IToolContext
             if (layer != null)
             {
                 _disposable1?.Dispose();
-                _disposable1 = layer.Children.ForEachItem(
-                    (idx, item) => Items.Insert(idx, new OperationEditorViewModel(item)),
+                _disposable1 = layer.Operators.ForEachItem(
+                    (idx, item) =>
+                    {
+                        if (item is StylingOperator so)
+                        {
+                            Items.Insert(idx, new StylingOperatorEditorViewModel(so));
+                        }
+                        else
+                        {
+                            Items.Insert(idx, null);
+                        }
+                    },
                     (idx, _) =>
                     {
-                        Items[idx].Dispose();
+                        Items[idx]?.Dispose();
                         Items.RemoveAt(idx);
                     },
                     () => ClearItems());
@@ -49,13 +60,13 @@ public sealed class OperationsEditorViewModel : IToolContext
         });
     }
 
-    public Action<LayerOperation>? RequestScroll { get; set; }
+    public Action<StylingOperator>? RequestScroll { get; set; }
 
     public ReactiveProperty<Layer?> Layer { get; }
 
-    public CoreList<OperationEditorViewModel> Items { get; } = new();
+    public CoreList<StylingOperatorEditorViewModel?> Items { get; } = new();
 
-    public ToolTabExtension Extension => OperationsTabExtension.Instance;
+    public ToolTabExtension Extension => StreamOperatorsTabExtension.Instance;
 
     public IReactiveProperty<bool> IsSelected { get; } = new ReactivePropertySlim<bool>();
 
@@ -63,7 +74,7 @@ public sealed class OperationsEditorViewModel : IToolContext
 
     public ToolTabExtension.TabPlacement Placement => ToolTabExtension.TabPlacement.Right;
 
-    public void ScrollTo(LayerOperation obj)
+    public void ScrollTo(StylingOperator obj)
     {
         RequestScroll?.Invoke(obj);
     }
@@ -99,18 +110,18 @@ public sealed class OperationsEditorViewModel : IToolContext
     {
         string viewStateDir = ViewStateDirectory(layer);
         var json = new JsonArray();
-        foreach (OperationEditorViewModel item in Items)
+        foreach (StylingOperatorEditorViewModel? item in Items)
         {
-            json.Add(item.SaveState());
+            json.Add(item?.SaveState());
         }
 
-        json.JsonSave(Path.Combine(viewStateDir, $"{Path.GetFileNameWithoutExtension(layer.FileName)}.config"));
+        json.JsonSave(Path.Combine(viewStateDir, $"{Path.GetFileNameWithoutExtension(layer.FileName)}.operators.config"));
     }
 
     private void RestoreState(Layer layer)
     {
         string viewStateDir = ViewStateDirectory(layer);
-        string viewStateFile = Path.Combine(viewStateDir, $"{Path.GetFileNameWithoutExtension(layer.FileName)}.config");
+        string viewStateFile = Path.Combine(viewStateDir, $"{Path.GetFileNameWithoutExtension(layer.FileName)}.operators.config");
 
         if (File.Exists(viewStateFile))
         {
@@ -118,9 +129,9 @@ public sealed class OperationsEditorViewModel : IToolContext
             var json = JsonNode.Parse(stream);
             if (json is JsonArray array)
             {
-                foreach ((JsonNode? item, OperationEditorViewModel op) in array.Zip(Items))
+                foreach ((JsonNode? item, StylingOperatorEditorViewModel? op) in array.Zip(Items))
                 {
-                    if (item != null)
+                    if (item != null && op !=null)
                     {
                         op.RestoreState(item);
                     }
@@ -131,9 +142,9 @@ public sealed class OperationsEditorViewModel : IToolContext
 
     private void ClearItems()
     {
-        foreach (OperationEditorViewModel item in Items.AsSpan())
+        foreach (StylingOperatorEditorViewModel? item in Items.AsSpan())
         {
-            item.Dispose();
+            item?.Dispose();
         }
         Items.Clear();
     }

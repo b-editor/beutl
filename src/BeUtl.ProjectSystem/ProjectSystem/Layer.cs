@@ -7,6 +7,7 @@ using BeUtl.Collections;
 using BeUtl.Commands;
 using BeUtl.Media;
 using BeUtl.Rendering;
+using BeUtl.Streaming;
 
 namespace BeUtl.ProjectSystem;
 
@@ -19,6 +20,7 @@ public class Layer : Element, IStorable, ILogicalElement
     public static readonly CoreProperty<bool> IsEnabledProperty;
     public static readonly CoreProperty<LayerNode> NodeProperty;
     public static readonly CoreProperty<LogicalList<LayerOperation>> ChildrenProperty;
+    public static readonly CoreProperty<LogicalList<StreamOperator>> OperatorsProperty;
     private TimeSpan _start;
     private TimeSpan _length;
     private int _zIndex;
@@ -68,6 +70,10 @@ public class Layer : Element, IStorable, ILogicalElement
 
         ChildrenProperty = ConfigureProperty<LogicalList<LayerOperation>, Layer>(nameof(Children))
             .Accessor(o => o.Children, null)
+            .Register();
+
+        OperatorsProperty = ConfigureProperty<LogicalList<StreamOperator>, Layer>(nameof(Operators))
+            .Accessor(o => o.Operators, null)
             .Register();
 
         NameProperty.OverrideMetadata<Layer>(new CorePropertyMetadata<string>
@@ -129,6 +135,7 @@ public class Layer : Element, IStorable, ILogicalElement
     public Layer()
     {
         Children = new LogicalList<LayerOperation>(this);
+        Operators = new LogicalList<StreamOperator>(this);
     }
 
     event EventHandler IStorable.Saved
@@ -198,7 +205,9 @@ public class Layer : Element, IStorable, ILogicalElement
 
     public LogicalList<LayerOperation> Children { get; }
 
-    IEnumerable<ILogicalElement> ILogicalElement.LogicalChildren => Children;
+    public LogicalList<StreamOperator> Operators { get; }
+
+    IEnumerable<ILogicalElement> ILogicalElement.LogicalChildren => Children.Concat<ILogicalElement>(Operators);
 
     public void Save(string filename)
     {
@@ -268,6 +277,30 @@ public class Layer : Element, IStorable, ILogicalElement
                     }
                 }
             }
+
+            if (jobject.TryGetPropertyValue("operators", out JsonNode? operatorsNode)
+                && operatorsNode is JsonArray operatorsArray)
+            {
+                foreach (JsonObject operatorJson in operatorsArray.OfType<JsonObject>())
+                {
+                    if (operatorJson.TryGetPropertyValue("@type", out JsonNode? atTypeNode)
+                        && atTypeNode is JsonValue atTypeValue
+                        && atTypeValue.TryGetValue(out string? atType))
+                    {
+                        var type = TypeFormat.ToType(atType);
+                        StreamOperator? @operator = null;
+
+                        if (type?.IsAssignableTo(typeof(StreamOperator)) ?? false)
+                        {
+                            @operator = Activator.CreateInstance(type) as StreamOperator;
+                        }
+
+                        @operator ??= new StreamOperator();
+                        @operator.ReadFromJson(operatorJson);
+                        Operators.Add(@operator);
+                    }
+                }
+            }
         }
     }
 
@@ -304,6 +337,23 @@ public class Layer : Element, IStorable, ILogicalElement
 
                 jobject["operations"] = array;
             }
+
+            Span<StreamOperator> operators = Operators.AsSpan();
+            if (operators.Length > 0)
+            {
+                var array = new JsonArray();
+
+                foreach (StreamOperator item in operators)
+                {
+                    JsonNode node = new JsonObject();
+                    item.WriteToJson(ref node);
+                    node["@type"] = TypeFormat.ToString(item.GetType());
+
+                    array.Add(node);
+                }
+
+                jobject["operators"] = array;
+            }
         }
     }
 
@@ -326,6 +376,27 @@ public class Layer : Element, IStorable, ILogicalElement
         ArgumentNullException.ThrowIfNull(operation);
 
         return new AddCommand<LayerOperation>(Children, operation, index);
+    }
+
+    public IRecordableCommand AddChild(StreamOperator @operator)
+    {
+        ArgumentNullException.ThrowIfNull(@operator);
+
+        return new AddCommand<StreamOperator>(Operators, @operator, Operators.Count);
+    }
+
+    public IRecordableCommand RemoveChild(StreamOperator @operator)
+    {
+        ArgumentNullException.ThrowIfNull(@operator);
+
+        return new RemoveCommand<StreamOperator>(Operators, @operator);
+    }
+
+    public IRecordableCommand InsertChild(int index, StreamOperator @operator)
+    {
+        ArgumentNullException.ThrowIfNull(@operator);
+
+        return new AddCommand<StreamOperator>(Operators, @operator, index);
     }
 
     protected override void OnAttachedToLogicalTree(in LogicalTreeAttachmentEventArgs args)
