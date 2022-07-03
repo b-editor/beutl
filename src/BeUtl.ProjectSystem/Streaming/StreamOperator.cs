@@ -3,8 +3,13 @@ using BeUtl.ProjectSystem;
 
 namespace BeUtl.Streaming;
 
+public interface IStreamOperator : IAffectsRender
+{
+    bool IsEnabled { get; }
+}
+
 // PropertyInstanceに依存しない代替案
-public abstract class StreamOperator : Element, IAffectsRender
+public class StreamOperator : Element, IStreamOperator
 {
     public static readonly CoreProperty<bool> IsEnabledProperty;
     private bool _isEnabled = true;

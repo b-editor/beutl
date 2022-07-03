@@ -4,39 +4,25 @@ using BeUtl.Styling;
 
 namespace BeUtl.Streaming;
 
-public abstract class StreamStyler : StreamSelector
+public abstract class StreamStyler : StylingOperator, IStreamSelector
 {
-    public abstract IStyle Style { get; }
-
-    public IStyleInstance? Instance { get; protected set; }
-
-    public override IRenderable? Select(IRenderable? value, IClock clock)
+    public virtual IRenderable? Select(IRenderable? value, IClock clock)
     {
         OnPreSelect(value);
         if (value == null)
             return null;
 
-        Type type = value.GetType();
-        if (!ReferenceEquals(Instance?.Target, value))
+        IStyleInstance? prevInstance = Instance;
+        IStyleInstance? instance = GetInstance(value);
+        if (!ReferenceEquals(prevInstance, instance))
         {
-            Instance?.Dispose();
-
-            if (Style.TargetType.IsAssignableTo(type) && value is IStyleable styleable)
-            {
-                Instance = Style.Instance(styleable);
-            }
-            else
-            {
-                Instance = null;
-            }
+            prevInstance?.Dispose();
+            Instance = instance;
         }
 
         if (Instance != null)
         {
-            Instance.IsEnabled = IsEnabled;
-            Instance.Begin();
-            Instance.Apply(clock);
-            Instance.End();
+            ApplyStyle(Instance, value, clock);
         }
 
         OnPostSelect(value);
@@ -50,5 +36,33 @@ public abstract class StreamStyler : StreamSelector
 
     protected virtual void OnPostSelect(IRenderable? value)
     {
+    }
+
+    protected virtual IStyleInstance? GetInstance(IRenderable value)
+    {
+        Type type = value.GetType();
+        if (!ReferenceEquals(Instance?.Target, value))
+        {
+            if (Style.TargetType.IsAssignableTo(type) && value is IStyleable styleable)
+            {
+                return Style.Instance(styleable);
+            }
+            else
+            {
+                return null;
+            }
+        }
+        else
+        {
+            return Instance;
+        }
+    }
+
+    protected virtual void ApplyStyle(IStyleInstance instance, IRenderable value, IClock clock)
+    {
+        instance.IsEnabled = IsEnabled;
+        instance.Begin();
+        instance.Apply(clock);
+        instance.End();
     }
 }

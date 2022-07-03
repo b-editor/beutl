@@ -1,8 +1,4 @@
-﻿using System.Buffers;
-
-using Avalonia.Collections.Pooled;
-
-using BeUtl.Animation;
+﻿using BeUtl.Animation;
 using BeUtl.Rendering;
 using BeUtl.Styling;
 
@@ -102,24 +98,9 @@ public record SetterDescription<T>(CoreProperty<T> Property) : ISetterDescriptio
     }
 }
 
-public abstract class StreamStyledSource : StreamSource
+public abstract class StreamStyledSource : StylingOperator, IStreamSource
 {
-    protected StreamStyledSource()
-    {
-        Style = OnInitializeStyle(() =>
-        {
-            var list = new PooledList<ISetterDescription>();
-            OnInitializeSetters(list);
-            return list.ConvertAll(x => x.ToSetter(this));
-        });
-    }
-
-    // 実際にUIで編集するのは'Style.Setters'のみ
-    public IStyle Style { get; }
-
-    public IStyleInstance? Instance { get; protected set; }
-
-    public override IRenderable? Publish(IClock clock)
+    public virtual IRenderable? Publish(IClock clock)
     {
         OnPrePublish();
         IRenderable? renderable = null;
@@ -154,12 +135,6 @@ public abstract class StreamStyledSource : StreamSource
     }
 
     protected virtual void OnPostPublish()
-    {
-    }
-
-    protected abstract Style OnInitializeStyle(Func<IList<ISetter>> setters);
-
-    protected virtual void OnInitializeSetters(IList<ISetterDescription> initializing)
     {
     }
 }
