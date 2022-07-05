@@ -22,6 +22,8 @@ public interface ISetterDescription
         ISetterDescription Description { get; }
 
         StreamOperator StreamOperator { get; }
+
+        void Synchronize(ISetter setter);
     }
 }
 
@@ -108,6 +110,17 @@ public record SetterDescription<T>(CoreProperty<T> Property) : ISetterDescriptio
         public StreamOperator StreamOperator { get; }
 
         ISetterDescription ISetterDescription.IInternalSetter.Description => Description;
+
+        public void Synchronize(ISetter setter)
+        {
+            if (setter is Setter<T> typed)
+            {
+                Property = typed.Property;
+                Value = typed.Value;
+                Animations.Clear();
+                Animations.AddRange(typed.Animations);
+            }
+        }
     }
 }
 

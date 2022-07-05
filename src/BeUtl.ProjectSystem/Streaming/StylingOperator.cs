@@ -19,7 +19,7 @@ public abstract class StylingOperator : StreamOperator
         Style.Invalidated += OnInvalidated;
     }
 
-    public IStyle Style { get; private set; }
+    public IStyle Style { get; }
 
     public IStyleInstance? Instance { get; protected set; }
 
@@ -45,10 +45,16 @@ public abstract class StylingOperator : StreamOperator
             if (style != null)
             {
                 Style.Invalidated -= OnInvalidated;
-                style.Invalidated += OnInvalidated;
-                Style = style;
+                foreach (ISetter setter in Style.Setters)
+                {
+                    if (setter is ISetterDescription.IInternalSetter setter1
+                        && style.Setters.FirstOrDefault(x => x.Property.Id == setter.Property.Id) is ISetter setter2)
+                    {
+                        setter1.Synchronize(setter2);
+                    }
+                }
 
-                Instance = null;
+                Style.Invalidated += OnInvalidated;
 
                 RaiseInvalidated();
             }
