@@ -14,6 +14,4 @@ public class ImmutableTransform : ITransform
         Value = matrix;
         IsEnabled = isEnabled;
     }
-
-    public event EventHandler? Invalidated;
 }

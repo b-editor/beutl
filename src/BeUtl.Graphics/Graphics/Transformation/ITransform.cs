@@ -3,13 +3,13 @@ using BeUtl.Styling;
 
 namespace BeUtl.Graphics.Transformation;
 
-public interface ITransform : IAffectsRender
+public interface ITransform
 {
     bool IsEnabled { get; }
 
     Matrix Value { get; }
 }
 
-public interface IMutableTransform : IStyleable, ITransform
+public interface IMutableTransform : IStyleable, ITransform, IAffectsRender
 {
 }
