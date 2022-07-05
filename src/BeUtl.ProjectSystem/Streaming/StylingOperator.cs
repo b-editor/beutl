@@ -1,4 +1,6 @@
-﻿using Avalonia.Collections.Pooled;
+﻿using System.Text.Json.Nodes;
+
+using Avalonia.Collections.Pooled;
 
 using BeUtl.Styling;
 
@@ -14,11 +16,10 @@ public abstract class StylingOperator : StreamOperator
             OnInitializeSetters(list);
             return list.ConvertAll(x => x.ToSetter(this));
         });
-
-        Style.Invalidated += (_, _) => RaiseInvalidated();
+        Style.Invalidated += OnInvalidated;
     }
 
-    public IStyle Style { get; }
+    public IStyle Style { get; private set; }
 
     public IStyleInstance? Instance { get; protected set; }
 
@@ -26,5 +27,40 @@ public abstract class StylingOperator : StreamOperator
 
     protected virtual void OnInitializeSetters(IList<ISetterDescription> initializing)
     {
+    }
+
+    private void OnInvalidated(object? s, EventArgs e)
+    {
+        RaiseInvalidated();
+    }
+
+    public override void ReadFromJson(JsonNode json)
+    {
+        base.ReadFromJson(json);
+        if (json is JsonObject obj
+            && obj.TryGetPropertyValue("style", out JsonNode? styleNode)
+            && styleNode is JsonObject styleObj)
+        {
+            var style = StyleSerializer.ToStyle(styleObj);
+            if (style != null)
+            {
+                Style.Invalidated -= OnInvalidated;
+                style.Invalidated += OnInvalidated;
+                Style = style;
+
+                Instance = null;
+
+                RaiseInvalidated();
+            }
+        }
+    }
+
+    public override void WriteToJson(ref JsonNode json)
+    {
+        base.WriteToJson(ref json);
+        if (json is JsonObject obj)
+        {
+            obj["style"] = StyleSerializer.ToJson(Style);
+        }
     }
 }

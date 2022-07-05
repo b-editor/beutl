@@ -81,6 +81,10 @@ public record SetterDescription<T>(CoreProperty<T> Property) : ISetterDescriptio
 
     public bool HasMaximum { get; private set; }
 
+    public Func<T?, string>? Formatter { get; init; }
+    
+    public Func<string, (T?, bool)>? Parser { get; init; }
+
     CoreProperty ISetterDescription.Property => Property;
 
     object? ISetterDescription.DefaultValue => HasDefaultValue ? DefaultValue : null;
