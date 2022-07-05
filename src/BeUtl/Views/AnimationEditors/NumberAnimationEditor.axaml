@@ -27,7 +27,7 @@
             <TextBox
                 Grid.Column="1"
                 x:Name="prevTextBox"
-                Text="{Binding Animation.Previous, Mode=OneWay}" />
+                Text="{Binding Previous.Value, Mode=OneWay}" />
         </Grid>
 
         <Grid Grid.Column="1" Grid.Row="1" ColumnDefinitions="24,*,Auto">
@@ -36,7 +36,7 @@
             <TextBox
                 Grid.Column="1"
                 x:Name="nextTextBox"
-                Text="{Binding Animation.Next, Mode=OneWay}" />
+                Text="{Binding Next.Value, Mode=OneWay}" />
         </Grid>
     </Grid>
 </UserControl>

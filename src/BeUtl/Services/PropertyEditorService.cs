@@ -25,30 +25,30 @@ public static class PropertyEditorService
     private static readonly Dictionary<Type, Editor> s_editors = new()
     {
         { typeof(bool), new(_ => new BooleanEditor(), s => new BooleanEditorViewModel(s.ToTyped<bool>())) },
-        { typeof(byte), new(_ => new NumberEditor<byte>(), s => new ByteEditorViewModel(s.ToTyped<byte>())) },
+        { typeof(byte), new(_ => new NumberEditor<byte>(), s => new NumberEditorViewModel<byte>(s.ToTyped<byte>())) },
         { typeof(Color), new(_ => new ColorEditor(), s => new ColorEditorViewModel(s.ToTyped<Color>())) },
         { typeof(CornerRadius), new(_ => new CornerRadiusEditor(), s => new CornerRadiusEditorViewModel(s.ToTyped<CornerRadius>())) },
-        { typeof(decimal), new(_ => new NumberEditor<decimal>(), s => new DecimalEditorViewModel(s.ToTyped<decimal>())) },
-        { typeof(double), new(_ => new NumberEditor<double>(), s => new DoubleEditorViewModel(s.ToTyped<double>())) },
+        { typeof(decimal), new(_ => new NumberEditor<decimal>(), s => new NumberEditorViewModel<decimal>(s.ToTyped<decimal>())) },
+        { typeof(double), new(_ => new NumberEditor<double>(), s => new NumberEditorViewModel<double>(s.ToTyped<double>())) },
         { typeof(Enum), new(CreateEnumEditor, CreateEnumViewModel) },
         { typeof(FileInfo), new(_ => new FileInfoEditor(), s => new FileInfoEditorViewModel(s.ToTyped<FileInfo>())) },
-        { typeof(float), new(_ => new NumberEditor<float>(), s => new SingleEditorViewModel(s.ToTyped<float>())) },
+        { typeof(float), new(_ => new NumberEditor<float>(), s => new NumberEditorViewModel<float>(s.ToTyped<float>())) },
         { typeof(FontFamily), new(_ => new FontFamilyEditor(), s => new FontFamilyEditorViewModel(s.ToTyped<FontFamily>())) },
-        { typeof(short), new(_ => new NumberEditor<short>(), s => new Int16EditorViewModel(s.ToTyped<short>())) },
-        { typeof(int), new(_ => new NumberEditor<int>(), s => new Int32EditorViewModel(s.ToTyped<int>())) },
-        { typeof(long), new(_ => new NumberEditor<long>(), s => new Int64EditorViewModel(s.ToTyped<long>())) },
+        { typeof(short), new(_ => new NumberEditor<short>(), s => new NumberEditorViewModel<short>(s.ToTyped<short>())) },
+        { typeof(int), new(_ => new NumberEditor<int>(), s => new NumberEditorViewModel<int>(s.ToTyped<int>())) },
+        { typeof(long), new(_ => new NumberEditor<long>(), s => new NumberEditorViewModel<long>(s.ToTyped<long>())) },
         { typeof(PixelPoint), new(_ => new PixelPointEditor(), s => new PixelPointEditorViewModel(s.ToTyped<PixelPoint>())) },
         { typeof(PixelRect), new(_ => new PixelRectEditor(), s => new PixelRectEditorViewModel(s.ToTyped<PixelRect>())) },
         { typeof(PixelSize), new(_ => new PixelSizeEditor(), s => new PixelSizeEditorViewModel(s.ToTyped<PixelSize>())) },
         { typeof(Point), new(_ => new PointEditor(), s => new PointEditorViewModel(s.ToTyped<Point>())) },
         { typeof(Rect), new(_ => new RectEditor(), s => new RectEditorViewModel(s.ToTyped<Rect>())) },
-        { typeof(sbyte), new(_ => new NumberEditor<sbyte>(), s => new SByteEditorViewModel(s.ToTyped<sbyte>())) },
+        { typeof(sbyte), new(_ => new NumberEditor<sbyte>(), s => new NumberEditorViewModel<sbyte>(s.ToTyped<sbyte>())) },
         { typeof(string), new(_ => new StringEditor(), s => new StringEditorViewModel(s.ToTyped<string>())) },
         { typeof(Thickness), new(_ => new ThicknessEditor(), s => new ThicknessEditorViewModel(s.ToTyped<Thickness>())) },
         { typeof(Size), new(_ => new SizeEditor(), s => new SizeEditorViewModel(s.ToTyped<Size>())) },
-        { typeof(ushort), new(_ => new NumberEditor<ushort>(), s => new UInt16EditorViewModel(s.ToTyped<ushort>())) },
-        { typeof(uint), new(_ => new NumberEditor<uint>(), s => new UInt32EditorViewModel(s.ToTyped<uint>())) },
-        { typeof(ulong), new(_ => new NumberEditor<ulong>(), s => new UInt64EditorViewModel(s.ToTyped<ulong>())) },
+        { typeof(ushort), new(_ => new NumberEditor<ushort>(), s => new NumberEditorViewModel<ushort>(s.ToTyped<ushort>())) },
+        { typeof(uint), new(_ => new NumberEditor<uint>(), s => new NumberEditorViewModel<uint>(s.ToTyped<uint>())) },
+        { typeof(ulong), new(_ => new NumberEditor<ulong>(), s => new NumberEditorViewModel<ulong>(s.ToTyped<ulong>())) },
         { typeof(Vector2), new(_ => new Vector2Editor(), s => new Vector2EditorViewModel(s.ToTyped<Vector2>())) },
         { typeof(Vector3), new(_ => new Vector3Editor(), s => new Vector3EditorViewModel(s.ToTyped<Vector3>())) },
         { typeof(Vector4), new(_ => new Vector4Editor(), s => new Vector4EditorViewModel(s.ToTyped<Vector4>())) },
@@ -65,30 +65,35 @@ public static class PropertyEditorService
     private static readonly Dictionary<Type, AnimationEditor> s_animationEditors = new()
     {
         { typeof(bool), new(_ => new BooleanAnimationEditor(), (a, desc, ops) => new AnimationEditorViewModel<bool>(a, desc, ops)) },
-        { typeof(byte), new(_ => new NumberAnimationEditor<byte>(), (a, desc, ops) => new AnimationEditorViewModel<byte>(a, desc, ops)) },
-        { typeof(Color), new(_ => new ColorAnimationEditor(), (a, desc, ops) => new ColorAnimationEditorViewModel((Animation<Color>)a, desc, ops)) },
-        { typeof(CornerRadius), new(_ => new CornerRadiusAnimationEditor(), (a, desc, ops) => new CornerRadiusAnimationEditorViewModel((Animation<CornerRadius>)a, desc, ops)) },
-        { typeof(decimal), new(_ => new NumberAnimationEditor<decimal>(), (a, desc, ops) => new AnimationEditorViewModel<decimal>(a, desc, ops)) },
-        { typeof(double), new(_ => new NumberAnimationEditor<double>(), (a, desc, ops) => new AnimationEditorViewModel<double>(a, desc, ops)) },
-        { typeof(float), new(_ => new NumberAnimationEditor<float>(), (a, desc, ops) => new AnimationEditorViewModel<float>(a, desc, ops)) },
-        { typeof(short), new(_ => new NumberAnimationEditor<short>(), (a, desc, ops) => new AnimationEditorViewModel<short>(a, desc, ops)) },
-        { typeof(int), new(_ => new NumberAnimationEditor<int>(), (a, desc, ops) => new AnimationEditorViewModel<int>(a, desc, ops)) },
-        { typeof(long), new(_ => new NumberAnimationEditor<long>(), (a, desc, ops) => new AnimationEditorViewModel<long>(a, desc, ops)) },
-        { typeof(PixelPoint), new(_ => new PixelPointAnimationEditor(), (a, desc, ops) => new PixelPointAnimationEditorViewModel((Animation<PixelPoint>)a, desc, ops)) },
-        { typeof(PixelSize), new(_ => new PixelSizeAnimationEditor(), (a, desc, ops) => new PixelSizeAnimationEditorViewModel((Animation<PixelSize>)a, desc, ops)) },
-        { typeof(Point), new(_ => new PointAnimationEditor(), (a, desc, ops) => new PointAnimationEditorViewModel((Animation<Point>)a, desc, ops)) },
-        { typeof(sbyte), new(_ => new NumberAnimationEditor<sbyte>(), (a, desc, ops) => new AnimationEditorViewModel<sbyte>(a, desc, ops)) },
-        { typeof(Size), new(_ => new SizeAnimationEditor(), (a, desc, ops) => new SizeAnimationEditorViewModel((Animation<Size>)a, desc, ops)) },
-        { typeof(ushort), new(_ => new NumberAnimationEditor<ushort>(), (a, desc, ops) => new AnimationEditorViewModel<ushort>(a, desc, ops)) },
-        { typeof(uint), new(_ => new NumberAnimationEditor<uint>(), (a, desc, ops) => new AnimationEditorViewModel<uint>(a, desc, ops)) },
-        { typeof(ulong), new(_ => new NumberAnimationEditor<ulong>(), (a, desc, ops) => new AnimationEditorViewModel<ulong>(a, desc, ops)) },
-        { typeof(Vector2), new(_ => new Vector2AnimationEditor(), (a, desc, ops) => new Vector2AnimationEditorViewModel((Animation<Vector2>)a, desc, ops)) },
-        { typeof(Graphics.Vector), new(_ => new VectorAnimationEditor(), (a, desc, ops) => new VectorAnimationEditorViewModel((Animation<Graphics.Vector>)a, desc, ops)) },
+        { typeof(byte), new(_ => new NumberAnimationEditor<byte>(), (a, desc, ops) => new NumberAnimationEditorViewModel<byte>(a.ToTyped<byte>(), desc, ops)) },
+        { typeof(Color), new(_ => new ColorAnimationEditor(), (a, desc, ops) => new ColorAnimationEditorViewModel(a.ToTyped<Color>(), desc, ops)) },
+        { typeof(CornerRadius), new(_ => new CornerRadiusAnimationEditor(), (a, desc, ops) => new CornerRadiusAnimationEditorViewModel(a.ToTyped<CornerRadius>(), desc, ops)) },
+        { typeof(decimal), new(_ => new NumberAnimationEditor<decimal>(), (a, desc, ops) => new NumberAnimationEditorViewModel<decimal>(a.ToTyped<decimal>(), desc, ops)) },
+        { typeof(double), new(_ => new NumberAnimationEditor<double>(), (a, desc, ops) => new NumberAnimationEditorViewModel<double>(a.ToTyped<double>(), desc, ops)) },
+        { typeof(float), new(_ => new NumberAnimationEditor<float>(), (a, desc, ops) => new NumberAnimationEditorViewModel<float>(a.ToTyped<float>(), desc, ops)) },
+        { typeof(short), new(_ => new NumberAnimationEditor<short>(), (a, desc, ops) => new NumberAnimationEditorViewModel<short>(a.ToTyped<short>(), desc, ops)) },
+        { typeof(int), new(_ => new NumberAnimationEditor<int>(), (a, desc, ops) => new NumberAnimationEditorViewModel<int>(a.ToTyped<int>(), desc, ops)) },
+        { typeof(long), new(_ => new NumberAnimationEditor<long>(), (a, desc, ops) => new NumberAnimationEditorViewModel<long>(a.ToTyped<long>(), desc, ops)) },
+        { typeof(PixelPoint), new(_ => new PixelPointAnimationEditor(), (a, desc, ops) => new PixelPointAnimationEditorViewModel(a.ToTyped<PixelPoint>(), desc, ops)) },
+        { typeof(PixelSize), new(_ => new PixelSizeAnimationEditor(), (a, desc, ops) => new PixelSizeAnimationEditorViewModel(a.ToTyped<PixelSize>(), desc, ops)) },
+        { typeof(Point), new(_ => new PointAnimationEditor(), (a, desc, ops) => new PointAnimationEditorViewModel(a.ToTyped<Point>(), desc, ops)) },
+        { typeof(sbyte), new(_ => new NumberAnimationEditor<sbyte>(), (a, desc, ops) => new NumberAnimationEditorViewModel<sbyte>(a.ToTyped<sbyte>(), desc, ops)) },
+        { typeof(Size), new(_ => new SizeAnimationEditor(), (a, desc, ops) => new SizeAnimationEditorViewModel(a.ToTyped<Size>(), desc, ops)) },
+        { typeof(ushort), new(_ => new NumberAnimationEditor<ushort>(), (a, desc, ops) => new NumberAnimationEditorViewModel<ushort>(a.ToTyped<ushort>(), desc, ops)) },
+        { typeof(uint), new(_ => new NumberAnimationEditor<uint>(), (a, desc, ops) => new NumberAnimationEditorViewModel<uint>(a.ToTyped<uint>(), desc, ops)) },
+        { typeof(ulong), new(_ => new NumberAnimationEditor<ulong>(), (a, desc, ops) => new NumberAnimationEditorViewModel<ulong>(a.ToTyped<ulong>(), desc, ops)) },
+        { typeof(Vector2), new(_ => new Vector2AnimationEditor(), (a, desc, ops) => new Vector2AnimationEditorViewModel(a.ToTyped<Vector2>(), desc, ops)) },
+        { typeof(Graphics.Vector), new(_ => new VectorAnimationEditor(), (a, desc, ops) => new VectorAnimationEditorViewModel(a.ToTyped<Graphics.Vector>(), desc, ops)) },
     };
 
     public static IWrappedProperty<T> ToTyped<T>(this IWrappedProperty pi)
     {
         return (IWrappedProperty<T>)pi;
+    }
+
+    public static Animation<T> ToTyped<T>(this IAnimation animation)
+    {
+        return (Animation<T>)animation;
     }
 
     public static Control? CreateEditor(IWrappedProperty property)

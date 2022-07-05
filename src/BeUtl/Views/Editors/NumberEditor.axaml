@@ -17,7 +17,7 @@
         <TextBox
             x:Name="textBox"
             Grid.Column="1"
-            Text="{Binding Value.Value, Mode=OneWay}">
+            Text="{Binding Text.Value, Mode=OneWay}">
             <TextBox.Styles>
                 <Style Selector="TextBox">
                     <Setter Property="Margin" Value="4" />
