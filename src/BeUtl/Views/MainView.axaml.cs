@@ -602,10 +602,10 @@ Error:
     private void InitExtMenuItems()
     {
         PackageManager manager = PackageManager.Instance;
-        if (sceneEditorMenuItem.Items is not IList items1)
+        if (toolTabMenuItem.Items is not IList items1)
         {
             items1 = new AvaloniaList<object>();
-            sceneEditorMenuItem.Items = items1;
+            toolTabMenuItem.Items = items1;
         }
 
         // Todo: Extensionの実行時アンロードの実現時、
