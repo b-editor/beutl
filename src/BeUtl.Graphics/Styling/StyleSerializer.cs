@@ -14,37 +14,42 @@ public static class StyleSerializer
             ["target"] = TypeFormat.ToString(style.TargetType)
         };
 
-        var setters = new JsonArray();
+        var setters = new JsonObject();
         foreach (ISetter? item in style.Setters)
         {
-            setters.Add(item.ToJson(style.TargetType));
+            (string name, JsonNode node) = item.ToJson(style.TargetType);
+            setters[name] = node;
         }
         styleJson["setters"] = setters;
 
         return styleJson;
     }
 
-    public static JsonNode ToJson(this ISetter setter, Type targetType)
+    public static (string, JsonNode) ToJson(this ISetter setter, Type targetType)
     {
-        var json = new JsonObject();
+        string? name;
+        string? owner = null;
+        JsonNode? value = null;
+        JsonArray? animations = null;
 
         if (targetType.IsAssignableTo(setter.Property.OwnerType))
         {
-            json["property"] = setter.Property.Name;
+            name = setter.Property.GetMetadata<CorePropertyMetadata>(targetType).SerializeName ?? setter.Property.Name;
         }
         else
         {
-            json["property"] = $"{setter.Property.Name}:{TypeFormat.ToString(setter.Property.OwnerType)}";
+            name = setter.Property.GetMetadata<CorePropertyMetadata>(targetType).SerializeName ?? setter.Property.Name;
+            owner = TypeFormat.ToString(setter.Property.OwnerType);
         }
 
         if (setter.Value != null)
         {
-            json["value"] = SerializeValue(setter.Property.PropertyType, setter.Value);
+            value = SerializeValue(setter.Property.PropertyType, setter.Value);
         }
 
         if (setter.Animations.Any())
         {
-            var animations = new JsonArray();
+            animations = new JsonArray();
 
             foreach (IAnimation item in setter.Animations)
             {
@@ -52,11 +57,26 @@ public static class StyleSerializer
                 item.WriteToJson(ref anmNode);
                 animations.Add(anmNode);
             }
-
-            json["animations"] = animations;
         }
 
-        return json;
+        if (value is JsonValue jsonValue
+            && owner == null
+            && animations == null)
+        {
+            return (name, jsonValue);
+        }
+        else
+        {
+            var json = new JsonObject();
+            if (value != null)
+                json["value"] = value;
+            if (owner != null)
+                json["owner"] = owner;
+            if (animations != null)
+                json["animations"] = animations;
+
+            return (name, json);
+        }
     }
 
     public static JsonNode? SerializeValue(Type type, object value)
@@ -93,11 +113,11 @@ public static class StyleSerializer
             };
 
             if (json.TryGetPropertyValue("setters", out JsonNode? settersNode)
-                && settersNode is JsonArray settersArray)
+                && settersNode is JsonObject settersObj)
             {
-                foreach (JsonNode? item in settersArray)
+                foreach (KeyValuePair<string, JsonNode?> item in settersObj)
                 {
-                    if (item != null && item.ToSetter(targetType) is ISetter setter)
+                    if (item.Value != null && item.Value.ToSetter(item.Key, targetType) is ISetter setter)
                     {
                         style.Setters.Add(setter);
                     }
@@ -110,67 +130,73 @@ public static class StyleSerializer
         return null;
     }
 
-    public static ISetter? ToSetter(this JsonNode json, Type targetType)
+    public static ISetter? ToSetter(this JsonNode json, string name, Type targetType)
     {
-        if (json is JsonObject jobj)
+        JsonArray? animationsNode = null;
+        JsonNode? valueNode = null;
+        Type ownerType = targetType;
+
+        if (json is JsonValue jsonValue)
         {
-            if (jobj.TryGetPropertyValue("property", out JsonNode? propertyNode)
-                && propertyNode is JsonValue propertyValue
-                && propertyValue.TryGetValue(out string? propertyStr))
+            animationsNode = null;
+            valueNode = jsonValue;
+        }
+        else if (json is JsonObject jobj)
+        {
+            if (jobj.TryGetPropertyValue("owner", out JsonNode? ownerNode)
+                && ownerNode is JsonValue ownerValue
+                && ownerValue.TryGetValue(out string? ownerStr))
             {
-                int separator = propertyStr.IndexOf(":");
-                CoreProperty? property = null;
-                if (separator < 0)
+                if (TypeFormat.ToType(ownerStr) is Type ownerType1)
                 {
-                    property = PropertyRegistry.FindRegistered(targetType, propertyStr);
+                    ownerType = ownerType1;
                 }
                 else
                 {
-                    string name = propertyStr[..separator];
-                    var type = TypeFormat.ToType(propertyStr[separator..]);
-                    if (type != null)
-                    {
-                        property = PropertyRegistry.FindRegistered(type, name);
-                    }
-                }
-
-                if (property == null)
                     return null;
-
-                var helper = (IGenericHelper)typeof(GenericHelper<>)
-                    .MakeGenericType(property.PropertyType)
-                    .GetField("Instance")!
-                    .GetValue(null)!;
-
-                object? value = null;
-                if (jobj.TryGetPropertyValue("value", out JsonNode? valueNode))
-                {
-                    value = DeserializeValue(property.PropertyType, valueNode!);
                 }
+            }
 
-                var animations = new List<BaseAnimation>();
+            valueNode = jobj["value"];
 
-                if (jobj.TryGetPropertyValue("animations", out JsonNode? animationsNode)
-                    && animationsNode is JsonArray animationsArray)
+            animationsNode = jobj["animations"] as JsonArray;
+        }
+
+        CoreProperty? property
+            = PropertyRegistry.GetRegistered(ownerType).FirstOrDefault(
+                x => x.GetMetadata<CorePropertyMetadata>(ownerType).SerializeName == name || x.Name == name);
+
+        if (property == null)
+            return null;
+
+        var helper = (IGenericHelper)typeof(GenericHelper<>)
+            .MakeGenericType(property.PropertyType)
+            .GetField("Instance")!
+            .GetValue(null)!;
+
+        object? value = null;
+        if (valueNode != null)
+        {
+            value = DeserializeValue(property.PropertyType, valueNode!);
+        }
+
+        var animations = new List<BaseAnimation>();
+        if (animationsNode != null)
+        {
+            if (animations.Capacity < animationsNode.Count)
+            {
+                animations.Capacity = animationsNode.Count;
+            }
+            foreach (JsonNode? item in animationsNode)
+            {
+                if (item is JsonObject animationObj)
                 {
-                    if (animations.Capacity < animationsArray.Count)
-                    {
-                        animations.Capacity = animationsArray.Count;
-                    }
-                    foreach (JsonNode? item in animationsArray)
-                    {
-                        if (item is JsonObject animationObj)
-                        {
-                            animations.Add(helper.DeserializeAnimation(animationObj));
-                        }
-                    }
+                    animations.Add(helper.DeserializeAnimation(animationObj));
                 }
-
-                return helper.InitializeSetter(property, value, animations);
             }
         }
 
-        return null;
+        return helper.InitializeSetter(property, value, animations);
     }
 
     public static object? DeserializeValue(Type type, JsonNode jsonNode)
