@@ -9,6 +9,7 @@ using BeUtl.Animation;
 using BeUtl.Animation.Easings;
 using BeUtl.Framework;
 using BeUtl.ProjectSystem;
+using BeUtl.Services.Editors.Wrappers;
 using BeUtl.Services.PrimitiveImpls;
 using BeUtl.ViewModels.Editors;
 
@@ -20,32 +21,34 @@ namespace BeUtl.ViewModels;
 public sealed class AnimationTimelineViewModel : IDisposable, IToolContext
 {
     private readonly CompositeDisposable _disposables = new();
+    private readonly ReactivePropertySlim<Layer?> _layerObservable = new();
 
     public AnimationTimelineViewModel(
-        Layer layer,
-        IAnimatablePropertyInstance setter,
+        IWrappedProperty.IAnimatable setter,
         EditorViewModelDescription description,
         ITimelineOptionsProvider optionsProvider)
     {
-        Layer = layer;
-        Setter = setter;
+        WrappedProperty = setter;
         Description = description;
         OptionsProvider = optionsProvider;
-        Scene = Layer.FindRequiredLogicalParent<Scene>();
+        Scene = optionsProvider.Scene;
 
-        BorderMargin = Layer.GetObservable(Layer.StartProperty)
+        BorderMargin = LayerObservable
+            .SelectMany(x => x?.GetObservable(Layer.StartProperty) ?? Observable.Return(TimeSpan.Zero))
             .CombineLatest(OptionsProvider.Scale)
             .Select(item => new Thickness(item.First.ToPixel(item.Second), 0, 0, 0))
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
 
-        Width = Layer.GetObservable(Layer.LengthProperty)
+        Width = LayerObservable
+            .SelectMany(x => x?.GetObservable(Layer.LengthProperty) ?? Observable.Return(TimeSpan.Zero))
             .CombineLatest(OptionsProvider.Scale)
             .Select(item => item.First.ToPixel(item.Second))
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
 
-        Color = Layer.GetObservable(Layer.AccentColorProperty)
+        Color = LayerObservable
+            .SelectMany(x => x?.GetObservable(Layer.AccentColorProperty) ?? Observable.Return(default(Media.Color)))
             .Select(c => c.ToAvalonia())
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
@@ -66,21 +69,28 @@ public sealed class AnimationTimelineViewModel : IDisposable, IToolContext
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
 
-        Header = layer.GetObservable(CoreObject.NameProperty)
-            .Select(n => $"{n} / {Setter.Property.Name}")
-            .ToReadOnlyReactivePropertySlim($"{layer.Name} / {Setter.Property.Name}")
+        Header = LayerObservable
+            .SelectMany(x => x?.GetObservable(CoreObject.NameProperty) ?? Observable.Return(string.Empty))
+            .Select(n => string.IsNullOrWhiteSpace(n) ? WrappedProperty.AssociatedProperty.Name : $"{n} / {WrappedProperty.AssociatedProperty.Name}")
+            .ToReadOnlyReactivePropertySlim(WrappedProperty.AssociatedProperty.Name)
             .AddTo(_disposables);
     }
 
     public Scene Scene { get; }
 
-    public Layer Layer { get; }
+    public Layer? Layer
+    {
+        get => _layerObservable.Value;
+        init => _layerObservable.Value = value;
+    }
 
-    public IAnimatablePropertyInstance Setter { get; }
+    public IWrappedProperty.IAnimatable WrappedProperty { get; }
 
     public EditorViewModelDescription Description { get; }
 
     public ITimelineOptionsProvider OptionsProvider { get; }
+
+    public IReadOnlyReactiveProperty<Layer?> LayerObservable => _layerObservable;
 
     public ReadOnlyReactivePropertySlim<Thickness> BorderMargin { get; }
 
@@ -104,18 +114,20 @@ public sealed class AnimationTimelineViewModel : IDisposable, IToolContext
 
     public void Dispose()
     {
+        _layerObservable.Dispose();
         _disposables.Dispose();
     }
 
     public void AddAnimation(Easing easing)
     {
-        Type type = typeof(Animation<>).MakeGenericType(Setter.Property.PropertyType);
+        CoreProperty? property = WrappedProperty.AssociatedProperty;
+        Type type = typeof(Animation<>).MakeGenericType(property.PropertyType);
 
         if (Activator.CreateInstance(type) is IAnimation animation)
         {
             animation.Easing = easing;
             animation.Duration = TimeSpan.FromSeconds(2);
-            object? value = Setter.Value;
+            object? value = WrappedProperty.GetValue();
 
             if (value != null)
             {
@@ -123,7 +135,8 @@ public sealed class AnimationTimelineViewModel : IDisposable, IToolContext
                 animation.Next = value;
             }
 
-            Setter.AddChild(animation).DoAndRecord(CommandRecorder.Default);
+            var command = new AddAnimationCommand(WrappedProperty, animation, WrappedProperty.Animations.Count);
+            command.DoAndRecord(CommandRecorder.Default);
         }
     }
 
@@ -133,5 +146,31 @@ public sealed class AnimationTimelineViewModel : IDisposable, IToolContext
 
     public void WriteToJson(ref JsonNode json)
     {
+    }
+
+    private sealed class AddAnimationCommand : IRecordableCommand
+    {
+        private readonly IWrappedProperty.IAnimatable _animatable;
+        private readonly IAnimation _animation;
+        private readonly int _index;
+
+        public AddAnimationCommand(IWrappedProperty.IAnimatable animatable, IAnimation animation, int index)
+        {
+            _animatable = animatable;
+            _animation = animation;
+            _index = index;
+        }
+
+        public void Do()
+        {
+            _animatable.InsertAnimation(_index, _animation);
+        }
+
+        public void Redo() => Do();
+
+        public void Undo()
+        {
+            _animatable.RemoveAnimation(_animation);
+        }
     }
 }

@@ -84,5 +84,4 @@ public class SetterInstance<T> : ISetterInstance
 
         return Ease(span[^1], 1);
     }
-
 }

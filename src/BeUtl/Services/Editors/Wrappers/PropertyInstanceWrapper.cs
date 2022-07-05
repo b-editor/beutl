@@ -1,4 +1,5 @@
 ﻿using BeUtl.ProjectSystem;
+using BeUtl.Streaming;
 
 namespace BeUtl.Services.Editors.Wrappers;
 
@@ -13,6 +14,10 @@ public static class WrappedPropertyExtensions
         else if (property.Tag is CoreObject obj)
         {
             return obj;
+        }
+        else if (property.Tag is ISetterDescription.IInternalSetter setter)
+        {
+            return setter.StreamOperator;
         }
         else
         {

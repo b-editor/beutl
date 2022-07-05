@@ -19,6 +19,12 @@ public interface IWrappedProperty
     public interface IAnimatable : IWrappedProperty
     {
         IReadOnlyList<IAnimation> Animations { get; }
+
+        void AddAnimation(IAnimation animation);
+
+        void RemoveAnimation(IAnimation animation);
+
+        void InsertAnimation(int index, IAnimation animation);
     }
 }
 

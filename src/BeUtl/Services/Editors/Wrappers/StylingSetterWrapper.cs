@@ -6,7 +6,6 @@ namespace BeUtl.Services.Editors.Wrappers;
 
 public interface IStylingSetterWrapper : IWrappedProperty
 {
-
 }
 
 public sealed class StylingSetterWrapper<T> : IWrappedProperty<T>.IAnimatable, IStylingSetterWrapper
@@ -49,5 +48,20 @@ public sealed class StylingSetterWrapper<T> : IWrappedProperty<T>.IAnimatable, I
     public void SetValue(T? value)
     {
         ((Setter<T>)Tag).Value = value;
+    }
+
+    public void AddAnimation(IAnimation animation)
+    {
+        Animations.Add((Animation<T>)animation);
+    }
+
+    public void InsertAnimation(int index, IAnimation animation)
+    {
+        Animations.Insert(index, (Animation<T>)animation);
+    }
+
+    public void RemoveAnimation(IAnimation animation)
+    {
+        Animations.Remove((Animation<T>)animation);
     }
 }

@@ -29,24 +29,24 @@ public sealed partial class EditorBadge : UserControl
     private void EditAnimation_Click(object? sender, RoutedEventArgs e)
     {
         if (DataContext is BaseEditorViewModel viewModel
-            && viewModel.WrappedProperty.Tag is IAnimatablePropertyInstance setter)
+            && viewModel.WrappedProperty is IWrappedProperty.IAnimatable animatableProperty)
         {
+            Element? obj = animatableProperty.GetObject() as Element;
             EditView editView = this.FindLogicalAncestorOfType<EditView>();
             if (editView.DataContext is EditViewModel editViewModel)
             {
-                Layer? layer = setter.FindRequiredLogicalParent<Layer>();
                 AnimationTimelineViewModel? anmViewModel =
                     editViewModel.BottomTabItems.OfType<AnimationTimelineViewModel>()
-                        .FirstOrDefault(anmtl => ReferenceEquals(anmtl.Setter, setter));
+                        .FirstOrDefault(anmtl => ReferenceEquals(anmtl.WrappedProperty, animatableProperty));
 
                 if (anmViewModel == null)
                 {
                     anmViewModel = new AnimationTimelineViewModel(
-                        layer,
-                        setter,
+                        animatableProperty,
                         viewModel.Description,
                         editViewModel)
                     {
+                        Layer = obj?.FindLogicalParent<Layer>(true),
                         IsSelected =
                         {
                             Value = true
