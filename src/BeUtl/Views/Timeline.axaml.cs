@@ -8,6 +8,7 @@ using Avalonia.Data.Converters;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
+using Avalonia.Threading;
 
 using BeUtl.Collections;
 using BeUtl.Models;
@@ -34,6 +35,7 @@ public sealed partial class Timeline : UserControl
     private IDisposable? _disposable0;
     private IDisposable? _disposable1;
     private IDisposable? _disposable2;
+    private IDisposable? _disposable3;
     private TimelineLayer? _selectedLayer;
 
     public Timeline()
@@ -83,6 +85,7 @@ public sealed partial class Timeline : UserControl
                 _disposable0?.Dispose();
                 _disposable1?.Dispose();
                 _disposable2?.Dispose();
+                _disposable3?.Dispose();
             }
 
             _viewModel = vm;
@@ -134,6 +137,17 @@ public sealed partial class Timeline : UserControl
                     newView.border.BorderThickness = new Thickness(1);
                     _selectedLayer = newView;
                 }
+            });
+
+            _disposable3 = ViewModel.EditorContext.Options.Subscribe(options =>
+            {
+                Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    Vector2 offset = options.Offset;
+                    ScaleScroll.Offset = new(offset.X, 0);
+                    ContentScroll.Offset = new(offset.X, offset.Y);
+                    PaneScroll.Offset = new(0, offset.Y);
+                });
             });
         }
     }
