@@ -345,6 +345,23 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider
                 RestoreTabItems(rightItems, RightTabItems);
             }
         }
+        else
+        {
+            if (TimelineTabExtension.Instance.TryCreateContext(this, out IToolContext? tab1))
+            {
+                OpenToolTab(tab1);
+            }
+
+            if (StreamOperatorsTabExtension.Instance.TryCreateContext(this, out IToolContext? tab2))
+            {
+                OpenToolTab(tab2);
+            }
+
+            if (EasingsTabExtension.Instance.TryCreateContext(this, out IToolContext? tab3))
+            {
+                OpenToolTab(tab3);
+            }
+        }
     }
 
     private sealed class KnownCommandsImpl : IKnownEditorCommands
