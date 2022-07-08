@@ -121,9 +121,9 @@ public sealed class AnimationTimelineViewModel : IDisposable, IToolContext
     public void AddAnimation(Easing easing)
     {
         CoreProperty? property = WrappedProperty.AssociatedProperty;
-        Type type = typeof(Animation<>).MakeGenericType(property.PropertyType);
+        Type type = typeof(AnimationSpan<>).MakeGenericType(property.PropertyType);
 
-        if (Activator.CreateInstance(type) is IAnimation animation)
+        if (Activator.CreateInstance(type) is IAnimationSpan animation)
         {
             animation.Easing = easing;
             animation.Duration = TimeSpan.FromSeconds(2);
@@ -151,10 +151,10 @@ public sealed class AnimationTimelineViewModel : IDisposable, IToolContext
     private sealed class AddAnimationCommand : IRecordableCommand
     {
         private readonly IWrappedProperty.IAnimatable _animatable;
-        private readonly IAnimation _animation;
+        private readonly IAnimationSpan _animation;
         private readonly int _index;
 
-        public AddAnimationCommand(IWrappedProperty.IAnimatable animatable, IAnimation animation, int index)
+        public AddAnimationCommand(IWrappedProperty.IAnimatable animatable, IAnimationSpan animation, int index)
         {
             _animatable = animatable;
             _animation = animation;

@@ -1,4 +1,5 @@
-﻿using BeUtl.Collections;
+﻿using BeUtl.Animation;
+using BeUtl.Collections;
 using BeUtl.Media;
 
 namespace BeUtl.Styling;
@@ -6,7 +7,7 @@ namespace BeUtl.Styling;
 public interface IStyle
 {
     ICoreReadOnlyList<ISetter> Setters { get; }
-
+   
     Type TargetType { get; }
 
     event EventHandler? Invalidated;

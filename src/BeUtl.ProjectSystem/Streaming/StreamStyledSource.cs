@@ -117,8 +117,7 @@ public record SetterDescription<T>(CoreProperty<T> Property) : ISetterDescriptio
             {
                 Property = typed.Property;
                 Value = typed.Value;
-                Animations.Clear();
-                Animations.AddRange(typed.Animations);
+                Animation = typed.Animation;
             }
         }
     }

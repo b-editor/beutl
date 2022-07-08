@@ -18,13 +18,13 @@ public interface IWrappedProperty
 
     public interface IAnimatable : IWrappedProperty
     {
-        IReadOnlyList<IAnimation> Animations { get; }
+        IReadOnlyList<IAnimationSpan> Animations { get; }
 
-        void AddAnimation(IAnimation animation);
+        void AddAnimation(IAnimationSpan animation);
 
-        void RemoveAnimation(IAnimation animation);
+        void RemoveAnimation(IAnimationSpan animation);
 
-        void InsertAnimation(int index, IAnimation animation);
+        void InsertAnimation(int index, IAnimationSpan animation);
     }
 }
 
@@ -64,6 +64,6 @@ public interface IWrappedProperty<T> : IWrappedProperty
 
     public new interface IAnimatable : IWrappedProperty<T>, IWrappedProperty.IAnimatable
     {
-        new IObservableList<Animation<T>> Animations { get; }
+        new IObservableList<AnimationSpan<T>> Animations { get; }
     }
 }

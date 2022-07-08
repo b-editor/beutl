@@ -7,7 +7,7 @@ namespace BeUtl.ViewModels.AnimationEditors;
 
 public sealed class Vector2AnimationEditorViewModel : AnimationEditorViewModel<Vector2>
 {
-    public Vector2AnimationEditorViewModel(Animation<Vector2> animation, EditorViewModelDescription description, ITimelineOptionsProvider optionsProvider)
+    public Vector2AnimationEditorViewModel(AnimationSpan<Vector2> animation, EditorViewModelDescription description, ITimelineOptionsProvider optionsProvider)
         : base(animation, description, optionsProvider)
     {
     }

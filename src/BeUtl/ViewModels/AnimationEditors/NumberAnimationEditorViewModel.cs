@@ -11,15 +11,15 @@ namespace BeUtl.ViewModels.AnimationEditors;
 public sealed class NumberAnimationEditorViewModel<T> : AnimationEditorViewModel<T>
     where T : struct
 {
-    public NumberAnimationEditorViewModel(Animation<T> animation, EditorViewModelDescription description, ITimelineOptionsProvider optionsProvider)
+    public NumberAnimationEditorViewModel(AnimationSpan<T> animation, EditorViewModelDescription description, ITimelineOptionsProvider optionsProvider)
         : base(animation, description, optionsProvider)
     {
-        Previous = animation.GetObservable(Animation<T>.PreviousProperty)
+        Previous = animation.GetObservable(AnimationSpan<T>.PreviousProperty)
             .Select(x => Format(x))
             .ToReadOnlyReactivePropertySlim(Format(animation.Previous))
             .AddTo(Disposables);
 
-        Next = animation.GetObservable(Animation<T>.NextProperty)
+        Next = animation.GetObservable(AnimationSpan<T>.NextProperty)
             .Select(x => Format(x))
             .ToReadOnlyReactivePropertySlim(Format(animation.Next))
             .AddTo(Disposables);

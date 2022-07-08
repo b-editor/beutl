@@ -31,9 +31,24 @@ public sealed class StylingSetterWrapper<T> : IWrappedProperty<T>.IAnimatable, I
 
     public IObservable<string> Header { get; }
 
-    public IObservableList<Animation<T>> Animations => ((Setter<T>)Tag).Animations;
+    public IObservableList<AnimationSpan<T>> Animations
+    {
+        get
+        {
+            var setter = (Setter<T>)Tag;
+            setter.Animation ??= new Animation<T>(AssociatedProperty);
+            return setter.Animation.Children;
+        }
+    }
 
-    IReadOnlyList<IAnimation> IWrappedProperty.IAnimatable.Animations => ((ISetter)Tag).Animations;
+    IReadOnlyList<IAnimationSpan> IWrappedProperty.IAnimatable.Animations
+    {
+        get
+        {
+            _ = Animations;
+            return ((ISetter)Tag).Animation!.Children;
+        }
+    }
 
     public IObservable<T?> GetObservable()
     {
@@ -50,18 +65,18 @@ public sealed class StylingSetterWrapper<T> : IWrappedProperty<T>.IAnimatable, I
         ((Setter<T>)Tag).Value = value;
     }
 
-    public void AddAnimation(IAnimation animation)
+    public void AddAnimation(IAnimationSpan animation)
     {
-        Animations.Add((Animation<T>)animation);
+        Animations.Add((AnimationSpan<T>)animation);
     }
 
-    public void InsertAnimation(int index, IAnimation animation)
+    public void InsertAnimation(int index, IAnimationSpan animation)
     {
-        Animations.Insert(index, (Animation<T>)animation);
+        Animations.Insert(index, (AnimationSpan<T>)animation);
     }
 
-    public void RemoveAnimation(IAnimation animation)
+    public void RemoveAnimation(IAnimationSpan animation)
     {
-        Animations.Remove((Animation<T>)animation);
+        Animations.Remove((AnimationSpan<T>)animation);
     }
 }

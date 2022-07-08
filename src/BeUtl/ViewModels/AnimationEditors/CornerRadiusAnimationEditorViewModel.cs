@@ -6,7 +6,7 @@ namespace BeUtl.ViewModels.AnimationEditors;
 
 public sealed class CornerRadiusAnimationEditorViewModel : AnimationEditorViewModel<CornerRadius>
 {
-    public CornerRadiusAnimationEditorViewModel(Animation<CornerRadius> animation, EditorViewModelDescription description, ITimelineOptionsProvider optionsProvider)
+    public CornerRadiusAnimationEditorViewModel(AnimationSpan<CornerRadius> animation, EditorViewModelDescription description, ITimelineOptionsProvider optionsProvider)
         : base(animation, description, optionsProvider)
     {
     }

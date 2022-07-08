@@ -1,4 +1,5 @@
 ﻿
+using BeUtl.Animation;
 using BeUtl.Collections;
 
 namespace BeUtl.Styling;
@@ -27,9 +28,9 @@ public class Style : IStyle
     }
 
     public ICoreList<ISetter> Setters => _setters;
-
+  
     ICoreReadOnlyList<ISetter> IStyle.Setters => _setters;
-
+   
     public event EventHandler? Invalidated;
 
     public IStyleInstance Instance(IStyleable target, IStyleInstance? baseStyle = null)

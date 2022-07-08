@@ -30,7 +30,7 @@ public sealed partial class AnimationTimeline : UserControl
     public AnimationTimeline()
     {
         Resources["AnimationToViewModelConverter"] =
-            new FuncValueConverter<IAnimation, object?>(a => a == null ? null : PropertyEditorService.CreateAnimationEditorViewModel(ViewModel.Description, a, ViewModel.OptionsProvider));
+            new FuncValueConverter<IAnimationSpan, object?>(a => a == null ? null : PropertyEditorService.CreateAnimationEditorViewModel(ViewModel.Description, a, ViewModel.OptionsProvider));
 
         InitializeComponent();
         ContentScroll.ScrollChanged += ContentScroll_ScrollChanged;

@@ -47,11 +47,17 @@ public static class StyleSerializer
             value = SerializeValue(setter.Property.PropertyType, setter.Value);
         }
 
-        if (setter.Animations.Any())
+        if (setter.Animation is { } animation
+            && animation.Children.Count > 0)
         {
+            if (animation.Property != setter.Property)
+            {
+                throw new InvalidOperationException("Setter.Animation.Property != Setter.Property");
+            }
+
             animations = new JsonArray();
 
-            foreach (IAnimation item in setter.Animations)
+            foreach (IAnimationSpan item in animation.Children)
             {
                 JsonNode anmNode = new JsonObject();
                 item.WriteToJson(ref anmNode);
@@ -180,7 +186,7 @@ public static class StyleSerializer
             value = DeserializeValue(property.PropertyType, valueNode!);
         }
 
-        var animations = new List<BaseAnimation>();
+        var animations = new List<AnimationSpan>();
         if (animationsNode != null)
         {
             if (animations.Capacity < animationsNode.Count)
@@ -235,25 +241,29 @@ public static class StyleSerializer
 
     private interface IGenericHelper
     {
-        ISetter InitializeSetter(CoreProperty property, object? value, IEnumerable<BaseAnimation> animations);
+        ISetter InitializeSetter(CoreProperty property, object? value, IEnumerable<AnimationSpan> animations);
 
-        BaseAnimation DeserializeAnimation(JsonObject json);
+        AnimationSpan DeserializeAnimation(JsonObject json);
     }
 
     private sealed class GenericHelper<T> : IGenericHelper
     {
         public static readonly GenericHelper<T> Instance = new();
 
-        public ISetter InitializeSetter(CoreProperty property, object? value, IEnumerable<BaseAnimation> animations)
+        public ISetter InitializeSetter(CoreProperty property, object? value, IEnumerable<AnimationSpan> animations)
         {
             var setter = new Setter<T>((CoreProperty<T>)property, (T?)value);
-            setter.Animations.AddRange(animations.OfType<Animation<T>>());
+
+            var animation = new Animation<T>(setter.Property);
+            animation.Children.AddRange(animations.OfType<AnimationSpan<T>>());
+
+            setter.Animation = animation;
             return setter;
         }
 
-        public BaseAnimation DeserializeAnimation(JsonObject json)
+        public AnimationSpan DeserializeAnimation(JsonObject json)
         {
-            var anm = new Animation<T>();
+            var anm = new AnimationSpan<T>();
             anm.ReadFromJson(json);
             return anm;
         }

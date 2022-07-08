@@ -10,8 +10,8 @@ namespace BeUtl.Styling;
 public class Setter<T> : LightweightObservableBase<T?>, ISetter
 {
     private CoreProperty<T>? _property;
-    private CoreList<Animation<T>>? _animation;
     private T? _value;
+    private Animation<T>? _animation;
 
     public Setter()
     {
@@ -43,13 +43,38 @@ public class Setter<T> : LightweightObservableBase<T?>, ISetter
         }
     }
 
-    public ICoreList<Animation<T>> Animations => _animation ??= new CoreList<Animation<T>>();
+    public Animation<T>? Animation
+    {
+        get => _animation;
+        set
+        {
+            if (_animation != value)
+            {
+                if (_animation != null)
+                {
+                    _animation.Invalidated -= Animation_Invalidated;
+                }
+
+                _animation = value;
+
+                if (value != null)
+                {
+                    value.Invalidated += Animation_Invalidated;
+                }
+            }
+        }
+    }
+
+    private void Animation_Invalidated(object? sender, EventArgs e)
+    {
+        Invalidated?.Invoke(this, EventArgs.Empty);
+    }
 
     CoreProperty ISetter.Property => Property;
 
     object? ISetter.Value => Value;
 
-    ICoreReadOnlyList<IAnimation> ISetter.Animations => Animations;
+    IAnimation? ISetter.Animation => _animation;
 
     public event EventHandler? Invalidated;
 

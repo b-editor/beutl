@@ -9,101 +9,67 @@ namespace BeUtl.ProjectSystem;
 
 public interface IAnimatablePropertyInstance : IPropertyInstance, ILogicalElement
 {
-    public IReadOnlyList<IAnimation> Children { get; }
+    public IReadOnlyList<IAnimationSpan> Children { get; }
 
     public void SetProperty(TimeSpan progress);
 
-    public IRecordableCommand AddChild(IAnimation animation);
+    public IRecordableCommand AddChild(IAnimationSpan animation);
 
-    public IRecordableCommand RemoveChild(IAnimation animation);
+    public IRecordableCommand RemoveChild(IAnimationSpan animation);
 
-    public IRecordableCommand InsertChild(int index, IAnimation animation);
+    public IRecordableCommand InsertChild(int index, IAnimationSpan animation);
 }
 
 public class AnimatablePropertyInstance<T> : PropertyInstance<T>, IAnimatablePropertyInstance
 {
-    private readonly CoreList<Animation<T>> _children;
-
-    public AnimatablePropertyInstance()
-    {
-        _children = new CoreList<Animation<T>>();
-    }
+    private readonly Animation<T> _animation;
 
     public AnimatablePropertyInstance(CoreProperty<T> property)
         : base(property)
     {
-        _children = new CoreList<Animation<T>>();
+        _animation = new Animation<T>(property);
     }
 
-    public IObservableList<Animation<T>> Children => _children;
+    public IObservableList<AnimationSpan<T>> Children => _animation.Children;
 
-    IReadOnlyList<IAnimation> IAnimatablePropertyInstance.Children => _children;
+    IReadOnlyList<IAnimationSpan> IAnimatablePropertyInstance.Children => _animation.Children;
 
     public void SetProperty(TimeSpan progress)
     {
-        void EaseAndSet(Animation<T> animation, float progress)
-        {
-            // イージングする
-            float ease = animation.Easing.Ease(progress);
-            // 値を補間する
-            T value = animation.Animator.Interpolate(ease, animation.Previous, animation.Next);
-            // 値をセット
-            Parent.SetValue(Property, value);
-        }
-
-        if (_children.Count < 1)
+        if (Children.Count < 1)
         {
             Parent.SetValue(Property, Value);
         }
         else
         {
-            TimeSpan cur = TimeSpan.Zero;
-            for (int i = 0; i < _children.Count; i++)
-            {
-                Animation<T> item = _children[i];
-
-                TimeSpan next = cur + item.Duration;
-                if (cur <= progress && progress < next)
-                {
-                    // 相対的なTimeSpan
-                    TimeSpan time = progress - cur;
-                    EaseAndSet(item, (float)(time / item.Duration));
-                    return;
-                }
-                else
-                {
-                    cur = next;
-                }
-            }
-
-            EaseAndSet(_children[^1], 1);
+            Parent.SetValue(Property, _animation.Interpolate(progress));
         }
     }
 
-    public IRecordableCommand AddChild(Animation<T> animation)
+    public IRecordableCommand AddChild(AnimationSpan<T> animation)
     {
         ArgumentNullException.ThrowIfNull(animation);
 
-        return new AddCommand<Animation<T>>(_children, animation, Children.Count);
+        return new AddCommand<AnimationSpan<T>>(_animation.Children, animation, Children.Count);
     }
 
-    public IRecordableCommand RemoveChild(Animation<T> animation)
+    public IRecordableCommand RemoveChild(AnimationSpan<T> animation)
     {
         ArgumentNullException.ThrowIfNull(animation);
 
-        return new RemoveCommand<Animation<T>>(_children, animation);
+        return new RemoveCommand<AnimationSpan<T>>(_animation.Children, animation);
     }
 
-    public IRecordableCommand InsertChild(int index, Animation<T> animation)
+    public IRecordableCommand InsertChild(int index, AnimationSpan<T> animation)
     {
         ArgumentNullException.ThrowIfNull(animation);
 
-        return new AddCommand<Animation<T>>(_children, animation, index);
+        return new AddCommand<AnimationSpan<T>>(_animation.Children, animation, index);
     }
 
     public override void ReadFromJson(JsonNode json)
     {
-        _children.Clear();
+        _animation.Children.Clear();
         if (json is JsonObject jsonobj)
         {
             if (jsonobj.TryGetPropertyValue("children", out JsonNode? childrenNode) &&
@@ -113,9 +79,9 @@ public class AnimatablePropertyInstance<T> : PropertyInstance<T>, IAnimatablePro
                 {
                     if (item is JsonObject jobj)
                     {
-                        var anm = new Animation<T>();
+                        var anm = new AnimationSpan<T>();
                         anm.ReadFromJson(jobj);
-                        _children.Add(anm);
+                        _animation.Children.Add(anm);
                     }
                 }
             }
@@ -141,7 +107,7 @@ public class AnimatablePropertyInstance<T> : PropertyInstance<T>, IAnimatablePro
         {
             var jsonObj = new JsonObject();
             var jsonArray = new JsonArray();
-            foreach (Animation<T> item in _children)
+            foreach (AnimationSpan<T> item in _animation.Children)
             {
                 JsonNode json = new JsonObject();
                 item.WriteToJson(ref json);
@@ -157,18 +123,18 @@ public class AnimatablePropertyInstance<T> : PropertyInstance<T>, IAnimatablePro
         }
     }
 
-    IRecordableCommand IAnimatablePropertyInstance.AddChild(IAnimation animation)
+    IRecordableCommand IAnimatablePropertyInstance.AddChild(IAnimationSpan animation)
     {
-        return AddChild((Animation<T>)animation);
+        return AddChild((AnimationSpan<T>)animation);
     }
 
-    IRecordableCommand IAnimatablePropertyInstance.RemoveChild(IAnimation animation)
+    IRecordableCommand IAnimatablePropertyInstance.RemoveChild(IAnimationSpan animation)
     {
-        return RemoveChild((Animation<T>)animation);
+        return RemoveChild((AnimationSpan<T>)animation);
     }
 
-    IRecordableCommand IAnimatablePropertyInstance.InsertChild(int index, IAnimation animation)
+    IRecordableCommand IAnimatablePropertyInstance.InsertChild(int index, IAnimationSpan animation)
     {
-        return InsertChild(index, (Animation<T>)animation);
+        return InsertChild(index, (AnimationSpan<T>)animation);
     }
 }

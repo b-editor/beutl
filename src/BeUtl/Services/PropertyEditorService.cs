@@ -20,7 +20,7 @@ public static class PropertyEditorService
 {
     private record struct Editor(Func<IWrappedProperty, Control?> CreateEditor, Func<IWrappedProperty, BaseEditorViewModel?> CreateViewModel);
 
-    private record struct AnimationEditor(Func<object?, Control?> CreateEditor, Func<IAnimation, EditorViewModelDescription, ITimelineOptionsProvider, object?> CreateViewModel);
+    private record struct AnimationEditor(Func<object?, Control?> CreateEditor, Func<IAnimationSpan, EditorViewModelDescription, ITimelineOptionsProvider, object?> CreateViewModel);
 
     private static readonly Dictionary<Type, Editor> s_editors = new()
     {
@@ -91,9 +91,9 @@ public static class PropertyEditorService
         return (IWrappedProperty<T>)pi;
     }
 
-    public static Animation<T> ToTyped<T>(this IAnimation animation)
+    public static AnimationSpan<T> ToTyped<T>(this IAnimationSpan animation)
     {
-        return (Animation<T>)animation;
+        return (AnimationSpan<T>)animation;
     }
 
     public static Control? CreateEditor(IWrappedProperty property)
@@ -145,7 +145,7 @@ public static class PropertyEditorService
         return null;
     }
 
-    public static object? CreateAnimationEditorViewModel(EditorViewModelDescription desc, IAnimation animation, ITimelineOptionsProvider optionsProvider)
+    public static object? CreateAnimationEditorViewModel(EditorViewModelDescription desc, IAnimationSpan animation, ITimelineOptionsProvider optionsProvider)
     {
         if (s_animationEditors.ContainsKey(desc.WrappedProperty.AssociatedProperty.PropertyType))
         {

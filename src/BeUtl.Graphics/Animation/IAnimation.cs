@@ -1,16 +1,13 @@
 ﻿using BeUtl.Animation.Easings;
+using BeUtl.Collections;
 
 namespace BeUtl.Animation;
 
-public interface IAnimation : ICoreObject
+public interface IAnimation : IJsonSerializable
 {
-    public Easing Easing { get; set; }
+    CoreProperty Property { get; }
 
-    public TimeSpan Duration { get; set; }
+    ICoreReadOnlyList<IAnimationSpan> Children { get; }
 
-    public Animator Animator { get; }
-
-    public object Previous { get; set; }
-
-    public object Next { get; set; }
+    event EventHandler? Invalidated;
 }

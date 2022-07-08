@@ -6,7 +6,7 @@ namespace BeUtl.ViewModels.AnimationEditors;
 
 public sealed class SizeAnimationEditorViewModel : AnimationEditorViewModel<Size>
 {
-    public SizeAnimationEditorViewModel(Animation<Size> animation, EditorViewModelDescription description, ITimelineOptionsProvider optionsProvider)
+    public SizeAnimationEditorViewModel(AnimationSpan<Size> animation, EditorViewModelDescription description, ITimelineOptionsProvider optionsProvider)
         : base(animation, description, optionsProvider)
     {
     }

@@ -10,22 +10,22 @@ public sealed class AnimatablePropertyInstanceWrapper<T> : PropertyInstanceWrapp
     {
     }
 
-    public IObservableList<Animation<T>> Animations => ((AnimatablePropertyInstance<T>)Tag).Children;
+    public IObservableList<AnimationSpan<T>> Animations => ((AnimatablePropertyInstance<T>)Tag).Children;
 
-    IReadOnlyList<IAnimation> IWrappedProperty.IAnimatable.Animations => ((IAnimatablePropertyInstance)Tag).Children;
+    IReadOnlyList<IAnimationSpan> IWrappedProperty.IAnimatable.Animations => ((IAnimatablePropertyInstance)Tag).Children;
 
-    public void AddAnimation(IAnimation animation)
+    public void AddAnimation(IAnimationSpan animation)
     {
-        Animations.Add((Animation<T>)animation);
+        Animations.Add((AnimationSpan<T>)animation);
     }
 
-    public void InsertAnimation(int index, IAnimation animation)
+    public void InsertAnimation(int index, IAnimationSpan animation)
     {
-        Animations.Insert(index, (Animation<T>)animation);
+        Animations.Insert(index, (AnimationSpan<T>)animation);
     }
 
-    public void RemoveAnimation(IAnimation animation)
+    public void RemoveAnimation(IAnimationSpan animation)
     {
-        Animations.Remove((Animation<T>)animation);
+        Animations.Remove((AnimationSpan<T>)animation);
     }
 }

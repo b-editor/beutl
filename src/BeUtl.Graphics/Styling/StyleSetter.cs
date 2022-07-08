@@ -56,7 +56,7 @@ public class StyleSetter<T> : LightweightObservableBase<Style?>, ISetter
 
     object? ISetter.Value => Value;
 
-    ICoreReadOnlyList<IAnimation> ISetter.Animations => throw new InvalidOperationException();
+    IAnimation? ISetter.Animation => throw new InvalidOperationException();
 
     public event EventHandler? Invalidated;
 

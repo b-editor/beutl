@@ -13,15 +13,15 @@ namespace BeUtl.ViewModels.AnimationEditors;
 
 public sealed class ColorAnimationEditorViewModel : AnimationEditorViewModel<Color>
 {
-    public ColorAnimationEditorViewModel(Animation<Color> animation, EditorViewModelDescription description, ITimelineOptionsProvider optionsProvider)
+    public ColorAnimationEditorViewModel(AnimationSpan<Color> animation, EditorViewModelDescription description, ITimelineOptionsProvider optionsProvider)
         : base(animation, description, optionsProvider)
     {
-        Previous = animation.GetObservable(Animation<Color>.PreviousProperty)
+        Previous = animation.GetObservable(AnimationSpan<Color>.PreviousProperty)
             .Select(x => x.ToAvalonia())
             .ToReadOnlyReactivePropertySlim()
             .AddTo(Disposables);
 
-        Next = animation.GetObservable(Animation<Color>.NextProperty)
+        Next = animation.GetObservable(AnimationSpan<Color>.NextProperty)
             .Select(x => x.ToAvalonia())
             .ToReadOnlyReactivePropertySlim()
             .AddTo(Disposables);

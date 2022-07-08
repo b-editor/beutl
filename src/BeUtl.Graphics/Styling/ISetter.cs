@@ -11,7 +11,7 @@ public interface ISetter
 
     object? Value { get; }
 
-    ICoreReadOnlyList<IAnimation> Animations { get; }
+    IAnimation? Animation { get; }
 
     event EventHandler? Invalidated;
 

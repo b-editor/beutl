@@ -6,7 +6,7 @@ namespace BeUtl.ViewModels.AnimationEditors;
 
 public sealed class PointAnimationEditorViewModel : AnimationEditorViewModel<Point>
 {
-    public PointAnimationEditorViewModel(Animation<Point> animation, EditorViewModelDescription description, ITimelineOptionsProvider optionsProvider)
+    public PointAnimationEditorViewModel(AnimationSpan<Point> animation, EditorViewModelDescription description, ITimelineOptionsProvider optionsProvider)
         : base(animation, description, optionsProvider)
     {
     }
