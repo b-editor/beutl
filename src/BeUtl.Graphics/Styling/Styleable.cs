@@ -133,30 +133,4 @@ public abstract class Styleable : Element, IStyleable
             }
         }
     }
-
-    private interface IGenericHelper
-    {
-        ISetter InitializeSetter(CoreProperty property, object? value, IEnumerable<BaseAnimation> animations);
-
-        BaseAnimation DeserializeAnimation(JsonObject json);
-    }
-
-    private sealed class GenericHelper<T> : IGenericHelper
-    {
-        public static readonly GenericHelper<T> Instance = new();
-
-        public ISetter InitializeSetter(CoreProperty property, object? value, IEnumerable<BaseAnimation> animations)
-        {
-            var setter = new Setter<T>((CoreProperty<T>)property, (T?)value);
-            setter.Animations.AddRange(animations.OfType<Animation<T>>());
-            return setter;
-        }
-
-        public BaseAnimation DeserializeAnimation(JsonObject json)
-        {
-            var anm = new Animation<T>();
-            anm.ReadFromJson(json);
-            return anm;
-        }
-    }
 }
