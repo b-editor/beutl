@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 
+using BeUtl.Animation;
 using BeUtl.Graphics.Effects;
 using BeUtl.Graphics.Filters;
 using BeUtl.Graphics.Shapes;
@@ -371,6 +372,16 @@ public abstract class Drawable : Renderable, IDrawable, ILogicalElement
     public override void Render(IRenderer renderer)
     {
         Draw(renderer.Graphics);
+    }
+
+    public override void ApplyStyling(IClock clock)
+    {
+        base.ApplyStyling(clock);
+        (Transform as Styleable)?.ApplyStyling(clock);
+        (Filter as Styleable)?.ApplyStyling(clock);
+        (Effect as Styleable)?.ApplyStyling(clock);
+        (Foreground as Styleable)?.ApplyStyling(clock);
+        (OpacityMask as Styleable)?.ApplyStyling(clock);
     }
 
     protected abstract void OnDraw(ICanvas canvas);

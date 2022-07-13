@@ -1,5 +1,8 @@
 ﻿using System.Text.Json.Nodes;
 
+using BeUtl.Animation;
+using BeUtl.Styling;
+
 using SkiaSharp;
 
 namespace BeUtl.Graphics.Filters;
@@ -95,6 +98,15 @@ public sealed class ImageFilterGroup : ImageFilter
             }
 
             jobject["children"] = array;
+        }
+    }
+
+    public override void ApplyStyling(IClock clock)
+    {
+        base.ApplyStyling(clock);
+        foreach (IImageFilter item in Children.AsSpan())
+        {
+            (item as Styleable)?.ApplyStyling(clock);
         }
     }
 

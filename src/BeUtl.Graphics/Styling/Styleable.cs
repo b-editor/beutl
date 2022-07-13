@@ -55,7 +55,7 @@ public abstract class Styleable : Element, IStyleable
         }
     }
 
-    public void ApplyStyling(IClock clock)
+    public virtual void ApplyStyling(IClock clock)
     {
         if (_styleInstance == null)
         {

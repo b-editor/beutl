@@ -1,4 +1,7 @@
-using System.Text.Json.Nodes;
+﻿using System.Text.Json.Nodes;
+
+using BeUtl.Animation;
+using BeUtl.Styling;
 
 namespace BeUtl.Graphics.Effects;
 
@@ -71,7 +74,15 @@ public sealed class BitmapEffectGroup : BitmapEffect
         }
         return count;
     }
-    
+
+    public override void ApplyStyling(IClock clock)
+    {
+        base.ApplyStyling(clock);
+        foreach (IBitmapEffect item in Children.AsSpan())
+        {
+            (item as Styleable)?.ApplyStyling(clock);
+        }
+    }
 
     public override void ReadFromJson(JsonNode json)
     {

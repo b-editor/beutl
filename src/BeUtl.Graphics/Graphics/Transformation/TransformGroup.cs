@@ -1,5 +1,8 @@
 ﻿using System.Text.Json.Nodes;
 
+using BeUtl.Animation;
+using BeUtl.Styling;
+
 namespace BeUtl.Graphics.Transformation;
 
 public sealed class TransformGroup : Transform
@@ -96,6 +99,15 @@ public sealed class TransformGroup : Transform
             }
 
             jobject["children"] = array;
+        }
+    }
+
+    public override void ApplyStyling(IClock clock)
+    {
+        base.ApplyStyling(clock);
+        foreach (ITransform item in Children.AsSpan())
+        {
+            (item as Styleable)?.ApplyStyling(clock);
         }
     }
 }
