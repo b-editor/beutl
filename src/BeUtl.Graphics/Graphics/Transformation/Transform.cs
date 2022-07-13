@@ -20,6 +20,11 @@ public abstract class Transform : Styleable, IMutableTransform
         AffectsRender<Transform>(IsEnabledProperty);
     }
 
+    protected Transform()
+    {
+        AnimationInvalidated += (_, _) => RaiseInvalidated();
+    }
+
     public event EventHandler? Invalidated;
 
     public static ITransform Identity { get; } = new IdentityTransform();

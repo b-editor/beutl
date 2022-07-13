@@ -18,6 +18,11 @@ public abstract class BitmapEffect : Styleable, IBitmapEffect
         AffectsRender<BitmapEffect>(IsEnabledProperty);
     }
 
+    protected BitmapEffect()
+    {
+        AnimationInvalidated += (_, _) => RaiseInvalidated();
+    }
+
     public event EventHandler? Invalidated;
 
     public abstract IBitmapProcessor Processor { get; }

@@ -44,12 +44,15 @@ public class Setter<T> : LightweightObservableBase<T?>, ISetter
 
                 _value = value;
                 PublishNext(value);
+
                 Invalidated?.Invoke(this, EventArgs.Empty);
+                if (_value is IAffectsRender newValue)
+                {
+                    newValue.Invalidated += Value_Invalidated;
+                }
             }
         }
     }
-
-    private void Value_Invalidated(object? sender, EventArgs e) => throw new NotImplementedException();
 
     public Animation<T>? Animation
     {
@@ -71,6 +74,11 @@ public class Setter<T> : LightweightObservableBase<T?>, ISetter
                 }
             }
         }
+    }
+
+    private void Value_Invalidated(object? sender, EventArgs e)
+    {
+        Invalidated?.Invoke(this, EventArgs.Empty);
     }
 
     private void Animation_Invalidated(object? sender, EventArgs e)

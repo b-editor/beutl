@@ -40,6 +40,11 @@ public abstract class Brush : Styleable, IMutableBrush
         AffectsRender<Brush>(OpacityProperty, TransformProperty, TransformOriginProperty);
     }
 
+    protected Brush()
+    {
+        AnimationInvalidated += (_, _) => RaiseInvalidated();
+    }
+
     public event EventHandler? Invalidated;
 
     /// <summary>
