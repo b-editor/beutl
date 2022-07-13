@@ -112,11 +112,5 @@ public abstract class Transform : Styleable, IMutableTransform
         public Matrix Value => Matrix.Identity;
 
         public bool IsEnabled => true;
-
-        public event EventHandler? Invalidated
-        {
-            add { }
-            remove { }
-        }
     }
 }

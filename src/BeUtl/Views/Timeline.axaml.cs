@@ -13,6 +13,7 @@ using Avalonia.Threading;
 using BeUtl.Collections;
 using BeUtl.Models;
 using BeUtl.ProjectSystem;
+using BeUtl.Streaming;
 using BeUtl.ViewModels;
 using BeUtl.ViewModels.Dialogs;
 using BeUtl.Views.Dialogs;
@@ -288,11 +289,29 @@ public sealed partial class Timeline : UserControl
                     ViewModel.ClickedFrame, TimeSpan.FromSeconds(5), ViewModel.ClickedLayer, item));
             }
         }
+        else if (e.Data.Get("StreamOperator") is OperatorRegistry.RegistryItem item2)
+        {
+            if (e.KeyModifiers == KeyModifiers.Control)
+            {
+                var dialog = new AddLayer
+                {
+                    DataContext = new AddLayerViewModel(scene, new LayerDescription(ViewModel.ClickedFrame, TimeSpan.FromSeconds(5), ViewModel.ClickedLayer, InitialOperator: item2))
+                };
+                await dialog.ShowAsync();
+            }
+            else
+            {
+                ViewModel.AddLayer.Execute(new LayerDescription(
+                    ViewModel.ClickedFrame, TimeSpan.FromSeconds(5), ViewModel.ClickedLayer, InitialOperator: item2));
+            }
+        }
     }
 
     private void TimelinePanel_DragOver(object? sender, DragEventArgs e)
     {
-        if (e.Data.Contains("RenderOperation") || (e.Data.GetFileNames()?.Any() ?? false))
+        if (e.Data.Contains("RenderOperation")
+            || e.Data.Contains("StreamOperator")
+            || (e.Data.GetFileNames()?.Any() ?? false))
         {
             e.DragEffects = DragDropEffects.Copy;
         }

@@ -10,6 +10,7 @@ using BeUtl.Framework;
 using BeUtl.Models;
 using BeUtl.ProjectSystem;
 using BeUtl.Services.PrimitiveImpls;
+using BeUtl.Streaming;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
@@ -66,6 +67,12 @@ public sealed class TimelineViewModel : IToolContext
             {
                 sLayer.AccentColor = item.InitialOperation.AccentColor;
                 sLayer.AddChild((LayerOperation)(Activator.CreateInstance(item.InitialOperation.Type)!))
+                    .DoAndRecord(CommandRecorder.Default);
+            }
+            else if (item.InitialOperator != null)
+            {
+                sLayer.AccentColor = item.InitialOperator.AccentColor;
+                sLayer.AddChild((StreamOperator)(Activator.CreateInstance(item.InitialOperator.Type)!))
                     .DoAndRecord(CommandRecorder.Default);
             }
 
