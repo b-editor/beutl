@@ -27,19 +27,22 @@ public sealed partial class Library : UserControl
         var treelist = new AvaloniaList<TreeViewItem>();
         Tree.Items = treelist;
 
-        foreach (LayerOperationRegistry.BaseRegistryItem item in LayerOperationRegistry.GetRegistered())
+        if (AppContext.TryGetSwitch("Switch.BeUtl.Operations.IsEnabled", out bool isEnabled) && isEnabled)
         {
-            var treeitem = new TreeViewItem
+            foreach (LayerOperationRegistry.BaseRegistryItem item in LayerOperationRegistry.GetRegistered())
             {
-                [!HeaderedItemsControl.HeaderProperty] = new DynamicResourceExtension(item.DisplayName.Key),
-                DataContext = item,
-            };
-            treelist.Add(treeitem);
-            treeitem.AddHandler(PointerPressedEvent, TreeViewPointerPressed, RoutingStrategies.Tunnel);
+                var treeitem = new TreeViewItem
+                {
+                    [!HeaderedItemsControl.HeaderProperty] = new DynamicResourceExtension(item.DisplayName.Key),
+                    DataContext = item,
+                };
+                treelist.Add(treeitem);
+                treeitem.AddHandler(PointerPressedEvent, TreeViewPointerPressed, RoutingStrategies.Tunnel);
 
-            if (item is LayerOperationRegistry.GroupableRegistryItem groupable)
-            {
-                Add(treeitem, groupable);
+                if (item is LayerOperationRegistry.GroupableRegistryItem groupable)
+                {
+                    Add(treeitem, groupable);
+                }
             }
         }
 

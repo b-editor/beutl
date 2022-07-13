@@ -35,6 +35,8 @@ public sealed class App : Application
 
     public override void Initialize()
     {
+        AppContext.SetSwitch("Switch.BeUtl.Operations.IsEnabled", true);
+
         //PaletteColors
         Type colorsType = typeof(Colors);
         PropertyInfo[] colors = colorsType.GetProperties(BindingFlags.Public | BindingFlags.GetProperty | BindingFlags.Static);
