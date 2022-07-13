@@ -84,6 +84,15 @@ public sealed class BitmapEffectGroup : BitmapEffect
         }
     }
 
+    public override void ApplyAnimations(IClock clock)
+    {
+        base.ApplyAnimations(clock);
+        foreach (IBitmapEffect item in Children.AsSpan())
+        {
+            (item as Animatable)?.ApplyAnimations(clock);
+        }
+    }
+
     public override void ReadFromJson(JsonNode json)
     {
         base.ReadFromJson(json);

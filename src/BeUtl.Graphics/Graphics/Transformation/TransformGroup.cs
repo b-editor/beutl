@@ -110,4 +110,13 @@ public sealed class TransformGroup : Transform
             (item as Styleable)?.ApplyStyling(clock);
         }
     }
+
+    public override void ApplyAnimations(IClock clock)
+    {
+        base.ApplyAnimations(clock);
+        foreach (ITransform item in Children.AsSpan())
+        {
+            (item as Animatable)?.ApplyAnimations(clock);
+        }
+    }
 }

@@ -1,8 +1,4 @@
-﻿using System.Text.Json.Nodes;
-
-using BeUtl.Animation.Easings;
-
-namespace BeUtl.Animation;
+﻿namespace BeUtl.Animation;
 
 public abstract class BaseAnimation
 {

@@ -110,6 +110,15 @@ public sealed class ImageFilterGroup : ImageFilter
         }
     }
 
+    public override void ApplyAnimations(IClock clock)
+    {
+        base.ApplyAnimations(clock);
+        foreach (IImageFilter item in Children.AsSpan())
+        {
+            (item as Animatable)?.ApplyAnimations(clock);
+        }
+    }
+
     protected internal override SKImageFilter ToSKImageFilter()
     {
         var array = new SKImageFilter[ValidEffectCount()];

@@ -81,6 +81,14 @@ public class Animation<T> : BaseAnimation, IAnimation
         return span[^1].Interpolate(1);
     }
 
+    public void ApplyTo(ICoreObject obj, TimeSpan ts)
+    {
+        if (_children.Count > 0)
+        {
+            obj.SetValue(Property, Interpolate(ts));
+        }
+    }
+
     private sealed class AnimationChildren : CoreList<AnimationSpan<T>>
     {
         public AnimationChildren()

@@ -130,6 +130,7 @@ internal sealed class SceneRenderer : ImmediateRenderer/*DeferredRenderer*/
 
         node.Value = result;
         node.Value?.ApplyStyling(Clock);
+        node.Value?.ApplyAnimations(Clock);
 
         if (prevResult != null)
         {

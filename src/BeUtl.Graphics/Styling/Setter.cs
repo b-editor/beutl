@@ -3,6 +3,7 @@ using System.Reactive.Linq;
 
 using BeUtl.Animation;
 using BeUtl.Collections;
+using BeUtl.Media;
 using BeUtl.Reactive;
 
 namespace BeUtl.Styling;
@@ -36,12 +37,19 @@ public class Setter<T> : LightweightObservableBase<T?>, ISetter
         {
             if (!EqualityComparer<T>.Default.Equals(_value, value))
             {
+                if (_value is IAffectsRender oldValue)
+                {
+                    oldValue.Invalidated -= Value_Invalidated;
+                }
+
                 _value = value;
                 PublishNext(value);
                 Invalidated?.Invoke(this, EventArgs.Empty);
             }
         }
     }
+
+    private void Value_Invalidated(object? sender, EventArgs e) => throw new NotImplementedException();
 
     public Animation<T>? Animation
     {

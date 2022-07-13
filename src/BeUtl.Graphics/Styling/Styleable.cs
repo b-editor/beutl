@@ -6,7 +6,7 @@ using BeUtl.Animation;
 
 namespace BeUtl.Styling;
 
-public abstract class Styleable : Element, IStyleable
+public abstract class Styleable : Animatable, IStyleable
 {
     public static readonly CoreProperty<Styles> StylesProperty;
     private readonly Styles _styles;

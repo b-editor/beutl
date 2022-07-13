@@ -42,7 +42,7 @@ public class AnimatablePropertyInstance<T> : PropertyInstance<T>, IAnimatablePro
         }
         else
         {
-            Parent.SetValue(Property, _animation.Interpolate(progress));
+            _animation.ApplyTo(Parent, progress);
         }
     }
 

@@ -31,8 +31,7 @@ public class SetterInstance<T> : ISetterInstance
         if (Setter.Animation is { } animation
             && animation.Children.Count > 0)
         {
-            T value = animation.Interpolate(clock.CurrentTime);
-            Target.SetValue(Property, value);
+            animation.ApplyTo(Target, clock.CurrentTime);
         }
         else
         {

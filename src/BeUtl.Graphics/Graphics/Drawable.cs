@@ -384,6 +384,16 @@ public abstract class Drawable : Renderable, IDrawable, ILogicalElement
         (OpacityMask as Styleable)?.ApplyStyling(clock);
     }
 
+    public override void ApplyAnimations(IClock clock)
+    {
+        base.ApplyAnimations(clock);
+        (Transform as Animatable)?.ApplyAnimations(clock);
+        (Filter as Animatable)?.ApplyAnimations(clock);
+        (Effect as Animatable)?.ApplyAnimations(clock);
+        (Foreground as Animatable)?.ApplyAnimations(clock);
+        (OpacityMask as Animatable)?.ApplyAnimations(clock);
+    }
+
     protected abstract void OnDraw(ICanvas canvas);
 
     private Point CreateRelPoint(Size size)

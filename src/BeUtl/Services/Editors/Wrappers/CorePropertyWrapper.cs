@@ -1,6 +1,6 @@
 ﻿namespace BeUtl.Services.Editors.Wrappers;
 
-public sealed class CorePropertyWrapper<T> : IWrappedProperty<T>
+public class CorePropertyWrapper<T> : IWrappedProperty<T>
 {
     private IObservable<T?>? _observable;
 

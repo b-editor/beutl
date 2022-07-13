@@ -10,4 +10,6 @@ public interface IAnimation : IJsonSerializable
     ICoreReadOnlyList<IAnimationSpan> Children { get; }
 
     event EventHandler? Invalidated;
+
+    void ApplyTo(ICoreObject obj, TimeSpan ts);
 }
