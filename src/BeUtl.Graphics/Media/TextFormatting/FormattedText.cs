@@ -1,8 +1,145 @@
-﻿using System.Text.Json.Nodes;
+﻿using System.Diagnostics;
+using System.Text.Json.Nodes;
 
 using BeUtl.Graphics;
 
+using SkiaSharp;
+
 namespace BeUtl.Media.TextFormatting;
+
+[DebuggerDisplay("{Text}")]
+public struct FormattedText_ : IEquatable<FormattedText_>
+{
+    private FontWeight _weight = FontWeight.Regular;
+    private FontStyle _style = FontStyle.Normal;
+    private FontFamily _font = FontFamily.Default;
+    private float _size = 11;
+    private float _spacing = 0;
+    private StringSpan _text = StringSpan.Empty;
+    private FontMetrics _metrics = default;
+    private Size _bounds = default;
+    private bool _isDirty = false;
+
+    public FormattedText_()
+    {
+    }
+
+    public FontWeight Weight
+    {
+        get => _weight;
+        set => SetProperty(ref _weight, value);
+    }
+
+    public FontStyle Style
+    {
+        get => _style;
+        set => SetProperty(ref _style, value);
+    }
+
+    public FontFamily Font
+    {
+        get => _font;
+        set => SetProperty(ref _font, value);
+    }
+
+    // > 0
+    public float Size
+    {
+        get => _size;
+        set => SetProperty(ref _size, value);
+    }
+
+    // >= 0
+    public float Spacing
+    {
+        get => _spacing;
+        set => SetProperty(ref _spacing, value);
+    }
+
+    // 改行コードは含まない
+    public StringSpan Text
+    {
+        get => _text;
+        set
+        {
+            ReadOnlySpan<char> span = value.AsSpan();
+            if (span.Contains('\n') || span.Contains('\r'))
+            {
+                throw new Exception("Cannot contain newline codes.");
+            }
+            SetProperty(ref _text, value);
+        }
+    }
+
+    public bool BeginOnNewLine { get; set; } = false;
+
+    public Thickness Margin { get; set; } = new();
+
+    public FontMetrics Metrics => MeasureAndSetField().Metrics;
+
+    public Size Bounds => MeasureAndSetField().Bounds;
+
+    public override bool Equals(object? obj)
+    {
+        return obj is FormattedText_ text && Equals(text);
+    }
+
+    public bool Equals(FormattedText_ other)
+    {
+        return _weight == other._weight
+            && _style == other._style
+            && _font.Equals(other._font)
+            && _size == other._size
+            && _spacing == other._spacing
+            && _text == other._text;
+    }
+
+    public override int GetHashCode()
+    {
+        return HashCode.Combine(_weight, _style, _font, _size, _spacing, _text);
+    }
+
+    private (FontMetrics, Size) Measure()
+    {
+        using SKTypeface typeface = new Typeface(Font, Style, Weight).ToSkia();
+        using SKPaint paint = new()
+        {
+            TextSize = Size,
+            Typeface = typeface
+        };
+
+        FontMetrics fontMetrics = paint.FontMetrics.ToFontMetrics();
+        float w = paint.MeasureText(Text.AsSpan());
+        var size = new Size(
+            w + (Text.Length - 1) * Spacing,
+            fontMetrics.Descent - fontMetrics.Ascent);
+
+        return (fontMetrics, size);
+    }
+
+    private void SetProperty<T>(ref T field, T value)
+    {
+        if (!EqualityComparer<T>.Default.Equals(field, value))
+        {
+            field = value;
+            _isDirty = true;
+        }
+    }
+
+    private (FontMetrics Metrics, Size Bounds) MeasureAndSetField()
+    {
+        if (_isDirty)
+        {
+            (_metrics, _bounds) = Measure();
+        }
+
+        return (_metrics, _bounds);
+    }
+
+    public static bool operator ==(FormattedText_ left, FormattedText_ right) => left.Equals(right);
+
+    public static bool operator !=(FormattedText_ left, FormattedText_ right) => !(left == right);
+}
 
 public sealed class TextLines : AffectsRenders<TextLine>
 {

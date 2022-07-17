@@ -179,25 +179,42 @@ public class Canvas : ICanvas
             _sharedPaint);
     }
 
-    public void FillCircle(Size size)
+    public void DrawText(FormattedText_ text)
     {
         VerifyAccess();
         _sharedPaint.Reset();
-        ConfigurePaint(_sharedPaint, size);
+
+        var typeface = new Typeface(text.Font, text.Style, text.Weight);
+        using SKTypeface sktypeface = typeface.ToSkia();
+        ConfigurePaint(_sharedPaint, text.Bounds);
+        _sharedPaint.TextSize = text.Size;
+        _sharedPaint.Typeface = sktypeface;
         _sharedPaint.Style = SKPaintStyle.Fill;
+        Span<char> sc = stackalloc char[1];
+        float prevRight = 0;
 
-        _canvas.DrawOval(SKPoint.Empty, size.ToSKSize(), _sharedPaint);
-    }
+        foreach (char item in text.Text.AsSpan())
+        {
+            sc[0] = item;
+            var bounds = default(SKRect);
+            float w = _sharedPaint.MeasureText(sc, ref bounds);
 
-    public void FillRect(Size size)
-    {
-        VerifyAccess();
-        _sharedPaint.Reset();
-        ConfigurePaint(_sharedPaint, size);
+            _canvas.Save();
+            _canvas.Translate(prevRight + bounds.Left, 0);
 
-        _sharedPaint.Style = SKPaintStyle.Fill;
+            SKPath path = _sharedPaint.GetTextPath(
+                sc,
+                (bounds.Width / 2) - bounds.MidX,
+                0/*-_paint.FontMetrics.Ascent*/);
 
-        _canvas.DrawRect(0, 0, size.Width, size.Height, _sharedPaint);
+            _canvas.DrawPath(path, _sharedPaint);
+            path.Dispose();
+
+            prevRight += text.Spacing;
+            prevRight += w;
+
+            _canvas.Restore();
+        }
     }
 
     // Marginを考慮しない
@@ -234,6 +251,27 @@ public class Canvas : ICanvas
 
             _canvas.Restore();
         }
+    }
+
+    public void FillCircle(Size size)
+    {
+        VerifyAccess();
+        _sharedPaint.Reset();
+        ConfigurePaint(_sharedPaint, size);
+        _sharedPaint.Style = SKPaintStyle.Fill;
+
+        _canvas.DrawOval(SKPoint.Empty, size.ToSKSize(), _sharedPaint);
+    }
+
+    public void FillRect(Size size)
+    {
+        VerifyAccess();
+        _sharedPaint.Reset();
+        ConfigurePaint(_sharedPaint, size);
+
+        _sharedPaint.Style = SKPaintStyle.Fill;
+
+        _canvas.DrawRect(0, 0, size.Width, size.Height, _sharedPaint);
     }
 
     public unsafe Bitmap<Bgra8888> GetBitmap()

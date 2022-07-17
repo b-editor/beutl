@@ -1,59 +1,331 @@
 ﻿using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Text;
-using System.Text.RegularExpressions;
 
 using BeUtl.Graphics;
+using BeUtl.Graphics.Shapes;
+
+using static BeUtl.Media.TextFormatting.FormattedTextTokenizer;
 
 namespace BeUtl.Media.TextFormatting;
 
-public readonly record struct StringSpan(string Source, int Start, int Length)
+public struct FormattedTextTokenizer
 {
-    public static StringSpan Empty => new(string.Empty, 0, 0);
+    private readonly string _str;
 
-    public override string ToString()
+    public FormattedTextTokenizer(string str)
     {
-        return AsSpan().ToString();
+        _str = str;
     }
 
-    public ReadOnlySpan<char> AsSpan()
+    public bool ExperimentalVersion { get; set; } = false;
+
+    public int LineCount { get; private set; } = 0;
+
+    public List<Token> Result { get; } = new();
+
+    public void Tokenize()
     {
-        return IsValid() ? Source.AsSpan(Start, Length) : default;
+        int lineCount = ExperimentalVersion ? 1 : 0;
+
+        if (ExperimentalVersion)
+        {
+            Tokenize(new StringSpan(_str, 0, _str.Length));
+        }
+        else
+        {
+            ReadOnlySpan<char> span = _str.AsSpan();
+            foreach (ReadOnlySpan<char> linesp in span.EnumerateLines())
+            {
+                int start = span.IndexOf(linesp, StringComparison.Ordinal);
+                int len = linesp.Length;
+
+                Tokenize(new StringSpan(_str, start, len));
+
+                Result.Add(new Token(StringSpan.Empty, TokenType.NewLine));
+                lineCount++;
+            }
+        }
+
+        LineCount = lineCount;
     }
 
-    public StringSpan Slice(int start, int length)
+    public void WriteTo(StringBuilder sb)
     {
-        var r = new StringSpan(Source, Start + start, length);
-        return r;
+        foreach (var item in CollectionsMarshal.AsSpan(Result))
+        {
+            switch (item.Type)
+            {
+                case TokenType.TagStart:
+                case TokenType.TagClose:
+                case TokenType.Content:
+                    sb.Append(item.Text.AsSpan());
+                    break;
+                case TokenType.NewLine:
+                    sb.AppendLine();
+                    break;
+                default:
+                    break;
+            }
+        }
     }
 
-    public StringSpan Slice(int start)
+    private void Process(StringSpan s, int start, int length)
     {
-        var r = new StringSpan(Source, Start + start, Length - start);
-        return r;
+        StringSpan prev = s.Slice(0, start);
+        StringSpan tag = s.Slice(start, length);
+        StringSpan next = s.Slice(start + length);
+
+        if (prev.Length > 0 && prev.IsValid())
+        {
+            Tokenize(prev);
+        }
+
+        if (tag.Length > 0 && tag.IsValid())
+        {
+            TokenizeTag(tag);
+        }
+
+        if (next.Length > 0 && next.IsValid())
+        {
+            Tokenize(next);
+        }
     }
 
-    public bool IsValid()
+    // 文字列をトークン化
+    // Tokenize -> Process -> Tokenize
+    //                     -> TokenizeTag
+    //                     -> Tokenize
+    private void Tokenize(StringSpan s)
     {
-        return Start >= 0 && (Start + Length) <= Source.Length;
+        ReadOnlySpan<char> span = s.AsSpan();
+        int tagStart = span.IndexOf("<", StringComparison.Ordinal);
+        int tagEnd = span.IndexOf(">", StringComparison.Ordinal);
+
+        bool isMatch = tagStart >= 0 && tagEnd >= 0 &&
+            tagStart < tagEnd;
+
+        if (isMatch)
+        {
+            Process(s, tagStart, tagEnd - tagStart + 1);
+        }
+        else if (s.Length > 0)
+        {
+            Result.Add(new Token(s, TokenType.Content));
+        }
+    }
+
+    // タグをトークンにして追加
+    private void TokenizeTag(StringSpan s)
+    {
+        // TagClose
+        if (s.AsSpan().StartsWith("</", StringComparison.Ordinal))
+        {
+            Result.Add(new Token(s, TokenType.TagClose));
+        }
+        else
+        {
+            Result.Add(new Token(s, TokenType.TagStart));
+        }
+    }
+
+    public record struct Token(StringSpan Text, TokenType Type)
+    {
+        public override string ToString()
+        {
+            if (Type == TokenType.NewLine)
+            {
+                return "newline";
+            }
+            return Text.AsSpan().ToString();
+        }
+    }
+
+    public enum TokenType
+    {
+        TagStart,
+        TagClose,
+        Content,
+        NewLine,
     }
 }
 
 public struct FormattedTextParser
 {
     private readonly string _s;
-    private int _lineCount = 0;
 
     public FormattedTextParser(string s)
     {
         _s = s;
     }
 
+    public List<TextElement_> ToElements(FormattedTextInfo defaultProps)
+    {
+        var tokenizer = new FormattedTextTokenizer(_s)
+        {
+            ExperimentalVersion = true
+        };
+        tokenizer.Tokenize();
+
+        List<Token> tokens = tokenizer.Result;
+        Span<Token> spanTokens = CollectionsMarshal.AsSpan(tokens);
+        var elements = new List<TextElement_>();
+
+        var font = new Stack<FontFamily>();
+        var fontWeight = new Stack<FontWeight>();
+        var fontStyle = new Stack<FontStyle>();
+        var size = new Stack<float>();
+        var color = new Stack<Color>();
+        var space = new Stack<float>();
+        var margin = new Stack<Thickness>();
+        FontFamily curFont = defaultProps.Typeface.FontFamily;
+        FontWeight curWeight = defaultProps.Typeface.Weight;
+        FontStyle curStyle = defaultProps.Typeface.Style;
+        float curSize = defaultProps.Size;
+        Color curColor = defaultProps.Color;
+        float curSpace = defaultProps.Space;
+        Thickness curMargin = defaultProps.Margin;
+        bool noParse = false;
+
+        foreach (Token token in spanTokens)
+        {
+            if (!noParse && token.Type == TokenType.TagStart &&
+                TryParseTag(token.Text, out TagInfo tag))
+            {
+                // 開始タグ
+                if (tag.TryGetFont(out FontFamily font1))
+                {
+                    font.Push(curFont);
+                    curFont = font1;
+                }
+                else if (tag.TryGetSize(out float size1))
+                {
+                    size.Push(curSize);
+                    curSize = size1;
+                }
+                else if (tag.TryGetColor(out Color color1))
+                {
+                    color.Push(curColor);
+                    curColor = color1;
+                }
+                else if (tag.TryGetCharSpace(out float space1))
+                {
+                    space.Push(curSpace);
+                    curSpace = space1;
+                }
+                else if (tag.TryGetMargin(out Thickness margin1))
+                {
+                    margin.Push(curMargin);
+                    curMargin = margin1;
+                }
+                else if (tag.TryGetFontStyle(out FontStyle fontStyle1))
+                {
+                    fontStyle.Push(curStyle);
+                    curStyle = fontStyle1;
+                }
+                else if (tag.TryGetFontWeight(out FontWeight fontWeight1))
+                {
+                    fontWeight.Push(curWeight);
+                    curWeight = fontWeight1;
+                }
+                else if (tag.Type == TagType.NoParse)
+                {
+                    noParse = true;
+                }
+                else
+                {
+                    throw new Exception($"{tag.Value} is invalid tag.");
+                }
+
+                continue;
+            }
+            else if (token.Type == TokenType.TagClose)
+            {
+                TagType closeTagType = GetCloseTagType(token.Text);
+                if (closeTagType == TagType.NoParse)
+                {
+                    noParse = false;
+                }
+
+                if (!noParse)
+                {
+                    switch (closeTagType)
+                    {
+                        case TagType.Invalid:
+                            goto default;
+                        case TagType.Font:
+                            curFont = font.PopOrDefault(defaultProps.Typeface.FontFamily);
+                            break;
+                        case TagType.Size:
+                            curSize = size.PopOrDefault(defaultProps.Size);
+                            break;
+                        case TagType.Color:
+                        case TagType.ColorHash:
+                            curColor = color.PopOrDefault(defaultProps.Color);
+                            break;
+                        case TagType.CharSpace:
+                            curSpace = space.PopOrDefault(defaultProps.Space);
+                            break;
+                        case TagType.Margin:
+                            curMargin = margin.PopOrDefault(defaultProps.Margin);
+                            break;
+                        case TagType.FontWeightBold:
+                        case TagType.FontWeight:
+                            curWeight = fontWeight.PopOrDefault(defaultProps.Typeface.Weight);
+                            break;
+                        case TagType.FontStyle:
+                        case TagType.FontStyleItalic:
+                            curStyle = fontStyle.PopOrDefault(defaultProps.Typeface.Style);
+                            break;
+                        case TagType.NoParse:
+                            noParse = false;
+                            break;
+                        default:
+                            throw new Exception($"{token.Text} is invalid tag.");
+                    }
+                }
+            }
+
+            if (token.Type == TokenType.Content)
+            {
+                elements.Add(new TextElement_()
+                {
+                    Text = token.Text.AsSpan().ToString(),
+                    FontFamily = curFont,
+                    FontStyle = curStyle,
+                    FontWeight = curWeight,
+                    Size = curSize,
+                    Foreground = curColor.ToImmutableBrush(),
+                    Spacing = curSpace,
+                    Margin = curMargin,
+                });
+            }
+            else if (noParse)
+            {
+                elements.Add(new TextElement_()
+                {
+                    Text = token.ToString(),
+                    FontFamily = curFont,
+                    FontStyle = curStyle,
+                    FontWeight = curWeight,
+                    Size = curSize,
+                    Foreground = curColor.ToImmutableBrush(),
+                    Spacing = curSpace,
+                    Margin = curMargin,
+                });
+            }
+        }
+
+        return elements;
+    }
+
     public List<TextLine> ToLines(FormattedTextInfo defaultProps)
     {
-        List<Token> tokens = Tokenize();
+        var tokenizer = new FormattedTextTokenizer(_s);
+        tokenizer.Tokenize();
+        List<Token> tokens = tokenizer.Result;
         Span<Token> spanTokens = CollectionsMarshal.AsSpan(tokens);
-        var lines = new List<TextLine>(_lineCount);
+        var lines = new List<TextLine>(tokenizer.LineCount);
 
         // 行を追加
         foreach (Token token in spanTokens)
@@ -229,74 +501,8 @@ public struct FormattedTextParser
         return lines;
     }
 
-    // '_s'を全てトークン化
-    public List<Token> Tokenize()
-    {
-        _lineCount = 0;
-        var result = new List<Token>();
-        ReadOnlySpan<char> span = _s.AsSpan();
-
-        foreach (ReadOnlySpan<char> linesp in span.EnumerateLines())
-        {
-            int start = span.IndexOf(linesp, StringComparison.Ordinal);
-            int len = linesp.Length;
-
-            Tokenize(new StringSpan(_s, start, len), result);
-
-            result.Add(new Token(StringSpan.Empty, TokenType.NewLine));
-            _lineCount++;
-        }
-
-        return result;
-    }
-
-    private void Process(StringSpan s, int start, int length, List<Token> result)
-    {
-        StringSpan prev = s.Slice(0, start);
-        StringSpan tag = s.Slice(start, length);
-        StringSpan next = s.Slice(start + length);
-
-        if (prev.Length > 0 && prev.IsValid())
-        {
-            Tokenize(prev, result);
-        }
-
-        if (tag.Length > 0 && tag.IsValid())
-        {
-            TokenizeTag(tag, result);
-        }
-
-        if (next.Length > 0 && next.IsValid())
-        {
-            Tokenize(next, result);
-        }
-    }
-
-    // 文字列をトークン化
-    // Tokenize -> Process -> Tokenize
-    //                     -> TokenizeTag
-    //                     -> Tokenize
-    private void Tokenize(StringSpan s, List<Token> result)
-    {
-        ReadOnlySpan<char> span = s.AsSpan();
-        int tagStart = span.IndexOf("<", StringComparison.Ordinal);
-        int tagEnd = span.IndexOf(">", StringComparison.Ordinal);
-
-        bool isMatch = tagStart >= 0 && tagEnd >= 0 &&
-            tagStart < tagEnd;
-
-        if (isMatch)
-        {
-            Process(s, tagStart, tagEnd - tagStart + 1, result);
-        }
-        else if (s.Length > 0)
-        {
-            result.Add(new Token(s, TokenType.Content));
-        }
-    }
-
     // タグを解析
-    private static bool TryParseTag(StringSpan tag, out TagInfo result)
+    public static bool TryParseTag(StringSpan tag, out TagInfo result)
     {
         ReadOnlySpan<char> span = tag.AsSpan();
         if (span.IsWhiteSpace())
@@ -333,22 +539,8 @@ public struct FormattedTextParser
         }
     }
 
-    // タグをトークンにして追加
-    private static void TokenizeTag(StringSpan s, List<Token> result)
-    {
-        // TagClose
-        if (s.AsSpan().StartsWith("</", StringComparison.Ordinal))
-        {
-            result.Add(new Token(s, TokenType.TagClose));
-        }
-        else
-        {
-            result.Add(new Token(s, TokenType.TagStart));
-        }
-    }
-
     // 終了タグの種類を取得
-    private static TagType GetCloseTagType(StringSpan tag)
+    public static TagType GetCloseTagType(StringSpan tag)
     {
         ReadOnlySpan<char> span = tag.AsSpan();
 
@@ -410,7 +602,7 @@ public struct FormattedTextParser
     }
 
     // 開始タグの種類を取得
-    private static TagType GetTagType(StringSpan tag)
+    public static TagType GetTagType(StringSpan tag)
     {
         ReadOnlySpan<char> span = tag.AsSpan();
 
@@ -469,26 +661,6 @@ public struct FormattedTextParser
         }
 
         return TagType.Invalid;
-    }
-
-    public record struct Token(StringSpan Text, TokenType Type)
-    {
-        public override string ToString()
-        {
-            if (Type == TokenType.NewLine)
-            {
-                return "newline";
-            }
-            return Text.AsSpan().ToString();
-        }
-    }
-
-    public enum TokenType
-    {
-        TagStart,
-        TagClose,
-        Content,
-        NewLine,
     }
 
     public record struct TagInfo(StringSpan Value, TagType Type)

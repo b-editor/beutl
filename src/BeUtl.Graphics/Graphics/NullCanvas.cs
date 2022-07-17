@@ -58,6 +58,8 @@ internal sealed class NullCanvas : ICanvas
 
     public void DrawRect(Size size) => throw new NotImplementedException();
 
+    public void DrawText(FormattedText_ text) => throw new NotImplementedException();
+
     public void DrawText(TextElement text, Size size) => throw new NotImplementedException();
 
     public void FillCircle(Size size) => throw new NotImplementedException();

@@ -36,12 +36,14 @@ public interface ICanvas : IDisposable
     void DrawCircle(Size size);
 
     void DrawRect(Size size);
+    
+    void DrawText(FormattedText_ text);
+
+    void DrawText(TextElement text, Size size);
 
     void FillCircle(Size size);
 
     void FillRect(Size size);
-
-    void DrawText(TextElement text, Size size);
 
     Bitmap<Bgra8888> GetBitmap();
 
