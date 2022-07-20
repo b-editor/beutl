@@ -24,7 +24,7 @@ public struct FormattedTextParser
         {
             TagType.Font => TextElementsBuilder.Options.FontFamily,
             TagType.Size => TextElementsBuilder.Options.Size,
-            TagType.Color or TagType.ColorHash => TextElementsBuilder.Options.Color,
+            TagType.Color or TagType.ColorHash => TextElementsBuilder.Options.Brush,
             TagType.CharSpace => TextElementsBuilder.Options.Spacing,
             TagType.FontWeightBold or TagType.FontWeight => TextElementsBuilder.Options.FontWeight,
             TagType.FontStyle or TagType.FontStyleItalic => TextElementsBuilder.Options.FontStyle,
@@ -50,7 +50,7 @@ public struct FormattedTextParser
                 else if (tag.TryGetSize(out float size1))
                     builder.PushSize(size1);
                 else if (tag.TryGetColor(out Color color1))
-                    builder.PushColor(color1);
+                    builder.PushBrush(color1.ToImmutableBrush());
                 else if (tag.TryGetCharSpace(out float space1))
                     builder.PushSpacing(space1);
                 else if (tag.TryGetMargin(out Thickness margin1))
@@ -111,14 +111,14 @@ public struct FormattedTextParser
         var fontWeight = new Stack<FontWeight>();
         var fontStyle = new Stack<FontStyle>();
         var size = new Stack<float>();
-        var color = new Stack<Color>();
+        var color = new Stack<IBrush>();
         var space = new Stack<float>();
         var margin = new Stack<Thickness>();
         FontFamily curFont = defaultProps.Typeface.FontFamily;
         FontWeight curWeight = defaultProps.Typeface.Weight;
         FontStyle curStyle = defaultProps.Typeface.Style;
         float curSize = defaultProps.Size;
-        Color curColor = defaultProps.Color;
+        IBrush curColor = defaultProps.Brush;
         float curSpace = defaultProps.Space;
         Thickness curMargin = defaultProps.Margin;
         bool noParse = false;
@@ -142,7 +142,7 @@ public struct FormattedTextParser
                 else if (tag.TryGetColor(out Color color1))
                 {
                     color.Push(curColor);
-                    curColor = color1;
+                    curColor = color1.ToImmutableBrush();
                 }
                 else if (tag.TryGetCharSpace(out float space1))
                 {
@@ -197,7 +197,7 @@ public struct FormattedTextParser
                             break;
                         case TagType.Color:
                         case TagType.ColorHash:
-                            curColor = color.PopOrDefault(defaultProps.Color);
+                            curColor = color.PopOrDefault(defaultProps.Brush);
                             break;
                         case TagType.CharSpace:
                             curSpace = space.PopOrDefault(defaultProps.Space);
@@ -229,7 +229,7 @@ public struct FormattedTextParser
                     Text = token.Text.AsSpan().ToString(),
                     Typeface = new Typeface(curFont, curStyle, curWeight),
                     Size = curSize,
-                    Foreground = curColor.ToImmutableBrush(),
+                    Foreground = curColor,
                     Spacing = curSpace,
                     Margin = curMargin,
                 });
@@ -245,7 +245,7 @@ public struct FormattedTextParser
                     Text = token.ToString(),
                     Typeface = new Typeface(curFont, curStyle, curWeight),
                     Size = curSize,
-                    Foreground = curColor.ToImmutableBrush(),
+                    Foreground = curColor,
                     Spacing = curSpace,
                     Margin = curMargin,
                 });

@@ -23,7 +23,7 @@ public sealed class FormattedTextOperation : DrawableOperation
     private FontWeight _weight = FormattedTextInfo.Default.Typeface.Weight;
     private FontStyle _style = FormattedTextInfo.Default.Typeface.Style;
     private FontFamily _fontFamily = FormattedTextInfo.Default.Typeface.FontFamily;
-    private Color _color = FormattedTextInfo.Default.Color;
+    private Color _color = Colors.White;
     private float _size = FormattedTextInfo.Default.Size;
     private bool _isDirty;
 

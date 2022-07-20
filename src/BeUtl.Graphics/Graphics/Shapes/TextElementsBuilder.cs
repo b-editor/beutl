@@ -1,6 +1,5 @@
 ﻿using System.Runtime.InteropServices;
 
-using BeUtl.Graphics;
 using BeUtl.Media;
 using BeUtl.Media.TextFormatting;
 
@@ -13,7 +12,7 @@ public class TextElementsBuilder
     private readonly Stack<FontWeight> _fontWeight = new();
     private readonly Stack<FontStyle> _fontStyle = new();
     private readonly Stack<float> _size = new();
-    private readonly Stack<Color> _color = new();
+    private readonly Stack<IBrush> _brush = new();
     private readonly Stack<float> _spacing = new();
     private readonly Stack<Thickness> _margin = new();
     private readonly FormattedTextInfo _initialOptions;
@@ -21,7 +20,7 @@ public class TextElementsBuilder
     private FontWeight _curFontWeight;
     private FontStyle _curFontStyle;
     private float _curSize;
-    private Color _curColor;
+    private IBrush _curBrush;
     private float _curSpacing;
     private Thickness _curMargin;
 
@@ -32,7 +31,7 @@ public class TextElementsBuilder
         _curFontWeight = initialOptions.Typeface.Weight;
         _curFontStyle = initialOptions.Typeface.Style;
         _curSize = initialOptions.Size;
-        _curColor = initialOptions.Color;
+        _curBrush = initialOptions.Brush;
         _curSpacing = initialOptions.Space;
         _curMargin = initialOptions.Margin;
     }
@@ -63,10 +62,10 @@ public class TextElementsBuilder
         _curSize = size;
     }
 
-    public void PushColor(Color color)
+    public void PushBrush(IBrush brush)
     {
-        _color.Push(_curColor);
-        _curColor = color;
+        _brush.Push(_curBrush);
+        _curBrush = brush;
     }
 
     public void PushSpacing(float value)
@@ -97,8 +96,8 @@ public class TextElementsBuilder
             case Options.Size:
                 _curSize = _size.PopOrDefault(_initialOptions.Size);
                 break;
-            case Options.Color:
-                _curColor = _color.PopOrDefault(_initialOptions.Color);
+            case Options.Brush:
+                _curBrush = _brush.PopOrDefault(_initialOptions.Brush);
                 break;
             case Options.Spacing:
                 _curSpacing = _spacing.PopOrDefault(_initialOptions.Space);
@@ -120,7 +119,7 @@ public class TextElementsBuilder
             FontStyle = _curFontStyle,
             FontWeight = _curFontWeight,
             Size = _curSize,
-            Foreground = _curColor.ToImmutableBrush(),
+            Foreground = _curBrush,
             Spacing = _curSpacing,
             Margin = _curMargin,
         });
@@ -132,7 +131,7 @@ public class TextElementsBuilder
         FontWeight,
         FontStyle,
         Size,
-        Color,
+        Brush,
         Spacing,
         Margin,
     }
