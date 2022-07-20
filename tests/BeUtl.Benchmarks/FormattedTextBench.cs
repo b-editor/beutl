@@ -21,6 +21,7 @@ public class FormattedTextBench
     public void New()
     {
         var parser = new BeUtl.Media.TextFormatting.FormattedTextTokenizer(Str);
-        var tokens = parser.Tokenize();
+        parser.Tokenize();
+        _ = parser.Result;
     }
 }
