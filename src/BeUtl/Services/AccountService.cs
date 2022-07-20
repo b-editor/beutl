@@ -10,10 +10,14 @@ using Firebase.Auth.Repository;
 using Firebase.Auth.UI;
 using Firebase.Storage;
 
+using Google.Apis.Logging;
 using Google.Cloud.Firestore;
 using Google.Cloud.Firestore.V1;
 
 using Grpc.Core;
+using Grpc.Net.Client;
+
+using MEL = Microsoft.Extensions.Logging;
 
 namespace BeUtl.Services;
 
@@ -190,10 +194,13 @@ public sealed class AccountService
         var credentials = ChannelCredentials.Create(new SslCredentials(), callCredentials);
 
         // Create a custom Firestore Client using custom credentials
-        var grpcChannel = new Channel("firestore.googleapis.com", credentials);
+        // var grpcChannel = new Channel("firestore.googleapis.com", credentials);
+        var grpcChannel = GrpcChannel.ForAddress("https://firestore.googleapis.com", new GrpcChannelOptions
+        {
+            Credentials = credentials
+        });
         var grcpClient = new Firestore.FirestoreClient((ChannelBase)grpcChannel);
-        var firestoreClient = new FirestoreClientImpl(grcpClient, FirestoreSettings.GetDefault());
-
+        var firestoreClient = new FirestoreClientImpl(grcpClient, FirestoreSettings.GetDefault(), MEL.Abstractions.NullLogger.Instance);
         return FirestoreDb.Create(Constants.FirebaseProjectId, firestoreClient);
     }
 }
