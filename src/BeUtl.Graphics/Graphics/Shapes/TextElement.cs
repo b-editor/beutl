@@ -22,6 +22,7 @@ public class TextElement_ : Drawable
     private float _spacing;
     private string _text = string.Empty;
     private Thickness _margin;
+    private FormattedText_ _formattedText;
 
     static TextElement_()
     {
@@ -174,7 +175,6 @@ public class TextElement_ : Drawable
         return ii;
     }
 
-    private int _count;
     internal int CountLines()
     {
         int count = 0;
@@ -198,18 +198,19 @@ public class TextElement_ : Drawable
             }
         }
 
-        _count = count;
         return count;
     }
 
     private void SetFields(ref FormattedText_ text, StringSpan s)
     {
-        text.Weight = _fontWeight;
-        text.Style = _fontStyle;
-        text.Font = _fontFamily;
-        text.Size = _size;
-        text.Spacing = _spacing;
-        text.Text = s;
+        _formattedText.Weight = _fontWeight;
+        _formattedText.Style = _fontStyle;
+        _formattedText.Font = _fontFamily;
+        _formattedText.Size = _size;
+        _formattedText.Spacing = _spacing;
+        _formattedText.Text = s;
+
+        text = _formattedText;
     }
 
     protected override Size MeasureCore(Size availableSize) => throw new NotImplementedException();

@@ -24,6 +24,8 @@ public class TextElements : IReadOnlyList<TextElement_>
 
     public TextElement_ this[int index] => ((IReadOnlyList<TextElement_>)_array)[index];
 
+    public static TextElements Empty { get; } = new(Array.Empty<TextElement_>());
+
     public int Count => ((IReadOnlyCollection<TextElement_>)_array).Count;
 
     public LineEnumerable Lines { get; }
