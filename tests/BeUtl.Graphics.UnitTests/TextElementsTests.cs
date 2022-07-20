@@ -4,64 +4,11 @@ using System.Text;
 
 using BeUtl.Graphics.Shapes;
 using BeUtl.Media;
-using BeUtl.Media.Pixel;
+using BeUtl.Media.TextFormatting;
 
 using NUnit.Framework;
 
-using FormattedText_ = BeUtl.Media.TextFormatting.FormattedText_;
-using FormattedTextInfo = BeUtl.Media.TextFormatting.FormattedTextInfo;
-using FormattedTextParser = BeUtl.Media.TextFormatting.FormattedTextParser;
-using FormattedTextTokenizer = BeUtl.Media.TextFormatting.FormattedTextTokenizer;
-
 namespace BeUtl.Graphics.UnitTests;
-
-public class TextBlockTests
-{
-    [SetUp]
-    public void Setup()
-    {
-        _ = TypefaceProvider.Typeface();
-    }
-
-    [Test]
-    public void ParseAndDraw()
-    {
-        string str = @"<b>吾輩</b><size=70>は</size><#ff0000>猫</#><size=70>である。</size>
-<i>名前</i><size=70>はまだ</size>無<size=70>い。</cspace>
-
-<single-line>
-<b>この文字列は</b>
-複数行に分かれて
-ます。
-</single-line>
-
-<font='Roboto'>Roboto</font>
-<noparse><font='Noto Sans JP'><bold>Noto Sans</font></bold></noparse>";
-        Typeface typeface = TypefaceProvider.Typeface();
-        var tb = new TextBlock()
-        {
-            FontFamily = typeface.FontFamily,
-            FontStyle = typeface.Style,
-            FontWeight = typeface.Weight,
-            Size = 100,
-            Foreground = Brushes.Black,
-            Spacing = 0,
-            Text = str
-        };
-
-        tb.Measure(Size.Infinity);
-        Rect bounds = tb.Bounds;
-        using var graphics = new Canvas((int)bounds.Width, (int)bounds.Height);
-
-        graphics.Clear(Colors.White);
-
-        tb.Draw(graphics);
-
-        using Bitmap<Bgra8888> bmp = graphics.GetBitmap();
-
-        Assert.IsTrue(bmp.Save(Path.Combine(ArtifactProvider.GetArtifactDirectory(), "1.png"), EncodedImageFormat.Png));
-    }
-}
 
 public class TextElementsTests
 {
@@ -82,27 +29,24 @@ public class TextElementsTests
 <noparse><font='Noto Sans JP'><bold>Noto Sans</font></bold></noparse>
 ";
         Typeface typeface = TypefaceProvider.Typeface();
-        var tokenizer = new FormattedTextTokenizer(str)
-        {
-            ExperimentalVersion = true
-        };
+        var tokenizer = new FormattedTextTokenizer(str);
         tokenizer.Tokenize();
 
         var options = new FormattedTextInfo(typeface, 100, Colors.Black, 0, default);
-
-        var elements = FormattedTextParser.ToElements(options, CollectionsMarshal.AsSpan(tokenizer.Result));
+        var builder = new TextElementsBuilder(options);
+        builder.AppendTokens(CollectionsMarshal.AsSpan(tokenizer.Result));
 
         var tb = new TextBlock
         {
-            Elements = new TextElements(elements)
+            Elements = new TextElements(builder.Items.ToArray())
         };
 
         var sb = new StringBuilder(str.Length);
-        var texts = new List<FormattedText_>();
+        var texts = new List<FormattedText>();
         Console.WriteLine("Start enumerate lines.");
-        foreach (Span<FormattedText_> span in tb.Elements.Lines)
+        foreach (Span<FormattedText> span in tb.Elements.Lines)
         {
-            foreach (FormattedText_ item in span)
+            foreach (FormattedText item in span)
             {
                 texts.Add(item);
                 if (item.BeginOnNewLine)
@@ -135,26 +79,26 @@ public class TextElementsTests
     [Test]
     public void LinesEnumerator()
     {
-        var items = new TextElements(new TextElement_[]
+        var items = new TextElements(new TextElement[]
         {
-            new TextElement_()
+            new TextElement()
             {
                 Size = 72,
                 Text = "ABC\nDEF"
             },
-            new TextElement_()
+            new TextElement()
             {
                 Size = 64,
                 Text = "GHI\n\rJKL\r"
             },
-            new TextElement_()
+            new TextElement()
             {
                 Size = 56,
                 Text = "\nMNO"
             }
         });
 
-        foreach (var item in items.Lines)
+        foreach (Span<FormattedText> item in items.Lines)
         {
 
         }

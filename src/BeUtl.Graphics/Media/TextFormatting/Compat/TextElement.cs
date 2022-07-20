@@ -2,8 +2,9 @@
 
 using SkiaSharp;
 
-namespace BeUtl.Media.TextFormatting;
+namespace BeUtl.Media.TextFormatting.Compat;
 
+[Obsolete("Use TextBlock APIs.")]
 public class TextElement : Drawable
 {
     public static readonly CoreProperty<Typeface> TypefaceProperty;

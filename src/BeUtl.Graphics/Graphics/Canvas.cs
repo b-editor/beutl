@@ -179,7 +179,7 @@ public class Canvas : ICanvas
             _sharedPaint);
     }
 
-    public void DrawText(FormattedText_ text)
+    public void DrawText(FormattedText text)
     {
         VerifyAccess();
         _sharedPaint.Reset();
@@ -217,8 +217,8 @@ public class Canvas : ICanvas
         }
     }
 
-    // Marginを考慮しない
-    public void DrawText(TextElement text, Size size)
+    [Obsolete("Use 'DrawText(FormattedText)'.")]
+    public void DrawText(Media.TextFormatting.Compat.TextElement text, Size size)
     {
         VerifyAccess();
         _sharedPaint.Reset();

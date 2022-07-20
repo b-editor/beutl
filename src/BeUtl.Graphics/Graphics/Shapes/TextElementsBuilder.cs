@@ -3,11 +3,14 @@
 using BeUtl.Media;
 using BeUtl.Media.TextFormatting;
 
+using static BeUtl.Media.TextFormatting.FormattedTextParser;
+using static BeUtl.Media.TextFormatting.FormattedTextTokenizer;
+
 namespace BeUtl.Graphics.Shapes;
 
 public class TextElementsBuilder
 {
-    private readonly List<TextElement_> _elements = new();
+    private readonly List<TextElement> _elements = new();
     private readonly Stack<FontFamily> _fontFamily = new();
     private readonly Stack<FontWeight> _fontWeight = new();
     private readonly Stack<FontStyle> _fontStyle = new();
@@ -37,7 +40,7 @@ public class TextElementsBuilder
         _curMargin = initialOptions.Margin;
     }
 
-    public ReadOnlySpan<TextElement_> Items => CollectionsMarshal.AsSpan(_elements);
+    public ReadOnlySpan<TextElement> Items => CollectionsMarshal.AsSpan(_elements);
 
     public void PushFontFamily(FontFamily font)
     {
@@ -121,7 +124,7 @@ public class TextElementsBuilder
 
     public void Append(string text)
     {
-        _elements.Add(new TextElement_()
+        _elements.Add(new TextElement()
         {
             Text = text,
             FontFamily = _curFontFamily,
@@ -133,6 +136,77 @@ public class TextElementsBuilder
             Margin = _curMargin,
             IgnoreLineBreaks = _singleLine
         });
+    }
+
+    public void AppendTokens(Span<Token> tokens)
+    {
+        bool noParse = false;
+
+        foreach (Token token in tokens)
+        {
+            if (!noParse && token.Type == TokenType.TagStart &&
+                TryParseTag(token.Text, out TagInfo tag))
+            {
+                // 開始タグ
+                if (tag.TryGetFont(out FontFamily font1))
+                    PushFontFamily(font1);
+                else if (tag.TryGetSize(out float size1))
+                    PushSize(size1);
+                else if (tag.TryGetColor(out Color color1))
+                    PushBrush(color1.ToImmutableBrush());
+                else if (tag.TryGetCharSpace(out float space1))
+                    PushSpacing(space1);
+                else if (tag.TryGetMargin(out Thickness margin1))
+                    PushMargin(margin1);
+                else if (tag.TryGetFontStyle(out FontStyle fontStyle1))
+                    PushFontStyle(fontStyle1);
+                else if (tag.TryGetFontWeight(out FontWeight fontWeight1))
+                    PushFontWeight(fontWeight1);
+                else if (tag.Type == TagType.NoParse)
+                    noParse = true;
+                else if (tag.Type == TagType.SingleLine)
+                    PushSingleLine();
+                else
+                    throw new Exception($"{tag.Value} is invalid tag.");
+
+                continue;
+            }
+            else if (token.Type == TokenType.TagClose)
+            {
+                TagType closeTagType = GetCloseTagType(token.Text);
+                if (closeTagType == TagType.NoParse)
+                {
+                    noParse = false;
+                }
+                else if (!noParse)
+                {
+                    Options options = ToOptions(closeTagType, token.Text.AsSpan());
+                    Pop(options);
+                }
+            }
+
+            if (token.Type == TokenType.Content || noParse)
+            {
+                Append(token.Text.AsSpan().ToString());
+            }
+        }
+    }
+
+    private static Options ToOptions(TagType tagType, ReadOnlySpan<char> text)
+    {
+        return tagType switch
+        {
+            TagType.Font => Options.FontFamily,
+            TagType.Size => Options.Size,
+            TagType.Color or TagType.ColorHash => Options.Brush,
+            TagType.CharSpace => Options.Spacing,
+            TagType.FontWeightBold or TagType.FontWeight => Options.FontWeight,
+            TagType.FontStyle or TagType.FontStyleItalic => Options.FontStyle,
+            TagType.Margin => Options.Margin,
+            TagType.SingleLine => Options.SingleLine,
+            TagType.Invalid => throw new Exception($"{text} is invalid tag."),
+            TagType.NoParse or _ => throw new InvalidOperationException(),
+        };
     }
 
     public enum Options

@@ -37,9 +37,10 @@ public interface ICanvas : IDisposable
 
     void DrawRect(Size size);
     
-    void DrawText(FormattedText_ text);
+    void DrawText(FormattedText text);
 
-    void DrawText(TextElement text, Size size);
+    [Obsolete("Use 'DrawText(FormattedText)'.")]
+    void DrawText(Media.TextFormatting.Compat.TextElement text, Size size);
 
     void FillCircle(Size size);
 

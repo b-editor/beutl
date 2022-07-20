@@ -6,7 +6,7 @@ using BeUtl.Media.TextFormatting;
 namespace BeUtl.Graphics.Shapes;
 
 [DebuggerDisplay("{Text}")]
-public class TextElement_ : Drawable
+public class TextElement : Drawable
 {
     public static readonly CoreProperty<FontWeight> FontWeightProperty;
     public static readonly CoreProperty<FontStyle> FontStyleProperty;
@@ -24,67 +24,67 @@ public class TextElement_ : Drawable
     private string _text = string.Empty;
     private Thickness _margin;
     private bool _ignoreLineBreaks;
-    private FormattedText_ _formattedText;
+    private FormattedText _formattedText;
 
-    static TextElement_()
+    static TextElement()
     {
-        FontWeightProperty = ConfigureProperty<FontWeight, TextElement_>(nameof(FontWeight))
+        FontWeightProperty = ConfigureProperty<FontWeight, TextElement>(nameof(FontWeight))
             .Accessor(o => o.FontWeight, (o, v) => o.FontWeight = v)
             .PropertyFlags(PropertyFlags.KnownFlags_1)
             .DefaultValue(FontWeight.Regular)
             .SerializeName("font-weight")
             .Register();
 
-        FontStyleProperty = ConfigureProperty<FontStyle, TextElement_>(nameof(FontStyle))
+        FontStyleProperty = ConfigureProperty<FontStyle, TextElement>(nameof(FontStyle))
             .Accessor(o => o.FontStyle, (o, v) => o.FontStyle = v)
             .PropertyFlags(PropertyFlags.KnownFlags_1)
             .DefaultValue(FontStyle.Normal)
             .SerializeName("font-style")
             .Register();
 
-        FontFamilyProperty = ConfigureProperty<FontFamily, TextElement_>(nameof(FontFamily))
+        FontFamilyProperty = ConfigureProperty<FontFamily, TextElement>(nameof(FontFamily))
             .Accessor(o => o.FontFamily, (o, v) => o.FontFamily = v)
             .PropertyFlags(PropertyFlags.KnownFlags_1)
             .DefaultValue(FontFamily.Default)
             .SerializeName("font-family")
             .Register();
 
-        SizeProperty = ConfigureProperty<float, TextElement_>(nameof(Size))
+        SizeProperty = ConfigureProperty<float, TextElement>(nameof(Size))
             .Accessor(o => o.Size, (o, v) => o.Size = v)
             .PropertyFlags(PropertyFlags.KnownFlags_1)
             .DefaultValue(0)
             .SerializeName("size")
             .Register();
 
-        SpacingProperty = ConfigureProperty<float, TextElement_>(nameof(Spacing))
+        SpacingProperty = ConfigureProperty<float, TextElement>(nameof(Spacing))
             .Accessor(o => o.Spacing, (o, v) => o.Spacing = v)
             .PropertyFlags(PropertyFlags.KnownFlags_1)
             .DefaultValue(0)
             .SerializeName("spacing")
             .Register();
 
-        TextProperty = ConfigureProperty<string, TextElement_>(nameof(Text))
+        TextProperty = ConfigureProperty<string, TextElement>(nameof(Text))
             .Accessor(o => o.Text, (o, v) => o.Text = v)
             .PropertyFlags(PropertyFlags.KnownFlags_1)
             .DefaultValue(string.Empty)
             .SerializeName("text")
             .Register();
 
-        MarginProperty = ConfigureProperty<Thickness, TextElement_>(nameof(Margin))
+        MarginProperty = ConfigureProperty<Thickness, TextElement>(nameof(Margin))
             .Accessor(o => o.Margin, (o, v) => o.Margin = v)
             .PropertyFlags(PropertyFlags.KnownFlags_1)
             .DefaultValue(new Thickness())
             .SerializeName("margin")
             .Register();
 
-        IgnoreLineBreaksProperty = ConfigureProperty<bool, TextElement_>(nameof(IgnoreLineBreaks))
+        IgnoreLineBreaksProperty = ConfigureProperty<bool, TextElement>(nameof(IgnoreLineBreaks))
             .Accessor(o => o.IgnoreLineBreaks, (o, v) => o.IgnoreLineBreaks = v)
             .PropertyFlags(PropertyFlags.KnownFlags_1)
             .DefaultValue(false)
             .SerializeName("ignore-line-breaks")
             .Register();
 
-        AffectsRender<TextElement_>(
+        AffectsRender<TextElement>(
             FontWeightProperty,
             FontStyleProperty,
             FontFamilyProperty,
@@ -143,7 +143,7 @@ public class TextElement_ : Drawable
         set => SetAndRaise(IgnoreLineBreaksProperty, ref _ignoreLineBreaks, value);
     }
 
-    internal int GetFormattedTexts(Span<FormattedText_> span, bool startWithNewLine, out bool endWithNewLine)
+    internal int GetFormattedTexts(Span<FormattedText> span, bool startWithNewLine, out bool endWithNewLine)
     {
         int prevIdx = 0;
         int ii = 0;
@@ -159,7 +159,7 @@ public class TextElement_ : Drawable
 
             if (isReturnCode || isLast)
             {
-                ref FormattedText_ item = ref span[ii];
+                ref FormattedText item = ref span[ii];
                 SetFields(ref item, new StringSpan(_text, prevIdx, (isReturnCode ? i : nextIdx) - prevIdx));
                 item.BeginOnNewLine = nextReturn;
                 nextReturn = !_ignoreLineBreaks && isReturnCode;
@@ -211,7 +211,7 @@ public class TextElement_ : Drawable
         return count;
     }
 
-    private void SetFields(ref FormattedText_ text, StringSpan s)
+    private void SetFields(ref FormattedText text, StringSpan s)
     {
         _formattedText.Weight = _fontWeight;
         _formattedText.Style = _fontStyle;

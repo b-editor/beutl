@@ -1,6 +1,7 @@
 ﻿using BeUtl.Media;
 using BeUtl.Media.Pixel;
 using BeUtl.Media.TextFormatting;
+using BeUtl.Media.TextFormatting.Compat;
 using BeUtl.Threading;
 
 using NUnit.Framework;
@@ -22,7 +23,7 @@ public class FormattedTextTests
     {
         Typeface face = TypefaceProvider.Typeface();
         FontFamily font = face.FontFamily;
-        var text = new FormattedText()
+        var text = new Media.TextFormatting.Compat.FormattedText()
         {
             Lines =
             {
@@ -114,7 +115,7 @@ public class FormattedTextTests
 <noparse><font='Noto Sans JP'><bold>Noto Sans</font></bold></noparse>
 ";
         Typeface typeface = TypefaceProvider.Typeface();
-        var text = FormattedText.Parse(str, new FormattedTextInfo(typeface, 100, Colors.Black, 0, default));
+        var text = Media.TextFormatting.Compat.FormattedText.Parse(str, new FormattedTextInfo(typeface, 100, Colors.Black, 0, default));
 
         text.Measure(Size.Infinity);
         Rect bounds = text.Bounds;

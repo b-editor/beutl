@@ -3,8 +3,6 @@
 using BeUtl.Media;
 using BeUtl.Media.TextFormatting;
 
-using FormattedText = BeUtl.Media.TextFormatting.FormattedText_;
-
 namespace BeUtl.Graphics.Shapes;
 
 public class TextBlock : Drawable
@@ -185,10 +183,7 @@ public class TextBlock : Drawable
 
     private void OnUpdateText()
     {
-        var tokenizer = new FormattedTextTokenizer(_text)
-        {
-            ExperimentalVersion = true
-        };
+        var tokenizer = new FormattedTextTokenizer(_text);
         tokenizer.Tokenize();
         var options = new FormattedTextInfo(
             Typeface: new Typeface(_fontFamily, _fontStyle, _fontWeight),
@@ -197,8 +192,9 @@ public class TextBlock : Drawable
             Space: _spacing,
             Margin: _margin);
 
-        TextElement_[] elements = FormattedTextParser.ToElements(options, CollectionsMarshal.AsSpan(tokenizer.Result));
-        Elements = new TextElements(elements);
+        var builder = new TextElementsBuilder(options);
+        builder.AppendTokens(CollectionsMarshal.AsSpan(tokenizer.Result));
+        Elements = new TextElements(builder.Items.ToArray());
     }
 
     private static Size MeasureLine(Span<FormattedText> items)

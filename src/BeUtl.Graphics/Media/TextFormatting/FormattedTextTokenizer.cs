@@ -12,7 +12,7 @@ public struct FormattedTextTokenizer
         _str = str;
     }
 
-    public bool ExperimentalVersion { get; set; } = false;
+    public bool CompatMode { get; set; } = false;
 
     public int LineCount { get; private set; } = 0;
 
@@ -20,9 +20,9 @@ public struct FormattedTextTokenizer
 
     public void Tokenize()
     {
-        int lineCount = ExperimentalVersion ? 1 : 0;
+        int lineCount = CompatMode ? 0 : 1;
 
-        if (ExperimentalVersion)
+        if (!CompatMode)
         {
             Tokenize(new StringSpan(_str, 0, _str.Length));
         }
@@ -46,7 +46,7 @@ public struct FormattedTextTokenizer
 
     public void WriteTo(StringBuilder sb)
     {
-        foreach (var item in CollectionsMarshal.AsSpan(Result))
+        foreach (Token item in CollectionsMarshal.AsSpan(Result))
         {
             switch (item.Type)
             {

@@ -7,32 +7,32 @@ using BeUtl.Media.TextFormatting;
 
 namespace BeUtl.Graphics.Shapes;
 
-public class TextElements : IReadOnlyList<TextElement_>
+public class TextElements : IReadOnlyList<TextElement>
 {
-    private readonly TextElement_[] _array;
+    private readonly TextElement[] _array;
 
-    public TextElements(IEnumerable<TextElement_> items)
+    public TextElements(IEnumerable<TextElement> items)
         : this(items.ToArray())
     {
     }
 
-    internal TextElements(TextElement_[] array)
+    internal TextElements(TextElement[] array)
     {
         _array = array;
         Lines = new LineEnumerable(array);
     }
 
-    public TextElement_ this[int index] => ((IReadOnlyList<TextElement_>)_array)[index];
+    public TextElement this[int index] => ((IReadOnlyList<TextElement>)_array)[index];
 
-    public static TextElements Empty { get; } = new(Array.Empty<TextElement_>());
+    public static TextElements Empty { get; } = new(Array.Empty<TextElement>());
 
-    public int Count => ((IReadOnlyCollection<TextElement_>)_array).Count;
+    public int Count => ((IReadOnlyCollection<TextElement>)_array).Count;
 
     public LineEnumerable Lines { get; }
 
-    public IEnumerator<TextElement_> GetEnumerator()
+    public IEnumerator<TextElement> GetEnumerator()
     {
-        return ((IEnumerable<TextElement_>)_array).GetEnumerator();
+        return ((IEnumerable<TextElement>)_array).GetEnumerator();
     }
 
     IEnumerator IEnumerable.GetEnumerator()
@@ -42,9 +42,9 @@ public class TextElements : IReadOnlyList<TextElement_>
 
     public readonly struct LineEnumerable
     {
-        private readonly TextElement_[] _array;
+        private readonly TextElement[] _array;
 
-        internal LineEnumerable(TextElement_[] array)
+        internal LineEnumerable(TextElement[] array)
         {
             _array = array;
         }
@@ -52,22 +52,22 @@ public class TextElements : IReadOnlyList<TextElement_>
         public LineEnumerator GetEnumerator()
         {
             int count = 0;
-            foreach (TextElement_ item in _array)
+            foreach (TextElement item in _array)
             {
                 count += item.CountElements();
             }
 
-            FormattedText_[] buffer =
+            FormattedText[] buffer =
 #if USE_ARRAY_POOL
-                ArrayPool<FormattedText_>.Shared.Rent(count)
+                ArrayPool<FormattedText>.Shared.Rent(count)
 #else
                 new FormattedText_[count]
 #endif
                 ;
-            Span<FormattedText_> span = buffer;
+            Span<FormattedText> span = buffer;
             bool startWithNewLine = false;
 
-            foreach (TextElement_ item in _array)
+            foreach (TextElement item in _array)
             {
                 int ct = item.GetFormattedTexts(span, startWithNewLine, out startWithNewLine);
                 span = span.Slice(ct);
@@ -81,18 +81,18 @@ public class TextElements : IReadOnlyList<TextElement_>
     public struct LineEnumerator : IDisposable
     {
         private readonly int _arrayCount;
-        private FormattedText_[]? _array;
+        private FormattedText[]? _array;
         private int _index = 0;
         private int _count = 0;
         private int _prevIndex = 0;
 
-        internal LineEnumerator(FormattedText_[] array, int count)
+        internal LineEnumerator(FormattedText[] array, int count)
         {
             _array = array;
             _arrayCount = count;
         }
 
-        public Span<FormattedText_> Current => _array.AsSpan().Slice(_index, _count);
+        public Span<FormattedText> Current => _array.AsSpan().Slice(_index, _count);
 
         public bool MoveNext()
         {
@@ -106,7 +106,7 @@ public class TextElements : IReadOnlyList<TextElement_>
 
             while (index < _arrayCount)
             {
-                ref FormattedText_ item = ref _array[index];
+                ref FormattedText item = ref _array[index];
                 if (item.BeginOnNewLine || index + 1 >= _arrayCount)
                 {
                     break;
@@ -135,7 +135,7 @@ public class TextElements : IReadOnlyList<TextElement_>
 
             if (_array != null)
             {
-                ArrayPool<FormattedText_>.Shared.Return(_array);
+                ArrayPool<FormattedText>.Shared.Return(_array);
             }
 #endif
             _array = null;

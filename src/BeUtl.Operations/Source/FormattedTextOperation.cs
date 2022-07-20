@@ -1,11 +1,13 @@
 ﻿using BeUtl.Graphics;
 using BeUtl.Media;
-using BeUtl.Media.TextFormatting;
+using BeUtl.Media.TextFormatting.Compat;
 using BeUtl.ProjectSystem;
-using BeUtl.Rendering;
+
+using FormattedTextInfo = BeUtl.Media.TextFormatting.FormattedTextInfo;
 
 namespace BeUtl.Operations.Source;
 
+[Obsolete("Use TextBlock API.")]
 public sealed class FormattedTextOperation : DrawableOperation
 {
     public static readonly CoreProperty<float> SizeProperty;
