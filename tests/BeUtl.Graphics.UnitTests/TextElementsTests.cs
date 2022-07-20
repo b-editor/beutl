@@ -8,7 +8,9 @@ using NUnit.Framework;
 
 using FormattedTextInfo = BeUtl.Media.TextFormatting.FormattedTextInfo;
 using FormattedTextParser = BeUtl.Media.TextFormatting.FormattedTextParser;
+using FormattedTextTokenizer = BeUtl.Media.TextFormatting.FormattedTextTokenizer;
 using FormattedText_ = BeUtl.Media.TextFormatting.FormattedText_;
+using System.Runtime.InteropServices;
 
 namespace BeUtl.Graphics.UnitTests;
 
@@ -31,8 +33,15 @@ public class TextElementsTests
 <noparse><font='Noto Sans JP'><bold>Noto Sans</font></bold></noparse>
 ";
         Typeface typeface = TypefaceProvider.Typeface();
-        var parser = new FormattedTextParser(str);
-        var elements = parser.ToElements(new FormattedTextInfo(typeface, 100, Colors.Black, 0, default));
+        var tokenizer = new FormattedTextTokenizer(str)
+        {
+            ExperimentalVersion = true
+        };
+        tokenizer.Tokenize();
+
+        var options = new FormattedTextInfo(typeface, 100, Colors.Black, 0, default);
+
+        var elements = FormattedTextParser.ToElements(options, CollectionsMarshal.AsSpan(tokenizer.Result));
 
         var tb = new TextBlock
         {
@@ -41,6 +50,7 @@ public class TextElementsTests
 
         var sb = new StringBuilder(str.Length);
         var texts = new List<FormattedText_>();
+        Console.WriteLine("Start enumerate lines.");
         foreach (Span<FormattedText_> span in tb.Elements.Lines)
         {
             foreach (FormattedText_ item in span)
@@ -59,6 +69,7 @@ public class TextElementsTests
         }
 
         Console.Write(sb.ToString());
+
         //text.Measure(Size.Infinity);
         //Rect bounds = text.Bounds;
         //using var graphics = new Canvas((int)bounds.Width, (int)bounds.Height);
