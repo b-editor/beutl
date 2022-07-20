@@ -29,6 +29,7 @@ public struct FormattedTextParser
             TagType.FontWeightBold or TagType.FontWeight => TextElementsBuilder.Options.FontWeight,
             TagType.FontStyle or TagType.FontStyleItalic => TextElementsBuilder.Options.FontStyle,
             TagType.Margin => TextElementsBuilder.Options.Margin,
+            TagType.SingleLine => TextElementsBuilder.Options.SingleLine,
             TagType.Invalid => throw new Exception($"{text} is invalid tag."),
             TagType.NoParse or _ => throw new InvalidOperationException(),
         };
@@ -61,6 +62,8 @@ public struct FormattedTextParser
                     builder.PushFontWeight(fontWeight1);
                 else if (tag.Type == TagType.NoParse)
                     noParse = true;
+                else if (tag.Type == TagType.SingleLine)
+                    builder.PushSingleLine();
                 else
                     throw new Exception($"{tag.Value} is invalid tag.");
 
@@ -292,7 +295,7 @@ public struct FormattedTextParser
         TagType tagType = GetTagType(first);
 
         // "<#fffff>" みたいなタグ
-        if (tagType is TagType.ColorHash or TagType.FontWeightBold or TagType.FontStyleItalic or TagType.NoParse)
+        if (tagType is TagType.ColorHash or TagType.FontWeightBold or TagType.FontStyleItalic or TagType.NoParse or TagType.SingleLine)
         {
             result = new TagInfo(first, tagType);
             return true;
@@ -363,6 +366,10 @@ public struct FormattedTextParser
         {
             return TagType.NoParse;
         }
+        else if (span.SequenceEqual("/single-line"))
+        {
+            return TagType.SingleLine;
+        }
         else if (span.StartsWith("/#", StringComparison.Ordinal))
         {
             return TagType.ColorHash;
@@ -424,6 +431,10 @@ public struct FormattedTextParser
         else if (span.SequenceEqual("noparse"))
         {
             return TagType.NoParse;
+        }
+        else if (span.SequenceEqual("single-line"))
+        {
+            return TagType.SingleLine;
         }
         else if (span.StartsWith("#", StringComparison.Ordinal))
         {
@@ -604,6 +615,7 @@ public struct FormattedTextParser
         FontStyle,
         FontStyleItalic,
         Margin,
-        NoParse
+        NoParse,
+        SingleLine
     }
 }

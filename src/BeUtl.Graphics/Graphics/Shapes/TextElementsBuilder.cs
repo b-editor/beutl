@@ -23,6 +23,7 @@ public class TextElementsBuilder
     private IBrush _curBrush;
     private float _curSpacing;
     private Thickness _curMargin;
+    private bool _singleLine;
 
     public TextElementsBuilder(FormattedTextInfo initialOptions)
     {
@@ -79,6 +80,11 @@ public class TextElementsBuilder
         _margin.Push(_curMargin);
         _curMargin = margin;
     }
+    
+    public void PushSingleLine()
+    {
+        _singleLine = true;
+    }
 
     public void Pop(Options options)
     {
@@ -105,6 +111,9 @@ public class TextElementsBuilder
             case Options.Margin:
                 _curMargin = _margin.PopOrDefault(_initialOptions.Margin);
                 break;
+            case Options.SingleLine:
+                _singleLine = false;
+                break;
             default:
                 break;
         }
@@ -122,6 +131,7 @@ public class TextElementsBuilder
             Foreground = _curBrush,
             Spacing = _curSpacing,
             Margin = _curMargin,
+            IgnoreLineBreaks = _singleLine
         });
     }
 
@@ -134,5 +144,6 @@ public class TextElementsBuilder
         Brush,
         Spacing,
         Margin,
+        SingleLine,
     }
 }

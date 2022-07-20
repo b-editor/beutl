@@ -1,4 +1,4 @@
-﻿//#define USE_ARRAY_POOL
+﻿#define USE_ARRAY_POOL
 
 using System.Buffers;
 using System.Collections;
@@ -54,7 +54,7 @@ public class TextElements : IReadOnlyList<TextElement_>
             int count = 0;
             foreach (TextElement_ item in _array)
             {
-                count += item.CountLines();
+                count += item.CountElements();
             }
 
             FormattedText_[] buffer =

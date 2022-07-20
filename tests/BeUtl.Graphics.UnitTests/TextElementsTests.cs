@@ -1,17 +1,17 @@
 ﻿
+using System.Runtime.InteropServices;
 using System.Text;
 
 using BeUtl.Graphics.Shapes;
 using BeUtl.Media;
+using BeUtl.Media.Pixel;
 
 using NUnit.Framework;
 
+using FormattedText_ = BeUtl.Media.TextFormatting.FormattedText_;
 using FormattedTextInfo = BeUtl.Media.TextFormatting.FormattedTextInfo;
 using FormattedTextParser = BeUtl.Media.TextFormatting.FormattedTextParser;
 using FormattedTextTokenizer = BeUtl.Media.TextFormatting.FormattedTextTokenizer;
-using FormattedText_ = BeUtl.Media.TextFormatting.FormattedText_;
-using System.Runtime.InteropServices;
-using BeUtl.Media.Pixel;
 
 namespace BeUtl.Graphics.UnitTests;
 
@@ -26,13 +26,17 @@ public class TextBlockTests
     [Test]
     public void ParseAndDraw()
     {
-        string str = @"
-<b>吾輩</b><size=70>は</size><#ff0000>猫</#><size=70>である。</size>
+        string str = @"<b>吾輩</b><size=70>は</size><#ff0000>猫</#><size=70>である。</size>
 <i>名前</i><size=70>はまだ</size>無<size=70>い。</cspace>
 
+<single-line>
+<b>この文字列は</b>
+複数行に分かれて
+ます。
+</single-line>
+
 <font='Roboto'>Roboto</font>
-<noparse><font='Noto Sans JP'><bold>Noto Sans</font></bold></noparse>
-";
+<noparse><font='Noto Sans JP'><bold>Noto Sans</font></bold></noparse>";
         Typeface typeface = TypefaceProvider.Typeface();
         var tb = new TextBlock()
         {

@@ -15,6 +15,7 @@ public class TextElement_ : Drawable
     public static readonly CoreProperty<float> SpacingProperty;
     public static readonly CoreProperty<string> TextProperty;
     public static readonly CoreProperty<Thickness> MarginProperty;
+    public static readonly CoreProperty<bool> IgnoreLineBreaksProperty;
     private FontWeight _fontWeight;
     private FontStyle _fontStyle;
     private FontFamily _fontFamily;
@@ -22,6 +23,7 @@ public class TextElement_ : Drawable
     private float _spacing;
     private string _text = string.Empty;
     private Thickness _margin;
+    private bool _ignoreLineBreaks;
     private FormattedText_ _formattedText;
 
     static TextElement_()
@@ -75,6 +77,13 @@ public class TextElement_ : Drawable
             .SerializeName("margin")
             .Register();
 
+        IgnoreLineBreaksProperty = ConfigureProperty<bool, TextElement_>(nameof(IgnoreLineBreaks))
+            .Accessor(o => o.IgnoreLineBreaks, (o, v) => o.IgnoreLineBreaks = v)
+            .PropertyFlags(PropertyFlags.KnownFlags_1)
+            .DefaultValue(false)
+            .SerializeName("ignore-line-breaks")
+            .Register();
+
         AffectsRender<TextElement_>(
             FontWeightProperty,
             FontStyleProperty,
@@ -82,7 +91,8 @@ public class TextElement_ : Drawable
             SizeProperty,
             SpacingProperty,
             TextProperty,
-            MarginProperty);
+            MarginProperty,
+            IgnoreLineBreaksProperty);
     }
 
     public FontWeight FontWeight
@@ -127,6 +137,12 @@ public class TextElement_ : Drawable
         set => SetAndRaise(MarginProperty, ref _margin, value);
     }
 
+    public bool IgnoreLineBreaks
+    {
+        get => _ignoreLineBreaks;
+        set => SetAndRaise(IgnoreLineBreaksProperty, ref _ignoreLineBreaks, value);
+    }
+
     internal int GetFormattedTexts(Span<FormattedText_> span, bool startWithNewLine, out bool endWithNewLine)
     {
         int prevIdx = 0;
@@ -143,16 +159,10 @@ public class TextElement_ : Drawable
 
             if (isReturnCode || isLast)
             {
-                //if (c is '\r'
-                //    && nextIdx < _text.Length
-                //    && _text[nextIdx] is '\n')
-                //{
-                //    i++;
-                //}
                 ref FormattedText_ item = ref span[ii];
                 SetFields(ref item, new StringSpan(_text, prevIdx, (isReturnCode ? i : nextIdx) - prevIdx));
                 item.BeginOnNewLine = nextReturn;
-                nextReturn = isReturnCode;
+                nextReturn = !_ignoreLineBreaks && isReturnCode;
 
                 ii++;
                 if (c is '\r'
@@ -165,7 +175,7 @@ public class TextElement_ : Drawable
 
                 prevIdx = i + 1;
 
-                if (isReturnCode && isLast)
+                if (!_ignoreLineBreaks && isReturnCode && isLast)
                 {
                     endWithNewLine = true;
                 }
@@ -175,7 +185,7 @@ public class TextElement_ : Drawable
         return ii;
     }
 
-    internal int CountLines()
+    internal int CountElements()
     {
         int count = 0;
         for (int i = 0; i < _text.Length; i++)
@@ -209,7 +219,7 @@ public class TextElement_ : Drawable
         _formattedText.Size = _size;
         _formattedText.Spacing = _spacing;
         _formattedText.Text = s;
-        _formattedText.Brush = Foreground;
+        _formattedText.Brush = Foreground ?? Brushes.Transparent;
 
         text = _formattedText;
     }
