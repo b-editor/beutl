@@ -1,9 +1,4 @@
-﻿
-using BenchmarkDotNet.Attributes;
-
-using BeUtl.Benchmarks.Media.TextFormatting;
-using BeUtl.Media;
-using BeUtl.Media.TextFormatting;
+﻿using BenchmarkDotNet.Attributes;
 
 [MemoryDiagnoser]
 public class FormattedTextBench
@@ -18,14 +13,14 @@ public class FormattedTextBench
     [Benchmark]
     public void Old()
     {
-        var tokenizer = new FormattedTextTokenizer(Str);
+        var tokenizer = new BeUtl.Benchmarks.Media.TextFormatting.FormattedTextTokenizer(Str);
         var tokens = tokenizer.Tokenize();
     }
 
     [Benchmark]
     public void New()
     {
-        var parser = new FormattedTextParser(Str);
+        var parser = new BeUtl.Media.TextFormatting.FormattedTextTokenizer(Str);
         var tokens = parser.Tokenize();
     }
 }
