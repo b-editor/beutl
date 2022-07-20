@@ -1,10 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Runtime.InteropServices;
 
 using BeUtl.Media;
+using BeUtl.Media.TextFormatting;
 
 using FormattedText = BeUtl.Media.TextFormatting.FormattedText_;
 
@@ -123,7 +120,13 @@ public class TextBlock : Drawable
     public string Text
     {
         get => _text;
-        set => SetAndRaise(TextProperty, ref _text, value);
+        set
+        {
+            if (SetAndRaise(TextProperty, ref _text, value))
+            {
+                OnUpdateText();
+            }
+        }
     }
 
     public Thickness Margin
@@ -177,6 +180,24 @@ public class TextBlock : Drawable
 
             prevBottom += lineBounds.Height;
         }
+    }
+
+    private void OnUpdateText()
+    {
+        var tokenizer = new FormattedTextTokenizer(_text)
+        {
+            ExperimentalVersion = true
+        };
+        tokenizer.Tokenize();
+        var options = new FormattedTextInfo(
+            Typeface: new Typeface(_fontFamily, _fontStyle, _fontWeight),
+            Size: _size,
+            Brush: Foreground ?? Brushes.Transparent,
+            Space: _spacing,
+            Margin: _margin);
+
+        TextElement_[] elements = FormattedTextParser.ToElements(options, CollectionsMarshal.AsSpan(tokenizer.Result));
+        Elements = new TextElements(elements);
     }
 
     private static Size MeasureLine(Span<FormattedText> items)
