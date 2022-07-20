@@ -209,6 +209,7 @@ public class TextElement_ : Drawable
         _formattedText.Size = _size;
         _formattedText.Spacing = _spacing;
         _formattedText.Text = s;
+        _formattedText.Brush = Foreground;
 
         text = _formattedText;
     }

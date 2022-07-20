@@ -73,35 +73,17 @@ public struct FormattedText_ : IEquatable<FormattedText_>
 
     public bool BeginOnNewLine { get; set; } = false;
 
+    public IBrush Brush { get; set; } = Brushes.Transparent;
+
     public Thickness Margin { get; set; } = new();
 
     public FontMetrics Metrics => MeasureAndSetField().Metrics;
 
     public Size Bounds => MeasureAndSetField().Bounds;
 
-    public override bool Equals(object? obj)
-    {
-        return obj is FormattedText_ text && Equals(text);
-    }
-
-    public bool Equals(FormattedText_ other)
-    {
-        return _weight == other._weight
-            && _style == other._style
-            && _font.Equals(other._font)
-            && _size == other._size
-            && _spacing == other._spacing
-            && _text == other._text;
-    }
-
-    public override int GetHashCode()
-    {
-        return HashCode.Combine(_weight, _style, _font, _size, _spacing, _text);
-    }
-
     private (FontMetrics, Size) Measure()
     {
-        using SKTypeface typeface = new Typeface(Font, Style, Weight).ToSkia();
+        SKTypeface typeface = new Typeface(Font, Style, Weight).ToSkia();
         using SKPaint paint = new()
         {
             TextSize = Size,
@@ -134,6 +116,31 @@ public struct FormattedText_ : IEquatable<FormattedText_>
         }
 
         return (_metrics, _bounds);
+    }
+
+    public override bool Equals(object? obj)
+    {
+        return obj is FormattedText_ text && Equals(text);
+    }
+
+    public bool Equals(FormattedText_ other)
+    {
+        return Weight == other.Weight && Style == other.Style && Font.Equals(other.Font) && Size == other.Size && Spacing == other.Spacing && Text.Equals(other.Text) && BeginOnNewLine == other.BeginOnNewLine && EqualityComparer<IBrush>.Default.Equals(Brush, other.Brush) && Margin.Equals(other.Margin);
+    }
+
+    public override int GetHashCode()
+    {
+        HashCode hash = new HashCode();
+        hash.Add(Weight);
+        hash.Add(Style);
+        hash.Add(Font);
+        hash.Add(Size);
+        hash.Add(Spacing);
+        hash.Add(Text);
+        hash.Add(BeginOnNewLine);
+        hash.Add(Brush);
+        hash.Add(Margin);
+        return hash.ToHashCode();
     }
 
     public static bool operator ==(FormattedText_ left, FormattedText_ right) => left.Equals(right);

@@ -172,7 +172,8 @@ public class TextBlock : Drawable
                     canvas.Translate(new(prevRight, 0));
                     Size elementBounds = item.Bounds;
 
-                    canvas.DrawText(item);
+                    using (canvas.PushForeground(item.Brush))
+                        canvas.DrawText(item);
 
                     prevRight = elementBounds.Width + item.Margin.Right;
                 }

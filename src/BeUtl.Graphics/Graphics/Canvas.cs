@@ -185,7 +185,7 @@ public class Canvas : ICanvas
         _sharedPaint.Reset();
 
         var typeface = new Typeface(text.Font, text.Style, text.Weight);
-        using SKTypeface sktypeface = typeface.ToSkia();
+        SKTypeface sktypeface = typeface.ToSkia();
         ConfigurePaint(_sharedPaint, text.Bounds);
         _sharedPaint.TextSize = text.Size;
         _sharedPaint.Typeface = sktypeface;
