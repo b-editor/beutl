@@ -107,7 +107,7 @@ public class TextElements : IReadOnlyList<TextElement>
             while (index < _arrayCount)
             {
                 ref FormattedText item = ref _array[index];
-                if (item.BeginOnNewLine || index + 1 >= _arrayCount)
+                if (item.BeginOnNewLine/* || index + 1 >= _arrayCount*/)
                 {
                     break;
                 }
@@ -120,7 +120,7 @@ public class TextElements : IReadOnlyList<TextElement>
             _count = index - _index;
             _prevIndex = index;
 
-            return index < _arrayCount;
+            return _index < _arrayCount;
         }
 
         public void Reset()
