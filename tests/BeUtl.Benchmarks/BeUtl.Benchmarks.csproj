@@ -20,4 +20,5 @@
     <ProjectReference Include="..\..\src\BeUtl.Operations\BeUtl.Operations.csproj" />
     <ProjectReference Include="..\..\src\BeUtl.ProjectSystem\BeUtl.ProjectSystem.csproj" />
   </ItemGroup>
+
 </Project>
