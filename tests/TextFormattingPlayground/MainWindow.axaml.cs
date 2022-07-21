@@ -5,6 +5,7 @@ using Avalonia.Media.Imaging;
 
 using BeUtl.Graphics;
 using BeUtl.Media.TextFormatting;
+using BeUtl.Media.TextFormatting.Compat;
 
 using Canvas = BeUtl.Graphics.Canvas;
 
@@ -27,7 +28,7 @@ public partial class MainWindow : Window
         try
         {
             await Task.Delay(500);
-            Draw(FormattedText.Parse(obj ?? string.Empty, FormattedTextInfo.Default with
+            Draw(BeUtl.Media.TextFormatting.Compat.FormattedText.Parse(obj ?? string.Empty, FormattedTextInfo.Default with
             {
                 Size = 70
             }));
@@ -38,7 +39,7 @@ public partial class MainWindow : Window
         }
     }
 
-    private unsafe void Draw(FormattedText text)
+    private unsafe void Draw(BeUtl.Media.TextFormatting.Compat.FormattedText text)
     {
         text.Measure(BeUtl.Graphics.Size.Empty);
         var bounds = text.Bounds;

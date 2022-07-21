@@ -2,13 +2,15 @@
 
 using BeUtl.Graphics;
 
-namespace BeUtl.Media.TextFormatting;
+namespace BeUtl.Media.TextFormatting.Compat;
 
+[Obsolete("Use TextBlock APIs.")]
 public sealed class TextElements : AffectsRenders<TextElement>
 {
 
 }
 
+[Obsolete("Use TextBlock APIs.")]
 public sealed class TextLine : Drawable, ILogicalElement
 {
     public static readonly CoreProperty<TextElements> ElementsProperty;

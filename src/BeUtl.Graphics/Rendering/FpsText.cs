@@ -1,5 +1,5 @@
 ﻿using BeUtl.Graphics;
-using BeUtl.Media.TextFormatting;
+using BeUtl.Graphics.Shapes;
 
 namespace BeUtl.Rendering;
 
@@ -13,43 +13,19 @@ internal sealed class FpsText
     private readonly TextElement _minFpsText = new() { Size = 72 };
     private readonly TextElement _maxFpsText = new() { Size = 72 };
     private readonly TextElement _avgFpsText = new() { Size = 72 };
-    private readonly FormattedText _fpsFText;
+    private readonly TextBlock _fpsFText;
 
     public FpsText()
     {
-        _fpsFText = new FormattedText
+        _fpsFText = new TextBlock
         {
-            Lines =
+            Elements = new TextElements(new TextElement[]
             {
-                new TextLine()
-                {
-                    Elements =
-                    {
-                        _fpsText
-                    }
-                },
-                new TextLine()
-                {
-                    Elements =
-                    {
-                        _minFpsText
-                    }
-                },
-                new TextLine()
-                {
-                    Elements =
-                    {
-                        _maxFpsText
-                    }
-                },
-                new TextLine()
-                {
-                    Elements =
-                    {
-                        _avgFpsText
-                    }
-                }
-            }
+                _fpsText,
+                _minFpsText,
+                _maxFpsText,
+                _avgFpsText,
+            })
         };
     }
 
@@ -87,9 +63,9 @@ internal sealed class FpsText
                 _fpsText._prevFps = fps;
                 _fpsText._avgFps = (_fpsText._prevFps + fps) / 2;
 
-                _fpsText._fpsText.Text = $"{fps:N2} FPS";
-                _fpsText._minFpsText.Text = $"Min: {_fpsText._minFps:N2} FPS";
-                _fpsText._maxFpsText.Text = $"Max: {_fpsText._maxFps:N2} FPS";
+                _fpsText._fpsText.Text = $"{fps:N2} FPS\n";
+                _fpsText._minFpsText.Text = $"Min: {_fpsText._minFps:N2} FPS\n";
+                _fpsText._maxFpsText.Text = $"Max: {_fpsText._maxFps:N2} FPS\n";
                 _fpsText._avgFpsText.Text = $"Avg: {_fpsText._avgFps:N2} FPS";
 
                 _fpsText._fpsFText.Measure(_canvas.Size.ToSize(1));
