@@ -9,16 +9,7 @@ namespace BeUtl.Graphics.UnitTests;
 
 public class TextBlockTests
 {
-    [SetUp]
-    public void Setup()
-    {
-        _ = TypefaceProvider.Typeface();
-    }
-
-    [Test]
-    public void ParseAndDraw()
-    {
-        string str = @"<b>吾輩</b><size=70>は</size><#ff0000>猫</#><size=70>である。</size>
+    private const string Case1 = @"<b>吾輩</b><size=70>は</size><#ff0000>猫</#><size=70>である。</size>
 <i>名前</i><size=70>はまだ</size>無<size=70>い。</cspace>
 
 <single-line>
@@ -29,6 +20,19 @@ public class TextBlockTests
 
 <font='Roboto'>Roboto</font>
 <noparse><font='Noto Sans JP'><bold>Noto Sans</font></bold></noparse>";
+    private const string Case2 = "吾輩は猫である";
+
+    [SetUp]
+    public void Setup()
+    {
+        _ = TypefaceProvider.Typeface();
+    }
+
+    [Test]
+    [TestCase(Case1, 0)]
+    [TestCase(Case2, 1)]
+    public void ParseAndDraw(string str, int id)
+    {
         Typeface typeface = TypefaceProvider.Typeface();
         var tb = new TextBlock()
         {
@@ -51,6 +55,6 @@ public class TextBlockTests
 
         using Bitmap<Bgra8888> bmp = graphics.GetBitmap();
 
-        Assert.IsTrue(bmp.Save(Path.Combine(ArtifactProvider.GetArtifactDirectory(), "1.png"), EncodedImageFormat.Png));
+        Assert.IsTrue(bmp.Save(Path.Combine(ArtifactProvider.GetArtifactDirectory(), $"{id}.png"), EncodedImageFormat.Png));
     }
 }

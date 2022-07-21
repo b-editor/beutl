@@ -11,6 +11,7 @@ public static class RenderOperations
             .Add<Source.RectOperation>("S.Opearations.Source.Rect")
             .Add<Source.RoundedRectOperation>("S.Opearations.Source.RoundedRect")
             .Add<Source.FormattedTextOperation>("S.Opearations.Source.Text")
+            .Add<Source.TextBlockOperation>("S.Opearations.Source.Text")
             .Add<Source.ImageFileOperation>("S.Opearations.Source.ImageFile")
             .Register();
 
