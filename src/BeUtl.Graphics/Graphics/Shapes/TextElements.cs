@@ -2,14 +2,16 @@
 
 using System.Buffers;
 using System.Collections;
+using System.Text.Json.Nodes;
 
 using BeUtl.Media.TextFormatting;
 
 namespace BeUtl.Graphics.Shapes;
 
-public class TextElements : IReadOnlyList<TextElement>
+public class TextElements : IReadOnlyList<TextElement>, ILogicalElement
 {
     private readonly TextElement[] _array;
+    private ILogicalElement? _parent;
 
     public TextElements(IEnumerable<TextElement> items)
         : this(items.ToArray())
@@ -30,6 +32,22 @@ public class TextElements : IReadOnlyList<TextElement>
 
     public LineEnumerable Lines { get; }
 
+    ILogicalElement? ILogicalElement.LogicalParent => _parent;
+
+    IEnumerable<ILogicalElement> ILogicalElement.LogicalChildren => _array;
+
+    event EventHandler<LogicalTreeAttachmentEventArgs> ILogicalElement.AttachedToLogicalTree
+    {
+        add { }
+        remove { }
+    }
+
+    event EventHandler<LogicalTreeAttachmentEventArgs> ILogicalElement.DetachedFromLogicalTree
+    {
+        add { }
+        remove { }
+    }
+
     public IEnumerator<TextElement> GetEnumerator()
     {
         return ((IEnumerable<TextElement>)_array).GetEnumerator();
@@ -38,6 +56,24 @@ public class TextElements : IReadOnlyList<TextElement>
     IEnumerator IEnumerable.GetEnumerator()
     {
         return _array.GetEnumerator();
+    }
+
+    void ILogicalElement.NotifyAttachedToLogicalTree(in LogicalTreeAttachmentEventArgs e)
+    {
+        _parent = e.Parent;
+        foreach (TextElement item in _array)
+        {
+            (item as ILogicalElement).NotifyAttachedToLogicalTree(e);
+        }
+    }
+
+    void ILogicalElement.NotifyDetachedFromLogicalTree(in LogicalTreeAttachmentEventArgs e)
+    {
+        _parent = null;
+        foreach (TextElement item in _array)
+        {
+            (item as ILogicalElement).NotifyDetachedFromLogicalTree(e);
+        }
     }
 
     public readonly struct LineEnumerable
