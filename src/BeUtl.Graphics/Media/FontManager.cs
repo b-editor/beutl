@@ -1,7 +1,6 @@
 ﻿using System.Diagnostics;
 
 using BeUtl.Configuration;
-using BeUtl.Graphics;
 
 using SkiaSharp;
 
@@ -50,7 +49,13 @@ public sealed class FontManager
             .Where(dir => Directory.Exists(dir))
             .Select(dir => Directory.GetFiles(dir, "*.*", SearchOption.AllDirectories))
             .SelectMany(files => files)
-            .Where(file => Path.GetExtension(file) is ".ttf" or ".ttc" or ".otf"))
+            .Where(file =>
+            {
+                ReadOnlySpan<char> ext = Path.GetExtension(file.AsSpan());
+                return ext.Equals(".ttf", StringComparison.OrdinalIgnoreCase)
+                    || ext.Equals(".ttc", StringComparison.OrdinalIgnoreCase)
+                    || ext.Equals(".otf", StringComparison.OrdinalIgnoreCase);
+            }))
         {
             SKTypeface? face = LoadFont(file);
 
