@@ -10,6 +10,7 @@ public class OperatorsRegistrar
             .Add<Source.EllipseOperator>("S.Opearations.Source.Ellipse")
             .Add<Source.RectOperator>("S.Opearations.Source.Rect")
             .Add<Source.RoundedRectOperation>("S.Opearations.Source.RoundedRect")
+            .Add<Source.TextBlockOperator>("S.Opearations.Source.Text")
             .Register();
 
         OperatorRegistry.RegisterOperations("S.Opearations.Configure")
