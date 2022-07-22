@@ -45,6 +45,7 @@ public abstract class Drawable : Renderable, IDrawable, ILogicalElement
             .Accessor(o => o.Width, (o, v) => o.Width = v)
             .PropertyFlags(PropertyFlags.KnownFlags_1)
             .DefaultValue(0)
+            .Minimum(0)
             .SerializeName("width")
             .Register();
 
@@ -52,6 +53,7 @@ public abstract class Drawable : Renderable, IDrawable, ILogicalElement
             .Accessor(o => o.Height, (o, v) => o.Height = v)
             .PropertyFlags(PropertyFlags.KnownFlags_1)
             .DefaultValue(0)
+            .Minimum(0)
             .SerializeName("height")
             .Register();
 

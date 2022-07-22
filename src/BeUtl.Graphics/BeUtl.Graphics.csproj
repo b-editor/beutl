@@ -7,6 +7,20 @@
     <ProjectReference Include="..\BeUtl.Configuration\BeUtl.Configuration.csproj" />
     <ProjectReference Include="..\BeUtl.Threading\BeUtl.Threading.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <None Update="Validation\RangeValidatorGen.tt">
+      <Generator>TextTemplatingFileGenerator</Generator>
+      <LastGenOutput>RangeValidatorGen.cs</LastGenOutput>
+    </None>
+    <Compile Update="Validation\RangeValidatorGen.cs">
+      <DesignTime>True</DesignTime>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>RangeValidatorGen.tt</DependentUpon>
+    </Compile>
+  </ItemGroup>
+  <ItemGroup>
+    <Service Include="{508349b6-6b84-4df5-91f0-309beebad82d}" />
+  </ItemGroup>
   <Import Project="$(RootDirectory)\build\props\OpenCvSharp4.props" />
   <Import Project="$(RootDirectory)\build\props\SkiaSharp.props" />
 </Project>

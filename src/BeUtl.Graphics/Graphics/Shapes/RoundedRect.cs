@@ -16,6 +16,7 @@ public sealed class RoundedRect : Drawable
             .Accessor(o => o.StrokeWidth, (o, v) => o.StrokeWidth = v)
             .PropertyFlags(PropertyFlags.KnownFlags_1)
             .DefaultValue(4000)
+            .Minimum(0)
             .SerializeName("stroke-width")
             .Register();
 
@@ -23,6 +24,7 @@ public sealed class RoundedRect : Drawable
             .Accessor(o => o.CornerRadius, (o, v) => o.CornerRadius = v)
             .PropertyFlags(PropertyFlags.KnownFlags_1)
             .DefaultValue(new CornerRadius())
+            .Minimum(new CornerRadius())
             .SerializeName("corner-radius")
             .Register();
 

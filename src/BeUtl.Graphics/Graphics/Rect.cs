@@ -3,6 +3,7 @@ using System.Text.Json.Serialization;
 
 using BeUtl.Converters;
 using BeUtl.Utilities;
+using BeUtl.Validation;
 
 namespace BeUtl.Graphics;
 
@@ -10,6 +11,7 @@ namespace BeUtl.Graphics;
 /// Defines a rectangle.
 /// </summary>
 [JsonConverter(typeof(RectJsonConverter))]
+[RangeValidatable(typeof(RectRangeValidator))]
 public readonly struct Rect : IEquatable<Rect>
 {
     /// <summary>

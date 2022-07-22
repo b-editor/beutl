@@ -4,6 +4,7 @@ using System.Text.Json.Serialization;
 using BeUtl.Converters;
 using BeUtl.Graphics;
 using BeUtl.Utilities;
+using BeUtl.Validation;
 
 namespace BeUtl.Media;
 
@@ -11,6 +12,7 @@ namespace BeUtl.Media;
 /// Represents a rectangle in device pixels.
 /// </summary>
 [JsonConverter(typeof(PixelRectJsonConverter))]
+[RangeValidatable(typeof(PixelRectRangeValidator))]
 public readonly struct PixelRect : IEquatable<PixelRect>
 {
     /// <summary>

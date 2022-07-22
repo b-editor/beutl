@@ -52,6 +52,7 @@ public class TextBlock : Drawable
             .Accessor(o => o.Size, (o, v) => o.Size = v)
             .PropertyFlags(PropertyFlags.KnownFlags_1)
             .DefaultValue(0)
+            .Minimum(0)
             .SerializeName("size")
             .Register();
 

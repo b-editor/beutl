@@ -147,6 +147,84 @@ public sealed class CorePropertyBuilder<T, TOwner> : ICorePropertyBuilder<T>
         return this;
     }
 
+    public CorePropertyBuilder<T, TOwner> Minimum<TValidator>(T min, bool merge = false)
+        where TValidator : RangeValidator<T>, new()
+    {
+        IValidator<T> validator = new TValidator
+        {
+            Minimum = min
+        };
+
+        if (merge && _metadata.Validator != null)
+        {
+            validator = new LinkedValidator(_metadata.Validator, validator);
+        }
+        _metadata = _metadata with
+        {
+            Validator = validator
+        };
+        return this;
+    }
+
+    public CorePropertyBuilder<T, TOwner> Minimum(T min, bool merge = false)
+    {
+        if (Activator.CreateInstance(RangeValidationService.Instance.Get<T>()) is RangeValidator<T> validator1)
+        {
+            validator1.Minimum = min;
+
+            IValidator<T> validator2 = validator1;
+            if (merge && _metadata.Validator != null)
+            {
+                validator2 = new LinkedValidator(_metadata.Validator, validator1);
+            }
+            _metadata = _metadata with
+            {
+                Validator = validator2
+            };
+        }
+
+        return this;
+    }
+    
+    public CorePropertyBuilder<T, TOwner> Maximum<TValidator>(T max, bool merge = false)
+        where TValidator : RangeValidator<T>, new()
+    {
+        IValidator<T> validator = new TValidator
+        {
+            Maximum = max
+        };
+
+        if (merge && _metadata.Validator != null)
+        {
+            validator = new LinkedValidator(_metadata.Validator, validator);
+        }
+        _metadata = _metadata with
+        {
+            Validator = validator
+        };
+        return this;
+    }
+
+    public CorePropertyBuilder<T, TOwner> Maximum(T max, bool merge = false)
+    {
+        if (Activator.CreateInstance(RangeValidationService.Instance.Get<T>()) is RangeValidator<T> validator1)
+        {
+            validator1.Maximum = max;
+
+            IValidator<T> validator2 = validator1;
+            if (merge && _metadata.Validator != null)
+            {
+                validator2 = new LinkedValidator(_metadata.Validator, validator1);
+            }
+            _metadata = _metadata with
+            {
+                Validator = validator2
+            };
+        }
+
+        return this;
+    }
+
     public CorePropertyBuilder<T, TOwner> Validator(IValidator<T> validator, bool merge = false)
     {
         if (merge && _metadata.Validator != null)
