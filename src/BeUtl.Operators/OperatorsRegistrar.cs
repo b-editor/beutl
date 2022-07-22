@@ -11,6 +11,7 @@ public class OperatorsRegistrar
             .Add<Source.RectOperator>("S.Opearations.Source.Rect")
             .Add<Source.RoundedRectOperation>("S.Opearations.Source.RoundedRect")
             .Add<Source.TextBlockOperator>("S.Opearations.Source.Text")
+            .Add<Source.ImageFileOperator>("S.Opearations.Source.ImageFile")
             .Register();
 
         OperatorRegistry.RegisterOperations("S.Opearations.Configure")
