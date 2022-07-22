@@ -66,8 +66,10 @@ public abstract class Animatable : Element
                 }
             }
 
-            jobject["animations"] = animations;
+            if (animations.Count > 0)
+            {
+                jobject["animations"] = animations;
+            }
         }
     }
-
 }
