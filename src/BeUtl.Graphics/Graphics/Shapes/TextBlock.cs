@@ -1,4 +1,5 @@
 ﻿using System.Runtime.InteropServices;
+using System.Text.Json.Nodes;
 
 using BeUtl.Media;
 using BeUtl.Media.TextFormatting;
@@ -79,7 +80,6 @@ public class TextBlock : Drawable
             .Accessor(o => o.Elements, (o, v) => o.Elements = v)
             .PropertyFlags(PropertyFlags.KnownFlags_1)
             .DefaultValue(TextElements.Empty)
-            .SerializeName("elements")
             .Register();
 
         AffectsRender<TextBlock>(ElementsProperty);
@@ -137,6 +137,45 @@ public class TextBlock : Drawable
     {
         get => _elements;
         set => SetAndRaise(ElementsProperty, ref _elements, value);
+    }
+
+    public override void ReadFromJson(JsonNode json)
+    {
+        base.ReadFromJson(json);
+        if (json is JsonObject jobj
+            && jobj.TryGetPropertyValue("elements", out JsonNode? elmsNode)
+            && elmsNode is JsonArray elnsArray)
+        {
+            var array = new TextElement[elnsArray.Count];
+            for (int i = 0; i < elnsArray.Count; i++)
+            {
+                if (elnsArray[i] is JsonNode elmNode)
+                {
+                    var elm = new TextElement();
+                    elm.ReadFromJson(elmNode);
+                    array[i] = elm;
+                }
+            }
+
+            Elements = new TextElements(array);
+        }
+    }
+
+    public override void WriteToJson(ref JsonNode json)
+    {
+        base.WriteToJson(ref json);
+        if(json is JsonObject jobj)
+        {
+            var array = new JsonArray(_elements.Count);
+            for (int i = 0; i < _elements.Count; i++)
+            {
+                JsonNode node = new JsonObject();
+                _elements[i].WriteToJson(ref node);
+                array[i] = node;
+            }
+
+            jobj["elements"] = array;
+        }
     }
 
     protected override Size MeasureCore(Size availableSize)
