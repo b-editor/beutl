@@ -299,36 +299,7 @@ public abstract class CoreObject : ICoreObject
                 string? jsonName = metadata.SerializeName;
                 if (jsonName != null)
                 {
-                    object? obj = GetValue(item);
-                    object? def = metadata.GetDefaultValue();
-
-                    // デフォルトの値と取得した値が同じ場合、保存しない
-                    if (RuntimeHelpers.Equals(def, obj))
-                    {
-                        jsonObject.Remove(jsonName);
-                        continue;
-                    }
-
-                    if (obj is IJsonSerializable child)
-                    {
-                        if (!jsonObject.TryGetPropertyValue(jsonName, out JsonNode? jsonNode))
-                        {
-                            jsonNode = new JsonObject();
-                        }
-                        child.WriteToJson(ref jsonNode!);
-
-                        var objType = obj.GetType();
-                        if (objType != item.PropertyType && jsonNode is JsonObject)
-                        {
-                            jsonNode["@type"] = TypeFormat.ToString(objType);
-                        }
-
-                        jsonObject[jsonName] = jsonNode;
-                    }
-                    else
-                    {
-                        jsonObject[jsonName] = JsonSerializer.SerializeToNode(obj, item.PropertyType, JsonHelper.SerializerOptions);
-                    }
+                    jsonObject[jsonName] = item.RouteWriteToJson(this, GetValue(item));
                 }
             }
         }
@@ -346,42 +317,14 @@ public abstract class CoreObject : ICoreObject
                 CoreProperty item = list[i];
                 CorePropertyMetadata metadata = item.GetMetadata<CorePropertyMetadata>(ownerType);
                 string? jsonName = metadata.SerializeName;
-                Type type = item.PropertyType;
 
                 if (jsonName != null
                     && obj.TryGetPropertyValue(jsonName, out JsonNode? jsonNode)
                     && jsonNode != null)
                 {
-                    if (jsonNode is JsonObject jsonObject
-                        && jsonObject.TryGetPropertyValue("@type", out JsonNode? atTypeNode)
-                        && atTypeNode is JsonValue atTypeValue
-                        && atTypeValue.TryGetValue(out string? atTypeStr)
-                        && TypeFormat.ToType(atTypeStr) is Type realType
-                        && realType.IsAssignableTo(typeof(IJsonSerializable)))
+                    if (item.RouteReadFromJson(this, jsonNode) is { } value)
                     {
-                        var sobj = (IJsonSerializable?)Activator.CreateInstance(realType);
-                        if (sobj != null)
-                        {
-                            sobj.ReadFromJson(jsonNode!);
-                            SetValue(item, sobj);
-                        }
-                    }
-                    else if (type.IsAssignableTo(typeof(IJsonSerializable)))
-                    {
-                        var sobj = (IJsonSerializable?)Activator.CreateInstance(type);
-                        if (sobj != null)
-                        {
-                            sobj.ReadFromJson(jsonNode!);
-                            SetValue(item, sobj);
-                        }
-                    }
-                    else
-                    {
-                        object? value = JsonSerializer.Deserialize(jsonNode, type, JsonHelper.SerializerOptions);
-                        if (value != null)
-                        {
-                            SetValue(item, value);
-                        }
+                        SetValue(item, value);
                     }
                 }
             }
@@ -412,6 +355,12 @@ public abstract class CoreObject : ICoreObject
 
     protected bool SetAndRaise<T>(CoreProperty<T> property, ref T field, T value)
     {
+        CorePropertyMetadata<T>? metadata = property.GetMetadata<CorePropertyMetadata<T>>(GetType());
+        if (metadata.Validator != null)
+        {
+            value = metadata.Validator.Coerce(this, value);
+        }
+
         bool result = true;
         if (BatchUpdate)
         {
@@ -446,14 +395,12 @@ public abstract class CoreObject : ICoreObject
 
                 if (result)
                 {
-                    CorePropertyMetadata<T>? metadata = property.GetMetadata<CorePropertyMetadata<T>>(GetType());
                     RaisePropertyChanged(property, metadata!, value, entryT.OldValue);
                 }
             }
         }
         else if (!EqualityComparer<T>.Default.Equals(field, value))
         {
-            CorePropertyMetadata metadata = property.GetMetadata<CorePropertyMetadata>(GetType());
             T old = field;
             field = value;
 
