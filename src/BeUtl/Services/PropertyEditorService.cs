@@ -1,5 +1,7 @@
 ﻿using System.Collections;
 using System.Numerics;
+using System.Runtime.InteropServices;
+using System.Text;
 
 using Avalonia.Controls;
 
@@ -21,6 +23,11 @@ public static class PropertyEditorService
     private record struct Editor(Func<IWrappedProperty, Control?> CreateEditor, Func<IWrappedProperty, BaseEditorViewModel?> CreateViewModel);
 
     private record struct AnimationEditor(Func<object?, Control?> CreateEditor, Func<IAnimationSpan, EditorViewModelDescription, ITimelineOptionsProvider, object?> CreateViewModel);
+
+    private static readonly Dictionary<int, Editor> s_editorsOverride = new()
+    {
+        { Brush.OpacityProperty.Id, new(_ => new OpacityEditor(), s => new OpacityEditorViewModel(s.ToTyped<float>())) }
+    };
 
     private static readonly Dictionary<Type, Editor> s_editors = new()
     {
@@ -98,9 +105,13 @@ public static class PropertyEditorService
 
     public static Control? CreateEditor(IWrappedProperty property)
     {
-        if (s_editors.ContainsKey(property.AssociatedProperty.PropertyType))
+        if (s_editorsOverride.TryGetValue(property.AssociatedProperty.Id, out Editor editorOverrided))
         {
-            Editor editor = s_editors[property.AssociatedProperty.PropertyType];
+            return editorOverrided.CreateEditor(property);
+        }
+
+        if (s_editors.TryGetValue(property.AssociatedProperty.PropertyType, out Editor editor))
+        {
             return editor.CreateEditor(property);
         }
 
@@ -117,9 +128,13 @@ public static class PropertyEditorService
 
     public static BaseEditorViewModel? CreateEditorViewModel(IWrappedProperty property)
     {
-        if (s_editors.ContainsKey(property.AssociatedProperty.PropertyType))
+        if (s_editorsOverride.TryGetValue(property.AssociatedProperty.Id, out Editor editorOverrided))
         {
-            Editor editor = s_editors[property.AssociatedProperty.PropertyType];
+            return editorOverrided.CreateViewModel(property);
+        }
+
+        if (s_editors.TryGetValue(property.AssociatedProperty.PropertyType, out Editor editor))
+        {
             return editor.CreateViewModel(property);
         }
 

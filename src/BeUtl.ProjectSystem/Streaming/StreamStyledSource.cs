@@ -105,6 +105,10 @@ public record SetterDescription<T>(CoreProperty<T> Property) : ISetterDescriptio
             StreamOperator = streamOperator;
         }
 
+        // Todo: SetterDescriptionを廃止したい
+        //       -> SetterDescriptionの存在理由はValidation, Formatter, Parser, HeaderなのでそれをCorePropertyに移行する。
+        //          -> Header以外は移行できた
+        //             -> Headerの設定は表示言語の拡張機能を作ってからにする。
         public SetterDescription<T> Description { get; }
 
         public StreamOperator StreamOperator { get; }
