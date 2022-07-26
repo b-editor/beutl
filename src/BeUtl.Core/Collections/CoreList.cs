@@ -34,13 +34,13 @@ public class CoreList<T> : ICoreList<T>
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
+    public event Action<T>? Attached;
+
+    public event Action<T>? Detached;
+
     public int Count => Inner.Count;
 
     public ResetBehavior ResetBehavior { get; set; }
-
-    public Action<T>? Attached { get; init; }
-
-    public Action<T>? Detached { get; init; }
 
     protected List<T> Inner { get; }
 
@@ -65,8 +65,8 @@ public class CoreList<T> : ICoreList<T>
 
             if (!EqualityComparer<T>.Default.Equals(old, value))
             {
-                Attached?.Invoke(value);
                 Detached?.Invoke(old);
+                Attached?.Invoke(value);
                 Inner[index] = value;
 
                 CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(
@@ -158,22 +158,16 @@ public class CoreList<T> : ICoreList<T>
         if (!AreEquals(oldItems, source))
         {
             Inner.Clear();
-            if (Detached != null)
+            foreach (T? item in oldItems)
             {
-                foreach (T? item in oldItems)
-                {
-                    Detached(item);
-                }
+                Detached?.Invoke(item);
             }
 
             Inner.AddRange(source);
 
-            if (Attached != null)
+            foreach (T? item in AsSpan())
             {
-                foreach (T? item in AsSpan())
-                {
-                    Attached(item);
-                }
+                Attached?.Invoke(item);
             }
 
             CollectionChanged?.Invoke(this, new NotifyCollectionChangedEventArgs(
@@ -500,14 +494,11 @@ public class CoreList<T> : ICoreList<T>
 
     private void NotifyAdd(IList t, int index)
     {
-        if (Attached != null)
+        for (int i = 0; i < t.Count; i++)
         {
-            for (int i = 0; i < t.Count; i++)
+            if (t[i] is T item)
             {
-                if (t[i] is T item)
-                {
-                    Attached(item);
-                }
+                Attached?.Invoke(item);
             }
         }
 
@@ -540,14 +531,11 @@ public class CoreList<T> : ICoreList<T>
 
     private void NotifyRemove(IList t, int index)
     {
-        if (Detached != null)
+        for (int i = 0; i < t.Count; i++)
         {
-            for (int i = 0; i < t.Count; i++)
+            if (t[i] is T item)
             {
-                if (t[i] is T item)
-                {
-                    Detached(item);
-                }
+                Detached?.Invoke(item);
             }
         }
 

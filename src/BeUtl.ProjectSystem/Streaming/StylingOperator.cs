@@ -50,7 +50,7 @@ public abstract class StylingOperator : StreamOperator
                     if (setter is ISetterDescription.IInternalSetter setter1
                         && style.Setters.FirstOrDefault(x => x.Property.Id == setter.Property.Id) is ISetter setter2)
                     {
-                        setter1.Synchronize(setter2);
+                        setter1.MigrateFrom(setter2);
                     }
                 }
 

@@ -203,11 +203,11 @@ public sealed class MainViewModel
                 SceneWorkspaceItemExtension.Instance,
                 TimelineTabExtension.Instance,
                 AnimationTimelineTabExtension.Instance,
-                OperationsTabExtension.Instance,
                 ObjectPropertyTabExtension.Instance,
                 StyleEditorTabExtension.Instance,
                 StreamOperatorsTabExtension.Instance,
                 EasingsTabExtension.Instance,
+                AnimationTabExtension.Instance,
             });
 
             manager.LoadPackages(manager.GetPackageInfos());

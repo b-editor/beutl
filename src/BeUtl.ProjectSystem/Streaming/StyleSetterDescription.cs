@@ -32,7 +32,7 @@ public record StyleSetterDescription<T>(CoreProperty<T> Property, Style DefaultV
 
         ISetterDescription ISetterDescription.IInternalSetter.Description => Description;
 
-        public void Synchronize(ISetter setter)
+        public void MigrateFrom(ISetter setter)
         {
             if (setter is StyleSetter<T> typed)
             {

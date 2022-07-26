@@ -44,14 +44,7 @@ internal sealed class SceneRenderer : ImmediateRenderer/*DeferredRenderer*/
 
         foreach (Layer layer in layers)
         {
-            if (layer.Operators.Count > 0)
-            {
-                Render_StreamOperators(layer);
-            }
-            else
-            {
-                Render_LayerOperations(layer);
-            }
+            Render_StreamOperators(layer);
         }
 
         foreach (Layer item in end)
@@ -67,38 +60,6 @@ internal sealed class SceneRenderer : ImmediateRenderer/*DeferredRenderer*/
 
         base.RenderCore(timeSpan);
         _recentTime = timeSpan;
-    }
-
-    private void Render_LayerOperations(Layer layer)
-    {
-        LayerNode? node = layer.Node;
-        var args = new OperationRenderArgs(this)
-        {
-            Result = node.Value
-        };
-        Renderable? prevResult = args.Result;
-        prevResult?.BeginBatchUpdate();
-
-        foreach (LayerOperation? item in layer.Children.AsSpan())
-        {
-            item.Render(ref args);
-            if (prevResult != args.Result)
-            {
-                // Resultが変更された
-                prevResult?.EndBatchUpdate();
-                args.Result?.BeginBatchUpdate();
-                prevResult = args.Result;
-            }
-        }
-
-        node.Value = args.Result;
-        node.Value?.ApplyStyling(Clock);
-
-        if (prevResult != null)
-        {
-            prevResult.IsVisible = layer.IsEnabled;
-        }
-        node.Value?.EndBatchUpdate();
     }
 
     private void Render_StreamOperators(Layer layer)

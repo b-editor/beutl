@@ -31,7 +31,7 @@ public sealed partial class StreamOperatorsEditor : UserControl
                     for (; index < viewModel.Items.Count; index++)
                     {
                         StylingOperatorEditorViewModel? item = viewModel.Items[index];
-                        if (ReferenceEquals(item.Model, obj))
+                        if (ReferenceEquals(item?.Model, obj))
                         {
                             found = true;
                             break;

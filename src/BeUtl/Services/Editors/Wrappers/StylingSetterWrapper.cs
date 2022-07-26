@@ -31,22 +31,15 @@ public sealed class StylingSetterWrapper<T> : IWrappedProperty<T>.IAnimatable, I
 
     public IObservable<string> Header { get; }
 
-    public IObservableList<AnimationSpan<T>> Animations
+    public IObservableList<AnimationSpan<T>> Animations => Animation.Children;
+
+    public Animation<T> Animation
     {
         get
         {
             var setter = (Setter<T>)Tag;
             setter.Animation ??= new Animation<T>(AssociatedProperty);
-            return setter.Animation.Children;
-        }
-    }
-
-    IReadOnlyList<IAnimationSpan> IWrappedProperty.IAnimatable.Animations
-    {
-        get
-        {
-            _ = Animations;
-            return ((ISetter)Tag).Animation!.Children;
+            return setter.Animation;
         }
     }
 
@@ -63,20 +56,5 @@ public sealed class StylingSetterWrapper<T> : IWrappedProperty<T>.IAnimatable, I
     public void SetValue(T? value)
     {
         ((Setter<T>)Tag).Value = value;
-    }
-
-    public void AddAnimation(IAnimationSpan animation)
-    {
-        Animations.Add((AnimationSpan<T>)animation);
-    }
-
-    public void InsertAnimation(int index, IAnimationSpan animation)
-    {
-        Animations.Insert(index, (AnimationSpan<T>)animation);
-    }
-
-    public void RemoveAnimation(IAnimationSpan animation)
-    {
-        Animations.Remove((AnimationSpan<T>)animation);
     }
 }

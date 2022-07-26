@@ -19,7 +19,6 @@ public class Layer : Element, IStorable, ILogicalElement
     public static readonly CoreProperty<Color> AccentColorProperty;
     public static readonly CoreProperty<bool> IsEnabledProperty;
     public static readonly CoreProperty<LayerNode> NodeProperty;
-    public static readonly CoreProperty<LogicalList<LayerOperation>> ChildrenProperty;
     public static readonly CoreProperty<LogicalList<StreamOperator>> OperatorsProperty;
     private TimeSpan _start;
     private TimeSpan _length;
@@ -66,10 +65,6 @@ public class Layer : Element, IStorable, ILogicalElement
         NodeProperty = ConfigureProperty<LayerNode, Layer>(nameof(Node))
             .Accessor(o => o.Node, null)
             .Observability(PropertyObservability.Changed)
-            .Register();
-
-        ChildrenProperty = ConfigureProperty<LogicalList<LayerOperation>, Layer>(nameof(Children))
-            .Accessor(o => o.Children, null)
             .Register();
 
         OperatorsProperty = ConfigureProperty<LogicalList<StreamOperator>, Layer>(nameof(Operators))
@@ -134,7 +129,6 @@ public class Layer : Element, IStorable, ILogicalElement
 
     public Layer()
     {
-        Children = new LogicalList<LayerOperation>(this);
         Operators = new LogicalList<StreamOperator>(this);
     }
 
@@ -203,11 +197,9 @@ public class Layer : Element, IStorable, ILogicalElement
 
     public DateTime LastSavedTime { get; private set; }
 
-    public LogicalList<LayerOperation> Children { get; }
-
     public LogicalList<StreamOperator> Operators { get; }
 
-    IEnumerable<ILogicalElement> ILogicalElement.LogicalChildren => Children.Concat<ILogicalElement>(Operators);
+    IEnumerable<ILogicalElement> ILogicalElement.LogicalChildren => Operators;
 
     public void Save(string filename)
     {
@@ -254,30 +246,6 @@ public class Layer : Element, IStorable, ILogicalElement
                 Node.Value = renderable;
             }
 
-            if (jobject.TryGetPropertyValue("operations", out JsonNode? operationsNode)
-                && operationsNode is JsonArray operationsArray)
-            {
-                foreach (JsonObject operationJson in operationsArray.OfType<JsonObject>())
-                {
-                    if (operationJson.TryGetPropertyValue("@type", out JsonNode? atTypeNode)
-                        && atTypeNode is JsonValue atTypeValue
-                        && atTypeValue.TryGetValue(out string? atType))
-                    {
-                        var type = TypeFormat.ToType(atType);
-                        LayerOperation? operation = null;
-
-                        if (type?.IsAssignableTo(typeof(LayerOperation)) ?? false)
-                        {
-                            operation = Activator.CreateInstance(type) as LayerOperation;
-                        }
-
-                        operation ??= new EmptyOperation();
-                        operation.ReadFromJson(operationJson);
-                        Children.Add(operation);
-                    }
-                }
-            }
-
             if (jobject.TryGetPropertyValue("operators", out JsonNode? operatorsNode)
                 && operatorsNode is JsonArray operatorsArray)
             {
@@ -318,26 +286,6 @@ public class Layer : Element, IStorable, ILogicalElement
                 jobject["renderable"] = node;
             }
 
-            Span<LayerOperation> children = Children.AsSpan();
-            if (children.Length > 0)
-            {
-                var array = new JsonArray();
-
-                foreach (LayerOperation item in children)
-                {
-                    JsonNode node = new JsonObject();
-                    item.WriteToJson(ref node);
-                    if (item is not EmptyOperation)
-                    {
-                        node["@type"] = TypeFormat.ToString(item.GetType());
-                    }
-
-                    array.Add(node);
-                }
-
-                jobject["operations"] = array;
-            }
-
             Span<StreamOperator> operators = Operators.AsSpan();
             if (operators.Length > 0)
             {
@@ -355,27 +303,6 @@ public class Layer : Element, IStorable, ILogicalElement
                 jobject["operators"] = array;
             }
         }
-    }
-
-    public IRecordableCommand AddChild(LayerOperation operation)
-    {
-        ArgumentNullException.ThrowIfNull(operation);
-
-        return new AddCommand<LayerOperation>(Children, operation, Children.Count);
-    }
-
-    public IRecordableCommand RemoveChild(LayerOperation operation)
-    {
-        ArgumentNullException.ThrowIfNull(operation);
-
-        return new RemoveCommand<LayerOperation>(Children, operation);
-    }
-
-    public IRecordableCommand InsertChild(int index, LayerOperation operation)
-    {
-        ArgumentNullException.ThrowIfNull(operation);
-
-        return new AddCommand<LayerOperation>(Children, operation, index);
     }
 
     public IRecordableCommand AddChild(StreamOperator @operator)

@@ -78,15 +78,15 @@ public abstract class AnimationEditorViewModel : IDisposable
 
     public void Move(int newIndex, int oldIndex)
     {
-        if (WrappedProperty.Animations is IList list)
+        if (WrappedProperty.Animation.Children is IList list)
         {
-            CommandRecorder.Default.PushOnly(new MoveCommand(list, newIndex, oldIndex));
+            new MoveCommand(list, newIndex, oldIndex).DoAndRecord(CommandRecorder.Default);
         }
     }
 
     public void InsertForward(Easing easing)
     {
-        if (WrappedProperty.Animations is IList list)
+        if (WrappedProperty.Animation.Children is IList list)
         {
             int index = list.IndexOf(Animation);
             Type type = typeof(AnimationSpan<>).MakeGenericType(WrappedProperty.AssociatedProperty.PropertyType);
@@ -110,7 +110,7 @@ public abstract class AnimationEditorViewModel : IDisposable
 
     public void InsertBackward(Easing easing)
     {
-        if (WrappedProperty.Animations is IList list)
+        if (WrappedProperty.Animation.Children is IList list)
         {
             int index = list.IndexOf(Animation);
             Type type = typeof(AnimationSpan<>).MakeGenericType(WrappedProperty.AssociatedProperty.PropertyType);
@@ -144,7 +144,7 @@ public abstract class AnimationEditorViewModel : IDisposable
 
     private void InsertItem(int index, IAnimationSpan item)
     {
-        if (WrappedProperty.Animations is IList list)
+        if (WrappedProperty.Animation.Children is IList list)
         {
             new AddCommand(list, item, index).DoAndRecord(CommandRecorder.Default);
         }
@@ -152,7 +152,7 @@ public abstract class AnimationEditorViewModel : IDisposable
 
     private void RemoveItem()
     {
-        if (WrappedProperty.Animations is IList list)
+        if (WrappedProperty.Animation.Children is IList list)
         {
             new RemoveCommand(list, Animation).DoAndRecord(CommandRecorder.Default);
         }
@@ -165,7 +165,6 @@ public abstract class AnimationEditorViewModel : IDisposable
 }
 
 public class AnimationEditorViewModel<T> : AnimationEditorViewModel
-    where T : struct
 {
     public AnimationEditorViewModel(AnimationSpan<T> animation, EditorViewModelDescription description, ITimelineOptionsProvider optionsProvider)
         : base(animation, description, optionsProvider)
@@ -180,38 +179,4 @@ public class AnimationEditorViewModel<T> : AnimationEditorViewModel
     public new AnimationSpan<T> Animation => (AnimationSpan<T>)base.Animation;
 
     public new IWrappedProperty<T>.IAnimatable WrappedProperty => (IWrappedProperty<T>.IAnimatable)base.WrappedProperty;
-
-    public void ResetPrevious()
-    {
-        object? defaultValue = WrappedProperty.GetDefaultValue();
-        if (defaultValue != null)
-        {
-            SetPrevious(WrappedProperty.GetValue(), (T)defaultValue);
-        }
-    }
-
-    public void ResetNext()
-    {
-        object? defaultValue = WrappedProperty.GetDefaultValue();
-        if (defaultValue != null)
-        {
-            SetNext(WrappedProperty.GetValue(), (T)defaultValue);
-        }
-    }
-
-    public void SetPrevious(T oldValue, T newValue)
-    {
-        if (!EqualityComparer<T>.Default.Equals(oldValue, newValue))
-        {
-            CommandRecorder.Default.DoAndPush(new ChangePropertyCommand<T>(Animation, AnimationSpan<T>.PreviousProperty, newValue, oldValue));
-        }
-    }
-
-    public void SetNext(T oldValue, T newValue)
-    {
-        if (!EqualityComparer<T>.Default.Equals(oldValue, newValue))
-        {
-            CommandRecorder.Default.DoAndPush(new ChangePropertyCommand<T>(Animation, AnimationSpan<T>.NextProperty, newValue, oldValue));
-        }
-    }
 }

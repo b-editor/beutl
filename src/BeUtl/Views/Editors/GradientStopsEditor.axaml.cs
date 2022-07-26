@@ -214,8 +214,9 @@ public sealed partial class GradientStopsEditor : UserControl
         {
             if (values[0] is double offset && values[1] is double width)
             {
-                return new AM.TranslateTransform((offset * (width - 20)) + 10, 0);
-
+                var transformBuilder = new TransformOperations.Builder(1);
+                transformBuilder.AppendTranslate((offset * (width - 20)) + 10, 0);
+                return transformBuilder.Build();
             }
             else
             {

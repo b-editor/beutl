@@ -4,7 +4,6 @@
     <ProjectReference Include="$(MSBuildThisFileDirectory)/../../src/BeUtl.Core/BeUtl.Core.csproj" />
     <ProjectReference Include="$(MSBuildThisFileDirectory)/../../src/BeUtl.Framework/BeUtl.Framework.csproj" />
     <ProjectReference Include="$(MSBuildThisFileDirectory)/../../src/BeUtl.Graphics/BeUtl.Graphics.csproj" />
-    <ProjectReference Include="$(MSBuildThisFileDirectory)/../../src/BeUtl.Operations/BeUtl.Operations.csproj" />
     <ProjectReference Include="$(MSBuildThisFileDirectory)/../../src/BeUtl.Operators/BeUtl.Operators.csproj" />
     <ProjectReference Include="$(MSBuildThisFileDirectory)/../../src/BeUtl.ProjectSystem/BeUtl.ProjectSystem.csproj" />
     <ProjectReference Include="$(MSBuildThisFileDirectory)/../../src/BeUtl.Utilities/BeUtl.Utilities.csproj" />

@@ -22,10 +22,16 @@ public sealed class BitmapEffectGroup : BitmapEffect
 
     public BitmapEffectGroup()
     {
-        _children = new BitmapEffects()
+        _children = new BitmapEffects();
+        _children.Attached += item =>
         {
-            Attached = item => (item as ILogicalElement).NotifyAttachedToLogicalTree(new(this)),
-            Detached = item => (item as ILogicalElement).NotifyDetachedFromLogicalTree(new(this)),
+            item.NotifyAttachedToLogicalTree(new(this));
+            item.NotifyAttachedToStylingTree(new(this));
+        };
+        _children.Detached += item =>
+        {
+            item.NotifyDetachedFromLogicalTree(new(this));
+            item.NotifyDetachedFromStylingTree(new(this));
         };
         _children.Invalidated += (_, _) =>
         {

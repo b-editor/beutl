@@ -47,6 +47,7 @@ public sealed class ProjectService : IProjectService
         }
         catch
         {
+            Debug.Fail("Unable to open the project.");
             return null;
         }
     }

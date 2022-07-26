@@ -10,6 +10,7 @@ using Reactive.Bindings;
 
 using S = BeUtl.Language.StringResources;
 using AColor = Avalonia.Media.Color;
+using BeUtl.Streaming;
 
 namespace BeUtl.ViewModels.Dialogs;
 
@@ -23,7 +24,7 @@ public sealed class AddLayerViewModel
         _scene = scene;
         _layerDescription = desc;
 
-        Color.Value = (desc.InitialOperation == null ? Colors.Teal : desc.InitialOperation.AccentColor).ToAvalonia();
+        Color.Value = (desc.InitialOperator == null ? Colors.Teal : desc.InitialOperator.AccentColor).ToAvalonia();
         Layer.Value = desc.Layer;
         Start.Value = desc.Start;
         Duration.Value = desc.Length;
@@ -85,9 +86,9 @@ public sealed class AddLayerViewModel
                 FileName = Helper.RandomLayerFileName(Path.GetDirectoryName(_scene.FileName)!, Constants.LayerFileExtension)
             };
 
-            if (_layerDescription.InitialOperation != null)
+            if (_layerDescription.InitialOperator != null)
             {
-                sLayer.AddChild((LayerOperation)(Activator.CreateInstance(_layerDescription.InitialOperation.Type)!))
+                sLayer.AddChild((StreamOperator)Activator.CreateInstance(_layerDescription.InitialOperator.Type)!)
                     .DoAndRecord(CommandRecorder.Default);
             }
 

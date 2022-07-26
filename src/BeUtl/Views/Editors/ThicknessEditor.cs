@@ -37,22 +37,6 @@ public sealed class ThicknessEditor : BaseVector4Editor<Graphics.Thickness>
         wTextBox.InnerLeftContent = CreateIcon(FluentIconsRegular.Arrow_Down);
     }
 
-    protected override Graphics.Thickness Clamp(Graphics.Thickness value)
-    {
-        if (DataContext is ThicknessEditorViewModel vm)
-        {
-            return new Graphics.Thickness(
-                Math.Clamp(value.Left, vm.Minimum.Left, vm.Maximum.Left),
-                Math.Clamp(value.Top, vm.Minimum.Top, vm.Maximum.Top),
-                Math.Clamp(value.Right, vm.Minimum.Right, vm.Maximum.Right),
-                Math.Clamp(value.Bottom, vm.Minimum.Bottom, vm.Maximum.Bottom));
-        }
-        else
-        {
-            return value;
-        }
-    }
-
     protected override Graphics.Thickness IncrementX(Graphics.Thickness value, int increment)
     {
         return value.WithLeft(value.Left + increment);

@@ -258,14 +258,7 @@ public sealed partial class OperationEditor : UserControl
 
     public void Remove_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is OperationEditorViewModel viewModel)
-        {
-            LayerOperation operation = viewModel.Model;
-            Layer layer = operation.FindRequiredLogicalParent<Layer>();
-            layer.RemoveChild(operation)
-                .DoAndRecord(CommandRecorder.Default);
-        }
-        else if (DataContext is StylingOperatorEditorViewModel viewModel2)
+        if (DataContext is StylingOperatorEditorViewModel viewModel2)
         {
             StylingOperator operation = viewModel2.Model;
             Layer layer = operation.FindRequiredLogicalParent<Layer>();
@@ -276,30 +269,7 @@ public sealed partial class OperationEditor : UserControl
 
     private void Drop(object? sender, DragEventArgs e)
     {
-        if (e.Data.Get("RenderOperation") is LayerOperationRegistry.RegistryItem item
-            && DataContext is OperationEditorViewModel viewModel)
-        {
-            LayerOperation operation = viewModel.Model;
-            Layer layer = operation.FindRequiredLogicalParent<Layer>();
-            Rect bounds = Bounds;
-            Point position = e.GetPosition(this);
-            double half = bounds.Height / 2;
-            int index = layer.Children.IndexOf(operation);
-
-            if (half < position.Y)
-            {
-                layer.InsertChild(index + 1, (LayerOperation)Activator.CreateInstance(item.Type)!)
-                    .DoAndRecord(CommandRecorder.Default);
-            }
-            else
-            {
-                layer.InsertChild(index, (LayerOperation)Activator.CreateInstance(item.Type)!)
-                    .DoAndRecord(CommandRecorder.Default);
-            }
-
-            e.Handled = true;
-        }
-        else if (e.Data.Get("StreamOperator") is OperatorRegistry.RegistryItem item2
+        if (e.Data.Get("StreamOperator") is OperatorRegistry.RegistryItem item2
             && DataContext is StylingOperatorEditorViewModel viewModel2)
         {
             StylingOperator operation = viewModel2.Model;
@@ -326,7 +296,7 @@ public sealed partial class OperationEditor : UserControl
 
     private void DragOver(object? sender, DragEventArgs e)
     {
-        if (e.Data.Contains("RenderOperation") || e.Data.Contains("StreamOperator"))
+        if (e.Data.Contains("StreamOperator"))
         {
             e.DragEffects = DragDropEffects.Copy | DragDropEffects.Link;
         }
@@ -339,18 +309,7 @@ public sealed partial class OperationEditor : UserControl
     protected override void OnDataContextChanged(EventArgs e)
     {
         base.OnDataContextChanged(e);
-        if (DataContext is OperationEditorViewModel viewModel)
-        {
-            LayerOperation operation = viewModel.Model;
-            Type type = operation.GetType();
-            LayerOperationRegistry.RegistryItem? item = LayerOperationRegistry.FindItem(type);
-
-            if (item != null)
-            {
-                headerText[!TextBlock.TextProperty] = new DynamicResourceExtension(item.DisplayName.Key);
-            }
-        }
-        else if (DataContext is StylingOperatorEditorViewModel viewModel2)
+        if (DataContext is StylingOperatorEditorViewModel viewModel2)
         {
             StylingOperator operation = viewModel2.Model;
             Type type = operation.GetType();
@@ -365,15 +324,7 @@ public sealed partial class OperationEditor : UserControl
 
     public void Move(int newIndex, int oldIndex)
     {
-        if (DataContext is OperationEditorViewModel viewModel)
-        {
-            LayerOperation operation = viewModel.Model;
-            if (operation.FindLogicalParent<Layer>()?.Children is IList list)
-            {
-                CommandRecorder.Default.DoAndPush(new MoveCommand(list, newIndex, oldIndex));
-            }
-        }
-        else if (DataContext is StylingOperatorEditorViewModel viewModel2)
+        if (DataContext is StylingOperatorEditorViewModel viewModel2)
         {
             StylingOperator operation = viewModel2.Model;
             if (operation.FindLogicalParent<Layer>()?.Operators is IList list)

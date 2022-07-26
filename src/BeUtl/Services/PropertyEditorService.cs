@@ -10,6 +10,7 @@ using BeUtl.Graphics;
 using BeUtl.Media;
 using BeUtl.ProjectSystem;
 using BeUtl.Services.Editors.Wrappers;
+using BeUtl.Streaming;
 using BeUtl.ViewModels;
 using BeUtl.ViewModels.AnimationEditors;
 using BeUtl.ViewModels.Editors;
@@ -29,6 +30,7 @@ public static class PropertyEditorService
         { Brush.OpacityProperty.Id, new(_ => new OpacityEditor(), s => new OpacityEditorViewModel(s.ToTyped<float>())) }
     };
 
+    // IList<StreamOperator>
     private static readonly Dictionary<Type, Editor> s_editors = new()
     {
         { typeof(bool), new(_ => new BooleanEditor(), s => new BooleanEditorViewModel(s.ToTyped<bool>())) },
@@ -63,34 +65,8 @@ public static class PropertyEditorService
         { typeof(RelativePoint), new(_ => new RelativePointEditor(), s => new RelativePointEditorViewModel(s.ToTyped<RelativePoint>())) },
         { typeof(IBrush), new(_ => new BrushEditor(), s => new BrushEditorViewModel(s)) },
         { typeof(GradientStops), new(_ => new GradientStopsEditor(), s => new GradientStopsEditorViewModel(s.ToTyped<GradientStops>())) },
-        { typeof(IList<LayerOperation>), new(_ => new LayerOpsEditor(), s => new LayerOpsEditorViewModel(s)) },
         { typeof(IList), new(_ => new ListEditor(), s => new ListEditorViewModel(s)) },
         { typeof(ICoreObject), new(CreateNavigationButton, CreateNavigationButtonViewModel) },
-    };
-
-    // pixelrect, rect, thickness, vector3, vector4
-    private static readonly Dictionary<Type, AnimationEditor> s_animationEditors = new()
-    {
-        { typeof(bool), new(_ => new BooleanAnimationEditor(), (a, desc, ops) => new AnimationEditorViewModel<bool>(a, desc, ops)) },
-        { typeof(byte), new(_ => new NumberAnimationEditor<byte>(), (a, desc, ops) => new NumberAnimationEditorViewModel<byte>(a.ToTyped<byte>(), desc, ops)) },
-        { typeof(Color), new(_ => new ColorAnimationEditor(), (a, desc, ops) => new ColorAnimationEditorViewModel(a.ToTyped<Color>(), desc, ops)) },
-        { typeof(CornerRadius), new(_ => new CornerRadiusAnimationEditor(), (a, desc, ops) => new CornerRadiusAnimationEditorViewModel(a.ToTyped<CornerRadius>(), desc, ops)) },
-        { typeof(decimal), new(_ => new NumberAnimationEditor<decimal>(), (a, desc, ops) => new NumberAnimationEditorViewModel<decimal>(a.ToTyped<decimal>(), desc, ops)) },
-        { typeof(double), new(_ => new NumberAnimationEditor<double>(), (a, desc, ops) => new NumberAnimationEditorViewModel<double>(a.ToTyped<double>(), desc, ops)) },
-        { typeof(float), new(_ => new NumberAnimationEditor<float>(), (a, desc, ops) => new NumberAnimationEditorViewModel<float>(a.ToTyped<float>(), desc, ops)) },
-        { typeof(short), new(_ => new NumberAnimationEditor<short>(), (a, desc, ops) => new NumberAnimationEditorViewModel<short>(a.ToTyped<short>(), desc, ops)) },
-        { typeof(int), new(_ => new NumberAnimationEditor<int>(), (a, desc, ops) => new NumberAnimationEditorViewModel<int>(a.ToTyped<int>(), desc, ops)) },
-        { typeof(long), new(_ => new NumberAnimationEditor<long>(), (a, desc, ops) => new NumberAnimationEditorViewModel<long>(a.ToTyped<long>(), desc, ops)) },
-        { typeof(PixelPoint), new(_ => new PixelPointAnimationEditor(), (a, desc, ops) => new PixelPointAnimationEditorViewModel(a.ToTyped<PixelPoint>(), desc, ops)) },
-        { typeof(PixelSize), new(_ => new PixelSizeAnimationEditor(), (a, desc, ops) => new PixelSizeAnimationEditorViewModel(a.ToTyped<PixelSize>(), desc, ops)) },
-        { typeof(Point), new(_ => new PointAnimationEditor(), (a, desc, ops) => new PointAnimationEditorViewModel(a.ToTyped<Point>(), desc, ops)) },
-        { typeof(sbyte), new(_ => new NumberAnimationEditor<sbyte>(), (a, desc, ops) => new NumberAnimationEditorViewModel<sbyte>(a.ToTyped<sbyte>(), desc, ops)) },
-        { typeof(Size), new(_ => new SizeAnimationEditor(), (a, desc, ops) => new SizeAnimationEditorViewModel(a.ToTyped<Size>(), desc, ops)) },
-        { typeof(ushort), new(_ => new NumberAnimationEditor<ushort>(), (a, desc, ops) => new NumberAnimationEditorViewModel<ushort>(a.ToTyped<ushort>(), desc, ops)) },
-        { typeof(uint), new(_ => new NumberAnimationEditor<uint>(), (a, desc, ops) => new NumberAnimationEditorViewModel<uint>(a.ToTyped<uint>(), desc, ops)) },
-        { typeof(ulong), new(_ => new NumberAnimationEditor<ulong>(), (a, desc, ops) => new NumberAnimationEditorViewModel<ulong>(a.ToTyped<ulong>(), desc, ops)) },
-        { typeof(Vector2), new(_ => new Vector2AnimationEditor(), (a, desc, ops) => new Vector2AnimationEditorViewModel(a.ToTyped<Vector2>(), desc, ops)) },
-        { typeof(Graphics.Vector), new(_ => new VectorAnimationEditor(), (a, desc, ops) => new VectorAnimationEditorViewModel(a.ToTyped<Graphics.Vector>(), desc, ops)) },
     };
 
     public static IWrappedProperty<T> ToTyped<T>(this IWrappedProperty pi)
@@ -149,26 +125,13 @@ public static class PropertyEditorService
         return null;
     }
 
-    public static Control? CreateAnimationEditor(IWrappedProperty.IAnimatable property)
+    public static object? CreateAnimationEditorViewModel(
+        EditorViewModelDescription desc,
+        IAnimationSpan animation,
+        ITimelineOptionsProvider optionsProvider)
     {
-        if (s_animationEditors.ContainsKey(property.AssociatedProperty.PropertyType))
-        {
-            AnimationEditor editor = s_animationEditors[property.AssociatedProperty.PropertyType];
-            return editor.CreateEditor(null);
-        }
-
-        return null;
-    }
-
-    public static object? CreateAnimationEditorViewModel(EditorViewModelDescription desc, IAnimationSpan animation, ITimelineOptionsProvider optionsProvider)
-    {
-        if (s_animationEditors.ContainsKey(desc.WrappedProperty.AssociatedProperty.PropertyType))
-        {
-            AnimationEditor editor = s_animationEditors[desc.WrappedProperty.AssociatedProperty.PropertyType];
-            return editor.CreateViewModel(animation, desc, optionsProvider);
-        }
-
-        return null;
+        Type? type = typeof(AnimationEditorViewModel<>).MakeGenericType(desc.WrappedProperty.AssociatedProperty.PropertyType);
+        return Activator.CreateInstance(type, animation, desc, optionsProvider);
     }
 
     private static Control? CreateEnumEditor(IWrappedProperty s)

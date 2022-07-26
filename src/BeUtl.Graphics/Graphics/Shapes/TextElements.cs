@@ -26,8 +26,6 @@ public class TextElements : IReadOnlyList<TextElement>, ILogicalElement
 
     public TextElement this[int index] => ((IReadOnlyList<TextElement>)_array)[index];
 
-    public static TextElements Empty { get; } = new(Array.Empty<TextElement>());
-
     public int Count => ((IReadOnlyCollection<TextElement>)_array).Count;
 
     public LineEnumerable Lines { get; }
@@ -60,6 +58,9 @@ public class TextElements : IReadOnlyList<TextElement>, ILogicalElement
 
     void ILogicalElement.NotifyAttachedToLogicalTree(in LogicalTreeAttachmentEventArgs e)
     {
+        if (_parent is { })
+            throw new LogicalTreeException("This logical element already has a parent element.");
+
         _parent = e.Parent;
         foreach (TextElement item in _array)
         {
@@ -69,6 +70,9 @@ public class TextElements : IReadOnlyList<TextElement>, ILogicalElement
 
     void ILogicalElement.NotifyDetachedFromLogicalTree(in LogicalTreeAttachmentEventArgs e)
     {
+        if (!ReferenceEquals(e.Parent, _parent))
+            throw new LogicalTreeException("The detach source element and the parent element do not match.");
+
         _parent = null;
         foreach (TextElement item in _array)
         {

@@ -34,8 +34,6 @@ public abstract class BaseVector2Editor<T> : BaseVector2Editor
 
     protected abstract bool TryParse(string? x, string? y, out T value);
 
-    protected abstract T Clamp(T value);
-
     protected abstract T IncrementX(T value, int increment);
 
     protected abstract T IncrementY(T value, int increment);
@@ -67,7 +65,7 @@ public abstract class BaseVector2Editor<T> : BaseVector2Editor
 
         if (TryParseCore(out T newValue))
         {
-            vm.WrappedProperty.SetValue(Clamp(newValue));
+            vm.WrappedProperty.SetValue(newValue);
         }
     }
 
@@ -101,7 +99,7 @@ public abstract class BaseVector2Editor<T> : BaseVector2Editor
                 _ => value
             };
 
-            vm.WrappedProperty.SetValue(Clamp(value));
+            vm.WrappedProperty.SetValue(value);
 
             e.Handled = true;
         }

@@ -218,8 +218,16 @@ public abstract class CoreObject : ICoreObject
         if (property is StaticProperty<TValue> staticProperty)
         {
             staticProperty.RouteSetTypedValue(this, value);
+            return;
         }
-        else if (BatchUpdate)
+
+        CorePropertyMetadata<TValue>? metadata = property.GetMetadata<CorePropertyMetadata<TValue>>(ownerType);
+        if (metadata.Validator != null)
+        {
+            value = metadata.Validator.Coerce(this, value);
+        }
+
+        if (BatchUpdate)
         {
             if (_batchChanges != null &&
                 _batchChanges.TryGetValue(property.Id, out IBatchEntry? oldEntry) &&
@@ -245,16 +253,12 @@ public abstract class CoreObject : ICoreObject
                 TValue? oldValue = entryT.Value;
                 if (!EqualityComparer<TValue>.Default.Equals(oldValue, value))
                 {
-                    CorePropertyMetadata metadata = property.GetMetadata<CorePropertyMetadata>(ownerType);
-
                     entryT.Value = value;
                     RaisePropertyChanged(property, metadata, value, oldValue);
                 }
             }
             else
             {
-                CorePropertyMetadata<TValue> metadata = property.GetMetadata<CorePropertyMetadata<TValue>>(ownerType);
-
                 if (!EqualityComparer<TValue>.Default.Equals(metadata.DefaultValue, value))
                 {
                     entryT = new Entry<TValue>
@@ -358,7 +362,7 @@ public abstract class CoreObject : ICoreObject
         CorePropertyMetadata<T>? metadata = property.GetMetadata<CorePropertyMetadata<T>>(GetType());
         if (metadata.Validator != null)
         {
-            value = metadata.Validator.Coerce(this, value);
+            value = metadata.Validator.Coerce(this, value)!;
         }
 
         bool result = true;

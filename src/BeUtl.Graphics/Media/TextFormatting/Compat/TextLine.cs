@@ -26,11 +26,9 @@ public sealed class TextLine : Drawable, ILogicalElement
 
     public TextLine()
     {
-        _elements = new()
-        {
-            Attached = item => (item as ILogicalElement).NotifyAttachedToLogicalTree(new(this)),
-            Detached = item => (item as ILogicalElement).NotifyDetachedFromLogicalTree(new(this)),
-        };
+        _elements = new();
+        _elements.Attached += item => (item as ILogicalElement).NotifyAttachedToLogicalTree(new(this));
+        _elements.Detached += item => (item as ILogicalElement).NotifyDetachedFromLogicalTree(new(this));
         _elements.Invalidated += (_, _) => Invalidate();
     }
 

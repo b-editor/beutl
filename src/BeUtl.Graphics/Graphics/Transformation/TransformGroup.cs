@@ -20,10 +20,16 @@ public sealed class TransformGroup : Transform
 
     public TransformGroup()
     {
-        _children = new Transforms()
+        _children = new Transforms();
+        _children.Attached += item =>
         {
-            Attached = item => (item as ILogicalElement)?.NotifyAttachedToLogicalTree(new(this)),
-            Detached = item => (item as ILogicalElement)?.NotifyDetachedFromLogicalTree(new(this)),
+            (item as ILogicalElement)?.NotifyAttachedToLogicalTree(new(this));
+            (item as IStylingElement)?.NotifyAttachedToStylingTree(new(this));
+        };
+        _children.Detached += item =>
+        {
+            (item as ILogicalElement)?.NotifyDetachedFromLogicalTree(new(this));
+            (item as IStylingElement)?.NotifyDetachedFromStylingTree(new(this));
         };
         _children.Invalidated += (_, _) => RaiseInvalidated();
     }

@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Diagnostics;
 
 using Avalonia;
@@ -348,15 +348,16 @@ public partial class AnimationEditor : UserControl
 
     private void Edit_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is not AnimationEditorViewModel vm) return;
+        // Todo: AnimationTabを開き、スクロールをリクエスト
+        //if (DataContext is not AnimationEditorViewModel vm) return;
 
-        if (editDialog.Content == null)
-        {
-            editDialog.Content = PropertyEditorService.CreateAnimationEditor(vm.WrappedProperty);
-        }
+        //if (editDialog.Content == null)
+        //{
+        //    editDialog.Content = PropertyEditorService.CreateAnimationEditor(vm.WrappedProperty);
+        //}
 
-        editDialog.DataContext = vm;
-        editDialog.ShowAsync();
+        //editDialog.DataContext = vm;
+        //editDialog.ShowAsync();
     }
 
     private void BackgroundBorder_Drop(object? sender, DragEventArgs e)

@@ -56,20 +56,6 @@ namespace BeUtl.Views.Editors
             yTextBox[!TextBox.TextProperty] = s_y;
         }
 
-        protected override <#= fullName #> Clamp(<#= fullName #> value)
-        {
-            if (DataContext is <#= t.Name #>EditorViewModel vm)
-            {
-                return new <#= fullName #>(
-                    Math.Clamp(value.<#= t.FieldX #>, vm.Minimum.<#= t.FieldX #>, vm.Maximum.<#= t.FieldX #>),
-                    Math.Clamp(value.<#= t.FieldY #>, vm.Minimum.<#= t.FieldY #>, vm.Maximum.<#= t.FieldY #>));
-            }
-            else
-            {
-                return value;
-            }
-        }
-
         protected override <#= fullName #> IncrementX(<#= fullName #> value, int increment)
         {
             return new <#= fullName #>(
@@ -121,21 +107,6 @@ namespace BeUtl.Views.Editors
             xTextBox[!TextBox.TextProperty] = s_x;
             yTextBox[!TextBox.TextProperty] = s_y;
             zTextBox[!TextBox.TextProperty] = s_z;
-        }
-
-        protected override <#= fullName #> Clamp(<#= fullName #> value)
-        {
-            if (DataContext is <#= t.Name #>EditorViewModel vm)
-            {
-                return new <#= fullName #>(
-                    Math.Clamp(value.<#= t.FieldX #>, vm.Minimum.<#= t.FieldX #>, vm.Maximum.<#= t.FieldX #>),
-                    Math.Clamp(value.<#= t.FieldY #>, vm.Minimum.<#= t.FieldY #>, vm.Maximum.<#= t.FieldY #>),
-                    Math.Clamp(value.<#= t.FieldZ #>, vm.Minimum.<#= t.FieldZ #>, vm.Maximum.<#= t.FieldZ #>));
-            }
-            else
-            {
-                return value;
-            }
         }
 
         protected override <#= fullName #> IncrementX(<#= fullName #> value, int increment)
@@ -205,22 +176,6 @@ namespace BeUtl.Views.Editors
             yTextBox[!TextBox.TextProperty] = s_y;
             zTextBox[!TextBox.TextProperty] = s_z;
             wTextBox[!TextBox.TextProperty] = s_w;
-        }
-
-        protected override <#= fullName #> Clamp(<#= fullName #> value)
-        {
-            if (DataContext is <#= t.Name #>EditorViewModel vm)
-            {
-                return new <#= fullName #>(
-                    Math.Clamp(value.<#= t.FieldX #>, vm.Minimum.<#= t.FieldX #>, vm.Maximum.<#= t.FieldX #>),
-                    Math.Clamp(value.<#= t.FieldY #>, vm.Minimum.<#= t.FieldY #>, vm.Maximum.<#= t.FieldY #>),
-                    Math.Clamp(value.<#= t.FieldZ #>, vm.Minimum.<#= t.FieldZ #>, vm.Maximum.<#= t.FieldZ #>),
-                    Math.Clamp(value.<#= t.FieldW #>, vm.Minimum.<#= t.FieldW #>, vm.Maximum.<#= t.FieldW #>));
-            }
-            else
-            {
-                return value;
-            }
         }
 
         protected override <#= fullName #> IncrementX(<#= fullName #> value, int increment)

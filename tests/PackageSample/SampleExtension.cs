@@ -1,5 +1,6 @@
 ﻿using BeUtl.Framework;
 using BeUtl.ProjectSystem;
+using BeUtl.Streaming;
 
 namespace PackageSample;
 
@@ -11,6 +12,6 @@ public sealed class SampleExtension : LayerExtension
 
     public override void Load()
     {
-        LayerOperationRegistry.RegisterOperation<SampleOp>("S.SamplePackage.SampleExtension.SampleOp");
+        OperatorRegistry.RegisterOperation<SampleOp>("S.SamplePackage.SampleExtension.SampleOp");
     }
 }

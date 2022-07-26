@@ -1,0 +1,127 @@
+﻿using System.Collections;
+using System.Text.Json.Nodes;
+
+using BeUtl.Animation;
+using BeUtl.Animation.Easings;
+using BeUtl.Commands;
+using BeUtl.Framework;
+using BeUtl.Services.PrimitiveImpls;
+using BeUtl.Styling;
+
+using Reactive.Bindings;
+
+namespace BeUtl.ViewModels.Editors;
+
+public sealed class AnimationTabViewModel : IToolContext
+{
+    private readonly IDisposable _disposable0;
+    private IDisposable? _disposable1;
+
+    public AnimationTabViewModel()
+    {
+        Header = new ResourceReference<string>("S.Common.Animation")
+            .GetResourceObservable()
+            .ToReadOnlyReactivePropertySlim()!;
+
+        _disposable0 = Animation.Subscribe(animation =>
+        {
+            ClearItems();
+            if (animation != null)
+            {
+                _disposable1?.Dispose();
+                _disposable1 = animation.Children.ForEachItem(
+                    (idx, item) =>
+                    {
+                        Type genericType = item.GetType().GetGenericArguments()[0];
+                        Type ctxType = typeof(AnimationSpanEditorViewModel<>).MakeGenericType(genericType);
+
+                        Items.Insert(idx, Activator.CreateInstance(ctxType, item, animation) as IAnimationSpanEditorViewModel);
+                    },
+                    (idx, _) =>
+                    {
+                        Items[idx]?.Dispose();
+                        Items.RemoveAt(idx);
+                    },
+                    () => ClearItems());
+            }
+        });
+    }
+
+    public ReactiveProperty<IAnimation?> Animation { get; } = new();
+
+    public CoreList<IAnimationSpanEditorViewModel?> Items { get; } = new();
+
+    public ToolTabExtension Extension => AnimationTabExtension.Instance;
+
+    public IReactiveProperty<bool> IsSelected { get; } = new ReactivePropertySlim<bool>();
+
+    public IReadOnlyReactiveProperty<string> Header { get; }
+
+    public ToolTabExtension.TabPlacement Placement => ToolTabExtension.TabPlacement.Right;
+
+    public void Dispose()
+    {
+        _disposable0.Dispose();
+        _disposable1?.Dispose();
+        ClearItems();
+
+        Animation.Dispose();
+        Header.Dispose();
+    }
+
+    private void ClearItems()
+    {
+        foreach (IAnimationSpanEditorViewModel? item in Items.AsSpan())
+        {
+            item?.Dispose();
+        }
+        Items.Clear();
+    }
+
+    public void ReadFromJson(JsonNode json)
+    {
+    }
+
+    public void WriteToJson(ref JsonNode json)
+    {
+    }
+
+    public void AddAnimation(Easing easing)
+    {
+        if (Animation.Value is not IAnimation animation
+            || animation.Children is not IList list)
+        {
+            return;
+        }
+
+        CoreProperty property = animation.Property;
+        Type type = typeof(AnimationSpan<>).MakeGenericType(property.PropertyType);
+        Type ownerType = property.OwnerType;
+        ILogicalElement? owner = animation.FindLogicalParent(ownerType);
+        object? defaultValue = null;
+        if (owner is ICoreObject ownerCO)
+        {
+            defaultValue = ownerCO.GetValue(property);
+        }
+        else if (owner != null)
+        {
+            // メタデータをOverrideしている可能性があるので、owner.GetType()をする必要がある。
+            defaultValue = property.GetMetadata<CorePropertyMetadata>(owner.GetType()).GetDefaultValue();
+        }
+
+        if (Activator.CreateInstance(type) is IAnimationSpan animationSpan)
+        {
+            animationSpan.Easing = easing;
+            animationSpan.Duration = TimeSpan.FromSeconds(2);
+
+            if (defaultValue != null)
+            {
+                animationSpan.Previous = defaultValue;
+                animationSpan.Next = defaultValue;
+            }
+
+            var command = new AddCommand(list, animationSpan, animation.Children.Count);
+            command.DoAndRecord(CommandRecorder.Default);
+        }
+    }
+}

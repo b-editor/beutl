@@ -108,34 +108,6 @@ internal static class Helper
         return filename;
     }
 
-    public static T? GetMaximumOrDefault<T>(this IWrappedProperty wrappedProp, T defaultValue, Type? type = null)
-    {
-        if (wrappedProp.Tag is SetterDescription<T>.InternalSetter { Description.HasMaximum: true, Description.Maximum: { } max })
-        {
-            return max;
-        }
-        else
-        {
-            OperationPropertyMetadata<T>? metadata
-                = wrappedProp.GetMetadataExt<OperationPropertyMetadata<T>>(type);
-            return metadata?.HasMaximum == true ? metadata.Maximum : defaultValue;
-        }
-    }
-
-    public static T? GetMinimumOrDefault<T>(this IWrappedProperty wrappedProp, T defaultValue, Type? type = null)
-    {
-        if (wrappedProp.Tag is SetterDescription<T>.InternalSetter { Description.HasMinimum: true, Description.Minimum: { } min })
-        {
-            return min;
-        }
-        else
-        {
-            OperationPropertyMetadata<T>? metadata
-                = wrappedProp.GetMetadataExt<OperationPropertyMetadata<T>>(type);
-            return metadata?.HasMinimum == true ? metadata.Minimum : defaultValue;
-        }
-    }
-
     public static object? GetDefaultValue(this IWrappedProperty wrappedProp, Type? type = null)
     {
         return wrappedProp.GetMetadataExt<ICorePropertyMetadata>(type)?.GetDefaultValue();
@@ -155,9 +127,6 @@ internal static class Helper
             {
                 case CoreObject obj:
                     wrappedProp.AssociatedProperty.TryGetMetadata(obj.GetType(), out result);
-                    break;
-                case IPropertyInstance pi:
-                    wrappedProp.AssociatedProperty.TryGetMetadata(pi.Parent.GetType(), out result);
                     break;
                 case ISetterDescription.IInternalSetter ins when ins.StreamOperator is StylingOperator stylingOperator && stylingOperator.Instance != null:
                     wrappedProp.AssociatedProperty.TryGetMetadata(stylingOperator.Instance.GetType(), out result);

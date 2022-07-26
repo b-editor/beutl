@@ -47,24 +47,6 @@ public sealed class CornerRadiusEditor : BaseVector4Editor<CornerRadius>
         wTextBox.InnerLeftContent = bottomRightIcon;
     }
 
-    protected override CornerRadius Clamp(CornerRadius value)
-    {
-        if (DataContext is CornerRadiusEditorViewModel vm)
-        {
-            CornerRadius min = vm.Minimum;
-            CornerRadius max = vm.Maximum;
-
-            return new CornerRadius(Math.Clamp(value.TopLeft, min.TopLeft, max.TopLeft),
-                Math.Clamp(value.TopRight, min.TopRight, max.TopRight),
-                Math.Clamp(value.BottomRight, min.BottomRight, max.BottomRight),
-                Math.Clamp(value.BottomLeft, min.BottomLeft, max.BottomLeft));
-        }
-        else
-        {
-            return value;
-        }
-    }
-
     protected override CornerRadius IncrementX(CornerRadius value, int increment)
     {
         return value.WithTopLeft(value.TopLeft + increment);

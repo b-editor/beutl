@@ -12,8 +12,7 @@ public sealed class AnimatableCorePropertyWrapper<T> : CorePropertyWrapper<T>, I
     public IObservableList<AnimationSpan<T>> Animations
         => GetAnimation().Children;
 
-    IReadOnlyList<IAnimationSpan> IWrappedProperty.IAnimatable.Animations
-        => ((IAnimation)GetAnimation()).Children;
+    public Animation<T> Animation => GetAnimation();
 
     public void AddAnimation(IAnimationSpan animation)
     {
@@ -34,7 +33,7 @@ public sealed class AnimatableCorePropertyWrapper<T> : CorePropertyWrapper<T>, I
     {
         var animatable = (Animatable)Tag;
 
-        foreach (var item in animatable.Animations)
+        foreach (IAnimation item in animatable.Animations)
         {
             if (item.Property.Id == AssociatedProperty.Id
                 && item is Animation<T> animation1)

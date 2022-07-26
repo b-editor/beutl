@@ -19,7 +19,7 @@ public interface IElement : ICoreObject, ILogicalElement
 public abstract class Element : CoreObject, IElement
 {
     public static readonly CoreProperty<Element?> ParentProperty;
-    private Element? _parent;
+    private ILogicalElement? _parent;
 
     static Element()
     {
@@ -34,11 +34,16 @@ public abstract class Element : CoreObject, IElement
     /// </summary>
     public Element? Parent
     {
-        get => _parent;
-        private set => SetAndRaise(ParentProperty, ref _parent, value);
+        get => _parent as Element;
+        private set
+        {
+            var parent = Parent;
+            SetAndRaise(ParentProperty, ref parent, value);
+            _parent = parent;
+        }
     }
 
-    ILogicalElement? ILogicalElement.LogicalParent => Parent;
+    ILogicalElement? ILogicalElement.LogicalParent => _parent;
 
     IEnumerable<ILogicalElement> ILogicalElement.LogicalChildren => Array.Empty<ILogicalElement>();
 
@@ -77,15 +82,21 @@ public abstract class Element : CoreObject, IElement
 
     void ILogicalElement.NotifyAttachedToLogicalTree(in LogicalTreeAttachmentEventArgs e)
     {
+        if (_parent is { })
+            throw new LogicalTreeException("This logical element already has a parent element.");
+
         OnAttachedToLogicalTree(e);
-        Parent = e.Parent as Element;
+        _parent = e.Parent;
         AttachedToLogicalTree?.Invoke(this, e);
     }
 
     void ILogicalElement.NotifyDetachedFromLogicalTree(in LogicalTreeAttachmentEventArgs e)
     {
+        if (!ReferenceEquals(e.Parent, _parent))
+            throw new LogicalTreeException("The detach source element and the parent element do not match.");
+
         OnDetachedFromLogicalTree(e);
-        Parent = null;
+        _parent = null;
         DetachedFromLogicalTree?.Invoke(this, e);
     }
 }

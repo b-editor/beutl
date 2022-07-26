@@ -23,7 +23,7 @@ public interface ISetterDescription
 
         StreamOperator StreamOperator { get; }
 
-        void Synchronize(ISetter setter);
+        void MigrateFrom(ISetter setter);
     }
 }
 
@@ -115,13 +115,14 @@ public record SetterDescription<T>(CoreProperty<T> Property) : ISetterDescriptio
 
         ISetterDescription ISetterDescription.IInternalSetter.Description => Description;
 
-        public void Synchronize(ISetter setter)
+        public void MigrateFrom(ISetter setter)
         {
             if (setter is Setter<T> typed)
             {
-                Property = typed.Property;
-                Value = typed.Value;
-                Animation = typed.Animation;
+                (T? value, Animation<T>? animation) = (typed.Value, typed.Animation);
+                (typed.Value, typed.Animation) = (default, null);
+
+                (Property, Value, Animation) = (typed.Property, value, animation);
             }
         }
     }
@@ -133,7 +134,7 @@ public abstract class StreamStyledSource : StylingOperator, IStreamSource
     {
         OnPrePublish();
         IRenderable? renderable = Instance?.Target as IRenderable;
-
+        
         if (!ReferenceEquals(Style, Instance?.Source) || Instance?.Target == null)
         {
             renderable = Activator.CreateInstance(Style.TargetType) as IRenderable;

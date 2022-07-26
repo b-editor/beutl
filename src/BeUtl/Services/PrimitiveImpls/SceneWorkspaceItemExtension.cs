@@ -40,6 +40,7 @@ public sealed class SceneWorkspaceItemExtension : WorkspaceItemExtension
             }
             catch
             {
+                Debug.Fail("Unable to restore the scene.");
                 return false;
             }
             result = scene;

@@ -12,6 +12,7 @@
         ("BeUtl.Graphics", "Point", "System.Single"),
         ("BeUtl.Graphics", "Size", "System.Single"),
         ("BeUtl.Graphics", "Vector", "System.Single"),
+        ("BeUtl.Graphics", "RelativePoint", "System.Single"),
         ("System.Numerics", "Vector2", "System.Single"),
     };
 
@@ -42,8 +43,6 @@ namespace BeUtl.ViewModels.Editors
     // Vector2
 <# foreach(var t in vec2Types) { #>
 <# var fullName = $"{t.Namespace}.{t.Name}"; #>
-<# var maxElement = $"{t.Element}.MaxValue"; #>
-<# var minElement = $"{t.Element}.MinValue"; #>
     public sealed class <#= t.Name #>EditorViewModel : BaseEditorViewModel<<#= fullName #>>
     {
         public <#= t.Name #>EditorViewModel(IWrappedProperty<<#= fullName #>> property)
@@ -55,18 +54,12 @@ namespace BeUtl.ViewModels.Editors
         }
 
         public ReadOnlyReactivePropertySlim<<#= fullName #>> Value { get; }
-
-        public <#= fullName #> Maximum => WrappedProperty.GetMaximumOrDefault(new <#= fullName #>(<#= maxElement #>, <#= maxElement #>));
-
-        public <#= fullName #> Minimum => WrappedProperty.GetMinimumOrDefault(new <#= fullName #>(<#= minElement #>, <#= minElement #>));
     }
 <# } #>
 
     // Vector3
 <# foreach(var t in vec3Types) { #>
 <# var fullName = $"{t.Namespace}.{t.Name}"; #>
-<# var maxElement = $"{t.Element}.MaxValue"; #>
-<# var minElement = $"{t.Element}.MinValue"; #>
     public sealed class <#= t.Name #>EditorViewModel : BaseEditorViewModel<<#= fullName #>>
     {
         public <#= t.Name #>EditorViewModel(IWrappedProperty<<#= fullName #>> property)
@@ -78,18 +71,12 @@ namespace BeUtl.ViewModels.Editors
         }
 
         public ReadOnlyReactivePropertySlim<<#= fullName #>> Value { get; }
-
-        public <#= fullName #> Maximum => WrappedProperty.GetMaximumOrDefault(new <#= fullName #>(<#= maxElement #>, <#= maxElement #>, <#= maxElement #>));
-
-        public <#= fullName #> Minimum => WrappedProperty.GetMinimumOrDefault(new <#= fullName #>(<#= minElement #>, <#= minElement #>, <#= minElement #>));
     }
 <# } #>
 
     // Vector4
 <# foreach(var t in vec4Types) { #>
 <# var fullName = $"{t.Namespace}.{t.Name}"; #>
-<# var maxElement = $"{t.Element}.MaxValue"; #>
-<# var minElement = $"{t.Element}.MinValue"; #>
     public sealed class <#= t.Name #>EditorViewModel : BaseEditorViewModel<<#= fullName #>>
     {
         public <#= t.Name #>EditorViewModel(IWrappedProperty<<#= fullName #>> property)
@@ -101,10 +88,6 @@ namespace BeUtl.ViewModels.Editors
         }
 
         public ReadOnlyReactivePropertySlim<<#= fullName #>> Value { get; }
-
-        public <#= fullName #> Maximum => WrappedProperty.GetMaximumOrDefault(new <#= fullName #>(<#= maxElement #>, <#= maxElement #>, <#= maxElement #>, <#= maxElement #>));
-
-        public <#= fullName #> Minimum => WrappedProperty.GetMinimumOrDefault(new <#= fullName #>(<#= minElement #>, <#= minElement #>, <#= minElement #>, <#= minElement #>));
     }
 <# } #>
 }

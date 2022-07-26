@@ -73,7 +73,7 @@ public sealed class NumberEditor<T> : NumberEditor
 
                 if (TryParse(service, property, out T value))
                 {
-                    property.SetValue(service.Clamp(value, service.GetMinimum(property), service.GetMaximum(property)));
+                    property.SetValue(value);
                 }
             }
         });
@@ -99,7 +99,7 @@ public sealed class NumberEditor<T> : NumberEditor
                 _ => value
             };
 
-            property.SetValue(service.Clamp(value, service.GetMinimum(property), service.GetMaximum(property)));
+            property.SetValue(value);
 
             e.Handled = true;
         }

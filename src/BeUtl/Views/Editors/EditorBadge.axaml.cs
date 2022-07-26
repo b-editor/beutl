@@ -28,34 +28,38 @@ public sealed partial class EditorBadge : UserControl
 
     private void EditAnimation_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is BaseEditorViewModel viewModel
+        if (this.FindLogicalAncestorOfType<EditView>().DataContext is EditViewModel editViewModel
+            && DataContext is BaseEditorViewModel viewModel
             && viewModel.WrappedProperty is IWrappedProperty.IAnimatable animatableProperty)
         {
-            Element? obj = animatableProperty.GetObject() as Element;
-            EditView editView = this.FindLogicalAncestorOfType<EditView>();
-            if (editView.DataContext is EditViewModel editViewModel)
+            // 右側のタブを開く
+            AnimationTabViewModel anmViewModel
+                = editViewModel.FindToolTab<AnimationTabViewModel>()
+                    ?? new AnimationTabViewModel();
+
+            anmViewModel.Animation.Value = animatableProperty.Animation;
+
+            editViewModel.OpenToolTab(anmViewModel);
+
+            // タイムラインのタブを開く
+            AnimationTimelineViewModel? anmTimelineViewModel =
+                editViewModel.FindToolTab<AnimationTimelineViewModel>(x => ReferenceEquals(x.WrappedProperty, animatableProperty));
+
+            if (anmTimelineViewModel == null)
             {
-                AnimationTimelineViewModel? anmViewModel =
-                    editViewModel.BottomTabItems.OfType<AnimationTimelineViewModel>()
-                        .FirstOrDefault(anmtl => ReferenceEquals(anmtl.WrappedProperty, animatableProperty));
-
-                if (anmViewModel == null)
+                anmTimelineViewModel = new AnimationTimelineViewModel(
+                    animatableProperty,
+                    viewModel.Description,
+                    editViewModel)
                 {
-                    anmViewModel = new AnimationTimelineViewModel(
-                        animatableProperty,
-                        viewModel.Description,
-                        editViewModel)
+                    IsSelected =
                     {
-                        Layer = obj?.FindLogicalParent<Layer>(true),
-                        IsSelected =
-                        {
-                            Value = true
-                        }
-                    };
-                }
-
-                editViewModel.OpenToolTab(anmViewModel);
+                        Value = true
+                    }
+                };
             }
+
+            editViewModel.OpenToolTab(anmTimelineViewModel);
         }
     }
 
