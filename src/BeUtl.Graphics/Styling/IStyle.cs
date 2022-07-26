@@ -4,7 +4,7 @@ using BeUtl.Media;
 
 namespace BeUtl.Styling;
 
-public interface IStyle
+public interface IStyle : IStylingElement
 {
     ICoreReadOnlyList<ISetter> Setters { get; }
    

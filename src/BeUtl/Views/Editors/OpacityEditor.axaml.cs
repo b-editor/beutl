@@ -1,17 +1,13 @@
 ﻿using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Controls.Primitives.PopupPositioning;
 using Avalonia.Data;
 using Avalonia.Data.Converters;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Media.Transformation;
 using Avalonia.Threading;
 
 using BeUtl.ViewModels.Editors;
-
-using FluentAvalonia.UI.Controls;
-
-using avam = Avalonia.Media;
 
 namespace BeUtl.Views.Editors;
 
@@ -57,6 +53,7 @@ public partial class OpacityEditor : UserControl
 
     private void NumberBox_TextChanged(string s)
     {
+        if (!numberbox.IsKeyboardFocusWithin) return;
         Dispatcher.UIThread.InvokeAsync(async () =>
         {
             if (DataContext is OpacityEditorViewModel { WrappedProperty: { } property })
@@ -172,8 +169,9 @@ public partial class OpacityEditor : UserControl
         {
             if (values[0] is float opacity && values[1] is double width)
             {
-                return new avam.TranslateTransform((opacity * (width - 20)) + 10, 0);
-
+                var transformBuilder = new TransformOperations.Builder(1);
+                transformBuilder.AppendTranslate((opacity * (width - 20)) + 10, 0);
+                return transformBuilder.Build();
             }
             else
             {

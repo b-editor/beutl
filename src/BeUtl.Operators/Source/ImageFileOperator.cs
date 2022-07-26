@@ -1,13 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-using BeUtl.Graphics;
+﻿using BeUtl.Graphics;
 using BeUtl.Streaming;
 using BeUtl.Styling;
-using BeUtl.Language;
 
 namespace BeUtl.Operators.Source;
 
@@ -20,12 +13,8 @@ public sealed class ImageFileOperator : StreamStyledSource
         return style;
     }
 
-    protected override void OnInitializeSetters(IList<ISetterDescription> initializing)
+    protected override void OnInitializeSetters(IList<ISetter> initializing)
     {
-        initializing.Add(new SetterDescription<FileInfo?>(ImageFile.SourceFileProperty)
-        {
-            DefaultValue = null,
-            Header = StringResources.Common.FileObservable
-        });
+        initializing.Add(new Setter<FileInfo?>(ImageFile.SourceFileProperty, null));
     }
 }

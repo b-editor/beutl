@@ -103,8 +103,7 @@ public class ImmediateRenderer : IRenderer
         }
     }
 
-    protected void AddDirtyRect(Rect rect1)
+    void IRenderer.AddDirtyRect(Rect rect)
     {
-
     }
 }

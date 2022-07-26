@@ -1,12 +1,8 @@
-﻿using System.Reactive.Linq;
-
-using Avalonia;
+﻿using Avalonia;
 
 using BeUtl.ProjectSystem;
 
 using Reactive.Bindings;
-
-using S = BeUtl.Language.StringResources;
 
 namespace BeUtl.ViewModels.Dialogs;
 

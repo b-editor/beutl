@@ -8,7 +8,6 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml.MarkupExtensions;
 
-using BeUtl.ProjectSystem;
 using BeUtl.Streaming;
 
 namespace BeUtl.Views;
@@ -27,25 +26,6 @@ public sealed partial class Library : UserControl
         var treelist = new AvaloniaList<TreeViewItem>();
         Tree.Items = treelist;
 
-        if (AppContext.TryGetSwitch("Switch.BeUtl.Operations.IsEnabled", out bool isEnabled) && isEnabled)
-        {
-            foreach (LayerOperationRegistry.BaseRegistryItem item in LayerOperationRegistry.GetRegistered())
-            {
-                var treeitem = new TreeViewItem
-                {
-                    [!HeaderedItemsControl.HeaderProperty] = new DynamicResourceExtension(item.DisplayName.Key),
-                    DataContext = item,
-                };
-                treelist.Add(treeitem);
-                treeitem.AddHandler(PointerPressedEvent, TreeViewPointerPressed, RoutingStrategies.Tunnel);
-
-                if (item is LayerOperationRegistry.GroupableRegistryItem groupable)
-                {
-                    Add(treeitem, groupable);
-                }
-            }
-        }
-
         foreach (OperatorRegistry.BaseRegistryItem item in OperatorRegistry.GetRegistered())
         {
             var treeitem = new TreeViewItem
@@ -60,30 +40,6 @@ public sealed partial class Library : UserControl
             {
                 Add(treeitem, groupable);
             }
-        }
-    }
-
-    private void Add(TreeViewItem treeitem, LayerOperationRegistry.GroupableRegistryItem list)
-    {
-        var alist = new AvaloniaList<TreeViewItem>();
-        treeitem.Items = alist;
-        foreach (LayerOperationRegistry.BaseRegistryItem item in list.Items)
-        {
-            var treeitem2 = new TreeViewItem
-            {
-                [!HeaderedItemsControl.HeaderProperty] = new DynamicResourceExtension(item.DisplayName.Key),
-                DataContext = item,
-            };
-
-            if (item is LayerOperationRegistry.GroupableRegistryItem inner)
-            {
-                Add(treeitem2, inner);
-            }
-            else
-            {
-                treeitem2.AddHandler(PointerPressedEvent, TreeViewPointerPressed, RoutingStrategies.Tunnel);
-            }
-            alist.Add(treeitem2);
         }
     }
 
@@ -115,16 +71,13 @@ public sealed partial class Library : UserControl
     {
         if (e.GetCurrentPoint(Tree).Properties.IsLeftButtonPressed
             && sender is TreeViewItem select
-            && (select.DataContext is LayerOperationRegistry.RegistryItem or OperatorRegistry.RegistryItem))
+            && select.DataContext is OperatorRegistry.RegistryItem item)
         {
             Tree.SelectedItem = select;
             await Task.Delay(10);
 
             var dataObject = new DataObject();
-            if (select.DataContext is LayerOperationRegistry.RegistryItem item1)
-                dataObject.Set("RenderOperation", item1);
-            if (select.DataContext is OperatorRegistry.RegistryItem item2)
-                dataObject.Set("StreamOperator", item2);
+            dataObject.Set("StreamOperator", item);
 
             await DragDrop.DoDragDrop(e, dataObject, DragDropEffects.Copy);
         }
@@ -181,11 +134,7 @@ public sealed partial class Library : UserControl
             }
         }
 
-        if (treeitem.DataContext is LayerOperationRegistry.BaseRegistryItem treeItemContext)
-        {
-            v |= validate(treeItemContext.DisplayName.FindOrDefault(string.Empty));
-        }
-        else if (treeitem.DataContext is OperatorRegistry.BaseRegistryItem treeItemContext2)
+        if (treeitem.DataContext is OperatorRegistry.BaseRegistryItem treeItemContext2)
         {
             v |= validate(treeItemContext2.DisplayName.FindOrDefault(string.Empty));
         }

@@ -5,7 +5,7 @@ public static class LogicalTreeExtensions
     public static T FindRequiredLogicalParent<T>(this ILogicalElement self, bool includeSelf = false)
     {
         T? parent = FindLogicalParent<T>(self, includeSelf);
-        if (parent == null) throw new ElementException("Cannot get parent.");
+        if (parent == null) throw new LogicalTreeException("Cannot get parent.");
 
         return parent;
     }
@@ -29,6 +29,47 @@ public static class LogicalTreeExtensions
             if (obj is T result)
             {
                 return result;
+            }
+            else
+            {
+                return default;
+            }
+        }
+        catch
+        {
+            return default;
+        }
+    }
+
+    public static ILogicalElement FindRequiredLogicalParent(this ILogicalElement self, Type type, bool includeSelf = false)
+    {
+        ILogicalElement? parent = FindLogicalParent(self, type, includeSelf);
+        if (parent == null) throw new LogicalTreeException("Cannot get parent.");
+
+        return parent;
+    }
+
+    public static ILogicalElement? FindLogicalParent(this ILogicalElement self, Type type, bool includeSelf = false)
+    {
+        try
+        {
+            ILogicalElement? obj = includeSelf ? self : self.LogicalParent;
+            Type? objType = obj?.GetType();
+
+            while (objType?.IsAssignableTo(type) != true)
+            {
+                if (obj is null)
+                {
+                    return default;
+                }
+
+                obj = obj.LogicalParent;
+                objType = obj?.GetType();
+            }
+
+            if (obj != null && objType?.IsAssignableTo(type) == true)
+            {
+                return obj;
             }
             else
             {

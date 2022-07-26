@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Diagnostics.CodeAnalysis;
 
 using Avalonia.Controls;
 
@@ -15,23 +10,23 @@ using BeUtl.Views.Editors;
 namespace BeUtl.Services.PrimitiveImpls;
 
 [PrimitiveImpl]
-public sealed class OperationsTabExtension : ToolTabExtension
+public sealed class AnimationTabExtension : ToolTabExtension
 {
-    public static readonly OperationsTabExtension Instance = new();
+    public static readonly AnimationTabExtension Instance = new();
 
     public override bool CanMultiple => false;
 
-    public override string Name => "Operations editor";
+    public override string Name => "Animation";
 
-    public override string DisplayName => "Operations editor";
+    public override string DisplayName => "Animation";
 
-    public override ResourceReference<string>? Header => "S.Common.Operations";
+    public override ResourceReference<string>? Header => "S.Common.Animation";
 
     public override bool TryCreateContent(IEditorContext editorContext, [NotNullWhen(true)] out IControl? control)
     {
         if (editorContext is EditViewModel)
         {
-            control = new OperationsEditor();
+            control = new AnimationTab();
             return true;
         }
         else
@@ -43,9 +38,9 @@ public sealed class OperationsTabExtension : ToolTabExtension
 
     public override bool TryCreateContext(IEditorContext editorContext, [NotNullWhen(true)] out IToolContext? context)
     {
-        if (editorContext is EditViewModel editViewModel)
+        if (editorContext is EditViewModel)
         {
-            context = new OperationsEditorViewModel(editViewModel);
+            context = new AnimationTabViewModel();
             return true;
         }
         else

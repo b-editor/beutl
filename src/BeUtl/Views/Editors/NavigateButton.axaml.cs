@@ -6,13 +6,10 @@ using Avalonia.LogicalTree;
 using Avalonia.Threading;
 
 using BeUtl.Commands;
-using BeUtl.Styling;
 using BeUtl.Services.Editors.Wrappers;
+using BeUtl.Styling;
 using BeUtl.ViewModels;
 using BeUtl.ViewModels.Editors;
-
-using ContentDialog = FluentAvalonia.UI.Controls.ContentDialog;
-using ContentDialogResult = FluentAvalonia.UI.Controls.ContentDialogResult;
 
 namespace BeUtl.Views.Editors;
 
@@ -108,7 +105,7 @@ public sealed class NavigateButton<T> : NavigateButton
                             SelectedIndex = 0
                         };
 
-                        var dialog = new ContentDialog
+                        var dialog = new FA.ContentDialog
                         {
                             Content = combobox,
                             Title = "複数の型が利用可能です",
@@ -116,7 +113,7 @@ public sealed class NavigateButton<T> : NavigateButton
                             CloseButtonText = "キャンセル"
                         };
 
-                        if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+                        if (await dialog.ShowAsync() == FA.ContentDialogResult.Primary)
                         {
                             return combobox.SelectedItem as Type;
                         }
@@ -154,7 +151,7 @@ public sealed class NavigateButton<T> : NavigateButton
             {
                 new RemoveCommand<ISetter>(style.Setters, setter).DoAndRecord(CommandRecorder.Default);
             }
-            else if(viewModel.Value.Value is T obj)
+            else if (viewModel.Value.Value is T obj)
             {
                 viewModel.SetValue(obj, default);
             }

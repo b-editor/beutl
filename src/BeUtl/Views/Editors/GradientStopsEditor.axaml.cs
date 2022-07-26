@@ -1,18 +1,17 @@
 ﻿using Avalonia.Controls;
-using Avalonia.Data;
 using Avalonia.Data.Converters;
 using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Media.Immutable;
 using Avalonia.Media.Transformation;
 
+using BeUtl.Utilities;
 using BeUtl.ViewModels.Editors;
 
 using FluentAvalonia.UI.Controls;
 
-using FAM = FluentAvalonia.UI.Media;
 using AM = Avalonia.Media;
-using Avalonia.Interactivity;
-using BeUtl.Utilities;
+using FAM = FluentAvalonia.UI.Media;
 
 namespace BeUtl.Views.Editors;
 
@@ -214,8 +213,9 @@ public sealed partial class GradientStopsEditor : UserControl
         {
             if (values[0] is double offset && values[1] is double width)
             {
-                return new AM.TranslateTransform((offset * (width - 20)) + 10, 0);
-
+                var transformBuilder = new TransformOperations.Builder(1);
+                transformBuilder.AppendTranslate((offset * (width - 20)) + 10, 0);
+                return transformBuilder.Build();
             }
             else
             {

@@ -1,12 +1,11 @@
-﻿using System.Reactive.Disposables;
-using System.Reactive.Linq;
-using System.Reactive.Subjects;
+﻿using System.Collections;
 using System.Text.Json.Nodes;
 
 using Avalonia;
 
 using BeUtl.Animation;
 using BeUtl.Animation.Easings;
+using BeUtl.Commands;
 using BeUtl.Framework;
 using BeUtl.ProjectSystem;
 using BeUtl.Services.Editors.Wrappers;
@@ -123,7 +122,8 @@ public sealed class AnimationTimelineViewModel : IDisposable, IToolContext
         CoreProperty? property = WrappedProperty.AssociatedProperty;
         Type type = typeof(AnimationSpan<>).MakeGenericType(property.PropertyType);
 
-        if (Activator.CreateInstance(type) is IAnimationSpan animation)
+        if (WrappedProperty.Animation.Children is IList list
+            && Activator.CreateInstance(type) is IAnimationSpan animation)
         {
             animation.Easing = easing;
             animation.Duration = TimeSpan.FromSeconds(2);
@@ -135,7 +135,7 @@ public sealed class AnimationTimelineViewModel : IDisposable, IToolContext
                 animation.Next = value;
             }
 
-            var command = new AddAnimationCommand(WrappedProperty, animation, WrappedProperty.Animations.Count);
+            var command = new AddCommand(list, animation, list.Count);
             command.DoAndRecord(CommandRecorder.Default);
         }
     }
@@ -146,31 +146,5 @@ public sealed class AnimationTimelineViewModel : IDisposable, IToolContext
 
     public void WriteToJson(ref JsonNode json)
     {
-    }
-
-    private sealed class AddAnimationCommand : IRecordableCommand
-    {
-        private readonly IWrappedProperty.IAnimatable _animatable;
-        private readonly IAnimationSpan _animation;
-        private readonly int _index;
-
-        public AddAnimationCommand(IWrappedProperty.IAnimatable animatable, IAnimationSpan animation, int index)
-        {
-            _animatable = animatable;
-            _animation = animation;
-            _index = index;
-        }
-
-        public void Do()
-        {
-            _animatable.InsertAnimation(_index, _animation);
-        }
-
-        public void Redo() => Do();
-
-        public void Undo()
-        {
-            _animatable.RemoveAnimation(_animation);
-        }
     }
 }

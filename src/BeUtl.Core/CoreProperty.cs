@@ -194,12 +194,6 @@ public class CoreProperty<T> : CoreProperty
     {
         if (value is T typed)
         {
-            CorePropertyMetadata<T> metadata = GetMetadata<CorePropertyMetadata<T>>(o.GetType());
-            if (metadata.Validator != null)
-            {
-                typed = metadata.Validator.Coerce(o, typed);
-            }
-
             o.SetValue<T>(this, typed);
         }
         else

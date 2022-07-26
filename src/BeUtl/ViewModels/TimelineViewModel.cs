@@ -1,11 +1,8 @@
 ﻿using System.Numerics;
-using System.Reactive.Disposables;
-using System.Reactive.Linq;
 using System.Text.Json.Nodes;
 
 using Avalonia;
 
-using BeUtl.Collections;
 using BeUtl.Framework;
 using BeUtl.Models;
 using BeUtl.ProjectSystem;
@@ -63,13 +60,7 @@ public sealed class TimelineViewModel : IToolContext
                 FileName = Helper.RandomLayerFileName(Path.GetDirectoryName(Scene.FileName)!, Constants.LayerFileExtension)
             };
 
-            if (item.InitialOperation != null)
-            {
-                sLayer.AccentColor = item.InitialOperation.AccentColor;
-                sLayer.AddChild((LayerOperation)(Activator.CreateInstance(item.InitialOperation.Type)!))
-                    .DoAndRecord(CommandRecorder.Default);
-            }
-            else if (item.InitialOperator != null)
+            if (item.InitialOperator != null)
             {
                 sLayer.AccentColor = item.InitialOperator.AccentColor;
                 sLayer.AddChild((StreamOperator)(Activator.CreateInstance(item.InitialOperator.Type)!))

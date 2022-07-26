@@ -6,9 +6,10 @@ public abstract class Animatable : Element
 {
     protected Animatable()
     {
+        Animations = new(this);
     }
 
-    public Animations Animations { get; } = new();
+    public Animations Animations { get; }
 
     public event EventHandler AnimationInvalidated
     {

@@ -10,7 +10,6 @@ using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
 
-using BeUtl.Collections;
 using BeUtl.Models;
 using BeUtl.ProjectSystem;
 using BeUtl.Streaming;
@@ -273,23 +272,7 @@ public sealed partial class Timeline : UserControl
             .RoundToRate(ViewModel.Scene.Parent is Project proj ? proj.GetFrameRate() : 30);
         ViewModel.ClickedLayer = pt.Y.ToLayerNumber();
 
-        if (e.Data.Get("RenderOperation") is LayerOperationRegistry.RegistryItem item)
-        {
-            if (e.KeyModifiers == KeyModifiers.Control)
-            {
-                var dialog = new AddLayer
-                {
-                    DataContext = new AddLayerViewModel(scene, new LayerDescription(ViewModel.ClickedFrame, TimeSpan.FromSeconds(5), ViewModel.ClickedLayer, item))
-                };
-                await dialog.ShowAsync();
-            }
-            else
-            {
-                ViewModel.AddLayer.Execute(new LayerDescription(
-                    ViewModel.ClickedFrame, TimeSpan.FromSeconds(5), ViewModel.ClickedLayer, item));
-            }
-        }
-        else if (e.Data.Get("StreamOperator") is OperatorRegistry.RegistryItem item2)
+        if (e.Data.Get("StreamOperator") is OperatorRegistry.RegistryItem item2)
         {
             if (e.KeyModifiers == KeyModifiers.Control)
             {

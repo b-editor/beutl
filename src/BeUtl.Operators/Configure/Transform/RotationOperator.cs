@@ -1,7 +1,4 @@
-﻿
-using BeUtl.Graphics.Transformation;
-using BeUtl.Language;
-using BeUtl.Streaming;
+﻿using BeUtl.Graphics.Transformation;
 using BeUtl.Styling;
 
 namespace BeUtl.Operators.Configure.Transform;
@@ -15,13 +12,8 @@ public sealed class RotationOperator : TransformOperator
         return style;
     }
 
-    protected override void OnInitializeSetters(IList<ISetterDescription> initializing)
+    protected override void OnInitializeSetters(IList<ISetter> initializing)
     {
-        initializing.Add(new SetterDescription<float>(RotationTransform.RotationProperty)
-        {
-            Header = StringResources.Common.RotationObservable,
-            DefaultValue = 0,
-            IsAnimatable = true,
-        });
+        initializing.Add(new Setter<float>(RotationTransform.RotationProperty, 0));
     }
 }

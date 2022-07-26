@@ -106,6 +106,35 @@ public sealed class CorePropertyBuilder<T, TOwner> : ICorePropertyBuilder<T>
         return this;
     }
 
+    private static IValidator<T> MergeValidator(IValidator<T> oldValidator, IValidator<T> newValidator)
+    {
+        if (oldValidator is TuppleValidator<T> tupple)
+        {
+            newValidator = new MultipleValidator<T>(new IValidator<T>[]
+            {
+                tupple.First,
+                tupple.Second,
+                newValidator
+            });
+        }
+        else if (oldValidator is MultipleValidator<T> multiple)
+        {
+            int length = multiple.Items.Length;
+            var array = new IValidator<T>[length + 1];
+            multiple.Items.AsSpan().CopyTo(array.AsSpan().Slice(0, length));
+
+            array[^1] = newValidator;
+
+            newValidator = new MultipleValidator<T>(array);
+        }
+        else
+        {
+            newValidator = new TuppleValidator<T>(oldValidator, newValidator);
+        }
+
+        return newValidator;
+    }
+
     public CorePropertyBuilder<T, TOwner> Range<TValidator>(T min, T max, bool merge = false)
         where TValidator : RangeValidator<T>, new()
     {
@@ -117,7 +146,7 @@ public sealed class CorePropertyBuilder<T, TOwner> : ICorePropertyBuilder<T>
 
         if (merge && _metadata.Validator != null)
         {
-            validator = new LinkedValidator(_metadata.Validator, validator);
+            validator = MergeValidator(_metadata.Validator, validator);
         }
         _metadata = _metadata with
         {
@@ -136,7 +165,7 @@ public sealed class CorePropertyBuilder<T, TOwner> : ICorePropertyBuilder<T>
             IValidator<T> validator2 = validator1;
             if (merge && _metadata.Validator != null)
             {
-                validator2 = new LinkedValidator(_metadata.Validator, validator1);
+                validator2 = MergeValidator(_metadata.Validator, validator1);
             }
             _metadata = _metadata with
             {
@@ -157,7 +186,7 @@ public sealed class CorePropertyBuilder<T, TOwner> : ICorePropertyBuilder<T>
 
         if (merge && _metadata.Validator != null)
         {
-            validator = new LinkedValidator(_metadata.Validator, validator);
+            validator = MergeValidator(_metadata.Validator, validator);
         }
         _metadata = _metadata with
         {
@@ -175,7 +204,7 @@ public sealed class CorePropertyBuilder<T, TOwner> : ICorePropertyBuilder<T>
             IValidator<T> validator2 = validator1;
             if (merge && _metadata.Validator != null)
             {
-                validator2 = new LinkedValidator(_metadata.Validator, validator1);
+                validator2 = MergeValidator(_metadata.Validator, validator1);
             }
             _metadata = _metadata with
             {
@@ -185,7 +214,7 @@ public sealed class CorePropertyBuilder<T, TOwner> : ICorePropertyBuilder<T>
 
         return this;
     }
-    
+
     public CorePropertyBuilder<T, TOwner> Maximum<TValidator>(T max, bool merge = false)
         where TValidator : RangeValidator<T>, new()
     {
@@ -196,7 +225,7 @@ public sealed class CorePropertyBuilder<T, TOwner> : ICorePropertyBuilder<T>
 
         if (merge && _metadata.Validator != null)
         {
-            validator = new LinkedValidator(_metadata.Validator, validator);
+            validator = MergeValidator(_metadata.Validator, validator);
         }
         _metadata = _metadata with
         {
@@ -214,7 +243,7 @@ public sealed class CorePropertyBuilder<T, TOwner> : ICorePropertyBuilder<T>
             IValidator<T> validator2 = validator1;
             if (merge && _metadata.Validator != null)
             {
-                validator2 = new LinkedValidator(_metadata.Validator, validator1);
+            validator2 = MergeValidator(_metadata.Validator, validator1);
             }
             _metadata = _metadata with
             {
@@ -229,7 +258,7 @@ public sealed class CorePropertyBuilder<T, TOwner> : ICorePropertyBuilder<T>
     {
         if (merge && _metadata.Validator != null)
         {
-            validator = new LinkedValidator(_metadata.Validator, validator);
+            validator = MergeValidator(_metadata.Validator, validator);
         }
         _metadata = _metadata with
         {
@@ -240,18 +269,18 @@ public sealed class CorePropertyBuilder<T, TOwner> : ICorePropertyBuilder<T>
     }
 
     public CorePropertyBuilder<T, TOwner> Validator(
-        Func<ICoreObject, T, bool>? validate = null,
-        Func<ICoreObject, T, T>? coerce = null,
+        Func<ICoreObject, T?, bool>? validate = null,
+        Func<ICoreObject, T?, T?>? coerce = null,
         bool merge = false)
     {
-        IValidator<T> validator1 = new FuncValidator
+        IValidator<T> validator1 = new FuncValidator<T>
         {
             ValidateFunc = validate,
             CoerceFunc = coerce,
         };
         if (merge && _metadata.Validator != null)
         {
-            validator1 = new LinkedValidator(_metadata.Validator, validator1);
+            validator1 = MergeValidator(_metadata.Validator, validator1);
         }
         _metadata = _metadata with
         {
@@ -292,52 +321,5 @@ public sealed class CorePropertyBuilder<T, TOwner> : ICorePropertyBuilder<T>
     void ICorePropertyBuilder<T>.OverrideMetadata(CorePropertyMetadata<T> metadata)
     {
         OverrideMetadata(metadata);
-    }
-
-    private sealed class FuncValidator : IValidator<T>
-    {
-        public Func<ICoreObject, T, T>? CoerceFunc { get; set; }
-
-        public Func<ICoreObject, T, bool>? ValidateFunc { get; set; }
-
-        public T Coerce(ICoreObject obj, T value)
-        {
-            if (CoerceFunc != null)
-            {
-                return CoerceFunc(obj, value);
-            }
-            else
-            {
-                return value;
-            }
-        }
-
-        public bool Validate(ICoreObject obj, T value)
-        {
-            return ValidateFunc?.Invoke(obj, value) ?? true;
-        }
-    }
-
-    private sealed class LinkedValidator : IValidator<T>
-    {
-        public LinkedValidator(IValidator<T> first, IValidator<T> second)
-        {
-            First = first;
-            Second = second;
-        }
-
-        public IValidator<T> First { get; }
-
-        public IValidator<T> Second { get; }
-
-        public T Coerce(ICoreObject obj, T value)
-        {
-            return Second.Coerce(obj, First.Coerce(obj, value));
-        }
-
-        public bool Validate(ICoreObject obj, T value)
-        {
-            return First.Validate(obj, value) && Second.Validate(obj, value);
-        }
     }
 }

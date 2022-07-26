@@ -20,8 +20,6 @@
         typeof(ulong),
     };
 #>
-using BeUtl.Services.Editors.Wrappers;
-
 #pragma warning disable IDE0001, IDE0049
 
 namespace BeUtl.Services.Editors
@@ -29,21 +27,6 @@ namespace BeUtl.Services.Editors
 <# foreach(var t in numberTypes) { #>
     public sealed class <#= t.Name #>EditorService : INumberEditorService<<#= t.FullName #>>
     {
-        public <#= t.FullName #> GetMaximum(IWrappedProperty<<#= t.FullName #>> property)
-        {
-            return property.GetMaximumOrDefault(<#= t.FullName #>.MaxValue);
-        }
-
-        public <#= t.FullName #> GetMinimum(IWrappedProperty<<#= t.FullName #>> property)
-        {
-            return property.GetMinimumOrDefault(<#= t.FullName #>.MinValue);
-        }
-
-        public <#= t.FullName #> Clamp(<#= t.FullName #> value, <#= t.FullName #> min, <#= t.FullName #> max)
-        {
-            return Math.Clamp(value, min, max);
-        }
-
         public <#= t.FullName #> Decrement(<#= t.FullName #> value, int increment)
         {
 <# if (t == typeof(uint) || t == typeof(ulong)) { #>

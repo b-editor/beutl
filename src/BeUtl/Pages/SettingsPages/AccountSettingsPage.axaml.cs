@@ -9,8 +9,6 @@ using Firebase.Auth.UI;
 
 using FluentAvalonia.UI.Controls;
 
-using S = BeUtl.Language.StringResources;
-
 namespace BeUtl.Pages.SettingsPages;
 
 public sealed partial class AccountSettingsPage : UserControl

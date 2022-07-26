@@ -2,8 +2,6 @@ using Avalonia.Controls;
 using Avalonia.Data;
 using Avalonia.Markup.Xaml.MarkupExtensions;
 
-using BeUtl.ViewModels.Editors;
-
 #pragma warning disable IDE0001, IDE0049
 
 namespace BeUtl.Views.Editors
@@ -23,20 +21,6 @@ namespace BeUtl.Views.Editors
 
             xTextBox[!TextBox.TextProperty] = s_x;
             yTextBox[!TextBox.TextProperty] = s_y;
-        }
-
-        protected override BeUtl.Media.PixelPoint Clamp(BeUtl.Media.PixelPoint value)
-        {
-            if (DataContext is PixelPointEditorViewModel vm)
-            {
-                return new BeUtl.Media.PixelPoint(
-                    Math.Clamp(value.X, vm.Minimum.X, vm.Maximum.X),
-                    Math.Clamp(value.Y, vm.Minimum.Y, vm.Maximum.Y));
-            }
-            else
-            {
-                return value;
-            }
         }
 
         protected override BeUtl.Media.PixelPoint IncrementX(BeUtl.Media.PixelPoint value, int increment)
@@ -83,20 +67,6 @@ namespace BeUtl.Views.Editors
             yTextBox[!TextBox.TextProperty] = s_y;
         }
 
-        protected override BeUtl.Media.PixelSize Clamp(BeUtl.Media.PixelSize value)
-        {
-            if (DataContext is PixelSizeEditorViewModel vm)
-            {
-                return new BeUtl.Media.PixelSize(
-                    Math.Clamp(value.Width, vm.Minimum.Width, vm.Maximum.Width),
-                    Math.Clamp(value.Height, vm.Minimum.Height, vm.Maximum.Height));
-            }
-            else
-            {
-                return value;
-            }
-        }
-
         protected override BeUtl.Media.PixelSize IncrementX(BeUtl.Media.PixelSize value, int increment)
         {
             return new BeUtl.Media.PixelSize(
@@ -139,20 +109,6 @@ namespace BeUtl.Views.Editors
 
             xTextBox[!TextBox.TextProperty] = s_x;
             yTextBox[!TextBox.TextProperty] = s_y;
-        }
-
-        protected override BeUtl.Graphics.Point Clamp(BeUtl.Graphics.Point value)
-        {
-            if (DataContext is PointEditorViewModel vm)
-            {
-                return new BeUtl.Graphics.Point(
-                    Math.Clamp(value.X, vm.Minimum.X, vm.Maximum.X),
-                    Math.Clamp(value.Y, vm.Minimum.Y, vm.Maximum.Y));
-            }
-            else
-            {
-                return value;
-            }
         }
 
         protected override BeUtl.Graphics.Point IncrementX(BeUtl.Graphics.Point value, int increment)
@@ -199,20 +155,6 @@ namespace BeUtl.Views.Editors
             yTextBox[!TextBox.TextProperty] = s_y;
         }
 
-        protected override BeUtl.Graphics.Size Clamp(BeUtl.Graphics.Size value)
-        {
-            if (DataContext is SizeEditorViewModel vm)
-            {
-                return new BeUtl.Graphics.Size(
-                    Math.Clamp(value.Width, vm.Minimum.Width, vm.Maximum.Width),
-                    Math.Clamp(value.Height, vm.Minimum.Height, vm.Maximum.Height));
-            }
-            else
-            {
-                return value;
-            }
-        }
-
         protected override BeUtl.Graphics.Size IncrementX(BeUtl.Graphics.Size value, int increment)
         {
             return new BeUtl.Graphics.Size(
@@ -257,20 +199,6 @@ namespace BeUtl.Views.Editors
             yTextBox[!TextBox.TextProperty] = s_y;
         }
 
-        protected override BeUtl.Graphics.Vector Clamp(BeUtl.Graphics.Vector value)
-        {
-            if (DataContext is VectorEditorViewModel vm)
-            {
-                return new BeUtl.Graphics.Vector(
-                    Math.Clamp(value.X, vm.Minimum.X, vm.Maximum.X),
-                    Math.Clamp(value.Y, vm.Minimum.Y, vm.Maximum.Y));
-            }
-            else
-            {
-                return value;
-            }
-        }
-
         protected override BeUtl.Graphics.Vector IncrementX(BeUtl.Graphics.Vector value, int increment)
         {
             return new BeUtl.Graphics.Vector(
@@ -313,20 +241,6 @@ namespace BeUtl.Views.Editors
 
             xTextBox[!TextBox.TextProperty] = s_x;
             yTextBox[!TextBox.TextProperty] = s_y;
-        }
-
-        protected override System.Numerics.Vector2 Clamp(System.Numerics.Vector2 value)
-        {
-            if (DataContext is Vector2EditorViewModel vm)
-            {
-                return new System.Numerics.Vector2(
-                    Math.Clamp(value.X, vm.Minimum.X, vm.Maximum.X),
-                    Math.Clamp(value.Y, vm.Minimum.Y, vm.Maximum.Y));
-            }
-            else
-            {
-                return value;
-            }
         }
 
         protected override System.Numerics.Vector2 IncrementX(System.Numerics.Vector2 value, int increment)
@@ -377,21 +291,6 @@ namespace BeUtl.Views.Editors
             xTextBox[!TextBox.TextProperty] = s_x;
             yTextBox[!TextBox.TextProperty] = s_y;
             zTextBox[!TextBox.TextProperty] = s_z;
-        }
-
-        protected override System.Numerics.Vector3 Clamp(System.Numerics.Vector3 value)
-        {
-            if (DataContext is Vector3EditorViewModel vm)
-            {
-                return new System.Numerics.Vector3(
-                    Math.Clamp(value.X, vm.Minimum.X, vm.Maximum.X),
-                    Math.Clamp(value.Y, vm.Minimum.Y, vm.Maximum.Y),
-                    Math.Clamp(value.Z, vm.Minimum.Z, vm.Maximum.Z));
-            }
-            else
-            {
-                return value;
-            }
         }
 
         protected override System.Numerics.Vector3 IncrementX(System.Numerics.Vector3 value, int increment)
@@ -458,22 +357,6 @@ namespace BeUtl.Views.Editors
             yTextBox[!TextBox.TextProperty] = s_y;
             zTextBox[!TextBox.TextProperty] = s_z;
             wTextBox[!TextBox.TextProperty] = s_w;
-        }
-
-        protected override BeUtl.Media.PixelRect Clamp(BeUtl.Media.PixelRect value)
-        {
-            if (DataContext is PixelRectEditorViewModel vm)
-            {
-                return new BeUtl.Media.PixelRect(
-                    Math.Clamp(value.X, vm.Minimum.X, vm.Maximum.X),
-                    Math.Clamp(value.Y, vm.Minimum.Y, vm.Maximum.Y),
-                    Math.Clamp(value.Width, vm.Minimum.Width, vm.Maximum.Width),
-                    Math.Clamp(value.Height, vm.Minimum.Height, vm.Maximum.Height));
-            }
-            else
-            {
-                return value;
-            }
         }
 
         protected override BeUtl.Media.PixelRect IncrementX(BeUtl.Media.PixelRect value, int increment)
@@ -553,22 +436,6 @@ namespace BeUtl.Views.Editors
             wTextBox[!TextBox.TextProperty] = s_w;
         }
 
-        protected override BeUtl.Graphics.Rect Clamp(BeUtl.Graphics.Rect value)
-        {
-            if (DataContext is RectEditorViewModel vm)
-            {
-                return new BeUtl.Graphics.Rect(
-                    Math.Clamp(value.X, vm.Minimum.X, vm.Maximum.X),
-                    Math.Clamp(value.Y, vm.Minimum.Y, vm.Maximum.Y),
-                    Math.Clamp(value.Width, vm.Minimum.Width, vm.Maximum.Width),
-                    Math.Clamp(value.Height, vm.Minimum.Height, vm.Maximum.Height));
-            }
-            else
-            {
-                return value;
-            }
-        }
-
         protected override BeUtl.Graphics.Rect IncrementX(BeUtl.Graphics.Rect value, int increment)
         {
             return new BeUtl.Graphics.Rect(
@@ -644,22 +511,6 @@ namespace BeUtl.Views.Editors
             yTextBox[!TextBox.TextProperty] = s_y;
             zTextBox[!TextBox.TextProperty] = s_z;
             wTextBox[!TextBox.TextProperty] = s_w;
-        }
-
-        protected override System.Numerics.Vector4 Clamp(System.Numerics.Vector4 value)
-        {
-            if (DataContext is Vector4EditorViewModel vm)
-            {
-                return new System.Numerics.Vector4(
-                    Math.Clamp(value.X, vm.Minimum.X, vm.Maximum.X),
-                    Math.Clamp(value.Y, vm.Minimum.Y, vm.Maximum.Y),
-                    Math.Clamp(value.Z, vm.Minimum.Z, vm.Maximum.Z),
-                    Math.Clamp(value.W, vm.Minimum.W, vm.Maximum.W));
-            }
-            else
-            {
-                return value;
-            }
         }
 
         protected override System.Numerics.Vector4 IncrementX(System.Numerics.Vector4 value, int increment)

@@ -34,13 +34,13 @@ public static class CoreListExtensions
 
         void Remove(int index, IList items)
         {
-            for (var i = items.Count - 1; i >= 0; --i)
+            for (int i = items.Count - 1; i >= 0; --i)
             {
                 removed(index + i, (T)items[i]!);
             }
         }
 
-        NotifyCollectionChangedEventHandler handler = (_, e) =>
+        void handler(object? _, NotifyCollectionChangedEventArgs e)
         {
             switch (e.Action)
             {
@@ -74,7 +74,7 @@ public static class CoreListExtensions
                     Add(0, (IList)collection);
                     break;
             }
-        };
+        }
 
         Add(0, (IList)collection);
 
@@ -96,17 +96,15 @@ public static class CoreListExtensions
     {
         var tracked = new List<INotifyPropertyChanged>();
 
-        PropertyChangedEventHandler handler = (s, e) =>
+        void handler(object? s, PropertyChangedEventArgs e)
         {
             callback(Tuple.Create(s, e));
-        };
+        }
 
         collection.ForEachItem(
             x =>
             {
-                var inpc = x as INotifyPropertyChanged;
-
-                if (inpc != null)
+                if (x is INotifyPropertyChanged inpc)
                 {
                     inpc.PropertyChanged += handler;
                     tracked.Add(inpc);
@@ -114,9 +112,7 @@ public static class CoreListExtensions
             },
             x =>
             {
-                var inpc = x as INotifyPropertyChanged;
-
-                if (inpc != null)
+                if (x is INotifyPropertyChanged inpc)
                 {
                     inpc.PropertyChanged -= handler;
                     tracked.Remove(inpc);
@@ -126,7 +122,7 @@ public static class CoreListExtensions
 
         return Disposable.Create(() =>
         {
-            foreach (var i in tracked)
+            foreach (INotifyPropertyChanged i in tracked)
             {
                 i.PropertyChanged -= handler;
             }

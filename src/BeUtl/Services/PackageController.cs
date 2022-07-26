@@ -1,10 +1,6 @@
-﻿using System.Reactive.Disposables;
-
-using Firebase.Auth;
+﻿using Firebase.Auth;
 
 using Google.Cloud.Firestore;
-
-using Microsoft.Extensions.DependencyInjection;
 
 namespace BeUtl.Services;
 

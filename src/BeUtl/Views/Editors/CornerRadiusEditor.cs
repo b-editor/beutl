@@ -5,7 +5,6 @@ using Avalonia.Media;
 
 using BeUtl.Controls;
 using BeUtl.Media;
-using BeUtl.ViewModels.Editors;
 
 namespace BeUtl.Views.Editors;
 
@@ -45,24 +44,6 @@ public sealed class CornerRadiusEditor : BaseVector4Editor<CornerRadius>
         yTextBox.InnerLeftContent = topRightIcon;
         zTextBox.InnerLeftContent = bottomLeftIcon;
         wTextBox.InnerLeftContent = bottomRightIcon;
-    }
-
-    protected override CornerRadius Clamp(CornerRadius value)
-    {
-        if (DataContext is CornerRadiusEditorViewModel vm)
-        {
-            CornerRadius min = vm.Minimum;
-            CornerRadius max = vm.Maximum;
-
-            return new CornerRadius(Math.Clamp(value.TopLeft, min.TopLeft, max.TopLeft),
-                Math.Clamp(value.TopRight, min.TopRight, max.TopRight),
-                Math.Clamp(value.BottomRight, min.BottomRight, max.BottomRight),
-                Math.Clamp(value.BottomLeft, min.BottomLeft, max.BottomLeft));
-        }
-        else
-        {
-            return value;
-        }
     }
 
     protected override CornerRadius IncrementX(CornerRadius value, int increment)

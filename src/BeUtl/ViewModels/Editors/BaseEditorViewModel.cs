@@ -1,5 +1,4 @@
-﻿using BeUtl.ProjectSystem;
-using BeUtl.Services.Editors.Wrappers;
+﻿using BeUtl.Services.Editors.Wrappers;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
@@ -36,7 +35,7 @@ public abstract class BaseEditorViewModel : IDisposable
 
     public virtual EditorViewModelDescription Description => new(WrappedProperty);
 
-    public bool IsAnimatable => WrappedProperty is IAnimatablePropertyInstance;
+    public bool IsAnimatable => WrappedProperty.GetMetadataExt<CorePropertyMetadata>()?.PropertyFlags.HasFlag(PropertyFlags.Animatable) == true;
 
     public bool IsStylingSetter => WrappedProperty is IStylingSetterWrapper;
 

@@ -1,6 +1,4 @@
-﻿using System.Globalization;
-
-using Avalonia.Data;
+﻿using Avalonia.Data;
 using Avalonia.Data.Converters;
 
 namespace BeUtl.Converters;

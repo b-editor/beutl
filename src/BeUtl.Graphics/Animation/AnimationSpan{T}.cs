@@ -2,10 +2,11 @@
 
 using BeUtl.Animation.Easings;
 using BeUtl.Media;
+using BeUtl.Styling;
 
 namespace BeUtl.Animation;
 
-public sealed class AnimationSpan<T> : AnimationSpan, IAnimationSpan<T>
+public sealed class AnimationSpan<T> : AnimationSpan, IAnimationSpan<T>, ILogicalElement, IStylingElement
 {
     public static readonly CoreProperty<T> PreviousProperty;
     public static readonly CoreProperty<T> NextProperty;
@@ -50,6 +51,28 @@ public sealed class AnimationSpan<T> : AnimationSpan, IAnimationSpan<T>
 
     public event EventHandler? Invalidated;
 
+    IEnumerable<ILogicalElement> ILogicalElement.LogicalChildren
+    {
+        get
+        {
+            if (_previous is ILogicalElement prevElm)
+                yield return prevElm;
+            if (_next is ILogicalElement nextElm)
+                yield return nextElm;
+        }
+    }
+    
+    IEnumerable<IStylingElement> IStylingElement.StylingChildren
+    {
+        get
+        {
+            if (_previous is IStylingElement prevElm)
+                yield return prevElm;
+            if (_next is IStylingElement nextElm)
+                yield return nextElm;
+        }
+    }
+
     public T Interpolate(float progress)
     {
         float ease = Easing.Ease(progress);
@@ -63,9 +86,10 @@ public sealed class AnimationSpan<T> : AnimationSpan, IAnimationSpan<T>
         {
             Invalidated?.Invoke(this, EventArgs.Empty);
 
-            if (args.PropertyName is nameof(Previous)
+            if (args.PropertyName is nameof(Previous) or nameof(Next)
                 && args is CorePropertyChangedEventArgs<T> args1)
             {
+                // IAffectsRenderのイベント登録
                 if (args1.OldValue is IAffectsRender affectsRender1)
                 {
                     affectsRender1.Invalidated -= AffectsRender_Invalidated;
@@ -75,21 +99,18 @@ public sealed class AnimationSpan<T> : AnimationSpan, IAnimationSpan<T>
                 {
                     affectsRender2.Invalidated += AffectsRender_Invalidated;
                 }
+
+                // 論理ツリーの設定
+                var logicalTreeAttachmentArgs = new LogicalTreeAttachmentEventArgs(this);
+                (args1.OldValue as ILogicalElement)?.NotifyDetachedFromLogicalTree(logicalTreeAttachmentArgs);
+                (args1.NewValue as ILogicalElement)?.NotifyAttachedToLogicalTree(logicalTreeAttachmentArgs);
+
+                // スタイルツリーの設定
+                var stylingTreeAttachmentArgs = new StylingTreeAttachmentEventArgs(this);
+                (args1.OldValue as IStylingElement)?.NotifyDetachedFromStylingTree(stylingTreeAttachmentArgs);
+                (args1.NewValue as IStylingElement)?.NotifyAttachedToStylingTree(stylingTreeAttachmentArgs);
             }
 
-            if (args.PropertyName is nameof(Next)
-                && args is CorePropertyChangedEventArgs<T> args2)
-            {
-                if (args2.OldValue is IAffectsRender affectsRender1)
-                {
-                    affectsRender1.Invalidated -= AffectsRender_Invalidated;
-                }
-
-                if (args2.NewValue is IAffectsRender affectsRender2)
-                {
-                    affectsRender2.Invalidated += AffectsRender_Invalidated;
-                }
-            }
         }
     }
 

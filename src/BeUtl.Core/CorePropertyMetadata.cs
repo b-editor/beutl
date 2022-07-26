@@ -60,6 +60,38 @@ public record class CorePropertyMetadata<T> : CorePropertyMetadata
         }
     }
 
+    public TValidator? FindValidator<TValidator>()
+        where TValidator : IValidator<T>
+    {
+        if (_validator is TValidator validator1)
+        {
+            return validator1;
+        }
+        else if (_validator is TuppleValidator<T> validator2)
+        {
+            if (validator2.First is TValidator validator3)
+            {
+                return validator3;
+            }
+            else if (validator2.Second is TValidator validator4)
+            {
+                return validator4;
+            }
+        }
+        else if (_validator is MultipleValidator<T> validator5)
+        {
+            foreach (var item in validator5.Items)
+            {
+                if (item is TValidator validator6)
+                {
+                    return validator6;
+                }
+            }
+        }
+
+        return default;
+    }
+
     protected internal override object? GetDefaultValue()
     {
         return HasDefaultValue ? _defaultValue : null;

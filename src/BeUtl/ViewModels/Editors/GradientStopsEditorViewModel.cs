@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-using BeUtl.Commands;
+﻿using BeUtl.Commands;
 using BeUtl.Media;
 using BeUtl.Services.Editors.Wrappers;
 using BeUtl.Utilities;
@@ -90,10 +84,7 @@ public class GradientStopsEditorViewModel : BaseEditorViewModel<GradientStops>
                 command = command == null ? tmp : command.Append(tmp);
             }
 
-            if (command != null)
-            {
-                command.DoAndRecord(CommandRecorder.Default);
-            }
+            command?.DoAndRecord(CommandRecorder.Default);
         }
     }
 

@@ -133,7 +133,7 @@ public sealed class StreamOperatorsEditorViewModel : IToolContext
             {
                 foreach ((JsonNode? item, StylingOperatorEditorViewModel? op) in array.Zip(Items))
                 {
-                    if (item != null && op !=null)
+                    if (item != null && op != null)
                     {
                         op.RestoreState(item);
                     }

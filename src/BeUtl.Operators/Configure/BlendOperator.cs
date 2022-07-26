@@ -1,6 +1,4 @@
-﻿using System.Reactive.Linq;
-
-using BeUtl.Graphics;
+﻿using BeUtl.Graphics;
 using BeUtl.Streaming;
 using BeUtl.Styling;
 
@@ -15,11 +13,8 @@ public sealed class BlendOperator : StreamStyler
         return style;
     }
 
-    protected override void OnInitializeSetters(IList<ISetterDescription> initializing)
+    protected override void OnInitializeSetters(IList<ISetter> initializing)
     {
-        initializing.Add(new SetterDescription<BlendMode>(Drawable.BlendModeProperty)
-        {
-            Header = Observable.Return("合成モード")
-        });
+        initializing.Add(new Setter<BlendMode>(Drawable.BlendModeProperty, BlendMode.SrcOver));
     }
 }

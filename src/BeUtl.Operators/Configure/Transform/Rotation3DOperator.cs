@@ -1,7 +1,4 @@
-﻿using System.Reactive.Linq;
-
-using BeUtl.Graphics.Transformation;
-using BeUtl.Streaming;
+﻿using BeUtl.Graphics.Transformation;
 using BeUtl.Styling;
 
 namespace BeUtl.Operators.Configure.Transform;
@@ -15,49 +12,14 @@ public sealed class Rotation3DOperator : TransformOperator
         return style;
     }
 
-    protected override void OnInitializeSetters(IList<ISetterDescription> initializing)
+    protected override void OnInitializeSetters(IList<ISetter> initializing)
     {
-        initializing.Add(new SetterDescription<float>(Rotation3DTransform.RotationXProperty)
-        {
-            Header = Observable.Return("X"),
-            DefaultValue = 0,
-            IsAnimatable = true,
-        });
-        initializing.Add(new SetterDescription<float>(Rotation3DTransform.RotationYProperty)
-        {
-            Header = Observable.Return("Y"),
-            DefaultValue = 0,
-            IsAnimatable = true,
-        });
-        initializing.Add(new SetterDescription<float>(Rotation3DTransform.RotationZProperty)
-        {
-            Header = Observable.Return("Z"),
-            DefaultValue = 0,
-            IsAnimatable = true,
-        });
-        initializing.Add(new SetterDescription<float>(Rotation3DTransform.CenterXProperty)
-        {
-            Header = Observable.Return("Center x"),
-            DefaultValue = 0,
-            IsAnimatable = true,
-        });
-        initializing.Add(new SetterDescription<float>(Rotation3DTransform.CenterYProperty)
-        {
-            Header = Observable.Return("Center y"),
-            DefaultValue = 0,
-            IsAnimatable = true,
-        });
-        initializing.Add(new SetterDescription<float>(Rotation3DTransform.CenterZProperty)
-        {
-            Header = Observable.Return("Center z"),
-            DefaultValue = 0,
-            IsAnimatable = true,
-        });
-        initializing.Add(new SetterDescription<float>(Rotation3DTransform.DepthProperty)
-        {
-            Header = Observable.Return("Depth"),
-            DefaultValue = 0,
-            IsAnimatable = true,
-        });
+        initializing.Add(new Setter<float>(Rotation3DTransform.RotationXProperty, 0));
+        initializing.Add(new Setter<float>(Rotation3DTransform.RotationYProperty, 0));
+        initializing.Add(new Setter<float>(Rotation3DTransform.RotationZProperty, 0));
+        initializing.Add(new Setter<float>(Rotation3DTransform.CenterXProperty, 0));
+        initializing.Add(new Setter<float>(Rotation3DTransform.CenterYProperty, 0));
+        initializing.Add(new Setter<float>(Rotation3DTransform.CenterZProperty, 0));
+        initializing.Add(new Setter<float>(Rotation3DTransform.DepthProperty, 0));
     }
 }

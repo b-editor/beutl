@@ -8,9 +8,9 @@ public interface ICoreList<T> : IObservableList<T>, IList, ICoreReadOnlyList<T>
 
     new T this[int index] { get; set; }
 
-    Action<T>? Attached { get; init; }
+    public event Action<T>? Attached;
 
-    Action<T>? Detached { get; init; }
+    public event Action<T>? Detached;
 
     Span<T> AsSpan();
 

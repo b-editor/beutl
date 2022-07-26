@@ -1,9 +1,10 @@
 ﻿using BeUtl.Animation.Easings;
 using BeUtl.Collections;
+using BeUtl.Styling;
 
 namespace BeUtl.Animation;
 
-public interface IAnimation : IJsonSerializable
+public interface IAnimation : IJsonSerializable, ILogicalElement, IStylingElement
 {
     CoreProperty Property { get; }
 

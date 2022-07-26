@@ -12,7 +12,6 @@ using Avalonia.Threading;
 using BeUtl.Configuration;
 using BeUtl.Framework.Service;
 using BeUtl.Framework.Services;
-using BeUtl.Operations;
 using BeUtl.Operators;
 using BeUtl.ProjectSystem;
 using BeUtl.Rendering;
@@ -35,8 +34,6 @@ public sealed class App : Application
 
     public override void Initialize()
     {
-        AppContext.SetSwitch("Switch.BeUtl.Operations.IsEnabled", true);
-
         //PaletteColors
         Type colorsType = typeof(Colors);
         PropertyInfo[] colors = colorsType.GetProperties(BindingFlags.Public | BindingFlags.GetProperty | BindingFlags.Static);
@@ -92,6 +89,12 @@ public sealed class App : Application
                 }
             });
         });
+
+#if DEBUG
+        AppDomain.CurrentDomain.UnhandledException += (_, e) =>
+        {
+        };
+#endif
     }
 
     public override void RegisterServices()
@@ -110,7 +113,6 @@ public sealed class App : Application
             .BindToSelf<INotificationService>(new NotificationService())
             .BindToSelf<IResourceProvider>(new DefaultResourceProvider());
 
-        RenderOperations.RegisterAll();
         OperatorsRegistrar.RegisterAll();
         UIDispatcherScheduler.Initialize();
     }

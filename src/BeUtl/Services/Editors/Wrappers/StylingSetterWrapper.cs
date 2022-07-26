@@ -15,14 +15,7 @@ public sealed class StylingSetterWrapper<T> : IWrappedProperty<T>.IAnimatable, I
         AssociatedProperty = setter.Property;
         Tag = setter;
 
-        if (setter is SetterDescription<T>.InternalSetter { Description.Header: { } header })
-        {
-            Header = header;
-        }
-        else
-        {
-            Header = Observable.Return(setter.Property.Name);
-        }
+        Header = Observable.Return(setter.Property.Name);
     }
 
     public CoreProperty<T> AssociatedProperty { get; }
@@ -31,22 +24,22 @@ public sealed class StylingSetterWrapper<T> : IWrappedProperty<T>.IAnimatable, I
 
     public IObservable<string> Header { get; }
 
-    public IObservableList<AnimationSpan<T>> Animations
+    public Animation<T> Animation
     {
         get
         {
             var setter = (Setter<T>)Tag;
             setter.Animation ??= new Animation<T>(AssociatedProperty);
-            return setter.Animation.Children;
+            return setter.Animation;
         }
     }
 
-    IReadOnlyList<IAnimationSpan> IWrappedProperty.IAnimatable.Animations
+    public bool HasAnimation
     {
         get
         {
-            _ = Animations;
-            return ((ISetter)Tag).Animation!.Children;
+            var setter = (Setter<T>)Tag;
+            return setter.Animation is { Children.Count: > 0 };
         }
     }
 
@@ -63,20 +56,5 @@ public sealed class StylingSetterWrapper<T> : IWrappedProperty<T>.IAnimatable, I
     public void SetValue(T? value)
     {
         ((Setter<T>)Tag).Value = value;
-    }
-
-    public void AddAnimation(IAnimationSpan animation)
-    {
-        Animations.Add((AnimationSpan<T>)animation);
-    }
-
-    public void InsertAnimation(int index, IAnimationSpan animation)
-    {
-        Animations.Insert(index, (AnimationSpan<T>)animation);
-    }
-
-    public void RemoveAnimation(IAnimationSpan animation)
-    {
-        Animations.Remove((AnimationSpan<T>)animation);
     }
 }

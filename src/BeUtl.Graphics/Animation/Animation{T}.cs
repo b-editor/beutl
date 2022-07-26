@@ -3,6 +3,7 @@ using System.Collections.Specialized;
 using System.Text.Json.Nodes;
 
 using BeUtl.Collections;
+using BeUtl.Styling;
 
 namespace BeUtl.Animation;
 
@@ -13,7 +14,7 @@ public class Animation<T> : BaseAnimation, IAnimation
     public Animation(CoreProperty<T> property)
         : base(property)
     {
-        _children = new AnimationChildren();
+        _children = new AnimationChildren(this);
         _children.Invalidated += (_, _) => Invalidated?.Invoke(this, EventArgs.Empty);
     }
 
@@ -22,6 +23,8 @@ public class Animation<T> : BaseAnimation, IAnimation
     public ICoreList<AnimationSpan<T>> Children => _children;
 
     ICoreReadOnlyList<IAnimationSpan> IAnimation.Children => _children;
+
+    IEnumerable<ILogicalElement> ILogicalElement.LogicalChildren => _children;
 
     public event EventHandler? Invalidated;
 
@@ -91,8 +94,22 @@ public class Animation<T> : BaseAnimation, IAnimation
 
     private sealed class AnimationChildren : CoreList<AnimationSpan<T>>
     {
-        public AnimationChildren()
+        public Animation<T> Parent { get; }
+
+        public AnimationChildren(Animation<T> parent)
         {
+            Parent = parent;
+            Attached += item =>
+            {
+                (item as ILogicalElement).NotifyAttachedToLogicalTree(new(Parent));
+                (item as IStylingElement).NotifyAttachedToStylingTree(new(Parent));
+            };
+            Detached += item =>
+            {
+                (item as ILogicalElement).NotifyDetachedFromLogicalTree(new(Parent));
+                (item as IStylingElement).NotifyDetachedFromStylingTree(new(Parent));
+            };
+
             ResetBehavior = ResetBehavior.Remove;
             CollectionChanged += AffectsRenders_CollectionChanged;
         }

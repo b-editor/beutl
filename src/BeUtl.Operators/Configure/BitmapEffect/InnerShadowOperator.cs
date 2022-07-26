@@ -1,8 +1,6 @@
 ﻿using BeUtl.Graphics;
 using BeUtl.Graphics.Effects;
-using BeUtl.Language;
 using BeUtl.Media;
-using BeUtl.Streaming;
 using BeUtl.Styling;
 
 namespace BeUtl.Operators.Configure.BitmapEffect;
@@ -16,26 +14,10 @@ public sealed class InnerShadowOperator : BitmapEffectOperator
         return style;
     }
 
-    protected override void OnInitializeSetters(IList<ISetterDescription> initializing)
+    protected override void OnInitializeSetters(IList<ISetter> initializing)
     {
-        initializing.Add(new SetterDescription<Point>(InnerShadow.PositionProperty)
-        {
-            DefaultValue = new Point(10, 10),
-            Header = StringResources.Common.PositionObservable,
-            IsAnimatable = true
-        });
-        initializing.Add(new SetterDescription<PixelSize>(InnerShadow.KernelSizeProperty)
-        {
-            DefaultValue = new PixelSize(25, 25),
-            Minimum = new PixelSize(1, 1),
-            Header = new ResourceReference<string>("S.Common.KernelSize").GetResourceObservable()!,
-            IsAnimatable = true
-        });
-        initializing.Add(new SetterDescription<Color>(InnerShadow.ColorProperty)
-        {
-            DefaultValue = Colors.Black,
-            Header = StringResources.Common.ColorObservable,
-            IsAnimatable = true
-        });
+        initializing.Add(new Setter<Point>(InnerShadow.PositionProperty, new Point(10, 10)));
+        initializing.Add(new Setter<PixelSize>(InnerShadow.KernelSizeProperty, new PixelSize(25, 25)));
+        initializing.Add(new Setter<Color>(InnerShadow.ColorProperty, Colors.Black));
     }
 }

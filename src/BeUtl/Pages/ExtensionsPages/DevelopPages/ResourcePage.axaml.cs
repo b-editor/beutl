@@ -8,8 +8,6 @@ using BeUtl.ViewModels.ExtensionsPages.DevelopPages;
 
 using FluentAvalonia.UI.Controls;
 
-using S = BeUtl.Language.StringResources;
-
 namespace BeUtl.Pages.ExtensionsPages.DevelopPages;
 
 public sealed partial class ResourcePage : UserControl

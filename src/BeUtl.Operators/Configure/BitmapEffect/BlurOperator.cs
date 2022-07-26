@@ -1,6 +1,5 @@
 ﻿using BeUtl.Graphics.Effects.OpenCv;
 using BeUtl.Media;
-using BeUtl.Streaming;
 using BeUtl.Styling;
 
 namespace BeUtl.Operators.Configure.BitmapEffect;
@@ -14,20 +13,9 @@ public sealed class BlurOperator : BitmapEffectOperator
         return style;
     }
 
-    protected override void OnInitializeSetters(IList<ISetterDescription> initializing)
+    protected override void OnInitializeSetters(IList<ISetter> initializing)
     {
-        initializing.Add(new SetterDescription<PixelSize>(Blur.KernelSizeProperty)
-        {
-            DefaultValue = new PixelSize(25, 25),
-            Minimum = new PixelSize(1, 1),
-            Header = new ResourceReference<string>("S.Common.KernelSize").GetResourceObservable()!,
-            IsAnimatable = true
-        });
-        initializing.Add(new SetterDescription<bool>(Blur.FixImageSizeProperty)
-        {
-            DefaultValue = false,
-            Header = new ResourceReference<string>("S.Common.FixImageSize").GetResourceObservable()!,
-            IsAnimatable = true
-        });
+        initializing.Add(new Setter<PixelSize>(Blur.KernelSizeProperty, new PixelSize(25, 25)));
+        initializing.Add(new Setter<bool>(Blur.FixImageSizeProperty, false));
     }
 }

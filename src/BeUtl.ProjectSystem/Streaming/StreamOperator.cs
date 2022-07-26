@@ -16,7 +16,7 @@ public class StreamOperator : Element, IStreamOperator
 
     static StreamOperator()
     {
-        IsEnabledProperty = ConfigureProperty<bool, LayerOperation>(nameof(IsEnabled))
+        IsEnabledProperty = ConfigureProperty<bool, StreamOperator>(nameof(IsEnabled))
             .Accessor(o => o.IsEnabled, (o, v) => o.IsEnabled = v)
             .DefaultValue(true)
             .Observability(PropertyObservability.Changed)

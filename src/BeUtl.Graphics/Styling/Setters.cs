@@ -5,9 +5,10 @@ using BeUtl.Collections;
 
 namespace BeUtl.Styling;
 
-public sealed class Setters : CoreList<ISetter>
+public sealed class Setters : StylingElements<ISetter>
 {
-    public Setters()
+    public Setters(IStylingElement parent)
+        : base(parent)
     {
         ResetBehavior = ResetBehavior.Remove;
         CollectionChanged += AffectsRenders_CollectionChanged;

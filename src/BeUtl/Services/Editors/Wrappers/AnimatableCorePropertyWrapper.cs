@@ -9,32 +9,32 @@ public sealed class AnimatableCorePropertyWrapper<T> : CorePropertyWrapper<T>, I
     {
     }
 
-    public IObservableList<AnimationSpan<T>> Animations
-        => GetAnimation().Children;
+    public Animation<T> Animation => GetAnimation();
 
-    IReadOnlyList<IAnimationSpan> IWrappedProperty.IAnimatable.Animations
-        => ((IAnimation)GetAnimation()).Children;
-
-    public void AddAnimation(IAnimationSpan animation)
+    public bool HasAnimation
     {
-        Animations.Add((AnimationSpan<T>)animation);
-    }
+        get
+        {
+            var animatable = (Animatable)Tag;
 
-    public void InsertAnimation(int index, IAnimationSpan animation)
-    {
-        Animations.Insert(index, (AnimationSpan<T>)animation);
-    }
+            foreach (IAnimation item in animatable.Animations.AsSpan())
+            {
+                if (item.Property.Id == AssociatedProperty.Id
+                    && item is Animation<T> { Children.Count: > 0 })
+                {
+                    return true;
+                }
+            }
 
-    public void RemoveAnimation(IAnimationSpan animation)
-    {
-        Animations.Remove((AnimationSpan<T>)animation);
+            return false;
+        }
     }
 
     private Animation<T> GetAnimation()
     {
         var animatable = (Animatable)Tag;
 
-        foreach (var item in animatable.Animations)
+        foreach (IAnimation item in animatable.Animations.AsSpan())
         {
             if (item.Property.Id == AssociatedProperty.Id
                 && item is Animation<T> animation1)

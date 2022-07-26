@@ -1,6 +1,5 @@
 ﻿using BeUtl.Graphics;
 using BeUtl.Graphics.Shapes;
-using BeUtl.Language;
 using BeUtl.Media;
 using BeUtl.Streaming;
 using BeUtl.Styling;
@@ -16,41 +15,12 @@ public sealed class RoundedRectOperation : StreamStyledSource
         return style;
     }
 
-    protected override void OnInitializeSetters(IList<ISetterDescription> initializing)
+    protected override void OnInitializeSetters(IList<ISetter> initializing)
     {
-        initializing.Add(new SetterDescription<float>(Drawable.WidthProperty)
-        {
-            DefaultValue = 100,
-            Minimum = 0,
-            IsAnimatable = true,
-            Header = StringResources.Common.WidthObservable
-        });
-        initializing.Add(new SetterDescription<float>(Drawable.HeightProperty)
-        {
-            DefaultValue = 100,
-            Minimum = 0,
-            IsAnimatable = true,
-            Header = StringResources.Common.HeightObservable
-        });
-        initializing.Add(new SetterDescription<float>(Ellipse.StrokeWidthProperty)
-        {
-            DefaultValue = 4000,
-            Minimum = 0,
-            IsAnimatable = true,
-            Header = StringResources.Common.StrokeWidthObservable
-        });
-        initializing.Add(new SetterDescription<IBrush?>(Drawable.ForegroundProperty)
-        {
-            DefaultValue = new SolidColorBrush(Colors.White),
-            IsAnimatable = true,
-            Header = StringResources.Common.ColorObservable
-        });
-        initializing.Add(new SetterDescription<CornerRadius>(RoundedRect.CornerRadiusProperty)
-        {
-            DefaultValue = new CornerRadius(25),
-            Minimum = new CornerRadius(0),
-            IsAnimatable = true,
-            Header = StringResources.Common.CornerRadiusObservable
-        });
+        initializing.Add(new Setter<float>(Drawable.WidthProperty, 100));
+        initializing.Add(new Setter<float>(Drawable.HeightProperty, 100));
+        initializing.Add(new Setter<float>(Ellipse.StrokeWidthProperty, 4000));
+        initializing.Add(new Setter<IBrush?>(Drawable.ForegroundProperty, new SolidColorBrush(Colors.White)));
+        initializing.Add(new Setter<CornerRadius>(RoundedRect.CornerRadiusProperty, new CornerRadius(25)));
     }
 }

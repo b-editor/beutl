@@ -10,7 +10,6 @@ using Firebase.Auth.Repository;
 using Firebase.Auth.UI;
 using Firebase.Storage;
 
-using Google.Apis.Logging;
 using Google.Cloud.Firestore;
 using Google.Cloud.Firestore.V1;
 
@@ -20,6 +19,8 @@ using Grpc.Net.Client;
 using MEL = Microsoft.Extensions.Logging;
 
 namespace BeUtl.Services;
+
+#pragma warning disable CA1822
 
 public sealed class AccountService
 {
@@ -62,9 +63,7 @@ public sealed class AccountService
             .Subscribe(async _ => await PullAllSettings());
     }
 
-#pragma warning disable CA1822
     public User? User => FirebaseUI.Instance.Client.User;
-#pragma warning restore CA1822
 
     public async ValueTask DeleteAccount(User user)
     {

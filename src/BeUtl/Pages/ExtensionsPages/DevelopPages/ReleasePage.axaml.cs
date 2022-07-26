@@ -6,11 +6,6 @@ using BeUtl.Pages.ExtensionsPages.DevelopPages.Dialogs;
 using BeUtl.ViewModels.ExtensionsPages.DevelopPages;
 using BeUtl.ViewModels.ExtensionsPages.DevelopPages.Dialogs;
 
-using FluentAvalonia.UI.Controls;
-
-using Button = Avalonia.Controls.Button;
-using S = BeUtl.Language.StringResources;
-
 namespace BeUtl.Pages.ExtensionsPages.DevelopPages;
 
 public sealed partial class ReleasePage : UserControl
@@ -24,7 +19,7 @@ public sealed partial class ReleasePage : UserControl
     {
         if (DataContext is ReleasePageViewModel viewModel)
         {
-            Frame frame = this.FindAncestorOfType<Frame>();
+            FA.Frame frame = this.FindAncestorOfType<FA.Frame>();
             frame.Navigate(typeof(PackageDetailsPage), viewModel.Parent.Parent, SharedNavigationTransitionInfo.Instance);
         }
     }
@@ -33,7 +28,7 @@ public sealed partial class ReleasePage : UserControl
     {
         if (DataContext is ReleasePageViewModel viewModel)
         {
-            Frame frame = this.FindAncestorOfType<Frame>();
+            FA.Frame frame = this.FindAncestorOfType<FA.Frame>();
             frame.Navigate(typeof(PackageReleasesPage), viewModel.Parent, SharedNavigationTransitionInfo.Instance);
         }
     }
@@ -42,17 +37,17 @@ public sealed partial class ReleasePage : UserControl
     {
         if (DataContext is ReleasePageViewModel viewModel)
         {
-            Frame frame = this.FindAncestorOfType<Frame>();
-            var dialog = new ContentDialog
+            FA.Frame frame = this.FindAncestorOfType<FA.Frame>();
+            var dialog = new FA.ContentDialog
             {
                 Title = S.DevelopPage.DeleteRelease.Title,
                 Content = S.DevelopPage.DeleteRelease.Content,
                 PrimaryButtonText = S.Common.Yes,
                 CloseButtonText = S.Common.No,
-                DefaultButton = ContentDialogButton.Primary
+                DefaultButton = FA.ContentDialogButton.Primary
             };
 
-            if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+            if (await dialog.ShowAsync() == FA.ContentDialogResult.Primary)
             {
                 string releaseId = viewModel.Release.Value.Snapshot.Id;
                 string packageId = viewModel.Parent.Parent.Package.Value.Snapshot.Id;
@@ -94,16 +89,16 @@ public sealed partial class ReleasePage : UserControl
     {
         if (sender is Button { DataContext: ReleaseResourceViewModel itemViewModel })
         {
-            var dialog = new ContentDialog
+            var dialog = new FA.ContentDialog
             {
                 Title = S.DevelopPage.DeleteResource.Title,
                 Content = S.DevelopPage.DeleteResource.Content,
                 PrimaryButtonText = S.Common.Yes,
                 CloseButtonText = S.Common.No,
-                DefaultButton = ContentDialogButton.Primary
+                DefaultButton = FA.ContentDialogButton.Primary
             };
 
-            if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+            if (await dialog.ShowAsync() == FA.ContentDialogResult.Primary)
             {
                 itemViewModel.Delete.Execute();
             }
@@ -114,16 +109,16 @@ public sealed partial class ReleasePage : UserControl
     {
         if (DataContext is ReleasePageViewModel viewModel)
         {
-            var dialog = new ContentDialog
+            var dialog = new FA.ContentDialog
             {
                 Title = S.DevelopPage.MakePublicRelease.Title,
                 Content = S.DevelopPage.MakePublicRelease.Content,
                 PrimaryButtonText = S.Common.Yes,
                 CloseButtonText = S.Common.No,
-                DefaultButton = ContentDialogButton.Primary
+                DefaultButton = FA.ContentDialogButton.Primary
             };
 
-            if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+            if (await dialog.ShowAsync() == FA.ContentDialogResult.Primary)
             {
                 viewModel.MakePublic.Execute();
             }
@@ -134,16 +129,16 @@ public sealed partial class ReleasePage : UserControl
     {
         if (DataContext is ReleasePageViewModel viewModel)
         {
-            var dialog = new ContentDialog
+            var dialog = new FA.ContentDialog
             {
                 Title = S.DevelopPage.MakePrivateRelease.Title,
                 Content = S.DevelopPage.MakePrivateRelease.Content,
                 PrimaryButtonText = S.Common.Yes,
                 CloseButtonText = S.Common.No,
-                DefaultButton = ContentDialogButton.Primary
+                DefaultButton = FA.ContentDialogButton.Primary
             };
 
-            if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+            if (await dialog.ShowAsync() == FA.ContentDialogResult.Primary)
             {
                 viewModel.MakePrivate.Execute();
             }
