@@ -6,7 +6,6 @@ using BeUtl.Animation.Easings;
 using BeUtl.Commands;
 using BeUtl.Framework;
 using BeUtl.Services.PrimitiveImpls;
-using BeUtl.Styling;
 
 using Reactive.Bindings;
 

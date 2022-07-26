@@ -15,14 +15,7 @@ public sealed class StylingSetterWrapper<T> : IWrappedProperty<T>.IAnimatable, I
         AssociatedProperty = setter.Property;
         Tag = setter;
 
-        if (setter is SetterDescription<T>.InternalSetter { Description.Header: { } header })
-        {
-            Header = header;
-        }
-        else
-        {
-            Header = Observable.Return(setter.Property.Name);
-        }
+        Header = Observable.Return(setter.Property.Name);
     }
 
     public CoreProperty<T> AssociatedProperty { get; }
@@ -31,8 +24,6 @@ public sealed class StylingSetterWrapper<T> : IWrappedProperty<T>.IAnimatable, I
 
     public IObservable<string> Header { get; }
 
-    public IObservableList<AnimationSpan<T>> Animations => Animation.Children;
-
     public Animation<T> Animation
     {
         get
@@ -40,6 +31,15 @@ public sealed class StylingSetterWrapper<T> : IWrappedProperty<T>.IAnimatable, I
             var setter = (Setter<T>)Tag;
             setter.Animation ??= new Animation<T>(AssociatedProperty);
             return setter.Animation;
+        }
+    }
+
+    public bool HasAnimation
+    {
+        get
+        {
+            var setter = (Setter<T>)Tag;
+            return setter.Animation is { Children.Count: > 0 };
         }
     }
 

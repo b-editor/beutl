@@ -8,7 +8,6 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml.MarkupExtensions;
 
-using BeUtl.ProjectSystem;
 using BeUtl.Streaming;
 
 namespace BeUtl.Views;

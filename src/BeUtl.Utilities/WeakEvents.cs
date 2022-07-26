@@ -10,7 +10,7 @@ public class WeakEvents
         CollectionChanged = WeakEvent.Register<INotifyCollectionChanged, NotifyCollectionChangedEventArgs>(
             (c, s) =>
             {
-                NotifyCollectionChangedEventHandler handler = (_, e) => s(c, e);
+                void handler(object? _, NotifyCollectionChangedEventArgs e) => s(c, e);
                 c.CollectionChanged += handler;
                 return () => c.CollectionChanged -= handler;
             });
@@ -19,7 +19,7 @@ public class WeakEvents
         PropertyChanged = WeakEvent.Register<INotifyPropertyChanged, PropertyChangedEventArgs>(
             (s, h) =>
             {
-                PropertyChangedEventHandler handler = (_, e) => h(s, e);
+                void handler(object? _, PropertyChangedEventArgs e) => h(s, e);
                 s.PropertyChanged += handler;
                 return () => s.PropertyChanged -= handler;
             });

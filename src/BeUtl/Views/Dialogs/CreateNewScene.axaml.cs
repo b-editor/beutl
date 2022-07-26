@@ -1,7 +1,5 @@
-using Avalonia;
-using Avalonia.Controls;
+ï»¿using Avalonia.Controls;
 using Avalonia.Interactivity;
-using Avalonia.Markup.Xaml;
 using Avalonia.Styling;
 
 using BeUtl.ViewModels.Dialogs;
@@ -19,7 +17,7 @@ public sealed partial class CreateNewScene : ContentDialog, IStyleable
 
     Type IStyleable.StyleKey => typeof(ContentDialog);
 
-    // êŠ‚ğ‘I‘ğ
+    // å ´æ‰€ã‚’é¸æŠ
     private async void PickLocation(object? sender, RoutedEventArgs e)
     {
         if (DataContext is CreateNewSceneViewModel vm && VisualRoot is Window parent)

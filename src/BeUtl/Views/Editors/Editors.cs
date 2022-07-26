@@ -2,8 +2,6 @@ using Avalonia.Controls;
 using Avalonia.Data;
 using Avalonia.Markup.Xaml.MarkupExtensions;
 
-using BeUtl.ViewModels.Editors;
-
 #pragma warning disable IDE0001, IDE0049
 
 namespace BeUtl.Views.Editors

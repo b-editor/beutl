@@ -10,7 +10,6 @@ using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
 
-using BeUtl.Collections;
 using BeUtl.Models;
 using BeUtl.ProjectSystem;
 using BeUtl.Streaming;

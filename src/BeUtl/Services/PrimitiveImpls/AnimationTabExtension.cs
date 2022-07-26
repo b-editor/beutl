@@ -38,7 +38,7 @@ public sealed class AnimationTabExtension : ToolTabExtension
 
     public override bool TryCreateContext(IEditorContext editorContext, [NotNullWhen(true)] out IToolContext? context)
     {
-        if (editorContext is EditViewModel viewModel)
+        if (editorContext is EditViewModel)
         {
             context = new AnimationTabViewModel();
             return true;

@@ -50,7 +50,7 @@ public sealed partial class ExtensionsPage : UserControl
             new NavigationViewItem()
             {
                 Content = "Home",
-                Tag = typeof(ExtensionsPages.HomePage),
+                Tag = typeof(HomePage),
                 Icon = new SymbolIcon
                 {
                     Symbol = Symbol.Home
@@ -59,7 +59,7 @@ public sealed partial class ExtensionsPage : UserControl
             new NavigationViewItem()
             {
                 Content = "Library",
-                Tag = typeof(ExtensionsPages.LibraryPage),
+                Tag = typeof(LibraryPage),
                 Icon = new SymbolIcon
                 {
                     Symbol = Symbol.Library
@@ -68,7 +68,7 @@ public sealed partial class ExtensionsPage : UserControl
             new NavigationViewItem()
             {
                 Content = "Develop",
-                Tag = typeof(ExtensionsPages.DevelopPage),
+                Tag = typeof(DevelopPage),
                 Icon = new SymbolIcon
                 {
                     Symbol = Symbol.Code

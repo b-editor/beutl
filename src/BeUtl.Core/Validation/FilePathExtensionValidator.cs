@@ -1,6 +1,6 @@
 ﻿namespace BeUtl.Validation;
 
-public sealed class FilePathExtensionValidator : IValidator<string>
+public sealed class FilePathExtensionValidator : IValidator<string?>
 {
     public string[] FileExtensions { get; set; } = Array.Empty<string>();
 

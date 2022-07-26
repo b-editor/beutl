@@ -1,7 +1,5 @@
 ﻿using BeUtl.Graphics;
 using BeUtl.Graphics.Filters;
-using BeUtl.Language;
-using BeUtl.Streaming;
 using BeUtl.Styling;
 
 namespace BeUtl.Operators.Configure.ImageFilter;
@@ -15,14 +13,8 @@ public sealed class BlurOperator : ImageFilterOperator
         return style;
     }
 
-    protected override void OnInitializeSetters(IList<ISetterDescription> initializing)
+    protected override void OnInitializeSetters(IList<ISetter> initializing)
     {
-        initializing.Add(new SetterDescription<Vector>(Blur.SigmaProperty)
-        {
-            DefaultValue = new Vector(25, 25),
-            Minimum = Vector.Zero,
-            Header = StringResources.Common.SigmaObservable,
-            IsAnimatable = true
-        });
+        initializing.Add(new Setter<Vector>(Blur.SigmaProperty, new Vector(25, 25)));
     }
 }

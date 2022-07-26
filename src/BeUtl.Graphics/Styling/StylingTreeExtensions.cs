@@ -1,20 +1,20 @@
-﻿namespace BeUtl;
+﻿namespace BeUtl.Styling;
 
 public static class LogicalTreeExtensions
 {
-    public static T FindRequiredLogicalParent<T>(this ILogicalElement self, bool includeSelf = false)
+    public static T FindRequiredStylingParent<T>(this IStylingElement self, bool includeSelf = false)
     {
-        T? parent = FindLogicalParent<T>(self, includeSelf);
-        if (parent == null) throw new LogicalTreeException("Cannot get parent.");
+        T? parent = FindStylingParent<T>(self, includeSelf);
+        if (parent == null) throw new StylingTreeException("Cannot get parent.");
 
         return parent;
     }
 
-    public static T? FindLogicalParent<T>(this ILogicalElement self, bool includeSelf = false)
+    public static T? FindStylingParent<T>(this IStylingElement self, bool includeSelf = false)
     {
         try
         {
-            ILogicalElement? obj = includeSelf ? self : self.LogicalParent;
+            IStylingElement? obj = includeSelf ? self : self.StylingParent;
 
             while (obj is not T)
             {
@@ -23,7 +23,7 @@ public static class LogicalTreeExtensions
                     return default;
                 }
 
-                obj = obj.LogicalParent;
+                obj = obj.StylingParent;
             }
 
             if (obj is T result)
@@ -41,19 +41,19 @@ public static class LogicalTreeExtensions
         }
     }
 
-    public static ILogicalElement FindRequiredLogicalParent(this ILogicalElement self, Type type, bool includeSelf = false)
+    public static IStylingElement FindRequiredStylingParent(this IStylingElement self, Type type, bool includeSelf = false)
     {
-        ILogicalElement? parent = FindLogicalParent(self, type, includeSelf);
-        if (parent == null) throw new LogicalTreeException("Cannot get parent.");
+        IStylingElement? parent = FindStylingParent(self, type, includeSelf);
+        if (parent == null) throw new StylingTreeException("Cannot get parent.");
 
         return parent;
     }
 
-    public static ILogicalElement? FindLogicalParent(this ILogicalElement self, Type type, bool includeSelf = false)
+    public static IStylingElement? FindStylingParent(this IStylingElement self, Type type, bool includeSelf = false)
     {
         try
         {
-            ILogicalElement? obj = includeSelf ? self : self.LogicalParent;
+            IStylingElement? obj = includeSelf ? self : self.StylingParent;
             Type? objType = obj?.GetType();
 
             while (objType?.IsAssignableTo(type) != true)
@@ -63,7 +63,7 @@ public static class LogicalTreeExtensions
                     return default;
                 }
 
-                obj = obj.LogicalParent;
+                obj = obj.StylingParent;
                 objType = obj?.GetType();
             }
 
@@ -82,17 +82,17 @@ public static class LogicalTreeExtensions
         }
     }
 
-    public static ILogicalElement GetRoot(this ILogicalElement self)
+    public static IStylingElement GetRoot(this IStylingElement self)
     {
-        ILogicalElement? current = self;
+        IStylingElement? current = self;
 
         while (true)
         {
-            ILogicalElement? next;
+            IStylingElement? next;
 
             try
             {
-                next = current.LogicalParent;
+                next = current.StylingParent;
             }
             catch
             {
@@ -110,9 +110,9 @@ public static class LogicalTreeExtensions
         }
     }
 
-    public static IEnumerable<TResult> EnumerateAllChildren<TResult>(this ILogicalElement self)
+    public static IEnumerable<TResult> EnumerateAllChildren<TResult>(this IStylingElement self)
     {
-        foreach (ILogicalElement? item in self.LogicalChildren)
+        foreach (IStylingElement? item in self.StylingChildren)
         {
             foreach (TResult? innerItem in EnumerateAllChildren<TResult>(item))
             {

@@ -1,23 +1,13 @@
 ﻿using System.Numerics;
-using System.Reactive.Disposables;
-using System.Reactive.Linq;
 using System.Text.Json.Nodes;
 
-using Avalonia;
-using Avalonia.Media;
-
-using BeUtl.Collections;
 using BeUtl.Framework;
 using BeUtl.Framework.Services;
 using BeUtl.Models;
 using BeUtl.ProjectSystem;
 using BeUtl.Services.PrimitiveImpls;
-using BeUtl.ViewModels.Editors;
-
-using OpenCvSharp;
 
 using Reactive.Bindings;
-using Reactive.Bindings.Extensions;
 
 namespace BeUtl.ViewModels;
 

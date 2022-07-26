@@ -1,13 +1,10 @@
-﻿using System.Reactive.Disposables;
-using System.Reactive.Linq;
-
+﻿
 using Avalonia;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Skia;
 
 using BeUtl.Framework.Service;
-using BeUtl.Language;
 using BeUtl.Services;
 
 using Firebase.Auth;
@@ -20,8 +17,6 @@ using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
 
 using SkiaSharp;
-
-using S = BeUtl.Language.StringResources;
 
 namespace BeUtl.ViewModels.SettingsPages;
 

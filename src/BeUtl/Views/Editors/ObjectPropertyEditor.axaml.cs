@@ -1,10 +1,4 @@
-﻿using Avalonia;
-using Avalonia.Controls;
-using Avalonia.Data;
-using Avalonia.Data.Converters;
-
-using BeUtl.Services;
-using BeUtl.ViewModels.Editors;
+﻿using Avalonia.Controls;
 
 namespace BeUtl.Views.Editors;
 

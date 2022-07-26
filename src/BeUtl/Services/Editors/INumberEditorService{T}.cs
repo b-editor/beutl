@@ -1,7 +1,4 @@
-﻿using BeUtl.ProjectSystem;
-using BeUtl.Services.Editors.Wrappers;
-
-namespace BeUtl.Services.Editors;
+﻿namespace BeUtl.Services.Editors;
 
 public interface INumberEditorService<T>
     where T : struct

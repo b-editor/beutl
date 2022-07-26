@@ -1,20 +1,15 @@
 ﻿using System.Collections;
 using System.Numerics;
-using System.Runtime.InteropServices;
-using System.Text;
 
 using Avalonia.Controls;
 
 using BeUtl.Animation;
 using BeUtl.Graphics;
 using BeUtl.Media;
-using BeUtl.ProjectSystem;
 using BeUtl.Services.Editors.Wrappers;
-using BeUtl.Streaming;
 using BeUtl.ViewModels;
 using BeUtl.ViewModels.AnimationEditors;
 using BeUtl.ViewModels.Editors;
-using BeUtl.Views.AnimationEditors;
 using BeUtl.Views.Editors;
 
 namespace BeUtl.Services;
@@ -125,13 +120,12 @@ public static class PropertyEditorService
         return null;
     }
 
-    public static object? CreateAnimationEditorViewModel(
+    public static AnimationEditorViewModel CreateAnimationEditorViewModel(
         EditorViewModelDescription desc,
         IAnimationSpan animation,
         ITimelineOptionsProvider optionsProvider)
     {
-        Type? type = typeof(AnimationEditorViewModel<>).MakeGenericType(desc.WrappedProperty.AssociatedProperty.PropertyType);
-        return Activator.CreateInstance(type, animation, desc, optionsProvider);
+        return new AnimationEditorViewModel(animation, desc, optionsProvider);
     }
 
     private static Control? CreateEnumEditor(IWrappedProperty s)

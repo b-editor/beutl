@@ -126,18 +126,6 @@ public class DeferredRenderer : IRenderer
         }
     }
 
-    protected void AddDirtyRect(Rect rect)
-    {
-        if (!rect.IsEmpty)
-        {
-            if (!_canvasBounds.Contains(rect))
-            {
-                rect = ClipToCanvasBounds(rect);
-            }
-            _clips.Add(rect);
-        }
-    }
-
     // _clipsにrect1, rect2を追加する
     private void AddDirtyRects(Rect rect1, Rect rect2)
     {
@@ -239,5 +227,22 @@ public class DeferredRenderer : IRenderer
             RenderInvalidated.Invoke(this, result);
             result.Bitmap.Dispose();
         }
+    }
+
+    private void AddDirtyRect(Rect rect)
+    {
+        if (!rect.IsEmpty)
+        {
+            if (!_canvasBounds.Contains(rect))
+            {
+                rect = ClipToCanvasBounds(rect);
+            }
+            _clips.Add(rect);
+        }
+    }
+
+    void IRenderer.AddDirtyRect(Rect rect)
+    {
+        AddDirtyRect(rect);
     }
 }

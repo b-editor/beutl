@@ -54,7 +54,7 @@ internal sealed class SceneRenderer : ImmediateRenderer/*DeferredRenderer*/
                 renderable.IsVisible = false;
 
                 if (renderable is Drawable d)
-                    AddDirtyRect(d.Bounds);
+                    (this as IRenderer).AddDirtyRect(d.Bounds);
             }
         }
 

@@ -4,9 +4,6 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
 
-using BeUtl.Services.Editors;
-using BeUtl.Services.Editors.Wrappers;
-using BeUtl.Streaming;
 using BeUtl.ViewModels.Editors;
 
 namespace BeUtl.Views.Editors;
@@ -33,20 +30,6 @@ public sealed class NumberEditor<T> : NumberEditor
         textBox.GetObservable(TextBox.TextProperty).Subscribe(TextBox_TextChanged);
     }
 
-    private bool TryParse(INumberEditorService<T> service, IWrappedProperty<T> property, out T result)
-    {
-        bool parsed;
-        if (property is SetterDescription<T>.InternalSetter { Description.Parser: { } parser })
-        {
-            (result, parsed) = parser(textBox.Text);
-            return parsed;
-        }
-        else
-        {
-            return service.TryParse(textBox.Text, out result);
-        }
-    }
-
     private void TextBox_GotFocus(object? sender, GotFocusEventArgs e)
     {
         if (DataContext is not NumberEditorViewModel<T> vm) return;
@@ -57,7 +40,7 @@ public sealed class NumberEditor<T> : NumberEditor
     private void TextBox_LostFocus(object? sender, RoutedEventArgs e)
     {
         if (DataContext is NumberEditorViewModel<T> { EditorService: { } service, WrappedProperty: { } property } viewModel
-            && TryParse(service, property, out T newValue))
+            && service.TryParse(textBox.Text, out T newValue))
         {
             viewModel.SetValue(_oldValue, newValue);
         }
@@ -71,7 +54,7 @@ public sealed class NumberEditor<T> : NumberEditor
             {
                 await Task.Delay(10);
 
-                if (TryParse(service, property, out T value))
+                if (service.TryParse(textBox.Text, out T value))
                 {
                     property.SetValue(value);
                 }
@@ -83,7 +66,7 @@ public sealed class NumberEditor<T> : NumberEditor
     {
         if (DataContext is NumberEditorViewModel<T> { EditorService: { } service, WrappedProperty: { } property }
             && textBox.IsKeyboardFocusWithin
-            && TryParse(service, property, out T value))
+            && service.TryParse(textBox.Text, out T value))
         {
             value = e.Delta.Y switch
             {

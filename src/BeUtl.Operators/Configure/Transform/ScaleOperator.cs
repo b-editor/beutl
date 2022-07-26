@@ -1,7 +1,4 @@
-﻿
-using BeUtl.Graphics.Transformation;
-using BeUtl.Language;
-using BeUtl.Streaming;
+﻿using BeUtl.Graphics.Transformation;
 using BeUtl.Styling;
 
 namespace BeUtl.Operators.Configure.Transform;
@@ -15,48 +12,10 @@ public sealed class ScaleOperator : TransformOperator
         return style;
     }
 
-    protected override void OnInitializeSetters(IList<ISetterDescription> initializing)
+    protected override void OnInitializeSetters(IList<ISetter> initializing)
     {
-        initializing.Add(new SetterDescription<float>(ScaleTransform.ScaleProperty)
-        {
-            Header = StringResources.Common.ScaleObservable,
-            DefaultValue = 1,
-            IsAnimatable = true,
-            Formatter = Format,
-            Parser = Parse
-        });
-        initializing.Add(new SetterDescription<float>(ScaleTransform.ScaleXProperty)
-        {
-            Header = StringResources.Common.ScaleXObservable,
-            DefaultValue = 1,
-            IsAnimatable = true,
-            Formatter = Format,
-            Parser = Parse
-        });
-        initializing.Add(new SetterDescription<float>(ScaleTransform.ScaleYProperty)
-        {
-            Header = StringResources.Common.ScaleYObservable,
-            DefaultValue = 1,
-            IsAnimatable = true,
-            Formatter = Format,
-            Parser = Parse
-        });
-    }
-
-    private string Format(float value)
-    {
-        return (value * 100).ToString();
-    }
-
-    private (float, bool) Parse(string s)
-    {
-        if (float.TryParse(s, out var v))
-        {
-            return (v / 100, true);
-        }
-        else
-        {
-            return (0, false);
-        }
+        initializing.Add(new Setter<float>(ScaleTransform.ScaleProperty, 1));
+        initializing.Add(new Setter<float>(ScaleTransform.ScaleXProperty, 1));
+        initializing.Add(new Setter<float>(ScaleTransform.ScaleYProperty, 1));
     }
 }

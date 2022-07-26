@@ -1,11 +1,9 @@
 ﻿using System.Reflection;
 
 using Avalonia.Controls;
-using Avalonia.Controls.Presenters;
 using Avalonia.Controls.Templates;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
-using Avalonia.Markup.Xaml.Templates;
 
 using BeUtl.Commands;
 using BeUtl.Media;
@@ -13,11 +11,6 @@ using BeUtl.Services.Editors.Wrappers;
 using BeUtl.Styling;
 using BeUtl.ViewModels;
 using BeUtl.ViewModels.Editors;
-
-using ColorPickerButton = FluentAvalonia.UI.Controls.ColorPickerButton;
-using ColorButtonColorChangedEventArgs = FluentAvalonia.UI.Controls.ColorButtonColorChangedEventArgs;
-using ContentDialog = FluentAvalonia.UI.Controls.ContentDialog;
-using ContentDialogResult = FluentAvalonia.UI.Controls.ContentDialogResult;
 
 namespace BeUtl.Views.Editors;
 
@@ -28,7 +21,7 @@ public sealed partial class BrushEditor : UserControl
         InitializeComponent();
     }
 
-    public void ColorPicker_FlyoutConfirmed(ColorPickerButton sender, ColorButtonColorChangedEventArgs e)
+    public void ColorPicker_FlyoutConfirmed(FA.ColorPickerButton sender, FA.ColorButtonColorChangedEventArgs e)
     {
         if (DataContext is BrushEditorViewModel viewModel
             && viewModel.Value.Value is SolidColorBrush brush
@@ -89,7 +82,7 @@ public sealed partial class BrushEditor : UserControl
                     build: (x, _) => new TextBlock { Text = x.Item2 })
             };
 
-            var dialog = new ContentDialog
+            var dialog = new FA.ContentDialog
             {
                 Content = combobox,
                 Title = "複数の型が利用可能です",
@@ -97,7 +90,7 @@ public sealed partial class BrushEditor : UserControl
                 CloseButtonText = "キャンセル"
             };
 
-            if (await dialog.ShowAsync() == ContentDialogResult.Primary
+            if (await dialog.ShowAsync() == FA.ContentDialogResult.Primary
                 && combobox.SelectedItem is (Type type, string _))
             {
                 ConstructorInfo? constructorInfo = type.GetConstructor(Array.Empty<Type>());

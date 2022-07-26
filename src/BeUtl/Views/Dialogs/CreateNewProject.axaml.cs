@@ -1,4 +1,4 @@
-using Avalonia;
+ï»¿using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Styling;
@@ -6,8 +6,6 @@ using Avalonia.Styling;
 using BeUtl.ViewModels.Dialogs;
 
 using FluentAvalonia.UI.Controls;
-
-using S = BeUtl.Language.StringResources;
 
 namespace BeUtl.Views.Dialogs;
 
@@ -22,26 +20,26 @@ public sealed partial class CreateNewProject : ContentDialog, IStyleable
 
     Type IStyleable.StyleKey => typeof(ContentDialog);
 
-    // –ß‚é
+    // æˆ»ã‚‹
     protected override void OnPrimaryButtonClick(ContentDialogButtonClickEventArgs args)
     {
         base.OnPrimaryButtonClick(args);
         if (carousel.SelectedIndex == 1)
         {
             args.Cancel = true;
-            // '–ß‚é'‚ğ–³Œø‰»
+            // 'æˆ»ã‚‹'ã‚’ç„¡åŠ¹åŒ–
             IsPrimaryButtonEnabled = false;
-            // IsSecondaryButtonEnabled‚ÌƒoƒCƒ“ƒh‰ğœ
+            // IsSecondaryButtonEnabledã®ãƒã‚¤ãƒ³ãƒ‰è§£é™¤
             _sBtnBinding?.Dispose();
-            // 'V‹Kì¬'‚ğ'Ÿ‚Ö'‚É•ÏX
+            // 'æ–°è¦ä½œæˆ'ã‚’'æ¬¡ã¸'ã«å¤‰æ›´
             SecondaryButtonText = S.Dialogs.CreateNewProject.Next;
-            // 'Ÿ‚Ö'‚ğ—LŒø‰»
+            // 'æ¬¡ã¸'ã‚’æœ‰åŠ¹åŒ–
             IsSecondaryButtonEnabled = true;
             carousel.Previous();
         }
     }
 
-    // 'Ÿ‚Ö' or 'V‹Kì¬'
+    // 'æ¬¡ã¸' or 'æ–°è¦ä½œæˆ'
     protected override void OnSecondaryButtonClick(ContentDialogButtonClickEventArgs args)
     {
         base.OnSecondaryButtonClick(args);
@@ -55,17 +53,17 @@ public sealed partial class CreateNewProject : ContentDialog, IStyleable
         {
             args.Cancel = true;
 
-            // '–ß‚é'‚ğ•\¦
+            // 'æˆ»ã‚‹'ã‚’è¡¨ç¤º
             IsPrimaryButtonEnabled = true;
-            // IsSecondaryButtonEnabled‚ÆCanCreate‚ğƒoƒCƒ“ƒh
+            // IsSecondaryButtonEnabledã¨CanCreateã‚’ãƒã‚¤ãƒ³ãƒ‰
             _sBtnBinding = this.Bind(IsSecondaryButtonEnabledProperty, vm.CanCreate);
-            // 'Ÿ‚Ö'‚ğ'V‹Kì¬‚É•ÏX'
+            // 'æ¬¡ã¸'ã‚’'æ–°è¦ä½œæˆã«å¤‰æ›´'
             SecondaryButtonText = S.Dialogs.CreateNewProject.CreateNew;
             carousel.Next();
         }
     }
 
-    // êŠ‚ğ‘I‘ğ
+    // å ´æ‰€ã‚’é¸æŠ
     private async void PickLocation(object? sender, RoutedEventArgs e)
     {
         if (DataContext is CreateNewProjectViewModel vm && VisualRoot is Window parent)

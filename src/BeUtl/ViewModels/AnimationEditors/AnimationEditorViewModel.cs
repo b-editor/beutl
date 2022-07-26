@@ -12,12 +12,13 @@ using Reactive.Bindings.Extensions;
 
 namespace BeUtl.ViewModels.AnimationEditors;
 
-public abstract class AnimationEditorViewModel : IDisposable
+// Todo: AnimationSpanEditorViewModelとコードを共通化する。
+public class AnimationEditorViewModel : IDisposable
 {
     protected CompositeDisposable Disposables = new();
     private bool _disposedValue;
 
-    protected AnimationEditorViewModel(IAnimationSpan animation, EditorViewModelDescription description, ITimelineOptionsProvider optionsProvider)
+    public AnimationEditorViewModel(IAnimationSpan animation, EditorViewModelDescription description, ITimelineOptionsProvider optionsProvider)
     {
         Animation = animation;
         Description = description;
@@ -162,21 +163,4 @@ public abstract class AnimationEditorViewModel : IDisposable
     {
         Disposables.Dispose();
     }
-}
-
-public class AnimationEditorViewModel<T> : AnimationEditorViewModel
-{
-    public AnimationEditorViewModel(AnimationSpan<T> animation, EditorViewModelDescription description, ITimelineOptionsProvider optionsProvider)
-        : base(animation, description, optionsProvider)
-    {
-    }
-
-    internal AnimationEditorViewModel(IAnimationSpan animation, EditorViewModelDescription description, ITimelineOptionsProvider optionsProvider)
-        : base(animation, description, optionsProvider)
-    {
-    }
-
-    public new AnimationSpan<T> Animation => (AnimationSpan<T>)base.Animation;
-
-    public new IWrappedProperty<T>.IAnimatable WrappedProperty => (IWrappedProperty<T>.IAnimatable)base.WrappedProperty;
 }

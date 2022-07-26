@@ -1,6 +1,5 @@
 ﻿using BeUtl.Services.Editors;
 using BeUtl.Services.Editors.Wrappers;
-using BeUtl.Streaming;
 
 using Reactive.Bindings;
 
@@ -24,15 +23,8 @@ public sealed class NumberEditorViewModel<T> : BaseEditorViewModel<T>, INumberEd
 
     public override EditorViewModelDescription Description => base.Description with { NumberEditorService = EditorService };
 
-    private string Format(T value)
+    private static string Format(T value)
     {
-        if (WrappedProperty is SetterDescription<T>.InternalSetter { Description.Formatter: { } formatter })
-        {
-            return formatter(value);
-        }
-        else
-        {
-            return value.ToString() ?? string.Empty;
-        }
+        return value.ToString() ?? string.Empty;
     }
 }

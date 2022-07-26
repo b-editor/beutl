@@ -1,8 +1,6 @@
 ﻿using BeUtl.Graphics;
 using BeUtl.Graphics.Effects;
-using BeUtl.Language;
 using BeUtl.Media;
-using BeUtl.Streaming;
 using BeUtl.Styling;
 
 namespace BeUtl.Operators.Configure.BitmapEffect;
@@ -16,36 +14,12 @@ public sealed class BorderOperator : BitmapEffectOperator
         return style;
     }
 
-    protected override void OnInitializeSetters(IList<ISetterDescription> initializing)
+    protected override void OnInitializeSetters(IList<ISetter> initializing)
     {
-        initializing.Add(new SetterDescription<Point>(Border.OffsetProperty)
-        {
-            DefaultValue = new Point(),
-            Header = new ResourceReference<string>("S.Common.Offset").GetResourceObservable()!,
-            IsAnimatable = true
-        });
-        initializing.Add(new SetterDescription<int>(Border.ThicknessProperty)
-        {
-            DefaultValue = 8,
-            Minimum = 0,
-            Header = new ResourceReference<string>("S.Common.Thickness").GetResourceObservable()!,
-            IsAnimatable = true
-        });
-        initializing.Add(new SetterDescription<Color>(Border.ColorProperty)
-        {
-            DefaultValue = Colors.White,
-            Header = StringResources.Common.ColorObservable,
-            IsAnimatable = true
-        });
-        initializing.Add(new SetterDescription<Border.MaskTypes>(Border.MaskTypeProperty)
-        {
-            DefaultValue = Border.MaskTypes.None,
-            Header = new ResourceReference<string>("S.Common.MaskType").GetResourceObservable()!,
-        });
-        initializing.Add(new SetterDescription<Border.BorderStyles>(Border.StyleProperty)
-        {
-            DefaultValue = Border.BorderStyles.Background,
-            Header = new ResourceReference<string>("S.Common.BorderStyle").GetResourceObservable()!,
-        });
+        initializing.Add(new Setter<Point>(Border.OffsetProperty, new Point()));
+        initializing.Add(new Setter<int>(Border.ThicknessProperty, 8));
+        initializing.Add(new Setter<Color>(Border.ColorProperty, Colors.White));
+        initializing.Add(new Setter<Border.MaskTypes>(Border.MaskTypeProperty, Border.MaskTypes.None));
+        initializing.Add(new Setter<Border.BorderStyles>(Border.StyleProperty, Border.BorderStyles.Background));
     }
 }

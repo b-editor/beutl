@@ -12,7 +12,7 @@ namespace BeUtl.Services.PrimitiveImpls;
 [PrimitiveImpl]
 public sealed class StreamOperatorsTabExtension : ToolTabExtension
 {
-    public static readonly StreamOperatorsTabExtension Instance = new ();
+    public static readonly StreamOperatorsTabExtension Instance = new();
 
     public override bool CanMultiple => false;
 

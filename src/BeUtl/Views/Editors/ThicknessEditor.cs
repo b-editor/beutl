@@ -3,7 +3,6 @@ using Avalonia.Data;
 using Avalonia.Layout;
 
 using BeUtl.Controls;
-using BeUtl.ViewModels.Editors;
 
 namespace BeUtl.Views.Editors;
 

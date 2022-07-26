@@ -1,6 +1,4 @@
 ﻿using BeUtl.Graphics.Transformation;
-using BeUtl.Language;
-using BeUtl.Streaming;
 using BeUtl.Styling;
 
 namespace BeUtl.Operators.Configure.Transform;
@@ -14,19 +12,9 @@ public sealed class SkewOperator : TransformOperator
         return style;
     }
 
-    protected override void OnInitializeSetters(IList<ISetterDescription> initializing)
+    protected override void OnInitializeSetters(IList<ISetter> initializing)
     {
-        initializing.Add(new SetterDescription<float>(SkewTransform.SkewXProperty)
-        {
-            Header = StringResources.Common.SkewXObservable,
-            DefaultValue = 0,
-            IsAnimatable = true,
-        });
-        initializing.Add(new SetterDescription<float>(SkewTransform.SkewYProperty)
-        {
-            Header = StringResources.Common.SkewYObservable,
-            DefaultValue = 0,
-            IsAnimatable = true,
-        });
+        initializing.Add(new Setter<float>(SkewTransform.SkewXProperty, 0));
+        initializing.Add(new Setter<float>(SkewTransform.SkewYProperty, 0));
     }
 }

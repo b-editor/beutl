@@ -1,5 +1,4 @@
 ﻿using System.Collections;
-using System.Diagnostics;
 
 using Avalonia;
 using Avalonia.Controls;
@@ -11,7 +10,6 @@ using Avalonia.Media.Transformation;
 using Avalonia.Xaml.Interactivity;
 
 using BeUtl.Animation.Easings;
-using BeUtl.Services;
 using BeUtl.ViewModels.AnimationEditors;
 
 namespace BeUtl.Views.AnimationEditors;

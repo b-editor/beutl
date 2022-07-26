@@ -3,7 +3,6 @@ using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
 
 using BeUtl.Commands;
-using BeUtl.ProjectSystem;
 using BeUtl.Services.Editors.Wrappers;
 using BeUtl.Styling;
 using BeUtl.ViewModels;

@@ -6,16 +6,12 @@ using Avalonia.Data.Converters;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
-using Avalonia.Markup.Xaml;
 using Avalonia.Media.Transformation;
 using Avalonia.Xaml.Interactivity;
 
 using BeUtl.Animation.Easings;
-using BeUtl.Commands;
 using BeUtl.Services;
 using BeUtl.ViewModels.Editors;
-
-using FluentAvalonia.Core;
 
 namespace BeUtl.Views.Editors;
 

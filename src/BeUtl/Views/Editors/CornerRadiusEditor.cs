@@ -5,7 +5,6 @@ using Avalonia.Media;
 
 using BeUtl.Controls;
 using BeUtl.Media;
-using BeUtl.ViewModels.Editors;
 
 namespace BeUtl.Views.Editors;
 

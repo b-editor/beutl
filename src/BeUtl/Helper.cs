@@ -1,9 +1,9 @@
-﻿using System.Reactive.Linq;
-
+﻿
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
 
+using BeUtl.Animation;
 using BeUtl.ProjectSystem;
 using BeUtl.Services.Editors.Wrappers;
 using BeUtl.Streaming;
@@ -123,17 +123,23 @@ internal static class Helper
         }
         else
         {
-            switch (wrappedProp.Tag)
+            if (wrappedProp.Tag is CoreObject obj)
             {
-                case CoreObject obj:
-                    wrappedProp.AssociatedProperty.TryGetMetadata(obj.GetType(), out result);
-                    break;
-                case ISetterDescription.IInternalSetter ins when ins.StreamOperator is StylingOperator stylingOperator && stylingOperator.Instance != null:
-                    wrappedProp.AssociatedProperty.TryGetMetadata(stylingOperator.Instance.GetType(), out result);
-                    break;
-                default:
-                    wrappedProp.AssociatedProperty.TryGetMetadata(wrappedProp.AssociatedProperty.OwnerType, out result);
-                    break;
+                wrappedProp.AssociatedProperty.TryGetMetadata(obj.GetType(), out result);
+            }
+            else if (wrappedProp.Tag is ISetter setter
+                && setter.FindStylingParent<IStyle>() is { TargetType: { } ownerType1 })
+            {
+                wrappedProp.AssociatedProperty.TryGetMetadata(ownerType1, out result);
+            }
+            else if (wrappedProp.Tag is AnimationSpan anmSpan
+                && anmSpan.FindLogicalParent(wrappedProp.AssociatedProperty.OwnerType)?.GetType() is { } ownerType2)
+            {
+                wrappedProp.AssociatedProperty.TryGetMetadata(ownerType2, out result);
+            }
+            else
+            {
+                wrappedProp.AssociatedProperty.TryGetMetadata(wrappedProp.AssociatedProperty.OwnerType, out result);
             }
         }
 

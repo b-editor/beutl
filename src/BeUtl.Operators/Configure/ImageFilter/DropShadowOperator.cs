@@ -1,8 +1,6 @@
 ﻿using BeUtl.Graphics;
 using BeUtl.Graphics.Filters;
-using BeUtl.Language;
 using BeUtl.Media;
-using BeUtl.Streaming;
 using BeUtl.Styling;
 
 namespace BeUtl.Operators.Configure.ImageFilter;
@@ -16,32 +14,11 @@ public sealed class DropShadowOperator : ImageFilterOperator
         return style;
     }
 
-    protected override void OnInitializeSetters(IList<ISetterDescription> initializing)
+    protected override void OnInitializeSetters(IList<ISetter> initializing)
     {
-        initializing.Add(new SetterDescription<Point>(DropShadow.PositionProperty)
-        {
-            DefaultValue = new Point(10, 10),
-            Header = StringResources.Common.PositionObservable,
-            IsAnimatable = true
-        });
-        initializing.Add(new SetterDescription<Vector>(DropShadow.SigmaProperty)
-        {
-            DefaultValue = new Vector(10, 10),
-            Minimum = Vector.Zero,
-            Header = StringResources.Common.SigmaObservable,
-            IsAnimatable = true
-        });
-        initializing.Add(new SetterDescription<Color>(DropShadow.ColorProperty)
-        {
-            DefaultValue = Colors.Black,
-            Header = StringResources.Common.ColorObservable,
-            IsAnimatable = true
-        });
-        initializing.Add(new SetterDescription<bool>(DropShadow.ShadowOnlyProperty)
-        {
-            DefaultValue = false,
-            Header = StringResources.Common.ColorObservable,
-            IsAnimatable = true
-        });
+        initializing.Add(new Setter<Point>(DropShadow.PositionProperty, new Point(10, 10)));
+        initializing.Add(new Setter<Vector>(DropShadow.SigmaProperty, new Vector(10, 10)));
+        initializing.Add(new Setter<Color>(DropShadow.ColorProperty, Colors.Black));
+        initializing.Add(new Setter<bool>(DropShadow.ShadowOnlyProperty, false));
     }
 }

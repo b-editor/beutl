@@ -1,5 +1,4 @@
 ﻿using BeUtl.Graphics;
-using BeUtl.Language;
 using BeUtl.Media;
 using BeUtl.Streaming;
 using BeUtl.Styling;
@@ -15,23 +14,11 @@ public sealed class AlignmentOperator : StreamStyler
         return style;
     }
 
-    protected override void OnInitializeSetters(IList<ISetterDescription> initializing)
+    protected override void OnInitializeSetters(IList<ISetter> initializing)
     {
-        initializing.Add(new SetterDescription<AlignmentX>(Drawable.CanvasAlignmentXProperty)
-        {
-            Header = StringResources.Common.CanvasAlignmentXObservable
-        });
-        initializing.Add(new SetterDescription<AlignmentY>(Drawable.CanvasAlignmentYProperty)
-        {
-            Header = StringResources.Common.CanvasAlignmentYObservable
-        });
-        initializing.Add(new SetterDescription<AlignmentX>(Drawable.AlignmentXProperty)
-        {
-            Header = StringResources.Common.AlignmentXObservable
-        });
-        initializing.Add(new SetterDescription<AlignmentY>(Drawable.AlignmentYProperty)
-        {
-            Header = StringResources.Common.AlignmentYObservable
-        });
+        initializing.Add(new Setter<AlignmentX>(Drawable.CanvasAlignmentXProperty, AlignmentX.Left));
+        initializing.Add(new Setter<AlignmentY>(Drawable.CanvasAlignmentYProperty, AlignmentY.Top));
+        initializing.Add(new Setter<AlignmentX>(Drawable.AlignmentXProperty, AlignmentX.Left));
+        initializing.Add(new Setter<AlignmentY>(Drawable.AlignmentYProperty, AlignmentY.Top));
     }
 }

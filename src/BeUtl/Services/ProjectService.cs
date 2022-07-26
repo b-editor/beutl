@@ -1,5 +1,4 @@
-﻿using System.Reactive.Linq;
-using System.Reactive.Subjects;
+﻿using System.Reactive.Subjects;
 
 using BeUtl.Configuration;
 using BeUtl.Framework.Services;

@@ -12,20 +12,20 @@ public abstract class StylingOperator : StreamOperator
     {
         Style = OnInitializeStyle(() =>
         {
-            var list = new PooledList<ISetterDescription>();
+            var list = new PooledList<ISetter>();
             OnInitializeSetters(list);
-            return list.ConvertAll(x => x.ToSetter(this));
+            return list;
         });
         Style.Invalidated += OnInvalidated;
     }
 
-    public IStyle Style { get; }
+    public IStyle Style { get; private set; }
 
     public IStyleInstance? Instance { get; protected set; }
 
     protected abstract Style OnInitializeStyle(Func<IList<ISetter>> setters);
 
-    protected virtual void OnInitializeSetters(IList<ISetterDescription> initializing)
+    protected virtual void OnInitializeSetters(IList<ISetter> initializing)
     {
     }
 
@@ -45,14 +45,8 @@ public abstract class StylingOperator : StreamOperator
             if (style != null)
             {
                 Style.Invalidated -= OnInvalidated;
-                foreach (ISetter setter in Style.Setters)
-                {
-                    if (setter is ISetterDescription.IInternalSetter setter1
-                        && style.Setters.FirstOrDefault(x => x.Property.Id == setter.Property.Id) is ISetter setter2)
-                    {
-                        setter1.MigrateFrom(setter2);
-                    }
-                }
+                Style = style;
+                Instance = null;
 
                 Style.Invalidated += OnInvalidated;
 

@@ -1,6 +1,4 @@
 ﻿using System.Collections;
-using System.Diagnostics;
-using System.Globalization;
 
 using Avalonia;
 using Avalonia.Controls;
@@ -331,7 +329,7 @@ public sealed partial class OperationEditor : UserControl
             {
                 CommandRecorder.Default.DoAndPush(new MoveCommand(list, newIndex, oldIndex));
             }
-        }        
+        }
     }
 
     private sealed class ViewModelToViewConverter : IValueConverter

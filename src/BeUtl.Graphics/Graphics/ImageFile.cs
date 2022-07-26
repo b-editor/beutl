@@ -3,6 +3,7 @@ using System.Text.Json.Nodes;
 
 using BeUtl.Media;
 using BeUtl.Media.Pixel;
+using BeUtl.Validation;
 
 namespace BeUtl.Graphics;
 
@@ -17,6 +18,10 @@ public class ImageFile : Drawable
         SourceFileProperty = ConfigureProperty<FileInfo?, ImageFile>(nameof(SourceFile))
             .Accessor(o => o.SourceFile, (o, v) => o.SourceFile = v)
             .PropertyFlags(PropertyFlags.KnownFlags_1)
+            .Validator(new FileInfoExtensionValidator()
+            {
+                FileExtensions = new[] { "bmp", "gif", "ico", "jpg", "jpeg", "png", "wbmp", "webp", "pkm", "ktx", "astc", "dng", "heif" }
+            })
             .Register();
 
         AffectsRender<ImageFile>(SourceFileProperty);
@@ -39,7 +44,7 @@ public class ImageFile : Drawable
     {
         base.ReadFromJson(json);
         if (json is JsonObject jobj
-            && jobj.TryGetPropertyValue("source-file", out var fileNode)
+            && jobj.TryGetPropertyValue("source-file", out JsonNode? fileNode)
             && fileNode is JsonValue fileValue
             && fileValue.TryGetValue(out string? fileStr)
             && File.Exists(fileStr))

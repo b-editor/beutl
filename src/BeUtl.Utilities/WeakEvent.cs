@@ -174,7 +174,7 @@ public class WeakEvent
     {
         return Register<TSender, EventArgs>((s, h) =>
         {
-            EventHandler handler = (_, e) => h(s, e);
+            void handler(object? _, EventArgs e) => h(s, e);
             subscribe(s, handler);
             return () => unsubscribe(s, handler);
         });

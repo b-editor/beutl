@@ -1,6 +1,5 @@
 ﻿using System.Collections;
 using System.Diagnostics.CodeAnalysis;
-using System.Reactive.Disposables;
 using System.Text.Json.Nodes;
 
 using Avalonia;
@@ -19,7 +18,6 @@ using Avalonia.Media;
 using Avalonia.Styling;
 using Avalonia.Xaml.Interactivity;
 
-using BeUtl.Collections;
 using BeUtl.Controls;
 using BeUtl.Framework;
 using BeUtl.Framework.Service;
@@ -35,15 +33,11 @@ using BeUtl.Views.Dialogs;
 using DynamicData;
 
 using FluentAvalonia.Core.ApplicationModel;
-using FluentAvalonia.UI.Controls;
 
 using Microsoft.Extensions.DependencyInjection;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;
-
-using PathIcon = Avalonia.Controls.PathIcon;
-using S = BeUtl.Language.StringResources;
 
 namespace BeUtl.Views;
 
@@ -94,7 +88,7 @@ public sealed partial class MainView : UserControl
     private readonly AvaloniaList<MenuItem> _rawRecentProjItems = new();
     private readonly Cache<MenuItem> _menuItemCache = new(4);
     private readonly CompositeDisposable _disposables = new();
-    private readonly AvaloniaList<NavigationViewItem> _navigationItems = new();
+    private readonly AvaloniaList<FA.NavigationViewItem> _navigationItems = new();
     private readonly EditorService _editorService = ServiceLocator.Current.GetRequiredService<EditorService>();
     private readonly IProjectService _projectService = ServiceLocator.Current.GetRequiredService<IProjectService>();
     private readonly INotificationService _notificationService = ServiceLocator.Current.GetRequiredService<INotificationService>();
@@ -203,7 +197,7 @@ Error:
                     view.IsVisible = false;
 
                     NaviContent.Children.Insert(idx, view);
-                    _navigationItems.Insert(idx, new NavigationViewItem()
+                    _navigationItems.Insert(idx, new FA.NavigationViewItem()
                     {
                         Classes = { "SideNavigationViewItem" },
                         DataContext = item,
@@ -279,7 +273,7 @@ Error:
             window.Opened -= OnParentWindowOpened;
         }
 
-        if (sender is CoreWindow cw)
+        if (sender is FA.CoreWindow cw)
         {
             CoreApplicationViewTitleBar titleBar = cw.TitleBar;
             if (titleBar != null)
@@ -299,7 +293,7 @@ Error:
         Titlebar.Margin = new Thickness(0, 0, sender.SystemOverlayRightInset, 0);
     }
 
-    private void NavigationView_ItemInvoked(object? sender, NavigationViewItemInvokedEventArgs e)
+    private void NavigationView_ItemInvoked(object? sender, FA.NavigationViewItemInvokedEventArgs e)
     {
         if (e.InvokedItemContainer.DataContext is MainViewModel.NavItemViewModel itemViewModel
             && DataContext is MainViewModel viewModel)
@@ -394,11 +388,11 @@ Error:
                                 IsChecked = false,
                                 Content = S.Message.RememberThisChoice
                             };
-                            var contentDialog = new ContentDialog
+                            var contentDialog = new FA.ContentDialog
                             {
                                 PrimaryButtonText = S.Common.Yes,
                                 CloseButtonText = S.Common.No,
-                                DefaultButton = ContentDialogButton.Primary,
+                                DefaultButton = FA.ContentDialogButton.Primary,
                                 Content = new StackPanel
                                 {
                                     Children =
@@ -412,14 +406,14 @@ Error:
                                 }
                             };
 
-                            ContentDialogResult result = await contentDialog.ShowAsync();
+                            FA.ContentDialogResult result = await contentDialog.ShowAsync();
                             // 選択を記憶する
                             if (checkBox.IsChecked.Value)
                             {
-                                addToProject = result == ContentDialogResult.Primary;
+                                addToProject = result == FA.ContentDialogResult.Primary;
                             }
 
-                            if (result == ContentDialogResult.Primary)
+                            if (result == FA.ContentDialogResult.Primary)
                             {
                                 project.Items.Add(item);
                                 _editorService.ActivateTabItem(file, TabOpenMode.FromProject);
@@ -467,15 +461,15 @@ Error:
                 if (wsItem == null)
                     return;
 
-                var dialog = new ContentDialog
+                var dialog = new FA.ContentDialog
                 {
                     CloseButtonText = S.Common.Cancel,
                     PrimaryButtonText = S.Common.OK,
-                    DefaultButton = ContentDialogButton.Primary,
+                    DefaultButton = FA.ContentDialogButton.Primary,
                     Content = S.Message.DoYouWantToExcludeThisItemFromProject + "\n" + filePath
                 };
 
-                if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+                if (await dialog.ShowAsync() == FA.ContentDialogResult.Primary)
                 {
                     project.Items.Remove(wsItem);
                 }
@@ -509,15 +503,15 @@ Error:
                 && viewModel.SelectedObject.Value is Layer layer)
             {
                 string name = Path.GetFileName(layer.FileName);
-                var dialog = new ContentDialog
+                var dialog = new FA.ContentDialog
                 {
                     CloseButtonText = S.Common.Cancel,
                     PrimaryButtonText = S.Common.OK,
-                    DefaultButton = ContentDialogButton.Primary,
+                    DefaultButton = FA.ContentDialogButton.Primary,
                     Content = S.Message.DoYouWantToDeleteThisFile + "\n" + name
                 };
 
-                if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+                if (await dialog.ShowAsync() == FA.ContentDialogResult.Primary)
                 {
                     scene.RemoveChild(layer).Do();
                     if (File.Exists(layer.FileName))

@@ -1,5 +1,4 @@
-﻿
-using Google.Cloud.Firestore;
+﻿using Google.Cloud.Firestore;
 
 namespace BeUtl.Models.Extensions.Develop;
 

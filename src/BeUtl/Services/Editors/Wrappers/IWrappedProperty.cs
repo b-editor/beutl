@@ -19,6 +19,8 @@ public interface IWrappedProperty
     public interface IAnimatable : IWrappedProperty
     {
         IAnimation Animation { get; }
+
+        bool HasAnimation { get; }
     }
 }
 

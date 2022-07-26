@@ -1,5 +1,4 @@
-﻿using BeUtl.ProjectSystem;
-using BeUtl.Streaming;
+﻿using BeUtl.Streaming;
 
 namespace BeUtl.Models;
 

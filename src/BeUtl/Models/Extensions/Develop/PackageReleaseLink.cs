@@ -1,5 +1,4 @@
-﻿
-using Google.Cloud.Firestore;
+﻿using Google.Cloud.Firestore;
 
 namespace BeUtl.Models.Extensions.Develop;
 
@@ -62,7 +61,6 @@ public sealed class PackageReleaseLink : IPackageRelease.ILink
 
         DocumentReference docRef = await resources.AddAsync(dict);
         return await LocalizedReleaseResourceLink.OpenAsync(docRef);
-
     }
 
     public async ValueTask<IPackageRelease.ILink> ChangeVisibility(bool visibility, CancellationToken cancellationToken = default)
@@ -88,7 +86,7 @@ public sealed class PackageReleaseLink : IPackageRelease.ILink
         var array = new ILocalizedReleaseResource.ILink[collection.Count];
         for (int i = 0; i < collection.Count; i++)
         {
-            var item = collection[i];
+            DocumentSnapshot item = collection[i];
             array[i] = new LocalizedReleaseResourceLink(item);
         }
 

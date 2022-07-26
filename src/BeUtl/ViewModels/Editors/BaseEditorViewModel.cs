@@ -1,5 +1,4 @@
-﻿using BeUtl.ProjectSystem;
-using BeUtl.Services.Editors.Wrappers;
+﻿using BeUtl.Services.Editors.Wrappers;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;

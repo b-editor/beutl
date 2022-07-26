@@ -1,11 +1,8 @@
 ﻿using System.Numerics;
-using System.Reactive.Disposables;
-using System.Reactive.Linq;
 using System.Text.Json.Nodes;
 
 using Avalonia;
 
-using BeUtl.Collections;
 using BeUtl.Framework;
 using BeUtl.Models;
 using BeUtl.ProjectSystem;

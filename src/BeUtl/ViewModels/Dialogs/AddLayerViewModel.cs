@@ -1,16 +1,11 @@
-﻿using System.Reactive.Linq;
-
-using BeUtl.Media;
+﻿using BeUtl.Media;
 using BeUtl.Models;
 using BeUtl.ProjectSystem;
-
-using FluentAvalonia.UI.Media;
+using BeUtl.Streaming;
 
 using Reactive.Bindings;
 
-using S = BeUtl.Language.StringResources;
 using AColor = Avalonia.Media.Color;
-using BeUtl.Streaming;
 
 namespace BeUtl.ViewModels.Dialogs;
 
