@@ -130,6 +130,10 @@ public class Layer : Element, IStorable, ILogicalElement
     public Layer()
     {
         Operators = new LogicalList<StreamOperator>(this);
+        Operators.Attached += item => item.Invalidated += Operator_Invalidated;
+        Operators.Detached += item => item.Invalidated -= Operator_Invalidated;
+
+        (Node as ILogicalElement).NotifyAttachedToLogicalTree(new(this));
     }
 
     event EventHandler IStorable.Saved
@@ -362,7 +366,8 @@ public class Layer : Element, IStorable, ILogicalElement
     private void ForceRender()
     {
         Scene? scene = this.FindLogicalParent<Scene>();
-        if (scene != null &&
+        if (IsEnabled
+            && scene != null &&
             Start <= scene.CurrentFrame &&
             scene.CurrentFrame < Start + Length &&
             scene.Renderer is { IsDisposed: false, IsRendering: false })
@@ -381,6 +386,11 @@ public class Layer : Element, IStorable, ILogicalElement
                     .RefCount()
                 : Observable.Return(Unit.Default))
             .Subscribe(_ => ForceRender());
+    }
+
+    private void Operator_Invalidated(object? sender, EventArgs e)
+    {
+        ForceRender();
     }
 
     internal Layer? GetBefore(int zindex, TimeSpan start)
