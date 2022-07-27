@@ -85,14 +85,12 @@ public class StyleSetterInstance<T> : ISetterInstance
         if (_targetValue != null && _inner != null)
         {
             _targetValue.InvalidateStyles();
-            _targetValue.Styles.Remove(_inner.Source);
         }
 
         if (value != null)
         {
             _targetValue = CreateOrGetTargetValue(value.TargetType)!;
             _inner = value.Instance(_targetValue);
-            _targetValue.Styles.Add(_inner.Source);
             _targetValue.StyleApplied(_inner);
             Target.SetValue(Property, _targetValue);
         }
