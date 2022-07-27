@@ -47,7 +47,6 @@ public sealed class TimelineLayerViewModel : IDisposable
 
         Split.Where(func => func != null).Subscribe(func =>
         {
-            // Todo: レイヤー内複数オブジェクトに対応する
             int rate = Scene.Parent is Project proj ? proj.GetFrameRate() : 30;
             TimeSpan absTime = func!().RoundToRate(rate);
             TimeSpan forwardLength = absTime - Model.Start;
@@ -62,7 +61,6 @@ public sealed class TimelineLayerViewModel : IDisposable
             Scene.MoveChild(Model.ZIndex, Model.Start, forwardLength, Model).DoAndRecord(CommandRecorder.Default);
             backwardLayer.Start = absTime;
             backwardLayer.Length = backwardLength;
-            backwardLayer.ZIndex++;
 
             backwardLayer.Save(Helper.RandomLayerFileName(Path.GetDirectoryName(Scene.FileName)!, Constants.LayerFileExtension));
             Scene.AddChild(backwardLayer).DoAndRecord(CommandRecorder.Default);
