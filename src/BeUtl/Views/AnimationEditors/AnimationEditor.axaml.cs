@@ -9,8 +9,11 @@ using Avalonia.LogicalTree;
 using Avalonia.Media.Transformation;
 using Avalonia.Xaml.Interactivity;
 
+using BeUtl.Animation;
 using BeUtl.Animation.Easings;
+using BeUtl.ViewModels;
 using BeUtl.ViewModels.AnimationEditors;
+using BeUtl.ViewModels.Editors;
 
 namespace BeUtl.Views.AnimationEditors;
 
@@ -346,16 +349,20 @@ public partial class AnimationEditor : UserControl
 
     private void Edit_Click(object? sender, RoutedEventArgs e)
     {
-        // Todo: AnimationTabを開き、スクロールをリクエスト
-        //if (DataContext is not AnimationEditorViewModel vm) return;
+        if (this.FindLogicalAncestorOfType<EditView>().DataContext is EditViewModel editViewModel
+            && DataContext is AnimationEditorViewModel viewModel
+            && viewModel.Animation is ILogicalElement logicalElement
+            && logicalElement.FindLogicalParent<IAnimation>() is IAnimation animation)
+        {
+            // 右側のタブを開く
+            AnimationTabViewModel anmViewModel
+                = editViewModel.FindToolTab<AnimationTabViewModel>()
+                    ?? new AnimationTabViewModel();
 
-        //if (editDialog.Content == null)
-        //{
-        //    editDialog.Content = PropertyEditorService.CreateAnimationEditor(vm.WrappedProperty);
-        //}
-
-        //editDialog.DataContext = vm;
-        //editDialog.ShowAsync();
+            anmViewModel.Animation.Value = animation;
+            anmViewModel.ScrollTo(viewModel.Animation);
+            editViewModel.OpenToolTab(anmViewModel);
+        }
     }
 
     private void BackgroundBorder_Drop(object? sender, DragEventArgs e)

@@ -46,6 +46,8 @@ public sealed class AnimationTabViewModel : IToolContext
         });
     }
 
+    public Action<IAnimationSpan>? RequestScroll { get; set; }
+
     public ReactiveProperty<IAnimation?> Animation { get; } = new();
 
     public CoreList<IAnimationSpanEditorViewModel?> Items { get; } = new();
@@ -57,6 +59,11 @@ public sealed class AnimationTabViewModel : IToolContext
     public IReadOnlyReactiveProperty<string> Header { get; }
 
     public ToolTabExtension.TabPlacement Placement => ToolTabExtension.TabPlacement.Right;
+
+    public void ScrollTo(IAnimationSpan obj)
+    {
+        RequestScroll?.Invoke(obj);
+    }
 
     public void Dispose()
     {
