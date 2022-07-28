@@ -12,7 +12,6 @@ using Reactive.Bindings.Extensions;
 
 namespace BeUtl.ViewModels.AnimationEditors;
 
-// Todo: AnimationSpanEditorViewModelとコードを共通化する。
 public sealed class AnimationEditorViewModel : IDisposable
 {
     private readonly CompositeDisposable _disposables = new();
