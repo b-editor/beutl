@@ -9,7 +9,6 @@ using Avalonia.Threading;
 using BeUtl.Animation;
 using BeUtl.Animation.Easings;
 using BeUtl.ProjectSystem;
-using BeUtl.Services;
 using BeUtl.ViewModels;
 
 using Reactive.Bindings;
@@ -30,7 +29,13 @@ public sealed partial class AnimationTimeline : UserControl
     public AnimationTimeline()
     {
         Resources["AnimationToViewModelConverter"] =
-            new FuncValueConverter<IAnimationSpan, object?>(a => a == null ? null : PropertyEditorService.CreateAnimationEditorViewModel(ViewModel.Description, a, ViewModel.OptionsProvider));
+            new FuncValueConverter<IAnimationSpan, object?>(a =>
+                a == null
+                    ? null
+                    : new ViewModels.AnimationEditors.AnimationEditorViewModel(
+                        animationSpan: a,
+                        property: ViewModel.WrappedProperty,
+                        optionsProvider: ViewModel.OptionsProvider));
 
         InitializeComponent();
         ContentScroll.ScrollChanged += ContentScroll_ScrollChanged;

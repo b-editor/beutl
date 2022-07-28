@@ -24,11 +24,9 @@ public sealed class AnimationTimelineViewModel : IDisposable, IToolContext
 
     public AnimationTimelineViewModel(
         IWrappedProperty.IAnimatable setter,
-        EditorViewModelDescription description,
         ITimelineOptionsProvider optionsProvider)
     {
         WrappedProperty = setter;
-        Description = description;
         OptionsProvider = optionsProvider;
         Scene = optionsProvider.Scene;
 
@@ -84,8 +82,6 @@ public sealed class AnimationTimelineViewModel : IDisposable, IToolContext
     }
 
     public IWrappedProperty.IAnimatable WrappedProperty { get; }
-
-    public EditorViewModelDescription Description { get; }
 
     public ITimelineOptionsProvider OptionsProvider { get; }
 

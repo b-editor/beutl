@@ -1,4 +1,6 @@
 ﻿using BeUtl.Animation;
+using BeUtl.Animation.Easings;
+using BeUtl.Commands;
 
 namespace BeUtl.Services.Editors.Wrappers;
 
@@ -28,6 +30,72 @@ public sealed class AnimatableCorePropertyWrapper<T> : CorePropertyWrapper<T>, I
 
             return false;
         }
+    }
+
+    public IAnimationSpan CreateSpan(Easing easing)
+    {
+        CoreProperty<T> property = AssociatedProperty;
+        Type ownerType = property.OwnerType;
+        ILogicalElement? owner = Animation.FindLogicalParent(ownerType);
+        T? defaultValue = default;
+        bool hasDefaultValue = true;
+        if (owner is ICoreObject ownerCO)
+        {
+            defaultValue = ownerCO.GetValue(property);
+        }
+        else if (owner != null)
+        {
+            // メタデータをOverrideしている可能性があるので、owner.GetType()をする必要がある。
+            CorePropertyMetadata<T> metadata = property.GetMetadata<CorePropertyMetadata<T>>(owner.GetType());
+            defaultValue = metadata.DefaultValue;
+            hasDefaultValue = metadata.HasDefaultValue;
+        }
+        else
+        {
+            hasDefaultValue = false;
+        }
+
+        var span = new AnimationSpan<T>
+        {
+            Easing = easing,
+            Duration = TimeSpan.FromSeconds(2)
+        };
+
+        if (hasDefaultValue && defaultValue != null)
+        {
+            span.Previous = defaultValue;
+            span.Next = defaultValue;
+        }
+
+        return span;
+    }
+
+    public int IndexOf(IAnimationSpan item)
+    {
+        return Animation.Children.IndexOf(item);
+    }
+
+    public void Insert(int index, IAnimationSpan item)
+    {
+        new AddCommand(Animation.Children, item, index).DoAndRecord(CommandRecorder.Default);
+    }
+
+    public void Remove(IAnimationSpan item)
+    {
+        new RemoveCommand(Animation.Children, item)
+            .DoAndRecord(CommandRecorder.Default);
+    }
+
+    public void Move(int newIndex, int oldIndex)
+    {
+        new MoveCommand(Animation.Children, newIndex, oldIndex)
+            .DoAndRecord(CommandRecorder.Default);
+    }
+
+    public (IWrappedProperty Previous, IWrappedProperty Next) CreateSpanWrapper(IAnimationSpan animationSpan)
+    {
+        return (new AnimationSpanPropertyWrapper<T>((AnimationSpan<T>)animationSpan, Animation, true),
+            new AnimationSpanPropertyWrapper<T>((AnimationSpan<T>)animationSpan, Animation, false));
     }
 
     private Animation<T> GetAnimation()

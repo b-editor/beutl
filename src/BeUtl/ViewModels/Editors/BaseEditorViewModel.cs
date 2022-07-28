@@ -5,8 +5,6 @@ using Reactive.Bindings.Extensions;
 
 namespace BeUtl.ViewModels.Editors;
 
-public record struct EditorViewModelDescription(IWrappedProperty WrappedProperty, object? NumberEditorService = null);
-
 public abstract class BaseEditorViewModel : IDisposable
 {
     protected CompositeDisposable Disposables = new();
@@ -32,8 +30,6 @@ public abstract class BaseEditorViewModel : IDisposable
     public bool CanReset => WrappedProperty.GetDefaultValue() != null;
 
     public ReadOnlyReactivePropertySlim<string?> Header { get; }
-
-    public virtual EditorViewModelDescription Description => new(WrappedProperty);
 
     public bool IsAnimatable => WrappedProperty.GetMetadataExt<CorePropertyMetadata>()?.PropertyFlags.HasFlag(PropertyFlags.Animatable) == true;
 

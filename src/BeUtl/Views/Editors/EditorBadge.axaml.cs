@@ -36,7 +36,7 @@ public sealed partial class EditorBadge : UserControl
                 = editViewModel.FindToolTab<AnimationTabViewModel>()
                     ?? new AnimationTabViewModel();
 
-            anmViewModel.Animation.Value = animatableProperty.Animation;
+            anmViewModel.Animation.Value = animatableProperty;
 
             editViewModel.OpenToolTab(anmViewModel);
 
@@ -48,7 +48,6 @@ public sealed partial class EditorBadge : UserControl
             {
                 anmTimelineViewModel = new AnimationTimelineViewModel(
                     animatableProperty,
-                    viewModel.Description,
                     editViewModel)
                 {
                     IsSelected =

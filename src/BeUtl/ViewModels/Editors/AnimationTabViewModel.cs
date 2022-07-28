@@ -5,6 +5,7 @@ using BeUtl.Animation;
 using BeUtl.Animation.Easings;
 using BeUtl.Commands;
 using BeUtl.Framework;
+using BeUtl.Services.Editors.Wrappers;
 using BeUtl.Services.PrimitiveImpls;
 
 using Reactive.Bindings;
@@ -28,14 +29,8 @@ public sealed class AnimationTabViewModel : IToolContext
             if (animation != null)
             {
                 _disposable1?.Dispose();
-                _disposable1 = animation.Children.ForEachItem(
-                    (idx, item) =>
-                    {
-                        Type genericType = item.GetType().GetGenericArguments()[0];
-                        Type ctxType = typeof(AnimationSpanEditorViewModel<>).MakeGenericType(genericType);
-
-                        Items.Insert(idx, Activator.CreateInstance(ctxType, item, animation) as IAnimationSpanEditorViewModel);
-                    },
+                _disposable1 = animation.Animation.Children.ForEachItem(
+                    (idx, item) => Items.Insert(idx, new AnimationSpanEditorViewModel(item, animation)),
                     (idx, _) =>
                     {
                         Items[idx]?.Dispose();
@@ -48,9 +43,9 @@ public sealed class AnimationTabViewModel : IToolContext
 
     public Action<IAnimationSpan>? RequestScroll { get; set; }
 
-    public ReactiveProperty<IAnimation?> Animation { get; } = new();
+    public ReactiveProperty<IWrappedProperty.IAnimatable?> Animation { get; } = new();
 
-    public CoreList<IAnimationSpanEditorViewModel?> Items { get; } = new();
+    public CoreList<AnimationSpanEditorViewModel?> Items { get; } = new();
 
     public ToolTabExtension Extension => AnimationTabExtension.Instance;
 
@@ -77,7 +72,7 @@ public sealed class AnimationTabViewModel : IToolContext
 
     private void ClearItems()
     {
-        foreach (IAnimationSpanEditorViewModel? item in Items.AsSpan())
+        foreach (AnimationSpanEditorViewModel? item in Items.AsSpan())
         {
             item?.Dispose();
         }
@@ -94,7 +89,7 @@ public sealed class AnimationTabViewModel : IToolContext
 
     public void AddAnimation(Easing easing)
     {
-        if (Animation.Value is not IAnimation animation
+        if (Animation.Value?.Animation is not IAnimation animation
             || animation.Children is not IList list)
         {
             return;

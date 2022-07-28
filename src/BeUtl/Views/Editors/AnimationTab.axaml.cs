@@ -29,7 +29,7 @@ public partial class AnimationTab : UserControl
                     bool found = false;
                     for (; index < viewModel.Items.Count; index++)
                     {
-                        IAnimationSpanEditorViewModel? item = viewModel.Items[index];
+                        AnimationSpanEditorViewModel? item = viewModel.Items[index];
                         if (ReferenceEquals(item?.Model, obj))
                         {
                             found = true;

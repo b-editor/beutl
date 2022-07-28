@@ -256,7 +256,7 @@ public partial class AnimationSpanEditor : UserControl
     private void BackgroundBorder_Drop(object? sender, DragEventArgs e)
     {
         if (e.Data.Get("Easing") is Easing easing &&
-            DataContext is IAnimationSpanEditorViewModel vm)
+            DataContext is AnimationSpanEditorViewModel vm)
         {
             vm.SetEasing(vm.Model.Easing, easing);
             SetDropAreaClasses(false);
@@ -267,7 +267,7 @@ public partial class AnimationSpanEditor : UserControl
     private void TopBorder_Drop(object? sender, DragEventArgs e)
     {
         if (e.Data.Get("Easing") is Easing easing &&
-            DataContext is IAnimationSpanEditorViewModel vm)
+            DataContext is AnimationSpanEditorViewModel vm)
         {
             vm.InsertForward(easing);
             SetDropAreaClasses(false);
@@ -278,7 +278,7 @@ public partial class AnimationSpanEditor : UserControl
     private void BottomBorder_Drop(object? sender, DragEventArgs e)
     {
         if (e.Data.Get("Easing") is Easing easing &&
-            DataContext is IAnimationSpanEditorViewModel vm)
+            DataContext is AnimationSpanEditorViewModel vm)
         {
             vm.InsertBackward(easing);
             SetDropAreaClasses(false);
@@ -312,7 +312,7 @@ public partial class AnimationSpanEditor : UserControl
 
     public void Move(int newIndex, int oldIndex)
     {
-        if (DataContext is IAnimationSpanEditorViewModel viewModel)
+        if (DataContext is AnimationSpanEditorViewModel viewModel)
         {
             viewModel.Move(newIndex, oldIndex);
         }
@@ -320,7 +320,7 @@ public partial class AnimationSpanEditor : UserControl
 
     public void Remove_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is IAnimationSpanEditorViewModel viewModel)
+        if (DataContext is AnimationSpanEditorViewModel viewModel)
         {
             viewModel.RemoveItem();
         }

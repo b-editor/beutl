@@ -1,4 +1,5 @@
 ﻿using BeUtl.Animation;
+using BeUtl.Animation.Easings;
 using BeUtl.Streaming;
 using BeUtl.Styling;
 
@@ -56,5 +57,34 @@ public sealed class StylingSetterWrapper<T> : IWrappedProperty<T>.IAnimatable, I
     public void SetValue(T? value)
     {
         ((Setter<T>)Tag).Value = value;
+    }
+
+    IAnimationSpan IWrappedProperty.IAnimatable.CreateSpan(Easing easing)
+    {
+        CoreProperty<T> property = AssociatedProperty;
+        IStyle? style = Animation.FindStylingParent<IStyle>();
+        T? defaultValue = GetValue();
+        bool hasDefaultValue = true;
+        if (style != null && defaultValue == null)
+        {
+            // メタデータをOverrideしている可能性があるので、owner.GetType()をする必要がある。
+            CorePropertyMetadata<T> metadata = property.GetMetadata<CorePropertyMetadata<T>>(style.TargetType);
+            defaultValue = metadata.DefaultValue;
+            hasDefaultValue = metadata.HasDefaultValue;
+        }
+
+        var span = new AnimationSpan<T>
+        {
+            Easing = easing,
+            Duration = TimeSpan.FromSeconds(2)
+        };
+
+        if (hasDefaultValue && defaultValue != null)
+        {
+            span.Previous = defaultValue;
+            span.Next = defaultValue;
+        }
+
+        return span;
     }
 }

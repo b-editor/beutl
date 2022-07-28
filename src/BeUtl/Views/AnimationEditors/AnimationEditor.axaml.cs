@@ -295,7 +295,7 @@ public sealed class AnimationEditorResizeBehavior : Behavior<AnimationEditor>
         _start = e.GetPosition(AssociatedObject);
         if (AssociatedObject?.DataContext is AnimationEditorViewModel vm)
         {
-            _oldDuration = vm.Animation.Duration;
+            _oldDuration = vm.Model.Duration;
         }
 
         e.Handled = true;
@@ -350,17 +350,15 @@ public partial class AnimationEditor : UserControl
     private void Edit_Click(object? sender, RoutedEventArgs e)
     {
         if (this.FindLogicalAncestorOfType<EditView>().DataContext is EditViewModel editViewModel
-            && DataContext is AnimationEditorViewModel viewModel
-            && viewModel.Animation is ILogicalElement logicalElement
-            && logicalElement.FindLogicalParent<IAnimation>() is IAnimation animation)
+            && DataContext is AnimationEditorViewModel viewModel)
         {
             // 右側のタブを開く
             AnimationTabViewModel anmViewModel
                 = editViewModel.FindToolTab<AnimationTabViewModel>()
                     ?? new AnimationTabViewModel();
 
-            anmViewModel.Animation.Value = animation;
-            anmViewModel.ScrollTo(viewModel.Animation);
+            anmViewModel.Animation.Value = viewModel.WrappedProperty;
+            anmViewModel.ScrollTo(viewModel.Model);
             editViewModel.OpenToolTab(anmViewModel);
         }
     }
@@ -370,7 +368,7 @@ public partial class AnimationEditor : UserControl
         if (e.Data.Get("Easing") is Easing easing &&
             DataContext is AnimationEditorViewModel vm)
         {
-            vm.SetEasing(vm.Animation.Easing, easing);
+            vm.SetEasing(vm.Model.Easing, easing);
             SetDropAreaClasses(false);
             e.Handled = true;
         }

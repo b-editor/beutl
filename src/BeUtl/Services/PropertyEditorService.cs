@@ -18,8 +18,6 @@ public static class PropertyEditorService
 {
     private record struct Editor(Func<IWrappedProperty, Control?> CreateEditor, Func<IWrappedProperty, BaseEditorViewModel?> CreateViewModel);
 
-    private record struct AnimationEditor(Func<object?, Control?> CreateEditor, Func<IAnimationSpan, EditorViewModelDescription, ITimelineOptionsProvider, object?> CreateViewModel);
-
     private static readonly Dictionary<int, Editor> s_editorsOverride = new()
     {
         { Brush.OpacityProperty.Id, new(_ => new OpacityEditor(), s => new OpacityEditorViewModel(s.ToTyped<float>())) }
@@ -118,14 +116,6 @@ public static class PropertyEditorService
         }
 
         return null;
-    }
-
-    public static AnimationEditorViewModel CreateAnimationEditorViewModel(
-        EditorViewModelDescription desc,
-        IAnimationSpan animation,
-        ITimelineOptionsProvider optionsProvider)
-    {
-        return new AnimationEditorViewModel(animation, desc, optionsProvider);
     }
 
     private static Control? CreateEnumEditor(IWrappedProperty s)

@@ -21,8 +21,6 @@ public sealed class NumberEditorViewModel<T> : BaseEditorViewModel<T>, INumberEd
 
     public INumberEditorService<T> EditorService { get; } = NumberEditorService.Instance.Get<T>();
 
-    public override EditorViewModelDescription Description => base.Description with { NumberEditorService = EditorService };
-
     private static string Format(T value)
     {
         return value.ToString() ?? string.Empty;
