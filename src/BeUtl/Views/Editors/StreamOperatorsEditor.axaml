@@ -14,7 +14,7 @@
         <ItemsControl Items="{CompiledBinding Items}" x:Name="itemsControl">
             <ItemsControl.ItemTemplate>
                 <DataTemplate>
-                    <local:OperationEditor />
+                    <local:StylingOperatorEditor />
                 </DataTemplate>
             </ItemsControl.ItemTemplate>
         </ItemsControl>

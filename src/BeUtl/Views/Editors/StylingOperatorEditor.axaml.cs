@@ -20,7 +20,7 @@ using BeUtl.ViewModels.Editors;
 
 namespace BeUtl.Views.Editors;
 
-public sealed class OperationEditorDragBehavior : Behavior<OperationEditor>
+public sealed class StylingOperatorEditorDragBehavior : Behavior<StylingOperatorEditor>
 {
     private bool _enableDrag;
     private bool _dragStarted;
@@ -240,15 +240,15 @@ public sealed class OperationEditorDragBehavior : Behavior<OperationEditor>
     }
 }
 
-public sealed partial class OperationEditor : UserControl
+public sealed partial class StylingOperatorEditor : UserControl
 {
-    public OperationEditor()
+    public StylingOperatorEditor()
     {
         Resources["ViewModelToViewConverter"] = ViewModelToViewConverter.Instance;
         InitializeComponent();
         Interaction.SetBehaviors(this, new BehaviorCollection
         {
-            new OperationEditorDragBehavior(),
+            new StylingOperatorEditorDragBehavior(),
         });
         AddHandler(DragDrop.DragOverEvent, DragOver);
         AddHandler(DragDrop.DropEvent, Drop);
