@@ -172,8 +172,6 @@ public sealed class AnimationSpanEditorDragBehavior : Behavior<AnimationSpanEdit
         if (_dragStarted && _draggedIndex >= 0 && _targetIndex >= 0 && _draggedIndex != _targetIndex)
         {
             Debug.WriteLine($"MoveItem {_draggedIndex} -> {_targetIndex}");
-            //MoveDraggedItem(_itemsControl, _draggedIndex, _targetIndex);
-
             AssociatedObject?.Move(_targetIndex, _draggedIndex);
         }
 

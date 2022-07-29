@@ -174,7 +174,6 @@ public sealed class AnimationEditorDragBehavior : Behavior<AnimationEditor>
         if (_dragStarted && _draggedIndex >= 0 && _targetIndex >= 0 && _draggedIndex != _targetIndex)
         {
             Debug.WriteLine($"MoveItem {_draggedIndex} -> {_targetIndex}");
-            MoveDraggedItem(_itemsControl, _draggedIndex, _targetIndex);
             if (AssociatedObject?.DataContext is AnimationEditorViewModel vm)
             {
                 vm.Move(_targetIndex, _draggedIndex);
@@ -229,18 +228,6 @@ public sealed class AnimationEditorDragBehavior : Behavior<AnimationEditor>
 
             i++;
         }
-    }
-
-    private static void MoveDraggedItem(ItemsControl? itemsControl, int draggedIndex, int targetIndex)
-    {
-        if (itemsControl?.Items is not IList items)
-        {
-            return;
-        }
-
-        object? draggedItem = items[draggedIndex];
-        items.RemoveAt(draggedIndex);
-        items.Insert(targetIndex, draggedItem);
     }
 
     private static void SetTranslateTransform(IControl control, double x, double y)
