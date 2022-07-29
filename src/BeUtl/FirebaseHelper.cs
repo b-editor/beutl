@@ -1,6 +1,4 @@
-﻿using System.Reactive.Disposables;
-using System.Reactive.Linq;
-
+﻿
 using Firebase.Auth;
 
 namespace BeUtl;
@@ -25,7 +23,7 @@ public static class FirebaseHelper
         {
             observer.OnNext(_client.User);
 
-            EventHandler<UserEventArgs> handler = (s, e) =>
+            void handler(object? s, UserEventArgs e)
             {
                 try
                 {
@@ -35,7 +33,7 @@ public static class FirebaseHelper
                 {
                     observer.OnError(ex);
                 }
-            };
+            }
             _client.AuthStateChanged += handler;
 
             return Disposable.Create(() =>

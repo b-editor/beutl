@@ -2,6 +2,6 @@
 
 namespace BeUtl.Graphics.Effects;
 
-public sealed class BitmapEffects : AffectsRenders<BitmapEffect>
+public sealed class BitmapEffects : AffectsRenders<IBitmapEffect>
 {
 }

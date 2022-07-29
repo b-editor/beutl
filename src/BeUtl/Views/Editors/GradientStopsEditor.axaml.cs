@@ -1,18 +1,17 @@
 ﻿using Avalonia.Controls;
-using Avalonia.Data;
 using Avalonia.Data.Converters;
 using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Media.Immutable;
 using Avalonia.Media.Transformation;
 
+using BeUtl.Utilities;
 using BeUtl.ViewModels.Editors;
 
 using FluentAvalonia.UI.Controls;
 
-using FAM = FluentAvalonia.UI.Media;
 using AM = Avalonia.Media;
-using Avalonia.Interactivity;
-using BeUtl.Utilities;
+using FAM = FluentAvalonia.UI.Media;
 
 namespace BeUtl.Views.Editors;
 
@@ -118,8 +117,8 @@ public sealed partial class GradientStopsEditor : UserControl
             && DataContext is GradientStopsEditorViewModel viewModel
             && e.InitialPressMouseButton == MouseButton.Right)
         {
-            double width = items.Bounds.Width - 16;
-            double x = e.GetCurrentPoint(items).Position.X - 9;
+            double width = items.Bounds.Width - 20;
+            double x = e.GetCurrentPoint(items).Position.X - 10;
             float offset = (float)(x / width);
             AM.Color? color = null;
 
@@ -166,8 +165,8 @@ public sealed partial class GradientStopsEditor : UserControl
             && DataContext is GradientStopsEditorViewModel viewModel
             && _pressed)
         {
-            double width = items.Bounds.Width - 16;
-            double x = e.GetCurrentPoint(items).Position.X - 9;
+            double width = items.Bounds.Width - 20;
+            double x = e.GetCurrentPoint(items).Position.X - 10;
 
             stop.Offset = Math.Clamp((float)(x / width), 0, 1);
             viewModel.PushChange(stop);
@@ -214,8 +213,9 @@ public sealed partial class GradientStopsEditor : UserControl
         {
             if (values[0] is double offset && values[1] is double width)
             {
-                return new AM.TranslateTransform((offset * (width - 16)) + 8, 0);
-
+                var transformBuilder = new TransformOperations.Builder(1);
+                transformBuilder.AppendTranslate((offset * (width - 20)) + 10, 0);
+                return transformBuilder.Build();
             }
             else
             {

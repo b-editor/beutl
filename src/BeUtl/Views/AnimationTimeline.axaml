@@ -78,7 +78,7 @@
                 VerticalAlignment="Stretch"
                 HorizontalAlignment="Left">
 
-                <ItemsControl Items="{CompiledBinding Setter.Children}">
+                <ItemsControl Items="{CompiledBinding WrappedProperty.Animation.Children}">
                     <ItemsControl.ItemsPanel>
                         <ItemsPanelTemplate>
                             <StackPanel Orientation="Horizontal" />

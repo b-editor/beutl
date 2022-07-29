@@ -1,11 +1,20 @@
-﻿using BeUtl.Animation.Easings;
+﻿using System.Text.Json.Nodes;
+
+using BeUtl.Animation.Easings;
+using BeUtl.Framework;
+using BeUtl.Services.PrimitiveImpls;
 
 using Reactive.Bindings;
 
 namespace BeUtl.ViewModels;
 
-public sealed class EasingsViewModel
+public sealed class EasingsViewModel : IToolContext
 {
+    public EasingsViewModel()
+    {
+        Header = StringResources.Common.EasingsObservable.ToReadOnlyReactivePropertySlim(StringResources.Common.Easings);
+    }
+
     public ReactiveCollection<Easing> Easings { get; } = new()
     {
         new BackEaseIn(),
@@ -40,4 +49,25 @@ public sealed class EasingsViewModel
         new SineEaseOut(),
         new LinearEasing(),
     };
+
+    public ToolTabExtension Extension => EasingsTabExtension.Instance;
+
+    public IReactiveProperty<bool> IsSelected { get; } = new ReactivePropertySlim<bool>();
+
+    public IReadOnlyReactiveProperty<string> Header { get; }
+
+    public ToolTabExtension.TabPlacement Placement => ToolTabExtension.TabPlacement.Right;
+
+    public void Dispose()
+    {
+        Header.Dispose();
+    }
+
+    public void ReadFromJson(JsonNode json)
+    {
+    }
+
+    public void WriteToJson(ref JsonNode json)
+    {
+    }
 }

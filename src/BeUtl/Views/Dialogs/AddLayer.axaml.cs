@@ -1,11 +1,9 @@
-using Avalonia;
+ï»¿using Avalonia;
 using Avalonia.Styling;
 
 using BeUtl.ViewModels.Dialogs;
 
 using FluentAvalonia.UI.Controls;
-
-using S = BeUtl.Language.StringResources;
 
 namespace BeUtl.Views.Dialogs;
 
@@ -20,26 +18,26 @@ public sealed partial class AddLayer : ContentDialog, IStyleable
 
     Type IStyleable.StyleKey => typeof(ContentDialog);
 
-    // –ß‚é
+    // æˆ»ã‚‹
     protected override void OnPrimaryButtonClick(ContentDialogButtonClickEventArgs args)
     {
         base.OnPrimaryButtonClick(args);
         if (carousel.SelectedIndex == 1)
         {
             args.Cancel = true;
-            // '–ß‚é'‚ğ–³Œø‰»
+            // 'æˆ»ã‚‹'ã‚’ç„¡åŠ¹åŒ–
             IsPrimaryButtonEnabled = false;
-            // IsSecondaryButtonEnabled‚ÌƒoƒCƒ“ƒh‰ğœ
+            // IsSecondaryButtonEnabledã®ãƒã‚¤ãƒ³ãƒ‰è§£é™¤
             _sBtnBinding?.Dispose();
-            // '’Ç‰Á'‚ğ'Ÿ‚Ö'‚É•ÏX
+            // 'è¿½åŠ 'ã‚’'æ¬¡ã¸'ã«å¤‰æ›´
             SecondaryButtonText = S.Dialogs.AddLayer.Next;
-            // 'Ÿ‚Ö'‚ğ—LŒø‰»
+            // 'æ¬¡ã¸'ã‚’æœ‰åŠ¹åŒ–
             IsSecondaryButtonEnabled = true;
             carousel.Previous();
         }
     }
 
-    // 'Ÿ‚Ö' or '’Ç‰Á'
+    // 'æ¬¡ã¸' or 'è¿½åŠ '
     protected override void OnSecondaryButtonClick(ContentDialogButtonClickEventArgs args)
     {
         base.OnSecondaryButtonClick(args);
@@ -53,11 +51,11 @@ public sealed partial class AddLayer : ContentDialog, IStyleable
         {
             args.Cancel = true;
 
-            // '–ß‚é'‚ğ•\¦
+            // 'æˆ»ã‚‹'ã‚’è¡¨ç¤º
             IsPrimaryButtonEnabled = true;
-            // IsSecondaryButtonEnabled‚ÆCanCreate‚ğƒoƒCƒ“ƒh
+            // IsSecondaryButtonEnabledã¨CanCreateã‚’ãƒã‚¤ãƒ³ãƒ‰
             _sBtnBinding = this.Bind(IsSecondaryButtonEnabledProperty, vm.CanAdd);
-            // 'Ÿ‚Ö'‚ğ'’Ç‰Á'‚É•ÏX
+            // 'æ¬¡ã¸'ã‚’'è¿½åŠ 'ã«å¤‰æ›´
             SecondaryButtonText = S.Dialogs.AddLayer.Add;
             carousel.Next();
         }

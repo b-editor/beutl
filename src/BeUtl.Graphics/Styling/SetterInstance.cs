@@ -28,9 +28,10 @@ public class SetterInstance<T> : ISetterInstance
 
     public void Apply(IClock clock)
     {
-        if (Setter.Animations.Count > 0)
+        if (Setter.Animation is { } animation
+            && animation.Children.Count > 0)
         {
-            Target.SetValue(Property, EaseAnimations(clock.CurrentTime));
+            animation.ApplyTo(Target, clock.CurrentTime);
         }
         else
         {
@@ -52,37 +53,4 @@ public class SetterInstance<T> : ISetterInstance
     public void End()
     {
     }
-
-    private T EaseAnimations(TimeSpan progress)
-    {
-        static T Ease(Animation<T> animation, float progress)
-        {
-            // イージングする
-            float ease = animation.Easing.Ease(progress);
-            // 値を補間する
-            T value = animation.Animator.Interpolate(ease, animation.Previous, animation.Next);
-
-            return value;
-        }
-
-        TimeSpan cur = TimeSpan.Zero;
-        Span<Animation<T>> span = Setter.Animations.AsSpan();
-        foreach (Animation<T> item in span)
-        {
-            TimeSpan next = cur + item.Duration;
-            if (cur <= progress && progress < next)
-            {
-                // 相対的なTimeSpan
-                TimeSpan time = progress - cur;
-                return Ease(item, (float)(time / item.Duration));
-            }
-            else
-            {
-                cur = next;
-            }
-        }
-
-        return Ease(span[^1], 1);
-    }
-
 }

@@ -15,7 +15,7 @@ public class TextBlock : Drawable
     public static readonly CoreProperty<float> SpacingProperty;
     public static readonly CoreProperty<string> TextProperty;
     public static readonly CoreProperty<Thickness> MarginProperty;
-    public static readonly CoreProperty<TextElements> ElementsProperty;
+    public static readonly CoreProperty<TextElements?> ElementsProperty;
     private FontFamily _fontFamily;
     private FontWeight _fontWeight;
     private FontStyle _fontStyle;
@@ -23,7 +23,7 @@ public class TextBlock : Drawable
     private float _spacing;
     private string _text = string.Empty;
     private Thickness _margin;
-    private TextElements _elements = TextElements.Empty;
+    private TextElements? _elements;
 
     static TextBlock()
     {
@@ -52,6 +52,7 @@ public class TextBlock : Drawable
             .Accessor(o => o.Size, (o, v) => o.Size = v)
             .PropertyFlags(PropertyFlags.KnownFlags_1)
             .DefaultValue(0)
+            .Minimum(0)
             .SerializeName("size")
             .Register();
 
@@ -76,13 +77,16 @@ public class TextBlock : Drawable
             .SerializeName("margin")
             .Register();
 
-        ElementsProperty = ConfigureProperty<TextElements, TextBlock>(nameof(Elements))
+        ElementsProperty = ConfigureProperty<TextElements?, TextBlock>(nameof(Elements))
             .Accessor(o => o.Elements, (o, v) => o.Elements = v)
             .PropertyFlags(PropertyFlags.KnownFlags_1)
-            .DefaultValue(TextElements.Empty)
             .Register();
 
         AffectsRender<TextBlock>(ElementsProperty);
+    }
+
+    public TextBlock()
+    {
     }
 
     public FontFamily FontFamily
@@ -133,7 +137,7 @@ public class TextBlock : Drawable
         set => SetAndRaise(MarginProperty, ref _margin, value);
     }
 
-    public TextElements Elements
+    public TextElements? Elements
     {
         get => _elements;
         set => SetAndRaise(ElementsProperty, ref _elements, value);
@@ -164,7 +168,7 @@ public class TextBlock : Drawable
     public override void WriteToJson(ref JsonNode json)
     {
         base.WriteToJson(ref json);
-        if(json is JsonObject jobj)
+        if (json is JsonObject jobj && _elements != null)
         {
             var array = new JsonArray(_elements.Count);
             for (int i = 0; i < _elements.Count; i++)
@@ -183,11 +187,14 @@ public class TextBlock : Drawable
         float width = 0;
         float height = 0;
 
-        foreach (Span<FormattedText> line in Elements.Lines)
+        if (_elements != null)
         {
-            Size bounds = MeasureLine(line);
-            width = MathF.Max(bounds.Width, width);
-            height += bounds.Height;
+            foreach (Span<FormattedText> line in _elements.Lines)
+            {
+                Size bounds = MeasureLine(line);
+                width = MathF.Max(bounds.Width, width);
+                height += bounds.Height;
+            }
         }
 
         return new Size(width, height);
@@ -195,28 +202,31 @@ public class TextBlock : Drawable
 
     protected override void OnDraw(ICanvas canvas)
     {
-        float prevBottom = 0;
-        foreach (Span<FormattedText> line in Elements.Lines)
+        if (_elements != null)
         {
-            Size lineBounds = MeasureLine(line);
-            float ascent = MinAscent(line);
-
-            using (canvas.PushTransform(Matrix.CreateTranslation(0, prevBottom - ascent)))
+            float prevBottom = 0;
+            foreach (Span<FormattedText> line in _elements.Lines)
             {
-                float prevRight = 0;
-                foreach (FormattedText item in line)
+                Size lineBounds = MeasureLine(line);
+                float ascent = MinAscent(line);
+
+                using (canvas.PushTransform(Matrix.CreateTranslation(0, prevBottom - ascent)))
                 {
-                    canvas.Translate(new(prevRight, 0));
-                    Size elementBounds = item.Bounds;
+                    float prevRight = 0;
+                    foreach (FormattedText item in line)
+                    {
+                        canvas.Translate(new(prevRight, 0));
+                        Size elementBounds = item.Bounds;
 
-                    using (canvas.PushForeground(item.Brush))
-                        canvas.DrawText(item);
+                        using (canvas.PushForeground(item.Brush))
+                            canvas.DrawText(item);
 
-                    prevRight = elementBounds.Width + item.Margin.Right;
+                        prevRight = elementBounds.Width + item.Margin.Right;
+                    }
                 }
-            }
 
-            prevBottom += lineBounds.Height;
+                prevBottom += lineBounds.Height;
+            }
         }
     }
 

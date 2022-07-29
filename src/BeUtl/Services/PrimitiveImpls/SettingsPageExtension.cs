@@ -1,5 +1,4 @@
-﻿
-using Avalonia.Media;
+﻿using Avalonia.Media;
 
 using BeUtl.Controls;
 using BeUtl.Framework;

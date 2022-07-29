@@ -11,6 +11,7 @@ public sealed class Rectangle : Drawable
             .Accessor(o => o.StrokeWidth, (o, v) => o.StrokeWidth = v)
             .PropertyFlags(PropertyFlags.KnownFlags_1)
             .DefaultValue(4000)
+            .Minimum(0)
             .SerializeName("stroke-width")
             .Register();
 

@@ -1,7 +1,5 @@
 ﻿using System.Diagnostics.CodeAnalysis;
-using System.Reactive.Linq;
 
-using BeUtl.Collections;
 using BeUtl.Configuration;
 using BeUtl.Framework;
 

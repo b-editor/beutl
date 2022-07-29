@@ -41,7 +41,7 @@ public sealed class NavigationButtonViewModel<T> : BaseEditorViewModel<T>, INavi
     }
 
     public ReadOnlyReactivePropertySlim<T?> Value { get; }
-    
+
     public ReadOnlyReactivePropertySlim<bool> IsSet { get; }
 
     public ReadOnlyReactivePropertySlim<bool> IsNotSetAndCanWrite { get; }

@@ -1,10 +1,10 @@
 ﻿namespace BeUtl.Services.Editors.Wrappers;
 
-public sealed class CorePropertyWrapper<T> : IWrappedProperty<T>
+public class CorePropertyWrapper<T> : IWrappedProperty<T>
 {
     private IObservable<T?>? _observable;
 
-    public CorePropertyWrapper(CoreProperty<T> property, CoreObject obj)
+    public CorePropertyWrapper(CoreProperty<T> property, ICoreObject obj)
     {
         AssociatedProperty = property;
         Tag = obj;
@@ -20,16 +20,16 @@ public sealed class CorePropertyWrapper<T> : IWrappedProperty<T>
 
     public IObservable<T?> GetObservable()
     {
-        return _observable ??= ((CoreObject)Tag).GetObservable(AssociatedProperty);
+        return _observable ??= ((ICoreObject)Tag).GetObservable(AssociatedProperty);
     }
 
     public T? GetValue()
     {
-        return ((CoreObject)Tag).GetValue(AssociatedProperty);
+        return ((ICoreObject)Tag).GetValue(AssociatedProperty);
     }
 
     public void SetValue(T? value)
     {
-        ((CoreObject)Tag).SetValue(AssociatedProperty, value);
+        ((ICoreObject)Tag).SetValue(AssociatedProperty, value);
     }
 }

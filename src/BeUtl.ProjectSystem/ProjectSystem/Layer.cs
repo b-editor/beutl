@@ -7,6 +7,7 @@ using BeUtl.Collections;
 using BeUtl.Commands;
 using BeUtl.Media;
 using BeUtl.Rendering;
+using BeUtl.Streaming;
 
 namespace BeUtl.ProjectSystem;
 
@@ -18,7 +19,7 @@ public class Layer : Element, IStorable, ILogicalElement
     public static readonly CoreProperty<Color> AccentColorProperty;
     public static readonly CoreProperty<bool> IsEnabledProperty;
     public static readonly CoreProperty<LayerNode> NodeProperty;
-    public static readonly CoreProperty<LogicalList<LayerOperation>> ChildrenProperty;
+    public static readonly CoreProperty<LogicalList<StreamOperator>> OperatorsProperty;
     private TimeSpan _start;
     private TimeSpan _length;
     private int _zIndex;
@@ -66,8 +67,8 @@ public class Layer : Element, IStorable, ILogicalElement
             .Observability(PropertyObservability.Changed)
             .Register();
 
-        ChildrenProperty = ConfigureProperty<LogicalList<LayerOperation>, Layer>(nameof(Children))
-            .Accessor(o => o.Children, null)
+        OperatorsProperty = ConfigureProperty<LogicalList<StreamOperator>, Layer>(nameof(Operators))
+            .Accessor(o => o.Operators, null)
             .Register();
 
         NameProperty.OverrideMetadata<Layer>(new CorePropertyMetadata<string>
@@ -128,7 +129,11 @@ public class Layer : Element, IStorable, ILogicalElement
 
     public Layer()
     {
-        Children = new LogicalList<LayerOperation>(this);
+        Operators = new LogicalList<StreamOperator>(this);
+        Operators.Attached += item => item.Invalidated += Operator_Invalidated;
+        Operators.Detached += item => item.Invalidated -= Operator_Invalidated;
+
+        (Node as ILogicalElement).NotifyAttachedToLogicalTree(new(this));
     }
 
     event EventHandler IStorable.Saved
@@ -196,9 +201,9 @@ public class Layer : Element, IStorable, ILogicalElement
 
     public DateTime LastSavedTime { get; private set; }
 
-    public LogicalList<LayerOperation> Children { get; }
+    public LogicalList<StreamOperator> Operators { get; }
 
-    IEnumerable<ILogicalElement> ILogicalElement.LogicalChildren => Children;
+    IEnumerable<ILogicalElement> ILogicalElement.LogicalChildren => Operators;
 
     public void Save(string filename)
     {
@@ -245,26 +250,26 @@ public class Layer : Element, IStorable, ILogicalElement
                 Node.Value = renderable;
             }
 
-            if (jobject.TryGetPropertyValue("operations", out JsonNode? operationsNode)
-                && operationsNode is JsonArray operationsArray)
+            if (jobject.TryGetPropertyValue("operators", out JsonNode? operatorsNode)
+                && operatorsNode is JsonArray operatorsArray)
             {
-                foreach (JsonObject operationJson in operationsArray.OfType<JsonObject>())
+                foreach (JsonObject operatorJson in operatorsArray.OfType<JsonObject>())
                 {
-                    if (operationJson.TryGetPropertyValue("@type", out JsonNode? atTypeNode)
+                    if (operatorJson.TryGetPropertyValue("@type", out JsonNode? atTypeNode)
                         && atTypeNode is JsonValue atTypeValue
                         && atTypeValue.TryGetValue(out string? atType))
                     {
                         var type = TypeFormat.ToType(atType);
-                        LayerOperation? operation = null;
+                        StreamOperator? @operator = null;
 
-                        if (type?.IsAssignableTo(typeof(LayerOperation)) ?? false)
+                        if (type?.IsAssignableTo(typeof(StreamOperator)) ?? false)
                         {
-                            operation = Activator.CreateInstance(type) as LayerOperation;
+                            @operator = Activator.CreateInstance(type) as StreamOperator;
                         }
 
-                        operation ??= new EmptyOperation();
-                        operation.ReadFromJson(operationJson);
-                        Children.Add(operation);
+                        @operator ??= new StreamOperator();
+                        @operator.ReadFromJson(operatorJson);
+                        Operators.Add(@operator);
                     }
                 }
             }
@@ -285,47 +290,44 @@ public class Layer : Element, IStorable, ILogicalElement
                 jobject["renderable"] = node;
             }
 
-            Span<LayerOperation> children = Children.AsSpan();
-            if (children.Length > 0)
+            Span<StreamOperator> operators = Operators.AsSpan();
+            if (operators.Length > 0)
             {
                 var array = new JsonArray();
 
-                foreach (LayerOperation item in children)
+                foreach (StreamOperator item in operators)
                 {
                     JsonNode node = new JsonObject();
                     item.WriteToJson(ref node);
-                    if (item is not EmptyOperation)
-                    {
-                        node["@type"] = TypeFormat.ToString(item.GetType());
-                    }
+                    node["@type"] = TypeFormat.ToString(item.GetType());
 
                     array.Add(node);
                 }
 
-                jobject["operations"] = array;
+                jobject["operators"] = array;
             }
         }
     }
 
-    public IRecordableCommand AddChild(LayerOperation operation)
+    public IRecordableCommand AddChild(StreamOperator @operator)
     {
-        ArgumentNullException.ThrowIfNull(operation);
+        ArgumentNullException.ThrowIfNull(@operator);
 
-        return new AddCommand<LayerOperation>(Children, operation, Children.Count);
+        return new AddCommand<StreamOperator>(Operators, @operator, Operators.Count);
     }
 
-    public IRecordableCommand RemoveChild(LayerOperation operation)
+    public IRecordableCommand RemoveChild(StreamOperator @operator)
     {
-        ArgumentNullException.ThrowIfNull(operation);
+        ArgumentNullException.ThrowIfNull(@operator);
 
-        return new RemoveCommand<LayerOperation>(Children, operation);
+        return new RemoveCommand<StreamOperator>(Operators, @operator);
     }
 
-    public IRecordableCommand InsertChild(int index, LayerOperation operation)
+    public IRecordableCommand InsertChild(int index, StreamOperator @operator)
     {
-        ArgumentNullException.ThrowIfNull(operation);
+        ArgumentNullException.ThrowIfNull(@operator);
 
-        return new AddCommand<LayerOperation>(Children, operation, index);
+        return new AddCommand<StreamOperator>(Operators, @operator, index);
     }
 
     protected override void OnAttachedToLogicalTree(in LogicalTreeAttachmentEventArgs args)
@@ -364,7 +366,8 @@ public class Layer : Element, IStorable, ILogicalElement
     private void ForceRender()
     {
         Scene? scene = this.FindLogicalParent<Scene>();
-        if (scene != null &&
+        if (IsEnabled
+            && scene != null &&
             Start <= scene.CurrentFrame &&
             scene.CurrentFrame < Start + Length &&
             scene.Renderer is { IsDisposed: false, IsRendering: false })
@@ -383,6 +386,11 @@ public class Layer : Element, IStorable, ILogicalElement
                     .RefCount()
                 : Observable.Return(Unit.Default))
             .Subscribe(_ => ForceRender());
+    }
+
+    private void Operator_Invalidated(object? sender, EventArgs e)
+    {
+        ForceRender();
     }
 
     internal Layer? GetBefore(int zindex, TimeSpan start)

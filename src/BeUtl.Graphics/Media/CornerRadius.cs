@@ -3,6 +3,7 @@ using System.Text.Json.Serialization;
 
 using BeUtl.Converters;
 using BeUtl.Utilities;
+using BeUtl.Validation;
 
 namespace BeUtl.Media;
 
@@ -10,6 +11,7 @@ namespace BeUtl.Media;
 /// Represents the radii of a rectangle's corners.
 /// </summary>
 [JsonConverter(typeof(CornerRadiusJsonConverter))]
+[RangeValidatable(typeof(CornerRadiusRangeValidator))]
 public readonly struct CornerRadius : IEquatable<CornerRadius>
 {
     public CornerRadius(float uniformRadius)

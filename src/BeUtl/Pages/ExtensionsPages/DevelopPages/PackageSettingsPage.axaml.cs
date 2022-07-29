@@ -8,11 +8,6 @@ using BeUtl.Pages.ExtensionsPages.DevelopPages.Dialogs;
 using BeUtl.ViewModels.ExtensionsPages.DevelopPages;
 using BeUtl.ViewModels.ExtensionsPages.DevelopPages.Dialogs;
 
-using FluentAvalonia.UI.Controls;
-
-using Button = Avalonia.Controls.Button;
-using S = BeUtl.Language.StringResources;
-
 namespace BeUtl.Pages.ExtensionsPages.DevelopPages;
 
 public sealed partial class PackageSettingsPage : UserControl
@@ -37,7 +32,7 @@ public sealed partial class PackageSettingsPage : UserControl
     {
         if (DataContext is PackageSettingsPageViewModel viewModel)
         {
-            Frame frame = this.FindAncestorOfType<Frame>();
+            FA.Frame frame = this.FindAncestorOfType<FA.Frame>();
             frame.Navigate(typeof(PackageDetailsPage), viewModel.Parent, SharedNavigationTransitionInfo.Instance);
         }
     }
@@ -58,7 +53,7 @@ public sealed partial class PackageSettingsPage : UserControl
     {
         if (sender is Button { DataContext: ResourcePageViewModel itemViewModel })
         {
-            Frame frame = this.FindAncestorOfType<Frame>();
+            FA.Frame frame = this.FindAncestorOfType<FA.Frame>();
             frame.Navigate(typeof(ResourcePage), itemViewModel, SharedNavigationTransitionInfo.Instance);
         }
     }
@@ -67,17 +62,17 @@ public sealed partial class PackageSettingsPage : UserControl
     {
         if (sender is Button { DataContext: ResourcePageViewModel itemViewModel })
         {
-            Frame frame = this.FindAncestorOfType<Frame>();
-            var dialog = new ContentDialog
+            FA.Frame frame = this.FindAncestorOfType<FA.Frame>();
+            var dialog = new FA.ContentDialog
             {
                 Title = S.DevelopPage.DeleteResource.Title,
                 Content = S.DevelopPage.DeleteResource.Content,
                 PrimaryButtonText = S.Common.Yes,
                 CloseButtonText = S.Common.No,
-                DefaultButton = ContentDialogButton.Primary
+                DefaultButton = FA.ContentDialogButton.Primary
             };
 
-            if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+            if (await dialog.ShowAsync() == FA.ContentDialogResult.Primary)
             {
                 string resourceId = itemViewModel.Resource.Value.Snapshot.Id;
                 string packageId = itemViewModel.Parent.Reference.Id;
@@ -94,17 +89,17 @@ public sealed partial class PackageSettingsPage : UserControl
     {
         if (DataContext is PackageSettingsPageViewModel viewModel)
         {
-            Frame frame = this.FindAncestorOfType<Frame>();
-            var dialog = new ContentDialog
+            FA.Frame frame = this.FindAncestorOfType<FA.Frame>();
+            var dialog = new FA.ContentDialog
             {
                 Title = S.DevelopPage.DeletePackage.Title,
                 Content = S.DevelopPage.DeletePackage.Content,
                 PrimaryButtonText = S.Common.Yes,
                 CloseButtonText = S.Common.No,
-                DefaultButton = ContentDialogButton.Primary
+                DefaultButton = FA.ContentDialogButton.Primary
             };
 
-            if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+            if (await dialog.ShowAsync() == FA.ContentDialogResult.Primary)
             {
                 string packageId = viewModel.Reference.Id;
                 frame.RemoveAllStack(
@@ -125,16 +120,16 @@ public sealed partial class PackageSettingsPage : UserControl
     {
         if (DataContext is PackageSettingsPageViewModel viewModel)
         {
-            var dialog = new ContentDialog
+            var dialog = new FA.ContentDialog
             {
                 Title = S.DevelopPage.MakePublicPackage.Title,
                 Content = S.DevelopPage.MakePublicPackage.Content,
                 PrimaryButtonText = S.Common.Yes,
                 CloseButtonText = S.Common.No,
-                DefaultButton = ContentDialogButton.Primary
+                DefaultButton = FA.ContentDialogButton.Primary
             };
 
-            if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+            if (await dialog.ShowAsync() == FA.ContentDialogResult.Primary)
             {
                 viewModel.MakePublic.Execute();
             }
@@ -145,16 +140,16 @@ public sealed partial class PackageSettingsPage : UserControl
     {
         if (DataContext is PackageSettingsPageViewModel viewModel)
         {
-            var dialog = new ContentDialog
+            var dialog = new FA.ContentDialog
             {
                 Title = S.DevelopPage.MakePrivatePackage.Title,
                 Content = S.DevelopPage.MakePrivatePackage.Content,
                 PrimaryButtonText = S.Common.Yes,
                 CloseButtonText = S.Common.No,
-                DefaultButton = ContentDialogButton.Primary
+                DefaultButton = FA.ContentDialogButton.Primary
             };
 
-            if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+            if (await dialog.ShowAsync() == FA.ContentDialogResult.Primary)
             {
                 viewModel.MakePrivate.Execute();
             }

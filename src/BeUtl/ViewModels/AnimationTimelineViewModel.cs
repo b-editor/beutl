@@ -1,14 +1,14 @@
-﻿using System.Reactive.Disposables;
-using System.Reactive.Linq;
-using System.Reactive.Subjects;
+﻿using System.Collections;
 using System.Text.Json.Nodes;
 
 using Avalonia;
 
 using BeUtl.Animation;
 using BeUtl.Animation.Easings;
+using BeUtl.Commands;
 using BeUtl.Framework;
 using BeUtl.ProjectSystem;
+using BeUtl.Services.Editors.Wrappers;
 using BeUtl.Services.PrimitiveImpls;
 using BeUtl.ViewModels.Editors;
 
@@ -20,32 +20,32 @@ namespace BeUtl.ViewModels;
 public sealed class AnimationTimelineViewModel : IDisposable, IToolContext
 {
     private readonly CompositeDisposable _disposables = new();
+    private readonly ReactivePropertySlim<Layer?> _layerObservable = new();
 
     public AnimationTimelineViewModel(
-        Layer layer,
-        IAnimatablePropertyInstance setter,
-        EditorViewModelDescription description,
+        IWrappedProperty.IAnimatable setter,
         ITimelineOptionsProvider optionsProvider)
     {
-        Layer = layer;
-        Setter = setter;
-        Description = description;
+        WrappedProperty = setter;
         OptionsProvider = optionsProvider;
-        Scene = Layer.FindRequiredLogicalParent<Scene>();
+        Scene = optionsProvider.Scene;
 
-        BorderMargin = Layer.GetObservable(Layer.StartProperty)
+        BorderMargin = LayerObservable
+            .SelectMany(x => x?.GetObservable(Layer.StartProperty) ?? Observable.Return(TimeSpan.Zero))
             .CombineLatest(OptionsProvider.Scale)
             .Select(item => new Thickness(item.First.ToPixel(item.Second), 0, 0, 0))
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
 
-        Width = Layer.GetObservable(Layer.LengthProperty)
+        Width = LayerObservable
+            .SelectMany(x => x?.GetObservable(Layer.LengthProperty) ?? Observable.Return(TimeSpan.Zero))
             .CombineLatest(OptionsProvider.Scale)
             .Select(item => item.First.ToPixel(item.Second))
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
 
-        Color = Layer.GetObservable(Layer.AccentColorProperty)
+        Color = LayerObservable
+            .SelectMany(x => x?.GetObservable(Layer.AccentColorProperty) ?? Observable.Return(default(Media.Color)))
             .Select(c => c.ToAvalonia())
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
@@ -66,21 +66,26 @@ public sealed class AnimationTimelineViewModel : IDisposable, IToolContext
             .ToReadOnlyReactivePropertySlim()
             .AddTo(_disposables);
 
-        Header = layer.GetObservable(CoreObject.NameProperty)
-            .Select(n => $"{n} / {Setter.Property.Name}")
-            .ToReadOnlyReactivePropertySlim($"{layer.Name} / {Setter.Property.Name}")
+        Header = LayerObservable
+            .SelectMany(x => x?.GetObservable(CoreObject.NameProperty) ?? Observable.Return(string.Empty))
+            .Select(n => string.IsNullOrWhiteSpace(n) ? WrappedProperty.AssociatedProperty.Name : $"{n} / {WrappedProperty.AssociatedProperty.Name}")
+            .ToReadOnlyReactivePropertySlim(WrappedProperty.AssociatedProperty.Name)
             .AddTo(_disposables);
     }
 
     public Scene Scene { get; }
 
-    public Layer Layer { get; }
+    public Layer? Layer
+    {
+        get => _layerObservable.Value;
+        init => _layerObservable.Value = value;
+    }
 
-    public IAnimatablePropertyInstance Setter { get; }
-
-    public EditorViewModelDescription Description { get; }
+    public IWrappedProperty.IAnimatable WrappedProperty { get; }
 
     public ITimelineOptionsProvider OptionsProvider { get; }
+
+    public IReadOnlyReactiveProperty<Layer?> LayerObservable => _layerObservable;
 
     public ReadOnlyReactivePropertySlim<Thickness> BorderMargin { get; }
 
@@ -104,18 +109,21 @@ public sealed class AnimationTimelineViewModel : IDisposable, IToolContext
 
     public void Dispose()
     {
+        _layerObservable.Dispose();
         _disposables.Dispose();
     }
 
     public void AddAnimation(Easing easing)
     {
-        Type type = typeof(Animation<>).MakeGenericType(Setter.Property.PropertyType);
+        CoreProperty? property = WrappedProperty.AssociatedProperty;
+        Type type = typeof(AnimationSpan<>).MakeGenericType(property.PropertyType);
 
-        if (Activator.CreateInstance(type) is IAnimation animation)
+        if (WrappedProperty.Animation.Children is IList list
+            && Activator.CreateInstance(type) is IAnimationSpan animation)
         {
             animation.Easing = easing;
             animation.Duration = TimeSpan.FromSeconds(2);
-            object? value = Setter.Value;
+            object? value = WrappedProperty.GetValue();
 
             if (value != null)
             {
@@ -123,7 +131,8 @@ public sealed class AnimationTimelineViewModel : IDisposable, IToolContext
                 animation.Next = value;
             }
 
-            Setter.AddChild(animation).DoAndRecord(CommandRecorder.Default);
+            var command = new AddCommand(list, animation, list.Count);
+            command.DoAndRecord(CommandRecorder.Default);
         }
     }
 

@@ -1,5 +1,7 @@
 ﻿using System.Text.Json.Nodes;
 
+using BeUtl.Styling;
+
 namespace BeUtl.Media;
 
 /// <summary>
@@ -34,11 +36,18 @@ public abstract class GradientBrush : Brush, IGradientBrush
     /// </summary>
     public GradientBrush()
     {
-        _gradientStops = new GradientStops()
+        _gradientStops = new GradientStops();
+        _gradientStops.Attached += item =>
         {
-            Attached = item => (item as ILogicalElement).NotifyAttachedToLogicalTree(new(this)),
-            Detached = item => (item as ILogicalElement).NotifyDetachedFromLogicalTree(new(this)),
+            (item as ILogicalElement)?.NotifyAttachedToLogicalTree(new(this));
+            (item as IStylingElement)?.NotifyAttachedToStylingTree(new(this));
         };
+        _gradientStops.Detached += item =>
+        {
+            (item as ILogicalElement)?.NotifyDetachedFromLogicalTree(new(this));
+            (item as IStylingElement)?.NotifyDetachedFromStylingTree(new(this));
+        };
+
         _gradientStops.Invalidated += (_, _) => RaiseInvalidated();
     }
 

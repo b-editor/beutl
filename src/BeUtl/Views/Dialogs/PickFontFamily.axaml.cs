@@ -1,16 +1,12 @@
-﻿using System.Collections;
-using System.Text.RegularExpressions;
+﻿using System.Text.RegularExpressions;
 
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Controls.Generators;
 using Avalonia.Data.Converters;
 using Avalonia.Styling;
 
 using BeUtl.Media;
-using BeUtl.ViewModels.Dialogs;
 
-using FluentAvalonia.Core;
 using FluentAvalonia.UI.Controls;
 
 namespace BeUtl.Views.Dialogs;

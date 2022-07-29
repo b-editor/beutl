@@ -6,11 +6,14 @@ using BeUtl.Animation;
 
 namespace BeUtl.Styling;
 
-public abstract class Styleable : Element, IStyleable
+public abstract class Styleable : Animatable, IStyleable
 {
     public static readonly CoreProperty<Styles> StylesProperty;
     private readonly Styles _styles;
+    private IStylingElement? _stylingParent;
     private IStyleInstance? _styleInstance;
+    private EventHandler<StylingTreeAttachmentEventArgs>? _attachedToStylingTree;
+    private EventHandler<StylingTreeAttachmentEventArgs>? _detachedFromStylingTree;
 
     static Styleable()
     {
@@ -21,12 +24,39 @@ public abstract class Styleable : Element, IStyleable
 
     protected Styleable()
     {
-        _styles = new()
+        _styles = new();
+        _styles.Attached += item =>
         {
-            Attached = item => item.Invalidated += Style_Invalidated,
-            Detached = item => item.Invalidated -= Style_Invalidated
+            item.Invalidated += Style_Invalidated;
+            item.NotifyAttachedToStylingTree(new StylingTreeAttachmentEventArgs(this));
+        };
+        _styles.Detached += item =>
+        {
+            item.Invalidated -= Style_Invalidated;
+            item.NotifyDetachedFromStylingTree(new StylingTreeAttachmentEventArgs(this));
         };
         _styles.CollectionChanged += Style_Invalidated;
+
+        Animations.Attached += item =>
+        {
+            item.NotifyAttachedToStylingTree(new StylingTreeAttachmentEventArgs(this));
+        };
+        Animations.Detached += item =>
+        {
+            item.NotifyDetachedFromStylingTree(new StylingTreeAttachmentEventArgs(this));
+        };
+    }
+
+    event EventHandler<StylingTreeAttachmentEventArgs> IStylingElement.AttachedToStylingTree
+    {
+        add => _attachedToStylingTree += value;
+        remove => _attachedToStylingTree -= value;
+    }
+
+    event EventHandler<StylingTreeAttachmentEventArgs> IStylingElement.DetachedFromStylingTree
+    {
+        add => _detachedFromStylingTree += value;
+        remove => _detachedFromStylingTree -= value;
     }
 
     private void Style_Invalidated(object? sender, EventArgs e)
@@ -46,6 +76,10 @@ public abstract class Styleable : Element, IStyleable
         }
     }
 
+    IStylingElement? IStylingElement.StylingParent => _stylingParent;
+
+    IEnumerable<IStylingElement> IStylingElement.StylingChildren => _styles.Concat<IStylingElement>(Animations);
+
     public void InvalidateStyles()
     {
         if (_styleInstance != null)
@@ -55,7 +89,7 @@ public abstract class Styleable : Element, IStyleable
         }
     }
 
-    public void ApplyStyling(IClock clock)
+    public virtual void ApplyStyling(IClock clock)
     {
         if (_styleInstance == null)
         {
@@ -79,6 +113,10 @@ public abstract class Styleable : Element, IStyleable
             {
                 return styleInstance;
             }
+            else
+            {
+                styleInstance = styleInstance.BaseStyle;
+            }
         }
 
         return null;
@@ -87,154 +125,6 @@ public abstract class Styleable : Element, IStyleable
     void IStyleable.StyleApplied(IStyleInstance instance)
     {
         _styleInstance = instance;
-    }
-
-    private static Style? ReadStyleFromJsonObject(JsonObject json)
-    {
-        if (json.TryGetPropertyValue("target", out JsonNode? targetNode)
-            && targetNode is JsonValue targetValue
-            && targetValue.TryGetValue(out string? targetStr)
-            && TypeFormat.ToType(targetStr) is Type targetType)
-        {
-            var style = new Style
-            {
-                TargetType = targetType
-            };
-
-            if (json.TryGetPropertyValue("setters", out JsonNode? settersNode)
-                && settersNode is JsonArray settersArray)
-            {
-                foreach (JsonNode? item in settersArray)
-                {
-                    if (item != null && ReadSetterFromJson(item, targetType) is ISetter setter)
-                    {
-                        style.Setters.Add(setter);
-                    }
-                }
-            }
-
-            return style;
-        }
-
-        return null;
-    }
-
-    private static ISetter? ReadSetterFromJson(JsonNode json, Type targetType)
-    {
-        if (json is JsonObject jobj)
-        {
-            if (jobj.TryGetPropertyValue("property", out JsonNode? propertyNode)
-                && propertyNode is JsonValue propertyValue
-                && propertyValue.TryGetValue(out string? propertyStr))
-            {
-                int separator = propertyStr.IndexOf(":");
-                CoreProperty? property = null;
-                if (separator < 0)
-                {
-                    property = PropertyRegistry.FindRegistered(targetType, propertyStr);
-                }
-                else
-                {
-                    string name = propertyStr[..separator];
-                    var type = TypeFormat.ToType(propertyStr[separator..]);
-                    if (type != null)
-                    {
-                        property = PropertyRegistry.FindRegistered(type, name);
-                    }
-                }
-
-                if (property == null)
-                    return null;
-
-                var helper = (IGenericHelper)typeof(GenericHelper<>)
-                    .MakeGenericType(property.PropertyType)
-                    .GetField("Instance")!
-                    .GetValue(null)!;
-
-                object? value = null;
-                if (jobj.TryGetPropertyValue("value", out JsonNode? valueNode))
-                {
-                    value = DeserializeValue(property.PropertyType, valueNode!);
-                }
-
-                var animations = new List<BaseAnimation>();
-
-                if (jobj.TryGetPropertyValue("animations", out JsonNode? animationsNode)
-                    && animationsNode is JsonArray animationsArray)
-                {
-                    if (animations.Capacity < animationsArray.Count)
-                    {
-                        animations.Capacity = animationsArray.Count;
-                    }
-                    foreach (JsonNode? item in animationsArray)
-                    {
-                        if (item is JsonObject animationObj)
-                        {
-                            animations.Add(helper.DeserializeAnimation(animationObj));
-                        }
-                    }
-                }
-
-                return helper.InitializeSetter(property, value, animations);
-            }
-        }
-
-        return null;
-    }
-
-    private static object? DeserializeValue(Type type, JsonNode jsonNode)
-    {
-        if (jsonNode is JsonObject jsonObject
-            && jsonObject.TryGetPropertyValue("@type", out JsonNode? atTypeNode)
-            && atTypeNode is JsonValue atTypeValue
-            && atTypeValue.TryGetValue(out string? atTypeStr)
-            && TypeFormat.ToType(atTypeStr) is Type realType
-            && realType.IsAssignableTo(type)
-            && realType.IsAssignableTo(typeof(IJsonSerializable)))
-        {
-            var sobj = (IJsonSerializable?)Activator.CreateInstance(realType);
-            if (sobj != null)
-            {
-                sobj.ReadFromJson(jsonNode!);
-                return sobj;
-            }
-        }
-        else if (type.IsAssignableTo(typeof(IJsonSerializable)))
-        {
-            var sobj = (IJsonSerializable?)Activator.CreateInstance(type);
-            if (sobj != null)
-            {
-                sobj.ReadFromJson(jsonNode!);
-                return sobj;
-            }
-        }
-        else
-        {
-            return JsonSerializer.Deserialize(jsonNode, type, JsonHelper.SerializerOptions);
-        }
-
-        return type.IsValueType ? Activator.CreateInstance(type) : null;
-    }
-
-    private static JsonNode? SerializeValue(Type type, object value)
-    {
-        if (value is IJsonSerializable child)
-        {
-            JsonNode jsonNode = new JsonObject();
-            child.WriteToJson(ref jsonNode);
-
-            var objType = value.GetType();
-            if (objType != type && jsonNode is JsonObject)
-            {
-                jsonNode["@type"] = TypeFormat.ToString(objType);
-            }
-
-            return jsonNode;
-        }
-        else
-        {
-            return JsonSerializer.SerializeToNode(value, type, JsonHelper.SerializerOptions);
-        }
     }
 
     public override void ReadFromJson(JsonNode json)
@@ -254,48 +144,13 @@ public abstract class Styleable : Element, IStyleable
                 foreach (JsonNode? styleNode in stylesArray)
                 {
                     if (styleNode is JsonObject styleObject
-                        && ReadStyleFromJsonObject(styleObject) is Style style)
+                        && styleObject.ToStyle() is Style style)
                     {
                         Styles.Add(style);
                     }
                 }
             }
         }
-    }
-
-    private static JsonNode WriteSetterToJson(ISetter setter, Type targetType)
-    {
-        var json = new JsonObject();
-
-        if (targetType.IsAssignableTo(setter.Property.OwnerType))
-        {
-            json["property"] = setter.Property.Name;
-        }
-        else
-        {
-            json["property"] = $"{setter.Property.Name}:{TypeFormat.ToString(setter.Property.OwnerType)}";
-        }
-
-        if (setter.Value != null)
-        {
-            json["value"] = SerializeValue(setter.Property.PropertyType, setter.Value);
-        }
-
-        if (setter.Animations.Any())
-        {
-            var animations = new JsonArray();
-
-            foreach (var item in setter.Animations)
-            {
-                JsonNode anmNode = new JsonObject();
-                item.WriteToJson(ref anmNode);
-                animations.Add(anmNode);
-            }
-
-            json["animations"] = animations;
-        }
-
-        return json;
     }
 
     public override void WriteToJson(ref JsonNode json)
@@ -309,19 +164,7 @@ public abstract class Styleable : Element, IStyleable
 
                 foreach (IStyle style in Styles.AsSpan())
                 {
-                    var styleJson = new JsonObject
-                    {
-                        ["target"] = TypeFormat.ToString(style.TargetType)
-                    };
-
-                    var setters = new JsonArray();
-                    foreach (ISetter? item in style.Setters)
-                    {
-                        setters.Add(WriteSetterToJson(item, style.TargetType));
-                    }
-                    styleJson["setters"] = setters;
-
-                    styles.Add(styleJson);
+                    styles.Add(style.ToJson());
                 }
 
                 jobject["styles"] = styles;
@@ -329,29 +172,33 @@ public abstract class Styleable : Element, IStyleable
         }
     }
 
-    private interface IGenericHelper
+    protected virtual void OnAttachedToStylingTree(in StylingTreeAttachmentEventArgs e)
     {
-        ISetter InitializeSetter(CoreProperty property, object? value, IEnumerable<BaseAnimation> animations);
-
-        BaseAnimation DeserializeAnimation(JsonObject json);
+    }
+    
+    protected virtual void OnDetachedFromStylingTree(in StylingTreeAttachmentEventArgs e)
+    {
     }
 
-    private sealed class GenericHelper<T> : IGenericHelper
+    void IStylingElement.NotifyAttachedToStylingTree(in StylingTreeAttachmentEventArgs e)
     {
-        public static readonly GenericHelper<T> Instance = new();
+        if (_stylingParent is { })
+            throw new StylingTreeException("This styling element already has a parent element.");
 
-        public ISetter InitializeSetter(CoreProperty property, object? value, IEnumerable<BaseAnimation> animations)
-        {
-            var setter = new Setter<T>((CoreProperty<T>)property, (T?)value);
-            setter.Animations.AddRange(animations.OfType<Animation<T>>());
-            return setter;
-        }
+        OnAttachedToStylingTree(e);
 
-        public BaseAnimation DeserializeAnimation(JsonObject json)
-        {
-            var anm = new Animation<T>();
-            anm.ReadFromJson(json);
-            return anm;
-        }
+        _stylingParent = e.Parent;
+        _attachedToStylingTree?.Invoke(this, e);
+    }
+
+    void IStylingElement.NotifyDetachedFromStylingTree(in StylingTreeAttachmentEventArgs e)
+    {
+        if (!ReferenceEquals(e.Parent, _stylingParent))
+            throw new StylingTreeException("The detach source element and the parent element do not match.");
+
+        OnDetachedFromStylingTree(e);
+
+        _stylingParent = null;
+        _detachedFromStylingTree?.Invoke(this, e);
     }
 }

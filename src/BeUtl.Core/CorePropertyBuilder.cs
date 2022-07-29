@@ -1,5 +1,8 @@
 ﻿using System.Linq.Expressions;
 using System.Reflection;
+using System.Text.Json.Serialization;
+
+using BeUtl.Validation;
 
 namespace BeUtl;
 
@@ -99,6 +102,199 @@ public sealed class CorePropertyBuilder<T, TOwner> : ICorePropertyBuilder<T>
         _metadata = _metadata with
         {
             SerializeName = value
+        };
+        return this;
+    }
+
+    private static IValidator<T> MergeValidator(IValidator<T> oldValidator, IValidator<T> newValidator)
+    {
+        if (oldValidator is TuppleValidator<T> tupple)
+        {
+            newValidator = new MultipleValidator<T>(new IValidator<T>[]
+            {
+                tupple.First,
+                tupple.Second,
+                newValidator
+            });
+        }
+        else if (oldValidator is MultipleValidator<T> multiple)
+        {
+            int length = multiple.Items.Length;
+            var array = new IValidator<T>[length + 1];
+            multiple.Items.AsSpan().CopyTo(array.AsSpan().Slice(0, length));
+
+            array[^1] = newValidator;
+
+            newValidator = new MultipleValidator<T>(array);
+        }
+        else
+        {
+            newValidator = new TuppleValidator<T>(oldValidator, newValidator);
+        }
+
+        return newValidator;
+    }
+
+    public CorePropertyBuilder<T, TOwner> Range<TValidator>(T min, T max, bool merge = false)
+        where TValidator : RangeValidator<T>, new()
+    {
+        IValidator<T> validator = new TValidator
+        {
+            Maximum = max,
+            Minimum = min
+        };
+
+        if (merge && _metadata.Validator != null)
+        {
+            validator = MergeValidator(_metadata.Validator, validator);
+        }
+        _metadata = _metadata with
+        {
+            Validator = validator
+        };
+        return this;
+    }
+
+    public CorePropertyBuilder<T, TOwner> Range(T min, T max, bool merge = false)
+    {
+        if (Activator.CreateInstance(RangeValidationService.Instance.Get<T>()) is RangeValidator<T> validator1)
+        {
+            validator1.Minimum = min;
+            validator1.Maximum = max;
+
+            IValidator<T> validator2 = validator1;
+            if (merge && _metadata.Validator != null)
+            {
+                validator2 = MergeValidator(_metadata.Validator, validator1);
+            }
+            _metadata = _metadata with
+            {
+                Validator = validator2
+            };
+        }
+
+        return this;
+    }
+
+    public CorePropertyBuilder<T, TOwner> Minimum<TValidator>(T min, bool merge = false)
+        where TValidator : RangeValidator<T>, new()
+    {
+        IValidator<T> validator = new TValidator
+        {
+            Minimum = min
+        };
+
+        if (merge && _metadata.Validator != null)
+        {
+            validator = MergeValidator(_metadata.Validator, validator);
+        }
+        _metadata = _metadata with
+        {
+            Validator = validator
+        };
+        return this;
+    }
+
+    public CorePropertyBuilder<T, TOwner> Minimum(T min, bool merge = false)
+    {
+        if (Activator.CreateInstance(RangeValidationService.Instance.Get<T>()) is RangeValidator<T> validator1)
+        {
+            validator1.Minimum = min;
+
+            IValidator<T> validator2 = validator1;
+            if (merge && _metadata.Validator != null)
+            {
+                validator2 = MergeValidator(_metadata.Validator, validator1);
+            }
+            _metadata = _metadata with
+            {
+                Validator = validator2
+            };
+        }
+
+        return this;
+    }
+
+    public CorePropertyBuilder<T, TOwner> Maximum<TValidator>(T max, bool merge = false)
+        where TValidator : RangeValidator<T>, new()
+    {
+        IValidator<T> validator = new TValidator
+        {
+            Maximum = max
+        };
+
+        if (merge && _metadata.Validator != null)
+        {
+            validator = MergeValidator(_metadata.Validator, validator);
+        }
+        _metadata = _metadata with
+        {
+            Validator = validator
+        };
+        return this;
+    }
+
+    public CorePropertyBuilder<T, TOwner> Maximum(T max, bool merge = false)
+    {
+        if (Activator.CreateInstance(RangeValidationService.Instance.Get<T>()) is RangeValidator<T> validator1)
+        {
+            validator1.Maximum = max;
+
+            IValidator<T> validator2 = validator1;
+            if (merge && _metadata.Validator != null)
+            {
+            validator2 = MergeValidator(_metadata.Validator, validator1);
+            }
+            _metadata = _metadata with
+            {
+                Validator = validator2
+            };
+        }
+
+        return this;
+    }
+
+    public CorePropertyBuilder<T, TOwner> Validator(IValidator<T> validator, bool merge = false)
+    {
+        if (merge && _metadata.Validator != null)
+        {
+            validator = MergeValidator(_metadata.Validator, validator);
+        }
+        _metadata = _metadata with
+        {
+            Validator = validator
+        };
+
+        return this;
+    }
+
+    public CorePropertyBuilder<T, TOwner> Validator(
+        Func<ICoreObject, T?, bool>? validate = null,
+        Func<ICoreObject, T?, T?>? coerce = null,
+        bool merge = false)
+    {
+        IValidator<T> validator1 = new FuncValidator<T>
+        {
+            ValidateFunc = validate,
+            CoerceFunc = coerce,
+        };
+        if (merge && _metadata.Validator != null)
+        {
+            validator1 = MergeValidator(_metadata.Validator, validator1);
+        }
+        _metadata = _metadata with
+        {
+            Validator = validator1
+        };
+
+        return this;
+    }
+
+    public CorePropertyBuilder<T, TOwner> JsonConverter(JsonConverter<T> jsonConverter)
+    {
+        _metadata = _metadata with
+        {
+            JsonConverter = jsonConverter
         };
         return this;
     }

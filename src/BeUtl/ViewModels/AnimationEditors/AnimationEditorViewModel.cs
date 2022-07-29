@@ -12,43 +12,46 @@ using Reactive.Bindings.Extensions;
 
 namespace BeUtl.ViewModels.AnimationEditors;
 
-public abstract class AnimationEditorViewModel : IDisposable
+public sealed class AnimationEditorViewModel : IDisposable
 {
-    protected CompositeDisposable Disposables = new();
-    private bool _disposedValue;
+    private readonly CompositeDisposable _disposables = new();
 
-    protected AnimationEditorViewModel(IAnimation animation, EditorViewModelDescription description, ITimelineOptionsProvider optionsProvider)
+    public AnimationEditorViewModel(
+        IAnimationSpan animationSpan,
+        IWrappedProperty.IAnimatable property,
+        ITimelineOptionsProvider optionsProvider)
     {
-        Animation = animation;
-        Description = description;
+        Model = animationSpan;
         OptionsProvider = optionsProvider;
+        WrappedProperty = property;
 
-        Width = animation.GetObservable(BaseAnimation.DurationProperty)
+        Width = animationSpan.GetObservable(AnimationSpan.DurationProperty)
             .CombineLatest(optionsProvider.Scale)
             .Select(item => item.First.ToPixel(item.Second))
             .ToReactiveProperty()
-            .AddTo(Disposables);
+            .AddTo(_disposables);
 
-        Width.Subscribe(w => animation.Duration = w.ToTimeSpan(optionsProvider.Options.Value.Scale)).AddTo(Disposables);
+        Width.Subscribe(w => animationSpan.Duration = w.ToTimeSpan(optionsProvider.Options.Value.Scale))
+            .AddTo(_disposables);
 
-        RemoveCommand.Subscribe(() => RemoveItem()).AddTo(Disposables);
+        RemoveCommand.Subscribe(() => WrappedProperty.Remove(Model))
+            .AddTo(_disposables);
 
-        Header = WrappedProperty.Header
+        Header = property.Header
             .ToReadOnlyReactivePropertySlim()
-            .AddTo(Disposables);
+            .AddTo(_disposables);
     }
 
     ~AnimationEditorViewModel()
     {
-        if (!_disposedValue)
-            Dispose(false);
+        Dispose();
     }
 
-    public IAnimation Animation { get; }
+    public IAnimationSpan Model { get; }
 
-    public IWrappedProperty.IAnimatable WrappedProperty => (IWrappedProperty.IAnimatable)Description.WrappedProperty;
+    public IAnimation Animation => WrappedProperty.Animation;
 
-    public EditorViewModelDescription Description { get; }
+    public IWrappedProperty.IAnimatable WrappedProperty { get; }
 
     public bool CanReset => WrappedProperty.GetDefaultValue() != null;
 
@@ -67,151 +70,40 @@ public abstract class AnimationEditorViewModel : IDisposable
             @new = @new.RoundToRate(proj.GetFrameRate());
         }
 
-        CommandRecorder.Default.DoAndPush(
-            new ChangePropertyCommand<TimeSpan>(Animation, BaseAnimation.DurationProperty, @new, old));
+        new ChangePropertyCommand<TimeSpan>(Model, AnimationSpan.DurationProperty, @new, old)
+            .DoAndRecord(CommandRecorder.Default);
     }
 
     public void SetEasing(Easing old, Easing @new)
     {
-        CommandRecorder.Default.DoAndPush(new ChangePropertyCommand<Easing>(Animation, BaseAnimation.EasingProperty, @new, old));
+        new ChangePropertyCommand<Easing>(Model, AnimationSpan.EasingProperty, @new, old)
+            .DoAndRecord(CommandRecorder.Default);
     }
 
     public void Move(int newIndex, int oldIndex)
     {
-        if (WrappedProperty.Animations is IList list)
-        {
-            CommandRecorder.Default.PushOnly(new MoveCommand(list, newIndex, oldIndex));
-        }
+        WrappedProperty.Move(newIndex, oldIndex);
     }
 
     public void InsertForward(Easing easing)
     {
-        if (WrappedProperty.Animations is IList list)
-        {
-            int index = list.IndexOf(Animation);
-            Type type = typeof(Animation<>).MakeGenericType(WrappedProperty.AssociatedProperty.PropertyType);
+        int index = WrappedProperty.IndexOf(Model);
 
-            if (Activator.CreateInstance(type) is IAnimation animation)
-            {
-                animation.Easing = easing;
-                animation.Duration = TimeSpan.FromSeconds(2);
-                object? value = WrappedProperty.GetValue();
-
-                if (value != null)
-                {
-                    animation.Previous = value;
-                    animation.Next = value;
-                }
-
-                InsertItem(index, animation);
-            }
-        }
+        IAnimationSpan item = WrappedProperty.CreateSpan(easing);
+        WrappedProperty.Insert(index, item);
     }
 
     public void InsertBackward(Easing easing)
     {
-        if (WrappedProperty.Animations is IList list)
-        {
-            int index = list.IndexOf(Animation);
-            Type type = typeof(Animation<>).MakeGenericType(WrappedProperty.AssociatedProperty.PropertyType);
+        int index = WrappedProperty.IndexOf(Model);
 
-            if (Activator.CreateInstance(type) is IAnimation animation)
-            {
-                animation.Easing = easing;
-                animation.Duration = TimeSpan.FromSeconds(2);
-                object? value = WrappedProperty.GetValue();
-
-                if (value != null)
-                {
-                    animation.Previous = value;
-                    animation.Next = value;
-                }
-
-                InsertItem(index + 1, animation);
-            }
-        }
+        IAnimationSpan item = WrappedProperty.CreateSpan(easing);
+        WrappedProperty.Insert(index + 1, item);
     }
 
     public void Dispose()
     {
-        if (!_disposedValue)
-        {
-            Dispose(true);
-            _disposedValue = true;
-            GC.SuppressFinalize(this);
-        }
-    }
-
-    private void InsertItem(int index, IAnimation item)
-    {
-        if (WrappedProperty.Animations is IList list)
-        {
-            new AddCommand(list, item, index).DoAndRecord(CommandRecorder.Default);
-        }
-    }
-
-    private void RemoveItem()
-    {
-        if (WrappedProperty.Animations is IList list)
-        {
-            new RemoveCommand(list, Animation).DoAndRecord(CommandRecorder.Default);
-        }
-    }
-
-    protected virtual void Dispose(bool disposing)
-    {
-        Disposables.Dispose();
-    }
-}
-
-public class AnimationEditorViewModel<T> : AnimationEditorViewModel
-    where T : struct
-{
-    public AnimationEditorViewModel(Animation<T> animation, EditorViewModelDescription description, ITimelineOptionsProvider optionsProvider)
-        : base(animation, description, optionsProvider)
-    {
-    }
-
-    internal AnimationEditorViewModel(IAnimation animation, EditorViewModelDescription description, ITimelineOptionsProvider optionsProvider)
-        : base(animation, description, optionsProvider)
-    {
-    }
-
-    public new Animation<T> Animation => (Animation<T>)base.Animation;
-
-    public new IWrappedProperty<T>.IAnimatable WrappedProperty => (IWrappedProperty<T>.IAnimatable)base.WrappedProperty;
-
-    public void ResetPrevious()
-    {
-        object? defaultValue = WrappedProperty.GetDefaultValue();
-        if (defaultValue != null)
-        {
-            SetPrevious(WrappedProperty.GetValue(), (T)defaultValue);
-        }
-    }
-
-    public void ResetNext()
-    {
-        object? defaultValue = WrappedProperty.GetDefaultValue();
-        if (defaultValue != null)
-        {
-            SetNext(WrappedProperty.GetValue(), (T)defaultValue);
-        }
-    }
-
-    public void SetPrevious(T oldValue, T newValue)
-    {
-        if (!EqualityComparer<T>.Default.Equals(oldValue, newValue))
-        {
-            CommandRecorder.Default.DoAndPush(new ChangePropertyCommand<T>(Animation, Animation<T>.PreviousProperty, newValue, oldValue));
-        }
-    }
-
-    public void SetNext(T oldValue, T newValue)
-    {
-        if (!EqualityComparer<T>.Default.Equals(oldValue, newValue))
-        {
-            CommandRecorder.Default.DoAndPush(new ChangePropertyCommand<T>(Animation, Animation<T>.NextProperty, newValue, oldValue));
-        }
+        _disposables.Dispose();
+        GC.SuppressFinalize(this);
     }
 }

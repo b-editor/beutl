@@ -148,6 +148,8 @@
         <x:String x:Key="S.Common.BorderStyle">BorderStyle</x:String>
         <x:String x:Key="S.Common.Operations">オペレーション</x:String>
         <x:String x:Key="S.Common.Style">スタイル</x:String>
+        <x:String x:Key="S.Common.StreamOperators">ストリーム操作</x:String>
+        <x:String x:Key="S.Common.Animation">アニメーション</x:String>
     </Styles.Resources>
 
     <!--Views-->

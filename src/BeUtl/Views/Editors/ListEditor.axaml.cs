@@ -16,11 +16,7 @@ using Avalonia.Xaml.Interactivity;
 using BeUtl.Commands;
 using BeUtl.ViewModels;
 using BeUtl.ViewModels.Editors;
-
-using FluentAvalonia.UI.Controls;
-
-using Button = Avalonia.Controls.Button;
-using ComboBox = Avalonia.Controls.ComboBox;
+using BeUtl.ViewModels.Tools;
 
 namespace BeUtl.Views.Editors;
 
@@ -315,7 +311,7 @@ public partial class ListEditor : UserControl
                                 SelectedIndex = 0
                             };
 
-                            var dialog = new ContentDialog
+                            var dialog = new FA.ContentDialog
                             {
                                 Content = combobox,
                                 Title = "複数の型が利用可能です",
@@ -323,7 +319,7 @@ public partial class ListEditor : UserControl
                                 CloseButtonText = "キャンセル"
                             };
 
-                            if (await dialog.ShowAsync() == ContentDialogResult.Primary)
+                            if (await dialog.ShowAsync() == FA.ContentDialogResult.Primary)
                             {
                                 return combobox.SelectedItem as Type;
                             }
@@ -373,8 +369,8 @@ public partial class ListEditor : UserControl
                 = editViewModel.FindToolTab<ObjectPropertyEditorViewModel>()
                     ?? new ObjectPropertyEditorViewModel(editViewModel);
 
-            var grid = logical.FindLogicalAncestorOfType<Grid>();
-            var index = items.ItemContainerGenerator.IndexFromContainer(grid.Parent);
+            Grid grid = logical.FindLogicalAncestorOfType<Grid>();
+            int index = items.ItemContainerGenerator.IndexFromContainer(grid.Parent);
 
             if (index >= 0)
             {

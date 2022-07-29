@@ -1,6 +1,6 @@
 ﻿namespace BeUtl.Rendering;
 
-public sealed class LayerNode : CoreObject
+public sealed class LayerNode : Element
 {
     public static readonly CoreProperty<TimeSpan> StartProperty;
     public static readonly CoreProperty<TimeSpan> DurationProperty;

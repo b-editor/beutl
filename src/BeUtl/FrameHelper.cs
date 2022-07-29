@@ -1,13 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-using FluentAvalonia.UI.Controls;
+﻿using FluentAvalonia.UI.Controls;
 using FluentAvalonia.UI.Navigation;
 
 namespace BeUtl;
+
 public static class FrameHelper
 {
     public static void RemoveAllStack(this Frame frame, Func<object, bool> func)

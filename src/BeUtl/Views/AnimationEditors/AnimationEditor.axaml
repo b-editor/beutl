@@ -59,7 +59,7 @@
                     Grid.Row="1"
                     Grid.ColumnSpan="3">
                 <Panel>
-                    <local:EasingGraph Easing="{Binding Animation.Easing, Mode=OneWay}" />
+                    <local:EasingGraph Easing="{Binding Model.Easing, Mode=OneWay}" />
 
                     <Border x:Name="leftBorder"
                             DragDrop.AllowDrop="True"
@@ -72,8 +72,6 @@
                             HorizontalAlignment="Right" />
                 </Panel>
             </Border>
-
-            <ui:ContentDialog CloseButtonText="{DynamicResource S.Editors.AnimationEditor.Close}" x:Name="editDialog" />
         </Grid>
     </Border>
 </UserControl>

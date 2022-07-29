@@ -1,23 +1,13 @@
 ﻿using System.Numerics;
-using System.Reactive.Disposables;
-using System.Reactive.Linq;
 using System.Text.Json.Nodes;
 
-using Avalonia;
-using Avalonia.Media;
-
-using BeUtl.Collections;
 using BeUtl.Framework;
 using BeUtl.Framework.Services;
 using BeUtl.Models;
 using BeUtl.ProjectSystem;
 using BeUtl.Services.PrimitiveImpls;
-using BeUtl.ViewModels.Editors;
-
-using OpenCvSharp;
 
 using Reactive.Bindings;
-using Reactive.Bindings.Extensions;
 
 namespace BeUtl.ViewModels;
 
@@ -343,6 +333,23 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider
                 && rightNode is JsonArray rightItems)
             {
                 RestoreTabItems(rightItems, RightTabItems);
+            }
+        }
+        else
+        {
+            if (TimelineTabExtension.Instance.TryCreateContext(this, out IToolContext? tab1))
+            {
+                OpenToolTab(tab1);
+            }
+
+            if (StreamOperatorsTabExtension.Instance.TryCreateContext(this, out IToolContext? tab2))
+            {
+                OpenToolTab(tab2);
+            }
+
+            if (EasingsTabExtension.Instance.TryCreateContext(this, out IToolContext? tab3))
+            {
+                OpenToolTab(tab3);
             }
         }
     }

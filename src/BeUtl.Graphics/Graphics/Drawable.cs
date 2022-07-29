@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 
+using BeUtl.Animation;
 using BeUtl.Graphics.Effects;
 using BeUtl.Graphics.Filters;
 using BeUtl.Graphics.Shapes;
@@ -44,6 +45,7 @@ public abstract class Drawable : Renderable, IDrawable, ILogicalElement
             .Accessor(o => o.Width, (o, v) => o.Width = v)
             .PropertyFlags(PropertyFlags.KnownFlags_1)
             .DefaultValue(0)
+            .Minimum(0)
             .SerializeName("width")
             .Register();
 
@@ -51,6 +53,7 @@ public abstract class Drawable : Renderable, IDrawable, ILogicalElement
             .Accessor(o => o.Height, (o, v) => o.Height = v)
             .PropertyFlags(PropertyFlags.KnownFlags_1)
             .DefaultValue(0)
+            .Minimum(0)
             .SerializeName("height")
             .Register();
 
@@ -371,6 +374,26 @@ public abstract class Drawable : Renderable, IDrawable, ILogicalElement
     public override void Render(IRenderer renderer)
     {
         Draw(renderer.Graphics);
+    }
+
+    public override void ApplyStyling(IClock clock)
+    {
+        base.ApplyStyling(clock);
+        (Transform as Styleable)?.ApplyStyling(clock);
+        (Filter as Styleable)?.ApplyStyling(clock);
+        (Effect as Styleable)?.ApplyStyling(clock);
+        (Foreground as Styleable)?.ApplyStyling(clock);
+        (OpacityMask as Styleable)?.ApplyStyling(clock);
+    }
+
+    public override void ApplyAnimations(IClock clock)
+    {
+        base.ApplyAnimations(clock);
+        (Transform as Animatable)?.ApplyAnimations(clock);
+        (Filter as Animatable)?.ApplyAnimations(clock);
+        (Effect as Animatable)?.ApplyAnimations(clock);
+        (Foreground as Animatable)?.ApplyAnimations(clock);
+        (OpacityMask as Animatable)?.ApplyAnimations(clock);
     }
 
     protected abstract void OnDraw(ICanvas canvas);

@@ -1,8 +1,5 @@
-﻿using System.Globalization;
-using System.Reactive.Linq;
-
+﻿
 using BeUtl.Configuration;
-using BeUtl.Language;
 
 using Reactive.Bindings;
 

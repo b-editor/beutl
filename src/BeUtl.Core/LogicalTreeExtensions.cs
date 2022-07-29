@@ -2,19 +2,19 @@
 
 public static class LogicalTreeExtensions
 {
-    public static T FindRequiredLogicalParent<T>(this ILogicalElement self)
+    public static T FindRequiredLogicalParent<T>(this ILogicalElement self, bool includeSelf = false)
     {
-        var parent = FindLogicalParent<T>(self);
-        if (parent == null) throw new ElementException("Cannot get parent.");
+        T? parent = FindLogicalParent<T>(self, includeSelf);
+        if (parent == null) throw new LogicalTreeException("Cannot get parent.");
 
         return parent;
     }
 
-    public static T? FindLogicalParent<T>(this ILogicalElement self)
+    public static T? FindLogicalParent<T>(this ILogicalElement self, bool includeSelf = false)
     {
         try
         {
-            var obj = self.LogicalParent;
+            ILogicalElement? obj = includeSelf ? self : self.LogicalParent;
 
             while (obj is not T)
             {
@@ -41,9 +41,50 @@ public static class LogicalTreeExtensions
         }
     }
 
+    public static ILogicalElement FindRequiredLogicalParent(this ILogicalElement self, Type type, bool includeSelf = false)
+    {
+        ILogicalElement? parent = FindLogicalParent(self, type, includeSelf);
+        if (parent == null) throw new LogicalTreeException("Cannot get parent.");
+
+        return parent;
+    }
+
+    public static ILogicalElement? FindLogicalParent(this ILogicalElement self, Type type, bool includeSelf = false)
+    {
+        try
+        {
+            ILogicalElement? obj = includeSelf ? self : self.LogicalParent;
+            Type? objType = obj?.GetType();
+
+            while (objType?.IsAssignableTo(type) != true)
+            {
+                if (obj is null)
+                {
+                    return default;
+                }
+
+                obj = obj.LogicalParent;
+                objType = obj?.GetType();
+            }
+
+            if (obj != null && objType?.IsAssignableTo(type) == true)
+            {
+                return obj;
+            }
+            else
+            {
+                return default;
+            }
+        }
+        catch
+        {
+            return default;
+        }
+    }
+
     public static ILogicalElement GetRoot(this ILogicalElement self)
     {
-        var current = self;
+        ILogicalElement? current = self;
 
         while (true)
         {
@@ -71,9 +112,9 @@ public static class LogicalTreeExtensions
 
     public static IEnumerable<TResult> EnumerateAllChildren<TResult>(this ILogicalElement self)
     {
-        foreach (var item in self.LogicalChildren)
+        foreach (ILogicalElement? item in self.LogicalChildren)
         {
-            foreach (var innerItem in EnumerateAllChildren<TResult>(item))
+            foreach (TResult? innerItem in EnumerateAllChildren<TResult>(item))
             {
                 yield return innerItem;
             }

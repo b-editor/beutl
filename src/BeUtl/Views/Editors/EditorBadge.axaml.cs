@@ -3,11 +3,12 @@ using Avalonia.Interactivity;
 using Avalonia.LogicalTree;
 
 using BeUtl.Commands;
-using BeUtl.ProjectSystem;
 using BeUtl.Services.Editors.Wrappers;
 using BeUtl.Styling;
 using BeUtl.ViewModels;
 using BeUtl.ViewModels.Editors;
+using BeUtl.ViewModels.Tools;
+using BeUtl.Views.Tools;
 
 namespace BeUtl.Views.Editors;
 
@@ -28,34 +29,37 @@ public sealed partial class EditorBadge : UserControl
 
     private void EditAnimation_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is BaseEditorViewModel viewModel
-            && viewModel.WrappedProperty.Tag is IAnimatablePropertyInstance setter)
+        if (this.FindLogicalAncestorOfType<EditView>().DataContext is EditViewModel editViewModel
+            && DataContext is BaseEditorViewModel viewModel
+            && viewModel.WrappedProperty is IWrappedProperty.IAnimatable animatableProperty)
         {
-            EditView editView = this.FindLogicalAncestorOfType<EditView>();
-            if (editView.DataContext is EditViewModel editViewModel)
+            // 右側のタブを開く
+            AnimationTabViewModel anmViewModel
+                = editViewModel.FindToolTab<AnimationTabViewModel>()
+                    ?? new AnimationTabViewModel();
+
+            anmViewModel.Animation.Value = animatableProperty;
+
+            editViewModel.OpenToolTab(anmViewModel);
+
+            // タイムラインのタブを開く
+            AnimationTimelineViewModel? anmTimelineViewModel =
+                editViewModel.FindToolTab<AnimationTimelineViewModel>(x => ReferenceEquals(x.WrappedProperty, animatableProperty));
+
+            if (anmTimelineViewModel == null)
             {
-                Layer? layer = setter.FindRequiredLogicalParent<Layer>();
-                AnimationTimelineViewModel? anmViewModel =
-                    editViewModel.BottomTabItems.OfType<AnimationTimelineViewModel>()
-                        .FirstOrDefault(anmtl => ReferenceEquals(anmtl.Setter, setter));
-
-                if (anmViewModel == null)
+                anmTimelineViewModel = new AnimationTimelineViewModel(
+                    animatableProperty,
+                    editViewModel)
                 {
-                    anmViewModel = new AnimationTimelineViewModel(
-                        layer,
-                        setter,
-                        viewModel.Description,
-                        editViewModel)
+                    IsSelected =
                     {
-                        IsSelected =
-                        {
-                            Value = true
-                        }
-                    };
-                }
-
-                editViewModel.OpenToolTab(anmViewModel);
+                        Value = true
+                    }
+                };
             }
+
+            editViewModel.OpenToolTab(anmTimelineViewModel);
         }
     }
 

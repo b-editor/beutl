@@ -1,5 +1,8 @@
 ﻿using System.Diagnostics.CodeAnalysis;
 using System.Reactive.Subjects;
+using System.Runtime.CompilerServices;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 
 namespace BeUtl;
 
@@ -50,6 +53,10 @@ public abstract class CoreProperty
     internal abstract object? RouteGetValue(ICoreObject o);
 
     internal abstract void NotifyChanged(CorePropertyChangedEventArgs e);
+
+    internal abstract JsonNode? RouteWriteToJson(ICoreObject o, object? value);
+
+    internal abstract object? RouteReadFromJson(ICoreObject o, JsonNode node);
 
     protected abstract IObservable<CorePropertyChangedEventArgs> GetChanged();
 
@@ -147,7 +154,7 @@ public abstract class CoreProperty
 
         _metadataCache[type] = _defaultMetadata;
 
-        return _defaultMetadata is TMetadata ? (TMetadata)_defaultMetadata : default;
+        return _defaultMetadata is TMetadata metadata ? metadata : default;
     }
 
     public override bool Equals(object? obj)
@@ -198,6 +205,99 @@ public class CoreProperty<T> : CoreProperty
     internal override object? RouteGetValue(ICoreObject o)
     {
         return o.GetValue<T>(this);
+    }
+
+    internal override JsonNode? RouteWriteToJson(ICoreObject o, object? value)
+    {
+        CorePropertyMetadata<T> metadata = GetMetadata<CorePropertyMetadata<T>>(o.GetType());
+        object? def = metadata.GetDefaultValue();
+        // デフォルトの値と取得した値が同じ場合、保存しない
+        if (!RuntimeHelpers.Equals(def, value))
+        {
+            if (metadata.JsonConverter is { } jsonConverter)
+            {
+                JsonSerializerOptions options = JsonHelper.SerializerOptions;
+                try
+                {
+                    options.Converters.Add(jsonConverter);
+                    return JsonSerializer.SerializeToNode(value, PropertyType, options);
+                }
+                finally
+                {
+                    options.Converters.Remove(jsonConverter);
+                }
+            }
+            else if (value is IJsonSerializable child)
+            {
+                JsonNode jsonNode = new JsonObject();
+                child.WriteToJson(ref jsonNode!);
+
+                Type objType = value.GetType();
+                if (objType != PropertyType && jsonNode is JsonObject)
+                {
+                    jsonNode["@type"] = TypeFormat.ToString(objType);
+                }
+
+                return jsonNode;
+            }
+            else
+            {
+                return JsonSerializer.SerializeToNode(value, PropertyType, JsonHelper.SerializerOptions);
+            }
+        }
+        else
+        {
+            return null;
+        }
+    }
+
+    internal override object? RouteReadFromJson(ICoreObject o, JsonNode node)
+    {
+        CorePropertyMetadata<T> metadata = GetMetadata<CorePropertyMetadata<T>>(o.GetType());
+        Type type = PropertyType;
+
+        if (metadata.JsonConverter is { } jsonConverter)
+        {
+            JsonSerializerOptions options = JsonHelper.SerializerOptions;
+            try
+            {
+                options.Converters.Add(jsonConverter);
+                return JsonSerializer.Deserialize(node, type, options);
+            }
+            finally
+            {
+                options.Converters.Remove(jsonConverter);
+            }
+        }
+        else if (node is JsonObject jsonObject
+            && jsonObject.TryGetPropertyValue("@type", out JsonNode? atTypeNode)
+            && atTypeNode is JsonValue atTypeValue
+            && atTypeValue.TryGetValue(out string? atTypeStr)
+            && TypeFormat.ToType(atTypeStr) is Type realType
+            && realType.IsAssignableTo(typeof(IJsonSerializable)))
+        {
+            var sobj = (IJsonSerializable?)Activator.CreateInstance(realType);
+            if (sobj != null)
+            {
+                sobj.ReadFromJson(node!);
+            }
+
+            return sobj;
+        }
+        else if (type.IsAssignableTo(typeof(IJsonSerializable)))
+        {
+            var sobj = (IJsonSerializable?)Activator.CreateInstance(type);
+            if (sobj != null)
+            {
+                sobj.ReadFromJson(node!);
+            }
+
+            return sobj;
+        }
+        else
+        {
+            return JsonSerializer.Deserialize(node, type, JsonHelper.SerializerOptions);
+        }
     }
 
     protected override IObservable<CorePropertyChangedEventArgs> GetChanged()

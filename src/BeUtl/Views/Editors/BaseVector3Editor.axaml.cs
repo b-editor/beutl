@@ -39,8 +39,6 @@ public abstract class BaseVector3Editor<T> : BaseVector3Editor
 
     protected abstract bool TryParse(string? x, string? y, string? z, out T value);
 
-    protected abstract T Clamp(T value);
-
     protected abstract T IncrementX(T value, int increment);
 
     protected abstract T IncrementY(T value, int increment);
@@ -74,7 +72,7 @@ public abstract class BaseVector3Editor<T> : BaseVector3Editor
 
         if (TryParseCore(out T newValue))
         {
-            vm.WrappedProperty.SetValue(Clamp(newValue));
+            vm.WrappedProperty.SetValue(newValue);
         }
     }
 
@@ -113,7 +111,7 @@ public abstract class BaseVector3Editor<T> : BaseVector3Editor
                 _ => value
             };
 
-            vm.WrappedProperty.SetValue(Clamp(value));
+            vm.WrappedProperty.SetValue(value);
 
             e.Handled = true;
         }

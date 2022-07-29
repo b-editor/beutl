@@ -32,6 +32,11 @@ public abstract class ImageFilter : Styleable, IMutableImageFilter
         AffectsRender<ImageFilter>(IsEnabledProperty);
     }
 
+    protected ImageFilter()
+    {
+        AnimationInvalidated += (_, _) => RaiseInvalidated();
+    }
+
     public event EventHandler? Invalidated;
 
     public bool IsEnabled

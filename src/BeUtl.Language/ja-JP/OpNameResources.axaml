@@ -12,6 +12,8 @@
         <x:String x:Key="S.Opearations.Configure">構成</x:String>
         <x:String x:Key="S.Opearations.Configure.Alignment">整列</x:String>
         <x:String x:Key="S.Opearations.Configure.Blend">合成モード</x:String>
+        <x:String x:Key="S.Opearations.Configure.Foreground">フォアグラウンド</x:String>
+        <x:String x:Key="S.Opearations.Configure.OpacityMask">不透明マスク</x:String>
         <x:String x:Key="S.Opearations.Configure.Brush">ブラシ</x:String>
         <x:String x:Key="S.Opearations.Configure.Brush.LinearGradientBrush">リニアグラデーション</x:String>
         

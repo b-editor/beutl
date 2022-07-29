@@ -1,5 +1,8 @@
 ﻿using System.Text.Json.Nodes;
 
+using BeUtl.Animation;
+using BeUtl.Styling;
+
 namespace BeUtl.Graphics.Transformation;
 
 public sealed class TransformGroup : Transform
@@ -17,10 +20,16 @@ public sealed class TransformGroup : Transform
 
     public TransformGroup()
     {
-        _children = new Transforms()
+        _children = new Transforms();
+        _children.Attached += item =>
         {
-            Attached = item => (item as ILogicalElement)?.NotifyAttachedToLogicalTree(new(this)),
-            Detached = item => (item as ILogicalElement)?.NotifyDetachedFromLogicalTree(new(this)),
+            (item as ILogicalElement)?.NotifyAttachedToLogicalTree(new(this));
+            (item as IStylingElement)?.NotifyAttachedToStylingTree(new(this));
+        };
+        _children.Detached += item =>
+        {
+            (item as ILogicalElement)?.NotifyDetachedFromLogicalTree(new(this));
+            (item as IStylingElement)?.NotifyDetachedFromStylingTree(new(this));
         };
         _children.Invalidated += (_, _) => RaiseInvalidated();
     }
@@ -96,6 +105,24 @@ public sealed class TransformGroup : Transform
             }
 
             jobject["children"] = array;
+        }
+    }
+
+    public override void ApplyStyling(IClock clock)
+    {
+        base.ApplyStyling(clock);
+        foreach (ITransform item in Children.AsSpan())
+        {
+            (item as Styleable)?.ApplyStyling(clock);
+        }
+    }
+
+    public override void ApplyAnimations(IClock clock)
+    {
+        base.ApplyAnimations(clock);
+        foreach (ITransform item in Children.AsSpan())
+        {
+            (item as Animatable)?.ApplyAnimations(clock);
         }
     }
 }

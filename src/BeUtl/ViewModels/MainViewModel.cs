@@ -1,11 +1,8 @@
-﻿using System.Diagnostics;
-using System.Reactive.Linq;
-
+﻿
 using Avalonia;
 using Avalonia.Collections;
 using Avalonia.Threading;
 
-using BeUtl.Collections;
 using BeUtl.Configuration;
 using BeUtl.Framework;
 using BeUtl.Framework.Service;
@@ -19,8 +16,6 @@ using DynamicData;
 using Microsoft.Extensions.DependencyInjection;
 
 using Reactive.Bindings;
-
-using S = BeUtl.Language.StringResources;
 
 namespace BeUtl.ViewModels;
 
@@ -203,9 +198,11 @@ public sealed class MainViewModel
                 SceneWorkspaceItemExtension.Instance,
                 TimelineTabExtension.Instance,
                 AnimationTimelineTabExtension.Instance,
-                OperationsTabExtension.Instance,
                 ObjectPropertyTabExtension.Instance,
                 StyleEditorTabExtension.Instance,
+                StreamOperatorsTabExtension.Instance,
+                EasingsTabExtension.Instance,
+                AnimationTabExtension.Instance,
             });
 
             manager.LoadPackages(manager.GetPackageInfos());

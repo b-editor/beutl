@@ -4,6 +4,7 @@ using System.Text.Json.Serialization;
 using BeUtl.Converters;
 using BeUtl.Graphics;
 using BeUtl.Utilities;
+using BeUtl.Validation;
 
 namespace BeUtl.Media;
 
@@ -11,6 +12,7 @@ namespace BeUtl.Media;
 /// Represents a point in device pixels.
 /// </summary>
 [JsonConverter(typeof(PixelPointJsonConverter))]
+[RangeValidatable(typeof(PixelPointRangeValidator))]
 public readonly struct PixelPoint : IEquatable<PixelPoint>
 {
     /// <summary>

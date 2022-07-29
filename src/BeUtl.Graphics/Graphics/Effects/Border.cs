@@ -1,4 +1,4 @@
-using BeUtl.Media;
+﻿using BeUtl.Media;
 using BeUtl.Media.Immutable;
 using BeUtl.Media.Pixel;
 
@@ -62,6 +62,7 @@ public class Border : BitmapEffect
         ThicknessProperty = ConfigureProperty<int, Border>(nameof(Thickness))
             .Accessor(o => o.Thickness, (o, v) => o.Thickness = v)
             .DefaultValue(0)
+            .Minimum(0)
             .PropertyFlags(PropertyFlags.KnownFlags_1)
             .SerializeName("thickness")
             .Register();

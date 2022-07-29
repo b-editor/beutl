@@ -4,6 +4,7 @@ using System.Text.Json.Serialization;
 using BeUtl.Converters;
 using BeUtl.Graphics;
 using BeUtl.Utilities;
+using BeUtl.Validation;
 
 namespace BeUtl.Media;
 
@@ -11,6 +12,7 @@ namespace BeUtl.Media;
 /// Represents a size in device pixels.
 /// </summary>
 [JsonConverter(typeof(PixelSizeJsonConverter))]
+[RangeValidatable(typeof(PixelSizeRangeValidator))]
 public readonly struct PixelSize : IEquatable<PixelSize>
 {
     /// <summary>

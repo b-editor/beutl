@@ -1,13 +1,7 @@
-﻿using System.Reactive.Disposables;
-using System.Reactive.Linq;
-
-using Avalonia;
-using Avalonia.Media;
+﻿using Avalonia.Media;
 
 using BeUtl.Commands;
 using BeUtl.ProjectSystem;
-
-using FluentAvalonia.UI.Media;
 
 using Reactive.Bindings;
 using Reactive.Bindings.Extensions;

@@ -1,5 +1,4 @@
-﻿using System.Globalization;
-
+﻿
 using Avalonia.Media.Fonts;
 using Avalonia.Platform;
 

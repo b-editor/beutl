@@ -1,6 +1,7 @@
 ﻿using System.Text.Json.Nodes;
 
 using BeUtl.Graphics;
+using BeUtl.Styling;
 
 namespace BeUtl.Media.TextFormatting.Compat;
 
@@ -26,10 +27,16 @@ public class FormattedText : Drawable
 
     public FormattedText()
     {
-        _lines = new()
+        _lines = new();
+        _lines.Attached += item =>
         {
-            Attached = item => (item as ILogicalElement).NotifyAttachedToLogicalTree(new(this)),
-            Detached = item => (item as ILogicalElement).NotifyDetachedFromLogicalTree(new(this)),
+            (item as ILogicalElement)?.NotifyAttachedToLogicalTree(new(this));
+            (item as IStylingElement)?.NotifyAttachedToStylingTree(new(this));
+        };
+        _lines.Detached += item =>
+        {
+            (item as ILogicalElement)?.NotifyDetachedFromLogicalTree(new(this));
+            (item as IStylingElement)?.NotifyDetachedFromStylingTree(new(this));
         };
         _lines.Invalidated += (_, _) => Invalidate();
     }

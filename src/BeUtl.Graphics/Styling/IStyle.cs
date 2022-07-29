@@ -1,12 +1,13 @@
-﻿using BeUtl.Collections;
+﻿using BeUtl.Animation;
+using BeUtl.Collections;
 using BeUtl.Media;
 
 namespace BeUtl.Styling;
 
-public interface IStyle
+public interface IStyle : IStylingElement
 {
-    ICoreList<ISetter> Setters { get; }
-
+    ICoreReadOnlyList<ISetter> Setters { get; }
+   
     Type TargetType { get; }
 
     event EventHandler? Invalidated;

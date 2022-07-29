@@ -5,13 +5,15 @@ using BeUtl.Collections;
 
 namespace BeUtl.Styling;
 
-public interface ISetter
+public interface ISetter : IStylingElement
 {
     CoreProperty Property { get; }
 
     object? Value { get; }
 
-    ICoreReadOnlyList<IAnimation> Animations { get; }
+    IAnimation? Animation { get; }
+
+    event EventHandler? Invalidated;
 
     ISetterInstance Instance(IStyleable target);
 

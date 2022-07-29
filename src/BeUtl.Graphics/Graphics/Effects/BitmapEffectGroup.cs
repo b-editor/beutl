@@ -1,4 +1,7 @@
-using System.Text.Json.Nodes;
+﻿using System.Text.Json.Nodes;
+
+using BeUtl.Animation;
+using BeUtl.Styling;
 
 namespace BeUtl.Graphics.Effects;
 
@@ -19,10 +22,16 @@ public sealed class BitmapEffectGroup : BitmapEffect
 
     public BitmapEffectGroup()
     {
-        _children = new BitmapEffects()
+        _children = new BitmapEffects();
+        _children.Attached += item =>
         {
-            Attached = item => (item as ILogicalElement).NotifyAttachedToLogicalTree(new(this)),
-            Detached = item => (item as ILogicalElement).NotifyDetachedFromLogicalTree(new(this)),
+            item.NotifyAttachedToLogicalTree(new(this));
+            item.NotifyAttachedToStylingTree(new(this));
+        };
+        _children.Detached += item =>
+        {
+            item.NotifyDetachedFromLogicalTree(new(this));
+            item.NotifyDetachedFromStylingTree(new(this));
         };
         _children.Invalidated += (_, _) =>
         {
@@ -71,7 +80,24 @@ public sealed class BitmapEffectGroup : BitmapEffect
         }
         return count;
     }
-    
+
+    public override void ApplyStyling(IClock clock)
+    {
+        base.ApplyStyling(clock);
+        foreach (IBitmapEffect item in Children.AsSpan())
+        {
+            (item as Styleable)?.ApplyStyling(clock);
+        }
+    }
+
+    public override void ApplyAnimations(IClock clock)
+    {
+        base.ApplyAnimations(clock);
+        foreach (IBitmapEffect item in Children.AsSpan())
+        {
+            (item as Animatable)?.ApplyAnimations(clock);
+        }
+    }
 
     public override void ReadFromJson(JsonNode json)
     {

@@ -1,6 +1,4 @@
-﻿using System.Collections.ObjectModel;
-
-using BeUtl.Media;
+﻿using BeUtl.Media;
 
 using Reactive.Bindings;
 

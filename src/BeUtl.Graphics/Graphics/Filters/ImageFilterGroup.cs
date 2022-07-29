@@ -1,5 +1,8 @@
 ﻿using System.Text.Json.Nodes;
 
+using BeUtl.Animation;
+using BeUtl.Styling;
+
 using SkiaSharp;
 
 namespace BeUtl.Graphics.Filters;
@@ -19,10 +22,16 @@ public sealed class ImageFilterGroup : ImageFilter
 
     public ImageFilterGroup()
     {
-        _children = new ImageFilters()
+        _children = new ImageFilters();
+        _children.Attached += item =>
         {
-            Attached = item => (item as ILogicalElement)?.NotifyAttachedToLogicalTree(new(this)),
-            Detached = item => (item as ILogicalElement)?.NotifyDetachedFromLogicalTree(new(this)),
+            (item as ILogicalElement)?.NotifyAttachedToLogicalTree(new(this));
+            (item as IStylingElement)?.NotifyAttachedToStylingTree(new(this));
+        };
+        _children.Detached += item =>
+        {
+            (item as ILogicalElement)?.NotifyDetachedFromLogicalTree(new(this));
+            (item as IStylingElement)?.NotifyDetachedFromStylingTree(new(this));
         };
         _children.Invalidated += (_, _) => RaiseInvalidated();
     }
@@ -95,6 +104,24 @@ public sealed class ImageFilterGroup : ImageFilter
             }
 
             jobject["children"] = array;
+        }
+    }
+
+    public override void ApplyStyling(IClock clock)
+    {
+        base.ApplyStyling(clock);
+        foreach (IImageFilter item in Children.AsSpan())
+        {
+            (item as Styleable)?.ApplyStyling(clock);
+        }
+    }
+
+    public override void ApplyAnimations(IClock clock)
+    {
+        base.ApplyAnimations(clock);
+        foreach (IImageFilter item in Children.AsSpan())
+        {
+            (item as Animatable)?.ApplyAnimations(clock);
         }
     }
 

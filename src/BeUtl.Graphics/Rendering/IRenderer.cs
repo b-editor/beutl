@@ -32,5 +32,7 @@ public interface IRenderer : IDisposable
 
     void Invalidate(TimeSpan timeSpan);
 
+    void AddDirtyRect(Rect rect);
+
     public record struct RenderResult(Bitmap<Bgra8888> Bitmap/*, IAudio Audio*/);
 }

@@ -1,5 +1,4 @@
-using System.Collections;
-using System.Diagnostics;
+﻿using System.Collections;
 
 using Avalonia;
 using Avalonia.Controls;
@@ -10,9 +9,11 @@ using Avalonia.LogicalTree;
 using Avalonia.Media.Transformation;
 using Avalonia.Xaml.Interactivity;
 
+using BeUtl.Animation;
 using BeUtl.Animation.Easings;
-using BeUtl.Services;
+using BeUtl.ViewModels;
 using BeUtl.ViewModels.AnimationEditors;
+using BeUtl.ViewModels.Tools;
 
 namespace BeUtl.Views.AnimationEditors;
 
@@ -173,7 +174,6 @@ public sealed class AnimationEditorDragBehavior : Behavior<AnimationEditor>
         if (_dragStarted && _draggedIndex >= 0 && _targetIndex >= 0 && _draggedIndex != _targetIndex)
         {
             Debug.WriteLine($"MoveItem {_draggedIndex} -> {_targetIndex}");
-            MoveDraggedItem(_itemsControl, _draggedIndex, _targetIndex);
             if (AssociatedObject?.DataContext is AnimationEditorViewModel vm)
             {
                 vm.Move(_targetIndex, _draggedIndex);
@@ -230,18 +230,6 @@ public sealed class AnimationEditorDragBehavior : Behavior<AnimationEditor>
         }
     }
 
-    private static void MoveDraggedItem(ItemsControl? itemsControl, int draggedIndex, int targetIndex)
-    {
-        if (itemsControl?.Items is not IList items)
-        {
-            return;
-        }
-
-        object? draggedItem = items[draggedIndex];
-        items.RemoveAt(draggedIndex);
-        items.Insert(targetIndex, draggedItem);
-    }
-
     private static void SetTranslateTransform(IControl control, double x, double y)
     {
         var transformBuilder = new TransformOperations.Builder(1);
@@ -294,7 +282,7 @@ public sealed class AnimationEditorResizeBehavior : Behavior<AnimationEditor>
         _start = e.GetPosition(AssociatedObject);
         if (AssociatedObject?.DataContext is AnimationEditorViewModel vm)
         {
-            _oldDuration = vm.Animation.Duration;
+            _oldDuration = vm.Model.Duration;
         }
 
         e.Handled = true;
@@ -348,15 +336,18 @@ public partial class AnimationEditor : UserControl
 
     private void Edit_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is not AnimationEditorViewModel vm) return;
-
-        if (editDialog.Content == null)
+        if (this.FindLogicalAncestorOfType<EditView>().DataContext is EditViewModel editViewModel
+            && DataContext is AnimationEditorViewModel viewModel)
         {
-            editDialog.Content = PropertyEditorService.CreateAnimationEditor(vm.WrappedProperty);
-        }
+            // 右側のタブを開く
+            AnimationTabViewModel anmViewModel
+                = editViewModel.FindToolTab<AnimationTabViewModel>()
+                    ?? new AnimationTabViewModel();
 
-        editDialog.DataContext = vm;
-        editDialog.ShowAsync();
+            anmViewModel.Animation.Value = viewModel.WrappedProperty;
+            anmViewModel.ScrollTo(viewModel.Model);
+            editViewModel.OpenToolTab(anmViewModel);
+        }
     }
 
     private void BackgroundBorder_Drop(object? sender, DragEventArgs e)
@@ -364,7 +355,7 @@ public partial class AnimationEditor : UserControl
         if (e.Data.Get("Easing") is Easing easing &&
             DataContext is AnimationEditorViewModel vm)
         {
-            vm.SetEasing(vm.Animation.Easing, easing);
+            vm.SetEasing(vm.Model.Easing, easing);
             SetDropAreaClasses(false);
             e.Handled = true;
         }

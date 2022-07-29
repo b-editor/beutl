@@ -4,11 +4,11 @@ using Avalonia.Controls;
 using Avalonia.Data.Converters;
 using Avalonia.Input;
 using Avalonia.Interactivity;
+using Avalonia.Threading;
 
 using BeUtl.Animation;
 using BeUtl.Animation.Easings;
 using BeUtl.ProjectSystem;
-using BeUtl.Services;
 using BeUtl.ViewModels;
 
 using Reactive.Bindings;
@@ -23,12 +23,19 @@ public sealed partial class AnimationTimeline : UserControl
     private TimeSpan _clickedFrame;
     internal TimeSpan _pointerFrame;
     private AnimationTimelineViewModel? _viewModel;
+    private IDisposable? _disposable0;
     private bool _isFirst = true;
 
     public AnimationTimeline()
     {
         Resources["AnimationToViewModelConverter"] =
-            new FuncValueConverter<IAnimation, object?>(a => a == null ? null : PropertyEditorService.CreateAnimationEditorViewModel(ViewModel.Description, a, ViewModel.OptionsProvider));
+            new FuncValueConverter<IAnimationSpan, object?>(a =>
+                a == null
+                    ? null
+                    : new ViewModels.AnimationEditors.AnimationEditorViewModel(
+                        animationSpan: a,
+                        property: ViewModel.WrappedProperty,
+                        optionsProvider: ViewModel.OptionsProvider));
 
         InitializeComponent();
         ContentScroll.ScrollChanged += ContentScroll_ScrollChanged;
@@ -44,9 +51,21 @@ public sealed partial class AnimationTimeline : UserControl
     protected override void OnDataContextChanged(EventArgs e)
     {
         base.OnDataContextChanged(e);
+
+        _disposable0?.Dispose();
         if (DataContext is AnimationTimelineViewModel vm)
         {
             _viewModel = vm;
+
+            _disposable0 = vm.OptionsProvider.Options.Subscribe(options =>
+            {
+                Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    Vector2 offset = options.Offset;
+                    ScaleScroll.Offset = new(offset.X, 0);
+                    ContentScroll.Offset = new(offset.X, offset.Y);
+                });
+            });
         }
     }
 

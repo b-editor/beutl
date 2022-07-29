@@ -20,6 +20,11 @@ public abstract class Transform : Styleable, IMutableTransform
         AffectsRender<Transform>(IsEnabledProperty);
     }
 
+    protected Transform()
+    {
+        AnimationInvalidated += (_, _) => RaiseInvalidated();
+    }
+
     public event EventHandler? Invalidated;
 
     public static ITransform Identity { get; } = new IdentityTransform();
@@ -107,11 +112,5 @@ public abstract class Transform : Styleable, IMutableTransform
         public Matrix Value => Matrix.Identity;
 
         public bool IsEnabled => true;
-
-        public event EventHandler? Invalidated
-        {
-            add { }
-            remove { }
-        }
     }
 }

@@ -27,6 +27,7 @@ public class InnerShadow : BitmapEffect
         KernelSizeProperty = ConfigureProperty<PixelSize, InnerShadow>(nameof(KernelSize))
             .Accessor(o => o.KernelSize, (o, v) => o.KernelSize = v)
             .PropertyFlags(PropertyFlags.KnownFlags_1)
+            .Minimum(new PixelSize(1, 1))
             .SerializeName("kernel-size")
             .Register();
 

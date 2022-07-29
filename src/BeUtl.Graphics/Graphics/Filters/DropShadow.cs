@@ -27,6 +27,7 @@ public sealed class DropShadow : ImageFilter
         SigmaProperty = ConfigureProperty<Vector, DropShadow>(nameof(Sigma))
             .Accessor(o => o.Sigma, (o, v) => o.Sigma = v)
             .DefaultValue(Vector.Zero)
+            .Minimum(Vector.Zero)
             .PropertyFlags(PropertyFlags.KnownFlags_1)
             .SerializeName("sigma")
             .Register();

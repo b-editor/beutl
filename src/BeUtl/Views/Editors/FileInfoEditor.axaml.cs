@@ -1,8 +1,6 @@
-﻿using System.Collections.Immutable;
+﻿using Avalonia.Controls;
 
-using Avalonia.Controls;
-
-using BeUtl.ProjectSystem;
+using BeUtl.Validation;
 using BeUtl.ViewModels.Editors;
 
 namespace BeUtl.Views.Editors;
@@ -20,11 +18,14 @@ public sealed partial class FileInfoEditor : UserControl
         if (DataContext is not FileInfoEditorViewModel vm || VisualRoot is not Window window) return;
 
         string? filterName = vm.Header.Value;
-        ImmutableArray<string> exts = vm.WrappedProperty.GetMetadataExt<FilePropertyMetadata>()?.Extensions ?? ImmutableArray<string>.Empty;
+        string[] exts = vm.WrappedProperty
+            .GetMetadataExt<CorePropertyMetadata<FileInfo>>()?
+            .FindValidator<FileInfoExtensionValidator>()?
+            .FileExtensions ?? Array.Empty<string>();
 
         var dialog = new OpenFileDialog();
 
-        if (!exts.IsDefaultOrEmpty)
+        if (exts.Length > 0)
         {
             dialog.Filters ??= new();
             dialog.Filters.Add(new FileDialogFilter()
@@ -34,7 +35,7 @@ public sealed partial class FileInfoEditor : UserControl
             });
         }
 
-        if (await dialog.ShowAsync(window) is string[] files && files.Length != 0)
+        if (await dialog.ShowAsync(window) is string[] files && files.Length > 0)
         {
             vm.SetValue(vm.WrappedProperty.GetValue(), new FileInfo(files[0]));
         }

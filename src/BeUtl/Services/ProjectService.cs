@@ -1,5 +1,4 @@
-﻿using System.Reactive.Linq;
-using System.Reactive.Subjects;
+﻿using System.Reactive.Subjects;
 
 using BeUtl.Configuration;
 using BeUtl.Framework.Services;
@@ -47,6 +46,7 @@ public sealed class ProjectService : IProjectService
         }
         catch
         {
+            Debug.Fail("Unable to open the project.");
             return null;
         }
     }

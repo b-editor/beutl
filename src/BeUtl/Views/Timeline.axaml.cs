@@ -8,10 +8,11 @@ using Avalonia.Data.Converters;
 using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
+using Avalonia.Threading;
 
-using BeUtl.Collections;
 using BeUtl.Models;
 using BeUtl.ProjectSystem;
+using BeUtl.Streaming;
 using BeUtl.ViewModels;
 using BeUtl.ViewModels.Dialogs;
 using BeUtl.Views.Dialogs;
@@ -34,6 +35,7 @@ public sealed partial class Timeline : UserControl
     private IDisposable? _disposable0;
     private IDisposable? _disposable1;
     private IDisposable? _disposable2;
+    private IDisposable? _disposable3;
     private TimelineLayer? _selectedLayer;
 
     public Timeline()
@@ -83,6 +85,7 @@ public sealed partial class Timeline : UserControl
                 _disposable0?.Dispose();
                 _disposable1?.Dispose();
                 _disposable2?.Dispose();
+                _disposable3?.Dispose();
             }
 
             _viewModel = vm;
@@ -134,6 +137,17 @@ public sealed partial class Timeline : UserControl
                     newView.border.BorderThickness = new Thickness(1);
                     _selectedLayer = newView;
                 }
+            });
+
+            _disposable3 = ViewModel.EditorContext.Options.Subscribe(options =>
+            {
+                Dispatcher.UIThread.InvokeAsync(() =>
+                {
+                    Vector2 offset = options.Offset;
+                    ScaleScroll.Offset = new(offset.X, 0);
+                    ContentScroll.Offset = new(offset.X, offset.Y);
+                    PaneScroll.Offset = new(0, offset.Y);
+                });
             });
         }
     }
@@ -258,27 +272,29 @@ public sealed partial class Timeline : UserControl
             .RoundToRate(ViewModel.Scene.Parent is Project proj ? proj.GetFrameRate() : 30);
         ViewModel.ClickedLayer = pt.Y.ToLayerNumber();
 
-        if (e.Data.Get("RenderOperation") is LayerOperationRegistry.RegistryItem item)
+        if (e.Data.Get("StreamOperator") is OperatorRegistry.RegistryItem item2)
         {
             if (e.KeyModifiers == KeyModifiers.Control)
             {
                 var dialog = new AddLayer
                 {
-                    DataContext = new AddLayerViewModel(scene, new LayerDescription(ViewModel.ClickedFrame, TimeSpan.FromSeconds(5), ViewModel.ClickedLayer, item))
+                    DataContext = new AddLayerViewModel(scene, new LayerDescription(ViewModel.ClickedFrame, TimeSpan.FromSeconds(5), ViewModel.ClickedLayer, InitialOperator: item2))
                 };
                 await dialog.ShowAsync();
             }
             else
             {
                 ViewModel.AddLayer.Execute(new LayerDescription(
-                    ViewModel.ClickedFrame, TimeSpan.FromSeconds(5), ViewModel.ClickedLayer, item));
+                    ViewModel.ClickedFrame, TimeSpan.FromSeconds(5), ViewModel.ClickedLayer, InitialOperator: item2));
             }
         }
     }
 
     private void TimelinePanel_DragOver(object? sender, DragEventArgs e)
     {
-        if (e.Data.Contains("RenderOperation") || (e.Data.GetFileNames()?.Any() ?? false))
+        if (e.Data.Contains("RenderOperation")
+            || e.Data.Contains("StreamOperator")
+            || (e.Data.GetFileNames()?.Any() ?? false))
         {
             e.DragEffects = DragDropEffects.Copy;
         }

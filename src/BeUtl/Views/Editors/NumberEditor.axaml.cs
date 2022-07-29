@@ -32,18 +32,17 @@ public sealed class NumberEditor<T> : NumberEditor
 
     private void TextBox_GotFocus(object? sender, GotFocusEventArgs e)
     {
-        if (DataContext is not BaseNumberEditorViewModel<T> vm) return;
+        if (DataContext is not NumberEditorViewModel<T> vm) return;
 
         _oldValue = vm.WrappedProperty.GetValue();
     }
 
     private void TextBox_LostFocus(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is not BaseNumberEditorViewModel<T> vm) return;
-
-        if (vm.EditorService.TryParse(textBox.Text, out T newValue))
+        if (DataContext is NumberEditorViewModel<T> { EditorService: { } service, WrappedProperty: { } property } viewModel
+            && service.TryParse(textBox.Text, out T newValue))
         {
-            vm.SetValue(_oldValue, newValue);
+            viewModel.SetValue(_oldValue, newValue);
         }
     }
 
@@ -51,38 +50,39 @@ public sealed class NumberEditor<T> : NumberEditor
     {
         Dispatcher.UIThread.InvokeAsync(async () =>
         {
-            if (DataContext is not BaseNumberEditorViewModel<T> vm) return;
-
-            await Task.Delay(10);
-
-            if (vm.EditorService.TryParse(textBox.Text, out T value))
+            if (DataContext is NumberEditorViewModel<T> { EditorService: { } service, WrappedProperty: { } property })
             {
-                vm.WrappedProperty.SetValue(vm.EditorService.Clamp(value, vm.Minimum, vm.Maximum));
+                await Task.Delay(10);
+
+                if (service.TryParse(textBox.Text, out T value))
+                {
+                    property.SetValue(value);
+                }
             }
         });
     }
 
     private void TextBox_PointerWheelChanged(object? sender, PointerWheelEventArgs e)
     {
-        if (DataContext is not BaseNumberEditorViewModel<T> vm) return;
-
-        if (textBox.IsKeyboardFocusWithin && vm.EditorService.TryParse(textBox.Text, out T value))
+        if (DataContext is NumberEditorViewModel<T> { EditorService: { } service, WrappedProperty: { } property }
+            && textBox.IsKeyboardFocusWithin
+            && service.TryParse(textBox.Text, out T value))
         {
             value = e.Delta.Y switch
             {
-                < 0 => vm.EditorService.Decrement(value, 10),
-                > 0 => vm.EditorService.Increment(value, 10),
+                < 0 => service.Decrement(value, 10),
+                > 0 => service.Increment(value, 10),
                 _ => value
             };
 
             value = e.Delta.X switch
             {
-                < 0 => vm.EditorService.Decrement(value, 1),
-                > 0 => vm.EditorService.Increment(value, 1),
+                < 0 => service.Decrement(value, 1),
+                > 0 => service.Increment(value, 1),
                 _ => value
             };
 
-            vm.WrappedProperty.SetValue(vm.EditorService.Clamp(value, vm.Minimum, vm.Maximum));
+            property.SetValue(value);
 
             e.Handled = true;
         }

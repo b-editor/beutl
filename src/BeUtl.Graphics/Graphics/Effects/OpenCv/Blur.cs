@@ -1,4 +1,4 @@
-using BeUtl.Media;
+﻿using BeUtl.Media;
 using BeUtl.Media.Pixel;
 
 using OpenCvSharp;
@@ -17,6 +17,7 @@ public class Blur : BitmapEffect
         KernelSizeProperty = ConfigureProperty<PixelSize, Blur>(nameof(KernelSize))
             .Accessor(o => o.KernelSize, (o, v) => o.KernelSize = v)
             .DefaultValue(PixelSize.Empty)
+            .Minimum(new PixelSize(1, 1))
             .PropertyFlags(PropertyFlags.KnownFlags_1)
             .SerializeName("kernel-size")
             .Register();

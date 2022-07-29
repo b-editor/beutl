@@ -40,6 +40,11 @@ public abstract class Brush : Styleable, IMutableBrush
         AffectsRender<Brush>(OpacityProperty, TransformProperty, TransformOriginProperty);
     }
 
+    protected Brush()
+    {
+        AnimationInvalidated += (_, _) => RaiseInvalidated();
+    }
+
     public event EventHandler? Invalidated;
 
     /// <summary>
@@ -110,5 +115,25 @@ public abstract class Brush : Styleable, IMutableBrush
     protected void RaiseInvalidated()
     {
         Invalidated?.Invoke(this, EventArgs.Empty);
+    }
+
+    protected override void OnAttachedToLogicalTree(in LogicalTreeAttachmentEventArgs args)
+    {
+        base.OnAttachedToLogicalTree(args);
+    }
+
+    protected override void OnDetachedFromLogicalTree(in LogicalTreeAttachmentEventArgs args)
+    {
+        base.OnDetachedFromLogicalTree(args);
+    }
+
+    protected override void OnAttachedToStylingTree(in StylingTreeAttachmentEventArgs e)
+    {
+        base.OnAttachedToStylingTree(e);
+    }
+
+    protected override void OnDetachedFromStylingTree(in StylingTreeAttachmentEventArgs e)
+    {
+        base.OnDetachedFromStylingTree(e);
     }
 }

@@ -4,7 +4,6 @@ using Avalonia.Data.Converters;
 using Avalonia.Markup.Xaml.MarkupExtensions;
 
 using BeUtl.Graphics;
-using BeUtl.ViewModels.Editors;
 
 namespace BeUtl.Views.Editors;
 
@@ -43,21 +42,6 @@ public sealed class RelativePointEditor : BaseVector2Editor<RelativePoint>
         yText[!TextBlock.TextProperty] = s_yResource;
         xTextBox[!TextBox.TextProperty] = s_x;
         yTextBox[!TextBox.TextProperty] = s_y;
-    }
-
-    protected override RelativePoint Clamp(RelativePoint value)
-    {
-        if (DataContext is RelativePointEditorViewModel vm)
-        {
-            return new RelativePoint(
-                Math.Clamp(value.Point.X, vm.Minimum.Point.X, vm.Maximum.Point.X),
-                Math.Clamp(value.Point.Y, vm.Minimum.Point.Y, vm.Maximum.Point.Y),
-                value.Unit);
-        }
-        else
-        {
-            return value;
-        }
     }
 
     protected override RelativePoint IncrementX(RelativePoint value, int increment)

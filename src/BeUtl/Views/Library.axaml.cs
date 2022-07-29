@@ -8,7 +8,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml.MarkupExtensions;
 
-using BeUtl.ProjectSystem;
+using BeUtl.Streaming;
 
 namespace BeUtl.Views;
 
@@ -26,7 +26,7 @@ public sealed partial class Library : UserControl
         var treelist = new AvaloniaList<TreeViewItem>();
         Tree.Items = treelist;
 
-        foreach (LayerOperationRegistry.BaseRegistryItem item in LayerOperationRegistry.GetRegistered())
+        foreach (OperatorRegistry.BaseRegistryItem item in OperatorRegistry.GetRegistered())
         {
             var treeitem = new TreeViewItem
             {
@@ -36,18 +36,18 @@ public sealed partial class Library : UserControl
             treelist.Add(treeitem);
             treeitem.AddHandler(PointerPressedEvent, TreeViewPointerPressed, RoutingStrategies.Tunnel);
 
-            if (item is LayerOperationRegistry.GroupableRegistryItem groupable)
+            if (item is OperatorRegistry.GroupableRegistryItem groupable)
             {
                 Add(treeitem, groupable);
             }
         }
     }
 
-    private void Add(TreeViewItem treeitem, LayerOperationRegistry.GroupableRegistryItem list)
+    private void Add(TreeViewItem treeitem, OperatorRegistry.GroupableRegistryItem list)
     {
         var alist = new AvaloniaList<TreeViewItem>();
         treeitem.Items = alist;
-        foreach (LayerOperationRegistry.BaseRegistryItem item in list.Items)
+        foreach (OperatorRegistry.BaseRegistryItem item in list.Items)
         {
             var treeitem2 = new TreeViewItem
             {
@@ -55,7 +55,7 @@ public sealed partial class Library : UserControl
                 DataContext = item,
             };
 
-            if (item is LayerOperationRegistry.GroupableRegistryItem inner)
+            if (item is OperatorRegistry.GroupableRegistryItem inner)
             {
                 Add(treeitem2, inner);
             }
@@ -69,19 +69,15 @@ public sealed partial class Library : UserControl
 
     private async void TreeViewPointerPressed(object? sender, PointerPressedEventArgs e)
     {
-        if (e.GetCurrentPoint(Tree).Properties.IsLeftButtonPressed)
+        if (e.GetCurrentPoint(Tree).Properties.IsLeftButtonPressed
+            && sender is TreeViewItem select
+            && select.DataContext is OperatorRegistry.RegistryItem item)
         {
-            if (sender is not TreeViewItem select ||
-                select.DataContext is not LayerOperationRegistry.RegistryItem item)
-            {
-                return;
-            }
-
             Tree.SelectedItem = select;
             await Task.Delay(10);
 
             var dataObject = new DataObject();
-            dataObject.Set("RenderOperation", item);
+            dataObject.Set("StreamOperator", item);
 
             await DragDrop.DoDragDrop(e, dataObject, DragDropEffects.Copy);
         }
@@ -124,9 +120,13 @@ public sealed partial class Library : UserControl
         {
             foreach (TreeViewItem? item in list)
             {
-                if (item.DataContext is LayerOperationRegistry.BaseRegistryItem itemContext)
+                if (item.DataContext is OperatorRegistry.BaseRegistryItem itemContext)
                 {
                     item.IsVisible = validate(itemContext.DisplayName.FindOrDefault(string.Empty));
+                }
+                else if (item.DataContext is OperatorRegistry.BaseRegistryItem itemContext2)
+                {
+                    item.IsVisible = validate(itemContext2.DisplayName.FindOrDefault(string.Empty));
                 }
                 v |= item.IsVisible;
 
@@ -134,9 +134,9 @@ public sealed partial class Library : UserControl
             }
         }
 
-        if (treeitem.DataContext is LayerOperationRegistry.BaseRegistryItem treeItemContext)
+        if (treeitem.DataContext is OperatorRegistry.BaseRegistryItem treeItemContext2)
         {
-            v |= validate(treeItemContext.DisplayName.FindOrDefault(string.Empty));
+            v |= validate(treeItemContext2.DisplayName.FindOrDefault(string.Empty));
         }
 
         treeitem.IsVisible = v;
