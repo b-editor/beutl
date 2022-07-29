@@ -13,7 +13,7 @@ using BeUtl.Animation;
 using BeUtl.Animation.Easings;
 using BeUtl.ViewModels;
 using BeUtl.ViewModels.AnimationEditors;
-using BeUtl.ViewModels.Editors;
+using BeUtl.ViewModels.Tools;
 
 namespace BeUtl.Views.AnimationEditors;
 

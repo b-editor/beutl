@@ -10,6 +10,8 @@ using BeUtl.Services.Editors.Wrappers;
 using BeUtl.Styling;
 using BeUtl.ViewModels;
 using BeUtl.ViewModels.Editors;
+using BeUtl.ViewModels.Tools;
+using BeUtl.Views.Tools;
 
 namespace BeUtl.Views.Editors;
 

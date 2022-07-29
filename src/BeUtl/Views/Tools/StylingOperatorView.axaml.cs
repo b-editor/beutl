@@ -16,9 +16,9 @@ using BeUtl.Commands;
 using BeUtl.ProjectSystem;
 using BeUtl.Services;
 using BeUtl.Streaming;
-using BeUtl.ViewModels.Editors;
+using BeUtl.ViewModels.Tools;
 
-namespace BeUtl.Views.Editors;
+namespace BeUtl.Views.Tools;
 
 public sealed class StylingOperatorViewDragBehavior : Behavior<StylingOperatorView>
 {

@@ -5,10 +5,11 @@ using BeUtl.Services;
 using BeUtl.Services.Editors.Wrappers;
 using BeUtl.Services.PrimitiveImpls;
 using BeUtl.Styling;
+using BeUtl.ViewModels.Editors;
 
 using Reactive.Bindings;
 
-namespace BeUtl.ViewModels.Editors;
+namespace BeUtl.ViewModels.Tools;
 
 public sealed class StyleEditorViewModel : IToolContext
 {

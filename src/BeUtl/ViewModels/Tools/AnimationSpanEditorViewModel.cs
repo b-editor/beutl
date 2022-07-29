@@ -5,10 +5,11 @@ using BeUtl.Animation.Easings;
 using BeUtl.Commands;
 using BeUtl.Services;
 using BeUtl.Services.Editors.Wrappers;
+using BeUtl.ViewModels.Editors;
 
 using Reactive.Bindings;
 
-namespace BeUtl.ViewModels.Editors;
+namespace BeUtl.ViewModels.Tools;
 
 public sealed class AnimationSpanEditorViewModel : IDisposable
 {

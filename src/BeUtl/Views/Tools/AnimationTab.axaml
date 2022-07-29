@@ -2,12 +2,12 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             xmlns:vm="using:BeUtl.ViewModels.Editors"
-             xmlns:local="using:BeUtl.Views.Editors"
+             xmlns:viewModel="using:BeUtl.ViewModels.Tools"
+             xmlns:local="using:BeUtl.Views.Tools"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              DragDrop.AllowDrop="True"
-             x:DataType="vm:AnimationTabViewModel"
-             x:Class="BeUtl.Views.Editors.AnimationTab">
+             x:DataType="viewModel:AnimationTabViewModel"
+             x:Class="BeUtl.Views.Tools.AnimationTab">
   <ScrollViewer x:Name="scrollViewer">
         <ItemsControl Items="{CompiledBinding Items}" x:Name="itemsControl">
             <ItemsControl.ItemTemplate>

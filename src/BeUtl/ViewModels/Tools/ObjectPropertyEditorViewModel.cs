@@ -2,10 +2,11 @@
 
 using BeUtl.Framework;
 using BeUtl.Services.PrimitiveImpls;
+using BeUtl.ViewModels.Editors;
 
 using Reactive.Bindings;
 
-namespace BeUtl.ViewModels.Editors;
+namespace BeUtl.ViewModels.Tools;
 
 public sealed class ObjectPropertyEditorViewModel : IToolContext
 {

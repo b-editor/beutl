@@ -2,10 +2,10 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             xmlns:local="using:BeUtl.Views.Editors"
+             xmlns:editors="using:BeUtl.Views.Editors"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              DragDrop.AllowDrop="True"
-             x:Class="BeUtl.Views.Editors.StylingOperatorView">
+             x:Class="BeUtl.Views.Tools.StylingOperatorView">
     <Expander Padding="0" IsExpanded="{Binding IsExpanded.Value, Mode=TwoWay}">
         <Expander.Header>
             <StackPanel Orientation="Horizontal">
@@ -62,6 +62,6 @@
             </StackPanel>
         </Expander.Header>
 
-        <local:PropertiesEditor />
+        <editors:PropertiesEditor />
     </Expander>
 </UserControl>

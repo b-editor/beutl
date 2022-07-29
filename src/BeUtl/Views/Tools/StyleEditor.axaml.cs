@@ -9,13 +9,13 @@ using Avalonia.Threading;
 
 using BeUtl.Commands;
 using BeUtl.Services;
-using BeUtl.ViewModels.Editors;
+using BeUtl.ViewModels.Tools;
 
 using FluentAvalonia.UI.Controls;
 
 using Reactive.Bindings;
 
-namespace BeUtl.Views.Editors;
+namespace BeUtl.Views.Tools;
 
 public sealed partial class StyleEditor : UserControl
 {

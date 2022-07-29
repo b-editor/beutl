@@ -11,9 +11,9 @@ using Avalonia.Xaml.Interactivity;
 
 using BeUtl.Animation.Easings;
 using BeUtl.Services;
-using BeUtl.ViewModels.Editors;
+using BeUtl.ViewModels.Tools;
 
-namespace BeUtl.Views.Editors;
+namespace BeUtl.Views.Tools;
 
 public sealed class AnimationSpanEditorDragBehavior : Behavior<AnimationSpanEditor>
 {

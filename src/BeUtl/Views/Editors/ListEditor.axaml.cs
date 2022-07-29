@@ -16,6 +16,7 @@ using Avalonia.Xaml.Interactivity;
 using BeUtl.Commands;
 using BeUtl.ViewModels;
 using BeUtl.ViewModels.Editors;
+using BeUtl.ViewModels.Tools;
 
 namespace BeUtl.Views.Editors;
 

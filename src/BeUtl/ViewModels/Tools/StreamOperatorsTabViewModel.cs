@@ -8,7 +8,7 @@ using BeUtl.Streaming;
 
 using Reactive.Bindings;
 
-namespace BeUtl.ViewModels.Editors;
+namespace BeUtl.ViewModels.Tools;
 
 public sealed class StreamOperatorsTabViewModel : IToolContext
 {

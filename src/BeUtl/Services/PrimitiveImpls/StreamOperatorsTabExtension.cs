@@ -4,8 +4,8 @@ using Avalonia.Controls;
 
 using BeUtl.Framework;
 using BeUtl.ViewModels;
-using BeUtl.ViewModels.Editors;
-using BeUtl.Views.Editors;
+using BeUtl.ViewModels.Tools;
+using BeUtl.Views.Tools;
 
 namespace BeUtl.Services.PrimitiveImpls;
 

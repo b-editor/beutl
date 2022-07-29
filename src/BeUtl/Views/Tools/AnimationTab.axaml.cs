@@ -3,9 +3,9 @@ using Avalonia.Input;
 
 using BeUtl.Animation;
 using BeUtl.Animation.Easings;
-using BeUtl.ViewModels.Editors;
+using BeUtl.ViewModels.Tools;
 
-namespace BeUtl.Views.Editors;
+namespace BeUtl.Views.Tools;
 public partial class AnimationTab : UserControl
 {
     public AnimationTab()

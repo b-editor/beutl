@@ -3,10 +3,11 @@
 using BeUtl.Services;
 using BeUtl.Services.Editors.Wrappers;
 using BeUtl.Streaming;
+using BeUtl.ViewModels.Editors;
 
 using Reactive.Bindings;
 
-namespace BeUtl.ViewModels.Editors;
+namespace BeUtl.ViewModels.Tools;
 
 public sealed class StylingOperatorViewModel : IDisposable
 {
