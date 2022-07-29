@@ -20,7 +20,7 @@ using BeUtl.ViewModels.Editors;
 
 namespace BeUtl.Views.Editors;
 
-public sealed class StylingOperatorEditorDragBehavior : Behavior<StylingOperatorEditor>
+public sealed class StylingOperatorViewDragBehavior : Behavior<StylingOperatorView>
 {
     private bool _enableDrag;
     private bool _dragStarted;
@@ -240,14 +240,14 @@ public sealed class StylingOperatorEditorDragBehavior : Behavior<StylingOperator
     }
 }
 
-public sealed partial class StylingOperatorEditor : UserControl
+public sealed partial class StylingOperatorView : UserControl
 {
-    public StylingOperatorEditor()
+    public StylingOperatorView()
     {
         InitializeComponent();
         Interaction.SetBehaviors(this, new BehaviorCollection
         {
-            new StylingOperatorEditorDragBehavior(),
+            new StylingOperatorViewDragBehavior(),
         });
         AddHandler(DragDrop.DragOverEvent, DragOver);
         AddHandler(DragDrop.DropEvent, Drop);
@@ -255,7 +255,7 @@ public sealed partial class StylingOperatorEditor : UserControl
 
     public void Remove_Click(object? sender, RoutedEventArgs e)
     {
-        if (DataContext is StylingOperatorEditorViewModel viewModel2)
+        if (DataContext is StylingOperatorViewModel viewModel2)
         {
             StylingOperator operation = viewModel2.Model;
             Layer layer = operation.FindRequiredLogicalParent<Layer>();
@@ -267,7 +267,7 @@ public sealed partial class StylingOperatorEditor : UserControl
     private void Drop(object? sender, DragEventArgs e)
     {
         if (e.Data.Get("StreamOperator") is OperatorRegistry.RegistryItem item2
-            && DataContext is StylingOperatorEditorViewModel viewModel2)
+            && DataContext is StylingOperatorViewModel viewModel2)
         {
             StylingOperator operation = viewModel2.Model;
             Layer layer = operation.FindRequiredLogicalParent<Layer>();
@@ -306,7 +306,7 @@ public sealed partial class StylingOperatorEditor : UserControl
     protected override void OnDataContextChanged(EventArgs e)
     {
         base.OnDataContextChanged(e);
-        if (DataContext is StylingOperatorEditorViewModel viewModel2)
+        if (DataContext is StylingOperatorViewModel viewModel2)
         {
             StylingOperator operation = viewModel2.Model;
             Type type = operation.GetType();
@@ -321,7 +321,7 @@ public sealed partial class StylingOperatorEditor : UserControl
 
     public void Move(int newIndex, int oldIndex)
     {
-        if (DataContext is StylingOperatorEditorViewModel viewModel2)
+        if (DataContext is StylingOperatorViewModel viewModel2)
         {
             StylingOperator operation = viewModel2.Model;
             if (operation.FindLogicalParent<Layer>()?.Operators is IList list)

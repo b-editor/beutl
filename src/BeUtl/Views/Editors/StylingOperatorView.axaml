@@ -5,7 +5,7 @@
              xmlns:local="using:BeUtl.Views.Editors"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              DragDrop.AllowDrop="True"
-             x:Class="BeUtl.Views.Editors.StylingOperatorEditor">
+             x:Class="BeUtl.Views.Editors.StylingOperatorView">
     <Expander Padding="0" IsExpanded="{Binding IsExpanded.Value, Mode=TwoWay}">
         <Expander.Header>
             <StackPanel Orientation="Horizontal">

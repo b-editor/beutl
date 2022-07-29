@@ -8,11 +8,11 @@ using Reactive.Bindings;
 
 namespace BeUtl.ViewModels.Editors;
 
-public sealed class StylingOperatorEditorViewModel : IDisposable
+public sealed class StylingOperatorViewModel : IDisposable
 {
     private readonly IDisposable _disposable0;
 
-    public StylingOperatorEditorViewModel(StylingOperator model)
+    public StylingOperatorViewModel(StylingOperator model)
     {
         Model = model;
         _disposable0 = model.Style.Setters.ForEachItem(

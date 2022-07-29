@@ -43,7 +43,7 @@ public sealed class StreamOperatorsEditorViewModel : IToolContext
                     {
                         if (item is StylingOperator so)
                         {
-                            Items.Insert(idx, new StylingOperatorEditorViewModel(so));
+                            Items.Insert(idx, new StylingOperatorViewModel(so));
                         }
                         else
                         {
@@ -67,7 +67,7 @@ public sealed class StreamOperatorsEditorViewModel : IToolContext
 
     public ReactiveProperty<Layer?> Layer { get; }
 
-    public CoreList<StylingOperatorEditorViewModel?> Items { get; } = new();
+    public CoreList<StylingOperatorViewModel?> Items { get; } = new();
 
     public ToolTabExtension Extension => StreamOperatorsTabExtension.Instance;
 
@@ -113,7 +113,7 @@ public sealed class StreamOperatorsEditorViewModel : IToolContext
     {
         string viewStateDir = ViewStateDirectory(layer);
         var json = new JsonArray();
-        foreach (StylingOperatorEditorViewModel? item in Items)
+        foreach (StylingOperatorViewModel? item in Items)
         {
             json.Add(item?.SaveState());
         }
@@ -132,7 +132,7 @@ public sealed class StreamOperatorsEditorViewModel : IToolContext
             var json = JsonNode.Parse(stream);
             if (json is JsonArray array)
             {
-                foreach ((JsonNode? item, StylingOperatorEditorViewModel? op) in array.Zip(Items))
+                foreach ((JsonNode? item, StylingOperatorViewModel? op) in array.Zip(Items))
                 {
                     if (item != null && op != null)
                     {
@@ -145,7 +145,7 @@ public sealed class StreamOperatorsEditorViewModel : IToolContext
 
     private void ClearItems()
     {
-        foreach (StylingOperatorEditorViewModel? item in Items.AsSpan())
+        foreach (StylingOperatorViewModel? item in Items.AsSpan())
         {
             item?.Dispose();
         }
