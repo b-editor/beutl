@@ -7,9 +7,9 @@ using BeUtl.ViewModels.Editors;
 
 namespace BeUtl.Views.Editors;
 
-public sealed partial class StreamOperatorsEditor : UserControl
+public sealed partial class StreamOperatorsTab : UserControl
 {
-    public StreamOperatorsEditor()
+    public StreamOperatorsTab()
     {
         InitializeComponent();
         AddHandler(DragDrop.DragOverEvent, DragOver);
@@ -19,12 +19,12 @@ public sealed partial class StreamOperatorsEditor : UserControl
     protected override void OnDataContextChanged(EventArgs e)
     {
         base.OnDataContextChanged(e);
-        if (DataContext is StreamOperatorsEditorViewModel viewModel)
+        if (DataContext is StreamOperatorsTabViewModel viewModel)
         {
-            var self = new WeakReference<StreamOperatorsEditor>(this);
+            var self = new WeakReference<StreamOperatorsTab>(this);
             viewModel.RequestScroll = obj =>
             {
-                if (self.TryGetTarget(out StreamOperatorsEditor? @this) && @this.DataContext is StreamOperatorsEditorViewModel viewModel)
+                if (self.TryGetTarget(out StreamOperatorsTab? @this) && @this.DataContext is StreamOperatorsTabViewModel viewModel)
                 {
                     int index = 0;
                     bool found = false;
@@ -54,7 +54,7 @@ public sealed partial class StreamOperatorsEditor : UserControl
     private void Drop(object? sender, DragEventArgs e)
     {
         if (e.Data.Get("StreamOperator") is OperatorRegistry.RegistryItem item
-            && DataContext is StreamOperatorsEditorViewModel vm
+            && DataContext is StreamOperatorsTabViewModel vm
             && vm.Layer.Value is Layer layer)
         {
             layer.AddChild((StreamOperator)Activator.CreateInstance(item.Type)!)

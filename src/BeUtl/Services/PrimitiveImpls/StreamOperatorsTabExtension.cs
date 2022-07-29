@@ -26,7 +26,7 @@ public sealed class StreamOperatorsTabExtension : ToolTabExtension
     {
         if (editorContext is EditViewModel)
         {
-            control = new StreamOperatorsEditor();
+            control = new StreamOperatorsTab();
             return true;
         }
         else
@@ -40,7 +40,7 @@ public sealed class StreamOperatorsTabExtension : ToolTabExtension
     {
         if (editorContext is EditViewModel editViewModel)
         {
-            context = new StreamOperatorsEditorViewModel(editViewModel);
+            context = new StreamOperatorsTabViewModel(editViewModel);
             return true;
         }
         else

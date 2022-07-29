@@ -8,8 +8,8 @@
     xmlns:ui="using:FluentAvalonia.UI.Controls"
     mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
     DragDrop.AllowDrop="True"
-    x:DataType="vm:StreamOperatorsEditorViewModel"
-    x:Class="BeUtl.Views.Editors.StreamOperatorsEditor">
+    x:DataType="vm:StreamOperatorsTabViewModel"
+    x:Class="BeUtl.Views.Editors.StreamOperatorsTab">
     <ScrollViewer x:Name="scrollViewer">
         <ItemsControl Items="{CompiledBinding Items}" x:Name="itemsControl">
             <ItemsControl.ItemTemplate>

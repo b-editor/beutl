@@ -10,13 +10,13 @@ using Reactive.Bindings;
 
 namespace BeUtl.ViewModels.Editors;
 
-public sealed class StreamOperatorsEditorViewModel : IToolContext
+public sealed class StreamOperatorsTabViewModel : IToolContext
 {
     private readonly IDisposable _disposable0;
     private IDisposable? _disposable1;
     private Layer? _oldLayer;
 
-    public StreamOperatorsEditorViewModel(EditViewModel editViewModel)
+    public StreamOperatorsTabViewModel(EditViewModel editViewModel)
     {
         Layer = editViewModel.SelectedObject
             .Select(x => x as Layer)
