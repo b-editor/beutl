@@ -244,7 +244,6 @@ public sealed partial class StylingOperatorEditor : UserControl
 {
     public StylingOperatorEditor()
     {
-        Resources["ViewModelToViewConverter"] = ViewModelToViewConverter.Instance;
         InitializeComponent();
         Interaction.SetBehaviors(this, new BehaviorCollection
         {
@@ -329,35 +328,6 @@ public sealed partial class StylingOperatorEditor : UserControl
             {
                 CommandRecorder.Default.DoAndPush(new MoveCommand(list, newIndex, oldIndex));
             }
-        }
-    }
-
-    private sealed class ViewModelToViewConverter : IValueConverter
-    {
-        public static readonly ViewModelToViewConverter Instance = new();
-
-        public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
-        {
-            if (value is BaseEditorViewModel viewModel)
-            {
-                Control? editor = PropertyEditorService.CreateEditor(viewModel.WrappedProperty);
-
-                return editor ?? new Label
-                {
-                    Height = 24,
-                    Margin = new Thickness(0, 4),
-                    Content = viewModel.WrappedProperty.AssociatedProperty.Name
-                };
-            }
-            else
-            {
-                return BindingNotification.Null;
-            }
-        }
-
-        public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
-        {
-            return BindingNotification.Null;
         }
     }
 }

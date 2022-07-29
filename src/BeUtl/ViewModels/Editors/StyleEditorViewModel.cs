@@ -62,12 +62,12 @@ public sealed class StyleEditorViewModel : IToolContext
 
                         BaseEditorViewModel? itemViewModel = PropertyEditorService.CreateEditorViewModel(wrapper);
 
-                        Items.Insert(idx, itemViewModel);
+                        Properties.Insert(idx, itemViewModel);
                     },
                     (idx, _) =>
                     {
-                        BaseEditorViewModel? vm = Items[idx];
-                        Items.RemoveAt(idx);
+                        BaseEditorViewModel? vm = Properties[idx];
+                        Properties.RemoveAt(idx);
                         vm?.Dispose();
                     },
                     () => ClearItems());
@@ -79,7 +79,7 @@ public sealed class StyleEditorViewModel : IToolContext
 
     public ReadOnlyReactivePropertySlim<bool> IsStyleNotNull { get; }
 
-    public CoreList<BaseEditorViewModel?> Items { get; } = new()
+    public CoreList<BaseEditorViewModel?> Properties { get; } = new()
     {
         ResetBehavior = ResetBehavior.Remove
     };
@@ -100,8 +100,8 @@ public sealed class StyleEditorViewModel : IToolContext
 
     private void ClearItems()
     {
-        BaseEditorViewModel?[] tmp = Items.AsSpan().ToArray();
-        Items.Clear();
+        BaseEditorViewModel?[] tmp = Properties.AsSpan().ToArray();
+        Properties.Clear();
         foreach (BaseEditorViewModel? item in tmp)
         {
             item?.Dispose();

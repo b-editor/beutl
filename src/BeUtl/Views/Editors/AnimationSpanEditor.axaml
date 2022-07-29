@@ -2,6 +2,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:local="using:BeUtl.Views.Editors"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              DragDrop.AllowDrop="True"
              x:Class="BeUtl.Views.Editors.AnimationSpanEditor">
@@ -42,13 +43,7 @@
                         <Setter Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
                     </Style>
                 </Panel.Styles>
-                <ItemsControl Items="{Binding Properties}">
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <ContentControl Content="{Binding Converter={StaticResource ViewModelToViewConverter}}" />
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
+                <local:PropertiesEditor />
 
                 <Border x:Name="topBorder"
                         DragDrop.AllowDrop="True"

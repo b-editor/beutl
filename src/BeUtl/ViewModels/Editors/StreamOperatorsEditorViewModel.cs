@@ -47,6 +47,7 @@ public sealed class StreamOperatorsEditorViewModel : IToolContext
                         }
                         else
                         {
+                            // Todo: ここの処理でだみm－を追加
                             Items.Insert(idx, null);
                         }
                     },
