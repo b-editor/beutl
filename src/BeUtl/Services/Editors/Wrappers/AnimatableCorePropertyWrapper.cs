@@ -1,6 +1,5 @@
 ﻿using BeUtl.Animation;
 using BeUtl.Animation.Easings;
-using BeUtl.Commands;
 
 namespace BeUtl.Services.Editors.Wrappers;
 
@@ -68,34 +67,6 @@ public sealed class AnimatableCorePropertyWrapper<T> : CorePropertyWrapper<T>, I
         }
 
         return span;
-    }
-
-    public int IndexOf(IAnimationSpan item)
-    {
-        return Animation.Children.IndexOf(item);
-    }
-
-    public void Insert(int index, IAnimationSpan item)
-    {
-        new AddCommand(Animation.Children, item, index).DoAndRecord(CommandRecorder.Default);
-    }
-
-    public void Remove(IAnimationSpan item)
-    {
-        new RemoveCommand(Animation.Children, item)
-            .DoAndRecord(CommandRecorder.Default);
-    }
-
-    public void Move(int newIndex, int oldIndex)
-    {
-        new MoveCommand(Animation.Children, newIndex, oldIndex)
-            .DoAndRecord(CommandRecorder.Default);
-    }
-
-    public (IWrappedProperty Previous, IWrappedProperty Next) CreateSpanWrapper(IAnimationSpan animationSpan)
-    {
-        return (new AnimationSpanPropertyWrapper<T>((AnimationSpan<T>)animationSpan, Animation, true),
-            new AnimationSpanPropertyWrapper<T>((AnimationSpan<T>)animationSpan, Animation, false));
     }
 
     private Animation<T> GetAnimation()
