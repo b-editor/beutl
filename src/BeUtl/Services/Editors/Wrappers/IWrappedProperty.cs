@@ -22,7 +22,7 @@ public interface IWrappedProperty
     {
         IAnimation Animation { get; }
 
-        bool HasAnimation { get; }
+        IObservable<bool> HasAnimation { get; }
 
         void Move(int newIndex, int oldIndex);
 

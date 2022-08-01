@@ -1,7 +1,10 @@
 ﻿using BeUtl.Animation;
 using BeUtl.Animation.Easings;
+using BeUtl.Reactive;
 using BeUtl.Streaming;
 using BeUtl.Styling;
+
+using Reactive.Bindings.Extensions;
 
 namespace BeUtl.Services.Editors.Wrappers;
 
@@ -11,12 +14,58 @@ public interface IStylingSetterWrapper : IWrappedProperty
 
 public sealed class StylingSetterWrapper<T> : IWrappedProperty<T>.IAnimatable, IStylingSetterWrapper
 {
+    private sealed class HasAnimationObservable : LightweightObservableBase<bool>
+    {
+        private IDisposable? _disposable;
+        private readonly Setter<T> _setter;
+
+        public HasAnimationObservable(Setter<T> setter)
+        {
+            _setter = setter;
+        }
+
+        protected override void Subscribed(IObserver<bool> observer, bool first)
+        {
+            base.Subscribed(observer, first);
+            observer.OnNext(_setter.Animation is { Children.Count: > 0 });
+        }
+
+        protected override void Deinitialize()
+        {
+            _disposable?.Dispose();
+            _disposable = null;
+
+            _setter.Invalidated -= Setter_Invalidated;
+        }
+
+        protected override void Initialize()
+        {
+            _disposable?.Dispose();
+
+            _setter.Invalidated += Setter_Invalidated;
+        }
+
+        private void Setter_Invalidated(object? sender, EventArgs e)
+        {
+            _disposable?.Dispose();
+            if(_setter.Animation is { } animation)
+            {
+                _disposable = _setter.Animation.Children
+                    .ObserveProperty(x => x.Count)
+                    .Select(x => x > 0)
+                    .Subscribe(x => PublishNext(x));
+            }
+        }
+    }
+
     public StylingSetterWrapper(Setter<T> setter)
     {
         AssociatedProperty = setter.Property;
         Tag = setter;
 
         Header = Observable.Return(setter.Property.Name);
+
+        HasAnimation = new HasAnimationObservable(setter);
     }
 
     public CoreProperty<T> AssociatedProperty { get; }
@@ -35,14 +84,7 @@ public sealed class StylingSetterWrapper<T> : IWrappedProperty<T>.IAnimatable, I
         }
     }
 
-    public bool HasAnimation
-    {
-        get
-        {
-            var setter = (Setter<T>)Tag;
-            return setter.Animation is { Children.Count: > 0 };
-        }
-    }
+    public IObservable<bool> HasAnimation { get; }
 
     public IObservable<T?> GetObservable()
     {
