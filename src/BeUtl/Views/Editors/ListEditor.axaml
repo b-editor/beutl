@@ -238,7 +238,7 @@
                                 </Border.Styles>
                                 <interactivity:Interaction.Behaviors>
                                     <interactivity:BehaviorCollection>
-                                        <local:ListEditorDragBehavior />
+                                        <local:ListEditorDragBehavior Orientation="Vertical" DragControl="dragBorder" />
                                     </interactivity:BehaviorCollection>
                                 </interactivity:Interaction.Behaviors>
                                 <FluentIconRegular IconType="Re_Order_Dots_Vertical" Width="12" Height="12" />
