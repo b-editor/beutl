@@ -43,7 +43,7 @@ public abstract class StreamStyler : StylingOperator, IStreamSelector
         Type type = value.GetType();
         if (!ReferenceEquals(Instance?.Target, value))
         {
-            if (Style.TargetType.IsAssignableTo(type) && value is IStyleable styleable)
+            if (type.IsAssignableTo(Style.TargetType) && value is IStyleable styleable)
             {
                 return Style.Instance(styleable);
             }
