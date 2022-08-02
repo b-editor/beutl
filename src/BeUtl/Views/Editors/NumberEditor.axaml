@@ -17,6 +17,7 @@
         <TextBox
             x:Name="textBox"
             Grid.Column="1"
+            IsEnabled="{Binding !CanEdit.Value}"
             Text="{Binding Text.Value, Mode=OneWay}">
             <TextBox.Styles>
                 <Style Selector="TextBox">
