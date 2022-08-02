@@ -1,4 +1,6 @@
-﻿namespace BeUtl;
+﻿using System.Reflection;
+
+namespace BeUtl;
 
 public abstract class StaticProperty<T> : CoreProperty<T>
 {
@@ -12,7 +14,7 @@ public abstract class StaticProperty<T> : CoreProperty<T>
     internal abstract T? RouteGetTypedValue(ICoreObject o);
 }
 
-public class StaticProperty<TOwner, T> : StaticProperty<T>
+public class StaticProperty<TOwner, T> : StaticProperty<T>, IStaticProperty
 {
     public StaticProperty(string name, Func<TOwner, T> getter, Action<TOwner, T>? setter, CorePropertyMetadata<T> metadata)
         : base(name, typeof(TOwner), metadata)
@@ -24,6 +26,10 @@ public class StaticProperty<TOwner, T> : StaticProperty<T>
     public Func<TOwner, T> Getter { get; }
 
     public Action<TOwner, T>? Setter { get; }
+
+    public bool CanRead => true;
+
+    public bool CanWrite => Setter != null;
 
     internal override void RouteSetTypedValue(ICoreObject o, T? value)
     {

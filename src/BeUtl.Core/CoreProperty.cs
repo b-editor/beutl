@@ -6,7 +6,7 @@ using System.Text.Json.Nodes;
 
 namespace BeUtl;
 
-public abstract class CoreProperty
+public abstract class CoreProperty : ICoreProperty
 {
     private static int s_nextId = 0;
     private readonly ICorePropertyMetadata _defaultMetadata;
