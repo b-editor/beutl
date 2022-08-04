@@ -113,7 +113,7 @@ public sealed class StreamOperatorsTabViewModel : IToolContext
     {
         string viewStateDir = ViewStateDirectory(layer);
         var json = new JsonArray();
-        foreach (StylingOperatorViewModel? item in Items)
+        foreach (StylingOperatorViewModel? item in Items.GetMarshal().Value)
         {
             json.Add(item?.SaveState());
         }
