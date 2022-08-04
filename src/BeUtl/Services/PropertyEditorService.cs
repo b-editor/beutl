@@ -5,10 +5,9 @@ using Avalonia.Controls;
 
 using BeUtl.Animation;
 using BeUtl.Graphics;
+using BeUtl.Graphics.Transformation;
 using BeUtl.Media;
 using BeUtl.Services.Editors.Wrappers;
-using BeUtl.ViewModels;
-using BeUtl.ViewModels.AnimationEditors;
 using BeUtl.ViewModels.Editors;
 using BeUtl.Views.Editors;
 
@@ -20,7 +19,10 @@ public static class PropertyEditorService
 
     private static readonly Dictionary<int, Editor> s_editorsOverride = new()
     {
-        { Brush.OpacityProperty.Id, new(_ => new OpacityEditor(), s => new OpacityEditorViewModel(s.ToTyped<float>())) }
+        { Brush.OpacityProperty.Id, new(_ => new OpacityEditor(), s => new OpacityEditorViewModel(s.ToTyped<float>())) },
+        { ScaleTransform.ScaleProperty.Id, new(_ => new PercentageEditor(), s => new PercentageEditorViewModel(s.ToTyped<float>())) },
+        { ScaleTransform.ScaleXProperty.Id, new(_ => new PercentageEditor(), s => new PercentageEditorViewModel(s.ToTyped<float>())) },
+        { ScaleTransform.ScaleYProperty.Id, new(_ => new PercentageEditor(), s => new PercentageEditorViewModel(s.ToTyped<float>())) },
     };
 
     // IList<StreamOperator>
