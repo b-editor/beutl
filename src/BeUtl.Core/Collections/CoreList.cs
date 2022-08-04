@@ -1,6 +1,8 @@
-﻿using System.Collections;
+﻿using System.Buffers;
+using System.Collections;
 using System.Collections.Specialized;
 using System.ComponentModel;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
 namespace BeUtl.Collections;
@@ -107,6 +109,11 @@ public class CoreList<T> : ICoreList<T>
         InsertRange(Inner.Count, items);
     }
 
+    public virtual void AddRange(ReadOnlySpan<T> items)
+    {
+        InsertRange(Inner.Count, items);
+    }
+
     public virtual void Clear()
     {
         if (Count > 0)
@@ -185,6 +192,11 @@ public class CoreList<T> : ICoreList<T>
     public void CopyTo(T[] array, int arrayIndex)
     {
         Inner.CopyTo(array, arrayIndex);
+    }
+    
+    public void CopyTo(Span<T> array)
+    {
+        AsSpan().CopyTo(array);
     }
 
     IEnumerator<T> IEnumerable<T>.GetEnumerator()
@@ -277,6 +289,24 @@ public class CoreList<T> : ICoreList<T>
                         NotifyAdd(notificationItems, index);
                 }
             }
+        }
+    }
+
+    public virtual void InsertRange(int index, ReadOnlySpan<T> items)
+    {
+        if (items.Length > 0)
+        {
+            EnsureCapacity(Inner.Count + items.Length);
+
+            ReadOnlySpan<T>.Enumerator en = items.GetEnumerator();
+            int insertIndex = index;
+
+            while (en.MoveNext())
+            {
+                Inner.Insert(insertIndex++, en.Current);
+            }
+
+            NotifyAdd(items, index);
         }
     }
 
@@ -506,6 +536,27 @@ public class CoreList<T> : ICoreList<T>
         {
             var e = new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, t, index);
             CollectionChanged(this, e);
+        }
+
+        NotifyCountChanged();
+    }
+
+    private void NotifyAdd(ReadOnlySpan<T> t, int index)
+    {
+        for (int i = 0; i < t.Length; i++)
+        {
+            Attached?.Invoke(t[i]);
+        }
+
+        if (CollectionChanged != null)
+        {
+            T[] array = ArrayPool<T>.Shared.Rent(t.Length);
+            t.CopyTo(array.AsSpan());
+
+            var e = new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, array, index);
+            CollectionChanged(this, e);
+
+            ArrayPool<T>.Shared.Return(array);
         }
 
         NotifyCountChanged();
