@@ -112,6 +112,7 @@ public struct FormattedText : IEquatable<FormattedText>
         if (_isDirty)
         {
             (_metrics, _bounds) = Measure();
+            _isDirty = false;
         }
 
         return (_metrics, _bounds);
