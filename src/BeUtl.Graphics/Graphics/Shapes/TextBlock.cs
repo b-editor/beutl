@@ -17,9 +17,9 @@ public class TextBlock : Drawable
     public static readonly CoreProperty<string> TextProperty;
     public static readonly CoreProperty<Thickness> MarginProperty;
     public static readonly CoreProperty<TextElements?> ElementsProperty;
-    private FontFamily _fontFamily;
-    private FontWeight _fontWeight;
-    private FontStyle _fontStyle;
+    private FontFamily _fontFamily = FontFamily.Default;
+    private FontWeight _fontWeight = FontWeight.Regular;
+    private FontStyle _fontStyle = FontStyle.Normal;
     private float _size;
     private float _spacing;
     private string _text = string.Empty;
