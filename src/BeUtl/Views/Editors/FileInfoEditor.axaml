@@ -15,6 +15,7 @@
 
         <Button Grid.Column="1"
                 x:Name="button"
+                IsEnabled="{Binding CanEdit.Value}"
                 HorizontalAlignment="Stretch"
                 HorizontalContentAlignment="Stretch"
                 VerticalContentAlignment="Stretch"

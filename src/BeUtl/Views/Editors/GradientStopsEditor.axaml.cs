@@ -122,21 +122,24 @@ public sealed partial class GradientStopsEditor : UserControl
             float offset = (float)(x / width);
             AM.Color? color = null;
 
-            AM.GradientStop? cur = null;
             AM.GradientStop? next = null;
-            int index = -1;
+            int index = 0;
 
-            for (int i = 0; i < viewModel.Stops.Count - 1; i++)
+            for (int i = 0; i < viewModel.Stops.Count; i++)
             {
-                cur = viewModel.Stops[i];
-                next = viewModel.Stops[i + 1];
+                var cur = viewModel.Stops[i];
                 if (MathUtilities.LessThanOrClose(cur.Offset, offset))
                 {
-                    if (MathUtilities.LessThanOrClose(offset, next.Offset))
+                    color = cur.Color;
+                    index = i + 1;
+                    if (i < viewModel.Stops.Count - 1)
                     {
-                        color = Interpolate(cur, next, offset);
-                        index = i + 1;
-                        break;
+                        next = viewModel.Stops[i + 1];
+                        if (MathUtilities.LessThanOrClose(offset, next.Offset))
+                        {
+                            color = Interpolate(cur, next, offset);
+                            break;
+                        }
                     }
                 }
                 else

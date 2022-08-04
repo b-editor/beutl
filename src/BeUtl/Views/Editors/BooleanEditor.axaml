@@ -11,6 +11,7 @@
     <Grid ColumnDefinitions="*,Auto">
         <CheckBox Margin="8,0"
                   Click="CheckBox_Click"
+                  IsEnabled="{CompiledBinding CanEdit.Value}"
                   IsChecked="{CompiledBinding Value.Value, Mode=OneWay}"
                   Content="{CompiledBinding Header.Value}"/>
 

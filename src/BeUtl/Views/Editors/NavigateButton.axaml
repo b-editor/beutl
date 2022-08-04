@@ -16,6 +16,7 @@
 
         <Button Grid.Column="1"
                 Margin="4"
+                IsEnabled="{Binding CanEdit.Value}"
                 HorizontalAlignment="Stretch"
                 HorizontalContentAlignment="Left"
                 IsVisible="{Binding IsSet.Value}"
@@ -28,6 +29,7 @@
 
         <Button Grid.Column="1"
                 Margin="4"
+                IsEnabled="{Binding CanEdit.Value}"
                 HorizontalAlignment="Stretch"
                 HorizontalContentAlignment="Left"
                 IsVisible="{Binding IsNotSetAndCanWrite.Value}"

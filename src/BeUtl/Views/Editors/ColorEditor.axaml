@@ -17,6 +17,7 @@
 
         <ui:ColorPickerButton
             x:Name="colorPicker"
+            IsEnabled="{CompiledBinding CanEdit.Value}"
             Color="{CompiledBinding Value.Value, Mode=OneWay}"
             HorizontalAlignment="Right"
             Margin="4"

@@ -28,6 +28,7 @@
             </Border.Background>            
         </Border>
         <ItemsControl Items="{CompiledBinding Stops}"
+                      IsEnabled="{CompiledBinding CanEdit.Value}"
                       x:Name="items"
                       Grid.Row="1"
                       Height="20"
@@ -74,7 +75,7 @@
                     Margin="8,8,4,0"
                     Orientation="Horizontal"
                     Spacing="4"
-                    IsEnabled="{CompiledBinding IsSelected.Value}"
+                    IsEnabled="{CompiledBinding CanEditStop.Value}"
                     HorizontalAlignment="Right">
             <Button Width="35" Height="35" Click="Delete_Click">
                 <ui:SymbolIcon Symbol="Delete" FontSize="16" />

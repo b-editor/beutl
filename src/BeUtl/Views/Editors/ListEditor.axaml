@@ -212,6 +212,7 @@
                              x:Name="progress" />
                 
                 <Button Click="Add_Click"
+                        IsEnabled="{Binding CanEdit.Value}"
                         Grid.Column="1"
                         Margin="0,4,24,4">
                     <StackPanel Orientation="Horizontal" Spacing="8">
@@ -222,6 +223,7 @@
             </Grid>
 
             <ItemsControl x:Name="items"
+                          IsEnabled="{Binding CanEdit.Value}"
                           Items="{Binding List.Value}"
                           Grid.Row="1">
                 <ItemsControl.ItemTemplate>

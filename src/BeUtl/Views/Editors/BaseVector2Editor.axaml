@@ -30,6 +30,7 @@
 
             <TextBox
                 Grid.Column="1"
+                IsEnabled="{Binding CanEdit.Value}"
                 x:Name="xTextBox" />
         </Grid>
         <Grid Grid.Column="1" Grid.Row="1" ColumnDefinitions="*,2*">
@@ -40,6 +41,7 @@
 
             <TextBox
                 Grid.Column="1"
+                IsEnabled="{Binding CanEdit.Value}"
                 x:Name="yTextBox" />
         </Grid>
 

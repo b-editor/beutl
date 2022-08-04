@@ -25,6 +25,7 @@
         <Grid ColumnDefinitions="*,*" Grid.Column="1">
             <TextBox
                 Grid.Column="0"
+                IsEnabled="{Binding CanEdit.Value}"
                 x:Name="xTextBox">
                 <TextBox.InnerRightContent>
                     <TextBlock x:Name="xText" VerticalAlignment="Center" Margin="4,0" />
@@ -33,6 +34,7 @@
 
             <TextBox
                 Grid.Column="1"
+                IsEnabled="{Binding CanEdit.Value}"
                 x:Name="yTextBox">
                 <TextBox.InnerRightContent>
                     <TextBlock x:Name="yText" VerticalAlignment="Center" Margin="4,0" />
@@ -43,6 +45,7 @@
         <Grid ColumnDefinitions="*,*" Grid.Column="1" Grid.Row="1">
             <TextBox
                 Grid.Column="0"
+                IsEnabled="{Binding CanEdit.Value}"
                 x:Name="zTextBox">
                 <TextBox.InnerRightContent>
                     <TextBlock x:Name="zText" VerticalAlignment="Center" Margin="4,0" />
@@ -51,6 +54,7 @@
 
             <TextBox
                 Grid.Column="1"
+                IsEnabled="{Binding CanEdit.Value}"
                 x:Name="wTextBox">
                 <TextBox.InnerRightContent>
                     <TextBlock x:Name="wText" VerticalAlignment="Center" Margin="4,0" />

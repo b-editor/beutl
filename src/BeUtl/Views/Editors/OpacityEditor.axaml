@@ -18,7 +18,14 @@
         <Border Grid.Row="1"
                 Height="20"
                 CornerRadius="10"
+                VerticalAlignment="Top"
+                IsEnabled="{Binding CanEdit.Value}"
                 Margin="8,0">
+            <Border.Styles>
+                <Style Selector="Border:disabled">
+                    <Setter Property="Opacity" Value="0.8" />
+                </Style>
+            </Border.Styles>
             <Border.Background>
                 <VisualBrush TileMode="Tile"
                              DestinationRect="0,0,10,10"
@@ -40,14 +47,27 @@
         <Border Grid.Row="1"
                 Height="20"
                 CornerRadius="10"
+                VerticalAlignment="Top"
+                IsEnabled="{Binding CanEdit.Value}"
                 Margin="8,0">
-            <Border.Background>
-                <LinearGradientBrush StartPoint="0%,50%"
-                                     EndPoint="100%,50%">
-                    <GradientStop Offset="0" Color="Transparent" />
-                    <GradientStop Offset="1" Color="{DynamicResource TextFillColorPrimary}" />
-                </LinearGradientBrush>
-            </Border.Background>
+            <Border.Styles>
+                <Style Selector="Border">
+                    <Setter Property="Background">
+                        <LinearGradientBrush StartPoint="0%,50%" EndPoint="100%,50%">
+                            <GradientStop Offset="0" Color="Transparent" />
+                            <GradientStop Offset="1" Color="{DynamicResource TextFillColorPrimary}" />
+                        </LinearGradientBrush>
+                    </Setter>
+                </Style>
+                <Style Selector="Border:disabled">
+                    <Setter Property="Background">
+                        <LinearGradientBrush StartPoint="0%,50%" EndPoint="100%,50%">
+                            <GradientStop Offset="0" Color="Transparent" />
+                            <GradientStop Offset="1" Color="#DDDDDD" />
+                        </LinearGradientBrush>
+                    </Setter>
+                </Style>
+            </Border.Styles>
         </Border>
 
         <Panel x:Name="area"
@@ -56,6 +76,8 @@
                PointerLeave="Item_PointerLeave"
                Grid.Row="1"
                Height="20"
+               VerticalAlignment="Top"
+               IsHitTestVisible="{Binding CanEdit.Value}"
                Background="Transparent"
                ClipToBounds="False"
                Margin="8,0">
@@ -81,6 +103,7 @@
         </Panel>
 
         <Popup x:Name="popup"
+               IsEnabled="{Binding CanEdit.Value}"
                StaysOpen="False"
                PlacementMode="AnchorAndGravity"
                PlacementAnchor="Right"
@@ -93,7 +116,7 @@
             </Border>
         </Popup>
 
-        <local:EditorBadge Grid.Column="1" Grid.Row="1" />
+        <local:EditorBadge Grid.Column="1" Grid.Row="1" Margin="0,0,0,8" />
 
     </Grid>
 </UserControl>
