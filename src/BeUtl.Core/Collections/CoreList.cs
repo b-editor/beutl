@@ -7,6 +7,33 @@ using System.Runtime.InteropServices;
 
 namespace BeUtl.Collections;
 
+public readonly ref struct CoreListMarshal<T>
+{
+    private readonly ListReflection<T> _refAs;
+    private readonly int _version;
+    private readonly Span<T> _value;
+
+    public CoreListMarshal(CoreList<T> list)
+    {
+        _refAs = list.GetReflection();
+        _version = _refAs.Version;
+        _value = _refAs.Items.AsSpan();
+    }
+
+    public Span<T> Value
+    {
+        get
+        {
+            if (_refAs.Version != _version)
+            {
+                throw new InvalidOperationException();
+            }
+
+            return _value;
+        }
+    }
+}
+
 public class CoreList<T> : ICoreList<T>
 {
     private static readonly PropertyChangedEventArgs s_countPropertyChanged = new(nameof(CoreList<object>.Count));
@@ -92,6 +119,7 @@ public class CoreList<T> : ICoreList<T>
         set => Inner.Capacity = value;
     }
 
+    [Obsolete("Use 'GetMarshal'.")]
     public Span<T> AsSpan()
     {
         return CollectionsMarshal.AsSpan(Inner);
@@ -161,7 +189,8 @@ public class CoreList<T> : ICoreList<T>
             return result;
         }
 
-        T[] oldItems = Count > 0 ? AsSpan().ToArray() : Array.Empty<T>();
+        Span<T> span = CollectionsMarshal.AsSpan(Inner);
+        T[] oldItems = Count > 0 ? span.ToArray() : Array.Empty<T>();
         if (!AreEquals(oldItems, source))
         {
             Inner.Clear();
@@ -172,7 +201,7 @@ public class CoreList<T> : ICoreList<T>
 
             Inner.AddRange(source);
 
-            foreach (T? item in AsSpan())
+            foreach (T? item in span)
             {
                 Attached?.Invoke(item);
             }
@@ -196,7 +225,8 @@ public class CoreList<T> : ICoreList<T>
     
     public void CopyTo(Span<T> array)
     {
-        AsSpan().CopyTo(array);
+        Span<T> span = CollectionsMarshal.AsSpan(Inner);
+        span.CopyTo(array);
     }
 
     IEnumerator<T> IEnumerable<T>.GetEnumerator()
@@ -413,6 +443,16 @@ public class CoreList<T> : ICoreList<T>
             Inner.RemoveRange(index, count);
             NotifyRemove(list, index);
         }
+    }
+
+    public CoreListMarshal<T> GetMarshal()
+    {
+        return new CoreListMarshal<T>(this);
+    }
+
+    internal ListReflection<T> GetReflection()
+    {
+        return Unsafe.As<ListReflection<T>>(Inner);
     }
 
     int IList.Add(object? value)
