@@ -136,10 +136,7 @@ public abstract class Styleable : Animatable, IStyleable
                 && stylesNode is JsonArray stylesArray)
             {
                 Styles.Clear();
-                if (Styles.Capacity < stylesArray.Count)
-                {
-                    Styles.Capacity = stylesArray.Count;
-                }
+                Styles.EnsureCapacity(stylesArray.Count);
 
                 foreach (JsonNode? styleNode in stylesArray)
                 {

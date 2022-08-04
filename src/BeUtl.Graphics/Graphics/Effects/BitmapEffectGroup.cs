@@ -108,10 +108,7 @@ public sealed class BitmapEffectGroup : BitmapEffect
                 && childrenNode is JsonArray childrenArray)
             {
                 _children.Clear();
-                if (_children.Capacity < childrenArray.Count)
-                {
-                    _children.Capacity = childrenArray.Count;
-                }
+                _children.EnsureCapacity(childrenArray.Count);
 
                 foreach (JsonObject childJson in childrenArray.OfType<JsonObject>())
                 {

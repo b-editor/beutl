@@ -34,10 +34,7 @@ public abstract class Animatable : Element
                 && animationsNode is JsonObject animationsObj)
             {
                 Animations.Clear();
-                if (Animations.Capacity < animationsObj.Count)
-                {
-                    Animations.Capacity = animationsObj.Count;
-                }
+                Animations.EnsureCapacity(animationsObj.Count);
 
                 Type type = GetType();
                 foreach ((string name, JsonNode? node) in animationsObj)

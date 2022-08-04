@@ -623,7 +623,7 @@ internal static class TransformParser
             }
 
             var group = new TransformGroup();
-            group.Children.Capacity = span.Length;
+            group.Children.EnsureCapacity(span.Length);
             foreach (ref DataLayout item in span)
             {
                 group.Children.Add(item.ToTransform());

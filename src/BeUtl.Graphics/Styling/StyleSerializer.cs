@@ -189,10 +189,8 @@ public static class StyleSerializer
         var animations = new List<AnimationSpan>();
         if (animationsNode != null)
         {
-            if (animations.Capacity < animationsNode.Count)
-            {
-                animations.Capacity = animationsNode.Count;
-            }
+            animations.EnsureCapacity(animationsNode.Count);
+
             foreach (JsonNode? item in animationsNode)
             {
                 if (item is JsonObject animationObj)

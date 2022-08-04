@@ -30,10 +30,7 @@ public sealed class PropertiesEditorViewModel : IDisposable
         Type animatableWrapperType = typeof(AnimatableCorePropertyWrapper<>);
 
         IReadOnlyList<CoreProperty> props = PropertyRegistry.GetRegistered(objType);
-        if (Properties.Capacity < props.Count)
-        {
-            Properties.Capacity = props.Count;
-        }
+        Properties.EnsureCapacity(props.Count);
 
         for (int i = 0; i < props.Count; i++)
         {

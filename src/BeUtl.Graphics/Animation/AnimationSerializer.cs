@@ -46,12 +46,8 @@ internal static class AnimationSerializer
                 .GetField("Instance")!
                 .GetValue(null)!;
 
-            var animations = new List<AnimationSpan>();
+            var animations = new List<AnimationSpan>(jsonArray.Count);
 
-            if (animations.Capacity < jsonArray.Count)
-            {
-                animations.Capacity = jsonArray.Count;
-            }
             foreach (JsonNode? item in jsonArray)
             {
                 if (item is JsonObject animationObj)

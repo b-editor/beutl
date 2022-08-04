@@ -19,10 +19,7 @@ public sealed class GradientStops : AffectsRenders<GradientStop>, IJsonSerializa
         if (json is JsonArray childrenArray)
         {
             Clear();
-            if (Capacity < childrenArray.Count)
-            {
-                Capacity = childrenArray.Count;
-            }
+            EnsureCapacity(childrenArray.Count);
 
             foreach (JsonObject childJson in childrenArray.OfType<JsonObject>())
             {
