@@ -594,9 +594,14 @@ public class CoreList<T> : ICoreList<T>
             t.CopyTo(array.AsSpan());
 
             var e = new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, array, index);
-            CollectionChanged(this, e);
-
-            ArrayPool<T>.Shared.Return(array);
+            try
+            {
+                CollectionChanged(this, e);
+            }
+            finally
+            {
+                ArrayPool<T>.Shared.Return(array);
+            }
         }
 
         NotifyCountChanged();
