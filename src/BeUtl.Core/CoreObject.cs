@@ -86,12 +86,12 @@ public abstract class CoreObject : ICoreObject
     static CoreObject()
     {
         IdProperty = ConfigureProperty<Guid, CoreObject>(nameof(Id))
-            .Observability(PropertyObservability.Changed)
+            .PropertyFlags(PropertyFlags.NotifyChanged)
             .DefaultValue(Guid.Empty)
             .Register();
 
         NameProperty = ConfigureProperty<string, CoreObject>(nameof(Name))
-            .Observability(PropertyObservability.Changed)
+            .PropertyFlags(PropertyFlags.NotifyChanged)
             .DefaultValue(string.Empty)
             .Register();
     }
@@ -339,8 +339,7 @@ public abstract class CoreObject : ICoreObject
     {
         if (args is CorePropertyChangedEventArgs coreArgs)
         {
-            bool hasChangedFlag = coreArgs.PropertyMetadata.Observability.HasFlag(PropertyObservability.Changed)
-                || coreArgs.PropertyMetadata.PropertyFlags.HasFlag(PropertyFlags.NotifyChanged);
+            bool hasChangedFlag = coreArgs.PropertyMetadata.PropertyFlags.HasFlag(PropertyFlags.NotifyChanged);
             if (coreArgs.Property.HasObservers)
             {
                 coreArgs.Property.NotifyChanged(coreArgs);
@@ -365,7 +364,7 @@ public abstract class CoreObject : ICoreObject
             value = metadata.Validator.Coerce(this, value)!;
         }
 
-        bool result = true;
+        bool result = !EqualityComparer<T>.Default.Equals(field, value);
         if (BatchUpdate)
         {
             if (_batchChanges != null &&
@@ -373,7 +372,6 @@ public abstract class CoreObject : ICoreObject
                 oldEntry is BatchEntry<T> entryT)
             {
                 entryT.NewValue = value;
-                result = !EqualityComparer<T>.Default.Equals(field, value);
             }
             else
             {
@@ -394,28 +392,22 @@ public abstract class CoreObject : ICoreObject
                 _batchChanges.TryGetValue(property.Id, out IBatchEntry? oldEntry) &&
                 oldEntry is BatchEntry<T> entryT)
             {
-                result = !EqualityComparer<T>.Default.Equals(entryT.OldValue, value);
                 field = value;
 
-                if (result)
+                if (!EqualityComparer<T>.Default.Equals(entryT.OldValue, value))
                 {
                     RaisePropertyChanged(property, metadata!, value, entryT.OldValue);
                 }
             }
         }
-        else if (!EqualityComparer<T>.Default.Equals(field, value))
+        else if (result)
         {
             T old = field;
             field = value;
 
             RaisePropertyChanged(property, metadata, value, old);
+        }
 
-            result = true;
-        }
-        else
-        {
-            result = false;
-        }
         return result;
     }
 
