@@ -211,13 +211,16 @@ public class TextBlock : Drawable
                     float prevRight = 0;
                     foreach (FormattedText item in line)
                     {
-                        canvas.Translate(new(prevRight, 0));
-                        Size elementBounds = item.Bounds;
+                        if (item.Text.Length > 0)
+                        {
+                            canvas.Translate(new(prevRight, 0));
+                            Size elementBounds = item.Bounds;
 
-                        using (canvas.PushForeground(item.Brush))
-                            canvas.DrawText(item);
+                            using (canvas.PushForeground(item.Brush))
+                                canvas.DrawText(item);
 
-                        prevRight = elementBounds.Width + item.Margin.Right;
+                            prevRight = elementBounds.Width + item.Margin.Right;
+                        }
                     }
                 }
 
@@ -274,11 +277,14 @@ public class TextBlock : Drawable
 
         foreach (FormattedText element in items)
         {
-            Size bounds = element.Bounds;
-            width += bounds.Width;
-            width += element.Margin.Left + element.Margin.Right;
+            if (element.Text.Length > 0)
+            {
+                Size bounds = element.Bounds;
+                width += bounds.Width;
+                width += element.Margin.Left + element.Margin.Right;
 
-            height = MathF.Max(bounds.Height + element.Margin.Top + element.Margin.Bottom, height);
+                height = MathF.Max(bounds.Height + element.Margin.Top + element.Margin.Bottom, height);
+            }
         }
 
         return new Size(width, height);
