@@ -67,4 +67,17 @@ public abstract class GradientBrush : Brush, IGradientBrush
 
     /// <inheritdoc/>
     IReadOnlyList<IGradientStop> IGradientBrush.GradientStops => GradientStops;
+
+    protected override IEnumerable<ILogicalElement> OnEnumerateChildren()
+    {
+        foreach (ILogicalElement item in base.OnEnumerateChildren())
+        {
+            yield return item;
+        }
+
+        foreach (GradientStop item in _gradientStops)
+        {
+            yield return item;
+        }
+    }
 }

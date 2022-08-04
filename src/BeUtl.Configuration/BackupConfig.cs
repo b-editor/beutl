@@ -11,7 +11,7 @@ public sealed class BackupConfig : ConfigurationBase
         BackupSettingsProperty = ConfigureProperty<bool, BackupConfig>(nameof(BackupSettings))
             .SerializeName("backup-settings")
             .DefaultValue(true)
-            .Observability(PropertyObservability.Changed)
+            .PropertyFlags(PropertyFlags.NotifyChanged)
             .Register();
     }
 

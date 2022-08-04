@@ -23,13 +23,13 @@ public abstract class AnimationSpan : CoreObject, ILogicalElement, IStylingEleme
     {
         EasingProperty = ConfigureProperty<Easing, AnimationSpan>(nameof(Easing))
             .Accessor(o => o.Easing, (o, v) => o.Easing = v)
-            .Observability(PropertyObservability.Changed)
+            .PropertyFlags(PropertyFlags.NotifyChanged)
             .DefaultValue(new LinearEasing())
             .Register();
 
         DurationProperty = ConfigureProperty<TimeSpan, AnimationSpan>(nameof(Duration))
             .Accessor(o => o.Duration, (o, v) => o.Duration = v)
-            .Observability(PropertyObservability.Changed)
+            .PropertyFlags(PropertyFlags.NotifyChanged)
             .SerializeName("duration")
             .Register();
     }

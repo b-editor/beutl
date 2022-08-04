@@ -20,6 +20,7 @@ public class DrawableBrush : TileBrush, IDrawableBrush
             .Register();
 
         AffectsRender<DrawableBrush>(DrawableProperty);
+        LogicalChild<DrawableBrush>(DrawableProperty);
     }
 
     /// <summary>
@@ -51,5 +52,18 @@ public class DrawableBrush : TileBrush, IDrawableBrush
     public override IBrush ToImmutable()
     {
         return new ImmutableDrawableBrush(this);
+    }
+
+    protected override IEnumerable<ILogicalElement> OnEnumerateChildren()
+    {
+        foreach (ILogicalElement item in base.OnEnumerateChildren())
+        {
+            yield return item;
+        }
+
+        if (_drawable is ILogicalElement elm1)
+        {
+            yield return elm1;
+        }
     }
 }

@@ -73,4 +73,17 @@ public abstract class Animatable : Element
             }
         }
     }
+
+    protected override IEnumerable<ILogicalElement> OnEnumerateChildren()
+    {
+        foreach (ILogicalElement item in base.OnEnumerateChildren())
+        {
+            yield return item;
+        }
+
+        foreach (IAnimation item in Animations)
+        {
+            yield return item;
+        }
+    }
 }

@@ -14,7 +14,7 @@ public abstract class Renderable : Styleable, IRenderable, IAffectsRender
     {
         IsVisibleProperty = ConfigureProperty<bool, Renderable>(nameof(IsVisible))
             .Accessor(o => o.IsVisible, (o, v) => o.IsVisible = v)
-            .Observability(PropertyObservability.Changed)
+            .PropertyFlags(PropertyFlags.NotifyChanged)
             .DefaultValue(true)
             .Register();
 

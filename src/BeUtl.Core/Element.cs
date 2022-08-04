@@ -24,7 +24,6 @@ public abstract class Element : CoreObject, IElement
     static Element()
     {
         ParentProperty = ConfigureProperty<Element?, Element>(nameof(Parent))
-            .Observability(PropertyObservability.DoNotNotifyLogicalTree)
             .Accessor(o => o.Parent, (o, v) => o.Parent = v)
             .Register();
     }
@@ -45,13 +44,67 @@ public abstract class Element : CoreObject, IElement
 
     ILogicalElement? ILogicalElement.LogicalParent => _parent;
 
-    IEnumerable<ILogicalElement> ILogicalElement.LogicalChildren => Array.Empty<ILogicalElement>();
+    IEnumerable<ILogicalElement> ILogicalElement.LogicalChildren => OnEnumerateChildren();
 
     IElement? IElement.Parent => Parent;
 
     public event EventHandler<LogicalTreeAttachmentEventArgs>? AttachedToLogicalTree;
 
     public event EventHandler<LogicalTreeAttachmentEventArgs>? DetachedFromLogicalTree;
+
+    protected static void LogicalChild<T>(
+        CoreProperty? property1 = null,
+        CoreProperty? property2 = null,
+        CoreProperty? property3 = null,
+        CoreProperty? property4 = null)
+        where T : Element
+    {
+        static void onNext(CorePropertyChangedEventArgs e)
+        {
+            if (e.Sender is T s)
+            {
+                if (e.OldValue is ILogicalElement oldLogical)
+                {
+                    oldLogical.NotifyDetachedFromLogicalTree(new LogicalTreeAttachmentEventArgs(s));
+                }
+
+                if (e.NewValue is ILogicalElement newLogical)
+                {
+                    newLogical.NotifyAttachedToLogicalTree(new LogicalTreeAttachmentEventArgs(s));
+                }
+            }
+        }
+
+        property1?.Changed.Subscribe(onNext);
+        property2?.Changed.Subscribe(onNext);
+        property3?.Changed.Subscribe(onNext);
+        property4?.Changed.Subscribe(onNext);
+    }
+
+    protected static void LogicalChild<T>(params CoreProperty[] properties)
+        where T : Element
+    {
+        static void onNext(CorePropertyChangedEventArgs e)
+        {
+            if (e.Sender is T s)
+            {
+                if (e.OldValue is ILogicalElement oldLogical)
+                {
+                    oldLogical.NotifyDetachedFromLogicalTree(new LogicalTreeAttachmentEventArgs(s));
+                }
+
+                if (e.NewValue is ILogicalElement newLogical)
+                {
+                    newLogical.NotifyAttachedToLogicalTree(new LogicalTreeAttachmentEventArgs(s));
+                }
+            }
+        }
+
+        foreach (CoreProperty? item in properties)
+        {
+            item.Changed.Subscribe(onNext);
+        }
+    }
 
     protected virtual void OnAttachedToLogicalTree(in LogicalTreeAttachmentEventArgs args)
     {
@@ -61,23 +114,9 @@ public abstract class Element : CoreObject, IElement
     {
     }
 
-    protected override void OnPropertyChanged(PropertyChangedEventArgs args)
+    protected virtual IEnumerable<ILogicalElement> OnEnumerateChildren()
     {
-        if (args is CorePropertyChangedEventArgs coreArgs &&
-            coreArgs.PropertyMetadata.Observability != PropertyObservability.DoNotNotifyLogicalTree)
-        {
-            if (coreArgs.OldValue is ILogicalElement oldLogical)
-            {
-                oldLogical.NotifyDetachedFromLogicalTree(new LogicalTreeAttachmentEventArgs(this));
-            }
-
-            if (coreArgs.NewValue is ILogicalElement newLogical)
-            {
-                newLogical.NotifyAttachedToLogicalTree(new LogicalTreeAttachmentEventArgs(this));
-            }
-        }
-
-        base.OnPropertyChanged(args);
+        yield break;
     }
 
     void ILogicalElement.NotifyAttachedToLogicalTree(in LogicalTreeAttachmentEventArgs e)

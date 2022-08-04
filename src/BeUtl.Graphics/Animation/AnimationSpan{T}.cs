@@ -26,13 +26,13 @@ public sealed class AnimationSpan<T> : AnimationSpan, IAnimationSpan<T>, ILogica
 
         PreviousProperty = ConfigureProperty<T, AnimationSpan<T>>(nameof(Previous))
             .Accessor(o => o.Previous, (o, v) => o.Previous = v)
-            .Observability(PropertyObservability.Changed)
+            .PropertyFlags(PropertyFlags.NotifyChanged)
             .SerializeName("prev")
             .Register();
 
         NextProperty = ConfigureProperty<T, AnimationSpan<T>>(nameof(Next))
             .Accessor(o => o.Next, (o, v) => o.Next = v)
-            .Observability(PropertyObservability.Changed)
+            .PropertyFlags(PropertyFlags.NotifyChanged)
             .SerializeName("next")
             .Register();
     }

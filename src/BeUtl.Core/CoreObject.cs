@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel;
+using System.ComponentModel.Design;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
 using System.Text.Json;
@@ -385,19 +386,17 @@ public abstract class CoreObject : ICoreObject
 
             field = value;
         }
-        else if (_batchApplying)
+        else if (_batchApplying
+            && _batchChanges != null
+            && _batchChanges.TryGetValue(property.Id, out IBatchEntry? oldEntry)
+            && oldEntry is BatchEntry<T> entryT)
         {
             // バッチ適用中
-            if (_batchChanges != null &&
-                _batchChanges.TryGetValue(property.Id, out IBatchEntry? oldEntry) &&
-                oldEntry is BatchEntry<T> entryT)
-            {
-                field = value;
+            field = value;
 
-                if (!EqualityComparer<T>.Default.Equals(entryT.OldValue, value))
-                {
-                    RaisePropertyChanged(property, metadata!, value, entryT.OldValue);
-                }
+            if (!EqualityComparer<T>.Default.Equals(entryT.OldValue, value))
+            {
+                RaisePropertyChanged(property, metadata!, value, entryT.OldValue);
             }
         }
         else if (result)

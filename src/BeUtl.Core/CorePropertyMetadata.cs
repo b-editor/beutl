@@ -115,19 +115,12 @@ public interface ICorePropertyMetadata
 public abstract record class CorePropertyMetadata : ICorePropertyMetadata
 {
     private string? _serializeName;
-    private PropertyObservability _observability;
     private PropertyFlags _propertyFlags;
 
     public string? SerializeName
     {
         get => _serializeName;
         init => _serializeName = value;
-    }
-
-    public PropertyObservability Observability
-    {
-        get => _observability;
-        init => _observability = value;
     }
 
     public PropertyFlags PropertyFlags
@@ -140,11 +133,6 @@ public abstract record class CorePropertyMetadata : ICorePropertyMetadata
     {
         if (baseMetadata is CorePropertyMetadata metadata1)
         {
-            if (_observability == PropertyObservability.None)
-            {
-                _observability = metadata1.Observability;
-            }
-
             if (string.IsNullOrEmpty(_serializeName))
             {
                 _serializeName = metadata1.SerializeName;

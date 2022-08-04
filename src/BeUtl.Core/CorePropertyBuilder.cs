@@ -88,15 +88,6 @@ public sealed class CorePropertyBuilder<T, TOwner> : ICorePropertyBuilder<T>
         return this;
     }
 
-    public CorePropertyBuilder<T, TOwner> Observability(PropertyObservability value)
-    {
-        _metadata = _metadata with
-        {
-            Observability = value
-        };
-        return this;
-    }
-
     public CorePropertyBuilder<T, TOwner> SerializeName(string? value)
     {
         _metadata = _metadata with

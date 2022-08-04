@@ -22,19 +22,19 @@ public sealed class ViewConfig : ConfigurationBase
         ThemeProperty = ConfigureProperty<ViewTheme, ViewConfig>("Theme")
             .SerializeName("theme")
             .DefaultValue(ViewTheme.Dark)
-            .Observability(PropertyObservability.Changed)
+            .PropertyFlags(PropertyFlags.NotifyChanged)
             .Register();
 
         UICultureProperty = ConfigureProperty<CultureInfo, ViewConfig>("UICulture")
             .SerializeName("ui-culture")
             .DefaultValue(CultureInfo.InstalledUICulture)
-            .Observability(PropertyObservability.Changed)
+            .PropertyFlags(PropertyFlags.NotifyChanged)
             .Register();
 
         IsMicaEffectEnabledProperty = ConfigureProperty<bool, ViewConfig>("IsMicaEffectEnabled")
             .SerializeName("is-mica-enabled")
             .DefaultValue(false)
-            .Observability(PropertyObservability.Changed)
+            .PropertyFlags(PropertyFlags.NotifyChanged)
             .Register();
 
         RecentFilesProperty = ConfigureProperty<CoreList<string>, ViewConfig>("RecentFiles")

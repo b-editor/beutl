@@ -13,18 +13,20 @@ public sealed class LayerNode : Element
     {
         StartProperty = ConfigureProperty<TimeSpan, LayerNode>(nameof(Start))
             .Accessor(o => o.Start, (o, v) => o.Start = v)
-            .Observability(PropertyObservability.Changed)
+            .PropertyFlags(PropertyFlags.NotifyChanged)
             .Register();
 
         DurationProperty = ConfigureProperty<TimeSpan, LayerNode>(nameof(Duration))
             .Accessor(o => o.Duration, (o, v) => o.Duration = v)
-            .Observability(PropertyObservability.Changed)
+            .PropertyFlags(PropertyFlags.NotifyChanged)
             .Register();
 
         ValueProperty = ConfigureProperty<Renderable?, LayerNode>(nameof(Value))
             .Accessor(o => o.Value, (o, v) => o.Value = v)
-            .Observability(PropertyObservability.Changed)
+            .PropertyFlags(PropertyFlags.NotifyChanged)
             .Register();
+
+        LogicalChild<LayerNode>(ValueProperty);
     }
 
     public TimeSpan Start

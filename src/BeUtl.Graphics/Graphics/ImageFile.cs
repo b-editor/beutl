@@ -1,4 +1,5 @@
-﻿using System.Diagnostics.CodeAnalysis;
+﻿using System.ComponentModel;
+using System.Diagnostics.CodeAnalysis;
 using System.Text.Json.Nodes;
 
 using BeUtl.Media;
@@ -30,14 +31,7 @@ public class ImageFile : Drawable
     public FileInfo? SourceFile
     {
         get => _sourceFile;
-        set
-        {
-            if (SetAndRaise(SourceFileProperty, ref _sourceFile, value))
-            {
-                _bitmap?.Dispose();
-                _bitmap = null;
-            }
-        }
+        set => SetAndRaise(SourceFileProperty, ref _sourceFile, value);
     }
 
     public override void ReadFromJson(JsonNode json)
@@ -80,6 +74,16 @@ public class ImageFile : Drawable
         if (TryLoadBitmap())
         {
             canvas.DrawBitmap(_bitmap);
+        }
+    }
+
+    protected override void OnPropertyChanged(PropertyChangedEventArgs args)
+    {
+        base.OnPropertyChanged(args);
+        if (args.PropertyName is nameof(SourceFile))
+        {
+            _bitmap?.Dispose();
+            _bitmap = null;
         }
     }
 

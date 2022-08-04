@@ -133,6 +133,10 @@ public abstract class Drawable : Renderable, IDrawable, ILogicalElement
             AlignmentXProperty, AlignmentYProperty,
             ForegroundProperty, OpacityMaskProperty,
             BlendModeProperty);
+
+        LogicalChild<Drawable>(
+            TransformProperty, FilterProperty, EffectProperty,
+            ForegroundProperty, OpacityMaskProperty);
     }
 
     public float Width
@@ -207,22 +211,6 @@ public abstract class Drawable : Renderable, IDrawable, ILogicalElement
     {
         get => _blendMode;
         set => SetAndRaise(BlendModeProperty, ref _blendMode, value);
-    }
-
-    IEnumerable<ILogicalElement> ILogicalElement.LogicalChildren
-    {
-        get
-        {
-            if (Transform is ILogicalElement log)
-            {
-                yield return log;
-            }
-
-            if (Filter is ILogicalElement log2)
-            {
-                yield return log2;
-            }
-        }
     }
 
     public IBitmap ToBitmap()
@@ -397,6 +385,29 @@ public abstract class Drawable : Renderable, IDrawable, ILogicalElement
     }
 
     protected abstract void OnDraw(ICanvas canvas);
+
+    protected override IEnumerable<ILogicalElement> OnEnumerateChildren()
+    {
+        foreach (ILogicalElement item in base.OnEnumerateChildren())
+        {
+            yield return item;
+        }
+
+        if (Transform is ILogicalElement elm1)
+            yield return elm1;
+
+        if (Filter is ILogicalElement elm2)
+            yield return elm2;
+
+        if (Effect is ILogicalElement elm3)
+            yield return elm3;
+
+        if (Foreground is ILogicalElement elm4)
+            yield return elm4;
+
+        if (OpacityMask is ILogicalElement elm5)
+            yield return elm5;
+    }
 
     private Point CreateRelPoint(Size size)
     {

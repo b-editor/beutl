@@ -50,12 +50,12 @@ public class Scene : Element, IStorable, IWorkspaceItem
     {
         WidthProperty = ConfigureProperty<int, Scene>(nameof(Width))
             .Accessor(o => o.Width)
-            .Observability(PropertyObservability.Changed)
+            .PropertyFlags(PropertyFlags.NotifyChanged)
             .Register();
 
         HeightProperty = ConfigureProperty<int, Scene>(nameof(Height))
             .Accessor(o => o.Height)
-            .Observability(PropertyObservability.Changed)
+            .PropertyFlags(PropertyFlags.NotifyChanged)
             .Register();
 
         ChildrenProperty = ConfigureProperty<Layers, Scene>(nameof(Children))
@@ -64,24 +64,24 @@ public class Scene : Element, IStorable, IWorkspaceItem
 
         DurationProperty = ConfigureProperty<TimeSpan, Scene>(nameof(Duration))
             .Accessor(o => o.Duration, (o, v) => o.Duration = v)
-            .Observability(PropertyObservability.Changed)
+            .PropertyFlags(PropertyFlags.NotifyChanged)
             .SerializeName("duration")
             .Register();
 
         CurrentFrameProperty = ConfigureProperty<TimeSpan, Scene>(nameof(CurrentFrame))
             .Accessor(o => o.CurrentFrame, (o, v) => o.CurrentFrame = v)
-            .Observability(PropertyObservability.Changed)
+            .PropertyFlags(PropertyFlags.NotifyChanged)
             .SerializeName("currentFrame")
             .Register();
 
         PreviewOptionsProperty = ConfigureProperty<PreviewOptions?, Scene>(nameof(PreviewOptions))
             .Accessor(o => o.PreviewOptions, (o, v) => o.PreviewOptions = v)
-            .Observability(PropertyObservability.Changed)
+            .PropertyFlags(PropertyFlags.NotifyChanged)
             .Register();
 
         RendererProperty = ConfigureProperty<IRenderer, Scene>(nameof(Renderer))
             .Accessor(o => o.Renderer, (o, v) => o.Renderer = v)
-            .Observability(PropertyObservability.Changed)
+            .PropertyFlags(PropertyFlags.NotifyChanged)
             .Register();
 
         NameProperty.OverrideMetadata<Scene>(new CorePropertyMetadata<string>
@@ -353,6 +353,19 @@ public class Scene : Element, IStorable, IWorkspaceItem
         this.JsonRestore(filename);
 
         _restored?.Invoke(this, EventArgs.Empty);
+    }
+
+    protected override IEnumerable<ILogicalElement> OnEnumerateChildren()
+    {
+        foreach (ILogicalElement item in base.OnEnumerateChildren())
+        {
+            yield return item;
+        }
+
+        foreach (Layer item in Children)
+        {
+            yield return item;
+        }
     }
 
     private void SyncronizeLayers(IEnumerable<string> pathToLayer)

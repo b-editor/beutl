@@ -38,6 +38,7 @@ public abstract class Brush : Styleable, IMutableBrush
             .Register();
 
         AffectsRender<Brush>(OpacityProperty, TransformProperty, TransformOriginProperty);
+        LogicalChild<Brush>(TransformProperty);
     }
 
     protected Brush()
@@ -117,23 +118,16 @@ public abstract class Brush : Styleable, IMutableBrush
         Invalidated?.Invoke(this, EventArgs.Empty);
     }
 
-    protected override void OnAttachedToLogicalTree(in LogicalTreeAttachmentEventArgs args)
+    protected override IEnumerable<ILogicalElement> OnEnumerateChildren()
     {
-        base.OnAttachedToLogicalTree(args);
-    }
+        foreach (ILogicalElement item in base.OnEnumerateChildren())
+        {
+            yield return item;
+        }
 
-    protected override void OnDetachedFromLogicalTree(in LogicalTreeAttachmentEventArgs args)
-    {
-        base.OnDetachedFromLogicalTree(args);
-    }
-
-    protected override void OnAttachedToStylingTree(in StylingTreeAttachmentEventArgs e)
-    {
-        base.OnAttachedToStylingTree(e);
-    }
-
-    protected override void OnDetachedFromStylingTree(in StylingTreeAttachmentEventArgs e)
-    {
-        base.OnDetachedFromStylingTree(e);
+        if (_transform is ILogicalElement elm1)
+        {
+            yield return elm1;
+        }
     }
 }

@@ -1,4 +1,5 @@
-﻿using System.Runtime.InteropServices;
+﻿using System.ComponentModel;
+using System.Runtime.InteropServices;
 using System.Text.Json.Nodes;
 
 using BeUtl.Media;
@@ -83,6 +84,7 @@ public class TextBlock : Drawable
             .Register();
 
         AffectsRender<TextBlock>(ElementsProperty);
+        LogicalChild<TextBlock>(ElementsProperty);
     }
 
     public TextBlock()
@@ -122,13 +124,7 @@ public class TextBlock : Drawable
     public string Text
     {
         get => _text;
-        set
-        {
-            if (SetAndRaise(TextProperty, ref _text, value))
-            {
-                OnUpdateText();
-            }
-        }
+        set => SetAndRaise(TextProperty, ref _text, value);
     }
 
     public Thickness Margin
@@ -230,6 +226,31 @@ public class TextBlock : Drawable
         }
     }
 
+    protected override IEnumerable<ILogicalElement> OnEnumerateChildren()
+    {
+        foreach (ILogicalElement item in base.OnEnumerateChildren())
+        {
+            yield return item;
+        }
+
+        if (_elements != null)
+        {
+            foreach (TextElement item in _elements)
+            {
+                yield return item;
+            }
+        }
+    }
+
+    protected override void OnPropertyChanged(PropertyChangedEventArgs args)
+    {
+        base.OnPropertyChanged(args);
+        if (args.PropertyName is nameof(Text))
+        {
+            OnUpdateText();
+        }
+    }
+
     private void OnUpdateText()
     {
         var tokenizer = new FormattedTextTokenizer(_text);
@@ -237,7 +258,7 @@ public class TextBlock : Drawable
         var options = new FormattedTextInfo(
             Typeface: new Typeface(_fontFamily, _fontStyle, _fontWeight),
             Size: _size,
-            Brush: Foreground ?? Brushes.Transparent,
+            Brush: (Foreground as IMutableBrush)?.ToImmutable() ?? Foreground ?? Brushes.Transparent,
             Space: _spacing,
             Margin: _margin);
 

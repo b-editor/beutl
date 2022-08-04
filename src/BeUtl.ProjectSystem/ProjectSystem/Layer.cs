@@ -33,38 +33,38 @@ public class Layer : Element, IStorable, ILogicalElement
     {
         StartProperty = ConfigureProperty<TimeSpan, Layer>(nameof(Start))
             .Accessor(o => o.Start, (o, v) => o.Start = v)
-            .Observability(PropertyObservability.Changed)
+            .PropertyFlags(PropertyFlags.NotifyChanged)
             .SerializeName("start")
             .Register();
 
         LengthProperty = ConfigureProperty<TimeSpan, Layer>(nameof(Length))
             .Accessor(o => o.Length, (o, v) => o.Length = v)
-            .Observability(PropertyObservability.Changed)
+            .PropertyFlags(PropertyFlags.NotifyChanged)
             .SerializeName("length")
             .Register();
 
         ZIndexProperty = ConfigureProperty<int, Layer>(nameof(ZIndex))
             .Accessor(o => o.ZIndex, (o, v) => o.ZIndex = v)
-            .Observability(PropertyObservability.Changed)
+            .PropertyFlags(PropertyFlags.NotifyChanged)
             .SerializeName("zIndex")
             .Register();
 
         AccentColorProperty = ConfigureProperty<Color, Layer>(nameof(AccentColor))
             .DefaultValue(Colors.Teal)
-            .Observability(PropertyObservability.Changed)
+            .PropertyFlags(PropertyFlags.NotifyChanged)
             .SerializeName("accentColor")
             .Register();
 
         IsEnabledProperty = ConfigureProperty<bool, Layer>(nameof(IsEnabled))
             .Accessor(o => o.IsEnabled, (o, v) => o.IsEnabled = v)
             .DefaultValue(true)
-            .Observability(PropertyObservability.Changed)
+            .PropertyFlags(PropertyFlags.NotifyChanged)
             .SerializeName("isEnabled")
             .Register();
 
         NodeProperty = ConfigureProperty<LayerNode, Layer>(nameof(Node))
             .Accessor(o => o.Node, null)
-            .Observability(PropertyObservability.Changed)
+            .PropertyFlags(PropertyFlags.NotifyChanged)
             .Register();
 
         OperatorsProperty = ConfigureProperty<LogicalList<StreamOperator>, Layer>(nameof(Operators))
@@ -202,8 +202,6 @@ public class Layer : Element, IStorable, ILogicalElement
     public DateTime LastSavedTime { get; private set; }
 
     public LogicalList<StreamOperator> Operators { get; }
-
-    IEnumerable<ILogicalElement> ILogicalElement.LogicalChildren => Operators;
 
     public void Save(string filename)
     {
@@ -355,6 +353,24 @@ public class Layer : Element, IStorable, ILogicalElement
             renderer[ZIndex]?.RemoveNode(Node);
             _disposable?.Dispose();
             _disposable = null;
+        }
+    }
+
+    protected override IEnumerable<ILogicalElement> OnEnumerateChildren()
+    {
+        foreach (ILogicalElement item in base.OnEnumerateChildren())
+        {
+            yield return item;
+        }
+
+        foreach (StreamOperator item in Operators)
+        {
+            yield return item;
+        }
+
+        if (Node != null)
+        {
+            yield return Node;
         }
     }
 

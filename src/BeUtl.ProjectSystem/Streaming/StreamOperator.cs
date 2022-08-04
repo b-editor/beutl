@@ -18,7 +18,7 @@ public class StreamOperator : Element, IStreamOperator
         IsEnabledProperty = ConfigureProperty<bool, StreamOperator>(nameof(IsEnabled))
             .Accessor(o => o.IsEnabled, (o, v) => o.IsEnabled = v)
             .DefaultValue(true)
-            .Observability(PropertyObservability.Changed)
+            .PropertyFlags(PropertyFlags.NotifyChanged)
             .SerializeName("is-enabled")
             .Register();
     }

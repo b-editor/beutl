@@ -1,4 +1,4 @@
-
+﻿
 using BeUtl.Collections;
 
 using NUnit.Framework;
@@ -60,7 +60,7 @@ public class TestElement : Element, ILogicalElement
     {
         StringProperty = ConfigureProperty<string, TestElement>("String")
             .DefaultValue(string.Empty)
-            .Observability(PropertyObservability.Changed)
+            .PropertyFlags(PropertyFlags.NotifyChanged)
             .Register();
     }
 
