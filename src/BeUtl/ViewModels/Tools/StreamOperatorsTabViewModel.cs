@@ -145,7 +145,7 @@ public sealed class StreamOperatorsTabViewModel : IToolContext
 
     private void ClearItems()
     {
-        foreach (StylingOperatorViewModel? item in Items.AsSpan())
+        foreach (StylingOperatorViewModel? item in Items.GetMarshal().Value)
         {
             item?.Dispose();
         }

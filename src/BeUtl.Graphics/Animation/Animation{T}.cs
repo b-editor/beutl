@@ -51,7 +51,7 @@ public class Animation<T> : BaseAnimation, IAnimation
     {
         var array = new JsonArray();
 
-        foreach (AnimationSpan<T> item in _children.AsSpan())
+        foreach (AnimationSpan<T> item in _children.GetMarshal().Value)
         {
             JsonNode node = new JsonObject();
             item.WriteToJson(ref node);
@@ -65,7 +65,7 @@ public class Animation<T> : BaseAnimation, IAnimation
     public T Interpolate(TimeSpan timeSpan)
     {
         TimeSpan cur = TimeSpan.Zero;
-        Span<AnimationSpan<T>> span = _children.AsSpan();
+        Span<AnimationSpan<T>> span = _children.GetMarshal().Value;
         foreach (AnimationSpan<T> item in span)
         {
             TimeSpan next = cur + item.Duration;

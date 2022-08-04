@@ -19,7 +19,7 @@ public abstract class Animatable : Element
 
     public virtual void ApplyAnimations(IClock clock)
     {
-        foreach (IAnimation? item in Animations.AsSpan())
+        foreach (IAnimation? item in Animations.GetMarshal().Value)
         {
             item.ApplyTo(this, clock.CurrentTime);
         }
@@ -59,7 +59,7 @@ public abstract class Animatable : Element
             Type type = GetType();
             var animations = new JsonObject();
 
-            foreach (IAnimation item in Animations.AsSpan())
+            foreach (IAnimation item in Animations.GetMarshal().Value)
             {
                 if (item.ToJson(type) is (string name, JsonNode node))
                 {

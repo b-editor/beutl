@@ -8,7 +8,7 @@ public sealed class Styles : CoreList<IStyle>
     {
         IStyleInstance? baseStyle = null;
 
-        foreach (IStyle item in AsSpan())
+        foreach (IStyle item in GetMarshal().Value)
         {
             baseStyle = item.Instance(target, baseStyle);
         }

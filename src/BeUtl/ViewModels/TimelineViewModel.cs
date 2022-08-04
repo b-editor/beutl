@@ -81,7 +81,7 @@ public sealed class TimelineViewModel : IToolContext
             },
             () =>
             {
-                foreach (TimelineLayerViewModel? item in Layers.AsSpan())
+                foreach (TimelineLayerViewModel? item in Layers.GetMarshal().Value)
                 {
                     item.Dispose();
                 }
@@ -131,7 +131,7 @@ public sealed class TimelineViewModel : IToolContext
     public void Dispose()
     {
         _disposables.Dispose();
-        foreach (TimelineLayerViewModel? item in Layers.AsSpan())
+        foreach (TimelineLayerViewModel? item in Layers.GetMarshal().Value)
         {
             item.Dispose();
         }

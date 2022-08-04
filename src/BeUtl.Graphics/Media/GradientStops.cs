@@ -37,7 +37,7 @@ public sealed class GradientStops : AffectsRenders<GradientStop>, IJsonSerializa
     {
         var array = new JsonArray();
 
-        foreach (GradientStop item in AsSpan())
+        foreach (GradientStop item in GetMarshal().Value)
         {
             JsonNode node = new JsonObject();
             item.WriteToJson(ref node);

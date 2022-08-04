@@ -99,7 +99,7 @@ public sealed class DevelopPageViewModel : IDisposable
     public void Dispose()
     {
         _disposables.Dispose();
-        foreach (PackageDetailsPageViewModel item in Packages.AsSpan())
+        foreach (PackageDetailsPageViewModel item in Packages.GetMarshal().Value)
         {
             item.Dispose();
         }

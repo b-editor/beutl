@@ -37,7 +37,7 @@ public sealed class BitmapEffectGroup : BitmapEffect
         {
             IBitmapProcessor[] array = new IBitmapProcessor[ValidEffectCount()];
             int index = 0;
-            foreach (BitmapEffect item in _children.AsSpan())
+            foreach (BitmapEffect item in _children.GetMarshal().Value)
             {
                 if (item.IsEnabled)
                 {
@@ -60,7 +60,7 @@ public sealed class BitmapEffectGroup : BitmapEffect
 
     public override Rect TransformBounds(Rect rect)
     {
-        foreach (BitmapEffect item in _children.AsSpan())
+        foreach (BitmapEffect item in _children.GetMarshal().Value)
         {
             if (item.IsEnabled)
                 rect = item.TransformBounds(rect);
@@ -71,7 +71,7 @@ public sealed class BitmapEffectGroup : BitmapEffect
     private int ValidEffectCount()
     {
         int count = 0;
-        foreach (BitmapEffect item in _children.AsSpan())
+        foreach (BitmapEffect item in _children.GetMarshal().Value)
         {
             if (item.IsEnabled)
             {
@@ -84,7 +84,7 @@ public sealed class BitmapEffectGroup : BitmapEffect
     public override void ApplyStyling(IClock clock)
     {
         base.ApplyStyling(clock);
-        foreach (IBitmapEffect item in Children.AsSpan())
+        foreach (IBitmapEffect item in Children.GetMarshal().Value)
         {
             (item as Styleable)?.ApplyStyling(clock);
         }
@@ -93,7 +93,7 @@ public sealed class BitmapEffectGroup : BitmapEffect
     public override void ApplyAnimations(IClock clock)
     {
         base.ApplyAnimations(clock);
-        foreach (IBitmapEffect item in Children.AsSpan())
+        foreach (IBitmapEffect item in Children.GetMarshal().Value)
         {
             (item as Animatable)?.ApplyAnimations(clock);
         }
@@ -138,7 +138,7 @@ public sealed class BitmapEffectGroup : BitmapEffect
         {
             var array = new JsonArray();
 
-            foreach (BitmapEffect item in _children.AsSpan())
+            foreach (BitmapEffect item in _children.GetMarshal().Value)
             {
                 JsonNode node = new JsonObject();
                 item.WriteToJson(ref node);

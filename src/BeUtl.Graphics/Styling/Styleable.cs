@@ -162,7 +162,7 @@ public abstract class Styleable : Animatable, IStyleable
             {
                 var styles = new JsonArray();
 
-                foreach (IStyle style in Styles.AsSpan())
+                foreach (IStyle style in Styles.GetMarshal().Value)
                 {
                     styles.Add(style.ToJson());
                 }

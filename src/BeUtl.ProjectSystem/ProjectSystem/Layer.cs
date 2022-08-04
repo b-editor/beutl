@@ -288,7 +288,7 @@ public class Layer : Element, IStorable, ILogicalElement
                 jobject["renderable"] = node;
             }
 
-            Span<StreamOperator> operators = Operators.AsSpan();
+            Span<StreamOperator> operators = Operators.GetMarshal().Value;
             if (operators.Length > 0)
             {
                 var array = new JsonArray();
@@ -414,7 +414,7 @@ public class Layer : Element, IStorable, ILogicalElement
         if (Parent is Scene scene)
         {
             Layer? tmp = null;
-            foreach (Layer? item in scene.Children.AsSpan())
+            foreach (Layer? item in scene.Children.GetMarshal().Value)
             {
                 if (item != this && item.ZIndex == zindex && item.Start < start)
                 {
@@ -435,7 +435,7 @@ public class Layer : Element, IStorable, ILogicalElement
         if (Parent is Scene scene)
         {
             Layer? tmp = null;
-            foreach (Layer? item in scene.Children.AsSpan())
+            foreach (Layer? item in scene.Children.GetMarshal().Value)
             {
                 if (item != this && item.ZIndex == zindex && item.Range.End > end)
                 {
@@ -460,7 +460,7 @@ public class Layer : Element, IStorable, ILogicalElement
             Layer? coverTmp = null;
             var range = new TimeRange(start, end - start);
 
-            foreach (Layer? item in scene.Children.AsSpan())
+            foreach (Layer? item in scene.Children.GetMarshal().Value)
             {
                 if (item != this && item.ZIndex == zindex)
                 {

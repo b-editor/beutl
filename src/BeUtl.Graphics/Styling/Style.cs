@@ -44,7 +44,7 @@ public class Style : IStyle
     {
         var array = new ISetterInstance[_setters.Count];
         int index = 0;
-        foreach (ISetter item in _setters.AsSpan())
+        foreach (ISetter item in _setters.GetMarshal().Value)
         {
             array[index++] = item.Instance(target);
         }

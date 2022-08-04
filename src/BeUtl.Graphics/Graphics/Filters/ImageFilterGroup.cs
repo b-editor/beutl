@@ -46,7 +46,7 @@ public sealed class ImageFilterGroup : ImageFilter
     {
         Rect original = rect;
 
-        foreach (ImageFilter item in _children.AsSpan())
+        foreach (ImageFilter item in _children.GetMarshal().Value)
         {
             if (item.IsEnabled)
                 rect = item.TransformBounds(original).Union(rect);
@@ -94,7 +94,7 @@ public sealed class ImageFilterGroup : ImageFilter
         {
             var array = new JsonArray();
 
-            foreach (ImageFilter item in _children.AsSpan())
+            foreach (ImageFilter item in _children.GetMarshal().Value)
             {
                 JsonNode node = new JsonObject();
                 item.WriteToJson(ref node);
@@ -110,7 +110,7 @@ public sealed class ImageFilterGroup : ImageFilter
     public override void ApplyStyling(IClock clock)
     {
         base.ApplyStyling(clock);
-        foreach (IImageFilter item in Children.AsSpan())
+        foreach (IImageFilter item in Children.GetMarshal().Value)
         {
             (item as Styleable)?.ApplyStyling(clock);
         }
@@ -119,7 +119,7 @@ public sealed class ImageFilterGroup : ImageFilter
     public override void ApplyAnimations(IClock clock)
     {
         base.ApplyAnimations(clock);
-        foreach (IImageFilter item in Children.AsSpan())
+        foreach (IImageFilter item in Children.GetMarshal().Value)
         {
             (item as Animatable)?.ApplyAnimations(clock);
         }
@@ -129,7 +129,7 @@ public sealed class ImageFilterGroup : ImageFilter
     {
         var array = new SKImageFilter[ValidEffectCount()];
         int index = 0;
-        foreach (ImageFilter item in _children.AsSpan())
+        foreach (ImageFilter item in _children.GetMarshal().Value)
         {
             if (item.IsEnabled)
             {
@@ -151,7 +151,7 @@ public sealed class ImageFilterGroup : ImageFilter
     private int ValidEffectCount()
     {
         int count = 0;
-        foreach (ImageFilter item in _children.AsSpan())
+        foreach (ImageFilter item in _children.GetMarshal().Value)
         {
             if (item.IsEnabled)
             {

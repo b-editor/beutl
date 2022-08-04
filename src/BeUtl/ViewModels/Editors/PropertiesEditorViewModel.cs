@@ -17,7 +17,7 @@ public sealed class PropertiesEditorViewModel : IDisposable
 
     public void Dispose()
     {
-        foreach (BaseEditorViewModel item in Properties.AsSpan())
+        foreach (BaseEditorViewModel item in Properties.GetMarshal().Value)
         {
             item.Dispose();
         }

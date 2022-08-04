@@ -69,7 +69,7 @@ internal sealed class SceneRenderer : ImmediateRenderer/*DeferredRenderer*/
         prevResult?.BeginBatchUpdate();
 
         Renderable? result = prevResult;
-        foreach (StreamOperator? item in layer.Operators.AsSpan())
+        foreach (StreamOperator? item in layer.Operators.GetMarshal().Value)
         {
             if (item is IStreamSelector selector)
             {

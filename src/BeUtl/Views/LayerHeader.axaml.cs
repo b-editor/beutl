@@ -98,10 +98,10 @@ public sealed partial class LayerHeader : UserControl
             _oldLayerNum = oldLayerNum;
             _items1 = items;
             _items2 = new();
-            Span<TLVM> span1 = _viewModel.Timeline.Layers.AsSpan();
-            Span<LayerHeaderViewModel> span2 = _viewModel.Timeline.LayerHeaders.AsSpan();
+            CoreListMarshal<TLVM> span1 = _viewModel.Timeline.Layers.GetMarshal();
+            CoreListMarshal<LayerHeaderViewModel> span2 = _viewModel.Timeline.LayerHeaders.GetMarshal();
 
-            foreach (TLVM item in span1)
+            foreach (TLVM item in span1.Value)
             {
                 if (item.Model.ZIndex != oldLayerNum
                     && ((item.Model.ZIndex > oldLayerNum && item.Model.ZIndex <= newLayerNum)
@@ -112,7 +112,7 @@ public sealed partial class LayerHeader : UserControl
             }
 
             _viewModels = new List<LayerHeaderViewModel>();
-            foreach (LayerHeaderViewModel item in span2)
+            foreach (LayerHeaderViewModel item in span2.Value)
             {
                 if (item.Number.Value != oldLayerNum
                     && ((item.Number.Value > oldLayerNum && item.Number.Value <= newLayerNum)

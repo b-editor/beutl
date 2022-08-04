@@ -80,11 +80,11 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider
         SaveState();
         _disposables.Dispose();
 
-        foreach (ToolTabViewModel item in BottomTabItems.AsSpan())
+        foreach (ToolTabViewModel item in BottomTabItems.GetMarshal().Value)
         {
             item.Dispose();
         }
-        foreach (ToolTabViewModel item in RightTabItems.AsSpan())
+        foreach (ToolTabViewModel item in RightTabItems.GetMarshal().Value)
         {
             item.Dispose();
         }
@@ -244,7 +244,7 @@ public sealed class EditViewModel : IEditorContext, ITimelineOptionsProvider
                 int layer = (int?)json["selected-layer"] ?? -1;
                 if (layer >= 0)
                 {
-                    foreach (Layer item in Scene.Children.AsSpan())
+                    foreach (Layer item in Scene.Children.GetMarshal().Value)
                     {
                         if (item.ZIndex == layer)
                         {

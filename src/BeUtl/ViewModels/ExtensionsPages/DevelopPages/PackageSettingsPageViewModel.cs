@@ -378,7 +378,7 @@ public sealed class PackageSettingsPageViewModel : IDisposable
 
         _disposables.Dispose();
 
-        foreach (ResourcePageViewModel item in Items.AsSpan())
+        foreach (ResourcePageViewModel item in Items.GetMarshal().Value)
         {
             item.Dispose();
         }

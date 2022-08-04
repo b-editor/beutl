@@ -24,7 +24,7 @@ public sealed class AnimatableCorePropertyWrapper<T> : CorePropertyWrapper<T>, I
         protected override void Subscribed(IObserver<bool> observer, bool first)
         {
             base.Subscribed(observer, first);
-            foreach (IAnimation item in _obj.Animations.AsSpan())
+            foreach (IAnimation item in _obj.Animations.GetMarshal().Value)
             {
                 if (item.Property.Id == _property.Id
                     && item is Animation<T> { Children.Count: > 0 })
@@ -126,7 +126,7 @@ public sealed class AnimatableCorePropertyWrapper<T> : CorePropertyWrapper<T>, I
     {
         var animatable = (Animatable)Tag;
 
-        foreach (IAnimation item in animatable.Animations.AsSpan())
+        foreach (IAnimation item in animatable.Animations.GetMarshal().Value)
         {
             if (item.Property.Id == AssociatedProperty.Id
                 && item is Animation<T> animation1)

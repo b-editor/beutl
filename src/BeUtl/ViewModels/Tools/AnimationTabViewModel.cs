@@ -72,7 +72,7 @@ public sealed class AnimationTabViewModel : IToolContext
 
     private void ClearItems()
     {
-        foreach (AnimationSpanEditorViewModel? item in Items.AsSpan())
+        foreach (AnimationSpanEditorViewModel? item in Items.GetMarshal().Value)
         {
             item?.Dispose();
         }

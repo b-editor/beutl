@@ -101,7 +101,7 @@ public sealed class StyleEditorViewModel : IToolContext
 
     private void ClearItems()
     {
-        BaseEditorViewModel?[] tmp = Properties.AsSpan().ToArray();
+        BaseEditorViewModel?[] tmp = Properties.GetMarshal().Value.ToArray();
         Properties.Clear();
         foreach (BaseEditorViewModel? item in tmp)
         {

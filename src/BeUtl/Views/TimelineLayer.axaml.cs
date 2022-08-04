@@ -276,7 +276,7 @@ public sealed partial class TimelineLayer : UserControl
 
         if (!flag)
         {
-            foreach (Layer item in ViewModel.Scene.Children.AsSpan())
+            foreach (Layer item in ViewModel.Scene.Children.GetMarshal().Value)
             {
                 if (item != layer)
                 {

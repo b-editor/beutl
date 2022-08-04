@@ -46,7 +46,7 @@ public sealed class TransformGroup : Transform
         {
             Matrix value = Matrix.Identity;
 
-            foreach (Transform item in _children.AsSpan())
+            foreach (Transform item in _children.GetMarshal().Value)
             {
                 if (item.IsEnabled)
                     value = item.Value * value;
@@ -94,7 +94,7 @@ public sealed class TransformGroup : Transform
         {
             var array = new JsonArray();
 
-            foreach (Transform item in _children.AsSpan())
+            foreach (Transform item in _children.GetMarshal().Value)
             {
                 JsonNode node = new JsonObject();
                 item.WriteToJson(ref node);
@@ -111,7 +111,7 @@ public sealed class TransformGroup : Transform
     public override void ApplyStyling(IClock clock)
     {
         base.ApplyStyling(clock);
-        foreach (ITransform item in Children.AsSpan())
+        foreach (ITransform item in Children.GetMarshal().Value)
         {
             (item as Styleable)?.ApplyStyling(clock);
         }
@@ -120,7 +120,7 @@ public sealed class TransformGroup : Transform
     public override void ApplyAnimations(IClock clock)
     {
         base.ApplyAnimations(clock);
-        foreach (ITransform item in Children.AsSpan())
+        foreach (ITransform item in Children.GetMarshal().Value)
         {
             (item as Animatable)?.ApplyAnimations(clock);
         }

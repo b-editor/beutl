@@ -170,7 +170,7 @@ public class Scene : Element, IStorable, IWorkspaceItem
         Renderer = new SceneRenderer(this, width, height);
         _renderer = Renderer;
 
-        foreach (Layer item in _children.AsSpan())
+        foreach (Layer item in _children.GetMarshal().Value)
         {
             ILayerContext? context = _renderer[item.ZIndex];
             if (context == null)
@@ -402,7 +402,7 @@ public class Scene : Element, IStorable, IWorkspaceItem
         matcher.AddExcludePatterns(_excludeLayers);
 
         string[] files = matcher.Execute(directory).Files.Select(x => x.Path).ToArray();
-        foreach (Layer item in Children.AsSpan())
+        foreach (Layer item in Children.GetMarshal().Value)
         {
             string rel = Path.GetRelativePath(dirPath, item.FileName).Replace('\\', '/');
 

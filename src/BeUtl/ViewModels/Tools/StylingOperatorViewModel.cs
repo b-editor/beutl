@@ -33,7 +33,7 @@ public sealed class StylingOperatorViewModel : IDisposable
             },
             () =>
             {
-                foreach (BaseEditorViewModel? item in Properties.AsSpan())
+                foreach (BaseEditorViewModel? item in Properties.GetMarshal().Value)
                 {
                     item?.Dispose();
                 }
@@ -69,7 +69,7 @@ public sealed class StylingOperatorViewModel : IDisposable
     public void Dispose()
     {
         _disposable0.Dispose();
-        foreach (BaseEditorViewModel? item in Properties.AsSpan())
+        foreach (BaseEditorViewModel? item in Properties.GetMarshal().Value)
         {
             item?.Dispose();
         }
