@@ -1,4 +1,5 @@
-﻿using System.Text.Json.Nodes;
+﻿using System.Buffers;
+using System.Text.Json.Nodes;
 
 using BeUtl.Framework;
 using BeUtl.Services;
@@ -80,10 +81,7 @@ public sealed class StyleEditorViewModel : IToolContext
 
     public ReadOnlyReactivePropertySlim<bool> IsStyleNotNull { get; }
 
-    public CoreList<BaseEditorViewModel?> Properties { get; } = new()
-    {
-        ResetBehavior = ResetBehavior.Remove
-    };
+    public CoreList<BaseEditorViewModel?> Properties { get; } = new();
 
     public ReactivePropertySlim<Type[]?> StyleableTypes { get; } = new();
 
@@ -101,12 +99,12 @@ public sealed class StyleEditorViewModel : IToolContext
 
     private void ClearItems()
     {
-        BaseEditorViewModel?[] tmp = Properties.GetMarshal().Value.ToArray();
-        Properties.Clear();
-        foreach (BaseEditorViewModel? item in tmp)
+        foreach (BaseEditorViewModel? item in Properties.GetMarshal().Value)
         {
             item?.Dispose();
         }
+
+        Properties.Clear();
     }
 
     public void Dispose()
