@@ -17,7 +17,7 @@ public readonly ref struct CoreListMarshal<T>
     {
         _refAs = list.GetReflection();
         _version = _refAs.Version;
-        _value = _refAs.Items.AsSpan();
+        _value = _refAs.Items.AsSpan().Slice(0.._refAs.Count);
     }
 
     public Span<T> Value
