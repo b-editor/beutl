@@ -87,7 +87,7 @@ public static class PropertyRegistry
         return null;
     }
 
-    public static CoreProperty? FindRegistered(IElement o, string name)
+    public static CoreProperty? FindRegistered(ICoreObject o, string name)
     {
         ArgumentNullException.ThrowIfNull(o);
         if (string.IsNullOrEmpty(name))

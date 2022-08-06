@@ -22,7 +22,7 @@ public interface IWorkspace : ITopLevel
     Version MinAppVersion { get; }
 }
 
-public interface IWorkspaceItem : IStorable, IElement
+public interface IWorkspaceItem : IStorable, ILogicalElement, ICoreObject
 {
 }
 

@@ -3,6 +3,11 @@
     <RootNameSpace>BeUtl</RootNameSpace>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Remove="Collections\PooledArray.cs" />
+    <Compile Remove="Collections\UnmanagedArray.cs" />
+    <Compile Remove="Collections\UnmanagedList.cs" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\BeUtl.Utilities\BeUtl.Utilities.csproj" />
   </ItemGroup>
   <ItemGroup>

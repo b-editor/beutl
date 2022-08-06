@@ -5,13 +5,13 @@ namespace BeUtl;
 public sealed class PropertyChangeTracker : IDisposable
 {
     private readonly List<CorePropertyChangedEventArgs> _changes = new();
-    private readonly List<IElement> _trackingElement = new();
+    private readonly List<ICoreObject> _trackingElement = new();
 
-    public PropertyChangeTracker(IEnumerable<IElement> elements, int maxDepth = -1)
+    public PropertyChangeTracker(IEnumerable<ICoreObject> elements, int maxDepth = -1)
     {
         MaxDepth = maxDepth;
 
-        foreach (IElement item in elements)
+        foreach (ICoreObject item in elements)
         {
             AddHandlers(item, 0);
         }
@@ -24,7 +24,7 @@ public sealed class PropertyChangeTracker : IDisposable
 
     public int MaxDepth { get; }
 
-    public IReadOnlyList<IElement> TrackingElements => _trackingElement;
+    public IReadOnlyList<ICoreObject> TrackingElements => _trackingElement;
 
     public bool IsDisposed { get; private set; }
 
@@ -33,14 +33,34 @@ public sealed class PropertyChangeTracker : IDisposable
         return new CommandImpl(_changes.ToArray());
     }
 
-    private void AddHandlers(IElement element, int currentDepth)
+    private void AddHandlers(ICoreObject obj, int currentDepth)
     {
         if (MaxDepth == -1 || currentDepth <= MaxDepth)
         {
-            _trackingElement.Add(element);
-            element.PropertyChanged += OnPropertyChanged;
+            _trackingElement.Add(obj);
+            obj.PropertyChanged += OnPropertyChanged;
 
-            foreach (IElement item in element.LogicalChildren)
+            if (obj is ILogicalElement elm)
+            {
+                foreach (ILogicalElement item in elm.LogicalChildren)
+                {
+                    AddHandlers(item, currentDepth + 1);
+                }
+            }
+        }
+    }
+
+    private void AddHandlers(ILogicalElement elm, int currentDepth)
+    {
+        if (MaxDepth == -1 || currentDepth <= MaxDepth)
+        {
+            if(elm is ICoreObject obj)
+            {
+                _trackingElement.Add(obj);
+                obj.PropertyChanged += OnPropertyChanged;
+            }
+
+            foreach (ILogicalElement item in elm.LogicalChildren)
             {
                 AddHandlers(item, currentDepth + 1);
             }
@@ -51,7 +71,7 @@ public sealed class PropertyChangeTracker : IDisposable
     {
         for (int i = 0; i < _trackingElement.Count; i++)
         {
-            IElement item = _trackingElement[i];
+            ICoreObject item = _trackingElement[i];
             item.PropertyChanged -= OnPropertyChanged;
         }
 

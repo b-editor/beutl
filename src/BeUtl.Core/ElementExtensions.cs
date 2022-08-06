@@ -1,42 +1,11 @@
 ﻿using System.ComponentModel;
-using System.Reactive.Subjects;
 
 using BeUtl.Reactive;
 
 namespace BeUtl;
 
-public static class ElementExtensions
+public static class CoreObjectExtensions
 {
-    public static ICoreObject? Find(this IElement self, Guid id)
-    {
-        ArgumentNullException.ThrowIfNull(self);
-
-        foreach (ICoreObject item in self.LogicalChildren)
-        {
-            if (item.Id == id)
-            {
-                return item;
-            }
-        }
-
-        return null;
-    }
-
-    public static ICoreObject? FindAllChildren(this IElement self, Guid id)
-    {
-        ArgumentNullException.ThrowIfNull(self);
-
-        foreach (ICoreObject item in self.EnumerateAllChildren<ICoreObject>())
-        {
-            if (item.Id == id)
-            {
-                return item;
-            }
-        }
-
-        return null;
-    }
-
     public static IObservable<CorePropertyChangedEventArgs<T>> GetPropertyChangedObservable<T>(this ICoreObject obj, CoreProperty<T> property)
     {
         ArgumentNullException.ThrowIfNull(obj);

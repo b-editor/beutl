@@ -1,6 +1,6 @@
 ﻿namespace BeUtl;
 
-public interface ITopLevel : IElement
+public interface ITopLevel : ILogicalElement
 {
     string RootDirectory { get; }
 

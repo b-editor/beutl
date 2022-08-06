@@ -23,15 +23,6 @@ public sealed class CorePropertyBuilder<T, TOwner> : ICorePropertyBuilder<T>
         _name = name;
     }
 
-    public CorePropertyBuilder(CorePropertyBuilder<T, TOwner> baseObject)
-    {
-        _name = baseObject._name;
-        //_defaultValue = baseObject._defaultValue;
-        //_observability = baseObject._observability;
-        //_serializeName = baseObject._serializeName;
-        //_propertyFlags = baseObject._propertyFlags;
-    }
-
     public CoreProperty<T> Register()
     {
         CoreProperty<T>? property = null;
@@ -234,7 +225,7 @@ public sealed class CorePropertyBuilder<T, TOwner> : ICorePropertyBuilder<T>
             IValidator<T> validator2 = validator1;
             if (merge && _metadata.Validator != null)
             {
-            validator2 = MergeValidator(_metadata.Validator, validator1);
+                validator2 = MergeValidator(_metadata.Validator, validator1);
             }
             _metadata = _metadata with
             {

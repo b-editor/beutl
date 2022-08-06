@@ -1,22 +1,6 @@
-﻿using System.ComponentModel;
+﻿namespace BeUtl;
 
-namespace BeUtl;
-
-/// <summary>
-/// Provides the base class for all hierarchal elements.
-/// </summary>
-public interface IElement : ICoreObject, ILogicalElement
-{
-    /// <summary>
-    /// Gets the parent element.
-    /// </summary>
-    IElement? Parent { get; }
-}
-
-/// <summary>
-/// Provides the base class for all hierarchal elements.
-/// </summary>
-public abstract class Element : CoreObject, IElement
+public abstract class Element : CoreObject, ILogicalElement
 {
     public static readonly CoreProperty<Element?> ParentProperty;
     private ILogicalElement? _parent;
@@ -28,9 +12,6 @@ public abstract class Element : CoreObject, IElement
             .Register();
     }
 
-    /// <summary>
-    /// Gets or sets the parent element.
-    /// </summary>
     public Element? Parent
     {
         get => _parent as Element;
@@ -45,8 +26,6 @@ public abstract class Element : CoreObject, IElement
     ILogicalElement? ILogicalElement.LogicalParent => _parent;
 
     IEnumerable<ILogicalElement> ILogicalElement.LogicalChildren => OnEnumerateChildren();
-
-    IElement? IElement.Parent => Parent;
 
     public event EventHandler<LogicalTreeAttachmentEventArgs>? AttachedToLogicalTree;
 

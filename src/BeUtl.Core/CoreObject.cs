@@ -1,22 +1,12 @@
 ﻿using System.ComponentModel;
-using System.ComponentModel.Design;
-using System.Diagnostics.CodeAnalysis;
-using System.Runtime.CompilerServices;
-using System.Text.Json;
 using System.Text.Json.Nodes;
 
 namespace BeUtl;
 
 public interface ICoreObject : INotifyPropertyChanged, IJsonSerializable
 {
-    /// <summary>
-    /// Gets or sets the id.
-    /// </summary>
     Guid Id { get; set; }
 
-    /// <summary>
-    /// Gets or sets the name.
-    /// </summary>
     string Name { get; set; }
 
     void BeginBatchUpdate();
@@ -38,20 +28,9 @@ public interface ICoreObject : INotifyPropertyChanged, IJsonSerializable
 
 public abstract class CoreObject : ICoreObject
 {
-    /// <summary>
-    /// Defines the <see cref="Id"/> property.
-    /// </summary>
     public static readonly CoreProperty<Guid> IdProperty;
 
-    /// <summary>
-    /// Defines the <see cref="Name"/> property.
-    /// </summary>
     public static readonly CoreProperty<string> NameProperty;
-
-    /// <summary>
-    /// The last JsonNode that was used.
-    /// </summary>
-    //protected JsonNode? JsonNode;
 
     private Dictionary<int, IEntry>? _values;
     private Dictionary<int, IBatchEntry>? _batchChanges;
@@ -97,18 +76,12 @@ public abstract class CoreObject : ICoreObject
             .Register();
     }
 
-    /// <summary>
-    /// Gets or sets the id.
-    /// </summary>
     public Guid Id
     {
         get => GetValue(IdProperty);
         set => SetValue(IdProperty, value);
     }
 
-    /// <summary>
-    /// Gets or sets the name.
-    /// </summary>
     public string Name
     {
         get => GetValue(NameProperty);
@@ -121,9 +94,6 @@ public abstract class CoreObject : ICoreObject
 
     private Dictionary<int, IBatchEntry> BatchChanges => _batchChanges ??= new();
 
-    /// <summary>
-    /// Occurs when a property value changes.
-    /// </summary>
     public event PropertyChangedEventHandler? PropertyChanged;
 
     public static CorePropertyBuilder<T, TOwner> ConfigureProperty<T, TOwner>(string name)
@@ -169,7 +139,7 @@ public abstract class CoreObject : ICoreObject
     public TValue GetValue<TValue>(CoreProperty<TValue> property)
     {
         Type ownerType = GetType();
-        if (ValidateOwnerType(property, ownerType))
+        if (!ownerType.IsAssignableTo(property.OwnerType))
         {
             throw new InvalidOperationException("Owner does not match.");
         }
@@ -211,10 +181,15 @@ public abstract class CoreObject : ICoreObject
     public void SetValue<TValue>(CoreProperty<TValue> property, TValue? value)
     {
         if (value != null && !value.GetType().IsAssignableTo(property.PropertyType))
+        {
             throw new InvalidOperationException($"{nameof(value)} of type {value.GetType().Name} cannot be assigned to type {property.PropertyType}.");
+        }
 
         Type ownerType = GetType();
-        if (ValidateOwnerType(property, ownerType)) throw new InvalidOperationException("Owner does not match.");
+        if (!ownerType.IsAssignableTo(property.OwnerType))
+        {
+            throw new InvalidOperationException("Owner does not match.");
+        }
 
         if (property is StaticProperty<TValue> staticProperty)
         {
@@ -296,7 +271,7 @@ public abstract class CoreObject : ICoreObject
         {
             Type ownerType = GetType();
 
-            IReadOnlyList<CoreProperty> list = PropertyRegistry.GetRegistered(GetType());
+            IReadOnlyList<CoreProperty> list = PropertyRegistry.GetRegistered(ownerType);
             for (int i = 0; i < list.Count; i++)
             {
                 CoreProperty item = list[i];
@@ -316,7 +291,7 @@ public abstract class CoreObject : ICoreObject
 
         if (json is JsonObject obj)
         {
-            IReadOnlyList<CoreProperty> list = PropertyRegistry.GetRegistered(GetType());
+            IReadOnlyList<CoreProperty> list = PropertyRegistry.GetRegistered(ownerType);
             for (int i = 0; i < list.Count; i++)
             {
                 CoreProperty item = list[i];
@@ -408,12 +383,6 @@ public abstract class CoreObject : ICoreObject
         }
 
         return result;
-    }
-
-    // オーナーの型が一致しない場合はtrue
-    private static bool ValidateOwnerType(CoreProperty property, Type ownerType)
-    {
-        return !ownerType.IsAssignableTo(property.OwnerType);
     }
 
     private void RaisePropertyChanged<T>(CoreProperty<T> property, CorePropertyMetadata metadata, T? newValue, T? oldValue)
