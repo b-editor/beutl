@@ -9,6 +9,7 @@
              xmlns:interactivity="using:Avalonia.Xaml.Interactivity"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:uip="using:FluentAvalonia.UI.Controls.Primitives"
+             xmlns:ic="using:FluentIcons.Avalonia"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              Padding="0"
              Focusable="True"
@@ -50,7 +51,7 @@
                     <!--新規作成-->
                     <MenuItem Header="{DynamicResource S.MainView.File.CreateNew}">
                         <MenuItem.Icon>
-                            <FluentIconRegular IconType="New" Classes="Small" />
+                            <ic:SymbolIcon Symbol="New" />
                         </MenuItem.Icon>
                         <!--プロジェクト-->
                         <MenuItem
@@ -67,7 +68,7 @@
                     <!--開く-->
                     <MenuItem Header="{DynamicResource S.MainView.File.Open}">
                         <MenuItem.Icon>
-                            <FluentIconRegular IconType="Open" Classes="Small" />
+                            <ic:SymbolIcon Symbol="Open" />
                         </MenuItem.Icon>
                         <!--プロジェクト-->
                         <MenuItem
@@ -98,7 +99,7 @@
                         InputGesture="{DynamicResource SaveKeyGesture}"
                         IsEnabled="{CompiledBinding IsProjectOpened.Value}">
                         <MenuItem.Icon>
-                            <FluentIconRegular IconType="Save" Classes="Small" />
+                            <ic:SymbolIcon Symbol="Save" />
                         </MenuItem.Icon>
                     </MenuItem>
                     <!--すべて保存-->
@@ -108,7 +109,7 @@
                         InputGesture="{DynamicResource SaveAllKeyGesture}"
                         IsEnabled="{CompiledBinding IsProjectOpened.Value}">
                         <MenuItem.Icon>
-                            <FluentIconRegular IconType="Save_Multiple" Classes="Small" />
+                            <ic:SymbolIcon Symbol="SaveMultiple" />
                         </MenuItem.Icon>
                     </MenuItem>
                     <Separator />
@@ -134,7 +135,7 @@
                         InputGesture="{DynamicResource UndoKeyGesture}"
                         IsEnabled="{CompiledBinding IsProjectOpened.Value}">
                         <MenuItem.Icon>
-                            <FluentIconRegular IconType="Arrow_Undo" Classes="Small" />
+                            <ic:SymbolIcon Symbol="ArrowUndo" />
                         </MenuItem.Icon>
                     </MenuItem>
                     <!--やり直し-->
@@ -144,7 +145,7 @@
                         InputGesture="{DynamicResource RedoKeyGesture}"
                         IsEnabled="{CompiledBinding IsProjectOpened.Value}">
                         <MenuItem.Icon>
-                            <FluentIconRegular IconType="Arrow_Redo" Classes="Small" />
+                            <ic:SymbolIcon Symbol="ArrowRedo" />
                         </MenuItem.Icon>
                     </MenuItem>
                 </MenuItem>

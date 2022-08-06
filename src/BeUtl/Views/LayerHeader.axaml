@@ -5,6 +5,7 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:vm="using:BeUtl.ViewModels"
     xmlns:ui="using:FluentAvalonia.UI.Controls"
+    xmlns:ic="using:FluentIcons.Avalonia"
     mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
     x:DataType="vm:LayerHeaderViewModel"
     Height="{DynamicResource LayerHeight}"
@@ -46,7 +47,7 @@
                     <Setter Property="Background" Value="{DynamicResource ButtonBackgroundPointerOver}" />
                 </Style>
             </Border.Styles>
-            <FluentIconRegular IconType="Re_Order_Dots_Vertical" Width="12" Height="12" />
+            <ic:SymbolIcon Symbol="ReOrderDotsVertical" FontSize="14" />
         </Border>
 
         <ToggleButton
@@ -66,14 +67,14 @@
                 <Style Selector="ToggleButton">
                     <Setter Property="Content">
                         <Template>
-                            <FluentIconRegular IconType="Eye_Hide" Width="16" Height="16" />
+                            <ic:SymbolIcon Symbol="EyeOff" />
                         </Template>
                     </Setter>
                 </Style>
                 <Style Selector="ToggleButton:checked">
                     <Setter Property="Content">
                         <Template>
-                            <FluentIconRegular IconType="Eye_Show" Width="16" Height="16" />
+                            <ic:SymbolIcon Symbol="Eye" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
                         </Template>
                     </Setter>
                 </Style>

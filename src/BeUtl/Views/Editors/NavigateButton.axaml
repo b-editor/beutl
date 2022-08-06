@@ -5,6 +5,7 @@
              xmlns:vm="using:BeUtl.ViewModels.Editors"
              xmlns:local="using:BeUtl.Views.Editors"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
+             xmlns:ic="using:FluentIcons.Avalonia"
              mc:Ignorable="d" d:DesignWidth="300"
              x:Class="BeUtl.Views.Editors.NavigateButton">
     <Grid ColumnDefinitions="2*,3*,24">
@@ -59,9 +60,7 @@
                               Header="削除" />
                 </ContextMenu>
             </Button.ContextMenu>
-            <FluentIconRegular Width="16" Height="16"
-                               HorizontalAlignment="Center" VerticalAlignment="Center"
-                               IconType="More_Vertical" />
+            <ic:SymbolIcon Symbol="MoreVertical" />
         </Button>
     </Grid>
 </UserControl>

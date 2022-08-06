@@ -5,6 +5,7 @@ using Avalonia.Styling;
 
 namespace BeUtl.Controls;
 
+[Obsolete("Use 'FluentIcons.Avalonia.SymbolIcon' or 'FluentAvalonia.UI.Controls.SymbolIcon'.")]
 public sealed class FluentIconRegular : PathIcon, IStyleable
 {
     public static readonly StyledProperty<FluentIconsRegular> IconTypeProperty =

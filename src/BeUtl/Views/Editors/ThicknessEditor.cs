@@ -2,7 +2,8 @@
 using Avalonia.Data;
 using Avalonia.Layout;
 
-using BeUtl.Controls;
+using FluentIcons.Avalonia;
+using FluentIcons.Common;
 
 namespace BeUtl.Views.Editors;
 
@@ -15,13 +16,12 @@ public sealed class ThicknessEditor : BaseVector4Editor<Graphics.Thickness>
 
     public ThicknessEditor()
     {
-        static object CreateIcon(FluentIconsRegular icon)
+        static object CreateIcon(Symbol icon)
         {
-            return new FluentIconRegular
+            return new SymbolIcon
             {
-                IconType = icon,
-                Width = 16,
-                Height = 16,
+                Symbol = icon,
+                FontSize = 14,
                 VerticalAlignment = VerticalAlignment.Center,
             };
         }
@@ -30,10 +30,10 @@ public sealed class ThicknessEditor : BaseVector4Editor<Graphics.Thickness>
         yTextBox[!TextBox.TextProperty] = s_y;
         zTextBox[!TextBox.TextProperty] = s_z;
         wTextBox[!TextBox.TextProperty] = s_w;
-        xTextBox.InnerLeftContent = CreateIcon(FluentIconsRegular.Arrow_Left);
-        yTextBox.InnerLeftContent = CreateIcon(FluentIconsRegular.Arrow_Up);
-        zTextBox.InnerLeftContent = CreateIcon(FluentIconsRegular.Arrow_Right);
-        wTextBox.InnerLeftContent = CreateIcon(FluentIconsRegular.Arrow_Down);
+        xTextBox.InnerLeftContent = CreateIcon(Symbol.ArrowLeft);
+        yTextBox.InnerLeftContent = CreateIcon(Symbol.ArrowUp);
+        zTextBox.InnerLeftContent = CreateIcon(Symbol.ArrowRight);
+        wTextBox.InnerLeftContent = CreateIcon(Symbol.ArrowDown);
     }
 
     protected override Graphics.Thickness IncrementX(Graphics.Thickness value, int increment)

@@ -5,6 +5,7 @@
              xmlns:viewModels="using:BeUtl.ViewModels.ExtensionsPages.DevelopPages"
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:ctrls="using:BeUtl.Controls"
+             xmlns:ic="using:FluentIcons.Avalonia"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Name="root"
              x:DataType="viewModels:ResourcePageViewModel"
@@ -205,21 +206,21 @@
                                                                   CommandParameter="{Binding}"
                                                                   Command="{Binding #root.DataContext.DeleteScreenshot}">
                                                             <MenuItem.Icon>
-                                                                <ctrls:FluentIconRegular IconType="Delete" />
+                                                                <ic:SymbolIcon Symbol="Delete" />
                                                             </MenuItem.Icon>
                                                         </MenuItem>
                                                         <MenuItem Header="{DynamicResource S.DevelopPage.Package.MoveOneFront}"
                                                                   CommandParameter="{Binding}"
                                                                   Command="{Binding #root.DataContext.MoveScreenshotFront}">
                                                             <MenuItem.Icon>
-                                                                <ctrls:FluentIconRegular IconType="Arrow_Left" />
+                                                                <ic:SymbolIcon Symbol="ArrowLeft" />
                                                             </MenuItem.Icon>
                                                         </MenuItem>
                                                         <MenuItem Header="{DynamicResource S.DevelopPage.Package.MoveOneBack}"
                                                                   CommandParameter="{Binding}"
                                                                   Command="{Binding #root.DataContext.MoveScreenshotBack}">
                                                             <MenuItem.Icon>
-                                                                <ctrls:FluentIconRegular IconType="Arrow_Right" />
+                                                                <ic:SymbolIcon Symbol="ArrowRight" />
                                                             </MenuItem.Icon>
                                                         </MenuItem>
                                                     </ContextMenu>

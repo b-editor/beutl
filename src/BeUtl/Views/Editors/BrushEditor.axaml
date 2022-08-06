@@ -6,6 +6,7 @@
              xmlns:vm="using:BeUtl.ViewModels.Editors"
              xmlns:local="using:BeUtl.Views.Editors"
              xmlns:media="using:BeUtl.Media"
+             xmlns:ic="using:FluentIcons.Avalonia"
              mc:Ignorable="d" d:DesignWidth="300"
              x:Name="root"
              x:DataType="vm:BrushEditorViewModel"
@@ -58,9 +59,7 @@
                               Header="削除" />
                 </ContextMenu>
             </Button.ContextMenu>
-            <FluentIconRegular Width="16" Height="16"
-                               HorizontalAlignment="Center" VerticalAlignment="Center"
-                               IconType="More_Vertical" />
+            <ic:SymbolIcon Symbol="MoreVertical" />
         </Button>
     </Grid>
 </UserControl>

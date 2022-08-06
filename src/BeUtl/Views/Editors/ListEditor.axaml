@@ -7,6 +7,7 @@
              xmlns:ui="using:FluentAvalonia.UI.Controls"
              xmlns:interactivity="using:Avalonia.Xaml.Interactivity"
              xmlns:interactions="using:Avalonia.Xaml.Interactions.Core"
+             xmlns:ic="using:FluentIcons.Avalonia"
              mc:Ignorable="d" d:DesignWidth="300" d:DesignHeight="70"
              x:Class="BeUtl.Views.Editors.ListEditor">
     <Grid ColumnDefinitions="*,24" RowDefinitions="Auto,Auto">
@@ -243,7 +244,7 @@
                                         <local:ListEditorDragBehavior Orientation="Vertical" DragControl="dragBorder" />
                                     </interactivity:BehaviorCollection>
                                 </interactivity:Interaction.Behaviors>
-                                <FluentIconRegular IconType="Re_Order_Dots_Vertical" Width="12" Height="12" />
+                                <ic:SymbolIcon Symbol="ReOrderDotsVertical" FontSize="14" />
                             </Border>
 
                             <Button Grid.Column="2"
@@ -268,9 +269,7 @@
                                                   Header="削除" />
                                     </ContextMenu>
                                 </Button.ContextMenu>
-                                <FluentIconRegular Width="16" Height="16"
-                                                   HorizontalAlignment="Center" VerticalAlignment="Center"
-                                                   IconType="More_Vertical" />
+                                <ic:SymbolIcon Symbol="MoreVertical" />
                             </Button>
                         </Grid>
                     </DataTemplate>

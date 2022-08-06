@@ -33,6 +33,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Props", "Props", "{74C34E00
 		build\props\FirebaseDatabase.net.props = build\props\FirebaseDatabase.net.props
 		build\props\FirebaseStorage.net.props = build\props\FirebaseStorage.net.props
 		build\props\FluentAvalonia.props = build\props\FluentAvalonia.props
+		build\props\FluentIcons.Avalonia.props = build\props\FluentIcons.Avalonia.props
 		build\props\Google.Cloud.Firestore.props = build\props\Google.Cloud.Firestore.props
 		build\props\Microsoft.CodeAnalysis.CSharp.Scripting.props = build\props\Microsoft.CodeAnalysis.CSharp.Scripting.props
 		build\props\Microsoft.Extensions.DependencyInjection.props = build\props\Microsoft.Extensions.DependencyInjection.props

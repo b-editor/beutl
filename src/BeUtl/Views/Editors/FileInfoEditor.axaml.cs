@@ -19,7 +19,7 @@ public sealed partial class FileInfoEditor : UserControl
 
         string? filterName = vm.Header.Value;
         string[] exts = vm.WrappedProperty
-            .GetMetadataExt<CorePropertyMetadata<FileInfo>>()?
+            .GetMetadataExt<CorePropertyMetadata<FileInfo?>>()?
             .FindValidator<FileInfoExtensionValidator>()?
             .FileExtensions ?? Array.Empty<string>();
 

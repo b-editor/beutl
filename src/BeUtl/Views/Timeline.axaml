@@ -6,6 +6,7 @@
     xmlns:local="using:BeUtl.Views"
     xmlns:vm="using:BeUtl.ViewModels"
     xmlns:ui="using:FluentAvalonia.UI.Controls"
+    xmlns:ic="using:FluentIcons.Avalonia"
     mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
     Focusable="True"
     x:DataType="vm:TimelineViewModel"
@@ -130,12 +131,12 @@
                             Header="{DynamicResource S.Timeline.Paste}"
                             InputGesture="{DynamicResource PasteKeyGesture}">
                             <MenuItem.Icon>
-                                <FluentIconRegular IconType="Clipboard_Paste" Classes="Small" />
+                                <ic:SymbolIcon Symbol="ClipboardPaste" />
                             </MenuItem.Icon>
                         </MenuItem>
                         <MenuItem Header="{DynamicResource S.Timeline.Settings}" Click="ShowSceneSettings">
                             <MenuItem.Icon>
-                                <FluentIconRegular IconType="Settings" Classes="Small" />
+                                <ic:SymbolIcon Symbol="Settings" />
                             </MenuItem.Icon>
                         </MenuItem>
                     </ContextMenu>

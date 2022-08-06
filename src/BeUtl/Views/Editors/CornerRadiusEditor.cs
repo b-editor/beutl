@@ -3,8 +3,10 @@ using Avalonia.Data;
 using Avalonia.Layout;
 using Avalonia.Media;
 
-using BeUtl.Controls;
 using BeUtl.Media;
+
+using FluentIcons.Avalonia;
+using FluentIcons.Common;
 
 namespace BeUtl.Views.Editors;
 
@@ -17,13 +19,11 @@ public sealed class CornerRadiusEditor : BaseVector4Editor<CornerRadius>
 
     public CornerRadiusEditor()
     {
-        static FluentIconRegular CreateIcon(FluentIconsRegular icon)
+        static SymbolIcon CreateIcon(Symbol icon)
         {
-            return new FluentIconRegular
+            return new SymbolIcon
             {
-                IconType = icon,
-                Width = 16,
-                Height = 16,
+                Symbol = icon,
                 VerticalAlignment = VerticalAlignment.Center,
             };
         }
@@ -33,10 +33,10 @@ public sealed class CornerRadiusEditor : BaseVector4Editor<CornerRadius>
         zTextBox[!TextBox.TextProperty] = s_bottomLeft;
         wTextBox[!TextBox.TextProperty] = s_bottomRight;
 
-        FluentIconRegular topLeftIcon = CreateIcon(FluentIconsRegular.Arrow_Up_Left);
-        FluentIconRegular topRightIcon = CreateIcon(FluentIconsRegular.Arrow_Up_Right);
-        FluentIconRegular bottomLeftIcon = CreateIcon(FluentIconsRegular.Arrow_Down_Left);
-        FluentIconRegular bottomRightIcon = CreateIcon(FluentIconsRegular.Arrow_Down_Left);
+        SymbolIcon topLeftIcon = CreateIcon(Symbol.ArrowUpLeft);
+        SymbolIcon topRightIcon = CreateIcon(Symbol.ArrowUpRight);
+        SymbolIcon bottomLeftIcon = CreateIcon(Symbol.ArrowDownLeft);
+        SymbolIcon bottomRightIcon = CreateIcon(Symbol.ArrowDownLeft);
 
         bottomRightIcon.RenderTransform = new ScaleTransform(-1, 1);
 

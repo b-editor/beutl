@@ -4,6 +4,7 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:vm="using:BeUtl.ViewModels.Editors"
+    xmlns:ic="using:FluentIcons.Avalonia"
     mc:Ignorable="d" d:DesignWidth="100" d:DesignHeight="100"
     VerticalAlignment="Center"
     x:DataType="vm:BaseEditorViewModel"
@@ -31,11 +32,6 @@
                     Header="{DynamicResource S.Common.Delete}" />
             </ContextMenu>
         </Button.ContextMenu>
-        <FluentIconRegular
-            Width="16"
-            Height="16"
-            HorizontalAlignment="Center"
-            VerticalAlignment="Center"
-            IconType="More_Vertical" />
+        <ic:SymbolIcon Symbol="MoreVertical" />
     </Button>
 </UserControl>

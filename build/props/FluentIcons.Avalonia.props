@@ -1,0 +1,5 @@
+<Project>
+  <ItemGroup>
+    <PackageReference Include="FluentIcons.Avalonia" Version="1.1.178" />
+  </ItemGroup>
+</Project>

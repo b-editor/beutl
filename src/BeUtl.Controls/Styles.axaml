@@ -1,6 +1,7 @@
-﻿<Styles xmlns="https://github.com/avaloniaui"
+<Styles xmlns="https://github.com/avaloniaui"
         xmlns:sys="clr-namespace:System;assembly=mscorlib"
         xmlns:i="using:Avalonia.Xaml.Interactivity"
+        xmlns:ic="using:FluentIcons.Avalonia"
         xmlns:b="clr-namespace:BeUtl.Controls.Behaviors;assembly=BeUtl.Controls"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
@@ -15,6 +16,11 @@
         <Setter Property="FontSize" Value="14" />
         <Setter Property="Width" Value="14" />
         <Setter Property="Height" Value="14" />
+    </Style>
+
+    <Style Selector="ic|SymbolIcon">
+        <Setter Property="FontSize" Value="18" />
+        <Setter Property="RenderTransform" Value="translateY(1px)" />
     </Style>
 
     <Style Selector="TextBox">

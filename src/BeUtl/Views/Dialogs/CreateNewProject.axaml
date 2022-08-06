@@ -5,6 +5,7 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:ui="using:FluentAvalonia.UI.Controls"
     xmlns:vm="using:BeUtl.ViewModels.Dialogs"
+    xmlns:ic="using:FluentIcons.Avalonia"
     mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
     Title="{DynamicResource S.Dialogs.CreateNewProject.Title}"
     CloseButtonText="{DynamicResource S.Dialogs.CreateNewProject.Close}"
@@ -34,7 +35,7 @@
                         HorizontalAlignment="Right"
                         BorderThickness="0"
                         Background="Transparent">
-                        <FluentIconRegular IconType="Folder_Open" />
+                        <ic:SymbolIcon Symbol="OpenFolder" />
                     </Button>
                 </Panel>
             </StackPanel>

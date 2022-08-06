@@ -1,8 +1,9 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <Nullable>disable</Nullable>
   </PropertyGroup>
   <Import Project="$(RootDirectory)\build\props\Avalonia.props" />
   <Import Project="$(RootDirectory)\build\props\Avalonia.Xaml.Interactivity.props" />
   <Import Project="$(RootDirectory)\build\props\FluentAvalonia.props" />
+  <Import Project="$(RootDirectory)\build\props\FluentIcons.Avalonia.props" />
 </Project>

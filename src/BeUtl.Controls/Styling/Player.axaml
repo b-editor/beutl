@@ -1,5 +1,6 @@
 <Styles xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ic="using:FluentIcons.Avalonia"
         xmlns:controls="using:BeUtl.Controls">
     <Design.PreviewWith>
         <controls:Player
@@ -49,6 +50,10 @@
                                 <Setter Property="Background" Value="Transparent" />
                             </Style>
 
+                            <Style Selector="ToggleButton:checked /template/ ContentPresenter#PART_ContentPresenter">
+                                <Setter Property="Background" Value="Transparent" />
+                                <Setter Property="TextBlock.Foreground" Value="{DynamicResource ToggleButtonForeground}" />
+                            </Style>
                             <Style Selector="ToggleButton:checked:pointerover /template/ Border#BorderElement">
                                 <Setter Property="BorderBrush" Value="{DynamicResource ToggleButtonBorderBrushPointerOver}" />
                             </Style>
@@ -57,9 +62,8 @@
                                 <Setter Property="TextBlock.Foreground" Value="{DynamicResource ToggleButtonForegroundPointerOver}" />
                             </Style>
 
-                            <Style Selector="ToggleButton:checked /template/ ContentPresenter#PART_ContentPresenter">
-                                <Setter Property="Background" Value="Transparent" />
-                                <Setter Property="TextBlock.Foreground" Value="{DynamicResource ToggleButtonForeground}" />
+                            <Style Selector="ic|SymbolIcon">
+                                <Setter Property="FontSize" Value="20" />
                             </Style>
                         </Grid.Styles>
 
@@ -93,11 +97,11 @@
                             HorizontalAlignment="Center">
 
                             <Button Grid.Column="1" Name="PART_StartButton">
-                                <FluentIconRegular IconType="Arrow_Previous" />
+                                <ic:SymbolIcon Symbol="Previous" />
                             </Button>
 
                             <RepeatButton Grid.Column="2" Name="PART_PreviousButton">
-                                <FluentIconRegular IconType="Rewind" />
+                                <ic:SymbolIcon Symbol="Rewind" />
                             </RepeatButton>
 
                             <ToggleButton
@@ -108,14 +112,14 @@
                                     <Style Selector="ToggleButton">
                                         <Setter Property="Content">
                                             <Template>
-                                                <FluentIconRegular IconType="Play" />
+                                                <ic:SymbolIcon Symbol="Play" />
                                             </Template>
                                         </Setter>
                                     </Style>
                                     <Style Selector="ToggleButton:checked">
                                         <Setter Property="Content">
                                             <Template>
-                                                <FluentIconRegular IconType="Pause" />
+                                                <ic:SymbolIcon Symbol="Pause" />
                                             </Template>
                                         </Setter>
                                     </Style>
@@ -123,11 +127,11 @@
                             </ToggleButton>
 
                             <RepeatButton Grid.Column="4" Name="PART_NextButton">
-                                <FluentIconRegular IconType="Fast_Forward" />
+                                <ic:SymbolIcon Symbol="FastForward" />
                             </RepeatButton>
 
                             <Button Grid.Column="5" Name="PART_EndButton">
-                                <FluentIconRegular IconType="Arrow_Next" />
+                                <ic:SymbolIcon Symbol="Next" />
                             </Button>
                         </StackPanel>
                     </Grid>

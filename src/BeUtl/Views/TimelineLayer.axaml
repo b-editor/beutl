@@ -4,6 +4,7 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:vm="using:BeUtl.ViewModels"
+    xmlns:ic="using:FluentIcons.Avalonia"
     mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
     x:DataType="vm:TimelineLayerViewModel"
     Margin="{CompiledBinding Margin.Value}"
@@ -39,7 +40,7 @@
                     CommandParameter="{Binding #root.GetClickedTime, Mode=OneTime}"
                     Header="{DynamicResource S.TimelineLayer.Split}">
                     <MenuItem.Icon>
-                        <FluentIconRegular IconType="Split_Vertical" Classes="Small" />
+                        <ic:SymbolIcon Symbol="SplitVertical" />
                     </MenuItem.Icon>
                 </MenuItem>
                 <MenuItem
@@ -47,7 +48,7 @@
                     Header="{DynamicResource S.TimelineLayer.Cut}"
                     InputGesture="{DynamicResource CutKeyGesture}">
                     <MenuItem.Icon>
-                        <FluentIconRegular IconType="Cut" Classes="Small" />
+                        <ic:SymbolIcon Symbol="Cut" />
                     </MenuItem.Icon>
                 </MenuItem>
                 <MenuItem
@@ -55,7 +56,7 @@
                     Header="{DynamicResource S.TimelineLayer.Copy}"
                     InputGesture="{DynamicResource CopyKeyGesture}">
                     <MenuItem.Icon>
-                        <FluentIconRegular IconType="Copy" Classes="Small" />
+                        <ic:SymbolIcon Symbol="Copy" />
                     </MenuItem.Icon>
                 </MenuItem>
                 <MenuItem
@@ -63,7 +64,7 @@
                     Header="{DynamicResource S.TimelineLayer.Delete}"
                     InputGesture="{DynamicResource LayerDeleteKeyGesture}">
                     <MenuItem.Icon>
-                        <FluentIconRegular IconType="Delete_Dismiss" Classes="Small" />
+                        <ic:SymbolIcon Symbol="DeleteDismiss" />
                     </MenuItem.Icon>
                 </MenuItem>
                 <MenuItem
@@ -71,7 +72,7 @@
                     Header="{DynamicResource S.TimelineLayer.Exclude}"
                     InputGesture="{DynamicResource DeleteKeyGesture}">
                     <MenuItem.Icon>
-                        <FluentIconRegular IconType="Delete" Classes="Small" />
+                        <ic:SymbolIcon Symbol="Delete" />
                     </MenuItem.Icon>
                 </MenuItem>
             </ContextMenu>

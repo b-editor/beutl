@@ -3,6 +3,7 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:editors="using:BeUtl.Views.Editors"
+             xmlns:ic="using:FluentIcons.Avalonia"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              DragDrop.AllowDrop="True"
              x:Class="BeUtl.Views.Tools.StylingOperatorView">
@@ -13,7 +14,7 @@
                     <ContextMenu>
                         <MenuItem Header="{DynamicResource S.Editors.Operation.Remove}" Click="Remove_Click">
                             <MenuItem.Icon>
-                                <FluentIconRegular IconType="Delete" Classes="Small" />
+                                <ic:SymbolIcon Symbol="Delete" />
                             </MenuItem.Icon>
                         </MenuItem>
                     </ContextMenu>
@@ -27,7 +28,7 @@
                             <Setter Property="Background" Value="{DynamicResource ButtonBackgroundPointerOver}" />
                         </Style>
                     </Border.Styles>
-                    <FluentIconRegular IconType="Re_Order_Dots_Vertical" Width="12" Height="12" />
+                    <ic:SymbolIcon Symbol="ReOrderDotsVertical" FontSize="16" />
                 </Border>
 
                 <ToggleButton BorderThickness="0"
@@ -44,14 +45,14 @@
                         <Style Selector="ToggleButton">
                             <Setter Property="Content">
                                 <Template>
-                                    <FluentIconRegular IconType="Eye_Hide" Width="16" Height="16" />
+                                    <ic:SymbolIcon Symbol="EyeOff" />
                                 </Template>
                             </Setter>
                         </Style>
                         <Style Selector="ToggleButton:checked">
                             <Setter Property="Content">
                                 <Template>
-                                    <FluentIconRegular IconType="Eye_Show" Width="16" Height="16" />
+                                    <ic:SymbolIcon Symbol="Eye" Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
                                 </Template>
                             </Setter>
                         </Style>
