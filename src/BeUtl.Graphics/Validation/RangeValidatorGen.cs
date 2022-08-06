@@ -4,7 +4,7 @@
 namespace BeUtl.Validation
 {
     // Vector2
-    internal sealed class PixelPointRangeValidator : RangeValidator<BeUtl.Media.PixelPoint>
+    public sealed class PixelPointRangeValidator : RangeValidator<BeUtl.Media.PixelPoint>
     {
         public PixelPointRangeValidator()
         {
@@ -12,20 +12,20 @@ namespace BeUtl.Validation
             Minimum = new(System.Int32.MinValue, System.Int32.MinValue);
         }
 
-        public override BeUtl.Media.PixelPoint Coerce(ICoreObject obj, BeUtl.Media.PixelPoint value)
+        public override BeUtl.Media.PixelPoint Coerce(ICoreObject? obj, BeUtl.Media.PixelPoint value)
         {
             return new BeUtl.Media.PixelPoint(
                 Math.Clamp(value.X, Minimum.X, Maximum.X),
                 Math.Clamp(value.Y, Minimum.Y, Maximum.Y));
         }
         
-        public override bool Validate(ICoreObject obj, BeUtl.Media.PixelPoint value)
+        public override bool Validate(ICoreObject? obj, BeUtl.Media.PixelPoint value)
         {
             return value.X >= Minimum.X && value.X <= Maximum.X
                 && value.Y >= Minimum.Y && value.Y <= Maximum.Y;
         }
     }
-    internal sealed class PixelSizeRangeValidator : RangeValidator<BeUtl.Media.PixelSize>
+    public sealed class PixelSizeRangeValidator : RangeValidator<BeUtl.Media.PixelSize>
     {
         public PixelSizeRangeValidator()
         {
@@ -33,20 +33,20 @@ namespace BeUtl.Validation
             Minimum = new(System.Int32.MinValue, System.Int32.MinValue);
         }
 
-        public override BeUtl.Media.PixelSize Coerce(ICoreObject obj, BeUtl.Media.PixelSize value)
+        public override BeUtl.Media.PixelSize Coerce(ICoreObject? obj, BeUtl.Media.PixelSize value)
         {
             return new BeUtl.Media.PixelSize(
                 Math.Clamp(value.Width, Minimum.Width, Maximum.Width),
                 Math.Clamp(value.Height, Minimum.Height, Maximum.Height));
         }
         
-        public override bool Validate(ICoreObject obj, BeUtl.Media.PixelSize value)
+        public override bool Validate(ICoreObject? obj, BeUtl.Media.PixelSize value)
         {
             return value.Width >= Minimum.Width && value.Width <= Maximum.Width
                 && value.Height >= Minimum.Height && value.Height <= Maximum.Height;
         }
     }
-    internal sealed class PointRangeValidator : RangeValidator<BeUtl.Graphics.Point>
+    public sealed class PointRangeValidator : RangeValidator<BeUtl.Graphics.Point>
     {
         public PointRangeValidator()
         {
@@ -54,20 +54,20 @@ namespace BeUtl.Validation
             Minimum = new(System.Single.MinValue, System.Single.MinValue);
         }
 
-        public override BeUtl.Graphics.Point Coerce(ICoreObject obj, BeUtl.Graphics.Point value)
+        public override BeUtl.Graphics.Point Coerce(ICoreObject? obj, BeUtl.Graphics.Point value)
         {
             return new BeUtl.Graphics.Point(
                 Math.Clamp(value.X, Minimum.X, Maximum.X),
                 Math.Clamp(value.Y, Minimum.Y, Maximum.Y));
         }
         
-        public override bool Validate(ICoreObject obj, BeUtl.Graphics.Point value)
+        public override bool Validate(ICoreObject? obj, BeUtl.Graphics.Point value)
         {
             return value.X >= Minimum.X && value.X <= Maximum.X
                 && value.Y >= Minimum.Y && value.Y <= Maximum.Y;
         }
     }
-    internal sealed class SizeRangeValidator : RangeValidator<BeUtl.Graphics.Size>
+    public sealed class SizeRangeValidator : RangeValidator<BeUtl.Graphics.Size>
     {
         public SizeRangeValidator()
         {
@@ -75,20 +75,20 @@ namespace BeUtl.Validation
             Minimum = new(System.Single.MinValue, System.Single.MinValue);
         }
 
-        public override BeUtl.Graphics.Size Coerce(ICoreObject obj, BeUtl.Graphics.Size value)
+        public override BeUtl.Graphics.Size Coerce(ICoreObject? obj, BeUtl.Graphics.Size value)
         {
             return new BeUtl.Graphics.Size(
                 Math.Clamp(value.Width, Minimum.Width, Maximum.Width),
                 Math.Clamp(value.Height, Minimum.Height, Maximum.Height));
         }
         
-        public override bool Validate(ICoreObject obj, BeUtl.Graphics.Size value)
+        public override bool Validate(ICoreObject? obj, BeUtl.Graphics.Size value)
         {
             return value.Width >= Minimum.Width && value.Width <= Maximum.Width
                 && value.Height >= Minimum.Height && value.Height <= Maximum.Height;
         }
     }
-    internal sealed class VectorRangeValidator : RangeValidator<BeUtl.Graphics.Vector>
+    public sealed class VectorRangeValidator : RangeValidator<BeUtl.Graphics.Vector>
     {
         public VectorRangeValidator()
         {
@@ -96,14 +96,14 @@ namespace BeUtl.Validation
             Minimum = new(System.Single.MinValue, System.Single.MinValue);
         }
 
-        public override BeUtl.Graphics.Vector Coerce(ICoreObject obj, BeUtl.Graphics.Vector value)
+        public override BeUtl.Graphics.Vector Coerce(ICoreObject? obj, BeUtl.Graphics.Vector value)
         {
             return new BeUtl.Graphics.Vector(
                 Math.Clamp(value.X, Minimum.X, Maximum.X),
                 Math.Clamp(value.Y, Minimum.Y, Maximum.Y));
         }
         
-        public override bool Validate(ICoreObject obj, BeUtl.Graphics.Vector value)
+        public override bool Validate(ICoreObject? obj, BeUtl.Graphics.Vector value)
         {
             return value.X >= Minimum.X && value.X <= Maximum.X
                 && value.Y >= Minimum.Y && value.Y <= Maximum.Y;
@@ -113,7 +113,7 @@ namespace BeUtl.Validation
     // Vector3
 
     // Vector4
-    internal sealed class PixelRectRangeValidator : RangeValidator<BeUtl.Media.PixelRect>
+    public sealed class PixelRectRangeValidator : RangeValidator<BeUtl.Media.PixelRect>
     {
         public PixelRectRangeValidator()
         {
@@ -121,7 +121,7 @@ namespace BeUtl.Validation
             Minimum = new(System.Int32.MinValue, System.Int32.MinValue, System.Int32.MinValue, System.Int32.MinValue);
         }
 
-        public override BeUtl.Media.PixelRect Coerce(ICoreObject obj, BeUtl.Media.PixelRect value)
+        public override BeUtl.Media.PixelRect Coerce(ICoreObject? obj, BeUtl.Media.PixelRect value)
         {
             return new BeUtl.Media.PixelRect(
                 Math.Clamp(value.X, Minimum.X, Maximum.X),
@@ -130,7 +130,7 @@ namespace BeUtl.Validation
                 Math.Clamp(value.Height, Minimum.Height, Maximum.Height));
         }
         
-        public override bool Validate(ICoreObject obj, BeUtl.Media.PixelRect value)
+        public override bool Validate(ICoreObject? obj, BeUtl.Media.PixelRect value)
         {
             return value.X >= Minimum.X && value.X <= Maximum.X
                 && value.Y >= Minimum.Y && value.Y <= Maximum.Y
@@ -138,7 +138,7 @@ namespace BeUtl.Validation
                 && value.Height >= Minimum.Height && value.Height <= Maximum.Height;
         }
     }
-    internal sealed class CornerRadiusRangeValidator : RangeValidator<BeUtl.Media.CornerRadius>
+    public sealed class CornerRadiusRangeValidator : RangeValidator<BeUtl.Media.CornerRadius>
     {
         public CornerRadiusRangeValidator()
         {
@@ -146,7 +146,7 @@ namespace BeUtl.Validation
             Minimum = new(System.Single.MinValue, System.Single.MinValue, System.Single.MinValue, System.Single.MinValue);
         }
 
-        public override BeUtl.Media.CornerRadius Coerce(ICoreObject obj, BeUtl.Media.CornerRadius value)
+        public override BeUtl.Media.CornerRadius Coerce(ICoreObject? obj, BeUtl.Media.CornerRadius value)
         {
             return new BeUtl.Media.CornerRadius(
                 Math.Clamp(value.TopLeft, Minimum.TopLeft, Maximum.TopLeft),
@@ -155,7 +155,7 @@ namespace BeUtl.Validation
                 Math.Clamp(value.BottomLeft, Minimum.BottomLeft, Maximum.BottomLeft));
         }
         
-        public override bool Validate(ICoreObject obj, BeUtl.Media.CornerRadius value)
+        public override bool Validate(ICoreObject? obj, BeUtl.Media.CornerRadius value)
         {
             return value.TopLeft >= Minimum.TopLeft && value.TopLeft <= Maximum.TopLeft
                 && value.TopRight >= Minimum.TopRight && value.TopRight <= Maximum.TopRight
@@ -163,7 +163,7 @@ namespace BeUtl.Validation
                 && value.BottomLeft >= Minimum.BottomLeft && value.BottomLeft <= Maximum.BottomLeft;
         }
     }
-    internal sealed class RectRangeValidator : RangeValidator<BeUtl.Graphics.Rect>
+    public sealed class RectRangeValidator : RangeValidator<BeUtl.Graphics.Rect>
     {
         public RectRangeValidator()
         {
@@ -171,7 +171,7 @@ namespace BeUtl.Validation
             Minimum = new(System.Single.MinValue, System.Single.MinValue, System.Single.MinValue, System.Single.MinValue);
         }
 
-        public override BeUtl.Graphics.Rect Coerce(ICoreObject obj, BeUtl.Graphics.Rect value)
+        public override BeUtl.Graphics.Rect Coerce(ICoreObject? obj, BeUtl.Graphics.Rect value)
         {
             return new BeUtl.Graphics.Rect(
                 Math.Clamp(value.X, Minimum.X, Maximum.X),
@@ -180,7 +180,7 @@ namespace BeUtl.Validation
                 Math.Clamp(value.Height, Minimum.Height, Maximum.Height));
         }
         
-        public override bool Validate(ICoreObject obj, BeUtl.Graphics.Rect value)
+        public override bool Validate(ICoreObject? obj, BeUtl.Graphics.Rect value)
         {
             return value.X >= Minimum.X && value.X <= Maximum.X
                 && value.Y >= Minimum.Y && value.Y <= Maximum.Y

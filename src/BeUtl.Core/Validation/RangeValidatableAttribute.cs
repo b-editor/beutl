@@ -5,9 +5,13 @@ public sealed class RangeValidatableAttribute : Attribute
 {
     public RangeValidatableAttribute(Type validatorType)
     {
-        if (typeof(RangeValidator<>).MakeGenericType(validatorType).IsAssignableFrom(validatorType) && !validatorType.IsAbstract)
+        if (validatorType.BaseType is { } baseType
+            && baseType.GetGenericArguments().FirstOrDefault() is Type targetType
+            && typeof(RangeValidator<>).MakeGenericType(targetType).IsAssignableFrom(validatorType)
+            && !validatorType.IsAbstract)
         {
             ValidatorType = validatorType;
+            TargetType = targetType;
         }
         else
         {
@@ -16,4 +20,6 @@ public sealed class RangeValidatableAttribute : Attribute
     }
 
     public Type ValidatorType { get; }
+
+    public Type TargetType { get; }
 }
