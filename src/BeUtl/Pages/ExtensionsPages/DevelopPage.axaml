@@ -47,8 +47,8 @@
                 <ListBox.ItemTemplate>
                     <DataTemplate>
                         <Grid ColumnDefinitions="Auto,16,*,Auto">
-                            <ui:PathIcon IsVisible="{CompiledBinding Package.Value.IsVisible}" Data="{StaticResource Eye_Show_Regular}" />
-                            <ui:PathIcon IsVisible="{CompiledBinding !Package.Value.IsVisible}" Data="{StaticResource Eye_Hide_Regular}" />
+                            <ctrls:CompatSymbolIcon IsVisible="{CompiledBinding Package.Value.IsVisible}" Symbol="Eye" />
+                            <ctrls:CompatSymbolIcon IsVisible="{CompiledBinding !Package.Value.IsVisible}" Symbol="EyeOff" />
 
                             <StackPanel Spacing="4"
                                         VerticalAlignment="Center"

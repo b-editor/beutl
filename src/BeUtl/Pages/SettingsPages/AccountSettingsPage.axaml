@@ -89,8 +89,7 @@
                                 Command="{CompiledBinding SignOut}"
                                 Label="{DynamicResource S.AccountSettingsPage.SignOut}">
                                 <ui:CommandBarButton.Icon>
-                                    <ui:PathIcon Data="{StaticResource Sign_Out_Regular}"
-                                                 Width="16" Height="16" />
+                                    <ctrls:CompatSymbolIcon Symbol="SignOut" />
                                 </ui:CommandBarButton.Icon>
                             </ui:CommandBarButton>
                         </ui:CommandBar.PrimaryCommands>
@@ -105,7 +104,7 @@
                     Header="{DynamicResource S.AccountSettingsPage.ChangeDisplayName}">
 
                     <ctrls:OptionsDisplayItem.Icon>
-                        <ui:PathIcon Data="{DynamicResource Rename_Regular}" Width="16" Height="16" />
+                        <ctrls:CompatSymbolIcon Symbol="Rename" />
                     </ctrls:OptionsDisplayItem.Icon>
                     
                     <ctrls:OptionsDisplayItem.Content>
@@ -130,7 +129,7 @@
                     Header="{DynamicResource S.AccountSettingsPage.DeleteAccount}">
 
                     <ctrls:OptionsDisplayItem.Icon>
-                        <ui:PathIcon Data="{DynamicResource Person_Subtract_Regular}" Width="16" Height="16" />
+                        <ctrls:CompatSymbolIcon Symbol="PersonSubtract" />
                     </ctrls:OptionsDisplayItem.Icon>
                 </ctrls:OptionsDisplayItem>
 
@@ -142,7 +141,7 @@
                     Header="{DynamicResource S.AccountSettingsPage.ChangePassword}">
 
                     <ctrls:OptionsDisplayItem.Icon>
-                        <ui:PathIcon Data="{DynamicResource Person_Subtract_Regular}" Width="16" Height="16" />
+                        <ctrls:CompatSymbolIcon Symbol="PersonSubtract" />
                     </ctrls:OptionsDisplayItem.Icon>
 
                     <ctrls:OptionsDisplayItem.Content>

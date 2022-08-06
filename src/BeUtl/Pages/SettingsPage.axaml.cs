@@ -3,6 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Media;
 
+using BeUtl.Controls;
 using BeUtl.Pages.SettingsPages;
 
 using FluentAvalonia.UI.Controls;
@@ -62,9 +63,9 @@ public sealed partial class SettingsPage : UserControl
             {
                 [!ContentProperty] = new DynamicResourceExtension("S.SettingsPage.Extensions"),
                 Tag = typeof(ExtensionsSettingsPage),
-                Icon = new FluentAvalonia.UI.Controls.PathIcon
+                Icon = new CompatSymbolIcon()
                 {
-                    Data = (Geometry)Application.Current!.FindResource("Puzzle_piece_Regular")!
+                    Symbol = FluentIcons.Common.Symbol.PuzzlePiece
                 }
             },
             new NavigationViewItem()
@@ -80,9 +81,9 @@ public sealed partial class SettingsPage : UserControl
             {
                 [!ContentProperty] = new DynamicResourceExtension("S.SettingsPage.Info"),
                 Tag = typeof(InfomationPage),
-                Icon = new FluentAvalonia.UI.Controls.PathIcon
+                Icon = new CompatSymbolIcon()
                 {
-                    Data = (Geometry)Application.Current!.FindResource("Info_Regular")!
+                    Symbol = FluentIcons.Common.Symbol.Info
                 }
             }
         };

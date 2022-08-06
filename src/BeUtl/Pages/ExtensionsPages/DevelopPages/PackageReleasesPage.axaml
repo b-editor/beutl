@@ -37,12 +37,12 @@
             <ListBox.ItemTemplate>
                 <DataTemplate>
                     <Grid ColumnDefinitions="Auto,*,2*,Auto,Auto" MaxHeight="64">
-                        <ui:PathIcon IsVisible="{CompiledBinding Release.Value.IsVisible}"
-                                     Margin="0,0,16,0"
-                                     Data="{StaticResource Eye_Show_Regular}" />
-                        <ui:PathIcon IsVisible="{CompiledBinding !Release.Value.IsVisible}"
-                                     Margin="0,0,16,0"
-                                     Data="{StaticResource Eye_Hide_Regular}" />
+                        <ctrls:CompatSymbolIcon IsVisible="{CompiledBinding Release.Value.IsVisible}"
+                                                Margin="0,0,16,0"
+                                                Symbol="Eye" />
+                        <ctrls:CompatSymbolIcon IsVisible="{CompiledBinding !Release.Value.IsVisible}"
+                                                Margin="0,0,16,0"
+                                                Symbol="EyeOff" />
 
                         <StackPanel Orientation="Vertical"
                                     HorizontalAlignment="Left"

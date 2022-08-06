@@ -1,4 +1,4 @@
-﻿<Styles xmlns="https://github.com/avaloniaui"
+<Styles xmlns="https://github.com/avaloniaui"
         xmlns:local="using:BeUtl.Controls"
         xmlns:ui="using:FluentAvalonia.UI.Controls"
         xmlns:uip="using:FluentAvalonia.UI.Controls.Primitives"
@@ -9,7 +9,7 @@
                 <ui:NavigationView.MenuItems>
                     <ui:NavigationViewItem Classes="SideNavigationViewItem" Content="Home">
                         <ui:NavigationViewItem.Icon>
-                            <ui:PathIcon Data="{StaticResource Home_Regular}" />
+                            <local:CompatSymbolIcon Symbol="Home" />
                         </ui:NavigationViewItem.Icon>
                     </ui:NavigationViewItem>
                 </ui:NavigationView.MenuItems>

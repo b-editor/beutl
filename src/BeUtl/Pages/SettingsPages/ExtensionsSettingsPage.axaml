@@ -21,7 +21,7 @@
             <ctrls:OptionsDisplayItem Header="{DynamicResource S.ExtensionsSettingsPage.EditorExtensionPriority}"
                                       Expands="True">
                 <ctrls:OptionsDisplayItem.Icon>
-                    <ui:PathIcon Data="{StaticResource Tab_Desktop_Regular}" />
+                    <ctrls:CompatSymbolIcon Symbol="TabDesktop" />
                 </ctrls:OptionsDisplayItem.Icon>
                 <ctrls:OptionsDisplayItem.Content>
                     <Grid RowDefinitions="Auto,Auto,Auto,Auto">

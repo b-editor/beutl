@@ -42,7 +42,7 @@
 
             <ctrls:OptionsDisplayItem Header="{DynamicResource S.ViewSettingsPage.Language}">
                 <ctrls:OptionsDisplayItem.Icon>
-                    <ui:PathIcon Data="{DynamicResource Local_Language_Regular}" />
+                    <ctrls:CompatSymbolIcon Symbol="LocalLanguage" />
                 </ctrls:OptionsDisplayItem.Icon>
 
                 <ctrls:OptionsDisplayItem.ActionButton>

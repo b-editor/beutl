@@ -273,7 +273,7 @@
                                           Navigates="True"
                                           NavigationRequested="MakePublic_Click">
                     <ctrls:OptionsDisplayItem.Icon>
-                        <ui:PathIcon Data="{StaticResource Eye_Show_Regular}" />
+                        <ctrls:CompatSymbolIcon Symbol="Eye" />
                     </ctrls:OptionsDisplayItem.Icon>
                 </ctrls:OptionsDisplayItem>
 
@@ -282,7 +282,7 @@
                                           Navigates="True"
                                           NavigationRequested="MakePrivate_Click">
                     <ctrls:OptionsDisplayItem.Icon>
-                        <ui:PathIcon Data="{StaticResource Eye_Hide_Regular}" />
+                        <ctrls:CompatSymbolIcon Symbol="EyeOff" />
                     </ctrls:OptionsDisplayItem.Icon>
                 </ctrls:OptionsDisplayItem>
             </StackPanel>
