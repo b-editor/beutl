@@ -3,6 +3,15 @@
     <RootNameSpace>BeUtl</RootNameSpace>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Remove="Graphics\ColorMatrix.cs" />
+    <Compile Remove="Graphics\ColorVector.cs" />
+    <Compile Remove="Graphics\LookupTable.cs" />
+    <Compile Remove="Graphics\VertexMode.cs" />
+    <Compile Remove="Media\Cmyk.cs" />
+    <Compile Remove="Media\Hsv.cs" />
+    <Compile Remove="Media\YCbCr.cs" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\BeUtl.Core\BeUtl.Core.csproj" />
     <ProjectReference Include="..\BeUtl.Configuration\BeUtl.Configuration.csproj" />
     <ProjectReference Include="..\BeUtl.Threading\BeUtl.Threading.csproj" />

@@ -14,6 +14,7 @@ public static class ColorExtensions
         return new ImmutableSolidColorBrush(color, 1);
     }
 
+#if false
     public static Hsv ToHsv(this Color color)
     {
         double h = default;
@@ -98,4 +99,5 @@ public static class ColorExtensions
 
         return new YCbCr(y, cb, cr);
     }
+#endif
 }
