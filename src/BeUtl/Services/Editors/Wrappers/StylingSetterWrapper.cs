@@ -98,6 +98,12 @@ public sealed class StylingSetterWrapper<T> : IWrappedProperty<T>.IAnimatable, I
 
     public void SetValue(T? value)
     {
+        CorePropertyMetadata<T>? metadata = this.GetMetadataExt<CorePropertyMetadata<T>>();
+        if (metadata?.Validator != null)
+        {
+            value = metadata.Validator.Coerce(null, value);
+        }
+
         ((Setter<T>)Tag).Value = value;
     }
 
