@@ -71,10 +71,7 @@ public class Layer : Element, IStorable, ILogicalElement
             .Accessor(o => o.Operators, null)
             .Register();
 
-        NameProperty.OverrideMetadata<Layer>(new CorePropertyMetadata<string>
-        {
-            SerializeName = "name"
-        });
+        NameProperty.OverrideMetadata<Layer>(new CorePropertyMetadata<string>("name"));
 
         ZIndexProperty.Changed.Subscribe(args =>
         {

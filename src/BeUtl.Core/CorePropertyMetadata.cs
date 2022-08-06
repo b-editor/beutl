@@ -4,37 +4,30 @@ using BeUtl.Validation;
 
 namespace BeUtl;
 
-#pragma warning disable IDE0032
-
-public record class CorePropertyMetadata<T> : CorePropertyMetadata
+public class CorePropertyMetadata<T> : CorePropertyMetadata
 {
-    private T? _defaultValue;
-    private IValidator<T>? _validator;
-    private JsonConverter<T>? _jsonConverter;
+    private Optional<T> _defaultValue;
 
-    public T? DefaultValue
+    public CorePropertyMetadata(
+        string? serializeName = null,
+        Optional<PropertyFlags> propertyFlags = default,
+        Optional<T> defaultValue = default,
+        IValidator<T>? validator = null,
+        JsonConverter<T>? jsonConverter = null)
+        : base(serializeName, propertyFlags)
     {
-        get => _defaultValue;
-        init
-        {
-            _defaultValue = value;
-            HasDefaultValue = true;
-        }
+        _defaultValue = defaultValue;
+        Validator = validator;
+        JsonConverter = jsonConverter;
     }
 
-    public bool HasDefaultValue { get; private set; }
+    public T DefaultValue => _defaultValue.GetValueOrDefault()!;
 
-    public IValidator<T>? Validator
-    {
-        get => _validator;
-        init => _validator = value;
-    }
+    public bool HasDefaultValue => _defaultValue.HasValue;
 
-    public JsonConverter<T>? JsonConverter
-    {
-        get => _jsonConverter;
-        init => _jsonConverter = value;
-    }
+    public IValidator<T>? Validator { get; private set; }
+
+    public JsonConverter<T>? JsonConverter { get; private set; }
 
     public override void Merge(ICorePropertyMetadata baseMetadata, CoreProperty? property)
     {
@@ -45,17 +38,16 @@ public record class CorePropertyMetadata<T> : CorePropertyMetadata
             if (!HasDefaultValue)
             {
                 _defaultValue = baseT.DefaultValue;
-                HasDefaultValue = true;
             }
 
-            if (_validator == null)
+            if (Validator == null)
             {
-                _validator = baseT.Validator;
+                Validator = baseT.Validator;
             }
 
-            if (_jsonConverter == null)
+            if (JsonConverter == null)
             {
-                _jsonConverter = baseT.JsonConverter;
+                JsonConverter = baseT.JsonConverter;
             }
         }
     }
@@ -63,11 +55,11 @@ public record class CorePropertyMetadata<T> : CorePropertyMetadata
     public TValidator? FindValidator<TValidator>()
         where TValidator : IValidator<T>
     {
-        if (_validator is TValidator validator1)
+        if (Validator is TValidator validator1)
         {
             return validator1;
         }
-        else if (_validator is TuppleValidator<T> validator2)
+        else if (Validator is TuppleValidator<T> validator2)
         {
             if (validator2.First is TValidator validator3)
             {
@@ -78,7 +70,7 @@ public record class CorePropertyMetadata<T> : CorePropertyMetadata
                 return validator4;
             }
         }
-        else if (_validator is MultipleValidator<T> validator5)
+        else if (Validator is MultipleValidator<T> validator5)
         {
             foreach (var item in validator5.Items)
             {
@@ -94,7 +86,7 @@ public record class CorePropertyMetadata<T> : CorePropertyMetadata
 
     protected internal override object? GetDefaultValue()
     {
-        return HasDefaultValue ? _defaultValue : null;
+        return HasDefaultValue ? _defaultValue.Value : null;
     }
 
     protected internal override IValidator? GetValidator()
@@ -112,35 +104,32 @@ public interface ICorePropertyMetadata
     IValidator? GetValidator();
 }
 
-public abstract record class CorePropertyMetadata : ICorePropertyMetadata
+public abstract class CorePropertyMetadata : ICorePropertyMetadata
 {
-    private string? _serializeName;
-    private PropertyFlags _propertyFlags;
+    private Optional<PropertyFlags> _propertyFlags;
 
-    public string? SerializeName
+    protected CorePropertyMetadata(string? serializeName, Optional<PropertyFlags> propertyFlags)
     {
-        get => _serializeName;
-        init => _serializeName = value;
+        SerializeName = serializeName;
+        _propertyFlags = propertyFlags;
     }
 
-    public PropertyFlags PropertyFlags
-    {
-        get => _propertyFlags;
-        init => _propertyFlags = value;
-    }
+    public string? SerializeName { get; private set; }
+
+    public PropertyFlags PropertyFlags => _propertyFlags.GetValueOrDefault();
 
     public virtual void Merge(ICorePropertyMetadata baseMetadata, CoreProperty? property)
     {
         if (baseMetadata is CorePropertyMetadata metadata1)
         {
-            if (string.IsNullOrEmpty(_serializeName))
+            if (string.IsNullOrEmpty(SerializeName))
             {
-                _serializeName = metadata1.SerializeName;
+                SerializeName = metadata1.SerializeName;
             }
 
-            if (_propertyFlags == PropertyFlags.None)
+            if (!_propertyFlags.HasValue)
             {
-                _propertyFlags = metadata1.PropertyFlags;
+                _propertyFlags = metadata1._propertyFlags;
             }
         }
     }

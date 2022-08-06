@@ -84,10 +84,7 @@ public class Scene : Element, IStorable, IWorkspaceItem
             .PropertyFlags(PropertyFlags.NotifyChanged)
             .Register();
 
-        NameProperty.OverrideMetadata<Scene>(new CorePropertyMetadata<string>
-        {
-            SerializeName = "name"
-        });
+        NameProperty.OverrideMetadata<Scene>(new CorePropertyMetadata<string>(serializeName: "name"));
 
         CurrentFrameProperty.Changed.Subscribe(e =>
         {

@@ -6,34 +6,37 @@ using BeUtl.Validation;
 
 namespace BeUtl;
 
-public interface ICorePropertyBuilder<T>
-{
-    void OverrideMetadata(CorePropertyMetadata<T> metadata);
-}
-
-public sealed class CorePropertyBuilder<T, TOwner> : ICorePropertyBuilder<T>
+public sealed class CorePropertyBuilder<T, TOwner>
 {
     private readonly string _name;
     private Func<TOwner, T>? _getter;
     private Action<TOwner, T>? _setter;
-    private CorePropertyMetadata<T> _metadata = new();
+    private string? _serializeName;
+    private Optional<PropertyFlags> _propertyFlags;
+    private Optional<T> _defaultValue;
+    private IValidator<T>? _validator;
+    private JsonConverter<T>? _jsonConverter;
 
     public CorePropertyBuilder(string name)
     {
         _name = name;
+        Raw = new RawBuilder(this);
     }
+
+    public RawBuilder Raw { get; }
 
     public CoreProperty<T> Register()
     {
         CoreProperty<T>? property = null;
 
+        var metadata = new CorePropertyMetadata<T>(_serializeName, _propertyFlags, _defaultValue, _validator, _jsonConverter);
         if (_getter != null)
         {
-            property = new StaticProperty<TOwner, T>(_name, _getter, _setter, _metadata);
+            property = new StaticProperty<TOwner, T>(_name, _getter, _setter, metadata);
         }
         else
         {
-            property = new CoreProperty<T>(_name, typeof(TOwner), _metadata);
+            property = new CoreProperty<T>(_name, typeof(TOwner), metadata);
         }
         PropertyRegistry.Register(typeof(TOwner), property);
 
@@ -70,21 +73,15 @@ public sealed class CorePropertyBuilder<T, TOwner> : ICorePropertyBuilder<T>
         return this;
     }
 
-    public CorePropertyBuilder<T, TOwner> DefaultValue(T? value)
+    public CorePropertyBuilder<T, TOwner> DefaultValue(T value)
     {
-        _metadata = _metadata with
-        {
-            DefaultValue = value
-        };
+        _defaultValue = new Optional<T>(value);
         return this;
     }
 
     public CorePropertyBuilder<T, TOwner> SerializeName(string? value)
     {
-        _metadata = _metadata with
-        {
-            SerializeName = value
-        };
+        _serializeName = value;
         return this;
     }
 
@@ -126,14 +123,12 @@ public sealed class CorePropertyBuilder<T, TOwner> : ICorePropertyBuilder<T>
             Minimum = min
         };
 
-        if (merge && _metadata.Validator != null)
+        if (merge && _validator != null)
         {
-            validator = MergeValidator(_metadata.Validator, validator);
+            validator = MergeValidator(_validator, validator);
         }
-        _metadata = _metadata with
-        {
-            Validator = validator
-        };
+
+        _validator = validator;
         return this;
     }
 
@@ -145,14 +140,12 @@ public sealed class CorePropertyBuilder<T, TOwner> : ICorePropertyBuilder<T>
             validator1.Maximum = max;
 
             IValidator<T> validator2 = validator1;
-            if (merge && _metadata.Validator != null)
+            if (merge && _validator != null)
             {
-                validator2 = MergeValidator(_metadata.Validator, validator1);
+                validator2 = MergeValidator(_validator, validator1);
             }
-            _metadata = _metadata with
-            {
-                Validator = validator2
-            };
+
+            _validator = validator2;
         }
 
         return this;
@@ -166,14 +159,11 @@ public sealed class CorePropertyBuilder<T, TOwner> : ICorePropertyBuilder<T>
             Minimum = min
         };
 
-        if (merge && _metadata.Validator != null)
+        if (merge && _validator != null)
         {
-            validator = MergeValidator(_metadata.Validator, validator);
+            validator = MergeValidator(_validator, validator);
         }
-        _metadata = _metadata with
-        {
-            Validator = validator
-        };
+        _validator = validator;
         return this;
     }
 
@@ -184,14 +174,11 @@ public sealed class CorePropertyBuilder<T, TOwner> : ICorePropertyBuilder<T>
             validator1.Minimum = min;
 
             IValidator<T> validator2 = validator1;
-            if (merge && _metadata.Validator != null)
+            if (merge && _validator != null)
             {
-                validator2 = MergeValidator(_metadata.Validator, validator1);
+                validator2 = MergeValidator(_validator, validator1);
             }
-            _metadata = _metadata with
-            {
-                Validator = validator2
-            };
+            _validator = validator2;
         }
 
         return this;
@@ -205,14 +192,11 @@ public sealed class CorePropertyBuilder<T, TOwner> : ICorePropertyBuilder<T>
             Maximum = max
         };
 
-        if (merge && _metadata.Validator != null)
+        if (merge && _validator != null)
         {
-            validator = MergeValidator(_metadata.Validator, validator);
+            validator = MergeValidator(_validator, validator);
         }
-        _metadata = _metadata with
-        {
-            Validator = validator
-        };
+        _validator = validator;
         return this;
     }
 
@@ -223,14 +207,11 @@ public sealed class CorePropertyBuilder<T, TOwner> : ICorePropertyBuilder<T>
             validator1.Maximum = max;
 
             IValidator<T> validator2 = validator1;
-            if (merge && _metadata.Validator != null)
+            if (merge && _validator != null)
             {
-                validator2 = MergeValidator(_metadata.Validator, validator1);
+                validator2 = MergeValidator(_validator, validator1);
             }
-            _metadata = _metadata with
-            {
-                Validator = validator2
-            };
+            _validator = validator2;
         }
 
         return this;
@@ -238,14 +219,11 @@ public sealed class CorePropertyBuilder<T, TOwner> : ICorePropertyBuilder<T>
 
     public CorePropertyBuilder<T, TOwner> Validator(IValidator<T> validator, bool merge = false)
     {
-        if (merge && _metadata.Validator != null)
+        if (merge && _validator != null)
         {
-            validator = MergeValidator(_metadata.Validator, validator);
+            validator = MergeValidator(_validator, validator);
         }
-        _metadata = _metadata with
-        {
-            Validator = validator
-        };
+        _validator = validator;
 
         return this;
     }
@@ -260,48 +238,54 @@ public sealed class CorePropertyBuilder<T, TOwner> : ICorePropertyBuilder<T>
             ValidateFunc = validate,
             CoerceFunc = coerce,
         };
-        if (merge && _metadata.Validator != null)
+        if (merge && _validator != null)
         {
-            validator1 = MergeValidator(_metadata.Validator, validator1);
+            validator1 = MergeValidator(_validator, validator1);
         }
-        _metadata = _metadata with
-        {
-            Validator = validator1
-        };
+        _validator = validator1;
 
         return this;
     }
 
     public CorePropertyBuilder<T, TOwner> JsonConverter(JsonConverter<T> jsonConverter)
     {
-        _metadata = _metadata with
-        {
-            JsonConverter = jsonConverter
-        };
+        _jsonConverter = jsonConverter;
         return this;
     }
 
-    public CorePropertyBuilder<T, TOwner> PropertyFlags(PropertyFlags value)
+    public CorePropertyBuilder<T, TOwner> PropertyFlags(PropertyFlags value, bool merge = false)
     {
-        _metadata = _metadata with
+        if (merge)
         {
-            PropertyFlags = value
-        };
-        return this;
-    }
-
-    public CorePropertyBuilder<T, TOwner> OverrideMetadata(CorePropertyMetadata<T> metadata)
-    {
-        if (_metadata != null)
-        {
-            metadata.Merge(_metadata, null);
+            _propertyFlags = _propertyFlags.GetValueOrDefault() | value;
         }
-        _metadata = metadata;
+        else
+        {
+            _propertyFlags = value;
+        }
+
         return this;
     }
 
-    void ICorePropertyBuilder<T>.OverrideMetadata(CorePropertyMetadata<T> metadata)
+    public sealed class RawBuilder
     {
-        OverrideMetadata(metadata);
+        private readonly CorePropertyBuilder<T, TOwner> _builder;
+
+        internal RawBuilder(CorePropertyBuilder<T, TOwner> builder)
+        {
+            _builder = builder;
+        }
+
+        public CorePropertyBuilder<T, TOwner> DefaultValue(Optional<T> value)
+        {
+            _builder._defaultValue = value;
+            return _builder;
+        }
+
+        public CorePropertyBuilder<T, TOwner> PropertyFlags(Optional<PropertyFlags> value)
+        {
+            _builder._propertyFlags = value;
+            return _builder;
+        }
     }
 }
