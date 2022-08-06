@@ -14,14 +14,14 @@ public sealed class SkewTransform : Transform
         SkewXProperty = ConfigureProperty<float, SkewTransform>(nameof(SkewX))
             .Accessor(o => o.SkewX, (o, v) => o.SkewX = v)
             .DefaultValue(0)
-            .PropertyFlags(PropertyFlags.KnownFlags_1)
+            .PropertyFlags(PropertyFlags.All)
             .SerializeName("skew-x")
             .Register();
 
         SkewYProperty = ConfigureProperty<float, SkewTransform>(nameof(SkewY))
             .Accessor(o => o.SkewY, (o, v) => o.SkewY = v)
             .DefaultValue(0)
-            .PropertyFlags(PropertyFlags.KnownFlags_1)
+            .PropertyFlags(PropertyFlags.All)
             .SerializeName("skew-y")
             .Register();
 

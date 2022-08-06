@@ -10,7 +10,7 @@ public sealed class MatrixTransform : Transform
         MatrixProperty = ConfigureProperty<Matrix, MatrixTransform>(nameof(Matrix))
             .Accessor(o => o.Matrix, (o, v) => o.Matrix = v)
             .DefaultValue(Matrix.Identity)
-            .PropertyFlags(PropertyFlags.KnownFlags_1)
+            .PropertyFlags(PropertyFlags.All)
             .SerializeName("matrix")
             .Register();
 

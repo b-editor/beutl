@@ -30,28 +30,28 @@ public class TextBlock : Drawable
     {
         FontWeightProperty = ConfigureProperty<FontWeight, TextBlock>(nameof(FontWeight))
             .Accessor(o => o.FontWeight, (o, v) => o.FontWeight = v)
-            .PropertyFlags(PropertyFlags.KnownFlags_1)
+            .PropertyFlags(PropertyFlags.All)
             .DefaultValue(FontWeight.Regular)
             .SerializeName("font-weight")
             .Register();
 
         FontStyleProperty = ConfigureProperty<FontStyle, TextBlock>(nameof(FontStyle))
             .Accessor(o => o.FontStyle, (o, v) => o.FontStyle = v)
-            .PropertyFlags(PropertyFlags.KnownFlags_1)
+            .PropertyFlags(PropertyFlags.All)
             .DefaultValue(FontStyle.Normal)
             .SerializeName("font-style")
             .Register();
 
         FontFamilyProperty = ConfigureProperty<FontFamily, TextBlock>(nameof(FontFamily))
             .Accessor(o => o.FontFamily, (o, v) => o.FontFamily = v)
-            .PropertyFlags(PropertyFlags.KnownFlags_1)
+            .PropertyFlags(PropertyFlags.All)
             .DefaultValue(FontFamily.Default)
             .SerializeName("font-family")
             .Register();
 
         SizeProperty = ConfigureProperty<float, TextBlock>(nameof(Size))
             .Accessor(o => o.Size, (o, v) => o.Size = v)
-            .PropertyFlags(PropertyFlags.KnownFlags_1)
+            .PropertyFlags(PropertyFlags.All)
             .DefaultValue(0)
             .Minimum(0)
             .SerializeName("size")
@@ -59,28 +59,28 @@ public class TextBlock : Drawable
 
         SpacingProperty = ConfigureProperty<float, TextBlock>(nameof(Spacing))
             .Accessor(o => o.Spacing, (o, v) => o.Spacing = v)
-            .PropertyFlags(PropertyFlags.KnownFlags_1)
+            .PropertyFlags(PropertyFlags.All)
             .DefaultValue(0)
             .SerializeName("spacing")
             .Register();
 
         TextProperty = ConfigureProperty<string, TextBlock>(nameof(Text))
             .Accessor(o => o.Text, (o, v) => o.Text = v)
-            .PropertyFlags(PropertyFlags.KnownFlags_1)
+            .PropertyFlags(PropertyFlags.All)
             .DefaultValue(string.Empty)
             .SerializeName("text")
             .Register();
 
         MarginProperty = ConfigureProperty<Thickness, TextBlock>(nameof(Margin))
             .Accessor(o => o.Margin, (o, v) => o.Margin = v)
-            .PropertyFlags(PropertyFlags.KnownFlags_1)
+            .PropertyFlags(PropertyFlags.All)
             .DefaultValue(new Thickness())
             .SerializeName("margin")
             .Register();
 
         ElementsProperty = ConfigureProperty<TextElements?, TextBlock>(nameof(Elements))
             .Accessor(o => o.Elements, (o, v) => o.Elements = v)
-            .PropertyFlags(PropertyFlags.KnownFlags_1)
+            .PropertyFlags(PropertyFlags.NotifyChanged | PropertyFlags.Styleable | PropertyFlags.Designable)
             .Register();
 
         AffectsRender<TextBlock>(ElementsProperty);

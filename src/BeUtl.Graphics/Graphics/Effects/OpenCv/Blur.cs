@@ -18,14 +18,14 @@ public class Blur : BitmapEffect
             .Accessor(o => o.KernelSize, (o, v) => o.KernelSize = v)
             .DefaultValue(PixelSize.Empty)
             .Minimum(new PixelSize(1, 1))
-            .PropertyFlags(PropertyFlags.KnownFlags_1)
+            .PropertyFlags(PropertyFlags.All)
             .SerializeName("kernel-size")
             .Register();
 
         FixImageSizeProperty = ConfigureProperty<bool, Blur>(nameof(FixImageSize))
             .Accessor(o => o.FixImageSize, (o, v) => o.FixImageSize = v)
             .DefaultValue(false)
-            .PropertyFlags(PropertyFlags.KnownFlags_1)
+            .PropertyFlags(PropertyFlags.All)
             .SerializeName("fix-image-size")
             .Register();
 

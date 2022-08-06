@@ -20,20 +20,20 @@ public abstract class Brush : Styleable, IMutableBrush
     {
         OpacityProperty = ConfigureProperty<float, Brush>(nameof(Opacity))
             .Accessor(o => o.Opacity, (o, v) => o.Opacity = v)
-            .PropertyFlags(PropertyFlags.KnownFlags_1)
+            .PropertyFlags(PropertyFlags.All)
             .DefaultValue(1f)
             .SerializeName("opacity")
             .Register();
 
         TransformProperty = ConfigureProperty<ITransform?, Brush>(nameof(Transform))
             .Accessor(o => o.Transform, (o, v) => o.Transform = v)
-            .PropertyFlags(PropertyFlags.KnownFlags_1)
+            .PropertyFlags(PropertyFlags.All & ~PropertyFlags.Animatable)
             .SerializeName("transform")
             .Register();
 
         TransformOriginProperty = ConfigureProperty<RelativePoint, Brush>(nameof(TransformOrigin))
             .Accessor(o => o.TransformOrigin, (o, v) => o.TransformOrigin = v)
-            .PropertyFlags(PropertyFlags.KnownFlags_1)
+            .PropertyFlags(PropertyFlags.All)
             .SerializeName("transform-origin")
             .Register();
 

@@ -16,7 +16,7 @@ public sealed class ImageFilterGroup : ImageFilter
     {
         ChildrenProperty = ConfigureProperty<ImageFilters, ImageFilterGroup>(nameof(Children))
             .Accessor(o => o.Children, (o, v) => o.Children = v)
-            .PropertyFlags(PropertyFlags.KnownFlags_1)
+            .PropertyFlags(PropertyFlags.Designable | PropertyFlags.Styleable)
             .Register();
     }
 
@@ -135,7 +135,7 @@ public sealed class ImageFilterGroup : ImageFilter
             }
         }
 
-        if(array.Length > 0)
+        if (array.Length > 0)
         {
             return SKImageFilter.CreateMerge(array);
         }

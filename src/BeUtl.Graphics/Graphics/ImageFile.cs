@@ -18,7 +18,7 @@ public class ImageFile : Drawable
     {
         SourceFileProperty = ConfigureProperty<FileInfo?, ImageFile>(nameof(SourceFile))
             .Accessor(o => o.SourceFile, (o, v) => o.SourceFile = v)
-            .PropertyFlags(PropertyFlags.KnownFlags_1)
+            .PropertyFlags(PropertyFlags.All & ~PropertyFlags.Animatable)
             .Validator(new FileInfoExtensionValidator()
             {
                 FileExtensions = new[] { "bmp", "gif", "ico", "jpg", "jpeg", "png", "wbmp", "webp", "pkm", "ktx", "astc", "dng", "heif" }

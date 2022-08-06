@@ -55,7 +55,7 @@ public class Border : BitmapEffect
         OffsetProperty = ConfigureProperty<Point, Border>(nameof(Offset))
             .Accessor(o => o.Offset, (o, v) => o.Offset = v)
             .DefaultValue(default(Point))
-            .PropertyFlags(PropertyFlags.KnownFlags_1)
+            .PropertyFlags(PropertyFlags.All)
             .SerializeName("offset")
             .Register();
 
@@ -63,28 +63,28 @@ public class Border : BitmapEffect
             .Accessor(o => o.Thickness, (o, v) => o.Thickness = v)
             .DefaultValue(0)
             .Minimum(0)
-            .PropertyFlags(PropertyFlags.KnownFlags_1)
+            .PropertyFlags(PropertyFlags.All)
             .SerializeName("thickness")
             .Register();
 
         ColorProperty = ConfigureProperty<Color, Border>(nameof(Color))
             .Accessor(o => o.Color, (o, v) => o.Color = v)
             .DefaultValue(Colors.White)
-            .PropertyFlags(PropertyFlags.KnownFlags_1)
+            .PropertyFlags(PropertyFlags.All)
             .SerializeName("color")
             .Register();
 
         MaskTypeProperty = ConfigureProperty<MaskTypes, Border>(nameof(MaskType))
             .Accessor(o => o.MaskType, (o, v) => o.MaskType = v)
             .DefaultValue(MaskTypes.None)
-            .PropertyFlags(PropertyFlags.KnownFlags_1)
+            .PropertyFlags(PropertyFlags.All)
             .SerializeName("mask-type")
             .Register();
 
         StyleProperty = ConfigureProperty<BorderStyles, Border>(nameof(Style))
             .Accessor(o => o.Style, (o, v) => o.Style = v)
             .DefaultValue(BorderStyles.Background)
-            .PropertyFlags(PropertyFlags.KnownFlags_1)
+            .PropertyFlags(PropertyFlags.All)
             .SerializeName("border-style")
             .Register();
 

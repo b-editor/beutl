@@ -13,7 +13,7 @@ public sealed class Blur : ImageFilter
             .Accessor(o => o.Sigma, (o, v) => o.Sigma = v)
             .DefaultValue(Vector.Zero)
             .Minimum(Vector.Zero)
-            .PropertyFlags(PropertyFlags.KnownFlags_1)
+            .PropertyFlags(PropertyFlags.All)
             .SerializeName("sigma")
             .Register();
 

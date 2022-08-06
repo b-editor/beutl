@@ -15,7 +15,7 @@ public sealed class BitmapEffectGroup : BitmapEffect
     {
         ChildrenProperty = ConfigureProperty<BitmapEffects, BitmapEffectGroup>(nameof(Children))
             .Accessor(o => o.Children, (o, v) => o.Children = v)
-            .PropertyFlags(PropertyFlags.KnownFlags_1)
+            .PropertyFlags(PropertyFlags.Styleable | PropertyFlags.Designable)
             .Register();
         AffectsRender<BitmapEffectGroup>(ChildrenProperty);
     }

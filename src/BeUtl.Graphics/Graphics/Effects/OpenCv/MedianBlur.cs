@@ -17,14 +17,14 @@ public class MedianBlur : BitmapEffect
         KernelSizeProperty = ConfigureProperty<int, MedianBlur>(nameof(KernelSize))
             .Accessor(o => o.KernelSize, (o, v) => o.KernelSize = v)
             .DefaultValue(0)
-            .PropertyFlags(PropertyFlags.KnownFlags_1)
+            .PropertyFlags(PropertyFlags.All)
             .SerializeName("kernel-size")
             .Register();
 
         FixImageSizeProperty = ConfigureProperty<bool, MedianBlur>(nameof(FixImageSize))
             .Accessor(o => o.FixImageSize, (o, v) => o.FixImageSize = v)
             .DefaultValue(false)
-            .PropertyFlags(PropertyFlags.KnownFlags_1)
+            .PropertyFlags(PropertyFlags.All)
             .SerializeName("fix-image-size")
             .Register();
 

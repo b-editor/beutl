@@ -20,7 +20,7 @@ public sealed class DropShadow : ImageFilter
         PositionProperty = ConfigureProperty<Point, DropShadow>(nameof(Position))
             .Accessor(o => o.Position, (o, v) => o.Position = v)
             .DefaultValue(new Point())
-            .PropertyFlags(PropertyFlags.KnownFlags_1)
+            .PropertyFlags(PropertyFlags.All)
             .SerializeName("position")
             .Register();
 
@@ -28,21 +28,21 @@ public sealed class DropShadow : ImageFilter
             .Accessor(o => o.Sigma, (o, v) => o.Sigma = v)
             .DefaultValue(Vector.Zero)
             .Minimum(Vector.Zero)
-            .PropertyFlags(PropertyFlags.KnownFlags_1)
+            .PropertyFlags(PropertyFlags.All)
             .SerializeName("sigma")
             .Register();
 
         ColorProperty = ConfigureProperty<Color, DropShadow>(nameof(Color))
             .Accessor(o => o.Color, (o, v) => o.Color = v)
             .DefaultValue(Colors.Transparent)
-            .PropertyFlags(PropertyFlags.KnownFlags_1)
+            .PropertyFlags(PropertyFlags.All)
             .SerializeName("color")
             .Register();
 
         ShadowOnlyProperty = ConfigureProperty<bool, DropShadow>(nameof(ShadowOnly))
             .Accessor(o => o.ShadowOnly, (o, v) => o.ShadowOnly = v)
             .DefaultValue(false)
-            .PropertyFlags(PropertyFlags.KnownFlags_1)
+            .PropertyFlags(PropertyFlags.All)
             .SerializeName("shadow-only")
             .Register();
 

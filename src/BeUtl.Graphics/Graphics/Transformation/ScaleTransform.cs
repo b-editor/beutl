@@ -16,21 +16,21 @@ public sealed class ScaleTransform : Transform
         ScaleProperty = ConfigureProperty<float, ScaleTransform>(nameof(Scale))
             .Accessor(o => o.Scale, (o, v) => o.Scale = v)
             .DefaultValue(1)
-            .PropertyFlags(PropertyFlags.KnownFlags_1)
+            .PropertyFlags(PropertyFlags.All)
             .SerializeName("scale")
             .Register();
 
         ScaleXProperty = ConfigureProperty<float, ScaleTransform>(nameof(ScaleX))
             .Accessor(o => o.ScaleX, (o, v) => o.ScaleX = v)
             .DefaultValue(1)
-            .PropertyFlags(PropertyFlags.KnownFlags_1)
+            .PropertyFlags(PropertyFlags.All)
             .SerializeName("scale-x")
             .Register();
 
         ScaleYProperty = ConfigureProperty<float, ScaleTransform>(nameof(ScaleY))
             .Accessor(o => o.ScaleY, (o, v) => o.ScaleY = v)
             .DefaultValue(1)
-            .PropertyFlags(PropertyFlags.KnownFlags_1)
+            .PropertyFlags(PropertyFlags.All)
             .SerializeName("scale-y")
             .Register();
 

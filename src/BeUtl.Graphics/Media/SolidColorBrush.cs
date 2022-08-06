@@ -16,18 +16,16 @@ public class SolidColorBrush : Brush, ISolidColorBrush
     {
         ColorProperty = ConfigureProperty<Color, SolidColorBrush>(nameof(Color))
             .Accessor(o => o.Color, (o, v) => o.Color = v)
-            .PropertyFlags(PropertyFlags.KnownFlags_1)
+            .PropertyFlags(PropertyFlags.All)
             .SerializeName("color")
             .Register();
 
-        TransformOriginProperty.OverrideMetadata<SolidColorBrush>(new CorePropertyMetadata<RelativePoint>
-        {
-            PropertyFlags = PropertyFlags.Styleable | PropertyFlags.NotifyChanged,
-        });
-        TransformProperty.OverrideMetadata<SolidColorBrush>(new CorePropertyMetadata<ITransform?>
-        {
-            PropertyFlags = PropertyFlags.Styleable | PropertyFlags.NotifyChanged,
-        });
+        TransformOriginProperty.OverrideMetadata<SolidColorBrush>(
+            new CorePropertyMetadata<RelativePoint>(propertyFlags: PropertyFlags.Styleable | PropertyFlags.NotifyChanged));
+
+        TransformProperty.OverrideMetadata<SolidColorBrush>(
+            new CorePropertyMetadata<RelativePoint>(propertyFlags: PropertyFlags.Styleable | PropertyFlags.NotifyChanged));
+
         AffectsRender<SolidColorBrush>(ColorProperty);
     }
 
